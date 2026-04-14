@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manan Vasa — Business Transformation Architect</title>
+<meta name="description" content="CA Manan Vasa — Business Transformation Architect. 21 years. 1,500+ founders. 200+ industries. He gets inside your business and stays until it runs without you.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600;1,700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+
+/* ── RESET & BASE ─────────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'DM Sans',sans-serif;background:#fff;color:#111;line-height:1.6;}
+
+/* ── COLOUR TOKENS ────────────────────────────────────────────── */
+:root{
+  --black:#0d0d0d;
+  --off-black:#1a1a1a;
+  --dark-grey:#2c2c2c;
+  --mid-grey:#888;
+  --light-grey:#e8e8e8;
+  --pale-grey:#f4f4f2;
+  --white:#fff;
+  --red:#c00;
+  --red-light:rgba(204,0,0,0.08);
+  --red-border:rgba(204,0,0,0.25);
+  --border:#e0e0e0;
+  --border-dark:rgba(255,255,255,0.1);
+}
+
+/* ── TYPOGRAPHY ───────────────────────────────────────────────── */
+.serif{font-family:'Cormorant Garamond',serif;}
+.eyebrow{font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:var(--red);font-weight:500;margin-bottom:18px;display:block;}
+h1,h2,h3{font-family:'Cormorant Garamond',serif;font-weight:300;line-height:1.2;}
+h1{font-size:clamp(38px,5vw,64px);}
+h2{font-size:clamp(30px,4vw,46px);}
+h3{font-size:clamp(18px,2.5vw,26px);}
+em{font-style:italic;color:var(--mid-grey);}
+p{font-size:14px;line-height:1.85;color:#555;}
+strong{font-weight:400;color:#222;}
+a{text-decoration:none;color:inherit;}
+
+/* ── LAYOUT HELPERS ───────────────────────────────────────────── */
+.container{max-width:1200px;margin:0 auto;padding:0 48px;}
+.section-pad{padding:80px 0;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:2px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;}
+.grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:2px;}
+.divider{height:1px;background:var(--border);margin:0;}
+.divider-dark{height:1px;background:var(--border-dark);}
+
+/* ── BUTTONS ──────────────────────────────────────────────────── */
+.btn-red{display:inline-block;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#fff;background:var(--red);border:1px solid var(--red);padding:13px 28px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background 0.15s;}
+.btn-red:hover{background:#a00;border-color:#a00;}
+.btn-outline{display:inline-block;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--red);background:none;border:1px solid var(--red-border);padding:13px 28px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background 0.15s;}
+.btn-outline:hover{background:var(--red-light);}
+.btn-ghost{display:inline-block;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#555;background:none;border:1px solid var(--border);padding:10px 20px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.btn-ghost:hover{border-color:#999;color:#111;}
+
+/* ══════════════════════════════════════════════════════════════
+   NAV
+══════════════════════════════════════════════════════════════ */
+nav{position:sticky;top:0;z-index:100;background:#fff;border-bottom:1px solid var(--border);}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;padding:0 48px;height:60px;}
+.nav-logo{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--black);letter-spacing:0.04em;}
+.nav-logo span{color:var(--red);}
+.nav-links{display:flex;gap:28px;align-items:center;}
+.nav-links a{font-size:12px;color:#666;letter-spacing:0.04em;transition:color 0.15s;}
+.nav-links a:hover{color:#111;}
+.nav-cta{font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#fff;background:var(--red);border:none;padding:8px 18px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.nav-cta:hover{background:#a00;}
+
+/* ══════════════════════════════════════════════════════════════
+   S01 — HERO  (dark bg)
+══════════════════════════════════════════════════════════════ */
+#hero{background:var(--black);color:#fff;padding:96px 48px 80px;}
+.hero-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 420px;gap:80px;align-items:center;}
+.hero-eyebrow{font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:24px;display:block;}
+.hero-hed{font-family:'Cormorant Garamond',serif;font-size:clamp(38px,5vw,58px);font-weight:300;color:#fff;line-height:1.12;margin-bottom:24px;}
+.hero-hed em{font-style:italic;color:rgba(255,255,255,0.3);}
+.hero-sub{font-size:14px;line-height:1.9;color:rgba(255,255,255,0.45);margin-bottom:36px;max-width:520px;}
+.hero-sub strong{color:rgba(255,255,255,0.75);font-weight:400;}
+.hero-btns{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:48px;}
+.hero-stat-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(255,255,255,0.08);border-top:1px solid rgba(255,255,255,0.08);padding-top:32px;}
+.hero-stat{padding:0 0 0 0;}
+.hs-num{font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:700;color:#fff;line-height:1;}
+.hs-num span{color:var(--red);font-size:20px;}
+.hs-lbl{font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;line-height:1.4;}
+.hero-photo{position:relative;}
+.hero-photo img{width:100%;display:block;filter:grayscale(15%);}
+.hero-photo-caption{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);padding:16px 18px;margin-top:2px;}
+.hpc-name{font-size:13px;font-weight:500;color:#fff;margin-bottom:2px;}
+.hpc-role{font-size:11px;color:rgba(255,255,255,0.35);}
+
+/* ══════════════════════════════════════════════════════════════
+   S02 — CREDIBILITY BAR  (pale grey)
+══════════════════════════════════════════════════════════════ */
+#credibility{background:var(--pale-grey);border-bottom:1px solid var(--border);}
+.cred-inner{display:grid;grid-template-columns:1fr 1fr 1fr;border-left:1px solid var(--border);}
+.cred-zone{padding:28px 32px;border-right:1px solid var(--border);}
+.cred-zone-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--mid-grey);margin-bottom:16px;font-weight:500;}
+.cred-logos{display:flex;flex-wrap:wrap;gap:12px;align-items:center;}
+.cred-logo-item{font-size:11px;color:#666;border:1px solid var(--border);padding:5px 12px;background:#fff;}
+
+/* ══════════════════════════════════════════════════════════════
+   S03 — LIFE PHILOSOPHY  (white)
+══════════════════════════════════════════════════════════════ */
+#philosophy-intro{background:#fff;border-bottom:1px solid var(--border);}
+.phil-intro-inner{display:grid;grid-template-columns:1fr 1fr;min-height:400px;}
+.phil-left{padding:72px 56px;border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:center;}
+.phil-quote{font-family:'Cormorant Garamond',serif;font-size:clamp(20px,2.5vw,28px);font-weight:300;font-style:italic;color:#111;line-height:1.6;margin-bottom:24px;}
+.phil-quote em{font-style:normal;color:var(--red);}
+.phil-attr{font-size:12px;color:#888;}
+.phil-right{background:var(--pale-grey);padding:72px 56px;display:flex;flex-direction:column;justify-content:center;}
+.phil-purpose-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#999;margin-bottom:14px;font-weight:500;}
+.phil-purpose{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;color:#111;line-height:1.6;border-left:3px solid var(--red);padding-left:18px;margin-bottom:24px;}
+.phil-bridge{font-size:13px;line-height:1.8;color:#666;}
+
+/* ══════════════════════════════════════════════════════════════
+   S04 — ORIGIN STORY  (dark bg)
+══════════════════════════════════════════════════════════════ */
+#story{background:var(--off-black);color:#fff;padding:80px 48px;}
+.story-inner{max-width:860px;margin:0 auto;}
+.story-eyebrow{font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:20px;display:block;}
+.story-hed{font-family:'Cormorant Garamond',serif;font-size:clamp(28px,4vw,44px);font-weight:300;color:#fff;line-height:1.2;margin-bottom:32px;}
+.story-hed em{font-style:italic;color:rgba(255,255,255,0.3);}
+.story-body{font-size:14px;line-height:1.95;color:rgba(255,255,255,0.45);margin-bottom:20px;}
+.story-body strong{color:rgba(255,255,255,0.78);font-weight:400;}
+.story-pull{font-family:'Cormorant Garamond',serif;font-size:22px;font-style:italic;color:#fff;border-left:3px solid var(--red);padding-left:20px;margin:36px 0;line-height:1.55;}
+.story-hash{font-size:12px;font-weight:500;color:var(--red);letter-spacing:0.1em;margin-top:32px;}
+
+/* ══════════════════════════════════════════════════════════════
+   S05 — WHO HE IS  (white)
+══════════════════════════════════════════════════════════════ */
+#positioning{background:#fff;border-bottom:1px solid var(--border);}
+.pos-inner{max-width:1100px;margin:0 auto;padding:80px 48px;}
+.pos-top{margin-bottom:48px;}
+.pos-hed{margin-bottom:10px;}
+.pos-sub{font-size:14px;line-height:1.8;color:#666;max-width:640px;}
+.pos-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;}
+.pos-col{padding:32px 36px;border:1px solid var(--border);}
+.pos-col.dark{background:var(--black);border-color:var(--black);}
+.pos-col-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#999;margin-bottom:20px;font-weight:500;}
+.pos-col.dark .pos-col-label{color:rgba(255,255,255,0.3);}
+.pos-items{display:flex;flex-direction:column;gap:12px;}
+.pos-item{display:flex;align-items:flex-start;gap:10px;}
+.pos-x{font-size:12px;color:#ccc;flex-shrink:0;margin-top:2px;}
+.pos-check{width:5px;height:5px;border-radius:50%;background:var(--red);flex-shrink:0;margin-top:6px;}
+.pos-txt{font-size:13px;color:#555;line-height:1.5;}
+.pos-txt-w{font-size:13px;color:rgba(255,255,255,0.65);line-height:1.5;}
+.pos-txt-w strong{color:#fff;font-weight:400;}
+.pos-txt strong{color:#222;font-weight:400;}
+.pos-closing{margin-top:32px;padding:24px 28px;background:var(--pale-grey);border-left:3px solid var(--red);}
+.pos-closing-txt{font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;color:#333;line-height:1.6;}
+
+/* ══════════════════════════════════════════════════════════════
+   S06 — THE PROBLEM  (pale grey)
+══════════════════════════════════════════════════════════════ */
+#problem{background:var(--pale-grey);border-bottom:1px solid var(--border);}
+.prob-inner{max-width:1100px;margin:0 auto;padding:80px 48px;}
+.prob-top{display:grid;grid-template-columns:1fr 1fr;gap:56px;margin-bottom:48px;align-items:start;}
+.prob-questions{display:flex;flex-direction:column;gap:2px;}
+.prob-q{display:grid;grid-template-columns:36px 1fr;gap:0;background:#fff;border:1px solid var(--border);padding:18px 20px;align-items:start;}
+.prob-q-num{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:700;color:var(--red);line-height:1.2;}
+.prob-q-txt{font-size:13px;color:#444;line-height:1.55;padding-left:12px;}
+.prob-verdict{margin-top:2px;padding:20px 24px;background:var(--red);color:#fff;}
+.pv-txt{font-size:13px;font-style:italic;font-family:'Cormorant Garamond',serif;line-height:1.6;}
+
+/* ══════════════════════════════════════════════════════════════
+   S07 — HAND-HOLDING DISTINCTION  (white)
+══════════════════════════════════════════════════════════════ */
+#distinction{background:#fff;border-bottom:1px solid var(--border);}
+.dist-inner{max-width:1100px;margin:0 auto;padding:80px 48px;}
+.dist-top{margin-bottom:48px;}
+.dist-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:48px;}
+.dist-col{padding:28px 32px;border:1px solid var(--border);}
+.dist-col.dark{background:var(--black);border-color:var(--black);}
+.dist-col-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#999;margin-bottom:16px;font-weight:500;}
+.dist-col.dark .dist-col-label{color:rgba(255,255,255,0.3);}
+.dist-items{display:flex;flex-direction:column;gap:10px;}
+.dist-item{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#777;line-height:1.5;}
+.dist-item.w{color:rgba(255,255,255,0.55);}
+.dist-item.w strong{color:#fff;font-weight:400;}
+.dist-x{color:#ccc;flex-shrink:0;}
+.dist-check{width:4px;height:4px;border-radius:50%;background:var(--red);flex-shrink:0;margin-top:6px;}
+.tfcr-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;}
+.tfcr-card{padding:24px 20px;background:var(--pale-grey);border:1px solid var(--border);}
+.tfcr-letter{font-family:'Cormorant Garamond',serif;font-size:52px;font-weight:700;color:var(--red);line-height:1;margin-bottom:6px;opacity:0.15;}
+.tfcr-name{font-size:13px;font-weight:500;color:#111;margin-bottom:6px;}
+.tfcr-desc{font-size:12px;color:#777;line-height:1.6;}
+
+/* ══════════════════════════════════════════════════════════════
+   S08 — GLOBAL PEDIGREE  (pale grey)
+══════════════════════════════════════════════════════════════ */
+#pedigree{background:var(--pale-grey);border-bottom:1px solid var(--border);}
+.ped-inner{max-width:1100px;margin:0 auto;padding:80px 48px;}
+.ped-pillars{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:32px;}
+.ped-pillar{padding:28px;background:#fff;border:1px solid var(--border);}
+.ped-num{font-family:'Cormorant Garamond',serif;font-size:40px;font-weight:700;color:var(--red);opacity:0.12;line-height:1;margin-bottom:12px;}
+.ped-title{font-size:14px;font-weight:500;color:#111;margin-bottom:8px;line-height:1.4;}
+.ped-body{font-size:12px;line-height:1.8;color:#666;}
+.ped-body strong{color:#333;font-weight:400;}
+.ped-ca-row{background:#fff;border:1px solid var(--border);padding:24px 28px;display:grid;grid-template-columns:72px 1fr;gap:24px;align-items:start;margin-bottom:32px;}
+.ped-ca-logo{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.ped-ca-logo-box{width:52px;height:52px;background:var(--pale-grey);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:#666;text-align:center;line-height:1.2;}
+.ped-ca-inst{font-size:9px;color:#999;text-align:center;letter-spacing:0.1em;text-transform:uppercase;}
+.ped-iim-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:32px;}
+.ped-iim-card{padding:24px;background:#fff;border:1px solid var(--border);}
+.ped-iim-inst{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--red);margin-bottom:8px;font-weight:500;}
+.ped-iim-prog{font-size:14px;font-weight:500;color:#111;margin-bottom:10px;}
+.ped-iim-rule{font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;color:#555;border-left:2px solid var(--red);padding-left:12px;margin-bottom:10px;line-height:1.5;opacity:0.7;}
+.ped-iim-body{font-size:12px;line-height:1.75;color:#888;}
+.ped-iim-body strong{color:#444;font-weight:400;}
+.ped-certs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;margin-bottom:32px;}
+.ped-cert{padding:20px;background:#fff;border:1px solid var(--border);}
+.ped-cert-inst{font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:#999;margin-bottom:6px;}
+.ped-cert-title{font-size:13px;font-weight:500;color:#111;margin-bottom:6px;}
+.ped-cert-body{font-size:11px;line-height:1.7;color:#888;}
+.ped-inner-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:32px;}
+.ped-inner-card{padding:22px;background:#fff;border:1px solid var(--border);}
+.ped-inner-dot{width:4px;height:4px;border-radius:50%;background:var(--red);display:inline-block;margin-right:8px;}
+.ped-inner-title{font-size:13px;font-weight:500;color:#111;margin-bottom:6px;}
+.ped-inner-body{font-size:12px;line-height:1.75;color:#888;}
+.ped-closing{text-align:center;padding:24px;border-top:1px solid var(--border);}
+.ped-closing-txt{font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;color:#555;}
+.ped-closing-txt strong{font-style:normal;color:#111;font-weight:600;}
+
+/* ══════════════════════════════════════════════════════════════
+   S09 — PROOF AT SCALE  (white)
+══════════════════════════════════════════════════════════════ */
+#proof{background:#fff;border-bottom:1px solid var(--border);}
+.proof-inner{max-width:1100px;margin:0 auto;padding:80px 48px;}
+.proof-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-bottom:48px;}
+.proof-stat{padding:24px 20px;border:1px solid var(--border);}
+.proof-stat-num{font-family:'Cormorant Garamond',serif;font-size:40px;font-weight:700;color:#111;line-height:1;margin-bottom:6px;}
+.proof-stat-num span{color:var(--red);}
+.proof-stat-lbl{font-size:11px;color:#888;line-height:1.5;}
+.ind-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:12px;}
+.ind-tag{padding:8px 10px;border:1px solid var(--border);text-align:center;font-size:11px;color:#888;line-height:1.35;}
+.ind-tag.active{border-color:var(--red);color:var(--red);background:var(--red-light);}
+.ind-note{font-size:11px;color:#bbb;font-style:italic;margin-bottom:40px;}
+.clients-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:24px;}
+.client-card{padding:24px 22px;border:1px solid var(--border);}
+.client-card:hover{background:var(--pale-grey);}
+.client-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
+.client-name{font-size:14px;font-weight:500;color:#111;}
+.client-industry{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:0.08em;margin-top:2px;}
+.client-badge{font-size:10px;color:var(--red);border:1px solid var(--red-border);padding:2px 8px;white-space:nowrap;flex-shrink:0;margin-left:10px;}
+.client-metrics{display:flex;flex-direction:column;gap:7px;margin-bottom:14px;}
+.metric-row{display:flex;align-items:baseline;gap:7px;}
+.metric-val{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:700;color:#111;line-height:1;flex-shrink:0;}
+.metric-label{font-size:11px;color:#888;line-height:1.4;}
+.client-body{font-size:12px;line-height:1.75;color:#888;border-top:1px solid var(--border);padding-top:12px;}
+.client-body strong{color:#555;font-weight:400;}
+.proof-closing{padding:24px 28px;background:var(--pale-grey);border-left:3px solid var(--red);}
+.proof-closing-txt{font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;color:#555;}
+
+/* ══════════════════════════════════════════════════════════════
+   S10 — SOCIAL PROOF  (pale grey)
+══════════════════════════════════════════════════════════════ */
+#social-proof{background:var(--pale-grey);border-bottom:1px solid var(--border);}
+.sp-inner{max-width:1100px;margin:0 auto;padding:80px 48px;}
+.sp-platform-strip{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;margin-bottom:40px;}
+.sp-platform{padding:24px 22px;background:#fff;border:1px solid var(--border);}
+.sp-platform.hi{border-color:var(--red-border);background:var(--red-light);}
+.sp-plat-tag{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:#999;margin-bottom:10px;font-weight:500;}
+.sp-plat-tag.rc{color:var(--red);}
+.sp-plat-num{font-family:'Cormorant Garamond',serif;font-size:38px;font-weight:700;color:#111;line-height:1;margin-bottom:6px;}
+.sp-plat-num span{font-size:16px;color:#888;font-family:'DM Sans',sans-serif;font-weight:300;}
+.sp-stars{display:flex;gap:2px;margin-bottom:6px;}
+.star{width:11px;height:11px;background:var(--red);clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);}
+.sp-plat-desc{font-size:11px;color:#888;margin-bottom:8px;line-height:1.5;}
+.sp-plat-link{font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--red);text-decoration:none;}
+.survey-row{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-bottom:48px;}
+.survey-card{padding:28px 22px;background:#fff;border:1px solid var(--border);}
+.survey-pct{font-family:'Cormorant Garamond',serif;font-size:56px;font-weight:700;color:#111;line-height:1;margin-bottom:6px;}
+.survey-pct span{color:var(--red);}
+.survey-what{font-size:13px;font-weight:500;color:#333;margin-bottom:4px;line-height:1.4;}
+.survey-how{font-size:11px;color:#888;line-height:1.5;}
+.survey-base{font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:#ccc;margin-top:12px;}
+.sp-hero-row{margin-bottom:2px;}
+.sp-hero{border-left:3px solid var(--red);padding:28px 28px;background:#fff;border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
+.sp-hero-quote{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;font-style:italic;color:#111;line-height:1.65;margin-bottom:18px;}
+.sp-hero-quote em{color:var(--red);font-style:normal;}
+.sp-hero-name{font-size:13px;font-weight:500;color:#111;margin-bottom:2px;}
+.sp-hero-role{font-size:11px;color:#888;margin-bottom:8px;}
+.sp-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid var(--red-border);background:var(--red-light);}
+.sp-badge-num{font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:700;color:var(--red);}
+.sp-badge-lbl{font-size:10px;color:#888;}
+.sp-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;margin-bottom:2px;}
+.sp-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:2px;}
+.sp-card{padding:22px 22px;background:#fff;border:1px solid var(--border);}
+.sp-card-quote{font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;color:#444;line-height:1.7;margin-bottom:14px;}
+.sp-card-name{font-size:12px;font-weight:500;color:#333;margin-bottom:1px;}
+.sp-card-role{font-size:11px;color:#999;}
+.sp-full{padding:36px 56px;background:var(--black);margin-bottom:2px;}
+.sp-full-initial{font-family:'Cormorant Garamond',serif;font-size:80px;font-weight:700;color:rgba(204,0,0,0.15);line-height:1;float:left;margin-right:20px;margin-top:-8px;}
+.sp-full-quote{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;font-style:italic;color:#fff;line-height:1.55;margin-bottom:16px;}
+.sp-full-name{font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);}
+.sp-full-role{font-size:11px;color:rgba(255,255,255,0.35);}
+.sp-full-badges{display:flex;gap:8px;margin-top:10px;}
+.sp-full-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border:1px solid rgba(204,0,0,0.3);background:rgba(204,0,0,0.08);}
+.sp-full-badge-num{font-family:'Cormorant Garamond',serif;font-size:13px;font-weight:700;color:var(--red);}
+.sp-full-badge-lbl{font-size:10px;color:rgba(255,255,255,0.4);}
+.sp-footer-bar{display:grid;grid-template-columns:1fr 1fr;gap:2px;}
+.sp-footer-item{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;background:#fff;border:1px solid var(--border);gap:16px;}
+.sp-footer-platform{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:#999;margin-bottom:3px;font-weight:500;}
+.sp-footer-desc{font-size:12px;color:#666;}
+.sp-footer-desc strong{color:#333;font-weight:400;}
+
+/* ══════════════════════════════════════════════════════════════
+   S11 — WAYS TO WORK  (white / dark for speaking)
+══════════════════════════════════════════════════════════════ */
+#ways{background:#fff;border-bottom:1px solid var(--border);}
+.ways-inner{max-width:1100px;margin:0 auto;}
+.ways-opening{padding:80px 48px 52px;}
+.way{display:grid;grid-template-columns:56px 1fr 260px;border-top:1px solid var(--border);align-items:start;}
+.way.featured{background:var(--pale-grey);}
+.way-num{padding:36px 0 36px 48px;font-family:'Cormorant Garamond',serif;font-size:40px;font-weight:700;color:#ddd;line-height:1;}
+.way.featured .way-num{color:rgba(204,0,0,0.18);}
+.way-content{padding:36px 32px 36px 20px;border-right:1px solid var(--border);}
+.way-tag{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#999;margin-bottom:8px;font-weight:500;}
+.way.featured .way-tag{color:var(--red);}
+.way-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:#111;line-height:1.3;margin-bottom:6px;}
+.way-sub{font-size:13px;font-style:italic;color:#888;margin-bottom:12px;font-family:'Cormorant Garamond',serif;}
+.way-body{font-size:13px;line-height:1.8;color:#666;margin-bottom:16px;}
+.way-body strong{color:#333;font-weight:400;}
+.way-pills{display:flex;flex-wrap:wrap;gap:6px;}
+.pill{font-size:10px;letter-spacing:0.05em;color:#888;border:1px solid var(--border);padding:3px 9px;}
+.pill.red{color:var(--red);border-color:var(--red-border);}
+.way-meta{padding:36px 24px;}
+.meta-item{margin-bottom:14px;}
+.meta-label{font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:#bbb;font-weight:500;margin-bottom:2px;}
+.meta-val{font-size:12px;color:#555;line-height:1.4;}
+.meta-val.red{color:var(--red);}
+.way-cta{margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
+.speaking-block{background:var(--off-black);border-top:3px solid var(--border);}
+.speaking-opening{padding:56px 48px 44px;border-bottom:1px solid rgba(255,255,255,0.08);display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:end;max-width:1100px;margin:0 auto;}
+.sp-hed{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:300;color:#fff;line-height:1.3;margin-bottom:8px;}
+.sp-hed em{font-style:italic;color:rgba(255,255,255,0.3);}
+.sp-eyebrow{font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.25);margin-bottom:16px;font-weight:500;display:block;}
+.sp-distinction{font-family:'Cormorant Garamond',serif;font-size:16px;font-style:italic;color:rgba(255,255,255,0.5);line-height:1.65;border-left:2px solid rgba(255,255,255,0.15);padding-left:16px;}
+.sp-speaking-body{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid rgba(255,255,255,0.08);max-width:1100px;margin:0 auto;}
+.sp-col{padding:32px 28px;border-right:1px solid rgba(255,255,255,0.08);}
+.sp-col:last-child{border-right:none;}
+.sp-col-label{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.2);margin-bottom:14px;font-weight:500;}
+.sp-body{font-size:12px;line-height:1.8;color:rgba(255,255,255,0.35);}
+.sp-body strong{color:rgba(255,255,255,0.6);font-weight:400;}
+.sp-venues{display:flex;flex-wrap:wrap;gap:6px;}
+.sp-venue{font-size:11px;color:rgba(255,255,255,0.35);border:1px solid rgba(255,255,255,0.1);padding:4px 9px;}
+.sp-formats{display:flex;flex-direction:column;gap:8px;}
+.sp-format{font-size:12px;color:rgba(255,255,255,0.35);padding-left:14px;position:relative;line-height:1.5;}
+.sp-format::before{content:'—';position:absolute;left:0;color:rgba(204,0,0,0.5);}
+.speaking-footer{display:flex;align-items:center;justify-content:space-between;padding:20px 48px;max-width:1100px;margin:0 auto;gap:24px;}
+.sf-left{font-size:12px;color:rgba(255,255,255,0.3);line-height:1.5;}
+.sf-left strong{color:rgba(255,255,255,0.5);font-weight:400;}
+
+/* ══════════════════════════════════════════════════════════════
+   S12 — BSS  (pale grey)
+══════════════════════════════════════════════════════════════ */
+#bss{background:var(--pale-grey);border-bottom:1px solid var(--border);}
+.bss-inner{max-width:860px;margin:0 auto;padding:80px 48px;}
+.bss-para{font-size:15px;line-height:1.9;color:#555;margin-bottom:44px;}
+.bss-para strong{color:#222;font-weight:400;}
+.bss-promises{display:flex;flex-direction:column;gap:2px;margin-bottom:44px;}
+.bss-promise{display:grid;grid-template-columns:28px 1fr;gap:14px;align-items:start;padding:20px 24px;border:1px solid var(--border);background:#fff;}
+.bss-promise.hi{border-color:var(--red-border);background:var(--red-light);}
+.bp-num{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:700;color:var(--red);line-height:1.2;}
+.bp-txt{font-size:14px;line-height:1.7;color:#555;}
+.bp-txt strong{color:#111;font-weight:500;}
+.bss-cta-row{display:flex;align-items:center;gap:20px;}
+.bss-cta-note{font-size:12px;color:#999;}
+
+/* ══════════════════════════════════════════════════════════════
+   S13 — CREDENTIALS  (white)
+══════════════════════════════════════════════════════════════ */
+#credentials{background:#fff;border-bottom:1px solid var(--border);}
+.cred2-inner{max-width:1100px;margin:0 auto;padding:80px 48px;}
+.rec-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;margin-bottom:32px;}
+.rec-item{padding:28px 24px;border:1px solid var(--border);}
+.rec-inst{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:#bbb;margin-bottom:8px;font-weight:500;}
+.rec-title{font-size:14px;font-weight:500;color:#111;line-height:1.4;margin-bottom:4px;}
+.rec-year{font-size:11px;color:var(--red);margin-bottom:8px;}
+.rec-body{font-size:12px;line-height:1.7;color:#888;}
+.rec-body em{color:#666;}
+.teach-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:32px;}
+.teach-item{padding:28px 32px;border:1px solid var(--border);background:var(--pale-grey);}
+.teach-num{font-family:'Cormorant Garamond',serif;font-size:48px;font-weight:700;color:#111;line-height:1;margin-bottom:6px;}
+.teach-num span{color:var(--red);}
+.teach-label{font-size:13px;font-weight:500;color:#333;margin-bottom:6px;}
+.teach-body{font-size:12px;line-height:1.7;color:#888;}
+.assoc-strip{padding:20px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:32px;}
+.assoc-label{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:#bbb;font-weight:500;margin-right:4px;white-space:nowrap;}
+.assoc-tag{font-size:11px;color:#888;border:1px solid var(--border);padding:4px 10px;background:var(--pale-grey);}
+.founding-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;}
+.founding-txt{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;font-style:italic;color:#555;line-height:1.65;}
+.founding-txt strong{font-style:normal;color:#111;font-weight:600;}
+.founding-detail{font-size:12px;line-height:1.8;color:#888;}
+.founding-detail strong{color:#555;font-weight:400;}
+
+/* ══════════════════════════════════════════════════════════════
+   S14 — PHILOSOPHY  (pale grey)
+══════════════════════════════════════════════════════════════ */
+#philosophy{background:var(--pale-grey);border-bottom:1px solid var(--border);}
+.phil-inner{max-width:1100px;margin:0 auto;padding:80px 48px;}
+.phil-opening{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:end;margin-bottom:48px;}
+.phil-hed{margin-bottom:0;}
+.phil-hed em{color:#aaa;}
+.phil-purpose-box{border-left:3px solid var(--red);padding-left:18px;}
+.phil-personal-stmt{padding:40px 40px;background:var(--red-light);border:1px solid var(--red-border);margin-bottom:32px;}
+.phil-ps-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--red);margin-bottom:16px;font-weight:500;}
+.phil-ps-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;}
+.phil-ps-quote{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300;font-style:italic;color:#111;line-height:1.65;}
+.phil-ps-quote em{color:var(--red);font-style:normal;}
+.phil-ps-sub{font-size:13px;line-height:1.8;color:#666;}
+.values-block{margin-bottom:32px;}
+.block-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#bbb;padding:16px 20px;font-weight:500;background:#fff;border:1px solid var(--border);border-bottom:none;}
+.values-grid{display:grid;grid-template-columns:repeat(3,1fr);}
+.val-item{padding:20px 22px;border:1px solid var(--border);background:#fff;border-top:none;}
+.val-item:nth-child(3n+2){border-left:none;border-right:none;}
+.val-item:nth-child(n+4){border-top:none;}
+.val-name{font-size:13px;font-weight:500;color:#111;margin-bottom:5px;}
+.val-desc{font-size:12px;color:#888;line-height:1.65;}
+.principles-block{}
+.principles-grid{display:grid;grid-template-columns:repeat(5,1fr);}
+.prin-item{padding:20px 18px;border:1px solid var(--border);background:#fff;border-top:none;}
+.prin-item:not(:first-child){border-left:none;}
+.prin-name{font-size:13px;font-weight:500;color:#111;margin-bottom:6px;}
+.prin-desc{font-size:11px;color:#888;line-height:1.65;}
+
+/* ══════════════════════════════════════════════════════════════
+   S15 — MEDIA & CONTENT  (white)
+══════════════════════════════════════════════════════════════ */
+#media{background:#fff;border-bottom:1px solid var(--border);}
+.media-inner{max-width:1100px;margin:0 auto;padding:80px 48px;}
+.free-resource{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--red-border);background:var(--red-light);border-left:4px solid var(--red);margin-bottom:48px;}
+.fr-left{padding:40px 44px;border-right:1px solid var(--red-border);}
+.fr-tag{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--red);margin-bottom:14px;font-weight:500;}
+.fr-hed{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:300;color:#111;line-height:1.3;margin-bottom:10px;}
+.fr-hed em{font-style:italic;color:#888;}
+.fr-body{font-size:13px;line-height:1.8;color:#666;margin-bottom:20px;}
+.fr-body strong{color:#333;font-weight:400;}
+.fr-includes{display:flex;flex-direction:column;gap:8px;margin-bottom:24px;}
+.fr-inc-row{display:flex;align-items:flex-start;gap:7px;}
+.fr-dot{width:4px;height:4px;border-radius:50%;background:var(--red);flex-shrink:0;margin-top:5px;}
+.fr-inc-txt{font-size:12px;color:#666;line-height:1.5;}
+.fr-right{padding:40px 40px;display:flex;flex-direction:column;justify-content:center;gap:20px;}
+.fr-quote{font-family:'Cormorant Garamond',serif;font-size:17px;font-style:italic;color:#555;line-height:1.65;}
+.fr-quote-attr{font-size:11px;color:#999;margin-top:6px;}
+.fr-stat{border-top:1px solid var(--border);padding-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.fr-stat-num{font-family:'Cormorant Garamond',serif;font-size:34px;font-weight:700;color:#111;line-height:1;margin-bottom:3px;}
+.fr-stat-num span{color:var(--red);}
+.fr-stat-lbl{font-size:11px;color:#888;line-height:1.5;}
+.yt-block{margin-bottom:40px;}
+.yt-opening{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:2px;}
+.yt-panel{padding:28px 32px;border:1px solid var(--border);}
+.yt-panel.grey{background:var(--pale-grey);}
+.yt-label{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:#bbb;margin-bottom:10px;font-weight:500;}
+.yt-hed{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;color:#111;line-height:1.3;margin-bottom:10px;}
+.yt-body{font-size:13px;line-height:1.8;color:#666;}
+.yt-body strong{color:#333;font-weight:400;}
+.yt-topics{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;}
+.yt-topic{font-size:11px;color:#888;border:1px solid var(--border);padding:3px 9px;background:#fff;}
+.yt-link{display:inline-flex;align-items:center;gap:6px;margin-top:16px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#666;border:1px solid var(--border);padding:8px 14px;text-decoration:none;font-family:'DM Sans',sans-serif;}
+.yt-link:hover{color:#111;border-color:#999;}
+.yt-tri{width:0;height:0;border-style:solid;border-width:4px 0 4px 7px;border-color:transparent transparent transparent var(--red);}
+.yt-videos{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;}
+.vid-item{border:1px solid var(--border);}
+.vid-thumb{aspect-ratio:16/9;background:var(--pale-grey);display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--border);}
+.vid-play{width:30px;height:30px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;}
+.vid-play-tri{width:0;height:0;border-style:solid;border-width:5px 0 5px 9px;border-color:transparent transparent transparent #fff;margin-left:2px;}
+.vid-info{padding:12px 14px;}
+.vid-title{font-size:12px;font-weight:500;color:#333;line-height:1.45;margin-bottom:5px;}
+.vid-meta{font-size:10px;color:#aaa;}
+.social-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;}
+.soc-item{padding:24px 20px;border:1px solid var(--border);display:flex;flex-direction:column;gap:8px;text-decoration:none;background:var(--pale-grey);}
+.soc-item:hover{background:#fff;}
+.soc-platform{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:#bbb;font-weight:500;}
+.soc-name{font-size:14px;font-weight:500;color:#333;}
+.soc-desc{font-size:11px;color:#999;line-height:1.55;}
+.soc-link{font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--red);margin-top:4px;}
+
+/* ══════════════════════════════════════════════════════════════
+   S16 — CONTACT  (white)
+══════════════════════════════════════════════════════════════ */
+#contact{background:#fff;border-bottom:1px solid var(--border);}
+.contact-main{display:grid;grid-template-columns:1fr 1fr;min-height:500px;max-width:1200px;margin:0 auto;}
+.contact-left{padding:64px 56px;border-right:1px solid var(--border);}
+.contact-contacts{display:flex;flex-direction:column;gap:2px;margin-bottom:28px;}
+.contact-row{display:grid;grid-template-columns:110px 1fr;border:1px solid var(--border);padding:13px 18px;gap:14px;align-items:baseline;}
+.contact-row:hover{background:var(--pale-grey);}
+.c-label{font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:#bbb;font-weight:500;}
+.c-val{font-size:13px;color:#555;text-decoration:none;}
+.c-val:hover{color:#111;}
+.c-val.red{color:var(--red);}
+.sacred-box{border:1px solid var(--red-border);padding:18px 20px;background:var(--red-light);margin-bottom:24px;}
+.sacred-tag{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--red);margin-bottom:7px;font-weight:500;}
+.sacred-name{font-size:14px;font-weight:500;color:#111;margin-bottom:3px;}
+.sacred-addr{font-size:12px;color:#888;line-height:1.7;margin-bottom:10px;}
+.avail-note{font-size:12px;color:#aaa;line-height:1.7;border-top:1px solid var(--border);padding-top:20px;}
+.avail-note strong{color:#666;font-weight:400;}
+.contact-right{display:flex;flex-direction:column;}
+.map-area{flex:1;background:var(--pale-grey);border-bottom:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;gap:14px;min-height:260px;}
+.map-pin{width:36px;height:36px;border-radius:50% 50% 50% 0;background:var(--red);transform:rotate(-45deg);margin-bottom:6px;position:relative;}
+.map-pin::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:#fff;}
+.map-label{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:300;color:#555;text-align:center;line-height:1.5;}
+.map-sublabel{font-size:11px;color:#bbb;text-align:center;}
+.form-area{padding:28px 36px;}
+.form-label{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:#bbb;margin-bottom:18px;font-weight:500;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+.form-full{margin-bottom:8px;}
+.f-input{width:100%;background:var(--pale-grey);border:1px solid var(--border);padding:10px 13px;font-size:12px;color:#555;font-family:'DM Sans',sans-serif;outline:none;}
+.f-input::placeholder{color:#bbb;}
+.f-input:focus{border-color:var(--red);background:#fff;}
+.f-select{width:100%;background:var(--pale-grey);border:1px solid var(--border);padding:10px 13px;font-size:12px;color:#888;font-family:'DM Sans',sans-serif;outline:none;appearance:none;}
+.f-textarea{width:100%;background:var(--pale-grey);border:1px solid var(--border);padding:10px 13px;font-size:12px;color:#555;font-family:'DM Sans',sans-serif;outline:none;resize:none;height:72px;}
+.f-textarea::placeholder{color:#bbb;}
+.f-submit{width:100%;background:var(--red);border:none;padding:11px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#fff;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:4px;}
+.f-submit:hover{background:#a00;}
+.f-note{font-size:10px;color:#bbb;margin-top:7px;text-align:center;}
+
+/* ══════════════════════════════════════════════════════════════
+   S17 — FINAL CTA  (dark)
+══════════════════════════════════════════════════════════════ */
+#final-cta{background:var(--black);color:#fff;}
+.fca-statement{padding:80px 48px 64px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.07);}
+.fca-hed{font-family:'Cormorant Garamond',serif;font-size:clamp(36px,5vw,56px);font-weight:300;color:#fff;line-height:1.15;margin-bottom:20px;}
+.fca-hed em{font-style:italic;color:rgba(255,255,255,0.3);}
+.fca-sub{font-size:14px;line-height:1.9;color:rgba(255,255,255,0.38);max-width:580px;margin:0 auto 40px;}
+.fca-sub strong{color:rgba(255,255,255,0.65);font-weight:400;}
+.fca-btns{display:flex;gap:12px;justify-content:center;margin-bottom:20px;}
+.fca-btn-primary{font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#fff;background:var(--red);border:1px solid var(--red);padding:13px 28px;cursor:pointer;text-decoration:none;font-family:'DM Sans',sans-serif;}
+.fca-btn-primary:hover{background:#a00;}
+.fca-btn-secondary{font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--red);background:none;border:1px solid rgba(204,0,0,0.4);padding:13px 28px;cursor:pointer;text-decoration:none;font-family:'DM Sans',sans-serif;}
+.fca-btn-secondary:hover{background:rgba(204,0,0,0.08);}
+.fca-note{font-size:11px;color:rgba(255,255,255,0.2);}
+.fca-paths{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid rgba(255,255,255,0.07);}
+.path{padding:32px 28px;border-right:1px solid rgba(255,255,255,0.07);}
+.path:last-child{border-right:none;}
+.path-num{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--red);margin-bottom:10px;font-weight:500;}
+.path-title{font-size:14px;font-weight:500;color:#fff;margin-bottom:8px;}
+.path-desc{font-size:12px;line-height:1.75;color:rgba(255,255,255,0.35);flex:1;margin-bottom:16px;}
+.path-link{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--red);border:1px solid rgba(204,0,0,0.25);padding:7px 14px;text-decoration:none;display:inline-block;font-family:'DM Sans',sans-serif;}
+.path-link:hover{background:rgba(204,0,0,0.06);}
+.path-link.ghost{color:rgba(255,255,255,0.3);border-color:rgba(255,255,255,0.12);}
+.fca-real-q{padding:56px 48px;border-bottom:1px solid rgba(255,255,255,0.07);display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;max-width:1100px;margin:0 auto;}
+.rq-left{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:300;color:#fff;line-height:1.4;}
+.rq-left em{font-style:italic;color:rgba(255,255,255,0.3);}
+.rq-right{display:flex;flex-direction:column;gap:14px;}
+.rq-row{display:flex;align-items:flex-start;gap:10px;}
+.rq-dot{width:4px;height:4px;border-radius:50%;background:var(--red);flex-shrink:0;margin-top:6px;}
+.rq-txt{font-size:13px;line-height:1.7;color:rgba(255,255,255,0.38);}
+.rq-txt strong{color:rgba(255,255,255,0.65);font-weight:400;}
+.fca-commitment{padding:36px 48px;border-bottom:1px solid rgba(255,255,255,0.07);border-left:4px solid var(--red);background:rgba(204,0,0,0.04);}
+.fca-comm-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--red);margin-bottom:14px;font-weight:500;}
+.fca-comm-txt{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300;font-style:italic;color:rgba(255,255,255,0.65);line-height:1.65;max-width:780px;}
+.fca-comm-txt strong{font-style:normal;color:#fff;font-weight:600;}
+.fca-final{padding:28px 48px;display:flex;align-items:center;justify-content:space-between;gap:24px;}
+.fca-fl-txt{font-size:12px;color:rgba(255,255,255,0.25);line-height:1.7;}
+.fca-fl-txt strong{color:rgba(255,255,255,0.45);font-weight:400;}
+
+/* ══════════════════════════════════════════════════════════════
+   S18 — FAQ  (pale grey)
+══════════════════════════════════════════════════════════════ */
+#faq{background:var(--pale-grey);border-bottom:1px solid var(--border);}
+.faq-opening{padding:64px 80px 52px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:end;max-width:1100px;margin:0 auto;}
+.faq-list{max-width:840px;margin:0 auto;padding:0 80px 80px;}
+.cat-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--red);font-weight:500;padding:36px 0 14px;border-bottom:1px solid rgba(204,0,0,0.18);}
+.faq-item{border-bottom:1px solid var(--border);}
+.faq-q{padding:18px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:22px;cursor:pointer;user-select:none;}
+.faq-q:hover .faq-q-txt{color:#111;}
+.faq-q-txt{font-size:14px;font-weight:500;color:#666;line-height:1.5;flex:1;transition:color 0.15s;}
+.faq-item.open .faq-q-txt{color:#111;}
+.faq-toggle{width:18px;height:18px;flex-shrink:0;position:relative;margin-top:2px;}
+.faq-toggle::before,.faq-toggle::after{content:'';position:absolute;background:var(--red);transition:transform 0.2s,opacity 0.2s;}
+.faq-toggle::before{width:12px;height:1.5px;top:8px;left:3px;}
+.faq-toggle::after{width:1.5px;height:12px;top:3px;left:8px;}
+.faq-item.open .faq-toggle::after{transform:rotate(90deg);opacity:0;}
+.faq-a{max-height:0;overflow:hidden;transition:max-height 0.28s ease;}
+.faq-item.open .faq-a{max-height:400px;}
+.faq-a-inner{padding-bottom:18px;font-size:13px;line-height:1.85;color:#777;}
+.faq-a-inner strong{color:#333;font-weight:400;}
+
+/* ══════════════════════════════════════════════════════════════
+   S19 — FOOTER  (dark)
+══════════════════════════════════════════════════════════════ */
+footer{background:var(--off-black);border-top:1px solid rgba(255,255,255,0.07);}
+.ft-top{padding:52px 48px 44px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:44px;border-bottom:1px solid rgba(255,255,255,0.07);max-width:1200px;margin:0 auto;}
+.ft-logo{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:600;color:#fff;letter-spacing:0.04em;margin-bottom:6px;}
+.ft-logo span{color:var(--red);}
+.ft-tagline{font-size:11px;color:rgba(255,255,255,0.22);line-height:1.6;margin-bottom:16px;max-width:200px;}
+.ft-hash{font-size:11px;font-weight:500;color:var(--red);letter-spacing:0.08em;}
+.ft-nav-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.2);margin-bottom:14px;font-weight:500;}
+.ft-nav-list{display:flex;flex-direction:column;gap:9px;}
+.ft-nav-link{font-size:12px;color:rgba(255,255,255,0.35);text-decoration:none;transition:color 0.15s;}
+.ft-nav-link:hover{color:#fff;}
+.ft-cta-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.2);margin-bottom:14px;font-weight:500;}
+.ft-cta-hed{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300;color:#fff;line-height:1.4;margin-bottom:14px;}
+.ft-cta-hed em{font-style:italic;color:rgba(255,255,255,0.3);}
+.ft-cta-btns{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+.ft-cta-btn{display:inline-block;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--red);border:1px solid rgba(204,0,0,0.3);padding:8px 16px;text-decoration:none;font-family:'DM Sans',sans-serif;text-align:center;}
+.ft-cta-btn:hover{background:rgba(204,0,0,0.07);}
+.ft-cta-note{font-size:10px;color:rgba(255,255,255,0.18);}
+.ft-mid{padding:32px 48px;display:grid;grid-template-columns:1fr 1fr;gap:44px;border-bottom:1px solid rgba(255,255,255,0.07);max-width:1200px;margin:0 auto;}
+.ft-contact-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.2);margin-bottom:14px;font-weight:500;}
+.ft-contact-rows{display:flex;flex-direction:column;gap:7px;}
+.ft-contact-row{display:flex;gap:12px;align-items:baseline;}
+.fc-key{font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.15);width:76px;flex-shrink:0;}
+.fc-val{font-size:12px;color:rgba(255,255,255,0.4);text-decoration:none;}
+.fc-val:hover{color:#fff;}
+.fc-val.red{color:rgba(204,0,0,0.7);}
+.ft-social-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.2);margin-bottom:14px;font-weight:500;}
+.ft-social-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.ft-soc-item{text-decoration:none;padding:11px 13px;border:1px solid rgba(255,255,255,0.07);display:flex;flex-direction:column;gap:3px;}
+.ft-soc-item:hover{border-color:rgba(255,255,255,0.15);background:rgba(255,255,255,0.03);}
+.ft-soc-platform{font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.2);}
+.ft-soc-handle{font-size:12px;color:rgba(255,255,255,0.45);}
+.ft-address{padding:16px 48px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between;gap:24px;max-width:1200px;margin:0 auto;}
+.fa-label{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,255,255,0.12);flex-shrink:0;font-weight:500;}
+.fa-addr{font-size:11px;color:rgba(255,255,255,0.28);line-height:1.5;}
+.fa-link{font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(204,0,0,0.5);text-decoration:none;flex-shrink:0;}
+.fa-link:hover{color:var(--red);}
+.ft-bottom{padding:16px 48px;display:flex;align-items:center;justify-content:space-between;gap:20px;max-width:1200px;margin:0 auto;}
+.fb-copy{font-size:11px;color:rgba(255,255,255,0.15);}
+.fb-links{display:flex;gap:18px;}
+.fb-link{font-size:11px;color:rgba(255,255,255,0.18);text-decoration:none;}
+.fb-link:hover{color:rgba(255,255,255,0.4);}
+.fb-domain{font-size:10px;color:rgba(255,255,255,0.1);font-style:italic;}
+
+</style>
+</head>
+<body>
+
+<!-- ══ NAV ═══════════════════════════════════════════════════ -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">Manan <span>Vasa</span></a>
+    <div class="nav-links">
+      <a href="#story">Story</a>
+      <a href="#ways">Work with Manan</a>
+      <a href="#proof">Results</a>
+      <a href="#philosophy">Philosophy</a>
+      <a href="#contact">Contact</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <a href="https://businessscaleupshastra.com/apply" target="_blank" class="nav-cta">Apply for Cohort</a>
+  </div>
+</nav>
+
+<!-- ══ S01 HERO ═══════════════════════════════════════════════ -->
+<section id="hero">
+  <div class="hero-inner">
+    <div>
+      <span class="hero-eyebrow">Business Transformation Architect · Founder, Altus Corp · Mumbai</span>
+      <h1 class="hero-hed">He doesn't advise.<br>He doesn't train.<br>He doesn't motivate.<br><em>He gets inside your business — and refuses to leave until it runs without you.</em></h1>
+      <p class="hero-sub">For 21 years, CA Manan Vasa has not been on stages. He has been inside businesses — in the rooms where the real problems live, sitting across exhausted founders, refusing to leave until the work was done. <strong>Not a coach. Not a consultant. Not an advisor. A Business Transformation Architect who makes things happen.</strong></p>
+      <div class="hero-btns">
+        <a href="https://businessscaleupshastra.com/apply" target="_blank" class="btn-red">Apply for Cohort Conversation</a>
+        <a href="#story" class="btn-outline" style="color:rgba(255,255,255,0.6);border-color:rgba(255,255,255,0.2);">Read the Story</a>
+      </div>
+      <div class="hero-stat-bar">
+        <div class="hero-stat"><div class="hs-num">21<span>+</span></div><div class="hs-lbl">Years on-ground implementation</div></div>
+        <div class="hero-stat"><div class="hs-num">1,500<span>+</span></div><div class="hs-lbl">Founders personally hand-held</div></div>
+        <div class="hero-stat"><div class="hs-num">200<span>+</span></div><div class="hs-lbl">Industries worked across</div></div>
+        <div class="hero-stat"><div class="hs-num">5,100<span>+</span></div><div class="hs-lbl">Projects implemented</div></div>
+      </div>
+    </div>
+    <div class="hero-photo">
+      <img src="MJV_Profile_Pic.jpeg" alt="CA Manan Vasa — Business Transformation Architect">
+      <div class="hero-photo-caption">
+        <div class="hpc-name">CA Manan Vasa</div>
+        <div class="hpc-role">Business Transformation Architect · Founder, Altus Corp</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ S02 CREDIBILITY BAR ════════════════════════════════════ -->
+<section id="credibility">
+  <div class="cred-inner">
+    <div class="cred-zone">
+      <div class="cred-zone-label">Academic Qualifications</div>
+      <div class="cred-logos">
+        <div class="cred-logo-item">CA · ICAI</div>
+        <div class="cred-logo-item">IIM Calcutta</div>
+        <div class="cred-logo-item">IIM Kozhikode</div>
+        <div class="cred-logo-item">CFA Level 3 · USA</div>
+      </div>
+    </div>
+    <div class="cred-zone">
+      <div class="cred-zone-label">Human Understanding</div>
+      <div class="cred-logos">
+        <div class="cred-logo-item">PG Diploma Mindfulness Counselling</div>
+        <div class="cred-logo-item">Former Global Brand Ambassador · Erhard-Jensen Foundation · Harvard</div>
+      </div>
+    </div>
+    <div class="cred-zone">
+      <div class="cred-zone-label">Recognition</div>
+      <div class="cred-logos">
+        <div class="cred-logo-item">1,700+ CAs Trained · ICAI WIRC</div>
+        <div class="cred-logo-item">Knowledge Guru · Ascent Foundation</div>
+        <div class="cred-logo-item">Top 50 Entrepreneurs · NM College</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ S03 LIFE PHILOSOPHY ════════════════════════════════════ -->
+<section id="philosophy-intro">
+  <div class="phil-intro-inner">
+    <div class="phil-left">
+      <span class="eyebrow">Life Philosophy</span>
+      <div class="phil-quote">"What have we lived, if we did not make a difference in the world? If nothing changed in the world from the time we were born and we leave the planet — then what was the point of our existence?"</div>
+      <div class="phil-attr">— Manan Vasa</div>
+      <div style="margin-top:20px;font-size:12px;color:#888;">His personal mission</div>
+      <div style="margin-top:6px;font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;color:#111;">The purpose of my life is to make people <span style="color:var(--red);font-style:normal;">live fully and freely.</span></div>
+    </div>
+    <div class="phil-right">
+      <div class="phil-purpose-label">The purpose of Altus Corp</div>
+      <div class="phil-purpose">We are the SPACE in which ideas and intentions become New Tangible Realities.</div>
+      <div class="phil-bridge">This question — and its refusal to let go — is not a philosophical position. It is the engine behind 21 years of refusing to leave a client's side until the work is done.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ S04 ORIGIN STORY ═══════════════════════════════════════ -->
+<section id="story">
+  <div class="story-inner">
+    <span class="story-eyebrow">The moment I called it what it was</span>
+    <h2 class="story-hed">Taking money for knowledge people cannot use <em>is not coaching.</em><br>I called it what it was: bad karma. And I stopped.</h2>
+    <p class="story-body">For ten years I filled rooms. 13,000 people trained. Every seminar was a success by every metric that the training industry uses to measure success. And then one day someone said something that I could not unhear: <strong>"I know where I am stuck. And I am still stuck."</strong> He had paid me. He had attended. He had taken notes. And nothing had changed.</p>
+    <p class="story-body">I heard it again. And again. I started asking myself a different question — <strong>not "did I deliver the session?" but "did I do my job?"</strong> The answer, honestly, was no. I had delivered information. I had created inspiration. I had given people the feeling that change was possible. And then I had left — and the Monday arrived exactly as it had always arrived.</p>
+    <div class="story-pull">"What if instead of telling him what to do — I stayed until it was done?"</div>
+    <p class="story-body">That question became the foundation of everything Altus Corp does today. Not a programme. Not a seminar. Not a framework handed across a table. <strong>But a team that enters your business — and refuses to leave until the systems are live, the habits are formed, and the results are real.</strong></p>
+    <p class="story-body">I made one rule — one I have kept for 21 years: Maximum 20 founders at a time. No exceptions. Ever. Because depth is not possible at scale. And depth is the only thing that actually changes businesses.</p>
+    <div class="story-hash">#NoGyaanOnlyGain · Not a coach. Not a consultant. Not an advisor. Someone who gets inside your business — and stays until it is done.</div>
+  </div>
+</section>
+
+<!-- ══ S05 WHO HE IS ═══════════════════════════════════════════ -->
+<section id="positioning">
+  <div class="pos-inner">
+    <div class="pos-top">
+      <span class="eyebrow">Who he is</span>
+      <h2 class="pos-hed">One distinction. <em>Everything else follows from it.</em></h2>
+      <p class="pos-sub">Most people reaching out to Manan have already tried a coach, a consultant, a training programme, or a virtual CFO. The work he does is none of those things. The difference is not a matter of degree — it is a matter of kind.</p>
+    </div>
+    <div class="pos-grid">
+      <div class="pos-col">
+        <div class="pos-col-label">He is NOT</div>
+        <div class="pos-items">
+          <div class="pos-item"><div class="pos-x">✗</div><div class="pos-txt">A business coach who asks questions and leaves you to find the answers</div></div>
+          <div class="pos-item"><div class="pos-x">✗</div><div class="pos-txt">A consultant who delivers a report and disappears</div></div>
+          <div class="pos-item"><div class="pos-x">✗</div><div class="pos-txt">A motivational speaker who creates temporary enthusiasm</div></div>
+          <div class="pos-item"><div class="pos-x">✗</div><div class="pos-txt">A virtual CFO or CXO who advises from a distance</div></div>
+          <div class="pos-item"><div class="pos-x">✗</div><div class="pos-txt">A trainer running seminars for hundreds of people at once</div></div>
+          <div class="pos-item"><div class="pos-x">✗</div><div class="pos-txt">Someone who advises and exits when the session ends</div></div>
+        </div>
+      </div>
+      <div class="pos-col dark">
+        <div class="pos-col-label">He IS</div>
+        <div class="pos-items">
+          <div class="pos-item"><div class="pos-check"></div><div class="pos-txt-w"><strong>A Business Transformation Architect</strong> — who designs what needs to be built before anything is built</div></div>
+          <div class="pos-item"><div class="pos-check"></div><div class="pos-txt-w"><strong>A Ruthless Implementer</strong> — who gets in the trenches and makes things happen</div></div>
+          <div class="pos-item"><div class="pos-check"></div><div class="pos-txt-w"><strong>An Execution Partner</strong> — who builds alongside you, not above you</div></div>
+          <div class="pos-item"><div class="pos-check"></div><div class="pos-txt-w"><strong>A Compassionate Accountability Enforcer</strong> — who will challenge what you are protecting</div></div>
+          <div class="pos-item"><div class="pos-check"></div><div class="pos-txt-w"><strong>Someone who stays until it is done</strong> — results in writing, habits formed, systems live</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="pos-closing">
+      <div class="pos-closing-txt">The credential he values most is not his CA, not IIM, not CFA. It is this: <strong style="font-style:normal;color:#111;">21 years. 200+ businesses. Results that are still standing.</strong></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ S06 THE PROBLEM ════════════════════════════════════════ -->
+<section id="problem">
+  <div class="prob-inner">
+    <div class="prob-top">
+      <div>
+        <span class="eyebrow">The problem he solves</span>
+        <h2 style="margin-bottom:16px;">Are you running your business — <em>or is it running you?</em></h2>
+        <p>Answer these eight questions honestly. If four or more feel uncomfortably familiar — you are exactly where this work was built for.</p>
+        <div style="margin-top:24px;font-size:13px;line-height:1.8;color:#555;">You are not struggling because of lack of intelligence, effort or ambition. You are struggling because your business has a structural problem — and no amount of harder work will fix a structural problem.</div>
+      </div>
+      <div>
+        <div class="prob-questions">
+          <div class="prob-q"><div class="prob-q-num">01</div><div class="prob-q-txt">Does your business slow down or stop when you are unavailable for 3+ days?</div></div>
+          <div class="prob-q"><div class="prob-q-num">02</div><div class="prob-q-txt">Is your strategy primarily in your head — not on paper, not understood by your team?</div></div>
+          <div class="prob-q"><div class="prob-q-num">03</div><div class="prob-q-txt">Do you regularly firefight, do other people's work, or chase follow-ups your team should handle?</div></div>
+          <div class="prob-q"><div class="prob-q-num">04</div><div class="prob-q-txt">Do you lack a live financial dashboard that shows truth without explanation?</div></div>
+          <div class="prob-q"><div class="prob-q-num">05</div><div class="prob-q-txt">Do teams escape accountability because KRAs and consequences are not clearly defined?</div></div>
+          <div class="prob-q"><div class="prob-q-num">06</div><div class="prob-q-txt">Has revenue been flat or inconsistent for 12+ months despite your effort?</div></div>
+          <div class="prob-q"><div class="prob-q-num">07</div><div class="prob-q-txt">Do you experience cash flow anxiety despite doing reasonable revenue?</div></div>
+          <div class="prob-q"><div class="prob-q-num">08</div><div class="prob-q-txt">Have you attended programmes or hired consultants — and still find yourself in the same place?</div></div>
+        </div>
+        <div class="prob-verdict"><div class="pv-txt">"YES to 4 or more? BSS is built for exactly where you are. Apply for your Cohort Conversation — we will diagnose your business together and tell you honestly what is creating the dependency."</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ S07 DISTINCTION ════════════════════════════════════════ -->
+<section id="distinction">
+  <div class="dist-inner">
+    <div class="dist-top">
+      <span class="eyebrow">The distinction that changes everything</span>
+      <h2 style="margin-bottom:10px;">Knowledge makes no difference. <em>Only execution does.</em></h2>
+      <p style="max-width:560px;">94% of business owners say their real challenge is not more knowledge — it is implementation, application and execution. This is the distinction Manan has built 21 years around.</p>
+    </div>
+    <div class="dist-grid">
+      <div class="dist-col">
+        <div class="dist-col-label">Every other programme</div>
+        <div class="dist-items">
+          <div class="dist-item"><div class="dist-x">✗</div> Teaches concepts — leaves implementation to your willpower</div>
+          <div class="dist-item"><div class="dist-x">✗</div> 100–500 people with the same generic playbook</div>
+          <div class="dist-item"><div class="dist-x">✗</div> Ends when the event ends</div>
+          <div class="dist-item"><div class="dist-x">✗</div> One trainer for hundreds — doesn't know your name</div>
+          <div class="dist-item"><div class="dist-x">✗</div> Inspire. Motivate. Disappear.</div>
+          <div class="dist-item"><div class="dist-x">✗</div> No accountability structure after the event</div>
+        </div>
+      </div>
+      <div class="dist-col dark">
+        <div class="dist-col-label">Manan's way</div>
+        <div class="dist-items">
+          <div class="dist-item w"><div class="dist-check"></div> Builds systems inside your business — no willpower required</div>
+          <div class="dist-item w"><div class="dist-check"></div> <strong>Maximum 20 founders — no exceptions, ever</strong></div>
+          <div class="dist-item w"><div class="dist-check"></div> Stays until systems are live and results are in writing</div>
+          <div class="dist-item w"><div class="dist-check"></div> <strong>One dedicated Implementer for you alone</strong></div>
+          <div class="dist-item w"><div class="dist-check"></div> Architect. Build. Execute. Deliver.</div>
+          <div class="dist-item w"><div class="dist-check"></div> <strong>Alternate day accountability — drift not permitted</strong></div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-bottom:12px;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#bbb;font-weight:500;">The TFCR Model© — the foundation of everything</div>
+    <div class="tfcr-grid">
+      <div class="tfcr-card"><div class="tfcr-letter">T</div><div class="tfcr-name">Time</div><div class="tfcr-desc">Protected, allocated, spent on what matters. Not what feels urgent.</div></div>
+      <div class="tfcr-card"><div class="tfcr-letter">F</div><div class="tfcr-name">Focus</div><div class="tfcr-desc">Single-minded attention on the highest-value activity. Elimination of everything else.</div></div>
+      <div class="tfcr-card"><div class="tfcr-letter">C</div><div class="tfcr-name">Clarity</div><div class="tfcr-desc">Knowing exactly what, in what order, by whom, by when. Not assuming. Knowing.</div></div>
+      <div class="tfcr-card"><div class="tfcr-letter">R</div><div class="tfcr-name">Reality</div><div class="tfcr-desc">Facing facts as they are — not as you wish them to be. The hardest and most essential discipline.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ S08 GLOBAL PEDIGREE ════════════════════════════════════ -->
+<section id="pedigree">
+  <div class="ped-inner">
+    <span class="eyebrow">What makes him uniquely positioned</span>
+    <h2 style="margin-bottom:12px;">The intersection most people <em>occupy only one corner of.</em></h2>
+    <p style="margin-bottom:40px;max-width:600px;">Scaling a business requires a rare convergence — financial command, strategic architecture, operational depth and a deep understanding of how human beings actually think, resist and change. Manan has spent 21 years at the centre of all three.</p>
+    <div class="ped-pillars">
+      <div class="ped-pillar"><div class="ped-num">01</div><div class="ped-title">A Chartered Accountant who reads your numbers like a surgeon reads a scan.</div><div class="ped-body">The CA qualification gives him something most business coaches never have: the ability to sit inside your financials and immediately see what your numbers are telling you that your gut is not. <strong>Cash flow patterns, working capital traps, margin erosion, valuation levers</strong> — read as forward-looking instruments, not compliance documents.</div></div>
+      <div class="ped-pillar"><div class="ped-num">02</div><div class="ped-title">Someone who understands not just how businesses work — but how the people running them actually change.</div><div class="ped-body">A decade of deep training in <strong>ontology and phenomenology</strong> under Werner Erhard and Dr. Michael Jensen of Harvard Business School — an approach to leadership that goes beneath strategy and structure, into how human beings think, commit and act.</div></div>
+    </div>
+    <div class="ped-iim-grid">
+      <div class="ped-iim-card"><div class="ped-iim-inst">IIM Calcutta · Advanced Sales &amp; Marketing</div><div class="ped-iim-prog">How demand is built — not just chased.</div><div class="ped-iim-rule">"Most businesses don't have a sales problem. They have a demand architecture problem."</div><div class="ped-iim-body">The discipline of understanding <strong>how customers think, how they make decisions, and how revenue is engineered from the ground up</strong> — mathematically, not optimistically.</div></div>
+      <div class="ped-iim-card"><div class="ped-iim-inst">IIM Kozhikode · Project Management</div><div class="ped-iim-prog">The science of making things actually happen.</div><div class="ped-iim-rule">"Strategy without a work-breakdown structure is just intention. It doesn't build anything."</div><div class="ped-iim-body">The technical backbone behind every implementation: <strong>work-breakdown structures, milestone sequencing, resource allocation, execution tracking, accountability systems</strong> — the precise engineering that converts a decision into a completed deliverable.</div></div>
+    </div>
+    <div class="ped-certs">
+      <div class="ped-cert"><div class="ped-cert-inst">CFA Institute · USA</div><div class="ped-cert-title">CFA Level 3 Candidate</div><div class="ped-cert-body">One of the world's most rigorous financial designations — sharpening the global financial lens for business valuation, capital allocation and wealth architecture.</div></div>
+      <div class="ped-cert"><div class="ped-cert-inst">Erhard-Jensen Foundation · Harvard</div><div class="ped-cert-title">Former Global Brand Ambassador</div><div class="ped-cert-body">"Being a Leader and the Effective Exercise of Leadership" — developed by Werner Erhard and Harvard Business School's Dr. Michael Jensen. Endorsed by the Deans of Harvard Business School and Harvard College.</div></div>
+      <div class="ped-cert"><div class="ped-cert-inst">Mission Control Productivity · USA</div><div class="ped-cert-title">Former Certified Licensed Partner</div><div class="ped-cert-body">One of a small number of globally licensed practitioners of the Mission Control Productivity system — used by executives and organisations worldwide.</div></div>
+    </div>
+    <div class="ped-inner-grid">
+      <div class="ped-inner-card"><div class="ped-inner-title">Lifelong Vipassana practitioner</div><div class="ped-inner-body">A silent meditation discipline rooted in direct observation of reality as it is — not as we wish it to be. The same clarity he brings to every difficult business truth.</div></div>
+      <div class="ped-inner-card"><div class="ped-inner-title">PG Diploma — Mindfulness-Based Counselling: Listening with Embodied Presence</div><div class="ped-inner-body">The ability to hear what the founder is not saying. To hold space without judgement. To sit with someone in their most difficult moment — and move them forward anyway.</div></div>
+      <div class="ped-inner-card"><div class="ped-inner-title">Knowledge Guru — Ascent Foundation (Harsh Mariwala / Marico Ltd)</div><div class="ped-inner-body">Recognition by India's premier platform connecting high-potential entrepreneurs with domain experts who have built at scale.</div></div>
+      <div class="ped-inner-card"><div class="ped-inner-title">Trained 1,700+ Chartered Accountants — ICAI Western India Regional Council</div><div class="ped-inner-body">Trusted by the institute that shaped his own formation to train the next generation of CAs on performance, productivity and effectiveness.</div></div>
+    </div>
+    <div class="ped-closing"><div class="ped-closing-txt">The credential he values most: <strong>21 years. 200+ businesses. Results that are still standing. On the ground. Not on a stage.</strong></div></div>
+  </div>
+</section>
+
+<!-- ══ S09 PROOF AT SCALE ══════════════════════════════════════ -->
+<section id="proof">
+  <div class="proof-inner">
+    <span class="eyebrow">21 years of evidence</span>
+    <h2 style="margin-bottom:12px;">Real businesses. Real numbers. <em>Real names.</em></h2>
+    <p style="margin-bottom:40px;max-width:600px;">These are not curated highlights from a room of thousands. These are specific, documented outcomes from businesses where Manan and his team worked inside — week after week — until the results were undeniable.</p>
+    <div class="proof-stats">
+      <div class="proof-stat"><div class="proof-stat-num">21<span>+</span></div><div class="proof-stat-lbl">Years of on-ground implementation</div></div>
+      <div class="proof-stat"><div class="proof-stat-num">1,500<span>+</span></div><div class="proof-stat-lbl">Founders personally hand-held</div></div>
+      <div class="proof-stat"><div class="proof-stat-num">200<span>+</span></div><div class="proof-stat-lbl">Industries worked across</div></div>
+      <div class="proof-stat"><div class="proof-stat-num">5,100<span>+</span></div><div class="proof-stat-lbl">Projects implemented to completion</div></div>
+    </div>
+    <div style="font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#bbb;margin-bottom:12px;font-weight:500;">Industries worked across</div>
+    <div class="ind-grid">
+      <div class="ind-tag active">Manufacturing</div><div class="ind-tag active">Trading</div><div class="ind-tag active">Exports</div><div class="ind-tag active">Jewellery</div><div class="ind-tag active">Logistics</div><div class="ind-tag active">Wood &amp; Décor</div>
+      <div class="ind-tag">Healthcare</div><div class="ind-tag">Education</div><div class="ind-tag">Real Estate</div><div class="ind-tag">Technology</div><div class="ind-tag">Retail Brands</div><div class="ind-tag">D2C</div>
+      <div class="ind-tag">B2B Services</div><div class="ind-tag">Professionals</div><div class="ind-tag">Start-Ups</div><div class="ind-tag">Freelancers</div><div class="ind-tag">MSME / SME</div><div class="ind-tag">Government</div>
+      <div class="ind-tag">Family Business</div><div class="ind-tag">Social Enterprise</div><div class="ind-tag">Not for Profit</div><div class="ind-tag">Solopreneurs</div><div class="ind-tag active">Chemicals</div><div class="ind-tag active">Online Retail</div>
+    </div>
+    <div class="ind-note">Highlighted — industries with documented case results below. 200+ industries total.</div>
+    <div class="clients-grid">
+      <div class="client-card"><div class="client-header"><div><div class="client-name">Kompress India</div><div class="client-industry">Manufacturing · 6-year engagement</div></div><div class="client-badge">Manufacturing</div></div><div class="client-metrics"><div class="metric-row"><div class="metric-val">₹29 Cr → ₹84 Cr</div><div class="metric-label">revenue over 6 years</div></div><div class="metric-row"><div class="metric-val">₹1.2 Cr → ₹5 Cr</div><div class="metric-label">monthly sales</div></div><div class="metric-row"><div class="metric-val">14 wks → 8.5 wks</div><div class="metric-label">production turnaround time</div></div></div><div class="client-body">From a founder-dependent operation to a <strong>systems-driven manufacturing business</strong>. Revenue nearly tripled. Production TAT almost halved. Monthly sales grew 4x.</div></div>
+      <div class="client-card"><div class="client-header"><div><div class="client-name">Amjey Chemtrade Pvt Ltd</div><div class="client-industry">Chemical Trading · 14-month engagement · 50 employees</div></div><div class="client-badge">Trading</div></div><div class="client-metrics"><div class="metric-row"><div class="metric-val">₹250 Cr → ₹400 Cr</div><div class="metric-label">in 14 months</div></div><div class="metric-row"><div class="metric-val">18</div><div class="metric-label">new customers in 4 months</div></div><div class="metric-row"><div class="metric-val">+0.8%</div><div class="metric-label">profitability improvement</div></div></div><div class="client-body">From no formal reporting — the company now has a <strong>transparent, impersonal Employee Performance Appraisal System.</strong></div></div>
+      <div class="client-card"><div class="client-header"><div><div class="client-name">DiaGold</div><div class="client-industry">Jewellery Exports · 4-year engagement</div></div><div class="client-badge">Exports</div></div><div class="client-metrics"><div class="metric-row"><div class="metric-val">Loss → ₹6.5 Cr profit</div><div class="metric-label">over 4 years</div></div><div class="metric-row"><div class="metric-val">₹29 Cr → ₹160 Cr</div><div class="metric-label">turnover</div></div><div class="metric-row"><div class="metric-val">Zero</div><div class="metric-label">additional working capital required</div></div></div><div class="client-body">Turned accumulated loss into ₹6.5 Cr profit. Turnover grew 5.5x — <strong>without injecting additional working capital.</strong></div></div>
+      <div class="client-card"><div class="client-header"><div><div class="client-name">Candere by Kalyan Jewellers</div><div class="client-industry">Online Retail · 3 engagements over 5 years · 150 employees</div></div><div class="client-badge">Online Retail</div></div><div class="client-metrics"><div class="metric-row"><div class="metric-val">13% → 31%</div><div class="metric-label">sales conversion rate</div></div><div class="metric-row"><div class="metric-val">₹36 Cr → ₹120 Cr</div><div class="metric-label">revenue in 3 years</div></div><div class="metric-row"><div class="metric-val">₹140 Cr</div><div class="metric-label">trajectory</div></div></div><div class="client-body">"More than a mentor, I found Manan as a friend who stands for me." — <strong>Rupesh Jain, Founder &amp; CEO</strong></div></div>
+      <div class="client-card"><div class="client-header"><div><div class="client-name">SM Express Logistics Pvt Ltd</div><div class="client-industry">Logistics</div></div><div class="client-badge">Logistics</div></div><div class="client-metrics"><div class="metric-row"><div class="metric-val">₹9.6 Cr → ₹3 Cr</div><div class="metric-label">outstanding in 60 days</div></div><div class="metric-row"><div class="metric-val">86% → 34%</div><div class="metric-label">outstanding above 120 days</div></div><div class="metric-row"><div class="metric-val">₹2 Cr</div><div class="metric-label">bad debt fully recovered</div></div></div><div class="client-body">₹2 Cr of debt declared bad for over 18 months — <strong>fully recovered</strong> through strategic implementation.</div></div>
+      <div class="client-card"><div class="client-header"><div><div class="client-name">Precious Alloys Pvt Ltd</div><div class="client-industry">Manufacturing · Vicky Mahendru</div></div><div class="client-badge">Manufacturing</div></div><div class="client-metrics"><div class="metric-row"><div class="metric-val">₹50 Cr → ₹250 Cr</div><div class="metric-label">valuation across two rounds</div></div><div class="metric-row"><div class="metric-val">5x</div><div class="metric-label">valuation growth between rounds</div></div></div><div class="client-body">"I call him my Clarity Guru." — <strong>Vicky Mahendru, Founder &amp; CEO</strong></div></div>
+      <div class="client-card"><div class="client-header"><div><div class="client-name">Euro Décor</div><div class="client-industry">Wood &amp; Décor</div></div><div class="client-badge">Manufacturing</div></div><div class="client-metrics"><div class="metric-row"><div class="metric-val">₹75 Cr → ₹110 Cr</div><div class="metric-label">poised for ₹140 Cr</div></div><div class="metric-row"><div class="metric-val">First in 20 years</div><div class="metric-label">land acquisition completed</div></div></div><div class="client-body">A loss-making vertical turned profitable. First land acquisition in 20 years — a milestone of <strong>structural confidence.</strong></div></div>
+      <div class="client-card"><div class="client-header"><div><div class="client-name">Sunniva Encom LLP</div><div class="client-industry">Industrial · Kashyap Anandpara</div></div><div class="client-badge">Industrial</div></div><div class="client-metrics"><div class="metric-row"><div class="metric-val">471%</div><div class="metric-label">growth in FY 2021–22</div></div><div class="metric-row"><div class="metric-val">+12%</div><div class="metric-label">profitability improvement</div></div><div class="metric-row"><div class="metric-val">Importers → Exporters</div><div class="metric-label">making in India cheaper than China</div></div></div><div class="client-body">"From importers, we are now cost leaders — <strong>making in India cheaper than China and exporting too.</strong>"</div></div>
+    </div>
+    <div class="proof-closing"><div class="proof-closing-txt">"This is not motivational impact. This is habitual, cultural and operational redesign — visible in the numbers, permanent in the behaviour."</div></div>
+  </div>
+</section>
+
+<!-- ══ S10 SOCIAL PROOF ═══════════════════════════════════════ -->
+<section id="social-proof">
+  <div class="sp-inner">
+    <span class="eyebrow">The evidence</span>
+    <h2 style="margin-bottom:12px;">Real people. Real businesses. <em>Undeniable results.</em></h2>
+    <p style="margin-bottom:36px;max-width:600px;">Not a curated highlight reel. Founders, CXOs, CAs and Directors who worked with Manan — across 200+ industries — and put their names, their companies and their numbers to what changed.</p>
+    <div class="sp-platform-strip">
+      <div class="sp-platform hi"><div class="sp-plat-tag rc">Google Reviews</div><div class="sp-plat-num">4.9<span>/5</span></div><div class="sp-stars"><div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div></div><div class="sp-plat-desc">100+ verified ratings · Goregaon, Mumbai</div><a class="sp-plat-link" href="https://bit.ly/MVGoogleRatings" target="_blank">Read all Google reviews →</a></div>
+      <div class="sp-platform hi"><div class="sp-plat-tag rc">LinkedIn Recommendations</div><div class="sp-plat-num">100<span>+</span></div><div class="sp-stars"><div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div></div><div class="sp-plat-desc">Named, public, written without prompting</div><a class="sp-plat-link" href="https://bit.ly/MVLinkedInTestimonial" target="_blank">Read LinkedIn recommendations →</a></div>
+      <div class="sp-platform"><div class="sp-plat-tag">Survey · 1,300 participants</div><div class="sp-plat-num">200<span>+ industries</span></div><div class="sp-plat-desc">Manufacturing, Trading, Services, Exports, D2C, Healthcare, Logistics and 193 more.</div></div>
+    </div>
+    <div class="survey-row">
+      <div class="survey-card"><div class="survey-pct">89<span>%</span></div><div class="survey-what">2x–3x growth in sales and profitability</div><div class="survey-how">Reported over the quarter after implementation</div><div class="survey-base">Survey · 1,300 participants · 200+ industries</div></div>
+      <div class="survey-card"><div class="survey-pct">96<span>%</span></div><div class="survey-what">Saving 2–3 extra hours every single day</div><div class="survey-how">Using the tools from the programme</div><div class="survey-base">Not motivation. Structural habit change.</div></div>
+      <div class="survey-card"><div class="survey-pct">94<span>%</span></div><div class="survey-what">Ability to get things done increased 2–3x</div><div class="survey-how">Measurable, reported, repeatable</div><div class="survey-base">Results that are habit-based. Not accidental.</div></div>
+      <div class="survey-card"><div class="survey-pct">84<span>%</span></div><div class="survey-what">Work-life balance improved 3–4x</div><div class="survey-how">Reported across all participant categories</div><div class="survey-base">Operational redesign. Not a pep talk.</div></div>
+    </div>
+    <div class="sp-hero-row">
+      <div class="sp-hero"><div class="sp-hero-quote">"More than a mentor or a coach, I found Manan as a friend who cares and stands for me. Our Sales Conversion improved from <em>13% to 31%.</em> We have grown from ₹36 Cr to ₹120 Cr in 3 years — thanks to Manan's tools and practical implementation."</div><div class="sp-hero-name">Rupesh Jain — Founder &amp; CEO, Candere by Kalyan Jewellers</div><div class="sp-hero-role">₹140 Cr · 150 employees · 3 engagements over 5 years</div><div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"><div class="sp-badge"><div class="sp-badge-num">13% → 31%</div><div class="sp-badge-lbl">conversion</div></div><div class="sp-badge"><div class="sp-badge-num">₹36 Cr → ₹120 Cr</div><div class="sp-badge-lbl">in 3 years</div></div></div></div>
+    </div>
+    <div class="sp-full" style="overflow:hidden;">
+      <div class="sp-full-initial">V</div>
+      <div class="sp-full-quote">"Sold 15% stake at a valuation of ₹250 Cr. The first 10% I sold before meeting Manan at a valuation of ₹50 Cr. My relationship with my son has transformed. Nothing in the world can match the breakthroughs with Manan. I call him my Clarity Guru."</div>
+      <div class="sp-full-name">Vicky Mahendru — Founder &amp; CEO, Precious Alloys Pvt Ltd</div>
+      <div class="sp-full-role">Manufacturing · Multi-year engagement</div>
+      <div class="sp-full-badges"><div class="sp-full-badge"><div class="sp-full-badge-num">₹50 Cr → ₹250 Cr</div><div class="sp-full-badge-lbl">valuation · 5x</div></div><div class="sp-full-badge"><div class="sp-full-badge-num">Sales tripled</div><div class="sp-full-badge-lbl">in 3 months</div></div></div>
+    </div>
+    <div class="sp-grid-3">
+      <div class="sp-card"><div class="sp-card-quote">"In my 15 years of professional career I would have attended approx 50 trainings. Manan is the finest I have met. He kept pushing and chasing me relentlessly — and selflessly contributed to increase the Equity AUM from ₹700 Cr to ₹3,000 Cr."</div><div class="sp-card-name">Nimesh Mehta</div><div class="sp-card-role">Director Sales · ASK Investment Managers</div></div>
+      <div class="sp-card"><div class="sp-card-quote">"Manan is a rare breed of professionals who walks the talk. His keen eyes and ears unearthed speech habits that ran my life — but I never knew they existed. He is the right person to propel effectiveness to a new orbit."</div><div class="sp-card-name">Chintan Thakkar</div><div class="sp-card-role">CFO &amp; Executive Director · naukri.com</div></div>
+      <div class="sp-card"><div class="sp-card-quote">"Manan is a dynamite with a smile. With his power-pack approach he transforms a normal human being into a genuinely productive and effective professional — who wins all the time."</div><div class="sp-card-name">Brajesh Singh Rawat</div><div class="sp-card-role">Director Category Management · Snapdeal</div></div>
+    </div>
+    <div class="sp-grid-2" style="margin-bottom:16px;">
+      <div class="sp-card"><div class="sp-card-quote">"Brought down outstanding from ₹9.6 Cr to ₹3 Cr in 60 days. Recovered ₹2 Cr declared as bad debts for over 18 months — thanks to Manan's strategic implementation."</div><div class="sp-card-name">Shrawan Chaudhary</div><div class="sp-card-role">Managing Director · SM Express Logistics</div></div>
+      <div class="sp-card"><div class="sp-card-quote">"Did 471% growth in FY 2021–22, improved profitability by 12%. From importers, we are now cost leaders — making in India cheaper than China, and exporting too."</div><div class="sp-card-name">Kashyap Anandpara</div><div class="sp-card-role">Managing Partner · Sunniva Encom LLP</div></div>
+    </div>
+    <div class="sp-footer-bar">
+      <div class="sp-footer-item"><div class="sp-footer-left"><div class="sp-footer-platform">Google Reviews</div><div class="sp-footer-desc"><strong>4.9 stars · 100+ verified ratings</strong> · Independently written, publicly visible, unfiltered.</div></div><a class="btn-ghost" href="https://bit.ly/MVGoogleRatings" target="_blank">Read on Google →</a></div>
+      <div class="sp-footer-item"><div class="sp-footer-left"><div class="sp-footer-platform">LinkedIn Recommendations</div><div class="sp-footer-desc"><strong>100+ named recommendations</strong> from founders, CXOs, CAs and Directors. Written without prompting.</div></div><a class="btn-ghost" href="https://bit.ly/MVLinkedInTestimonial" target="_blank">Read on LinkedIn →</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ S11 WAYS TO WORK ════════════════════════════════════════ -->
+<section id="ways">
+  <div class="ways-inner">
+    <div class="ways-opening">
+      <span class="eyebrow">Implementation engagements</span>
+      <h2 style="margin-bottom:10px;">Three ways to work with Manan. <em>One standard: he stays until it is done.</em></h2>
+      <p style="max-width:600px;">Every implementation engagement carries the same commitment: Manan and his team do not leave until the results are real, the habits are formed, and you have put it in writing.</p>
+    </div>
+    <div class="way">
+      <div class="way-num">01</div>
+      <div class="way-content">
+        <div class="way-tag">The deepest engagement · Direct access to Manan</div>
+        <div class="way-title">One-to-One Business Implementation Intervention</div>
+        <div class="way-sub">Manan personally inside your business. No intermediary. No delegation. No programme end date.</div>
+        <div class="way-body">The most personal and intensive engagement. Manan works directly with a single founder — inside their business, week after week — as <strong>Solution Architect, Execution Partner and Accountability Enforcer</strong> simultaneously. Also covers <strong>Succession Planning within Family Businesses</strong> — navigating generational transitions, role clarity, authority structures and relationship dynamics.</div>
+        <div class="way-pills"><div class="pill red">Direct access to Manan</div><div class="pill red">Fully customised · One business</div><div class="pill">Succession planning</div><div class="pill">Family business transition</div></div>
+      </div>
+      <div class="way-meta">
+        <div class="meta-item"><div class="meta-label">Format</div><div class="meta-val">One to one · In-person &amp; Zoom</div></div>
+        <div class="meta-item"><div class="meta-label">Duration</div><div class="meta-val">Ongoing — until results are in writing</div></div>
+        <div class="meta-item"><div class="meta-label">Availability</div><div class="meta-val red">By application · Very limited</div></div>
+        <div class="way-cta"><a href="tel:+918097010410" class="btn-outline" style="width:100%;text-align:center;display:block;">Apply: +91 80970 10410 →</a></div>
+      </div>
+    </div>
+    <div class="way featured">
+      <div class="way-num">02</div>
+      <div class="way-content">
+        <div class="way-tag">The flagship cohort · Most sought after</div>
+        <div class="way-title">Business Scale-Up Shastra™ — 6-Month Cohort</div>
+        <div class="way-sub">Maximum 20 founders. One dedicated Implementer per founder. Free repeat until investment is recovered in writing.</div>
+        <div class="way-body">BSS is not a training programme. It is a <strong>structured, ruthless, hands-on implementation engagement</strong> that rebuilds your business from the inside out — transforming Purpose, Strategy, Structure, Systems, Processes, Culture and People habits across 12 modules. <strong>Not a generic playbook. Not a room of hundreds.</strong> Every framework adapted to your numbers, your team, your industry. Free repeat until investment is recovered in writing.</div>
+        <div class="way-pills"><div class="pill red">Max 20 founders · No exceptions ever</div><div class="pill red">1 dedicated Implementer per founder</div><div class="pill red">Free repeat until ROI in writing</div><div class="pill">12 modules · 12 live systems</div><div class="pill">₹2 Cr – ₹100 Cr turnover</div><div class="pill">200+ industries</div></div>
+      </div>
+      <div class="way-meta">
+        <div class="meta-item"><div class="meta-label">Duration</div><div class="meta-val">6 months</div></div>
+        <div class="meta-item"><div class="meta-label">Weekly time</div><div class="meta-val">~6 hours per week</div></div>
+        <div class="meta-item"><div class="meta-label">Investment</div><div class="meta-val red">₹3,00,000 + GST<br><span style="font-size:10px;color:#aaa;">Increasing to ₹5,00,000 + GST · 1 April 2026</span></div></div>
+        <div class="meta-item"><div class="meta-label">Availability</div><div class="meta-val red">Application-based · Currently filling</div></div>
+        <div class="way-cta"><a href="https://businessscaleupshastra.com/apply" target="_blank" class="btn-red" style="width:100%;text-align:center;display:block;">Apply for Cohort Conversation →</a></div>
+      </div>
+    </div>
+    <div class="way">
+      <div class="way-num">03</div>
+      <div class="way-content">
+        <div class="way-tag">The entry point · 6 weeks · Experience it before committing</div>
+        <div class="way-title">Productivity Shastra — 6-Week Cohort</div>
+        <div class="way-sub">The programme that shows you — experientially — what hand-holding and implementation actually feel like.</div>
+        <div class="way-body">5 live workshops with Manan. Bi-weekly hand-holding with Implementation Consultants. <strong>Manan's Make It Happen Framework©</strong> — Time Auditor©, Power Planner©, Reason Eliminator©, Time Finder© — implemented live, adapted to your specific situation. <strong>96% of participants save 2–3 hours daily</strong> — and keep saving them six months later, because it is habit, not effort.</div>
+        <div class="way-pills"><div class="pill red">5 live workshops with Manan</div><div class="pill red">Make It Happen Framework©</div><div class="pill">Bi-weekly hand-holding</div><div class="pill">Free repeat until investment recovered</div></div>
+      </div>
+      <div class="way-meta">
+        <div class="meta-item"><div class="meta-label">Duration</div><div class="meta-val">45 days · 5 workshops · 30 hours</div></div>
+        <div class="meta-item"><div class="meta-label">Format</div><div class="meta-val">Group workshops + bi-weekly 1-1</div></div>
+        <div class="meta-item"><div class="meta-label">Entry point</div><div class="meta-val red">Free orientation available</div></div>
+        <div class="way-cta"><a href="https://productivityshastra.com/free" target="_blank" class="btn-outline" style="width:100%;text-align:center;display:block;">Attend a free orientation →</a></div>
+      </div>
+    </div>
+  </div>
+  <!-- SPEAKING -->
+  <div class="speaking-block">
+    <div class="speaking-opening">
+      <div><span class="sp-eyebrow">Speaking &amp; Keynotes</span><div class="sp-hed">On stage.<br><em>A different kind of session entirely.</em></div></div>
+      <div class="sp-distinction">"Manan's keynotes are not motivational talks. They are live, participatory experiences — the audience does not just hear about productivity or scale, they practise it in the room."</div>
+    </div>
+    <div class="sp-speaking-body">
+      <div class="sp-col"><div class="sp-col-label">Where he has spoken</div><div class="sp-venues"><div class="sp-venue">JITO</div><div class="sp-venue">Ascent Foundation</div><div class="sp-venue">Lions Clubs</div><div class="sp-venue">Rotary International</div><div class="sp-venue">ICAI — WIRC</div><div class="sp-venue">Trade Associations</div><div class="sp-venue">Chambers of Commerce</div><div class="sp-venue">Corporate Leadership</div><div class="sp-venue">Universities</div><div class="sp-venue">NM College</div><div class="sp-venue">Family Business Forums</div><div class="sp-venue">MSME Conclaves</div></div></div>
+      <div class="sp-col"><div class="sp-col-label">Talk topics</div><div class="sp-body"><strong>Productivity &amp; Time Mastery</strong> — why 94% of people operate at 10–15% capacity and how to double output without increasing hours.<br><br><strong>Business Scale-Up Without Burnout</strong> — the structural difference between effort-led growth and system-led scale.<br><br><strong>The Delegation Myth</strong> — why most delegation fails and what actually transfers ownership.<br><br><strong>Finance for Founders</strong> — reading your numbers like a surgeon reads a scan.</div></div>
+      <div class="sp-col"><div class="sp-col-label">Formats available</div><div class="sp-formats"><div class="sp-format">45-minute keynote — conference main stage</div><div class="sp-format">Half-day participatory workshop</div><div class="sp-format">Full-day intensive</div><div class="sp-format">Corporate leadership programme series</div><div class="sp-format">Panel and moderation</div></div><div style="margin-top:16px;font-size:11px;color:rgba(255,255,255,0.22);line-height:1.6;">Audience size: 50 to 2,000+. Every talk built from scratch for the specific audience.</div></div>
+    </div>
+    <div class="speaking-footer"><div class="sf-left"><strong>To enquire about a keynote or conference engagement</strong> — write to manan@altuscorp.in or call +91 98686 98686.</div><a href="mailto:manan@altuscorp.in" class="btn-ghost" style="color:rgba(255,255,255,0.35);border-color:rgba(255,255,255,0.12);">Enquire →</a></div>
+  </div>
+</section>
+
+<!-- ══ S12 BSS ════════════════════════════════════════════════ -->
+<section id="bss">
+  <div class="bss-inner">
+    <span class="eyebrow">Business Scale-Up Shastra™</span>
+    <h2 style="margin-bottom:12px;">A 6-month closed implementation cohort.<br><em>Maximum 20 founders. No exceptions. Ever.</em></h2>
+    <p class="bss-para">BSS is not a training programme. It is a <strong>structured, hands-on implementation engagement</strong> that rebuilds your business from the inside out — across 12 modules covering Purpose, Strategy, Marketing, Sales, Delegation, Finance, Dashboards, Team Productivity and more. Every framework is adapted to your specific business, your team and your numbers. One dedicated Implementer works inside your business every single week. Manan leads every group session live. The programme does not end when the six months are up — <strong>it ends when the results are real, the habits are formed, and you have put it in writing.</strong></p>
+    <div class="bss-promises">
+      <div class="bss-promise hi"><div class="bp-num">1</div><div class="bp-txt"><strong>Sustainably and ethically scale up your business</strong> — without taking any more stress or risk.</div></div>
+      <div class="bss-promise hi"><div class="bp-num">2</div><div class="bp-txt"><strong>Build a value, system and team-driven business</strong> — that runs without you.</div></div>
+      <div class="bss-promise hi"><div class="bp-num">3</div><div class="bp-txt"><strong>Create freedom to be, do and have the life you wanted</strong> — without compromising your work-life balance.</div></div>
+    </div>
+    <div class="bss-cta-row">
+      <a href="https://businessscaleupshastra.com/apply" target="_blank" class="btn-red">Apply for your Cohort Conversation →</a>
+      <div class="bss-cta-note">Application-based · ₹3,00,000 + GST · Increasing to ₹5,00,000 + GST from 1 April 2026</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ S13 CREDENTIALS ════════════════════════════════════════ -->
+<section id="credentials">
+  <div class="cred2-inner">
+    <span class="eyebrow">Recognition</span>
+    <h2 style="margin-bottom:12px;">What the world noticed <em>while he was busy doing the work.</em></h2>
+    <p style="margin-bottom:40px;max-width:560px;">The credential he values most remains 21 years on the ground. But the formal recognitions reflect the consistency and quality of what that work produced.</p>
+    <div class="rec-grid">
+      <div class="rec-item"><div class="rec-inst">NM College · SVKM University</div><div class="rec-title">Top 50 Entrepreneurs</div><div class="rec-year">2019</div><div class="rec-body">Published in <em>Ideas with Intent</em> — the SVKM University publication featuring the most consequential entrepreneurs from Narsee Monjee Institute of Commerce and Economics.</div></div>
+      <div class="rec-item"><div class="rec-inst">Ascent Foundation · Harsh Mariwala / Marico Ltd</div><div class="rec-title">Knowledge Guru</div><div class="rec-year">Ongoing</div><div class="rec-body">Recognised at India's premier platform connecting high-potential entrepreneurs with domain experts who have built at scale.</div></div>
+      <div class="rec-item"><div class="rec-inst">Erhard-Jensen Foundation · Harvard</div><div class="rec-title">Former Global Brand Ambassador</div><div class="rec-year">2015 — onwards</div><div class="rec-body">"Being a Leader and the Effective Exercise of Leadership" — developed with Harvard Business School's Dr. Michael Jensen and Werner Erhard. Endorsed by the Deans of Harvard Business School and Harvard College.</div></div>
+    </div>
+    <div class="teach-grid">
+      <div class="teach-item"><div class="teach-num">1,700<span>+</span></div><div class="teach-label">Chartered Accountants trained</div><div class="teach-body">Commissioned by the Institute of Chartered Accountants of India — Western India Regional Council — to train the next generation of CAs on performance, productivity and effectiveness.</div></div>
+      <div class="teach-item"><div class="teach-num">100<span>+</span></div><div class="teach-label">Events as visiting faculty</div><div class="teach-body">Keynotes, workshops and faculty sessions delivered across Trade Associations, Chambers of Commerce, Universities, MSME Conclaves, Family Business Forums and Corporate Leadership Programmes across India.</div></div>
+    </div>
+    <div class="assoc-strip">
+      <span class="assoc-label">Spoken at and associated with</span>
+      <div class="assoc-tag">JITO</div><div class="assoc-tag">Ascent Foundation</div><div class="assoc-tag">Lions Clubs International</div><div class="assoc-tag">Rotary International</div><div class="assoc-tag">ICAI — WIRC</div><div class="assoc-tag">NM College · SVKM</div><div class="assoc-tag">Erhard-Jensen Foundation</div><div class="assoc-tag">Mission Control Productivity</div><div class="assoc-tag">Family Business Forums</div><div class="assoc-tag">MSME Conclaves</div>
+    </div>
+    <div class="founding-grid">
+      <div class="founding-txt">He founded <strong>Altus Corp</strong> at the age of 24. Everything since has been built on that foundation.</div>
+      <div class="founding-detail"><strong>Altus Corp · Founded 2004 · Mumbai</strong><br><br><strong>Sacred Space</strong> — C-6, Ground Floor, Gambhir Estates, Kotkar Road, Goregaon East, Mumbai 400063.<br><br>The office is not named by accident. Every engagement begins and ends in the same spirit: creating space for something new to become real.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ S14 PHILOSOPHY & CONSTITUTION ══════════════════════════ -->
+<section id="philosophy">
+  <div class="phil-inner">
+    <div class="phil-opening">
+      <div>
+        <span class="eyebrow">Philosophy &amp; Constitution</span>
+        <h2 class="phil-hed">What he believes.<br>How he operates.<br><em>What he holds himself to.</em></h2>
+      </div>
+      <div class="phil-purpose-box">
+        <div class="phil-purpose-label" style="font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#bbb;margin-bottom:12px;font-weight:500;">The purpose of Altus Corp</div>
+        <div class="phil-purpose">We are the SPACE in which ideas and intentions become New Tangible Realities.</div>
+      </div>
+    </div>
+    <div class="phil-personal-stmt">
+      <div class="phil-ps-label">Manan's personal purpose</div>
+      <div class="phil-ps-grid">
+        <div class="phil-ps-quote">"What have we lived, if we did not make a difference in the world? The purpose of my life is to make people <em>live fully and freely.</em>"</div>
+        <div class="phil-ps-sub">This is not a positioning statement. It is the question he has refused to stop asking since the day he called the training industry's quiet hypocrisy what it was — and decided to build something he could defend. Everything Altus Corp does, and everything he does personally, is an answer to that question.</div>
+      </div>
+    </div>
+    <div class="values-block">
+      <div class="block-label">Altus Corp values — what we deliver</div>
+      <div class="values-grid">
+        <div class="val-item"><div class="val-name">Growth</div><div class="val-desc">We deliver Unprecedented Results — not incremental improvements. Not marginal gains. Unprecedented.</div></div>
+        <div class="val-item"><div class="val-name">Persistence</div><div class="val-desc">We Never Give Up. Not when it is hard. Not when the founder resists. Not when the system pushes back.</div></div>
+        <div class="val-item"><div class="val-name">Commitment</div><div class="val-desc">We simply Make Things Happen. Not plan. Not advise. Not suggest. Make things happen.</div></div>
+        <div class="val-item"><div class="val-name">Creativity</div><div class="val-desc">We bring things into Existence from Nothing. Every system, every structure, every habit — created where there was none.</div></div>
+        <div class="val-item"><div class="val-name">Excellence</div><div class="val-desc">We are Impeccable at everything. Not good enough. Not adequate. Impeccable — at every level of the engagement.</div></div>
+        <div class="val-item"><div class="val-name">Trustworthiness</div><div class="val-desc">If it is Trust, it is Us. The word and the action are the same thing. Always.</div></div>
+        <div class="val-item"><div class="val-name">Humility</div><div class="val-desc">Confidence without Ego. The work speaks. The results speak. He does not need to.</div></div>
+        <div class="val-item"><div class="val-name">Empathy</div><div class="val-desc">We understand Humanity better than anyone else. Not just business. The human being running it.</div></div>
+        <div class="val-item"><div class="val-name">Customer Centricity</div><div class="val-desc">Everything we do Evolves and Revolves around our Customers. Not our convenience. Not our systems. Them.</div></div>
+      </div>
+    </div>
+    <div class="principles-block">
+      <div class="block-label">Altus Corp principles — how we operate</div>
+      <div class="principles-grid">
+        <div class="prin-item"><div class="prin-name">Truth</div><div class="prin-desc">Our thinking, saying and actions are in sync. Facts and Reality are the evidence. Not opinion. Not narrative.</div></div>
+        <div class="prin-item"><div class="prin-name">Honesty</div><div class="prin-desc">People will get the same answers about us no matter who they ask or when they ask. There is only one version of us.</div></div>
+        <div class="prin-item"><div class="prin-name">Integrity</div><div class="prin-desc">We are who we say we are. We do what we say we do. Nothing more. Nothing less. No exceptions.</div></div>
+        <div class="prin-item"><div class="prin-name">Transparency</div><div class="prin-desc">Nothing hidden. We are what you see. What you see in the room is what exists everywhere.</div></div>
+        <div class="prin-item"><div class="prin-name">Full Communication</div><div class="prin-desc">If there is a doubt, we say it — regardless of consequences. Over communication is always better than under communication.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ S15 MEDIA & CONTENT ════════════════════════════════════ -->
+<section id="media">
+  <div class="media-inner">
+    <span class="eyebrow">Media &amp; Content</span>
+    <h2 style="margin-bottom:12px;">Before you commit to anything — <em>experience the work first.</em></h2>
+    <p style="margin-bottom:40px;max-width:580px;">A free orientation. A YouTube channel built on 21 years of implementation knowledge. And every social platform where Manan shares what he has learned — so you can decide for yourself whether this is for you.</p>
+    <div class="free-resource">
+      <div class="fr-left">
+        <div class="fr-tag">Free · No obligation · Attend before you decide</div>
+        <div class="fr-hed">Attend a free <em>Productivity Shastra orientation.</em></div>
+        <div class="fr-body">A live, practical session that shows you — in real time — what implementation actually feels like. <strong>A working session where you use the tools on your own life and business.</strong> You will leave having already started something different.</div>
+        <div class="fr-includes">
+          <div class="fr-inc-row"><div class="fr-dot"></div><div class="fr-inc-txt">Experience Manan's Make It Happen Framework© live — not as a concept, as a tool you use</div></div>
+          <div class="fr-inc-row"><div class="fr-dot"></div><div class="fr-inc-txt">Walk away with the Time Auditor© — applied to your actual week</div></div>
+          <div class="fr-inc-row"><div class="fr-dot"></div><div class="fr-inc-txt">Understand the structural difference between motivation and implementation — from the inside</div></div>
+          <div class="fr-inc-row"><div class="fr-dot"></div><div class="fr-inc-txt">Ask Manan anything directly — he stays after every session for open conversation</div></div>
+        </div>
+        <a href="https://productivityshastra.com/free" target="_blank" class="btn-red">Book your free seat →</a>
+      </div>
+      <div class="fr-right">
+        <div class="fr-quote">"Attend a practical demo. It will alter your life forever. This is not an exaggeration — it is what 96% of participants report after their first session."</div>
+        <div class="fr-quote-attr">— From the Productivity Shastra programme brief</div>
+        <div class="fr-stat">
+          <div><div class="fr-stat-num">96<span>%</span></div><div class="fr-stat-lbl">report saving 2–3 hours daily</div></div>
+          <div><div class="fr-stat-num">89<span>%</span></div><div class="fr-stat-lbl">report 2x–3x growth in one quarter</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="yt-block">
+      <div class="yt-opening">
+        <div class="yt-panel">
+          <div class="yt-label">YouTube · @mananvasa01</div>
+          <div class="yt-hed">21 years of implementation knowledge. Free. On one channel.</div>
+          <div class="yt-body">Not motivation content. Not highlight reels. Videos that teach <strong>specific tools, frameworks and thinking</strong> that Manan uses inside businesses every week. <strong>#NoGyaanOnlyGain.</strong> If it doesn't produce something tangible, it doesn't belong on the channel.</div>
+          <div class="yt-topics"><div class="yt-topic">Productivity tools</div><div class="yt-topic">Business scale-up</div><div class="yt-topic">Delegation systems</div><div class="yt-topic">Finance for founders</div><div class="yt-topic">Sales systems</div><div class="yt-topic">Time mastery</div><div class="yt-topic">Leadership</div></div>
+          <a href="https://www.youtube.com/@mananvasa01/videos" target="_blank" class="yt-link"><div class="yt-tri"></div>Visit the channel →</a>
+        </div>
+        <div class="yt-panel grey">
+          <div class="yt-label">What you will find there</div>
+          <div class="yt-body">The Productivity Shastra series — the full framework broken into individual episodes. Watching the series is the closest thing to attending the programme without attending it.<br><br>Business Scale-Up sessions — real problems from real founders, worked through live.<br><br><strong>Every video is a working session, not a watching session.</strong> Keep a notebook. You will need it.</div>
+        </div>
+      </div>
+      <div class="yt-videos">
+        <div class="vid-item"><div class="vid-thumb"><div class="vid-play"><div class="vid-play-tri"></div></div></div><div class="vid-info"><div class="vid-title">Why you are only 10–15% productive — and how to double it</div><div class="vid-meta">Productivity Shastra · Episode 1</div></div></div>
+        <div class="vid-item"><div class="vid-thumb"><div class="vid-play"><div class="vid-play-tri"></div></div></div><div class="vid-info"><div class="vid-title">The Time Auditor© — where your time actually goes</div><div class="vid-meta">Productivity Shastra · Episode 2</div></div></div>
+        <div class="vid-item"><div class="vid-thumb"><div class="vid-play"><div class="vid-play-tri"></div></div></div><div class="vid-info"><div class="vid-title">You either have reasons or you have results — never both</div><div class="vid-meta">Reason Eliminator© · Framework Session</div></div></div>
+        <div class="vid-item"><div class="vid-thumb"><div class="vid-play"><div class="vid-play-tri"></div></div></div><div class="vid-info"><div class="vid-title">How to delegate so work never comes back to you</div><div class="vid-meta">Business Scale-Up · Delegation Series</div></div></div>
+      </div>
+    </div>
+    <div class="social-strip">
+      <a class="soc-item" href="https://www.linkedin.com/in/mananvasa/" target="_blank"><div class="soc-platform">LinkedIn</div><div class="soc-name">Manan Vasa</div><div class="soc-desc">100+ verified recommendations. Articles on implementation, productivity and business scale-up.</div><div class="soc-link">linkedin.com/in/mananvasa →</div></a>
+      <a class="soc-item" href="https://www.instagram.com/mananvasaofficial/" target="_blank"><div class="soc-platform">Instagram</div><div class="soc-name">@mananvasaofficial</div><div class="soc-desc">Daily tools, frameworks and thinking — condensed into formats you can act on immediately.</div><div class="soc-link">@mananvasaofficial →</div></a>
+      <a class="soc-item" href="https://www.youtube.com/@mananvasa01/videos" target="_blank"><div class="soc-platform">YouTube</div><div class="soc-name">@mananvasa01</div><div class="soc-desc">The Productivity Shastra series and Business Scale-Up sessions. Full-length working videos.</div><div class="soc-link">@mananvasa01 →</div></a>
+      <a class="soc-item" href="https://www.facebook.com/manan.vasa.1/" target="_blank"><div class="soc-platform">Facebook</div><div class="soc-name">Manan Vasa</div><div class="soc-desc">Programme updates, event announcements and community conversations.</div><div class="soc-link">facebook.com/manan.vasa.1 →</div></a>
+    </div>
+  </div>
+</section>
+
+<!-- ══ S16 CONTACT ════════════════════════════════════════════ -->
+<section id="contact">
+  <div class="contact-main">
+    <div class="contact-left">
+      <span class="eyebrow">Get in touch</span>
+      <h2 style="margin-bottom:10px;">One conversation.<br><em>That is all it takes to begin.</em></h2>
+      <p style="margin-bottom:32px;max-width:380px;">Every engagement begins with a direct conversation. If you are ready to have that conversation, the details are below.</p>
+      <div class="contact-contacts">
+        <div class="contact-row"><div class="c-label">Manan direct</div><a class="c-val red" href="tel:+918097010410">+91 80970 10410</a></div>
+        <div class="contact-row"><div class="c-label">Office</div><a class="c-val" href="tel:+919868698686">+91 98686 98686</a></div>
+        <div class="contact-row"><div class="c-label">Email</div><a class="c-val" href="mailto:manan@altuscorp.in">manan@altuscorp.in</a></div>
+        <div class="contact-row"><div class="c-label">BSS Apply</div><a class="c-val red" href="https://businessscaleupshastra.com/apply" target="_blank">businessscaleupshastra.com/apply</a></div>
+        <div class="contact-row"><div class="c-label">Free session</div><a class="c-val" href="https://productivityshastra.com/free" target="_blank">productivityshastra.com/free</a></div>
+        <div class="contact-row"><div class="c-label">Speaking</div><a class="c-val" href="mailto:manan@altuscorp.in">manan@altuscorp.in</a></div>
+      </div>
+      <div class="sacred-box">
+        <div class="sacred-tag">Sacred Space — Manan's office</div>
+        <div class="sacred-name">Altus Corp · Sacred Space</div>
+        <div class="sacred-addr">C-6, Ground Floor, Gambhir Estates<br>Kotkar Road, Goregaon East, Mumbai — 400063</div>
+        <a href="https://bit.ly/MVSacredSpace" target="_blank" class="btn-outline" style="font-size:10px;padding:6px 14px;">Open in Maps →</a>
+      </div>
+      <div class="avail-note"><strong>Manan's direct number is +91 80970 10410.</strong> He is available to speak personally — before, during and after every engagement. That is not a promise made lightly. It is how every engagement has worked for 21 years.</div>
+    </div>
+    <div class="contact-right">
+      <div class="map-area">
+        <div class="map-pin"></div>
+        <div class="map-label">Sacred Space<br>Goregaon East, Mumbai</div>
+        <div class="map-sublabel">C-6, Ground Floor, Gambhir Estates, Kotkar Road</div>
+        <a href="https://bit.ly/MVSacredSpace" target="_blank" class="btn-ghost" style="margin-top:8px;">Open in Google Maps →</a>
+      </div>
+      <div class="form-area">
+        <div class="form-label">Send a message — we respond personally</div>
+        <div class="form-grid">
+          <input class="f-input" type="text" placeholder="Your name">
+          <input class="f-input" type="text" placeholder="Your phone number">
+        </div>
+        <div class="form-grid">
+          <input class="f-input" type="email" placeholder="Email address">
+          <input class="f-input" type="text" placeholder="Business turnover (approx)">
+        </div>
+        <div class="form-full">
+          <select class="f-select">
+            <option value="" disabled selected>What brings you here?</option>
+            <option>One-to-One Business Implementation</option>
+            <option>Business Scale-Up Shastra — Cohort</option>
+            <option>Productivity Shastra</option>
+            <option>Speaking / Keynote enquiry</option>
+            <option>General enquiry</option>
+          </select>
+        </div>
+        <div class="form-full">
+          <textarea class="f-textarea" placeholder="Tell us briefly what you are looking to change in your business…"></textarea>
+        </div>
+        <button class="f-submit">Send message →</button>
+        <div class="f-note">Every message is read personally. You will receive a direct response — not an automated reply.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ S17 FINAL CTA ══════════════════════════════════════════ -->
+<section id="final-cta">
+  <div class="fca-statement">
+    <span class="eyebrow" style="color:rgba(255,255,255,0.4);">The only question that remains</span>
+    <h1 class="fca-hed">You already know<br>something has to change.<br><em>How much longer will you wait?</em></h1>
+    <p class="fca-sub">Every month without a system is a month of avoidable chaos. Every week without accountability is a week of invisible drift. Every year without redesign is a year your business runs you — <strong>instead of the other way around.</strong><br><br>This is not pressure. This is the honest arithmetic of staying where you are.</p>
+    <div class="fca-btns">
+      <a href="https://businessscaleupshastra.com/apply" target="_blank" class="fca-btn-primary">Apply for BSS Cohort Conversation →</a>
+      <a href="https://productivityshastra.com/free" target="_blank" class="fca-btn-secondary">Attend a free orientation first →</a>
+    </div>
+    <div class="fca-note">Application-based · Max 20 founders · No obligation on the free orientation</div>
+  </div>
+  <div class="fca-paths">
+    <div class="path"><div class="path-num">PATH 01</div><div class="path-title">Not sure yet — start free</div><div class="path-desc">Attend a free Productivity Shastra orientation. Experience what implementation actually feels like before committing to anything. One live session that changes how you work — permanently.</div><a href="https://productivityshastra.com/free" target="_blank" class="path-link">Book a free seat →</a></div>
+    <div class="path"><div class="path-num">PATH 02</div><div class="path-title">Ready — apply for BSS</div><div class="path-desc">If you have read this far and you recognise your business in what you have read — apply for a Cohort Conversation. We will diagnose your business together and tell you honestly whether BSS is the right fit.</div><a href="https://businessscaleupshastra.com/apply" target="_blank" class="path-link">Apply for Cohort Conversation →</a></div>
+    <div class="path"><div class="path-num">PATH 03</div><div class="path-title">Want to speak directly — call Manan</div><div class="path-desc">His number is +91 80970 10410. He answers. He is available before, during and after every engagement. If you have a specific situation — call him directly.</div><a href="tel:+918097010410" class="path-link ghost">+91 80970 10410 →</a></div>
+  </div>
+  <div class="fca-real-q">
+    <div class="rq-left">Businesses scale in two ways.<br>By increasing effort.<br><em>Or by increasing order.</em><br><br>One exhausts.<br>The other compounds.</div>
+    <div class="rq-right">
+      <div class="rq-row"><div class="rq-dot"></div><div class="rq-txt"><strong>Effort-led growth</strong> demands more from you every year just to stay in the same place. The ceiling gets lower. The cost gets higher.</div></div>
+      <div class="rq-row"><div class="rq-dot"></div><div class="rq-txt"><strong>System-led scale</strong> compounds. Every system built reduces the demand on you. Every habit formed frees capacity consumed by chaos.</div></div>
+      <div class="rq-row"><div class="rq-dot"></div><div class="rq-txt"><strong>The choice is not between working harder and working smarter.</strong> It is between a business that depends on you and a business that runs without you.</div></div>
+      <div class="rq-row"><div class="rq-dot"></div><div class="rq-txt"><strong>You did not build a business to become its prisoner.</strong> That is not why you started. And it does not have to be how it ends.</div></div>
+    </div>
+  </div>
+  <div class="fca-commitment">
+    <div class="fca-comm-label">Our commitment to you before you commit to us</div>
+    <div class="fca-comm-txt">We do not take on engagements we cannot win. Before you join, we evaluate your business, your readiness and your gaps — <strong>honestly.</strong> If we cannot deliver measurable results in your situation, we will tell you directly. And we will not invite you.</div>
+  </div>
+  <div class="fca-final">
+    <div class="fca-fl-txt"><strong>20 founders. One cohort. One conversation to find out if this is for you.</strong><br>If you have read this far — you already know the answer.</div>
+    <a href="https://businessscaleupshastra.com/apply" target="_blank" class="fca-btn-primary">Apply now →</a>
+  </div>
+</section>
+
+<!-- ══ S18 FAQ ════════════════════════════════════════════════ -->
+<section id="faq">
+  <div class="faq-opening">
+    <div><span class="eyebrow">Before you apply</span><h2>Real questions.<br><em>Direct answers.</em></h2></div>
+    <div style="font-size:13px;line-height:1.8;color:#666;">Everything you need to know before you decide. If your question is not here — call Manan directly on +91 80970 10410. He answers.</div>
+  </div>
+  <div class="faq-list">
+    <div class="cat-label">About Manan Vasa</div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">Who exactly is Manan Vasa and what does he do?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">Manan Vasa is a Business Transformation Architect — someone who gets inside a business and stays until it runs without the founder. He is not a speaker, coach, consultant, advisor or virtual CFO. He is a builder. For 21 years he has worked <strong>inside 200+ industries, with 1,500+ founders, implementing 5,100+ projects</strong> — not from stages, not through reports, but inside the business, week after week, until the results are real.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">What is Manan's professional background and education?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">Manan is a <strong>Chartered Accountant</strong> — which gives him the ability to read any business's financial truth immediately. He holds advanced degrees from <strong>IIM Calcutta (Sales and Marketing)</strong> and <strong>IIM Kozhikode (Project Management)</strong>, and is a <strong>CFA Level 3 Candidate</strong> from the USA. He trained for over a decade in ontology and phenomenology under Werner Erhard and Dr. Michael Jensen of Harvard Business School. He founded Altus Corp at the age of 24.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">What is Manan's personal philosophy behind his work?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">"What have we lived, if we did not make a difference in the world? The purpose of my life is to make people live fully and freely." His core philosophy is <strong>#NoGyaanOnlyGain</strong> — if knowledge does not produce a tangible, measurable change in how someone operates, it has no value. He refuses to take money for knowledge that people cannot use.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">What made Manan stop doing conventional training and build something different?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">After years of filling rooms and watching founders walk out inspired and return to the same Monday, he heard a phrase that stopped him: "I know where I am stuck. I am still stuck." He had heard it from hundreds of people. <strong>He asked himself whether he had actually done his job.</strong> The answer was no. He stopped, took a sabbatical, and came back with one rule: he would not leave until the work was done.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">What is the TFCR Model© and why does it matter?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">The TFCR Model© is Manan's proprietary framework — the distilled result of over a decade of working with thousands of individuals and businesses. It stands for <strong>Time, Focus, Clarity and Reality</strong>. The model proves that when a person develops a specific relationship with these four things as habits, any result can be produced in a time-bound manner, repeatedly. Like gravity, it applies to everyone — regardless of industry, turnover or experience.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">What is Altus Corp and what does it stand for?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">Altus Corp is the firm Manan founded at age 24 — now 21 years old. Its purpose is simple: <strong>"We are the SPACE in which ideas and intentions become New Tangible Realities."</strong> It operates from Sacred Space in Goregaon East, Mumbai. The firm operates on nine values including Growth, Persistence, Commitment, Excellence and Humility — and five principles: Truth, Honesty, Integrity, Transparency and Full Communication.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">What is Manan's connection to Harvard Business School?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">Manan trained for over a decade under the transformational frameworks of <strong>Werner Erhard and Dr. Michael Jensen of Harvard Business School</strong> — an ontological, phenomenological approach to leadership. He was subsequently appointed the <strong>Former Global Brand Ambassador of "Being a Leader and the Effective Exercise of Leadership"</strong> — endorsed by the Deans of Harvard Business School and Harvard College.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">How is Manan different from other business growth experts in India?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">Most experts advise and exit. Manan enters and stays. <strong>94% of business owners say their real challenge is not knowledge — it is implementation.</strong> He is the only person in India running a closed implementation cohort where one dedicated Implementer works inside your specific business — maximum 20 founders, no exceptions, ever. He does not motivate. He builds systems, forms habits and enforces discipline until the results are permanent and in writing.</div></div></div>
+    <div class="cat-label">About his work and approach</div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">How is this different from a business coach or consultant?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">A coach asks questions and helps you find answers. A consultant hands over a report and leaves. Neither builds anything inside your business. <strong>Manan assigns a dedicated Implementer who comes into your business every week, builds the systems, enforces the discipline and does not leave until the transformation is real.</strong> The distinction is not a matter of degree — it is a matter of kind.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">What does "he stays until it is done" actually mean?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">It means the engagement does not end at a calendar date. <strong>You may repeat the programme at no additional cost until you give written confirmation that you have recovered your investment.</strong> The only condition — no break between batches. Continuity of habit formation is non-negotiable. This is not a marketing claim. It is a commitment built into every engagement. He has operated this way for 21 years.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">Why does Manan never work with more than 20 founders at a time?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">Customised implementation is structurally impossible in a large group. It cannot happen when an implementer does not know your name, your team, your numbers or your specific structural problems. <strong>Depth requires proximity.</strong> This rule has not changed in 21 years. It will not change.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">What industries has Manan worked across?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">200+ industries — Manufacturing, Trading, Exports, Jewellery, Logistics, Wood and Décor, Healthcare, Education, Real Estate, Technology, Retail Brands, D2C, B2B Services, Professionals, Start-Ups, Freelancers, MSME and SME, Government projects, Family Businesses, Social Enterprises, Not for Profit and Solopreneurs. <strong>Every engagement is customised from scratch.</strong> There is no generic playbook.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">Can I speak to a past participant before applying?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">Yes. During your Cohort Conversation we will connect you with a past participant from a similar industry and turnover range. <strong>We have nothing to hide and everything to demonstrate.</strong> You can also read 100+ named LinkedIn recommendations at bit.ly/MVLinkedInTestimonial and 100+ Google ratings at bit.ly/MVGoogleRatings.</div></div></div>
+    <div class="cat-label">Is this right for me?</div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">I am not sure if I am ready. How do I know?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">Apply for a Cohort Conversation. Manan and his team will evaluate your business, your readiness and your gaps — honestly. <strong>If you are not ready, they will tell you directly</strong> — and tell you what would need to change. You will leave knowing exactly where your business stands structurally, regardless of whether you join.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">What if I am not from Mumbai?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">The programme works entirely remotely for founders outside Mumbai. Group sessions are on Zoom, all sessions are recorded, and your dedicated Implementer works with you weekly on Zoom or Google Meet. <strong>Nothing stops because of geography.</strong></div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">My business is a family business with succession challenges. Can Manan help?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">Yes — and this is one of the most sensitive and consequential engagements Manan undertakes. Succession planning requires navigating <strong>generational transitions, role clarity, authority structures and relationship dynamics</strong> between founders and next-generation leaders simultaneously. Call Manan directly on +91 80970 10410 to discuss your specific situation.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggle(this)"><div class="faq-q-txt">I have attended programmes before and they did not work. Why will this?</div><div class="faq-toggle"></div></div><div class="faq-a"><div class="faq-a-inner">Because in every other programme, implementation was left to you — your willpower, your follow-through, your discipline after the event ended. <strong>Here, your Implementer is inside your business every week.</strong> The programme does not end until habits are formed and results are visible. There is no "on your own." That is the entire design.</div></div></div>
+  </div>
+</section>
+
+<!-- ══ S19 FOOTER ══════════════════════════════════════════════ -->
+<footer>
+  <div class="ft-top">
+    <div><div class="ft-logo">Manan <span>Vasa</span></div><div class="ft-tagline">Business Transformation Architect · Founder, Altus Corp · Mumbai</div><div class="ft-hash">#NoGyaanOnlyGain</div></div>
+    <div><div class="ft-nav-label">Navigate</div><div class="ft-nav-list"><a class="ft-nav-link" href="#story">About &amp; Story</a><a class="ft-nav-link" href="#ways">Ways to Work</a><a class="ft-nav-link" href="#bss">Business Scale-Up Shastra™</a><a class="ft-nav-link" href="#proof">Results</a><a class="ft-nav-link" href="#social-proof">Testimonials</a><a class="ft-nav-link" href="#philosophy">Philosophy</a><a class="ft-nav-link" href="#media">Media &amp; Content</a><a class="ft-nav-link" href="#contact">Contact</a><a class="ft-nav-link" href="#faq">FAQ</a></div></div>
+    <div><div class="ft-cta-label">The next step</div><div class="ft-cta-hed">One conversation.<br><em>That is all it takes to begin.</em></div><div class="ft-cta-btns"><a class="ft-cta-btn" href="https://businessscaleupshastra.com/apply" target="_blank">Apply for BSS →</a><a class="ft-cta-btn" href="https://productivityshastra.com/free" target="_blank">Free orientation →</a></div><div class="ft-cta-note">Application-based · Max 20 founders · No obligation on free orientation</div></div>
+  </div>
+  <div class="ft-mid">
+    <div><div class="ft-contact-label">Contact</div><div class="ft-contact-rows"><div class="ft-contact-row"><div class="fc-key">Manan direct</div><a class="fc-val red" href="tel:+918097010410">+91 80970 10410</a></div><div class="ft-contact-row"><div class="fc-key">Office</div><a class="fc-val" href="tel:+919868698686">+91 98686 98686</a></div><div class="ft-contact-row"><div class="fc-key">Email</div><a class="fc-val" href="mailto:manan@altuscorp.in">manan@altuscorp.in</a></div><div class="ft-contact-row"><div class="fc-key">BSS Apply</div><a class="fc-val red" href="https://businessscaleupshastra.com/apply" target="_blank">businessscaleupshastra.com/apply</a></div><div class="ft-contact-row"><div class="fc-key">Free session</div><a class="fc-val" href="https://productivityshastra.com/free" target="_blank">productivityshastra.com/free</a></div><div class="ft-contact-row"><div class="fc-key">Google</div><a class="fc-val" href="https://bit.ly/MVGoogleRatings" target="_blank">bit.ly/MVGoogleRatings</a></div><div class="ft-contact-row"><div class="fc-key">LinkedIn</div><a class="fc-val" href="https://bit.ly/MVLinkedInTestimonial" target="_blank">bit.ly/MVLinkedInTestimonial</a></div></div></div>
+    <div><div class="ft-social-label">Follow the work</div><div class="ft-social-grid"><a class="ft-soc-item" href="https://www.linkedin.com/in/mananvasa/" target="_blank"><div class="ft-soc-platform">LinkedIn</div><div class="ft-soc-handle">mananvasa</div></a><a class="ft-soc-item" href="https://www.youtube.com/@mananvasa01/videos" target="_blank"><div class="ft-soc-platform">YouTube</div><div class="ft-soc-handle">@mananvasa01</div></a><a class="ft-soc-item" href="https://www.instagram.com/mananvasaofficial/" target="_blank"><div class="ft-soc-platform">Instagram</div><div class="ft-soc-handle">@mananvasaofficial</div></a><a class="ft-soc-item" href="https://www.facebook.com/manan.vasa.1/" target="_blank"><div class="ft-soc-platform">Facebook</div><div class="ft-soc-handle">manan.vasa.1</div></a></div></div>
+  </div>
+  <div class="ft-address"><div class="fa-label">Sacred Space</div><div class="fa-addr">C-6, Ground Floor, Gambhir Estates, Kotkar Road, Goregaon East, Mumbai — 400063 · Altus Corp</div><a class="fa-link" href="https://bit.ly/MVSacredSpace" target="_blank">Open in Maps →</a></div>
+  <div class="ft-bottom"><div class="fb-copy">© 2025 Manan Vasa · Altus Corp · All rights reserved</div><div class="fb-links"><a class="fb-link" href="#">Privacy Policy</a><a class="fb-link" href="#">Terms of Use</a><a class="fb-link" href="#">Refund Policy</a></div><div class="fb-domain">mananvasa.com</div></div>
+</footer>
+
+<script>
+function toggle(el){
+  const item=el.closest('.faq-item');
+  const wasOpen=item.classList.contains('open');
+  document.querySelectorAll('.faq-item.open').forEach(i=>i.classList.remove('open'));
+  if(!wasOpen)item.classList.add('open');
+}
+</script>
+</body>
+</html>
