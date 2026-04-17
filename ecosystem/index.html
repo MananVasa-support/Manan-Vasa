@@ -11,13 +11,14 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   :root {
     --red: #e50000; --red-dark: #b50000; --red-pale: #fff0f0;
     --red-border: rgba(229,0,0,0.2); --black: #0a0a0a; --white: #ffffff;
     --cream: #fafafa; --text-dark: #111; --text-mid: #333; --text-muted: #777;
     --text-light: #aaa; --border: rgba(0,0,0,0.1); --section-bg: #f8f8f8;
   }
-  body { font-family: Arial, sans-serif; background: var(--cream); color: var(--text-dark); min-height: 100vh; }
+  body { font-family: Arial, sans-serif; background: var(--cream); color: var(--text-dark); min-height: 100vh; -webkit-tap-highlight-color: transparent; }
   .page-wrap {
     min-height: 100vh;
     background: linear-gradient(160deg, #0a0a0a 0%, #1a0000 40%, #0a0a0a 100%);
@@ -100,7 +101,7 @@
   }
   textarea { min-height: 85px; resize: vertical; line-height: 1.6; }
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  @media (max-width: 540px) { .two-col { grid-template-columns: 1fr; } }
+  @media (max-width: 480px) { .two-col { grid-template-columns: 1fr; gap: 0; } }
   .mcq-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
   .mcq-opt { display: flex; align-items: center; cursor: pointer; user-select: none; }
   .mcq-opt input[type="radio"] { display: none; }
@@ -181,55 +182,227 @@
   }
   ::placeholder { color: #bbb; }
 
+  /* ===================== RESPONSIVE ===================== */
+
+  /* ===================== RESPONSIVE ===================== */
+
+  /* Tablet landscape / small laptop: 769px – 1024px */
+  @media (max-width: 1024px) {
+    .card { max-width: 700px; }
+  }
+
+  /* Tablet portrait: 641px – 768px */
+  @media (max-width: 768px) {
+    .card { max-width: 100%; border-radius: 18px; }
+    .card-header { padding: 1.8rem 2rem 1.65rem; border-radius: 18px 18px 0 0; }
+    .card-body { padding: 1.6rem 2rem 2.25rem; }
+    .header-title { font-size: 23px; }
+    .header-sub { font-size: 14px; }
+    .header-logo { width: 88px; height: 88px; right: 1.4rem; }
+    .base-section { padding: 1.35rem; }
+    .dyn-card { padding: 1.35rem; }
+    .sub-section { padding: 1.1rem; }
+    .page-wrap { padding: 1.75rem 1rem 3rem; }
+    .submit-row { flex-direction: column; align-items: stretch; gap: 0.75rem; }
+    .submit-btn { width: 100%; text-align: center; padding: 14px; }
+    .submit-note { text-align: center; }
+    .sheets-grid { grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  }
+
+  /* Large phone: 481px – 640px */
+  @media (max-width: 640px) {
+    .page-wrap { padding: 1rem 0.75rem 2.5rem; }
+    .card { border-radius: 16px; }
+    .card-header { padding: 1.4rem 1.25rem 1.3rem; border-radius: 16px 16px 0 0; }
+    .card-body { padding: 1.25rem 1.25rem 1.75rem; }
+    .header-title { font-size: 18px; margin-right: 78px; line-height: 1.25; }
+    .header-sub { font-size: 12.5px; margin-right: 78px; line-height: 1.45; }
+    .header-logo { width: 68px; height: 68px; right: 1rem; top: 50%; }
+    .base-section { padding: 1.1rem; border-radius: 12px; }
+    .dyn-card { padding: 1.1rem; border-radius: 12px; }
+    .sub-section { padding: 0.9rem; }
+    .dyn-label { font-size: 14px; margin-bottom: 1.1rem; }
+    .section-title { font-size: 9px; }
+    .field { margin-bottom: 1rem; }
+    .field-label { font-size: 11px; }
+    input[type="text"], input[type="email"], input[type="date"], input[type="tel"],
+    input[type="number"], input[type="url"], input[type="time"], select, textarea {
+      font-size: 16px; padding: 11px 13px;
+    }
+    select { padding-right: 34px; }
+    .two-col { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .mcq-opt span, .checkbox-opt span { padding: 8px 13px; font-size: 13px; }
+    .sheets-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sheets-panel { padding: 1.1rem 1.1rem 1rem; border-radius: 14px; }
+    .sheets-panel-title { font-size: 9px; }
+    .sheet-btn { font-size: 11px; min-height: 34px; }
+    .another-btn { font-size: 11px; padding: 11px 14px; }
+    .toast { font-size: 13px; padding: 11px 18px; max-width: 88vw; white-space: normal; text-align: center; }
+  }
+
+  /* Standard phone: up to 480px */
+  @media (max-width: 480px) {
+    .page-wrap { padding: 0 0 2rem; }
+    .card { border-radius: 0; box-shadow: none; width: 100%; }
+    .card-header { padding: 1.25rem 1rem 1.15rem; border-radius: 0; }
+    .card-body { padding: 1rem 1rem 1.5rem; }
+    .header-title { font-size: 17px; margin-right: 68px; line-height: 1.25; }
+    .header-sub { font-size: 12px; margin-right: 68px; line-height: 1.4; }
+    .header-logo { width: 58px; height: 58px; right: 0.85rem; }
+    .base-section { padding: 0.95rem; border-radius: 11px; margin-bottom: 0.9rem; }
+    .dyn-card { padding: 0.95rem; border-radius: 11px; margin-bottom: 0.9rem; }
+    .sub-section { padding: 0.8rem; margin-bottom: 0.8rem; }
+    .dyn-label { font-size: 13.5px; margin-bottom: 1rem; padding-bottom: 0.7rem; }
+    .section-title { font-size: 8.5px; letter-spacing: 0.15em; }
+    .section-header { margin-bottom: 1rem; }
+    .field { margin-bottom: 0.9rem; }
+    .field-label { font-size: 10.5px; margin-bottom: 5px; }
+    .field-warning { font-size: 10.5px; }
+    input[type="text"], input[type="email"], input[type="date"], input[type="tel"],
+    input[type="number"], input[type="url"], input[type="time"], select, textarea {
+      font-size: 16px; padding: 12px 12px; border-radius: 9px;
+    }
+    select { padding-right: 34px; background-position: right 11px center; }
+    textarea { min-height: 80px; }
+    .two-col { grid-template-columns: 1fr; gap: 0; }
+    .mcq-group, .checkbox-group { gap: 7px; }
+    .mcq-opt span, .checkbox-opt span { padding: 9px 13px; font-size: 12.5px; border-radius: 25px; }
+    .divider { margin: 1rem 0; }
+    .sub-label { font-size: 8.5px; margin-bottom: 0.85rem; }
+    .submit-row { flex-direction: column; align-items: stretch; gap: 0.65rem; margin-top: 0.25rem; }
+    .submit-btn { width: 100%; padding: 15px; font-size: 14px; border-radius: 10px; text-align: center; }
+    .submit-note { text-align: center; font-size: 11.5px; }
+    /* Sheets panel - single column on phone */
+    .sheets-panel { padding: 1rem 0.9rem 0.9rem; border-radius: 12px; margin-top: 0.9rem; }
+    .sheets-panel::before { width: 140px; height: 140px; top: -40px; right: -40px; }
+    .sheets-panel-title { font-size: 8.5px; letter-spacing: 0.2em; }
+    .sheets-panel-icon { width: 22px; height: 22px; font-size: 11px; }
+    .sheets-grid { grid-template-columns: 1fr; gap: 7px; }
+    .sheets-group { padding: 0.75rem 0.85rem; border-radius: 9px; }
+    .sheets-group-label { font-size: 7.5px; margin-bottom: 0.55rem; padding-bottom: 0.45rem; }
+    .sheets-buttons { gap: 5px; }
+    .sheet-btn { min-height: 38px; font-size: 12px; padding: 0 10px; border-radius: 7px; }
+    .another-btn { padding: 12px 14px; font-size: 11px; border-radius: 9px; }
+    .toast { font-size: 12.5px; padding: 10px 15px; bottom: 14px; max-width: 92vw; white-space: normal; text-align: center; }
+  }
+
+  /* Very small phones: up to 360px */
+  @media (max-width: 360px) {
+    .card-header { padding: 1.1rem 0.85rem 1rem; }
+    .card-body { padding: 0.85rem 0.85rem 1.25rem; }
+    .header-title { font-size: 15px; margin-right: 60px; }
+    .header-sub { font-size: 11px; margin-right: 60px; }
+    .header-logo { width: 50px; height: 50px; right: 0.75rem; }
+    .base-section, .dyn-card { padding: 0.8rem; }
+    .sub-section { padding: 0.7rem; }
+    .mcq-opt span, .checkbox-opt span { padding: 8px 10px; font-size: 12px; }
+    .field-label { font-size: 10px; }
+    input[type="text"], input[type="email"], input[type="date"], input[type="tel"],
+    input[type="number"], input[type="url"], input[type="time"], select, textarea {
+      font-size: 15px; padding: 11px 11px;
+    }
+    .sheet-btn { font-size: 11.5px; }
+    .sheets-panel { padding: 0.85rem 0.8rem 0.8rem; }
+  }
+
   /* RESPONSE SHEETS PANEL */
   .sheets-panel {
     display: none;
-    background: var(--white);
-    border: 1px solid var(--border);
-    border-top: 3px solid var(--red);
-    border-radius: 14px;
-    padding: 1.6rem;
+    background: linear-gradient(160deg, #0e0e0e 0%, #1a0000 60%, #0e0e0e 100%);
+    border-radius: 16px;
+    padding: 1.5rem 1.5rem 1.25rem;
     margin-top: 1.25rem;
-    animation: slideIn 0.3s ease;
+    animation: slideIn 0.35s cubic-bezier(0.22,1,0.36,1);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(229,0,0,0.18);
+    position: relative; overflow: hidden;
+  }
+  .sheets-panel::before {
+    content: ''; position: absolute; top: -60px; right: -60px;
+    width: 220px; height: 220px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(229,0,0,0.12) 0%, transparent 70%);
+    pointer-events: none;
   }
   .sheets-panel.visible { display: block; }
+  .sheets-panel-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 1.2rem;
+  }
+  .sheets-panel-icon {
+    width: 26px; height: 26px; border-radius: 7px;
+    background: rgba(229,0,0,0.15); border: 1px solid rgba(229,0,0,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; flex-shrink: 0;
+  }
   .sheets-panel-title {
-    font-size: 13px; font-weight: 700; letter-spacing: 0.15em;
-    text-transform: uppercase; color: var(--red);
-    margin-bottom: 1.25rem; text-align: center;
+    font-size: 10px; font-weight: 800; letter-spacing: 0.25em;
+    text-transform: uppercase; color: rgba(255,255,255,0.85);
+    flex: 1;
   }
-  .sheets-group { margin-bottom: 1.1rem; }
+  .sheets-panel-divider-line {
+    flex: 1; height: 1px;
+    background: linear-gradient(90deg, rgba(229,0,0,0.35), transparent);
+  }
+  .sheets-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 1.1rem;
+    align-items: stretch;
+  }
+  @media (max-width: 600px) { .sheets-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 400px) { .sheets-grid { grid-template-columns: 1fr; } }
+  .sheets-group {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-top: 2px solid var(--red);
+    border-radius: 11px;
+    padding: 0.85rem 0.9rem;
+    display: flex; flex-direction: column;
+  }
   .sheets-group-label {
-    font-size: 10px; font-weight: 700; letter-spacing: 0.15em;
-    text-transform: uppercase; color: var(--text-muted);
-    margin-bottom: 0.6rem;
+    font-size: 8px; font-weight: 800; letter-spacing: 0.25em;
+    text-transform: uppercase; color: var(--red);
+    margin-bottom: 0.65rem; padding-bottom: 0.55rem;
+    border-bottom: 1px solid rgba(229,0,0,0.15);
   }
-  .sheets-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+  .sheets-buttons {
+    display: flex; flex-direction: column; gap: 6px; flex: 1;
+  }
   .sheet-btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 8px 16px;
-    background: var(--section-bg);
-    border: 1.5px solid var(--border);
-    border-radius: 8px;
-    font-family: Arial, sans-serif; font-size: 12px; font-weight: 700;
-    color: var(--text-mid); text-decoration: none;
-    transition: all 0.15s; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 7px;
+    font-family: Arial, sans-serif; font-size: 11px; font-weight: 600;
+    color: rgba(255,255,255,0.72); text-decoration: none;
+    transition: all 0.18s ease; cursor: pointer; width: 100%;
+    box-sizing: border-box; flex: 1; min-height: 32px;
   }
   .sheet-btn:hover {
-    border-color: var(--red); color: var(--red);
-    background: var(--red-pale);
+    background: rgba(229,0,0,0.18);
+    border-color: rgba(229,0,0,0.45);
+    color: #fff; transform: translateX(2px);
   }
-  .sheet-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .sheet-btn svg { width: 11px; height: 11px; flex-shrink: 0; opacity: 0.6; }
+  .sheet-btn:hover svg { opacity: 1; }
+  .sheet-btn-text { flex: 1; }
+  .sheet-btn-arrow { font-size: 10px; opacity: 0; transition: opacity 0.18s, transform 0.18s; color: var(--red); }
+  .sheet-btn:hover .sheet-btn-arrow { opacity: 1; transform: translateX(2px); }
   .another-btn {
-    display: block; width: 100%; margin-top: 1.25rem;
-    padding: 11px; text-align: center;
-    background: var(--black); color: #fff;
-    border: none; border-radius: 10px;
-    font-family: Arial, sans-serif; font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 11px 20px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.13);
+    border-radius: 10px;
+    font-family: Arial, sans-serif; font-size: 11.5px; font-weight: 700;
+    color: rgba(255,255,255,0.6);
     cursor: pointer; transition: all 0.2s;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.1em; text-transform: uppercase;
   }
-  .another-btn:hover { background: #222; transform: translateY(-1px); }
+  .another-btn:hover {
+    border-color: rgba(229,0,0,0.5);
+    color: #fff; background: rgba(229,0,0,0.1);
+  }
 </style>
 </head>
 <body>
@@ -257,11 +430,13 @@
               <option value="">— Select —</option>
               <option>Manan Vasa</option>
               <option>Angad Raj</option>
+              <option>Dattaram Kap</option>
               <option>Devraj Kadam</option>
               <option>Dhanashree Solkar</option>
               <option>Himanshu Lad</option>
               <option>Jeevan Bharambe</option>
               <option>Kushagra Singh</option>
+              <option>Parvez Khan</option>
               <option>Prakash Kumawat</option>
               <option>Rohan Choudhary</option>
               <option>Ruchita Ambre</option>
@@ -332,11 +507,13 @@
               <option value="">— Select —</option>
               <option>Manan Vasa</option>
               <option>Angad Raj</option>
+              <option>Dattaram Kap</option>
               <option>Devraj Kadam</option>
               <option>Dhanashree Solkar</option>
               <option>Himanshu Lad</option>
               <option>Jeevan Bharambe</option>
               <option>Kushagra Singh</option>
+              <option>Parvez Khan</option>
               <option>Prakash Kumawat</option>
               <option>Rohan Choudhary</option>
               <option>Ruchita Ambre</option>
@@ -356,11 +533,13 @@
               <option value="">— Select —</option>
               <option>Manan Vasa</option>
               <option>Angad Raj</option>
+              <option>Dattaram Kap</option>
               <option>Devraj Kadam</option>
               <option>Dhanashree Solkar</option>
               <option>Himanshu Lad</option>
               <option>Jeevan Bharambe</option>
               <option>Kushagra Singh</option>
+              <option>Parvez Khan</option>
               <option>Prakash Kumawat</option>
               <option>Rohan Choudhary</option>
               <option>Ruchita Ambre</option>
@@ -716,11 +895,13 @@
               <option value="">— Select —</option>
               <option>Manan Vasa</option>
               <option>Angad Raj</option>
+              <option>Dattaram Kap</option>
               <option>Devraj Kadam</option>
               <option>Dhanashree Solkar</option>
               <option>Himanshu Lad</option>
               <option>Jeevan Bharambe</option>
               <option>Kushagra Singh</option>
+              <option>Parvez Khan</option>
               <option>Prakash Kumawat</option>
               <option>Rohan Choudhary</option>
               <option>Ruchita Ambre</option>
@@ -730,11 +911,13 @@
               <option value="">— Select —</option>
               <option>Manan Vasa</option>
               <option>Angad Raj</option>
+              <option>Dattaram Kap</option>
               <option>Devraj Kadam</option>
               <option>Dhanashree Solkar</option>
               <option>Himanshu Lad</option>
               <option>Jeevan Bharambe</option>
               <option>Kushagra Singh</option>
+              <option>Parvez Khan</option>
               <option>Prakash Kumawat</option>
               <option>Rohan Choudhary</option>
               <option>Ruchita Ambre</option>
@@ -779,75 +962,47 @@
 
     <!-- RESPONSE SHEETS PANEL -->
     <div class="sheets-panel" id="sheets-panel">
-      <div class="sheets-panel-title">📊 Response Sheets</div>
-
-      <div class="sheets-group">
-        <div class="sheets-group-label">Assign Work</div>
-        <div class="sheets-buttons">
-          <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1AaWqlMMfziX9X22FfMRbwXKaTpHNzULXq7_KOMYZGpg/edit?gid=906418594#gid=906418594" target="_blank">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            For Employees
-          </a>
-          <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1Bu7SL7z-xVn_uoct_mvgc5mhcwp57pz6Riy-lSXfP5Q/edit?gid=906418594#gid=906418594" target="_blank">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            For Interns
-          </a>
-        </div>
+      <div class="sheets-panel-header">
+        <div class="sheets-panel-icon">📊</div>
+        <div class="sheets-panel-title">Response Sheets</div>
+        <div class="sheets-panel-divider-line"></div>
       </div>
 
-      <div class="sheets-group">
-        <div class="sheets-group-label">Incentive Request</div>
-        <div class="sheets-buttons">
-          <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=333455777#gid=333455777" target="_blank">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            BSS Conversion
-          </a>
-          <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=1270608034#gid=1270608034" target="_blank">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            Sales Pitch
-          </a>
-          <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=1801595286#gid=1801595286" target="_blank">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            Client Happiness
-          </a>
-          <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=1554978492#gid=1554978492" target="_blank">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            Group Introduction
-          </a>
+      <div class="sheets-grid">
+
+        <div class="sheets-group">
+          <div class="sheets-group-label">Assign Work</div>
+          <div class="sheets-buttons">
+            <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1AaWqlMMfziX9X22FfMRbwXKaTpHNzULXq7_KOMYZGpg/edit?gid=906418594#gid=906418594" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="sheet-btn-text">To Employees</span><span class="sheet-btn-arrow">›</span></a>
+            <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1Bu7SL7z-xVn_uoct_mvgc5mhcwp57pz6Riy-lSXfP5Q/edit?gid=906418594#gid=906418594" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="sheet-btn-text">To Interns</span><span class="sheet-btn-arrow">›</span></a>
+            <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1QJJKDoD0i8dZA4kxhLuwlm8LVqGgMpyvfbW1Ljeuf8Q/edit?gid=906418594#gid=906418594" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="sheet-btn-text">Assign Project</span><span class="sheet-btn-arrow">›</span></a>
+          </div>
         </div>
+
+        <div class="sheets-group">
+          <div class="sheets-group-label">Incentive Request</div>
+          <div class="sheets-buttons">
+            <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=333455777#gid=333455777" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="sheet-btn-text">BSS Conversion</span><span class="sheet-btn-arrow">›</span></a>
+            <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=1270608034#gid=1270608034" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="sheet-btn-text">Sales Pitch</span><span class="sheet-btn-arrow">›</span></a>
+            <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=1801595286#gid=1801595286" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="sheet-btn-text">Client Happiness</span><span class="sheet-btn-arrow">›</span></a>
+            <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=1554978492#gid=1554978492" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="sheet-btn-text">Group Introduction</span><span class="sheet-btn-arrow">›</span></a>
+          </div>
+        </div>
+
+        <div class="sheets-group">
+          <div class="sheets-group-label">Other Forms</div>
+          <div class="sheets-buttons">
+            <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/18tS_p6mLg0WbvaueP-kait2JqUvcAqHnQBCpzYcSKhg/edit?gid=1936365329#gid=1936365329" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="sheet-btn-text">Record Reference</span><span class="sheet-btn-arrow">›</span></a>
+            <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=1911765012#gid=1911765012" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="sheet-btn-text">Participant Breakthrough</span><span class="sheet-btn-arrow">›</span></a>
+            <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=53147249#gid=53147249" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="sheet-btn-text">Apply For Leave</span><span class="sheet-btn-arrow">›</span></a>
+            <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=1436581589#gid=1436581589" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="sheet-btn-text">Claim Reimbursement</span><span class="sheet-btn-arrow">›</span></a>
+            <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=1813172243#gid=1813172243" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="sheet-btn-text">Late Mark</span><span class="sheet-btn-arrow">›</span></a>
+          </div>
+        </div>
+
       </div>
 
-      <div class="sheets-group">
-        <div class="sheets-group-label">Other Forms</div>
-        <div class="sheets-buttons">
-          <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/18tS_p6mLg0WbvaueP-kait2JqUvcAqHnQBCpzYcSKhg/edit?gid=1936365329#gid=1936365329" target="_blank">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            Record Reference Received
-          </a>
-          <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=1911765012#gid=1911765012" target="_blank">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            Participant Breakthrough
-          </a>
-          <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=53147249#gid=53147249" target="_blank">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            Apply For Leave
-          </a>
-          <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=1436581589#gid=1436581589" target="_blank">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            Claim Reimbursement
-          </a>
-          <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1QJJKDoD0i8dZA4kxhLuwlm8LVqGgMpyvfbW1Ljeuf8Q/edit?gid=906418594#gid=906418594" target="_blank">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            Assign Project
-          </a>
-          <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=1813172243#gid=1813172243" target="_blank">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            Late Mark
-          </a>
-        </div>
-      </div>
-
-      <button class="another-btn" onclick="submitAnother()">+ Submit Another Response</button>
+      <button class="another-btn" onclick="submitAnother()">↩ &nbsp;Submit Another Response</button>
     </div>
 
   </div>
@@ -967,7 +1122,9 @@
 
   function submitAnother() {
     document.getElementById('sheets-panel').classList.remove('visible');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    window.scrollTo(0, 0);
   }
 
   async function handleSubmit() {
@@ -1016,7 +1173,7 @@
         btn.disabled=false; btn.textContent='Submit';
         // Show response sheets panel
         document.getElementById('sheets-panel').classList.add('visible');
-        document.getElementById('sheets-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById('sheets-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 2000);
     } catch(err) {
       showToast('Something went wrong. Please try again.', 'error');
