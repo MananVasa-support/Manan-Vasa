@@ -1160,7 +1160,7 @@
       'Subject': subj,
     };
     if (subj==='assign-work') Object.assign(params,{'Subject of Work':gv('aw-subject'),'Client/Participant Name':gv('aw-client'),'Task Initiator':gv('aw-initiator'),'Task Doer':gv('aw-doer'),'Task':gv('aw-task'),'Due Date':gv('aw-due'),'Initiator Notes':gv('aw-notes'),'Attachment 1':gv('aw-att1'),'Attachment 2':gv('aw-att2')});
-    if (subj==='attendance') Object.assign(params,{'Date':gv('att-date'),'In/Out':gr('att-type'),'Notes/Reasons':gv('att-notes')});
+    if (subj==='attendance') Object.assign(params,{'Date':gv('att-date'),'In Time / Out Time':gr('att-type'),'Notes / Reasons':gv('att-notes')});
     if (subj==='incentive') {
       params['Incentive Name'] = {'bss':'BSS Conversion','sales-pitch':'Sales Pitch','client-happiness':'Client Happiness','group-intro':'Group Introduction'}[inc] || inc;
       if (inc==='bss') Object.assign(params,{'Participant First Name':gv('bss-fn'),'Participant Last Name':gv('bss-ln'),'Workshop Name':gv('bss-workshop'),'Batch No':gv('bss-batch'),'BSS Conversion':gv('bss-conv-select'),'Prospect First Name':gv('bss-pfn'),'Prospect Last Name':gv('bss-pln'),'Cell No':gv('bss-pcell'),'Email':gv('bss-pemail'),'Organisation':gv('bss-porg')});
