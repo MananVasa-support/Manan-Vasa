@@ -423,38 +423,31 @@
     <!-- BASE SECTION -->
     <div class="base-section">
       <div class="section-header"><div class="section-dot"></div><div class="section-title">Basic Information</div></div>
-      <div class="two-col">
-        <div class="field">
-          <label class="field-label">Enter Your Name <span class="req">*</span></label>
-          <select id="f-name">
-              <option value="">— Select —</option>
-              <option>Manan Vasa</option>
-              <option>Angad Raj</option>
-              <option>Dattaram Kap</option>
-              <option>Devraj Kadam</option>
-              <option>Dhanashree Solkar</option>
-              <option>Himanshu Lad</option>
-              <option>Jeevan Bharambe</option>
-              <option>Kushagra Singh</option>
-              <option>Parvez Khan</option>
-              <option>Prakash Kumawat</option>
-              <option>Rohan Choudhary</option>
-              <option>Ruchita Ambre</option>
-              <option>Rutvisha Mehta</option>
-              <option>Siddhesh Walve</option>
-              <option>Alifeyah Anverali ( Intern - Rohan C )</option>
-              <option>Dhruv Jhaveri ( Intern - Jeevan )</option>
-              <option>Kshitija Sonavane ( Intern - Ruchita )</option>
-              <option>Mishtie Kanani ( Intern - Rohan C )</option>
-              <option>Rohit Dahedar ( Intern - Rutvisha )</option>
-              <option>Rohan Sawant ( Intern - Devraj )</option></select>
-          <div class="field-warning" id="warn-fname">Please select your name.</div>
-        </div>
-        <div class="field">
-          <label class="field-label">Date <span class="req">*</span></label>
-          <input type="date" id="f-date"/>
-          <div class="field-warning" id="warn-date">Please select a date.</div>
-        </div>
+      <div class="field">
+        <label class="field-label">Enter Your Name <span class="req">*</span></label>
+        <select id="f-name">
+            <option value="">— Select —</option>
+            <option>Manan Vasa</option>
+            <option>Angad Raj</option>
+            <option>Dattaram Kap</option>
+            <option>Devraj Kadam</option>
+            <option>Dhanashree Solkar</option>
+            <option>Himanshu Lad</option>
+            <option>Jeevan Bharambe</option>
+            <option>Kushagra Singh</option>
+            <option>Parvez Khan</option>
+            <option>Prakash Kumawat</option>
+            <option>Rohan Choudhary</option>
+            <option>Ruchita Ambre</option>
+            <option>Rutvisha Mehta</option>
+            <option>Siddhesh Walve</option>
+            <option>Alifeyah Anverali ( Intern - Rohan C )</option>
+            <option>Dhruv Jhaveri ( Intern - Jeevan )</option>
+            <option>Kshitija Sonavane ( Intern - Ruchita )</option>
+            <option>Mishtie Kanani ( Intern - Rohan C )</option>
+            <option>Rohit Dahedar ( Intern - Rutvisha )</option>
+            <option>Rohan Sawant ( Intern - Devraj )</option></select>
+        <div class="field-warning" id="warn-fname">Please select your name.</div>
       </div>
       <div class="divider"></div>
       <div class="field" style="margin-bottom:0">
@@ -462,6 +455,8 @@
         <select id="f-subject">
           <option value="">— Select Subject —</option>
           <option value="assign-work">Assign Work</option>
+          <option value="attendance">Employee Attendance Form</option>
+          <option value="wfh">Work From Home</option>
           <option value="incentive">Incentive Request</option>
           <option value="record-ref">Record Reference Received</option>
           <option value="breakthrough">Participant Breakthrough</option>
@@ -558,6 +553,36 @@
       <div class="field"><label class="field-label">Initiator Notes</label><textarea id="aw-notes" placeholder="Add notes..."></textarea></div>
       <div class="field"><label class="field-label">Attachment 1</label><input type="url" id="aw-att1" placeholder="Paste link or Google Drive URL"/></div>
       <div class="field" style="margin-bottom:0"><label class="field-label">Attachment 2</label><input type="url" id="aw-att2" placeholder="Paste link or Google Drive URL"/></div>
+    </div>
+
+    <!-- EMPLOYEE ATTENDANCE FORM -->
+    <div class="dynamic-section dyn-card" id="sec-attendance">
+      <div class="dyn-label">Employee Attendance Form</div>
+      <div class="field"><label class="field-label">Date <span class="req">*</span></label><input type="date" id="att-date"/><div class="field-warning" id="warn-att-date">Required.</div></div>
+      <div class="field">
+        <label class="field-label">In Time / Out Time <span class="req">*</span></label>
+        <div class="mcq-group">
+          <label class="mcq-opt"><input type="radio" name="att-type" value="In Time"/><span>In Time</span></label>
+          <label class="mcq-opt"><input type="radio" name="att-type" value="Out Time"/><span>Out Time</span></label>
+        </div>
+        <div class="field-warning" id="warn-att-type">Required.</div>
+      </div>
+      <div class="field" style="margin-bottom:0"><label class="field-label">Notes / Reasons</label><textarea id="att-notes" placeholder="Add any notes or reasons..."></textarea></div>
+    </div>
+
+    <!-- WORK FROM HOME -->
+    <div class="dynamic-section dyn-card" id="sec-wfh">
+      <div class="dyn-label">Work From Home</div>
+      <div class="field"><label class="field-label">Date <span class="req">*</span></label><input type="date" id="wfh-date"/><div class="field-warning" id="warn-wfh-date">Required.</div></div>
+      <div class="field">
+        <label class="field-label">In Time / Out Time <span class="req">*</span></label>
+        <div class="mcq-group">
+          <label class="mcq-opt"><input type="radio" name="wfh-type" value="In Time"/><span>In Time</span></label>
+          <label class="mcq-opt"><input type="radio" name="wfh-type" value="Out Time"/><span>Out Time</span></label>
+        </div>
+        <div class="field-warning" id="warn-wfh-type">Required.</div>
+      </div>
+      <div class="field" style="margin-bottom:0"><label class="field-label">Notes / Reasons</label><textarea id="wfh-notes" placeholder="Add any notes or reasons..."></textarea></div>
     </div>
 
     <!-- INCENTIVE REQUEST -->
@@ -951,6 +976,7 @@
     <!-- LATE MARK -->
     <div class="dynamic-section dyn-card" id="sec-late-mark">
       <div class="dyn-label">Late Mark Form</div>
+      <div class="field"><label class="field-label">Date <span class="req">*</span></label><input type="date" id="lm-date"/><div class="field-warning" id="warn-lm-date">Required.</div></div>
       <div class="field"><label class="field-label">Time of Arrival <span class="req">*</span></label><input type="time" id="lm-time"/><div class="field-warning" id="warn-lm-time">Required.</div></div>
       <div class="field" style="margin-bottom:0"><label class="field-label">Notes</label><textarea id="lm-notes" placeholder="Add any notes..."></textarea></div>
     </div>
@@ -1012,7 +1038,8 @@
 
 <script>
   const subjectMap = {
-    'assign-work':'sec-assign-work','incentive':'sec-incentive',
+    'assign-work':'sec-assign-work','attendance':'sec-attendance','wfh':'sec-wfh',
+    'incentive':'sec-incentive',
     'record-ref':'sec-record-ref','breakthrough':'sec-breakthrough',
     'leave':'sec-leave','reimbursement':'sec-reimbursement',
     'assign-project':'sec-assign-project','late-mark':'sec-late-mark'
@@ -1069,12 +1096,19 @@
   function validate() {
     clearAll(); let ok = true;
     if (!gv('f-name')) { mi('f-name','warn-fname'); ok=false; }
-    if (!gv('f-date')) { mi('f-date','warn-date'); ok=false; }
     const subj = gv('f-subject');
     if (!subj) { mi('f-subject','warn-subject'); ok=false; }
 
     if (subj === 'assign-work') {
       ['aw-subject','aw-client','aw-initiator','aw-doer','aw-task','aw-due'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
+    }
+    if (subj === 'attendance') {
+      if (!gv('att-date')) { mi('att-date','warn-att-date'); ok=false; }
+      if (!gr('att-type')) { document.getElementById('warn-att-type').classList.add('show'); ok=false; }
+    }
+    if (subj === 'wfh') {
+      if (!gv('wfh-date')) { mi('wfh-date','warn-wfh-date'); ok=false; }
+      if (!gr('wfh-type')) { document.getElementById('warn-wfh-type').classList.add('show'); ok=false; }
     }
     if (subj === 'incentive') {
       const inc = gv('incentive-name');
@@ -1113,6 +1147,7 @@
       if (!gcb('ap-intern')) { document.getElementById('warn-ap-intern').classList.add('show'); ok=false; }
     }
     if (subj === 'late-mark') {
+      if (!gv('lm-date')) { mi('lm-date','warn-lm-date'); ok=false; }
       if (!gv('lm-time')) { mi('lm-time','warn-lm-time'); ok=false; }
     }
     return ok;
@@ -1141,10 +1176,11 @@
     const params = {
       'Timestamp': new Date().toLocaleString('en-IN'),
       'Employee Full Name': gv('f-name'),
-      'Date': gv('f-date'),
       'Subject': subj,
     };
     if (subj==='assign-work') Object.assign(params,{'Subject of Work':gv('aw-subject'),'Client/Participant Name':gv('aw-client'),'Task Initiator':gv('aw-initiator'),'Task Doer':gv('aw-doer'),'Task':gv('aw-task'),'Due Date':gv('aw-due'),'Initiator Notes':gv('aw-notes'),'Attachment 1':gv('aw-att1'),'Attachment 2':gv('aw-att2')});
+    if (subj==='attendance') Object.assign(params,{'Date':gv('att-date'),'In/Out':gr('att-type'),'Notes/Reasons':gv('att-notes')});
+    if (subj==='wfh') Object.assign(params,{'Date':gv('wfh-date'),'In/Out':gr('wfh-type'),'Notes/Reasons':gv('wfh-notes')});
     if (subj==='incentive') {
       params['Incentive Name'] = {'bss':'BSS Conversion','sales-pitch':'Sales Pitch','client-happiness':'Client Happiness','group-intro':'Group Introduction'}[inc] || inc;
       if (inc==='bss') Object.assign(params,{'Participant First Name':gv('bss-fn'),'Participant Last Name':gv('bss-ln'),'Workshop Name':gv('bss-workshop'),'Batch No':gv('bss-batch'),'BSS Conversion':gv('bss-conv-select'),'Prospect First Name':gv('bss-pfn'),'Prospect Last Name':gv('bss-pln'),'Cell No':gv('bss-pcell'),'Email':gv('bss-pemail'),'Organisation':gv('bss-porg')});
@@ -1157,7 +1193,7 @@
     if (subj==='leave') Object.assign(params,{'Leave Category':gv('lv-cat'),'Leave Start Date':gv('lv-start'),'Leave End Date':gv('lv-end'),'Half Day/Full Day':gv('lv-daytype'),'Leave Description':gv('lv-desc'),'Avail Leave Credit':gv('lv-credit'),'Available on Phone':gv('lv-phone'),'Carrying Phone':gv('lv-carrphone'),'Carrying Laptop':gv('lv-laptop')});
     if (subj==='reimbursement') Object.assign(params,{'Nature of Expense':gv('re-nature'),'Amount':gv('re-amount'),'Name of Person Paid To':gv('re-party'),'Invoice Received':gv('re-invoice'),'Attachment':gv('re-att'),'Notes':gv('re-notes')});
     if (subj==='assign-project') Object.assign(params,{'Project Subject':gv('ap-subject'),'Project Name':gv('ap-name'),'Project Initiator':gv('ap-initiator'),'Project Supervisor/Executor':gv('ap-supervisor'),'Intern':gcb('ap-intern'),'Project Details':gv('ap-details'),'Due Date':gv('ap-due'),'Incentive':gv('ap-incentive'),'Incentive Amount':gv('ap-incentive-amt'),'Initiator Notes':gv('ap-notes'),'Attachment 1':gv('ap-att1'),'Attachment 2':gv('ap-att2')});
-    if (subj==='late-mark') Object.assign(params,{'Time of Arrival':gv('lm-time'),'Notes':gv('lm-notes')});
+    if (subj==='late-mark') Object.assign(params,{'Date':gv('lm-date'),'Time of Arrival':gv('lm-time'),'Notes':gv('lm-notes')});
 
     const qs = Object.entries(params).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
     try {
