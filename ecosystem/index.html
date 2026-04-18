@@ -456,7 +456,6 @@
           <option value="">— Select Subject —</option>
           <option value="assign-work">Assign Work</option>
           <option value="attendance">Employee Attendance Form</option>
-          <option value="wfh">Work From Home</option>
           <option value="incentive">Incentive Request</option>
           <option value="record-ref">Record Reference Received</option>
           <option value="breakthrough">Participant Breakthrough</option>
@@ -570,20 +569,6 @@
       <div class="field" style="margin-bottom:0"><label class="field-label">Notes / Reasons</label><textarea id="att-notes" placeholder="Add any notes or reasons..."></textarea></div>
     </div>
 
-    <!-- WORK FROM HOME -->
-    <div class="dynamic-section dyn-card" id="sec-wfh">
-      <div class="dyn-label">Work From Home</div>
-      <div class="field"><label class="field-label">Date <span class="req">*</span></label><input type="date" id="wfh-date"/><div class="field-warning" id="warn-wfh-date">Required.</div></div>
-      <div class="field">
-        <label class="field-label">In Time / Out Time <span class="req">*</span></label>
-        <div class="mcq-group">
-          <label class="mcq-opt"><input type="radio" name="wfh-type" value="In Time"/><span>In Time</span></label>
-          <label class="mcq-opt"><input type="radio" name="wfh-type" value="Out Time"/><span>Out Time</span></label>
-        </div>
-        <div class="field-warning" id="warn-wfh-type">Required.</div>
-      </div>
-      <div class="field" style="margin-bottom:0"><label class="field-label">Notes / Reasons</label><textarea id="wfh-notes" placeholder="Add any notes or reasons..."></textarea></div>
-    </div>
 
     <!-- INCENTIVE REQUEST -->
     <div class="dynamic-section" id="sec-incentive">
@@ -1038,7 +1023,7 @@
 
 <script>
   const subjectMap = {
-    'assign-work':'sec-assign-work','attendance':'sec-attendance','wfh':'sec-wfh',
+    'assign-work':'sec-assign-work','attendance':'sec-attendance',
     'incentive':'sec-incentive',
     'record-ref':'sec-record-ref','breakthrough':'sec-breakthrough',
     'leave':'sec-leave','reimbursement':'sec-reimbursement',
@@ -1105,10 +1090,6 @@
     if (subj === 'attendance') {
       if (!gv('att-date')) { mi('att-date','warn-att-date'); ok=false; }
       if (!gr('att-type')) { document.getElementById('warn-att-type').classList.add('show'); ok=false; }
-    }
-    if (subj === 'wfh') {
-      if (!gv('wfh-date')) { mi('wfh-date','warn-wfh-date'); ok=false; }
-      if (!gr('wfh-type')) { document.getElementById('warn-wfh-type').classList.add('show'); ok=false; }
     }
     if (subj === 'incentive') {
       const inc = gv('incentive-name');
@@ -1180,7 +1161,6 @@
     };
     if (subj==='assign-work') Object.assign(params,{'Subject of Work':gv('aw-subject'),'Client/Participant Name':gv('aw-client'),'Task Initiator':gv('aw-initiator'),'Task Doer':gv('aw-doer'),'Task':gv('aw-task'),'Due Date':gv('aw-due'),'Initiator Notes':gv('aw-notes'),'Attachment 1':gv('aw-att1'),'Attachment 2':gv('aw-att2')});
     if (subj==='attendance') Object.assign(params,{'Date':gv('att-date'),'In/Out':gr('att-type'),'Notes/Reasons':gv('att-notes')});
-    if (subj==='wfh') Object.assign(params,{'Date':gv('wfh-date'),'In/Out':gr('wfh-type'),'Notes/Reasons':gv('wfh-notes')});
     if (subj==='incentive') {
       params['Incentive Name'] = {'bss':'BSS Conversion','sales-pitch':'Sales Pitch','client-happiness':'Client Happiness','group-intro':'Group Introduction'}[inc] || inc;
       if (inc==='bss') Object.assign(params,{'Participant First Name':gv('bss-fn'),'Participant Last Name':gv('bss-ln'),'Workshop Name':gv('bss-workshop'),'Batch No':gv('bss-batch'),'BSS Conversion':gv('bss-conv-select'),'Prospect First Name':gv('bss-pfn'),'Prospect Last Name':gv('bss-pln'),'Cell No':gv('bss-pcell'),'Email':gv('bss-pemail'),'Organisation':gv('bss-porg')});
