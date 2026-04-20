@@ -333,7 +333,7 @@
     font-size: 13px; flex-shrink: 0;
   }
   .sheets-panel-title {
-    font-size: 10px; font-weight: 800; letter-spacing: 0.25em;
+    font-size: 13px; font-weight: 800; letter-spacing: 0.25em;
     text-transform: uppercase; color: rgba(255,255,255,0.85);
     flex: 1;
   }
@@ -359,7 +359,7 @@
     display: flex; flex-direction: column;
   }
   .sheets-group-label {
-    font-size: 8px; font-weight: 800; letter-spacing: 0.25em;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.25em;
     text-transform: uppercase; color: var(--red);
     margin-bottom: 0.65rem; padding-bottom: 0.55rem;
     border-bottom: 1px solid rgba(229,0,0,0.15);
@@ -373,20 +373,20 @@
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.09);
     border-radius: 7px;
-    font-family: Arial, sans-serif; font-size: 11px; font-weight: 600;
+    font-family: Arial, sans-serif; font-size: 13px; font-weight: 600;
     color: rgba(255,255,255,0.72); text-decoration: none;
     transition: all 0.18s ease; cursor: pointer; width: 100%;
-    box-sizing: border-box; flex: 1; min-height: 32px;
+    box-sizing: border-box; flex: 1; min-height: 38px;
   }
   .sheet-btn:hover {
     background: rgba(229,0,0,0.18);
     border-color: rgba(229,0,0,0.45);
     color: #fff; transform: translateX(2px);
   }
-  .sheet-btn svg { width: 11px; height: 11px; flex-shrink: 0; opacity: 0.6; }
+  .sheet-btn svg { width: 13px; height: 13px; flex-shrink: 0; opacity: 0.6; }
   .sheet-btn:hover svg { opacity: 1; }
   .sheet-btn-text { flex: 1; }
-  .sheet-btn-arrow { font-size: 10px; opacity: 0; transition: opacity 0.18s, transform 0.18s; color: var(--red); }
+  .sheet-btn-arrow { font-size: 12px; opacity: 0; transition: opacity 0.18s, transform 0.18s; color: var(--red); }
   .sheet-btn:hover .sheet-btn-arrow { opacity: 1; transform: translateX(2px); }
   .another-btn {
     display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -394,7 +394,7 @@
     background: transparent;
     border: 1px solid rgba(255,255,255,0.13);
     border-radius: 10px;
-    font-family: Arial, sans-serif; font-size: 11.5px; font-weight: 700;
+    font-family: Arial, sans-serif; font-size: 13.5px; font-weight: 700;
     color: rgba(255,255,255,0.6);
     cursor: pointer; transition: all 0.2s;
     letter-spacing: 0.1em; text-transform: uppercase;
@@ -1011,6 +1011,16 @@
           </div>
         </div>
 
+      </div>
+
+      <div style="margin-bottom: 1.1rem;">
+        <div class="sheets-group">
+          <div class="sheets-group-label">Attendance</div>
+          <div class="sheets-buttons" style="flex-direction: row; gap: 8px;">
+            <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=623006241#gid=623006241" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="sheet-btn-text">Attendance Sheet</span><span class="sheet-btn-arrow">›</span></a>
+            <a class="sheet-btn" href="https://mananvasa.com/attendance/" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg><span class="sheet-btn-text">Attendance Dashboard</span><span class="sheet-btn-arrow">›</span></a>
+          </div>
+        </div>
       </div>
 
       <button class="another-btn" onclick="submitAnother()">↩ &nbsp;Submit Another Response</button>
