@@ -176,16 +176,7 @@ td.dim { color: var(--muted); font-family: var(--mono); font-size: 12px; }
   </div>
 
   <div class="content" style="margin-top:1.5rem;">
-    <div class="config-banner" id="config-banner">
-      ⚠️ <div>
-        <strong>Setup required:</strong> Paste your Apps Script URL and click Save.
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
-          <input type="text" id="url-input" placeholder="https://script.google.com/macros/s/..."
-            style="flex:1;min-width:260px;padding:8px 12px;border:1.5px solid #fbbf24;border-radius:8px;font-size:12px;font-family:monospace;outline:none;background:#fffbeb;color:#111;"/>
-          <button onclick="saveUrl()" style="background:#e50000;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-size:13px;cursor:pointer;">Save & Load</button>
-        </div>
-      </div>
-    </div>
+<div class="config-banner" id="config-banner" style="display:none;"></div>
   </div>
 
   <div class="tabs-bar">
@@ -273,7 +264,7 @@ td.dim { color: var(--muted); font-family: var(--mono); font-size: 12px; }
 </div>
 <script>
 const STORAGE_KEY = 'altus_attendance_url';
-let SHEET_URL = localStorage.getItem(STORAGE_KEY) || '';
+let SHEET_URL = 'https://script.google.com/macros/s/AKfycbz1Cr3ph7Un6yZtD-LGpCKsmxZyCFk_pnBOZ_xmzEIqVyInIC97rUifXzEK8vJucc-Sfw/exec';
 let allRows = [];
 
 const ALL_EMPLOYEES = [
@@ -627,13 +618,12 @@ function showError(msg) {
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ── INIT ──
+SHEET_URL = 'https://script.google.com/macros/s/AKfycbz1Cr3ph7Un6yZtD-LGpCKsmxZyCFk_pnBOZ_xmzEIqVyInIC97rUifXzEK8vJucc-Sfw/exec';
+localStorage.setItem(STORAGE_KEY, SHEET_URL);
+document.getElementById('config-banner').style.display = 'none';
 updateMonthLabel();
 document.getElementById('daily-date').value = dateKey(new Date());
-if (SHEET_URL) {
-  document.getElementById('config-banner').style.display = 'none';
-  document.getElementById('url-input').value = SHEET_URL;
-  loadData();
-}
+loadData();
 </script>
 </body>
 </html>
