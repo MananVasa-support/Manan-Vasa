@@ -1,1 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Altus Corp Ecosystem — Index</title>
+<link rel="icon" type="image/png" href="Altus Corp Black font.png"/>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  :root {
+    --red: #e50000; --red-dark: #b50000; --red-pale: #fff0f0;
+    --red-border: rgba(229,0,0,0.2); --black: #0a0a0a; --white: #ffffff;
+    --cream: #fafafa; --text-dark: #111; --text-mid: #333; --text-muted: #777;
+    --text-light: #aaa; --border: rgba(0,0,0,0.1); --section-bg: #f8f8f8;
+  }
+  body { font-family: Arial, sans-serif; background: var(--cream); color: var(--text-dark); min-height: 100vh; -webkit-tap-highlight-color: transparent; }
+
+  .page-wrap {
+    min-height: 100vh;
+    background: linear-gradient(160deg, #0a0a0a 0%, #1a0000 40%, #0a0a0a 100%);
+    padding: 2.5rem 1rem 4rem; position: relative; overflow: hidden;
+  }
+  .page-wrap::before {
+    content: ''; position: absolute; top: -120px; right: -120px;
+    width: 450px; height: 450px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(229,0,0,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .page-wrap::after {
+    content: ''; position: absolute; bottom: -100px; left: -100px;
+    width: 350px; height: 350px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(229,0,0,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .card {
+    max-width: 960px; margin: 0 auto; background: var(--cream);
+    border-radius: 22px; overflow: visible;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(229,0,0,0.2);
+    position: relative; z-index: 1;
+  }
+  .card-header {
+    background: linear-gradient(135deg, #0a0a0a 0%, #1e0000 100%);
+    padding: 2.5rem 2.75rem 2.2rem; position: relative; overflow: visible;
+    border-radius: 22px 22px 0 0;
+  }
+  .card-header::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, transparent, var(--red), #ff4444, var(--red), transparent);
+    border-radius: 22px 22px 0 0;
+  }
+  .card-header::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+    background: rgba(229,0,0,0.25);
+  }
+  .header-logo {
+    position: absolute; top: 50%; right: 1.75rem;
+    transform: translateY(-50%);
+    width: 130px; height: 130px;
+    background: none; border: none; box-shadow: none;
+    overflow: visible; z-index: 10;
+  }
+  .header-logo img {
+    width: 100%; height: 100%; object-fit: contain;
+    display: block;
+  }
+  .header-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; color: var(--red); margin-bottom: 12px; }
+  .header-title { font-size: 32px; font-weight: 700; color: #fff; line-height: 1.15; margin-bottom: 8px; letter-spacing: -0.01em; }
+  .header-sub { font-size: 16px; color: rgba(255,255,255,0.85); max-width: 560px; line-height: 1.5; }
+
+  .card-body { padding: 2.5rem 2.75rem 3rem; }
+
+  @media (max-width: 768px) {
+    .card-header { padding: 2rem 1.75rem 1.8rem; }
+    .header-logo { width: 90px; height: 90px; right: 1.1rem; }
+    .header-title { font-size: 22px; }
+    .header-sub { font-size: 14px; }
+    .header-eyebrow { font-size: 10px; }
+    .card-body { padding: 1.75rem 1.25rem 2rem; }
+  }
+
+  /* ---------- INDEX PANEL ---------- */
+  .sheets-panel {
+    background: linear-gradient(160deg, #0e0e0e 0%, #1a0000 60%, #0e0e0e 100%);
+    border-radius: 20px;
+    padding: 2.25rem 2rem 2rem;
+    box-shadow: 0 10px 50px rgba(0,0,0,0.4), 0 0 0 1px rgba(229,0,0,0.2);
+    position: relative; overflow: hidden;
+  }
+  .sheets-panel::before {
+    content: ''; position: absolute; top: -80px; right: -80px;
+    width: 280px; height: 280px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(229,0,0,0.14) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .sheets-panel::after {
+    content: ''; position: absolute; bottom: -100px; left: -100px;
+    width: 240px; height: 240px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(229,0,0,0.09) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .sheets-panel-header {
+    display: flex; align-items: center; gap: 14px; margin-bottom: 1.75rem;
+    position: relative; z-index: 1;
+  }
+  .sheets-panel-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: rgba(229,0,0,0.15); border: 1px solid rgba(229,0,0,0.35);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+    box-shadow: 0 0 20px rgba(229,0,0,0.2);
+  }
+  .sheets-panel-title {
+    font-size: 13px; font-weight: 800; letter-spacing: 0.3em;
+    text-transform: uppercase; color: #fff;
+  }
+  .sheets-panel-divider-line {
+    flex: 1; height: 1px;
+    background: linear-gradient(90deg, rgba(229,0,0,0.4), transparent);
+  }
+
+  /* GROUPS stacked vertically */
+  .sheets-stack {
+    display: flex; flex-direction: column; gap: 18px;
+    position: relative; z-index: 1;
+  }
+
+  .sheets-group {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-top: 3px solid var(--red);
+    border-radius: 14px;
+    padding: 1.4rem 1.5rem 1.3rem;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+  .sheets-group:hover {
+    background: rgba(255,255,255,0.055);
+    border-color: rgba(255,255,255,0.14);
+    border-top-color: #ff2424;
+  }
+
+  .sheets-group-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 1.1rem; padding-bottom: 0.85rem;
+    border-bottom: 1px solid rgba(229,0,0,0.18);
+  }
+  .sheets-group-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 26px; height: 22px; padding: 0 8px;
+    border-radius: 5px;
+    background: rgba(229,0,0,0.18);
+    border: 1px solid rgba(229,0,0,0.4);
+    color: #fff; font-size: 10px; font-weight: 800;
+    letter-spacing: 0.1em;
+  }
+  .sheets-group-label {
+    font-size: 13px; font-weight: 800; letter-spacing: 0.22em;
+    text-transform: uppercase; color: #fff;
+  }
+  .sheets-group-count {
+    margin-left: auto;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.2em;
+    text-transform: uppercase; color: rgba(255,255,255,0.4);
+  }
+
+  .sheets-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  @media (max-width: 640px) { .sheets-buttons { grid-template-columns: 1fr; } }
+
+  .sheet-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 14px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 9px;
+    font-family: Arial, sans-serif; font-size: 13px; font-weight: 600;
+    color: rgba(255,255,255,0.82); text-decoration: none;
+    transition: all 0.2s ease; cursor: pointer;
+    box-sizing: border-box; min-height: 46px;
+    position: relative; overflow: hidden;
+  }
+  .sheet-btn::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 2px; background: var(--red);
+    transform: scaleY(0); transform-origin: center;
+    transition: transform 0.2s ease;
+  }
+  .sheet-btn:hover {
+    background: rgba(229,0,0,0.18);
+    border-color: rgba(229,0,0,0.5);
+    color: #fff; transform: translateX(3px);
+    box-shadow: 0 4px 12px rgba(229,0,0,0.15);
+  }
+  .sheet-btn:hover::before { transform: scaleY(1); }
+  .sheet-btn svg { width: 14px; height: 14px; flex-shrink: 0; opacity: 0.65; }
+  .sheet-btn:hover svg { opacity: 1; }
+  .sheet-btn-num {
+    font-size: 10px; font-weight: 800; color: var(--red);
+    letter-spacing: 0.1em; flex-shrink: 0; min-width: 18px;
+  }
+  .sheet-btn-text { flex: 1; letter-spacing: 0.01em; line-height: 1.3; }
+  .sheet-btn-arrow { font-size: 14px; opacity: 0; transition: opacity 0.2s, transform 0.2s; color: var(--red); font-weight: 700; }
+  .sheet-btn:hover .sheet-btn-arrow { opacity: 1; transform: translateX(3px); }
+
+  @media (max-width: 480px) {
+    .sheet-btn { min-height: 50px; font-size: 13.5px; }
+    .sheets-group { padding: 1.2rem 1.1rem 1.1rem; }
+    .sheets-group-label { font-size: 12px; letter-spacing: 0.18em; }
+  }
+
+  /* ---------- FOOTER STRIP ---------- */
+  .index-footer {
+    margin-top: 1.75rem;
+    text-align: center;
+    position: relative; z-index: 1;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+  }
+  .index-footer span { color: var(--red); }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <div class="card">
+
+    <!-- HEADER -->
+    <div class="card-header">
+      <div class="header-eyebrow">Altus Corp</div>
+      <div class="header-title">Altus Corp Ecosystem</div>
+      <div class="header-sub">Your command center — select a sheet below to proceed.</div>
+      <div class="header-logo">
+        <img src="Altus Corp Black font.png" alt="Altus Corp" onerror="this.style.display='none'"/>
+      </div>
+    </div>
+
+    <!-- BODY : INDEX PANEL -->
+    <div class="card-body">
+
+      <div class="sheets-panel">
+        <div class="sheets-panel-header">
+          <div class="sheets-panel-icon">📑</div>
+          <div class="sheets-panel-title">Ecosystem Index</div>
+          <div class="sheets-panel-divider-line"></div>
+        </div>
+
+        <div class="sheets-stack">
+
+          <!-- ========== SECTION 1 : MANAN VASA ========== -->
+          <div class="sheets-group">
+            <div class="sheets-group-header">
+              <span class="sheets-group-badge">01</span>
+              <span class="sheets-group-label">Manan Vasa</span>
+              <span class="sheets-group-count">14 Items</span>
+            </div>
+
+            <div class="sheets-buttons">
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1_jqOrmr1uKJUUIYI6PgFwPD3ar2iSsSN9OPgRhZixjE/edit?gid=1385577646#gid=1385577646" target="_blank">
+                <span class="sheet-btn-num">01</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Monthly Events Master</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1YjuNom1QX43O9X4GbQoF_fER0siolfR_V8czbextMtU/edit?gid=84864476#gid=84864476" target="_blank">
+                <span class="sheet-btn-num">02</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Daily Compliance</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=1961710783#gid=1961710783" target="_blank">
+                <span class="sheet-btn-num">03</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Altus Eco System MIS</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1AaWqlMMfziX9X22FfMRbwXKaTpHNzULXq7_KOMYZGpg/edit?gid=406188658#gid=406188658" target="_blank">
+                <span class="sheet-btn-num">04</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Work to Employees</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1Bu7SL7z-xVn_uoct_mvgc5mhcwp57pz6Riy-lSXfP5Q/edit?gid=1905642013#gid=1905642013" target="_blank">
+                <span class="sheet-btn-num">05</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Work to Interns</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1QJJKDoD0i8dZA4kxhLuwlm8LVqGgMpyvfbW1Ljeuf8Q/edit?resourcekey=&gid=128551182#gid=128551182" target="_blank">
+                <span class="sheet-btn-num">06</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Altus Projects</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1vEjBB3HZQmrA_LVpQqoNuAfHeOw_py26Dk_b8aBOyoA/edit?gid=1958275664#gid=1958275664" target="_blank">
+                <span class="sheet-btn-num">07</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">SP-1 Angad Raj</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1dTqZEqBK2_saqPBVebctu-ewjGT4XYK3e8wneYkGCUo/edit" target="_blank">
+                <span class="sheet-btn-num">08</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">SP-2</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1dvJ4A3rv-fqgTtiOmz-FE0oeFOt1y6-4_R0Wmo3OqL4/edit" target="_blank">
+                <span class="sheet-btn-num">09</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Altus Corp Marketing Master Plan</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1KRmHMVTdVjoMGblEOxQtpl-OXR2lughdWQyZ3rK5bZk/edit" target="_blank">
+                <span class="sheet-btn-num">10</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Altus Corp Marketing Index</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1prOH_hXW3hXU0pw-GGzo5oItGDk0vDeXdyz2b5zRQEc/edit" target="_blank">
+                <span class="sheet-btn-num">11</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Outstanding Tracker</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1eeU3xV6v9vQiH6maNwdoFiE7IxSVG8mG-HTjoH1AfQ8/edit" target="_blank">
+                <span class="sheet-btn-num">12</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Altus Corp Communication Channels</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1vnWreY50zWwQOxU1fck0J_aeAuV_OZ9NEtbhqxPvOj8/edit?usp=sharing" target="_blank">
+                <span class="sheet-btn-num">13</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Salary Sheet</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/document/d/1bNjBA9sJ1Nv5oLonGwdpvsBkyG6HIJrjV48ODUP0f9s/edit?tab=t.0" target="_blank">
+                <span class="sheet-btn-num">14</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+                <span class="sheet-btn-text">Bank Details To Collect Money</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+            </div>
+          </div>
+
+          <!-- ========== SECTION 2 : EMPLOYEES ========== -->
+          <div class="sheets-group">
+            <div class="sheets-group-header">
+              <span class="sheets-group-badge">02</span>
+              <span class="sheets-group-label">Employees</span>
+              <span class="sheets-group-count">9 Items</span>
+            </div>
+
+            <div class="sheets-buttons">
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1AaWqlMMfziX9X22FfMRbwXKaTpHNzULXq7_KOMYZGpg/edit?gid=1905642013#gid=1905642013" target="_blank">
+                <span class="sheet-btn-num">01</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Employee Dashboard</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1Bu7SL7z-xVn_uoct_mvgc5mhcwp57pz6Riy-lSXfP5Q/edit?gid=1905642013#gid=1905642013" target="_blank">
+                <span class="sheet-btn-num">02</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Intern Dashboard</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1hyis3vFOv66-pZT7w9GDPjfyle_dPm1q5_6zitZOC0Y/edit?gid=729848867#gid=729848867" target="_blank">
+                <span class="sheet-btn-num">03</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Incentive Chart</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1qnVWsgxGZbBRsB_8OJ-_KwsHoZYU3pkTIRdHTjM0kW8/edit?gid=1080548109#gid=1080548109" target="_blank">
+                <span class="sheet-btn-num">04</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Altus Corp Eco System Responses</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1YjuNom1QX43O9X4GbQoF_fER0siolfR_V8czbextMtU/edit?gid=2031382697#gid=2031382697" target="_blank">
+                <span class="sheet-btn-num">05</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Altus Eco System Index</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://forms.gle/6w3kog71UuUT5wzr8" target="_blank">
+                <span class="sheet-btn-num">06</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="17" y2="13"/><line x1="7" y1="17" x2="13" y2="17"/></svg>
+                <span class="sheet-btn-text">Altus Corp Employee Onboarding</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://forms.gle/5t8CrcRCZWw8636u7" target="_blank">
+                <span class="sheet-btn-num">07</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="17" y2="13"/><line x1="7" y1="17" x2="13" y2="17"/></svg>
+                <span class="sheet-btn-text">Altus Walk In Form</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1XM5l3DUJlu3j0vo_AbRVVtYH8WD2LyJwmQCNJG6CrjQ/edit" target="_blank">
+                <span class="sheet-btn-num">08</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Candidate Evaluation Checklist</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1wWaVATwfkFmjBYIZlaNIR_KSGufGaDBg-yyMgRwdpHE/edit?gid=0#gid=0" target="_blank">
+                <span class="sheet-btn-num">09</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                <span class="sheet-btn-text">Altus Corp Passwords</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+            </div>
+          </div>
+
+          <!-- ========== SECTION 3 : SALES ========== -->
+          <div class="sheets-group">
+            <div class="sheets-group-header">
+              <span class="sheets-group-badge">03</span>
+              <span class="sheets-group-label">Sales</span>
+              <span class="sheets-group-count">10 Items</span>
+            </div>
+
+            <div class="sheets-buttons">
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/18tS_p6mLg0WbvaueP-kait2JqUvcAqHnQBCpzYcSKhg/edit?gid=0#gid=0" target="_blank">
+                <span class="sheet-btn-num">01</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">2026 Qualified Leads Master</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1vEjBB3HZQmrA_LVpQqoNuAfHeOw_py26Dk_b8aBOyoA/edit?gid=1958275664#gid=1958275664" target="_blank">
+                <span class="sheet-btn-num">02</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">SP1 - Angad Reference Calling</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1dTqZEqBK2_saqPBVebctu-ewjGT4XYK3e8wneYkGCUo/edit" target="_blank">
+                <span class="sheet-btn-num">03</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">SP2 Reference Calling</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1vEjBB3HZQmrA_LVpQqoNuAfHeOw_py26Dk_b8aBOyoA/edit?gid=2011413326#gid=2011413326" target="_blank">
+                <span class="sheet-btn-num">04</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Pre PSO - SP1 Angad</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1dTqZEqBK2_saqPBVebctu-ewjGT4XYK3e8wneYkGCUo/edit?gid=2011413326#gid=2011413326" target="_blank">
+                <span class="sheet-btn-num">05</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Pre PSO - SP2</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1vEjBB3HZQmrA_LVpQqoNuAfHeOw_py26Dk_b8aBOyoA/edit?gid=1433215372#gid=1433215372" target="_blank">
+                <span class="sheet-btn-num">06</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">PS Registration - SP1 Angad</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1dTqZEqBK2_saqPBVebctu-ewjGT4XYK3e8wneYkGCUo/edit?gid=1433215372#gid=1433215372" target="_blank">
+                <span class="sheet-btn-num">07</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">PS Registration - SP2</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/document/d/1bNjBA9sJ1Nv5oLonGwdpvsBkyG6HIJrjV48ODUP0f9s/edit?tab=t.0" target="_blank">
+                <span class="sheet-btn-num">08</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+                <span class="sheet-btn-text">Bank Details to Collect Money</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/1mhICZPww-w7lnLBnWl70XRdfNSTijEr_?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">09</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">PSO Folder</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://forms.gle/1hvzwf2ZzYLcguH3A" target="_blank">
+                <span class="sheet-btn-num">10</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="17" y2="13"/><line x1="7" y1="17" x2="13" y2="17"/></svg>
+                <span class="sheet-btn-text">PS Billing Form</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+            </div>
+          </div>
+
+          <!-- ========== SECTION 4 : CONSULTING FOLDERS ========== -->
+          <div class="sheets-group">
+            <div class="sheets-group-header">
+              <span class="sheets-group-badge">04</span>
+              <span class="sheets-group-label">Consulting Folders</span>
+              <span class="sheets-group-count">13 Items</span>
+            </div>
+
+            <div class="sheets-buttons">
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/10_BMMlpBx4aFrPLzRSdCiHXplVUt9vzd?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">01</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">Aria Aerial</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/1KZuSBVjMHVbpM8aYQWhns-b8kwZOzkIy?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">02</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">Arihant</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/1US9P34CDWyjkrtOyJTQiadkyoEGKvmfc?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">03</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">CTL</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/1bumScnf0wA5VzRunb4byFkJwiMfoTt8y?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">04</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">Crish Metal Works</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/1nBY5rWECERhjiIziOOK6ghPyT1J664Bt?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">05</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">Kangaroo</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/1pMj0bqxWxnHvEoV1PbdPwLugfw5r_wsT?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">06</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">Ennoble</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/1spanO9ZuWESA5p4dpGn9BzU73f9udYws?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">07</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">Heel Your Sole</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/152hEU_LXc0EqMKMQeFU-kePh9ZNYiYKC?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">08</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">Niaa</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/1onie7y9Iff90ZeQ9hyb8asPf0ghEaIC1?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">09</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">Nirman Corp</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/1CPMUB8fAtWOfxMwuXrtrzWPJvcFgdCIz?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">10</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">Sattva Logistics</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/1dMtg8e2U5Zm6KCHfNvCIhPrLrYQ4HfSV?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">11</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">Stellary</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/18yOBMX7B3Wsus6kGM-BMklxgRcezE_5D?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">12</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">Sukhsons</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/1W5bqK61PjFP4QQIeklE0pJvquxO-UIJt?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">13</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">Tranquil</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+            </div>
+          </div>
+
+          <!-- ========== SECTION 5 : MARKETING ========== -->
+          <div class="sheets-group">
+            <div class="sheets-group-header">
+              <span class="sheets-group-badge">05</span>
+              <span class="sheets-group-label">Marketing</span>
+              <span class="sheets-group-count">7 Items</span>
+            </div>
+
+            <div class="sheets-buttons">
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/1_yt90i9zFLSYF0ida-CqwklwKZwhMgZt?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">01</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">Participant Video Master</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/11a1qw5H9vqvgMXAClfHMSUh6Nr3kxbxR?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">02</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">Participant LinkedIn Master</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/1OyadpVUEJAaos8QKjgeQG_yMhBn42fhE?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">03</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">All Entities Logo</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/1BaTStn2bdJpQvsVIA3-xKaxTOLqox9Bp?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">04</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">PSO Invites</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1sAYTXAWnGbAR2AHyKH_TJk62jeph8tJ3HZOAC2Gl0zw/edit?gid=1065497428#gid=1065497428" target="_blank">
+                <span class="sheet-btn-num">05</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Marketing Calendar</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/presentation/d/1-LVVRgg7ylJGWby4ED-xcop7zw5AuIYF/edit?slide=id.p1#slide=id.p1" target="_blank">
+                <span class="sheet-btn-num">06</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
+                <span class="sheet-btn-text">Workshop Schedule</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1RmvPu0I-ywWB_k9XKQetFGv3zoiI_ENlKJlnCKCLhMo/edit" target="_blank">
+                <span class="sheet-btn-num">07</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">WhatsApp Group To Post</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+            </div>
+          </div>
+
+          <!-- ========== SECTION 6 : ACCOUNTS ========== -->
+          <div class="sheets-group">
+            <div class="sheets-group-header">
+              <span class="sheets-group-badge">06</span>
+              <span class="sheets-group-label">Accounts</span>
+              <span class="sheets-group-count">3 Items</span>
+            </div>
+
+            <div class="sheets-buttons">
+
+              <a class="sheet-btn" href="https://docs.google.com/spreadsheets/d/1bN6ycsR8SwJDhSOPwzEau10MUqWFXiDB5zULAqN3hPM/edit?usp=sharing" target="_blank">
+                <span class="sheet-btn-num">01</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="sheet-btn-text">Accounts Totality Master 2026</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://docs.google.com/document/d/1XpKEyRhi6yMk5VKCCAm7w8LboMH0dO28S8DrmdN4zgo/edit?usp=sharing" target="_blank">
+                <span class="sheet-btn-num">02</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+                <span class="sheet-btn-text">Accounts Induction Manual</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://forms.gle/1hvzwf2ZzYLcguH3A" target="_blank">
+                <span class="sheet-btn-num">03</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="17" y2="13"/><line x1="7" y1="17" x2="13" y2="17"/></svg>
+                <span class="sheet-btn-text">PS Billing Form</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+            </div>
+          </div>
+
+          <!-- ========== SECTION 7 : PARTICIPANTS ========== -->
+          <div class="sheets-group">
+            <div class="sheets-group-header">
+              <span class="sheets-group-badge">07</span>
+              <span class="sheets-group-label">Participants</span>
+              <span class="sheets-group-count">2 Items</span>
+            </div>
+
+            <div class="sheets-buttons">
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/1-4ksw6yo_Kl0I_Ed84ZBClOv-fuf9DfL?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">01</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">BSS Folder</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+              <a class="sheet-btn" href="https://drive.google.com/drive/folders/17pb75_AtTd2dHgUj99y2QYIpXMd0R1AB?usp=drive_link" target="_blank">
+                <span class="sheet-btn-num">02</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="sheet-btn-text">PS Folder</span>
+                <span class="sheet-btn-arrow">›</span>
+              </a>
+
+            </div>
+          </div>
+
+        </div>
+
+        <div class="index-footer">
+          Altus Corp &nbsp;<span>•</span>&nbsp; Ecosystem
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>
 
