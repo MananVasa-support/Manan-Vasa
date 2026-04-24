@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Manan Vasa · Link in Bio</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; font-family: Inter, system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+  body { background: #E8E4DC; min-height: 100vh; }
+  body.dark-stage { background: #0a0a0b; }
+  .stage {
+    min-height: 100vh; display: flex; align-items: flex-start; justify-content: center;
+    padding: 48px 32px 64px; gap: 48px; flex-wrap: wrap;
+  }
+  .phone-col { flex: 0 0 auto; position: sticky; top: 48px; }
+  .page-col {
+    flex: 1 1 520px; max-width: 780px;
+    background: #fff; box-shadow: 0 30px 80px -20px rgba(11,11,12,0.18), 0 2px 0 rgba(11,11,12,0.06);
+  }
+  .dark-stage .page-col {
+    background: #0B0B0C; box-shadow: 0 30px 80px -20px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06);
+  }
+  .stage-label {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+    font-weight: 600; color: #6B6A68; margin-bottom: 14px; text-align: center;
+  }
+  .dark-stage .stage-label { color: #9A9892; }
+  .phone-wrap { display: flex; flex-direction: column; align-items: center; }
+
+  /* Scroll inside the iPhone */
+  .phone-scroll { height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .phone-scroll::-webkit-scrollbar { width: 0; }
+
+  @media (max-width: 900px) {
+    .phone-col { position: static; }
+    .stage { padding: 24px 16px 48px; gap: 32px; }
+  }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="LinkInBio.jsx"></script>
+<script type="text/babel">
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "dark": false
+  }/*EDITMODE-END*/;
+
+  function App() {
+    const [tweaks, setTweaks] = useTweaks(TWEAK_DEFAULTS);
+    const dark = tweaks.dark;
+
+    React.useEffect(() => {
+      document.body.classList.toggle('dark-stage', dark);
+    }, [dark]);
+
+    const toggleTheme = () => setTweaks({ dark: !dark });
+
+    return (
+      <>
+        <div className="stage">
+          {/* iPhone preview */}
+          <div className="phone-col">
+            <div className="phone-wrap">
+              <div className="stage-label">Mobile · 402 × 874</div>
+              <IOSDevice width={402} height={874} dark={dark}>
+                <div className="phone-scroll">
+                  <div style={{ height: 58 }} />
+                  <LinkInBioPage dark={dark} onToggleTheme={toggleTheme} compact={true} />
+                </div>
+              </IOSDevice>
+            </div>
+          </div>
+
+          {/* Full-page web view */}
+          <div className="page-col" data-screen-label="Full page">
+            <div style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+              <div style={{
+                background: dark ? '#0B0B0C' : '#fff',
+                borderBottom: `1px solid ${dark ? 'rgba(244,241,236,0.1)' : 'rgba(11,11,12,0.08)'}`,
+                padding: '10px 18px',
+                display: 'flex', alignItems: 'center', gap: 10,
+                fontFamily: 'Inter, system-ui, sans-serif', fontSize: 11,
+                color: dark ? '#9A9892' : '#6B6A68',
+              }}>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 5, background: '#FF5F57' }} />
+                  <span style={{ width: 10, height: 10, borderRadius: 5, background: '#FEBC2E' }} />
+                  <span style={{ width: 10, height: 10, borderRadius: 5, background: '#28C840' }} />
+                </div>
+                <div style={{
+                  flex: 1, textAlign: 'center',
+                  fontFamily: '"Playfair Display", Georgia, serif',
+                  fontStyle: 'italic', fontSize: 12,
+                  color: dark ? '#F4F1EC' : '#0B0B0C',
+                }}>
+                  mananvasa.com/links
+                </div>
+                <div style={{ width: 42 }} />
+              </div>
+            </div>
+            <LinkInBioPage dark={dark} onToggleTheme={toggleTheme} compact={false} />
+          </div>
+        </div>
+
+        {/* Tweaks panel */}
+        <TweaksPanel title="Tweaks">
+          <TweakSection title="Theme">
+            <TweakToggle
+              label="Dark mode"
+              value={dark}
+              onChange={(v) => setTweaks({ dark: v })}
+            />
+          </TweakSection>
+        </TweaksPanel>
+      </>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
