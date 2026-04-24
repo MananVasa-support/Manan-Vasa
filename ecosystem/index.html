@@ -182,44 +182,6 @@
   }
   ::placeholder { color: #bbb; }
 
-  /* ===================== FILE UPLOAD WIDGET ===================== */
-  .file-upload-wrap { position: relative; }
-  .file-upload-input { display: none; }
-  .file-upload-btn {
-    display: flex; align-items: center; gap: 10px;
-    width: 100%; padding: 10px 14px;
-    background: var(--section-bg); border: 1.5px dashed rgba(0,0,0,0.18);
-    border-radius: 9px; cursor: pointer;
-    font-family: Arial, sans-serif; font-size: 14px;
-    color: var(--text-muted); transition: all 0.2s;
-    text-align: left;
-  }
-  .file-upload-btn:hover { border-color: var(--red); color: var(--red); background: var(--red-pale); }
-  .file-upload-btn.has-file { border-style: solid; border-color: var(--red); color: var(--text-dark); background: #fff; }
-  .file-upload-icon {
-    width: 32px; height: 32px; border-radius: 8px;
-    background: var(--red); display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  .file-upload-btn:not(.has-file) .file-upload-icon { background: rgba(0,0,0,0.08); }
-  .file-upload-icon svg { width: 16px; height: 16px; }
-  .file-upload-text { flex: 1; min-width: 0; }
-  .file-upload-label { font-size: 13px; font-weight: 600; display: block; }
-  .file-upload-sub { font-size: 11px; color: var(--text-light); margin-top: 1px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .file-upload-btn.has-file .file-upload-sub { color: #22c55e; }
-  .file-remove-btn {
-    width: 22px; height: 22px; border-radius: 50%; background: rgba(229,0,0,0.12);
-    border: none; cursor: pointer; display: none; align-items: center; justify-content: center;
-    color: var(--red); font-size: 14px; font-weight: 700; flex-shrink: 0; line-height: 1;
-  }
-  .file-upload-btn.has-file .file-remove-btn { display: flex; }
-  .file-url-hint { font-size: 11px; color: var(--text-light); margin-top: 6px; }
-  .file-url-hint a { color: var(--red); text-decoration: none; }
-  .file-url-or { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
-  .file-url-or span { font-size: 11px; color: var(--text-light); white-space: nowrap; }
-  .file-url-or::before, .file-url-or::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-  .file-url-input-row input[type="url"] { font-size: 13px; padding: 8px 12px; }
-
   /* ===================== RESPONSIVE ===================== */
 
   /* ===================== RESPONSIVE ===================== */
@@ -531,8 +493,8 @@
       <div class="field"><label class="field-label">Task <span class="req">*</span></label><input type="text" id="aw-task" placeholder="Describe the task briefly"/><div class="field-warning" id="warn-aw-task">Required.</div></div>
       <div class="field"><label class="field-label">Due Date <span class="req">*</span></label><input type="date" id="aw-due"/><div class="field-warning" id="warn-aw-due">Required.</div></div>
       <div class="field"><label class="field-label">Initiator Notes</label><textarea id="aw-notes" placeholder="Add notes..."></textarea></div>
-      <div class="field"><label class="field-label">Attachment 1</label><div class="file-upload-wrap" id="wrap-aw-att1"><!-- file widget injected by JS --></div></div>
-      <div class="field" style="margin-bottom:0"><label class="field-label">Attachment 2</label><div class="file-upload-wrap" id="wrap-aw-att2"><!-- file widget injected by JS --></div></div>
+      <div class="field"><label class="field-label">Attachment 1</label><input type="url" id="aw-att1" placeholder="Paste link or Google Drive URL"/></div>
+      <div class="field" style="margin-bottom:0"><label class="field-label">Attachment 2</label><input type="url" id="aw-att2" placeholder="Paste link or Google Drive URL"/></div>
     </div>
 
     <!-- EMPLOYEE ATTENDANCE FORM -->
@@ -711,7 +673,7 @@
               <option>Productivity Shastra</option>
               <option>Productivity Shastra Orientation</option></select><div class="field-warning" id="warn-ch-workshop">Required.</div></div>
         <div class="field"><label class="field-label">Batch No <span class="req">*</span></label><input type="text" id="ch-batch" placeholder="Write NA if Not Applicable or Don't Know if you Don't Know the Batch No"/><div class="field-warning" id="warn-ch-batch">Required.</div></div>
-        <div class="field"><label class="field-label">Link / File</label><div class="file-upload-wrap" id="wrap-ch-link"><!-- file widget injected by JS --></div></div>
+        <div class="field"><label class="field-label">Link / File</label><input type="url" id="ch-link" placeholder="Paste link or Google Drive URL"/></div>
         <div class="field"><label class="field-label">Content Quality <span class="req">*</span></label><select id="ch-quality"><option value="">— Select —</option><option>2-3 Sentences</option><option>Do Not Use</option><option>Good to Use</option><option>Must Use</option></select><div class="field-warning" id="warn-ch-quality">Required.</div></div>
         <div class="field"><label class="field-label">No Gyan Only Gain Said <span class="req">*</span></label><select id="ch-gyaan"><option value="">— Select —</option><option>No</option><option>Yes</option></select><div class="field-warning" id="warn-ch-gyaan">Required.</div></div>
         <div class="field" style="margin-bottom:0"><label class="field-label">Notes</label><textarea id="ch-notes" placeholder="Add notes..."></textarea></div>
@@ -839,7 +801,7 @@
               <option>Productivity Shastra</option>
               <option>Productivity Shastra Orientation</option></select><div class="field-warning" id="warn-bp-workshop">Required.</div></div>
       <div class="field"><label class="field-label">Batch No <span class="req">*</span></label><input type="text" id="bp-batch" placeholder="Write NA if Not Applicable or Don't Know if you Don't Know the Batch No"/><div class="field-warning" id="warn-bp-batch">Required.</div></div>
-      <div class="field"><label class="field-label">Screenshot / Link</label><div class="file-upload-wrap" id="wrap-bp-link"><!-- file widget injected by JS --></div></div>
+      <div class="field"><label class="field-label">Screenshot / Link</label><input type="url" id="bp-link" placeholder="Paste link or Google Drive URL"/></div>
       <div class="field"><label class="field-label">Content Quality <span class="req">*</span></label><select id="bp-quality"><option value="">— Select —</option><option>Do not Use</option><option>Good to Use</option><option>Must Use</option></select><div class="field-warning" id="warn-bp-quality">Required.</div></div>
       <div class="field"><label class="field-label">Consultant Notes <span class="req">*</span></label><textarea id="bp-notes" placeholder="Add notes..."></textarea><div class="field-warning" id="warn-bp-notes">Required.</div></div>
       <div class="field" style="margin-bottom:0"><label class="field-label">Approval From Client <span class="req">*</span></label><select id="bp-approval"><option value="">— Select —</option><option>No</option><option>Not Sure</option><option>Yes</option></select><div class="field-warning" id="warn-bp-approval">Required.</div></div>
@@ -872,7 +834,7 @@
         <div class="field"><label class="field-label">Name of Person You Paid To</label><input type="text" id="re-party" placeholder="Person / party name"/></div>
       </div>
       <div class="field"><label class="field-label">Invoice Received <span class="req">*</span></label><select id="re-invoice"><option value="">— Select —</option><option>No</option><option>Yes</option></select><div class="field-warning" id="warn-re-invoice">Required.</div></div>
-      <div class="field"><label class="field-label">Attachment</label><div class="file-upload-wrap" id="wrap-re-att"><!-- file widget injected by JS --></div></div>
+      <div class="field"><label class="field-label">Attachment</label><input type="url" id="re-att" placeholder="Paste link or Google Drive URL"/></div>
       <div class="field" style="margin-bottom:0"><label class="field-label">Notes</label><textarea id="re-notes" placeholder="Add notes..."></textarea></div>
     </div>
 
@@ -902,8 +864,8 @@
         <div class="field"><label class="field-label">Intern Incentive Amount <span class="req">*</span></label><input type="text" id="ap-intern-incentive-amt" placeholder="Enter amount"/><div class="field-warning" id="warn-ap-intern-incentive-amt">Required.</div></div>
       </div>
       <div class="field"><label class="field-label">Initiator Notes</label><textarea id="ap-notes" placeholder="Add notes..."></textarea></div>
-      <div class="field"><label class="field-label">Attachment 1</label><div class="file-upload-wrap" id="wrap-ap-att1"><!-- file widget injected by JS --></div></div>
-      <div class="field" style="margin-bottom:0"><label class="field-label">Attachment 2</label><div class="file-upload-wrap" id="wrap-ap-att2"><!-- file widget injected by JS --></div></div>
+      <div class="field"><label class="field-label">Attachment 1</label><input type="url" id="ap-att1" placeholder="Paste link or Google Drive URL"/></div>
+      <div class="field" style="margin-bottom:0"><label class="field-label">Attachment 2</label><input type="url" id="ap-att2" placeholder="Paste link or Google Drive URL"/></div>
     </div>
 
     <!-- LATE MARK -->
@@ -1033,10 +995,22 @@
         group.appendChild(noneLabel);
       }
 
+      // Store globally so handleSubmit can access for "All Employees" bulk submission
+      window.allDoerNames = sortedAll;
+
       // Populate all name dropdowns: Manan Vasa → employees A–Z → interns A–Z
       fillSelect('f-name',       sortedAll, '— Select —');
       fillSelect('aw-initiator', sortedAll, '— Select —');
       fillSelect('aw-doer',      sortedAll, '— Select —');
+
+      // Insert "All Employees" as the first selectable option in Task Doer
+      const doerSel = document.getElementById('aw-doer');
+      if (doerSel) {
+        const allOpt = document.createElement('option');
+        allOpt.value = 'All Employees';
+        allOpt.textContent = '👥 All Employees';
+        doerSel.insertBefore(allOpt, doerSel.children[1]); // after placeholder
+      }
 
       // Project initiator & supervisor: employees only (Manan Vasa first, then A–Z)
       fillSelect('ap-initiator',  sortedEmployees, '— Select —');
@@ -1180,6 +1154,28 @@
     window.scrollTo(0, 0);
   }
 
+  // Fire a single row to Google Sheets via image pixel trick
+  function fireRequest(params) {
+    const qs = Object.entries(params).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = img.onerror = () => resolve();
+      img.src = SHEET_URL + '?' + qs;
+      setTimeout(resolve, 1500); // resolve after 1.5s regardless
+    });
+  }
+
+  function resetForm(btn) {
+    document.querySelectorAll('input[type="text"],input[type="email"],input[type="date"],input[type="tel"],input[type="number"],input[type="url"],input[type="time"],select,textarea').forEach(el=>el.value='');
+    document.querySelectorAll('input[type="radio"],input[type="checkbox"]').forEach(r=>r.checked=false);
+    document.querySelectorAll('.dynamic-section').forEach(s=>s.classList.remove('active'));
+    document.getElementById('bss-prospect-section').classList.remove('visible');
+    clearAll();
+    btn.disabled=false; btn.textContent='Submit';
+    document.getElementById('sheets-panel').classList.add('visible');
+    document.getElementById('sheets-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
   async function handleSubmit() {
     if (!validate()) {
       showToast('Please fill in all required fields.', 'error');
@@ -1188,243 +1184,78 @@
       return;
     }
     const btn = document.getElementById('submit-btn');
-    btn.disabled = true; btn.textContent = 'Submitting...';
+    btn.disabled = true;
     const subj = gv('f-subject');
-    const inc = gv('incentive-name');
-    const params = {
-      'Timestamp': new Date().toLocaleString('en-IN'),
-      'Employee Full Name': gv('f-name'),
-      'Subject': subj,
-    };
-    if (subj==='assign-work') Object.assign(params,{'Subject of Work':gv('aw-subject'),'Client/Participant Name':gv('aw-client'),'Task Initiator':gv('aw-initiator'),'Task Doer':gv('aw-doer'),'Task':gv('aw-task'),'Due Date':gv('aw-due'),'Initiator Notes':gv('aw-notes'),'Attachment 1':getAttachmentValue('aw-att1'),'Attachment 2':getAttachmentValue('aw-att2')});
-    if (subj==='attendance') Object.assign(params,{'Date':gv('att-date'),'In Time / Out Time':gr('att-type'),'Notes / Reasons':gv('att-notes')});
-    if (subj==='incentive') {
-      params['Incentive Name'] = {'bss':'BSS Conversion','sales-pitch':'Sales Pitch','client-happiness':'Client Happiness','group-intro':'Group Introduction'}[inc] || inc;
-      if (inc==='bss') Object.assign(params,{'Participant First Name':gv('bss-fn'),'Participant Last Name':gv('bss-ln'),'Workshop Name':gv('bss-workshop'),'Batch No':gv('bss-batch'),'BSS Conversion':gv('bss-conv-select'),'Prospect First Name':gv('bss-pfn'),'Prospect Last Name':gv('bss-pln'),'Cell No':gv('bss-pcell'),'Email':gv('bss-pemail'),'Organisation':gv('bss-porg')});
-      if (inc==='sales-pitch') Object.assign(params,{'Introducer First Name':gv('sp-ifn'),'Introducer Last Name':gv('sp-iln'),'Workshop Name':gv('sp-workshop'),'Batch No':gv('sp-batch'),'Prospect First Name':gv('sp-pfn'),'Prospect Last Name':gv('sp-pln'),'Organisation Name':gv('sp-org'),'Cell No':gv('sp-cell'),'Email':gv('sp-email'),'Product Name':gv('sp-product'),'Opportunity Type':gr('sp-opp'),'Notes':gv('sp-notes')});
-      if (inc==='client-happiness') Object.assign(params,{'Happiness Type':gr('ch-type'),'Participant First Name':gv('ch-fn'),'Participant Last Name':gv('ch-ln'),'Workshop Name':gv('ch-workshop'),'Batch No':gv('ch-batch'),'Link':getAttachmentValue('ch-link'),'Content Quality':gv('ch-quality'),'No Gyan Only Gain Said':gv('ch-gyaan'),'Notes':gv('ch-notes')});
-      if (inc==='group-intro') Object.assign(params,{'Introducer First Name':gv('gi-ifn'),'Introducer Last Name':gv('gi-iln'),'Workshop Name':gv('gi-workshop'),'Batch No':gv('gi-batch'),'Prospect First Name':gv('gi-pfn'),'Prospect Last Name':gv('gi-pln'),'Event Type':gr('gi-evt'),'Institution/Group Name':gv('gi-inst'),'Cell No':gv('gi-cell'),'Email':gv('gi-email'),'Product Name':gv('gi-product'),'Tentative Date':gv('gi-tdate'),'Approx People':gv('gi-people'),'Notes':gv('gi-notes')});
-    }
-    if (subj==='record-ref') Object.assign(params,{'Participant First Name':gv('wa-fn'),'Participant Last Name':gv('wa-ln'),'Contact Number':gv('wa-phone'),'Email ID':gv('wa-email'),'Date of Lead Generation':gv('wa-date'),'Introducer First Name':gv('wa-intro-fn'),'Introducer Last Name':gv('wa-intro-ln'),'Product Name':gv('wa-product'),'Only Manan Sir to Call':gv('wa-manan'),'PS Reference Whatsapp Group Remarks':gv('wa-remarks')});
-    if (subj==='breakthrough') Object.assign(params,{'Participant First Name':gv('bp-fn'),'Participant Last Name':gv('bp-ln'),'Workshop Name':gv('bp-workshop'),'Batch No':gv('bp-batch'),'Screenshot/Link':getAttachmentValue('bp-link'),'Content Quality':gv('bp-quality'),'Consultant Notes':gv('bp-notes'),'Approval From Client':gv('bp-approval')});
-    if (subj==='leave') Object.assign(params,{'Leave Category':gv('lv-cat'),'Leave Start Date':gv('lv-start'),'Leave End Date':gv('lv-end'),'Half Day/Full Day':gv('lv-daytype'),'Leave Description':gv('lv-desc'),'Avail Leave Credit':gv('lv-credit'),'Available on Phone':gv('lv-phone'),'Carrying Phone':gv('lv-carrphone'),'Carrying Laptop':gv('lv-laptop')});
-    if (subj==='reimbursement') Object.assign(params,{'Nature of Expense':gv('re-nature'),'Amount':gv('re-amount'),'Name of Person Paid To':gv('re-party'),'Invoice Received':gv('re-invoice'),'Attachment':getAttachmentValue('re-att'),'Notes':gv('re-notes')});
-    if (subj==='assign-project') Object.assign(params,{'Project Subject':gv('ap-subject'),'Project Name':gv('ap-name'),'Project Initiator':gv('ap-initiator'),'Project Supervisor/Executor':gv('ap-supervisor'),'Intern':gcb('ap-intern'),'Project Details':gv('ap-details'),'Due Date':gv('ap-due'),'Incentive':gv('ap-incentive'),'Employee Incentive Amount':gv('ap-incentive-amt'),'Intern Incentive Amount':gv('ap-intern-incentive-amt'),'Initiator Notes':gv('ap-notes'),'Attachment 1':getAttachmentValue('ap-att1'),'Attachment 2':getAttachmentValue('ap-att2')});
-    if (subj==='late-mark') Object.assign(params,{'Date':gv('lm-date'),'Time of Arrival':gv('lm-time'),'Notes':gv('lm-notes')});
+    const inc  = gv('incentive-name');
+    const doer = gv('aw-doer');
 
-    const qs = Object.entries(params).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
     try {
-      const img = new Image(); img.src = SHEET_URL + '?' + qs;
-      await new Promise(r => setTimeout(r, 2000));
+      // ── BULK: "All Employees" selected in Task Doer ──────────────────────
+      if (subj === 'assign-work' && doer === 'All Employees') {
+        const names = (window.allDoerNames || []).filter(n => n && n !== 'All Employees');
+        const total = names.length;
+        if (total === 0) {
+          showToast('No employee names loaded yet. Please wait and try again.', 'error');
+          btn.disabled = false; btn.textContent = 'Submit';
+          return;
+        }
+        const baseAssign = {
+          'Subject of Work':        gv('aw-subject'),
+          'Client/Participant Name': gv('aw-client'),
+          'Task Initiator':         gv('aw-initiator'),
+          'Task':                   gv('aw-task'),
+          'Due Date':               gv('aw-due'),
+          'Initiator Notes':        gv('aw-notes'),
+          'Attachment 1':           gv('aw-att1'),
+          'Attachment 2':           gv('aw-att2'),
+        };
+        for (let i = 0; i < names.length; i++) {
+          btn.textContent = 'Submitting ' + (i + 1) + ' / ' + total + '…';
+          const p = Object.assign({
+            'Timestamp':          new Date().toLocaleString('en-IN'),
+            'Employee Full Name': gv('f-name'),
+            'Subject':            subj,
+            'Task Doer':          names[i],
+          }, baseAssign);
+          await fireRequest(p);
+        }
+        showToast('All ' + total + ' tasks assigned successfully!', 'success');
+        setTimeout(() => resetForm(btn), 1500);
+        return;
+      }
+
+      // ── NORMAL single submission ──────────────────────────────────────────
+      btn.textContent = 'Submitting...';
+      const params = {
+        'Timestamp': new Date().toLocaleString('en-IN'),
+        'Employee Full Name': gv('f-name'),
+        'Subject': subj,
+      };
+      if (subj==='assign-work') Object.assign(params,{'Subject of Work':gv('aw-subject'),'Client/Participant Name':gv('aw-client'),'Task Initiator':gv('aw-initiator'),'Task Doer':doer,'Task':gv('aw-task'),'Due Date':gv('aw-due'),'Initiator Notes':gv('aw-notes'),'Attachment 1':gv('aw-att1'),'Attachment 2':gv('aw-att2')});
+      if (subj==='attendance') Object.assign(params,{'Date':gv('att-date'),'In Time / Out Time':gr('att-type'),'Notes / Reasons':gv('att-notes')});
+      if (subj==='incentive') {
+        params['Incentive Name'] = {'bss':'BSS Conversion','sales-pitch':'Sales Pitch','client-happiness':'Client Happiness','group-intro':'Group Introduction'}[inc] || inc;
+        if (inc==='bss') Object.assign(params,{'Participant First Name':gv('bss-fn'),'Participant Last Name':gv('bss-ln'),'Workshop Name':gv('bss-workshop'),'Batch No':gv('bss-batch'),'BSS Conversion':gv('bss-conv-select'),'Prospect First Name':gv('bss-pfn'),'Prospect Last Name':gv('bss-pln'),'Cell No':gv('bss-pcell'),'Email':gv('bss-pemail'),'Organisation':gv('bss-porg')});
+        if (inc==='sales-pitch') Object.assign(params,{'Introducer First Name':gv('sp-ifn'),'Introducer Last Name':gv('sp-iln'),'Workshop Name':gv('sp-workshop'),'Batch No':gv('sp-batch'),'Prospect First Name':gv('sp-pfn'),'Prospect Last Name':gv('sp-pln'),'Organisation Name':gv('sp-org'),'Cell No':gv('sp-cell'),'Email':gv('sp-email'),'Product Name':gv('sp-product'),'Opportunity Type':gr('sp-opp'),'Notes':gv('sp-notes')});
+        if (inc==='client-happiness') Object.assign(params,{'Happiness Type':gr('ch-type'),'Participant First Name':gv('ch-fn'),'Participant Last Name':gv('ch-ln'),'Workshop Name':gv('ch-workshop'),'Batch No':gv('ch-batch'),'Link':gv('ch-link'),'Content Quality':gv('ch-quality'),'No Gyan Only Gain Said':gv('ch-gyaan'),'Notes':gv('ch-notes')});
+        if (inc==='group-intro') Object.assign(params,{'Introducer First Name':gv('gi-ifn'),'Introducer Last Name':gv('gi-iln'),'Workshop Name':gv('gi-workshop'),'Batch No':gv('gi-batch'),'Prospect First Name':gv('gi-pfn'),'Prospect Last Name':gv('gi-pln'),'Event Type':gr('gi-evt'),'Institution/Group Name':gv('gi-inst'),'Cell No':gv('gi-cell'),'Email':gv('gi-email'),'Product Name':gv('gi-product'),'Tentative Date':gv('gi-tdate'),'Approx People':gv('gi-people'),'Notes':gv('gi-notes')});
+      }
+      if (subj==='record-ref') Object.assign(params,{'Participant First Name':gv('wa-fn'),'Participant Last Name':gv('wa-ln'),'Contact Number':gv('wa-phone'),'Email ID':gv('wa-email'),'Date of Lead Generation':gv('wa-date'),'Introducer First Name':gv('wa-intro-fn'),'Introducer Last Name':gv('wa-intro-ln'),'Product Name':gv('wa-product'),'Only Manan Sir to Call':gv('wa-manan'),'PS Reference Whatsapp Group Remarks':gv('wa-remarks')});
+      if (subj==='breakthrough') Object.assign(params,{'Participant First Name':gv('bp-fn'),'Participant Last Name':gv('bp-ln'),'Workshop Name':gv('bp-workshop'),'Batch No':gv('bp-batch'),'Screenshot/Link':gv('bp-link'),'Content Quality':gv('bp-quality'),'Consultant Notes':gv('bp-notes'),'Approval From Client':gv('bp-approval')});
+      if (subj==='leave') Object.assign(params,{'Leave Category':gv('lv-cat'),'Leave Start Date':gv('lv-start'),'Leave End Date':gv('lv-end'),'Half Day/Full Day':gv('lv-daytype'),'Leave Description':gv('lv-desc'),'Avail Leave Credit':gv('lv-credit'),'Available on Phone':gv('lv-phone'),'Carrying Phone':gv('lv-carrphone'),'Carrying Laptop':gv('lv-laptop')});
+      if (subj==='reimbursement') Object.assign(params,{'Nature of Expense':gv('re-nature'),'Amount':gv('re-amount'),'Name of Person Paid To':gv('re-party'),'Invoice Received':gv('re-invoice'),'Attachment':gv('re-att'),'Notes':gv('re-notes')});
+      if (subj==='assign-project') Object.assign(params,{'Project Subject':gv('ap-subject'),'Project Name':gv('ap-name'),'Project Initiator':gv('ap-initiator'),'Project Supervisor/Executor':gv('ap-supervisor'),'Intern':gcb('ap-intern'),'Project Details':gv('ap-details'),'Due Date':gv('ap-due'),'Incentive':gv('ap-incentive'),'Employee Incentive Amount':gv('ap-incentive-amt'),'Intern Incentive Amount':gv('ap-intern-incentive-amt'),'Initiator Notes':gv('ap-notes'),'Attachment 1':gv('ap-att1'),'Attachment 2':gv('ap-att2')});
+      if (subj==='late-mark') Object.assign(params,{'Date':gv('lm-date'),'Time of Arrival':gv('lm-time'),'Notes':gv('lm-notes')});
+
+      await fireRequest(params);
       showToast('Submitted successfully!', 'success');
-      setTimeout(() => {
-        document.querySelectorAll('input[type="text"],input[type="email"],input[type="date"],input[type="tel"],input[type="number"],input[type="url"],input[type="time"],select,textarea').forEach(el=>el.value='');
-        document.querySelectorAll('input[type="radio"],input[type="checkbox"]').forEach(r=>r.checked=false);
-        document.querySelectorAll('.dynamic-section').forEach(s=>s.classList.remove('active'));
-        document.getElementById('bss-prospect-section').classList.remove('visible');
-        clearAll();
-        ['aw-att1','aw-att2','re-att','ap-att1','ap-att2','ch-link','bp-link'].forEach(id => {
-          if (fileWidgetState[id]) removeFile({stopPropagation:()=>{}}, id);
-        });
-        btn.disabled=false; btn.textContent='Submit';
-        document.getElementById('sheets-panel').classList.add('visible');
-        document.getElementById('sheets-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }, 2000);
+      setTimeout(() => resetForm(btn), 2000);
+
     } catch(err) {
       showToast('Something went wrong. Please try again.', 'error');
-      btn.disabled=false; btn.textContent='Submit →';
+      btn.disabled=false; btn.textContent='Submit';
     }
   }
-
-  // ===================== GOOGLE DRIVE PICKER + FILE UPLOAD WIDGET =====================
-  const GOOGLE_API_KEY    = 'AIzaSyBnEeVlDCPlSdQAJYk4gFwKjpq_8Uy0cQg';
-  const GOOGLE_CLIENT_ID  = '915583991163-0ld5bgrdgk7f0k2fhrui2veei97139oi.apps.googleusercontent.com';
-  const SCOPES            = 'https://www.googleapis.com/auth/drive.readonly';
-
-  let gapiReady = false;
-  let tokenClient = null;
-  let accessToken = null;
-  let pendingPickerFieldId = null;
-
-  // Load gapi + gis scripts once
-  function loadGoogleScripts() {
-    if (document.getElementById('gapi-script')) return;
-    const s1 = document.createElement('script');
-    s1.id = 'gapi-script';
-    s1.src = 'https://apis.google.com/js/api.js';
-    s1.onload = () => {
-      gapi.load('picker', () => { gapiReady = true; });
-    };
-    document.head.appendChild(s1);
-
-    const s2 = document.createElement('script');
-    s2.src = 'https://accounts.google.com/gsi/client';
-    s2.onload = () => {
-      tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_CLIENT_ID,
-        scope: SCOPES,
-        callback: (resp) => {
-          if (resp.error) { showToast('Google sign-in failed.', 'error'); return; }
-          accessToken = resp.access_token;
-          openDrivePicker(pendingPickerFieldId);
-        }
-      });
-    };
-    document.head.appendChild(s2);
-  }
-
-  function openDrivePicker(fieldId) {
-    pendingPickerFieldId = fieldId;
-    if (!gapiReady || !tokenClient) {
-      showToast('Google Picker loading, please try again in a second…', 'error');
-      loadGoogleScripts();
-      return;
-    }
-    if (!accessToken) {
-      tokenClient.requestAccessToken({ prompt: 'consent' });
-      return;
-    }
-    const picker = new google.picker.PickerBuilder()
-      .addView(new google.picker.DocsView()
-        .setIncludeFolders(false)
-        .setSelectFolderEnabled(false))
-      .addView(new google.picker.DocsUploadView())
-      .setOAuthToken(accessToken)
-      .setDeveloperKey(GOOGLE_API_KEY)
-      .setTitle('Select a file from Google Drive')
-      .setCallback((data) => {
-        if (data.action === google.picker.Action.PICKED) {
-          const doc = data.docs[0];
-          const url = doc.url || `https://drive.google.com/file/d/${doc.id}/view`;
-          const name = doc.name;
-          setFileWidgetDriveFile(fieldId, name, url);
-        }
-      })
-      .build();
-    picker.setVisible(true);
-  }
-
-  function setFileWidgetDriveFile(fieldId, name, url) {
-    fileWidgetState[fieldId] = { file: null, url: url };
-    document.getElementById(fieldId).value = url;
-    const btn = document.getElementById(`${fieldId}-btn`);
-    btn.classList.add('has-file');
-    document.getElementById(`${fieldId}-label`).textContent = name;
-    document.getElementById(`${fieldId}-sub`).textContent = '✓ From Google Drive';
-    btn.querySelector('.file-upload-icon').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12s-4-8-10-8S2 12 2 12s4 8 10 8 10-8 10-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-  }
-
-  // Stores: { file: File|null, url: string } keyed by fieldId
-  const fileWidgetState = {};
-
-  function buildFileWidget(wrapperId, fieldId) {
-    const wrap = document.getElementById(wrapperId);
-    if (!wrap) return;
-    fileWidgetState[fieldId] = { file: null, url: '' };
-
-    wrap.innerHTML = `
-      <input type="file" id="${fieldId}-file" class="file-upload-input"
-        accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.mp4,.mov">
-      <div style="display:flex;gap:8px;margin-bottom:0;">
-        <button type="button" class="file-upload-btn" id="${fieldId}-btn" style="flex:1;"
-          onclick="document.getElementById('${fieldId}-file').click()">
-          <div class="file-upload-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-              <polyline points="17 8 12 3 7 8"/>
-              <line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
-          </div>
-          <div class="file-upload-text">
-            <span class="file-upload-label" id="${fieldId}-label">Add File</span>
-            <span class="file-upload-sub" id="${fieldId}-sub">Camera · Photos · Files</span>
-          </div>
-          <button type="button" class="file-remove-btn" id="${fieldId}-remove" onclick="removeFile(event,'${fieldId}')">×</button>
-        </button>
-        <button type="button" onclick="openDrivePicker('${fieldId}')" title="Pick from Google Drive"
-          style="flex-shrink:0;width:44px;height:auto;border:1.5px dashed rgba(0,0,0,0.18);border-radius:9px;background:var(--section-bg);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;"
-          onmouseover="this.style.borderColor='#4285F4';this.style.background='#f0f4ff';"
-          onmouseout="this.style.borderColor='rgba(0,0,0,0.18)';this.style.background='var(--section-bg)';">
-          <svg width="22" height="22" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
-            <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
-            <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/>
-            <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
-            <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
-            <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
-            <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
-          </svg>
-        </button>
-      </div>
-      <div class="file-url-or"><span>or paste a link</span></div>
-      <div class="file-url-input-row">
-        <input type="url" id="${fieldId}" placeholder="Google Drive, Dropbox, or any URL…"
-          oninput="onUrlInput('${fieldId}')" style="font-size:13px;padding:8px 12px;"/>
-      </div>
-    `;
-
-    document.getElementById(`${fieldId}-file`).addEventListener('change', function() {
-      const f = this.files[0];
-      if (!f) return;
-      fileWidgetState[fieldId].file = f;
-      fileWidgetState[fieldId].url = '';
-      document.getElementById(fieldId).value = '';
-      const btn = document.getElementById(`${fieldId}-btn`);
-      btn.classList.add('has-file');
-      document.getElementById(`${fieldId}-label`).textContent = f.name;
-      const size = f.size < 1024*1024 ? (f.size/1024).toFixed(0)+' KB' : (f.size/(1024*1024)).toFixed(1)+' MB';
-      document.getElementById(`${fieldId}-sub`).textContent = '✓ Selected — ' + size;
-      btn.querySelector('.file-upload-icon').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
-    });
-  }
-
-  function removeFile(e, fieldId) {
-    e.stopPropagation();
-    fileWidgetState[fieldId] = { file: null, url: '' };
-    const fileInput = document.getElementById(`${fieldId}-file`);
-    if (fileInput) fileInput.value = '';
-    const btn = document.getElementById(`${fieldId}-btn`);
-    btn.classList.remove('has-file');
-    document.getElementById(`${fieldId}-label`).textContent = 'Add File';
-    document.getElementById(`${fieldId}-sub`).textContent = 'Camera · Photos · Files';
-    btn.querySelector('.file-upload-icon').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`;
-    document.getElementById(fieldId).value = '';
-  }
-
-  function onUrlInput(fieldId) {
-    const val = document.getElementById(fieldId).value.trim();
-    if (val) {
-      fileWidgetState[fieldId] = { file: null, url: val };
-      const fileInput = document.getElementById(`${fieldId}-file`);
-      if (fileInput) fileInput.value = '';
-      const btn = document.getElementById(`${fieldId}-btn`);
-      btn.classList.remove('has-file');
-      document.getElementById(`${fieldId}-label`).textContent = 'Add File';
-      document.getElementById(`${fieldId}-sub`).textContent = 'Camera · Photos · Files';
-    } else {
-      fileWidgetState[fieldId] = { file: null, url: '' };
-    }
-  }
-
-  function getAttachmentValue(fieldId) {
-    const state = fileWidgetState[fieldId];
-    if (!state) return document.getElementById(fieldId) ? document.getElementById(fieldId).value : '';
-    if (state.file) return '[File: ' + state.file.name + ']';
-    if (state.url) return state.url;
-    const urlInput = document.getElementById(fieldId);
-    return urlInput ? urlInput.value.trim() : '';
-  }
-
-  // Build all file widgets on load
-  document.addEventListener('DOMContentLoaded', function() {
-    loadGoogleScripts();
-    buildFileWidget('wrap-aw-att1', 'aw-att1');
-    buildFileWidget('wrap-aw-att2', 'aw-att2');
-    buildFileWidget('wrap-re-att',  're-att');
-    buildFileWidget('wrap-ap-att1', 'ap-att1');
-    buildFileWidget('wrap-ap-att2', 'ap-att2');
-    buildFileWidget('wrap-ch-link', 'ch-link');
-    buildFileWidget('wrap-bp-link', 'bp-link');
-  });
 </script>
 </body>
 </html>
