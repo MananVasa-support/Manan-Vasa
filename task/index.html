@@ -298,6 +298,7 @@ optgroup{background:#1a0000;color:rgba(255,255,255,0.4);}
 </div>
 
 <div class="period-info" id="period-info"></div>
+<div id="debug-panel" style="display:none;max-width:1200px;margin:0.4rem auto 0;padding:0.5rem 1.5rem;font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,0.5);gap:6px;flex-wrap:wrap;align-items:center;"></div>
 
 <!-- ── MAIN CONTENT ── -->
 <div class="content">
@@ -432,6 +433,15 @@ function loadData() {
     allData    = data.rows   || [];
     hasDateCol = !data.noDateCol;
     document.getElementById('no-date-note').style.display = hasDateCol ? 'none' : 'flex';
+    // Show unique raw status values for diagnostics
+    const rawStatuses = [...new Set(allData.map(r => r.s))].filter(Boolean).sort();
+    const debugEl = document.getElementById('debug-panel');
+    if (debugEl) {
+      debugEl.innerHTML = '<strong>RAW STATUS VALUES FROM YOUR SHEET:</strong> ' +
+        rawStatuses.map(s => `<code style="background:#222;color:#f87171;padding:2px 7px;border-radius:4px;margin:0 3px;font-size:11px;">${s}</code>`).join('') +
+        '<span style="margin-left:12px;color:#888;font-size:11px;">(share these with Claude if statuses show —)</span>';
+      debugEl.style.display = 'flex';
+    }
     buildEmpDropdown();
     applyFilter();
   };
@@ -452,46 +462,45 @@ function setRefreshing(on) {
 
 // ── Dropdown ────────────────────────────────────────────
 function buildEmpDropdown() {
-  const raw  = [...new Set(allData.map(r => r.e))].filter(Boolean);
-  empList    = sortEmployees(raw);
+  const raw = [...new Set(allData.map(r => r.e))].filter(Boolean);
+  empList   = sortEmployees(raw);
+
   const sel  = document.getElementById('emp-select');
   const prev = sel.value;
-
   sel.innerHTML = '<option value="">All Employees</option>';
 
-  // Group: regular (Manan first + alphabetical)
-  const regularOg = document.createElement('optgroup');
-  regularOg.label = '─── Employees ───';
+  // Split into 3 buckets (already sorted by sortEmployees)
+  const regulars = empList.filter(e => {
+    const lo = e.toLowerCase();
+    return !lo.includes('intern') && !EMP_BOTTOM.some(b => lo.includes(b));
+  });
+  const interns = empList.filter(e => e.toLowerCase().includes('intern'));
+  const bottoms = empList.filter(e => EMP_BOTTOM.some(b => e.toLowerCase().includes(b)));
 
-  // Group: interns
-  const internOg = document.createElement('optgroup');
-  internOg.label = '─── Interns ───';
-
-  empList.forEach(emp => {
-    const lo  = emp.toLowerCase();
+  function addOpt(parent, emp) {
     const opt = document.createElement('option');
     opt.value = emp; opt.textContent = emp;
-    const isBottom  = EMP_BOTTOM.some(b => lo.includes(b));
-    const isIntern  = lo.includes('intern');
-    if (isBottom) {
-      sel.appendChild(opt); // append at end directly
-    } else if (isIntern) {
-      internOg.appendChild(opt);
-    } else {
-      regularOg.appendChild(opt);
-    }
-  });
-
-  // Insert optgroups before bottom employees
-  const opts = Array.from(sel.options);
-  const firstBottom = opts.findIndex(o => EMP_BOTTOM.some(b => o.value.toLowerCase().includes(b)));
-  if (firstBottom !== -1) {
-    sel.insertBefore(regularOg, sel.options[firstBottom]);
-    sel.insertBefore(internOg,  sel.options[firstBottom + regularOg.children.length]);
-  } else {
-    sel.appendChild(regularOg);
-    sel.appendChild(internOg);
+    parent.appendChild(opt);
   }
+
+  // Regular employees group
+  if (regulars.length) {
+    const og = document.createElement('optgroup');
+    og.label = '─── Employees ───';
+    regulars.forEach(e => addOpt(og, e));
+    sel.appendChild(og);
+  }
+
+  // Interns group
+  if (interns.length) {
+    const og = document.createElement('optgroup');
+    og.label = '─── Interns ───';
+    interns.forEach(e => addOpt(og, e));
+    sel.appendChild(og);
+  }
+
+  // Bottom employees — directly on select, no group
+  bottoms.forEach(e => addOpt(sel, e));
 
   if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
 }
