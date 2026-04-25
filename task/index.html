@@ -422,7 +422,7 @@ function filterByDate(data, startStr, endStr) {
 
 // ── Load ────────────────────────────────────────────────
 function loadData() {
-  if (!SCRIPT_URL || SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL_HERE') return;
+  if (!SCRIPT_URL || SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbwlrPIN5j9YWy8YpgAMJ07fLvKReXeaQYTLfzyJfwDSgRj_a-I5T1ssHqfdY8nmisDE_g/exec') return;
   setRefreshing(true);
   const old = document.getElementById('_jsonp');
   if (old) old.remove();
@@ -704,7 +704,7 @@ function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
     document.getElementById('main-wrap').innerHTML = `<div class="state-box">
       <div class="state-icon">⚙️</div>
       <div class="state-title">One-time setup required</div>
-      <div class="state-sub">Open this HTML file in a text editor, find <strong>YOUR_APPS_SCRIPT_URL_HERE</strong> and replace it with your deployed Apps Script URL. Save — done forever, on every device.</div>
+      <div class="state-sub">Open this HTML file in a text editor, find <strong>https://script.google.com/macros/s/AKfycbwlrPIN5j9YWy8YpgAMJ07fLvKReXeaQYTLfzyJfwDSgRj_a-I5T1ssHqfdY8nmisDE_g/exec</strong> and replace it with your deployed Apps Script URL. Save — done forever, on every device.</div>
     </div>`;
     return;
   }
