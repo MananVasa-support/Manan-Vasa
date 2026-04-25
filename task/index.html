@@ -26,7 +26,7 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--text);min-
 .page-wrap{
   min-height:100vh;
   background:linear-gradient(160deg,#0a0a0a 0%,#1a0000 40%,#0a0a0a 100%);
-  padding:0 0 5rem;position:relative;overflow-x:hidden;
+  padding:0 0 5rem;position:relative;overflow-x:clip;
 }
 .page-wrap::before{
   content:'';position:absolute;top:-120px;right:-120px;
@@ -156,64 +156,92 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--text);min-
 .table-wrap{overflow-x:auto;}
 table{width:100%;border-collapse:collapse;font-size:13px;}
 
-/* All-employees table */
+/* All-employees table — compact so all 13 columns fit */
+.all-table{overflow-x:auto;display:block;}
+.all-table table{width:100%;border-collapse:collapse;min-width:900px;}
 .all-table thead tr.th-main{background:#0f0f0f;}
 .all-table thead tr.th-main th{
-  font-family:Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.05em;
-  text-transform:uppercase;color:rgba(255,255,255,0.65);
-  padding:14px 16px;text-align:center;white-space:nowrap;border-bottom:1px solid rgba(229,0,0,0.15);
+  font-family:Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.04em;
+  text-transform:uppercase;color:rgba(255,255,255,0.7);
+  padding:13px 12px;text-align:center;white-space:nowrap;
+  border-bottom:1px solid rgba(229,0,0,0.15);border-right:1px solid rgba(255,255,255,0.04);
 }
 .all-table thead tr.th-main th:first-child,
 .all-table thead tr.th-main th:nth-child(2){text-align:left;}
 .all-table thead tr.th-sub{background:#161616;}
 .all-table thead tr.th-sub th{
-  font-family:Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.04em;
-  text-transform:uppercase;color:rgba(229,0,0,0.7);
-  padding:9px 16px;text-align:center;white-space:nowrap;
-  border-bottom:2px solid rgba(229,0,0,0.25);
+  font-family:Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.04em;
+  text-transform:uppercase;color:rgba(229,0,0,0.8);
+  padding:8px 12px;text-align:center;white-space:nowrap;
+  border-bottom:2px solid rgba(229,0,0,0.3);border-right:1px solid rgba(255,255,255,0.04);
 }
-.all-table tbody tr{border-bottom:1px solid var(--border);transition:background 0.12s;}
-.all-table tbody tr:hover{background:var(--red-pale);}
+.all-table tbody tr{border-bottom:1px solid rgba(0,0,0,0.07);transition:background 0.12s;}
+.all-table tbody tr:nth-child(even){background:#f7f7f7;}
+.all-table tbody tr:hover{background:#ffeaea;}
 .all-table tbody tr:last-child{border-bottom:none;}
-.all-table tbody td{padding:13px 16px;color:var(--text);white-space:nowrap;text-align:center;font-family:Arial,sans-serif;font-size:15px;font-weight:500;}
-.all-table tbody td.name-cell{text-align:left;font-family:Arial,sans-serif;font-weight:700;color:var(--black2);font-size:15px;}
-.all-table tbody td.num-cell{font-family:Arial,sans-serif;font-size:20px;font-weight:800;}
-.all-table tbody td.rank-cell{text-align:center;}
-.all-table tbody td.zero{color:#bbb;font-size:14px;}
-.all-table tbody td.pending-grp{background:rgba(157,78,221,0.05);}
-.all-table thead .pending-hdr{background:rgba(157,78,221,0.18);color:rgba(200,150,255,0.95) !important;border-bottom:1px solid rgba(157,78,221,0.3) !important;}
+.all-table tbody td{
+  padding:12px 12px;color:var(--text);white-space:nowrap;text-align:center;
+  font-family:Arial,sans-serif;font-size:14px;font-weight:600;
+  border-right:1px solid rgba(0,0,0,0.05);
+}
+.all-table tbody td.name-cell{
+  text-align:left;font-family:Arial,sans-serif;font-weight:700;
+  color:#111;font-size:14px;min-width:160px;
+}
+.all-table tbody td.num-cell{font-size:18px;font-weight:800;color:#111;}
+.all-table tbody td.rank-cell{text-align:center;width:40px;}
+.all-table tbody td.zero{color:#ccc;font-weight:400;font-size:13px;}
+.all-table tbody td.pending-grp{background:rgba(157,78,221,0.06);}
+.all-table tbody tr:nth-child(even) td.pending-grp{background:rgba(157,78,221,0.1);}
+.all-table thead .pending-hdr{
+  background:rgba(157,78,221,0.22);
+  color:rgba(210,170,255,1) !important;
+  border-bottom:1px solid rgba(157,78,221,0.35) !important;
+}
+.all-table tfoot tr{border-top:2px solid var(--red);}
 .all-table tfoot td{
-  background:#e8e8e8;font-weight:800;font-family:Arial,sans-serif;font-size:14px;
-  padding:13px 16px;text-align:center;border-top:2px solid var(--red);color:var(--black2);
+  background:#111;font-weight:800;font-family:Arial,sans-serif;font-size:13px;
+  padding:13px 12px;text-align:center;color:#fff;
+  border-right:1px solid rgba(255,255,255,0.08);
 }
 .all-table tfoot td:first-child,.all-table tfoot td:nth-child(2){text-align:left;}
 
-/* Single employee table */
-.single-table{max-width:600px;margin:0 auto;}
+/* Single employee table — full width, clean layout */
+.single-table{width:100%;}
 .single-table table{border-collapse:collapse;width:100%;}
-.single-table thead tr{background:#1a1a1a;border-bottom:3px solid var(--red);}
+.single-table thead tr{background:#111;}
 .single-table thead th{
-  font-family:Arial,sans-serif;font-size:13px;font-weight:700;letter-spacing:0.08em;
-  text-transform:uppercase;color:rgba(255,255,255,0.6);padding:16px 28px;text-align:left;
+  font-family:Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.1em;
+  text-transform:uppercase;color:rgba(255,255,255,0.5);
+  padding:18px 40px;text-align:left;border-bottom:3px solid var(--red);
 }
 .single-table thead th:last-child{text-align:right;}
-.single-table tbody tr{border-bottom:1px solid var(--border);transition:background 0.12s;}
-.single-table tbody tr:hover{background:var(--red-pale);}
+.single-table tbody tr{border-bottom:1px solid #e8e8e8;transition:background 0.1s;}
+.single-table tbody tr:hover{background:#fff5f5;}
+.single-table tbody tr:nth-child(even){background:#f9f9f9;}
+.single-table tbody tr:nth-child(even):hover{background:#fff5f5;}
 .single-table tbody tr:last-child{border-bottom:none;}
-.single-table tbody td{padding:16px 28px;color:var(--text);font-family:Arial,sans-serif;}
-.single-table td.status-name{font-weight:700;font-size:17px;}
-.single-table td.status-name.sub{font-weight:500;font-size:15px;color:#555;padding-left:52px;}
+.single-table tbody td{padding:18px 40px;color:var(--text);font-family:Arial,sans-serif;}
+.single-table td.status-name{font-weight:700;font-size:17px;width:70%;}
+.single-table td.status-name.sub{font-weight:600;font-size:15px;color:#555;padding-left:72px;}
 .single-table td.status-name.sub::before{content:'↳  ';color:rgba(157,78,221,0.6);font-weight:700;}
-.single-table td.status-count{font-family:Arial,sans-serif;font-size:28px;font-weight:800;text-align:right;}
-.single-table td.status-count.zero{font-size:22px;color:#bbb;font-weight:400;}
-.single-table td.status-count.sub{font-size:22px;font-weight:700;}
-.single-table tr.pending-row td{background:rgba(157,78,221,0.06);}
-.single-table tr.pending-row td.status-name{color:var(--pending);font-weight:800;}
-.single-table tr.pending-row td.status-count{color:var(--pending);}
-.single-table tr.sub-row td{background:rgba(157,78,221,0.025);}
-.single-table tr.total-row td{background:#1a1a1a;border-top:3px solid var(--red);}
-.single-table tr.total-row td.status-name{font-family:Arial,sans-serif;font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.55);}
-.single-table tr.total-row td.status-count{font-family:Arial,sans-serif;font-size:34px;font-weight:900;color:#fff;}
+.single-table td.status-count{font-family:Arial,sans-serif;font-size:32px;font-weight:800;text-align:right;color:#111;white-space:nowrap;}
+.single-table td.status-count.zero{font-size:24px;color:#ccc;font-weight:400;}
+.single-table td.status-count.sub{font-size:24px;font-weight:700;}
+.single-table tr.pending-row{border-top:1px solid rgba(157,78,221,0.2);border-bottom:1px solid rgba(157,78,221,0.2);}
+.single-table tr.pending-row td{background:rgba(157,78,221,0.07);}
+.single-table tr.pending-row td.status-name{color:var(--pending);font-weight:800;font-size:18px;}
+.single-table tr.pending-row td.status-count{color:var(--pending);font-size:34px;}
+.single-table tr.sub-row td{background:rgba(157,78,221,0.03);}
+.single-table tr.sub-row:hover td{background:rgba(157,78,221,0.1);}
+.single-table tr.total-row td{background:#111;border-top:3px solid var(--red);}
+.single-table tr.total-row td.status-name{
+  font-family:Arial,sans-serif;font-size:13px;font-weight:800;
+  letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.5);
+}
+.single-table tr.total-row td.status-count{
+  font-family:Arial,sans-serif;font-size:40px;font-weight:900;color:#fff;
+}
 
 /* Chips for status */
 .chip{display:inline-block;padding:5px 16px;border-radius:20px;font-family:Arial,sans-serif;font-size:14px;font-weight:700;}
@@ -388,10 +416,9 @@ function countRows(rows) {
   return c;
 }
 
-function n(v) { return v === 0 ? '<span class="zero">—</span>' : v; }
-function rank(i) {
-  const cls = i===0?'gold':i===1?'silver':i===2?'bronze':'';
-  return `<span class="rank-chip ${cls}">${i+1}</span>`;
+// Normalize name for fuzzy matching: strip parenthetical suffixes, lowercase
+function normName(n) {
+  return n.toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim().replace(/\s+/g, ' ');
 }
 
 // ── Date helpers ────────────────────────────────────────
@@ -511,7 +538,10 @@ function applyFilter() {
   const empVal   = document.getElementById('emp-select').value;
 
   let filtered = filterByDate(allData, startStr, endStr);
-  if (empVal) filtered = filtered.filter(r => r.e === empVal);
+  if (empVal) {
+    const normVal = normName(empVal);
+    filtered = filtered.filter(r => r.e === empVal || normName(r.e) === normVal);
+  }
 
   updatePeriodInfo(startStr, endStr, empVal, filtered.length);
   updateStats(filtered);
@@ -597,26 +627,29 @@ function renderSingle(rows, empName) {
 
 // ── RENDER: All Employees ───────────────────────────────
 function renderAll(rows, startStr, endStr) {
-  if (!rows.length) {
-    document.getElementById('main-wrap').innerHTML = `<div class="state-box"><div class="state-icon">🔍</div><div class="state-title">No tasks found</div><div class="state-sub">Try adjusting the date range or check that data is present for this period.</div></div>`;
-    document.getElementById('table-badge').textContent = '0 tasks';
+  if (!empList.length) {
+    document.getElementById('main-wrap').innerHTML = `<div class="state-box"><div class="state-icon">🔍</div><div class="state-title">No data loaded</div><div class="state-sub">Refresh to load employee data.</div></div>`;
+    document.getElementById('table-badge').textContent = '—';
     return;
   }
 
-  // Build per-employee stats
-  const byEmp = {};
+  // Build per-employee stats — exact match AND normalized match for interns
+  const byEmp  = {};   // exact: "Dhruv Jhaveri ( Intern )" → rows
+  const byNorm = {};   // fuzzy: "dhruv jhaveri"            → rows
   rows.forEach(r => {
-    if (!byEmp[r.e]) byEmp[r.e] = [];
+    if (!byEmp[r.e])           byEmp[r.e]           = [];
+    const nk = normName(r.e);
+    if (!byNorm[nk])           byNorm[nk]            = [];
     byEmp[r.e].push(r);
+    byNorm[nk].push(r);
   });
 
   // Use the FULL empList (all people in dropdown) — show everyone, even with 0 tasks
-  // Also add anyone in task data not already in empList
   const empsFiltered = [...empList];
   Object.keys(byEmp).forEach(e => { if (!empsFiltered.includes(e)) empsFiltered.push(e); });
 
   const allC    = countRows(rows);
-  const totals  = empsFiltered.map(e => (byEmp[e] || []).length);
+  const totals  = empsFiltered.map(e => (byEmp[e] || byNorm[normName(e)] || []).length);
   const maxTotal= Math.max(...totals, 1);
 
   document.getElementById('table-badge').textContent = empsFiltered.length + ' people · ' + rows.length + ' tasks';
@@ -645,7 +678,8 @@ function renderAll(rows, startStr, endStr) {
   <tbody>`;
 
   empsFiltered.forEach((emp, i) => {
-    const c   = countRows(byEmp[emp] || []);
+    const empRows = byEmp[emp] || byNorm[normName(emp)] || [];
+    const c   = countRows(empRows);
     const cls = i===0?'gold':i===1?'silver':i===2?'bronze':'';
     const z   = v => v === 0 ? `<td class="zero">—</td>` : `<td>${v}</td>`;
     const zp  = v => v === 0 ? `<td class="pending-grp zero">—</td>` : `<td class="pending-grp">${v}</td>`;
