@@ -206,14 +206,19 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
 }
 .all-table tfoot td:first-child,.all-table tfoot td:nth-child(2){text-align:left;}
 
-/* Single employee table — full width, clean layout */
-.single-table{width:100%;}
-.single-table table{border-collapse:collapse;width:100%;}
+/* Single employee table — fixed-width count col, auto name col */
+.single-table{padding:28px 32px;}
+.single-table table{
+  border-collapse:collapse;width:100%;max-width:680px;
+  margin:0 auto;table-layout:fixed;
+}
+.single-table table colgroup col:first-child{width:auto;}
+.single-table table colgroup col:last-child{width:120px;}
 .single-table thead tr{background:#111;}
 .single-table thead th{
   font-family:Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.1em;
   text-transform:uppercase;color:rgba(255,255,255,0.5);
-  padding:18px 40px;text-align:left;border-bottom:3px solid var(--red);
+  padding:15px 20px;border-bottom:3px solid var(--red);
 }
 .single-table thead th:last-child{text-align:right;}
 .single-table tbody tr{border-bottom:1px solid #e8e8e8;transition:background 0.1s;}
@@ -221,26 +226,29 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
 .single-table tbody tr:nth-child(even){background:#f9f9f9;}
 .single-table tbody tr:nth-child(even):hover{background:#fff5f5;}
 .single-table tbody tr:last-child{border-bottom:none;}
-.single-table tbody td{padding:18px 40px;color:var(--text);font-family:Arial,sans-serif;}
-.single-table td.status-name{font-weight:700;font-size:17px;width:70%;}
-.single-table td.status-name.sub{font-weight:600;font-size:15px;color:#555;padding-left:72px;}
+.single-table tbody td{padding:15px 20px;color:var(--text);font-family:Arial,sans-serif;}
+.single-table td.status-name{font-weight:700;font-size:17px;}
+.single-table td.status-name.sub{font-weight:600;font-size:15px;color:#555;padding-left:40px;}
 .single-table td.status-name.sub::before{content:'↳  ';color:rgba(157,78,221,0.6);font-weight:700;}
-.single-table td.status-count{font-family:Arial,sans-serif;font-size:32px;font-weight:800;text-align:right;color:#111;white-space:nowrap;}
-.single-table td.status-count.zero{font-size:24px;color:#ccc;font-weight:400;}
-.single-table td.status-count.sub{font-size:24px;font-weight:700;}
+.single-table td.status-count{
+  font-family:Arial,sans-serif;font-size:30px;font-weight:800;
+  text-align:right;color:#111;white-space:nowrap;
+}
+.single-table td.status-count.zero{font-size:22px;color:#ccc;font-weight:400;}
+.single-table td.status-count.sub{font-size:22px;font-weight:700;}
 .single-table tr.pending-row{border-top:1px solid rgba(157,78,221,0.2);border-bottom:1px solid rgba(157,78,221,0.2);}
 .single-table tr.pending-row td{background:rgba(157,78,221,0.07);}
 .single-table tr.pending-row td.status-name{color:var(--pending);font-weight:800;font-size:18px;}
-.single-table tr.pending-row td.status-count{color:var(--pending);font-size:34px;}
+.single-table tr.pending-row td.status-count{color:var(--pending);font-size:32px;}
 .single-table tr.sub-row td{background:rgba(157,78,221,0.03);}
 .single-table tr.sub-row:hover td{background:rgba(157,78,221,0.1);}
 .single-table tr.total-row td{background:#111;border-top:3px solid var(--red);}
 .single-table tr.total-row td.status-name{
-  font-family:Arial,sans-serif;font-size:13px;font-weight:800;
+  font-family:Arial,sans-serif;font-size:12px;font-weight:800;
   letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.5);
 }
 .single-table tr.total-row td.status-count{
-  font-family:Arial,sans-serif;font-size:40px;font-weight:900;color:#fff;
+  font-family:Arial,sans-serif;font-size:38px;font-weight:900;color:#fff;
 }
 
 /* Chips for status */
@@ -416,9 +424,20 @@ function countRows(rows) {
   return c;
 }
 
-// Normalize name for fuzzy matching: strip parenthetical suffixes, lowercase
+// Normalize name: strip parenthetical content, lowercase, collapse spaces
 function normName(n) {
-  return n.toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim().replace(/\s+/g, ' ');
+  return (n || '').toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim().replace(/\s+/g, ' ');
+}
+// First two words of name (First + Last) for aggressive fallback match
+function firstName2(n) {
+  return normName(n).split(' ').slice(0, 2).join(' ');
+}
+// Find rows for an employee using exact → normalized → first-two-words matching
+function findRows(emp, byEmp, byNorm, byFirst2) {
+  return byEmp[emp]
+      || byNorm[normName(emp)]
+      || byFirst2[firstName2(emp)]
+      || [];
 }
 
 // ── Date helpers ────────────────────────────────────────
@@ -539,8 +558,13 @@ function applyFilter() {
 
   let filtered = filterByDate(allData, startStr, endStr);
   if (empVal) {
-    const normVal = normName(empVal);
-    filtered = filtered.filter(r => r.e === empVal || normName(r.e) === normVal);
+    const normVal  = normName(empVal);
+    const first2Val= firstName2(empVal);
+    filtered = filtered.filter(r =>
+      r.e === empVal ||
+      normName(r.e) === normVal ||
+      firstName2(r.e) === first2Val
+    );
   }
 
   updatePeriodInfo(startStr, endStr, empVal, filtered.length);
@@ -582,6 +606,7 @@ function renderSingle(rows, empName) {
   ];
 
   let html = `<div class="single-table"><table>
+    <colgroup><col/><col style="width:120px"/></colgroup>
     <thead><tr><th>Task Status</th><th style="text-align:right">No. of Tasks</th></tr></thead>
     <tbody>`;
 
@@ -633,15 +658,19 @@ function renderAll(rows, startStr, endStr) {
     return;
   }
 
-  // Build per-employee stats — exact match AND normalized match for interns
-  const byEmp  = {};   // exact: "Dhruv Jhaveri ( Intern )" → rows
-  const byNorm = {};   // fuzzy: "dhruv jhaveri"            → rows
+  // Build lookup maps: exact, normalized (no parens), first-two-words
+  const byEmp   = {};
+  const byNorm  = {};
+  const byFirst2= {};
   rows.forEach(r => {
-    if (!byEmp[r.e])           byEmp[r.e]           = [];
+    if (!byEmp[r.e])              byEmp[r.e]              = [];
     const nk = normName(r.e);
-    if (!byNorm[nk])           byNorm[nk]            = [];
+    if (!byNorm[nk])              byNorm[nk]              = [];
+    const fk = firstName2(r.e);
+    if (!byFirst2[fk])            byFirst2[fk]            = [];
     byEmp[r.e].push(r);
     byNorm[nk].push(r);
+    byFirst2[fk].push(r);
   });
 
   // Use the FULL empList (all people in dropdown) — show everyone, even with 0 tasks
@@ -649,7 +678,7 @@ function renderAll(rows, startStr, endStr) {
   Object.keys(byEmp).forEach(e => { if (!empsFiltered.includes(e)) empsFiltered.push(e); });
 
   const allC    = countRows(rows);
-  const totals  = empsFiltered.map(e => (byEmp[e] || byNorm[normName(e)] || []).length);
+  const totals  = empsFiltered.map(e => findRows(e, byEmp, byNorm, byFirst2).length);
   const maxTotal= Math.max(...totals, 1);
 
   document.getElementById('table-badge').textContent = empsFiltered.length + ' people · ' + rows.length + ' tasks';
@@ -678,15 +707,16 @@ function renderAll(rows, startStr, endStr) {
   <tbody>`;
 
   empsFiltered.forEach((emp, i) => {
-    const empRows = byEmp[emp] || byNorm[normName(emp)] || [];
+    const empRows = findRows(emp, byEmp, byNorm, byFirst2);
     const c   = countRows(empRows);
     const cls = i===0?'gold':i===1?'silver':i===2?'bronze':'';
     const z   = v => v === 0 ? `<td class="zero">—</td>` : `<td>${v}</td>`;
     const zp  = v => v === 0 ? `<td class="pending-grp zero">—</td>` : `<td class="pending-grp">${v}</td>`;
 
-    html += `<tr>
+    const hasAny = c.Total > 0;
+    html += `<tr style="${hasAny?'':'opacity:0.5'}">
       <td class="rank-cell"><span class="rank-chip ${cls}">${i+1}</span></td>
-      <td class="name-cell">${esc(emp)}</td>
+      <td class="name-cell">${esc(emp)}${hasAny?'':'<span style="font-size:11px;font-weight:400;color:#aaa;margin-left:8px;">(no tasks in period)</span>'}</td>
       ${z(c.Approved)}
       ${z(c['Not Approved'])}
       ${z(c.Done)}
@@ -697,7 +727,7 @@ function renderAll(rows, startStr, endStr) {
       ${zp(c['Follow Up'])}
       ${zp(c.Initiated)}
       ${zp(c['Not Started'])}
-      <td class="num-cell">${c.Total}</td>
+      <td class="num-cell">${hasAny ? c.Total : '<span style="color:#ccc;font-size:13px;font-weight:400">—</span>'}</td>
     </tr>`;
   });
 
