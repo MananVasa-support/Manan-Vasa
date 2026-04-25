@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Altus Corp — Task Management Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+:root{
+  --red:#e50000;--red-dark:#b50000;--red-pale:#fff0f0;
+  --black:#0a0a0a;--black2:#111;--white:#ffffff;
+  --cream:#fafafa;--border:rgba(0,0,0,0.09);
+  --text:#111;--muted:#777;
+  --mono:'DM Mono',monospace;
+  --sans:'DM Sans',sans-serif;
+  --display:'Bebas Neue',sans-serif;
+  --green:#15803d;--green-bg:#dcfce7;
+  --amber:#c2410c;--amber-bg:#fff7ed;
+  --blue:#1d4ed8;--blue-bg:#eff6ff;
+  --purple:#6d28d9;--purple-bg:#f5f3ff;
+  --pending:#9d4edd;--pending-bg:#f3e8ff;
+}
+body{font-family:var(--sans);background:var(--cream);color:var(--text);min-height:100vh;}
+.page-wrap{
+  min-height:100vh;
+  background:linear-gradient(160deg,#0a0a0a 0%,#1a0000 40%,#0a0a0a 100%);
+  padding:0 0 5rem;position:relative;overflow-x:hidden;
+}
+.page-wrap::before{
+  content:'';position:absolute;top:-120px;right:-120px;
+  width:500px;height:500px;border-radius:50%;
+  background:radial-gradient(circle,rgba(229,0,0,0.13) 0%,transparent 70%);
+  pointer-events:none;
+}
+
+/* HEADER */
+.site-header{
+  background:linear-gradient(135deg,#0a0a0a 0%,#1e0000 100%);
+  border-bottom:1px solid rgba(229,0,0,0.2);
+  padding:2rem 2.5rem 1.8rem;position:relative;
+}
+.site-header::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,transparent,var(--red),#ff4444,var(--red),transparent);
+}
+.header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;}
+.header-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:0.3em;text-transform:uppercase;color:var(--red);margin-bottom:6px;}
+.header-title{font-family:var(--display);font-size:38px;color:#fff;letter-spacing:0.03em;line-height:1;}
+.header-sub{font-size:13px;color:rgba(255,255,255,0.55);margin-top:6px;}
+.header-logo{width:90px;height:90px;object-fit:contain;flex-shrink:0;}
+
+/* CONFIG BANNER */
+.config-banner{
+  background:#fff3cd;border:1.5px solid #fbbf24;border-radius:12px;
+  padding:1rem 1.4rem;font-size:13px;color:#92400e;
+  display:flex;align-items:flex-start;gap:10px;
+}
+.url-setup{
+  display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;
+}
+.url-input{
+  flex:1;min-width:260px;font-family:var(--mono);font-size:12px;
+  background:#fff;border:1.5px solid #fbbf24;border-radius:8px;
+  padding:8px 12px;outline:none;color:#333;
+}
+.url-input:focus{border-color:var(--red);}
+.url-save-btn{
+  background:var(--red);color:#fff;border:none;border-radius:8px;
+  padding:8px 18px;font-family:var(--sans);font-size:13px;font-weight:600;
+  cursor:pointer;white-space:nowrap;
+}
+
+/* CONTROLS */
+.controls-bar{
+  max-width:1200px;margin:1.4rem auto 0;padding:0 1.5rem;
+  display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap;
+}
+.ctrl-group{display:flex;flex-direction:column;gap:4px;}
+.ctrl-label{font-family:var(--mono);font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:rgba(255,255,255,0.45);}
+.dash-date{
+  font-family:var(--mono);font-size:13px;
+  background:rgba(255,255,255,0.06);border:1px solid rgba(229,0,0,0.22);
+  border-radius:10px;padding:9px 14px;outline:none;cursor:pointer;color:#fff;
+  color-scheme:dark;
+}
+.dash-date:focus{border-color:var(--red);}
+.period-sep{
+  font-family:var(--mono);font-size:18px;color:rgba(255,255,255,0.3);
+  margin-bottom:2px;padding-top:18px;
+}
+.emp-select{
+  font-family:var(--mono);font-size:12px;color:#fff;
+  background:rgba(255,255,255,0.06);border:1px solid rgba(229,0,0,0.22);
+  border-radius:10px;padding:9px 36px 9px 14px;outline:none;cursor:pointer;
+  appearance:none;-webkit-appearance:none;min-width:210px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23aaa' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;
+  transition:border-color 0.15s;
+}
+.emp-select:focus{border-color:var(--red);}
+.emp-select option{background:#1a0000;color:#fff;}
+.apply-btn{
+  background:linear-gradient(135deg,var(--red),var(--red-dark));
+  color:#fff;border:none;border-radius:10px;padding:9px 22px;
+  font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;gap:7px;
+  transition:opacity 0.2s,transform 0.2s;
+  box-shadow:0 4px 16px rgba(229,0,0,0.3);
+}
+.apply-btn:hover{opacity:0.88;transform:translateY(-1px);}
+.refresh-btn{
+  background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.7);
+  border:1px solid rgba(229,0,0,0.22);border-radius:10px;padding:9px 18px;
+  font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;
+  display:flex;align-items:center;gap:7px;transition:all 0.2s;
+}
+.refresh-btn:hover{border-color:var(--red);color:#fff;background:rgba(229,0,0,0.1);}
+.refresh-btn svg{transition:transform 0.6s;}
+.refresh-btn.spinning svg{transform:rotate(360deg);}
+.no-date-badge{
+  font-family:var(--mono);font-size:10px;color:rgba(255,200,0,0.8);
+  background:rgba(255,200,0,0.08);border:1px solid rgba(255,200,0,0.2);
+  border-radius:6px;padding:4px 10px;letter-spacing:0.1em;
+  align-self:center;margin-top:14px;
+}
+
+/* CONTENT */
+.content{max-width:1200px;margin:1.8rem auto 0;padding:0 1.5rem;display:flex;flex-direction:column;gap:1.8rem;}
+
+/* STATS */
+.stats-row{
+  display:grid;grid-template-columns:repeat(6,1fr);gap:1px;
+  background:rgba(229,0,0,0.08);border-radius:18px;overflow:hidden;
+  box-shadow:0 10px 40px rgba(0,0,0,0.45),0 0 0 1px rgba(229,0,0,0.13);
+}
+.stat-box{background:#111;padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:5px;}
+.stat-label{font-family:var(--mono);font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.4);}
+.stat-val{font-family:var(--display);font-size:32px;color:#fff;letter-spacing:0.02em;line-height:1;}
+.stat-val.green{color:#4ade80;}
+.stat-val.red{color:#f87171;}
+.stat-val.amber{color:#fb923c;}
+.stat-val.blue{color:#60a5fa;}
+.stat-val.purple{color:#c084fc;}
+
+/* CARD */
+.dash-card{background:var(--cream);border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5),0 0 0 1px rgba(229,0,0,0.13);}
+.card-head{background:#0a0a0a;padding:1.1rem 1.6rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(229,0,0,0.18);}
+.card-head-left{display:flex;align-items:center;gap:10px;}
+.card-dot{width:8px;height:8px;border-radius:50%;background:var(--red);}
+.card-title{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:0.22em;text-transform:uppercase;color:rgba(255,255,255,0.65);}
+.card-badge{font-family:var(--mono);font-size:11px;color:var(--red);background:rgba(229,0,0,0.1);border:1px solid rgba(229,0,0,0.2);border-radius:20px;padding:3px 11px;}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+
+/* All-employees table */
+.all-table thead tr.th-main{background:#0f0f0f;}
+.all-table thead tr.th-main th{
+  font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:0.18em;
+  text-transform:uppercase;color:rgba(255,255,255,0.5);
+  padding:12px 14px;text-align:center;white-space:nowrap;border-bottom:1px solid rgba(229,0,0,0.12);
+}
+.all-table thead tr.th-main th:first-child,
+.all-table thead tr.th-main th:nth-child(2){text-align:left;}
+.all-table thead tr.th-sub{background:#161616;}
+.all-table thead tr.th-sub th{
+  font-family:var(--mono);font-size:8px;font-weight:400;letter-spacing:0.15em;
+  text-transform:uppercase;color:rgba(229,0,0,0.55);
+  padding:7px 14px;text-align:center;white-space:nowrap;
+  border-bottom:2px solid rgba(229,0,0,0.2);
+}
+.all-table tbody tr{border-bottom:1px solid var(--border);transition:background 0.12s;}
+.all-table tbody tr:hover{background:var(--red-pale);}
+.all-table tbody tr:last-child{border-bottom:none;}
+.all-table tbody td{padding:11px 14px;color:var(--text);white-space:nowrap;text-align:center;font-family:var(--mono);font-size:12px;}
+.all-table tbody td.name-cell{text-align:left;font-family:var(--sans);font-weight:600;color:var(--black2);font-size:13px;}
+.all-table tbody td.num-cell{font-family:var(--display);font-size:18px;letter-spacing:0.03em;}
+.all-table tbody td.rank-cell{text-align:center;}
+.all-table tbody td.zero{color:#ccc;}
+.all-table tbody td.pending-grp{background:rgba(157,78,221,0.04);}
+.all-table thead .pending-hdr{background:rgba(157,78,221,0.15);color:rgba(157,78,221,0.9) !important;border-bottom:1px solid rgba(157,78,221,0.25) !important;}
+.all-table tfoot td{
+  background:#f0f0f0;font-weight:700;font-family:var(--mono);font-size:11px;
+  padding:10px 14px;text-align:center;border-top:2px solid var(--red);color:var(--black2);
+}
+.all-table tfoot td:first-child,.all-table tfoot td:nth-child(2){text-align:left;}
+
+/* Single employee table */
+.single-table{max-width:520px;margin:0 auto;}
+.single-table table{border-collapse:collapse;width:100%;}
+.single-table thead tr{background:#f0f0f0;border-bottom:2px solid var(--red);}
+.single-table thead th{
+  font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:0.2em;
+  text-transform:uppercase;color:var(--muted);padding:14px 24px;text-align:left;
+}
+.single-table tbody tr{border-bottom:1px solid var(--border);transition:background 0.12s;}
+.single-table tbody tr:hover{background:var(--red-pale);}
+.single-table tbody tr:last-child{border-bottom:none;}
+.single-table tbody td{padding:13px 24px;color:var(--text);}
+.single-table td.status-name{font-weight:600;font-size:14px;}
+.single-table td.status-name.sub{font-weight:500;font-size:13px;color:var(--muted);padding-left:44px;}
+.single-table td.status-name.sub::before{content:'↳ ';color:rgba(157,78,221,0.5);}
+.single-table td.status-count{font-family:var(--display);font-size:24px;text-align:right;letter-spacing:0.03em;}
+.single-table td.status-count.zero{font-size:18px;color:#ccc;}
+.single-table td.status-count.sub{font-size:18px;}
+.single-table tr.pending-row td{background:rgba(157,78,221,0.05);}
+.single-table tr.pending-row td.status-name{color:var(--pending);}
+.single-table tr.pending-row td.status-count{color:var(--pending);}
+.single-table tr.sub-row td{background:rgba(157,78,221,0.03);}
+.single-table tr.total-row td{background:#f0f0f0;border-top:2px solid var(--red);}
+.single-table tr.total-row td.status-name{font-family:var(--mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);}
+.single-table tr.total-row td.status-count{font-family:var(--display);font-size:30px;}
+
+/* Chips for status */
+.chip{display:inline-block;padding:3px 12px;border-radius:20px;font-family:var(--mono);font-size:10px;font-weight:500;}
+.chip-approved{background:var(--green-bg);color:var(--green);}
+.chip-notapproved{background:var(--amber-bg);color:var(--amber);}
+.chip-done{background:var(--blue-bg);color:var(--blue);}
+.chip-transferred{background:#f0fdf4;color:#166534;}
+.chip-cancelled{background:#fef2f2;color:#dc2626;}
+.chip-pending{background:var(--pending-bg);color:var(--pending);}
+
+/* Rank chip */
+.rank-chip{display:inline-block;width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff;font-family:var(--mono);font-size:10px;text-align:center;line-height:22px;}
+.rank-chip.gold{background:#f59e0b;}.rank-chip.silver{background:#94a3b8;}.rank-chip.bronze{background:#b45309;}
+
+/* STATE */
+.state-box{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;gap:1rem;}
+.state-icon{font-size:36px;}
+.state-title{font-weight:600;color:var(--text);font-size:15px;}
+.state-sub{font-size:13px;color:var(--muted);text-align:center;max-width:360px;}
+
+/* PERIOD BADGE */
+.period-info{
+  font-family:var(--mono);font-size:11px;color:rgba(255,255,255,0.45);
+  padding:0.5rem 1.5rem;max-width:1200px;margin:0.5rem auto 0;
+}
+
+/* INTERN DIVIDER in dropdown */
+optgroup{background:#1a0000;color:rgba(255,255,255,0.4);}
+
+@media(max-width:900px){
+  .stats-row{grid-template-columns:repeat(3,1fr);}
+  .header-title{font-size:28px;}
+  .controls-bar,.content{padding:0 1rem;}
+}
+@media(max-width:600px){
+  .stats-row{grid-template-columns:repeat(2,1fr);}
+  .site-header{padding:1.5rem 1.25rem;}
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+<!-- ── HEADER ── -->
+<div class="site-header">
+  <div class="header-inner">
+    <div>
+      <div class="header-eyebrow">Altus Corp</div>
+      <div class="header-title">Task Management Dashboard</div>
+      <div class="header-sub">Period-wise task tracking · Employee performance · Status breakdown</div>
+    </div>
+    <img class="header-logo" src="Altus Corp Black font.png" alt="" onerror="this.style.display='none'"/>
+  </div>
+</div>
+
+<!-- ── CONTROLS ── -->
+<div class="controls-bar">
+  <div class="ctrl-group">
+    <span class="ctrl-label">Period — Start</span>
+    <input type="date" class="dash-date" id="start-date"/>
+  </div>
+  <div class="period-sep">→</div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">End Date</span>
+    <input type="date" class="dash-date" id="end-date"/>
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">Employee</span>
+    <select class="emp-select" id="emp-select">
+      <option value="">All Employees</option>
+    </select>
+  </div>
+  <button class="apply-btn" onclick="applyFilter()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 3 12 14.5 2 3"/><path d="M22 3H2v18l8-5 2 3 2-3 8 5V3z" fill="none"/></svg>
+    Apply Filter
+  </button>
+  <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    Refresh
+  </button>
+  <div class="no-date-badge" id="no-date-note" style="display:none;">⚠ No date column — showing all tasks</div>
+</div>
+
+<div class="period-info" id="period-info"></div>
+
+<!-- ── MAIN CONTENT ── -->
+<div class="content">
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-label">Total Tasks</div><div class="stat-val" id="s-total">—</div></div>
+    <div class="stat-box"><div class="stat-label">Approved</div><div class="stat-val green" id="s-approved">—</div></div>
+    <div class="stat-box"><div class="stat-label">Done</div><div class="stat-val blue" id="s-done">—</div></div>
+    <div class="stat-box"><div class="stat-label">Pending</div><div class="stat-val purple" id="s-pending">—</div></div>
+    <div class="stat-box"><div class="stat-label">Cancelled</div><div class="stat-val red" id="s-cancelled">—</div></div>
+    <div class="stat-box"><div class="stat-label">Transferred</div><div class="stat-val amber" id="s-transferred">—</div></div>
+  </div>
+
+  <!-- Task Status Card -->
+  <div class="dash-card">
+    <div class="card-head">
+      <div class="card-head-left">
+        <div class="card-dot"></div>
+        <div class="card-title">Task Status</div>
+      </div>
+      <div class="card-badge" id="table-badge">Load data to begin</div>
+    </div>
+    <div id="main-wrap">
+      <div class="state-box">
+        <div class="state-icon">📋</div>
+        <div class="state-title">No data loaded</div>
+        <div class="state-sub">Paste your Apps Script URL above, then click Save &amp; Load.</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+</div><!-- /page-wrap -->
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  ALTUS CORP — Task Management Dashboard · Client JS
+// ═══════════════════════════════════════════════════════
+
+// ▼▼▼ PASTE YOUR APPS SCRIPT WEB APP URL BELOW — only change needed ▼▼▼
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwlrPIN5j9YWy8YpgAMJ07fLvKReXeaQYTLfzyJfwDSgRj_a-I5T1ssHqfdY8nmisDE_g/exec';
+// ▲▲▲ ─────────────────────────────────────────────────────────────── ▲▲▲
+let allData       = [];   // { d, e, s }
+let hasDateCol    = true;
+let empList       = [];   // sorted unique employees
+
+// ── Employee ordering rules ─────────────────────────────
+const EMP_FIRST  = ['manan vasa'];
+const EMP_BOTTOM = ['dattaram kap', 'parvez khan'];
+
+function sortEmployees(arr) {
+  const first = [], regular = [], interns = [], bottom = [];
+  arr.forEach(emp => {
+    const lo = emp.toLowerCase();
+    if (EMP_FIRST.some(f  => lo.includes(f)))  { first.push(emp); return; }
+    if (EMP_BOTTOM.some(b => lo.includes(b)))  { bottom.push(emp); return; }
+    if (lo.includes('intern'))                  { interns.push(emp); return; }
+    regular.push(emp);
+  });
+  return [
+    ...first,
+    ...regular.sort((a,b) => a.localeCompare(b)),
+    ...interns.sort((a,b) => a.localeCompare(b)),
+    ...bottom
+  ];
+}
+
+// ── Status helpers ──────────────────────────────────────
+const FOLLOW_UP_SET = new Set(['Follow Up 1','Follow Up 2','Follow Up 3']);
+
+function countRows(rows) {
+  const c = { Approved:0,'Not Approved':0,Done:0,Transferred:0,Cancelled:0,'Need Help':0,'Follow Up':0,Initiated:0,'Not Started':0 };
+  rows.forEach(r => {
+    const s = r.s;
+    if (s === 'Approved')             c['Approved']++;
+    else if (s === 'Not Approved')    c['Not Approved']++;
+    else if (s === 'Done')            c['Done']++;
+    else if (s === 'Transferred')     c['Transferred']++;
+    else if (s === 'Cancelled')       c['Cancelled']++;
+    else if (s === 'Need Help')       c['Need Help']++;
+    else if (FOLLOW_UP_SET.has(s))    c['Follow Up']++;
+    else if (s === 'Initiated')       c['Initiated']++;
+    else if (s === 'Not Started')     c['Not Started']++;
+  });
+  c.Pending = c['Need Help'] + c['Follow Up'] + c['Initiated'] + c['Not Started'];
+  c.Total   = rows.length;
+  return c;
+}
+
+function n(v) { return v === 0 ? '<span class="zero">—</span>' : v; }
+function rank(i) {
+  const cls = i===0?'gold':i===1?'silver':i===2?'bronze':'';
+  return `<span class="rank-chip ${cls}">${i+1}</span>`;
+}
+
+// ── Date helpers ────────────────────────────────────────
+function parseDate(str) {
+  if (!str) return null;
+  // Try ISO first
+  const iso = new Date(str);
+  if (!isNaN(iso.getTime())) return iso;
+  // Try DD/MM/YYYY
+  const dmy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmy) return new Date(parseInt(dmy[3]), parseInt(dmy[2])-1, parseInt(dmy[1]));
+  return null;
+}
+
+function filterByDate(data, startStr, endStr) {
+  if (!hasDateCol || (!startStr && !endStr)) return data;
+  const s = startStr ? parseDate(startStr) : null;
+  const e = endStr   ? parseDate(endStr)   : null;
+  return data.filter(row => {
+    if (!row.d) return true; // keep rows with no date
+    const d = parseDate(row.d);
+    if (!d) return true;
+    if (s && d < s) return false;
+    if (e && d > e) return false;
+    return true;
+  });
+}
+
+// ── Load ────────────────────────────────────────────────
+function loadData() {
+  if (!SCRIPT_URL || SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL_HERE') return;
+  setRefreshing(true);
+  const old = document.getElementById('_jsonp');
+  if (old) old.remove();
+  const cb = 'altusTaskCb_' + Date.now();
+  const timer = setTimeout(() => { cleanup(cb); showError('Request timed out. Check URL and deployment.'); }, 15000);
+
+  window[cb] = function(data) {
+    clearTimeout(timer); cleanup(cb); setRefreshing(false);
+    if (data.status === 'error') { showError(data.message); return; }
+    allData    = data.rows   || [];
+    hasDateCol = !data.noDateCol;
+    document.getElementById('no-date-note').style.display = hasDateCol ? 'none' : 'flex';
+    buildEmpDropdown();
+    applyFilter();
+  };
+
+  const sc  = document.createElement('script');
+  sc.id     = '_jsonp';
+  sc.src    = SCRIPT_URL + '?callback=' + cb + '&t=' + Date.now();
+  sc.onerror = () => { clearTimeout(timer); cleanup(cb); setRefreshing(false); showError('Could not reach Apps Script. Check URL and deployment settings.'); };
+  document.body.appendChild(sc);
+}
+
+function cleanup(cb) { delete window[cb]; const s = document.getElementById('_jsonp'); if(s) s.remove(); }
+function setRefreshing(on) {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.toggle('spinning', on);
+  btn.disabled = on;
+}
+
+// ── Dropdown ────────────────────────────────────────────
+function buildEmpDropdown() {
+  const raw  = [...new Set(allData.map(r => r.e))].filter(Boolean);
+  empList    = sortEmployees(raw);
+  const sel  = document.getElementById('emp-select');
+  const prev = sel.value;
+
+  sel.innerHTML = '<option value="">All Employees</option>';
+
+  // Group: regular (Manan first + alphabetical)
+  const regularOg = document.createElement('optgroup');
+  regularOg.label = '─── Employees ───';
+
+  // Group: interns
+  const internOg = document.createElement('optgroup');
+  internOg.label = '─── Interns ───';
+
+  empList.forEach(emp => {
+    const lo  = emp.toLowerCase();
+    const opt = document.createElement('option');
+    opt.value = emp; opt.textContent = emp;
+    const isBottom  = EMP_BOTTOM.some(b => lo.includes(b));
+    const isIntern  = lo.includes('intern');
+    if (isBottom) {
+      sel.appendChild(opt); // append at end directly
+    } else if (isIntern) {
+      internOg.appendChild(opt);
+    } else {
+      regularOg.appendChild(opt);
+    }
+  });
+
+  // Insert optgroups before bottom employees
+  const opts = Array.from(sel.options);
+  const firstBottom = opts.findIndex(o => EMP_BOTTOM.some(b => o.value.toLowerCase().includes(b)));
+  if (firstBottom !== -1) {
+    sel.insertBefore(regularOg, sel.options[firstBottom]);
+    sel.insertBefore(internOg,  sel.options[firstBottom + regularOg.children.length]);
+  } else {
+    sel.appendChild(regularOg);
+    sel.appendChild(internOg);
+  }
+
+  if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+
+// ── Filter & Render ─────────────────────────────────────
+function applyFilter() {
+  if (!allData.length) return;
+  const startStr = document.getElementById('start-date').value;
+  const endStr   = document.getElementById('end-date').value;
+  const empVal   = document.getElementById('emp-select').value;
+
+  let filtered = filterByDate(allData, startStr, endStr);
+  if (empVal) filtered = filtered.filter(r => r.e === empVal);
+
+  updatePeriodInfo(startStr, endStr, empVal, filtered.length);
+  updateStats(filtered);
+
+  if (empVal) renderSingle(filtered, empVal);
+  else        renderAll(filtered, startStr, endStr);
+}
+
+function updatePeriodInfo(s, e, emp, count) {
+  const el = document.getElementById('period-info');
+  let txt  = '';
+  if (s || e) txt += `Period: ${s||'—'} → ${e||'—'}   `;
+  txt += `Employee: ${emp || 'All Employees'}   ·   ${count} task${count!==1?'s':''} matched`;
+  el.textContent = txt;
+}
+
+function updateStats(rows) {
+  const c = countRows(rows);
+  document.getElementById('s-total').textContent      = c.Total     || '—';
+  document.getElementById('s-approved').textContent   = c.Approved  || '—';
+  document.getElementById('s-done').textContent       = c.Done      || '—';
+  document.getElementById('s-pending').textContent    = c.Pending   || '—';
+  document.getElementById('s-cancelled').textContent  = c.Cancelled || '—';
+  document.getElementById('s-transferred').textContent= c.Transferred|| '—';
+}
+
+// ── RENDER: Single Employee ─────────────────────────────
+function renderSingle(rows, empName) {
+  const c = countRows(rows);
+  document.getElementById('table-badge').textContent = empName + '  ·  ' + rows.length + ' tasks';
+
+  const statuses = [
+    { label:'Approved',     key:'Approved',     cls:'chip-approved' },
+    { label:'Not Approved', key:'Not Approved',  cls:'chip-notapproved' },
+    { label:'Done',         key:'Done',          cls:'chip-done' },
+    { label:'Transferred',  key:'Transferred',   cls:'chip-transferred' },
+    { label:'Cancelled',    key:'Cancelled',     cls:'chip-cancelled' },
+  ];
+
+  let html = `<div class="single-table"><table>
+    <thead><tr><th>Task Status</th><th style="text-align:right">No. of Tasks</th></tr></thead>
+    <tbody>`;
+
+  statuses.forEach(st => {
+    const v   = c[st.key];
+    const cnt = v === 0 ? '<span class="zero">—</span>' : v;
+    html += `<tr>
+      <td class="status-name"><span class="chip ${st.cls}">${st.label}</span></td>
+      <td class="status-count ${v===0?'zero':''}">${cnt}</td>
+    </tr>`;
+  });
+
+  // Pending parent row
+  html += `<tr class="pending-row">
+    <td class="status-name"><span class="chip chip-pending">⏳ Pending</span></td>
+    <td class="status-count">${c.Pending || '<span class="zero">—</span>'}</td>
+  </tr>`;
+
+  // Sub rows
+  const subs = [
+    { label:'Need Help',   key:'Need Help'  },
+    { label:'Follow Up',   key:'Follow Up'  },
+    { label:'Initiated',   key:'Initiated'  },
+    { label:'Not Started', key:'Not Started'},
+  ];
+  subs.forEach(sub => {
+    const v = c[sub.key];
+    html += `<tr class="sub-row">
+      <td class="status-name sub">${sub.label}</td>
+      <td class="status-count sub ${v===0?'zero':''}">${v||'—'}</td>
+    </tr>`;
+  });
+
+  html += `</tbody><tfoot>
+    <tr class="total-row">
+      <td class="status-name">Total</td>
+      <td class="status-count">${c.Total}</td>
+    </tr>
+  </tfoot></table></div>`;
+
+  document.getElementById('main-wrap').innerHTML = html;
+}
+
+// ── RENDER: All Employees ───────────────────────────────
+function renderAll(rows, startStr, endStr) {
+  if (!rows.length) {
+    document.getElementById('main-wrap').innerHTML = `<div class="state-box"><div class="state-icon">🔍</div><div class="state-title">No tasks found</div><div class="state-sub">Try adjusting the date range or check that data is present for this period.</div></div>`;
+    document.getElementById('table-badge').textContent = '0 tasks';
+    return;
+  }
+
+  // Build per-employee stats
+  const byEmp = {};
+  rows.forEach(r => {
+    if (!byEmp[r.e]) byEmp[r.e] = [];
+    byEmp[r.e].push(r);
+  });
+
+  // Use sorted empList but only those who appear in filtered data
+  const empsFiltered = empList.filter(e => byEmp[e]);
+  // Also add any employee in data but not in empList (shouldn't happen)
+  Object.keys(byEmp).forEach(e => { if (!empsFiltered.includes(e)) empsFiltered.push(e); });
+
+  const allC    = countRows(rows);
+  const totals  = empsFiltered.map(e => byEmp[e].length);
+  const maxTotal= Math.max(...totals, 1);
+
+  document.getElementById('table-badge').textContent = empsFiltered.length + ' employees · ' + rows.length + ' tasks';
+
+  let html = `<div class="all-table"><table>
+  <thead>
+    <tr class="th-main">
+      <th rowspan="2">#</th>
+      <th rowspan="2">Employee</th>
+      <th rowspan="2">Approved</th>
+      <th rowspan="2">Not Approved</th>
+      <th rowspan="2">Done</th>
+      <th rowspan="2">Transferred</th>
+      <th rowspan="2">Cancelled</th>
+      <th colspan="5" class="pending-hdr">⏳ Pending</th>
+      <th rowspan="2">Total</th>
+    </tr>
+    <tr class="th-sub">
+      <th class="pending-hdr">Total</th>
+      <th class="pending-hdr">Need Help</th>
+      <th class="pending-hdr">Follow Up</th>
+      <th class="pending-hdr">Initiated</th>
+      <th class="pending-hdr">Not Started</th>
+    </tr>
+  </thead>
+  <tbody>`;
+
+  empsFiltered.forEach((emp, i) => {
+    const c   = countRows(byEmp[emp] || []);
+    const cls = i===0?'gold':i===1?'silver':i===2?'bronze':'';
+    const z   = v => v === 0 ? `<td class="zero">—</td>` : `<td>${v}</td>`;
+    const zp  = v => v === 0 ? `<td class="pending-grp zero">—</td>` : `<td class="pending-grp">${v}</td>`;
+
+    html += `<tr>
+      <td class="rank-cell"><span class="rank-chip ${cls}">${i+1}</span></td>
+      <td class="name-cell">${esc(emp)}</td>
+      ${z(c.Approved)}
+      ${z(c['Not Approved'])}
+      ${z(c.Done)}
+      ${z(c.Transferred)}
+      ${z(c.Cancelled)}
+      ${zp(c.Pending)}
+      ${zp(c['Need Help'])}
+      ${zp(c['Follow Up'])}
+      ${zp(c.Initiated)}
+      ${zp(c['Not Started'])}
+      <td class="num-cell">${c.Total}</td>
+    </tr>`;
+  });
+
+  html += `</tbody><tfoot><tr>
+    <td colspan="2">Totals</td>
+    <td>${allC.Approved||'—'}</td>
+    <td>${allC['Not Approved']||'—'}</td>
+    <td>${allC.Done||'—'}</td>
+    <td>${allC.Transferred||'—'}</td>
+    <td>${allC.Cancelled||'—'}</td>
+    <td>${allC.Pending||'—'}</td>
+    <td>${allC['Need Help']||'—'}</td>
+    <td>${allC['Follow Up']||'—'}</td>
+    <td>${allC.Initiated||'—'}</td>
+    <td>${allC['Not Started']||'—'}</td>
+    <td>${allC.Total}</td>
+  </tr></tfoot></table></div>`;
+
+  document.getElementById('main-wrap').innerHTML = html;
+}
+
+// ── Error ───────────────────────────────────────────────
+function showError(msg) {
+  document.getElementById('main-wrap').innerHTML = `<div class="state-box">
+    <div class="state-icon">⚠️</div>
+    <div class="state-title">Error loading data</div>
+    <div class="state-sub" style="white-space:pre-wrap">${esc(msg)}</div>
+  </div>`;
+  setRefreshing(false);
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── INIT ────────────────────────────────────────────────
+(function init() {
+  const today = new Date();
+  const y = today.getFullYear(), m = String(today.getMonth()+1).padStart(2,'0'), d = String(today.getDate()).padStart(2,'0');
+  document.getElementById('end-date').value   = `${y}-${m}-${d}`;
+  document.getElementById('start-date').value = `${y}-${m}-01`;
+
+  if (!SCRIPT_URL || SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbwlrPIN5j9YWy8YpgAMJ07fLvKReXeaQYTLfzyJfwDSgRj_a-I5T1ssHqfdY8nmisDE_g/exec') {
+    document.getElementById('main-wrap').innerHTML = `<div class="state-box">
+      <div class="state-icon">⚙️</div>
+      <div class="state-title">One-time setup required</div>
+      <div class="state-sub">Open this HTML file in a text editor, find <strong>YOUR_APPS_SCRIPT_URL_HERE</strong> and replace it with your deployed Apps Script URL. Save — done forever, on every device.</div>
+    </div>`;
+    return;
+  }
+  loadData();
+})();
+</script>
+</body>
+</html>
