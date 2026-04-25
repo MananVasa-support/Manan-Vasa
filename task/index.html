@@ -188,30 +188,30 @@ body{font-family:Arial,sans-serif;background:#0a0a0a;color:var(--text);min-heigh
 .all-table table{width:100%;border-collapse:collapse;min-width:920px;}
 .all-table thead{position:sticky;top:0;z-index:20;}
 
-/* Main header — very light rose */
-.all-table thead tr.th-main{background:#fef5f5;}
+/* Main header — dark red */
+.all-table thead tr.th-main{background:linear-gradient(135deg,#8b1a1a 0%,#6b1010 100%);}
 .all-table thead tr.th-main th{
   font-size:10.5px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;
-  color:#9b1a2a;padding:12px 12px;text-align:center;white-space:nowrap;
-  border-bottom:1px solid #f5cac8;border-right:1px solid #fad4d2;
+  color:rgba(255,220,210,0.95);padding:12px 12px;text-align:center;white-space:nowrap;
+  border-bottom:1px solid rgba(229,0,0,0.3);border-right:1px solid rgba(255,255,255,0.08);
 }
 .all-table thead tr.th-main th.name-col{text-align:left;min-width:115px;max-width:145px;padding-left:16px;}
-/* Pending = medium rose — NOT dark red, lighter shade */
+/* Pending = bright red */
 .all-table thead tr.th-main th.pending-hdr{
-  background:#e07070 !important;color:#fff !important;
-  border-bottom:1.5px solid #c85050 !important;
-  border-right:1px solid rgba(255,255,255,0.22) !important;
+  background:#e50000 !important;color:#fff !important;
+  border-bottom:1.5px solid #b50000 !important;
+  border-right:1px solid rgba(255,255,255,0.2) !important;
 }
 /* Sub-header */
-.all-table thead tr.th-sub{background:#fff8f8;}
+.all-table thead tr.th-sub{background:#4a0a0a;}
 .all-table thead tr.th-sub th{
   font-size:9.5px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;
-  color:#be4040;padding:7px 12px;text-align:center;white-space:nowrap;
-  border-bottom:2px solid #f5cac8;border-right:1px solid #fad4d2;
+  color:rgba(255,190,180,0.85);padding:7px 12px;text-align:center;white-space:nowrap;
+  border-bottom:2px solid rgba(229,0,0,0.35);border-right:1px solid rgba(255,255,255,0.06);
 }
 .all-table thead tr.th-sub th.pending-hdr{
-  background:#e07070 !important;color:rgba(255,255,255,0.92) !important;
-  border-right:1px solid rgba(255,255,255,0.2) !important;
+  background:#e50000 !important;color:rgba(255,255,255,0.88) !important;
+  border-right:1px solid rgba(255,255,255,0.15) !important;
 }
 
 /* Body */
@@ -235,11 +235,11 @@ body{font-family:Arial,sans-serif;background:#0a0a0a;color:var(--text);min-heigh
 
 /* Footer totals */
 .all-table tfoot{position:sticky;bottom:0;z-index:20;}
-.all-table tfoot tr{border-top:2px solid var(--red-mid);}
+.all-table tfoot tr{border-top:2px solid #e50000;}
 .all-table tfoot td{
-  background:#fef0ee;font-weight:800;font-size:13.5px;
-  padding:12px 12px;text-align:center;color:#8b2020;
-  border-right:1px solid #f5cac8;white-space:nowrap;
+  background:linear-gradient(135deg,#8b1a1a 0%,#6b1010 100%);font-weight:800;font-size:13.5px;
+  padding:12px 12px;text-align:center;color:rgba(255,220,210,0.95);
+  border-right:1px solid rgba(255,255,255,0.08);white-space:nowrap;
 }
 .all-table tfoot td.name-cell{text-align:left;font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase;padding-left:16px;}
 
@@ -387,6 +387,7 @@ function switchTab(tab){
   document.getElementById('tab-doer').classList.toggle('active',tab==='doer');
   document.getElementById('tab-initiator').classList.toggle('active',tab==='initiator');
   document.getElementById('s-total-label').textContent=tab==='initiator'?'Total Tasks Initiated':'Total Tasks Assigned';
+  rebuildDropdownUI(); // rebuild dropdown for the new tab without re-fetching data
   renderCurrentTab();
 }
 
@@ -399,24 +400,32 @@ document.addEventListener('click',e=>{if(!document.getElementById('ms-wrapper').
 
 function safeid(n){return 'e_'+n.replace(/[^a-z0-9]/gi,'_');}
 
+// activeList = names for the current tab; empList stores doer names, initiatorList stores initiator names
+function getActiveList(){ return currentTab==='initiator' ? initiatorList : empList; }
+
 function buildDropdown(){
   empList=sortEmployees(allEmployeeData.map(e=>e.name));
   initiatorList=sortEmployees(allInitiatorData.map(e=>e.name));
-  checkedEmps=new Set(empList);
-  const reg=empList.filter(e=>{const lo=e.toLowerCase();return !lo.includes('intern')&&!EMP_BOTTOM.some(b=>lo.includes(b));});
-  const interns=empList.filter(e=>e.toLowerCase().includes('intern'));
-  const bot=empList.filter(e=>EMP_BOTTOM.some(b=>e.toLowerCase().includes(b)));
+  rebuildDropdownUI();
+}
+function rebuildDropdownUI(){
+  const list=getActiveList();
+  checkedEmps=new Set(list);
+  const reg=list.filter(e=>{const lo=e.toLowerCase();return !lo.includes('intern')&&!EMP_BOTTOM.some(b=>lo.includes(b));});
+  const interns=list.filter(e=>e.toLowerCase().includes('intern'));
+  const bot=list.filter(e=>EMP_BOTTOM.some(b=>e.toLowerCase().includes(b)));
   let html=`<div class="ms-option all-opt"><input type="checkbox" id="chk-all" checked onchange="toggleAll(this)"><label for="chk-all">All Employees</label></div>`;
   if(reg.length){html+=`<div class="ms-group-label">Employees</div>`;reg.forEach(e=>{html+=msOpt(e);});}
   if(interns.length){html+=`<div class="ms-group-label">Interns</div>`;interns.forEach(e=>{html+=msOpt(e);});}
   bot.forEach(e=>{html+=msOpt(e);});
   document.getElementById('ms-panel').innerHTML=html;
+  updateLabel();
 }
 function msOpt(name){const id=safeid(name);return `<div class="ms-option"><input type="checkbox" id="${id}" value="${esc(name)}" checked onchange="toggleEmp(this)"><label for="${id}">${esc(name)}</label></div>`;}
-function toggleAll(el){empList.forEach(n=>{const c=document.getElementById(safeid(n));if(c)c.checked=el.checked;});checkedEmps=el.checked?new Set(empList):new Set();updateLabel();render();}
-function toggleEmp(el){if(el.checked)checkedEmps.add(el.value);else checkedEmps.delete(el.value);document.getElementById('chk-all').checked=checkedEmps.size===empList.length;updateLabel();render();}
-function updateLabel(){const n=checkedEmps.size,t=empList.length;document.getElementById('ms-label').textContent=n===0?'None selected':n===t?'All Employees':n===1?[...checkedEmps][0]:n+' selected';}
-function getDisplayEmps(){return checkedEmps.size===empList.length?empList:empList.filter(n=>checkedEmps.has(n));}
+function toggleAll(el){const list=getActiveList();list.forEach(n=>{const c=document.getElementById(safeid(n));if(c)c.checked=el.checked;});checkedEmps=el.checked?new Set(list):new Set();updateLabel();render();}
+function toggleEmp(el){if(el.checked)checkedEmps.add(el.value);else checkedEmps.delete(el.value);const list=getActiveList();document.getElementById('chk-all').checked=checkedEmps.size===list.length;updateLabel();render();}
+function updateLabel(){const n=checkedEmps.size,t=getActiveList().length;document.getElementById('ms-label').textContent=n===0?'None selected':n===t?'All Employees':n===1?[...checkedEmps][0]:n+' selected';}
+function getDisplayEmps(){const list=getActiveList();return checkedEmps.size===list.length?list:list.filter(n=>checkedEmps.has(n));}
 
 function parseDate(s){if(!s)return null;const d=new Date(s);return isNaN(d.getTime())?null:d;}
 function getRange(){return{start:parseDate(document.getElementById('start-date').value),end:parseDate(document.getElementById('end-date').value)};}
@@ -465,8 +474,8 @@ function renderTable(dataList,names,wrapId,badgeId,isInit){
   const K=['Approved','Not Approved','Done','Transferred','Cancelled','Pending','Need Help','Follow Up','Initiated','Not Started','Total'];
   const tot={};K.forEach(k=>tot[k]=0);rows.forEach(e=>{if(!e)return;K.forEach(k=>tot[k]+=(e[k]||0));});
 
-  const iHdr=`style="background:#fef5f5;color:#9b1a2a;border-right:2px solid #f0cac8;min-width:90px;"`;
-  const iFtr=`style="border-right:2px solid #f0cac8;font-weight:800;text-align:center;"`;
+  const iHdr=`style="background:#1e0000;color:rgba(255,255,255,0.82);border-right:2px solid rgba(229,0,0,0.25);min-width:90px;"`;
+  const iFtr=`style="border-right:2px solid rgba(229,0,0,0.25);font-weight:800;text-align:center;"`;
 
   let html=`<div class="all-table"><table><thead>
     <tr class="th-main">
@@ -487,7 +496,7 @@ function renderTable(dataList,names,wrapId,badgeId,isInit){
     const e=rows[i]||{};const hasData=e&&e.Total>0;
     html+=`<tr${hasData?'':' class="no-data-row"'}>
       <td class="name-cell" title="${esc(name)}">${esc(name)}</td>
-      ${isInit?`<td class="num-cell" style="border-right:2px solid #f0cac8;">${v(e.Total||0)}</td>`:''}
+      ${isInit?`<td class="num-cell" style="border-right:2px solid rgba(229,0,0,0.25);">${v(e.Total||0)}</td>`:''}
       <td>${v(e.Approved||0)}</td><td>${v(e['Not Approved']||0)}</td>
       <td>${v(e.Done||0)}</td><td>${v(e.Transferred||0)}</td><td>${v(e.Cancelled||0)}</td>
       ${vp(e.Pending||0)}${vp(e['Need Help']||0)}${vp(e['Follow Up']||0)}${vp(e.Initiated||0)}${vp(e['Not Started']||0)}
@@ -510,7 +519,7 @@ function renderTable(dataList,names,wrapId,badgeId,isInit){
 function updatePeriodInfo(names,total){
   const{start,end}=hasDateCol?getRange():{start:null,end:null};
   const dp=(start||end)?` · ${start?start.toLocaleDateString('en-IN'):'—'} → ${end?end.toLocaleDateString('en-IN'):'—'}`:' · All dates';
-  const isAll=names.length===empList.length;
+  const isAll=names.length===getActiveList().length;
   document.getElementById('period-info').textContent=`Showing: ${names.length===0?'None':isAll?'All':names.length} employee${names.length!==1?'s':''}${dp} · ${total} task${total!==1?'s':''} · Source: Website Report`;
 }
 
@@ -522,10 +531,11 @@ function renderCurrentTab(){
     const total=display.reduce((s,n)=>s+((getFiltered(allEmployeeData.find(e=>e.name===n))||{}).Total||0),0);
     updatePeriodInfo(display,total);
   }else{
-    updateStats(allInitiatorData,initiatorList);
-    renderTable(allInitiatorData,initiatorList,'wrap-initiator','badge-initiator',true);
-    const total=initiatorList.reduce((s,n)=>s+((getFiltered(allInitiatorData.find(e=>e.name===n))||{}).Total||0),0);
-    updatePeriodInfo(initiatorList,total);
+    const display=getDisplayEmps(); // now uses initiator names (dropdown is tab-aware)
+    updateStats(allInitiatorData,display);
+    renderTable(allInitiatorData,display,'wrap-initiator','badge-initiator',true);
+    const total=display.reduce((s,n)=>s+((getFiltered(allInitiatorData.find(e=>e.name===n))||{}).Total||0),0);
+    updatePeriodInfo(display,total);
   }
 }
 function render(){renderCurrentTab();}
