@@ -82,6 +82,13 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--text);min-
   border-top:1px solid rgba(229,0,0,0.12);
 }
 
+.dash-date{
+  font-family:Arial,sans-serif;font-size:14px;font-weight:600;
+  background:rgba(255,255,255,0.07);border:1px solid rgba(229,0,0,0.25);
+  border-radius:10px;padding:10px 14px;outline:none;cursor:pointer;
+  color:#fff;color-scheme:dark;transition:border-color 0.15s;
+}
+.dash-date:focus{border-color:var(--red);}
 .refresh-btn{
   background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.75);
   border:1px solid rgba(229,0,0,0.22);border-radius:10px;padding:10px 20px;
@@ -220,7 +227,7 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--text);min-
     <div>
       <div class="header-eyebrow">Altus Corp</div>
       <div class="header-title">Task Management Dashboard</div>
-      <div class="header-sub">Employee task tracking · Status breakdown · Live from Backend sheet</div>
+      <div class="header-sub">Employee task tracking · Status breakdown · Live from Website Report sheet</div>
     </div>
     <img class="header-logo" src="Altus Corp Black font.png" alt="" onerror="this.style.display='none'"/>
   </div>
@@ -228,6 +235,15 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--text);min-
 
 <!-- CONTROLS -->
 <div class="controls-bar">
+  <div class="ctrl-group">
+    <span class="ctrl-label">Start Date</span>
+    <input type="date" class="dash-date" id="start-date"/>
+  </div>
+  <div style="color:rgba(255,255,255,0.3);font-size:18px;padding-bottom:2px;">→</div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">End Date</span>
+    <input type="date" class="dash-date" id="end-date"/>
+  </div>
   <div class="ctrl-group">
     <span class="ctrl-label">Employee</span>
     <div class="ms-wrapper" id="ms-wrapper">
@@ -241,6 +257,9 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--text);min-
     </div>
   </div>
 
+  <button class="apply-btn" onclick="render()" style="background:linear-gradient(135deg,#e50000,#b50000);color:#fff;border:none;border-radius:10px;padding:10px 20px;font-family:Arial,sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(229,0,0,0.3);">
+    Apply Filter
+  </button>
   <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
       <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
@@ -291,9 +310,11 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--text);min-
 
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwlrPIN5j9YWy8YpgAMJ07fLvKReXeaQYTLfzyJfwDSgRj_a-I5T1ssHqfdY8nmisDE_g/exec';
 
-let allEmployeeData = [];
+let allEmployeeData = [];   // [{name, Approved, Done, rows:[{d,s}], ...}]
+let allTaskRows     = [];   // flat rows for date filtering
 let empList         = [];
 let checkedEmps     = new Set();
+let hasDateCol      = false;
 
 const EMP_FIRST  = ['manan vasa'];
 const EMP_BOTTOM = ['dattaram kap', 'parvez khan'];
@@ -374,12 +395,21 @@ function msOpt(name) {
 }
 
 function toggleAll(el) {
-  if (!el.checked) { el.checked = true; return; } // can't deselect all
-  empList.forEach(name => {
-    const chk = document.getElementById(safeid(name));
-    if (chk) chk.checked = true;
-  });
-  checkedEmps = new Set(empList);
+  if (el.checked) {
+    // Check all individual boxes
+    empList.forEach(name => {
+      const chk = document.getElementById(safeid(name));
+      if (chk) chk.checked = true;
+    });
+    checkedEmps = new Set(empList);
+  } else {
+    // Deselect all individual boxes
+    empList.forEach(name => {
+      const chk = document.getElementById(safeid(name));
+      if (chk) chk.checked = false;
+    });
+    checkedEmps = new Set();
+  }
   updateLabel(); render();
 }
 
@@ -387,33 +417,71 @@ function toggleEmp(el) {
   const name = el.value;
   if (el.checked) checkedEmps.add(name);
   else            checkedEmps.delete(name);
-  if (checkedEmps.size === 0) {
-    checkedEmps = new Set(empList);
-    empList.forEach(n => { const c = document.getElementById(safeid(n)); if(c) c.checked=true; });
-    document.getElementById('chk-all').checked = true;
-  } else {
-    document.getElementById('chk-all').checked = checkedEmps.size === empList.length;
-  }
+  // Sync "All Employees" checkbox
+  document.getElementById('chk-all').checked = checkedEmps.size === empList.length;
   updateLabel(); render();
 }
 
 function updateLabel() {
   const n = checkedEmps.size, t = empList.length;
   let lbl;
-  if (n === 0 || n === t)  lbl = 'All Employees';
-  else if (n === 1)        lbl = [...checkedEmps][0];
-  else                     lbl = n + ' employees selected';
+  if (n === 0)       lbl = 'None selected';
+  else if (n === t)  lbl = 'All Employees';
+  else if (n === 1)  lbl = [...checkedEmps][0];
+  else               lbl = n + ' employees selected';
   document.getElementById('ms-label').textContent = lbl;
 }
 
 function getDisplayEmps() {
-  if (checkedEmps.size === 0 || checkedEmps.size === empList.length) return empList;
-  return empList.filter(n => checkedEmps.has(n));
+  if (checkedEmps.size === empList.length) return empList;
+  return empList.filter(n => checkedEmps.has(n)); // can be empty []
 }
 
-// ── Data helper ──────────────────────────────────────────────
+// ── Date helpers ─────────────────────────────────────────────
+function parseDate(str) {
+  if (!str) return null;
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function getDateRange() {
+  return {
+    start: parseDate(document.getElementById('start-date').value),
+    end  : parseDate(document.getElementById('end-date').value)
+  };
+}
+
+// ── Data helper: returns filtered counts for one employee ─────
 function getEmpData(name) {
-  return allEmployeeData.find(e => e.name === name) || null;
+  const base = allEmployeeData.find(e => e.name === name);
+  if (!base) return null;
+  if (!hasDateCol) return base; // no date column — return full totals
+
+  const { start, end } = getDateRange();
+  if (!start && !end) return base; // no filter set
+
+  // Re-aggregate from individual rows filtered by date
+  const STATUS_KEYS = ['Not Started','Initiated','Need Help',
+    'Follow Up 1','Follow Up 2','Follow Up 3',
+    'Done','Not Approved','Approved','Cancelled','Transferred'];
+  const result = { name };
+  STATUS_KEYS.forEach(k => result[k] = 0);
+
+  (base.rows || []).forEach(r => {
+    if (!r.d) { /* keep rows with no date */ }
+    else {
+      const rd = parseDate(r.d);
+      if (!rd) return;
+      if (start && rd < start) return;
+      if (end   && rd > end)   return;
+    }
+    if (result[r.s] !== undefined) result[r.s]++;
+  });
+
+  result['Follow Up'] = result['Follow Up 1'] + result['Follow Up 2'] + result['Follow Up 3'];
+  result['Pending']   = result['Need Help'] + result['Follow Up'] + result['Initiated'] + result['Not Started'];
+  result['Total']     = STATUS_KEYS.reduce((s,k) => s + result[k], 0);
+  return result;
 }
 
 // ── Stats ────────────────────────────────────────────────────
@@ -438,8 +506,10 @@ function updatePeriodInfo() {
   const display  = getDisplayEmps();
   const total    = display.reduce((s,n) => s + ((getEmpData(n)||{}).Total||0), 0);
   const isAll    = display.length === empList.length;
+  const { start, end } = hasDateCol ? getDateRange() : { start:null, end:null };
+  const datePart = (start||end) ? ` · Period: ${start?start.toLocaleDateString('en-IN'):'—'} → ${end?end.toLocaleDateString('en-IN'):'—'}` : '';
   document.getElementById('period-info').textContent =
-    `Showing: ${isAll ? 'All' : display.length} employee${display.length!==1?'s':''} · ${total} total tasks · Source: Backend sheet`;
+    `Showing: ${display.length === 0 ? 'None' : isAll ? 'All' : display.length} employee${display.length!==1?'s':''}${datePart} · ${total} tasks · Source: Website Report`;
 }
 
 // ── Table render ─────────────────────────────────────────────
@@ -548,7 +618,13 @@ function loadData() {
     clearTimeout(timer); cleanup(cb); setRefreshing(false);
     if (data.status === 'error') { showError(data.message); return; }
     allEmployeeData = data.employees || [];
-    if (!allEmployeeData.length) { showError('No employee data found in Backend sheet.'); return; }
+    hasDateCol      = data.hasDateCol || false;
+    if (!allEmployeeData.length) { showError('No employee data found in Website Report sheet.'); return; }
+    // Set default dates: 1st of current month → today
+    const today = new Date();
+    const y = today.getFullYear(), mo = String(today.getMonth()+1).padStart(2,'0'), d = String(today.getDate()).padStart(2,'0');
+    document.getElementById('end-date').value   = y+'-'+mo+'-'+d;
+    document.getElementById('start-date').value = y+'-'+mo+'-01';
     buildDropdown();
     render();
   };
