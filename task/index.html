@@ -4,284 +4,205 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Altus Corp — Task Management Dashboard</title>
-
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
 :root{
   --red:#e50000;--red-dark:#b50000;--red-pale:#fff0f0;
-  --black:#0a0a0a;--black2:#111;--white:#ffffff;
-  --cream:#fafafa;--border:rgba(0,0,0,0.09);
-  --text:#111;--muted:#666;
-  --mono:Arial,sans-serif;
-  --sans:Arial,sans-serif;
-  --display:Arial,sans-serif;
-  --green:#15803d;--green-bg:#dcfce7;
-  --amber:#c2410c;--amber-bg:#fff7ed;
-  --blue:#1d4ed8;--blue-bg:#eff6ff;
-  --purple:#6d28d9;--purple-bg:#f5f3ff;
-  --pending:#9d4edd;--pending-bg:#f3e8ff;
+  --black:#0a0a0a;--cream:#fafafa;--text:#111;--muted:#666;
+  --border:rgba(0,0,0,0.08);
+  --green:#15803d;--blue:#1d4ed8;--purple:#9d4edd;--amber:#c2410c;
 }
 body{font-family:Arial,sans-serif;background:var(--cream);color:var(--text);min-height:100vh;}
+
+/* PAGE */
 .page-wrap{
   min-height:100vh;
   background:linear-gradient(160deg,#0a0a0a 0%,#1a0000 40%,#0a0a0a 100%);
   padding:0 0 5rem;position:relative;overflow-x:clip;
 }
 .page-wrap::before{
-  content:'';position:absolute;top:-120px;right:-120px;
-  width:500px;height:500px;border-radius:50%;
-  background:radial-gradient(circle,rgba(229,0,0,0.13) 0%,transparent 70%);
+  content:'';position:absolute;top:-120px;right:-120px;width:500px;height:500px;
+  border-radius:50%;background:radial-gradient(circle,rgba(229,0,0,0.13) 0%,transparent 70%);
   pointer-events:none;
 }
 
 /* HEADER */
 .site-header{
   background:linear-gradient(135deg,#0a0a0a 0%,#1e0000 100%);
-  border-bottom:1px solid rgba(229,0,0,0.2);
-  padding:2rem 2.5rem 1.8rem;position:relative;
+  border-bottom:1px solid rgba(229,0,0,0.2);padding:2rem 2.5rem 1.8rem;position:relative;
 }
 .site-header::after{
   content:'';position:absolute;bottom:0;left:0;right:0;height:3px;
   background:linear-gradient(90deg,transparent,var(--red),#ff4444,var(--red),transparent);
 }
-.header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;}
-.header-eyebrow{font-family:Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:var(--red);margin-bottom:6px;}
-.header-title{font-family:Arial,sans-serif;font-size:36px;font-weight:900;color:#fff;letter-spacing:0.01em;line-height:1;}
-.header-sub{font-family:Arial,sans-serif;font-size:14px;color:rgba(255,255,255,0.55);margin-top:6px;}
+.header-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;}
+.header-eyebrow{font-size:11px;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:var(--red);margin-bottom:6px;}
+.header-title{font-size:36px;font-weight:900;color:#fff;line-height:1;}
+.header-sub{font-size:14px;color:rgba(255,255,255,0.5);margin-top:6px;}
 .header-logo{width:90px;height:90px;object-fit:contain;flex-shrink:0;}
-
-/* CONFIG BANNER */
-.config-banner{
-  background:#fff3cd;border:1.5px solid #fbbf24;border-radius:12px;
-  padding:1rem 1.4rem;font-size:13px;color:#92400e;
-  display:flex;align-items:flex-start;gap:10px;
-}
-.url-setup{
-  display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;
-}
-.url-input{
-  flex:1;min-width:260px;font-family:var(--mono);font-size:12px;
-  background:#fff;border:1.5px solid #fbbf24;border-radius:8px;
-  padding:8px 12px;outline:none;color:#333;
-}
-.url-input:focus{border-color:var(--red);}
-.url-save-btn{
-  background:var(--red);color:#fff;border:none;border-radius:8px;
-  padding:8px 18px;font-family:var(--sans);font-size:13px;font-weight:600;
-  cursor:pointer;white-space:nowrap;
-}
 
 /* CONTROLS */
 .controls-bar{
-  max-width:1200px;margin:1.4rem auto 0;padding:0 1.5rem;
-  display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap;
+  max-width:1400px;margin:1.4rem auto 0;padding:0 1.5rem;
+  display:flex;align-items:flex-end;gap:1.2rem;flex-wrap:wrap;
 }
-.ctrl-group{display:flex;flex-direction:column;gap:4px;}
-.ctrl-label{font-family:Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.55);}
-.dash-date{
-  font-family:Arial,sans-serif;font-size:14px;font-weight:600;
-  background:rgba(255,255,255,0.06);border:1px solid rgba(229,0,0,0.22);
-  border-radius:10px;padding:9px 14px;outline:none;cursor:pointer;color:#fff;
-  color-scheme:dark;
-}
-.dash-date:focus{border-color:var(--red);}
-.period-sep{
-  font-family:var(--mono);font-size:18px;color:rgba(255,255,255,0.3);
-  margin-bottom:2px;padding-top:18px;
-}
-.emp-select{
-  font-family:Arial,sans-serif;font-size:14px;font-weight:600;color:#fff;
-  background:rgba(255,255,255,0.06);border:1px solid rgba(229,0,0,0.22);
-  border-radius:10px;padding:9px 36px 9px 14px;outline:none;cursor:pointer;
-  appearance:none;-webkit-appearance:none;min-width:210px;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23aaa' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 12px center;
+.ctrl-group{display:flex;flex-direction:column;gap:5px;}
+.ctrl-label{font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.5);}
+
+/* Multi-select */
+.ms-wrapper{position:relative;}
+.ms-trigger{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  min-width:250px;background:rgba(255,255,255,0.07);
+  border:1px solid rgba(229,0,0,0.25);border-radius:10px;
+  padding:10px 16px;color:#fff;cursor:pointer;
+  font-size:14px;font-weight:600;font-family:Arial,sans-serif;
   transition:border-color 0.15s;
 }
-.emp-select:focus{border-color:var(--red);}
-.emp-select option{background:#1a0000;color:#fff;}
-.apply-btn{
-  background:linear-gradient(135deg,var(--red),var(--red-dark));
-  color:#fff;border:none;border-radius:10px;padding:9px 22px;
-  font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;
-  display:flex;align-items:center;gap:7px;
-  transition:opacity 0.2s,transform 0.2s;
-  box-shadow:0 4px 16px rgba(229,0,0,0.3);
+.ms-trigger:hover{border-color:rgba(229,0,0,0.55);}
+.ms-trigger svg{flex-shrink:0;opacity:0.55;transition:transform 0.2s;}
+.ms-wrapper.open .ms-trigger svg{transform:rotate(180deg);}
+.ms-panel{
+  display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:270px;
+  background:#110000;border:1px solid rgba(229,0,0,0.3);border-radius:12px;
+  z-index:200;max-height:360px;overflow-y:auto;
+  box-shadow:0 12px 40px rgba(0,0,0,0.7);
 }
-.apply-btn:hover{opacity:0.88;transform:translateY(-1px);}
+.ms-panel.open{display:block;}
+.ms-option{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;transition:background 0.1s;}
+.ms-option:hover{background:rgba(229,0,0,0.12);}
+.ms-option label{cursor:pointer;font-size:14px;color:#fff;flex:1;}
+.ms-option.all-opt{border-bottom:1px solid rgba(229,0,0,0.2);}
+.ms-option.all-opt label{font-weight:700;color:#fff;}
+.ms-option input[type=checkbox]{cursor:pointer;width:15px;height:15px;accent-color:var(--red);flex-shrink:0;}
+.ms-group-label{
+  padding:10px 16px 3px;font-size:10px;font-weight:800;letter-spacing:0.12em;
+  color:rgba(229,0,0,0.6);text-transform:uppercase;
+  border-top:1px solid rgba(229,0,0,0.12);
+}
+
 .refresh-btn{
-  background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.7);
-  border:1px solid rgba(229,0,0,0.22);border-radius:10px;padding:9px 18px;
-  font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;
-  display:flex;align-items:center;gap:7px;transition:all 0.2s;
+  background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.75);
+  border:1px solid rgba(229,0,0,0.22);border-radius:10px;padding:10px 20px;
+  font-family:Arial,sans-serif;font-size:14px;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;gap:8px;transition:all 0.2s;
 }
-.refresh-btn:hover{border-color:var(--red);color:#fff;background:rgba(229,0,0,0.1);}
-.refresh-btn svg{transition:transform 0.6s;}
+.refresh-btn:hover{border-color:var(--red);color:#fff;background:rgba(229,0,0,0.12);}
+.refresh-btn svg{transition:transform 0.7s;}
 .refresh-btn.spinning svg{transform:rotate(360deg);}
-.no-date-badge{
-  font-family:var(--mono);font-size:10px;color:rgba(255,200,0,0.8);
-  background:rgba(255,200,0,0.08);border:1px solid rgba(255,200,0,0.2);
-  border-radius:6px;padding:4px 10px;letter-spacing:0.1em;
-  align-self:center;margin-top:14px;
+
+/* PERIOD INFO */
+.period-info{
+  max-width:1400px;margin:0.5rem auto 0;padding:0.4rem 1.5rem;
+  font-size:13px;font-weight:500;color:rgba(255,255,255,0.4);
 }
 
 /* CONTENT */
-.content{max-width:1200px;margin:1.8rem auto 0;padding:0 1.5rem;display:flex;flex-direction:column;gap:1.8rem;}
+.content{max-width:1400px;margin:1.6rem auto 0;padding:0 1.5rem;display:flex;flex-direction:column;gap:1.6rem;}
 
 /* STATS */
 .stats-row{
   display:grid;grid-template-columns:repeat(6,1fr);gap:1px;
-  background:rgba(229,0,0,0.08);border-radius:18px;overflow:hidden;
-  box-shadow:0 10px 40px rgba(0,0,0,0.45),0 0 0 1px rgba(229,0,0,0.13);
+  background:rgba(229,0,0,0.08);border-radius:16px;overflow:hidden;
+  box-shadow:0 8px 32px rgba(0,0,0,0.4),0 0 0 1px rgba(229,0,0,0.12);
 }
-.stat-box{background:#111;padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:5px;}
-.stat-label{font-family:Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.5);}
-.stat-val{font-family:Arial,sans-serif;font-size:36px;font-weight:900;color:#fff;line-height:1;}
-.stat-val.green{color:#4ade80;}
-.stat-val.red{color:#f87171;}
+.stat-box{background:#111;padding:1.1rem 1.3rem;display:flex;flex-direction:column;gap:4px;}
+.stat-label{font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.42);}
+.stat-val{font-size:34px;font-weight:900;color:#fff;line-height:1;}
+.stat-val.green{color:#4ade80;}.stat-val.blue{color:#60a5fa;}
+.stat-val.purple{color:#c084fc;}.stat-val.red2{color:#f87171;}
 .stat-val.amber{color:#fb923c;}
-.stat-val.blue{color:#60a5fa;}
-.stat-val.purple{color:#c084fc;}
 
 /* CARD */
-.dash-card{background:var(--cream);border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5),0 0 0 1px rgba(229,0,0,0.13);}
-.card-head{background:#0a0a0a;padding:1.1rem 1.6rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(229,0,0,0.18);}
+.dash-card{
+  background:var(--cream);border-radius:16px;overflow:visible;
+  box-shadow:0 16px 48px rgba(0,0,0,0.45),0 0 0 1px rgba(229,0,0,0.12);
+}
+.card-head{
+  background:#0a0a0a;padding:1rem 1.4rem;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid rgba(229,0,0,0.18);
+  border-radius:16px 16px 0 0;position:sticky;top:0;z-index:30;
+}
 .card-head-left{display:flex;align-items:center;gap:10px;}
 .card-dot{width:8px;height:8px;border-radius:50%;background:var(--red);}
-.card-title{font-family:Arial,sans-serif;font-size:13px;font-weight:800;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.75);}
-.card-badge{font-family:Arial,sans-serif;font-size:12px;font-weight:600;color:var(--red);background:rgba(229,0,0,0.1);border:1px solid rgba(229,0,0,0.2);border-radius:20px;padding:4px 14px;}
+.card-title{font-size:13px;font-weight:800;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.75);}
+.card-badge{font-size:12px;font-weight:600;color:var(--red);background:rgba(229,0,0,0.1);border:1px solid rgba(229,0,0,0.2);border-radius:20px;padding:4px 14px;}
+
+/* TABLE WRAP — scrollable, sticky headers work inside */
+.table-wrap{overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:0 0 16px 16px;}
 
 /* TABLE */
-.table-wrap{overflow-x:auto;}
-table{width:100%;border-collapse:collapse;font-size:13px;}
+.all-table table{width:100%;border-collapse:collapse;min-width:920px;}
 
-/* All-employees table — compact so all 13 columns fit */
-.all-table{overflow-x:auto;display:block;}
-.all-table table{width:100%;border-collapse:collapse;min-width:900px;}
-.all-table thead tr.th-main{background:#0f0f0f;}
+/* Sticky thead — two rows */
+.all-table thead{position:sticky;top:0;z-index:20;}
+.all-table thead tr.th-main{background:#0e0e0e;}
 .all-table thead tr.th-main th{
-  font-family:Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.04em;
-  text-transform:uppercase;color:rgba(255,255,255,0.7);
-  padding:13px 12px;text-align:center;white-space:nowrap;
+  font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;
+  color:rgba(255,255,255,0.7);padding:13px 11px;text-align:center;white-space:nowrap;
   border-bottom:1px solid rgba(229,0,0,0.15);border-right:1px solid rgba(255,255,255,0.04);
 }
-.all-table thead tr.th-main th:first-child,
-.all-table thead tr.th-main th:nth-child(2){text-align:left;}
-.all-table thead tr.th-sub{background:#161616;}
+.all-table thead tr.th-main th.name-col{text-align:left;min-width:110px;max-width:140px;padding-left:16px;}
+/* Pending header = BRIGHT RED */
+.all-table thead tr.th-main th.pending-hdr{
+  background:#c80000 !important;color:#fff !important;
+  border-bottom:2px solid #ff3333 !important;font-size:11px;font-weight:800;
+}
+.all-table thead tr.th-sub{background:#1a0000;}
 .all-table thead tr.th-sub th{
-  font-family:Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.04em;
-  text-transform:uppercase;color:rgba(229,0,0,0.8);
-  padding:8px 12px;text-align:center;white-space:nowrap;
+  font-size:10px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;
+  color:rgba(255,255,255,0.5);
+  padding:7px 11px;text-align:center;white-space:nowrap;
   border-bottom:2px solid rgba(229,0,0,0.3);border-right:1px solid rgba(255,255,255,0.04);
 }
-.all-table tbody tr{border-bottom:1px solid rgba(0,0,0,0.07);transition:background 0.12s;}
-.all-table tbody tr:nth-child(even){background:#f7f7f7;}
-.all-table tbody tr:hover{background:#ffeaea;}
-.all-table tbody tr:last-child{border-bottom:none;}
-.all-table tbody td{
-  padding:12px 12px;color:var(--text);white-space:nowrap;text-align:center;
-  font-family:Arial,sans-serif;font-size:14px;font-weight:600;
-  border-right:1px solid rgba(0,0,0,0.05);
+.all-table thead tr.th-sub th.pending-hdr{
+  background:#c80000 !important;color:#ffcccc !important;
 }
+
+/* BODY */
+.all-table tbody tr{border-bottom:1px solid rgba(0,0,0,0.07);transition:background 0.1s;}
+.all-table tbody tr:nth-child(even){background:#f5f5f5;}
+.all-table tbody tr:hover{background:#ffeaea !important;}
+.all-table tbody td{
+  padding:12px 11px;white-space:nowrap;text-align:center;
+  font-size:15px;font-weight:600;border-right:1px solid rgba(0,0,0,0.04);
+}
+/* Narrow employee name column */
 .all-table tbody td.name-cell{
-  text-align:left;font-family:Arial,sans-serif;font-weight:700;
-  color:#111;font-size:14px;min-width:160px;
+  text-align:left;font-weight:700;font-size:14px;color:#111;
+  max-width:140px;min-width:100px;overflow:hidden;text-overflow:ellipsis;
+  padding-left:16px;
 }
 .all-table tbody td.num-cell{font-size:18px;font-weight:800;color:#111;}
-.all-table tbody td.rank-cell{text-align:center;width:40px;}
 .all-table tbody td.zero{color:#ccc;font-weight:400;font-size:13px;}
-.all-table tbody td.pending-grp{background:rgba(157,78,221,0.06);}
-.all-table tbody tr:nth-child(even) td.pending-grp{background:rgba(157,78,221,0.1);}
-.all-table thead .pending-hdr{
-  background:rgba(157,78,221,0.22);
-  color:rgba(210,170,255,1) !important;
-  border-bottom:1px solid rgba(157,78,221,0.35) !important;
-}
+.all-table tbody td.pending-grp{background:rgba(200,0,0,0.04);}
+.all-table tbody tr:nth-child(even) td.pending-grp{background:rgba(200,0,0,0.07);}
+.all-table tbody tr.no-data-row{opacity:0.4;}
+
+/* FOOT — sticky at bottom */
+.all-table tfoot{position:sticky;bottom:0;z-index:20;}
 .all-table tfoot tr{border-top:2px solid var(--red);}
 .all-table tfoot td{
-  background:#111;font-weight:800;font-family:Arial,sans-serif;font-size:13px;
-  padding:13px 12px;text-align:center;color:#fff;
-  border-right:1px solid rgba(255,255,255,0.08);
+  background:#111;font-weight:800;font-size:14px;padding:13px 11px;
+  text-align:center;color:#fff;border-right:1px solid rgba(255,255,255,0.07);white-space:nowrap;
 }
-.all-table tfoot td:first-child,.all-table tfoot td:nth-child(2){text-align:left;}
-
-/* Single employee table — fixed-width count col, auto name col */
-.single-table{padding:28px 32px;}
-.single-table table{
-  border-collapse:collapse;width:100%;max-width:680px;
-  margin:0 auto;table-layout:fixed;
+.all-table tfoot td.name-cell{
+  text-align:left;font-size:12px;letter-spacing:0.08em;
+  text-transform:uppercase;padding-left:16px;
 }
-.single-table table colgroup col:first-child{width:auto;}
-.single-table table colgroup col:last-child{width:120px;}
-.single-table thead tr{background:#111;}
-.single-table thead th{
-  font-family:Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.1em;
-  text-transform:uppercase;color:rgba(255,255,255,0.5);
-  padding:15px 20px;border-bottom:3px solid var(--red);
-}
-.single-table thead th:last-child{text-align:right;}
-.single-table tbody tr{border-bottom:1px solid #e8e8e8;transition:background 0.1s;}
-.single-table tbody tr:hover{background:#fff5f5;}
-.single-table tbody tr:nth-child(even){background:#f9f9f9;}
-.single-table tbody tr:nth-child(even):hover{background:#fff5f5;}
-.single-table tbody tr:last-child{border-bottom:none;}
-.single-table tbody td{padding:15px 20px;color:var(--text);font-family:Arial,sans-serif;}
-.single-table td.status-name{font-weight:700;font-size:17px;}
-.single-table td.status-name.sub{font-weight:600;font-size:15px;color:#555;padding-left:40px;}
-.single-table td.status-name.sub::before{content:'↳  ';color:rgba(157,78,221,0.6);font-weight:700;}
-.single-table td.status-count{
-  font-family:Arial,sans-serif;font-size:30px;font-weight:800;
-  text-align:right;color:#111;white-space:nowrap;
-}
-.single-table td.status-count.zero{font-size:22px;color:#ccc;font-weight:400;}
-.single-table td.status-count.sub{font-size:22px;font-weight:700;}
-.single-table tr.pending-row{border-top:1px solid rgba(157,78,221,0.2);border-bottom:1px solid rgba(157,78,221,0.2);}
-.single-table tr.pending-row td{background:rgba(157,78,221,0.07);}
-.single-table tr.pending-row td.status-name{color:var(--pending);font-weight:800;font-size:18px;}
-.single-table tr.pending-row td.status-count{color:var(--pending);font-size:32px;}
-.single-table tr.sub-row td{background:rgba(157,78,221,0.03);}
-.single-table tr.sub-row:hover td{background:rgba(157,78,221,0.1);}
-.single-table tr.total-row td{background:#111;border-top:3px solid var(--red);}
-.single-table tr.total-row td.status-name{
-  font-family:Arial,sans-serif;font-size:12px;font-weight:800;
-  letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.5);
-}
-.single-table tr.total-row td.status-count{
-  font-family:Arial,sans-serif;font-size:38px;font-weight:900;color:#fff;
-}
-
-/* Chips for status */
-.chip{display:inline-block;padding:5px 16px;border-radius:20px;font-family:Arial,sans-serif;font-size:14px;font-weight:700;}
-.chip-approved{background:var(--green-bg);color:var(--green);}
-.chip-notapproved{background:var(--amber-bg);color:var(--amber);}
-.chip-done{background:var(--blue-bg);color:var(--blue);}
-.chip-transferred{background:#f0fdf4;color:#166534;}
-.chip-cancelled{background:#fef2f2;color:#dc2626;}
-.chip-pending{background:var(--pending-bg);color:var(--pending);}
-
-/* Rank chip */
-.rank-chip{display:inline-block;width:26px;height:26px;border-radius:50%;background:var(--red);color:#fff;font-family:Arial,sans-serif;font-size:12px;font-weight:700;text-align:center;line-height:26px;}
-.rank-chip.gold{background:#f59e0b;}.rank-chip.silver{background:#94a3b8;}.rank-chip.bronze{background:#b45309;}
 
 /* STATE */
 .state-box{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;gap:1rem;}
 .state-icon{font-size:36px;}
-.state-title{font-weight:600;color:var(--text);font-size:15px;}
+.state-title{font-weight:700;font-size:16px;}
 .state-sub{font-size:13px;color:var(--muted);text-align:center;max-width:360px;}
-
-/* PERIOD BADGE */
-.period-info{
-  font-family:Arial,sans-serif;font-size:13px;font-weight:500;color:rgba(255,255,255,0.5);
-  padding:0.5rem 1.5rem;max-width:1200px;margin:0.5rem auto 0;
-}
-
-/* INTERN DIVIDER in dropdown */
-optgroup{background:#1a0000;color:rgba(255,255,255,0.4);}
+.zero{color:#bbb;font-weight:400;}
 
 @media(max-width:900px){
   .stats-row{grid-template-columns:repeat(3,1fr);}
-  .header-title{font-size:28px;}
+  .header-title{font-size:26px;}
   .controls-bar,.content{padding:0 1rem;}
 }
 @media(max-width:600px){
@@ -293,106 +214,97 @@ optgroup{background:#1a0000;color:rgba(255,255,255,0.4);}
 <body>
 <div class="page-wrap">
 
-<!-- ── HEADER ── -->
+<!-- HEADER -->
 <div class="site-header">
   <div class="header-inner">
     <div>
       <div class="header-eyebrow">Altus Corp</div>
       <div class="header-title">Task Management Dashboard</div>
-      <div class="header-sub">Period-wise task tracking · Employee performance · Status breakdown</div>
+      <div class="header-sub">Employee task tracking · Status breakdown · Live from Backend sheet</div>
     </div>
     <img class="header-logo" src="Altus Corp Black font.png" alt="" onerror="this.style.display='none'"/>
   </div>
 </div>
 
-<!-- ── CONTROLS ── -->
+<!-- CONTROLS -->
 <div class="controls-bar">
   <div class="ctrl-group">
-    <span class="ctrl-label">Period — Start</span>
-    <input type="date" class="dash-date" id="start-date"/>
-  </div>
-  <div class="period-sep">→</div>
-  <div class="ctrl-group">
-    <span class="ctrl-label">End Date</span>
-    <input type="date" class="dash-date" id="end-date"/>
-  </div>
-  <div class="ctrl-group">
     <span class="ctrl-label">Employee</span>
-    <select class="emp-select" id="emp-select">
-      <option value="">All Employees</option>
-    </select>
+    <div class="ms-wrapper" id="ms-wrapper">
+      <button class="ms-trigger" id="ms-trigger" onclick="toggleMS(event)">
+        <span id="ms-label">All Employees</span>
+        <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
+          <path d="M1 1l5 5 5-5" stroke="#aaa" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div class="ms-panel" id="ms-panel"></div>
+    </div>
   </div>
-  <button class="apply-btn" onclick="applyFilter()">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 3 12 14.5 2 3"/><path d="M22 3H2v18l8-5 2 3 2-3 8 5V3z" fill="none"/></svg>
-    Apply Filter
-  </button>
+
   <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+    </svg>
     Refresh
   </button>
-  <div class="no-date-badge" id="no-date-note" style="display:none;">⚠ No date column — showing all tasks</div>
 </div>
 
 <div class="period-info" id="period-info"></div>
 
-
-<!-- ── MAIN CONTENT ── -->
+<!-- CONTENT -->
 <div class="content">
 
-  <!-- Stats -->
   <div class="stats-row">
     <div class="stat-box"><div class="stat-label">Total Tasks</div><div class="stat-val" id="s-total">—</div></div>
     <div class="stat-box"><div class="stat-label">Approved</div><div class="stat-val green" id="s-approved">—</div></div>
     <div class="stat-box"><div class="stat-label">Done</div><div class="stat-val blue" id="s-done">—</div></div>
     <div class="stat-box"><div class="stat-label">Pending</div><div class="stat-val purple" id="s-pending">—</div></div>
-    <div class="stat-box"><div class="stat-label">Cancelled</div><div class="stat-val red" id="s-cancelled">—</div></div>
+    <div class="stat-box"><div class="stat-label">Cancelled</div><div class="stat-val red2" id="s-cancelled">—</div></div>
     <div class="stat-box"><div class="stat-label">Transferred</div><div class="stat-val amber" id="s-transferred">—</div></div>
   </div>
 
-  <!-- Task Status Card -->
   <div class="dash-card">
     <div class="card-head">
       <div class="card-head-left">
         <div class="card-dot"></div>
         <div class="card-title">Task Status</div>
       </div>
-      <div class="card-badge" id="table-badge">Load data to begin</div>
+      <div class="card-badge" id="table-badge">Loading…</div>
     </div>
-    <div id="main-wrap">
+    <div class="table-wrap" id="main-wrap">
       <div class="state-box">
         <div class="state-icon">⏳</div>
         <div class="state-title">Loading data…</div>
-        <div class="state-sub">Connecting to your Google Sheet.</div>
+        <div class="state-sub">Connecting to Backend sheet.</div>
       </div>
     </div>
   </div>
 
-</div><!-- /content -->
+</div>
 </div><!-- /page-wrap -->
 
 <script>
-// ═══════════════════════════════════════════════════════
-//  ALTUS CORP — Task Management Dashboard · Client JS
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  ALTUS CORP — Task Dashboard  |  Source: Backend sheet
+// ═══════════════════════════════════════════════════════════════
 
-// ▼▼▼ PASTE YOUR APPS SCRIPT WEB APP URL BELOW — only change needed ▼▼▼
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwlrPIN5j9YWy8YpgAMJ07fLvKReXeaQYTLfzyJfwDSgRj_a-I5T1ssHqfdY8nmisDE_g/exec';
-// ▲▲▲ ─────────────────────────────────────────────────────────────── ▲▲▲
-let allData       = [];   // { d, e, s }
-let allEmployees  = [];   // full employee list from Email sheet (includes interns)
-let hasDateCol    = true;
-let empList       = [];   // sorted unique employees
 
-// ── Employee ordering rules ─────────────────────────────
+let allEmployeeData = [];
+let empList         = [];
+let checkedEmps     = new Set();
+
 const EMP_FIRST  = ['manan vasa'];
 const EMP_BOTTOM = ['dattaram kap', 'parvez khan'];
 
+// ── Sort employees ───────────────────────────────────────────
 function sortEmployees(arr) {
   const first = [], regular = [], interns = [], bottom = [];
   arr.forEach(emp => {
     const lo = emp.toLowerCase();
-    if (EMP_FIRST.some(f  => lo.includes(f)))  { first.push(emp); return; }
-    if (EMP_BOTTOM.some(b => lo.includes(b)))  { bottom.push(emp); return; }
+    if (EMP_FIRST.some(f  => lo.includes(f)))  { first.push(emp);   return; }
+    if (EMP_BOTTOM.some(b => lo.includes(b)))  { bottom.push(emp);  return; }
     if (lo.includes('intern'))                  { interns.push(emp); return; }
     regular.push(emp);
   });
@@ -404,116 +316,28 @@ function sortEmployees(arr) {
   ];
 }
 
-// ── Status helpers ──────────────────────────────────────
-function countRows(rows) {
-  const c = { Approved:0,'Not Approved':0,Done:0,Transferred:0,Cancelled:0,'Need Help':0,'Follow Up':0,Initiated:0,'Not Started':0 };
-  rows.forEach(r => {
-    const s = (r.s || '').trim().toLowerCase();
-    if      (s === 'approved')                                                           c['Approved']++;
-    else if (s === 'not approved')                                                       c['Not Approved']++;
-    else if (s === 'done' || s === 'completed' || s === 'closed')                       c['Done']++;
-    else if (s === 'transferred')                                                        c['Transferred']++;
-    else if (s === 'cancelled' || s === 'canceled' || s === 'cancel')                   c['Cancelled']++;
-    else if (s === 'need help')                                                          c['Need Help']++;
-    else if (s === 'follow up 1' || s === 'follow up 2' || s === 'follow up 3' || s === 'follow up') c['Follow Up']++;
-    else if (s === 'initiated')                                                          c['Initiated']++;
-    else if (s === 'not started')                                                        c['Not Started']++;
-  });
-  c.Pending = c['Need Help'] + c['Follow Up'] + c['Initiated'] + c['Not Started'];
-  c.Total   = rows.length;
-  return c;
+// ── Multi-select ─────────────────────────────────────────────
+function toggleMS(e) {
+  e.stopPropagation();
+  const wrapper = document.getElementById('ms-wrapper');
+  const panel   = document.getElementById('ms-panel');
+  const isOpen  = panel.classList.contains('open');
+  panel.classList.toggle('open', !isOpen);
+  wrapper.classList.toggle('open', !isOpen);
 }
+document.addEventListener('click', e => {
+  if (!document.getElementById('ms-wrapper').contains(e.target)) {
+    document.getElementById('ms-panel').classList.remove('open');
+    document.getElementById('ms-wrapper').classList.remove('open');
+  }
+});
 
-// Normalize name: strip parenthetical content, lowercase, collapse spaces
-function normName(n) {
-  return (n || '').toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim().replace(/\s+/g, ' ');
-}
-// First two words of name (First + Last) for aggressive fallback match
-function firstName2(n) {
-  return normName(n).split(' ').slice(0, 2).join(' ');
-}
-// Find rows for an employee using exact → normalized → first-two-words matching
-function findRows(emp, byEmp, byNorm, byFirst2) {
-  return byEmp[emp]
-      || byNorm[normName(emp)]
-      || byFirst2[firstName2(emp)]
-      || [];
-}
+function safeid(name) { return 'e_' + name.replace(/[^a-z0-9]/gi, '_'); }
 
-// ── Date helpers ────────────────────────────────────────
-function parseDate(str) {
-  if (!str) return null;
-  // Try ISO first
-  const iso = new Date(str);
-  if (!isNaN(iso.getTime())) return iso;
-  // Try DD/MM/YYYY
-  const dmy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if (dmy) return new Date(parseInt(dmy[3]), parseInt(dmy[2])-1, parseInt(dmy[1]));
-  return null;
-}
+function buildDropdown() {
+  empList     = sortEmployees(allEmployeeData.map(e => e.name));
+  checkedEmps = new Set(empList);
 
-function filterByDate(data, startStr, endStr) {
-  if (!hasDateCol || (!startStr && !endStr)) return data;
-  const s = startStr ? parseDate(startStr) : null;
-  const e = endStr   ? parseDate(endStr)   : null;
-  return data.filter(row => {
-    if (!row.d) return true; // keep rows with no date
-    const d = parseDate(row.d);
-    if (!d) return true;
-    if (s && d < s) return false;
-    if (e && d > e) return false;
-    return true;
-  });
-}
-
-// ── Load ────────────────────────────────────────────────
-function loadData() {
-  setRefreshing(true);
-  const old = document.getElementById('_jsonp');
-  if (old) old.remove();
-  const cb = 'altusTaskCb_' + Date.now();
-  const timer = setTimeout(() => { cleanup(cb); showError('Request timed out. Check URL and deployment.'); }, 15000);
-
-  window[cb] = function(data) {
-    clearTimeout(timer); cleanup(cb); setRefreshing(false);
-    if (data.status === 'error') { showError(data.message); return; }
-    allData       = data.rows        || [];
-    allEmployees  = data.allEmployees || [];
-    hasDateCol    = !data.noDateCol;
-    document.getElementById('no-date-note').style.display = hasDateCol ? 'none' : 'flex';
-    buildEmpDropdown();
-    applyFilter();
-  };
-
-  const sc  = document.createElement('script');
-  sc.id     = '_jsonp';
-  sc.src    = SCRIPT_URL + '?callback=' + cb + '&t=' + Date.now();
-  sc.onerror = () => { clearTimeout(timer); cleanup(cb); setRefreshing(false); showError('Could not reach Apps Script. Check URL and deployment settings.'); };
-  document.body.appendChild(sc);
-}
-
-function cleanup(cb) { delete window[cb]; const s = document.getElementById('_jsonp'); if(s) s.remove(); }
-function setRefreshing(on) {
-  const btn = document.getElementById('refresh-btn');
-  btn.classList.toggle('spinning', on);
-  btn.disabled = on;
-}
-
-// ── Dropdown ────────────────────────────────────────────
-function buildEmpDropdown() {
-  // Use full employee list from Email sheet if available (includes interns)
-  // Fall back to employees found in task data
-  const fromData = [...new Set(allData.map(r => r.e))].filter(Boolean);
-  const raw = allEmployees.length > 0
-    ? [...new Set([...allEmployees, ...fromData])]  // merge both lists
-    : fromData;
-  empList = sortEmployees(raw);
-
-  const sel  = document.getElementById('emp-select');
-  const prev = sel.value;
-  sel.innerHTML = '<option value="">All Employees</option>';
-
-  // Split into 3 buckets (already sorted by sortEmployees)
   const regulars = empList.filter(e => {
     const lo = e.toLowerCase();
     return !lo.includes('intern') && !EMP_BOTTOM.some(b => lo.includes(b));
@@ -521,173 +345,136 @@ function buildEmpDropdown() {
   const interns = empList.filter(e => e.toLowerCase().includes('intern'));
   const bottoms = empList.filter(e => EMP_BOTTOM.some(b => e.toLowerCase().includes(b)));
 
-  function addOpt(parent, emp) {
-    const opt = document.createElement('option');
-    opt.value = emp; opt.textContent = emp;
-    parent.appendChild(opt);
-  }
+  let html = `<div class="ms-option all-opt">
+    <input type="checkbox" id="chk-all" checked onchange="toggleAll(this)">
+    <label for="chk-all">All Employees</label>
+  </div>`;
 
-  // Regular employees group
   if (regulars.length) {
-    const og = document.createElement('optgroup');
-    og.label = '─── Employees ───';
-    regulars.forEach(e => addOpt(og, e));
-    sel.appendChild(og);
+    html += `<div class="ms-group-label">Employees</div>`;
+    regulars.forEach(e => { html += msOpt(e); });
   }
-
-  // Interns group
   if (interns.length) {
-    const og = document.createElement('optgroup');
-    og.label = '─── Interns ───';
-    interns.forEach(e => addOpt(og, e));
-    sel.appendChild(og);
+    html += `<div class="ms-group-label">Interns</div>`;
+    interns.forEach(e => { html += msOpt(e); });
+  }
+  if (bottoms.length) {
+    bottoms.forEach(e => { html += msOpt(e); });
   }
 
-  // Bottom employees — directly on select, no group
-  bottoms.forEach(e => addOpt(sel, e));
-
-  if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+  document.getElementById('ms-panel').innerHTML = html;
 }
 
-// ── Filter & Render ─────────────────────────────────────
-function applyFilter() {
-  if (!allData.length) return;
-  const startStr = document.getElementById('start-date').value;
-  const endStr   = document.getElementById('end-date').value;
-  const empVal   = document.getElementById('emp-select').value;
+function msOpt(name) {
+  const id = safeid(name);
+  return `<div class="ms-option">
+    <input type="checkbox" id="${id}" value="${esc(name)}" checked onchange="toggleEmp(this)">
+    <label for="${id}">${esc(name)}</label>
+  </div>`;
+}
 
-  let filtered = filterByDate(allData, startStr, endStr);
-  if (empVal) {
-    const normVal  = normName(empVal);
-    const first2Val= firstName2(empVal);
-    filtered = filtered.filter(r =>
-      r.e === empVal ||
-      normName(r.e) === normVal ||
-      firstName2(r.e) === first2Val
-    );
+function toggleAll(el) {
+  if (!el.checked) { el.checked = true; return; } // can't deselect all
+  empList.forEach(name => {
+    const chk = document.getElementById(safeid(name));
+    if (chk) chk.checked = true;
+  });
+  checkedEmps = new Set(empList);
+  updateLabel(); render();
+}
+
+function toggleEmp(el) {
+  const name = el.value;
+  if (el.checked) checkedEmps.add(name);
+  else            checkedEmps.delete(name);
+  if (checkedEmps.size === 0) {
+    checkedEmps = new Set(empList);
+    empList.forEach(n => { const c = document.getElementById(safeid(n)); if(c) c.checked=true; });
+    document.getElementById('chk-all').checked = true;
+  } else {
+    document.getElementById('chk-all').checked = checkedEmps.size === empList.length;
+  }
+  updateLabel(); render();
+}
+
+function updateLabel() {
+  const n = checkedEmps.size, t = empList.length;
+  let lbl;
+  if (n === 0 || n === t)  lbl = 'All Employees';
+  else if (n === 1)        lbl = [...checkedEmps][0];
+  else                     lbl = n + ' employees selected';
+  document.getElementById('ms-label').textContent = lbl;
+}
+
+function getDisplayEmps() {
+  if (checkedEmps.size === 0 || checkedEmps.size === empList.length) return empList;
+  return empList.filter(n => checkedEmps.has(n));
+}
+
+// ── Data helper ──────────────────────────────────────────────
+function getEmpData(name) {
+  return allEmployeeData.find(e => e.name === name) || null;
+}
+
+// ── Stats ────────────────────────────────────────────────────
+function updateStats() {
+  const display = getDisplayEmps();
+  const t = { Total:0, Approved:0, Done:0, Pending:0, Cancelled:0, Transferred:0 };
+  display.forEach(name => {
+    const e = getEmpData(name);
+    if (!e) return;
+    Object.keys(t).forEach(k => t[k] += (e[k] || 0));
+  });
+  document.getElementById('s-total').textContent       = t.Total       || '—';
+  document.getElementById('s-approved').textContent    = t.Approved    || '—';
+  document.getElementById('s-done').textContent        = t.Done        || '—';
+  document.getElementById('s-pending').textContent     = t.Pending     || '—';
+  document.getElementById('s-cancelled').textContent   = t.Cancelled   || '—';
+  document.getElementById('s-transferred').textContent = t.Transferred || '—';
+}
+
+// ── Period info ──────────────────────────────────────────────
+function updatePeriodInfo() {
+  const display  = getDisplayEmps();
+  const total    = display.reduce((s,n) => s + ((getEmpData(n)||{}).Total||0), 0);
+  const isAll    = display.length === empList.length;
+  document.getElementById('period-info').textContent =
+    `Showing: ${isAll ? 'All' : display.length} employee${display.length!==1?'s':''} · ${total} total tasks · Source: Backend sheet`;
+}
+
+// ── Table render ─────────────────────────────────────────────
+function v(n)  { return n > 0 ? n : '<span class="zero">—</span>'; }
+function vp(n) {
+  return n > 0
+    ? `<td class="pending-grp">${n}</td>`
+    : `<td class="pending-grp zero"><span class="zero">—</span></td>`;
+}
+
+function renderTable() {
+  const display = getDisplayEmps();
+  const wrap    = document.getElementById('main-wrap');
+  const badge   = document.getElementById('table-badge');
+
+  if (!display.length) {
+    wrap.innerHTML = `<div class="state-box"><div class="state-icon">👤</div><div class="state-title">No employees selected</div></div>`;
+    badge.textContent = '—'; return;
   }
 
-  updatePeriodInfo(startStr, endStr, empVal, filtered.length);
-  updateStats(filtered);
+  const totalTasks = display.reduce((s,n)=>s+((getEmpData(n)||{}).Total||0), 0);
+  badge.textContent = display.length + ' employee' + (display.length!==1?'s':'') + ' · ' + totalTasks + ' tasks';
 
-  if (empVal) renderSingle(filtered, empVal);
-  else        renderAll(filtered, startStr, endStr);
-}
-
-function updatePeriodInfo(s, e, emp, count) {
-  const el = document.getElementById('period-info');
-  let txt  = '';
-  if (s || e) txt += `Period: ${s||'—'} → ${e||'—'}   `;
-  txt += `Employee: ${emp || 'All Employees'}   ·   ${count} task${count!==1?'s':''} matched`;
-  el.textContent = txt;
-}
-
-function updateStats(rows) {
-  const c = countRows(rows);
-  document.getElementById('s-total').textContent      = c.Total     || '—';
-  document.getElementById('s-approved').textContent   = c.Approved  || '—';
-  document.getElementById('s-done').textContent       = c.Done      || '—';
-  document.getElementById('s-pending').textContent    = c.Pending   || '—';
-  document.getElementById('s-cancelled').textContent  = c.Cancelled || '—';
-  document.getElementById('s-transferred').textContent= c.Transferred|| '—';
-}
-
-// ── RENDER: Single Employee ─────────────────────────────
-function renderSingle(rows, empName) {
-  const c = countRows(rows);
-  document.getElementById('table-badge').textContent = empName + '  ·  ' + rows.length + ' tasks';
-
-  const statuses = [
-    { label:'Approved',     key:'Approved',     cls:'chip-approved' },
-    { label:'Not Approved', key:'Not Approved',  cls:'chip-notapproved' },
-    { label:'Done',         key:'Done',          cls:'chip-done' },
-    { label:'Transferred',  key:'Transferred',   cls:'chip-transferred' },
-    { label:'Cancelled',    key:'Cancelled',     cls:'chip-cancelled' },
-  ];
-
-  let html = `<div class="single-table"><table>
-    <colgroup><col/><col style="width:120px"/></colgroup>
-    <thead><tr><th>Task Status</th><th style="text-align:right">No. of Tasks</th></tr></thead>
-    <tbody>`;
-
-  statuses.forEach(st => {
-    const v   = c[st.key];
-    const cnt = v === 0 ? '<span class="zero">—</span>' : v;
-    html += `<tr>
-      <td class="status-name"><span class="chip ${st.cls}">${st.label}</span></td>
-      <td class="status-count ${v===0?'zero':''}">${cnt}</td>
-    </tr>`;
+  // Compute totals row
+  const tot = {Approved:0,'Not Approved':0,Done:0,Transferred:0,Cancelled:0,
+               Pending:0,'Need Help':0,'Follow Up':0,Initiated:0,'Not Started':0,Total:0};
+  display.forEach(n => {
+    const e = getEmpData(n); if(!e) return;
+    Object.keys(tot).forEach(k => tot[k] += (e[k]||0));
   });
-
-  // Pending parent row
-  html += `<tr class="pending-row">
-    <td class="status-name"><span class="chip chip-pending">⏳ Pending</span></td>
-    <td class="status-count">${c.Pending || '<span class="zero">—</span>'}</td>
-  </tr>`;
-
-  // Sub rows
-  const subs = [
-    { label:'Need Help',   key:'Need Help'  },
-    { label:'Follow Up',   key:'Follow Up'  },
-    { label:'Initiated',   key:'Initiated'  },
-    { label:'Not Started', key:'Not Started'},
-  ];
-  subs.forEach(sub => {
-    const v = c[sub.key];
-    html += `<tr class="sub-row">
-      <td class="status-name sub">${sub.label}</td>
-      <td class="status-count sub ${v===0?'zero':''}">${v||'—'}</td>
-    </tr>`;
-  });
-
-  html += `</tbody><tfoot>
-    <tr class="total-row">
-      <td class="status-name">Total</td>
-      <td class="status-count">${c.Total}</td>
-    </tr>
-  </tfoot></table></div>`;
-
-  document.getElementById('main-wrap').innerHTML = html;
-}
-
-// ── RENDER: All Employees ───────────────────────────────
-function renderAll(rows, startStr, endStr) {
-  if (!empList.length) {
-    document.getElementById('main-wrap').innerHTML = `<div class="state-box"><div class="state-icon">🔍</div><div class="state-title">No data loaded</div><div class="state-sub">Refresh to load employee data.</div></div>`;
-    document.getElementById('table-badge').textContent = '—';
-    return;
-  }
-
-  // Build lookup maps: exact, normalized (no parens), first-two-words
-  const byEmp   = {};
-  const byNorm  = {};
-  const byFirst2= {};
-  rows.forEach(r => {
-    if (!byEmp[r.e])              byEmp[r.e]              = [];
-    const nk = normName(r.e);
-    if (!byNorm[nk])              byNorm[nk]              = [];
-    const fk = firstName2(r.e);
-    if (!byFirst2[fk])            byFirst2[fk]            = [];
-    byEmp[r.e].push(r);
-    byNorm[nk].push(r);
-    byFirst2[fk].push(r);
-  });
-
-  // Use the FULL empList (all people in dropdown) — show everyone, even with 0 tasks
-  const empsFiltered = [...empList];
-  Object.keys(byEmp).forEach(e => { if (!empsFiltered.includes(e)) empsFiltered.push(e); });
-
-  const allC    = countRows(rows);
-  const totals  = empsFiltered.map(e => findRows(e, byEmp, byNorm, byFirst2).length);
-  const maxTotal= Math.max(...totals, 1);
-
-  document.getElementById('table-badge').textContent = empsFiltered.length + ' people · ' + rows.length + ' tasks';
 
   let html = `<div class="all-table"><table>
   <thead>
     <tr class="th-main">
-      <th rowspan="2">#</th>
-      <th rowspan="2">Employee</th>
+      <th rowspan="2" class="name-col">Employee</th>
       <th rowspan="2">Approved</th>
       <th rowspan="2">Not Approved</th>
       <th rowspan="2">Done</th>
@@ -706,70 +493,90 @@ function renderAll(rows, startStr, endStr) {
   </thead>
   <tbody>`;
 
-  empsFiltered.forEach((emp, i) => {
-    const empRows = findRows(emp, byEmp, byNorm, byFirst2);
-    const c   = countRows(empRows);
-    const cls = i===0?'gold':i===1?'silver':i===2?'bronze':'';
-    const z   = v => v === 0 ? `<td class="zero">—</td>` : `<td>${v}</td>`;
-    const zp  = v => v === 0 ? `<td class="pending-grp zero">—</td>` : `<td class="pending-grp">${v}</td>`;
-
-    const hasAny = c.Total > 0;
-    html += `<tr style="${hasAny?'':'opacity:0.5'}">
-      <td class="rank-cell"><span class="rank-chip ${cls}">${i+1}</span></td>
-      <td class="name-cell">${esc(emp)}${hasAny?'':'<span style="font-size:11px;font-weight:400;color:#aaa;margin-left:8px;">(no tasks in period)</span>'}</td>
-      ${z(c.Approved)}
-      ${z(c['Not Approved'])}
-      ${z(c.Done)}
-      ${z(c.Transferred)}
-      ${z(c.Cancelled)}
-      ${zp(c.Pending)}
-      ${zp(c['Need Help'])}
-      ${zp(c['Follow Up'])}
-      ${zp(c.Initiated)}
-      ${zp(c['Not Started'])}
-      <td class="num-cell">${hasAny ? c.Total : '<span style="color:#ccc;font-size:13px;font-weight:400">—</span>'}</td>
+  display.forEach((name, i) => {
+    const e = getEmpData(name);
+    const c = e || {};
+    const hasData = e && e.Total > 0;
+    html += `<tr${hasData ? '' : ' class="no-data-row"'}>
+      <td class="name-cell" title="${esc(name)}">${esc(name)}</td>
+      <td>${v(c.Approved||0)}</td>
+      <td>${v(c['Not Approved']||0)}</td>
+      <td>${v(c.Done||0)}</td>
+      <td>${v(c.Transferred||0)}</td>
+      <td>${v(c.Cancelled||0)}</td>
+      ${vp(c.Pending||0)}
+      ${vp(c['Need Help']||0)}
+      ${vp(c['Follow Up']||0)}
+      ${vp(c.Initiated||0)}
+      ${vp(c['Not Started']||0)}
+      <td class="num-cell">${v(c.Total||0)}</td>
     </tr>`;
   });
 
-  html += `</tbody><tfoot><tr>
-    <td colspan="2">Totals</td>
-    <td>${allC.Approved||'—'}</td>
-    <td>${allC['Not Approved']||'—'}</td>
-    <td>${allC.Done||'—'}</td>
-    <td>${allC.Transferred||'—'}</td>
-    <td>${allC.Cancelled||'—'}</td>
-    <td>${allC.Pending||'—'}</td>
-    <td>${allC['Need Help']||'—'}</td>
-    <td>${allC['Follow Up']||'—'}</td>
-    <td>${allC.Initiated||'—'}</td>
-    <td>${allC['Not Started']||'—'}</td>
-    <td>${allC.Total}</td>
-  </tr></tfoot></table></div>`;
+  html += `</tbody>
+  <tfoot><tr>
+    <td class="name-cell">Totals</td>
+    <td>${tot.Approved||'—'}</td>
+    <td>${tot['Not Approved']||'—'}</td>
+    <td>${tot.Done||'—'}</td>
+    <td>${tot.Transferred||'—'}</td>
+    <td>${tot.Cancelled||'—'}</td>
+    <td>${tot.Pending||'—'}</td>
+    <td>${tot['Need Help']||'—'}</td>
+    <td>${tot['Follow Up']||'—'}</td>
+    <td>${tot.Initiated||'—'}</td>
+    <td>${tot['Not Started']||'—'}</td>
+    <td>${tot.Total||'—'}</td>
+  </tr></tfoot>
+  </table></div>`;
 
-  document.getElementById('main-wrap').innerHTML = html;
+  wrap.innerHTML = html;
 }
 
-// ── Error ───────────────────────────────────────────────
+// ── Main render ──────────────────────────────────────────────
+function render() { updateStats(); updatePeriodInfo(); renderTable(); }
+
+// ── Load ─────────────────────────────────────────────────────
+function loadData() {
+  setRefreshing(true);
+  const old = document.getElementById('_jsonp');
+  if (old) old.remove();
+  const cb    = 'altusTaskCb_' + Date.now();
+  const timer = setTimeout(() => { cleanup(cb); showError('Request timed out. Check Apps Script deployment.'); }, 15000);
+
+  window[cb] = function(data) {
+    clearTimeout(timer); cleanup(cb); setRefreshing(false);
+    if (data.status === 'error') { showError(data.message); return; }
+    allEmployeeData = data.employees || [];
+    if (!allEmployeeData.length) { showError('No employee data found in Backend sheet.'); return; }
+    buildDropdown();
+    render();
+  };
+
+  const sc   = document.createElement('script');
+  sc.id      = '_jsonp';
+  sc.src     = SCRIPT_URL + '?callback=' + cb + '&t=' + Date.now();
+  sc.onerror = () => { clearTimeout(timer); cleanup(cb); setRefreshing(false); showError('Could not reach Apps Script. Verify the deployment URL.'); };
+  document.body.appendChild(sc);
+}
+
+function cleanup(cb) { delete window[cb]; const s = document.getElementById('_jsonp'); if(s) s.remove(); }
+function setRefreshing(on) {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.toggle('spinning', on); btn.disabled = on;
+}
 function showError(msg) {
   document.getElementById('main-wrap').innerHTML = `<div class="state-box">
     <div class="state-icon">⚠️</div>
-    <div class="state-title">Error loading data</div>
-    <div class="state-sub" style="white-space:pre-wrap">${esc(msg)}</div>
+    <div class="state-title">Error</div>
+    <div class="state-sub">${esc(msg)}</div>
   </div>`;
   setRefreshing(false);
 }
-
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// ── INIT ────────────────────────────────────────────────
-(function init() {
-  const today = new Date();
-  const y = today.getFullYear(), m = String(today.getMonth()+1).padStart(2,'0'), d = String(today.getDate()).padStart(2,'0');
-  document.getElementById('end-date').value   = `${y}-${m}-${d}`;
-  document.getElementById('start-date').value = `${y}-${m}-01`;
-
-  loadData();
-})();
+// ── Init ─────────────────────────────────────────────────────
+loadData();
 </script>
 </body>
 </html>
