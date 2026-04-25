@@ -3,218 +3,261 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Altus Corp — Task Management Dashboard</title>
+<title>Altus Corp — Work Management Dashboard</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
+
 :root{
-  --red:#e50000;--red-dark:#b50000;--red-pale:#fff0f0;
-  --black:#0a0a0a;--cream:#fafafa;--text:#111;--muted:#666;
-  --border:rgba(0,0,0,0.08);
-  --green:#15803d;--blue:#1d4ed8;--purple:#9d4edd;--amber:#c2410c;
+  --red:       #e50000;
+  --red-dark:  #b50000;
+  --red-soft:  #ff4444;
+  --red-pale:  #fff0f0;
+  --red-light: #ffd0d0;
+  --red-mid:   #ff8888;
+  --surface:   #ffffff;
+  --bg:        #0a0a0a;
+  --text:      #1c1c1e;
+  --text2:     #4b5563;
+  --muted:     #9ca3af;
+  --border:    rgba(229,0,0,0.2);
+  --border2:   rgba(229,0,0,0.15);
+  --sh1:       0 2px 12px rgba(0,0,0,0.4);
+  --sh2:       0 6px 28px rgba(0,0,0,0.5);
 }
-body{font-family:Arial,sans-serif;background:var(--cream);color:var(--text);min-height:100vh;}
+
+body{font-family:Arial,sans-serif;background:#0a0a0a;color:var(--text);min-height:100vh;}
 
 /* PAGE */
 .page-wrap{
   min-height:100vh;
   background:linear-gradient(160deg,#0a0a0a 0%,#1a0000 40%,#0a0a0a 100%);
-  padding:0 0 5rem;position:relative;overflow-x:clip;
+  padding-bottom:5rem;
+  position:relative;overflow-x:clip;
 }
 .page-wrap::before{
   content:'';position:absolute;top:-120px;right:-120px;width:500px;height:500px;
-  border-radius:50%;background:radial-gradient(circle,rgba(229,0,0,0.13) 0%,transparent 70%);
+  border-radius:50%;background:radial-gradient(circle,rgba(229,0,0,0.1) 0%,transparent 70%);
   pointer-events:none;
 }
 
 /* HEADER */
 .site-header{
-  background:linear-gradient(135deg,#0a0a0a 0%,#1e0000 100%);
-  border-bottom:1px solid rgba(229,0,0,0.2);padding:2rem 2.5rem 1.8rem;position:relative;
+  background:linear-gradient(135deg,#200000 0%,#4a0000 50%,#200000 100%);
+  padding:1.8rem 2rem 1.6rem;
+  position:relative;
+  box-shadow:0 4px 24px rgba(0,0,0,0.45);
 }
 .site-header::after{
-  content:'';position:absolute;bottom:0;left:0;right:0;height:3px;
-  background:linear-gradient(90deg,transparent,var(--red),#ff4444,var(--red),transparent);
+  content:'';position:absolute;bottom:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,rgba(255,200,180,0.5),transparent);
 }
-.header-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;}
-.header-eyebrow{font-size:11px;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:var(--red);margin-bottom:6px;}
-.header-title{font-size:36px;font-weight:900;color:#fff;line-height:1;}
-.header-sub{font-size:14px;color:rgba(255,255,255,0.5);margin-top:6px;}
-.header-logo{width:90px;height:90px;object-fit:contain;flex-shrink:0;}
+.header-inner{max-width:1420px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;}
+.header-eyebrow{font-size:10px;font-weight:800;letter-spacing:0.32em;text-transform:uppercase;color:#e50000;margin-bottom:5px;}
+.header-title{font-size:28px;font-weight:900;color:#fff;line-height:1.1;letter-spacing:-0.3px;}
+.header-sub{font-size:12.5px;color:rgba(255,220,215,0.60);margin-top:5px;font-weight:500;}
+.header-logo{width:72px;height:72px;object-fit:contain;flex-shrink:0;filter:brightness(0) invert(1) opacity(0.9);}
 
 /* CONTROLS */
-.controls-bar{
-  max-width:1400px;margin:1.4rem auto 0;padding:0 1.5rem;
-  display:flex;align-items:flex-end;gap:1.2rem;flex-wrap:wrap;
+.controls-section{
+  background:transparent;
+  border-bottom:1px solid rgba(229,0,0,0.15);
 }
-.ctrl-group{display:flex;flex-direction:column;gap:5px;}
-.ctrl-label{font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.5);}
+.controls-inner{
+  max-width:1420px;margin:0 auto;padding:0.9rem 2rem;
+  display:flex;align-items:flex-end;gap:0.9rem;flex-wrap:wrap;
+}
+.ctrl-group{display:flex;flex-direction:column;gap:3px;}
+.ctrl-label{font-size:9.5px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.5);}
+.dash-date{
+  font-family:Arial,sans-serif;font-size:13px;font-weight:600;color:#fff;
+  background:rgba(255,255,255,0.07);border:1px solid rgba(229,0,0,0.25);border-radius:7px;
+  padding:8px 11px;outline:none;cursor:pointer;transition:border-color 0.15s;color-scheme:dark;
+}
+.dash-date:focus{border-color:var(--red);}
 
 /* Multi-select */
 .ms-wrapper{position:relative;}
 .ms-trigger{
   display:flex;align-items:center;justify-content:space-between;gap:12px;
-  min-width:250px;background:rgba(255,255,255,0.07);
-  border:1px solid rgba(229,0,0,0.25);border-radius:10px;
-  padding:10px 16px;color:#fff;cursor:pointer;
-  font-size:14px;font-weight:600;font-family:Arial,sans-serif;
-  transition:border-color 0.15s;
+  min-width:225px;background:rgba(255,255,255,0.07);border:1px solid rgba(229,0,0,0.25);border-radius:7px;
+  padding:8px 13px;color:#fff;cursor:pointer;
+  font-size:13px;font-weight:600;font-family:Arial,sans-serif;transition:border-color 0.15s;
 }
 .ms-trigger:hover{border-color:rgba(229,0,0,0.55);}
-.ms-trigger svg{flex-shrink:0;opacity:0.55;transition:transform 0.2s;}
+.ms-trigger svg{opacity:0.5;transition:transform 0.2s;flex-shrink:0;}
 .ms-wrapper.open .ms-trigger svg{transform:rotate(180deg);}
 .ms-panel{
-  display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:270px;
-  background:#110000;border:1px solid rgba(229,0,0,0.3);border-radius:12px;
-  z-index:200;max-height:360px;overflow-y:auto;
+  display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:250px;
+  background:#110000;border:1px solid rgba(229,0,0,0.3);border-radius:9px;
+  z-index:200;max-height:320px;overflow-y:auto;
   box-shadow:0 12px 40px rgba(0,0,0,0.7);
 }
 .ms-panel.open{display:block;}
-.ms-option{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;transition:background 0.1s;}
+.ms-option{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;transition:background 0.1s;}
 .ms-option:hover{background:rgba(229,0,0,0.12);}
-.ms-option label{cursor:pointer;font-size:14px;color:#fff;flex:1;}
+.ms-option label{cursor:pointer;font-size:13px;color:#fff;flex:1;}
 .ms-option.all-opt{border-bottom:1px solid rgba(229,0,0,0.2);}
 .ms-option.all-opt label{font-weight:700;color:#fff;}
-.ms-option input[type=checkbox]{cursor:pointer;width:15px;height:15px;accent-color:var(--red);flex-shrink:0;}
-.ms-group-label{
-  padding:10px 16px 3px;font-size:10px;font-weight:800;letter-spacing:0.12em;
-  color:rgba(229,0,0,0.6);text-transform:uppercase;
-  border-top:1px solid rgba(229,0,0,0.12);
-}
+.ms-option input[type=checkbox]{cursor:pointer;width:14px;height:14px;accent-color:var(--red);flex-shrink:0;}
+.ms-group-label{padding:8px 14px 3px;font-size:9px;font-weight:800;letter-spacing:0.15em;text-transform:uppercase;color:rgba(229,0,0,0.7);border-top:1px solid rgba(229,0,0,0.15);}
 
-.dash-date{
-  font-family:Arial,sans-serif;font-size:14px;font-weight:600;
-  background:rgba(255,255,255,0.07);border:1px solid rgba(229,0,0,0.25);
-  border-radius:10px;padding:10px 14px;outline:none;cursor:pointer;
-  color:#fff;color-scheme:dark;transition:border-color 0.15s;
+.apply-btn{
+  background:var(--red);
+  color:#fff;border:none;border-radius:7px;padding:8px 20px;
+  font-family:Arial,sans-serif;font-size:13px;font-weight:700;cursor:pointer;
+  box-shadow:0 3px 12px rgba(229,0,0,0.30);transition:all 0.18s;
 }
-.dash-date:focus{border-color:var(--red);}
+.apply-btn:hover{background:var(--red-dark);transform:translateY(-1px);}
 .refresh-btn{
   background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.75);
-  border:1px solid rgba(229,0,0,0.22);border-radius:10px;padding:10px 20px;
-  font-family:Arial,sans-serif;font-size:14px;font-weight:600;cursor:pointer;
-  display:flex;align-items:center;gap:8px;transition:all 0.2s;
+  border:1px solid rgba(229,0,0,0.22);border-radius:7px;
+  padding:8px 17px;font-family:Arial,sans-serif;font-size:13px;font-weight:600;
+  cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.18s;
 }
-.refresh-btn:hover{border-color:var(--red);color:#fff;background:rgba(229,0,0,0.12);}
+.refresh-btn:hover{border-color:rgba(229,0,0,0.55);color:#fff;}
 .refresh-btn svg{transition:transform 0.7s;}
 .refresh-btn.spinning svg{transform:rotate(360deg);}
 
-/* PERIOD INFO */
-.period-info{
-  max-width:1400px;margin:0.5rem auto 0;padding:0.4rem 1.5rem;
-  font-size:13px;font-weight:500;color:rgba(255,255,255,0.4);
+/* TABS */
+.tabs-bar{max-width:1420px;margin:1.4rem auto 0;padding:0 2rem;display:flex;gap:8px;}
+.tab-btn{
+  font-family:Arial,sans-serif;font-size:12.5px;font-weight:700;
+  padding:9px 22px;border-radius:8px;border:1px solid rgba(229,0,0,0.25);
+  cursor:pointer;transition:all 0.18s;color:rgba(255,255,255,0.7);
+  background:rgba(255,255,255,0.07);backdrop-filter:blur(4px);
 }
+.tab-btn.active{
+  background:#e50000;
+  border-color:#e50000;color:#fff;
+  box-shadow:0 3px 16px rgba(229,0,0,0.45);
+}
+.tab-btn:hover:not(.active){background:rgba(255,255,255,0.13);color:#fff;border-color:rgba(229,0,0,0.45);}
+
+.period-info{max-width:1420px;margin:0.5rem auto 0;padding:0 2rem;font-size:12px;font-weight:500;color:rgba(255,210,200,0.65);}
 
 /* CONTENT */
-.content{max-width:1400px;margin:1.6rem auto 0;padding:0 1.5rem;display:flex;flex-direction:column;gap:1.6rem;}
+.content{max-width:1420px;margin:1.2rem auto 0;padding:0 2rem;display:flex;flex-direction:column;gap:1.3rem;}
 
 /* STATS */
-.stats-row{
-  display:grid;grid-template-columns:repeat(6,1fr);gap:1px;
-  background:rgba(229,0,0,0.08);border-radius:16px;overflow:hidden;
-  box-shadow:0 8px 32px rgba(0,0,0,0.4),0 0 0 1px rgba(229,0,0,0.12);
+.stats-row{display:grid;grid-template-columns:repeat(6,1fr);gap:11px;}
+.stat-box{
+  background:#fff;border-radius:11px;padding:1rem 1.15rem;
+  border:1.5px solid var(--border2);box-shadow:var(--sh1);
+  display:flex;flex-direction:column;gap:3px;
+  transition:transform 0.15s,box-shadow 0.15s;
+  position:relative;overflow:hidden;
 }
-.stat-box{background:#111;padding:1.1rem 1.3rem;display:flex;flex-direction:column;gap:4px;}
-.stat-label{font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.42);}
-.stat-val{font-size:34px;font-weight:900;color:#fff;line-height:1;}
-.stat-val.green{color:#4ade80;}.stat-val.blue{color:#60a5fa;}
-.stat-val.purple{color:#c084fc;}.stat-val.red2{color:#f87171;}
-.stat-val.amber{color:#fb923c;}
+/* thin accent line on top of each stat box */
+.stat-box::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--red),var(--red-soft));
+  opacity:0.55;
+}
+.stat-box:hover{transform:translateY(-2px);box-shadow:var(--sh2);}
+.stat-label{font-size:9.5px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);}
+.stat-val{font-size:30px;font-weight:900;line-height:1;color:var(--text);}
+.stat-val.green {color:#16a34a;}
+.stat-val.blue  {color:#2563eb;}
+.stat-val.purple{color:#7c3aed;}
+.stat-val.red2  {color:var(--red);}
+.stat-val.amber {color:#d97706;}
 
 /* CARD */
 .dash-card{
-  background:var(--cream);border-radius:16px;overflow:visible;
-  box-shadow:0 16px 48px rgba(0,0,0,0.45),0 0 0 1px rgba(229,0,0,0.12);
+  background:#fff;border-radius:13px;overflow:visible;
+  border:1.5px solid var(--border2);box-shadow:var(--sh2);
 }
 .card-head{
-  background:#0a0a0a;padding:1rem 1.4rem;
+  background:#fff;padding:0.85rem 1.4rem;
   display:flex;align-items:center;justify-content:space-between;
-  border-bottom:1px solid rgba(229,0,0,0.18);
-  border-radius:16px 16px 0 0;position:sticky;top:0;z-index:30;
+  border-bottom:1.5px solid var(--border2);border-radius:13px 13px 0 0;
+  position:sticky;top:0;z-index:30;
 }
-.card-head-left{display:flex;align-items:center;gap:10px;}
-.card-dot{width:8px;height:8px;border-radius:50%;background:var(--red);}
-.card-title{font-size:13px;font-weight:800;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.75);}
-.card-badge{font-size:12px;font-weight:600;color:var(--red);background:rgba(229,0,0,0.1);border:1px solid rgba(229,0,0,0.2);border-radius:20px;padding:4px 14px;}
-
-/* TABLE WRAP — scrollable, sticky headers work inside */
-.table-wrap{overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:0 0 16px 16px;}
+.card-head-left{display:flex;align-items:center;gap:9px;}
+.card-dot{width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 0 2px var(--red-light);}
+.card-title{font-size:11.5px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:var(--text2);}
+.card-badge{
+  font-size:11px;font-weight:700;color:var(--red);
+  background:var(--red-pale);border:1.5px solid var(--red-mid);
+  border-radius:20px;padding:3px 12px;
+}
 
 /* TABLE */
+.table-wrap{overflow-x:auto;overflow-y:auto;max-height:62vh;border-radius:0 0 13px 13px;}
 .all-table table{width:100%;border-collapse:collapse;min-width:920px;}
-
-/* Sticky thead — two rows */
 .all-table thead{position:sticky;top:0;z-index:20;}
-.all-table thead tr.th-main{background:#0e0e0e;}
+
+/* Main header — very light rose */
+.all-table thead tr.th-main{background:#fef5f5;}
 .all-table thead tr.th-main th{
-  font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;
-  color:rgba(255,255,255,0.7);padding:13px 11px;text-align:center;white-space:nowrap;
-  border-bottom:1px solid rgba(229,0,0,0.15);border-right:1px solid rgba(255,255,255,0.04);
+  font-size:10.5px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;
+  color:#9b1a2a;padding:12px 12px;text-align:center;white-space:nowrap;
+  border-bottom:1px solid #f5cac8;border-right:1px solid #fad4d2;
 }
-.all-table thead tr.th-main th.name-col{text-align:left;min-width:110px;max-width:140px;padding-left:16px;}
-/* Pending header = BRIGHT RED */
+.all-table thead tr.th-main th.name-col{text-align:left;min-width:115px;max-width:145px;padding-left:16px;}
+/* Pending = medium rose — NOT dark red, lighter shade */
 .all-table thead tr.th-main th.pending-hdr{
-  background:#c80000 !important;color:#fff !important;
-  border-bottom:2px solid #ff3333 !important;font-size:11px;font-weight:800;
+  background:#e07070 !important;color:#fff !important;
+  border-bottom:1.5px solid #c85050 !important;
+  border-right:1px solid rgba(255,255,255,0.22) !important;
 }
-.all-table thead tr.th-sub{background:#1a0000;}
+/* Sub-header */
+.all-table thead tr.th-sub{background:#fff8f8;}
 .all-table thead tr.th-sub th{
-  font-size:10px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;
-  color:rgba(255,255,255,0.5);
-  padding:7px 11px;text-align:center;white-space:nowrap;
-  border-bottom:2px solid rgba(229,0,0,0.3);border-right:1px solid rgba(255,255,255,0.04);
+  font-size:9.5px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;
+  color:#be4040;padding:7px 12px;text-align:center;white-space:nowrap;
+  border-bottom:2px solid #f5cac8;border-right:1px solid #fad4d2;
 }
 .all-table thead tr.th-sub th.pending-hdr{
-  background:#c80000 !important;color:#ffcccc !important;
+  background:#e07070 !important;color:rgba(255,255,255,0.92) !important;
+  border-right:1px solid rgba(255,255,255,0.2) !important;
 }
 
-/* BODY */
-.all-table tbody tr{border-bottom:1px solid rgba(0,0,0,0.07);transition:background 0.1s;}
-.all-table tbody tr:nth-child(even){background:#f5f5f5;}
-.all-table tbody tr:hover{background:#ffeaea !important;}
+/* Body */
+.all-table tbody tr{border-bottom:1px solid #fae8e8;transition:background 0.1s;}
+.all-table tbody tr:nth-child(even){background:#fdfafa;}
+.all-table tbody tr:hover{background:#ffeeed !important;}
 .all-table tbody td{
-  padding:12px 11px;white-space:nowrap;text-align:center;
-  font-size:15px;font-weight:600;border-right:1px solid rgba(0,0,0,0.04);
+  padding:11px 12px;white-space:nowrap;text-align:center;
+  font-size:14.5px;font-weight:600;color:var(--text);border-right:1px solid #fae8e8;
 }
-/* Narrow employee name column */
 .all-table tbody td.name-cell{
-  text-align:left;font-weight:700;font-size:14px;color:#111;
-  max-width:140px;min-width:100px;overflow:hidden;text-overflow:ellipsis;
-  padding-left:16px;
+  text-align:left;font-weight:700;font-size:13.5px;
+  max-width:145px;min-width:105px;overflow:hidden;text-overflow:ellipsis;
+  padding-left:16px;color:#111;
 }
-.all-table tbody td.num-cell{font-size:18px;font-weight:800;color:#111;}
-.all-table tbody td.zero{color:#ccc;font-weight:400;font-size:13px;}
-.all-table tbody td.pending-grp{background:rgba(200,0,0,0.04);}
-.all-table tbody tr:nth-child(even) td.pending-grp{background:rgba(200,0,0,0.07);}
-.all-table tbody tr.no-data-row{opacity:0.4;}
+.all-table tbody td.num-cell{font-size:17px;font-weight:900;}
+.all-table tbody td.zero{color:#d1bfbf;font-weight:400;font-size:13px;}
+.all-table tbody td.pending-grp{background:rgba(224,112,112,0.04);}
+.all-table tbody tr:nth-child(even) td.pending-grp{background:rgba(224,112,112,0.07);}
+.all-table tbody tr.no-data-row{opacity:0.38;}
 
-/* FOOT — sticky at bottom */
+/* Footer totals */
 .all-table tfoot{position:sticky;bottom:0;z-index:20;}
-.all-table tfoot tr{border-top:2px solid var(--red);}
+.all-table tfoot tr{border-top:2px solid var(--red-mid);}
 .all-table tfoot td{
-  background:#111;font-weight:800;font-size:14px;padding:13px 11px;
-  text-align:center;color:#fff;border-right:1px solid rgba(255,255,255,0.07);white-space:nowrap;
+  background:#fef0ee;font-weight:800;font-size:13.5px;
+  padding:12px 12px;text-align:center;color:#8b2020;
+  border-right:1px solid #f5cac8;white-space:nowrap;
 }
-.all-table tfoot td.name-cell{
-  text-align:left;font-size:12px;letter-spacing:0.08em;
-  text-transform:uppercase;padding-left:16px;
-}
+.all-table tfoot td.name-cell{text-align:left;font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase;padding-left:16px;}
 
-/* STATE */
+/* Tab panels */
+.tab-panel{display:none;flex-direction:column;gap:1.3rem;}
+.tab-panel.active{display:flex;}
+
+/* State */
 .state-box{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;gap:1rem;}
-.state-icon{font-size:36px;}
-.state-title{font-weight:700;font-size:16px;}
+.state-icon{font-size:36px;}.state-title{font-weight:700;font-size:16px;color:var(--text2);}
 .state-sub{font-size:13px;color:var(--muted);text-align:center;max-width:360px;}
-.zero{color:#bbb;font-weight:400;}
+.zero{color:#d1bfbf;font-weight:400;}
 
-@media(max-width:900px){
-  .stats-row{grid-template-columns:repeat(3,1fr);}
-  .header-title{font-size:26px;}
-  .controls-bar,.content{padding:0 1rem;}
-}
-@media(max-width:600px){
+@media(max-width:1024px){.stats-row{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:700px){
   .stats-row{grid-template-columns:repeat(2,1fr);}
-  .site-header{padding:1.5rem 1.25rem;}
+  .header-title{font-size:22px;}
+  .controls-inner,.content,.tabs-bar{padding-left:1rem;padding-right:1rem;}
 }
 </style>
 </head>
@@ -226,432 +269,293 @@ body{font-family:Arial,sans-serif;background:var(--cream);color:var(--text);min-
   <div class="header-inner">
     <div>
       <div class="header-eyebrow">Altus Corp</div>
-      <div class="header-title">Task Management Dashboard</div>
-      <div class="header-sub">Employee task tracking · Status breakdown · Live from Website Report sheet</div>
+      <div class="header-title">Work Management Dashboard</div>
+      <div class="header-sub">Task tracking &middot; Status breakdown &middot; Live from Website Report</div>
     </div>
     <img class="header-logo" src="Altus Corp Black font.png" alt="" onerror="this.style.display='none'"/>
   </div>
 </div>
 
 <!-- CONTROLS -->
-<div class="controls-bar">
-  <div class="ctrl-group">
-    <span class="ctrl-label">Start Date</span>
-    <input type="date" class="dash-date" id="start-date"/>
-  </div>
-  <div style="color:rgba(255,255,255,0.3);font-size:18px;padding-bottom:2px;">→</div>
-  <div class="ctrl-group">
-    <span class="ctrl-label">End Date</span>
-    <input type="date" class="dash-date" id="end-date"/>
-  </div>
-  <div class="ctrl-group">
-    <span class="ctrl-label">Employee</span>
-    <div class="ms-wrapper" id="ms-wrapper">
-      <button class="ms-trigger" id="ms-trigger" onclick="toggleMS(event)">
-        <span id="ms-label">All Employees</span>
-        <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
-          <path d="M1 1l5 5 5-5" stroke="#aaa" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
-      </button>
-      <div class="ms-panel" id="ms-panel"></div>
+<div class="controls-section">
+  <div class="controls-inner">
+    <div class="ctrl-group">
+      <span class="ctrl-label">Start Date</span>
+      <input type="date" class="dash-date" id="start-date"/>
     </div>
+    <div style="color:#d0b0b0;font-size:17px;padding-bottom:1px;">→</div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">End Date</span>
+      <input type="date" class="dash-date" id="end-date"/>
+    </div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">Employee</span>
+      <div class="ms-wrapper" id="ms-wrapper">
+        <button class="ms-trigger" onclick="toggleMS(event)">
+          <span id="ms-label">All Employees</span>
+          <svg width="11" height="7" viewBox="0 0 12 8" fill="none">
+            <path d="M1 1l5 5 5-5" stroke="#aaa" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="ms-panel" id="ms-panel"></div>
+      </div>
+    </div>
+    <button class="apply-btn" onclick="render()">Apply Filter</button>
+    <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+      </svg>
+      Refresh
+    </button>
   </div>
-
-  <button class="apply-btn" onclick="render()" style="background:linear-gradient(135deg,#e50000,#b50000);color:#fff;border:none;border-radius:10px;padding:10px 20px;font-family:Arial,sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(229,0,0,0.3);">
-    Apply Filter
-  </button>
-  <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-      <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-    </svg>
-    Refresh
-  </button>
 </div>
 
+<!-- TABS -->
+<div class="tabs-bar">
+  <button class="tab-btn active" id="tab-btn-doer"      onclick="switchTab('doer')">📋 Task Doer</button>
+  <button class="tab-btn"        id="tab-btn-initiator" onclick="switchTab('initiator')">🎯 Task Initiator</button>
+</div>
 <div class="period-info" id="period-info"></div>
 
 <!-- CONTENT -->
 <div class="content">
 
+  <!-- STATS BUBBLES -->
   <div class="stats-row">
-    <div class="stat-box"><div class="stat-label">Total Tasks</div><div class="stat-val" id="s-total">—</div></div>
-    <div class="stat-box"><div class="stat-label">Approved</div><div class="stat-val green" id="s-approved">—</div></div>
-    <div class="stat-box"><div class="stat-label">Done</div><div class="stat-val blue" id="s-done">—</div></div>
-    <div class="stat-box"><div class="stat-label">Pending</div><div class="stat-val purple" id="s-pending">—</div></div>
-    <div class="stat-box"><div class="stat-label">Cancelled</div><div class="stat-val red2" id="s-cancelled">—</div></div>
-    <div class="stat-box"><div class="stat-label">Transferred</div><div class="stat-val amber" id="s-transferred">—</div></div>
+    <div class="stat-box">
+      <div class="stat-label" id="s-total-label">Total Tasks Assigned</div>
+      <div class="stat-val" id="s-total">—</div>
+    </div>
+    <div class="stat-box"><div class="stat-label">Approved</div>   <div class="stat-val green"  id="s-approved">—</div></div>
+    <div class="stat-box"><div class="stat-label">Done</div>       <div class="stat-val blue"   id="s-done">—</div></div>
+    <div class="stat-box"><div class="stat-label">Pending</div>    <div class="stat-val purple" id="s-pending">—</div></div>
+    <div class="stat-box"><div class="stat-label">Cancelled</div>  <div class="stat-val red2"   id="s-cancelled">—</div></div>
+    <div class="stat-box"><div class="stat-label">Transferred</div><div class="stat-val amber"  id="s-transferred">—</div></div>
   </div>
 
-  <div class="dash-card">
-    <div class="card-head">
-      <div class="card-head-left">
-        <div class="card-dot"></div>
-        <div class="card-title">Task Status</div>
+  <!-- TASK DOER PANEL -->
+  <div class="tab-panel active" id="tab-doer">
+    <div class="dash-card">
+      <div class="card-head">
+        <div class="card-head-left"><div class="card-dot"></div><div class="card-title">Task Status — By Doer</div></div>
+        <div class="card-badge" id="badge-doer">Loading…</div>
       </div>
-      <div class="card-badge" id="table-badge">Loading…</div>
-    </div>
-    <div class="table-wrap" id="main-wrap">
-      <div class="state-box">
-        <div class="state-icon">⏳</div>
-        <div class="state-title">Loading data…</div>
-        <div class="state-sub">Connecting to Backend sheet.</div>
+      <div class="table-wrap" id="wrap-doer">
+        <div class="state-box"><div class="state-icon">⏳</div><div class="state-title">Loading data…</div><div class="state-sub">Connecting to Website Report sheet.</div></div>
       </div>
     </div>
   </div>
 
-</div>
+  <!-- TASK INITIATOR PANEL -->
+  <div class="tab-panel" id="tab-initiator">
+    <div class="dash-card">
+      <div class="card-head">
+        <div class="card-head-left"><div class="card-dot"></div><div class="card-title">Task Status — By Initiator</div></div>
+        <div class="card-badge" id="badge-initiator">—</div>
+      </div>
+      <div class="table-wrap" id="wrap-initiator">
+        <div class="state-box"><div class="state-icon">🎯</div><div class="state-title">Switch to Task Initiator tab</div></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
 </div><!-- /page-wrap -->
 
 <script>
-// ═══════════════════════════════════════════════════════════════
-//  ALTUS CORP — Task Dashboard  |  Source: Backend sheet
-// ═══════════════════════════════════════════════════════════════
+const SCRIPT_URL='https://script.google.com/macros/s/AKfycbwlrPIN5j9YWy8YpgAMJ07fLvKReXeaQYTLfzyJfwDSgRj_a-I5T1ssHqfdY8nmisDE_g/exec';
 
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwlrPIN5j9YWy8YpgAMJ07fLvKReXeaQYTLfzyJfwDSgRj_a-I5T1ssHqfdY8nmisDE_g/exec';
+let allEmployeeData=[],allInitiatorData=[],empList=[],initiatorList=[],checkedEmps=new Set(),hasDateCol=false,currentTab='doer';
+const EMP_FIRST=['manan vasa'],EMP_BOTTOM=['dattaram kap','parvez khan'];
 
-let allEmployeeData = [];   // [{name, Approved, Done, rows:[{d,s}], ...}]
-let allTaskRows     = [];   // flat rows for date filtering
-let empList         = [];
-let checkedEmps     = new Set();
-let hasDateCol      = false;
-
-const EMP_FIRST  = ['manan vasa'];
-const EMP_BOTTOM = ['dattaram kap', 'parvez khan'];
-
-// ── Sort employees ───────────────────────────────────────────
-function sortEmployees(arr) {
-  const first = [], regular = [], interns = [], bottom = [];
-  arr.forEach(emp => {
-    const lo = emp.toLowerCase();
-    if (EMP_FIRST.some(f  => lo.includes(f)))  { first.push(emp);   return; }
-    if (EMP_BOTTOM.some(b => lo.includes(b)))  { bottom.push(emp);  return; }
-    if (lo.includes('intern'))                  { interns.push(emp); return; }
+function sortEmployees(arr){
+  const first=[],regular=[],interns=[],bottom=[];
+  arr.forEach(emp=>{const lo=emp.toLowerCase();
+    if(EMP_FIRST.some(f=>lo.includes(f))){first.push(emp);return;}
+    if(EMP_BOTTOM.some(b=>lo.includes(b))){bottom.push(emp);return;}
+    if(lo.includes('intern')){interns.push(emp);return;}
     regular.push(emp);
   });
-  return [
-    ...first,
-    ...regular.sort((a,b) => a.localeCompare(b)),
-    ...interns.sort((a,b) => a.localeCompare(b)),
-    ...bottom
-  ];
+  return [...first,...regular.sort((a,b)=>a.localeCompare(b)),...interns.sort((a,b)=>a.localeCompare(b)),...bottom];
 }
 
-// ── Multi-select ─────────────────────────────────────────────
-function toggleMS(e) {
+function switchTab(tab){
+  currentTab=tab;
+  document.getElementById('tab-btn-doer').classList.toggle('active',tab==='doer');
+  document.getElementById('tab-btn-initiator').classList.toggle('active',tab==='initiator');
+  document.getElementById('tab-doer').classList.toggle('active',tab==='doer');
+  document.getElementById('tab-initiator').classList.toggle('active',tab==='initiator');
+  document.getElementById('s-total-label').textContent=tab==='initiator'?'Total Tasks Initiated':'Total Tasks Assigned';
+  renderCurrentTab();
+}
+
+function toggleMS(e){
   e.stopPropagation();
-  const wrapper = document.getElementById('ms-wrapper');
-  const panel   = document.getElementById('ms-panel');
-  const isOpen  = panel.classList.contains('open');
-  panel.classList.toggle('open', !isOpen);
-  wrapper.classList.toggle('open', !isOpen);
+  const p=document.getElementById('ms-panel'),w=document.getElementById('ms-wrapper');
+  const open=p.classList.toggle('open');w.classList.toggle('open',open);
 }
-document.addEventListener('click', e => {
-  if (!document.getElementById('ms-wrapper').contains(e.target)) {
-    document.getElementById('ms-panel').classList.remove('open');
-    document.getElementById('ms-wrapper').classList.remove('open');
-  }
-});
+document.addEventListener('click',e=>{if(!document.getElementById('ms-wrapper').contains(e.target)){document.getElementById('ms-panel').classList.remove('open');document.getElementById('ms-wrapper').classList.remove('open');}});
 
-function safeid(name) { return 'e_' + name.replace(/[^a-z0-9]/gi, '_'); }
+function safeid(n){return 'e_'+n.replace(/[^a-z0-9]/gi,'_');}
 
-function buildDropdown() {
-  empList     = sortEmployees(allEmployeeData.map(e => e.name));
-  checkedEmps = new Set(empList);
+function buildDropdown(){
+  empList=sortEmployees(allEmployeeData.map(e=>e.name));
+  initiatorList=sortEmployees(allInitiatorData.map(e=>e.name));
+  checkedEmps=new Set(empList);
+  const reg=empList.filter(e=>{const lo=e.toLowerCase();return !lo.includes('intern')&&!EMP_BOTTOM.some(b=>lo.includes(b));});
+  const interns=empList.filter(e=>e.toLowerCase().includes('intern'));
+  const bot=empList.filter(e=>EMP_BOTTOM.some(b=>e.toLowerCase().includes(b)));
+  let html=`<div class="ms-option all-opt"><input type="checkbox" id="chk-all" checked onchange="toggleAll(this)"><label for="chk-all">All Employees</label></div>`;
+  if(reg.length){html+=`<div class="ms-group-label">Employees</div>`;reg.forEach(e=>{html+=msOpt(e);});}
+  if(interns.length){html+=`<div class="ms-group-label">Interns</div>`;interns.forEach(e=>{html+=msOpt(e);});}
+  bot.forEach(e=>{html+=msOpt(e);});
+  document.getElementById('ms-panel').innerHTML=html;
+}
+function msOpt(name){const id=safeid(name);return `<div class="ms-option"><input type="checkbox" id="${id}" value="${esc(name)}" checked onchange="toggleEmp(this)"><label for="${id}">${esc(name)}</label></div>`;}
+function toggleAll(el){empList.forEach(n=>{const c=document.getElementById(safeid(n));if(c)c.checked=el.checked;});checkedEmps=el.checked?new Set(empList):new Set();updateLabel();render();}
+function toggleEmp(el){if(el.checked)checkedEmps.add(el.value);else checkedEmps.delete(el.value);document.getElementById('chk-all').checked=checkedEmps.size===empList.length;updateLabel();render();}
+function updateLabel(){const n=checkedEmps.size,t=empList.length;document.getElementById('ms-label').textContent=n===0?'None selected':n===t?'All Employees':n===1?[...checkedEmps][0]:n+' selected';}
+function getDisplayEmps(){return checkedEmps.size===empList.length?empList:empList.filter(n=>checkedEmps.has(n));}
 
-  const regulars = empList.filter(e => {
-    const lo = e.toLowerCase();
-    return !lo.includes('intern') && !EMP_BOTTOM.some(b => lo.includes(b));
+function parseDate(s){if(!s)return null;const d=new Date(s);return isNaN(d.getTime())?null:d;}
+function getRange(){return{start:parseDate(document.getElementById('start-date').value),end:parseDate(document.getElementById('end-date').value)};}
+
+function getFiltered(empData){
+  if(!empData)return null;
+  if(!hasDateCol)return empData;
+  const{start,end}=getRange();
+  if(!start&&!end)return empData;
+  const SK=['Not Started','Initiated','Need Help','Follow Up 1','Follow Up 2','Follow Up 3','Done','Not Approved','Approved','Cancelled','Transferred'];
+  const r={name:empData.name};SK.forEach(k=>r[k]=0);
+  const filtered=(empData.rows||[]).filter(row=>{
+    if(!row.d)return true;
+    const rd=parseDate(row.d);if(!rd)return true;
+    if(start&&rd<start)return false;
+    if(end&&rd>end)return false;
+    return true;
   });
-  const interns = empList.filter(e => e.toLowerCase().includes('intern'));
-  const bottoms = empList.filter(e => EMP_BOTTOM.some(b => e.toLowerCase().includes(b)));
-
-  let html = `<div class="ms-option all-opt">
-    <input type="checkbox" id="chk-all" checked onchange="toggleAll(this)">
-    <label for="chk-all">All Employees</label>
-  </div>`;
-
-  if (regulars.length) {
-    html += `<div class="ms-group-label">Employees</div>`;
-    regulars.forEach(e => { html += msOpt(e); });
-  }
-  if (interns.length) {
-    html += `<div class="ms-group-label">Interns</div>`;
-    interns.forEach(e => { html += msOpt(e); });
-  }
-  if (bottoms.length) {
-    bottoms.forEach(e => { html += msOpt(e); });
-  }
-
-  document.getElementById('ms-panel').innerHTML = html;
+  filtered.forEach(row=>{if(row.s&&r[row.s]!==undefined)r[row.s]++;});
+  r['Follow Up']=(r['Follow Up 1']||0)+(r['Follow Up 2']||0)+(r['Follow Up 3']||0);
+  r['Pending']=(r['Need Help']||0)+r['Follow Up']+(r['Initiated']||0)+(r['Not Started']||0);
+  r['Total']=filtered.length;
+  return r;
 }
 
-function msOpt(name) {
-  const id = safeid(name);
-  return `<div class="ms-option">
-    <input type="checkbox" id="${id}" value="${esc(name)}" checked onchange="toggleEmp(this)">
-    <label for="${id}">${esc(name)}</label>
-  </div>`;
+function updateStats(dataList,names){
+  const t={Total:0,Approved:0,Done:0,Pending:0,Cancelled:0,Transferred:0};
+  names.forEach(n=>{const e=getFiltered(dataList.find(d=>d.name===n));if(!e)return;Object.keys(t).forEach(k=>t[k]+=(e[k]||0));});
+  document.getElementById('s-total').textContent=t.Total||'—';
+  document.getElementById('s-approved').textContent=t.Approved||'—';
+  document.getElementById('s-done').textContent=t.Done||'—';
+  document.getElementById('s-pending').textContent=t.Pending||'—';
+  document.getElementById('s-cancelled').textContent=t.Cancelled||'—';
+  document.getElementById('s-transferred').textContent=t.Transferred||'—';
 }
 
-function toggleAll(el) {
-  if (el.checked) {
-    // Check all individual boxes
-    empList.forEach(name => {
-      const chk = document.getElementById(safeid(name));
-      if (chk) chk.checked = true;
-    });
-    checkedEmps = new Set(empList);
-  } else {
-    // Deselect all individual boxes
-    empList.forEach(name => {
-      const chk = document.getElementById(safeid(name));
-      if (chk) chk.checked = false;
-    });
-    checkedEmps = new Set();
-  }
-  updateLabel(); render();
-}
+function v(n){return n>0?n:'<span class="zero">—</span>';}
+function vp(n){return n>0?`<td class="pending-grp">${n}</td>`:`<td class="pending-grp zero"><span class="zero">—</span></td>`;}
 
-function toggleEmp(el) {
-  const name = el.value;
-  if (el.checked) checkedEmps.add(name);
-  else            checkedEmps.delete(name);
-  // Sync "All Employees" checkbox
-  document.getElementById('chk-all').checked = checkedEmps.size === empList.length;
-  updateLabel(); render();
-}
+function renderTable(dataList,names,wrapId,badgeId,isInit){
+  const wrap=document.getElementById(wrapId),badge=document.getElementById(badgeId);
+  if(!names.length){wrap.innerHTML=`<div class="state-box"><div class="state-icon">👤</div><div class="state-title">No employees selected</div></div>`;badge.textContent='—';return;}
+  const rows=names.map(n=>getFiltered(dataList.find(e=>e.name===n)));
+  const total=rows.reduce((s,e)=>s+((e&&e.Total)||0),0);
+  badge.textContent=names.length+' employee'+(names.length!==1?'s':'')+' · '+total+' tasks';
+  const K=['Approved','Not Approved','Done','Transferred','Cancelled','Pending','Need Help','Follow Up','Initiated','Not Started','Total'];
+  const tot={};K.forEach(k=>tot[k]=0);rows.forEach(e=>{if(!e)return;K.forEach(k=>tot[k]+=(e[k]||0));});
 
-function updateLabel() {
-  const n = checkedEmps.size, t = empList.length;
-  let lbl;
-  if (n === 0)       lbl = 'None selected';
-  else if (n === t)  lbl = 'All Employees';
-  else if (n === 1)  lbl = [...checkedEmps][0];
-  else               lbl = n + ' employees selected';
-  document.getElementById('ms-label').textContent = lbl;
-}
+  const iHdr=`style="background:#fef5f5;color:#9b1a2a;border-right:2px solid #f0cac8;min-width:90px;"`;
+  const iFtr=`style="border-right:2px solid #f0cac8;font-weight:800;text-align:center;"`;
 
-function getDisplayEmps() {
-  if (checkedEmps.size === empList.length) return empList;
-  return empList.filter(n => checkedEmps.has(n)); // can be empty []
-}
-
-// ── Date helpers ─────────────────────────────────────────────
-function parseDate(str) {
-  if (!str) return null;
-  const d = new Date(str);
-  return isNaN(d.getTime()) ? null : d;
-}
-
-function getDateRange() {
-  return {
-    start: parseDate(document.getElementById('start-date').value),
-    end  : parseDate(document.getElementById('end-date').value)
-  };
-}
-
-// ── Data helper: returns filtered counts for one employee ─────
-function getEmpData(name) {
-  const base = allEmployeeData.find(e => e.name === name);
-  if (!base) return null;
-  if (!hasDateCol) return base; // no date column — return full totals
-
-  const { start, end } = getDateRange();
-  if (!start && !end) return base; // no filter set
-
-  // Re-aggregate from individual rows filtered by date
-  const STATUS_KEYS = ['Not Started','Initiated','Need Help',
-    'Follow Up 1','Follow Up 2','Follow Up 3',
-    'Done','Not Approved','Approved','Cancelled','Transferred'];
-  const result = { name };
-  STATUS_KEYS.forEach(k => result[k] = 0);
-
-  (base.rows || []).forEach(r => {
-    if (!r.d) { /* keep rows with no date */ }
-    else {
-      const rd = parseDate(r.d);
-      if (!rd) return;
-      if (start && rd < start) return;
-      if (end   && rd > end)   return;
-    }
-    if (result[r.s] !== undefined) result[r.s]++;
-  });
-
-  result['Follow Up'] = result['Follow Up 1'] + result['Follow Up 2'] + result['Follow Up 3'];
-  result['Pending']   = result['Need Help'] + result['Follow Up'] + result['Initiated'] + result['Not Started'];
-  result['Total']     = STATUS_KEYS.reduce((s,k) => s + result[k], 0);
-  return result;
-}
-
-// ── Stats ────────────────────────────────────────────────────
-function updateStats() {
-  const display = getDisplayEmps();
-  const t = { Total:0, Approved:0, Done:0, Pending:0, Cancelled:0, Transferred:0 };
-  display.forEach(name => {
-    const e = getEmpData(name);
-    if (!e) return;
-    Object.keys(t).forEach(k => t[k] += (e[k] || 0));
-  });
-  document.getElementById('s-total').textContent       = t.Total       || '—';
-  document.getElementById('s-approved').textContent    = t.Approved    || '—';
-  document.getElementById('s-done').textContent        = t.Done        || '—';
-  document.getElementById('s-pending').textContent     = t.Pending     || '—';
-  document.getElementById('s-cancelled').textContent   = t.Cancelled   || '—';
-  document.getElementById('s-transferred').textContent = t.Transferred || '—';
-}
-
-// ── Period info ──────────────────────────────────────────────
-function updatePeriodInfo() {
-  const display  = getDisplayEmps();
-  const total    = display.reduce((s,n) => s + ((getEmpData(n)||{}).Total||0), 0);
-  const isAll    = display.length === empList.length;
-  const { start, end } = hasDateCol ? getDateRange() : { start:null, end:null };
-  const datePart = (start||end) ? ` · Period: ${start?start.toLocaleDateString('en-IN'):'—'} → ${end?end.toLocaleDateString('en-IN'):'—'}` : '';
-  document.getElementById('period-info').textContent =
-    `Showing: ${display.length === 0 ? 'None' : isAll ? 'All' : display.length} employee${display.length!==1?'s':''}${datePart} · ${total} tasks · Source: Website Report`;
-}
-
-// ── Table render ─────────────────────────────────────────────
-function v(n)  { return n > 0 ? n : '<span class="zero">—</span>'; }
-function vp(n) {
-  return n > 0
-    ? `<td class="pending-grp">${n}</td>`
-    : `<td class="pending-grp zero"><span class="zero">—</span></td>`;
-}
-
-function renderTable() {
-  const display = getDisplayEmps();
-  const wrap    = document.getElementById('main-wrap');
-  const badge   = document.getElementById('table-badge');
-
-  if (!display.length) {
-    wrap.innerHTML = `<div class="state-box"><div class="state-icon">👤</div><div class="state-title">No employees selected</div></div>`;
-    badge.textContent = '—'; return;
-  }
-
-  const totalTasks = display.reduce((s,n)=>s+((getEmpData(n)||{}).Total||0), 0);
-  badge.textContent = display.length + ' employee' + (display.length!==1?'s':'') + ' · ' + totalTasks + ' tasks';
-
-  // Compute totals row
-  const tot = {Approved:0,'Not Approved':0,Done:0,Transferred:0,Cancelled:0,
-               Pending:0,'Need Help':0,'Follow Up':0,Initiated:0,'Not Started':0,Total:0};
-  display.forEach(n => {
-    const e = getEmpData(n); if(!e) return;
-    Object.keys(tot).forEach(k => tot[k] += (e[k]||0));
-  });
-
-  let html = `<div class="all-table"><table>
-  <thead>
+  let html=`<div class="all-table"><table><thead>
     <tr class="th-main">
-      <th rowspan="2" class="name-col">Employee</th>
-      <th rowspan="2">Approved</th>
-      <th rowspan="2">Not Approved</th>
-      <th rowspan="2">Done</th>
-      <th rowspan="2">Transferred</th>
-      <th rowspan="2">Cancelled</th>
+      <th rowspan="2" class="name-col">${isInit?'Initiator':'Employee'}</th>
+      ${isInit?`<th rowspan="2" ${iHdr}>Total Tasks<br><span style="font-weight:500;font-size:9px;opacity:0.75;">Initiated</span></th>`:''}
+      <th rowspan="2">Approved</th><th rowspan="2">Not&nbsp;Approved</th>
+      <th rowspan="2">Done</th><th rowspan="2">Transferred</th><th rowspan="2">Cancelled</th>
       <th colspan="5" class="pending-hdr">⏳ Pending</th>
-      <th rowspan="2">Total</th>
+      ${isInit?'':`<th rowspan="2">Total</th>`}
     </tr>
     <tr class="th-sub">
-      <th class="pending-hdr">Total</th>
-      <th class="pending-hdr">Need Help</th>
-      <th class="pending-hdr">Follow Up</th>
-      <th class="pending-hdr">Initiated</th>
-      <th class="pending-hdr">Not Started</th>
-    </tr>
-  </thead>
-  <tbody>`;
+      <th class="pending-hdr">Total</th><th class="pending-hdr">Need&nbsp;Help</th>
+      <th class="pending-hdr">Follow&nbsp;Up</th><th class="pending-hdr">Initiated</th>
+      <th class="pending-hdr">Not&nbsp;Started</th>
+    </tr></thead><tbody>`;
 
-  display.forEach((name, i) => {
-    const e = getEmpData(name);
-    const c = e || {};
-    const hasData = e && e.Total > 0;
-    html += `<tr${hasData ? '' : ' class="no-data-row"'}>
+  names.forEach((name,i)=>{
+    const e=rows[i]||{};const hasData=e&&e.Total>0;
+    html+=`<tr${hasData?'':' class="no-data-row"'}>
       <td class="name-cell" title="${esc(name)}">${esc(name)}</td>
-      <td>${v(c.Approved||0)}</td>
-      <td>${v(c['Not Approved']||0)}</td>
-      <td>${v(c.Done||0)}</td>
-      <td>${v(c.Transferred||0)}</td>
-      <td>${v(c.Cancelled||0)}</td>
-      ${vp(c.Pending||0)}
-      ${vp(c['Need Help']||0)}
-      ${vp(c['Follow Up']||0)}
-      ${vp(c.Initiated||0)}
-      ${vp(c['Not Started']||0)}
-      <td class="num-cell">${v(c.Total||0)}</td>
+      ${isInit?`<td class="num-cell" style="border-right:2px solid #f0cac8;">${v(e.Total||0)}</td>`:''}
+      <td>${v(e.Approved||0)}</td><td>${v(e['Not Approved']||0)}</td>
+      <td>${v(e.Done||0)}</td><td>${v(e.Transferred||0)}</td><td>${v(e.Cancelled||0)}</td>
+      ${vp(e.Pending||0)}${vp(e['Need Help']||0)}${vp(e['Follow Up']||0)}${vp(e.Initiated||0)}${vp(e['Not Started']||0)}
+      ${isInit?'':`<td class="num-cell">${v(e.Total||0)}</td>`}
     </tr>`;
   });
 
-  html += `</tbody>
-  <tfoot><tr>
+  html+=`</tbody><tfoot><tr>
     <td class="name-cell">Totals</td>
-    <td>${tot.Approved||'—'}</td>
-    <td>${tot['Not Approved']||'—'}</td>
-    <td>${tot.Done||'—'}</td>
-    <td>${tot.Transferred||'—'}</td>
-    <td>${tot.Cancelled||'—'}</td>
-    <td>${tot.Pending||'—'}</td>
-    <td>${tot['Need Help']||'—'}</td>
-    <td>${tot['Follow Up']||'—'}</td>
-    <td>${tot.Initiated||'—'}</td>
-    <td>${tot['Not Started']||'—'}</td>
-    <td>${tot.Total||'—'}</td>
-  </tr></tfoot>
-  </table></div>`;
-
-  wrap.innerHTML = html;
+    ${isInit?`<td ${iFtr}>${tot.Total||'—'}</td>`:''}
+    <td>${tot.Approved||'—'}</td><td>${tot['Not Approved']||'—'}</td>
+    <td>${tot.Done||'—'}</td><td>${tot.Transferred||'—'}</td><td>${tot.Cancelled||'—'}</td>
+    <td>${tot.Pending||'—'}</td><td>${tot['Need Help']||'—'}</td>
+    <td>${tot['Follow Up']||'—'}</td><td>${tot.Initiated||'—'}</td><td>${tot['Not Started']||'—'}</td>
+    ${isInit?'':`<td>${tot.Total||'—'}</td>`}
+  </tr></tfoot></table></div>`;
+  wrap.innerHTML=html;
 }
 
-// ── Main render ──────────────────────────────────────────────
-function render() { updateStats(); updatePeriodInfo(); renderTable(); }
+function updatePeriodInfo(names,total){
+  const{start,end}=hasDateCol?getRange():{start:null,end:null};
+  const dp=(start||end)?` · ${start?start.toLocaleDateString('en-IN'):'—'} → ${end?end.toLocaleDateString('en-IN'):'—'}`:' · All dates';
+  const isAll=names.length===empList.length;
+  document.getElementById('period-info').textContent=`Showing: ${names.length===0?'None':isAll?'All':names.length} employee${names.length!==1?'s':''}${dp} · ${total} task${total!==1?'s':''} · Source: Website Report`;
+}
 
-// ── Load ─────────────────────────────────────────────────────
-function loadData() {
+function renderCurrentTab(){
+  if(currentTab==='doer'){
+    const display=getDisplayEmps();
+    updateStats(allEmployeeData,display);
+    renderTable(allEmployeeData,display,'wrap-doer','badge-doer',false);
+    const total=display.reduce((s,n)=>s+((getFiltered(allEmployeeData.find(e=>e.name===n))||{}).Total||0),0);
+    updatePeriodInfo(display,total);
+  }else{
+    updateStats(allInitiatorData,initiatorList);
+    renderTable(allInitiatorData,initiatorList,'wrap-initiator','badge-initiator',true);
+    const total=initiatorList.reduce((s,n)=>s+((getFiltered(allInitiatorData.find(e=>e.name===n))||{}).Total||0),0);
+    updatePeriodInfo(initiatorList,total);
+  }
+}
+function render(){renderCurrentTab();}
+
+function loadData(){
   setRefreshing(true);
-  const old = document.getElementById('_jsonp');
-  if (old) old.remove();
-  const cb    = 'altusTaskCb_' + Date.now();
-  const timer = setTimeout(() => { cleanup(cb); showError('Request timed out. Check Apps Script deployment.'); }, 15000);
-
-  window[cb] = function(data) {
-    clearTimeout(timer); cleanup(cb); setRefreshing(false);
-    if (data.status === 'error') { showError(data.message); return; }
-    allEmployeeData = data.employees || [];
-    hasDateCol      = data.hasDateCol || false;
-    if (!allEmployeeData.length) { showError('No employee data found in Website Report sheet.'); return; }
-    // Set default dates: 1st of current month → today
-    const today = new Date();
-    const y = today.getFullYear(), mo = String(today.getMonth()+1).padStart(2,'0'), d = String(today.getDate()).padStart(2,'0');
-    document.getElementById('end-date').value   = y+'-'+mo+'-'+d;
-    document.getElementById('start-date').value = y+'-'+mo+'-01';
+  const old=document.getElementById('_jsonp');if(old)old.remove();
+  const cb='altusWMD_'+Date.now();
+  const timer=setTimeout(()=>{cleanup(cb);showError('Request timed out.');},15000);
+  window[cb]=function(data){
+    clearTimeout(timer);cleanup(cb);setRefreshing(false);
+    if(data.status==='error'){showError(data.message);return;}
+    allEmployeeData=data.employees||[];
+    allInitiatorData=data.initiators||[];
+    hasDateCol=data.hasDateCol||false;
+    if(!allEmployeeData.length){showError('No employee data found in Website Report.');return;}
+    // Dates left BLANK by default → shows ALL tasks (fixes Dhruv 33 vs 34 if month-filter was hiding one)
     buildDropdown();
     render();
   };
-
-  const sc   = document.createElement('script');
-  sc.id      = '_jsonp';
-  sc.src     = SCRIPT_URL + '?callback=' + cb + '&t=' + Date.now();
-  sc.onerror = () => { clearTimeout(timer); cleanup(cb); setRefreshing(false); showError('Could not reach Apps Script. Verify the deployment URL.'); };
+  const sc=document.createElement('script');sc.id='_jsonp';
+  sc.src=SCRIPT_URL+'?callback='+cb+'&t='+Date.now();
+  sc.onerror=()=>{clearTimeout(timer);cleanup(cb);setRefreshing(false);showError('Cannot reach Apps Script. Check deployment URL.');};
   document.body.appendChild(sc);
 }
+function cleanup(cb){delete window[cb];const s=document.getElementById('_jsonp');if(s)s.remove();}
+function setRefreshing(on){const b=document.getElementById('refresh-btn');b.classList.toggle('spinning',on);b.disabled=on;}
+function showError(msg){['wrap-doer','wrap-initiator'].forEach(id=>{document.getElementById(id).innerHTML=`<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Error</div><div class="state-sub">${esc(msg)}</div></div>`;});setRefreshing(false);}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-function cleanup(cb) { delete window[cb]; const s = document.getElementById('_jsonp'); if(s) s.remove(); }
-function setRefreshing(on) {
-  const btn = document.getElementById('refresh-btn');
-  btn.classList.toggle('spinning', on); btn.disabled = on;
-}
-function showError(msg) {
-  document.getElementById('main-wrap').innerHTML = `<div class="state-box">
-    <div class="state-icon">⚠️</div>
-    <div class="state-title">Error</div>
-    <div class="state-sub">${esc(msg)}</div>
-  </div>`;
-  setRefreshing(false);
-}
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-// ── Init ─────────────────────────────────────────────────────
 loadData();
 </script>
 </body>
