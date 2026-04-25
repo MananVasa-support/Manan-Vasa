@@ -367,21 +367,19 @@ function sortEmployees(arr) {
 }
 
 // ── Status helpers ──────────────────────────────────────
-const FOLLOW_UP_SET = new Set(['Follow Up 1','Follow Up 2','Follow Up 3']);
-
 function countRows(rows) {
   const c = { Approved:0,'Not Approved':0,Done:0,Transferred:0,Cancelled:0,'Need Help':0,'Follow Up':0,Initiated:0,'Not Started':0 };
   rows.forEach(r => {
-    const s = r.s;
-    if (s === 'Approved')             c['Approved']++;
-    else if (s === 'Not Approved')    c['Not Approved']++;
-    else if (s === 'Done')            c['Done']++;
-    else if (s === 'Transferred')     c['Transferred']++;
-    else if (s === 'Cancelled')       c['Cancelled']++;
-    else if (s === 'Need Help')       c['Need Help']++;
-    else if (FOLLOW_UP_SET.has(s))    c['Follow Up']++;
-    else if (s === 'Initiated')       c['Initiated']++;
-    else if (s === 'Not Started')     c['Not Started']++;
+    const s = (r.s || '').trim().toLowerCase();
+    if      (s === 'approved')                                                           c['Approved']++;
+    else if (s === 'not approved')                                                       c['Not Approved']++;
+    else if (s === 'done' || s === 'completed' || s === 'closed')                       c['Done']++;
+    else if (s === 'transferred')                                                        c['Transferred']++;
+    else if (s === 'cancelled' || s === 'canceled' || s === 'cancel')                   c['Cancelled']++;
+    else if (s === 'need help')                                                          c['Need Help']++;
+    else if (s === 'follow up 1' || s === 'follow up 2' || s === 'follow up 3' || s === 'follow up') c['Follow Up']++;
+    else if (s === 'initiated')                                                          c['Initiated']++;
+    else if (s === 'not started')                                                        c['Not Started']++;
   });
   c.Pending = c['Need Help'] + c['Follow Up'] + c['Initiated'] + c['Not Started'];
   c.Total   = rows.length;
