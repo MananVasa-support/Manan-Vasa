@@ -323,9 +323,9 @@ optgroup{background:#1a0000;color:rgba(255,255,255,0.4);}
     </div>
     <div id="main-wrap">
       <div class="state-box">
-        <div class="state-icon">📋</div>
-        <div class="state-title">No data loaded</div>
-        <div class="state-sub">Paste your Apps Script URL above, then click Save &amp; Load.</div>
+        <div class="state-icon">⏳</div>
+        <div class="state-title">Loading data…</div>
+        <div class="state-sub">Connecting to your Google Sheet.</div>
       </div>
     </div>
   </div>
@@ -422,7 +422,6 @@ function filterByDate(data, startStr, endStr) {
 
 // ── Load ────────────────────────────────────────────────
 function loadData() {
-  if (!SCRIPT_URL || SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbwlrPIN5j9YWy8YpgAMJ07fLvKReXeaQYTLfzyJfwDSgRj_a-I5T1ssHqfdY8nmisDE_g/exec') return;
   setRefreshing(true);
   const old = document.getElementById('_jsonp');
   if (old) old.remove();
@@ -700,14 +699,6 @@ function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
   document.getElementById('end-date').value   = `${y}-${m}-${d}`;
   document.getElementById('start-date').value = `${y}-${m}-01`;
 
-  if (!SCRIPT_URL || SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbwlrPIN5j9YWy8YpgAMJ07fLvKReXeaQYTLfzyJfwDSgRj_a-I5T1ssHqfdY8nmisDE_g/exec') {
-    document.getElementById('main-wrap').innerHTML = `<div class="state-box">
-      <div class="state-icon">⚙️</div>
-      <div class="state-title">One-time setup required</div>
-      <div class="state-sub">Open this HTML file in a text editor, find <strong>https://script.google.com/macros/s/AKfycbwlrPIN5j9YWy8YpgAMJ07fLvKReXeaQYTLfzyJfwDSgRj_a-I5T1ssHqfdY8nmisDE_g/exec</strong> and replace it with your deployed Apps Script URL. Save — done forever, on every device.</div>
-    </div>`;
-    return;
-  }
   loadData();
 })();
 </script>
