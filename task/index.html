@@ -4,8 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Altus Corp — Task Management Dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
@@ -13,17 +12,17 @@ html{scroll-behavior:smooth;}
   --red:#e50000;--red-dark:#b50000;--red-pale:#fff0f0;
   --black:#0a0a0a;--black2:#111;--white:#ffffff;
   --cream:#fafafa;--border:rgba(0,0,0,0.09);
-  --text:#111;--muted:#777;
-  --mono:'DM Mono',monospace;
-  --sans:'DM Sans',sans-serif;
-  --display:'Bebas Neue',sans-serif;
+  --text:#111;--muted:#666;
+  --mono:Arial,sans-serif;
+  --sans:Arial,sans-serif;
+  --display:Arial,sans-serif;
   --green:#15803d;--green-bg:#dcfce7;
   --amber:#c2410c;--amber-bg:#fff7ed;
   --blue:#1d4ed8;--blue-bg:#eff6ff;
   --purple:#6d28d9;--purple-bg:#f5f3ff;
   --pending:#9d4edd;--pending-bg:#f3e8ff;
 }
-body{font-family:var(--sans);background:var(--cream);color:var(--text);min-height:100vh;}
+body{font-family:Arial,sans-serif;background:var(--cream);color:var(--text);min-height:100vh;}
 .page-wrap{
   min-height:100vh;
   background:linear-gradient(160deg,#0a0a0a 0%,#1a0000 40%,#0a0a0a 100%);
@@ -47,9 +46,9 @@ body{font-family:var(--sans);background:var(--cream);color:var(--text);min-heigh
   background:linear-gradient(90deg,transparent,var(--red),#ff4444,var(--red),transparent);
 }
 .header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;}
-.header-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:0.3em;text-transform:uppercase;color:var(--red);margin-bottom:6px;}
-.header-title{font-family:var(--display);font-size:38px;color:#fff;letter-spacing:0.03em;line-height:1;}
-.header-sub{font-size:13px;color:rgba(255,255,255,0.55);margin-top:6px;}
+.header-eyebrow{font-family:Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:var(--red);margin-bottom:6px;}
+.header-title{font-family:Arial,sans-serif;font-size:36px;font-weight:900;color:#fff;letter-spacing:0.01em;line-height:1;}
+.header-sub{font-family:Arial,sans-serif;font-size:14px;color:rgba(255,255,255,0.55);margin-top:6px;}
 .header-logo{width:90px;height:90px;object-fit:contain;flex-shrink:0;}
 
 /* CONFIG BANNER */
@@ -79,9 +78,9 @@ body{font-family:var(--sans);background:var(--cream);color:var(--text);min-heigh
   display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap;
 }
 .ctrl-group{display:flex;flex-direction:column;gap:4px;}
-.ctrl-label{font-family:var(--mono);font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:rgba(255,255,255,0.45);}
+.ctrl-label{font-family:Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.55);}
 .dash-date{
-  font-family:var(--mono);font-size:13px;
+  font-family:Arial,sans-serif;font-size:14px;font-weight:600;
   background:rgba(255,255,255,0.06);border:1px solid rgba(229,0,0,0.22);
   border-radius:10px;padding:9px 14px;outline:none;cursor:pointer;color:#fff;
   color-scheme:dark;
@@ -92,7 +91,7 @@ body{font-family:var(--sans);background:var(--cream);color:var(--text);min-heigh
   margin-bottom:2px;padding-top:18px;
 }
 .emp-select{
-  font-family:var(--mono);font-size:12px;color:#fff;
+  font-family:Arial,sans-serif;font-size:14px;font-weight:600;color:#fff;
   background:rgba(255,255,255,0.06);border:1px solid rgba(229,0,0,0.22);
   border-radius:10px;padding:9px 36px 9px 14px;outline:none;cursor:pointer;
   appearance:none;-webkit-appearance:none;min-width:210px;
@@ -137,8 +136,8 @@ body{font-family:var(--sans);background:var(--cream);color:var(--text);min-heigh
   box-shadow:0 10px 40px rgba(0,0,0,0.45),0 0 0 1px rgba(229,0,0,0.13);
 }
 .stat-box{background:#111;padding:1.2rem 1.4rem;display:flex;flex-direction:column;gap:5px;}
-.stat-label{font-family:var(--mono);font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.4);}
-.stat-val{font-family:var(--display);font-size:32px;color:#fff;letter-spacing:0.02em;line-height:1;}
+.stat-label{font-family:Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.5);}
+.stat-val{font-family:Arial,sans-serif;font-size:36px;font-weight:900;color:#fff;line-height:1;}
 .stat-val.green{color:#4ade80;}
 .stat-val.red{color:#f87171;}
 .stat-val.amber{color:#fb923c;}
@@ -150,8 +149,8 @@ body{font-family:var(--sans);background:var(--cream);color:var(--text);min-heigh
 .card-head{background:#0a0a0a;padding:1.1rem 1.6rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(229,0,0,0.18);}
 .card-head-left{display:flex;align-items:center;gap:10px;}
 .card-dot{width:8px;height:8px;border-radius:50%;background:var(--red);}
-.card-title{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:0.22em;text-transform:uppercase;color:rgba(255,255,255,0.65);}
-.card-badge{font-family:var(--mono);font-size:11px;color:var(--red);background:rgba(229,0,0,0.1);border:1px solid rgba(229,0,0,0.2);border-radius:20px;padding:3px 11px;}
+.card-title{font-family:Arial,sans-serif;font-size:13px;font-weight:800;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.75);}
+.card-badge{font-family:Arial,sans-serif;font-size:12px;font-weight:600;color:var(--red);background:rgba(229,0,0,0.1);border:1px solid rgba(229,0,0,0.2);border-radius:20px;padding:4px 14px;}
 
 /* TABLE */
 .table-wrap{overflow-x:auto;}
@@ -160,63 +159,64 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
 /* All-employees table */
 .all-table thead tr.th-main{background:#0f0f0f;}
 .all-table thead tr.th-main th{
-  font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:0.18em;
-  text-transform:uppercase;color:rgba(255,255,255,0.5);
-  padding:12px 14px;text-align:center;white-space:nowrap;border-bottom:1px solid rgba(229,0,0,0.12);
+  font-family:Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.05em;
+  text-transform:uppercase;color:rgba(255,255,255,0.65);
+  padding:14px 16px;text-align:center;white-space:nowrap;border-bottom:1px solid rgba(229,0,0,0.15);
 }
 .all-table thead tr.th-main th:first-child,
 .all-table thead tr.th-main th:nth-child(2){text-align:left;}
 .all-table thead tr.th-sub{background:#161616;}
 .all-table thead tr.th-sub th{
-  font-family:var(--mono);font-size:8px;font-weight:400;letter-spacing:0.15em;
-  text-transform:uppercase;color:rgba(229,0,0,0.55);
-  padding:7px 14px;text-align:center;white-space:nowrap;
-  border-bottom:2px solid rgba(229,0,0,0.2);
+  font-family:Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.04em;
+  text-transform:uppercase;color:rgba(229,0,0,0.7);
+  padding:9px 16px;text-align:center;white-space:nowrap;
+  border-bottom:2px solid rgba(229,0,0,0.25);
 }
 .all-table tbody tr{border-bottom:1px solid var(--border);transition:background 0.12s;}
 .all-table tbody tr:hover{background:var(--red-pale);}
 .all-table tbody tr:last-child{border-bottom:none;}
-.all-table tbody td{padding:11px 14px;color:var(--text);white-space:nowrap;text-align:center;font-family:var(--mono);font-size:12px;}
-.all-table tbody td.name-cell{text-align:left;font-family:var(--sans);font-weight:600;color:var(--black2);font-size:13px;}
-.all-table tbody td.num-cell{font-family:var(--display);font-size:18px;letter-spacing:0.03em;}
+.all-table tbody td{padding:13px 16px;color:var(--text);white-space:nowrap;text-align:center;font-family:Arial,sans-serif;font-size:15px;font-weight:500;}
+.all-table tbody td.name-cell{text-align:left;font-family:Arial,sans-serif;font-weight:700;color:var(--black2);font-size:15px;}
+.all-table tbody td.num-cell{font-family:Arial,sans-serif;font-size:20px;font-weight:800;}
 .all-table tbody td.rank-cell{text-align:center;}
-.all-table tbody td.zero{color:#ccc;}
-.all-table tbody td.pending-grp{background:rgba(157,78,221,0.04);}
-.all-table thead .pending-hdr{background:rgba(157,78,221,0.15);color:rgba(157,78,221,0.9) !important;border-bottom:1px solid rgba(157,78,221,0.25) !important;}
+.all-table tbody td.zero{color:#bbb;font-size:14px;}
+.all-table tbody td.pending-grp{background:rgba(157,78,221,0.05);}
+.all-table thead .pending-hdr{background:rgba(157,78,221,0.18);color:rgba(200,150,255,0.95) !important;border-bottom:1px solid rgba(157,78,221,0.3) !important;}
 .all-table tfoot td{
-  background:#f0f0f0;font-weight:700;font-family:var(--mono);font-size:11px;
-  padding:10px 14px;text-align:center;border-top:2px solid var(--red);color:var(--black2);
+  background:#e8e8e8;font-weight:800;font-family:Arial,sans-serif;font-size:14px;
+  padding:13px 16px;text-align:center;border-top:2px solid var(--red);color:var(--black2);
 }
 .all-table tfoot td:first-child,.all-table tfoot td:nth-child(2){text-align:left;}
 
 /* Single employee table */
-.single-table{max-width:520px;margin:0 auto;}
+.single-table{max-width:600px;margin:0 auto;}
 .single-table table{border-collapse:collapse;width:100%;}
-.single-table thead tr{background:#f0f0f0;border-bottom:2px solid var(--red);}
+.single-table thead tr{background:#1a1a1a;border-bottom:3px solid var(--red);}
 .single-table thead th{
-  font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:0.2em;
-  text-transform:uppercase;color:var(--muted);padding:14px 24px;text-align:left;
+  font-family:Arial,sans-serif;font-size:13px;font-weight:700;letter-spacing:0.08em;
+  text-transform:uppercase;color:rgba(255,255,255,0.6);padding:16px 28px;text-align:left;
 }
+.single-table thead th:last-child{text-align:right;}
 .single-table tbody tr{border-bottom:1px solid var(--border);transition:background 0.12s;}
 .single-table tbody tr:hover{background:var(--red-pale);}
 .single-table tbody tr:last-child{border-bottom:none;}
-.single-table tbody td{padding:13px 24px;color:var(--text);}
-.single-table td.status-name{font-weight:600;font-size:14px;}
-.single-table td.status-name.sub{font-weight:500;font-size:13px;color:var(--muted);padding-left:44px;}
-.single-table td.status-name.sub::before{content:'↳ ';color:rgba(157,78,221,0.5);}
-.single-table td.status-count{font-family:var(--display);font-size:24px;text-align:right;letter-spacing:0.03em;}
-.single-table td.status-count.zero{font-size:18px;color:#ccc;}
-.single-table td.status-count.sub{font-size:18px;}
-.single-table tr.pending-row td{background:rgba(157,78,221,0.05);}
-.single-table tr.pending-row td.status-name{color:var(--pending);}
+.single-table tbody td{padding:16px 28px;color:var(--text);font-family:Arial,sans-serif;}
+.single-table td.status-name{font-weight:700;font-size:17px;}
+.single-table td.status-name.sub{font-weight:500;font-size:15px;color:#555;padding-left:52px;}
+.single-table td.status-name.sub::before{content:'↳  ';color:rgba(157,78,221,0.6);font-weight:700;}
+.single-table td.status-count{font-family:Arial,sans-serif;font-size:28px;font-weight:800;text-align:right;}
+.single-table td.status-count.zero{font-size:22px;color:#bbb;font-weight:400;}
+.single-table td.status-count.sub{font-size:22px;font-weight:700;}
+.single-table tr.pending-row td{background:rgba(157,78,221,0.06);}
+.single-table tr.pending-row td.status-name{color:var(--pending);font-weight:800;}
 .single-table tr.pending-row td.status-count{color:var(--pending);}
-.single-table tr.sub-row td{background:rgba(157,78,221,0.03);}
-.single-table tr.total-row td{background:#f0f0f0;border-top:2px solid var(--red);}
-.single-table tr.total-row td.status-name{font-family:var(--mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);}
-.single-table tr.total-row td.status-count{font-family:var(--display);font-size:30px;}
+.single-table tr.sub-row td{background:rgba(157,78,221,0.025);}
+.single-table tr.total-row td{background:#1a1a1a;border-top:3px solid var(--red);}
+.single-table tr.total-row td.status-name{font-family:Arial,sans-serif;font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.55);}
+.single-table tr.total-row td.status-count{font-family:Arial,sans-serif;font-size:34px;font-weight:900;color:#fff;}
 
 /* Chips for status */
-.chip{display:inline-block;padding:3px 12px;border-radius:20px;font-family:var(--mono);font-size:10px;font-weight:500;}
+.chip{display:inline-block;padding:5px 16px;border-radius:20px;font-family:Arial,sans-serif;font-size:14px;font-weight:700;}
 .chip-approved{background:var(--green-bg);color:var(--green);}
 .chip-notapproved{background:var(--amber-bg);color:var(--amber);}
 .chip-done{background:var(--blue-bg);color:var(--blue);}
@@ -225,7 +225,7 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
 .chip-pending{background:var(--pending-bg);color:var(--pending);}
 
 /* Rank chip */
-.rank-chip{display:inline-block;width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff;font-family:var(--mono);font-size:10px;text-align:center;line-height:22px;}
+.rank-chip{display:inline-block;width:26px;height:26px;border-radius:50%;background:var(--red);color:#fff;font-family:Arial,sans-serif;font-size:12px;font-weight:700;text-align:center;line-height:26px;}
 .rank-chip.gold{background:#f59e0b;}.rank-chip.silver{background:#94a3b8;}.rank-chip.bronze{background:#b45309;}
 
 /* STATE */
@@ -236,7 +236,7 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
 
 /* PERIOD BADGE */
 .period-info{
-  font-family:var(--mono);font-size:11px;color:rgba(255,255,255,0.45);
+  font-family:Arial,sans-serif;font-size:13px;font-weight:500;color:rgba(255,255,255,0.5);
   padding:0.5rem 1.5rem;max-width:1200px;margin:0.5rem auto 0;
 }
 
@@ -610,16 +610,16 @@ function renderAll(rows, startStr, endStr) {
     byEmp[r.e].push(r);
   });
 
-  // Use sorted empList but only those who appear in filtered data
-  const empsFiltered = empList.filter(e => byEmp[e]);
-  // Also add any employee in data but not in empList (shouldn't happen)
+  // Use the FULL empList (all people in dropdown) — show everyone, even with 0 tasks
+  // Also add anyone in task data not already in empList
+  const empsFiltered = [...empList];
   Object.keys(byEmp).forEach(e => { if (!empsFiltered.includes(e)) empsFiltered.push(e); });
 
   const allC    = countRows(rows);
-  const totals  = empsFiltered.map(e => byEmp[e].length);
+  const totals  = empsFiltered.map(e => (byEmp[e] || []).length);
   const maxTotal= Math.max(...totals, 1);
 
-  document.getElementById('table-badge').textContent = empsFiltered.length + ' employees · ' + rows.length + ' tasks';
+  document.getElementById('table-badge').textContent = empsFiltered.length + ' people · ' + rows.length + ' tasks';
 
   let html = `<div class="all-table"><table>
   <thead>
