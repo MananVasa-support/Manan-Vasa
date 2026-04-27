@@ -2,288 +2,252 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Altus Corp — Work Management Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html{scroll-behavior:smooth;}
-
 :root{
-  --red:       #e50000;
-  --red-dark:  #b50000;
-  --red-soft:  #ff4444;
-  --red-pale:  #fff0f0;
-  --red-light: #ffd0d0;
-  --red-mid:   #ff8888;
-  --surface:   #ffffff;
-  --bg:        #0a0a0a;
-  --text:      #1c1c1e;
-  --text2:     #4b5563;
-  --muted:     #9ca3af;
-  --border:    rgba(229,0,0,0.2);
-  --border2:   rgba(229,0,0,0.15);
-  --sh1:       0 2px 12px rgba(0,0,0,0.4);
-  --sh2:       0 6px 28px rgba(0,0,0,0.5);
+  --red:#e50000;
+  --black:#000000;
+  --grey-900:#111111;
+  --grey-800:#1c1c1e;
+  --grey-600:#636366;
+  --grey-100:#f2f2f7;
+  --text:#1a1a1a;
+  --text2:#3a3a3c;
+  --muted:#8e8e93;
+  --border:rgba(180,180,180,0.22);
+  --sh1:0 2px 8px rgba(0,0,0,0.08);
+  --sh2:0 4px 20px rgba(0,0,0,0.10);
+  --page-bg:#f0f0f2;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,Helvetica,sans-serif;background:var(--page-bg);color:var(--text);min-height:100vh;}
+
+/* ══ HEADER ══ */
+.site-header{background:var(--black);border-bottom:3px solid var(--red);}
+.header-inner{
+  max-width:1440px;margin:0 auto;padding:1.25rem 2rem;
+  display:flex;align-items:center;justify-content:space-between;gap:2rem;
+}
+.header-text{}
+.header-title{font-size:26px;font-weight:900;color:#fff;letter-spacing:-0.01em;line-height:1.1;}
+.header-sub{font-size:13px;color:var(--red);margin-top:5px;letter-spacing:0.18em;text-transform:uppercase;font-weight:700;}
+.header-logo-wrap{flex-shrink:0;display:flex;align-items:center;height:88px;}
+/* CSS trick: invert all colors (white bg→black, red→cyan) then hue-rotate 180° (cyan→red back).
+   Screen blend makes the black areas transparent on the black header.
+   White font pixels blend into the red shape area as a subtle lighter tone. */
+.header-logo-img{
+  height:88px;width:auto;object-fit:contain;
+  filter:invert(1) hue-rotate(180deg);
+  mix-blend-mode:screen;
 }
 
-body{font-family:Arial,sans-serif;background:#0a0a0a;color:var(--text);min-height:100vh;}
-
-/* PAGE */
-.page-wrap{
-  min-height:100vh;
-  background:linear-gradient(160deg,#0a0a0a 0%,#1a0000 40%,#0a0a0a 100%);
-  padding-bottom:5rem;
-  position:relative;overflow-x:clip;
-}
-.page-wrap::before{
-  content:'';position:absolute;top:-120px;right:-120px;width:500px;height:500px;
-  border-radius:50%;background:radial-gradient(circle,rgba(229,0,0,0.1) 0%,transparent 70%);
-  pointer-events:none;
-}
-
-/* HEADER */
-.site-header{
-  background:linear-gradient(135deg,#200000 0%,#4a0000 50%,#200000 100%);
-  padding:1.8rem 2rem 1.6rem;
-  position:relative;
-  box-shadow:0 4px 24px rgba(0,0,0,0.45);
-}
-.site-header::after{
-  content:'';position:absolute;bottom:0;left:0;right:0;height:2px;
-  background:linear-gradient(90deg,transparent,rgba(255,200,180,0.5),transparent);
-}
-.header-inner{max-width:1420px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;}
-.header-eyebrow{font-size:10px;font-weight:800;letter-spacing:0.32em;text-transform:uppercase;color:#e50000;margin-bottom:5px;}
-.header-title{font-size:28px;font-weight:900;color:#fff;line-height:1.1;letter-spacing:-0.3px;}
-.header-sub{font-size:12.5px;color:rgba(255,220,215,0.60);margin-top:5px;font-weight:500;}
-.header-logo{width:72px;height:72px;object-fit:contain;flex-shrink:0;filter:brightness(0) invert(1) opacity(0.9);}
-
-/* CONTROLS */
-.controls-section{
-  background:transparent;
-  border-bottom:1px solid rgba(229,0,0,0.15);
-}
+/* ══ CONTROLS ══ */
+.controls-section{background:var(--grey-800);border-bottom:1px solid rgba(255,255,255,0.08);}
 .controls-inner{
-  max-width:1420px;margin:0 auto;padding:0.9rem 2rem;
-  display:flex;align-items:flex-end;gap:0.9rem;flex-wrap:wrap;
+  max-width:1440px;margin:0 auto;padding:0.8rem 2rem;
+  display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap;
 }
 .ctrl-group{display:flex;flex-direction:column;gap:3px;}
-.ctrl-label{font-size:9.5px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.5);}
+.ctrl-label{font-size:9px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:rgba(255,255,255,0.38);}
 .dash-date{
-  font-family:Arial,sans-serif;font-size:13px;font-weight:600;color:#fff;
-  background:rgba(255,255,255,0.07);border:1px solid rgba(229,0,0,0.25);border-radius:7px;
-  padding:8px 11px;outline:none;cursor:pointer;transition:border-color 0.15s;color-scheme:dark;
+  background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);border-radius:6px;
+  color:rgba(255,255,255,0.85);font-family:Arial,Helvetica,sans-serif;font-size:13px;
+  padding:6px 10px;outline:none;transition:border-color 0.2s;
 }
-.dash-date:focus{border-color:var(--red);}
+.dash-date:focus{border-color:rgba(229,0,0,0.6);}
+.arrow-sep{color:#555;font-size:16px;padding-bottom:2px;}
 
 /* Multi-select */
 .ms-wrapper{position:relative;}
 .ms-trigger{
-  display:flex;align-items:center;justify-content:space-between;gap:12px;
-  min-width:225px;background:rgba(255,255,255,0.07);border:1px solid rgba(229,0,0,0.25);border-radius:7px;
-  padding:8px 13px;color:#fff;cursor:pointer;
-  font-size:13px;font-weight:600;font-family:Arial,sans-serif;transition:border-color 0.15s;
+  display:flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);border-radius:6px;
+  color:rgba(255,255,255,0.85);font-family:Arial,Helvetica,sans-serif;font-size:13px;
+  padding:7px 12px;cursor:pointer;min-width:170px;transition:border-color 0.2s;
 }
-.ms-trigger:hover{border-color:rgba(229,0,0,0.55);}
-.ms-trigger svg{opacity:0.5;transition:transform 0.2s;flex-shrink:0;}
-.ms-wrapper.open .ms-trigger svg{transform:rotate(180deg);}
+.ms-trigger:hover{border-color:rgba(229,0,0,0.45);}
+.ms-trigger span{flex:1;text-align:left;}
 .ms-panel{
-  display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:250px;
-  background:#110000;border:1px solid rgba(229,0,0,0.3);border-radius:9px;
-  z-index:200;max-height:320px;overflow-y:auto;
-  box-shadow:0 12px 40px rgba(0,0,0,0.7);
+  display:none;position:absolute;top:calc(100% + 5px);left:0;
+  background:#1c1c1e;border:1px solid rgba(255,255,255,0.14);border-radius:8px;
+  min-width:230px;max-height:290px;overflow-y:auto;z-index:200;
+  box-shadow:0 10px 36px rgba(0,0,0,0.55);padding:6px 0;
 }
 .ms-panel.open{display:block;}
-.ms-option{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;transition:background 0.1s;}
-.ms-option:hover{background:rgba(229,0,0,0.12);}
-.ms-option label{cursor:pointer;font-size:13px;color:#fff;flex:1;}
-.ms-option.all-opt{border-bottom:1px solid rgba(229,0,0,0.2);}
-.ms-option.all-opt label{font-weight:700;color:#fff;}
-.ms-option input[type=checkbox]{cursor:pointer;width:14px;height:14px;accent-color:var(--red);flex-shrink:0;}
-.ms-group-label{padding:8px 14px 3px;font-size:9px;font-weight:800;letter-spacing:0.15em;text-transform:uppercase;color:rgba(229,0,0,0.7);border-top:1px solid rgba(229,0,0,0.15);}
-
+.ms-item{
+  display:flex;align-items:center;gap:10px;padding:7px 14px;cursor:pointer;
+  font-family:Arial,Helvetica,sans-serif;font-size:13px;color:rgba(255,255,255,0.8);
+  transition:background 0.1s;
+}
+.ms-item:hover{background:rgba(255,255,255,0.07);}
+.ms-item input[type=checkbox]{accent-color:var(--red);width:14px;height:14px;}
+.ms-divider{height:1px;background:rgba(255,255,255,0.08);margin:4px 0;}
 .apply-btn{
-  background:var(--red);
-  color:#fff;border:none;border-radius:7px;padding:8px 20px;
-  font-family:Arial,sans-serif;font-size:13px;font-weight:700;cursor:pointer;
-  box-shadow:0 3px 12px rgba(229,0,0,0.30);transition:all 0.18s;
+  padding:8px 20px;border-radius:6px;background:var(--red);border:none;
+  color:#fff;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;transition:opacity 0.2s;white-space:nowrap;
 }
-.apply-btn:hover{background:var(--red-dark);transform:translateY(-1px);}
+.apply-btn:hover{opacity:0.85;}
 .refresh-btn{
-  background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.75);
-  border:1px solid rgba(229,0,0,0.22);border-radius:7px;
-  padding:8px 17px;font-family:Arial,sans-serif;font-size:13px;font-weight:600;
-  cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.18s;
+  padding:8px 14px;border-radius:6px;background:rgba(255,255,255,0.07);
+  border:1px solid rgba(255,255,255,0.16);color:rgba(255,255,255,0.75);
+  font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;gap:6px;transition:all 0.2s;white-space:nowrap;
 }
-.refresh-btn:hover{border-color:rgba(229,0,0,0.55);color:#fff;}
-.refresh-btn svg{transition:transform 0.7s;}
-.refresh-btn.spinning svg{transform:rotate(360deg);}
+.refresh-btn:hover{background:rgba(255,255,255,0.12);color:#fff;}
+.refresh-btn.spinning svg{animation:spin 0.9s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
 
-/* TABS */
-.tabs-bar{max-width:1420px;margin:1.4rem auto 0;padding:0 2rem;display:flex;gap:8px;}
+/* ══ TABS ══ */
+.tabs-bar{max-width:1440px;margin:1.4rem auto 0;padding:0 2rem;display:flex;gap:8px;}
 .tab-btn{
-  font-family:Arial,sans-serif;font-size:12.5px;font-weight:700;
-  padding:9px 22px;border-radius:8px;border:1px solid rgba(229,0,0,0.25);
-  cursor:pointer;transition:all 0.18s;color:rgba(255,255,255,0.7);
-  background:rgba(255,255,255,0.07);backdrop-filter:blur(4px);
+  padding:9px 24px;border-radius:8px;
+  border:1.5px solid rgba(0,0,0,0.12);background:rgba(0,0,0,0.04);
+  color:rgba(0,0,0,0.48);font-family:Arial,Helvetica,sans-serif;
+  font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;letter-spacing:0.01em;
 }
-.tab-btn.active{
-  background:#e50000;
-  border-color:#e50000;color:#fff;
-  box-shadow:0 3px 16px rgba(229,0,0,0.45);
+.tab-btn:hover{border-color:rgba(229,0,0,0.4);color:var(--text);}
+.tab-btn.active{background:var(--red);border-color:var(--red);color:#fff;}
+.period-info{
+  max-width:1440px;margin:0.45rem auto 0;padding:0 2rem;
+  font-size:11.5px;font-weight:500;color:var(--muted);letter-spacing:0.01em;
 }
-.tab-btn:hover:not(.active){background:rgba(255,255,255,0.13);color:#fff;border-color:rgba(229,0,0,0.45);}
 
-.period-info{max-width:1420px;margin:0.5rem auto 0;padding:0 2rem;font-size:12px;font-weight:500;color:rgba(255,210,200,0.65);}
+/* ══ CONTENT ══ */
+.content{max-width:1440px;margin:1.2rem auto 0;padding:0 2rem 3rem;display:flex;flex-direction:column;gap:1.2rem;}
 
-/* CONTENT */
-.content{max-width:1420px;margin:1.2rem auto 0;padding:0 2rem;display:flex;flex-direction:column;gap:1.3rem;}
-
-/* STATS */
-.stats-row{display:grid;grid-template-columns:repeat(6,1fr);gap:11px;}
+/* ══ STATS ══ */
+.stats-row{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
 .stat-box{
-  background:#fff;border-radius:11px;padding:1rem 1.15rem;
-  border:1.5px solid var(--border2);box-shadow:var(--sh1);
-  display:flex;flex-direction:column;gap:3px;
-  transition:transform 0.15s,box-shadow 0.15s;
-  position:relative;overflow:hidden;
+  background:#fff;border-radius:10px;padding:1rem 1.2rem;
+  border:1.5px solid var(--border);box-shadow:var(--sh1);
+  display:flex;flex-direction:column;gap:4px;
+  position:relative;overflow:hidden;transition:transform 0.15s,box-shadow 0.15s;
 }
-/* thin accent line on top of each stat box */
-.stat-box::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:3px;
-  background:linear-gradient(90deg,var(--red),var(--red-soft));
-  opacity:0.55;
-}
+.stat-box::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--red);opacity:0.45;}
 .stat-box:hover{transform:translateY(-2px);box-shadow:var(--sh2);}
-.stat-label{font-size:9.5px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);}
+.stat-label{font-size:9px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);}
 .stat-val{font-size:30px;font-weight:900;line-height:1;color:var(--text);}
-.stat-val.green {color:#16a34a;}
-.stat-val.blue  {color:#2563eb;}
-.stat-val.purple{color:#7c3aed;}
-.stat-val.red2  {color:var(--red);}
-.stat-val.amber {color:#d97706;}
+.stat-val.green{color:#16a34a;}
+.stat-val.blue{color:#2563eb;}
+.stat-val.red2{color:var(--red);}
+.stat-val.amber{color:#d97706;}
 
-/* CARD */
-.dash-card{
-  background:#fff;border-radius:13px;overflow:visible;
-  border:1.5px solid var(--border2);box-shadow:var(--sh2);
-}
+/* ══ CARD ══ */
+.dash-card{background:#fff;border-radius:12px;overflow:hidden;border:1.5px solid var(--border);box-shadow:var(--sh2);}
 .card-head{
   background:#fff;padding:0.85rem 1.4rem;
   display:flex;align-items:center;justify-content:space-between;
-  border-bottom:1.5px solid var(--border2);border-radius:13px 13px 0 0;
-  position:sticky;top:0;z-index:30;
+  border-bottom:1.5px solid var(--border);
+  position:sticky;top:0;z-index:30;border-radius:12px 12px 0 0;
 }
 .card-head-left{display:flex;align-items:center;gap:9px;}
-.card-dot{width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 0 2px var(--red-light);}
-.card-title{font-size:11.5px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:var(--text2);}
-.card-badge{
-  font-size:11px;font-weight:700;color:var(--red);
-  background:var(--red-pale);border:1.5px solid var(--red-mid);
-  border-radius:20px;padding:3px 12px;
-}
+.card-dot{width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 0 2.5px rgba(229,0,0,0.15);}
+.card-title{font-size:13px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--text2);}
+.card-badge{font-size:11px;font-weight:700;color:var(--grey-600);background:var(--grey-100);border:1.5px solid var(--border);border-radius:20px;padding:3px 12px;}
 
-/* TABLE */
-.table-wrap{overflow-x:auto;overflow-y:auto;max-height:62vh;border-radius:0 0 13px 13px;}
-.all-table table{width:100%;border-collapse:collapse;min-width:920px;}
+/* ══ TABLE ══ */
+.table-wrap{overflow-x:auto;max-height:500px;overflow-y:auto;}
+.all-table{width:100%;border-collapse:collapse;}
 .all-table thead{position:sticky;top:0;z-index:20;}
-
-/* Main header — dark red */
-.all-table thead tr.th-main{background:linear-gradient(135deg,#8b1a1a 0%,#6b1010 100%);}
-.all-table thead tr.th-main th{
-  font-size:10.5px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;
-  color:rgba(255,220,210,0.95);padding:12px 12px;text-align:center;white-space:nowrap;
-  border-bottom:1px solid rgba(229,0,0,0.3);border-right:1px solid rgba(255,255,255,0.08);
+.all-table thead th{
+  background:var(--grey-900);color:rgba(255,255,255,0.72);
+  font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:800;
+  letter-spacing:0.12em;text-transform:uppercase;padding:10px 12px;
+  text-align:center;border-right:1px solid rgba(255,255,255,0.07);white-space:nowrap;
 }
-.all-table thead tr.th-main th.name-col{text-align:left;min-width:115px;max-width:145px;padding-left:16px;}
-/* Pending = bright red */
-.all-table thead tr.th-main th.pending-hdr{
-  background:#e50000 !important;color:#fff !important;
-  border-bottom:1.5px solid #b50000 !important;
-  border-right:1px solid rgba(255,255,255,0.2) !important;
-}
-/* Sub-header */
-.all-table thead tr.th-sub{background:#4a0a0a;}
-.all-table thead tr.th-sub th{
-  font-size:9.5px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;
-  color:rgba(255,190,180,0.85);padding:7px 12px;text-align:center;white-space:nowrap;
-  border-bottom:2px solid rgba(229,0,0,0.35);border-right:1px solid rgba(255,255,255,0.06);
-}
-.all-table thead tr.th-sub th.pending-hdr{
-  background:#e50000 !important;color:rgba(255,255,255,0.88) !important;
-  border-right:1px solid rgba(255,255,255,0.15) !important;
-}
-
-/* Body */
-.all-table tbody tr{border-bottom:1px solid #fae8e8;transition:background 0.1s;}
-.all-table tbody tr:nth-child(even){background:#fdfafa;}
-.all-table tbody tr:hover{background:#ffeeed !important;}
+.all-table thead th.name-col{text-align:left;min-width:160px;padding-left:16px;}
+.all-table thead th.pending-hdr{background:var(--red);color:rgba(255,255,255,0.95);}
+.all-table thead .th-sub th.pending-hdr{background:rgba(200,0,0,0.92);font-size:9px;}
 .all-table tbody td{
-  padding:11px 12px;white-space:nowrap;text-align:center;
-  font-size:14.5px;font-weight:600;color:var(--text);border-right:1px solid #fae8e8;
+  padding:9px 12px;border-bottom:1px solid rgba(0,0,0,0.05);
+  font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:600;
+  text-align:center;color:var(--text);border-right:1px solid rgba(0,0,0,0.04);
 }
-.all-table tbody td.name-cell{
-  text-align:left;font-weight:700;font-size:13.5px;
-  max-width:145px;min-width:105px;overflow:hidden;text-overflow:ellipsis;
-  padding-left:16px;color:#111;
-}
-.all-table tbody td.num-cell{font-size:17px;font-weight:900;}
-.all-table tbody td.zero{color:#d1bfbf;font-weight:400;font-size:13px;}
-.all-table tbody td.pending-grp{background:rgba(224,112,112,0.04);}
-.all-table tbody tr:nth-child(even) td.pending-grp{background:rgba(224,112,112,0.07);}
-.all-table tbody tr.no-data-row{opacity:0.38;}
-
-/* Footer totals */
+.all-table tbody tr:nth-child(even){background:rgba(0,0,0,0.016);}
+.all-table tbody tr:hover td{background:rgba(229,0,0,0.04);}
+.all-table tbody td.name-cell{text-align:left;font-weight:700;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:16px;}
+.all-table tbody td.pending-grp{background:rgba(229,0,0,0.03);}
+.all-table tbody tr:nth-child(even) td.pending-grp{background:rgba(229,0,0,0.055);}
+.all-table tbody tr.no-data-row{opacity:0.35;}
 .all-table tfoot{position:sticky;bottom:0;z-index:20;}
-.all-table tfoot tr{border-top:2px solid #e50000;}
+.all-table tfoot tr{border-top:2px solid var(--grey-800);}
 .all-table tfoot td{
-  background:linear-gradient(135deg,#8b1a1a 0%,#6b1010 100%);font-weight:800;font-size:13.5px;
-  padding:12px 12px;text-align:center;color:rgba(255,220,210,0.95);
-  border-right:1px solid rgba(255,255,255,0.08);white-space:nowrap;
+  background:var(--grey-900);font-family:Arial,Helvetica,sans-serif;
+  font-weight:800;font-size:13.5px;padding:12px;text-align:center;
+  color:rgba(255,255,255,0.85);border-right:1px solid rgba(255,255,255,0.06);white-space:nowrap;
 }
-.all-table tfoot td.name-cell{text-align:left;font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase;padding-left:16px;}
+.all-table tfoot td.name-cell{text-align:left;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;padding-left:16px;}
 
-/* Tab panels */
-.tab-panel{display:none;flex-direction:column;gap:1.3rem;}
+/* ══ TAB PANELS ══ */
+.tab-panel{display:none;flex-direction:column;gap:1.2rem;}
 .tab-panel.active{display:flex;}
 
-/* State */
+/* ══ STATE BOX ══ */
 .state-box{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;gap:1rem;}
-.state-icon{font-size:36px;}.state-title{font-weight:700;font-size:16px;color:var(--text2);}
+.state-icon{font-size:36px;}
+.state-title{font-weight:700;font-size:16px;color:var(--text2);}
 .state-sub{font-size:13px;color:var(--muted);text-align:center;max-width:360px;}
-.zero{color:#d1bfbf;font-weight:400;}
+.zero{color:#ccc;font-weight:400;}
 
-@media(max-width:1024px){.stats-row{grid-template-columns:repeat(3,1fr);}}
+/* ══ PIE CHART CARD ══ */
+.pie-card{background:#fff;border-radius:12px;border:1.5px solid var(--border);box-shadow:var(--sh2);padding:1.4rem 1.6rem;}
+.pie-card-header{display:flex;align-items:center;gap:9px;margin-bottom:1.2rem;}
+.pie-card-dot{width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 0 2.5px rgba(229,0,0,0.15);flex-shrink:0;}
+.pie-card-title{font-size:13px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--text2);}
+.pie-card-subtitle{font-size:11px;color:var(--muted);margin-left:auto;font-weight:500;}
+.pie-layout{display:flex;align-items:center;gap:2.5rem;flex-wrap:wrap;}
+.pie-canvas-wrap{flex:0 0 240px;height:240px;position:relative;}
+.pie-legend{flex:1;min-width:180px;display:flex;flex-direction:column;gap:7px;}
+.pie-legend-item{display:flex;align-items:center;gap:9px;font-size:12.5px;font-family:Arial,Helvetica,sans-serif;}
+.pie-legend-swatch{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+.pie-legend-label{flex:1;color:var(--text2);}
+.pie-legend-val{font-weight:800;color:var(--text);min-width:28px;text-align:right;}
+.pie-legend-pct{font-size:11px;color:var(--muted);min-width:40px;text-align:right;}
+.pie-empty{display:flex;align-items:center;justify-content:center;min-height:180px;color:var(--muted);font-size:13px;flex-direction:column;gap:6px;}
+.pie-empty-icon{font-size:28px;}
+
+/* ══ AGING PIE TWO-COL LEGEND ══ */
+.aging-legend{display:grid;grid-template-columns:1fr 1fr;gap:7px 2rem;min-width:240px;}
+
+/* ══ RESPONSIVE ══ */
+@media(max-width:1100px){.stats-row{grid-template-columns:repeat(3,1fr);}}
 @media(max-width:700px){
   .stats-row{grid-template-columns:repeat(2,1fr);}
-  .header-title{font-size:22px;}
-  .controls-inner,.content,.tabs-bar{padding-left:1rem;padding-right:1rem;}
+  .header-title{font-size:20px;}
+  .controls-inner,.content,.tabs-bar,.period-info{padding-left:1rem;padding-right:1rem;}
+  .header-inner{padding:1rem;}
+  .pie-layout{flex-direction:column;}
+  .pie-canvas-wrap{flex:0 0 220px;height:220px;}
 }
 </style>
 </head>
 <body>
-<div class="page-wrap">
 
-<!-- HEADER -->
+<!-- ══ HEADER ══ -->
 <div class="site-header">
   <div class="header-inner">
-    <div>
-      <div class="header-eyebrow">Altus Corp</div>
+    <div class="header-text">
       <div class="header-title">Work Management Dashboard</div>
-      <div class="header-sub">Task tracking &middot; Status breakdown &middot; Live from Website Report</div>
+      <div class="header-sub">Tangible Results</div>
     </div>
-    <img class="header-logo" src="Altus Corp Black font.png" alt="" onerror="this.style.display='none'"/>
+    <div class="header-logo-wrap">
+      <img class="header-logo-img" id="header-logo" src="altus_logo.jpeg"
+           alt="Altus Corp" onerror="this.outerHTML='<div style=\'color:rgba(255,255,255,0.25);font-size:11px;font-family:Arial\'>Place altus_logo.jpeg<br>next to this HTML file</div>'"/>
+    </div>
   </div>
 </div>
 
-<!-- CONTROLS -->
+<!-- ══ CONTROLS ══ -->
 <div class="controls-section">
   <div class="controls-inner">
     <div class="ctrl-group">
       <span class="ctrl-label">Start Date</span>
       <input type="date" class="dash-date" id="start-date"/>
     </div>
-    <div style="color:#d0b0b0;font-size:17px;padding-bottom:1px;">→</div>
+    <div class="arrow-sep">→</div>
     <div class="ctrl-group">
       <span class="ctrl-label">End Date</span>
       <input type="date" class="dash-date" id="end-date"/>
@@ -294,7 +258,7 @@ body{font-family:Arial,sans-serif;background:#0a0a0a;color:var(--text);min-heigh
         <button class="ms-trigger" onclick="toggleMS(event)">
           <span id="ms-label">All Employees</span>
           <svg width="11" height="7" viewBox="0 0 12 8" fill="none">
-            <path d="M1 1l5 5 5-5" stroke="#aaa" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M1 1l5 5 5-5" stroke="#999" stroke-width="1.8" stroke-linecap="round"/>
           </svg>
         </button>
         <div class="ms-panel" id="ms-panel"></div>
@@ -311,31 +275,42 @@ body{font-family:Arial,sans-serif;background:#0a0a0a;color:var(--text);min-heigh
   </div>
 </div>
 
-<!-- TABS -->
+<!-- ══ TABS ══ -->
 <div class="tabs-bar">
-  <button class="tab-btn active" id="tab-btn-doer"      onclick="switchTab('doer')">📋 Task Doer</button>
-  <button class="tab-btn"        id="tab-btn-initiator" onclick="switchTab('initiator')">🎯 Task Initiator</button>
+  <button class="tab-btn active" id="tab-btn-doer" onclick="switchTab('doer')">📋 Task Doer</button>
+  <button class="tab-btn" id="tab-btn-initiator" onclick="switchTab('initiator')">🎯 Task Initiator</button>
 </div>
 <div class="period-info" id="period-info"></div>
 
-<!-- CONTENT -->
+<!-- ══ CONTENT ══ -->
 <div class="content">
 
-  <!-- STATS BUBBLES -->
+  <!-- STATS ROW -->
   <div class="stats-row">
-    <div class="stat-box">
-      <div class="stat-label" id="s-total-label">Total Tasks Assigned</div>
-      <div class="stat-val" id="s-total">—</div>
-    </div>
-    <div class="stat-box"><div class="stat-label">Approved</div>   <div class="stat-val green"  id="s-approved">—</div></div>
-    <div class="stat-box"><div class="stat-label">Done</div>       <div class="stat-val blue"   id="s-done">—</div></div>
-    <div class="stat-box"><div class="stat-label">Pending</div>    <div class="stat-val purple" id="s-pending">—</div></div>
-    <div class="stat-box"><div class="stat-label">Cancelled</div>  <div class="stat-val red2"   id="s-cancelled">—</div></div>
-    <div class="stat-box"><div class="stat-label">Transferred</div><div class="stat-val amber"  id="s-transferred">—</div></div>
+    <div class="stat-box"><div class="stat-label" id="s-total-label">Total Tasks Assigned</div><div class="stat-val" id="s-total">—</div></div>
+    <div class="stat-box"><div class="stat-label">Approved</div><div class="stat-val green" id="s-approved">—</div></div>
+    <div class="stat-box"><div class="stat-label">Done</div><div class="stat-val blue" id="s-done">—</div></div>
+    <div class="stat-box"><div class="stat-label">Pending</div><div class="stat-val red2" id="s-pending">—</div></div>
+    <div class="stat-box"><div class="stat-label">Cancelled</div><div class="stat-val amber" id="s-cancelled">—</div></div>
+    <div class="stat-box"><div class="stat-label">Transferred</div><div class="stat-val" id="s-transferred">—</div></div>
   </div>
 
   <!-- TASK DOER PANEL -->
   <div class="tab-panel active" id="tab-doer">
+
+    <!-- STATUS PIE — DOER -->
+    <div class="pie-card">
+      <div class="pie-card-header">
+        <div class="pie-card-dot"></div>
+        <div class="pie-card-title">Task Status Distribution</div>
+        <div class="pie-card-subtitle" id="pie-doer-subtitle">All employees · All dates</div>
+      </div>
+      <div id="pie-doer-body">
+        <div class="pie-empty"><div class="pie-empty-icon">⏳</div><span>Loading…</span></div>
+      </div>
+    </div>
+
+    <!-- TABLE — DOER -->
     <div class="dash-card">
       <div class="card-head">
         <div class="card-head-left"><div class="card-dot"></div><div class="card-title">Task Status — By Doer</div></div>
@@ -345,10 +320,37 @@ body{font-family:Arial,sans-serif;background:#0a0a0a;color:var(--text);min-heigh
         <div class="state-box"><div class="state-icon">⏳</div><div class="state-title">Loading data…</div><div class="state-sub">Connecting to Website Report sheet.</div></div>
       </div>
     </div>
+
+    <!-- AGING PIE — DOER -->
+    <div class="pie-card">
+      <div class="pie-card-header">
+        <div class="pie-card-dot"></div>
+        <div class="pie-card-title">Pending Tasks — Aging by Due Date</div>
+        <div class="pie-card-subtitle" id="pie-aging-subtitle">Based on selected employees</div>
+      </div>
+      <div id="pie-aging-body">
+        <div class="pie-empty"><div class="pie-empty-icon">⏳</div><span>Loading…</span></div>
+      </div>
+    </div>
+
   </div>
 
   <!-- TASK INITIATOR PANEL -->
   <div class="tab-panel" id="tab-initiator">
+
+    <!-- STATUS PIE — INITIATOR -->
+    <div class="pie-card">
+      <div class="pie-card-header">
+        <div class="pie-card-dot"></div>
+        <div class="pie-card-title">Task Status Distribution — By Initiator</div>
+        <div class="pie-card-subtitle" id="pie-init-subtitle">All initiators · All dates</div>
+      </div>
+      <div id="pie-init-body">
+        <div class="pie-empty"><div class="pie-empty-icon">🎯</div><span>Switch to Task Initiator tab to load</span></div>
+      </div>
+    </div>
+
+    <!-- TABLE — INITIATOR -->
     <div class="dash-card">
       <div class="card-head">
         <div class="card-head-left"><div class="card-dot"></div><div class="card-title">Task Status — By Initiator</div></div>
@@ -358,213 +360,494 @@ body{font-family:Arial,sans-serif;background:#0a0a0a;color:var(--text);min-heigh
         <div class="state-box"><div class="state-icon">🎯</div><div class="state-title">Switch to Task Initiator tab</div></div>
       </div>
     </div>
+
   </div>
 
 </div><!-- /content -->
-</div><!-- /page-wrap -->
 
 <script>
-const SCRIPT_URL='https://script.google.com/macros/s/AKfycbwlrPIN5j9YWy8YpgAMJ07fLvKReXeaQYTLfzyJfwDSgRj_a-I5T1ssHqfdY8nmisDE_g/exec';
+/* ═══════════════════════════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════════════════════════ */
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwlrPIN5j9YWy8YpgAMJ07fLvKReXeaQYTLfzyJfwDSgRj_a-I5T1ssHqfdY8nmisDE_g/exec';
+const EMP_FIRST  = ['manan vasa'];
+const EMP_BOTTOM = ['dattaram kap', 'parvez khan'];
 
-let allEmployeeData=[],allInitiatorData=[],empList=[],initiatorList=[],checkedEmps=new Set(),hasDateCol=false,currentTab='doer';
-const EMP_FIRST=['manan vasa'],EMP_BOTTOM=['dattaram kap','parvez khan'];
+// Status Pie config
+const STATUS_KEYS   = ['Not Started','Initiated','Need Help','Follow Up','Done','Not Approved','Approved','Cancelled','Transferred'];
+const STATUS_COLORS = ['#94a3b8','#f59e0b','#ef4444','#f97316','#22c55e','#6366f1','#10b981','#64748b','#8b5cf6'];
 
-function sortEmployees(arr){
-  const first=[],regular=[],interns=[],bottom=[];
-  arr.forEach(emp=>{const lo=emp.toLowerCase();
-    if(EMP_FIRST.some(f=>lo.includes(f))){first.push(emp);return;}
-    if(EMP_BOTTOM.some(b=>lo.includes(b))){bottom.push(emp);return;}
-    if(lo.includes('intern')){interns.push(emp);return;}
+// Aging Pie config
+const AGING_LABELS = ['0–3 Days','4–7 Days','8–14 Days','15–20 Days','21–30 Days','31–45 Days','46–60 Days','60+ Days'];
+const AGING_COLORS = ['#22c55e','#84cc16','#f59e0b','#f97316','#ef4444','#dc2626','#7f1d1d','#3f0f0f'];
+const PENDING_EXCL = new Set(['Done','Cancelled','Transferred','Approved']);
+
+/* ═══════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════ */
+let allEmployeeData = [], allInitiatorData = [];
+let empList = [], initiatorList = [];
+let checkedEmps = new Set(), hasDateCol = false, currentTab = 'doer';
+
+// Chart instances
+let chartDoerStatus = null, chartInitStatus = null, chartAging = null;
+
+/* ═══════════════════════════════════════════════════════════
+   SORT
+═══════════════════════════════════════════════════════════ */
+function sortEmployees(arr) {
+  const first=[], regular=[], interns=[], bottom=[];
+  arr.forEach(emp => {
+    const lo = emp.toLowerCase();
+    if (EMP_FIRST.some(f => lo.includes(f))) { first.push(emp); return; }
+    if (EMP_BOTTOM.some(b => lo.includes(b))) { bottom.push(emp); return; }
+    if (lo.includes('intern')) { interns.push(emp); return; }
     regular.push(emp);
   });
-  return [...first,...regular.sort((a,b)=>a.localeCompare(b)),...interns.sort((a,b)=>a.localeCompare(b)),...bottom];
+  return [...first, ...regular.sort((a,b)=>a.localeCompare(b)), ...interns.sort((a,b)=>a.localeCompare(b)), ...bottom];
 }
 
-function switchTab(tab){
-  currentTab=tab;
-  document.getElementById('tab-btn-doer').classList.toggle('active',tab==='doer');
-  document.getElementById('tab-btn-initiator').classList.toggle('active',tab==='initiator');
-  document.getElementById('tab-doer').classList.toggle('active',tab==='doer');
-  document.getElementById('tab-initiator').classList.toggle('active',tab==='initiator');
-  document.getElementById('s-total-label').textContent=tab==='initiator'?'Total Tasks Initiated':'Total Tasks Assigned';
-  rebuildDropdownUI(); // rebuild dropdown for the new tab without re-fetching data
-  renderCurrentTab();
+/* ═══════════════════════════════════════════════════════════
+   TAB SWITCH
+═══════════════════════════════════════════════════════════ */
+function switchTab(tab) {
+  currentTab = tab;
+  ['doer','initiator'].forEach(t => {
+    document.getElementById('tab-btn-'+t).classList.toggle('active', t===tab);
+    document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+  });
+  document.getElementById('s-total-label').textContent =
+    tab === 'initiator' ? 'Total Tasks Initiated' : 'Total Tasks Assigned';
+  render();
 }
 
-function toggleMS(e){
+/* ═══════════════════════════════════════════════════════════
+   DROPDOWN (multi-select)
+═══════════════════════════════════════════════════════════ */
+function getActiveList() { return currentTab === 'initiator' ? initiatorList : empList; }
+
+function buildDropdown() {
+  empList = sortEmployees(allEmployeeData.map(e => e.name));
+  initiatorList = sortEmployees(allInitiatorData.map(e => e.name));
+  checkedEmps = new Set(empList);
+  refreshDropdown();
+}
+
+function refreshDropdown() {
+  const list = getActiveList();
+  const panel = document.getElementById('ms-panel');
+  const allChecked = checkedEmps.size === list.length;
+  panel.innerHTML = `
+    <div class="ms-item" onclick="toggleAll()">
+      <input type="checkbox" ${allChecked?'checked':''} id="chk-all" onclick="event.stopPropagation()"/>
+      <span style="font-weight:700;color:#fff;">All Employees</span>
+    </div>
+    <div class="ms-divider"></div>
+    ${list.map(n=>`
+      <div class="ms-item" onclick="toggleEmp(event,'${esc(n)}')">
+        <input type="checkbox" ${checkedEmps.has(n)?'checked':''} onclick="event.stopPropagation()"/>
+        <span>${esc(n)}</span>
+      </div>`).join('')}`;
+  const n = checkedEmps.size;
+  document.getElementById('ms-label').textContent =
+    n === 0 ? 'None selected' :
+    n === list.length ? 'All Employees' :
+    n === 1 ? [...checkedEmps][0] :
+    n + ' selected';
+}
+
+function toggleAll() {
+  const list = getActiveList();
+  if (checkedEmps.size === list.length) checkedEmps.clear();
+  else checkedEmps = new Set(list);
+  refreshDropdown();
+}
+function toggleEmp(e, name) {
+  if (checkedEmps.has(name)) checkedEmps.delete(name); else checkedEmps.add(name);
+  refreshDropdown();
+}
+function toggleMS(e) {
   e.stopPropagation();
-  const p=document.getElementById('ms-panel'),w=document.getElementById('ms-wrapper');
-  const open=p.classList.toggle('open');w.classList.toggle('open',open);
+  document.getElementById('ms-panel').classList.toggle('open');
 }
-document.addEventListener('click',e=>{if(!document.getElementById('ms-wrapper').contains(e.target)){document.getElementById('ms-panel').classList.remove('open');document.getElementById('ms-wrapper').classList.remove('open');}});
+document.addEventListener('click', () => document.getElementById('ms-panel')?.classList.remove('open'));
 
-function safeid(n){return 'e_'+n.replace(/[^a-z0-9]/gi,'_');}
+/* ═══════════════════════════════════════════════════════════
+   DATE HELPERS
+═══════════════════════════════════════════════════════════ */
+function parseDate(s) { if (!s) return null; const d = new Date(s); return isNaN(d.getTime()) ? null : d; }
+function getRange() { return { start: parseDate(document.getElementById('start-date').value), end: parseDate(document.getElementById('end-date').value) }; }
 
-// activeList = names for the current tab; empList stores doer names, initiatorList stores initiator names
-function getActiveList(){ return currentTab==='initiator' ? initiatorList : empList; }
+/* ═══════════════════════════════════════════════════════════
+   FILTER (date-based) — returns aggregated emp data
+═══════════════════════════════════════════════════════════ */
+const SK = ['Not Started','Initiated','Need Help','Follow Up 1','Follow Up 2','Follow Up 3','Done','Not Approved','Approved','Cancelled','Transferred'];
 
-function buildDropdown(){
-  empList=sortEmployees(allEmployeeData.map(e=>e.name));
-  initiatorList=sortEmployees(allInitiatorData.map(e=>e.name));
-  rebuildDropdownUI();
-}
-function rebuildDropdownUI(){
-  const list=getActiveList();
-  checkedEmps=new Set(list);
-  const reg=list.filter(e=>{const lo=e.toLowerCase();return !lo.includes('intern')&&!EMP_BOTTOM.some(b=>lo.includes(b));});
-  const interns=list.filter(e=>e.toLowerCase().includes('intern'));
-  const bot=list.filter(e=>EMP_BOTTOM.some(b=>e.toLowerCase().includes(b)));
-  let html=`<div class="ms-option all-opt"><input type="checkbox" id="chk-all" checked onchange="toggleAll(this)"><label for="chk-all">All Employees</label></div>`;
-  if(reg.length){html+=`<div class="ms-group-label">Employees</div>`;reg.forEach(e=>{html+=msOpt(e);});}
-  if(interns.length){html+=`<div class="ms-group-label">Interns</div>`;interns.forEach(e=>{html+=msOpt(e);});}
-  bot.forEach(e=>{html+=msOpt(e);});
-  document.getElementById('ms-panel').innerHTML=html;
-  updateLabel();
-}
-function msOpt(name){const id=safeid(name);return `<div class="ms-option"><input type="checkbox" id="${id}" value="${esc(name)}" checked onchange="toggleEmp(this)"><label for="${id}">${esc(name)}</label></div>`;}
-function toggleAll(el){const list=getActiveList();list.forEach(n=>{const c=document.getElementById(safeid(n));if(c)c.checked=el.checked;});checkedEmps=el.checked?new Set(list):new Set();updateLabel();render();}
-function toggleEmp(el){if(el.checked)checkedEmps.add(el.value);else checkedEmps.delete(el.value);const list=getActiveList();document.getElementById('chk-all').checked=checkedEmps.size===list.length;updateLabel();render();}
-function updateLabel(){const n=checkedEmps.size,t=getActiveList().length;document.getElementById('ms-label').textContent=n===0?'None selected':n===t?'All Employees':n===1?[...checkedEmps][0]:n+' selected';}
-function getDisplayEmps(){const list=getActiveList();return checkedEmps.size===list.length?list:list.filter(n=>checkedEmps.has(n));}
-
-function parseDate(s){if(!s)return null;const d=new Date(s);return isNaN(d.getTime())?null:d;}
-function getRange(){return{start:parseDate(document.getElementById('start-date').value),end:parseDate(document.getElementById('end-date').value)};}
-
-function getFiltered(empData){
-  if(!empData)return null;
-  if(!hasDateCol)return empData;
-  const{start,end}=getRange();
-  if(!start&&!end)return empData;
-  const SK=['Not Started','Initiated','Need Help','Follow Up 1','Follow Up 2','Follow Up 3','Done','Not Approved','Approved','Cancelled','Transferred'];
-  const r={name:empData.name};SK.forEach(k=>r[k]=0);
-  const filtered=(empData.rows||[]).filter(row=>{
-    if(!row.d)return true;
-    const rd=parseDate(row.d);if(!rd)return true;
-    if(start&&rd<start)return false;
-    if(end&&rd>end)return false;
+function getFiltered(empData) {
+  if (!empData) return null;
+  if (!hasDateCol) return empData;
+  const { start, end } = getRange();
+  if (!start && !end) return empData;
+  const r = { name: empData.name };
+  SK.forEach(k => r[k] = 0);
+  const filtered = (empData.rows||[]).filter(row => {
+    if (!row.d) return true;
+    const rd = parseDate(row.d); if (!rd) return true;
+    if (start && rd < start) return false;
+    if (end && rd > end) return false;
     return true;
   });
-  filtered.forEach(row=>{if(row.s&&r[row.s]!==undefined)r[row.s]++;});
-  r['Follow Up']=(r['Follow Up 1']||0)+(r['Follow Up 2']||0)+(r['Follow Up 3']||0);
-  r['Pending']=(r['Need Help']||0)+r['Follow Up']+(r['Initiated']||0)+(r['Not Started']||0);
-  r['Total']=filtered.length;
+  filtered.forEach(row => { if (row.s && r[row.s] !== undefined) r[row.s]++; });
+  r['Follow Up'] = (r['Follow Up 1']||0) + (r['Follow Up 2']||0) + (r['Follow Up 3']||0);
+  r['Pending'] = (r['Need Help']||0) + r['Follow Up'] + (r['Initiated']||0) + (r['Not Started']||0);
+  r['Total'] = filtered.length;
   return r;
 }
 
-function updateStats(dataList,names){
-  const t={Total:0,Approved:0,Done:0,Pending:0,Cancelled:0,Transferred:0};
-  names.forEach(n=>{const e=getFiltered(dataList.find(d=>d.name===n));if(!e)return;Object.keys(t).forEach(k=>t[k]+=(e[k]||0));});
-  document.getElementById('s-total').textContent=t.Total||'—';
-  document.getElementById('s-approved').textContent=t.Approved||'—';
-  document.getElementById('s-done').textContent=t.Done||'—';
-  document.getElementById('s-pending').textContent=t.Pending||'—';
-  document.getElementById('s-cancelled').textContent=t.Cancelled||'—';
-  document.getElementById('s-transferred').textContent=t.Transferred||'—';
+/* ═══════════════════════════════════════════════════════════
+   STATS ROW
+═══════════════════════════════════════════════════════════ */
+function getDisplayEmps() {
+  const list = getActiveList();
+  return checkedEmps.size === list.length ? list : list.filter(n => checkedEmps.has(n));
 }
 
-function v(n){return n>0?n:'<span class="zero">—</span>';}
-function vp(n){return n>0?`<td class="pending-grp">${n}</td>`:`<td class="pending-grp zero"><span class="zero">—</span></td>`;}
+function updateStats(dataList, names) {
+  const t = { Total:0, Approved:0, Done:0, Pending:0, Cancelled:0, Transferred:0 };
+  names.forEach(n => {
+    const e = getFiltered(dataList.find(d => d.name === n));
+    if (!e) return;
+    Object.keys(t).forEach(k => t[k] += (e[k]||0));
+  });
+  document.getElementById('s-total').textContent     = t.Total     || '—';
+  document.getElementById('s-approved').textContent  = t.Approved  || '—';
+  document.getElementById('s-done').textContent      = t.Done      || '—';
+  document.getElementById('s-pending').textContent   = t.Pending   || '—';
+  document.getElementById('s-cancelled').textContent = t.Cancelled || '—';
+  document.getElementById('s-transferred').textContent = t.Transferred || '—';
+}
 
-function renderTable(dataList,names,wrapId,badgeId,isInit){
-  const wrap=document.getElementById(wrapId),badge=document.getElementById(badgeId);
-  if(!names.length){wrap.innerHTML=`<div class="state-box"><div class="state-icon">👤</div><div class="state-title">No employees selected</div></div>`;badge.textContent='—';return;}
-  const rows=names.map(n=>getFiltered(dataList.find(e=>e.name===n)));
-  const total=rows.reduce((s,e)=>s+((e&&e.Total)||0),0);
-  badge.textContent=names.length+' employee'+(names.length!==1?'s':'')+' · '+total+' tasks';
-  const K=['Approved','Not Approved','Done','Transferred','Cancelled','Pending','Need Help','Follow Up','Initiated','Not Started','Total'];
-  const tot={};K.forEach(k=>tot[k]=0);rows.forEach(e=>{if(!e)return;K.forEach(k=>tot[k]+=(e[k]||0));});
+/* ═══════════════════════════════════════════════════════════
+   TABLE RENDER
+═══════════════════════════════════════════════════════════ */
+function v(n)  { return n > 0 ? n : '<span class="zero">—</span>'; }
+function vp(n) { return n > 0 ? `<td class="pending-grp">${n}</td>` : `<td class="pending-grp zero"><span class="zero">—</span></td>`; }
 
-  const iHdr=`style="background:#1e0000;color:rgba(255,255,255,0.82);border-right:2px solid rgba(229,0,0,0.25);min-width:90px;"`;
-  const iFtr=`style="border-right:2px solid rgba(229,0,0,0.25);font-weight:800;text-align:center;"`;
+function renderTable(dataList, names, wrapId, badgeId, isInit) {
+  const wrap = document.getElementById(wrapId), badge = document.getElementById(badgeId);
+  if (!names.length) {
+    wrap.innerHTML = `<div class="state-box"><div class="state-icon">👤</div><div class="state-title">No employees selected</div></div>`;
+    badge.textContent = '—'; return;
+  }
+  const rows = names.map(n => getFiltered(dataList.find(e => e.name === n)));
+  const total = rows.reduce((s,e) => s + ((e&&e.Total)||0), 0);
+  badge.textContent = names.length + ' employee' + (names.length!==1?'s':'') + ' · ' + total + ' tasks';
 
-  let html=`<div class="all-table"><table><thead>
+  const K = ['Approved','Not Approved','Done','Transferred','Cancelled','Pending','Need Help','Follow Up','Initiated','Not Started','Total'];
+  const tot = {}; K.forEach(k => tot[k] = 0);
+  rows.forEach(e => { if(!e)return; K.forEach(k => tot[k] += (e[k]||0)); });
+
+  let html = `<div><table class="all-table"><thead>
     <tr class="th-main">
       <th rowspan="2" class="name-col">${isInit?'Initiator':'Employee'}</th>
-      ${isInit?`<th rowspan="2" ${iHdr}>Total Tasks<br><span style="font-weight:500;font-size:9px;opacity:0.75;">Initiated</span></th>`:''}
       <th rowspan="2">Approved</th><th rowspan="2">Not&nbsp;Approved</th>
       <th rowspan="2">Done</th><th rowspan="2">Transferred</th><th rowspan="2">Cancelled</th>
       <th colspan="5" class="pending-hdr">⏳ Pending</th>
       ${isInit?'':`<th rowspan="2">Total</th>`}
     </tr>
     <tr class="th-sub">
-      <th class="pending-hdr">Total</th><th class="pending-hdr">Need&nbsp;Help</th>
-      <th class="pending-hdr">Follow&nbsp;Up</th><th class="pending-hdr">Initiated</th>
+      <th class="pending-hdr">Total</th>
+      <th class="pending-hdr">Need&nbsp;Help</th>
+      <th class="pending-hdr">Follow&nbsp;Up</th>
+      <th class="pending-hdr">Initiated</th>
       <th class="pending-hdr">Not&nbsp;Started</th>
     </tr></thead><tbody>`;
 
-  names.forEach((name,i)=>{
-    const e=rows[i]||{};const hasData=e&&e.Total>0;
-    html+=`<tr${hasData?'':' class="no-data-row"'}>
+  names.forEach((name, i) => {
+    const e = rows[i] || {};
+    const hasData = e && e.Total > 0;
+    html += `<tr${hasData?'':' class="no-data-row"'}>
       <td class="name-cell" title="${esc(name)}">${esc(name)}</td>
-      ${isInit?`<td class="num-cell" style="border-right:2px solid rgba(229,0,0,0.25);">${v(e.Total||0)}</td>`:''}
-      <td>${v(e.Approved||0)}</td><td>${v(e['Not Approved']||0)}</td>
-      <td>${v(e.Done||0)}</td><td>${v(e.Transferred||0)}</td><td>${v(e.Cancelled||0)}</td>
+      <td>${v(e.Approved||0)}</td>
+      <td>${v(e['Not Approved']||0)}</td>
+      <td>${v(e.Done||0)}</td>
+      <td>${v(e.Transferred||0)}</td>
+      <td>${v(e.Cancelled||0)}</td>
       ${vp(e.Pending||0)}${vp(e['Need Help']||0)}${vp(e['Follow Up']||0)}${vp(e.Initiated||0)}${vp(e['Not Started']||0)}
-      ${isInit?'':`<td class="num-cell">${v(e.Total||0)}</td>`}
+      ${isInit?'':`<td>${v(e.Total||0)}</td>`}
     </tr>`;
   });
 
-  html+=`</tbody><tfoot><tr>
+  html += `</tbody><tfoot><tr>
     <td class="name-cell">Totals</td>
-    ${isInit?`<td ${iFtr}>${tot.Total||'—'}</td>`:''}
     <td>${tot.Approved||'—'}</td><td>${tot['Not Approved']||'—'}</td>
     <td>${tot.Done||'—'}</td><td>${tot.Transferred||'—'}</td><td>${tot.Cancelled||'—'}</td>
     <td>${tot.Pending||'—'}</td><td>${tot['Need Help']||'—'}</td>
     <td>${tot['Follow Up']||'—'}</td><td>${tot.Initiated||'—'}</td><td>${tot['Not Started']||'—'}</td>
     ${isInit?'':`<td>${tot.Total||'—'}</td>`}
   </tr></tfoot></table></div>`;
-  wrap.innerHTML=html;
+  wrap.innerHTML = html;
 }
 
-function updatePeriodInfo(names,total){
-  const{start,end}=hasDateCol?getRange():{start:null,end:null};
-  const dp=(start||end)?` · ${start?start.toLocaleDateString('en-IN'):'—'} → ${end?end.toLocaleDateString('en-IN'):'—'}`:' · All dates';
-  const isAll=names.length===getActiveList().length;
-  document.getElementById('period-info').textContent=`Showing: ${names.length===0?'None':isAll?'All':names.length} employee${names.length!==1?'s':''}${dp} · ${total} task${total!==1?'s':''} · Source: Website Report`;
+/* ═══════════════════════════════════════════════════════════
+   PIE CHART HELPER
+═══════════════════════════════════════════════════════════ */
+function buildPieHTML(canvasId, legendId) {
+  return `<div class="pie-layout">
+    <div class="pie-canvas-wrap"><canvas id="${canvasId}"></canvas></div>
+    <div class="pie-legend ${legendId==='aging-legend'?'aging-legend':''}" id="${legendId}"></div>
+  </div>`;
 }
 
-function renderCurrentTab(){
-  if(currentTab==='doer'){
-    const display=getDisplayEmps();
-    updateStats(allEmployeeData,display);
-    renderTable(allEmployeeData,display,'wrap-doer','badge-doer',false);
-    const total=display.reduce((s,n)=>s+((getFiltered(allEmployeeData.find(e=>e.name===n))||{}).Total||0),0);
-    updatePeriodInfo(display,total);
-  }else{
-    const display=getDisplayEmps(); // now uses initiator names (dropdown is tab-aware)
-    updateStats(allInitiatorData,display);
-    renderTable(allInitiatorData,display,'wrap-initiator','badge-initiator',true);
-    const total=display.reduce((s,n)=>s+((getFiltered(allInitiatorData.find(e=>e.name===n))||{}).Total||0),0);
-    updatePeriodInfo(display,total);
+function destroyChart(chartRef) { if (chartRef) { try { chartRef.destroy(); } catch(e){} } return null; }
+
+function renderPie(canvasId, legendContainerId, labels, data, colors, chartRef) {
+  chartRef = destroyChart(chartRef);
+  const total = data.reduce((s,v)=>s+v,0);
+  if (total === 0) return null;
+
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return null;
+
+  chartRef = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderColor: '#fff',
+        borderWidth: 2,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: '55%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const val = ctx.parsed;
+              const pct = total > 0 ? ((val/total)*100).toFixed(1) : 0;
+              return ` ${val} tasks (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Legend
+  const leg = document.getElementById(legendContainerId);
+  if (leg) {
+    leg.innerHTML = labels.map((lbl, i) => {
+      if (data[i] === 0) return '';
+      const pct = ((data[i]/total)*100).toFixed(1);
+      return `<div class="pie-legend-item">
+        <div class="pie-legend-swatch" style="background:${colors[i]}"></div>
+        <span class="pie-legend-label">${lbl}</span>
+        <span class="pie-legend-val">${data[i]}</span>
+        <span class="pie-legend-pct">${pct}%</span>
+      </div>`;
+    }).filter(Boolean).join('');
+  }
+  return chartRef;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STATUS PIE DATA
+═══════════════════════════════════════════════════════════ */
+function getStatusPieValues(dataList, names) {
+  const acc = {};
+  STATUS_KEYS.forEach(k => acc[k] = 0);
+  names.forEach(n => {
+    const e = getFiltered(dataList.find(d => d.name === n));
+    if (!e) return;
+    STATUS_KEYS.forEach(k => acc[k] += (e[k]||0));
+  });
+  return STATUS_KEYS.map(k => acc[k]);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AGING PIE DATA (Task Doer only, ignores period filter — live aging view)
+═══════════════════════════════════════════════════════════ */
+function getAgingValues(displayNames) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const buckets = new Array(8).fill(0);
+  displayNames.forEach(name => {
+    const emp = allEmployeeData.find(e => e.name === name);
+    if (!emp || !emp.rows) return;
+    emp.rows.forEach(row => {
+      if (PENDING_EXCL.has(row.s)) return;
+      if (!row.d) { buckets[0]++; return; }
+      const due = parseDate(row.d);
+      if (!due) { buckets[0]++; return; }
+      const days = Math.max(0, Math.floor((today - due) / 86400000));
+      buckets[getBucket(days)]++;
+    });
+  });
+  return buckets;
+}
+
+function getBucket(d) {
+  if (d <= 3)  return 0;
+  if (d <= 7)  return 1;
+  if (d <= 14) return 2;
+  if (d <= 20) return 3;
+  if (d <= 30) return 4;
+  if (d <= 45) return 5;
+  if (d <= 60) return 6;
+  return 7;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PERIOD INFO
+═══════════════════════════════════════════════════════════ */
+function updatePeriodInfo(names, total) {
+  const { start, end } = hasDateCol ? getRange() : { start:null, end:null };
+  const dp = (start||end) ?
+    ` · ${start ? start.toLocaleDateString('en-IN') : '—'} → ${end ? end.toLocaleDateString('en-IN') : '—'}` :
+    ' · All dates';
+  const list = getActiveList();
+  const isAll = names.length === list.length;
+  document.getElementById('period-info').textContent =
+    `Showing: ${names.length===0?'None':isAll?'All':names.length} employee${names.length!==1?'s':''}${dp} · ${total} task${total!==1?'s':''} · Source: Website Report`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SUBTITLE HELPERS
+═══════════════════════════════════════════════════════════ */
+function getPieSubtitle(names) {
+  const list = getActiveList();
+  const { start, end } = hasDateCol ? getRange() : { start:null, end:null };
+  const empPart = names.length === list.length ? 'All employees' :
+                  names.length === 1 ? names[0] :
+                  names.length + ' employees';
+  const datePart = (start||end) ?
+    (start ? start.toLocaleDateString('en-IN') : '—') + ' → ' +
+    (end   ? end.toLocaleDateString('en-IN') : '—') : 'All dates';
+  return empPart + ' · ' + datePart;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════════════════════ */
+function render() { renderCurrentTab(); }
+
+function renderCurrentTab() {
+  const display = getDisplayEmps();
+
+  if (currentTab === 'doer') {
+    updateStats(allEmployeeData, display);
+    renderTable(allEmployeeData, display, 'wrap-doer', 'badge-doer', false);
+    const total = display.reduce((s,n) => s + ((getFiltered(allEmployeeData.find(e=>e.name===n))||{}).Total||0), 0);
+    updatePeriodInfo(display, total);
+    // Status Pie
+    document.getElementById('pie-doer-subtitle').textContent = getPieSubtitle(display);
+    document.getElementById('pie-doer-body').innerHTML = buildPieHTML('canvas-doer-status','legend-doer-status');
+    const statusVals = getStatusPieValues(allEmployeeData, display);
+    chartDoerStatus = renderPie('canvas-doer-status','legend-doer-status', STATUS_KEYS, statusVals, STATUS_COLORS, chartDoerStatus);
+    if (!chartDoerStatus) document.getElementById('pie-doer-body').innerHTML = `<div class="pie-empty"><div class="pie-empty-icon">📊</div><span>No data for selected filters</span></div>`;
+    // Aging Pie
+    const agingVals = getAgingValues(display);
+    const agingTotal = agingVals.reduce((s,v)=>s+v,0);
+    document.getElementById('pie-aging-subtitle').textContent = (display.length === empList.length ? 'All employees' : display.length + ' employees') + ' · Live pending count';
+    document.getElementById('pie-aging-body').innerHTML = buildPieHTML('canvas-aging','aging-legend');
+    // Make aging legend 2-column
+    document.querySelector('#pie-aging-body .pie-legend')?.classList.add('aging-legend');
+    chartAging = renderPie('canvas-aging','aging-legend', AGING_LABELS, agingVals, AGING_COLORS, chartAging);
+    if (!chartAging) document.getElementById('pie-aging-body').innerHTML = `<div class="pie-empty"><div class="pie-empty-icon">✅</div><span>No pending tasks found</span></div>`;
+  } else {
+    updateStats(allInitiatorData, display);
+    renderTable(allInitiatorData, display, 'wrap-initiator', 'badge-initiator', true);
+    const total = display.reduce((s,n) => s + ((getFiltered(allInitiatorData.find(e=>e.name===n))||{}).Total||0), 0);
+    updatePeriodInfo(display, total);
+    // Status Pie — Initiator
+    document.getElementById('pie-init-subtitle').textContent = getPieSubtitle(display);
+    document.getElementById('pie-init-body').innerHTML = buildPieHTML('canvas-init-status','legend-init-status');
+    const statusVals = getStatusPieValues(allInitiatorData, display);
+    chartInitStatus = renderPie('canvas-init-status','legend-init-status', STATUS_KEYS, statusVals, STATUS_COLORS, chartInitStatus);
+    if (!chartInitStatus) document.getElementById('pie-init-body').innerHTML = `<div class="pie-empty"><div class="pie-empty-icon">📊</div><span>No data for selected filters</span></div>`;
   }
 }
-function render(){renderCurrentTab();}
 
-function loadData(){
+/* ═══════════════════════════════════════════════════════════
+   LOGO — remove white background via canvas (local file safe)
+═══════════════════════════════════════════════════════════ */
+function processLogo() {
+  const img = document.getElementById('header-logo');
+  if (!img || img.dataset.processed || !img.naturalWidth) return;
+  img.dataset.processed = '1';
+  try {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const imgD = ctx.getImageData(0, 0, c.width, c.height);
+    const d = imgD.data;
+    for (let i = 0; i < d.length; i += 4) {
+      // Make near-white pixels transparent (threshold 242 to preserve white text on red)
+      if (d[i] > 242 && d[i+1] > 242 && d[i+2] > 242) {
+        const whiteness = Math.min(d[i], d[i+1], d[i+2]);
+        d[i+3] = Math.max(0, Math.round(255 * (1 - (whiteness-242)/13)));
+      }
+    }
+    ctx.putImageData(imgD, 0, 0);
+    const dataURL = c.toDataURL('image/png');
+    const newImg = document.getElementById('header-logo');
+    newImg.style.filter = 'none';
+    newImg.style.mixBlendMode = 'normal';
+    newImg.src = dataURL;
+  } catch(err) {
+    // Canvas CORS fallback — keep CSS filter approach
+    console.log('Logo canvas processing skipped (CORS). Using CSS filter.');
+  }
+}
+
+document.getElementById('header-logo').onload = function() { processLogo(); };
+// If image already cached:
+if (document.getElementById('header-logo').complete) processLogo();
+
+/* ═══════════════════════════════════════════════════════════
+   DATA FETCH
+═══════════════════════════════════════════════════════════ */
+function loadData() {
   setRefreshing(true);
-  const old=document.getElementById('_jsonp');if(old)old.remove();
-  const cb='altusWMD_'+Date.now();
-  const timer=setTimeout(()=>{cleanup(cb);showError('Request timed out.');},15000);
-  window[cb]=function(data){
-    clearTimeout(timer);cleanup(cb);setRefreshing(false);
-    if(data.status==='error'){showError(data.message);return;}
-    allEmployeeData=data.employees||[];
-    allInitiatorData=data.initiators||[];
-    hasDateCol=data.hasDateCol||false;
-    if(!allEmployeeData.length){showError('No employee data found in Website Report.');return;}
-    // Dates left BLANK by default → shows ALL tasks (fixes Dhruv 33 vs 34 if month-filter was hiding one)
+  const old = document.getElementById('_jsonp'); if (old) old.remove();
+  const cb = 'altusWMD_' + Date.now();
+  const timer = setTimeout(() => { cleanup(cb); showError('Request timed out.'); }, 15000);
+  window[cb] = function(data) {
+    clearTimeout(timer); cleanup(cb); setRefreshing(false);
+    if (data.status === 'error') { showError(data.message); return; }
+    allEmployeeData  = data.employees  || [];
+    allInitiatorData = data.initiators || [];
+    hasDateCol       = data.hasDateCol || false;
+    if (!allEmployeeData.length) { showError('No employee data found in Website Report.'); return; }
     buildDropdown();
     render();
   };
-  const sc=document.createElement('script');sc.id='_jsonp';
-  sc.src=SCRIPT_URL+'?callback='+cb+'&t='+Date.now();
-  sc.onerror=()=>{clearTimeout(timer);cleanup(cb);setRefreshing(false);showError('Cannot reach Apps Script. Check deployment URL.');};
+  const sc = document.createElement('script');
+  sc.id = '_jsonp';
+  sc.src = SCRIPT_URL + '?callback=' + cb + '&t=' + Date.now();
+  sc.onerror = () => { clearTimeout(timer); cleanup(cb); setRefreshing(false); showError('Cannot reach Apps Script. Check deployment URL.'); };
   document.body.appendChild(sc);
 }
-function cleanup(cb){delete window[cb];const s=document.getElementById('_jsonp');if(s)s.remove();}
-function setRefreshing(on){const b=document.getElementById('refresh-btn');b.classList.toggle('spinning',on);b.disabled=on;}
-function showError(msg){['wrap-doer','wrap-initiator'].forEach(id=>{document.getElementById(id).innerHTML=`<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Error</div><div class="state-sub">${esc(msg)}</div></div>`;});setRefreshing(false);}
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function cleanup(cb) { delete window[cb]; const s = document.getElementById('_jsonp'); if (s) s.remove(); }
+function setRefreshing(on) { const b = document.getElementById('refresh-btn'); b.classList.toggle('spinning', on); b.disabled = on; }
+function showError(msg) {
+  ['wrap-doer','wrap-initiator'].forEach(id => {
+    document.getElementById(id).innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Error</div><div class="state-sub">${esc(msg)}</div></div>`;
+  });
+  ['pie-doer-body','pie-init-body','pie-aging-body'].forEach(id => {
+    document.getElementById(id).innerHTML = `<div class="pie-empty"><div class="pie-empty-icon">⚠️</div><span>${esc(msg)}</span></div>`;
+  });
+  setRefreshing(false);
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 loadData();
 </script>
