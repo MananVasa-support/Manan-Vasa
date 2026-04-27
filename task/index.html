@@ -437,40 +437,62 @@ function refreshDropdown() {
   const list = getActiveList();
   const panel = document.getElementById('ms-panel');
   const allChecked = checkedEmps.size === list.length;
+
   panel.innerHTML = `
-    <div class="ms-item" onclick="toggleAll()">
-      <input type="checkbox" ${allChecked?'checked':''} id="chk-all" onclick="event.stopPropagation()"/>
+    <div class="ms-item" id="ms-item-all">
+      <input type="checkbox" id="chk-all" ${allChecked ? 'checked' : ''}/>
       <span style="font-weight:700;color:#fff;">All Employees</span>
     </div>
     <div class="ms-divider"></div>
-    ${list.map(n=>`
-      <div class="ms-item" onclick="toggleEmp(event,'${esc(n)}')">
-        <input type="checkbox" ${checkedEmps.has(n)?'checked':''} onclick="event.stopPropagation()"/>
+    ${list.map((n, i) => `
+      <div class="ms-item" data-ms-idx="${i}">
+        <input type="checkbox" ${checkedEmps.has(n) ? 'checked' : ''}/>
         <span>${esc(n)}</span>
       </div>`).join('')}`;
+
+  // "All Employees" row handler
+  panel.querySelector('#ms-item-all').addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (checkedEmps.size === list.length) checkedEmps.clear();
+    else checkedEmps = new Set(list);
+    refreshDropdown();
+  });
+
+  // Individual employee rows — use closure over name
+  list.forEach(function(name, i) {
+    const row = panel.querySelector('[data-ms-idx="' + i + '"]');
+    if (!row) return;
+    row.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (checkedEmps.has(name)) checkedEmps.delete(name);
+      else checkedEmps.add(name);
+      refreshDropdown();
+    });
+  });
+
+  // Update trigger label
   const n = checkedEmps.size;
   document.getElementById('ms-label').textContent =
-    n === 0 ? 'None selected' :
-    n === list.length ? 'All Employees' :
-    n === 1 ? [...checkedEmps][0] :
-    n + ' selected';
+    n === 0           ? 'None selected'    :
+    n === list.length ? 'All Employees'    :
+    n === 1           ? [...checkedEmps][0] :
+                        n + ' selected';
 }
 
-function toggleAll() {
-  const list = getActiveList();
-  if (checkedEmps.size === list.length) checkedEmps.clear();
-  else checkedEmps = new Set(list);
-  refreshDropdown();
-}
-function toggleEmp(e, name) {
-  if (checkedEmps.has(name)) checkedEmps.delete(name); else checkedEmps.add(name);
-  refreshDropdown();
-}
 function toggleMS(e) {
   e.stopPropagation();
   document.getElementById('ms-panel').classList.toggle('open');
 }
-document.addEventListener('click', () => document.getElementById('ms-panel')?.classList.remove('open'));
+
+// Clicks inside the panel must NOT bubble to document (prevents auto-close on item click)
+document.getElementById('ms-panel').addEventListener('click', function(e) {
+  e.stopPropagation();
+});
+
+// Close when clicking outside
+document.addEventListener('click', function() {
+  document.getElementById('ms-panel').classList.remove('open');
+});
 
 /* ═══════════════════════════════════════════════════════════
    DATE HELPERS
