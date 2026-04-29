@@ -60,34 +60,34 @@ body {
   width: 100%;
 }
 .header-main {
-  display: flex; align-items: center; gap: clamp(14px,2vw,28px);
-  padding: clamp(16px,2vw,26px) 0 clamp(16px,2vw,26px) clamp(20px,3vw,48px);
+  display: flex; align-items: center; gap: clamp(8px,1.2vw,16px);
+  padding: clamp(8px,1vw,14px) 0 clamp(8px,1vw,14px) clamp(14px,2vw,32px);
   /* no right padding — logo bleeds to edge */
   flex-wrap: wrap;
 }
 
 .header-title-block { flex: 1; min-width: 200px; }
 .header-title {
-  font-size: var(--fs-2xl);
+  font-size: clamp(16px,1.8vw,26px);
   font-weight: 900; letter-spacing: clamp(1px,0.3vw,4px);
   color: var(--white); text-transform: uppercase; line-height: 1.1;
   text-shadow: 0 2px 14px rgba(232,0,29,0.25);
 }
 .header-subtitle {
   font-size: var(--fs-xs); color: #777;
-  letter-spacing: 2px; margin-top: 6px; text-transform: uppercase;
+  letter-spacing: 2px; margin-top: 3px; text-transform: uppercase;
 }
 
 /* Logo — large, right side, blends with black header */
 .altus-logo {
   flex-shrink: 0;
   /* Wide enough to show both shapes + text comfortably */
-  width:  clamp(130px, 14vw, 210px);
+  width:  clamp(80px, 9vw, 130px);
   /* Align self stretch so it fills the full header-main row height */
   align-self: stretch;
   display: flex; align-items: center; justify-content: center;
   margin-left: auto;
-  padding: 0; /* flush to edge */
+  padding: 0 16px 0 0;
 }
 /*
   screen blend: on black bg — dark grey near-disappears, red & white stay vivid.
@@ -104,7 +104,7 @@ body {
 .header-nav {
   background: #2A2A2A;
   border-top: 1px solid #3a3a3a;
-  padding: clamp(10px,1.2vw,16px) clamp(20px,3vw,48px);
+  padding: clamp(6px,0.7vw,10px) clamp(14px,2vw,32px);
   display: flex; gap: clamp(8px,1vw,12px); flex-wrap: wrap; align-items: center;
 }
 .nav-btn {
