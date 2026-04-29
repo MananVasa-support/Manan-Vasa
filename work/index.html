@@ -31,7 +31,7 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--page-bg);color:var(
   display:flex;align-items:center;justify-content:space-between;gap:2rem;
 }
 .header-text{}
-.header-title{font-size:26px;font-weight:900;color:#fff;letter-spacing:-0.01em;line-height:1.1;}
+.header-title{font-size:42px;font-weight:900;color:#fff;letter-spacing:0.04em;line-height:1.1;white-space:nowrap;}
 .header-buttons{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;}
 .sheet-btn{
   display:inline-flex;align-items:center;gap:7px;
@@ -226,7 +226,7 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--page-bg);color:var(
 @media(max-width:1100px){.stats-row{grid-template-columns:repeat(3,1fr);}}
 @media(max-width:700px){
   .stats-row{grid-template-columns:repeat(2,1fr);}
-  .header-title{font-size:20px;}
+  .header-title{font-size:22px;letter-spacing:0;white-space:normal;}
   .controls-inner,.content,.tabs-bar,.period-info{padding-left:1rem;padding-right:1rem;}
   .header-inner{padding:1rem;}
   .pie-layout{flex-direction:column;}
