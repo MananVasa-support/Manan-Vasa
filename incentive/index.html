@@ -219,7 +219,7 @@ body {
   -webkit-overflow-scrolling: touch;
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
 }
-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--fs-sm); }
+table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--fs-md); }
 
 /* Sticky table header */
 thead tr { background: var(--black); }
@@ -236,11 +236,11 @@ tbody tr { background: #F7F7F7; border-bottom: 1px solid var(--surface-border); 
 tbody tr:nth-child(even) { background: var(--surface-card); }
 tbody tr:hover { background: #FFE8EB; cursor: pointer; }
 tbody tr:last-child { border-bottom: none; }
-tbody td { padding: clamp(8px,0.8vw,11px) clamp(10px,1vw,16px); color: var(--text-dark); }
-tbody td.amount { font-weight: 700; color: var(--text-dark); font-variant-numeric: tabular-nums; white-space: nowrap; }
+tbody td { padding: clamp(9px,0.9vw,13px) clamp(10px,1vw,16px); color: #000000; font-size: var(--fs-md); }
+tbody td.amount { font-weight: 700; color: #000000; font-variant-numeric: tabular-nums; white-space: nowrap; }
 tbody td.green { color: #2E7D32; font-weight: 700; white-space: nowrap; }
 tbody td.red-text { color: var(--red); font-weight: 700; white-space: nowrap; }
-.clickable-name { cursor: pointer; color: var(--red); text-decoration: underline; text-underline-offset: 2px; }
+.clickable-name { cursor: pointer; color: #000000; text-decoration: none; font-size: var(--fs-lg); font-weight: 700; }
 .clickable-name:hover { color: var(--red-dark); }
 
 /* Sticky total row — pinned to bottom of table-wrap */
@@ -1114,7 +1114,7 @@ function openIncentiveSidebar(incentiveName) {
       <tbody>
         ${empList.map(([name,d])=>
           d.entries.map(e=>`<tr>
-            <td><span style="color:#E8001D;cursor:pointer" onclick="openEmployeeSidebar('${name.replace(/'/g,"\\'")}');event.stopPropagation()">${name}</span></td>
+            <td><span style="color:#000000;cursor:pointer;text-decoration:none;font-size:var(--fs-lg);font-weight:700" onclick="openEmployeeSidebar('${name.replace(/'/g,"\\'")}');event.stopPropagation()">${name}</span></td>
             <td>${e.month}</td>
             <td class="amount">${fmt(e.amount)}</td>
             <td><span class="badge ${e.paidAmt>0?'badge-paid':'badge-unpaid'}">${e.paidAmt>0?'PAID':'UNPAID'}</span></td>
@@ -1128,7 +1128,7 @@ function openIncentiveSidebar(incentiveName) {
       <thead><tr><th>Employee</th><th>Total</th><th>Paid</th><th>Unpaid</th></tr></thead>
       <tbody>
         ${empList.map(([name,d])=>`<tr>
-          <td><span style="color:#E8001D;cursor:pointer" onclick="openEmployeeSidebar('${name.replace(/'/g,"\\'")}');event.stopPropagation()">${name}</span></td>
+          <td><span style="color:#000000;cursor:pointer;text-decoration:none;font-size:var(--fs-lg);font-weight:700" onclick="openEmployeeSidebar('${name.replace(/'/g,"\\'")}');event.stopPropagation()">${name}</span></td>
           <td class="amount">${fmt(d.total)}</td>
           <td class="green">${fmt(d.paid)}</td>
           <td class="red-text">${fmt(d.total-d.paid)}</td>
