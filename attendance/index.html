@@ -32,7 +32,7 @@ body { font-family: Arial, sans-serif; background: var(--cream); color: var(--te
 .site-header {
   background: #000000;
   border-bottom: 1px solid rgba(229,0,0,0.2);
-  padding: 1.5rem 2.5rem 1.5rem; position: relative;
+  padding: 0.8rem 2.5rem 0.8rem; position: relative;
 }
 .site-header::after {
   content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
@@ -40,9 +40,9 @@ body { font-family: Arial, sans-serif; background: var(--cream); color: var(--te
 }
 .header-inner { max-width: 1100px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
 .header-eyebrow { font-family: Arial, sans-serif; font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--red); margin-bottom: 6px; }
-.header-title { font-family: Arial, sans-serif; font-size: 38px; font-weight: 900; color: #fff; letter-spacing: 0.08em; line-height: 1; text-transform: uppercase; }
+.header-title { font-family: Arial, sans-serif; font-size: 26px; font-weight: 900; color: #fff; letter-spacing: 0.08em; line-height: 1; text-transform: uppercase; }
 .header-sub { font-size: 13px; color: rgba(255,255,255,0.55); margin-top: 6px; }
-.header-logo { width: 160px; height: 160px; object-fit: contain; flex-shrink: 0; mix-blend-mode: screen; }
+.header-logo { width: 100px; height: 100px; object-fit: contain; flex-shrink: 0; mix-blend-mode: screen; }
 /* CONFIG */
 .config-banner {
   background: #fff3cd; border: 1.5px solid #fbbf24; border-radius: 12px;
@@ -50,25 +50,25 @@ body { font-family: Arial, sans-serif; background: var(--cream); color: var(--te
   display: flex; align-items: flex-start; gap: 10px;
 }
 /* TABS */
-.tabs-bar { max-width: 1100px; margin: 2rem auto 0; padding: 0 1.5rem; display: flex; gap: 6px; }
+.tabs-bar { max-width: 1100px; margin: 0 auto 0; padding: 1.2rem 1.5rem 0.8rem; display: flex; gap: 6px; background: #ffffff; }
 .tab-btn {
   font-family: Arial, sans-serif; font-size: 13px; font-weight: 600;
-  padding: 10px 24px; border-radius: 10px; border: 1.5px solid rgba(229,0,0,0.25);
-  cursor: pointer; transition: all 0.2s; color: rgba(255,255,255,0.6);
-  background: rgba(255,255,255,0.05); letter-spacing: 0.02em;
+  padding: 10px 24px; border-radius: 10px; border: 1.5px solid rgba(229,0,0,0.35);
+  cursor: pointer; transition: all 0.2s; color: rgba(255,255,255,0.7);
+  background: #1a0000; letter-spacing: 0.02em;
 }
-.tab-btn.active { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 4px 16px rgba(229,0,0,0.3); }
+.tab-btn.active { background: #e50000; border-color: #e50000; color: #fff; box-shadow: 0 4px 20px rgba(229,0,0,0.5); }
 .tab-btn:hover:not(.active) { border-color: var(--red); color: #fff; }
 /* CONTROLS */
-.controls-bar { max-width: 1100px; margin: 1.2rem auto 0; padding: 0 1.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-.month-nav { display: flex; align-items: center; background: rgba(255,255,255,0.06); border: 1px solid rgba(229,0,0,0.22); border-radius: 10px; overflow: hidden; }
+.controls-bar { max-width: 1100px; margin: 0 auto 0; padding: 0.8rem 1.5rem 1rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; background: #ffffff; }
+.month-nav { display: flex; align-items: center; background: #1a0000; border: 1px solid rgba(229,0,0,0.35); border-radius: 10px; overflow: hidden; }
 .month-btn { background: none; border: none; color: rgba(255,255,255,0.7); font-size: 16px; padding: 9px 16px; cursor: pointer; transition: background 0.15s; }
 .month-btn:hover { background: rgba(229,0,0,0.15); color: #fff; }
 .month-label { font-family: Arial, sans-serif; font-size: 22px; color: #fff; padding: 6px 20px; letter-spacing: 0.05em; border-left: 1px solid rgba(229,0,0,0.2); border-right: 1px solid rgba(229,0,0,0.2); min-width: 180px; text-align: center; }
 .date-label { font-family: Arial, sans-serif; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
 input[type="date"].dash-date {
   font-family: Arial, sans-serif; font-size: 13px;
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(229,0,0,0.22);
+  background: #1a0000; border: 1px solid rgba(229,0,0,0.35);
   border-radius: 10px; padding: 9px 14px; outline: none; cursor: pointer; color: #fff;
   color-scheme: dark;
 }
@@ -85,7 +85,7 @@ input[type="date"].dash-date:focus { border-color: var(--red); }
 .refresh-btn.spinning svg { transform: rotate(360deg); }
 .emp-select {
   font-family: Arial, sans-serif; font-size: 12px; color: #fff;
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(229,0,0,0.22);
+  background: #1a0000; border: 1px solid rgba(229,0,0,0.35);
   border-radius: 10px; padding: 9px 36px 9px 14px; outline: none; cursor: pointer;
   appearance: none; -webkit-appearance: none; min-width: 180px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23aaa' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
@@ -95,7 +95,7 @@ input[type="date"].dash-date:focus { border-color: var(--red); }
 .emp-select:focus { border-color: var(--red); }
 .emp-select option { background: #1a0000; color: #fff; }
 /* CONTENT */
-.content { max-width: 1100px; margin: 1.8rem auto 0; padding: 0 1.5rem; display: flex; flex-direction: column; gap: 1.8rem; }
+.content { max-width: 1100px; margin: 0 auto 0; padding: 1.8rem 1.5rem 1.8rem; display: flex; flex-direction: column; gap: 1.8rem; background: #ffffff; }
 /* STATS */
 .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: rgba(229,0,0,0.08); border-radius: 18px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(229,0,0,0.13); }
 .stat-box { background: #111; padding: 1.4rem 1.6rem; display: flex; flex-direction: column; gap: 6px; }
@@ -161,9 +161,9 @@ td.dim { color: var(--muted); font-family: Arial, sans-serif; font-size: 12px; }
 /* NAV BAR */
 .nav-bar {
   background: #2a2a2a;
-  padding: 10px 2rem;
+  padding: 6px 2rem;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
   align-items: center;
   font-family: Arial, sans-serif;
@@ -172,22 +172,24 @@ td.dim { color: var(--muted); font-family: Arial, sans-serif; font-size: 12px; }
   font-family: Arial, sans-serif;
   font-size: 12px;
   font-weight: 600;
-  padding: 9px 18px;
-  border-radius: 8px;
-  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1.5px solid rgba(229,0,0,0.4);
   cursor: pointer;
-  color: #fff;
-  background: #5a0000;
+  color: rgba(255,255,255,0.85);
+  background: #2a0000;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 7px;
   letter-spacing: 0.03em;
-  transition: background 0.18s, transform 0.15s;
+  transition: background 0.18s, transform 0.15s, border-color 0.18s;
   text-transform: uppercase;
 }
 .nav-btn:hover {
   background: #e50000;
+  border-color: #e50000;
+  color: #fff;
   transform: translateY(-1px);
 }
 
@@ -322,14 +324,29 @@ const STORAGE_KEY = 'altus_attendance_url';
 let SHEET_URL = 'https://script.google.com/macros/s/AKfycbz1Cr3ph7Un6yZtD-LGpCKsmxZyCFk_pnBOZ_xmzEIqVyInIC97rUifXzEK8vJucc-Sfw/exec';
 let allRows = [];
 
-const ALL_EMPLOYEES = [
-  'Manan Vasa','Angad Raj','Dattaram Kap','Devraj Kadam','Dhanashree Solkar',
-  'Himanshu Lad','Jeevan Bharambe','Kushagra Singh','Parvez Khan','Prakash Kumawat',
-  'Rohan Choudhary','Ruchita Ambre','Rutvisha Mehta','Siddhesh Walve',
-  'Alifeyah Anverali ( Intern - Rohan C )','Dhruv Jhaveri ( Intern - Jeevan )',
-  'Kshitija Sonavane ( Intern - Ruchita )','Mishtie Kanani ( Intern - Rohan C )',
-  'Rohit Dahedar ( Intern - Rutvisha )','Rohan Sawant ( Intern - Devraj )'
-];
+// Employee names fetched live from Google Sheet (for Daily Log dropdown)
+let ALL_EMPLOYEES = [];
+
+// Sheet CSV URL — fetches column A (Employee Names sheet)
+const EMP_SHEET_CSV = 'https://docs.google.com/spreadsheets/d/1qnVWsgxGZbBRsB_8OJ-_KwsHoZYU3pkTIRdHTjM0kW8/gviz/tq?tqx=out:csv&gid=1980232623&range=A2:A';
+
+async function fetchEmployeeNames() {
+  try {
+    const res = await fetch(EMP_SHEET_CSV);
+    const text = await res.text();
+    // Parse CSV — each line is one name, strip quotes
+    const names = text.split('\n')
+      .map(line => line.replace(/^"|"$/g, '').trim())
+      .filter(name => name && name !== '#N/A' && name !== 'Employee Name');
+    ALL_EMPLOYEES = names;
+  } catch(e) {
+    console.warn('Could not fetch employee names from sheet:', e);
+    // Fallback to empty — daily log will only show who submitted
+    ALL_EMPLOYEES = [];
+  }
+  populateEmpFilters();
+  renderDaily();
+}
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 let currentMonth = new Date().getMonth();
@@ -363,17 +380,28 @@ function saveUrl() {
 
 // ── POPULATE EMPLOYEE DROPDOWNS ──
 function populateEmpFilters() {
-  ['daily-emp','monthly-emp'].forEach(id => {
-    const sel = document.getElementById(id);
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">All Employees</option>';
-    ALL_EMPLOYEES.forEach(emp => {
-      const opt = document.createElement('option');
-      opt.value = emp; opt.textContent = emp;
-      sel.appendChild(opt);
-    });
-    sel.value = cur;
+  // Daily dropdown: uses live sheet names (ALL_EMPLOYEES)
+  const dailySel = document.getElementById('daily-emp');
+  const dailyCur = dailySel.value;
+  dailySel.innerHTML = '<option value="">All Employees</option>';
+  ALL_EMPLOYEES.forEach(emp => {
+    const opt = document.createElement('option');
+    opt.value = emp; opt.textContent = emp;
+    dailySel.appendChild(opt);
   });
+  dailySel.value = dailyCur;
+
+  // Monthly dropdown: uses names found in actual attendance data (historical)
+  const monthlySel = document.getElementById('monthly-emp');
+  const monthlyCur = monthlySel.value;
+  monthlySel.innerHTML = '<option value="">All Employees</option>';
+  const namesInData = [...new Set(allRows.map(r => (r.name||'').trim()).filter(Boolean))].sort();
+  namesInData.forEach(emp => {
+    const opt = document.createElement('option');
+    opt.value = emp; opt.textContent = emp;
+    monthlySel.appendChild(opt);
+  });
+  monthlySel.value = monthlyCur;
 }
 
 // ── LOAD (JSONP) ──
@@ -390,6 +418,7 @@ function loadData() {
     if (data.status === 'error') { showError('Script error: ' + data.message); return; }
     allRows = data.rows || [];
     document.getElementById('config-banner').style.display = 'none';
+    // Re-populate: daily uses sheet names, monthly uses data names
     populateEmpFilters();
     renderDaily();
     if (document.getElementById('tab-monthly').classList.contains('active')) renderMonthly();
@@ -590,7 +619,7 @@ function renderMonthly() {
     wrap.innerHTML = `<div class="state-box"><div class="state-icon">🗓️</div><div class="state-title">No records for ${MONTHS[currentMonth]} ${currentYear}</div></div>`;
     document.getElementById('ms-wdays').textContent='0';
     document.getElementById('ms-holidays').textContent='0';
-    document.getElementById('ms-emps').textContent=ALL_EMPLOYEES.length;
+    document.getElementById('ms-emps').textContent=0;
     document.getElementById('ms-avg').textContent='—';
     document.getElementById('monthly-badge').textContent='0 records';
     return;
@@ -599,13 +628,18 @@ function renderMonthly() {
   const workingDays = monthDays.filter(dk => Object.keys(dayMap[dk]).length >= HOLIDAY_MIN);
   const holidays    = monthDays.filter(dk => Object.keys(dayMap[dk]).length <  HOLIDAY_MIN);
 
-  // Per-employee stats
+  // Per-employee stats — use names from ACTUAL DATA (historical, not live sheet)
+  // This ensures removed employees still appear in past monthly summaries
+  const monthlyEmpNames = [...new Set(
+    monthDays.flatMap(dk => Object.keys(dayMap[dk]))
+  )].sort();
+
   const stats = {};
-  ALL_EMPLOYEES.forEach(emp => { stats[emp] = { present:0, absent:0, late:0, halfday:0, totalMins:0 }; });
+  monthlyEmpNames.forEach(emp => { stats[emp] = { present:0, absent:0, late:0, halfday:0, totalMins:0 }; });
 
   workingDays.forEach(dk => {
     const dd = dayMap[dk];
-    ALL_EMPLOYEES.forEach(emp => {
+    monthlyEmpNames.forEach(emp => {
       const rec = dd[emp];
       if (!rec) { stats[emp].absent++; return; }
       stats[emp].present++;
@@ -623,12 +657,12 @@ function renderMonthly() {
 
   document.getElementById('ms-wdays').textContent    = workingDays.length;
   document.getElementById('ms-holidays').textContent = holidays.length;
-  document.getElementById('ms-emps').textContent     = ALL_EMPLOYEES.length;
+  document.getElementById('ms-emps').textContent     = monthlyEmpNames.length;
   document.getElementById('ms-avg').textContent      = avgMins ? fmtMins(avgMins) : '—';
-  document.getElementById('monthly-badge').textContent = ALL_EMPLOYEES.length + ' employees · ' + workingDays.length + ' working days';
+  document.getElementById('monthly-badge').textContent = monthlyEmpNames.length + ' employees · ' + workingDays.length + ' working days';
 
   const monthlyEmpFilter = document.getElementById('monthly-emp').value;
-  const empListMonthly = monthlyEmpFilter ? [monthlyEmpFilter] : ALL_EMPLOYEES;
+  const empListMonthly = monthlyEmpFilter ? [monthlyEmpFilter] : monthlyEmpNames;
   const sorted = empListMonthly.slice().sort((a,b) => stats[b].present - stats[a].present);
   const maxMins = Math.max(...sorted.map(e=>stats[e].totalMins), 1);
 
@@ -678,7 +712,8 @@ localStorage.setItem(STORAGE_KEY, SHEET_URL);
 document.getElementById('config-banner').style.display = 'none';
 updateMonthLabel();
 document.getElementById('daily-date').value = dateKey(new Date());
-loadData();
+// Fetch employee names from sheet first, then load attendance data
+fetchEmployeeNames().then(() => loadData());
 </script>
 </body>
 </html>
