@@ -324,7 +324,9 @@ const STORAGE_KEY = 'altus_attendance_url';
 let SHEET_URL = 'https://script.google.com/macros/s/AKfycbz1Cr3ph7Un6yZtD-LGpCKsmxZyCFk_pnBOZ_xmzEIqVyInIC97rUifXzEK8vJucc-Sfw/exec';
 let allRows = [];
 
-const ALL_EMPLOYEES = [
+// Employee names — fetched live from published Google Sheet
+// Fallback list used if fetch fails
+const FALLBACK_EMPLOYEES = [
   'Manan Vasa','Angad Raj','Dattaram Kap','Devraj Kadam','Dhanashree Solkar',
   'Himanshu Lad','Jeevan Bharambe','Kushagra Singh','Parvez Khan','Prakash Kumawat',
   'Rohan Choudhary','Ruchita Ambre','Rutvisha Mehta','Siddhesh Walve',
@@ -332,6 +334,25 @@ const ALL_EMPLOYEES = [
   'Kshitija Sonavane ( Intern - Ruchita )','Mishtie Kanani ( Intern - Rohan C )',
   'Rohit Dahedar ( Intern - Rutvisha )','Rohan Sawant ( Intern - Devraj )'
 ];
+let ALL_EMPLOYEES = [...FALLBACK_EMPLOYEES];
+
+const EMP_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTXYOlpkjTH7PDlQ3EkZVtaYy_Gm359X62xKRFswjIYfnBgkFGYWQr_iLu3zVNvWR68_gm1DfwlDfPP/pub?gid=1670494670&single=true&output=csv';
+
+async function fetchEmployeeNames() {
+  try {
+    const res = await fetch(EMP_CSV_URL);
+    const text = await res.text();
+    const names = text.split('\n')
+      .map(line => line.replace(/^"|"$/g, '').trim())
+      .filter(n => n && n !== 'Employee Name' && n !== '#N/A' && n.length > 0);
+    if (names.length > 0) {
+      ALL_EMPLOYEES = names;
+    }
+  } catch(e) {
+    console.warn('Using fallback employee list:', e);
+  }
+  populateEmpFilters();
+}
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 let currentMonth = new Date().getMonth();
@@ -365,17 +386,28 @@ function saveUrl() {
 
 // ── POPULATE EMPLOYEE DROPDOWNS ──
 function populateEmpFilters() {
-  ['daily-emp','monthly-emp'].forEach(id => {
-    const sel = document.getElementById(id);
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">All Employees</option>';
-    ALL_EMPLOYEES.forEach(emp => {
-      const opt = document.createElement('option');
-      opt.value = emp; opt.textContent = emp;
-      sel.appendChild(opt);
-    });
-    sel.value = cur;
+  // Daily: live names from sheet
+  const dailySel = document.getElementById('daily-emp');
+  const dailyCur = dailySel.value;
+  dailySel.innerHTML = '<option value="">All Employees</option>';
+  ALL_EMPLOYEES.forEach(emp => {
+    const opt = document.createElement('option');
+    opt.value = emp; opt.textContent = emp;
+    dailySel.appendChild(opt);
   });
+  dailySel.value = dailyCur;
+
+  // Monthly: names from actual attendance data (historical)
+  const monthlySel = document.getElementById('monthly-emp');
+  const monthlyCur = monthlySel.value;
+  monthlySel.innerHTML = '<option value="">All Employees</option>';
+  const namesInData = [...new Set(allRows.map(r => (r.name||'').trim()).filter(Boolean))].sort();
+  namesInData.forEach(emp => {
+    const opt = document.createElement('option');
+    opt.value = emp; opt.textContent = emp;
+    monthlySel.appendChild(opt);
+  });
+  monthlySel.value = monthlyCur;
 }
 
 // ── LOAD (JSONP) ──
@@ -392,7 +424,7 @@ function loadData() {
     if (data.status === 'error') { showError('Script error: ' + data.message); return; }
     allRows = data.rows || [];
     document.getElementById('config-banner').style.display = 'none';
-    populateEmpFilters();
+    populateEmpFilters(); // updates monthly dropdown from data, daily already set
     renderDaily();
     if (document.getElementById('tab-monthly').classList.contains('active')) renderMonthly();
   };
@@ -680,7 +712,7 @@ localStorage.setItem(STORAGE_KEY, SHEET_URL);
 document.getElementById('config-banner').style.display = 'none';
 updateMonthLabel();
 document.getElementById('daily-date').value = dateKey(new Date());
-loadData();
+fetchEmployeeNames().then(() => loadData());
 </script>
 </body>
 </html>
