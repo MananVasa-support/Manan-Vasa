@@ -29,25 +29,25 @@
   body { font-family: Arial, sans-serif; background: var(--cream); color: var(--text-dark); min-height: 100vh; -webkit-tap-highlight-color: transparent; }
   .page-wrap {
     min-height: 100vh;
-    background: linear-gradient(160deg, #0a0a0a 0%, #1a0000 40%, #0a0a0a 100%);
+    background: #ffffff;
     padding: 2.5rem 1rem 4rem; position: relative; overflow: hidden;
   }
   .page-wrap::before {
     content: ''; position: absolute; top: -120px; right: -120px;
     width: 450px; height: 450px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(229,0,0,0.15) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(229,0,0,0.06) 0%, transparent 70%);
     pointer-events: none;
   }
   .page-wrap::after {
     content: ''; position: absolute; bottom: -100px; left: -100px;
     width: 350px; height: 350px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(229,0,0,0.08) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(229,0,0,0.04) 0%, transparent 70%);
     pointer-events: none;
   }
   .card {
     max-width: 720px; margin: 0 auto; background: var(--cream);
     border-radius: 20px; overflow: visible;
-    box-shadow: 0 40px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(229,0,0,0.2);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.08), 0 0 0 1px rgba(229,0,0,0.2);
     position: relative; z-index: 1;
   }
   .card-header {
