@@ -1649,13 +1649,13 @@
 <!-- AUTH SIGN-OUT — floating overlay, scoped styles, does not touch existing markup -->
 <style id="auth-signout-style">
   #auth-signout-btn {
-    position: fixed; right: 18px; bottom: 18px; z-index: 9999;
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 10px 16px; border-radius: 999px;
-    background: rgba(10,10,10,0.92); color: #fff;
-    border: 1px solid rgba(229,0,0,0.55);
-    font: 600 13px/1 Arial, sans-serif; letter-spacing: .02em;
-    cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04) inset;
+    position: fixed; right: 24px; top: 24px; z-index: 9999;
+    display: inline-flex; align-items: center; gap: 12px;
+    padding: 16px 28px; border-radius: 999px;
+    background: rgba(10,10,10,0.95); color: #fff;
+    border: 1.5px solid rgba(229,0,0,0.65);
+    font: 700 16px/1 Arial, sans-serif; letter-spacing: .04em;
+    cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05) inset;
     transition: background .15s ease, border-color .15s ease, transform .15s ease;
     -webkit-tap-highlight-color: transparent;
   }
@@ -1663,11 +1663,12 @@
   #auth-signout-btn:active { transform: translateY(0); }
   #auth-signout-btn svg { display: block; }
   @media (max-width: 480px) {
-    #auth-signout-btn { right: 12px; bottom: 12px; padding: 9px 13px; font-size: 12px; }
+    #auth-signout-btn { right: 14px; top: 14px; padding: 12px 20px; font-size: 14px; gap: 9px; }
+    #auth-signout-btn svg { width: 16px; height: 16px; }
   }
 </style>
 <button type="button" id="auth-signout-btn" title="Sign out of the Ecosystem" aria-label="Sign out">
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
   Sign out
 </button>
 <script>
