@@ -41,6 +41,28 @@
     await auth.signOut();
   }
 
+  // Hard session cap: auto sign-out 10 minutes after the user's last sign-in,
+  // regardless of activity. Uses Firebase's user.metadata.lastSignInTime so it
+  // survives page reloads and tab close/reopen within the window.
+  const SESSION_MAX_MS = 10 * 60 * 1000;
+  let sessionTimerId = null;
+
+  function scheduleSessionExpiry(user, redirectTo) {
+    if (sessionTimerId) { clearTimeout(sessionTimerId); sessionTimerId = null; }
+    const lastSignIn = user && user.metadata && user.metadata.lastSignInTime
+      ? new Date(user.metadata.lastSignInTime).getTime()
+      : Date.now();
+    const elapsed = Date.now() - lastSignIn;
+    if (elapsed >= SESSION_MAX_MS) {
+      signOut().then(function () { window.location.replace(redirectTo); });
+      return false;
+    }
+    sessionTimerId = setTimeout(function () {
+      signOut().then(function () { window.location.replace(redirectTo); });
+    }, SESSION_MAX_MS - elapsed);
+    return true;
+  }
+
   // Used on dashboard.html. Hides the page until auth resolves;
   // if signed out, redirects to the login URL.
   function guardPage(options) {
@@ -49,7 +71,10 @@
       if (!user) {
         window.location.replace(redirectTo);
       } else {
-        document.documentElement.style.visibility = "visible";
+        const stillValid = scheduleSessionExpiry(user, redirectTo);
+        if (stillValid) {
+          document.documentElement.style.visibility = "visible";
+        }
       }
     });
   }
