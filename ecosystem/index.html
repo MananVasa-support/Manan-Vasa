@@ -57,19 +57,20 @@
     background-size: 4px 4px;
   }
 
-  .lp-top { position: relative; z-index: 2; display: flex; align-items: center; gap: 22px; }
-  .lp-logo-card {
-    background: #fff; border-radius: 16px;
-    padding: 14px 20px;
-    box-shadow: 0 14px 38px rgba(0,0,0,.4);
-    display: flex; align-items: center; justify-content: center;
+  .lp-top { position: relative; z-index: 2; }
+  .lp-brand-stack {
+    display: inline-flex; flex-direction: column;
+    align-items: center; gap: 14px;
   }
-  .lp-logo-card img {
-    display: block; height: 56px; width: auto;
+  .lp-logo {
+    display: block; height: 130px; width: auto;
+    filter: drop-shadow(0 0 22px rgba(255,255,255,.18))
+            drop-shadow(0 10px 28px rgba(0,0,0,.45));
   }
   .lp-brand {
-    font-size: 14px; letter-spacing: .34em; font-weight: 700; line-height: 1.2;
-    color: rgba(255,255,255,.6);
+    font-size: 18px; letter-spacing: .42em; font-weight: 700; line-height: 1;
+    color: rgba(255,255,255,.85);
+    text-align: center;
   }
 
 
@@ -288,6 +289,8 @@
     .lp-left::after { width: 200px; height: 200px; bottom: -60px; left: -50px; }
     .lp-headline { font-size: 28px; }
     .lp-sub { font-size: 14px; }
+    .lp-logo { height: 88px; }
+    .lp-brand { font-size: 15px; letter-spacing: .36em; }
     .lp-bottom { margin-top: 28px; }
     .lp-right { padding: 36px 24px 48px; }
     .form-title { font-size: 24px; }
@@ -326,10 +329,10 @@
   <aside class="lp-left" aria-hidden="true">
     <div class="lp-grain"></div>
     <div class="lp-top">
-      <div class="lp-logo-card">
-        <img src="Altus Corp Black font.png" alt="Altus Corp"/>
+      <div class="lp-brand-stack">
+        <img class="lp-logo" src="Altus Corp White font.png" alt="Altus Corp"/>
+        <div class="lp-brand">ECOSYSTEM</div>
       </div>
-      <div class="lp-brand">ECOSYSTEM</div>
     </div>
     <div class="lp-middle">
       <div class="lp-eyebrow">#NoGyaanOnlyGain</div>
