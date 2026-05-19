@@ -1458,7 +1458,7 @@
 
     } catch (err) {
       console.error('Failed to load names from sheet:', err);
-            ['f-name','aw-initiator','aw-doer','wa-salesperson','ap-initiator','ap-supervisor'].forEach(id => { {
+            ['f-name','aw-initiator','aw-doer','wa-salesperson','ap-initiator','ap-supervisor'].forEach(id => { 
         const sel = document.getElementById(id);
         if (sel) sel.innerHTML = '<option value="">— Could not load names —</option>';
       });
@@ -1558,7 +1558,8 @@
       }
     }
         if (subj === 'record-ref') {
-      ['wa-fn','wa-ln','wa-phone','wa-date','wa-intro-fn','wa-intro-ln','wa-product','wa-manan'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
+      ['wa-fn','wa-ln','wa-phone','wa-email','wa-date','wa-lead-primary','wa-lead-secondary','wa-intro-fn','wa-intro-ln','wa-rating','wa-salesperson','wa-remarks'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
+      if (!gcb('wa-product')) { document.getElementById('warn-wa-product').classList.add('show'); ok=false; }
     }
     if (subj === 'breakthrough') {
       ['bp-fn','bp-ln','bp-workshop','bp-batch','bp-quality','bp-notes','bp-approval'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
