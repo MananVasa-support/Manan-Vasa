@@ -1390,15 +1390,36 @@
   // ===================== DYNAMIC NAME LOADING FROM GOOGLE SHEETS =====================
   const NAMES_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTXYOlpkjTH7PDlQ3EkZVtaYy_Gm359X62xKRFswjIYfnBgkFGYWQr_iLu3zVNvWR68_gm1DfwlDfPP/pub?gid=1670494670&single=true&output=csv';
 
-  async function loadNamesFromSheet() {
+   async function loadNamesFromSheet() {
     try {
       const res = await fetch(NAMES_CSV_URL);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const text = await res.text();
-      const lines = text.split('\n').map(l => l.trim().replace(/^"|"$/g, '')).filter(Boolean);
-      const names = lines[0].toLowerCase() === 'name' ? lines.slice(1) : lines;
 
-      const allNames = names.filter(n => n.length > 0);
+      // Proper CSV parser (handles quoted values, multi-column rows)
+      function parseCSVLine(line) {
+        const out = [];
+        let cur = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') { inQuotes = !inQuotes; }
+          else if (ch === ',' && !inQuotes) { out.push(cur); cur = ''; }
+          else { cur += ch; }
+        }
+        out.push(cur);
+        return out.map(c => c.trim().replace(/^"|"$/g, ''));
+      }
+
+      const rawLines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      const rows = rawLines.map(parseCSVLine);
+
+      // Drop the header row if A1 looks like a header
+      const firstCellLower = (rows[0] && rows[0][0]) ? rows[0][0].toLowerCase() : '';
+      const dataRows = firstCellLower === 'name' ? rows.slice(1) : rows;
+
+      // -------- Column A: all employee names (existing logic) --------
+      const allNames = dataRows.map(r => r[0]).filter(n => n && n.length > 0);
 
       const interns = allNames.filter(n => n.toLowerCase().includes('intern')).sort((a,b) => a.localeCompare(b));
       const employees = allNames.filter(n => !n.toLowerCase().includes('intern'));
@@ -1408,6 +1429,14 @@
       const sortedEmployees = [...manan, ...otherEmployees];
 
       const sortedAll = [...sortedEmployees, ...interns];
+
+      // -------- Column B (B2:B): salesperson list (NEW) --------
+      const salespeopleRaw = dataRows.map(r => r[1]).filter(n => n && n.length > 0);
+      // Dedupe, then sort alphabetically; if "Manan Vasa" is present, keep him first
+      const uniqueSales = [...new Set(salespeopleRaw)];
+      const salesManan = uniqueSales.filter(n => n.trim().toLowerCase() === 'manan vasa');
+      const salesOthers = uniqueSales.filter(n => n.trim().toLowerCase() !== 'manan vasa').sort((a,b) => a.localeCompare(b));
+      const salesPeople = [...salesManan, ...salesOthers];
 
       function fillSelect(id, nameList, placeholder) {
         const sel = document.getElementById(id);
@@ -1438,10 +1467,10 @@
 
       window.allDoerNames = sortedAll;
 
-      fillSelect('f-name',         sortedAll, '— Select —');
-      fillSelect('aw-initiator',   sortedAll, '— Select —');
-      fillSelect('aw-doer',        sortedAll, '— Select —');
-      fillSelect('wa-salesperson', sortedAll, '— Select —');
+      // Column-A dropdowns (unchanged)
+      fillSelect('f-name',        sortedAll, '— Select —');
+      fillSelect('aw-initiator',  sortedAll, '— Select —');
+      fillSelect('aw-doer',       sortedAll, '— Select —');
 
       const doerSel = document.getElementById('aw-doer');
       if (doerSel) {
@@ -1456,9 +1485,12 @@
 
       fillInternCheckboxes('ap-intern-group', interns);
 
+      // Column-B dropdown (NEW)
+      fillSelect('wa-salesperson', salesPeople, '— Select —');
+
     } catch (err) {
       console.error('Failed to load names from sheet:', err);
-            ['f-name','aw-initiator','aw-doer','wa-salesperson','ap-initiator','ap-supervisor'].forEach(id => { 
+      ['f-name','aw-initiator','aw-doer','wa-salesperson','ap-initiator','ap-supervisor'].forEach(id => {
         const sel = document.getElementById(id);
         if (sel) sel.innerHTML = '<option value="">— Could not load names —</option>';
       });
@@ -1466,8 +1498,6 @@
       if (group) group.innerHTML = '<span style="font-size:13px;color:#e50000;">Could not load names. Check sheet.</span>';
     }
   }
-
-  loadNamesFromSheet();
   // ===================== END DYNAMIC NAME LOADING =====================
 
   const subjectMap = {
