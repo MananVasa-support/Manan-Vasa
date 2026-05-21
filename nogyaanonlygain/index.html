@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>No Gyaan Only Gain – Productivity Shastra</title>
+<meta name="description" content="Real success stories from 120+ business owners and professionals. Filter by outcome and business type to find testimonials relevant to you.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* =========================================================
+     PRODUCTIVITY SHASTRA — No Gyaan Only Gain
+     Brand palette pulled from existing site
+     ========================================================= */
+  :root {
+    --ps-yellow: #DC2626;          /* RED — primary accent (CTAs, checked states, focus) */
+    --ps-yellow-dark: #B91C1C;     /* darker red — hover state */
+    --ps-yellow-soft: #F3F4F6;     /* neutral light grey — soft backgrounds */
+    --ps-navy: #0A0A0A;            /* BLACK — primary surface (header tags, modal, hero) */
+    --ps-navy-soft: #1F1F1F;       /* near-black — secondary surface */
+    --ps-text: #0A0A0A;            /* body text */
+    --ps-muted: #6B7280;           /* muted grey */
+    --ps-line: #E5E7EB;            /* hairline grey */
+    --ps-bg: #FFFFFF;              /* WHITE — page background */
+    --ps-white: #FFFFFF;
+    --ps-red: #DC2626;             /* alias kept for clarity */
+    --ps-red-soft: #FEF2F2;        /* very pale red — for subtle red highlights */
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+    --shadow-lg: 0 12px 32px rgba(0,0,0,0.12);
+    --radius: 12px;
+    --radius-sm: 6px;
+    --radius-lg: 16px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--ps-text);
+    background: var(--ps-bg);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  img { display: block; max-width: 100%; }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; }
+  input { font-family: inherit; }
+
+  /* =========================================================
+     HEADER
+     ========================================================= */
+  .header {
+    background: var(--ps-white);
+    border-bottom: 1px solid var(--ps-line);
+    position: sticky; top: 0; z-index: 50;
+    padding: 14px 0;
+  }
+  .header-inner {
+    max-width: 1400px; margin: 0 auto; padding: 0 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .logo { display: flex; align-items: center; }
+  .logo img { height: 48px; width: auto; }
+  .register-btn {
+    background: var(--ps-yellow);
+    color: var(--ps-white);
+    font-weight: 700;
+    padding: 12px 24px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+    text-decoration: none;
+    display: inline-block;
+    box-shadow: var(--shadow-sm);
+  }
+  .register-btn:hover { background: var(--ps-yellow-dark); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+
+  /* =========================================================
+     HERO
+     ========================================================= */
+  .hero {
+    background: linear-gradient(135deg, var(--ps-navy) 0%, var(--ps-navy-soft) 100%);
+    color: var(--ps-white);
+    padding: 56px 24px 64px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: ""; position: absolute; inset: 0;
+    background-image: radial-gradient(circle at 20% 30%, rgba(220,38,38,0.10) 0%, transparent 50%),
+                      radial-gradient(circle at 80% 70%, rgba(220,38,38,0.06) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .hero-inner { max-width: 900px; margin: 0 auto; position: relative; }
+  .hero-tag {
+    display: inline-block;
+    background: rgba(220,38,38,0.12);
+    color: var(--ps-yellow);
+    font-size: 12px; font-weight: 600;
+    padding: 6px 14px; border-radius: 100px;
+    margin-bottom: 18px;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    border: 1px solid rgba(220,38,38,0.35);
+  }
+  .hero h1 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: clamp(34px, 5vw, 56px);
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 16px;
+    letter-spacing: -1px;
+  }
+  .hero h1 .accent { color: var(--ps-yellow); }
+  .hero p {
+    font-size: clamp(15px, 1.5vw, 17px);
+    opacity: 0.85;
+    max-width: 640px; margin: 0 auto;
+  }
+  .hero-stats {
+    display: flex; justify-content: center; gap: 48px;
+    margin-top: 32px; flex-wrap: wrap;
+  }
+  .hero-stat { text-align: center; }
+  .hero-stat .num {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 32px; font-weight: 800;
+    color: var(--ps-yellow);
+  }
+  .hero-stat .label {
+    font-size: 12px; opacity: 0.7;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    margin-top: 2px;
+  }
+
+  /* =========================================================
+     SEARCH BAR
+     ========================================================= */
+  .search-section {
+    background: var(--ps-white);
+    border-bottom: 1px solid var(--ps-line);
+    padding: 20px 24px;
+    position: sticky; top: 76px; z-index: 40;
+    box-shadow: var(--shadow-sm);
+  }
+  .search-inner { max-width: 1400px; margin: 0 auto; }
+  .search-bar {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--ps-yellow-soft);
+    border: 2px solid var(--ps-line);
+    border-radius: var(--radius);
+    padding: 4px 4px 4px 16px;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  }
+  .search-bar:focus-within {
+    border-color: var(--ps-yellow);
+    background: var(--ps-white);
+    box-shadow: 0 0 0 3px rgba(220,38,38,0.12);
+  }
+  .search-bar svg { flex-shrink: 0; color: var(--ps-muted); }
+  .search-bar input {
+    flex: 1; border: none; outline: none;
+    background: transparent;
+    font-size: 15px; padding: 12px 0;
+    color: var(--ps-text);
+  }
+  .search-bar input::placeholder { color: var(--ps-muted); }
+  .clear-search {
+    color: var(--ps-muted); padding: 8px 12px;
+    font-size: 13px; border-radius: var(--radius-sm);
+    display: none;
+  }
+  .clear-search:hover { background: var(--ps-line); color: var(--ps-text); }
+  .clear-search.show { display: inline-block; }
+  .mobile-filter-btn {
+    display: none;
+    background: var(--ps-navy); color: white;
+    padding: 10px 16px; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 600;
+    align-items: center; gap: 8px;
+  }
+  @media (max-width: 900px) {
+    .search-section { top: 76px; padding: 14px 16px; }
+    .search-row { display: flex; gap: 10px; }
+    .search-row .search-bar { flex: 1; min-width: 0; }
+    .search-row .search-bar input { font-size: 14px; }
+    .mobile-filter-btn { display: flex; flex-shrink: 0; padding: 10px 14px; }
+    .header-inner { padding: 0 16px; }
+    .logo img { height: 38px; }
+    .register-btn { padding: 10px 16px; font-size: 13px; }
+  }
+
+  /* =========================================================
+     MAIN LAYOUT
+     ========================================================= */
+  .main {
+    max-width: 1400px; margin: 0 auto;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; padding: 16px; }
+  }
+
+  /* =========================================================
+     SIDEBAR FILTERS
+     ========================================================= */
+  .sidebar {
+    background: var(--ps-white);
+    border-radius: var(--radius);
+    border: 1px solid var(--ps-line);
+    position: sticky; top: 168px;
+    max-height: calc(100vh - 188px);
+    overflow-y: auto;
+  }
+  .sidebar::-webkit-scrollbar { width: 6px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--ps-line); border-radius: 3px; }
+  .sidebar-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--ps-line);
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; background: var(--ps-white); z-index: 1;
+  }
+  .sidebar-header h3 {
+    font-size: 13px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.2px;
+  }
+  .clear-all-btn {
+    color: var(--ps-red); font-size: 12px;
+    font-weight: 600; letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .clear-all-btn:hover { text-decoration: underline; }
+  .filter-group { padding: 16px 20px; border-bottom: 1px solid var(--ps-line); }
+  .filter-group:last-child { border-bottom: none; }
+  .filter-group-title {
+    font-size: 13px; font-weight: 700;
+    margin-bottom: 12px; letter-spacing: 0.3px;
+    display: flex; align-items: center; justify-content: space-between;
+    color: var(--ps-navy);
+  }
+  .filter-count {
+    background: var(--ps-yellow-soft); color: var(--ps-navy);
+    font-size: 10px; padding: 2px 8px; border-radius: 100px;
+    font-weight: 700;
+    border: 1px solid var(--ps-line);
+  }
+  .filter-option {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 0; cursor: pointer;
+    font-size: 13.5px; color: var(--ps-text);
+    user-select: none;
+  }
+  .filter-option:hover { color: var(--ps-yellow-dark); }
+  .filter-option input[type="checkbox"] {
+    appearance: none;
+    width: 16px; height: 16px;
+    border: 1.5px solid var(--ps-line);
+    border-radius: 3px;
+    background: var(--ps-white);
+    cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+    transition: all 0.15s;
+  }
+  .filter-option input[type="checkbox"]:hover { border-color: var(--ps-yellow); }
+  .filter-option input[type="checkbox"]:checked {
+    background: var(--ps-yellow); border-color: var(--ps-yellow);
+  }
+  .filter-option input[type="checkbox"]:checked::after {
+    content: ""; position: absolute;
+    left: 4px; top: 0px;
+    width: 5px; height: 10px;
+    border: solid var(--ps-white);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .filter-option .count {
+    margin-left: auto;
+    font-size: 12px; color: var(--ps-muted);
+  }
+  .filter-option.disabled { opacity: 0.4; pointer-events: none; }
+
+  /* =========================================================
+     RESULTS PANEL
+     ========================================================= */
+  .results { min-width: 0; }
+  .results-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
+  }
+  .results-count {
+    font-size: 14px; color: var(--ps-muted);
+  }
+  .results-count strong { color: var(--ps-text); font-weight: 700; }
+  .sort-wrapper { display: flex; align-items: center; gap: 8px; }
+  .sort-wrapper label { font-size: 13px; color: var(--ps-muted); font-weight: 500; }
+  .sort-select {
+    appearance: none;
+    background: var(--ps-white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 10px center;
+    border: 1.5px solid var(--ps-line);
+    padding: 8px 32px 8px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 600;
+    color: var(--ps-text);
+    cursor: pointer;
+    min-width: 180px;
+  }
+  .sort-select:focus { outline: none; border-color: var(--ps-yellow); }
+
+  .active-chips {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-bottom: 16px;
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--ps-red-soft);
+    color: var(--ps-yellow);
+    padding: 5px 6px 5px 12px;
+    border-radius: 100px;
+    font-size: 12px; font-weight: 600;
+    border: 1px solid rgba(220,38,38,0.3);
+  }
+  .chip button {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: rgba(220,38,38,0.12);
+    color: var(--ps-yellow);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; line-height: 1;
+  }
+  .chip button:hover { background: rgba(220,38,38,0.25); }
+
+  /* =========================================================
+     GRID + CARDS
+     ========================================================= */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 20px;
+  }
+  .card {
+    background: var(--ps-white);
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--ps-line);
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    cursor: pointer;
+    display: flex; flex-direction: column;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--ps-yellow);
+  }
+  .card-thumb {
+    position: relative;
+    aspect-ratio: 16/9;
+    background: var(--ps-navy);
+    overflow: hidden;
+  }
+  .card-thumb img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s;
+  }
+  .card:hover .card-thumb img { transform: scale(1.06); }
+  .play-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.6) 100%);
+    transition: background 0.2s;
+  }
+  .card:hover .play-overlay { background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.6) 100%); }
+  .play-icon {
+    width: 56px; height: 56px;
+    background: var(--ps-yellow);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    transition: transform 0.2s;
+  }
+  .play-icon svg { color: var(--ps-white); margin-left: 3px; }
+  .card:hover .play-icon { transform: scale(1.1); }
+  .card-body {
+    padding: 14px 16px 16px;
+    flex: 1; display: flex; flex-direction: column;
+  }
+  .card-name {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 16px; font-weight: 700;
+    color: var(--ps-navy);
+    margin-bottom: 4px;
+    line-height: 1.25;
+  }
+  .card-business {
+    font-size: 13px; color: var(--ps-muted);
+    margin-bottom: 12px;
+    line-height: 1.35;
+    min-height: 18px;
+  }
+  .card-tags {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    margin-top: auto;
+  }
+  .tag {
+    font-size: 10.5px; font-weight: 600;
+    padding: 4px 8px; border-radius: 4px;
+    letter-spacing: 0.2px;
+    line-height: 1.2;
+  }
+  .tag.type {
+    background: var(--ps-navy);
+    color: var(--ps-white);
+  }
+  .tag.cat {
+    background: var(--ps-yellow-soft);
+    color: var(--ps-navy);
+    border: 1px solid var(--ps-line);
+  }
+
+  /* =========================================================
+     EMPTY STATE
+     ========================================================= */
+  .empty {
+    text-align: center; padding: 80px 20px;
+    background: var(--ps-white);
+    border-radius: var(--radius);
+    border: 2px dashed var(--ps-line);
+  }
+  .empty svg { color: var(--ps-muted); margin-bottom: 16px; }
+  .empty h3 { font-size: 18px; margin-bottom: 6px; color: var(--ps-navy); }
+  .empty p { color: var(--ps-muted); font-size: 14px; margin-bottom: 20px; }
+  .empty .reset-btn {
+    background: var(--ps-yellow); color: var(--ps-navy);
+    padding: 10px 20px; border-radius: var(--radius-sm);
+    font-weight: 700; font-size: 13px;
+  }
+
+  /* =========================================================
+     MODAL (video player)
+     ========================================================= */
+  .modal {
+    position: fixed; inset: 0;
+    background: rgba(13,27,42,0.92);
+    z-index: 100;
+    display: none;
+    align-items: center; justify-content: center;
+    padding: 20px;
+    animation: fadeIn 0.2s ease;
+  }
+  .modal.open { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal-content {
+    background: var(--ps-navy);
+    border-radius: var(--radius-lg);
+    width: 100%; max-width: 900px;
+    overflow: hidden;
+    position: relative;
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-close {
+    position: absolute; top: 12px; right: 12px;
+    width: 36px; height: 36px;
+    background: rgba(255,255,255,0.15);
+    color: white; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 2; backdrop-filter: blur(8px);
+    transition: background 0.15s;
+  }
+  .modal-close:hover { background: rgba(255,255,255,0.3); }
+  .modal-video {
+    aspect-ratio: 16/9;
+    background: #000;
+  }
+  .modal-video iframe { width: 100%; height: 100%; border: 0; }
+  .modal-info {
+    padding: 20px 24px;
+    color: white;
+  }
+  .modal-info h3 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 20px; font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .modal-info .business { color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 12px; }
+  .modal-info .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  /* =========================================================
+     MOBILE FILTER DRAWER
+     ========================================================= */
+  @media (max-width: 900px) {
+    .sidebar {
+      position: fixed; top: 0; left: 0;
+      height: 100vh; width: 85%; max-width: 340px;
+      z-index: 100;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      border-radius: 0;
+      max-height: 100vh;
+    }
+    .sidebar.open { transform: translateX(0); }
+    .drawer-backdrop.show { display: block; }
+    .sidebar-mobile-close {
+      display: flex !important;
+    }
+  }
+  .sidebar-mobile-close { display: none; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--ps-yellow-soft); color: var(--ps-text); }
+
+  .drawer-backdrop {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 99;
+  }
+
+  /* =========================================================
+     CTA BAND
+     ========================================================= */
+  .cta-band {
+    background: var(--ps-navy);
+    padding: 56px 24px;
+    text-align: center;
+    margin-top: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cta-band::before {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 100%, rgba(220,38,38,0.18) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .cta-band > * { position: relative; }
+  .cta-band h2 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: clamp(24px, 3vw, 36px);
+    font-weight: 800;
+    color: var(--ps-white);
+    margin-bottom: 12px;
+    line-height: 1.2;
+    max-width: 800px; margin-left: auto; margin-right: auto;
+  }
+  .cta-band h2 .accent { color: var(--ps-yellow); }
+  .cta-band p { color: rgba(255,255,255,0.7); margin-bottom: 28px; max-width: 600px; margin-left: auto; margin-right: auto; }
+  .cta-band .register-btn {
+    background: var(--ps-yellow); color: var(--ps-white);
+    padding: 14px 32px; font-size: 15px;
+  }
+  .cta-band .register-btn:hover { background: var(--ps-yellow-dark); }
+
+  /* =========================================================
+     FOOTER
+     ========================================================= */
+  .footer {
+    background: var(--ps-navy);
+    color: rgba(255,255,255,0.7);
+    padding: 40px 24px 24px;
+    text-align: center;
+    font-size: 13px;
+  }
+  .footer-logo img { height: 40px; margin: 0 auto 16px; opacity: 0.9; }
+  .footer a { color: var(--ps-yellow); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+  .footer-links { margin: 12px 0; }
+  .footer-links a { margin: 0 12px; }
+</style>
+</head>
+<body>
+
+<!-- ========== HEADER ========== -->
+<header class="header">
+  <div class="header-inner">
+    <a href="https://productivityshastra.com/" class="logo" aria-label="Productivity Shastra">
+      <img src="https://productivityshastra.com/wp-content/uploads/2024/07/Productivity-Shastra-Logo-Updated.png" alt="Productivity Shastra">
+    </a>
+    <a href="https://us02web.zoom.us/meeting/register/tZMvcOqqrjIoHtU4dRYD33-bFc0m0VNyRnGq#/registration" class="register-btn">REGISTER NOW</a>
+  </div>
+</header>
+
+<!-- ========== HERO ========== -->
+<section class="hero">
+  <div class="hero-inner">
+    <span class="hero-tag">#NoGyaanOnlyGain</span>
+    <h1>Real Stories. <span class="accent">Real Gains.</span></h1>
+    <p>Hear directly from business owners, professionals and individuals who doubled their results with Productivity Shastra — filter by your industry or the outcome you're chasing.</p>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="num" id="statTotal">0</div><div class="label">Success Stories</div></div>
+      <div class="hero-stat"><div class="num">160+</div><div class="label">Industries</div></div>
+      <div class="hero-stat"><div class="num">19,500+</div><div class="label">Lives Impacted</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== SEARCH ========== -->
+<section class="search-section">
+  <div class="search-inner">
+    <div class="search-row">
+      <div class="search-bar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="searchInput" placeholder="Search by name, business, or industry…" autocomplete="off">
+        <button class="clear-search" id="clearSearch">Clear</button>
+      </div>
+      <button class="mobile-filter-btn" id="mobileFilterBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+        Filters
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ========== MAIN ========== -->
+<main class="main">
+
+  <!-- SIDEBAR FILTERS -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h3>Filters</h3>
+      <button class="clear-all-btn" id="clearAll">Clear All</button>
+      <button class="sidebar-mobile-close" id="sidebarClose" aria-label="Close filters">✕</button>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-group-title">
+        Outcome
+        <span class="filter-count" id="catCount">0 / 6</span>
+      </div>
+      <div id="categoryFilters"></div>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-group-title">
+        Business Type
+        <span class="filter-count" id="typeCount">0 / 0</span>
+      </div>
+      <div id="typeFilters"></div>
+    </div>
+  </aside>
+
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+
+  <!-- RESULTS -->
+  <section class="results">
+    <div class="results-toolbar">
+      <div class="results-count">
+        Showing <strong id="visibleCount">0</strong> of <strong id="totalCount">0</strong> stories
+      </div>
+      <div class="sort-wrapper">
+        <label for="sortSelect">Sort by:</label>
+        <select id="sortSelect" class="sort-select">
+          <option value="newest">Recently Added</option>
+          <option value="oldest">Oldest First</option>
+          <option value="az">Name (A → Z)</option>
+          <option value="za">Name (Z → A)</option>
+          <option value="categories">Most Outcomes</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="active-chips" id="activeChips"></div>
+
+    <div class="grid" id="grid"></div>
+
+    <div class="empty" id="emptyState" style="display:none;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <h3>No stories match your filters</h3>
+      <p>Try adjusting your search or clearing some filters.</p>
+      <button class="reset-btn" onclick="resetAll()">Reset Filters</button>
+    </div>
+  </section>
+</main>
+
+<!-- ========== CTA BAND ========== -->
+<section class="cta-band">
+  <h2>You can have a <span class="accent">similar success story</span></h2>
+  <p>Join 19,500+ business owners and professionals who've doubled their business without spending more time or money.</p>
+  <a href="https://us02web.zoom.us/meeting/register/tZMvcOqqrjIoHtU4dRYD33-bFc0m0VNyRnGq#/registration" class="register-btn">REGISTER FREE — 3.5 HR LIVE WORKSHOP</a>
+</section>
+
+<!-- ========== FOOTER ========== -->
+<footer class="footer">
+  <div class="footer-logo">
+    <img src="https://productivityshastra.com/wp-content/uploads/2024/07/Productivity-Shastra-Logo-Updated.png" alt="Productivity Shastra">
+  </div>
+  <div>© Productivity Shastra · Built on a Foundation of Habits</div>
+  <div class="footer-links">
+    <a href="https://productivityshastra.com/privacy-policy/">Privacy</a>
+    <a href="https://productivityshastra.com/terms-conditions-page/">Terms</a>
+    <a href="https://productivityshastra.com/contact-us/">Contact</a>
+    <a href="https://productivityshastra.com/testimonials/">Testimonials</a>
+  </div>
+</footer>
+
+<!-- ========== VIDEO MODAL ========== -->
+<div class="modal" id="modal" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <button class="modal-close" id="modalClose" aria-label="Close video">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="modal-video" id="modalVideo"></div>
+    <div class="modal-info">
+      <h3 id="modalName"></h3>
+      <div class="business" id="modalBusiness"></div>
+      <div class="tags" id="modalTags"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   DATA — 124 testimonials parsed from PDF
+   Schema: [id, date, name, business, type, ytId, isShort, categories[]]
+   ========================================================= */
+const TESTIMONIALS = [
+  {id:1,  date:"2026-05-07", name:"Mihir Vira",          business:"GMT Drive Solutions",                    type:"B2B",                   ytId:"6URi8K2vU_c", short:false, cats:["Change In Habits","Increase In Time Saved","Increase In Productivity"]},
+  {id:2,  date:"2026-05-07", name:"Sheel Kenia",         business:"Kenat Spaces / Kenya Consultancy",       type:"B2B/B2C",               ytId:"xO8g_BufwvI", short:false, cats:["Increase In Productivity"]},
+  {id:3,  date:"2026-05-07", name:"Avikumar Ujawane",    business:"Furniture Making",                       type:"Manufacturing",         ytId:"Kyz7myzSCug", short:false, cats:["Increase In Turnover","Increase In Productivity","Time Spent On KPIs","Ability To Get Work Done From Others","Change In Habits","Increase In Time Saved"]},
+  {id:4,  date:"2026-05-07", name:"Vidit Dedhia",        business:"Home & Kitchen Item Distributors",       type:"B2B/B2C",               ytId:"XtRhIJt0oQQ", short:false, cats:["Ability To Get Work Done From Others","Time Spent On KPIs"]},
+  {id:5,  date:"2026-05-07", name:"Athish Agarwal",      business:"",                                       type:"Individual",            ytId:"dbbHZ-ZzH8Y", short:false, cats:["Change In Habits","Increase In Turnover","Increase In Productivity","Increase In Time Saved"]},
+  {id:6,  date:"2026-05-07", name:"Siddesh Sawant",      business:"Ultra Plus Lubes Pvt Ltd",               type:"Manufacturing",         ytId:"h5SUFvAgfi4", short:false, cats:["Change In Habits","Increase In Productivity"]},
+  {id:7,  date:"2026-05-07", name:"Tejas Salva",         business:"Chartered Accountant",                   type:"Professional",          ytId:"YXR2w5F1Hwg", short:false, cats:["Increase In Turnover"]},
+  {id:8,  date:"2026-05-07", name:"Aamar Johar",         business:"YK Enterprises",                         type:"B2B",                   ytId:"xnDIvrdfoKk", short:false, cats:["Change In Habits","Increase In Time Saved"]},
+  {id:9,  date:"2026-05-07", name:"Tejas Sawant",        business:"SWA+P Architectural Consultancy",        type:"Professional",          ytId:"xwid5v9KS_E", short:false, cats:["Increase In Time Saved","Increase In Turnover"]},
+  {id:10, date:"2026-05-07", name:"Alok Kanani",         business:"Yogeshwar Engineering Pvt Ltd",          type:"Manufacturing",         ytId:"rBqI8K0wBMo", short:false, cats:["Ability To Get Work Done From Others","Change In Habits","Increase In Productivity","Increase In Turnover"]},
+  {id:11, date:"2026-05-07", name:"Ravi Iyer",           business:"Talkholics Productions",                 type:"Professional",          ytId:"Ao2mJgmHuAI", short:false, cats:["Change In Habits","Increase In Productivity","Increase In Time Saved","Time Spent On KPIs"]},
+  {id:12, date:"2026-05-07", name:"Mayur Mundra",        business:"Nasik Metal Dust Pvt Ltd",               type:"Manufacturing",         ytId:"YMhXHdI5PBs", short:false, cats:["Increase In Time Saved","Change In Habits","Increase In Productivity"]},
+  {id:13, date:"2026-05-07", name:"Yusuf Master",        business:"",                                       type:"B2B",                   ytId:"L3fuPJLh3XM", short:false, cats:["Ability To Get Work Done From Others","Time Spent On KPIs","Increase In Productivity","Change In Habits","Increase In Turnover","Increase In Time Saved"]},
+  {id:14, date:"2026-05-07", name:"Bharat Shah",         business:"",                                       type:"B2B",                   ytId:"vam6kAQPb3Q", short:false, cats:["Increase In Time Saved","Increase In Turnover","Increase In Productivity","Change In Habits"]},
+  {id:15, date:"2026-05-07", name:"Foram Shah",          business:"4am Designs",                            type:"Service Provider",      ytId:"eselPaYs_uY", short:false, cats:["Increase In Time Saved","Change In Habits","Increase In Productivity","Increase In Turnover"]},
+  {id:16, date:"2026-05-07", name:"Abhisekh Acharya",    business:"Business Productions",                   type:"Professional",          ytId:"6tJcks9uUpM", short:true,  cats:["Increase In Productivity","Time Spent On KPIs"]},
+  {id:17, date:"2026-05-07", name:"Chintan Gada",        business:"Ihara Engineering Pvt Ltd",              type:"Manufacturing",         ytId:"rD9UtsHehN8", short:true,  cats:["Increase In Productivity"]},
+  {id:18, date:"2026-05-07", name:"Nirav Somaiya",       business:"Rigveda Landmarks",                      type:"Professional",          ytId:"APA0jVpqNhw", short:true,  cats:["Increase In Productivity","Increase In Turnover"]},
+  {id:19, date:"2026-05-07", name:"Margee Patwaa",       business:"Beyond Branding",                        type:"Professional",          ytId:"z35RrWvTltY", short:true,  cats:["Change In Habits","Increase In Time Saved","Increase In Productivity","Increase In Turnover"]},
+  {id:20, date:"2026-05-07", name:"Vishal Bakshi",       business:"KV Wealth Invest",                       type:"Professional",          ytId:"Xcbn2Xq2oO0", short:true,  cats:["Increase In Productivity","Ability To Get Work Done From Others","Increase In Time Saved","Time Spent On KPIs"]},
+  {id:21, date:"2026-05-07", name:"Ajit Jain",           business:"",                                       type:"Individual",            ytId:"_YZn8a5yrXM", short:false, cats:["Increase In Turnover","Increase In Productivity"]},
+  {id:22, date:"2026-05-07", name:"Mahesh Punjabi",      business:"Mahesh Punjabi & Associates",            type:"Professional",          ytId:"K3ZBuIGF5pA", short:false, cats:["Ability To Get Work Done From Others","Increase In Productivity","Change In Habits","Increase In Turnover"]},
+  {id:23, date:"2026-05-07", name:"Devansh Vora",        business:"Vardhman Kids Wear",                     type:"Manufacturing",         ytId:"We_IEC74SQg", short:false, cats:["Increase In Productivity","Change In Habits"]},
+  {id:24, date:"2026-05-07", name:"Mohammad Shariff",    business:"Lumen Art Control Solutions LLP",        type:"B2B/B2C",               ytId:"DrK_lDnSuD8", short:false, cats:["Change In Habits","Increase In Turnover","Increase In Productivity"]},
+  {id:25, date:"2026-05-07", name:"Ashit Visariya",      business:"Telecast Transcontinental LLP",          type:"B2B",                   ytId:"vaOXwZbXstg", short:false, cats:["Increase In Time Saved","Increase In Productivity"]},
+  {id:26, date:"2026-05-07", name:"Biren Karani",        business:"Varie Valves Pvt Ltd",                   type:"Manufacturing",         ytId:"4hcWmTF87i8", short:false, cats:["Increase In Time Saved","Increase In Turnover","Change In Habits","Increase In Productivity"]},
+  {id:27, date:"2026-05-07", name:"CA Rahul Gala",       business:"RJ Gala Associates",                     type:"Professional",          ytId:"gU0aLQ1tTnI", short:false, cats:["Increase In Productivity","Increase In Turnover","Ability To Get Work Done From Others","Increase In Time Saved"]},
+  {id:28, date:"2026-05-07", name:"Atit Shah",           business:"",                                       type:"Individual",            ytId:"En6ok4BNzUQ", short:false, cats:["Increase In Productivity","Change In Habits"]},
+  {id:29, date:"2026-05-07", name:"Anupkumar Mhatre",    business:"Paradigm Tech Solutions",                type:"Service Provider",      ytId:"Do9PbJVfHMs", short:false, cats:["Increase In Turnover","Increase In Productivity"]},
+  {id:30, date:"2026-05-07", name:"Yash Shah",           business:"Apollo Heat Exchangers",                 type:"B2B",                   ytId:"fLTRXblFZa4", short:false, cats:["Time Spent On KPIs","Increase In Turnover"]},
+  {id:31, date:"2026-05-07", name:"Kedar Patil",         business:"Satpuda Engineering Pvt Ltd",            type:"Manufacturing",         ytId:"an5NBeZjX8U", short:false, cats:["Time Spent On KPIs","Increase In Productivity","Change In Habits","Ability To Get Work Done From Others"]},
+  {id:32, date:"2026-05-07", name:"Rishi Bhatia",        business:"CM Overseas Enterprises",                type:"Professional",          ytId:"kMk08gPBc3s", short:false, cats:["Increase In Time Saved","Increase In Productivity"]},
+  {id:33, date:"2026-05-07", name:"Pravin Savla",        business:"",                                       type:"Individual",            ytId:"6cpmGd5IE-Y", short:true,  cats:["Increase In Time Saved","Increase In Productivity"]},
+  {id:34, date:"2026-05-07", name:"Nakul Aggrawal",      business:"Renovatio Foundation",                   type:"Service Provider",      ytId:"zsysLGv-Dy8", short:false, cats:["Change In Habits","Increase In Time Saved","Increase In Productivity"]},
+  {id:35, date:"2026-05-07", name:"Girish Shah",         business:"Super Hydronautic",                      type:"B2B",                   ytId:"QxlQdvzi7Ak", short:false, cats:["Time Spent On KPIs","Change In Habits","Increase In Productivity","Increase In Turnover"]},
+  {id:36, date:"2026-05-08", name:"Anna Singh",          business:"Green Light Travel Solutions",           type:"Service Provider",      ytId:"1KypIqKfNfU", short:false, cats:["Increase In Productivity","Increase In Turnover","Increase In Time Saved"]},
+  {id:37, date:"2026-05-08", name:"Harsimran Juneja",    business:"AsaI / Unolona Academy",                 type:"Service Provider",      ytId:"1lRaQZiNQm4", short:false, cats:["Increase In Time Saved","Increase In Productivity","Ability To Get Work Done From Others"]},
+  {id:38, date:"2026-05-08", name:"Jagdish Nayak",       business:"Clintech Laboratory Limited",            type:"Professional",          ytId:"8Dy9JfBU5Bw", short:false, cats:["Change In Habits","Increase In Turnover","Increase In Productivity","Increase In Time Saved","Ability To Get Work Done From Others"]},
+  {id:39, date:"2026-05-08", name:"Dr Sanjay Dhurjad",   business:"",                                       type:"Professional",          ytId:"IshzZV1bY0E", short:false, cats:["Increase In Time Saved","Increase In Productivity","Increase In Turnover"]},
+  {id:40, date:"2026-05-08", name:"Pravesh Kanther",     business:"",                                       type:"E-Commerce",            ytId:"m1TQ0MnKgA0", short:false, cats:["Increase In Productivity","Change In Habits","Increase In Turnover"]},
+  {id:41, date:"2026-05-08", name:"Ketan Shah",          business:"Blends Repment Pvt Ltd",                 type:"B2B",                   ytId:"-79hUevmziY", short:false, cats:["Change In Habits","Increase In Productivity","Increase In Turnover","Ability To Get Work Done From Others"]},
+  {id:42, date:"2026-05-08", name:"Sanjay Bhoite",       business:"Aakash Storage & Distribution Services Pvt Ltd", type:"Service Provider", ytId:"zd_kjm6rAOg", short:false, cats:["Increase In Productivity","Increase In Time Saved","Time Spent On KPIs","Increase In Turnover"]},
+  {id:43, date:"2026-05-08", name:"Sanjay Rane",         business:"ACP Global Logistic",                    type:"Service Provider",      ytId:"usIZQtbleJ8", short:false, cats:["Time Spent On KPIs","Increase In Turnover","Change In Habits","Increase In Productivity","Increase In Time Saved"]},
+  {id:44, date:"2026-05-08", name:"Arjun Gawde",         business:"Avshikar Enterprises",                   type:"B2B",                   ytId:"oIwc35Ez_LM", short:false, cats:["Increase In Productivity","Increase In Turnover","Change In Habits","Increase In Time Saved"]},
+  {id:45, date:"2026-05-08", name:"Harsha Garg",         business:"Wealth Gym",                             type:"Service Provider",      ytId:"LleZmyNNewY", short:false, cats:["Change In Habits","Increase In Productivity","Increase In Time Saved"]},
+  {id:46, date:"2026-05-08", name:"Jayesh Khemka",       business:"Jai Sai Jewellers",                      type:"Manufacturing",         ytId:"hhwIcuFg4m8", short:false, cats:["Increase In Time Saved","Change In Habits","Increase In Turnover","Increase In Productivity"]},
+  {id:47, date:"2026-05-08", name:"Nikhil Punamiya",     business:"",                                       type:"Individual",            ytId:"medBZAZYUN4", short:false, cats:["Increase In Time Saved"]},
+  {id:48, date:"2026-05-08", name:"Rahul Shroff",        business:"Ontime Management Services Pvt Ltd",     type:"Service Provider",      ytId:"sY2L3Opi9FQ", short:false, cats:["Increase In Turnover","Increase In Time Saved","Increase In Productivity","Change In Habits"]},
+  {id:49, date:"2026-05-08", name:"Vishwa Shah",         business:"Straight To Core Fitness Solutions",     type:"Service Provider",      ytId:"rF01vHysUMQ", short:false, cats:["Increase In Time Saved","Change In Habits","Increase In Productivity","Increase In Turnover"]},
+  {id:50, date:"2026-05-08", name:"Shahveer Irani",      business:"Fifth Wall Designs",                     type:"Professional",          ytId:"w6AptbxHjjE", short:false, cats:["Change In Habits","Increase In Productivity","Increase In Turnover"]},
+  {id:51, date:"2026-05-08", name:"Miloni Valia",        business:"",                                       type:"Individual",            ytId:"oWZOQv8EM_8", short:false, cats:["Increase In Productivity","Change In Habits","Increase In Time Saved"]},
+  {id:52, date:"2026-05-08", name:"Rochelle Fernadez",   business:"",                                       type:"Professional",          ytId:"30b8OHb5IMs", short:false, cats:["Change In Habits","Increase In Time Saved"]},
+  {id:53, date:"2026-05-11", name:"Amit Jhawar",         business:"",                                       type:"Individual",            ytId:"twEiqGUsEQw", short:false, cats:["Increase In Productivity","Increase In Time Saved"]},
+  {id:54, date:"2026-05-11", name:"Manish Khanna",       business:"Khanna Industrial Pipes Pvt Ltd",        type:"Manufacturing",         ytId:"tP9b5Tf6s08", short:false, cats:["Ability To Get Work Done From Others","Time Spent On KPIs","Increase In Productivity"]},
+  {id:55, date:"2026-05-11", name:"Jitendra Sardesai",   business:"Isource Infosys Pvt Ltd",                type:"Service Provider",      ytId:"kYtoypD_a7E", short:false, cats:["Increase In Turnover","Increase In Productivity","Change In Habits"]},
+  {id:56, date:"2026-05-11", name:"Priyanka Ketkar",     business:"Purple Finch",                           type:"Professional",          ytId:"xhkcLigMZrs", short:false, cats:["Increase In Time Saved","Change In Habits","Increase In Productivity"]},
+  {id:57, date:"2026-05-11", name:"Rupesh Nagda",        business:"Family First Capital Pvt Ltd",           type:"Service Provider",      ytId:"lZUxIYPJPuM", short:false, cats:["Time Spent On KPIs","Increase In Productivity","Increase In Turnover"]},
+  {id:58, date:"2026-05-11", name:"Kapil Dedhia",        business:"GV Education",                           type:"Service Provider",      ytId:"JHWCc9OOPY0", short:false, cats:["Change In Habits","Increase In Productivity"]},
+  {id:59, date:"2026-05-11", name:"Kunal Nandu",         business:"Vinay Electrical Solutions",             type:"Manufacturing",         ytId:"yMBQA8pEuPE", short:false, cats:["Change In Habits","Increase In Productivity","Time Spent On KPIs"]},
+  {id:60, date:"2026-05-11", name:"Vijay Karkare",       business:"Cornerstone International Groups of India Operations", type:"Professional", ytId:"a4-0UdL4nvc", short:false, cats:["Increase In Productivity","Change In Habits"]},
+  {id:61, date:"2026-05-11", name:"Janhavi Kulkarni",    business:"Padmansha Technologies Pvt Ltd",         type:"Manufacturing",         ytId:"BssaIFuIdzo", short:false, cats:["Change In Habits","Increase In Turnover","Increase In Productivity"]},
+  {id:62, date:"2026-05-11", name:"Aagam Nandu",         business:"Euro Decor Pvt Ltd",                     type:"Manufacturing",         ytId:"AtxI4G5zbfA", short:false, cats:["Increase In Time Saved","Change In Habits","Increase In Productivity"]},
+  {id:63, date:"2026-05-11", name:"Mehul Mane",          business:"Absolute India Mechatronics Pvt Ltd",    type:"Manufacturing",         ytId:"p_jPQTL7NoQ", short:false, cats:["Time Spent On KPIs","Change In Habits","Increase In Productivity"]},
+  {id:64, date:"2026-05-11", name:"Craig Miller",        business:"Senstion Records",                       type:"Individual",            ytId:"FWMSexyPPnA", short:false, cats:["Change In Habits","Increase In Productivity"]},
+  {id:65, date:"2026-05-11", name:"Viraj Lokhande",      business:"Zelta Climb Solutions",                  type:"Professional",          ytId:"OshAiC8gHzQ", short:false, cats:["Change In Habits","Increase In Productivity"]},
+  {id:66, date:"2026-05-11", name:"Pankaj Sethia",       business:"Sethia Handicrafts Pvt Ltd",             type:"Manufacturing",         ytId:"-N2Bl23kFmU", short:false, cats:["Increase In Productivity","Ability To Get Work Done From Others","Increase In Time Saved"]},
+  {id:67, date:"2026-05-11", name:"Jimit Jhaveri",       business:"Vini Diam",                              type:"Service Provider",      ytId:"lttEJKS9Tzg", short:false, cats:["Increase In Time Saved","Change In Habits","Increase In Productivity"]},
+  {id:68, date:"2026-05-11", name:"Kevin D'Souza",       business:"Sound And About",                        type:"B2B/B2C",               ytId:"hTUGllfvaaU", short:false, cats:["Change In Habits","Increase In Time Saved","Increase In Productivity"]},
+  {id:69, date:"2026-05-11", name:"Tejal Joshi",         business:"Fairytale Dresses",                      type:"B2C",                   ytId:"6xSO49SLEhM", short:false, cats:[]},
+  {id:70, date:"2026-05-11", name:"Sachin Chheda",       business:"Ambest Media",                           type:"B2B",                   ytId:"2iy3YC2cj_8", short:false, cats:["Increase In Productivity","Change In Habits"]},
+  {id:71, date:"2026-05-11", name:"Prerika Mundra",      business:"Nashik Metal Dust Pvt Ltd",              type:"Manufacturing",         ytId:"mLzRGBE8hpk", short:false, cats:["Increase In Time Saved","Change In Habits","Increase In Productivity"]},
+  {id:72, date:"2026-05-11", name:"Manan Gajjar",        business:"",                                       type:"Individual",            ytId:"UhdvqKuelbE", short:false, cats:["Increase In Productivity"]},
+  {id:73, date:"2026-05-11", name:"Aditya Sejpal",       business:"",                                       type:"Individual",            ytId:"pDmu6RpQhPs", short:false, cats:["Increase In Turnover","Increase In Productivity","Increase In Time Saved"]},
+  {id:74, date:"2026-05-11", name:"Vicky Mahendru",      business:"",                                       type:"Individual",            ytId:"RUowSQzeFlI", short:false, cats:[]},
+  {id:75, date:"2026-05-11", name:"Shehab Ujjainwala",   business:"Reengineering",                          type:"Service Provider",      ytId:"VdkkxN26gDE", short:false, cats:["Increase In Productivity","Increase In Turnover","Change In Habits"]},
+  {id:76, date:"2026-05-11", name:"Saravana Kartikeyan", business:"",                                       type:"Individual",            ytId:"iXneLdGGyAo", short:false, cats:["Increase In Productivity","Change In Habits"]},
+  {id:77, date:"2026-05-11", name:"Siddharth Nair",      business:"Braavas Digital",                        type:"Service Provider",      ytId:"XXVdm8ptLgg", short:false, cats:["Ability To Get Work Done From Others","Increase In Turnover","Increase In Productivity","Change In Habits"]},
+  {id:78, date:"2026-05-11", name:"Avani Shah",          business:"",                                       type:"Individual",            ytId:"WezZs4-gox0", short:false, cats:["Increase In Turnover","Change In Habits","Increase In Productivity"]},
+  {id:79, date:"2026-05-11", name:"Manoj Khatpal",       business:"Govindsons Flashlight Industries Pvt Ltd", type:"Manufacturing",       ytId:"OBnlfU2uBsE", short:false, cats:["Increase In Productivity"]},
+  {id:80, date:"2026-05-11", name:"Nikhil Anaabutala",   business:"",                                       type:"Individual",            ytId:"Ig3tyDrGfl8", short:false, cats:["Increase In Productivity"]},
+  {id:81, date:"2026-05-11", name:"Ubed Chauhan",        business:"Chahuan And Sons Waterproofing LLP",     type:"Service Provider",      ytId:"Gstk4Rh1Bqg", short:false, cats:["Increase In Productivity","Change In Habits"]},
+  {id:82, date:"2026-05-11", name:"Nitin Sheth",         business:"Answer Computet (INDIA) Pvt Ltd",        type:"Service Provider",      ytId:"REbHErkl5Ho", short:false, cats:["Increase In Productivity","Increase In Turnover","Change In Habits"]},
+  {id:83, date:"2026-05-11", name:"Chinmay Gada",        business:"Gada and Haria",                         type:"Service Provider",      ytId:"RUavTj0cT9A", short:false, cats:["Increase In Turnover","Change In Habits","Increase In Productivity"]},
+  {id:84, date:"2026-05-11", name:"Nishith Pandya",      business:"RT Group",                               type:"Manufacturing",         ytId:"KI5My_Js6rA", short:false, cats:["Increase In Time Saved","Increase In Productivity"]},
+  {id:85, date:"2026-05-11", name:"Mahek Patel",         business:"",                                       type:"Individual",            ytId:"6myADzjfPzU", short:false, cats:["Change In Habits","Increase In Productivity"]},
+  {id:86, date:"2026-05-11", name:"Mitesh Nandu",        business:"Nandu Trading Co.",                      type:"Manufacturing",         ytId:"f_H30XG143s", short:false, cats:["Change In Habits","Increase In Productivity"]},
+  {id:87, date:"2026-05-11", name:"Aanand Purana",       business:"",                                       type:"Individual",            ytId:"DWRlcgNVsM8", short:false, cats:["Increase In Productivity"]},
+  {id:88, date:"2026-05-11", name:"Shravani Anaabutla",  business:"",                                       type:"Individual",            ytId:"My1mNEw4M7o", short:false, cats:["Increase In Productivity","Change In Habits"]},
+  {id:89, date:"2026-05-11", name:"Sapan Mundra",        business:"Press Metal",                            type:"Manufacturing",         ytId:"4GY5Zv6nXBM", short:false, cats:["Change In Habits"]},
+  {id:90, date:"2026-05-12", name:"Chirag Bhandari",     business:"Ennoble Social Innovations",             type:"Service Provider",      ytId:"CzW2_opSEnU", short:false, cats:["Increase In Turnover","Increase In Productivity","Ability To Get Work Done From Others","Increase In Time Saved","Change In Habits"]},
+  {id:91, date:"2026-05-12", name:"Tejas Padhye",        business:"TV Padhye Company",                      type:"Professional",          ytId:"1GI6kfrM0Ek", short:false, cats:["Increase In Time Saved","Increase In Productivity","Increase In Turnover"]},
+  {id:92, date:"2026-05-12", name:"Dharmendra Seth",     business:"Chauhan Lifters / NSS Equipments India LLP", type:"Service Provider",   ytId:"TXdnOHPZbBU", short:false, cats:["Increase In Productivity"]},
+  {id:93, date:"2026-05-12", name:"Payal Jain",          business:"I-Xl Technologies",                      type:"Service Provider",      ytId:"SerPXu3MWIA", short:false, cats:["Increase In Time Saved","Change In Habits","Increase In Productivity"]},
+  {id:94, date:"2026-05-12", name:"Sameer Shah",         business:"Kenat Spaces",                           type:"B2B/B2C",               ytId:"-rqBSjW3SGo", short:false, cats:["Increase In Time Saved","Change In Habits","Increase In Productivity"]},
+  {id:95, date:"2026-05-12", name:"Meet Jain",           business:"Modern Manufacturing Co.",               type:"Manufacturing",         ytId:"Ef-vpXz_KXc", short:false, cats:["Increase In Time Saved","Ability To Get Work Done From Others","Change In Habits","Increase In Productivity","Time Spent On KPIs"]},
+  {id:96, date:"2026-05-12", name:"Deepak Panda",        business:"",                                       type:"Individual",            ytId:"RgajemfSM28", short:false, cats:["Increase In Productivity","Increase In Time Saved"]},
+  {id:97, date:"2026-05-12", name:"Pradeep Chabaria",    business:"",                                       type:"Individual",            ytId:"ckt1poS2B8c", short:false, cats:[]},
+  {id:98, date:"2026-05-12", name:"Harshal Jain",        business:"Mahavir Cables",                         type:"Service Provider",      ytId:"sHtVEdsy_eQ", short:false, cats:[]},
+  {id:99, date:"2026-05-12", name:"Vivek Mendonsa",      business:"Lawrence & Mayo",                        type:"B2C",                   ytId:"iSfiN1MUsUs", short:false, cats:["Increase In Productivity","Increase In Turnover","Ability To Get Work Done From Others"]},
+  {id:100,date:"2026-05-12", name:"Vikramjeet Shekawat", business:"",                                       type:"Individual",            ytId:"uncCPP580y8", short:false, cats:["Change In Habits","Increase In Productivity","Increase In Time Saved"]},
+  {id:101,date:"2026-05-12", name:"Paresh Vora",         business:"Paresh Vora & Associates",               type:"Professional",          ytId:"FX5EAPyPCQw", short:false, cats:["Increase In Productivity"]},
+  {id:102,date:"2026-05-12", name:"Mahesh Jain",         business:"Yes Chandeliers",                        type:"Manufacturing",         ytId:"15xcqhLjbt0", short:false, cats:["Increase In Productivity","Increase In Turnover"]},
+  {id:103,date:"2026-05-12", name:"Amit Patel",          business:"Suncity Innovations LLP",                type:"Manufacturing",         ytId:"D4vNi03sEBs", short:false, cats:["Increase In Productivity"]},
+  {id:104,date:"2026-05-12", name:"Praful Kakaraddi",    business:"Tristar Engineering",                    type:"Manufacturing",         ytId:"PfVSFAQASgM", short:false, cats:["Increase In Turnover","Increase In Productivity"]},
+  {id:105,date:"2026-05-12", name:"Ankur Shah",          business:"Sunrest Food Makers",                    type:"Manufacturing",         ytId:"865Q0Sj7fWM", short:false, cats:["Change In Habits","Increase In Productivity"]},
+  {id:106,date:"2026-05-12", name:"Dilip Kanase",        business:"",                                       type:"Individual",            ytId:"_EGarLbkG8U", short:false, cats:["Change In Habits","Increase In Time Saved"]},
+  {id:107,date:"2026-05-12", name:"Abhay Tembhurne",     business:"",                                       type:"Individual",            ytId:"HMzkKx3emiI", short:false, cats:["Increase In Productivity","Change In Habits"]},
+  {id:108,date:"2026-05-12", name:"Nilesh Gala",         business:"Box Wiper",                              type:"Manufacturing",         ytId:"zU6GBWtmj_M", short:false, cats:["Increase In Productivity","Change In Habits"]},
+  {id:109,date:"2026-05-12", name:"Venkatesh Iyengar",   business:"",                                       type:"Individual",            ytId:"3WWQYxo1g8w", short:false, cats:["Change In Habits","Increase In Productivity"]},
+  {id:110,date:"2026-05-12", name:"Kavit Sethi",         business:"",                                       type:"Individual",            ytId:"MTWBVw4tHj0", short:false, cats:["Increase In Productivity","Increase In Time Saved","Increase In Turnover","Change In Habits"]},
+  {id:111,date:"2026-05-12", name:"Dipesh Mehta",        business:"Zaver Creations",                        type:"Manufacturing",         ytId:"omSWTbK3-fo", short:false, cats:["Increase In Turnover","Increase In Productivity"]},
+  {id:112,date:"2026-05-12", name:"Suraj Makhija",       business:"",                                       type:"Individual",            ytId:"VKsUsr2B9jE", short:false, cats:["Increase In Turnover","Increase In Productivity","Change In Habits"]},
+  {id:113,date:"2026-05-12", name:"Rupa Shah",           business:"Inq",                                    type:"Manufacturing",         ytId:"gLtygQ1Q6q8", short:false, cats:["Increase In Productivity","Change In Habits"]},
+  {id:114,date:"2026-05-12", name:"Kailash Jadhav",      business:"Arnav Enterprises",                      type:"B2B",                   ytId:"dzj5mFHdit0", short:false, cats:[]},
+  {id:115,date:"2026-05-12", name:"Jasmin Vasa",         business:"Pratham Chemical Company",               type:"Service Provider",      ytId:"ipYhFT0jHzA", short:false, cats:["Increase In Turnover","Change In Habits","Increase In Productivity","Increase In Time Saved"]},
+  {id:116,date:"2026-05-12", name:"Sameer Chedda",       business:"Prince Polylass Pvt Ltd",                type:"Service Provider",      ytId:"Z1Zsk0Nyk80", short:false, cats:["Increase In Turnover","Change In Habits","Increase In Productivity"]},
+  {id:117,date:"2026-05-12", name:"Shruti Jhaveri",      business:"3D Art Work and Installation",           type:"Professional",          ytId:"zWszloKJTJA", short:false, cats:["Increase In Productivity","Change In Habits"]},
+  {id:118,date:"2026-05-12", name:"Purvi Asher",         business:"",                                       type:"Service Provider",      ytId:"of7VqWTA3hw", short:false, cats:["Increase In Productivity","Increase In Time Saved","Change In Habits"]},
+  {id:119,date:"2026-05-19", name:"Jimit Jhaveri",       business:"Vini Diam — Diamond Dealer",             type:"B2B",                   ytId:"lJh3rJW8F9o", short:false, cats:["Increase In Productivity","Increase In Time Saved","Change In Habits"]},
+  {id:120,date:"2026-05-19", name:"Neetu Jawle",         business:"True Calling — Life Coach",              type:"Service Provider",      ytId:"E6uejLm1fgc", short:false, cats:["Increase In Productivity","Change In Habits"]},
+  {id:121,date:"2026-05-19", name:"Mayur Mundra",        business:"Nasik Metaldust Pvt Ltd",                type:"Manufacturing",         ytId:"GcsGKki7ABY", short:false, cats:["Ability To Get Work Done From Others","Increase In Time Saved"]},
+  {id:122,date:"2026-05-19", name:"Sanjay Dhurjad",      business:"Sudarshan Hospital",                     type:"Professional",          ytId:"snhzRet9J24", short:false, cats:["Increase In Productivity","Increase In Turnover"]},
+  {id:123,date:"2026-05-19", name:"Margi Patwaa",        business:"Beyond Branding",                        type:"Professional",          ytId:"i4VKz3n61y4", short:false, cats:["Increase In Productivity"]},
+  {id:124,date:"2026-05-19", name:"Parimal Devi",        business:"Co-Founder",                             type:"Individual",            ytId:"SD3x2nD8uFU", short:false, cats:["Increase In Productivity"]}
+];
+
+/* =========================================================
+   CATEGORIES & TYPES — derived
+   ========================================================= */
+const CATEGORY_ICONS = {
+  "Increase In Productivity": "📈",
+  "Increase In Turnover": "💰",
+  "Increase In Time Saved": "⏱",
+  "Change In Habits": "🔄",
+  "Time Spent On KPIs": "🎯",
+  "Ability To Get Work Done From Others": "🤝"
+};
+
+const ALL_CATEGORIES = [
+  "Increase In Productivity",
+  "Increase In Turnover",
+  "Increase In Time Saved",
+  "Change In Habits",
+  "Time Spent On KPIs",
+  "Ability To Get Work Done From Others"
+];
+
+// Get unique business types, sorted by count desc
+const TYPE_COUNTS = {};
+TESTIMONIALS.forEach(t => { if (t.type) TYPE_COUNTS[t.type] = (TYPE_COUNTS[t.type]||0) + 1; });
+const ALL_TYPES = Object.keys(TYPE_COUNTS).sort((a,b) => TYPE_COUNTS[b] - TYPE_COUNTS[a]);
+
+/* =========================================================
+   STATE
+   ========================================================= */
+const state = {
+  search: "",
+  cats: new Set(),
+  types: new Set(),
+  sort: "newest"
+};
+
+/* =========================================================
+   RENDERING
+   ========================================================= */
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+
+function ytThumb(id, short) {
+  // hqdefault works for both regular videos and shorts
+  return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+}
+
+function buildFilters() {
+  // Categories
+  const catWrap = $("#categoryFilters");
+  catWrap.innerHTML = ALL_CATEGORIES.map(cat => {
+    const count = TESTIMONIALS.filter(t => t.cats.includes(cat)).length;
+    return `<label class="filter-option">
+      <input type="checkbox" data-cat="${cat}">
+      <span>${CATEGORY_ICONS[cat] || ""} ${cat}</span>
+      <span class="count">${count}</span>
+    </label>`;
+  }).join("");
+
+  // Types
+  const typeWrap = $("#typeFilters");
+  typeWrap.innerHTML = ALL_TYPES.map(type => {
+    const count = TYPE_COUNTS[type];
+    return `<label class="filter-option">
+      <input type="checkbox" data-type="${type}">
+      <span>${type}</span>
+      <span class="count">${count}</span>
+    </label>`;
+  }).join("");
+  $("#typeCount").textContent = `0 / ${ALL_TYPES.length}`;
+
+  // bind listeners
+  catWrap.querySelectorAll("input").forEach(el => {
+    el.addEventListener("change", () => {
+      const cat = el.dataset.cat;
+      if (el.checked) state.cats.add(cat); else state.cats.delete(cat);
+      render();
+    });
+  });
+  typeWrap.querySelectorAll("input").forEach(el => {
+    el.addEventListener("change", () => {
+      const type = el.dataset.type;
+      if (el.checked) state.types.add(type); else state.types.delete(type);
+      render();
+    });
+  });
+}
+
+function applyFilters() {
+  let list = TESTIMONIALS.slice();
+
+  // Search
+  if (state.search.trim()) {
+    const q = state.search.toLowerCase().trim();
+    list = list.filter(t =>
+      t.name.toLowerCase().includes(q) ||
+      (t.business || "").toLowerCase().includes(q) ||
+      (t.type || "").toLowerCase().includes(q) ||
+      t.cats.some(c => c.toLowerCase().includes(q))
+    );
+  }
+
+  // Categories (OR within group)
+  if (state.cats.size > 0) {
+    list = list.filter(t => [...state.cats].some(c => t.cats.includes(c)));
+  }
+
+  // Types
+  if (state.types.size > 0) {
+    list = list.filter(t => state.types.has(t.type));
+  }
+
+  // Sort
+  if (state.sort === "newest") list.sort((a,b) => b.date.localeCompare(a.date) || b.id - a.id);
+  else if (state.sort === "oldest") list.sort((a,b) => a.date.localeCompare(b.date) || a.id - b.id);
+  else if (state.sort === "az") list.sort((a,b) => a.name.localeCompare(b.name));
+  else if (state.sort === "za") list.sort((a,b) => b.name.localeCompare(a.name));
+  else if (state.sort === "categories") list.sort((a,b) => b.cats.length - a.cats.length);
+
+  return list;
+}
+
+function renderChips() {
+  const wrap = $("#activeChips");
+  const chips = [];
+  if (state.search) chips.push({label: `"${state.search}"`, type: "search"});
+  state.cats.forEach(c => chips.push({label: c, type: "cat", val: c}));
+  state.types.forEach(t => chips.push({label: t, type: "type", val: t}));
+  wrap.innerHTML = chips.map(c => `<span class="chip">${c.label}<button data-chip-type="${c.type}" data-chip-val="${c.val || ''}" aria-label="Remove">×</button></span>`).join("");
+  wrap.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const t = btn.dataset.chipType;
+      const v = btn.dataset.chipVal;
+      if (t === "search") { state.search = ""; $("#searchInput").value = ""; $("#clearSearch").classList.remove("show"); }
+      else if (t === "cat") { state.cats.delete(v); }
+      else if (t === "type") { state.types.delete(v); }
+      syncCheckboxes();
+      render();
+    });
+  });
+}
+
+function syncCheckboxes() {
+  $$('[data-cat]').forEach(el => el.checked = state.cats.has(el.dataset.cat));
+  $$('[data-type]').forEach(el => el.checked = state.types.has(el.dataset.type));
+}
+
+function render() {
+  const list = applyFilters();
+
+  // counts
+  $("#visibleCount").textContent = list.length;
+  $("#totalCount").textContent = TESTIMONIALS.length;
+  $("#catCount").textContent = `${state.cats.size} / ${ALL_CATEGORIES.length}`;
+  $("#typeCount").textContent = `${state.types.size} / ${ALL_TYPES.length}`;
+
+  renderChips();
+
+  // grid
+  const grid = $("#grid");
+  const empty = $("#emptyState");
+  if (list.length === 0) {
+    grid.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+
+  grid.innerHTML = list.map(t => `
+    <article class="card" data-id="${t.id}">
+      <div class="card-thumb">
+        <img src="${ytThumb(t.ytId, t.short)}" alt="" loading="lazy">
+        <div class="play-overlay">
+          <div class="play-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <h3 class="card-name">${escapeHtml(t.name)}</h3>
+        <div class="card-business">${escapeHtml(t.business || "—")}</div>
+        <div class="card-tags">
+          ${t.type ? `<span class="tag type">${escapeHtml(t.type)}</span>` : ""}
+          ${t.cats.slice(0,3).map(c => `<span class="tag cat">${escapeHtml(c)}</span>`).join("")}
+          ${t.cats.length > 3 ? `<span class="tag cat">+${t.cats.length - 3}</span>` : ""}
+        </div>
+      </div>
+    </article>
+  `).join("");
+
+  // bind card clicks
+  grid.querySelectorAll(".card").forEach(card => {
+    card.addEventListener("click", () => openModal(parseInt(card.dataset.id)));
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
+}
+
+/* =========================================================
+   MODAL
+   ========================================================= */
+function openModal(id) {
+  const t = TESTIMONIALS.find(x => x.id === id);
+  if (!t) return;
+  const url = `https://www.youtube.com/embed/${t.ytId}?autoplay=1&rel=0`;
+  $("#modalVideo").innerHTML = `<iframe src="${url}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+  $("#modalName").textContent = t.name;
+  $("#modalBusiness").textContent = [t.business, t.type].filter(Boolean).join(" · ");
+  $("#modalTags").innerHTML = t.cats.map(c => `<span class="tag cat">${escapeHtml(c)}</span>`).join("");
+  $("#modal").classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+function closeModal() {
+  $("#modal").classList.remove("open");
+  $("#modalVideo").innerHTML = "";
+  document.body.style.overflow = "";
+}
+
+/* =========================================================
+   EVENTS
+   ========================================================= */
+function resetAll() {
+  state.search = "";
+  state.cats.clear();
+  state.types.clear();
+  state.sort = "newest";
+  $("#searchInput").value = "";
+  $("#clearSearch").classList.remove("show");
+  $("#sortSelect").value = "newest";
+  syncCheckboxes();
+  render();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  $("#statTotal").textContent = TESTIMONIALS.length;
+  buildFilters();
+  render();
+
+  $("#searchInput").addEventListener("input", (e) => {
+    state.search = e.target.value;
+    $("#clearSearch").classList.toggle("show", !!state.search);
+    render();
+  });
+  $("#clearSearch").addEventListener("click", () => {
+    state.search = "";
+    $("#searchInput").value = "";
+    $("#clearSearch").classList.remove("show");
+    render();
+  });
+  $("#sortSelect").addEventListener("change", (e) => {
+    state.sort = e.target.value;
+    render();
+  });
+  $("#clearAll").addEventListener("click", resetAll);
+  $("#modalClose").addEventListener("click", closeModal);
+  $("#modal").addEventListener("click", (e) => {
+    if (e.target.id === "modal") closeModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeModal();
+  });
+
+  // Mobile drawer
+  $("#mobileFilterBtn").addEventListener("click", () => {
+    $("#sidebar").classList.add("open");
+    $("#drawerBackdrop").classList.add("show");
+  });
+  $("#sidebarClose").addEventListener("click", () => {
+    $("#sidebar").classList.remove("open");
+    $("#drawerBackdrop").classList.remove("show");
+  });
+  $("#drawerBackdrop").addEventListener("click", () => {
+    $("#sidebar").classList.remove("open");
+    $("#drawerBackdrop").classList.remove("show");
+  });
+});
+
+// expose for inline onclick on empty state
+window.resetAll = resetAll;
+</script>
+
+</body>
+</html>
