@@ -388,6 +388,7 @@
   .card-body {
     padding: 14px 16px 16px;
     flex: 1; display: flex; flex-direction: column;
+    position: relative;
   }
   .card-name {
     font-family: 'Plus Jakarta Sans', sans-serif;
@@ -405,6 +406,7 @@
   .card-tags {
     display: flex; flex-wrap: wrap; gap: 4px;
     margin-top: auto;
+    padding-right: 42px;
   }
   .tag {
     font-size: 10.5px; font-weight: 600;
@@ -423,8 +425,116 @@
   }
 
   /* =========================================================
+     SHARE BUTTON + POPOVER + TOAST
+     ========================================================= */
+  .share-btn {
+    position: absolute;
+    bottom: 12px; right: 12px;
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    background: var(--ps-yellow-soft);
+    color: var(--ps-text);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s, transform 0.15s;
+    z-index: 2;
+    border: 1px solid var(--ps-line);
+  }
+  .share-btn:hover {
+    background: var(--ps-yellow);
+    color: var(--ps-white);
+    border-color: var(--ps-yellow);
+    transform: scale(1.05);
+  }
+  .share-btn svg { width: 16px; height: 16px; }
+
+  .share-popover {
+    position: absolute;
+    background: var(--ps-white);
+    border: 1px solid var(--ps-line);
+    border-radius: 10px;
+    box-shadow: var(--shadow-lg);
+    padding: 6px;
+    min-width: 180px;
+    z-index: 200;
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .share-popover.open { display: flex; }
+  .share-popover::before {
+    content: ""; position: absolute;
+    bottom: -6px; right: 14px;
+    width: 12px; height: 12px;
+    background: var(--ps-white);
+    border-right: 1px solid var(--ps-line);
+    border-bottom: 1px solid var(--ps-line);
+    transform: rotate(45deg);
+  }
+  .share-option {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    width: 100%;
+    text-align: left;
+    color: var(--ps-text);
+    transition: background 0.12s;
+    font-family: inherit;
+  }
+  .share-option:hover { background: var(--ps-yellow-soft); }
+  .share-option svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--ps-muted); }
+  .share-option.whatsapp svg { color: #25D366; }
+  .share-option.copy svg { color: var(--ps-yellow); }
+
+  .toast {
+    position: fixed;
+    bottom: 30px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ps-navy);
+    color: var(--ps-white);
+    padding: 12px 22px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 250;
+    box-shadow: var(--shadow-lg);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .toast svg { color: #4ADE80; }
+
+  /* Modal share row */
+  .modal-actions {
+    display: flex; gap: 8px;
+    margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  .modal-share-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    background: rgba(255,255,255,0.08);
+    color: var(--ps-white);
+    transition: background 0.15s;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .modal-share-btn:hover { background: rgba(255,255,255,0.16); }
+  .modal-share-btn.whatsapp { background: #25D366; border-color: #25D366; }
+  .modal-share-btn.whatsapp:hover { background: #1DAA50; }
+  .modal-share-btn svg { width: 14px; height: 14px; }
+
+  /* =========================================================
      EMPTY STATE
      ========================================================= */
+
   .empty {
     text-align: center; padding: 80px 20px;
     background: var(--ps-white);
@@ -589,8 +699,8 @@
     <p>Hear directly from business owners, professionals and individuals who doubled their results with Productivity Shastra — filter by your industry or the outcome you're chasing.</p>
     <div class="hero-stats">
       <div class="hero-stat"><div class="num" id="statTotal">0</div><div class="label">Success Stories</div></div>
-      <div class="hero-stat"><div class="num">200+</div><div class="label">Industries</div></div>
-      <div class="hero-stat"><div class="num">21,000+</div><div class="label">Lives Impacted</div></div>
+      <div class="hero-stat"><div class="num">160+</div><div class="label">Industries</div></div>
+      <div class="hero-stat"><div class="num">19,500+</div><div class="label">Lives Impacted</div></div>
     </div>
   </div>
 </section>
@@ -707,8 +817,44 @@
       <h3 id="modalName"></h3>
       <div class="business" id="modalBusiness"></div>
       <div class="tags" id="modalTags"></div>
+      <div class="modal-actions">
+        <button class="modal-share-btn whatsapp" data-share="whatsapp">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.464 3.488"/></svg>
+          WhatsApp
+        </button>
+        <button class="modal-share-btn" data-share="email">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Email
+        </button>
+        <button class="modal-share-btn" data-share="copy">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy Link
+        </button>
+      </div>
     </div>
   </div>
+</div>
+
+<!-- ========== SHARE POPOVER (global, repositioned per card) ========== -->
+<div class="share-popover" id="sharePopover" role="menu">
+  <button class="share-option whatsapp" data-action="whatsapp" role="menuitem">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.464 3.488"/></svg>
+    Share on WhatsApp
+  </button>
+  <button class="share-option" data-action="email" role="menuitem">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+    Share via Email
+  </button>
+  <button class="share-option copy" data-action="copy" role="menuitem">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    Copy Link
+  </button>
+</div>
+
+<!-- ========== TOAST (for copy confirmation) ========== -->
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toastMsg">Link copied!</span>
 </div>
 
 <script>
@@ -718,7 +864,7 @@
    ========================================================= */
 const TESTIMONIALS = [
   {id:1,  date:"2026-05-07", name:"Mihir Vira",          business:"GMT Drive Solutions",                    type:"B2B",                   ytId:"6URi8K2vU_c", short:false, cats:["Change In Habits","Increase In Time Saved","Increase In Productivity"]},
-  {id:2,  date:"2026-05-07", name:"Sheel Kenia",         business:"Kenarc Spaces / Kenya Consultancy",       type:"B2B/B2C",               ytId:"xO8g_BufwvI", short:false, cats:["Increase In Productivity"]},
+  {id:2,  date:"2026-05-07", name:"Sheel Kenia",         business:"Kenat Spaces / Kenya Consultancy",       type:"B2B/B2C",               ytId:"xO8g_BufwvI", short:false, cats:["Increase In Productivity"]},
   {id:3,  date:"2026-05-07", name:"Avikumar Ujawane",    business:"Furniture Making",                       type:"Manufacturing",         ytId:"Kyz7myzSCug", short:false, cats:["Increase In Turnover","Increase In Productivity","Time Spent On KPIs","Ability To Get Work Done From Others","Change In Habits","Increase In Time Saved"]},
   {id:4,  date:"2026-05-07", name:"Vidit Dedhia",        business:"Home & Kitchen Item Distributors",       type:"B2B/B2C",               ytId:"XtRhIJt0oQQ", short:false, cats:["Ability To Get Work Done From Others","Time Spent On KPIs"]},
   {id:5,  date:"2026-05-07", name:"Athish Agarwal",      business:"",                                       type:"Individual",            ytId:"dbbHZ-ZzH8Y", short:false, cats:["Change In Habits","Increase In Turnover","Increase In Productivity","Increase In Time Saved"]},
@@ -810,7 +956,7 @@ const TESTIMONIALS = [
   {id:91, date:"2026-05-12", name:"Tejas Padhye",        business:"TV Padhye Company",                      type:"Professional",          ytId:"1GI6kfrM0Ek", short:false, cats:["Increase In Time Saved","Increase In Productivity","Increase In Turnover"]},
   {id:92, date:"2026-05-12", name:"Dharmendra Seth",     business:"Chauhan Lifters / NSS Equipments India LLP", type:"Service Provider",   ytId:"TXdnOHPZbBU", short:false, cats:["Increase In Productivity"]},
   {id:93, date:"2026-05-12", name:"Payal Jain",          business:"I-Xl Technologies",                      type:"Service Provider",      ytId:"SerPXu3MWIA", short:false, cats:["Increase In Time Saved","Change In Habits","Increase In Productivity"]},
-  {id:94, date:"2026-05-12", name:"Sameer Shah",         business:"Kenarc Spaces",                           type:"B2B/B2C",               ytId:"-rqBSjW3SGo", short:false, cats:["Increase In Time Saved","Change In Habits","Increase In Productivity"]},
+  {id:94, date:"2026-05-12", name:"Sameer Shah",         business:"Kenat Spaces",                           type:"B2B/B2C",               ytId:"-rqBSjW3SGo", short:false, cats:["Increase In Time Saved","Change In Habits","Increase In Productivity"]},
   {id:95, date:"2026-05-12", name:"Meet Jain",           business:"Modern Manufacturing Co.",               type:"Manufacturing",         ytId:"Ef-vpXz_KXc", short:false, cats:["Increase In Time Saved","Ability To Get Work Done From Others","Change In Habits","Increase In Productivity","Time Spent On KPIs"]},
   {id:96, date:"2026-05-12", name:"Deepak Panda",        business:"",                                       type:"Individual",            ytId:"RgajemfSM28", short:false, cats:["Increase In Productivity","Increase In Time Saved"]},
   {id:97, date:"2026-05-12", name:"Pradeep Chabaria",    business:"",                                       type:"Individual",            ytId:"ckt1poS2B8c", short:false, cats:[]},
@@ -1029,13 +1175,28 @@ function render() {
           ${t.cats.slice(0,3).map(c => `<span class="tag cat">${escapeHtml(c)}</span>`).join("")}
           ${t.cats.length > 3 ? `<span class="tag cat">+${t.cats.length - 3}</span>` : ""}
         </div>
+        <button class="share-btn" data-share-id="${t.id}" aria-label="Share this story" title="Share">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        </button>
       </div>
     </article>
   `).join("");
 
-  // bind card clicks
+  // bind card clicks (delegated so share button can opt out)
   grid.querySelectorAll(".card").forEach(card => {
-    card.addEventListener("click", () => openModal(parseInt(card.dataset.id)));
+    card.addEventListener("click", (e) => {
+      // ignore clicks on share button or its children
+      if (e.target.closest(".share-btn")) return;
+      openModal(parseInt(card.dataset.id));
+    });
+  });
+  // bind share buttons
+  grid.querySelectorAll(".share-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const id = parseInt(btn.dataset.shareId);
+      toggleSharePopover(btn, id);
+    });
   });
 }
 
@@ -1054,13 +1215,134 @@ function openModal(id) {
   $("#modalName").textContent = t.name;
   $("#modalBusiness").textContent = [t.business, t.type].filter(Boolean).join(" · ");
   $("#modalTags").innerHTML = t.cats.map(c => `<span class="tag cat">${escapeHtml(c)}</span>`).join("");
+  $("#modal").dataset.currentId = t.id;
   $("#modal").classList.add("open");
   document.body.style.overflow = "hidden";
+  // Reflect open video in URL so the address bar can be copy-pasted
+  try {
+    const params = new URLSearchParams(window.location.search);
+    params.set("v", t.ytId);
+    history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+  } catch (e) {}
 }
 function closeModal() {
   $("#modal").classList.remove("open");
   $("#modalVideo").innerHTML = "";
+  $("#modal").dataset.currentId = "";
   document.body.style.overflow = "";
+  // Clean ?v=… from URL when modal closes
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("v")) {
+      params.delete("v");
+      const qs = params.toString();
+      history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    }
+  } catch (e) {}
+}
+
+/* =========================================================
+   SHARE — popover, deep link, native + copy fallback
+   ========================================================= */
+let activeShareId = null;
+
+function getShareUrl(ytId) {
+  // Build a clean shareable URL pointing back to this page with ?v=YT_ID
+  // Works both for the deployed WordPress page and the local file.
+  const base = window.location.origin + window.location.pathname;
+  return `${base}?v=${encodeURIComponent(ytId)}`;
+}
+
+function toggleSharePopover(btnEl, testimonialId) {
+  const popover = document.getElementById("sharePopover");
+  if (activeShareId === testimonialId && popover.classList.contains("open")) {
+    closeSharePopover();
+    return;
+  }
+  activeShareId = testimonialId;
+  // make visible first so we can measure size
+  popover.classList.add("open");
+  positionPopover(popover, btnEl);
+}
+
+function positionPopover(popover, btnEl) {
+  const btnRect = btnEl.getBoundingClientRect();
+  const popWidth = popover.offsetWidth;
+  const popHeight = popover.offsetHeight;
+  // Default: above the button, right-aligned to it
+  let top = btnRect.top + window.scrollY - popHeight - 10;
+  let left = btnRect.right + window.scrollX - popWidth;
+  // If popover would go above viewport (button near page top), flip below
+  if (top < window.scrollY + 8) {
+    top = btnRect.bottom + window.scrollY + 10;
+    popover.classList.add("flipped");
+  } else {
+    popover.classList.remove("flipped");
+  }
+  // Keep popover within left edge
+  if (left < 8) left = 8;
+  popover.style.top = `${top}px`;
+  popover.style.left = `${left}px`;
+}
+
+function closeSharePopover() {
+  document.getElementById("sharePopover").classList.remove("open");
+  activeShareId = null;
+}
+
+function doShare(action, testimonialId) {
+  const t = TESTIMONIALS.find(x => x.id === testimonialId);
+  if (!t) return;
+  const url = getShareUrl(t.ytId);
+  const title = `${t.name}${t.business ? " — " + t.business : ""}`;
+  if (action === "whatsapp") {
+    const text = `Check out this Productivity Shastra success story from ${title}:\n${url}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+  } else if (action === "email") {
+    const subject = `Productivity Shastra success story — ${t.name}`;
+    const body = `Hi,\n\nThought you'd find this useful — a real success story from ${title}:\n\n${url}\n\nBest`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  } else if (action === "copy") {
+    copyToClipboard(url).then(() => showToast("Link copied!"));
+  }
+  closeSharePopover();
+}
+
+async function copyToClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+  } catch (e) { /* fall through */ }
+  // Fallback for older / insecure contexts
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand("copy"); } catch (e) {}
+  document.body.removeChild(ta);
+}
+
+let toastTimer;
+function showToast(msg) {
+  const toast = document.getElementById("toast");
+  document.getElementById("toastMsg").textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 2200);
+}
+
+/* =========================================================
+   DEEP LINK — open a specific video from URL ?v=YT_ID
+   ========================================================= */
+function openFromUrlParam() {
+  const params = new URLSearchParams(window.location.search);
+  const v = params.get("v");
+  if (!v) return;
+  const t = TESTIMONIALS.find(x => x.ytId === v);
+  if (t) openModal(t.id);
 }
 
 /* =========================================================
@@ -1120,6 +1402,37 @@ document.addEventListener("DOMContentLoaded", () => {
     $("#sidebar").classList.remove("open");
     $("#drawerBackdrop").classList.remove("show");
   });
+
+  // Share popover — click on options
+  $("#sharePopover").addEventListener("click", (e) => {
+    const btn = e.target.closest(".share-option");
+    if (!btn) return;
+    e.stopPropagation();
+    if (activeShareId != null) doShare(btn.dataset.action, activeShareId);
+  });
+  // Close popover on click outside
+  document.addEventListener("click", (e) => {
+    if (e.target.closest(".share-popover") || e.target.closest(".share-btn")) return;
+    closeSharePopover();
+  });
+  // Close popover on Esc + scroll
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeSharePopover();
+  });
+  window.addEventListener("scroll", () => {
+    if (document.getElementById("sharePopover").classList.contains("open")) closeSharePopover();
+  }, { passive: true });
+
+  // Modal share buttons
+  document.querySelectorAll(".modal-share-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = parseInt($("#modal").dataset.currentId);
+      if (id) doShare(btn.dataset.share, id);
+    });
+  });
+
+  // Deep link: open ?v=YT_ID on load
+  openFromUrlParam();
 });
 
 // expose for inline onclick on empty state
