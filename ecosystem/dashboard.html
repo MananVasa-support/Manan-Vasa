@@ -780,20 +780,13 @@
         </div>
         <div class="sub-section">
           <div class="sub-label">Section 3 — Product Details</div>
-          <div class="field"><label class="field-label">Product Name <span class="req">*</span></label><select id="sp-product">
-              <option value="">— Select —</option>
-              <option>Business Scale Up Shastra</option>
-              <option>Business Strategy Shastra</option>
-              <option>Colloquium</option>
-              <option>Competition Shastra</option>
-              <option>Consulting</option>
-              <option>Dashboard Shastra</option>
-              <option>Emotional Intelligence Shastra</option>
-              <option>Personal Productivity Shastra</option>
-              <option>Purpose Shastra</option>
-              <option>Sales Shastra</option>
-              <option>Team Productivity Shastra</option>
-              <option>Work Life Balance Shastra</option></select><div class="field-warning" id="warn-sp-product">Required.</div></div>
+          <div class="field">
+            <label class="field-label">Product Name <span class="req">*</span></label>
+            <div class="checkbox-group" id="sp-product-group">
+              <span style="font-size:13px;color:#888;">Loading products…</span>
+            </div>
+            <div class="field-warning" id="warn-sp-product">Required.</div>
+          </div>
           <div class="field">
             <label class="field-label">Opportunity Type <span class="req">*</span></label>
             <div class="mcq-group">
@@ -910,20 +903,13 @@
         </div>
         <div class="sub-section">
           <div class="sub-label">Section 3 — Product Details</div>
-          <div class="field"><label class="field-label">Product Name <span class="req">*</span></label><select id="gi-product">
-              <option value="">— Select —</option>
-              <option>Business Scale Up Shastra</option>
-              <option>Business Strategy Shastra</option>
-              <option>Colloquium</option>
-              <option>Competition Shastra</option>
-              <option>Consulting</option>
-              <option>Dashboard Shastra</option>
-              <option>Emotional Intelligence Shastra</option>
-              <option>Personal Productivity Shastra</option>
-              <option>Purpose Shastra</option>
-              <option>Sales Shastra</option>
-              <option>Team Productivity Shastra</option>
-              <option>Work Life Balance Shastra</option></select><div class="field-warning" id="warn-gi-product">Required.</div></div>
+          <div class="field">
+            <label class="field-label">Product Name <span class="req">*</span></label>
+            <div class="checkbox-group" id="gi-product-group">
+              <span style="font-size:13px;color:#888;">Loading products…</span>
+            </div>
+            <div class="field-warning" id="warn-gi-product">Required.</div>
+          </div>
           <div class="field"><label class="field-label">Tentative Date <span class="req">*</span></label><input type="date" id="gi-tdate"/><div class="field-warning" id="warn-gi-tdate">Required.</div></div>
           <div class="field"><label class="field-label">Approx People <span class="req">*</span></label><input type="number" id="gi-people" placeholder="e.g. 50" min="1"/><div class="field-warning" id="warn-gi-people">Required.</div></div>
           <div class="field" style="margin-bottom:0"><label class="field-label">Notes</label><textarea id="gi-notes" placeholder="Add notes..."></textarea></div>
@@ -994,12 +980,7 @@
         <div class="field">
           <label class="field-label">Product Name <span class="req">*</span></label>
           <div class="checkbox-group" id="wa-product-group">
-            <label class="checkbox-opt"><input type="checkbox" name="wa-product" value="Business Scale Up Shastra"/><span>Business Scale Up Shastra</span></label>
-            <label class="checkbox-opt"><input type="checkbox" name="wa-product" value="Collaboration"/><span>Collaboration</span></label>
-            <label class="checkbox-opt"><input type="checkbox" name="wa-product" value="Consulting"/><span>Consulting</span></label>
-            <label class="checkbox-opt"><input type="checkbox" name="wa-product" value="Key Note"/><span>Key Note</span></label>
-            <label class="checkbox-opt"><input type="checkbox" name="wa-product" value="Productivity Shastra"/><span>Productivity Shastra</span></label>
-            <label class="checkbox-opt"><input type="checkbox" name="wa-product" value="Others"/><span>Others</span></label>
+            <span style="font-size:13px;color:#888;">Loading products…</span>
           </div>
           <div class="field-warning" id="warn-wa-product">Required.</div>
         </div>
@@ -1438,6 +1419,10 @@
       const salesOthers = uniqueSales.filter(n => n.trim().toLowerCase() !== 'manan vasa').sort((a,b) => a.localeCompare(b));
       const salesPeople = [...salesManan, ...salesOthers];
 
+      // -------- Column D (D2:D): product list (NEW) --------
+      const productsRaw = dataRows.map(r => r[3]).filter(n => n && n.length > 0);
+      const products = [...new Set(productsRaw)].sort((a,b) => a.localeCompare(b));
+
       function fillSelect(id, nameList, placeholder) {
         const sel = document.getElementById(id);
         if (!sel) return;
@@ -1465,6 +1450,22 @@
         group.appendChild(noneLabel);
       }
 
+      function fillProductCheckboxes(groupId, productList, inputName) {
+        const group = document.getElementById(groupId);
+        if (!group) return;
+        group.innerHTML = '';
+        if (!productList.length) {
+          group.innerHTML = '<span style="font-size:13px;color:#888;">No products found in sheet (column D).</span>';
+          return;
+        }
+        productList.forEach(name => {
+          const label = document.createElement('label');
+          label.className = 'checkbox-opt';
+          label.innerHTML = `<input type="checkbox" name="${inputName}" value="${name}"/><span>${name}</span>`;
+          group.appendChild(label);
+        });
+      }
+
       window.allDoerNames = sortedAll;
 
       // Column-A dropdowns (unchanged)
@@ -1488,6 +1489,11 @@
       // Column-B dropdown (NEW)
       fillSelect('wa-salesperson', salesPeople, '— Select —');
 
+      // Column-D Product Name checkbox groups (NEW)
+      fillProductCheckboxes('sp-product-group', products, 'sp-product');
+      fillProductCheckboxes('gi-product-group', products, 'gi-product');
+      fillProductCheckboxes('wa-product-group', products, 'wa-product');
+
     } catch (err) {
       console.error('Failed to load names from sheet:', err);
       ['f-name','aw-initiator','aw-doer','wa-salesperson','ap-initiator','ap-supervisor'].forEach(id => {
@@ -1496,6 +1502,10 @@
       });
       const group = document.getElementById('ap-intern-group');
       if (group) group.innerHTML = '<span style="font-size:13px;color:#e50000;">Could not load names. Check sheet.</span>';
+      ['sp-product-group','gi-product-group','wa-product-group'].forEach(gid => {
+        const g = document.getElementById(gid);
+        if (g) g.innerHTML = '<span style="font-size:13px;color:#e50000;">Could not load products. Check sheet.</span>';
+      });
     }
   }
    loadNamesFromSheet();
@@ -1576,7 +1586,8 @@
         if (!gv('bss-conv-select')) { mi('bss-conv-select','warn-bss-conv'); ok=false; }
       }
       if (inc === 'sales-pitch') {
-        ['sp-ifn','sp-iln','sp-workshop','sp-batch','sp-pfn','sp-pln','sp-org','sp-cell','sp-email','sp-product'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
+        ['sp-ifn','sp-iln','sp-workshop','sp-batch','sp-pfn','sp-pln','sp-org','sp-cell','sp-email'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
+        if (!gcb('sp-product')) { document.getElementById('warn-sp-product').classList.add('show'); ok=false; }
         if (!gr('sp-opp')) { document.getElementById('warn-sp-opp').classList.add('show'); ok=false; }
       }
       if (inc === 'client-happiness') {
@@ -1584,7 +1595,8 @@
         ['ch-fn','ch-ln','ch-workshop','ch-batch','ch-quality','ch-gyaan'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
       }
       if (inc === 'group-intro') {
-        ['gi-ifn','gi-iln','gi-workshop','gi-batch','gi-pfn','gi-pln','gi-inst','gi-cell','gi-email','gi-product','gi-tdate','gi-people'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
+        ['gi-ifn','gi-iln','gi-workshop','gi-batch','gi-pfn','gi-pln','gi-inst','gi-cell','gi-email','gi-tdate','gi-people'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
+        if (!gcb('gi-product')) { document.getElementById('warn-gi-product').classList.add('show'); ok=false; }
         if (!gr('gi-evt')) { document.getElementById('warn-gi-evt').classList.add('show'); ok=false; }
       }
     }
@@ -1706,9 +1718,9 @@
       if (subj==='incentive') {
         params['Incentive Name'] = {'bss':'BSS Conversion','sales-pitch':'Sales Pitch','client-happiness':'Client Happiness','group-intro':'Group Introduction'}[inc] || inc;
         if (inc==='bss') Object.assign(params,{'Participant First Name':gv('bss-fn'),'Participant Last Name':gv('bss-ln'),'Workshop Name':gv('bss-workshop'),'Batch No':gv('bss-batch'),'BSS Conversion':gv('bss-conv-select'),'Prospect First Name':gv('bss-pfn'),'Prospect Last Name':gv('bss-pln'),'Cell No':gv('bss-pcell'),'Email':gv('bss-pemail'),'Organisation':gv('bss-porg')});
-        if (inc==='sales-pitch') Object.assign(params,{'Introducer First Name':gv('sp-ifn'),'Introducer Last Name':gv('sp-iln'),'Workshop Name':gv('sp-workshop'),'Batch No':gv('sp-batch'),'Prospect First Name':gv('sp-pfn'),'Prospect Last Name':gv('sp-pln'),'Organisation Name':gv('sp-org'),'Cell No':gv('sp-cell'),'Email':gv('sp-email'),'Product Name':gv('sp-product'),'Opportunity Type':gr('sp-opp'),'Notes':gv('sp-notes')});
+        if (inc==='sales-pitch') Object.assign(params,{'Introducer First Name':gv('sp-ifn'),'Introducer Last Name':gv('sp-iln'),'Workshop Name':gv('sp-workshop'),'Batch No':gv('sp-batch'),'Prospect First Name':gv('sp-pfn'),'Prospect Last Name':gv('sp-pln'),'Organisation Name':gv('sp-org'),'Cell No':gv('sp-cell'),'Email':gv('sp-email'),'Product Name':gcb('sp-product'),'Opportunity Type':gr('sp-opp'),'Notes':gv('sp-notes')});
         if (inc==='client-happiness') Object.assign(params,{'Happiness Type':gr('ch-type'),'Participant First Name':gv('ch-fn'),'Participant Last Name':gv('ch-ln'),'Workshop Name':gv('ch-workshop'),'Batch No':gv('ch-batch'),'Link':gv('ch-link'),'Content Quality':gv('ch-quality'),'No Gyan Only Gain Said':gv('ch-gyaan'),'Notes':gv('ch-notes')});
-        if (inc==='group-intro') Object.assign(params,{'Introducer First Name':gv('gi-ifn'),'Introducer Last Name':gv('gi-iln'),'Workshop Name':gv('gi-workshop'),'Batch No':gv('gi-batch'),'Prospect First Name':gv('gi-pfn'),'Prospect Last Name':gv('gi-pln'),'Event Type':gr('gi-evt'),'Institution/Group Name':gv('gi-inst'),'Cell No':gv('gi-cell'),'Email':gv('gi-email'),'Product Name':gv('gi-product'),'Tentative Date':gv('gi-tdate'),'Approx People':gv('gi-people'),'Notes':gv('gi-notes')});
+        if (inc==='group-intro') Object.assign(params,{'Introducer First Name':gv('gi-ifn'),'Introducer Last Name':gv('gi-iln'),'Workshop Name':gv('gi-workshop'),'Batch No':gv('gi-batch'),'Prospect First Name':gv('gi-pfn'),'Prospect Last Name':gv('gi-pln'),'Event Type':gr('gi-evt'),'Institution/Group Name':gv('gi-inst'),'Cell No':gv('gi-cell'),'Email':gv('gi-email'),'Product Name':gcb('gi-product'),'Tentative Date':gv('gi-tdate'),'Approx People':gv('gi-people'),'Notes':gv('gi-notes')});
       }
       if (subj==='record-ref') Object.assign(params,{'Participant First Name':gv('wa-fn'),'Participant Last Name':gv('wa-ln'),'Contact Number':gv('wa-phone'),'Email ID':gv('wa-email'),'Date of Lead Generation':gv('wa-date'),'Lead Source Primary':gv('wa-lead-primary'),'Lead Source Secondary':gv('wa-lead-secondary'),'Introducer First Name':gv('wa-intro-fn'),'Introducer Last Name':gv('wa-intro-ln'),'Rating':gv('wa-rating'),'Product Name':gcb('wa-product'),'Salesperson':gv('wa-salesperson'),'PS Reference Whatsapp Group Remarks':gv('wa-remarks')});      if (subj==='breakthrough') Object.assign(params,{'Participant First Name':gv('bp-fn'),'Participant Last Name':gv('bp-ln'),'Workshop Name':gv('bp-workshop'),'Batch No':gv('bp-batch'),'Screenshot/Link':gv('bp-link'),'Content Quality':gv('bp-quality'),'Consultant Notes':gv('bp-notes'),'Approval From Client':gv('bp-approval')});
       if (subj==='leave') Object.assign(params,{'Leave Category':gv('lv-cat'),'Leave Start Date':gv('lv-start'),'Leave End Date':gv('lv-end'),'Half Day/Full Day':gv('lv-daytype'),'Leave Description':gv('lv-desc'),'Avail Leave Credit':gv('lv-credit'),'Available on Phone':gv('lv-phone'),'Carrying Phone':gv('lv-carrphone'),'Carrying Laptop':gv('lv-laptop')});
