@@ -24,11 +24,18 @@ const nameField = z
   .transform(normalizeName)
   .pipe(z.string().min(1, "Name is required").max(120));
 
+/** A set of department IDs a person belongs to (many-to-many). */
+const departmentIdsField = z.array(z.string().uuid()).default([]);
+/** Which of the chosen departments is the primary one (mirrored to the
+ *  legacy single-department columns). Null = no primary / no departments. */
+const primaryDepartmentIdField = z.string().uuid().nullable().optional();
+
 export const InviteEmployeeSchema = z.object({
   name:        nameField,
   email:       z.string().trim().toLowerCase().email("Invalid email"),
   role:        z.enum(["doer", "initiator", "both"]),
-  department:  z.string().trim().max(60).optional().nullable(),
+  departmentIds:        departmentIdsField,
+  primaryDepartmentId:  primaryDepartmentIdField,
   isAdmin:     z.boolean().default(false),
 });
 
@@ -50,7 +57,11 @@ export const EditEmployeeSchema = z
       .pipe(z.string().min(1, "Name is required").max(80))
       .optional(),
     role:       z.enum(["doer", "initiator", "both"]).optional(),
-    department: z.string().trim().max(80).optional().nullable(),
+    // Department membership patch: when `departmentIds` is supplied the
+    // whole membership set is replaced.  `primaryDepartmentId` marks which
+    // one mirrors to the legacy single-department columns.
+    departmentIds:        z.array(z.string().uuid()).optional(),
+    primaryDepartmentId:  z.string().uuid().nullable().optional(),
     isAdmin:    z.boolean().optional(),
     // M4 — multi-channel admin controls.  `whatsappPhone` must be valid
     // E.164 (or empty/null to clear); the other three are simple booleans.

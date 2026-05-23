@@ -2,6 +2,7 @@ import { and, eq, gte, inArray, lt, desc } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db, employees, tasks } from "@/lib/db";
 import { TASK_STATUSES, TASK_PRIORITIES } from "@/db/enums";
+import { employeeIdsInDepartments } from "@/lib/queries/departments";
 import type { TaskListFilters, TaskListRow } from "@/lib/types";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -21,11 +22,9 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
   if (filters.taskId)                conditions.push(eq(tasks.id, filters.taskId));
 
   if (filters.departments.length > 0) {
-    const empIds = await db
-      .select({ id: employees.id })
-      .from(employees)
-      .where(inArray(employees.department, filters.departments));
-    const ids = empIds.map((e) => e.id);
+    // Match tasks whose doer belongs to ANY selected department, via the
+    // membership join table (not just their primary department).
+    const ids = await employeeIdsInDepartments(filters.departments);
     if (ids.length === 0) return [];
     conditions.push(inArray(tasks.doerId, ids));
   }
@@ -138,11 +137,9 @@ export async function listTasksForExport(
   if (filters.taskId)                conditions.push(eq(tasks.id, filters.taskId));
 
   if (filters.departments.length > 0) {
-    const empIds = await db
-      .select({ id: employees.id })
-      .from(employees)
-      .where(inArray(employees.department, filters.departments));
-    const ids = empIds.map((e) => e.id);
+    // Match tasks whose doer belongs to ANY selected department, via the
+    // membership join table (not just their primary department).
+    const ids = await employeeIdsInDepartments(filters.departments);
     if (ids.length === 0) return [];
     conditions.push(inArray(tasks.doerId, ids));
   }

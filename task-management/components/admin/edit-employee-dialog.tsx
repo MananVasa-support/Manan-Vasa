@@ -4,8 +4,18 @@ import { useEffect, useState, useTransition } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { fireToast } from "@/lib/toast";
 import { editEmployee } from "@/app/(admin)/admin/employees/actions";
+import {
+  DepartmentMultiSelect,
+  type DepartmentOption,
+} from "@/components/admin/department-multi-select";
 
 type Role = "doer" | "initiator" | "both";
+
+export interface EmployeeDepartmentMembership {
+  id: string;
+  name: string;
+  isPrimary: boolean;
+}
 
 export interface EditEmployeeDialogProps {
   open: boolean;
@@ -15,13 +25,20 @@ export interface EditEmployeeDialogProps {
     name: string;
     email: string;
     role: Role;
-    department: string | null;
+    departments: EmployeeDepartmentMembership[];
     isAdmin: boolean;
     whatsappPhone: string | null;
     whatsappOptedIn: boolean;
   };
   isSelf: boolean;
-  departmentOptions: string[];
+  departmentOptions: DepartmentOption[];
+}
+
+/** Compare two id lists as sets (order-independent). */
+function sameSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const sb = new Set(b);
+  return a.every((x) => sb.has(x));
 }
 
 export function EditEmployeeDialog({
@@ -31,9 +48,16 @@ export function EditEmployeeDialog({
   isSelf,
   departmentOptions,
 }: EditEmployeeDialogProps) {
+  const initialDeptIds = employee.departments.map((d) => d.id);
+  const initialPrimaryId =
+    employee.departments.find((d) => d.isPrimary)?.id ??
+    employee.departments[0]?.id ??
+    null;
+
   const [name, setName]         = useState(employee.name);
   const [role, setRole]         = useState<Role>(employee.role);
-  const [department, setDept]   = useState(employee.department ?? "");
+  const [deptIds, setDeptIds]   = useState<string[]>(initialDeptIds);
+  const [primaryId, setPrimaryId] = useState<string | null>(initialPrimaryId);
   const [isAdmin, setIsAdmin]   = useState(employee.isAdmin);
   const [waPhone, setWaPhone]   = useState(employee.whatsappPhone ?? "");
   const [waOptIn, setWaOptIn]   = useState(employee.whatsappOptedIn);
@@ -46,18 +70,24 @@ export function EditEmployeeDialog({
     if (open) {
       setName(employee.name);
       setRole(employee.role);
-      setDept(employee.department ?? "");
+      setDeptIds(employee.departments.map((d) => d.id));
+      setPrimaryId(
+        employee.departments.find((d) => d.isPrimary)?.id ??
+          employee.departments[0]?.id ??
+          null,
+      );
       setIsAdmin(employee.isAdmin);
       setWaPhone(employee.whatsappPhone ?? "");
       setWaOptIn(employee.whatsappOptedIn);
       setError(null);
     }
+    // employee.departments is a fresh array per render; key on id only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     open,
     employee.id,
     employee.name,
     employee.role,
-    employee.department,
     employee.isAdmin,
     employee.whatsappPhone,
     employee.whatsappOptedIn,
@@ -71,21 +101,21 @@ export function EditEmployeeDialog({
     const patch: {
       name?: string;
       role?: Role;
-      department?: string | null;
+      departmentIds?: string[];
+      primaryDepartmentId?: string | null;
       isAdmin?: boolean;
       whatsappPhone?: string | null;
       whatsappOptedIn?: boolean;
     } = {};
     const trimmedName = name.trim();
-    const trimmedDept = department.trim();
-    const currentDept = employee.department ?? "";
     const trimmedWaPhone = waPhone.trim();
     const currentWaPhone = employee.whatsappPhone ?? "";
 
     if (trimmedName !== employee.name) patch.name = trimmedName;
     if (role !== employee.role) patch.role = role;
-    if (trimmedDept !== currentDept) {
-      patch.department = trimmedDept === "" ? null : trimmedDept;
+    if (!sameSet(deptIds, initialDeptIds) || primaryId !== initialPrimaryId) {
+      patch.departmentIds = deptIds;
+      patch.primaryDepartmentId = primaryId;
     }
     if (isAdmin !== employee.isAdmin) patch.isAdmin = isAdmin;
     if (trimmedWaPhone !== currentWaPhone) {
@@ -143,31 +173,16 @@ export function EditEmployeeDialog({
                 <option value="both">Both</option>
               </select>
             </Field>
-            <Field label="Department (optional)">
-              {departmentOptions.length > 0 ? (
-                <>
-                  <input
-                    value={department}
-                    onChange={(e) => setDept(e.target.value)}
-                    list="edit-departments-datalist"
-                    maxLength={80}
-                    placeholder="Type or pick from the list"
-                    className="w-full rounded-md border border-[#CBD5E1] px-3.5 py-2.5 text-[15px]"
-                  />
-                  <datalist id="edit-departments-datalist">
-                    {departmentOptions.map((d) => (
-                      <option key={d} value={d} />
-                    ))}
-                  </datalist>
-                </>
-              ) : (
-                <input
-                  value={department}
-                  onChange={(e) => setDept(e.target.value)}
-                  maxLength={80}
-                  className="w-full rounded-md border border-[#CBD5E1] px-3.5 py-2.5 text-[15px]"
-                />
-              )}
+            <Field label="Departments (optional)">
+              <DepartmentMultiSelect
+                options={departmentOptions}
+                selectedIds={deptIds}
+                primaryId={primaryId}
+                onChange={(ids, primary) => {
+                  setDeptIds(ids);
+                  setPrimaryId(primary);
+                }}
+              />
             </Field>
             <Field label="WhatsApp phone (E.164, optional)">
               <input

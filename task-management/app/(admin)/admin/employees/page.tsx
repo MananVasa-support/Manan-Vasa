@@ -3,17 +3,27 @@ import { Download } from "lucide-react";
 import { db } from "@/lib/db";
 import { employees } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/current";
-import { listActiveDepartments } from "@/lib/queries/departments";
+import {
+  listActiveDepartments,
+  getEmployeeDepartmentMap,
+} from "@/lib/queries/departments";
 import { EmployeeList } from "@/components/admin/employee-list";
 import { InviteEmployeeDialog } from "@/components/admin/invite-employee-dialog";
+import type { EmployeeDepartmentMembership } from "@/components/admin/edit-employee-dialog";
 
 export default async function EmployeesPage() {
   const me = await requireAdmin();
-  const [all, activeDepartments] = await Promise.all([
+  const [all, activeDepartments, departmentMap] = await Promise.all([
     db.select().from(employees).orderBy(desc(employees.createdAt)),
     listActiveDepartments(),
+    getEmployeeDepartmentMap(),
   ]);
-  const departmentNames = activeDepartments.map((d) => d.name);
+  const departmentOptions = activeDepartments.map((d) => ({
+    id: d.id,
+    name: d.name,
+  }));
+  const membershipsByEmployee: Record<string, EmployeeDepartmentMembership[]> =
+    Object.fromEntries(departmentMap);
   const activeCount = all.filter((e) => e.isActive).length;
   const invitedCount = all.filter((e) => e.isActive && !e.joinedAt).length;
 
@@ -53,13 +63,14 @@ export default async function EmployeesPage() {
             <Download size={14} strokeWidth={2.2} />
             Export CSV
           </a>
-          <InviteEmployeeDialog departmentOptions={departmentNames} />
+          <InviteEmployeeDialog departmentOptions={departmentOptions} />
         </div>
       </header>
       <EmployeeList
         employees={all}
+        membershipsByEmployee={membershipsByEmployee}
         currentEmployeeId={me.id}
-        departmentOptions={departmentNames}
+        departmentOptions={departmentOptions}
       />
     </div>
   );

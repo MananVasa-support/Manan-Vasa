@@ -1,14 +1,49 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Crown, Search } from "lucide-react";
+import { Crown, Search, Star } from "lucide-react";
 import type { Employee } from "@/db/schema";
 import { EmployeeRowActions } from "@/components/admin/employee-row-actions";
+import type { EmployeeDepartmentMembership } from "@/components/admin/edit-employee-dialog";
+import type { DepartmentOption } from "@/components/admin/department-multi-select";
 
 interface Props {
   employees: Employee[];
+  /** employeeId → the departments they belong to (primary flagged). */
+  membershipsByEmployee: Record<string, EmployeeDepartmentMembership[]>;
   currentEmployeeId: string;
-  departmentOptions: string[];
+  departmentOptions: DepartmentOption[];
+}
+
+function DepartmentCell({
+  memberships,
+}: {
+  memberships: EmployeeDepartmentMembership[];
+}) {
+  if (memberships.length === 0) {
+    return <span className="text-ink-subtle">—</span>;
+  }
+  const ordered = [...memberships].sort(
+    (a, b) => Number(b.isPrimary) - Number(a.isPrimary) || a.name.localeCompare(b.name),
+  );
+  return (
+    <span className="inline-flex flex-wrap gap-1.5">
+      {ordered.map((m) => (
+        <span
+          key={m.id}
+          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold ring-1 ring-inset"
+          style={{
+            background: m.isPrimary ? "#FEF2F2" : "#F1F5F9",
+            color: m.isPrimary ? "#A80400" : "#334155",
+            boxShadow: `inset 0 0 0 1px ${m.isPrimary ? "#FECACA" : "#CBD5E1"}`,
+          }}
+        >
+          {m.isPrimary && <Star size={11} strokeWidth={2.4} fill="#A80400" />}
+          {m.name}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 const ROLE_CHIP: Record<
@@ -110,6 +145,7 @@ function StatusPill({
 
 export function EmployeeList({
   employees,
+  membershipsByEmployee,
   currentEmployeeId,
   departmentOptions,
 }: Props) {
@@ -118,13 +154,18 @@ export function EmployeeList({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return employees;
-    return employees.filter(
-      (e) =>
+    return employees.filter((e) => {
+      const deptNames = (membershipsByEmployee[e.id] ?? [])
+        .map((m) => m.name)
+        .join(" ")
+        .toLowerCase();
+      return (
         e.name.toLowerCase().includes(q) ||
         e.email.toLowerCase().includes(q) ||
-        (e.department ?? "").toLowerCase().includes(q),
-    );
-  }, [employees, query]);
+        deptNames.includes(q)
+      );
+    });
+  }, [employees, membershipsByEmployee, query]);
 
   if (employees.length === 0) {
     return (
@@ -223,8 +264,10 @@ export function EmployeeList({
                   <td className="px-5 py-4">
                     <RoleChip role={e.role} />
                   </td>
-                  <td className="px-5 py-4 text-ink-soft max-w-[20ch] truncate" title={e.department ?? ""}>
-                    {e.department ?? "—"}
+                  <td className="px-5 py-4 text-ink-soft">
+                    <DepartmentCell
+                      memberships={membershipsByEmployee[e.id] ?? []}
+                    />
                   </td>
                   <td className="px-5 py-4">
                     <AdminCell isAdmin={e.isAdmin} />
@@ -239,7 +282,7 @@ export function EmployeeList({
                         name: e.name,
                         email: e.email,
                         role: e.role,
-                        department: e.department,
+                        departments: membershipsByEmployee[e.id] ?? [],
                         isAdmin: e.isAdmin,
                         isActive: e.isActive,
                         joinedAt: e.joinedAt,

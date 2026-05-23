@@ -5,6 +5,7 @@ import { TaskDetailView } from "@/components/tasks/task-detail-view";
 import { getTaskById } from "@/lib/queries/tasks";
 import { listTaskEvents } from "@/lib/queries/audit";
 import { listEmployees } from "@/lib/queries/employees";
+import { listActiveClientNames } from "@/lib/queries/clients";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
 import { requireUser } from "@/lib/auth/current";
 import type { TaskStatus, StatusColorToken } from "@/db/enums";
@@ -29,10 +30,11 @@ export default async function TaskDetailPage({ params }: PageProps) {
   const task = await getTaskById(id);
   if (!task) notFound();
 
-  const [events, all, statusDisplay] = await Promise.all([
+  const [events, all, statusDisplay, clients] = await Promise.all([
     listTaskEvents(id),
     listEmployees(),
     getStatusDisplayMap(),
+    listActiveClientNames(),
   ]);
   const employeeOptions = all.map((e) => ({ id: e.id, name: e.name }));
   const statusLabels = Object.fromEntries(
@@ -74,6 +76,7 @@ export default async function TaskDetailPage({ params }: PageProps) {
           canCommentOnTask={canComment(permInput)}
           events={events}
           employees={employeeOptions}
+          clients={clients}
           me={{
             id: me.id,
             name: me.name,

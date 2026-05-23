@@ -8,6 +8,7 @@ import {
   boolean,
   jsonb,
   integer,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import {
@@ -85,6 +86,60 @@ export const departments = pgTable(
       .defaultNow(),
   },
   (t) => [index("departments_active_sort_idx").on(t.isActive, t.sortOrder, t.name)],
+);
+
+/**
+ * Many-to-many membership: one person can belong to several departments.
+ * Source of truth for department membership.  The `is_primary` row mirrors
+ * the legacy single-department columns on `employees` (department / department_id)
+ * — exactly one membership per employee should carry is_primary = true, and
+ * that one feeds every single-label reader (task rows, CSV, status table).
+ */
+export const employeeDepartments = pgTable(
+  "employee_departments",
+  {
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    departmentId: uuid("department_id")
+      .notNull()
+      .references(() => departments.id, { onDelete: "cascade" }),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.employeeId, t.departmentId] }),
+    index("employee_departments_department_idx").on(t.departmentId),
+    index("employee_departments_employee_idx").on(t.employeeId),
+  ],
+);
+
+/**
+ * Client list — backs the "Client Name" picker on the task forms.  Mirrors
+ * the `departments` pattern: an admin/seed-managed canonical list that the
+ * New Task / Edit Task dropdowns read from.  Unlike departments, ANY
+ * authenticated user can append a new client inline ("+ Add new client…")
+ * while creating a task, so the insert RLS policy is open to all
+ * authenticated users (see migration 0022).  We never hard-delete; flip
+ * `is_active` to hide a client from the picker.
+ */
+export const clients = pgTable(
+  "clients",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull().unique(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("clients_active_name_idx").on(t.isActive, t.name)],
 );
 
 // M5.1 — admin-managed display overrides for the 9 task statuses. PK is the
@@ -410,6 +465,10 @@ export type OrgSettings = typeof orgSettings.$inferSelect;
 export type NewOrgSettings = typeof orgSettings.$inferInsert;
 export type Department = typeof departments.$inferSelect;
 export type NewDepartment = typeof departments.$inferInsert;
+export type EmployeeDepartment = typeof employeeDepartments.$inferSelect;
+export type NewEmployeeDepartment = typeof employeeDepartments.$inferInsert;
+export type Client = typeof clients.$inferSelect;
+export type NewClient = typeof clients.$inferInsert;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type NewPushSubscription = typeof pushSubscriptions.$inferInsert;
 export type EmployeeEvent = typeof employeeEvents.$inferSelect;

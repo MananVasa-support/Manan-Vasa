@@ -16,6 +16,10 @@ import {
 import { AGE_BUCKETS, PENDING_STATUSES } from "@/db/enums";
 import type { TaskStatus } from "@/db/enums";
 import type { AgingHeatmapData } from "@/lib/types";
+import {
+  employeeIdsInDepartments,
+  getEmployeeDepartmentMap,
+} from "@/lib/queries/departments";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -36,11 +40,9 @@ export async function loadDashboardData(
     conditions.push(inArray(idCol, filters.employeeIds));
   }
   if (filters.departments.length > 0) {
-    const empIds = await db
-      .select({ id: employees.id })
-      .from(employees)
-      .where(inArray(employees.department, filters.departments));
-    const ids = empIds.map((e) => e.id);
+    // Match doers who belong to ANY selected department via the membership
+    // join table (not just their primary department).
+    const ids = await employeeIdsInDepartments(filters.departments);
     if (ids.length === 0) {
       // no matching employees → no matching tasks
       conditions.push(inArray(tasks.doerId, ["00000000-0000-0000-0000-000000000000"]));
@@ -58,7 +60,7 @@ export async function loadDashboardData(
   const fourteenAgo = new Date(Date.now() - 14 * MS_PER_DAY);
   const ninetyAgo = new Date(Date.now() - 90 * MS_PER_DAY);
 
-  const [allEmployees, periodTasks, wideTasks, velocityTasks] =
+  const [allEmployees, periodTasks, wideTasks, velocityTasks, departmentMap] =
     await Promise.all([
       db.select().from(employees),
       db
@@ -67,6 +69,7 @@ export async function loadDashboardData(
         .where(and(...conditions)),
       db.select().from(tasks).where(gte(tasks.createdAt, fourteenAgo)),
       db.select().from(tasks).where(gte(tasks.createdAt, ninetyAgo)),
+      getEmployeeDepartmentMap(),
     ]);
 
   const now = new Date();
@@ -183,6 +186,7 @@ export async function loadDashboardData(
       periodTasks,
       allEmployees,
       filters.view,
+      departmentMap,
     ),
     statusDistribution: {
       rows: computeStatusDistribution(periodTasks).filter((r) => r.status !== "approved"),

@@ -14,11 +14,14 @@ import {
 import { createTask } from "@/app/(app)/tasks/actions";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { ScheduleSection, type ScheduleValue } from "./schedule-section";
+import { ClientSelect } from "./client-select";
 
 type EmployeeOption = { id: string; name: string };
 
 interface Props {
   employees: EmployeeOption[];
+  /** Client roster for the "Client Name" picker, alphabetical. */
+  clients: string[];
   /** Called after a successful create. Default: navigate to /tasks/[id]. */
   onSuccess?: (taskId: string) => void;
   /** Optional defaults for the form (used by the canonical route). */
@@ -41,7 +44,7 @@ interface PreviewFile {
   url: string;
 }
 
-export function NewTaskForm({ employees, onSuccess, defaults }: Props) {
+export function NewTaskForm({ employees, clients, onSuccess, defaults }: Props) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
 
@@ -205,15 +208,13 @@ export function NewTaskForm({ employees, onSuccess, defaults }: Props) {
     <form onSubmit={onSubmit} className="flex flex-col gap-6">
       {/* Client Name — full width hero field (was: Title) */}
       <Field id="nt-title" label="Client Name" required>
-        <input
+        <ClientSelect
           id="nt-title"
-          type="text"
           required
-          maxLength={240}
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={setTitle}
+          clients={clients}
           className="nt-input"
-          placeholder="e.g. John Doe · ABC Loans Pvt. Ltd."
         />
       </Field>
 

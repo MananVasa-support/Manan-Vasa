@@ -20,9 +20,12 @@ import {
 } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
 import { ScheduleSection, type ScheduleValue } from "./schedule-section";
+import { ClientSelect } from "./client-select";
 
 interface Props {
   taskId: string;
+  /** Client roster for the "Client Name" picker, alphabetical. */
+  clients: string[];
   initial: {
     title: string;
     description: string | null;
@@ -107,6 +110,7 @@ function FieldShell({
 
 export function TaskEditForm({
   taskId,
+  clients,
   initial,
   expectedUpdatedAt,
   isAdmin,
@@ -272,13 +276,12 @@ export function TaskEditForm({
         setFocused={setFTitle}
       >
         {(p) => (
-          <input
+          <ClientSelect
             id="te-title"
-            type="text"
             required
-            maxLength={240}
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={setTitle}
+            clients={clients}
             className={inputClass}
             {...p}
           />

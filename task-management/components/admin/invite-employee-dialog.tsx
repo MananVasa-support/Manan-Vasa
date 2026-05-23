@@ -4,9 +4,13 @@ import { useState, useTransition } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { inviteEmployee } from "@/app/(admin)/admin/employees/actions";
 import { fireToast } from "@/lib/toast";
+import {
+  DepartmentMultiSelect,
+  type DepartmentOption,
+} from "@/components/admin/department-multi-select";
 
 interface InviteEmployeeDialogProps {
-  departmentOptions: string[];
+  departmentOptions: DepartmentOption[];
 }
 
 export function InviteEmployeeDialog({
@@ -16,13 +20,16 @@ export function InviteEmployeeDialog({
   const [name, setName]       = useState("");
   const [email, setEmail]     = useState("");
   const [role, setRole]       = useState<"doer" | "initiator" | "both">("doer");
-  const [department, setDept] = useState("");
+  const [deptIds, setDeptIds] = useState<string[]>([]);
+  const [primaryId, setPrimaryId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function reset() {
-    setName(""); setEmail(""); setRole("doer"); setDept(""); setIsAdmin(false); setError(null);
+    setName(""); setEmail(""); setRole("doer");
+    setDeptIds([]); setPrimaryId(null);
+    setIsAdmin(false); setError(null);
   }
 
   function onSubmit(e: React.FormEvent) {
@@ -33,7 +40,8 @@ export function InviteEmployeeDialog({
         name,
         email,
         role,
-        department: department || null,
+        departmentIds: deptIds,
+        primaryDepartmentId: primaryId,
         isAdmin,
       });
       if (!res.ok) {
@@ -104,30 +112,16 @@ export function InviteEmployeeDialog({
                 <option value="both">Both</option>
               </select>
             </Field>
-            <Field label="Department (optional)">
-              {departmentOptions.length > 0 ? (
-                <>
-                  <input
-                    value={department}
-                    onChange={(e) => setDept(e.target.value)}
-                    list="invite-departments-datalist"
-                    placeholder="Type or pick from the list"
-                    className="w-full rounded-md border border-[#CBD5E1] px-3.5 py-2.5 text-[15px]"
-                  />
-                  <datalist id="invite-departments-datalist">
-                    {departmentOptions.map((d) => (
-                      <option key={d} value={d} />
-                    ))}
-                  </datalist>
-                </>
-              ) : (
-                <input
-                  value={department}
-                  onChange={(e) => setDept(e.target.value)}
-                  placeholder="Create departments in /admin/departments to pick from a list"
-                  className="w-full rounded-md border border-[#CBD5E1] px-3.5 py-2.5 text-[15px]"
-                />
-              )}
+            <Field label="Departments (optional)">
+              <DepartmentMultiSelect
+                options={departmentOptions}
+                selectedIds={deptIds}
+                primaryId={primaryId}
+                onChange={(ids, primary) => {
+                  setDeptIds(ids);
+                  setPrimaryId(primary);
+                }}
+              />
             </Field>
             <label className="flex items-center gap-2.5 text-[15px] text-[#334155]">
               <input

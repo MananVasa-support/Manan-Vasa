@@ -22,7 +22,7 @@ export async function syncDepartmentsFromEmployees(): Promise<{
   inserted: { id: string; name: string }[];
   linked: number;
 }> {
-  // Pass 1 — seed the 8 canonical departments from `db/enums.ts` so the
+  // Pass 1 — seed the canonical departments from `db/enums.ts` so the
   // /admin/departments panel matches the dashboard filter bar (which reads
   // the enum directly). Idempotent: `onConflictDoNothing` preserves any
   // admin deactivation or rename.
@@ -68,6 +68,18 @@ export async function syncDepartmentsFromEmployees(): Promise<{
   const linked =
     (linkResult as unknown as { count?: number }).count ??
     (Array.isArray(linkResult) ? linkResult.length : 0);
+
+  // Pass 3 — backfill primary memberships into the join table for any
+  // employee linked to a department but missing a membership row. Mirrors
+  // the 0023 migration's backfill so dev DBs seeded via scripts get
+  // multi-department membership too.
+  await db.execute(sql`
+    insert into employee_departments (employee_id, department_id, is_primary)
+      select id, department_id, true
+      from employees
+      where department_id is not null
+    on conflict (employee_id, department_id) do nothing
+  `);
 
   return { inserted, linked };
 }

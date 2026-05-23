@@ -30,7 +30,8 @@ import {
   SetRevisedTargetDateSchema,
   type SetRevisedTargetDateInput,
 } from "@/lib/validators/task";
-import { taskEvents } from "@/db/schema";
+import { taskEvents, clients } from "@/db/schema";
+import { CreateClientSchema } from "@/lib/validators/client";
 import { requireUser } from "@/lib/auth/current";
 import {
   canEditTaskFields,
@@ -439,6 +440,57 @@ export async function createTask(input: CreateTaskInput): Promise<
   revalidateTaskRoutes();
   // `id` kept as a string for backward compat with single-doer callers.
   return { ok: true, id: createdIds[0]!, ids: createdIds };
+}
+
+/**
+ * Appends a new client to the shared roster, used by the "+ Add new
+ * client…" affordance on the task forms. Any authenticated user may add
+ * one (see migration 0022 RLS). Case-insensitive dedupe: if the name
+ * already exists we return the canonical stored spelling instead of
+ * erroring, so the picker can just select it.
+ */
+export async function quickAddClient(
+  rawName: string,
+): Promise<{ ok: true; name: string } | { ok: false; error: string }> {
+  await requireUser();
+
+  const parsed = CreateClientSchema.safeParse({ name: rawName });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid name" };
+  }
+  const name = parsed.data.name;
+
+  const existing = await db
+    .select({ name: clients.name })
+    .from(clients)
+    .where(sql`lower(${clients.name}) = lower(${name})`)
+    .limit(1);
+  if (existing[0]) {
+    return { ok: true, name: existing[0].name };
+  }
+
+  try {
+    const [row] = await db
+      .insert(clients)
+      .values({ name })
+      .returning({ name: clients.name });
+    if (!row) return { ok: false, error: "Insert returned no row" };
+    revalidateTaskRoutes();
+    revalidatePath("/tasks/new");
+    return { ok: true, name: row.name };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Lost a race to a concurrent insert — fetch the winner and return it.
+    if (msg.includes("clients_name_unique")) {
+      const [winner] = await db
+        .select({ name: clients.name })
+        .from(clients)
+        .where(sql`lower(${clients.name}) = lower(${name})`)
+        .limit(1);
+      if (winner) return { ok: true, name: winner.name };
+    }
+    return { ok: false, error: `DB: ${msg}` };
+  }
 }
 
 /**

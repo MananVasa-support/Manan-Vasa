@@ -133,14 +133,17 @@ export const PRIORITY_LABELS: Record<TaskPriority, string> = {
 };
 
 export const DEPARTMENTS = [
-  "Marketing",
+  "Founder Office",
+  "Handholding",
+  "Apps",
   "Sales",
-  "Hand Holding",
-  "Consulting",
+  "Marketing",
+  "Social Media",
   "Accounts",
   "Admin",
   "HR",
-  "Apps",
+  "Consulting",
+  "CRM",
 ] as const;
 export type Department = (typeof DEPARTMENTS)[number];
 

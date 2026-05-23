@@ -10,13 +10,15 @@ import { NewTaskForm } from "./new-task-form";
 
 interface Props {
   employees: { id: string; name: string }[];
+  /** Client roster for the "Client Name" picker. */
+  clients: string[];
   /** Optional defaults — usually pre-fill initiator = current user. */
   defaultInitiatorId?: string;
 }
 
 const HINT_STORAGE_KEY = "vp_seen_new_task_hint";
 
-export function NewTaskDialog({ employees, defaultInitiatorId }: Props) {
+export function NewTaskDialog({ employees, clients, defaultInitiatorId }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -310,6 +312,7 @@ export function NewTaskDialog({ employees, defaultInitiatorId }: Props) {
           >
             <NewTaskForm
               employees={employees}
+              clients={clients}
               onSuccess={onSuccess}
               defaults={{ initiatorId: defaultInitiatorId }}
             />

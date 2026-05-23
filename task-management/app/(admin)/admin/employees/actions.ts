@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, or, sql } from "drizzle-orm";
+import { eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   departments,
+  employeeDepartments,
   employeeEvents,
   employees,
   notifications,
@@ -76,23 +77,59 @@ function translateFirebaseAdminError(err: unknown): string | null {
 }
 
 /**
- * Look up a department row by name (case-insensitive, trimmed). Returns
- * the row if found, or null if the input is empty / unmatched. Used by
- * employee invite/edit actions to keep `employees.department_id` in
- * sync with the legacy `employees.department` text column.
+ * Resolve a set of department IDs to the valid {id,name} rows that exist,
+ * and pick the primary one.  The primary defaults to the first valid id
+ * when the requested primary is missing or not part of the set.  Unknown
+ * ids are silently dropped.
  */
-async function resolveDepartmentByName(
-  raw: string | null | undefined,
-): Promise<{ id: string; name: string } | null> {
-  if (raw === null || raw === undefined) return null;
-  const trimmed = raw.trim();
-  if (trimmed === "") return null;
-  const [row] = await db
+async function resolveDepartmentSelection(
+  departmentIds: string[],
+  primaryDepartmentId: string | null | undefined,
+): Promise<{
+  rows: { id: string; name: string }[];
+  primaryId: string | null;
+  primaryName: string | null;
+}> {
+  const unique = [...new Set(departmentIds)];
+  if (unique.length === 0) {
+    return { rows: [], primaryId: null, primaryName: null };
+  }
+  const rows = await db
     .select({ id: departments.id, name: departments.name })
     .from(departments)
-    .where(sql`lower(${departments.name}) = lower(${trimmed})`)
-    .limit(1);
-  return row ?? null;
+    .where(inArray(departments.id, unique));
+
+  const validIds = new Set(rows.map((r) => r.id));
+  const primaryId =
+    primaryDepartmentId && validIds.has(primaryDepartmentId)
+      ? primaryDepartmentId
+      : (rows[0]?.id ?? null);
+  const primaryName = rows.find((r) => r.id === primaryId)?.name ?? null;
+  return { rows, primaryId, primaryName };
+}
+
+/**
+ * Replace an employee's department memberships with `rows`, flagging
+ * `primaryId` as primary.  Wipe-and-reinsert keeps the logic trivial — the
+ * roster is tiny and edits are rare.
+ */
+async function writeMemberships(
+  employeeId: string,
+  rows: { id: string }[],
+  primaryId: string | null,
+): Promise<void> {
+  await db
+    .delete(employeeDepartments)
+    .where(eq(employeeDepartments.employeeId, employeeId));
+  if (rows.length > 0) {
+    await db.insert(employeeDepartments).values(
+      rows.map((r) => ({
+        employeeId,
+        departmentId: r.id,
+        isPrimary: r.id === primaryId,
+      })),
+    );
+  }
 }
 
 export async function inviteEmployee(input: InviteEmployeeInput): Promise<{
@@ -150,14 +187,12 @@ export async function inviteEmployee(input: InviteEmployeeInput): Promise<{
     );
   }
 
-  // Resolve the matching department FK (case-insensitive) so the new
-  // canonical column stays in lock-step with the legacy text column.
-  const matchedDept = await resolveDepartmentByName(parsed.department);
-  const departmentText = matchedDept
-    ? matchedDept.name
-    : parsed.department && parsed.department.trim() !== ""
-      ? parsed.department.trim()
-      : null;
+  // Resolve the chosen departments + primary so the legacy single-department
+  // columns stay in lock-step with the membership join table.
+  const selection = await resolveDepartmentSelection(
+    parsed.departmentIds,
+    parsed.primaryDepartmentId,
+  );
 
   // 3. Insert employees row
   let inserted;
@@ -166,8 +201,8 @@ export async function inviteEmployee(input: InviteEmployeeInput): Promise<{
       name:         parsed.name,
       email:        parsed.email,
       role:         parsed.role,
-      department:   departmentText,
-      departmentId: matchedDept?.id ?? null,
+      department:   selection.primaryName,
+      departmentId: selection.primaryId,
       isAdmin:      parsed.isAdmin,
       firebaseUid:  fbUid,
       invitedAt:    new Date(),
@@ -180,6 +215,15 @@ export async function inviteEmployee(input: InviteEmployeeInput): Promise<{
   if (!inserted) {
     await auth.deleteUser(fbUid).catch(() => {});
     return { ok: false, error: "DB: insert returned no row" };
+  }
+
+  // 3b. Record department memberships (many-to-many). Non-fatal: the
+  // primary department is already on the employees row, so a failure here
+  // only loses secondary memberships, which an admin can re-add.
+  try {
+    await writeMemberships(inserted.id, selection.rows, selection.primaryId);
+  } catch (err) {
+    console.error("[inviteEmployee] writeMemberships failed", err);
   }
 
   // 4. Generate the password-reset (invite) link and email it. We DON'T
@@ -262,19 +306,20 @@ export async function editEmployee(
   const patch: Partial<typeof employees.$inferInsert> = {};
   if (parsed.data.name !== undefined) patch.name = parsed.data.name;
   if (parsed.data.role !== undefined) patch.role = parsed.data.role;
-  if (parsed.data.department !== undefined) {
-    // Treat empty string as null for the nullable column.  Resolve to
-    // a department FK if the name matches; otherwise keep the text but
-    // clear the FK so we don't keep a stale id.
-    const d = parsed.data.department;
-    if (d === null || d === "" || d === undefined) {
-      patch.department = null;
-      patch.departmentId = null;
-    } else {
-      const matched = await resolveDepartmentByName(d);
-      patch.department = matched ? matched.name : d.trim();
-      patch.departmentId = matched?.id ?? null;
-    }
+
+  // Department membership: when `departmentIds` is supplied we replace the
+  // whole set and mirror the primary into the legacy single-department
+  // columns.  Resolved here; written to the join table after the row update.
+  let departmentSelection:
+    | Awaited<ReturnType<typeof resolveDepartmentSelection>>
+    | null = null;
+  if (parsed.data.departmentIds !== undefined) {
+    departmentSelection = await resolveDepartmentSelection(
+      parsed.data.departmentIds,
+      parsed.data.primaryDepartmentId,
+    );
+    patch.department = departmentSelection.primaryName;
+    patch.departmentId = departmentSelection.primaryId;
   }
   if (parsed.data.isAdmin !== undefined) patch.isAdmin = parsed.data.isAdmin;
 
@@ -302,6 +347,19 @@ export async function editEmployee(
     await db.update(employees).set(patch).where(eq(employees.id, emp.id));
   } catch (err: any) {
     return { ok: false, error: `DB: ${err.message ?? err}` };
+  }
+
+  // Replace department memberships when the patch touched them.
+  if (departmentSelection !== null) {
+    try {
+      await writeMemberships(
+        emp.id,
+        departmentSelection.rows,
+        departmentSelection.primaryId,
+      );
+    } catch (err) {
+      console.error("[editEmployee] writeMemberships failed", err);
+    }
   }
 
   // NOTE: we deliberately do NOT touch Firebase custom claims when isAdmin

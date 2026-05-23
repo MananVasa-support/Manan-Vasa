@@ -29,7 +29,11 @@ import {
   getInviteLink,
   type EmployeeDeletionImpact,
 } from "@/app/(admin)/admin/employees/actions";
-import { EditEmployeeDialog } from "@/components/admin/edit-employee-dialog";
+import {
+  EditEmployeeDialog,
+  type EmployeeDepartmentMembership,
+} from "@/components/admin/edit-employee-dialog";
+import type { DepartmentOption } from "@/components/admin/department-multi-select";
 
 type Role = "doer" | "initiator" | "both";
 
@@ -38,7 +42,7 @@ type RowEmployee = {
   name: string;
   email: string;
   role: Role;
-  department: string | null;
+  departments: EmployeeDepartmentMembership[];
   isAdmin: boolean;
   isActive: boolean;
   joinedAt: Date | null;
@@ -49,7 +53,7 @@ type RowEmployee = {
 interface Props {
   employee: RowEmployee;
   isSelf: boolean;
-  departmentOptions: string[];
+  departmentOptions: DepartmentOption[];
 }
 
 type ConfirmKind = "deactivate" | "reactivate" | null;
@@ -240,7 +244,7 @@ export function EmployeeRowActions({
           name: employee.name,
           email: employee.email,
           role: employee.role,
-          department: employee.department,
+          departments: employee.departments,
           isAdmin: employee.isAdmin,
           whatsappPhone: employee.whatsappPhone,
           whatsappOptedIn: employee.whatsappOptedIn,

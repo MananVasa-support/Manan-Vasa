@@ -40,6 +40,8 @@ interface Props {
   canCommentOnTask: boolean;
   events: AuditFeedRow[];
   employees: { id: string; name: string }[];
+  /** Client roster for the Edit Task "Client Name" picker. */
+  clients: string[];
   /** Current user — drives the comment composer avatar.  Optional so the
    *  page route can defer fetching it; falls back to "You". */
   me?: {
@@ -185,6 +187,7 @@ export function TaskDetailView({
   canCommentOnTask,
   events,
   employees,
+  clients,
   me,
   statusLabels,
   statusTones,
@@ -321,6 +324,7 @@ export function TaskDetailView({
                 </div>
                 <TaskEditForm
                   taskId={task.id}
+                  clients={clients}
                   initial={{
                     title: task.title,
                     description: task.description,
