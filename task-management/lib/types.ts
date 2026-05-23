@@ -1,0 +1,169 @@
+import type { TaskStatus, AgeBucketId, Department } from "@/db/enums";
+
+export type ViewMode = "doer" | "initiator";
+
+export type EisenhowerPriority =
+  | "imp_urgent"
+  | "imp_not_urgent"
+  | "not_imp_urgent"
+  | "not_imp_not_urgent";
+
+export interface DashboardFilters {
+  startDate: Date | null;
+  endDate: Date | null;
+  employeeIds: string[];
+  view: ViewMode;
+  departments: Department[];
+  priorities: EisenhowerPriority[];
+  subjects: string[];
+}
+
+export interface KpiTotals {
+  total: number;
+  pending: number;     // initiated + follow_up only
+  notStarted: number;
+  needHelp: number;
+  done: number;        // done + approved
+  notApproved: number;
+}
+
+export interface KpiWithDelta {
+  current: number;
+  previous: number;
+  sparkline: number[];
+}
+
+export interface KpiSet {
+  total: KpiWithDelta;
+  pending: KpiWithDelta;
+  notStarted: KpiWithDelta;
+  needHelp: KpiWithDelta;
+  done: KpiWithDelta;
+  notApproved: KpiWithDelta;
+}
+
+export interface StatusDistributionPayload {
+  rows: StatusDistribution[];
+  denominator: number; // total − approved
+}
+
+export interface StatusDistribution {
+  status: TaskStatus;
+  count: number;
+}
+
+export interface VelocityPoint {
+  date: string;
+  created: number;
+  completed: number;
+}
+
+export interface EmployeeStatusRow {
+  employeeId: string;
+  employeeName: string;
+  department: string;
+  approved: number;
+  notApproved: number;
+  done: number;
+  transferred: number;
+  cancelled: number;
+  pendingTotal: number;
+  needHelp: number;
+  followUp: number;
+  initiated: number;
+  notStarted: number;
+  total: number;
+  /** tasks with priority = imp_urgent */
+  criticalCount: number;
+}
+
+export interface TopPerformer {
+  employeeId: string;
+  employeeName: string;
+  doneCount: number;
+  weeklySparkline: number[];
+}
+
+export interface AgingRow {
+  employeeId: string;
+  employeeName: string;
+  buckets: Record<AgeBucketId, number>;
+  total: number;
+}
+
+export interface AgingHeatmapCell {
+  employeeId: string;
+  bucket: AgeBucketId;
+  count: number;
+}
+
+export interface AgingByDate {
+  bucket: AgeBucketId;
+  count: number;
+}
+
+export interface HeatmapCellTask {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  priority: EisenhowerPriority;
+  ageDays: number;
+}
+
+export interface AgingHeatmapData {
+  // employeeId -> bucketId -> HeatmapCellTask[]
+  byCell: Record<string, Record<string, HeatmapCellTask[]>>;
+}
+
+export interface DashboardData {
+  kpis: KpiSet;
+  pullQuote: string;
+  velocity: VelocityPoint[];
+  statusTable: EmployeeStatusRow[];
+  statusDistribution: StatusDistributionPayload;
+  topPerformers: TopPerformer[];
+  agingTable: AgingRow[];
+  agingHeatmap: AgingHeatmapCell[];
+  agingByDate: AgingByDate[];
+  agingHeatmapData: AgingHeatmapData;
+  generatedAt: Date;
+}
+
+export interface TaskListFilters {
+  startDate: Date | null;
+  endDate: Date | null;
+  statuses: TaskStatus[];
+  doerIds: string[];
+  initiatorIds: string[];
+  departments: Department[];
+  priorities: EisenhowerPriority[];
+  subjects: string[];
+  taskId: string | null;
+  archived: boolean;
+  /** How the assignee filter was resolved.
+   *  - "default":  no `emp` URL param + a defaultDoerId was supplied (non-admin
+   *                default-to-me scope). `doerIds` will be `[defaultDoerId]`.
+   *  - "all":      either `emp` was absent for an admin, or `emp=all` was
+   *                explicitly set. `doerIds` is `[]`.
+   *  - "specific": `emp=<one-or-more-ids>` was explicitly set. */
+  assigneeMode: "default" | "all" | "specific";
+}
+
+export interface TaskListRow {
+  id: string;
+  title: string;
+  subject: string | null;
+  status: TaskStatus;
+  priority: EisenhowerPriority;
+  doerId: string;
+  doerName: string | null;
+  doerDept: string | null;
+  initiatorId: string;
+  initiatorName: string | null;
+  createdAt: Date;
+  dueAt: Date;
+  ageDays: number;
+  archived: boolean;
+  createdById: string | null;
+  updatedAt: Date;
+}

@@ -1,0 +1,381 @@
+import "server-only";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import {
+  employees,
+  notifications,
+  tasks,
+  type NotificationKind,
+} from "@/db/schema";
+import { sendNotificationEmail } from "@/lib/email/resend";
+import { getRecipientChannelPrefs } from "@/lib/notifications/channel-prefs";
+import { sendSlackDM } from "@/lib/slack/dispatch";
+import { sendWhatsApp } from "@/lib/whatsapp/dispatch";
+import { sendWebPushToUser } from "@/lib/web-push/client";
+import { getNotificationMatrix } from "@/lib/queries/notification-matrix";
+import { resolveChannels } from "@/lib/notifications/resolve-channels";
+import { getStatusDisplayMap } from "@/lib/queries/status-display";
+import type { TaskStatus } from "@/db/enums";
+
+// Pulls `toStatus` out of the row.body JSON meta written by Server
+// Actions for status_changed notifications. Returns undefined when the
+// body is missing/non-JSON or doesn't carry a toStatus field.
+function extractToStatus(body: string | null | undefined): TaskStatus | undefined {
+  if (!body) return undefined;
+  const trimmed = body.trim();
+  if (!trimmed.startsWith("{")) return undefined;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed && typeof parsed === "object" && typeof parsed.toStatus === "string") {
+      return parsed.toStatus as TaskStatus;
+    }
+  } catch {
+    // not JSON — caller's fault if they handed us a free-text body for a
+    // status_changed kind. Fall through to undefined.
+  }
+  return undefined;
+}
+
+/**
+ * M2.3 -> M4 — server-side fan-out from a Server Action mutation to the
+ * in-app notification row + every channel the recipient has opted into.
+ *
+ * Contract (post-M4):
+ *   - `notify()` inserts a notification row first.  This is the only
+ *     thing that ever blocks the calling action's tx.
+ *   - It then loads the recipient's per-channel opt-in flags and fans
+ *     four arms in parallel under `Promise.allSettled`:
+ *         email · slack · whatsapp · web_push
+ *     Each arm internally returns "sent" | "skip" | { error }.  We
+ *     translate fulfilled+"sent" into the channel's name in the
+ *     `delivered_channels` text[] on the row.
+ *   - Channel failures NEVER bubble to the caller and NEVER roll the
+ *     row back.  The row is the source of truth — channels are best
+ *     effort.
+ *   - For backwards compatibility with M2.3 readers that check
+ *     `email_sent_at`, we also stamp `email_sent_at = now()` when the
+ *     email arm succeeds.  New code should rely on
+ *     `delivered_channels` instead.
+ *
+ * If the row already wrote a `task_events` audit row, pass its id as
+ * `eventId` so the notification can deep-link to it in future UI.
+ */
+
+export interface NotifyOpts {
+  userId: string;
+  kind: NotificationKind;
+  title: string;
+  body?: string | null | undefined;
+  taskId?: string | null | undefined;
+  eventId?: string | null | undefined;
+  actorId?: string | null | undefined;
+  /**
+   * M5.1 — bypass the admin's notification_matrix and force a specific
+   * channel subset. Used by /admin/settings → Integrations "Send test"
+   * buttons so an admin can verify one channel without flipping the
+   * org-wide config.
+   */
+  forceChannels?: ReadonlyArray<"email" | "slack" | "whatsapp" | "push">;
+}
+
+type ChannelOutcome = "sent" | "skip" | { error: string };
+
+/**
+ * Wraps a sender call so any rejection is translated to a fulfilled
+ * `{ error }` outcome.  This lets `Promise.allSettled` treat the
+ * dispatch as fully best-effort (no "rejected" branches to inspect).
+ */
+async function safeSend(
+  fn: () => Promise<ChannelOutcome>,
+): Promise<ChannelOutcome> {
+  try {
+    return await fn();
+  } catch (err) {
+    return { error: (err as Error).message ?? String(err) };
+  }
+}
+
+export async function notify(opts: NotifyOpts): Promise<void> {
+  const [row] = await db
+    .insert(notifications)
+    .values({
+      userId: opts.userId,
+      kind: opts.kind,
+      title: opts.title,
+      body: opts.body ?? null,
+      taskId: opts.taskId ?? null,
+      eventId: opts.eventId ?? null,
+      actorId: opts.actorId ?? null,
+    })
+    .returning({
+      id: notifications.id,
+      userId: notifications.userId,
+      taskId: notifications.taskId,
+      kind: notifications.kind,
+      title: notifications.title,
+      body: notifications.body,
+    });
+
+  if (!row) return;
+
+  // Recipient prefs.  If the recipient was deleted between when the
+  // action looked them up and now, just stamp delivered_channels = []
+  // and bail.
+  const prefs = await getRecipientChannelPrefs(row.userId);
+  if (!prefs) {
+    try {
+      await db
+        .update(notifications)
+        .set({ deliveredChannels: [] })
+        .where(eq(notifications.id, row.id));
+    } catch {
+      // Even the stamp failure is non-fatal: the row exists, the
+      // recipient just won't see any channel marks.
+    }
+    return;
+  }
+
+  // M4 Commit 3a — outbound channels (slack/whatsapp/web_push) want the
+  // task's human subject + short-id so their templates can render
+  // `*Subject* … View task →` with a deep link.  We look the task up
+  // once here so all three arms (email reuses title/body already) share
+  // the same projection.  When `taskId` is null (overdue digest etc.)
+  // we leave the fields empty and let the templates fall back to the
+  // notification title.
+  const task = row.taskId
+    ? await db.query.tasks.findFirst({
+        where: eq(tasks.id, row.taskId),
+        columns: { id: true, title: true, subject: true, shortId: true },
+      })
+    : null;
+
+  const actorName = opts.actorId
+    ? (
+        await db.query.employees.findFirst({
+          where: eq(employees.id, opts.actorId),
+          columns: { name: true },
+        })
+      )?.name ?? ""
+    : "";
+
+  // M5.1 — for status_changed kinds, resolve the admin-configured label
+  // for `toStatus` so Slack + WhatsApp templates surface renames. The
+  // status display map is React-cached, so this is one DB call per RSC
+  // tick even when many notifications fire.
+  let statusLabel: string | undefined;
+  if (row.kind === "status_changed") {
+    const toStatus = extractToStatus(row.body);
+    if (toStatus) {
+      const display = await getStatusDisplayMap();
+      statusLabel = display[toStatus]?.label;
+    }
+  }
+
+  const outboundCtx = {
+    kind: row.kind as NotificationKind,
+    actorName,
+    taskSubject: (task?.subject ?? task?.title ?? row.title) || "",
+    body: row.body ?? undefined,
+    shortId: task?.shortId ?? "",
+    statusLabel,
+  };
+
+  // M5.1 — admin-configured per-event channel routing. opts.forceChannels
+  // wins (used by /admin/settings Integrations "send test"); otherwise we
+  // resolve via the org_settings.notification_matrix JSONB. Missing entries
+  // fall back to all 4 channels (resolveChannels handles that). The matrix
+  // uses the user-friendly name "push"; we map it to the historical arm
+  // name "web_push" below so delivered_channels keeps its existing shape.
+  const allowedChannels = new Set<string>(
+    opts.forceChannels
+      ? opts.forceChannels
+      : resolveChannels(row.kind as NotificationKind, await getNotificationMatrix()),
+  );
+  const allowed = (matrixName: "email" | "slack" | "whatsapp" | "push") =>
+    allowedChannels.has(matrixName);
+
+  // Four-arm fan-out.  Each entry is `[channelName, runner]`.  The
+  // runner returns "sent" | "skip" | { error }.  When the user is
+  // opted-out (or required contact info is missing), we synthesize
+  // "skip" without ever invoking the channel sender.
+  const arms: Array<
+    [string, () => Promise<ChannelOutcome>]
+  > = [
+    [
+      "email",
+      async () => {
+        if (!allowed("email")) return "skip";
+        if (!prefs.emailOptIn) return "skip";
+        // `sendNotificationEmail` is void-on-success / throws-on-failure.
+        // Treat a successful resolve as "sent".  `safeSend` catches
+        // thrown errors and converts them to `{ error }`.
+        await sendNotificationEmail({
+          id: row.id,
+          userId: row.userId,
+          kind: row.kind as NotificationKind,
+          title: row.title,
+          body: row.body,
+          taskId: row.taskId,
+        });
+        return "sent";
+      },
+    ],
+    [
+      "slack",
+      async () => {
+        if (!allowed("slack")) return "skip";
+        if (!prefs.slackOptIn) return "skip";
+        return sendSlackDM(prefs, outboundCtx);
+      },
+    ],
+    [
+      "whatsapp",
+      async () => {
+        if (!allowed("whatsapp")) return "skip";
+        if (!prefs.whatsappOptedIn || !prefs.whatsappPhone) return "skip";
+        return sendWhatsApp(prefs, outboundCtx);
+      },
+    ],
+    [
+      "web_push",
+      async () => {
+        if (!allowed("push")) return "skip";
+        return sendWebPushToUser(row.userId, row.kind as NotificationKind, {
+          actorName: outboundCtx.actorName,
+          taskSubject: outboundCtx.taskSubject,
+          body: outboundCtx.body,
+          shortId: outboundCtx.shortId,
+          taskId: row.taskId ?? "",
+        });
+      },
+    ],
+  ];
+
+  const results = await Promise.allSettled(
+    arms.map(async ([, runner]) => safeSend(runner)),
+  );
+
+  const delivered: string[] = [];
+  let emailSent = false;
+  for (let i = 0; i < arms.length; i++) {
+    const armEntry = arms[i];
+    const settled = results[i];
+    if (!armEntry || !settled) continue;
+    const name = armEntry[0];
+    if (settled.status !== "fulfilled") continue;
+    if (settled.value !== "sent") continue;
+    delivered.push(name);
+    if (name === "email") emailSent = true;
+  }
+
+  // Stamp delivered_channels + (for soft compatibility) email_sent_at.
+  // Swallow update errors — the row itself is the source of truth and
+  // a missed audit stamp must not crash the calling action.
+  try {
+    const patch: { deliveredChannels: string[]; emailSentAt?: Date } = {
+      deliveredChannels: delivered,
+    };
+    if (emailSent) patch.emailSentAt = new Date();
+    await db
+      .update(notifications)
+      .set(patch)
+      .where(eq(notifications.id, row.id));
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * The shape of a task that the dispatch logic needs to resolve
+ * recipients.  Kept tiny on purpose so callers can pass either the
+ * full `Task` row or a minimal projection.
+ */
+export interface TaskRecipientShape {
+  id: string;
+  createdById: string | null;
+  initiatorId: string;
+  doerId: string;
+}
+
+export interface NotifyManyOpts {
+  /** The actor who triggered the mutation — they're EXCLUDED from the fan-out. */
+  actorId: string;
+  kind: NotificationKind;
+  /** Shared title for every recipient.  Keep ≤ ~60 chars. */
+  title: string;
+  body?: string | null | undefined;
+  eventId?: string | null | undefined;
+  /**
+   * Override the recipient set.  If omitted, falls back to
+   * "creator + initiator + doer" minus the actor.  Pass an empty array
+   * to skip the fan-out entirely (e.g. for actions where you want
+   * to call `notify()` directly with bespoke titles).
+   */
+  recipients?: ReadonlyArray<string | null | undefined> | undefined;
+}
+
+/**
+ * Loads the task by id, computes the recipient set, and dispatches a
+ * notification per recipient.  Caller must have already mutated the
+ * task; we only ever READ it here.
+ */
+export async function notifyManyForTask(
+  taskId: string,
+  opts: NotifyManyOpts,
+): Promise<void> {
+  let task: TaskRecipientShape | undefined;
+  if (opts.recipients === undefined) {
+    const row = await db.query.tasks.findFirst({
+      where: eq(tasks.id, taskId),
+      columns: {
+        id: true,
+        createdById: true,
+        initiatorId: true,
+        doerId: true,
+      },
+    });
+    if (!row) return;
+    task = row;
+  }
+
+  const candidates: ReadonlyArray<string | null | undefined> =
+    opts.recipients ??
+    (task
+      ? [task.createdById, task.initiatorId, task.doerId]
+      : []);
+
+  const recipients = dedupeRecipients(candidates, opts.actorId);
+
+  for (const userId of recipients) {
+    await notify({
+      userId,
+      kind: opts.kind,
+      title: opts.title,
+      body: opts.body ?? null,
+      taskId,
+      eventId: opts.eventId ?? null,
+      actorId: opts.actorId,
+    });
+  }
+}
+
+/**
+ * Remove duplicates, nulls/undefineds, and the actor themselves.  The
+ * actor exclusion is mandatory — Manan explicitly does not want users
+ * notifying themselves about their own actions.
+ */
+export function dedupeRecipients(
+  ids: ReadonlyArray<string | null | undefined>,
+  actorId: string,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of ids) {
+    if (!id) continue;
+    if (id === actorId) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
