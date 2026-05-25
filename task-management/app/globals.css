@@ -32,6 +32,12 @@
   --color-red:     #E10600;  --color-red-deep:    #A80400;  --color-red-bg:    #fef2f2;
   --color-rose:    #f43f5e;  --color-rose-deep:   #be123c;  --color-rose-bg:   #fff1f2;
   --color-purple:  #a855f7;  --color-purple-deep: #7c3aed;  --color-purple-bg: #faf5ff;
+  /* extended tones (Manan status palette): yellow, orange, slate=dark grey, brown */
+  --color-yellow:  #eab308;  --color-yellow-deep: #a16207;  --color-yellow-bg: #fefce8;
+  --color-orange:  #f97316;  --color-orange-deep: #c2410c;  --color-orange-bg: #fff7ed;
+  --color-slate:   #64748b;  --color-slate-deep:  #334155;  --color-slate-bg:  #f1f5f9;
+  --color-brown:   #92724e;  --color-brown-deep:  #6b4a2b;  --color-brown-bg:  #f6f1ea;
+  --color-stone:   #9ca3af;  --color-stone-deep:  #6b7280;  --color-stone-bg:  #f9fafb;
 
   /* main-nav pills */
   --color-nav-pill-bg:        rgba(255, 255, 255, 0.06);
@@ -874,8 +880,9 @@
   color: rgb(var(--vp-cyan-deep));
   font-size: 16px;
   font-weight: 800;
-  padding: 12px 20px;
+  padding: 14px 22px;
   letter-spacing: 0.005em;
+  gap: 9px;
 }
 .header-light .nav-pill:hover {
   background: rgba(225, 6, 0, 0.16);
@@ -901,6 +908,23 @@
 .header-light .nav-pill-active .nav-pill-count {
   background: rgba(255, 255, 255, 0.26);
   color: #ffffff;
+}
+
+/* Mobile drawer — render the primary nav as a full labelled vertical list.
+   The header shows it icon-only at mobile widths (labels carry max-md:hidden);
+   inside the drawer there's room, so un-hide the labels + counts and stack
+   the pills. Scoped to .mobile-menu-body so the desktop header is untouched. */
+.mobile-menu-body nav[aria-label="Primary"] {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.mobile-menu-body nav[aria-label="Primary"] .nav-pill {
+  justify-content: flex-start;
+  font-size: 15px;
+}
+.mobile-menu-body nav[aria-label="Primary"] .nav-pill > span:not(.nav-pill-badge) {
+  display: inline-flex !important;
 }
 
 /* react-day-picker theme overrides — match Light Vibrant palette */

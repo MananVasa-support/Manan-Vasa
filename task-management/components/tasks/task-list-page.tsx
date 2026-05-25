@@ -1,3 +1,6 @@
+import Link from "next/link";
+import type { Route } from "next";
+import { LayoutGrid } from "lucide-react";
 import { TaskTable } from "./task-table";
 import type { TaskListRow } from "@/lib/types";
 import {
@@ -48,26 +51,35 @@ export function TaskListPage({
 
   return (
     <main className="mx-auto max-w-[1600px] px-12 max-md:px-4 pt-8 pb-16">
-      <header className="mb-7">
-        <h1
-          className="text-ink-strong"
-          style={{
-            fontFamily: "var(--font-display), system-ui, sans-serif",
-            fontWeight: 900,
-            fontSize: "clamp(40px, 4.2vw, 56px)",
-            letterSpacing: "-0.025em",
-            lineHeight: 1,
-          }}
+      <header className="mb-7 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1
+            className="text-ink-strong"
+            style={{
+              fontFamily: "var(--font-display), system-ui, sans-serif",
+              fontWeight: 900,
+              fontSize: "clamp(40px, 4.2vw, 56px)",
+              letterSpacing: "-0.025em",
+              lineHeight: 1,
+            }}
+          >
+            {title}
+          </h1>
+          <p
+            className="mt-2 text-ink-muted tabular-nums font-semibold"
+            style={{ fontSize: 18 }}
+          >
+            {rows.length} {rows.length === 1 ? "task" : "tasks"} match your
+            current filter
+          </p>
+        </div>
+        <Link
+          href={"/tasks/kanban" as Route}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[14px] font-semibold text-ink-soft border border-hairline bg-white hover:border-hairline-strong transition-all"
         >
-          {title}
-        </h1>
-        <p
-          className="mt-2 text-ink-muted tabular-nums font-semibold"
-          style={{ fontSize: 18 }}
-        >
-          {rows.length} {rows.length === 1 ? "task" : "tasks"} match your
-          current filter
-        </p>
+          <LayoutGrid size={15} strokeWidth={2.2} />
+          Board view
+        </Link>
       </header>
 
       {/* KPI summary — 4 stat cards in the same visual language as the

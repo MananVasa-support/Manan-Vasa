@@ -8,7 +8,8 @@ describe("mergeStatusDisplay", () => {
     expect(merged.not_started.label).toBe("Not Started");
     expect(merged.need_help.color).toBe("red");
     expect(merged.done.label).toBe("Done");
-    expect(merged.transferred.color).toBe("purple");
+    // Manan's scheme: transferred = brown.
+    expect(merged.transferred.color).toBe("brown");
   });
 
   it("overrides fallback per row", () => {
@@ -38,9 +39,10 @@ describe("mergeStatusDisplay", () => {
     ]);
     expect(merged.approved).toEqual({ label: "Signed off", color: "blue" });
     expect(merged.cancelled).toEqual({ label: "Killed", color: "amber" });
+    // Manan's scheme: not_approved = rose (light red).
     expect(merged.not_approved).toEqual({
       label: "Not Approved",
-      color: "red",
+      color: "rose",
     });
   });
 });

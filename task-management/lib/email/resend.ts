@@ -23,15 +23,17 @@ import type {
   SendDigestEmailArgs,
 } from "@/emails/notifications/types";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
-import { type TaskStatus, STATUS_COLOR_TOKENS } from "@/db/enums";
+import { type TaskStatus } from "@/db/enums";
 import type { ChipTone } from "@/emails/notifications/_notification-layout";
 
-// Centralized status display map → email ChipTone. Only the 6 preset
-// tokens map to a tone; raw-hex overrides fall through to the legacy
-// STATUS_TONE_MAP inside the template (we can't reliably synthesize a
-// new ChipTone palette entry at render time).
+// Centralized status display map → email ChipTone. Only the 6 tokens that
+// have a matching ChipTone palette entry map through; everything else
+// (raw hex, or the extended yellow/orange/slate/brown tokens) falls back to
+// the legacy STATUS_TONE_MAP inside the template, since we can't synthesize
+// a new ChipTone palette entry at render time.
+const EMAIL_CHIP_TONES = ["blue", "green", "amber", "red", "rose", "purple"] as const;
 function asChipTone(color: string): ChipTone | undefined {
-  return (STATUS_COLOR_TOKENS as readonly string[]).includes(color)
+  return (EMAIL_CHIP_TONES as readonly string[]).includes(color)
     ? (color as ChipTone)
     : undefined;
 }

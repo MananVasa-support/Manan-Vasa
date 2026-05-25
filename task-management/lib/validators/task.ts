@@ -43,6 +43,8 @@ export const CreateTaskSchema = z
     endsAt: isoDateToDate.nullable().optional().default(null),
     allDay: z.boolean().optional().default(false),
     recurrence: z.enum(TASK_RECURRENCES).nullable().optional().default(null),
+    recurrenceRule: z.string().trim().max(200).nullable().optional().default(null),
+    projectNodeId: z.string().uuid().nullable().optional().default(null),
   })
   .refine(
     (v) => Boolean(v.doerId) !== Boolean(v.doerIds && v.doerIds.length > 0),
@@ -81,6 +83,8 @@ export const EditTaskFieldsSchema = z
     endsAt: isoDateToDate.nullable().optional(),
     allDay: z.boolean().optional(),
     recurrence: z.enum(TASK_RECURRENCES).nullable().optional(),
+    recurrenceRule: z.string().trim().max(200).nullable().optional(),
+    projectNodeId: z.string().uuid().nullable().optional(),
   })
   .strict() // reject unknown keys
   .refine(

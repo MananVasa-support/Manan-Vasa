@@ -3,17 +3,55 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { NewTaskForm } from "@/components/tasks/new-task-form";
 import { listEmployees } from "@/lib/queries/employees";
 import { listActiveClientNames } from "@/lib/queries/clients";
+import { listActiveSubjectNames } from "@/lib/queries/subjects";
+import { listProjectNodeOptions } from "@/lib/queries/projects";
+import { getTaskById } from "@/lib/queries/tasks";
 import { requireUser } from "@/lib/auth/current";
+import type { TaskPriority } from "@/db/enums";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewTaskPage() {
+interface PageProps {
+  searchParams: Promise<{ from?: string }>;
+}
+
+export default async function NewTaskPage({ searchParams }: PageProps) {
   const me = await requireUser();
-  const [all, clients] = await Promise.all([
+  const { from } = await searchParams;
+  const [all, clients, subjects, projectNodes] = await Promise.all([
     listEmployees(),
     listActiveClientNames(),
+    listActiveSubjectNames(),
+    listProjectNodeOptions(),
   ]);
   const options = all.map((e) => ({ id: e.id, name: e.name }));
+
+  // Duplicate flow: prefill the form from an existing task (?from=<id>).
+  let defaults: {
+    initiatorId: string;
+    doerId?: string;
+    priority?: TaskPriority;
+    title?: string;
+    subject?: string;
+    description?: string;
+    notes?: string;
+    projectNodeId?: string;
+  } = { initiatorId: me.id };
+  if (from) {
+    const src = await getTaskById(from);
+    if (src) {
+      defaults = {
+        initiatorId: src.initiatorId,
+        doerId: src.doerId,
+        priority: src.priority,
+        title: src.title,
+        subject: src.subject ?? undefined,
+        description: src.description ?? undefined,
+        notes: src.notes ?? undefined,
+        projectNodeId: src.projectNodeId ?? undefined,
+      };
+    }
+  }
 
   return (
     <>
@@ -33,7 +71,9 @@ export default async function NewTaskPage() {
           <NewTaskForm
             employees={options}
             clients={clients}
-            defaults={{ initiatorId: me.id }}
+            subjects={subjects}
+            projectNodes={projectNodes}
+            defaults={defaults}
           />
         </div>
       </main>

@@ -13,11 +13,56 @@ export interface ScheduleValue {
   endsAt: Date | null;
   allDay: boolean;
   recurrence: TaskRecurrence | null;
+  /** RRULE-lite detail, e.g. "FREQ=WEEKLY;BYDAY=MO,WE,FR;UNTIL=2026-12-31". */
+  recurrenceRule: string | null;
 }
 
 interface Props {
   value: ScheduleValue;
   onChange: (next: ScheduleValue) => void;
+}
+
+const WEEKDAYS = [
+  { code: "SU", label: "S" },
+  { code: "MO", label: "M" },
+  { code: "TU", label: "T" },
+  { code: "WE", label: "W" },
+  { code: "TH", label: "T" },
+  { code: "FR", label: "F" },
+  { code: "SA", label: "S" },
+] as const;
+const WD_FULL: Record<string, string> = {
+  SU: "Sunday", MO: "Monday", TU: "Tuesday", WE: "Wednesday",
+  TH: "Thursday", FR: "Friday", SA: "Saturday",
+};
+const NTH = ["first", "second", "third", "fourth", "last"];
+
+interface RuleParts {
+  byday: string[];          // weekly weekday codes
+  monthlyMode: "day" | "weekday";
+  until: string | null;     // yyyy-mm-dd or null (never)
+}
+
+function parseRule(rule: string | null): RuleParts {
+  const parts: RuleParts = { byday: [], monthlyMode: "day", until: null };
+  if (!rule) return parts;
+  for (const seg of rule.split(";")) {
+    const [k, v] = seg.split("=");
+    if (k === "BYDAY" && v) {
+      // Monthly nth-weekday looks like "2MO"; weekly looks like "MO,WE".
+      if (/^\d/.test(v)) parts.monthlyMode = "weekday";
+      else parts.byday = v.split(",").filter(Boolean);
+    }
+    if (k === "UNTIL" && v) parts.until = v;
+  }
+  return parts;
+}
+
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+function ymd(d: Date) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 /** Split an ISO Date into the two strings the date + time inputs need.
@@ -43,6 +88,35 @@ function partsToIso(
   const t = allDay ? "12:00" : time && time.length > 0 ? time : "09:00";
   const d = new Date(`${date}T${t}:00`);
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Human-readable summary of the recurrence selection. */
+function recurrenceSummary(
+  freq: string,
+  rule: RuleParts,
+  anchor: Date,
+): string | null {
+  if (freq === "none") return null;
+  let base: string;
+  if (freq === "daily") base = "Repeats daily";
+  else if (freq === "weekly") {
+    const days = rule.byday.length
+      ? rule.byday
+          .slice()
+          .sort((a, b) => WEEKDAYS.findIndex((w) => w.code === a) - WEEKDAYS.findIndex((w) => w.code === b))
+          .map((c) => WD_FULL[c]?.slice(0, 3))
+          .join(", ")
+      : "";
+    base = days ? `Repeats weekly on ${days}` : "Repeats weekly";
+  } else if (freq === "monthly") {
+    base =
+      rule.monthlyMode === "weekday"
+        ? `Repeats monthly on the ${NTH[Math.min(Math.ceil(anchor.getDate() / 7), 5) - 1]} ${WD_FULL[WEEKDAYS[anchor.getDay()]!.code]}`
+        : `Repeats monthly on day ${anchor.getDate()}`;
+  } else if (freq === "yearly") base = "Repeats yearly";
+  else base = "Repeats";
+  if (rule.until) base += `, until ${rule.until}`;
+  return base;
 }
 
 function formatDuration(start: Date | null, end: Date | null): string | null {
@@ -101,9 +175,56 @@ export function ScheduleSection({ value, onChange }: Props) {
       endsAt: partsToIso(endParts.date, t, value.allDay),
     });
   }
-  function setRecurrence(r: TaskRecurrence) {
-    onChange({ ...value, recurrence: r === "none" ? null : r });
+  const rule = parseRule(value.recurrenceRule);
+  const anchor = value.startsAt ?? new Date();
+
+  // Encode the current frequency + sub-options into recurrence + recurrenceRule.
+  function emit(freq: TaskRecurrence, next: Partial<RuleParts>) {
+    if (freq === "none") {
+      onChange({ ...value, recurrence: null, recurrenceRule: null });
+      return;
+    }
+    const r: RuleParts = { ...rule, ...next };
+    const segs = [`FREQ=${freq.toUpperCase()}`];
+    if (freq === "weekly" && r.byday.length > 0) {
+      segs.push(`BYDAY=${r.byday.join(",")}`);
+    }
+    if (freq === "monthly") {
+      if (r.monthlyMode === "weekday") {
+        const nth = Math.min(Math.ceil(anchor.getDate() / 7), 5);
+        const wd = WEEKDAYS[anchor.getDay()]!.code;
+        segs.push(`BYDAY=${nth}${wd}`);
+      } else {
+        segs.push(`BYMONTHDAY=${anchor.getDate()}`);
+      }
+    }
+    if (r.until) segs.push(`UNTIL=${r.until}`);
+    onChange({ ...value, recurrence: freq, recurrenceRule: segs.join(";") });
   }
+
+  function setFreq(freq: TaskRecurrence) {
+    // Sensible default: weekly seeds the start day as the checked weekday.
+    if (freq === "weekly" && rule.byday.length === 0) {
+      emit(freq, { byday: [WEEKDAYS[anchor.getDay()]!.code] });
+    } else {
+      emit(freq, {});
+    }
+  }
+  function toggleWeekday(code: string) {
+    const byday = rule.byday.includes(code)
+      ? rule.byday.filter((c) => c !== code)
+      : [...rule.byday, code];
+    emit("weekly", { byday });
+  }
+  function setMonthlyMode(mode: "day" | "weekday") {
+    emit("monthly", { monthlyMode: mode });
+  }
+  function setUntil(until: string) {
+    emit((value.recurrence ?? "daily") as TaskRecurrence, { until: until || null });
+  }
+
+  const freq = value.recurrence ?? "none";
+  const summary = recurrenceSummary(freq, rule, anchor);
 
   return (
     <div
@@ -219,8 +340,8 @@ export function ScheduleSection({ value, onChange }: Props) {
           Repeat
         </span>
         <select
-          value={value.recurrence ?? "none"}
-          onChange={(e) => setRecurrence(e.target.value as TaskRecurrence)}
+          value={freq}
+          onChange={(e) => setFreq(e.target.value as TaskRecurrence)}
           className="nt-input"
         >
           {TASK_RECURRENCES.map((r) => (
@@ -230,6 +351,77 @@ export function ScheduleSection({ value, onChange }: Props) {
           ))}
         </select>
       </div>
+
+      {/* Weekly → weekday chips (MWF etc.) */}
+      {freq === "weekly" && (
+        <div className="mt-3 flex items-center gap-1.5 flex-wrap pl-[92px] max-md:pl-0">
+          {WEEKDAYS.map((d, i) => {
+            const on = rule.byday.includes(d.code);
+            return (
+              <button
+                key={d.code + i}
+                type="button"
+                onClick={() => toggleWeekday(d.code)}
+                aria-pressed={on}
+                aria-label={WD_FULL[d.code]}
+                className="h-9 w-9 rounded-full text-[13px] font-bold transition-colors"
+                style={{
+                  background: on ? "rgb(168, 4, 0)" : "var(--color-surface-soft)",
+                  color: on ? "#fff" : "var(--color-ink-soft)",
+                  border: "1px solid var(--color-hairline)",
+                }}
+              >
+                {d.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Monthly → on day-of-month vs nth weekday */}
+      {freq === "monthly" && (
+        <div className="mt-3 flex flex-col gap-2 pl-[92px] max-md:pl-0">
+          <label className="inline-flex items-center gap-2 text-[14px] font-semibold text-ink-strong cursor-pointer">
+            <input type="radio" name="monthly-mode" checked={rule.monthlyMode === "day"} onChange={() => setMonthlyMode("day")} style={{ accentColor: "rgb(168, 4, 0)" }} />
+            Monthly on day {anchor.getDate()}
+          </label>
+          <label className="inline-flex items-center gap-2 text-[14px] font-semibold text-ink-strong cursor-pointer">
+            <input type="radio" name="monthly-mode" checked={rule.monthlyMode === "weekday"} onChange={() => setMonthlyMode("weekday")} style={{ accentColor: "rgb(168, 4, 0)" }} />
+            Monthly on the {NTH[Math.min(Math.ceil(anchor.getDate() / 7), 5) - 1]} {WD_FULL[WEEKDAYS[anchor.getDay()]!.code]}
+          </label>
+        </div>
+      )}
+
+      {/* Ends — never (default) or on a date */}
+      {freq !== "none" && (
+        <div className="mt-3 flex items-center gap-3 pl-[92px] max-md:pl-0">
+          <span className="text-[13px] font-semibold text-ink-muted">Ends</span>
+          <select
+            value={rule.until ? "until" : "never"}
+            onChange={(e) => setUntil(e.target.value === "never" ? "" : ymd(new Date(anchor.getTime() + 90 * 86400000)))}
+            className="nt-input"
+            style={{ maxWidth: 160 }}
+          >
+            <option value="never">Never</option>
+            <option value="until">On date…</option>
+          </select>
+          {rule.until && (
+            <input
+              type="date"
+              value={rule.until}
+              onChange={(e) => setUntil(e.target.value)}
+              className="nt-input"
+              style={{ maxWidth: 180 }}
+            />
+          )}
+        </div>
+      )}
+
+      {summary && (
+        <p className="mt-3 text-[13px] font-semibold pl-[92px] max-md:pl-0" style={{ color: "rgb(var(--vp-cyan-deep))" }}>
+          {summary}
+        </p>
+      )}
 
       <p
         className="mt-4 font-semibold"

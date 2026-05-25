@@ -1,7 +1,7 @@
-import { and, eq, gte, inArray, lt, desc } from "drizzle-orm";
+import { and, eq, gte, inArray, lt, asc, desc } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db, employees, tasks } from "@/lib/db";
-import { TASK_STATUSES, TASK_PRIORITIES } from "@/db/enums";
+import { TASK_STATUSES, TASK_PRIORITIES, PENDING_STATUSES } from "@/db/enums";
 import { employeeIdsInDepartments } from "@/lib/queries/departments";
 import type { TaskListFilters, TaskListRow } from "@/lib/types";
 
@@ -83,6 +83,72 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
     createdById: r.createdById,
     updatedAt: r.updatedAt,
   }));
+}
+
+/** Minimal card shape for the status Kanban board. */
+export interface BoardTask {
+  id: string;
+  title: string;
+  subject: string | null;
+  description: string | null;
+  status: (typeof TASK_STATUSES)[number];
+  priority: (typeof TASK_PRIORITIES)[number];
+  doerName: string | null;
+  dueAt: Date;
+  updatedAt: Date;
+}
+
+/** Non-archived tasks for the Kanban board, lightest possible payload. */
+export async function listBoardTasks(): Promise<BoardTask[]> {
+  const rows = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      subject: tasks.subject,
+      description: tasks.description,
+      status: tasks.status,
+      priority: tasks.priority,
+      dueAt: tasks.dueAt,
+      updatedAt: tasks.updatedAt,
+      doerName: employees.name,
+    })
+    .from(tasks)
+    .leftJoin(employees, eq(tasks.doerId, employees.id))
+    .where(eq(tasks.archived, false))
+    .orderBy(desc(tasks.createdAt))
+    .limit(1000);
+  return rows.map((r) => ({ ...r, doerName: r.doerName ?? null }));
+}
+
+/**
+ * A user's pending tasks (as doer) for the day-wise agenda board, soonest
+ * due first. Same light shape as the Kanban board.
+ */
+export async function listAgendaTasks(employeeId: string): Promise<BoardTask[]> {
+  const rows = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      subject: tasks.subject,
+      description: tasks.description,
+      status: tasks.status,
+      priority: tasks.priority,
+      dueAt: tasks.dueAt,
+      updatedAt: tasks.updatedAt,
+      doerName: employees.name,
+    })
+    .from(tasks)
+    .leftJoin(employees, eq(tasks.doerId, employees.id))
+    .where(
+      and(
+        eq(tasks.archived, false),
+        eq(tasks.doerId, employeeId),
+        inArray(tasks.status, [...PENDING_STATUSES]),
+      ),
+    )
+    .orderBy(asc(tasks.dueAt))
+    .limit(1000);
+  return rows.map((r) => ({ ...r, doerName: r.doerName ?? null }));
 }
 
 /**
@@ -235,6 +301,8 @@ export type TaskDetail = {
   endsAt: Date | null;
   allDay: boolean;
   recurrence: string | null;
+  recurrenceRule: string | null;
+  projectNodeId: string | null;
 };
 
 export async function getTaskById(taskId: string): Promise<TaskDetail | null> {
@@ -269,6 +337,8 @@ export async function getTaskById(taskId: string): Promise<TaskDetail | null> {
       endsAt: tasks.endsAt,
       allDay: tasks.allDay,
       recurrence: tasks.recurrence,
+      recurrenceRule: tasks.recurrenceRule,
+      projectNodeId: tasks.projectNodeId,
     })
     .from(tasks)
     .leftJoin(doerEmp,    eq(tasks.doerId,      doerEmp.id))

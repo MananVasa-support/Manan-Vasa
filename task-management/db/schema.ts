@@ -142,6 +142,84 @@ export const clients = pgTable(
   (t) => [index("clients_active_name_idx").on(t.isActive, t.name)],
 );
 
+/**
+ * Subjects — canonical list backing the "Subject" picker on the task forms.
+ * Mirrors the `clients` pattern exactly: an admin/seed-managed list that the
+ * New Task / Edit Task dropdowns read from, with an inline "+ Add new
+ * subject…" affordance open to any authenticated user. Stored on the
+ * free-text `tasks.subject` column; renames propagate to matching tasks.
+ */
+export const subjects = pgTable(
+  "subjects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull().unique(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("subjects_active_name_idx").on(t.isActive, t.name)],
+);
+
+/**
+ * Project Management (Manan #23/#24). A self-referential tree:
+ * Project → Milestone → Result. Tasks link to any node via
+ * `tasks.project_node_id` (the "action" connected to a project/milestone/
+ * result). We never hard-delete — archive instead.
+ */
+export const projectNodes = pgTable(
+  "project_nodes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    kind: text("kind").$type<"project" | "milestone" | "result">().notNull(),
+    parentId: uuid("parent_id"),
+    sortOrder: integer("sort_order").notNull().default(100),
+    isArchived: boolean("is_archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("project_nodes_parent_idx").on(t.parentId),
+    index("project_nodes_kind_idx").on(t.kind, t.isArchived),
+  ],
+);
+
+/**
+ * Document library (Manan #27/#28). The catalogue for files stored in the
+ * private "documents" Storage bucket — title required, description optional,
+ * with provenance and an optional link to a task.
+ */
+export const documents = pgTable(
+  "documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    description: text("description"),
+    storagePath: text("storage_path").notNull(),
+    mimeType: text("mime_type"),
+    sizeBytes: integer("size_bytes"),
+    taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    uploadedById: uuid("uploaded_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("documents_created_idx").on(t.createdAt),
+    index("documents_task_idx").on(t.taskId),
+  ],
+);
+
 // M5.1 — admin-managed display overrides for the 9 task statuses. PK is the
 // task_status enum value; updates only (RLS: insert/delete revoked at the
 // table level + only `update` policy). Seeded by migration 0016 so the
@@ -222,6 +300,13 @@ export const tasks = pgTable(
     endsAt: timestamp("ends_at", { withTimezone: true }),
     allDay: boolean("all_day").notNull().default(false),
     recurrence: text("recurrence"),
+    // Manan #20 — RRULE-lite structured recurrence (weekdays / monthly mode /
+    // end). Coexists with `recurrence` (coarse frequency). Capture-only; no
+    // engine materialises instances yet.
+    recurrenceRule: text("recurrence_rule"),
+    // Manan #24 — optional link to a Project Management node (the "action"
+    // connected to a project / milestone / result).
+    projectNodeId: uuid("project_node_id"),
   },
   (t) => [
     index("tasks_doer_created_idx").on(t.doerId, t.createdAt),
@@ -469,6 +554,12 @@ export type EmployeeDepartment = typeof employeeDepartments.$inferSelect;
 export type NewEmployeeDepartment = typeof employeeDepartments.$inferInsert;
 export type Client = typeof clients.$inferSelect;
 export type NewClient = typeof clients.$inferInsert;
+export type Subject = typeof subjects.$inferSelect;
+export type NewSubject = typeof subjects.$inferInsert;
+export type ProjectNode = typeof projectNodes.$inferSelect;
+export type NewProjectNode = typeof projectNodes.$inferInsert;
+export type Document = typeof documents.$inferSelect;
+export type NewDocument = typeof documents.$inferInsert;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type NewPushSubscription = typeof pushSubscriptions.$inferInsert;
 export type EmployeeEvent = typeof employeeEvents.$inferSelect;

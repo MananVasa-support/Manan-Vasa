@@ -115,6 +115,8 @@ function task(partial: Partial<Task>): Task {
     endsAt: partial.endsAt ?? null,
     allDay: partial.allDay ?? false,
     recurrence: partial.recurrence ?? null,
+    recurrenceRule: partial.recurrenceRule ?? null,
+    projectNodeId: partial.projectNodeId ?? null,
   };
 }
 

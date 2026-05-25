@@ -38,6 +38,7 @@ import type { TaskStatus, StatusColorToken } from "@/db/enums";
 // instead so admin renames flow through. These exist for purely-client surfaces
 // and as a safety net if a DB read fails.
 export const STATUS_LABELS_FALLBACK: Record<TaskStatus, string> = {
+  dont_know:    "Don't Know",
   not_started:  "Not Started",
   initiated:    "Initiated",
   follow_up:    "Follow Up",         // legacy — kept for already-imported rows
@@ -53,18 +54,23 @@ export const STATUS_LABELS_FALLBACK: Record<TaskStatus, string> = {
   transferred:  "Transferred",
 };
 
+// Manan's status colour scheme (2026-05): Not Started=light blue,
+// Initiated=yellow, Need Info/Need Help=red, Follow Up 1/2/3=orange,
+// Done=green, Not Approved=light red (rose), Approved=purple,
+// Cancelled=dark grey (slate), Transferred=brown.
 export const STATUS_TONES_FALLBACK: Record<TaskStatus, StatusColorToken> = {
-  not_started:  "amber",
-  initiated:    "amber",
-  follow_up:    "amber",
+  dont_know:    "stone",
+  not_started:  "blue",
+  initiated:    "yellow",
+  follow_up:    "orange",            // legacy follow-up → orange family
   need_help:    "red",
-  need_info:    "blue",              // Tier-3 NEW — "I need info" is a softer block
-  follow_up_1:  "amber",             // Tier-3 NEW
-  follow_up_2:  "amber",             // Tier-3 NEW
-  follow_up_3:  "red",               // Tier-3 NEW — getting urgent
+  need_info:    "red",
+  follow_up_1:  "orange",
+  follow_up_2:  "orange",
+  follow_up_3:  "orange",
   done:         "green",
-  approved:     "green",
-  not_approved: "red",
-  cancelled:    "rose",
-  transferred:  "purple",
+  approved:     "purple",
+  not_approved: "rose",
+  cancelled:    "slate",
+  transferred:  "brown",
 };

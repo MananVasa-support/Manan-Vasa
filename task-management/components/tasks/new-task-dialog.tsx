@@ -12,13 +12,17 @@ interface Props {
   employees: { id: string; name: string }[];
   /** Client roster for the "Client Name" picker. */
   clients: string[];
+  /** Subject roster for the "Subject" picker. */
+  subjects: string[];
+  /** Project tree nodes for the optional Project link. */
+  projectNodes?: { id: string; label: string }[];
   /** Optional defaults — usually pre-fill initiator = current user. */
   defaultInitiatorId?: string;
 }
 
 const HINT_STORAGE_KEY = "vp_seen_new_task_hint";
 
-export function NewTaskDialog({ employees, clients, defaultInitiatorId }: Props) {
+export function NewTaskDialog({ employees, clients, subjects, projectNodes, defaultInitiatorId }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -313,6 +317,8 @@ export function NewTaskDialog({ employees, clients, defaultInitiatorId }: Props)
             <NewTaskForm
               employees={employees}
               clients={clients}
+              subjects={subjects}
+              projectNodes={projectNodes}
               onSuccess={onSuccess}
               defaults={{ initiatorId: defaultInitiatorId }}
             />

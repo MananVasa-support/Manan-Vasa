@@ -30,8 +30,9 @@ import {
   SetRevisedTargetDateSchema,
   type SetRevisedTargetDateInput,
 } from "@/lib/validators/task";
-import { taskEvents, clients } from "@/db/schema";
+import { taskEvents, clients, subjects } from "@/db/schema";
 import { CreateClientSchema } from "@/lib/validators/client";
+import { CreateSubjectSchema } from "@/lib/validators/subject";
 import { requireUser } from "@/lib/auth/current";
 import {
   canEditTaskFields,
@@ -372,6 +373,8 @@ export async function createTask(input: CreateTaskInput): Promise<
             endsAt: parsed.endsAt ?? null,
             allDay: parsed.allDay ?? false,
             recurrence: parsed.recurrence ?? null,
+            recurrenceRule: parsed.recurrenceRule ?? null,
+            projectNodeId: parsed.projectNodeId ?? null,
             createdById: me.id,
             shortId,
             // status defaults to "not_started"; archived defaults to false;
@@ -486,6 +489,53 @@ export async function quickAddClient(
         .select({ name: clients.name })
         .from(clients)
         .where(sql`lower(${clients.name}) = lower(${name})`)
+        .limit(1);
+      if (winner) return { ok: true, name: winner.name };
+    }
+    return { ok: false, error: `DB: ${msg}` };
+  }
+}
+
+/**
+ * Appends a new subject to the shared roster, used by the "+ Add new
+ * subject…" affordance on the task forms. Mirrors quickAddClient.
+ */
+export async function quickAddSubject(
+  rawName: string,
+): Promise<{ ok: true; name: string } | { ok: false; error: string }> {
+  await requireUser();
+
+  const parsed = CreateSubjectSchema.safeParse({ name: rawName });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid name" };
+  }
+  const name = parsed.data.name;
+
+  const existing = await db
+    .select({ name: subjects.name })
+    .from(subjects)
+    .where(sql`lower(${subjects.name}) = lower(${name})`)
+    .limit(1);
+  if (existing[0]) {
+    return { ok: true, name: existing[0].name };
+  }
+
+  try {
+    const [row] = await db
+      .insert(subjects)
+      .values({ name })
+      .returning({ name: subjects.name });
+    if (!row) return { ok: false, error: "Insert returned no row" };
+    revalidateTaskRoutes();
+    revalidatePath("/tasks/new");
+    return { ok: true, name: row.name };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("subjects_name_unique")) {
+      const [winner] = await db
+        .select({ name: subjects.name })
+        .from(subjects)
+        .where(sql`lower(${subjects.name}) = lower(${name})`)
         .limit(1);
       if (winner) return { ok: true, name: winner.name };
     }

@@ -12,6 +12,11 @@ const TOKEN_BG: Record<StatusColorToken, string> = {
   red:    "#ef4444",
   rose:   "#f43f5e",
   purple: "#a855f7",
+  yellow: "#eab308",
+  orange: "#f97316",
+  slate:  "#64748b",
+  brown:  "#92724e",
+  stone:  "#9ca3af",
 };
 
 function isPresetToken(v: string): v is StatusColorToken {

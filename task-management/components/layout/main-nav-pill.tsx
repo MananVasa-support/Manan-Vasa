@@ -12,9 +12,11 @@ interface Props {
   count?: number;
   /** Unread/notification badge — small red dot on top-right of the pill. */
   badge?: number;
+  /** Stretch to fill available width on desktop (header spreads pills edge-to-edge). */
+  grow?: boolean;
 }
 
-export function MainNavPill({ href, label, Icon, active, count, badge }: Props) {
+export function MainNavPill({ href, label, Icon, active, count, badge, grow }: Props) {
   const showBadge = typeof badge === "number" && badge > 0;
   const badgeLabel = showBadge ? (badge > 99 ? "99+" : formatCount(badge)) : "";
 
@@ -24,6 +26,7 @@ export function MainNavPill({ href, label, Icon, active, count, badge }: Props) 
       aria-current={active ? "page" : undefined}
       className={
         (active ? "nav-pill nav-pill-active" : "nav-pill") +
+        (grow ? " md:flex-1 md:justify-center" : "") +
         (showBadge ? " relative" : "")
       }
       aria-label={
@@ -32,7 +35,7 @@ export function MainNavPill({ href, label, Icon, active, count, badge }: Props) 
           : undefined
       }
     >
-      <Icon size={16} strokeWidth={2.2} />
+      <Icon size={18} strokeWidth={2.2} />
       <span className="max-md:hidden">{label}</span>
       {typeof count === "number" && (
         <span className="nav-pill-count max-md:hidden">{formatCount(count)}</span>

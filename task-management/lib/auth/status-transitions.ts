@@ -37,6 +37,7 @@ export function nextStatusesFor(
   if (role === "stranger") return [];
 
   switch (current) {
+    case "dont_know":         // Manan 2026-05 — pending lane
     case "not_started":
     case "initiated":
     case "follow_up":         // legacy

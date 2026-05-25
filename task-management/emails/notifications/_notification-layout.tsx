@@ -366,6 +366,7 @@ const CHIP_PALETTE: Record<ChipTone, { bg: string; fg: string; border: string }>
  * the same chip.
  */
 export const STATUS_TONE_MAP: Record<string, ChipTone> = {
+  dont_know:    "ink",
   not_started:  "amber",
   initiated:    "amber",
   follow_up:    "amber",
@@ -382,6 +383,7 @@ export const STATUS_TONE_MAP: Record<string, ChipTone> = {
 };
 
 export const STATUS_LABEL_MAP: Record<string, string> = {
+  dont_know:    "Don't Know",
   not_started:  "Not Started",
   initiated:    "Initiated",
   follow_up:    "Follow Up",

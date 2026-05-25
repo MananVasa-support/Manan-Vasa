@@ -5,6 +5,7 @@
 // enum so 240 imported tasks keep rendering; new code should write the new
 // statuses + approval_status independently.
 export const TASK_STATUSES = [
+  "dont_know",      // Manan 2026-05 — "I haven't assessed this yet" (light grey)
   "not_started",
   "initiated",
   "follow_up",
@@ -28,6 +29,7 @@ export type TaskStatus = (typeof TASK_STATUSES)[number];
  *  The legacy four (approved / not_approved / cancelled / transferred) are
  *  excluded — those are admin-only via the separate approval_status column. */
 export const USER_TASK_STATUSES = [
+  "dont_know",
   "not_started",
   "initiated",
   "need_help",
@@ -39,6 +41,7 @@ export const USER_TASK_STATUSES = [
 ] as const satisfies readonly TaskStatus[];
 
 export const PENDING_STATUSES = [
+  "dont_know",
   "not_started",
   "initiated",
   "follow_up",
@@ -170,5 +173,11 @@ export const STATUS_COLOR_TOKENS = [
   "red",
   "rose",
   "purple",
+  // Extended palette for Manan's status colour scheme.
+  "yellow",
+  "orange",
+  "slate",
+  "brown",
+  "stone",  // light grey (Dont Know)
 ] as const;
 export type StatusColorToken = (typeof STATUS_COLOR_TOKENS)[number];

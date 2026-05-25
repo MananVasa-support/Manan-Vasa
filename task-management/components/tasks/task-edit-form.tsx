@@ -7,7 +7,6 @@ import { Plus, X } from "lucide-react";
 import {
   TASK_PRIORITIES,
   PRIORITY_LABELS,
-  TASK_SUBJECTS,
   APPROVAL_STATUSES,
   type TaskPriority,
   type ApprovalStatus,
@@ -21,11 +20,16 @@ import {
 import { fireToast } from "@/lib/toast";
 import { ScheduleSection, type ScheduleValue } from "./schedule-section";
 import { ClientSelect } from "./client-select";
+import { SubjectSelect } from "./subject-select";
 
 interface Props {
   taskId: string;
   /** Client roster for the "Client Name" picker, alphabetical. */
   clients: string[];
+  /** Subject roster for the "Subject" picker, alphabetical. */
+  subjects: string[];
+  /** Project tree nodes for the optional Project link. */
+  projectNodes?: { id: string; label: string }[];
   initial: {
     title: string;
     description: string | null;
@@ -42,6 +46,8 @@ interface Props {
     endsAt: Date | null;
     allDay: boolean;
     recurrence: TaskRecurrence | null;
+    recurrenceRule: string | null;
+    projectNodeId: string | null;
   };
   /** Used for the optimistic-lock — must be the row's current updated_at. */
   expectedUpdatedAt: string;
@@ -80,7 +86,8 @@ function FieldShell({
     <div className="relative">
       <label
         htmlFor={htmlFor}
-        className="block text-[12.5px] uppercase tracking-[0.08em] font-bold text-ink-subtle mb-1.5"
+        className="block text-[14px] font-bold text-ink-strong mb-1.5"
+        style={{ letterSpacing: "-0.005em" }}
       >
         {label}
         {required && (
@@ -111,6 +118,8 @@ function FieldShell({
 export function TaskEditForm({
   taskId,
   clients,
+  subjects,
+  projectNodes = [],
   initial,
   expectedUpdatedAt,
   isAdmin,
@@ -122,6 +131,7 @@ export function TaskEditForm({
   const [title, setTitle] = useState(initial.title);
   const [description, setDesc] = useState(initial.description ?? "");
   const [subject, setSubject] = useState(initial.subject ?? "");
+  const [projectNodeId, setProjectNodeId] = useState(initial.projectNodeId ?? "");
   const [notes, setNotes] = useState(initial.notes ?? "");
   const [priority, setPriority] = useState<TaskPriority>(initial.priority);
   const [dueAt, setDueAt] = useState(
@@ -134,6 +144,7 @@ export function TaskEditForm({
     endsAt: initial.endsAt,
     allDay: initial.allDay,
     recurrence: initial.recurrence,
+    recurrenceRule: initial.recurrenceRule,
   });
 
   // Admin-only state.
@@ -204,6 +215,8 @@ export function TaskEditForm({
           endsAt: schedule.endsAt ? schedule.endsAt.toISOString() : null,
           allDay: schedule.allDay,
           recurrence: schedule.recurrence,
+          recurrenceRule: schedule.recurrenceRule,
+          projectNodeId: projectNodeId || null,
         },
         expectedUpdatedAt,
       );
@@ -339,25 +352,15 @@ export function TaskEditForm({
         setFocused={setFSubj}
       >
         {(p) => (
-          <select
+          <SubjectSelect
             id="te-subject"
             value={subject}
-            onChange={(e) => setSubject(e.target.value)}
+            onChange={setSubject}
+            subjects={subjects}
             className={inputClass}
+            placeholder="Select a subject…"
             {...p}
-          >
-            <option value="">Select a category…</option>
-            {/* If the existing value isn't in TASK_SUBJECTS (legacy free-text),
-                surface it as the first option so we don't silently lose it. */}
-            {subject && !TASK_SUBJECTS.includes(subject as never) && (
-              <option value={subject}>{subject} (legacy)</option>
-            )}
-            {TASK_SUBJECTS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+          />
         )}
       </FieldShell>
 
@@ -471,6 +474,28 @@ export function TaskEditForm({
           </div>
         )}
       </FieldShell>
+
+      {/* Project link — connect this task to a Project / Milestone / Result. */}
+      {projectNodes.length > 0 && (
+        <FieldShell label="Project" htmlFor="te-project" focused={false} setFocused={() => {}}>
+          {(p) => (
+            <select
+              id="te-project"
+              value={projectNodeId}
+              onChange={(e) => setProjectNodeId(e.target.value)}
+              className={inputClass}
+              {...p}
+            >
+              <option value="">Not linked to a project</option>
+              {projectNodes.map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.label}
+                </option>
+              ))}
+            </select>
+          )}
+        </FieldShell>
+      )}
 
       {/* Schedule — GCal-style start/end + recurrence. Internal only. */}
       <ScheduleSection value={schedule} onChange={setSchedule} />
