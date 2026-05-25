@@ -7,7 +7,7 @@ import type { TaskStatus } from "@/db/enums";
 export interface ProjectTreeNode {
   id: string;
   name: string;
-  kind: "project" | "milestone" | "result";
+  kind: "project" | "milestone" | "result" | "action" | "sub_action";
   parentId: string | null;
   sortOrder: number;
   actionCount: number;

@@ -13,15 +13,27 @@ import {
 import { fireToast } from "@/lib/toast";
 import type { ProjectTreeNode } from "@/lib/queries/projects";
 
-const CHILD_KIND: Record<string, "milestone" | "result" | null> = {
+type NodeKind = "project" | "milestone" | "result" | "action" | "sub_action";
+const CHILD_KIND: Record<string, NodeKind | null> = {
   project: "milestone",
   milestone: "result",
-  result: null,
+  result: "action",
+  action: "sub_action",
+  sub_action: null,
 };
 const KIND_LABEL: Record<string, string> = {
   project: "Project",
   milestone: "Milestone",
   result: "Result",
+  action: "Action",
+  sub_action: "Sub-Action",
+};
+const KIND_TONE: Record<string, string> = {
+  project: "var(--color-purple)",
+  milestone: "var(--color-blue)",
+  result: "var(--color-slate)",
+  action: "var(--color-green)",
+  sub_action: "var(--color-amber)",
 };
 
 export function ProjectTree({ tree }: { tree: ProjectTreeNode[] }) {
@@ -76,8 +88,7 @@ function Node({ node, depth }: { node: ProjectTreeNode; depth: number }) {
     });
   }
 
-  const tone =
-    node.kind === "project" ? "var(--color-purple)" : node.kind === "milestone" ? "var(--color-blue)" : "var(--color-slate)";
+  const tone = KIND_TONE[node.kind] ?? "var(--color-slate)";
 
   return (
     <div style={{ marginLeft: depth * 22 }}>
@@ -154,7 +165,7 @@ function AddNode({
   cta,
   big,
 }: {
-  kind: "project" | "milestone" | "result";
+  kind: NodeKind;
   parentId: string | null;
   cta: string;
   big?: boolean;

@@ -177,7 +177,9 @@ export const projectNodes = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
-    kind: text("kind").$type<"project" | "milestone" | "result">().notNull(),
+    kind: text("kind")
+      .$type<"project" | "milestone" | "result" | "action" | "sub_action">()
+      .notNull(),
     parentId: uuid("parent_id"),
     sortOrder: integer("sort_order").notNull().default(100),
     isArchived: boolean("is_archived").notNull().default(false),

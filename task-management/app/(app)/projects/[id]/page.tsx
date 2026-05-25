@@ -18,6 +18,8 @@ const KIND_LABEL: Record<string, string> = {
   project: "Project",
   milestone: "Milestone",
   result: "Result",
+  action: "Action",
+  sub_action: "Sub-Action",
 };
 
 export default async function ProjectNodePage({ params }: PageProps) {
@@ -47,8 +49,8 @@ export default async function ProjectNodePage({ params }: PageProps) {
         </div>
         <h1 className="text-display-lg text-ink-strong mt-1">{ctx.node.name}</h1>
         <p className="text-body-lg text-ink-subtle mt-1">
-          {actions.length} {actions.length === 1 ? "action" : "actions"} linked
-          {ctx.node.kind !== "result" ? " (incl. sub-items)" : ""}
+          {actions.length} {actions.length === 1 ? "task" : "tasks"} linked
+          {ctx.node.kind !== "sub_action" ? " (incl. sub-items)" : ""}
         </p>
 
         <div className="mt-6 flex flex-col gap-2">

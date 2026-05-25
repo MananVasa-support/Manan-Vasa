@@ -9,7 +9,7 @@ import { requireUser } from "@/lib/auth/current";
 
 type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string };
 
-const KIND = z.enum(["project", "milestone", "result"]);
+const KIND = z.enum(["project", "milestone", "result", "action", "sub_action"]);
 const NameSchema = z.string().trim().min(1, "Name is required").max(160, "Name is too long");
 
 const CreateSchema = z.object({
@@ -18,10 +18,13 @@ const CreateSchema = z.object({
   parentId: z.string().uuid().nullable().optional(),
 });
 
-const CHILD_OF: Record<string, "project" | "milestone" | null> = {
+// Each kind's required parent kind (null = top-level).
+const CHILD_OF: Record<string, string | null> = {
   project: null,
   milestone: "project",
   result: "milestone",
+  action: "result",
+  sub_action: "action",
 };
 
 export async function createProjectNode(
