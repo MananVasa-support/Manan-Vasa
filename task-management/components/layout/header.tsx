@@ -48,7 +48,7 @@ export async function DashboardHeader({
             <img
               src="/logo.png"
               alt="Altus Corp"
-              className="h-[68px] w-auto max-md:h-12"
+              className="h-[88px] w-auto max-md:h-16"
               style={{ display: "block" }}
             />
           </a>

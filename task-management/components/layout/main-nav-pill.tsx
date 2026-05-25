@@ -35,7 +35,7 @@ export function MainNavPill({ href, label, Icon, active, count, badge, grow }: P
           : undefined
       }
     >
-      <Icon size={18} strokeWidth={2.2} />
+      <Icon size={15} strokeWidth={2.2} />
       <span className="max-md:hidden">{label}</span>
       {typeof count === "number" && (
         <span className="nav-pill-count max-md:hidden">{formatCount(count)}</span>

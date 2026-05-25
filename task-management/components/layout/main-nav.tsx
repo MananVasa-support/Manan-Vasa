@@ -25,60 +25,46 @@ export function MainNav({
   return (
     <nav
       aria-label="Primary"
-      className="flex items-center gap-2.5 w-full max-md:gap-1.5"
+      className="flex items-center gap-2 max-md:gap-1.5"
     >
       <MainNavPill
         href={"/" as Route}
         label="Dashboard"
         Icon={LayoutDashboard}
-        active={isActive("/")}
-        grow
-      />
+        active={isActive("/")}      />
       <MainNavPill
         href={"/tasks/agenda" as Route}
         label="My Day"
         Icon={CalendarDays}
-        active={isActive("/tasks/agenda")}
-        grow
-      />
+        active={isActive("/tasks/agenda")}      />
       <MainNavPill
         href={"/tasks" as Route}
         label="Tasks"
         Icon={ListTodo}
         active={isActive("/tasks") && !pathname.startsWith("/tasks/agenda")}
-        count={activeTasks}
-        grow
-      />
+        count={activeTasks}      />
       <MainNavPill
         href={"/projects" as Route}
         label="Projects"
         Icon={FolderKanban}
-        active={isActive("/projects")}
-        grow
-      />
+        active={isActive("/projects")}      />
       <MainNavPill
         href={"/documents" as Route}
         label="Docs"
         Icon={FileText}
-        active={isActive("/documents")}
-        grow
-      />
+        active={isActive("/documents")}      />
       <MainNavPill
         href={"/archived" as Route}
         label="Archived"
         Icon={Archive}
         active={isActive("/archived")}
-        count={archivedTasks}
-        grow
-      />
+        count={archivedTasks}      />
       <MainNavPill
         href={"/inbox" as Route}
         label="Inbox"
         Icon={Inbox}
         active={isActive("/inbox")}
-        badge={inboxUnread > 0 ? inboxUnread : undefined}
-        grow
-      />
+        badge={inboxUnread > 0 ? inboxUnread : undefined}      />
     </nav>
   );
 }

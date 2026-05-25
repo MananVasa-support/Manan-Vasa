@@ -209,13 +209,13 @@ export function LoginShowcase() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.2, 0.7, 0.3, 1] }}
-            className="mb-6 inline-flex items-center rounded-xl bg-white px-3 py-2"
+            className="mb-6 inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3"
             style={{ boxShadow: "0 6px 20px rgba(0, 0, 0, 0.3)" }}
           >
             <img
               src="/logo.png"
               alt="Altus Corp"
-              style={{ height: 56, width: "auto", display: "block" }}
+              style={{ height: 104, width: "auto", display: "block" }}
             />
           </motion.div>
           <motion.div
@@ -228,15 +228,15 @@ export function LoginShowcase() {
               className="font-serif"
               style={{
                 fontStyle: "italic",
-                fontSize: "clamp(72px, 8.5vw, 116px)",
-                lineHeight: 0.92,
+                fontSize: "clamp(44px, 5.6vw, 86px)",
+                lineHeight: 1.0,
                 letterSpacing: "-0.035em",
                 fontWeight: 500,
                 color: "#FFFFFF",
+                whiteSpace: "nowrap",
               }}
             >
-              Altus
-              <br />
+              Altus{" "}
               <span
                 style={{
                   background:
