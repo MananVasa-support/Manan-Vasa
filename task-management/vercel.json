@@ -1,7 +1,7 @@
 {
   "crons": [
-    { "path": "/api/cron/digest", "schedule": "30 3 * * *" },
-    { "path": "/api/cron/retry-dispatch", "schedule": "*/5 * * * *" },
-    { "path": "/api/cron/materialize-recurring", "schedule": "0 2 * * *" }
+    { "path": "/api/cron/digest",                 "schedule": "30 3 * * *" },
+    { "path": "/api/cron/materialize-recurring",  "schedule": "0 2 * * *" },
+    { "path": "/api/cron/retry-dispatch",         "schedule": "30 4 * * *" }
   ]
 }
