@@ -12,7 +12,8 @@ import {
   SlidersHorizontal,
   ArrowRight,
   User,
-  Download,
+  FileText,
+  FileSpreadsheet,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -297,10 +298,12 @@ export function FilterBar({
         </div>
 
         <div className="ml-auto flex items-center gap-2.5">
-          {/* Export current view as CSV — only shown on the task list views.
-              The route applies the SAME default-doer scope as /tasks, so
-              non-admins can only ever export their own data.
-              XLS + PDF variants are admin-only (richer/humanized columns). */}
+          {/* Export current view — admin-only, shown on the task list
+              views. XLS for spreadsheet workflows, PDF for sharing /
+              archival. The CSV export route still exists at
+              /tasks/export but is no longer surfaced in the UI (per
+              Manan's request — the two human-friendly formats cover
+              every reporting need). */}
           {(pathname === "/tasks" || pathname === "/archived") &&
             me?.isAdmin &&
             (() => {
@@ -310,38 +313,39 @@ export function FilterBar({
                 return `${path}?${exportSp.toString()}`;
               };
               return (
-                <>
-                  <a
-                    href={buildExportHref("/tasks/export")}
-                    download
-                    className="inline-flex items-center gap-1.5 text-chip text-ink-subtle hover:text-ink-strong transition-colors px-3 py-2 rounded-chip max-md:hidden"
-                    title="Download current view as CSV"
-                    aria-label="Export CSV"
-                  >
-                    <Download size={14} strokeWidth={2.2} />
-                    Export CSV
-                  </a>
+                <div
+                  className="inline-flex items-center bg-surface-card border border-hairline rounded-chip overflow-hidden max-md:hidden"
+                  style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)" }}
+                >
                   <a
                     href={buildExportHref("/tasks/export.xlsx")}
                     download
-                    className="inline-flex items-center gap-1.5 text-chip text-ink-subtle hover:text-ink-strong transition-colors px-3 py-2 rounded-chip max-md:hidden"
+                    className="inline-flex items-center gap-1.5 text-chip font-medium text-ink-strong hover:bg-surface-soft transition-colors px-3 py-2 border-r border-hairline"
                     title="Download current view as XLSX"
                     aria-label="Export XLS"
                   >
-                    <Download size={14} strokeWidth={2.2} />
-                    Export XLS
+                    <FileSpreadsheet
+                      size={14}
+                      strokeWidth={2}
+                      style={{ color: "var(--color-success, #16a34a)" }}
+                    />
+                    XLS
                   </a>
                   <a
                     href={buildExportHref("/tasks/export.pdf")}
                     download
-                    className="inline-flex items-center gap-1.5 text-chip text-ink-subtle hover:text-ink-strong transition-colors px-3 py-2 rounded-chip max-md:hidden"
+                    className="inline-flex items-center gap-1.5 text-chip font-medium text-ink-strong hover:bg-surface-soft transition-colors px-3 py-2"
                     title="Download current view as PDF"
                     aria-label="Export PDF"
                   >
-                    <Download size={14} strokeWidth={2.2} />
-                    Export PDF
+                    <FileText
+                      size={14}
+                      strokeWidth={2}
+                      style={{ color: "var(--color-altus-red, #dc2626)" }}
+                    />
+                    PDF
                   </a>
-                </>
+                </div>
               );
             })()}
           <button

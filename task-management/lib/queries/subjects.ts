@@ -1,22 +1,30 @@
 import "server-only";
 import { asc, eq, sql } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { subjects, tasks, type Subject } from "@/db/schema";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 
 /**
  * Active subject names, locale-sorted. Drives the "Subject" picker on the
- * New Task / Edit Task forms.
+ * New Task / Edit Task forms. Cached under `subjects`; writers
+ * (`createSubject`, `updateSubject`, `quickAddSubject`) already invalidate
+ * that tag.
  */
-export async function listActiveSubjectNames(): Promise<string[]> {
-  const rows = await db
-    .select({ name: subjects.name })
-    .from(subjects)
-    .where(eq(subjects.isActive, true))
-    .orderBy(asc(subjects.name));
-  return rows
-    .map((r) => r.name)
-    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-}
+export const listActiveSubjectNames = unstable_cache(
+  async (): Promise<string[]> => {
+    const rows = await db
+      .select({ name: subjects.name })
+      .from(subjects)
+      .where(eq(subjects.isActive, true))
+      .orderBy(asc(subjects.name));
+    return rows
+      .map((r) => r.name)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  },
+  ["list-active-subject-names"],
+  { tags: [CACHE_TAGS.subjects], revalidate: 600 },
+);
 
 export interface SubjectWithCount extends Subject {
   /** Tasks whose subject matches this row, case-insensitive. */

@@ -303,12 +303,21 @@ export const tasks = pgTable(
     allDay: boolean("all_day").notNull().default(false),
     recurrence: text("recurrence"),
     // Manan #20 — RRULE-lite structured recurrence (weekdays / monthly mode /
-    // end). Coexists with `recurrence` (coarse frequency). Capture-only; no
-    // engine materialises instances yet.
+    // end). Coexists with `recurrence` (coarse frequency). Originals carry
+    // the rule; materialized child instances do not (parent_id points back).
     recurrenceRule: text("recurrence_rule"),
+    // Phase 5.2 — recurrence materialization markers. NULL on originals
+    // (rule-holders); set on every dated instance the cron creates.
+    recurrenceParentId: uuid("recurrence_parent_id"),
+    recurrenceOccurrenceDate: text("recurrence_occurrence_date"),
     // Manan #24 — optional link to a Project Management node (the "action"
-    // connected to a project / milestone / result).
-    projectNodeId: uuid("project_node_id"),
+    // connected to a project / milestone / result). The FK + onDelete SET
+    // NULL + matching index were created by migration 0027; the
+    // `.references()` declaration is mirrored here so drizzle-kit
+    // generate stays consistent with the DB.
+    projectNodeId: uuid("project_node_id").references(() => projectNodes.id, {
+      onDelete: "set null",
+    }),
   },
   (t) => [
     index("tasks_doer_created_idx").on(t.doerId, t.createdAt),
@@ -322,6 +331,12 @@ export const tasks = pgTable(
     index("tasks_archived_idx").on(t.archived, t.createdAt),
     index("tasks_created_by_idx").on(t.createdById),
     index("tasks_approval_status_idx").on(t.approvalStatus),
+    // Added 2026-05-25 (migration 0029) to back the queries flagged by
+    // the hardening audit — see the migration file for context.
+    index("tasks_due_at_idx").on(t.dueAt),
+    index("tasks_approved_by_idx").on(t.approvedById),
+    index("tasks_transferred_from_idx").on(t.transferredFromId),
+    index("tasks_project_node_idx").on(t.projectNodeId),
   ],
 );
 
@@ -415,6 +430,89 @@ export const notifications = pgTable(
       t.createdAt,
     ),
     index("notifications_created_idx").on(t.createdAt),
+  ],
+);
+
+/**
+ * Phase 3.5 — Document mutation audit log. Append-only rows recording every
+ * document create / rename / description-change / file-replace / delete.
+ * The `documentId` FK is nullable so a delete-event survives after the
+ * referenced document row goes away; `documentTitle` is snapshotted at
+ * write-time so the log row stays self-readable.
+ */
+export const documentEvents = pgTable(
+  "document_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id").references(() => documents.id, {
+      onDelete: "set null",
+    }),
+    documentTitle: text("document_title").notNull(),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "restrict" }),
+    eventType: text("event_type")
+      .$type<"created" | "renamed" | "description_changed" | "file_replaced" | "deleted">()
+      .notNull(),
+    fromValue: jsonb("from_value"),
+    toValue: jsonb("to_value"),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("document_events_doc_created_idx").on(t.documentId, t.createdAt),
+    index("document_events_actor_created_idx").on(t.actorId, t.createdAt),
+    index("document_events_created_idx").on(t.createdAt),
+  ],
+);
+
+/**
+ * Phase 2.1 — Per-attempt audit + retry queue for notification dispatch.
+ * One row per (notification, channel) attempt. The 4-arm fan-out in
+ * `lib/notifications/dispatch.ts` writes one row per attempt; the
+ * `/api/cron/retry-dispatch` route picks up `failed` rows whose
+ * `next_attempt_at` has elapsed and re-runs that single channel.
+ *
+ * `status` values:
+ *   - `sent`             — delivered.
+ *   - `skipped`          — channel disabled or recipient opted out.
+ *   - `failed`           — transient error; retry-eligible.
+ *   - `failed_terminal`  — gave up after the retry budget.
+ */
+export const notificationDispatchLog = pgTable(
+  "notification_dispatch_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    notificationId: uuid("notification_id")
+      .notNull()
+      .references(() => notifications.id, { onDelete: "cascade" }),
+    channel: text("channel")
+      .$type<"email" | "slack" | "whatsapp" | "web_push">()
+      .notNull(),
+    status: text("status")
+      .$type<"sent" | "skipped" | "failed" | "failed_terminal">()
+      .notNull(),
+    errorMessage: text("error_message"),
+    attemptCount: integer("attempt_count").notNull().default(1),
+    attemptedAt: timestamp("attempted_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("notification_dispatch_log_retry_idx")
+      .on(t.nextAttemptAt, t.attemptCount)
+      .where(sql`status = 'failed'`),
+    index("notification_dispatch_log_notification_idx").on(
+      t.notificationId,
+      t.channel,
+      t.attemptedAt,
+    ),
   ],
 );
 
@@ -564,6 +662,8 @@ export type Document = typeof documents.$inferSelect;
 export type NewDocument = typeof documents.$inferInsert;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type NewPushSubscription = typeof pushSubscriptions.$inferInsert;
+export type NotificationDispatchLog = typeof notificationDispatchLog.$inferSelect;
+export type NewNotificationDispatchLog = typeof notificationDispatchLog.$inferInsert;
 export type EmployeeEvent = typeof employeeEvents.$inferSelect;
 export type NewEmployeeEvent = typeof employeeEvents.$inferInsert;
 export type SettingsEvent = typeof settingsEvents.$inferSelect;

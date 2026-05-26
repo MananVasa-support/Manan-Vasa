@@ -34,22 +34,33 @@ export async function listDocuments(): Promise<DocumentRow[]> {
     .orderBy(desc(documents.createdAt))
     .limit(500);
 
+  // createSignedUrl is a network call to Supabase Storage; serial
+  // awaits inside a `for` loop turn 500 docs into 500 sequential HTTP
+  // round-trips. createSignedUrls (plural) takes a path array and
+  // returns the same signed URLs in one call.
   const admin = getSupabaseAdmin();
-  const out: DocumentRow[] = [];
-  for (const r of rows) {
-    const { data } = await admin.storage
+  const paths = rows.map((r) => r.storagePath);
+  const signedByPath = new Map<string, string>();
+  if (paths.length > 0) {
+    const { data, error } = await admin.storage
       .from(DOCUMENTS_BUCKET)
-      .createSignedUrl(r.storagePath, 3600);
-    out.push({
-      id: r.id,
-      title: r.title,
-      description: r.description,
-      mimeType: r.mimeType,
-      sizeBytes: r.sizeBytes,
-      uploadedByName: r.uploadedByName ?? null,
-      createdAt: r.createdAt,
-      url: data?.signedUrl ?? null,
-    });
+      .createSignedUrls(paths, 3600);
+    if (!error && data) {
+      for (const entry of data) {
+        if (entry.signedUrl && entry.path) {
+          signedByPath.set(entry.path, entry.signedUrl);
+        }
+      }
+    }
   }
-  return out;
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    description: r.description,
+    mimeType: r.mimeType,
+    sizeBytes: r.sizeBytes,
+    uploadedByName: r.uploadedByName ?? null,
+    createdAt: r.createdAt,
+    url: signedByPath.get(r.storagePath) ?? null,
+  }));
 }

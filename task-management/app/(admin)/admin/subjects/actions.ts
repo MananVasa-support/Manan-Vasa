@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { subjects, tasks, settingsEvents } from "@/db/schema";
@@ -22,6 +23,11 @@ function revalidateSubjectSurfaces() {
   revalidatePath("/tasks/new");
   revalidatePath("/tasks");
   revalidatePath("/");
+  updateTag(CACHE_TAGS.subjects);
+  // A subject rename rewrites `tasks.subject` in place (see
+  // updateSubject), so the cached distinct-subject list and the
+  // tasks-totals cache need to drop too.
+  updateTag(CACHE_TAGS.tasks);
 }
 
 export async function createSubject(

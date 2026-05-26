@@ -1,8 +1,9 @@
 "use server";
 
 import { and, eq, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { db, tasks } from "@/lib/db";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 import {
   TASK_STATUSES,
   TASK_PRIORITIES,
@@ -34,6 +35,7 @@ import { taskEvents, clients, subjects } from "@/db/schema";
 import { CreateClientSchema } from "@/lib/validators/client";
 import { CreateSubjectSchema } from "@/lib/validators/subject";
 import { requireUser } from "@/lib/auth/current";
+import { rateLimitOrError } from "@/lib/rate-limit";
 import {
   canEditTaskFields,
   canApprove,
@@ -101,6 +103,13 @@ function revalidateTaskRoutes(): void {
   revalidatePath("/tasks");
   revalidatePath("/archived");
   revalidatePath("/"); // dashboard counts change too
+  // Drop cached task aggregates (nav-count totals, distinct-subject list).
+  // Subject cache is touched too because creating a task with a new free-text
+  // subject expands the dropdown's distinct list. `updateTag` is the Next 16
+  // server-action-scoped variant that gives read-your-own-writes — the
+  // redirect/refresh that follows this action will see fresh data.
+  updateTag(CACHE_TAGS.tasks);
+  updateTag(CACHE_TAGS.subjects);
 }
 
 export async function archiveTask(taskId: string): Promise<void> {
@@ -170,6 +179,8 @@ export async function setTaskStatus(
     return { ok: false, error: "invalid", message: "Unknown status" };
 
   const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return { ok: false, error: "invalid", message: limited.error };
 
   const current = await db.query.tasks.findFirst({
     where: eq(tasks.id, taskId),
@@ -196,29 +207,36 @@ export async function setTaskStatus(
     return { ok: false, error: "invalid", message: "Bad expectedUpdatedAt" };
   }
 
+  // Atomic: the task UPDATE and audit-event INSERT must either both
+  // commit or both roll back. Without a transaction, a failure on the
+  // task_events insert leaves the row updated with no audit trail —
+  // silent desync. Notifications stay OUTSIDE the txn so a slow
+  // Slack/email send doesn't hold the row lock.
   const now = new Date();
-  const updated = await db
-    .update(tasks)
-    .set({
-      status,
-      updatedAt: now,
-      // If status moves to "done", stamp completedAt; if moving away from
-      // done into rework, clear it.
-      completedAt: status === "done" ? now : current.status === "done" ? null : current.completedAt,
-    })
-    .where(and(eq(tasks.id, taskId), optimisticLockMatches(expectedDate)))
-    .returning({ id: tasks.id });
-
-  if (updated.length === 0) return { ok: false, error: "stale" };
-
-  await db.insert(taskEvents).values({
-    taskId,
-    actorId: me.id,
-    eventType: "status_changed",
-    fromValue: { status: current.status },
-    toValue: { status },
-    note: note?.trim() || null,
+  const stale = await db.transaction(async (tx) => {
+    const u = await tx
+      .update(tasks)
+      .set({
+        status,
+        updatedAt: now,
+        // If status moves to "done", stamp completedAt; if moving away from
+        // done into rework, clear it.
+        completedAt: status === "done" ? now : current.status === "done" ? null : current.completedAt,
+      })
+      .where(and(eq(tasks.id, taskId), optimisticLockMatches(expectedDate)))
+      .returning({ id: tasks.id });
+    if (u.length === 0) return true;
+    await tx.insert(taskEvents).values({
+      taskId,
+      actorId: me.id,
+      eventType: "status_changed",
+      fromValue: { status: current.status },
+      toValue: { status },
+      note: note?.trim() || null,
+    });
+    return false;
   });
+  if (stale) return { ok: false, error: "stale" };
 
   // Fan-out: every other participant (creator/initiator/doer minus me).
   // Tier-3 fix — the notification body MUST be JSON meta so email/Slack/
@@ -256,10 +274,17 @@ export async function setTaskPriority(
   if (!TASK_PRIORITIES.includes(priority)) return;
   const me = await requireUser();
   await db.transaction(async (tx) => {
-    const current = await tx.query.tasks.findFirst({
-      where: eq(tasks.id, taskId),
-      columns: { id: true, priority: true },
-    });
+    // SELECT ... FOR UPDATE serialises concurrent edits on the same row:
+    // two simultaneous priority changes would otherwise both read the same
+    // `priority`, both pass the idempotency check, and both write — last
+    // writer silently wins. The row lock blocks the second txn until the
+    // first commits.
+    const locked = await tx
+      .select({ priority: tasks.priority })
+      .from(tasks)
+      .where(eq(tasks.id, taskId))
+      .for("update");
+    const current = locked[0];
     if (!current) return;
     if (current.priority === priority) return; // no-op idempotency
     const updated = await tx
@@ -287,10 +312,14 @@ export async function reassignDoer(
   if (!isUuid(doerId)) return;
   const me = await requireUser();
   await db.transaction(async (tx) => {
-    const current = await tx.query.tasks.findFirst({
-      where: eq(tasks.id, taskId),
-      columns: { id: true, doerId: true },
-    });
+    // FOR UPDATE so two concurrent reassigns serialise — see
+    // setTaskPriority for the rationale.
+    const locked = await tx
+      .select({ doerId: tasks.doerId })
+      .from(tasks)
+      .where(eq(tasks.id, taskId))
+      .for("update");
+    const current = locked[0];
     if (!current) return;
     if (current.doerId === doerId) return; // no-op idempotency
     const updated = await tx
@@ -315,6 +344,8 @@ export async function createTask(input: CreateTaskInput): Promise<
   | { ok: false; error: string }
 > {
   const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
   let parsed;
   try {
     parsed = CreateTaskSchema.parse(input);
@@ -480,6 +511,8 @@ export async function quickAddClient(
     if (!row) return { ok: false, error: "Insert returned no row" };
     revalidateTaskRoutes();
     revalidatePath("/tasks/new");
+    // Bust the cached client list so the picker picks up the new name.
+    updateTag(CACHE_TAGS.clients);
     return { ok: true, name: row.name };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -566,6 +599,8 @@ export async function editTaskFields(
   if (!isUuid(taskId)) return { ok: false, error: "invalid", message: "Bad task id" };
 
   const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return { ok: false, error: "invalid", message: limited.error };
 
   let parsed;
   try {
@@ -713,29 +748,33 @@ export async function approveTask(
     return { ok: false, error: "invalid", message: "Bad expectedUpdatedAt" };
   }
 
+  // Atomic UPDATE + audit insert — see setTaskStatus for the
+  // rationale. Notifications dispatched after the txn commits.
   const now = new Date();
-  const updated = await db
-    .update(tasks)
-    .set({
-      status: parsed.decision, // "approved" | "not_approved"
-      approvedById: me.id,
-      approvedAt: now,
-      approvalNote: parsed.note?.trim() || null,
-      updatedAt: now,
-    })
-    .where(and(eq(tasks.id, taskId), optimisticLockMatches(expectedDate)))
-    .returning({ id: tasks.id });
-
-  if (updated.length === 0) return { ok: false, error: "stale" };
-
-  await db.insert(taskEvents).values({
-    taskId,
-    actorId: me.id,
-    eventType: "status_changed",
-    fromValue: { status: current.status },
-    toValue: { status: parsed.decision },
-    note: parsed.note?.trim() || null,
+  const stale = await db.transaction(async (tx) => {
+    const u = await tx
+      .update(tasks)
+      .set({
+        status: parsed.decision, // "approved" | "not_approved"
+        approvedById: me.id,
+        approvedAt: now,
+        approvalNote: parsed.note?.trim() || null,
+        updatedAt: now,
+      })
+      .where(and(eq(tasks.id, taskId), optimisticLockMatches(expectedDate)))
+      .returning({ id: tasks.id });
+    if (u.length === 0) return true;
+    await tx.insert(taskEvents).values({
+      taskId,
+      actorId: me.id,
+      eventType: "status_changed",
+      fromValue: { status: current.status },
+      toValue: { status: parsed.decision },
+      note: parsed.note?.trim() || null,
+    });
+    return false;
   });
+  if (stale) return { ok: false, error: "stale" };
 
   // Fan-out: tell the doer the verdict.  Approve → "approved" kind,
   // decline → "declined" kind so the recipient's UI can colour each
@@ -836,36 +875,40 @@ export async function reassignTask(
   const shouldReset =
     parsed.resetStatus === true && current.status !== "not_started";
 
-  const updated = await db
-    .update(tasks)
-    .set({
-      doerId: parsed.newDoerId,
-      transferredFromId: current.doerId,
-      updatedAt: now,
-      ...(shouldReset ? { status: "not_started" as const } : {}),
-    })
-    .where(and(eq(tasks.id, taskId), optimisticLockMatches(expectedDate)))
-    .returning({ id: tasks.id });
-
-  if (updated.length === 0) return { ok: false, error: "stale" };
-
-  await db.insert(taskEvents).values({
-    taskId,
-    actorId: me.id,
-    eventType: "reassigned",
-    fromValue: { doerId: current.doerId },
-    toValue: { doerId: parsed.newDoerId, resetStatus: shouldReset },
-  });
-
-  if (shouldReset) {
-    await db.insert(taskEvents).values({
+  // Atomic reassign — the UPDATE, the `reassigned` audit row, and the
+  // optional `status_changed` audit row all commit together or roll
+  // back together.
+  const stale = await db.transaction(async (tx) => {
+    const u = await tx
+      .update(tasks)
+      .set({
+        doerId: parsed.newDoerId,
+        transferredFromId: current.doerId,
+        updatedAt: now,
+        ...(shouldReset ? { status: "not_started" as const } : {}),
+      })
+      .where(and(eq(tasks.id, taskId), optimisticLockMatches(expectedDate)))
+      .returning({ id: tasks.id });
+    if (u.length === 0) return true;
+    await tx.insert(taskEvents).values({
       taskId,
       actorId: me.id,
-      eventType: "status_changed",
-      fromValue: { status: current.status },
-      toValue: { status: "not_started" },
+      eventType: "reassigned",
+      fromValue: { doerId: current.doerId },
+      toValue: { doerId: parsed.newDoerId, resetStatus: shouldReset },
     });
-  }
+    if (shouldReset) {
+      await tx.insert(taskEvents).values({
+        taskId,
+        actorId: me.id,
+        eventType: "status_changed",
+        fromValue: { status: current.status },
+        toValue: { status: "not_started" },
+      });
+    }
+    return false;
+  });
+  if (stale) return { ok: false, error: "stale" };
 
   // Fan-out: new doer gets "to you"; old doer gets "away from you";
   // initiator (if distinct from both) gets a generic reassigned note.
@@ -964,23 +1007,26 @@ export async function transferTaskExternal(
     return { ok: false, error: "invalid", message: "Bad expectedUpdatedAt" };
   }
 
+  // Atomic transfer — UPDATE + audit must commit together.
   const now = new Date();
-  const updated = await db
-    .update(tasks)
-    .set({ status: "transferred" as const, updatedAt: now })
-    .where(and(eq(tasks.id, taskId), optimisticLockMatches(expectedDate)))
-    .returning({ id: tasks.id });
-
-  if (updated.length === 0) return { ok: false, error: "stale" };
-
-  await db.insert(taskEvents).values({
-    taskId,
-    actorId: me.id,
-    eventType: "transferred_external",
-    fromValue: { status: current.status },
-    toValue: { status: "transferred" },
-    note: parsed.note,
+  const stale = await db.transaction(async (tx) => {
+    const u = await tx
+      .update(tasks)
+      .set({ status: "transferred" as const, updatedAt: now })
+      .where(and(eq(tasks.id, taskId), optimisticLockMatches(expectedDate)))
+      .returning({ id: tasks.id });
+    if (u.length === 0) return true;
+    await tx.insert(taskEvents).values({
+      taskId,
+      actorId: me.id,
+      eventType: "transferred_external",
+      fromValue: { status: current.status },
+      toValue: { status: "transferred" },
+      note: parsed.note,
+    });
+    return false;
   });
+  if (stale) return { ok: false, error: "stale" };
 
   // Fan-out: every participant (creator/initiator/doer minus me).
   const label = taskLabel({ subject: current.subject, title: current.title });
@@ -1053,23 +1099,26 @@ export async function cancelTask(
     return { ok: false, error: "invalid", message: "Bad expectedUpdatedAt" };
   }
 
+  // Atomic cancel — UPDATE + audit must commit together.
   const now = new Date();
-  const updated = await db
-    .update(tasks)
-    .set({ status: "cancelled" as const, updatedAt: now })
-    .where(and(eq(tasks.id, taskId), optimisticLockMatches(expectedDate)))
-    .returning({ id: tasks.id });
-
-  if (updated.length === 0) return { ok: false, error: "stale" };
-
-  await db.insert(taskEvents).values({
-    taskId,
-    actorId: me.id,
-    eventType: "status_changed",
-    fromValue: { status: current.status },
-    toValue: { status: "cancelled" },
-    note: parsed.note?.trim() || null,
+  const stale = await db.transaction(async (tx) => {
+    const u = await tx
+      .update(tasks)
+      .set({ status: "cancelled" as const, updatedAt: now })
+      .where(and(eq(tasks.id, taskId), optimisticLockMatches(expectedDate)))
+      .returning({ id: tasks.id });
+    if (u.length === 0) return true;
+    await tx.insert(taskEvents).values({
+      taskId,
+      actorId: me.id,
+      eventType: "status_changed",
+      fromValue: { status: current.status },
+      toValue: { status: "cancelled" },
+      note: parsed.note?.trim() || null,
+    });
+    return false;
   });
+  if (stale) return { ok: false, error: "stale" };
 
   // Fan-out: every participant.
   const label = taskLabel({ subject: current.subject, title: current.title });
@@ -1108,6 +1157,8 @@ export async function addComment(
   if (!isUuid(taskId)) return { ok: false, error: "invalid", message: "Bad task id" };
 
   const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return { ok: false, error: "invalid", message: limited.error };
 
   let parsed;
   try {
@@ -1197,32 +1248,50 @@ export async function setTaskApprovalStatus(
     };
   }
 
-  const current = await db.query.tasks.findFirst({
+  // Pre-flight no-op check outside the txn — cheap, lets us skip
+  // touching the row lock when nothing's changing.
+  const preview = await db.query.tasks.findFirst({
     where: eq(tasks.id, taskId),
+    columns: { id: true, approvalStatus: true },
   });
-  if (!current) return { ok: false, error: "not-found" };
-
-  if (current.approvalStatus === parsed.approvalStatus) {
+  if (!preview) return { ok: false, error: "not-found" };
+  if (preview.approvalStatus === parsed.approvalStatus) {
     return { ok: true }; // no-op
   }
 
+  // Atomic: serialise concurrent admin verdicts via SELECT FOR UPDATE
+  // (no public expectedUpdatedAt parameter to lean on for optimistic
+  // locking) and pair the UPDATE with its audit row.
   const now = new Date();
-  await db
-    .update(tasks)
-    .set({ approvalStatus: parsed.approvalStatus, updatedAt: now })
-    .where(eq(tasks.id, taskId));
-
-  await db.insert(taskEvents).values({
-    taskId,
-    actorId: me.id,
-    eventType: "field_updated",
-    fromValue: { field: "approvalStatus", value: current.approvalStatus },
-    toValue: {
-      field: "approvalStatus",
-      value: parsed.approvalStatus,
-      ...(parsed.note ? { note: parsed.note } : {}),
-    },
+  const result = await db.transaction(async (tx) => {
+    const locked = await tx
+      .select({ approvalStatus: tasks.approvalStatus })
+      .from(tasks)
+      .where(eq(tasks.id, taskId))
+      .for("update");
+    const row = locked[0];
+    if (!row) return { ok: false as const, error: "not-found" as const };
+    if (row.approvalStatus === parsed.approvalStatus) {
+      return { ok: true as const, noop: true as const };
+    }
+    await tx
+      .update(tasks)
+      .set({ approvalStatus: parsed.approvalStatus, updatedAt: now })
+      .where(eq(tasks.id, taskId));
+    await tx.insert(taskEvents).values({
+      taskId,
+      actorId: me.id,
+      eventType: "field_updated",
+      fromValue: { field: "approvalStatus", value: row.approvalStatus },
+      toValue: {
+        field: "approvalStatus",
+        value: parsed.approvalStatus,
+        ...(parsed.note ? { note: parsed.note } : {}),
+      },
+    });
+    return { ok: true as const, noop: false as const };
   });
+  if (!result.ok) return result;
 
   revalidateTaskRoutes();
   revalidatePath(`/tasks/${taskId}`);
@@ -1262,32 +1331,158 @@ export async function setTaskRevisedTargetDate(
     };
   }
 
-  const current = await db.query.tasks.findFirst({
-    where: eq(tasks.id, taskId),
-  });
-  if (!current) return { ok: false, error: "not-found" };
-
-  const prevIso = current.revisedTargetDate?.toISOString() ?? null;
   const nextIso = parsed.revisedTargetDate?.toISOString() ?? null;
-  if (prevIso === nextIso) {
+
+  // Pre-flight no-op check outside the txn.
+  const preview = await db.query.tasks.findFirst({
+    where: eq(tasks.id, taskId),
+    columns: { id: true, revisedTargetDate: true },
+  });
+  if (!preview) return { ok: false, error: "not-found" };
+  if ((preview.revisedTargetDate?.toISOString() ?? null) === nextIso) {
     return { ok: true }; // no-op
   }
 
+  // Atomic UPDATE + audit, with row-level lock so two admins can't
+  // race on the same revised target.
   const now = new Date();
-  await db
-    .update(tasks)
-    .set({ revisedTargetDate: parsed.revisedTargetDate, updatedAt: now })
-    .where(eq(tasks.id, taskId));
-
-  await db.insert(taskEvents).values({
-    taskId,
-    actorId: me.id,
-    eventType: "field_updated",
-    fromValue: { field: "revisedTargetDate", value: prevIso },
-    toValue: { field: "revisedTargetDate", value: nextIso },
+  const result = await db.transaction(async (tx) => {
+    const locked = await tx
+      .select({ revisedTargetDate: tasks.revisedTargetDate })
+      .from(tasks)
+      .where(eq(tasks.id, taskId))
+      .for("update");
+    const row = locked[0];
+    if (!row) return { ok: false as const, error: "not-found" as const };
+    const prevIso = row.revisedTargetDate?.toISOString() ?? null;
+    if (prevIso === nextIso) {
+      return { ok: true as const, noop: true as const };
+    }
+    await tx
+      .update(tasks)
+      .set({ revisedTargetDate: parsed.revisedTargetDate, updatedAt: now })
+      .where(eq(tasks.id, taskId));
+    await tx.insert(taskEvents).values({
+      taskId,
+      actorId: me.id,
+      eventType: "field_updated",
+      fromValue: { field: "revisedTargetDate", value: prevIso },
+      toValue: { field: "revisedTargetDate", value: nextIso },
+    });
+    return { ok: true as const, noop: false as const };
   });
+  if (!result.ok) return result;
 
   revalidateTaskRoutes();
   revalidatePath(`/tasks/${taskId}`);
+  return { ok: true };
+}
+
+// ───────────────────────────── Phase 3.2 — comment edit/delete ─────────────
+//
+// Authors can edit/delete their own comments within 15 minutes of posting;
+// admins can edit/delete any. Beyond the 15-minute window non-admins are
+// frozen out — the audit trail is supposed to be ~immutable, the grace
+// window is just for typo fixes / accidental sends.
+//
+// Edit updates the `task_events.to_value` JSONB in place, adding an
+// `editedAt` stamp so the UI can render "(edited)". Delete hard-removes
+// the row (the FK in notifications is `set null`, so push-rows that
+// referenced it just lose the link rather than cascading).
+
+const COMMENT_EDIT_WINDOW_MS = 15 * 60 * 1000;
+
+function canMutateComment(
+  event: { actorId: string; eventType: string; createdAt: Date },
+  me: { id: string; isAdmin: boolean },
+): { ok: true } | { ok: false; error: string } {
+  if (event.eventType !== "commented") {
+    return { ok: false, error: "Not a comment event" };
+  }
+  if (me.isAdmin) return { ok: true };
+  if (event.actorId !== me.id) return { ok: false, error: "Forbidden" };
+  if (Date.now() - event.createdAt.getTime() > COMMENT_EDIT_WINDOW_MS) {
+    return { ok: false, error: "Edit window expired (15 minutes)" };
+  }
+  return { ok: true };
+}
+
+export async function editComment(
+  eventId: string,
+  input: { body: string },
+): Promise<
+  | { ok: true }
+  | { ok: false; error: "invalid" | "not-found" | "forbidden" | "expired"; message?: string }
+> {
+  if (!isUuid(eventId)) return { ok: false, error: "invalid", message: "Bad event id" };
+  const parsed = CommentSchema.safeParse({ body: input.body });
+  if (!parsed.success) {
+    return { ok: false, error: "invalid", message: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const me = await requireUser();
+  const event = await db.query.taskEvents.findFirst({
+    where: eq(taskEvents.id, eventId),
+  });
+  if (!event) return { ok: false, error: "not-found" };
+
+  const gate = canMutateComment(event, { id: me.id, isAdmin: me.isAdmin });
+  if (!gate.ok) {
+    return {
+      ok: false,
+      error: gate.error.startsWith("Edit window") ? "expired" : "forbidden",
+      message: gate.error,
+    };
+  }
+
+  // Belt-and-braces: scope the WHERE to the same gate so a concurrent
+  // ownership change between auth check and write can't bypass it.
+  await db
+    .update(taskEvents)
+    .set({
+      toValue: { body: parsed.data.body, editedAt: new Date().toISOString() },
+    })
+    .where(
+      me.isAdmin
+        ? eq(taskEvents.id, eventId)
+        : and(eq(taskEvents.id, eventId), eq(taskEvents.actorId, me.id)),
+    );
+
+  revalidatePath(`/tasks/${event.taskId}`);
+  return { ok: true };
+}
+
+export async function deleteComment(
+  eventId: string,
+): Promise<
+  | { ok: true }
+  | { ok: false; error: "invalid" | "not-found" | "forbidden" | "expired"; message?: string }
+> {
+  if (!isUuid(eventId)) return { ok: false, error: "invalid", message: "Bad event id" };
+
+  const me = await requireUser();
+  const event = await db.query.taskEvents.findFirst({
+    where: eq(taskEvents.id, eventId),
+  });
+  if (!event) return { ok: false, error: "not-found" };
+
+  const gate = canMutateComment(event, { id: me.id, isAdmin: me.isAdmin });
+  if (!gate.ok) {
+    return {
+      ok: false,
+      error: gate.error.startsWith("Edit window") ? "expired" : "forbidden",
+      message: gate.error,
+    };
+  }
+
+  await db
+    .delete(taskEvents)
+    .where(
+      me.isAdmin
+        ? eq(taskEvents.id, eventId)
+        : and(eq(taskEvents.id, eventId), eq(taskEvents.actorId, me.id)),
+    );
+
+  revalidatePath(`/tasks/${event.taskId}`);
   return { ok: true };
 }

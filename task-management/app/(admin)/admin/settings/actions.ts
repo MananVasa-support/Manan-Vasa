@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { orgSettings, settingsEvents, statusSettings } from "@/db/schema";
@@ -156,6 +157,7 @@ export async function updateStatusSettingAction(
 
   revalidatePath("/admin/settings");
   revalidatePath("/");
+  updateTag(CACHE_TAGS.statusSettings);
   return { ok: true };
 }
 

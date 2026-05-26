@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Roboto, Bricolage_Grotesque, JetBrains_Mono } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { ToastHost } from "@/components/ui/toast";
 import { RegisterSW } from "@/components/pwa/register-sw";
@@ -49,8 +50,16 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${roboto.variable} ${bricolage.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
     >
-      <body>
+      {/* suppressHydrationWarning is scoped to <html>/<body> because
+          common browser extensions (Grammarly, password managers, ad-blockers)
+          decorate these elements with bookkeeping attributes like
+          `__processed_<uuid>__` before React hydrates. The diff is in
+          attributes only, never in our subtree, so suppressing here is
+          safe and React's normal hydration warnings still apply
+          everywhere else. */}
+      <body suppressHydrationWarning>
         {/* NuqsAdapter wires nuqs's useQueryState into the Next App Router
             so URL-as-state hooks (settings tabs, filter bars, etc.) work.
             Required by nuqs v2+ — without it any client component calling
@@ -60,6 +69,10 @@ export default function RootLayout({
         </NuqsAdapter>
         <ToastHost />
         <RegisterSW />
+        {/* Phase 0.3 — Vercel Speed Insights. Auto-no-ops outside Vercel
+            (no env vars needed); on Vercel it records real-user Core Web
+            Vitals per route, accessible from the project dashboard. */}
+        <SpeedInsights />
       </body>
     </html>
   );

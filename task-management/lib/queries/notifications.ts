@@ -277,31 +277,35 @@ export async function listNotifications(
   if (opts.recipientIds?.length)
     wheres.push(inArray(notifications.userId, opts.recipientIds));
 
-  const [settings] = await db
-    .select({ matrix: orgSettings.notificationMatrix })
-    .from(orgSettings)
-    .where(eq(orgSettings.id, 1))
-    .limit(1);
-  const matrix = (settings?.matrix ?? {}) as Record<string, string[]>;
-
-  const rows = await db
-    .select({
-      id: notifications.id,
-      kind: notifications.kind,
-      createdAt: notifications.createdAt,
-      recipientId: notifications.userId,
-      recipientName: employees.name,
-      recipientEmail: employees.email,
-      title: notifications.title,
-      body: notifications.body,
-      taskId: notifications.taskId,
-      deliveredChannels: notifications.deliveredChannels,
-    })
-    .from(notifications)
-    .leftJoin(employees, eq(notifications.userId, employees.id))
-    .where(wheres.length ? and(...wheres) : undefined)
-    .orderBy(desc(notifications.createdAt))
-    .limit(limit + 1);
+  // The matrix lookup and the notifications query have no data
+  // dependency — Promise.all fires them in parallel so the inbox
+  // page pays one RTT instead of two.
+  const [settingsRows, rows] = await Promise.all([
+    db
+      .select({ matrix: orgSettings.notificationMatrix })
+      .from(orgSettings)
+      .where(eq(orgSettings.id, 1))
+      .limit(1),
+    db
+      .select({
+        id: notifications.id,
+        kind: notifications.kind,
+        createdAt: notifications.createdAt,
+        recipientId: notifications.userId,
+        recipientName: employees.name,
+        recipientEmail: employees.email,
+        title: notifications.title,
+        body: notifications.body,
+        taskId: notifications.taskId,
+        deliveredChannels: notifications.deliveredChannels,
+      })
+      .from(notifications)
+      .leftJoin(employees, eq(notifications.userId, employees.id))
+      .where(wheres.length ? and(...wheres) : undefined)
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit + 1),
+  ]);
+  const matrix = (settingsRows[0]?.matrix ?? {}) as Record<string, string[]>;
 
   const hasMore = rows.length > limit;
   const sliced = hasMore ? rows.slice(0, limit) : rows;

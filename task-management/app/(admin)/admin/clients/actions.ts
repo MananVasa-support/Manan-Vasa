@@ -1,10 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { clients, tasks, settingsEvents } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/current";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 import {
   CreateClientSchema,
   UpdateClientSchema,
@@ -22,6 +23,15 @@ function revalidateClientSurfaces() {
   revalidatePath("/tasks/new");
   revalidatePath("/tasks");
   revalidatePath("/");
+  // A client rename rewrites `tasks.title` in place (see updateClient),
+  // which means cached task-derived data (nav counts, listDistinctSubjects)
+  // is now stale. Invalidate the tasks tag too — `updateTag` only
+  // works inside server actions, which this helper is exclusively
+  // called from.
+  updateTag(CACHE_TAGS.tasks);
+  // Drop the cached `listActiveClientNames` payload so the picker
+  // immediately reflects new/renamed/deactivated clients.
+  updateTag(CACHE_TAGS.clients);
 }
 
 export async function createClient(

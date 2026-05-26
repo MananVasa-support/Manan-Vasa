@@ -262,6 +262,17 @@
   50%      { box-shadow: 0 0 0 6px rgba(225, 6, 0, 0.18); }
 }
 
+/* Streaming page skeletons — used by TaskDetailSkeleton et al. */
+@keyframes skeletonShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Disable the shimmer animation for users who opted out; the skeleton
+     blocks remain visible (the slow-grey gradient still reads as "loading"). */
+  *[style*="skeletonShimmer"] { animation: none !important; }
+}
+
 /* Inbox-unread badge — soft, slow pulse so it feels alive but not anxious. */
 @keyframes navPillBadgePulse {
   0%, 100% {

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
+  updateTag: vi.fn(),
 }));
 
 // Tier-3 — actions.ts now imports getStatusDisplayMap (server-only).
@@ -30,11 +31,21 @@ vi.mock("@/lib/db", () => {
   const set = vi.fn(() => ({ where }));
   updateCall.mockImplementation(() => ({ set }));
 
+  // `db.transaction(cb)` invokes the callback with a tx object that has
+  // the same select/insert/update/delete surface as `db`. Tests don't care
+  // about isolation; we just need the callback to run with the same mock
+  // object so the call sites work.
+  const txDb = {
+    insert: insertCall,
+    update: updateCall,
+    query: { tasks: { findFirst: queryCall } },
+  };
   return {
     db: {
       insert: insertCall,
       update: updateCall,
       query: { tasks: { findFirst: queryCall } },
+      transaction: vi.fn(async (cb: (tx: typeof txDb) => unknown) => cb(txDb)),
     },
     tasks: { id: "tasks.id", updatedAt: "tasks.updatedAt" },
     taskEvents: { id: "task_events.id" },

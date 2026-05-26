@@ -2,7 +2,7 @@ import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { FilterBar } from "@/components/layout/filter-bar";
 import { TaskListPage } from "@/components/tasks/task-list-page";
-import { listEmployees } from "@/lib/queries/employees";
+import { listEmployeeOptions } from "@/lib/queries/employees";
 import { listTasks, listDistinctSubjects } from "@/lib/queries/tasks";
 import { parseTaskFilters } from "@/lib/task-filters";
 import { requireUser } from "@/lib/auth/current";
@@ -24,7 +24,7 @@ export default async function TasksPage({ searchParams }: PageProps) {
   });
 
   const [allEmployees, rows, subjects, statusDisplay] = await Promise.all([
-    listEmployees(),
+    listEmployeeOptions(),
     listTasks(filters),
     listDistinctSubjects(),
     getStatusDisplayMap(),
@@ -66,7 +66,7 @@ export default async function TasksPage({ searchParams }: PageProps) {
       <TaskListPage
         title="Tasks"
         rows={rows}
-        employees={allEmployees.map((e) => ({ id: e.id, name: e.name }))}
+        employees={allEmployees}
         me={{ id: me.id, isAdmin: me.isAdmin }}
         statusLabels={statusLabels}
         statusTones={statusTones}

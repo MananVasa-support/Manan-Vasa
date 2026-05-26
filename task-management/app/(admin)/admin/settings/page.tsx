@@ -2,6 +2,8 @@ import { requireAdmin } from "@/lib/auth/current";
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
 import { getIntegrationHealth } from "@/lib/queries/integration-health";
+import { listRecentDispatchFailures, getDispatchLogTotals } from "@/lib/queries/dispatch-log";
+import { listRecurringTemplates } from "@/lib/queries/recurring-templates";
 import { getNotificationMatrix } from "@/lib/queries/notification-matrix";
 import { SettingsTabs } from "@/components/admin/settings-tabs";
 import { SettingsTabGeneral } from "@/components/admin/settings-tab-general";
@@ -13,11 +15,22 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   await requireAdmin();
-  const [settings, statusDisplay, integrations, matrix] = await Promise.all([
+  const [
+    settings,
+    statusDisplay,
+    integrations,
+    matrix,
+    dispatchFailures,
+    dispatchTotals,
+    recurringTemplates,
+  ] = await Promise.all([
     getOrgSettings(),
     getStatusDisplayMap(),
     getIntegrationHealth(),
     getNotificationMatrix(),
+    listRecentDispatchFailures({ limit: 50 }),
+    getDispatchLogTotals(),
+    listRecurringTemplates(),
   ]);
 
   return (
@@ -48,7 +61,14 @@ export default async function SettingsPage() {
       <SettingsTabs
         general={<SettingsTabGeneral current={settings} />}
         statuses={<SettingsTabStatuses display={statusDisplay} />}
-        integrations={<SettingsTabIntegrations rows={integrations} />}
+        integrations={
+          <SettingsTabIntegrations
+            rows={integrations}
+            dispatchFailures={dispatchFailures}
+            dispatchTotals={dispatchTotals}
+            recurringTemplates={recurringTemplates}
+          />
+        }
         notifications={<SettingsTabNotifications initial={matrix} />}
       />
     </div>

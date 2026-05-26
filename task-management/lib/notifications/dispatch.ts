@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import {
   employees,
   notifications,
+  notificationDispatchLog,
   tasks,
   type NotificationKind,
 } from "@/db/schema";
@@ -257,15 +258,62 @@ export async function notify(opts: NotifyOpts): Promise<void> {
 
   const delivered: string[] = [];
   let emailSent = false;
+  // Phase 2.1 — accumulate a row per (channel, outcome) attempt for the
+  // dispatch log. We persist these AFTER the channel stamps so a slow
+  // INSERT can't hold up the user-facing read of delivered_channels.
+  const logRows: Array<{
+    notificationId: string;
+    channel: "email" | "slack" | "whatsapp" | "web_push";
+    status: "sent" | "skipped" | "failed";
+    errorMessage: string | null;
+    nextAttemptAt: Date | null;
+  }> = [];
   for (let i = 0; i < arms.length; i++) {
     const armEntry = arms[i];
     const settled = results[i];
     if (!armEntry || !settled) continue;
-    const name = armEntry[0];
-    if (settled.status !== "fulfilled") continue;
-    if (settled.value !== "sent") continue;
-    delivered.push(name);
-    if (name === "email") emailSent = true;
+    const name = armEntry[0] as "email" | "slack" | "whatsapp" | "web_push";
+    // settled.status is always "fulfilled" because safeSend swallows
+    // rejections, but the type system doesn't know that; guard for safety.
+    if (settled.status !== "fulfilled") {
+      logRows.push({
+        notificationId: row.id,
+        channel: name,
+        status: "failed",
+        errorMessage: "unexpected promise rejection",
+        nextAttemptAt: nextRetryAt(1),
+      });
+      continue;
+    }
+    const value = settled.value;
+    if (value === "sent") {
+      delivered.push(name);
+      if (name === "email") emailSent = true;
+      logRows.push({
+        notificationId: row.id,
+        channel: name,
+        status: "sent",
+        errorMessage: null,
+        nextAttemptAt: null,
+      });
+    } else if (value === "skip") {
+      logRows.push({
+        notificationId: row.id,
+        channel: name,
+        status: "skipped",
+        errorMessage: null,
+        nextAttemptAt: null,
+      });
+    } else {
+      // { error }
+      logRows.push({
+        notificationId: row.id,
+        channel: name,
+        status: "failed",
+        errorMessage: value.error.slice(0, 2000),
+        nextAttemptAt: nextRetryAt(1),
+      });
+    }
   }
 
   // Stamp delivered_channels + (for soft compatibility) email_sent_at.
@@ -283,6 +331,27 @@ export async function notify(opts: NotifyOpts): Promise<void> {
   } catch {
     // ignore
   }
+
+  // Persist the per-channel dispatch log. Same swallow-and-continue
+  // contract — failures here must never crash the calling action.
+  if (logRows.length > 0) {
+    try {
+      await db.insert(notificationDispatchLog).values(logRows);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("[dispatch] failed to write dispatch log", err);
+    }
+  }
+}
+
+/**
+ * Exponential-backoff schedule for the retry cron. attempt=1 → 60s,
+ * attempt=2 → 5min, attempt=3 → 30min. Past 3 we mark `failed_terminal`
+ * in the retry helper and stop bothering.
+ */
+export function nextRetryAt(attemptCount: number): Date {
+  const minutes = attemptCount <= 1 ? 1 : attemptCount === 2 ? 5 : 30;
+  return new Date(Date.now() + minutes * 60_000);
 }
 
 /**
@@ -346,17 +415,24 @@ export async function notifyManyForTask(
 
   const recipients = dedupeRecipients(candidates, opts.actorId);
 
-  for (const userId of recipients) {
-    await notify({
-      userId,
-      kind: opts.kind,
-      title: opts.title,
-      body: opts.body ?? null,
-      taskId,
-      eventId: opts.eventId ?? null,
-      actorId: opts.actorId,
-    });
-  }
+  // Fan-out in parallel — each notify() does its own DB insert + email/
+  // Slack/WhatsApp/push work, none of which depends on the others.
+  // Serial awaits made a 5-recipient fan-out cost 5× the latency of a
+  // single one; Promise.allSettled here so one bad channel for one
+  // recipient can't poison the whole batch.
+  await Promise.allSettled(
+    recipients.map((userId) =>
+      notify({
+        userId,
+        kind: opts.kind,
+        title: opts.title,
+        body: opts.body ?? null,
+        taskId,
+        eventId: opts.eventId ?? null,
+        actorId: opts.actorId,
+      }),
+    ),
+  );
 }
 
 /**

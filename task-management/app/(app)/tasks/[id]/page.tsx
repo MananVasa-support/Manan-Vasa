@@ -1,24 +1,9 @@
-import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
-import { TaskDetailView } from "@/components/tasks/task-detail-view";
-import { getTaskById } from "@/lib/queries/tasks";
-import { listTaskEvents } from "@/lib/queries/audit";
-import { listEmployees } from "@/lib/queries/employees";
-import { listActiveClientNames } from "@/lib/queries/clients";
-import { listActiveSubjectNames } from "@/lib/queries/subjects";
-import { listProjectNodeOptions } from "@/lib/queries/projects";
-import { getStatusDisplayMap } from "@/lib/queries/status-display";
+import { TaskDetailLoader } from "@/components/tasks/task-detail-loader";
+import { TaskDetailSkeleton } from "@/components/tasks/task-detail-skeleton";
 import { requireUser } from "@/lib/auth/current";
-import type { TaskStatus, StatusColorToken } from "@/db/enums";
-import {
-  canEditTaskFields,
-  canApprove,
-  canReassign,
-  canTransferExternal,
-  canCancel,
-  canComment,
-} from "@/lib/auth/task-permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -26,73 +11,39 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+/**
+ * Task detail — Phase 1.2 streaming shell.
+ *
+ * Header + main container + footer render synchronously so the user sees
+ * a chrome'd page in well under 100ms. The actual content lives behind a
+ * `<Suspense>` boundary that the loader fills in once `getTaskById` and
+ * the picker fan-outs settle. The five static picker queries are cached
+ * (Phase 1.1) so on a warm cache the streamed payload arrives quickly
+ * after the per-task readback.
+ */
 export default async function TaskDetailPage({ params }: PageProps) {
   const { id } = await params;
+  // requireUser is already cached per-request (lib/auth/current uses
+  // `cache()`); doing it here keeps auth-gating ahead of any rendering
+  // and gives the loader its `me` payload without a second resolve.
   const me = await requireUser();
-  const task = await getTaskById(id);
-  if (!task) notFound();
-
-  const [events, all, statusDisplay, clients, subjects, projectNodes] = await Promise.all([
-    listTaskEvents(id),
-    listEmployees(),
-    getStatusDisplayMap(),
-    listActiveClientNames(),
-    listActiveSubjectNames(),
-    listProjectNodeOptions(),
-  ]);
-  const employeeOptions = all.map((e) => ({ id: e.id, name: e.name }));
-  const statusLabels = Object.fromEntries(
-    Object.entries(statusDisplay).map(([k, v]) => [k, v.label]),
-  ) as Record<TaskStatus, string>;
-  const statusTones = Object.fromEntries(
-    Object.entries(statusDisplay).map(([k, v]) => [k, v.color]),
-  ) as Record<TaskStatus, StatusColorToken>;
-
-  const permInput = {
-    employee: { id: me.id, isAdmin: me.isAdmin },
-    task: {
-      createdById: task.createdById,
-      initiatorId: task.initiatorId,
-      doerId: task.doerId,
-      status: task.status,
-    },
-  };
-
-  // Workflow-gated visibility for Approve/Decline. The matrix lets admins
-  // jump from any status to "approved" via override, which surfaces those
-  // cards on a "Not Started" task — misleading. Restrict the CTA to the
-  // moment it's meaningful (doer has marked work done). Admins keep the
-  // override at the server level if they ever need to force a verdict.
-  const showApproveCard =
-    canApprove(permInput) && task.status === "done";
 
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto max-w-[1280px] px-12 max-md:px-4 pt-10 pb-20">
-        <TaskDetailView
-          task={task}
-          canEdit={canEditTaskFields(permInput)}
-          canApproveTask={showApproveCard}
-          canReassignTask={canReassign(permInput)}
-          canTransferTaskExternal={canTransferExternal(permInput)}
-          canCancelTask={canCancel(permInput)}
-          canCommentOnTask={canComment(permInput)}
-          events={events}
-          employees={employeeOptions}
-          clients={clients}
-          subjects={subjects}
-          projectNodes={projectNodes}
-          me={{
-            id: me.id,
-            name: me.name,
-            avatarUrl: me.avatarUrl,
-            department: me.department,
-            isAdmin: me.isAdmin,
-          }}
-          statusLabels={statusLabels}
-          statusTones={statusTones}
-        />
+        <Suspense key={id} fallback={<TaskDetailSkeleton />}>
+          <TaskDetailLoader
+            taskId={id}
+            me={{
+              id: me.id,
+              name: me.name,
+              avatarUrl: me.avatarUrl,
+              department: me.department,
+              isAdmin: me.isAdmin,
+            }}
+          />
+        </Suspense>
       </main>
       <DashboardFooter />
     </>

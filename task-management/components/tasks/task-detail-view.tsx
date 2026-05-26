@@ -506,7 +506,11 @@ export function TaskDetailView({
             )}
 
             {/* (3) Audit feed timeline */}
-            <AuditFeed events={events} statusLabels={statusLabels} />
+            <AuditFeed
+              events={events}
+              statusLabels={statusLabels}
+              me={me ? { id: me.id, isAdmin: me.isAdmin } : undefined}
+            />
           </div>
         </aside>
       </div>

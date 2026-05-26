@@ -9,6 +9,9 @@ import type { TaskStatus } from "@/db/enums";
 interface Props {
   events: AuditFeedRow[];
   statusLabels?: Record<TaskStatus, string>;
+  /** Current user — used by AuditEvent to gate the edit/delete buttons on
+   *  comment rows (author within 15 minutes, or admin). */
+  me?: { id: string; isAdmin: boolean };
 }
 
 type FilterKey = "all" | "comments" | "status" | "edits";
@@ -29,7 +32,7 @@ const FILTERS: { key: FilterKey; label: string }[] = [
  * - Local client-side filter (All / Comments / Status / Edits).
  * - Scrolls within its own container past ~600px so the sticky rail behaves.
  */
-export function AuditFeed({ events, statusLabels }: Props) {
+export function AuditFeed({ events, statusLabels, me }: Props) {
   const [filter, setFilter] = useState<FilterKey>("all");
   const counts = useMemo(() => countByBucket(events), [events]);
 
@@ -163,7 +166,7 @@ export function AuditFeed({ events, statusLabels }: Props) {
                           : undefined
                       }
                     >
-                      <AuditEvent row={ev} fresh={fresh} statusLabels={statusLabels} />
+                      <AuditEvent row={ev} fresh={fresh} statusLabels={statusLabels} me={me} />
                     </div>
                   </motion.li>
                 );

@@ -1,8 +1,10 @@
-import { and, eq, gte, inArray, lt, asc, desc } from "drizzle-orm";
+import { and, eq, gte, inArray, lt, or, asc, desc, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { unstable_cache } from "next/cache";
 import { db, employees, tasks } from "@/lib/db";
 import { TASK_STATUSES, TASK_PRIORITIES, PENDING_STATUSES } from "@/db/enums";
 import { employeeIdsInDepartments } from "@/lib/queries/departments";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 import type { TaskListFilters, TaskListRow } from "@/lib/types";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -29,7 +31,14 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
     conditions.push(inArray(tasks.doerId, ids));
   }
 
-  const baseRows = await db
+  // Single query with both doer + initiator joined inline. The previous
+  // implementation fetched initiator names in a second round-trip after
+  // collecting the IDs from the first result; on a remote Postgres that
+  // doubled the wall-clock cost of the list view for no functional gain.
+  const doerEmp = alias(employees, "doer_emp");
+  const initEmp = alias(employees, "init_emp");
+
+  const rows = await db
     .select({
       id: tasks.id,
       title: tasks.title,
@@ -40,32 +49,22 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
       dueAt: tasks.dueAt,
       archived: tasks.archived,
       doerId: tasks.doerId,
-      doerName: employees.name,
-      doerDept: employees.department,
+      doerName: doerEmp.name,
+      doerDept: doerEmp.department,
       initiatorId: tasks.initiatorId,
-      // M2.1 additions:
+      initiatorName: initEmp.name,
       createdById: tasks.createdById,
       updatedAt: tasks.updatedAt,
     })
     .from(tasks)
-    .leftJoin(employees, eq(tasks.doerId, employees.id))
+    .leftJoin(doerEmp, eq(tasks.doerId, doerEmp.id))
+    .leftJoin(initEmp, eq(tasks.initiatorId, initEmp.id))
     .where(and(...conditions))
     .orderBy(desc(tasks.createdAt))
     .limit(1000);
 
-  // Fetch initiator names in one extra query
-  const initiatorIds = Array.from(new Set(baseRows.map((r) => r.initiatorId)));
-  let initiatorNameById = new Map<string, string>();
-  if (initiatorIds.length > 0) {
-    const initRows = await db
-      .select({ id: employees.id, name: employees.name })
-      .from(employees)
-      .where(inArray(employees.id, initiatorIds));
-    initiatorNameById = new Map(initRows.map((r) => [r.id, r.name]));
-  }
-
   const now = Date.now();
-  return baseRows.map((r) => ({
+  return rows.map((r) => ({
     id: r.id,
     title: r.title,
     subject: r.subject,
@@ -75,7 +74,7 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
     doerName: r.doerName ?? null,
     doerDept: r.doerDept ?? null,
     initiatorId: r.initiatorId,
-    initiatorName: initiatorNameById.get(r.initiatorId) ?? null,
+    initiatorName: r.initiatorName ?? null,
     createdAt: r.createdAt,
     dueAt: r.dueAt,
     ageDays: Math.floor((now - r.createdAt.getTime()) / MS_PER_DAY),
@@ -83,6 +82,148 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
     createdById: r.createdById,
     updatedAt: r.updatedAt,
   }));
+}
+
+// ─── Phase 4.2 — cursor pagination ────────────────────────────────────────
+//
+// `listTasks()` above keeps its existing "flat array up to 1000 rows"
+// contract so we don't break the 9 existing callers (exports, kanban,
+// agenda, archived, etc.) in a single sweep. The new `listTasksPage()`
+// returns `{ rows, nextCursor }` and is the path forward — adopt at each
+// caller incrementally.
+//
+// Cursor shape: base64(`${createdAt-iso}|${id}`). The query orders by
+// `createdAt desc, id desc` so the cursor encodes BOTH columns to break
+// the (rare) tie when two tasks share a millisecond. Forward-only.
+
+export interface TaskListPageOpts {
+  /** Default: 50. Hard-capped at 200 server-side so a misbehaving caller
+   *  can't request a 10k payload. */
+  pageSize?: number;
+  /** Opaque cursor from the previous page's `nextCursor`. Null = first page. */
+  cursor?: string | null;
+}
+
+export interface TaskListPage {
+  rows: TaskListRow[];
+  nextCursor: string | null;
+}
+
+const MAX_PAGE_SIZE = 200;
+
+function encodeCursor(row: { createdAt: Date; id: string }): string {
+  // Buffer is fine in the Node runtime; the cursor is opaque so the
+  // encoding could change later without breaking callers.
+  return Buffer.from(`${row.createdAt.toISOString()}|${row.id}`, "utf8").toString("base64url");
+}
+
+function decodeCursor(c: string): { createdAt: Date; id: string } | null {
+  try {
+    const raw = Buffer.from(c, "base64url").toString("utf8");
+    const [iso, id] = raw.split("|");
+    if (!iso || !id) return null;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    return { createdAt: d, id };
+  } catch {
+    return null;
+  }
+}
+
+export async function listTasksPage(
+  filters: TaskListFilters,
+  opts: TaskListPageOpts = {},
+): Promise<TaskListPage> {
+  const pageSize = Math.max(1, Math.min(MAX_PAGE_SIZE, opts.pageSize ?? 50));
+  const cursor = opts.cursor ? decodeCursor(opts.cursor) : null;
+
+  const conditions = [eq(tasks.archived, filters.archived)];
+  if (filters.startDate) conditions.push(gte(tasks.createdAt, filters.startDate));
+  if (filters.endDate)
+    conditions.push(lt(tasks.createdAt, new Date(filters.endDate.getTime() + MS_PER_DAY)));
+  if (filters.statuses.length > 0) conditions.push(inArray(tasks.status, filters.statuses));
+  if (filters.doerIds.length > 0) conditions.push(inArray(tasks.doerId, filters.doerIds));
+  if (filters.initiatorIds.length > 0)
+    conditions.push(inArray(tasks.initiatorId, filters.initiatorIds));
+  if (filters.priorities.length > 0)
+    conditions.push(inArray(tasks.priority, filters.priorities));
+  if (filters.subjects.length > 0) conditions.push(inArray(tasks.subject, filters.subjects));
+  if (filters.taskId) conditions.push(eq(tasks.id, filters.taskId));
+
+  if (filters.departments.length > 0) {
+    const ids = await employeeIdsInDepartments(filters.departments);
+    if (ids.length === 0) return { rows: [], nextCursor: null };
+    conditions.push(inArray(tasks.doerId, ids));
+  }
+
+  // Cursor predicate: (createdAt, id) < (cursor.createdAt, cursor.id).
+  // Expressed as the standard SQL keyset comparison so the existing
+  // (createdAt) index still helps.
+  if (cursor) {
+    conditions.push(
+      or(
+        lt(tasks.createdAt, cursor.createdAt),
+        and(eq(tasks.createdAt, cursor.createdAt), lt(tasks.id, cursor.id)),
+      )!,
+    );
+  }
+
+  const doerEmp = alias(employees, "doer_emp");
+  const initEmp = alias(employees, "init_emp");
+
+  // Fetch one extra row so we know whether a next page exists without a
+  // separate `count(*)` round-trip.
+  const fetched = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      subject: tasks.subject,
+      status: tasks.status,
+      priority: tasks.priority,
+      createdAt: tasks.createdAt,
+      dueAt: tasks.dueAt,
+      archived: tasks.archived,
+      doerId: tasks.doerId,
+      doerName: doerEmp.name,
+      doerDept: doerEmp.department,
+      initiatorId: tasks.initiatorId,
+      initiatorName: initEmp.name,
+      createdById: tasks.createdById,
+      updatedAt: tasks.updatedAt,
+    })
+    .from(tasks)
+    .leftJoin(doerEmp, eq(tasks.doerId, doerEmp.id))
+    .leftJoin(initEmp, eq(tasks.initiatorId, initEmp.id))
+    .where(and(...conditions))
+    .orderBy(desc(tasks.createdAt), desc(tasks.id))
+    .limit(pageSize + 1);
+
+  const hasMore = fetched.length > pageSize;
+  const pageRows = hasMore ? fetched.slice(0, pageSize) : fetched;
+  const last = pageRows[pageRows.length - 1];
+  const nextCursor = hasMore && last ? encodeCursor(last) : null;
+
+  const now = Date.now();
+  const rows: TaskListRow[] = pageRows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    subject: r.subject,
+    status: r.status,
+    priority: r.priority,
+    doerId: r.doerId,
+    doerName: r.doerName ?? null,
+    doerDept: r.doerDept ?? null,
+    initiatorId: r.initiatorId,
+    initiatorName: r.initiatorName ?? null,
+    createdAt: r.createdAt,
+    dueAt: r.dueAt,
+    ageDays: Math.floor((now - r.createdAt.getTime()) / MS_PER_DAY),
+    archived: r.archived,
+    createdById: r.createdById,
+    updatedAt: r.updatedAt,
+  }));
+
+  return { rows, nextCursor };
 }
 
 /** Minimal card shape for the status Kanban board. */
@@ -263,15 +404,27 @@ export async function listTasksForExport(
   }));
 }
 
-export async function listDistinctSubjects(): Promise<string[]> {
-  const rows = await db
-    .selectDistinct({ subject: tasks.subject })
-    .from(tasks);
-  return rows
-    .map((r) => r.subject)
-    .filter((s): s is string => typeof s === "string" && s.length > 0)
-    .sort();
-}
+/**
+ * Distinct task subjects for the filter-bar dropdown. Backed by a full
+ * `SELECT DISTINCT subject FROM tasks`, which grows linearly with the
+ * tasks table — wrapping in `unstable_cache` so the hot path on /tasks
+ * doesn't repeat the scan on every navigation. Invalidated by task
+ * create/edit/delete via revalidateTag(CACHE_TAGS.subjects) and by
+ * the subjects admin actions.
+ */
+export const listDistinctSubjects = unstable_cache(
+  async (): Promise<string[]> => {
+    const rows = await db
+      .selectDistinct({ subject: tasks.subject })
+      .from(tasks);
+    return rows
+      .map((r) => r.subject)
+      .filter((s): s is string => typeof s === "string" && s.length > 0)
+      .sort();
+  },
+  ["list-distinct-subjects"],
+  { tags: [CACHE_TAGS.subjects, CACHE_TAGS.tasks], revalidate: 600 },
+);
 
 export type TaskDetail = {
   id: string;
@@ -302,6 +455,10 @@ export type TaskDetail = {
   allDay: boolean;
   recurrence: string | null;
   recurrenceRule: string | null;
+  // Phase 5.2 — set on materialized recurrence children; the UI shows
+  // a small "↻ recurring" badge with a click-through to the template.
+  recurrenceParentId: string | null;
+  recurrenceOccurrenceDate: string | null;
   projectNodeId: string | null;
 };
 

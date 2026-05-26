@@ -77,8 +77,19 @@ export async function POST(req: Request): Promise<NextResponse> {
   };
   try {
     body = JSON.parse(raw);
-  } catch {
-    return NextResponse.json({ ok: true });
+  } catch (err) {
+    // Returning 200 here would tell Meta the delivery succeeded, even
+    // though we couldn't parse it. Returning 400 makes Meta retry with
+    // backoff, and gives us a log trail when their payload format
+    // drifts.
+    console.error(
+      "[whatsapp/webhook] malformed JSON body",
+      err instanceof Error ? err.message : err,
+    );
+    return NextResponse.json(
+      { ok: false, error: "malformed body" },
+      { status: 400 },
+    );
   }
   for (const entry of body.entry ?? []) {
     for (const change of entry.changes ?? []) {

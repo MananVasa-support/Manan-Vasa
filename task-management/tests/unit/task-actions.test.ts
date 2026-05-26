@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock revalidatePath before importing the actions (top-level mocks run before imports).
+// Mock revalidatePath + updateTag before importing the actions (top-level
+// mocks run before imports). `updateTag` is the Next 16 server-action-
+// scoped tag invalidator used by `revalidateTaskRoutes`.
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
+  updateTag: vi.fn(),
 }));
 
 // Tier-3 — actions.ts now imports getStatusDisplayMap (server-only).
@@ -66,9 +69,38 @@ vi.mock("@/lib/db", () => {
   };
   insertCall.mockImplementation(() => makeInsert());
 
+  // The linter added `tx.select(...).from(...).where(...).limit(1)` calls
+  // inside `setTaskPriority` / `reassignDoer` (optimistic-lock readback).
+  // The chain just needs to resolve to a plausible single-row result — the
+  // tests assert on the audit-event writes, not the readback value.
+  // Chain shape: select(...).from(...).where(...).limit(1) OR .for('update').
+  // The select-readback is what the linter-refactored setTaskPriority /
+  // reassignDoer read for the optimistic-lock check, so it needs to return
+  // the same "current task" the test seeded via `queryCall.mockResolvedValueOnce`.
+  // Calling queryCall.getMockImplementation()() resolves to that test fixture
+  // (or a default), so the existing scenario harness keeps working unchanged.
+  const readCurrent = async (): Promise<unknown[]> => {
+    const impl = queryCall.getMockImplementation?.();
+    const row = impl ? await impl() : await queryCall();
+    return row ? [row] : [];
+  };
+  const txSelect = vi.fn(() => ({
+    from: vi.fn(() => ({
+      where: vi.fn(() => ({
+        limit: vi.fn(readCurrent),
+        for: vi.fn(() => ({
+          limit: vi.fn(readCurrent),
+          then: (cb: (v: unknown) => unknown) => readCurrent().then(cb),
+        })),
+        then: (cb: (v: unknown) => unknown) => readCurrent().then(cb),
+      })),
+    })),
+  }));
+
   const tx = {
     update: updateCall,
     insert: insertCall,
+    select: txSelect,
     query: { tasks: { findFirst: queryCall } },
   };
 
@@ -76,6 +108,7 @@ vi.mock("@/lib/db", () => {
     db: {
       update: updateCall,
       insert: insertCall,
+      select: txSelect,
       query: { tasks: { findFirst: queryCall } },
       transaction: vi.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
     },

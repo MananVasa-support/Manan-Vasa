@@ -1,8 +1,10 @@
 import "server-only";
 import { asc, desc, eq, sql, and, inArray } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { projectNodes, tasks, employees } from "@/db/schema";
 import type { TaskStatus } from "@/db/enums";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 
 export interface ProjectTreeNode {
   id: string;
@@ -115,15 +117,24 @@ export async function listNodeActions(nodeIds: string[]): Promise<NodeAction[]> 
   return rows.map((r) => ({ ...r, doerName: r.doerName ?? null }));
 }
 
-/** Flat, path-labelled list of active nodes for the task → project picker. */
-export async function listProjectNodeOptions(): Promise<ProjectNodeOption[]> {
-  const tree = await listProjectTree();
-  const out: ProjectNodeOption[] = [];
-  function walk(node: ProjectTreeNode, prefix: string) {
-    const label = prefix ? `${prefix} / ${node.name}` : node.name;
-    out.push({ id: node.id, label });
-    for (const c of node.children) walk(c, label);
-  }
-  for (const r of tree) walk(r, "");
-  return out.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
-}
+/**
+ * Flat, path-labelled list of active nodes for the task → project picker.
+ * Cached under the `projectNodes` tag — re-fetches only when a node is
+ * created/renamed/archived (writers in `app/(app)/projects/actions.ts`
+ * call `updateTag(CACHE_TAGS.projectNodes)`).
+ */
+export const listProjectNodeOptions = unstable_cache(
+  async (): Promise<ProjectNodeOption[]> => {
+    const tree = await listProjectTree();
+    const out: ProjectNodeOption[] = [];
+    function walk(node: ProjectTreeNode, prefix: string) {
+      const label = prefix ? `${prefix} / ${node.name}` : node.name;
+      out.push({ id: node.id, label });
+      for (const c of node.children) walk(c, label);
+    }
+    for (const r of tree) walk(r, "");
+    return out.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+  },
+  ["list-project-node-options"],
+  { tags: [CACHE_TAGS.projectNodes], revalidate: 600 },
+);

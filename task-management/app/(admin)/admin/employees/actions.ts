@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 import { eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
@@ -194,7 +195,16 @@ export async function inviteEmployee(input: InviteEmployeeInput): Promise<{
     parsed.primaryDepartmentId,
   );
 
-  // 3. Insert employees row
+  // 3. Insert employees row.
+  //
+  // The pre-check above (line 150) is not race-safe — two admins
+  // inviting the same email at the same time both see "no existing
+  // row" and both reach this point. The DB-side UNIQUE constraint on
+  // `employees.email` is the real arbiter; we catch the violation
+  // here and translate Postgres error 23505 into a friendly message
+  // instead of leaking "DB: duplicate key value violates …" to the
+  // admin. The Firebase user we just created gets rolled back in
+  // both cases, so no orphans.
   let inserted;
   try {
     [inserted] = await db.insert(employees).values({
@@ -207,10 +217,20 @@ export async function inviteEmployee(input: InviteEmployeeInput): Promise<{
       firebaseUid:  fbUid,
       invitedAt:    new Date(),
     }).returning();
-  } catch (err: any) {
-    // Roll back the Firebase user since the DB write failed
+  } catch (err: unknown) {
     await auth.deleteUser(fbUid).catch(() => {});
-    return { ok: false, error: `DB: ${err.message ?? err}` };
+    const e = err as { code?: string; constraint?: string; message?: string };
+    if (e?.code === "23505") {
+      // Could be the email unique-index or (less likely) firebase_uid.
+      return {
+        ok: false,
+        error:
+          e.constraint?.includes("firebase_uid")
+            ? "An employee is already linked to that Firebase user."
+            : "An employee with this email already exists.",
+      };
+    }
+    return { ok: false, error: `DB: ${e?.message ?? String(err)}` };
   }
   if (!inserted) {
     await auth.deleteUser(fbUid).catch(() => {});
@@ -268,6 +288,7 @@ export async function inviteEmployee(input: InviteEmployeeInput): Promise<{
   }
 
   revalidatePath("/admin/employees");
+  updateTag(CACHE_TAGS.employees);
   return { ok: true, id: inserted.id, warning: emailWarning };
 }
 
@@ -391,6 +412,7 @@ export async function editEmployee(
   }
 
   revalidatePath("/admin/employees");
+  updateTag(CACHE_TAGS.employees);
   return { ok: true };
 }
 
@@ -480,6 +502,7 @@ export async function resendInvite(employeeId: string): Promise<{ ok: boolean; e
   }
 
   revalidatePath("/admin/employees");
+  updateTag(CACHE_TAGS.employees);
   return { ok: true };
 }
 
@@ -531,6 +554,7 @@ export async function deactivateEmployee(
   }
 
   revalidatePath("/admin/employees");
+  updateTag(CACHE_TAGS.employees);
   return { ok: true };
 }
 
@@ -578,6 +602,7 @@ export async function reactivateEmployee(
   }
 
   revalidatePath("/admin/employees");
+  updateTag(CACHE_TAGS.employees);
   return { ok: true };
 }
 
@@ -827,5 +852,6 @@ export async function deleteEmployee(
   }
 
   revalidatePath("/admin/employees");
+  updateTag(CACHE_TAGS.employees);
   return { ok: true, deleted: counts };
 }

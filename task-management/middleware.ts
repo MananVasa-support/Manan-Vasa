@@ -10,7 +10,17 @@ const PUBLIC_PATHS = [
   "/privacy",
 ];
 
-const PUBLIC_API = ["/api/auth/session", "/api/auth/signout", "/api/health"];
+const PUBLIC_API = [
+  "/api/auth/session",
+  "/api/auth/signout",
+  "/api/health",
+  // Cron routes are authenticated by their own `Authorization: Bearer <CRON_SECRET>`
+  // check inside the route handler (see e.g. app/api/cron/digest/route.ts).
+  // Without this exclusion, the auth middleware redirects them to /login
+  // before the route can verify CRON_SECRET — silently breaking every
+  // Vercel cron invocation.
+  "/api/cron/",
+];
 
 // PWA assets — must be reachable without auth so the browser can install
 // the app and register the Service Worker before the user signs in.
@@ -51,7 +61,14 @@ export function middleware(request: NextRequest) {
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
       privateKey: process.env.FIREBASE_PRIVATE_KEY!.replace(/\\n/g, "\n"),
     },
-    checkRevoked: true,
+    // Verify token signatures locally using cached Google public keys
+    // instead of calling Firebase per request. `checkRevoked: true` adds a
+    // round-trip to Google on EVERY request (including RSC prefetches),
+    // which on a remote DB region compounds with the DB latency on each
+    // navigation. We trade that for slightly stale revocation: a forced
+    // sign-out propagates on the next token refresh (max 1 hour) rather
+    // than instantly. Signing-key rotation is still picked up live.
+    checkRevoked: false,
     handleValidToken: async (_tokens, headers) => {
       return NextResponse.next({ request: { headers } });
     },

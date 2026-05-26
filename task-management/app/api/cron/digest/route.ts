@@ -60,6 +60,35 @@ function getIstHour(now: Date): number {
   return new Date(istMs).getUTCHours();
 }
 
+/**
+ * Race a promise against a timer. Used in the cron digest loop so a
+ * hung Slack / WhatsApp / SMTP call can't sit forever and starve the
+ * Vercel function timeout — we'd rather skip a delivery and log it.
+ * The timer is `.unref()`ed so it doesn't keep the Node event loop
+ * alive on its own.
+ */
+const SEND_TIMEOUT_MS = 5_000;
+
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms}ms`)),
+      ms,
+    );
+    timer.unref?.();
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 async function runDigest(request: Request): Promise<NextResponse> {
   const expected = process.env.CRON_SECRET;
   const header = request.headers.get("authorization");
@@ -156,11 +185,15 @@ async function runDigest(request: Request): Promise<NextResponse> {
 
     // 2) Email (Agent B's send — wrapped, never throws upward).
     try {
-      const result = await sendDigestEmail({
-        recipient: { email: recipient.email, name: recipient.name },
-        overdueTasks,
-        siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
-      });
+      const result = await withTimeout(
+        sendDigestEmail({
+          recipient: { email: recipient.email, name: recipient.name },
+          overdueTasks,
+          siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+        }),
+        SEND_TIMEOUT_MS,
+        "sendDigestEmail",
+      );
       if (result.error) {
         console.error(
           `[cron/digest] sendDigestEmail returned error for ${recipient.email}:`,
@@ -176,47 +209,60 @@ async function runDigest(request: Request): Promise<NextResponse> {
       );
     }
 
-    // 3) Slack (M4 Commit 3a) — best-effort DM with the same overdue
-    // bullet list.  Wrapped so a Slack outage, missing bot token, or
-    // unresolvable uid never poisons the rest of the cron run.
-    try {
-      const prefs = await getRecipientChannelPrefs(employeeId);
-      if (prefs) {
-        await sendSlackDigest(
-          prefs,
-          overdueTasks.map((t) => ({
-            subject: t.subject,
-            shortId: t.shortId ?? "",
-            daysOverdue: t.daysOverdue,
-          })),
+    // Channel prefs are read by both the Slack and WhatsApp arms.
+    // Look up once per recipient instead of twice.
+    const channelPrefs = await getRecipientChannelPrefs(employeeId).catch(
+      (err) => {
+        console.error(
+          `[cron/digest] getRecipientChannelPrefs failed for ${recipient.email}`,
+          err,
         );
-      }
-    } catch (err) {
-      console.error(
-        `[cron/digest] sendSlackDigest threw for ${recipient.email}`,
-        err,
-      );
-    }
+        return null;
+      },
+    );
 
-    // 4) WhatsApp (M4 Commit 3b) — fires the `vp_overdue_digest`
-    // utility template.  Parallel try/catch to the Slack arm so a
-    // missing Meta token / bad template never wedges the cron run.
-    try {
-      const prefs = await getRecipientChannelPrefs(employeeId);
-      if (prefs) {
-        await sendWhatsAppDigest(
-          prefs,
-          overdueTasks.map((t) => ({
-            subject: t.subject,
-            daysOverdue: t.daysOverdue,
-          })),
+    // 3) Slack (M4 Commit 3a) — best-effort DM. Wrapped + timed out so
+    //    a Slack outage can't park the cron loop.
+    if (channelPrefs) {
+      try {
+        await withTimeout(
+          sendSlackDigest(
+            channelPrefs,
+            overdueTasks.map((t) => ({
+              subject: t.subject,
+              shortId: t.shortId ?? "",
+              daysOverdue: t.daysOverdue,
+            })),
+          ),
+          SEND_TIMEOUT_MS,
+          "sendSlackDigest",
+        );
+      } catch (err) {
+        console.error(
+          `[cron/digest] sendSlackDigest threw for ${recipient.email}`,
+          err,
         );
       }
-    } catch (err) {
-      console.error(
-        `[cron/digest] sendWhatsAppDigest threw for ${recipient.email}`,
-        err,
-      );
+
+      // 4) WhatsApp (M4 Commit 3b) — same wrap.
+      try {
+        await withTimeout(
+          sendWhatsAppDigest(
+            channelPrefs,
+            overdueTasks.map((t) => ({
+              subject: t.subject,
+              daysOverdue: t.daysOverdue,
+            })),
+          ),
+          SEND_TIMEOUT_MS,
+          "sendWhatsAppDigest",
+        );
+      } catch (err) {
+        console.error(
+          `[cron/digest] sendWhatsAppDigest threw for ${recipient.email}`,
+          err,
+        );
+      }
     }
   }
 

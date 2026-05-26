@@ -1,8 +1,17 @@
+"use client";
+
+import * as React from "react";
 import { formatDistanceToNow } from "date-fns";
+import { useRouter } from "next/navigation";
+import { Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 import type { AuditFeedRow } from "@/lib/queries/audit";
 import type { TaskEventType } from "@/lib/events";
 import type { TaskStatus } from "@/db/enums";
 import { STATUS_LABELS_FALLBACK } from "@/lib/format";
+import { editComment, deleteComment } from "@/app/(app)/tasks/actions";
+import { fireToast } from "@/lib/toast";
+
+const COMMENT_EDIT_WINDOW_MS = 15 * 60 * 1000;
 
 type StatusLabels = Record<TaskStatus, string>;
 
@@ -28,6 +37,8 @@ interface Props {
   fresh?: boolean;
   /** Admin-overridable status labels. Falls back to STATUS_LABELS_FALLBACK. */
   statusLabels?: StatusLabels;
+  /** Current user — gates the comment edit/delete UI. */
+  me?: { id: string; isAdmin: boolean };
 }
 
 /**
@@ -35,14 +46,14 @@ interface Props {
  * frame (vertical line + dot) lives in `AuditFeed` so it can layer extra
  * UI like the "fresh" ring pulse.
  */
-export function AuditEvent({ row, fresh, statusLabels }: Props) {
+export function AuditEvent({ row, fresh, statusLabels, me }: Props) {
   const when = formatDistanceToNow(row.createdAt, { addSuffix: true });
   const who = row.actorName ?? "Someone";
   const labels = statusLabels ?? STATUS_LABELS_FALLBACK;
 
   return (
     <div className="text-[14.5px] text-ink break-words" style={{ lineHeight: 1.5, overflowWrap: "anywhere" }}>
-      <Body row={row} who={who} labels={labels} />
+      <Body row={row} who={who} labels={labels} me={me} />
       <div className="mt-1.5 flex items-center gap-2">
         <span className="text-[12.5px] text-ink-subtle tabular-nums">{when}</span>
         {fresh && (
@@ -67,10 +78,12 @@ function Body({
   row,
   who,
   labels,
+  me,
 }: {
   row: AuditFeedRow;
   who: string;
   labels: StatusLabels;
+  me?: { id: string; isAdmin: boolean };
 }) {
   const e = row.eventType;
   switch (e) {
@@ -170,21 +183,17 @@ function Body({
 
     case "commented": {
       const body = readField(row.toValue, "body") ?? "";
+      const editedAt = readField(row.toValue, "editedAt");
+      const ageMs = Date.now() - row.createdAt.getTime();
+      const canMutate = !!me && (me.isAdmin || (row.actorId === me.id && ageMs <= COMMENT_EDIT_WINDOW_MS));
       return (
-        <>
-          <strong>{who}</strong> commented:
-          <div
-            className="mt-2 whitespace-pre-wrap text-ink-soft rounded-md p-3"
-            style={{
-              background: "rgba(15, 23, 42, 0.03)",
-              borderLeft: "2px solid color-mix(in srgb, var(--color-green) 50%, transparent)",
-              fontSize: 14.5,
-              lineHeight: 1.55,
-            }}
-          >
-            {body}
-          </div>
-        </>
+        <CommentBody
+          eventId={row.id}
+          who={who}
+          body={body}
+          editedAt={editedAt}
+          canMutate={canMutate}
+        />
       );
     }
 
@@ -194,6 +203,160 @@ function Body({
       return <span>{_exhaustive}</span>;
     }
   }
+}
+
+/**
+ * Inline comment body with author edit/delete affordances (Phase 3.2).
+ * Pencil + trash appear on hover when the caller is the author within the
+ * 15-minute edit window, or an admin (gate computed in the parent). Edit
+ * swaps the static body for a textarea + Save / Cancel. Delete pops a
+ * single-step `confirm()` — minor friction is preferable to a Radix dialog
+ * for a 1-action confirmation.
+ */
+function CommentBody({
+  eventId,
+  who,
+  body,
+  editedAt,
+  canMutate,
+}: {
+  eventId: string;
+  who: string;
+  body: string;
+  editedAt: string | undefined;
+  canMutate: boolean;
+}) {
+  const router = useRouter();
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState(body);
+  const [pending, start] = React.useTransition();
+
+  React.useEffect(() => {
+    setDraft(body);
+  }, [body]);
+
+  function save() {
+    const next = draft.trim();
+    if (!next) return;
+    if (next === body) {
+      setEditing(false);
+      return;
+    }
+    start(async () => {
+      const res = await editComment(eventId, { body: next });
+      if (!res.ok) {
+        fireToast({ message: res.message ?? "Couldn't save the edit." });
+        return;
+      }
+      setEditing(false);
+      router.refresh();
+    });
+  }
+
+  function remove() {
+    if (!confirm("Delete this comment? This can't be undone.")) return;
+    start(async () => {
+      const res = await deleteComment(eventId);
+      if (!res.ok) {
+        fireToast({ message: res.message ?? "Couldn't delete the comment." });
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="group">
+      <span className="inline-flex items-center gap-2">
+        <strong>{who}</strong> commented{editedAt ? <span className="text-ink-subtle text-[12px]"> (edited)</span> : null}:
+        {canMutate && !editing && (
+          <span className="inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              disabled={pending}
+              aria-label="Edit comment"
+              className="p-1 rounded-md text-ink-subtle hover:bg-surface-soft hover:text-ink-strong"
+            >
+              <Pencil size={12} strokeWidth={2.4} />
+            </button>
+            <button
+              type="button"
+              onClick={remove}
+              disabled={pending}
+              aria-label="Delete comment"
+              className="p-1 rounded-md text-ink-subtle hover:bg-surface-soft"
+              style={{ color: pending ? undefined : undefined }}
+            >
+              {pending ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} strokeWidth={2.4} />}
+            </button>
+          </span>
+        )}
+      </span>
+      {editing ? (
+        <div className="mt-2 flex flex-col gap-2">
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                e.preventDefault();
+                save();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                setEditing(false);
+                setDraft(body);
+              }
+            }}
+            rows={Math.max(2, Math.min(8, draft.split("\n").length))}
+            className="w-full rounded-md p-3 outline-none resize-y"
+            style={{
+              background: "rgba(15, 23, 42, 0.03)",
+              border: "1px solid var(--color-hairline-strong)",
+              fontSize: 14.5,
+              lineHeight: 1.55,
+              fontWeight: 400,
+            }}
+          />
+          <div className="flex items-center gap-2 text-[12.5px]">
+            <button
+              type="button"
+              onClick={save}
+              disabled={pending || draft.trim() === ""}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-white font-semibold disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}
+            >
+              {pending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} strokeWidth={2.6} />}
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEditing(false); setDraft(body); }}
+              disabled={pending}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-ink-muted font-semibold hover:bg-surface-soft"
+            >
+              <X size={12} strokeWidth={2.6} />
+              Cancel
+            </button>
+            <span className="text-ink-subtle ml-1">⌘/Ctrl+Enter to save · Esc to cancel</span>
+          </div>
+        </div>
+      ) : (
+        <div
+          className="mt-2 whitespace-pre-wrap text-ink-soft rounded-md p-3"
+          style={{
+            background: "rgba(15, 23, 42, 0.03)",
+            borderLeft: "2px solid color-mix(in srgb, var(--color-green) 50%, transparent)",
+            fontSize: 14.5,
+            lineHeight: 1.55,
+          }}
+        >
+          {body}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function dotColorFor(e: TaskEventType): string {
