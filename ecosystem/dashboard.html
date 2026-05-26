@@ -5,14 +5,14 @@
 <style id="auth-guard-hide">html { visibility: hidden; }</style>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-<script src="auth-config.js"></script>
-<script src="auth.js"></script>
-<script>window.Auth.guardPage({ redirectTo: 'index.html' });</script>
+<script src="/ecosystem/auth-config.js"></script>
+<script src="/ecosystem/auth.js"></script>
+<script>window.Auth.guardPage({ redirectTo: '/ecosystem/' });</script>
 <!-- END AUTH GUARD -->
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Altus Corp Eco System</title>
-<link rel="icon" type="image/png" href="Altus Corp Black font.png"/>
+<link rel="icon" type="image/png" href="/ecosystem/Altus%20Corp%20Black%20font.png"/>
  <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -29,35 +29,25 @@
   body { font-family: Arial, sans-serif; background: var(--cream); color: var(--text-dark); min-height: 100vh; -webkit-tap-highlight-color: transparent; }
   .page-wrap {
     min-height: 100vh;
-    background:
-      radial-gradient(ellipse 1100px 700px at 50% -200px, rgba(255,253,247,0.75) 0%, transparent 65%),
-      radial-gradient(circle 540px at 100% 0%, rgba(229,0,0,0.07) 0%, transparent 65%),
-      radial-gradient(circle 440px at 0% 100%, rgba(26,0,0,0.06) 0%, transparent 65%),
-      #ebe7de;
+    background: linear-gradient(160deg, #0a0a0a 0%, #1a0000 40%, #0a0a0a 100%);
     padding: 2.5rem 1rem 4rem; position: relative; overflow: hidden;
   }
   .page-wrap::before {
-    content: ''; position: absolute; inset: 0;
-    background-image:
-      radial-gradient(rgba(0,0,0,0.025) 1px, transparent 1px);
-    background-size: 3px 3px;
-    mix-blend-mode: multiply; opacity: 0.6;
+    content: ''; position: absolute; top: -120px; right: -120px;
+    width: 450px; height: 450px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(229,0,0,0.15) 0%, transparent 70%);
     pointer-events: none;
   }
   .page-wrap::after {
-    content: ''; position: absolute; top: 18%; right: -180px;
-    width: 360px; height: 360px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(229,0,0,0.05) 0%, transparent 70%);
+    content: ''; position: absolute; bottom: -100px; left: -100px;
+    width: 350px; height: 350px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(229,0,0,0.08) 0%, transparent 70%);
     pointer-events: none;
   }
   .card {
-    max-width: 720px; margin: 0 auto; background: #ffffff;
+    max-width: 720px; margin: 0 auto; background: var(--cream);
     border-radius: 20px; overflow: visible;
-    box-shadow:
-      0 1px 2px rgba(40,15,15,0.04),
-      0 8px 24px rgba(40,15,15,0.06),
-      0 32px 80px rgba(40,15,15,0.12),
-      0 0 0 1px rgba(229,0,0,0.22);
+    box-shadow: 0 40px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(229,0,0,0.2);
     position: relative; z-index: 1;
   }
   .card-header {
@@ -467,6 +457,16 @@
 .altus-unified-header .uh-btn:hover {
   background: #e50000; border-color: #e50000; color: #ffffff;
 }
+.altus-unified-header .uh-btn.signout {
+  background: transparent;
+  border-color: rgba(255,255,255,0.28);
+  cursor: pointer;
+}
+.altus-unified-header .uh-btn.signout:hover {
+  background: rgba(229,0,0,0.32);
+  border-color: #e50000;
+  color: #ffffff;
+}
 .altus-unified-header .uh-logo-wrap {
   background: #000000; flex-shrink: 0;
   display: flex; align-items: center; height: 130px;
@@ -536,6 +536,7 @@
       <a class="uh-btn" href="https://mananvasa.com/ecosystem%20index/" target="_blank"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Ecosystem Index</a>
       <a class="uh-btn" href="https://mananvasa.com/attendance" target="_blank"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>Employee Attendance</a>
       <a class="uh-btn" href="https://mananvasa.com/incentive" target="_blank"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>Incentive Dashboard</a>
+      <button type="button" class="uh-btn signout" id="signout-btn" title="Sign out of the Ecosystem"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign out</button>
       </div>
     </div>
     <div class="uh-logo-wrap">
@@ -780,13 +781,20 @@
         </div>
         <div class="sub-section">
           <div class="sub-label">Section 3 — Product Details</div>
-          <div class="field">
-            <label class="field-label">Product Name <span class="req">*</span></label>
-            <div class="checkbox-group" id="sp-product-group">
-              <span style="font-size:13px;color:#888;">Loading products…</span>
-            </div>
-            <div class="field-warning" id="warn-sp-product">Required.</div>
-          </div>
+          <div class="field"><label class="field-label">Product Name <span class="req">*</span></label><select id="sp-product">
+              <option value="">— Select —</option>
+              <option>Business Scale Up Shastra</option>
+              <option>Business Strategy Shastra</option>
+              <option>Colloquium</option>
+              <option>Competition Shastra</option>
+              <option>Consulting</option>
+              <option>Dashboard Shastra</option>
+              <option>Emotional Intelligence Shastra</option>
+              <option>Personal Productivity Shastra</option>
+              <option>Purpose Shastra</option>
+              <option>Sales Shastra</option>
+              <option>Team Productivity Shastra</option>
+              <option>Work Life Balance Shastra</option></select><div class="field-warning" id="warn-sp-product">Required.</div></div>
           <div class="field">
             <label class="field-label">Opportunity Type <span class="req">*</span></label>
             <div class="mcq-group">
@@ -903,13 +911,20 @@
         </div>
         <div class="sub-section">
           <div class="sub-label">Section 3 — Product Details</div>
-          <div class="field">
-            <label class="field-label">Product Name <span class="req">*</span></label>
-            <div class="checkbox-group" id="gi-product-group">
-              <span style="font-size:13px;color:#888;">Loading products…</span>
-            </div>
-            <div class="field-warning" id="warn-gi-product">Required.</div>
-          </div>
+          <div class="field"><label class="field-label">Product Name <span class="req">*</span></label><select id="gi-product">
+              <option value="">— Select —</option>
+              <option>Business Scale Up Shastra</option>
+              <option>Business Strategy Shastra</option>
+              <option>Colloquium</option>
+              <option>Competition Shastra</option>
+              <option>Consulting</option>
+              <option>Dashboard Shastra</option>
+              <option>Emotional Intelligence Shastra</option>
+              <option>Personal Productivity Shastra</option>
+              <option>Purpose Shastra</option>
+              <option>Sales Shastra</option>
+              <option>Team Productivity Shastra</option>
+              <option>Work Life Balance Shastra</option></select><div class="field-warning" id="warn-gi-product">Required.</div></div>
           <div class="field"><label class="field-label">Tentative Date <span class="req">*</span></label><input type="date" id="gi-tdate"/><div class="field-warning" id="warn-gi-tdate">Required.</div></div>
           <div class="field"><label class="field-label">Approx People <span class="req">*</span></label><input type="number" id="gi-people" placeholder="e.g. 50" min="1"/><div class="field-warning" id="warn-gi-people">Required.</div></div>
           <div class="field" style="margin-bottom:0"><label class="field-label">Notes</label><textarea id="gi-notes" placeholder="Add notes..."></textarea></div>
@@ -928,40 +943,12 @@
         </div>
         <div class="two-col">
           <div class="field"><label class="field-label">Contact Number <span class="req">*</span></label><input type="tel" id="wa-phone" placeholder="+91 XXXXX XXXXX"/><div class="field-warning" id="warn-wa-phone">Required.</div></div>
-          <div class="field"><label class="field-label">Email ID <span class="req">*</span></label><input type="email" id="wa-email" placeholder="email@example.com"/><div class="field-warning" id="warn-wa-email">Required.</div></div>
+          <div class="field"><label class="field-label">Email ID</label><input type="email" id="wa-email" placeholder="email@example.com"/></div>
         </div>
         <div class="field" style="margin-bottom:0"><label class="field-label">Date of Lead Generation <span class="req">*</span></label><input type="date" id="wa-date"/><div class="field-warning" id="warn-wa-date">Required.</div></div>
       </div>
       <div class="sub-section">
         <div class="sub-label">Section 2 — Introducer Details</div>
-        <div class="field"><label class="field-label">Lead Source Primary <span class="req">*</span></label><select id="wa-lead-primary">
-              <option value="">— Select —</option>
-              <option>AFMT</option>
-              <option>Ascent</option>
-              <option>BIA</option>
-              <option>BLL</option>
-              <option>BNI</option>
-              <option>BSM</option>
-              <option>CQP</option>
-              <option>Egrowth</option>
-              <option>Email Campaign</option>
-              <option>Graduates</option>
-              <option>Instagram</option>
-              <option>JITO</option>
-              <option>KCF</option>
-              <option>Landing Page</option>
-              <option>LE</option>
-              <option>Lion</option>
-              <option>MCG</option>
-              <option>MCP</option>
-              <option>MJV Personal</option>
-              <option>NM</option>
-              <option>Participant Reference</option>
-              <option>RMB</option>
-              <option>USS</option>
-              <option>Whatsapp</option>
-              <option>Others</option></select><div class="field-warning" id="warn-wa-lead-primary">Required.</div></div>
-        <div class="field"><label class="field-label">Lead Source Secondary <span class="req">*</span></label><input type="text" id="wa-lead-secondary" placeholder="Enter lead source secondary"/><div class="field-warning" id="warn-wa-lead-secondary">Required.</div></div>
         <div class="two-col">
           <div class="field"><label class="field-label">Introducer First Name <span class="req">*</span></label><input type="text" id="wa-intro-fn" placeholder="First name"/><div class="field-warning" id="warn-wa-intro-fn">Required.</div></div>
           <div class="field" style="margin-bottom:0"><label class="field-label">Introducer Last Name <span class="req">*</span></label><input type="text" id="wa-intro-ln" placeholder="Last name"/><div class="field-warning" id="warn-wa-intro-ln">Required.</div></div>
@@ -969,23 +956,15 @@
       </div>
       <div class="sub-section">
         <div class="sub-label">Section 3 — Product Details</div>
-        <div class="field"><label class="field-label">Rating <span class="req">*</span></label><select id="wa-rating">
+        <div class="field"><label class="field-label">Product Name <span class="req">*</span></label><select id="wa-product">
               <option value="">— Select —</option>
-              <option value="-">-</option>
-              <option value="★">★ (1 Star)</option>
-              <option value="★★">★★ (2 Star)</option>
-              <option value="★★★">★★★ (3 Star)</option>
-              <option value="★★★★">★★★★ (4 Star)</option>
-              <option value="★★★★★">★★★★★ (5 Star)</option></select><div class="field-warning" id="warn-wa-rating">Required.</div></div>
-        <div class="field">
-          <label class="field-label">Product Name <span class="req">*</span></label>
-          <div class="checkbox-group" id="wa-product-group">
-            <span style="font-size:13px;color:#888;">Loading products…</span>
-          </div>
-          <div class="field-warning" id="warn-wa-product">Required.</div>
-        </div>
-        <div class="field"><label class="field-label">Salesperson <span class="req">*</span></label><select id="wa-salesperson"><option value="">— Loading names… —</option></select><div class="field-warning" id="warn-wa-salesperson">Required.</div></div>
-        <div class="field" style="margin-bottom:0"><label class="field-label">PS Reference Whatsapp Group Remarks <span class="req">*</span></label><textarea id="wa-remarks" placeholder="Add remarks..."></textarea><div class="field-warning" id="warn-wa-remarks">Required.</div></div>
+              <option>Business Scale Up Shastra</option>
+              <option>Consulting</option>
+              <option>Key Note</option>
+              <option>Productivity Shastra</option>
+              <option>Others</option></select><div class="field-warning" id="warn-wa-product">Required.</div></div>
+        <div class="field"><label class="field-label">Only Manan Sir to Call <span class="req">*</span></label><select id="wa-manan"><option value="">— Select —</option><option>No</option><option>Yes</option></select><div class="field-warning" id="warn-wa-manan">Required.</div></div>
+        <div class="field" style="margin-bottom:0"><label class="field-label">PS Reference Whatsapp Group Remarks</label><textarea id="wa-remarks" placeholder="Add remarks..."></textarea></div>
       </div>
     </div>
 
@@ -1371,36 +1350,15 @@
   // ===================== DYNAMIC NAME LOADING FROM GOOGLE SHEETS =====================
   const NAMES_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTXYOlpkjTH7PDlQ3EkZVtaYy_Gm359X62xKRFswjIYfnBgkFGYWQr_iLu3zVNvWR68_gm1DfwlDfPP/pub?gid=1670494670&single=true&output=csv';
 
-   async function loadNamesFromSheet() {
+  async function loadNamesFromSheet() {
     try {
       const res = await fetch(NAMES_CSV_URL);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const text = await res.text();
+      const lines = text.split('\n').map(l => l.trim().replace(/^"|"$/g, '')).filter(Boolean);
+      const names = lines[0].toLowerCase() === 'name' ? lines.slice(1) : lines;
 
-      // Proper CSV parser (handles quoted values, multi-column rows)
-      function parseCSVLine(line) {
-        const out = [];
-        let cur = '';
-        let inQuotes = false;
-        for (let i = 0; i < line.length; i++) {
-          const ch = line[i];
-          if (ch === '"') { inQuotes = !inQuotes; }
-          else if (ch === ',' && !inQuotes) { out.push(cur); cur = ''; }
-          else { cur += ch; }
-        }
-        out.push(cur);
-        return out.map(c => c.trim().replace(/^"|"$/g, ''));
-      }
-
-      const rawLines = text.split('\n').map(l => l.trim()).filter(Boolean);
-      const rows = rawLines.map(parseCSVLine);
-
-      // Drop the header row if A1 looks like a header
-      const firstCellLower = (rows[0] && rows[0][0]) ? rows[0][0].toLowerCase() : '';
-      const dataRows = firstCellLower === 'name' ? rows.slice(1) : rows;
-
-      // -------- Column A: all employee names (existing logic) --------
-      const allNames = dataRows.map(r => r[0]).filter(n => n && n.length > 0);
+      const allNames = names.filter(n => n.length > 0);
 
       const interns = allNames.filter(n => n.toLowerCase().includes('intern')).sort((a,b) => a.localeCompare(b));
       const employees = allNames.filter(n => !n.toLowerCase().includes('intern'));
@@ -1410,18 +1368,6 @@
       const sortedEmployees = [...manan, ...otherEmployees];
 
       const sortedAll = [...sortedEmployees, ...interns];
-
-      // -------- Column B (B2:B): salesperson list (NEW) --------
-      const salespeopleRaw = dataRows.map(r => r[1]).filter(n => n && n.length > 0);
-      // Dedupe, then sort alphabetically; if "Manan Vasa" is present, keep him first
-      const uniqueSales = [...new Set(salespeopleRaw)];
-      const salesManan = uniqueSales.filter(n => n.trim().toLowerCase() === 'manan vasa');
-      const salesOthers = uniqueSales.filter(n => n.trim().toLowerCase() !== 'manan vasa').sort((a,b) => a.localeCompare(b));
-      const salesPeople = [...salesManan, ...salesOthers];
-
-      // -------- Column D (D2:D): product list (NEW) --------
-      const productsRaw = dataRows.map(r => r[3]).filter(n => n && n.length > 0);
-      const products = [...new Set(productsRaw)].sort((a,b) => a.localeCompare(b));
 
       function fillSelect(id, nameList, placeholder) {
         const sel = document.getElementById(id);
@@ -1450,28 +1396,11 @@
         group.appendChild(noneLabel);
       }
 
-      function fillProductCheckboxes(groupId, productList, inputName) {
-        const group = document.getElementById(groupId);
-        if (!group) return;
-        group.innerHTML = '';
-        if (!productList.length) {
-          group.innerHTML = '<span style="font-size:13px;color:#888;">No products found in sheet (column D).</span>';
-          return;
-        }
-        productList.forEach(name => {
-          const label = document.createElement('label');
-          label.className = 'checkbox-opt';
-          label.innerHTML = `<input type="checkbox" name="${inputName}" value="${name}"/><span>${name}</span>`;
-          group.appendChild(label);
-        });
-      }
-
       window.allDoerNames = sortedAll;
 
-      // Column-A dropdowns (unchanged)
-      fillSelect('f-name',        sortedAll, '— Select —');
-      fillSelect('aw-initiator',  sortedAll, '— Select —');
-      fillSelect('aw-doer',       sortedAll, '— Select —');
+      fillSelect('f-name',       sortedAll, '— Select —');
+      fillSelect('aw-initiator', sortedAll, '— Select —');
+      fillSelect('aw-doer',      sortedAll, '— Select —');
 
       const doerSel = document.getElementById('aw-doer');
       if (doerSel) {
@@ -1486,29 +1415,18 @@
 
       fillInternCheckboxes('ap-intern-group', interns);
 
-      // Column-B dropdown (NEW)
-      fillSelect('wa-salesperson', salesPeople, '— Select —');
-
-      // Column-D Product Name checkbox groups (NEW)
-      fillProductCheckboxes('sp-product-group', products, 'sp-product');
-      fillProductCheckboxes('gi-product-group', products, 'gi-product');
-      fillProductCheckboxes('wa-product-group', products, 'wa-product');
-
     } catch (err) {
       console.error('Failed to load names from sheet:', err);
-      ['f-name','aw-initiator','aw-doer','wa-salesperson','ap-initiator','ap-supervisor'].forEach(id => {
+      ['f-name','aw-initiator','aw-doer','ap-initiator','ap-supervisor'].forEach(id => {
         const sel = document.getElementById(id);
         if (sel) sel.innerHTML = '<option value="">— Could not load names —</option>';
       });
       const group = document.getElementById('ap-intern-group');
       if (group) group.innerHTML = '<span style="font-size:13px;color:#e50000;">Could not load names. Check sheet.</span>';
-      ['sp-product-group','gi-product-group','wa-product-group'].forEach(gid => {
-        const g = document.getElementById(gid);
-        if (g) g.innerHTML = '<span style="font-size:13px;color:#e50000;">Could not load products. Check sheet.</span>';
-      });
     }
   }
-   loadNamesFromSheet();
+
+  loadNamesFromSheet();
   // ===================== END DYNAMIC NAME LOADING =====================
 
   const subjectMap = {
@@ -1586,8 +1504,7 @@
         if (!gv('bss-conv-select')) { mi('bss-conv-select','warn-bss-conv'); ok=false; }
       }
       if (inc === 'sales-pitch') {
-        ['sp-ifn','sp-iln','sp-workshop','sp-batch','sp-pfn','sp-pln','sp-org','sp-cell','sp-email'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
-        if (!gcb('sp-product')) { document.getElementById('warn-sp-product').classList.add('show'); ok=false; }
+        ['sp-ifn','sp-iln','sp-workshop','sp-batch','sp-pfn','sp-pln','sp-org','sp-cell','sp-email','sp-product'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
         if (!gr('sp-opp')) { document.getElementById('warn-sp-opp').classList.add('show'); ok=false; }
       }
       if (inc === 'client-happiness') {
@@ -1595,14 +1512,12 @@
         ['ch-fn','ch-ln','ch-workshop','ch-batch','ch-quality','ch-gyaan'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
       }
       if (inc === 'group-intro') {
-        ['gi-ifn','gi-iln','gi-workshop','gi-batch','gi-pfn','gi-pln','gi-inst','gi-cell','gi-email','gi-tdate','gi-people'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
-        if (!gcb('gi-product')) { document.getElementById('warn-gi-product').classList.add('show'); ok=false; }
+        ['gi-ifn','gi-iln','gi-workshop','gi-batch','gi-pfn','gi-pln','gi-inst','gi-cell','gi-email','gi-product','gi-tdate','gi-people'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
         if (!gr('gi-evt')) { document.getElementById('warn-gi-evt').classList.add('show'); ok=false; }
       }
     }
-        if (subj === 'record-ref') {
-      ['wa-fn','wa-ln','wa-phone','wa-email','wa-date','wa-lead-primary','wa-lead-secondary','wa-intro-fn','wa-intro-ln','wa-rating','wa-salesperson','wa-remarks'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
-      if (!gcb('wa-product')) { document.getElementById('warn-wa-product').classList.add('show'); ok=false; }
+    if (subj === 'record-ref') {
+      ['wa-fn','wa-ln','wa-phone','wa-date','wa-intro-fn','wa-intro-ln','wa-product','wa-manan'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
     }
     if (subj === 'breakthrough') {
       ['bp-fn','bp-ln','bp-workshop','bp-batch','bp-quality','bp-notes','bp-approval'].forEach(id => { if(!gv(id)){mi(id,'warn-'+id);ok=false;} });
@@ -1718,11 +1633,12 @@
       if (subj==='incentive') {
         params['Incentive Name'] = {'bss':'BSS Conversion','sales-pitch':'Sales Pitch','client-happiness':'Client Happiness','group-intro':'Group Introduction'}[inc] || inc;
         if (inc==='bss') Object.assign(params,{'Participant First Name':gv('bss-fn'),'Participant Last Name':gv('bss-ln'),'Workshop Name':gv('bss-workshop'),'Batch No':gv('bss-batch'),'BSS Conversion':gv('bss-conv-select'),'Prospect First Name':gv('bss-pfn'),'Prospect Last Name':gv('bss-pln'),'Cell No':gv('bss-pcell'),'Email':gv('bss-pemail'),'Organisation':gv('bss-porg')});
-        if (inc==='sales-pitch') Object.assign(params,{'Introducer First Name':gv('sp-ifn'),'Introducer Last Name':gv('sp-iln'),'Workshop Name':gv('sp-workshop'),'Batch No':gv('sp-batch'),'Prospect First Name':gv('sp-pfn'),'Prospect Last Name':gv('sp-pln'),'Organisation Name':gv('sp-org'),'Cell No':gv('sp-cell'),'Email':gv('sp-email'),'Product Name':gcb('sp-product'),'Opportunity Type':gr('sp-opp'),'Notes':gv('sp-notes')});
+        if (inc==='sales-pitch') Object.assign(params,{'Introducer First Name':gv('sp-ifn'),'Introducer Last Name':gv('sp-iln'),'Workshop Name':gv('sp-workshop'),'Batch No':gv('sp-batch'),'Prospect First Name':gv('sp-pfn'),'Prospect Last Name':gv('sp-pln'),'Organisation Name':gv('sp-org'),'Cell No':gv('sp-cell'),'Email':gv('sp-email'),'Product Name':gv('sp-product'),'Opportunity Type':gr('sp-opp'),'Notes':gv('sp-notes')});
         if (inc==='client-happiness') Object.assign(params,{'Happiness Type':gr('ch-type'),'Participant First Name':gv('ch-fn'),'Participant Last Name':gv('ch-ln'),'Workshop Name':gv('ch-workshop'),'Batch No':gv('ch-batch'),'Link':gv('ch-link'),'Content Quality':gv('ch-quality'),'No Gyan Only Gain Said':gv('ch-gyaan'),'Notes':gv('ch-notes')});
-        if (inc==='group-intro') Object.assign(params,{'Introducer First Name':gv('gi-ifn'),'Introducer Last Name':gv('gi-iln'),'Workshop Name':gv('gi-workshop'),'Batch No':gv('gi-batch'),'Prospect First Name':gv('gi-pfn'),'Prospect Last Name':gv('gi-pln'),'Event Type':gr('gi-evt'),'Institution/Group Name':gv('gi-inst'),'Cell No':gv('gi-cell'),'Email':gv('gi-email'),'Product Name':gcb('gi-product'),'Tentative Date':gv('gi-tdate'),'Approx People':gv('gi-people'),'Notes':gv('gi-notes')});
+        if (inc==='group-intro') Object.assign(params,{'Introducer First Name':gv('gi-ifn'),'Introducer Last Name':gv('gi-iln'),'Workshop Name':gv('gi-workshop'),'Batch No':gv('gi-batch'),'Prospect First Name':gv('gi-pfn'),'Prospect Last Name':gv('gi-pln'),'Event Type':gr('gi-evt'),'Institution/Group Name':gv('gi-inst'),'Cell No':gv('gi-cell'),'Email':gv('gi-email'),'Product Name':gv('gi-product'),'Tentative Date':gv('gi-tdate'),'Approx People':gv('gi-people'),'Notes':gv('gi-notes')});
       }
-      if (subj==='record-ref') Object.assign(params,{'Participant First Name':gv('wa-fn'),'Participant Last Name':gv('wa-ln'),'Contact Number':gv('wa-phone'),'Email ID':gv('wa-email'),'Date of Lead Generation':gv('wa-date'),'Lead Source Primary':gv('wa-lead-primary'),'Lead Source Secondary':gv('wa-lead-secondary'),'Introducer First Name':gv('wa-intro-fn'),'Introducer Last Name':gv('wa-intro-ln'),'Rating':gv('wa-rating'),'Product Name':gcb('wa-product'),'Salesperson':gv('wa-salesperson'),'PS Reference Whatsapp Group Remarks':gv('wa-remarks')});      if (subj==='breakthrough') Object.assign(params,{'Participant First Name':gv('bp-fn'),'Participant Last Name':gv('bp-ln'),'Workshop Name':gv('bp-workshop'),'Batch No':gv('bp-batch'),'Screenshot/Link':gv('bp-link'),'Content Quality':gv('bp-quality'),'Consultant Notes':gv('bp-notes'),'Approval From Client':gv('bp-approval')});
+      if (subj==='record-ref') Object.assign(params,{'Participant First Name':gv('wa-fn'),'Participant Last Name':gv('wa-ln'),'Contact Number':gv('wa-phone'),'Email ID':gv('wa-email'),'Date of Lead Generation':gv('wa-date'),'Introducer First Name':gv('wa-intro-fn'),'Introducer Last Name':gv('wa-intro-ln'),'Product Name':gv('wa-product'),'Only Manan Sir to Call':gv('wa-manan'),'PS Reference Whatsapp Group Remarks':gv('wa-remarks')});
+      if (subj==='breakthrough') Object.assign(params,{'Participant First Name':gv('bp-fn'),'Participant Last Name':gv('bp-ln'),'Workshop Name':gv('bp-workshop'),'Batch No':gv('bp-batch'),'Screenshot/Link':gv('bp-link'),'Content Quality':gv('bp-quality'),'Consultant Notes':gv('bp-notes'),'Approval From Client':gv('bp-approval')});
       if (subj==='leave') Object.assign(params,{'Leave Category':gv('lv-cat'),'Leave Start Date':gv('lv-start'),'Leave End Date':gv('lv-end'),'Half Day/Full Day':gv('lv-daytype'),'Leave Description':gv('lv-desc'),'Avail Leave Credit':gv('lv-credit'),'Available on Phone':gv('lv-phone'),'Carrying Phone':gv('lv-carrphone'),'Carrying Laptop':gv('lv-laptop')});
       if (subj==='reimbursement') Object.assign(params,{'Nature of Expense':gv('re-nature'),'Amount':gv('re-amount'),'Name of Person Paid To':gv('re-party'),'Invoice Received':gv('re-invoice'),'Attachment':gv('re-att'),'Notes':gv('re-notes')});
       if (subj==='assign-project') Object.assign(params,{'Project Subject':gv('ap-subject'),'Project Name':gv('ap-name'),'Project Initiator':gv('ap-initiator'),'Project Supervisor/Executor':gv('ap-supervisor'),'Intern':gcb('ap-intern'),'Project Details':gv('ap-details'),'Due Date':gv('ap-due'),'Incentive':gv('ap-incentive'),'Employee Incentive Amount':gv('ap-incentive-amt'),'Intern Incentive Amount':gv('ap-intern-incentive-amt'),'Initiator Notes':gv('ap-notes'),'Attachment 1':gv('ap-att1'),'Attachment 2':gv('ap-att2')});
@@ -1740,41 +1656,13 @@
 </script>
 <script src="https://apis.google.com/js/api.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-
-<!-- AUTH SIGN-OUT — floating overlay, scoped styles, does not touch existing markup -->
-<style id="auth-signout-style">
-  #auth-signout-btn {
-    position: fixed; right: 24px; top: 24px; z-index: 9999;
-    display: inline-flex; align-items: center; gap: 12px;
-    padding: 16px 28px; border-radius: 999px;
-    background: rgba(10,10,10,0.95); color: #fff;
-    border: 1.5px solid rgba(229,0,0,0.65);
-    font: 700 16px/1 Arial, sans-serif; letter-spacing: .04em;
-    cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05) inset;
-    transition: background .15s ease, border-color .15s ease, transform .15s ease;
-    -webkit-tap-highlight-color: transparent;
-  }
-  #auth-signout-btn:hover { background: #e50000; border-color: #e50000; transform: translateY(-1px); }
-  #auth-signout-btn:active { transform: translateY(0); }
-  #auth-signout-btn svg { display: block; }
-  @media (max-width: 480px) {
-    #auth-signout-btn { right: 14px; top: 14px; padding: 12px 20px; font-size: 14px; gap: 9px; }
-    #auth-signout-btn svg { width: 16px; height: 16px; }
-  }
-</style>
-<button type="button" id="auth-signout-btn" title="Sign out of the Ecosystem" aria-label="Sign out">
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-  Sign out
-</button>
 <script>
-  document.getElementById('auth-signout-btn').addEventListener('click', function () {
-    if (window.Auth && typeof window.Auth.signOut === 'function') {
-      window.Auth.signOut().then(function () { window.location.replace('index.html'); });
-    } else {
-      window.location.replace('index.html');
-    }
+  // Sign out handler — calls Firebase signOut then returns to login.
+  document.getElementById('signout-btn').addEventListener('click', function () {
+    window.Auth.signOut().then(function () {
+      window.location.replace('/ecosystem/');
+    });
   });
 </script>
-<!-- END AUTH SIGN-OUT -->
 </body>
 </html>
