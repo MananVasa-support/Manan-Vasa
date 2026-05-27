@@ -222,6 +222,102 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--page-bg);color:var(
 /* ══ AGING PIE TWO-COL LEGEND ══ */
 .aging-legend{display:grid;grid-template-columns:1fr 1fr;gap:7px 2rem;min-width:240px;}
 
+/* ══ TASK / ARCHIVES TABLE ══ */
+.task-wrap{overflow:auto;max-height:620px;position:relative;}
+.task-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;}
+.task-table thead th{
+  position:sticky;top:0;z-index:18;
+  background:#4a4a4a;color:rgba(255,255,255,0.85);
+  font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:800;
+  letter-spacing:0.08em;text-transform:uppercase;padding:10px 12px;
+  text-align:center;border-right:1px solid rgba(255,255,255,0.08);
+  border-bottom:2px solid #2a2a2a;white-space:nowrap;
+}
+.task-table tbody td{
+  padding:8px 12px;border-bottom:1px solid rgba(0,0,0,0.06);
+  font-family:Arial,Helvetica,sans-serif;font-size:12.5px;font-weight:500;
+  text-align:left;color:var(--text);border-right:1px solid rgba(0,0,0,0.05);
+  white-space:nowrap;background:#fff;vertical-align:middle;
+}
+.task-table tbody tr:nth-child(even) td{background:#f7f7f9;}
+.task-table tbody tr:hover td{background:#fdeded;}
+.task-table td.editable-cell{color:var(--text2);}
+.task-table td.wrap-cell{white-space:normal;max-width:280px;min-width:170px;}
+
+/* Frozen (sticky-left) columns — left offsets are applied in JS */
+.task-table .frozen-col{position:sticky;z-index:12;}
+.task-table thead th.frozen-col{z-index:22;background:#4a4a4a;}
+.task-table .frozen-last{box-shadow:6px 0 8px -4px rgba(0,0,0,0.22);}
+
+/* Task Id cell with the 3-dots affordance */
+.id-cell{display:flex;align-items:center;gap:8px;justify-content:space-between;min-width:84px;}
+.id-text{font-weight:700;font-size:12px;color:var(--text);}
+.dots-btn{
+  border:none;background:transparent;color:var(--muted);cursor:pointer;
+  font-size:16px;line-height:1;padding:2px 5px;border-radius:5px;
+  opacity:0;transition:opacity .15s,background .15s;flex-shrink:0;
+}
+.task-table tbody tr:hover .dots-btn{opacity:1;}
+.dots-btn:hover{background:rgba(0,0,0,0.08);color:var(--text);}
+.id-cell .row-save,.id-cell .row-cancel{
+  border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:800;
+  padding:4px 8px;white-space:nowrap;
+}
+.id-cell .row-save{background:#16a34a;color:#fff;}
+.id-cell .row-cancel{background:rgba(0,0,0,0.1);color:var(--text2);}
+
+/* Floating 3-dots menu */
+.task-menu{
+  position:absolute;z-index:400;background:#fff;border:1px solid var(--border);
+  border-radius:9px;box-shadow:0 12px 30px rgba(0,0,0,0.22);padding:5px;
+  min-width:160px;display:none;
+}
+.task-menu.open{display:block;}
+.task-menu button{
+  display:block;width:100%;text-align:left;border:none;background:transparent;
+  padding:8px 12px;border-radius:6px;cursor:pointer;font-family:Arial,Helvetica,sans-serif;
+  font-size:13px;font-weight:600;color:var(--text);
+}
+.task-menu button:hover{background:rgba(229,0,0,0.08);}
+.task-menu button.danger{color:var(--red);}
+
+/* Edit-mode inputs */
+.task-input,.task-date,.task-select{
+  width:100%;min-width:140px;font-family:Arial,Helvetica,sans-serif;font-size:12.5px;
+  border:1.5px solid rgba(229,0,0,0.45);border-radius:6px;padding:5px 7px;
+  background:#fff;color:var(--text);outline:none;
+}
+textarea.task-input{min-height:34px;resize:vertical;white-space:normal;}
+.task-date{min-width:130px;}
+.task-select{font-weight:700;cursor:pointer;}
+.transfer-wrap{margin-top:6px;display:flex;flex-direction:column;gap:3px;}
+.transfer-wrap .transfer-label{font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);}
+
+/* Status badge (read mode) */
+.status-badge{
+  display:inline-block;padding:3px 11px;border-radius:20px;font-size:11.5px;font-weight:800;
+  border:1px solid rgba(0,0,0,0.12);white-space:nowrap;
+}
+
+/* Attachment link */
+.att-link{color:#2563eb;text-decoration:none;font-weight:600;}
+.att-link:hover{text-decoration:underline;}
+
+/* Editing row tint */
+.task-table tbody tr.editing td{background:#fff7e6 !important;}
+
+/* Toast */
+.task-toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:#111;color:#fff;padding:11px 20px;border-radius:10px;
+  font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:600;
+  box-shadow:0 10px 30px rgba(0,0,0,0.35);z-index:500;opacity:0;
+  pointer-events:none;transition:opacity .25s,transform .25s;
+}
+.task-toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+.task-toast.err{background:#b91c1c;}
+.task-toast.ok{background:#15803d;}
+
 /* ══ RESPONSIVE ══ */
 @media(max-width:1100px){.stats-row{grid-template-columns:repeat(3,1fr);}}
 @media(max-width:700px){
@@ -307,8 +403,10 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--page-bg);color:var(
 
 <!-- ══ TABS ══ -->
 <div class="tabs-bar">
+  <button class="tab-btn" id="tab-btn-task" onclick="switchTab('task')">📝 Task</button>
   <button class="tab-btn active" id="tab-btn-doer" onclick="switchTab('doer')">📋 Task Doer</button>
   <button class="tab-btn" id="tab-btn-initiator" onclick="switchTab('initiator')">🎯 Task Initiator</button>
+  <button class="tab-btn" id="tab-btn-archives" onclick="switchTab('archives')">🗄️ Archives</button>
 </div>
 <div class="period-info" id="period-info"></div>
 
@@ -404,13 +502,42 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--page-bg);color:var(
 
   </div>
 
+  <!-- TASK PANEL -->
+  <div class="tab-panel" id="tab-task">
+    <div class="dash-card">
+      <div class="card-head">
+        <div class="card-head-left"><div class="card-dot"></div><div class="card-title">Tasks — By Doer</div></div>
+        <div class="card-badge" id="badge-task">—</div>
+      </div>
+      <div class="task-wrap" id="wrap-task">
+        <div class="state-box"><div class="state-icon">📝</div><div class="state-title">Switch to the Task tab</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARCHIVES PANEL -->
+  <div class="tab-panel" id="tab-archives">
+    <div class="dash-card">
+      <div class="card-head">
+        <div class="card-head-left"><div class="card-dot"></div><div class="card-title">Archived Tasks — By Doer</div></div>
+        <div class="card-badge" id="badge-archives">—</div>
+      </div>
+      <div class="task-wrap" id="wrap-archives">
+        <div class="state-box"><div class="state-icon">🗄️</div><div class="state-title">Switch to the Archives tab</div></div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /content -->
+
+<div class="task-menu" id="task-menu"></div>
+<div class="task-toast" id="task-toast"></div>
 
 <script>
 /* ═══════════════════════════════════════════════════════════
    CONFIG
 ═══════════════════════════════════════════════════════════ */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwlrPIN5j9YWy8YpgAMJ07fLvKReXeaQYTLfzyJfwDSgRj_a-I5T1ssHqfdY8nmisDE_g/exec';
+const SCRIPT_URL = 'https://script.google.com/a/macros/unleashed.in/s/AKfycbworbaLb0tGMZeqGk1HP8OUCTYivbUcuc6GZQ4ueR0kMFbXGIY7M7hBF7vj2XVNhOCetA/exec';
 const EMP_FIRST  = ['manan vasa'];
 const EMP_BOTTOM = ['dattaram kap', 'parvez khan'];
 
@@ -423,12 +550,56 @@ const AGING_LABELS = ['0–3 Days','4–7 Days','8–14 Days','15–20 Days','21
 const AGING_COLORS = ['#a5d6a7','#c5e1a5','#ffe082','#ffcc80','#ef9a9a','#f48fb1','#ce93d8','#b39ddb'];
 const PENDING_EXCL = new Set(['Done','Cancelled','Transferred','Approved']);
 
+/* ── TASK TABLE config ── */
+// Status dropdown options + colours (bg / text) applied when selected.
+const TASK_STATUS_OPTIONS = [
+  'Not Started','Initiated','Need Help','Follow Up 1','Follow Up 2',
+  'Done','Cancelled','Transferred','Approved','Not Approved'
+];
+const STATUS_STYLE = {
+  'Not Started' : { bg:'#ffffff', fg:'#1a1a1a' },
+  'Initiated'   : { bg:'#ffc107', fg:'#4a3500' }, // amber
+  'Need Help'   : { bg:'#ef9a9a', fg:'#5a1a1a' },
+  'Follow Up 1' : { bg:'#ffeb3b', fg:'#4a4500' }, // yellow
+  'Follow Up 2' : { bg:'#ffeb3b', fg:'#4a4500' }, // yellow
+  'Follow Up 3' : { bg:'#ffeb3b', fg:'#4a4500' },
+  'Done'        : { bg:'#a5d6a7', fg:'#14401a' }, // light green
+  'Cancelled'   : { bg:'#9e9e9e', fg:'#ffffff' }, // grey
+  'Transferred' : { bg:'#9e9e9e', fg:'#ffffff' }, // grey
+  'Approved'    : { bg:'#2e7d32', fg:'#ffffff' }, // dark green
+  'Not Approved': { bg:'#ffcdd2', fg:'#7a1414' }, // light red
+};
+function statusStyle(s){ return STATUS_STYLE[s] || { bg:'#eceff1', fg:'#1a1a1a' }; }
+
+// Column definitions for the Task / Archives tables.
+//   key = task object field, frozen = sticky-left, edit = editable type
+const TASK_DEF = [
+  { key:'id',       label:'Task Id',                  frozen:true  },
+  { key:'ts',       label:'Timestamp',                frozen:true  },
+  { key:'subj',     label:'Subject',                  frozen:true,  wrap:true },
+  { key:'client',   label:'Client/Participant Name',  frozen:true,  wrap:true },
+  { key:'init',     label:'Task Initiator',           frozen:true  },
+  { key:'doer',     label:'Task Doer',                frozen:true  },
+  { key:'due',      label:'Due Date',                 frozen:true  },
+  { key:'iNotes',   label:'Initiator Notes',          edit:'text', wrap:true },
+  { key:'att1',     label:'Attachment 1',             edit:'text' },
+  { key:'att2',     label:'Attachment 2',             edit:'text' },
+  { key:'status',   label:'Task Status',              edit:'status' },
+  { key:'revDate',  label:'Revised Target Date',      edit:'date' },
+  { key:'compDate', label:'Task Completion Date',     edit:'date' },
+  { key:'iFollow',  label:'Initiator Follow Up Notes',edit:'text', wrap:true },
+  { key:'dNotes',   label:'Doer Notes',               edit:'text', wrap:true },
+];
+const FROZEN_COUNT = TASK_DEF.filter(c => c.frozen).length;
+
 /* ═══════════════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════════════ */
 let allEmployeeData = [], allInitiatorData = [];
 let empList = [], initiatorList = [];
 let checkedEmps = new Set(), hasDateCol = false, currentTab = 'doer';
+let allTasks = [], employeeNamesList = [];
+let editingTaskId = null, taskEditBuf = null;
 
 // Chart instances
 let chartDoerStatus = null, chartInitStatus = null, chartAging = null;
@@ -453,12 +624,16 @@ function sortEmployees(arr) {
 ═══════════════════════════════════════════════════════════ */
 function switchTab(tab) {
   currentTab = tab;
-  ['doer','initiator'].forEach(t => {
+  closeTaskMenu();
+  editingTaskId = null;
+  ['task','doer','initiator','archives'].forEach(t => {
     document.getElementById('tab-btn-'+t).classList.toggle('active', t===tab);
     document.getElementById('tab-'+t).classList.toggle('active', t===tab);
   });
   document.getElementById('s-total-label').textContent =
-    tab === 'initiator' ? 'Total Tasks Initiated' : 'Total Tasks Assigned';
+    tab === 'initiator' ? 'Total Tasks Initiated' :
+    tab === 'archives'  ? 'Total Archived'        :
+    tab === 'task'      ? 'Total Tasks'           : 'Total Tasks Assigned';
   render();
 }
 
@@ -467,10 +642,13 @@ function switchTab(tab) {
 ═══════════════════════════════════════════════════════════ */
 function getActiveList() { return currentTab === 'initiator' ? initiatorList : empList; }
 
-function buildDropdown() {
+function buildDropdown(preserve) {
+  const prev = preserve ? new Set(checkedEmps) : null;
   empList = sortEmployees(allEmployeeData.map(e => e.name));
   initiatorList = sortEmployees(allInitiatorData.map(e => e.name));
-  checkedEmps = new Set(empList);
+  const list = getActiveList();
+  if (prev && prev.size) checkedEmps = new Set(list.filter(n => prev.has(n)));
+  else checkedEmps = new Set(list);
   refreshDropdown();
 }
 
@@ -867,6 +1045,11 @@ function render() { renderCurrentTab(); }
 function renderCurrentTab() {
   const display = getDisplayEmps();
 
+  if (currentTab === 'task' || currentTab === 'archives') {
+    renderTaskTab(currentTab, display);
+    return;
+  }
+
   if (currentTab === 'doer') {
     updateStats(allEmployeeData, display);
     renderTable(allEmployeeData, display, 'wrap-doer', 'badge-doer', false);
@@ -901,6 +1084,332 @@ function renderCurrentTab() {
     chartInitStatus = renderPie('canvas-init-status','legend-init-status', STATUS_KEYS, statusVals, STATUS_COLORS, chartInitStatus);
     if (!chartInitStatus) document.getElementById('pie-init-body').innerHTML = `<div class="pie-empty"><div class="pie-empty-icon">📊</div><span>No data for selected filters</span></div>`;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TASK / ARCHIVES TABLES
+═══════════════════════════════════════════════════════════ */
+let menuCtx = { id:'', mode:'task' };
+let toastTimer = null;
+
+function escAttr(s){
+  return String(s==null?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function getFilteredTasks(mode) {
+  const wantArch = (mode === 'archives');
+  const display  = getDisplayEmps();
+  const list     = getActiveList();
+  const allDoers = checkedEmps.size === list.length;        // "All Employees"
+  const dispSet  = new Set(display.map(n => n.toLowerCase()));
+  const { start, end } = hasDateCol ? getRange() : { start:null, end:null };
+
+  return allTasks.filter(t => {
+    if (!!t.arch !== wantArch) return false;
+    if (!allDoers) {                                         // filter by Task Doer
+      if (!t.doer || !dispSet.has(t.doer.toLowerCase())) return false;
+    }
+    if (hasDateCol && (start || end)) {                      // filter by Due Date
+      const d = parseDate(t.due);
+      if (d) {
+        if (start && d < start) return false;
+        if (end && d > end) return false;
+      }
+    }
+    return true;
+  });
+}
+
+function taskStatusCounts(rows) {
+  const pending = new Set(['Not Started','Initiated','Need Help','Follow Up 1','Follow Up 2','Follow Up 3']);
+  const c = { Total: rows.length, 'Not Approved':0, Done:0, Pending:0, Cancelled:0, Transferred:0 };
+  rows.forEach(t => {
+    const s = t.status || '';
+    if (s === 'Not Approved') c['Not Approved']++;
+    else if (s === 'Done') c.Done++;
+    else if (s === 'Cancelled') c.Cancelled++;
+    else if (s === 'Transferred') c.Transferred++;
+    if (pending.has(s)) c.Pending++;
+  });
+  return c;
+}
+
+function renderTaskTab(mode, display) {
+  const rows    = getFilteredTasks(mode);
+  const wrapId  = (mode === 'archives') ? 'wrap-archives' : 'wrap-task';
+  const badgeId = (mode === 'archives') ? 'badge-archives' : 'badge-task';
+
+  const c = taskStatusCounts(rows);
+  document.getElementById('s-total').textContent       = c.Total          || '—';
+  document.getElementById('s-approved').textContent    = c['Not Approved'] || '—';
+  document.getElementById('s-done').textContent        = c.Done           || '—';
+  document.getElementById('s-pending').textContent     = c.Pending        || '—';
+  document.getElementById('s-cancelled').textContent   = c.Cancelled      || '—';
+  document.getElementById('s-transferred').textContent = c.Transferred    || '—';
+
+  updatePeriodInfo(display, rows.length);
+
+  const badge = document.getElementById(badgeId);
+  if (badge) badge.textContent = rows.length + ' task' + (rows.length !== 1 ? 's' : '');
+
+  const wrap = document.getElementById(wrapId);
+  if (!rows.length) {
+    const sub = (allTasks.length === 0)
+      ? 'No task data received from the server. Deploy the updated Code.gs as a NEW VERSION and confirm SCRIPT_URL points to that /exec endpoint (open it with ?callback=test — the response must contain a "tasks" array).'
+      : 'No tasks match the current employee / date filters. Try selecting All Employees and clearing the dates.';
+    wrap.innerHTML = `<div class="state-box"><div class="state-icon">${mode==='archives'?'🗄️':'📭'}</div>`
+      + `<div class="state-title">No ${mode==='archives'?'archived ':''}tasks</div>`
+      + `<div class="state-sub">${esc(sub)}</div></div>`;
+    return;
+  }
+  wrap.innerHTML = buildTaskTableHTML(rows, mode);
+  const table = wrap.querySelector('table.task-table');
+  if (table) freezeColumns(table, FROZEN_COUNT);
+}
+
+function buildTaskTableHTML(rows, mode) {
+  let html = '<table class="task-table"><thead><tr>';
+  TASK_DEF.forEach(c => {
+    html += `<th class="${c.frozen?'frozen-col':''}">${esc(c.label)}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  rows.forEach(t => {
+    const editing = (t.id !== '' && t.id === editingTaskId);
+    html += `<tr data-id="${escAttr(t.id)}"${editing?' class="editing"':''}>`;
+    TASK_DEF.forEach((c, ci) => {
+      const frozen = c.frozen ? ' frozen-col' : '';
+      const wrap   = c.wrap   ? ' wrap-cell'  : '';
+      if (ci === 0) {
+        html += `<td class="frozen-col${wrap}">${idCellHTML(t, mode, editing)}</td>`;
+      } else if (editing && c.edit) {
+        html += `<td class="editable-cell${wrap}">${editorHTML(c, t)}</td>`;
+      } else {
+        html += `<td class="${c.edit?'editable-cell':''}${frozen}${wrap}">${displayCell(c, t)}</td>`;
+      }
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  return html;
+}
+
+function idCellHTML(t, mode, editing) {
+  if (editing) {
+    return `<div class="id-cell"><span class="id-text">${esc(t.id)}</span>`
+         + `<span><button class="row-save" data-act="save">Save</button> `
+         + `<button class="row-cancel" data-act="cancel">Cancel</button></span></div>`;
+  }
+  return `<div class="id-cell"><span class="id-text">${esc(t.id)}</span>`
+       + `<button class="dots-btn" data-act="menu" title="Options">⋮</button></div>`;
+}
+
+function displayCell(c, t) {
+  const val = t[c.key] || '';
+  if (c.key === 'status') {
+    if (!val) return '<span class="zero">—</span>';
+    const st = statusStyle(val);
+    return `<span class="status-badge" style="background:${st.bg};color:${st.fg};">${esc(val)}</span>`;
+  }
+  if ((c.key === 'att1' || c.key === 'att2') && /^https?:\/\//i.test(val)) {
+    return `<a class="att-link" href="${escAttr(val)}" target="_blank" rel="noopener">Open ↗</a>`;
+  }
+  if (!val) return '<span class="zero">—</span>';
+  return esc(val);
+}
+
+function editorHTML(c, t) {
+  const val = t[c.key] || '';
+  if (c.edit === 'text') {
+    return `<textarea class="task-input" data-field="${c.key}">${esc(val)}</textarea>`;
+  }
+  if (c.edit === 'date') {
+    return `<input type="date" class="task-date" data-field="${c.key}" value="${escAttr(val)}"/>`;
+  }
+  if (c.edit === 'status') {
+    const cur = val;
+    let opts = TASK_STATUS_OPTIONS.map(s =>
+      `<option value="${escAttr(s)}"${s===cur?' selected':''}>${esc(s)}</option>`).join('');
+    if (cur && TASK_STATUS_OPTIONS.indexOf(cur) === -1) {
+      opts = `<option value="${escAttr(cur)}" selected>${esc(cur)}</option>` + opts;
+    }
+    const st = statusStyle(cur);
+    const showTransfer = (cur === 'Transferred');
+    const transfer =
+      `<div class="transfer-wrap" data-transfer style="${showTransfer?'':'display:none'}">`
+      + `<span class="transfer-label">Transferred To-</span>`
+      + `<select class="task-select" data-field="transferredTo"><option value="">— select —</option>`
+      + employeeNamesList.map(n => `<option value="${escAttr(n)}">${esc(n)}</option>`).join('')
+      + `</select></div>`;
+    return `<select class="task-select" data-field="status" `
+         + `style="background:${st.bg};color:${st.fg};">${opts}</select>${transfer}`;
+  }
+  return esc(val);
+}
+
+function freezeColumns(table, n) {
+  const head = table.tHead && table.tHead.rows[0];
+  if (!head) return;
+  const lefts = [];
+  let acc = 0;
+  for (let c = 0; c < n; c++) {
+    lefts[c] = acc;
+    const cell = head.cells[c];
+    acc += cell ? cell.getBoundingClientRect().width : 0;
+  }
+  const apply = (cell, c, isHead) => {
+    if (!cell) return;
+    cell.style.left = lefts[c] + 'px';
+    cell.classList.add('frozen-col');
+    if (c === n - 1) cell.classList.add('frozen-last');
+    if (isHead) cell.style.top = '0';
+  };
+  for (let c = 0; c < n; c++) apply(head.cells[c], c, true);
+  Array.from(table.tBodies[0].rows).forEach(r => {
+    for (let c = 0; c < n; c++) apply(r.cells[c], c, false);
+  });
+}
+
+/* ── 3-dots menu ── */
+function openTaskMenu(anchor, id, mode) {
+  const menu = document.getElementById('task-menu');
+  menuCtx = { id: id, mode: mode };
+  menu.innerHTML = (mode === 'archives')
+    ? `<button data-menuact="unarchive">↩️ Unarchive Task</button>`
+    : `<button data-menuact="edit">✏️ Edit</button>`
+      + `<button data-menuact="archive" class="danger">🗄️ Archive Task</button>`;
+  const r = anchor.getBoundingClientRect();
+  menu.style.top  = (window.scrollY + r.bottom + 4) + 'px';
+  menu.style.left = (window.scrollX + r.left) + 'px';
+  menu.classList.add('open');
+}
+function closeTaskMenu() {
+  const m = document.getElementById('task-menu');
+  if (m) m.classList.remove('open');
+}
+
+/* ── edit lifecycle ── */
+function startEdit(id) { editingTaskId = id; render(); }
+function cancelEdit()  { editingTaskId = null; render(); }
+
+function saveEdit(id) {
+  const wrap = document.getElementById(currentTab === 'archives' ? 'wrap-archives' : 'wrap-task');
+  const tr = wrap ? wrap.querySelector('tr.editing') : null;
+  if (!tr) return;
+  const params = { action: 'save', id: id };
+  const statusEl = tr.querySelector('[data-field="status"]');
+  tr.querySelectorAll('[data-field]').forEach(el => {
+    const f = el.getAttribute('data-field');
+    if (f === 'transferredTo') {
+      if (statusEl && statusEl.value === 'Transferred' && el.value) params.transferredTo = el.value;
+    } else {
+      params[f] = el.value;
+    }
+  });
+  setToast('Saving…');
+  jsonpAction(params, function(res) {
+    if (res && res.status === 'ok') {
+      setToast('Saved', 'ok');
+      editingTaskId = null;
+      loadData(true);
+    } else {
+      setToast((res && res.message) || 'Save failed', 'err');
+    }
+  });
+}
+
+function doArchive(id, on) {
+  setToast(on ? 'Archiving…' : 'Unarchiving…');
+  jsonpAction({ action: on ? 'archive' : 'unarchive', id: id }, function(res) {
+    if (res && res.status === 'ok') {
+      setToast(on ? 'Task archived' : 'Task unarchived', 'ok');
+      editingTaskId = null;
+      loadData(true);
+    } else {
+      setToast((res && res.message) || 'Action failed', 'err');
+    }
+  });
+}
+
+/* ── generic JSONP write ── */
+function jsonpAction(params, done) {
+  const cb = 'altusAct_' + Date.now() + '_' + Math.floor(Math.random()*1e6);
+  const timer = setTimeout(function(){ cleanupCb(cb); done({status:'error', message:'Request timed out.'}); }, 20000);
+  window[cb] = function(res){ clearTimeout(timer); cleanupCb(cb); done(res); };
+  let qs = 'callback=' + cb + '&t=' + Date.now();
+  Object.keys(params).forEach(k => {
+    qs += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k] == null ? '' : params[k]);
+  });
+  const sc = document.createElement('script');
+  sc.id  = '_act_' + cb;
+  sc.src = SCRIPT_URL + '?' + qs;
+  sc.onerror = function(){ clearTimeout(timer); cleanupCb(cb); done({status:'error', message:'Cannot reach Apps Script.'}); };
+  document.body.appendChild(sc);
+}
+function cleanupCb(cb) {
+  delete window[cb];
+  const s = document.getElementById('_act_' + cb);
+  if (s) s.remove();
+}
+
+/* ── toast ── */
+function setToast(msg, kind) {
+  const el = document.getElementById('task-toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'task-toast show' + (kind ? ' ' + kind : '');
+  if (toastTimer) clearTimeout(toastTimer);
+  if (kind) toastTimer = setTimeout(() => { el.className = 'task-toast'; }, 2600);
+}
+
+/* ── event wiring (delegated) ── */
+function onTaskWrapClick(e) {
+  const btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  const tr = btn.closest('tr[data-id]');
+  const id = tr ? tr.getAttribute('data-id') : '';
+  const mode = (e.currentTarget.id === 'wrap-archives') ? 'archives' : 'task';
+  const act = btn.getAttribute('data-act');
+  if (act === 'menu') { e.stopPropagation(); openTaskMenu(btn, id, mode); }
+  else if (act === 'save')   saveEdit(id);
+  else if (act === 'cancel') cancelEdit();
+}
+function onTaskWrapChange(e) {
+  const sel = e.target;
+  if (sel.classList && sel.classList.contains('task-select') && sel.getAttribute('data-field') === 'status') {
+    const st = statusStyle(sel.value);
+    sel.style.background = st.bg;
+    sel.style.color = st.fg;
+    const cell = sel.closest('td');
+    const tw = cell && cell.querySelector('[data-transfer]');
+    if (tw) tw.style.display = (sel.value === 'Transferred') ? 'flex' : 'none';
+  }
+}
+function wireTaskTables() {
+  ['wrap-task','wrap-archives'].forEach(id => {
+    const wrap = document.getElementById(id);
+    if (!wrap) return;
+    wrap.addEventListener('click', onTaskWrapClick);
+    wrap.addEventListener('change', onTaskWrapChange);
+  });
+  const menu = document.getElementById('task-menu');
+  if (menu) {
+    menu.addEventListener('click', function(e) {
+      const b = e.target.closest('[data-menuact]');
+      if (!b) return;
+      e.stopPropagation();
+      const act = b.getAttribute('data-menuact');
+      closeTaskMenu();
+      if (act === 'edit')           startEdit(menuCtx.id);
+      else if (act === 'archive')   doArchive(menuCtx.id, true);
+      else if (act === 'unarchive') doArchive(menuCtx.id, false);
+    });
+  }
+  document.addEventListener('click', closeTaskMenu);
+  window.addEventListener('scroll', closeTaskMenu, true);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -943,7 +1452,7 @@ function processLogo() {
 /* ═══════════════════════════════════════════════════════════
    DATA FETCH
 ═══════════════════════════════════════════════════════════ */
-function loadData() {
+function loadData(preserve) {
   setRefreshing(true);
   const old = document.getElementById('_jsonp'); if (old) old.remove();
   const cb = 'altusWMD_' + Date.now();
@@ -951,11 +1460,14 @@ function loadData() {
   window[cb] = function(data) {
     clearTimeout(timer); cleanup(cb); setRefreshing(false);
     if (data.status === 'error') { showError(data.message); return; }
-    allEmployeeData  = data.employees  || [];
-    allInitiatorData = data.initiators || [];
-    hasDateCol       = data.hasDateCol || false;
-    if (!allEmployeeData.length) { showError('No employee data found in Website Report.'); return; }
-    buildDropdown();
+    allEmployeeData   = data.employees     || [];
+    allInitiatorData  = data.initiators    || [];
+    allTasks          = data.tasks         || [];
+    employeeNamesList = data.employeeNames || [];
+    hasDateCol        = data.hasDateCol    || false;
+    editingTaskId     = null;
+    if (!allEmployeeData.length && !allTasks.length) { showError('No data found in Website Report.'); return; }
+    buildDropdown(preserve);
     render();
   };
   const sc = document.createElement('script');
@@ -979,6 +1491,7 @@ function showError(msg) {
 }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+wireTaskTables();
 loadData();
 </script>
 </body>
