@@ -238,7 +238,7 @@ export function ActionRail({
       <h2
         className="px-1 mb-3 text-[12px] uppercase tracking-[0.12em] text-ink-subtle font-bold"
       >
-        Actions
+        Admin & Process Actions
       </h2>
       <RoleBanner role={myRole} adminOverride={adminOverride} />
       <div className="flex flex-col gap-2">

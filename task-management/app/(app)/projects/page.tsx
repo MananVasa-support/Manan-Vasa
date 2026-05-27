@@ -1,27 +1,38 @@
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
-import { ProjectTree } from "@/components/projects/project-tree";
+import { ProjectsWorkspace } from "@/components/projects/projects-workspace";
 import { listProjectTree } from "@/lib/queries/projects";
 import { requireUser } from "@/lib/auth/current";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProjectsPage() {
+interface PageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+function firstString(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
+
+export default async function ProjectsPage({ searchParams }: PageProps) {
   await requireUser();
+  const sp = await searchParams;
+  const requested = firstString(sp.p);
   const tree = await listProjectTree();
+
+  // Pick the active project: ?p= wins if it resolves; otherwise first project.
+  // The workspace's rail uses <Link> with ?p=<id>, so selection survives
+  // refresh and is deep-linkable.
+  const activeId =
+    (requested && tree.some((p) => p.id === requested) ? requested : null) ??
+    tree[0]?.id ??
+    null;
 
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[960px] px-8 max-md:px-4 pt-8 pb-16">
-        <header className="mb-6">
-          <h1 className="text-display-lg text-ink-strong">Projects</h1>
-          <p className="text-body-lg text-ink-subtle mt-1">
-            Break work down: Project → Milestone → Result. Connect any task to a
-            node from the task's form.
-          </p>
-        </header>
-        <ProjectTree tree={tree} />
+      <main className="mx-auto max-w-[1480px] px-12 max-md:px-4 pt-10 pb-20">
+        <ProjectsWorkspace projects={tree} activeId={activeId} />
       </main>
       <DashboardFooter />
     </>

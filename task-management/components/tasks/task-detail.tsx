@@ -37,21 +37,38 @@ const PRIORITY_PILL: Record<
  */
 export function TaskDetail({ task }: { task: TaskDetailModel }) {
   const eyebrow = PRIORITY_PILL[task.priority];
-  // Subject promoted to display title when present.  Title is the fallback
-  // headline.  This matches editorial practice — the subject is the
-  // headline, the title is the slug.
-  const headline = (task.subject?.trim() || task.title).trim();
-  const slug = task.subject ? task.title : null;
+  // The TITLE is always the headline — that's what the user actually
+  // typed when creating the task.  Subject (e.g. "Marketing") is a short
+  // category and now lives in the meta strip, not as the hero text.
+  const headline = task.title.trim();
+  const subjectChip = task.subject?.trim() || null;
   const overdue =
     task.dueAt.getTime() < Date.now() &&
     !["approved", "cancelled", "transferred"].includes(task.status);
 
   return (
     <article className="relative">
-      {/* Eyebrow: priority quadrant pill */}
-      <div className="flex items-center gap-2 mb-5">
+      {/* Eyebrow row — overdue/due pill + created-ago text + subject chip.
+          Matches the design comp where small meta sits ABOVE the title. */}
+      <div className="flex items-center gap-3 mb-5 flex-wrap">
+        <DuePill dueAt={task.dueAt} overdue={overdue} />
+        <span className="text-[14px] text-ink-subtle">
+          Created {formatDistanceToNow(task.createdAt, { addSuffix: true })}
+        </span>
+        {subjectChip && (
+          <span
+            className="inline-flex items-center px-2.5 py-1 rounded-full text-[12.5px] font-bold uppercase tracking-[0.08em] border"
+            style={{
+              background: "var(--color-surface-soft)",
+              color: "var(--color-ink-muted)",
+              borderColor: "var(--color-hairline-strong)",
+            }}
+          >
+            {subjectChip}
+          </span>
+        )}
         <span
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-bold tracking-[0.08em] uppercase"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12.5px] font-bold tracking-[0.08em] uppercase"
           style={{
             background: `rgba(${eyebrow.rgb}, 0.10)`,
             color: eyebrow.toneVar,
@@ -61,32 +78,28 @@ export function TaskDetail({ task }: { task: TaskDetailModel }) {
           <Sparkles size={12} strokeWidth={2.6} />
           {eyebrow.label}
         </span>
-        {slug && (
-          <span className="text-[13px] text-ink-subtle font-mono tracking-tight truncate">
-            {slug}
-          </span>
-        )}
       </div>
 
-      {/* Headline subject — Instrument Serif italic, balanced wrap */}
+      {/* HEADLINE — the user's actual task title. Serif italic, sized
+          to read comfortably without dominating the page. Clamp keeps
+          it legible at all column widths. */}
       <h1
         className="text-ink-strong"
         style={{
           fontFamily: "var(--font-serif)",
           fontStyle: "italic",
           fontWeight: 500,
-          fontSize: "clamp(40px, 5vw, 60px)",
-          lineHeight: 1.04,
-          letterSpacing: "-0.03em",
+          fontSize: "clamp(32px, 3.4vw, 44px)",
+          lineHeight: 1.1,
+          letterSpacing: "-0.02em",
           textWrap: "balance",
         }}
       >
         {headline}
       </h1>
 
-      {/* Meta strip — due / created-by / doer / initiator */}
-      <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3">
-        <DuePill dueAt={task.dueAt} overdue={overdue} />
+      {/* Attribution strip — created-by / initiator → doer avatars */}
+      <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-4">
         {task.creatorName && (
           <PersonChip
             label="Created by"
@@ -102,14 +115,14 @@ export function TaskDetail({ task }: { task: TaskDetailModel }) {
         />
       </div>
 
-      {/* Description body — Inter 17px, generous line-height, capped width */}
+      {/* Description body — 17px, comfortable prose line-height. */}
       {task.description && (
-        <div className="mt-8" style={{ maxWidth: "65ch" }}>
+        <div className="mt-8" style={{ maxWidth: "68ch" }}>
           <p
             className="text-ink whitespace-pre-wrap"
             style={{
               fontSize: 17,
-              lineHeight: 1.65,
+              lineHeight: 1.6,
               fontWeight: 400,
             }}
           >
@@ -118,29 +131,34 @@ export function TaskDetail({ task }: { task: TaskDetailModel }) {
         </div>
       )}
 
-      {/* Internal notes — separated by a hairline, italic eyebrow */}
+      {/* Internal notes — boxed sub-card, distinct from the body. The
+          design comp shows it as its own clear region with a labeled
+          header inside the main task card. */}
       {task.notes && (
         <div
-          className="mt-8 pt-6 border-t border-hairline"
-          style={{ maxWidth: "65ch" }}
+          className="mt-9 rounded-chip px-6 py-5"
+          style={{
+            background: "var(--color-surface-soft)",
+            border: "1px solid var(--color-hairline)",
+            maxWidth: "68ch",
+          }}
         >
-          <h2 className="text-[12px] uppercase tracking-[0.12em] text-ink-subtle font-bold mb-2">
-            Internal notes
+          <h2
+            className="text-ink-subtle font-bold mb-3"
+            style={{
+              fontSize: 12,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+            }}
+          >
+            Internal Notes
           </h2>
           <p
             className="text-ink whitespace-pre-wrap"
-            style={{ fontSize: 16, lineHeight: 1.6 }}
+            style={{ fontSize: 17, lineHeight: 1.6 }}
           >
             {task.notes}
           </p>
-        </div>
-      )}
-
-      {/* When the subject IS the headline, surface the title slug at the
-          bottom as a small footer reference so it isn't entirely hidden. */}
-      {slug && (
-        <div className="mt-8 pt-5 border-t border-hairline text-[13px] text-ink-subtle">
-          Task title: <span className="text-ink-soft">{slug}</span>
         </div>
       )}
     </article>
@@ -151,16 +169,16 @@ function DuePill({ dueAt, overdue }: { dueAt: Date; overdue: boolean }) {
   const rgb = overdue ? "225, 6, 0" : "100, 116, 139";
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[13px] tabular-nums"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[14px] tabular-nums"
       style={{
-        background: `rgba(${rgb}, 0.06)`,
+        background: `rgba(${rgb}, 0.08)`,
         color: overdue ? "var(--color-red-deep)" : "var(--color-ink-soft)",
-        border: `1px solid rgba(${rgb}, ${overdue ? 0.28 : 0.12})`,
-        fontWeight: 600,
+        border: `1px solid rgba(${rgb}, ${overdue ? 0.30 : 0.16})`,
+        fontWeight: 700,
       }}
       title={format(dueAt, "EEE, MMM d, yyyy")}
     >
-      <Calendar size={13} strokeWidth={2.4} />
+      <Calendar size={14} strokeWidth={2.4} />
       {overdue ? "Overdue · " : "Due "}
       {format(dueAt, "MMM d")}
     </span>
@@ -177,16 +195,16 @@ function PersonChip({
   relative?: Date;
 }) {
   return (
-    <span className="inline-flex items-center gap-2 text-[13px] text-ink-soft">
-      <Avatar name={name} size={26} />
+    <span className="inline-flex items-center gap-2.5 text-ink-soft">
+      <Avatar name={name} size={28} />
       <span className="leading-tight">
-        <span className="block text-[11.5px] uppercase tracking-[0.08em] text-ink-subtle font-bold">
+        <span className="block text-[12px] uppercase tracking-[0.10em] text-ink-subtle font-bold">
           {label}
         </span>
-        <span className="block text-ink-strong font-medium" style={{ fontSize: 14.5 }}>
+        <span className="block text-ink-strong font-semibold mt-0.5" style={{ fontSize: 15.5 }}>
           {name}
           {relative && (
-            <span className="ml-1 text-ink-subtle font-normal">
+            <span className="ml-1.5 text-ink-subtle font-normal text-[13.5px]">
               · {formatDistanceToNow(relative, { addSuffix: true })}
             </span>
           )}
@@ -208,27 +226,27 @@ function RolePair({
   toLabel: string;
 }) {
   return (
-    <span className="inline-flex items-center gap-2 text-[13px]">
-      <Avatar name={fromName ?? "?"} size={26} title={`${fromLabel}: ${fromName ?? "—"}`} />
+    <span className="inline-flex items-center gap-2.5">
+      <Avatar name={fromName ?? "?"} size={28} title={`${fromLabel}: ${fromName ?? "—"}`} />
       <span className="leading-tight">
-        <span className="block text-[11.5px] uppercase tracking-[0.08em] text-ink-subtle font-bold">
+        <span className="block text-[12px] uppercase tracking-[0.10em] text-ink-subtle font-bold">
           {fromLabel}
         </span>
-        <span className="block text-ink-strong font-medium" style={{ fontSize: 14.5 }}>
+        <span className="block text-ink-strong font-semibold mt-0.5" style={{ fontSize: 15.5 }}>
           {fromName ?? "—"}
         </span>
       </span>
       <ArrowRight
-        size={13}
+        size={16}
         strokeWidth={2.4}
-        className="text-ink-subtle mx-1"
+        className="text-ink-subtle mx-1.5"
       />
-      <Avatar name={toName ?? "?"} size={26} title={`${toLabel}: ${toName ?? "—"}`} />
+      <Avatar name={toName ?? "?"} size={28} title={`${toLabel}: ${toName ?? "—"}`} />
       <span className="leading-tight">
-        <span className="block text-[11.5px] uppercase tracking-[0.08em] text-ink-subtle font-bold">
+        <span className="block text-[12px] uppercase tracking-[0.10em] text-ink-subtle font-bold">
           {toLabel}
         </span>
-        <span className="block text-ink-strong font-medium" style={{ fontSize: 14.5 }}>
+        <span className="block text-ink-strong font-semibold mt-0.5" style={{ fontSize: 15.5 }}>
           {toName ?? "—"}
         </span>
       </span>

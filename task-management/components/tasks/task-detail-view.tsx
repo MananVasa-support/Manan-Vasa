@@ -11,10 +11,15 @@ import {
   History,
   Flag,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Check as CheckIcon,
   Loader2,
   Copy,
   Maximize2,
+  Repeat,
+  Tag,
+  Pencil,
 } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -280,9 +285,9 @@ export function TaskDetailView({
 
   return (
     <div className="relative">
-      {/* Soft radial wash sitting behind the right rail.  Anchored to the
-          top-right corner of the layout container so it reads as ambient
-          rather than busy. */}
+      {/* Ambient backdrop — soft radial wash + a decorative constellation
+          pattern on the left edge (echoes the design comp).  Both layers
+          are decorative, behind the content, never interactive. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10"
@@ -291,38 +296,67 @@ export function TaskDetailView({
             "radial-gradient(ellipse 38% 60% at 92% 10%, rgba(225, 6, 0, 0.06), transparent 65%), radial-gradient(ellipse 30% 50% at 105% 60%, rgba(168, 85, 247, 0.06), transparent 65%)",
         }}
       />
+      <ConstellationBackdrop />
+
+      {/* TOP HEADER STRIP — back/forward affordance, status, priority pill
+          on the left; Focus / Duplicate / Edit Task on the right.  Sits
+          above the two-column grid so the task body below feels like the
+          subject of the page, not a panel-within-a-panel. */}
+      {!editing && (
+        <TopHeaderStrip
+          task={task}
+          tone={tone}
+          statusLabels={statusLabels}
+          statusTones={statusTones}
+          canEdit={canEdit}
+          canChangeStatus={canCommentOnTask}
+          isAdmin={me?.isAdmin ?? false}
+          onStartEdit={() => setEditing(true)}
+        />
+      )}
 
       <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-10 max-lg:grid-cols-1 max-lg:gap-6">
         {/* LEFT COLUMN — editorial document */}
         <div className="min-w-0">
-          {/* Edit + Duplicate buttons hovering top-right of the left column */}
-          {!editing && (
-            <div className="flex justify-end gap-2 mb-4">
-              <Link
-                href={`/tasks/${task.id}/focus` as Route}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[14px] font-semibold text-ink-soft border border-hairline bg-white/70 hover:bg-white hover:border-hairline-strong transition-all"
-              >
-                <Maximize2 size={15} strokeWidth={2.2} />
-                Focus
-              </Link>
-              <Link
-                href={`/tasks/new?from=${task.id}` as Route}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[14px] font-semibold text-ink-soft border border-hairline bg-white/70 hover:bg-white hover:border-hairline-strong transition-all"
-              >
-                <Copy size={15} strokeWidth={2.2} />
-                Duplicate
-              </Link>
-              {canEdit && (
-                <button
-                  type="button"
-                  onClick={() => setEditing(true)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[14px] font-semibold text-ink-soft border border-hairline bg-white/70 hover:bg-white hover:border-hairline-strong transition-all"
+          {/* Recurrence badge — small inline indicator for materialized
+              children (with click-through to the template) AND for
+              rule-holders themselves. Hidden for non-recurring tasks. */}
+          {!editing && (task.recurrenceParentId || task.recurrenceRule) && (
+            <div className="mb-3">
+              {task.recurrenceParentId ? (
+                <Link
+                  href={`/tasks/${task.recurrenceParentId}` as Route}
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold transition-colors"
+                  style={{
+                    background: "var(--color-purple-bg)",
+                    color: "var(--color-purple-deep)",
+                  }}
+                  title="Materialized from a recurring template"
                 >
-                  Edit Task →
-                </button>
+                  <Repeat size={12} strokeWidth={2.4} />
+                  Recurring · from template
+                  {task.recurrenceOccurrenceDate && (
+                    <span className="font-mono opacity-75">
+                      · {task.recurrenceOccurrenceDate}
+                    </span>
+                  )}
+                </Link>
+              ) : (
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold"
+                  style={{
+                    background: "var(--color-purple-bg)",
+                    color: "var(--color-purple-deep)",
+                  }}
+                  title="Daily cron materialises one child instance per occurrence"
+                >
+                  <Repeat size={12} strokeWidth={2.4} />
+                  Recurring template
+                </span>
               )}
             </div>
           )}
+
 
           <AnimatePresence mode="wait" initial={false}>
             {editing ? (
@@ -401,14 +435,42 @@ export function TaskDetailView({
                   duration: 0.28,
                   ease: [0.2, 0.7, 0.3, 1],
                 }}
+                className="flex flex-col gap-5"
               >
-                <TaskDetail task={task} />
+                {/* TASK BODY CARD — the editorial document container.
+                    Subtle elevation lifts it off the canvas without
+                    looking heavy. */}
+                <section
+                  className="rounded-section bg-surface-card border border-hairline px-8 py-7 max-md:px-5 max-md:py-6 relative overflow-hidden"
+                  style={{
+                    boxShadow:
+                      "0 1px 3px rgba(15, 23, 42, 0.04), 0 12px 32px -16px rgba(15, 23, 42, 0.08)",
+                  }}
+                >
+                  {/* Top red accent strip — ties the card to the brand */}
+                  <div
+                    aria-hidden
+                    className="absolute inset-x-0 top-0 h-[3px]"
+                    style={{
+                      background:
+                        "linear-gradient(90deg, var(--color-altus-red) 0%, var(--color-altus-red-deep) 40%, transparent 100%)",
+                      opacity: 0.85,
+                    }}
+                  />
+                  <TaskDetail task={task} />
+                </section>
 
-                {/* Comment composer — part of the editorial document, NOT
-                    a glass card.  Only shown when the user is a participant. */}
-                {canCommentOnTask && (
-                  <CommentInput taskId={task.id} me={composerMe} />
-                )}
+                {/* ACTIVITY & COMMENTS CARD — composer at the top,
+                    timeline below.  Stays on the left so the right rail
+                    is purely metadata + actions. */}
+                <ActivityCard
+                  taskId={task.id}
+                  me={composerMe}
+                  canCommentOnTask={canCommentOnTask}
+                  events={events}
+                  statusLabels={statusLabels}
+                  meUser={me ? { id: me.id, isAdmin: me.isAdmin } : undefined}
+                />
               </motion.div>
             )}
           </AnimatePresence>
@@ -423,14 +485,15 @@ export function TaskDetailView({
             className="lg:sticky lg:top-24 flex flex-col gap-4"
             style={{ scrollMarginTop: "6rem" }}
           >
-            {/* (1) Status + meta */}
+            {/* (1) Status picker — its own compact card, sits at the
+                top so the eye lands on it first. */}
             <section
-              className="rounded-section border border-hairline bg-surface-card p-5"
-              style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
+              className="rounded-section border border-hairline bg-surface-card px-5 py-4 relative overflow-hidden"
+              style={{
+                boxShadow:
+                  "0 1px 3px rgba(15, 23, 42, 0.04), 0 8px 24px -16px rgba(15, 23, 42, 0.08)",
+              }}
             >
-              <h2 className="text-[12px] uppercase tracking-[0.12em] text-ink-subtle font-bold mb-3">
-                Status
-              </h2>
               <InteractiveStatusPill
                 taskId={task.id}
                 status={task.status}
@@ -440,7 +503,9 @@ export function TaskDetailView({
                 canChange={canCommentOnTask /* same gate: any task participant or admin */}
                 isAdmin={me?.isAdmin ?? false}
               />
-              <div className="mt-5 pt-4 border-t border-hairline grid grid-cols-1 gap-3">
+              {/* Meta rows directly under the status — keeps the screenshot's
+                  "status header + meta block" pairing in one card. */}
+              <div className="mt-5 pt-4 border-t border-hairline grid grid-cols-1 gap-3.5">
                 <MetaRow
                   icon={<Clock size={13} strokeWidth={2.4} />}
                   label="Created"
@@ -505,12 +570,9 @@ export function TaskDetailView({
               </section>
             )}
 
-            {/* (3) Audit feed timeline */}
-            <AuditFeed
-              events={events}
-              statusLabels={statusLabels}
-              me={me ? { id: me.id, isAdmin: me.isAdmin } : undefined}
-            />
+            {/* Audit feed used to live here. It has moved to the
+                ActivityCard on the left column so the right rail stays
+                focused on status, meta, and actions. */}
           </div>
         </aside>
       </div>
@@ -751,5 +813,256 @@ function MetaRow({
         {value}
       </span>
     </div>
+  );
+}
+
+/**
+ * Decorative SVG constellation pattern anchored to the left edge of the
+ * page.  Pure visual — never interactive.  Mirrors the design comp where
+ * a soft network of dots-and-lines fills the negative space outside the
+ * content column.  Opacity tuned low so it never competes with the doc.
+ */
+function ConstellationBackdrop() {
+  const nodes = [
+    [40, 80],
+    [120, 200],
+    [60, 320],
+    [180, 380],
+    [80, 480],
+    [160, 560],
+    [40, 660],
+    [140, 760],
+    [100, 880],
+    [50, 1000],
+  ] as const;
+  const lines = [
+    [0, 1],
+    [1, 2],
+    [1, 3],
+    [2, 3],
+    [3, 4],
+    [4, 5],
+    [5, 6],
+    [5, 7],
+    [7, 8],
+    [8, 9],
+  ] as const;
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute -z-10 max-lg:hidden"
+      style={{
+        top: 0,
+        left: -240,
+        width: 240,
+        height: "100%",
+        opacity: 0.45,
+      }}
+    >
+      <svg
+        width="240"
+        height="1080"
+        viewBox="0 0 240 1080"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        {lines.map(([a, b], i) => {
+          const A = nodes[a];
+          const B = nodes[b];
+          if (!A || !B) return null;
+          return (
+            <line
+              key={i}
+              x1={A[0]}
+              y1={A[1]}
+              x2={B[0]}
+              y2={B[1]}
+              stroke="rgba(15, 23, 42, 0.18)"
+              strokeWidth={1}
+            />
+          );
+        })}
+        {nodes.map(([x, y], i) => (
+          <circle
+            key={i}
+            cx={x}
+            cy={y}
+            r={3}
+            fill="rgba(15, 23, 42, 0.45)"
+          />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+/**
+ * Top header strip — back/forward nav (visual; navigates the browser
+ * history), status chip, priority pill, and the right-aligned Focus /
+ * Duplicate / Edit Task action buttons.  Matches the design comp's
+ * "command bar" above the task body.
+ */
+function TopHeaderStrip({
+  task,
+  tone,
+  statusLabels,
+  canEdit,
+  onStartEdit,
+}: {
+  task: TaskDetailModel;
+  tone: { label: string; rgb: string; ink: string; bg: string; live: boolean };
+  statusLabels?: Record<TaskStatus, string>;
+  statusTones?: Record<TaskStatus, StatusColorToken>;
+  canEdit: boolean;
+  canChangeStatus: boolean;
+  isAdmin: boolean;
+  onStartEdit: () => void;
+}) {
+  const router = useRouter();
+  const statusLabel = statusLabels?.[task.status] ?? tone.label;
+  const priorityLabel =
+    PRIORITY_LABEL_SHORT[task.priority] ?? task.priority;
+
+  return (
+    <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
+      {/* LEFT — back/forward + status pill + priority chip */}
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="Back"
+            className="size-9 inline-flex items-center justify-center rounded-full border border-hairline bg-white/80 hover:bg-white hover:border-hairline-strong transition-all text-ink-soft"
+          >
+            <ChevronLeft size={16} strokeWidth={2.4} />
+          </button>
+          <button
+            type="button"
+            onClick={() => router.forward()}
+            aria-label="Forward"
+            className="size-9 inline-flex items-center justify-center rounded-full border border-hairline bg-white/80 hover:bg-white hover:border-hairline-strong transition-all text-ink-soft"
+          >
+            <ChevronRight size={16} strokeWidth={2.4} />
+          </button>
+        </div>
+
+        <span
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[12.5px] font-bold border"
+          style={{
+            background: `rgba(${tone.rgb}, 0.08)`,
+            color: tone.ink,
+            borderColor: `rgba(${tone.rgb}, 0.24)`,
+          }}
+          title="Status"
+        >
+          <span
+            aria-hidden
+            className="inline-block size-2 rounded-full"
+            style={{
+              background: `rgb(${tone.rgb})`,
+              boxShadow: `0 0 6px rgba(${tone.rgb}, 0.6)`,
+            }}
+          />
+          STATUS: {statusLabel}
+        </span>
+
+        <span
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-bold uppercase tracking-[0.06em] border text-ink-muted"
+          style={{
+            background: "var(--color-surface-card)",
+            borderColor: "var(--color-hairline)",
+          }}
+          title="Priority"
+        >
+          <Tag size={11} strokeWidth={2.6} />
+          {priorityLabel}
+        </span>
+      </div>
+
+      {/* RIGHT — action buttons */}
+      <div className="flex items-center gap-2 shrink-0">
+        <Link
+          href={`/tasks/${task.id}/focus` as Route}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold text-ink-soft border border-hairline bg-white/80 hover:bg-white hover:border-hairline-strong transition-all"
+        >
+          <Maximize2 size={14} strokeWidth={2.4} />
+          Focus
+        </Link>
+        <Link
+          href={`/tasks/new?from=${task.id}` as Route}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold text-ink-soft border border-hairline bg-white/80 hover:bg-white hover:border-hairline-strong transition-all"
+        >
+          <Copy size={14} strokeWidth={2.4} />
+          Duplicate
+        </Link>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={onStartEdit}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold text-white transition-all hover:-translate-y-px"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+              boxShadow:
+                "0 6px 18px -8px rgba(225, 6, 0, 0.55), inset 0 1px 0 rgba(255,255,255,0.18)",
+            }}
+          >
+            <Pencil size={14} strokeWidth={2.6} />
+            Edit Task →
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Activity & Comments — the left-column section that bundles the comment
+ * composer (top) and the audit timeline (below).  Matches the design
+ * comp's clear card boundary around discussion-style content.
+ */
+function ActivityCard({
+  taskId,
+  me,
+  canCommentOnTask,
+  events,
+  statusLabels,
+  meUser,
+}: {
+  taskId: string;
+  me: { name: string; avatarUrl: string | null };
+  canCommentOnTask: boolean;
+  events: AuditFeedRow[];
+  statusLabels?: Record<TaskStatus, string>;
+  meUser?: { id: string; isAdmin: boolean };
+}) {
+  if (!canCommentOnTask && events.length === 0) return null;
+  return (
+    <section
+      className="rounded-section bg-surface-card border border-hairline px-8 py-7 max-md:px-5 max-md:py-6"
+      style={{
+        boxShadow:
+          "0 1px 3px rgba(15, 23, 42, 0.04), 0 12px 32px -16px rgba(15, 23, 42, 0.08)",
+      }}
+    >
+      <h2
+        className="text-ink-strong mb-5"
+        style={{
+          fontFamily: "var(--font-serif)",
+          fontStyle: "italic",
+          fontSize: 22,
+          letterSpacing: "-0.01em",
+          lineHeight: 1.1,
+        }}
+      >
+        Activity & Comments
+      </h2>
+      {canCommentOnTask && (
+        <div className="mb-5">
+          <CommentInput taskId={taskId} me={me} />
+        </div>
+      )}
+      <AuditFeed events={events} statusLabels={statusLabels} me={meUser} />
+    </section>
   );
 }
