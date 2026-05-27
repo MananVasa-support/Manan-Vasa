@@ -9,7 +9,8 @@ import {
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { Avatar } from "@/components/ui/avatar";
-import { AuditEvent, dotColorFor } from "@/components/tasks/audit-event";
+import { AuditEvent } from "@/components/tasks/audit-event";
+import { dotColorFor } from "@/components/tasks/audit-event-meta";
 import type { ActivityRow, ActivitySource } from "@/lib/transforms/activity";
 import {
   employeeEventCopy,

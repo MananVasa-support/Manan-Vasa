@@ -5,7 +5,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTransition } from "react";
 import { Calendar, Users, RotateCcw, SlidersHorizontal, ArrowRight, Sparkles, Layers, Download } from "lucide-react";
 import { MultiSelect } from "@/components/ui/multi-select";
-import { dotColorFor } from "@/components/tasks/audit-event";
+import { dotColorFor } from "@/components/tasks/audit-event-meta";
 import { TASK_EVENT_TYPES, type TaskEventType } from "@/lib/events";
 
 const EVENT_TYPE_LABELS: Record<TaskEventType, string> = {

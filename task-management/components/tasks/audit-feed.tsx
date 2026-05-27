@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { AuditEvent, dotColorFor, eventFilterBucket } from "./audit-event";
+import { AuditEvent } from "./audit-event";
+import { dotColorFor, eventFilterBucket } from "./audit-event-meta";
 import type { AuditFeedRow } from "@/lib/queries/audit";
 import type { TaskStatus } from "@/db/enums";
 
