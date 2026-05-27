@@ -224,7 +224,7 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--page-bg);color:var(
 
 /* ══ TASK / ARCHIVES TABLE ══ */
 .task-wrap{overflow:auto;max-height:620px;position:relative;}
-.task-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;}
+.task-table{border-collapse:separate;border-spacing:0;width:auto;min-width:100%;}
 .task-table thead th{
   position:sticky;top:0;z-index:18;
   background:#4a4a4a;color:rgba(255,255,255,0.85);
@@ -749,7 +749,7 @@ function getDisplayEmps() {
 }
 
 function updateStats(dataList, names) {
-  const t = { Total:0, Approved:0, Done:0, Pending:0, Cancelled:0, Transferred:0 };
+  const t = { Total:0, 'Not Approved':0, Done:0, Pending:0, Cancelled:0, Transferred:0 };
   names.forEach(n => {
     const e = getFiltered(dataList.find(d => d.name === n));
     if (!e) return;
