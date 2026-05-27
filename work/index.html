@@ -244,11 +244,6 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--page-bg);color:var(
 .task-table td.editable-cell{color:var(--text2);}
 .task-table td.wrap-cell{white-space:normal;max-width:280px;min-width:170px;}
 
-/* Frozen (sticky-left) columns — left offsets are applied in JS */
-.task-table .frozen-col{position:sticky;z-index:12;}
-.task-table thead th.frozen-col{z-index:22;background:#4a4a4a;}
-.task-table .frozen-last{box-shadow:6px 0 8px -4px rgba(0,0,0,0.22);}
-
 /* Task Id cell with the 3-dots affordance */
 .id-cell{display:flex;align-items:center;gap:8px;justify-content:space-between;min-width:84px;}
 .id-text{font-weight:700;font-size:12px;color:var(--text);}
@@ -591,7 +586,6 @@ const TASK_DEF = [
   { key:'iFollow',  label:'Initiator Follow Up Notes',edit:'text', wrap:true },
   { key:'dNotes',   label:'Doer Notes',               edit:'text', wrap:true },
 ];
-const FROZEN_COUNT = TASK_DEF.filter(c => c.frozen).length;
 
 /* ═══════════════════════════════════════════════════════════
    STATE
@@ -1109,8 +1103,10 @@ function getFilteredTasks(mode) {
 
   return allTasks.filter(t => {
     if (!!t.arch !== wantArch) return false;
+    // Match the Task Doer tab exactly: only tasks that have a doer AND a status.
+    if (!t.doer || !t.status) return false;
     if (!allDoers) {                                         // filter by Task Doer
-      if (!t.doer || !dispSet.has(t.doer.toLowerCase())) return false;
+      if (!dispSet.has(t.doer.toLowerCase())) return false;
     }
     if (hasDateCol && (start || end)) {                      // filter by Due Date
       const d = parseDate(t.due);
@@ -1166,8 +1162,6 @@ function renderTaskTab(mode, display) {
     return;
   }
   wrap.innerHTML = buildTaskTableHTML(rows, mode);
-  const table = wrap.querySelector('table.task-table');
-  if (table) freezeColumns(table, FROZEN_COUNT);
 }
 
 function buildTaskTableHTML(rows, mode) {
@@ -1249,29 +1243,6 @@ function editorHTML(c, t) {
          + `style="background:${st.bg};color:${st.fg};">${opts}</select>${transfer}`;
   }
   return esc(val);
-}
-
-function freezeColumns(table, n) {
-  const head = table.tHead && table.tHead.rows[0];
-  if (!head) return;
-  const lefts = [];
-  let acc = 0;
-  for (let c = 0; c < n; c++) {
-    lefts[c] = acc;
-    const cell = head.cells[c];
-    acc += cell ? cell.getBoundingClientRect().width : 0;
-  }
-  const apply = (cell, c, isHead) => {
-    if (!cell) return;
-    cell.style.left = lefts[c] + 'px';
-    cell.classList.add('frozen-col');
-    if (c === n - 1) cell.classList.add('frozen-last');
-    if (isHead) cell.style.top = '0';
-  };
-  for (let c = 0; c < n; c++) apply(head.cells[c], c, true);
-  Array.from(table.tBodies[0].rows).forEach(r => {
-    for (let c = 0; c < n; c++) apply(r.cells[c], c, false);
-  });
 }
 
 /* ── 3-dots menu ── */
