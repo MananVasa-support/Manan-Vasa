@@ -10,6 +10,12 @@ import {
 } from "@/db/schema";
 import { sendNotificationEmail } from "@/lib/email/resend";
 import { getRecipientChannelPrefs } from "@/lib/notifications/channel-prefs";
+import {
+  effectiveEnabled,
+  getNotificationPrefs,
+  NOTIFICATION_KINDS,
+  type NotificationKindKey,
+} from "@/lib/profile/notification-prefs";
 import { sendSlackDM } from "@/lib/slack/dispatch";
 import { sendWhatsApp } from "@/lib/whatsapp/dispatch";
 import { sendWebPushToUser } from "@/lib/web-push/client";
@@ -77,6 +83,19 @@ export interface NotifyOpts {
    * org-wide config.
    */
   forceChannels?: ReadonlyArray<"email" | "slack" | "whatsapp" | "push">;
+  /**
+   * Profile v2 — when true, the recipient's per-(kind,channel) matrix is
+   * overridden so every enabled-at-the-channel-level arm fires. Set by
+   * @-mention call sites; honoured only when the recipient has
+   * `mention_escalation = true` (the default).
+   */
+  isMention?: boolean;
+  /**
+   * Profile v2 (internal) — set when this notify() call is the OOO
+   * delegate copy. Prevents infinite delegation if a delegate is also OOO
+   * with a delegate. Not part of the public API for callers.
+   */
+  _skipOoo?: boolean;
 }
 
 type ChannelOutcome = "sent" | "skip" | { error: string };
@@ -195,6 +214,33 @@ export async function notify(opts: NotifyOpts): Promise<void> {
   const allowed = (matrixName: "email" | "slack" | "whatsapp" | "push") =>
     allowedChannels.has(matrixName);
 
+  // Profile v2 — per-(kind,channel) matrix. Mention escalation: if the
+  // notification was flagged isMention AND the recipient hasn't disabled
+  // escalation, we treat every channel as enabled by their personal matrix.
+  const kindKey =
+    (NOTIFICATION_KINDS as readonly string[]).includes(row.kind as string)
+      ? (row.kind as NotificationKindKey)
+      : null;
+  const personalMatrix = kindKey ? await getNotificationPrefs(row.userId) : {};
+  // `prefs` is non-null here because we returned earlier when it was null.
+  // Capture into a local that TypeScript can track inside the inner closure.
+  const recipPrefs = prefs;
+  const escalated = !!opts.isMention && recipPrefs.mentionEscalation;
+  function personalEnabled(channelKey: "email" | "slack" | "whatsapp" | "push"): boolean {
+    if (!kindKey) return true; // unknown kind (e.g. overdue_digest) — no override
+    if (escalated) return true;
+    // Map legacy scalar by channel
+    const legacy =
+      channelKey === "email"
+        ? recipPrefs.emailOptIn
+        : channelKey === "slack"
+          ? recipPrefs.slackOptIn
+          : channelKey === "whatsapp"
+            ? recipPrefs.whatsappOptedIn
+            : true; // push has no legacy scalar — default true; subscription absence is its own skip
+    return effectiveEnabled(personalMatrix, kindKey, channelKey, legacy);
+  }
+
   // Four-arm fan-out.  Each entry is `[channelName, runner]`.  The
   // runner returns "sent" | "skip" | { error }.  When the user is
   // opted-out (or required contact info is missing), we synthesize
@@ -206,10 +252,8 @@ export async function notify(opts: NotifyOpts): Promise<void> {
       "email",
       async () => {
         if (!allowed("email")) return "skip";
-        if (!prefs.emailOptIn) return "skip";
+        if (!personalEnabled("email")) return "skip";
         // `sendNotificationEmail` is void-on-success / throws-on-failure.
-        // Treat a successful resolve as "sent".  `safeSend` catches
-        // thrown errors and converts them to `{ error }`.
         await sendNotificationEmail({
           id: row.id,
           userId: row.userId,
@@ -225,7 +269,7 @@ export async function notify(opts: NotifyOpts): Promise<void> {
       "slack",
       async () => {
         if (!allowed("slack")) return "skip";
-        if (!prefs.slackOptIn) return "skip";
+        if (!personalEnabled("slack")) return "skip";
         return sendSlackDM(prefs, outboundCtx);
       },
     ],
@@ -233,7 +277,8 @@ export async function notify(opts: NotifyOpts): Promise<void> {
       "whatsapp",
       async () => {
         if (!allowed("whatsapp")) return "skip";
-        if (!prefs.whatsappOptedIn || !prefs.whatsappPhone) return "skip";
+        if (!personalEnabled("whatsapp")) return "skip";
+        if (!prefs.whatsappPhone) return "skip";
         return sendWhatsApp(prefs, outboundCtx);
       },
     ],
@@ -241,6 +286,7 @@ export async function notify(opts: NotifyOpts): Promise<void> {
       "web_push",
       async () => {
         if (!allowed("push")) return "skip";
+        if (!personalEnabled("push")) return "skip";
         return sendWebPushToUser(row.userId, row.kind as NotificationKind, {
           actorName: outboundCtx.actorName,
           taskSubject: outboundCtx.taskSubject,
@@ -342,6 +388,49 @@ export async function notify(opts: NotifyOpts): Promise<void> {
       console.warn("[dispatch] failed to write dispatch log", err);
     }
   }
+
+  // Profile v2 — OOO delegate copy. If the primary recipient is currently
+  // out-of-office AND has a delegate set, enqueue ONE additional notify()
+  // for the delegate with `_skipOoo: true` so chained delegation stops
+  // at depth 1. Fire-and-forget — failures here are logged but do not
+  // affect the primary notification.
+  if (
+    !opts._skipOoo &&
+    recipPrefs.oooDelegateId &&
+    isCurrentlyOoo(recipPrefs.oooStart, recipPrefs.oooEnd)
+  ) {
+    try {
+      await notify({
+        userId: recipPrefs.oooDelegateId,
+        kind: opts.kind,
+        title: `[Covering for ${recipPrefs.name}] ${opts.title}`,
+        body: opts.body,
+        taskId: opts.taskId,
+        eventId: opts.eventId,
+        actorId: opts.actorId,
+        forceChannels: opts.forceChannels,
+        isMention: opts.isMention,
+        _skipOoo: true,
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn("[dispatch] OOO delegate copy failed", err);
+    }
+  }
+}
+
+/**
+ * Profile v2 — is `today` (UTC) within the user's OOO window?
+ * The columns are PostgreSQL `date` (yyyy-mm-dd) so a string compare is
+ * correct. Inclusive on both ends.
+ */
+function isCurrentlyOoo(
+  oooStart: string | null,
+  oooEnd: string | null,
+): boolean {
+  if (!oooStart || !oooEnd) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  return today >= oooStart && today <= oooEnd;
 }
 
 /**

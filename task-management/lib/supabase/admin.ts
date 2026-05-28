@@ -18,3 +18,9 @@ export function getSupabaseAdmin(): SupabaseClient {
 
 /** The private bucket backing the document library + task attachments. */
 export const DOCUMENTS_BUCKET = "documents";
+
+/** The private bucket backing /profile avatar uploads. Reads via signed URLs. */
+export const AVATARS_BUCKET = "avatars";
+
+/** Avatars signed-URL TTL: 7 days. The avatar URL is regenerated on profile read. */
+export const AVATAR_SIGNED_URL_TTL_SECONDS = 7 * 24 * 60 * 60;

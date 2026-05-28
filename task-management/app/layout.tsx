@@ -5,6 +5,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { ToastHost } from "@/components/ui/toast";
 import { RegisterSW } from "@/components/pwa/register-sw";
+import { getCurrentEmployee } from "@/lib/auth/current";
 
 const roboto = Roboto({
   variable: "--font-roboto",
@@ -43,13 +44,26 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Profile v2 — stamp density + accent from the user's prefs. Theme is
+  // intentionally light-only (no dark mode); the `theme` column on
+  // employees is kept but unused.
+  const me = await getCurrentEmployee();
+  const density = me?.density ?? "cozy";
+  const accent =
+    me?.accent && /^#[0-9a-fA-F]{6}$/.test(me.accent) ? me.accent : "#E10600";
+  const htmlStyle: React.CSSProperties & Record<string, string> = {
+    ["--user-accent"]: accent,
+  };
+
   return (
     <html
       lang="en"
       className={`${roboto.variable} ${bricolage.variable} ${jetbrainsMono.variable}`}
+      data-density={density}
+      style={htmlStyle}
       suppressHydrationWarning
     >
       {/* suppressHydrationWarning is scoped to <html>/<body> because

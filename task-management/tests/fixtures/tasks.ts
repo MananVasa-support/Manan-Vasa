@@ -1,5 +1,31 @@
 import type { Task, Employee } from "@/db/schema";
 
+// Profile v2 (migration 0035) added 18 columns to employees. Centralising
+// their defaults here means a future column drop or add is a one-line edit.
+function profileV2Defaults() {
+  return {
+    bio: null as string | null,
+    tags: [] as string[],
+    availability: "available" as const,
+    availabilityAutoRevertAt: null as Date | null,
+    timezone: "Asia/Kolkata",
+    workingHoursStart: "10:00",
+    workingHoursEnd: "19:00",
+    workingDays: [1, 2, 3, 4, 5, 6],
+    quietHoursStart: null as string | null,
+    quietHoursEnd: null as string | null,
+    digestTime: "08:00",
+    digestFrequency: "daily" as const,
+    theme: "system" as const,
+    density: "cozy" as const,
+    accent: "#E10600",
+    oooStart: null as string | null,
+    oooEnd: null as string | null,
+    oooDelegateId: null as string | null,
+    mentionEscalation: true,
+  };
+}
+
 export const fixtureEmployees: Employee[] = [
   {
     id: "11111111-1111-1111-1111-111111111111",
@@ -22,6 +48,7 @@ export const fixtureEmployees: Employee[] = [
     whatsappPhone: null,
     whatsappOptedIn: false,
     whatsappTemplateLocale: "en",
+    ...profileV2Defaults(),
   },
   {
     id: "22222222-2222-2222-2222-222222222222",
@@ -44,6 +71,7 @@ export const fixtureEmployees: Employee[] = [
     whatsappPhone: null,
     whatsappOptedIn: false,
     whatsappTemplateLocale: "en",
+    ...profileV2Defaults(),
   },
   {
     id: "33333333-3333-3333-3333-333333333333",
@@ -66,6 +94,7 @@ export const fixtureEmployees: Employee[] = [
     whatsappPhone: null,
     whatsappOptedIn: false,
     whatsappTemplateLocale: "en",
+    ...profileV2Defaults(),
   },
 ];
 

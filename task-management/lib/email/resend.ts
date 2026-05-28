@@ -134,6 +134,7 @@ export async function sendInviteEmail(args: {
 export async function sendResetPasswordEmail(args: {
   email: string;
   resetLink: string;
+  recipientName?: string;
 }): Promise<{ id: string | null; error: string | null }> {
   try {
     const resend = getResend();
@@ -142,7 +143,10 @@ export async function sendResetPasswordEmail(args: {
       from: FROM,
       to: args.email,
       subject: `Reset your Altus Corp password`,
-      react: ResetPasswordEmail({ link: args.resetLink }),
+      react: ResetPasswordEmail({
+        link: args.resetLink,
+        recipientName: args.recipientName,
+      }),
     });
     if (error) return { id: null, error: error.message };
     return { id: data?.id ?? null, error: null };

@@ -7,16 +7,30 @@ import { requestPasswordReset } from "@/app/(auth)/forgot-password/actions";
 
 import { AuthField } from "./auth-field";
 import { AuthSubmit } from "./auth-submit";
+import { AuthError } from "./auth-error";
+
+// Loose email regex — matches the server-side zod check just enough to
+// catch obvious typos ("hetesh", "hetesh@", "hetesh@gmail"). Server still
+// runs the canonical zod validation; this is purely UX to avoid showing
+// "Check your inbox" for input that has no chance of working.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const trimmed = email.trim();
+    if (!EMAIL_RE.test(trimmed)) {
+      setError("That doesn't look like a valid email — double-check and try again.");
+      return;
+    }
+    setError(null);
     startTransition(async () => {
-      await requestPasswordReset(email);
+      await requestPasswordReset(trimmed);
       setSent(true);
     });
   }
@@ -122,9 +136,22 @@ export function ForgotPasswordForm() {
               autoComplete="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (error) setError(null);
+              }}
               icon={<Mail className="h-5 w-5" aria-hidden />}
             />
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.24 }}
+                className="mt-3"
+              >
+                <AuthError message={error} />
+              </motion.div>
+            )}
           </motion.div>
 
           <motion.div

@@ -19,7 +19,7 @@ import { AuthError } from "./auth-error";
 import { PasswordEye } from "./password-eye";
 import { PasswordStrength, scorePassword } from "./password-strength";
 
-type Status = "loading" | "ready" | "submitting" | "done" | "error";
+type Status = "loading" | "ready" | "saving" | "signingIn" | "done" | "error";
 
 /** Map Firebase auth error codes to copy users can act on. */
 function translateFirebaseError(err: unknown): string {
@@ -66,12 +66,17 @@ export function SetPasswordForm() {
       .then((verifiedEmail) => {
         setEmail(verifiedEmail);
         setStatus("ready");
+        // Overlap navigation cost with the rest of the form-fill: by the
+        // time the user clicks submit, /welcome's RSC payload is already
+        // warm in the Next client cache, so step 5 (router.replace) is
+        // an instant transition instead of a fresh round-trip.
+        router.prefetch("/welcome" as Route);
       })
       .catch((err) => {
         setStatus("error");
         setError(translateFirebaseError(err));
       });
-  }, [oobCode]);
+  }, [oobCode, router]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -87,10 +92,11 @@ export function SetPasswordForm() {
       return;
     }
 
-    setStatus("submitting");
+    setStatus("saving");
     startTransition(async () => {
       try {
         await confirmPasswordReset(getFirebaseAuth(), oobCode, pw);
+        setStatus("signingIn");
 
         // Always auto-sign-in after a successful password set — the
         // user just proved they own the email, no need to make them
@@ -102,7 +108,10 @@ export function SetPasswordForm() {
             email,
             pw,
           );
-          const idToken = await cred.user.getIdToken(true);
+          // Token was just minted by signInWithEmailAndPassword above —
+          // `true` would force a needless Firebase round-trip (200-400ms
+          // from India). Default `getIdToken()` returns the cached one.
+          const idToken = await cred.user.getIdToken();
           const res = await fetch("/api/auth/session", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -304,8 +313,14 @@ export function SetPasswordForm() {
         className="pt-1"
       >
         <AuthSubmit
-          pending={isPending || status === "submitting"}
-          pendingLabel="Securing your account"
+          pending={isPending || status === "saving" || status === "signingIn" || status === "done"}
+          pendingLabel={
+            status === "signingIn"
+              ? "Signing you in…"
+              : status === "done"
+                ? "Almost there…"
+                : "Saving your password…"
+          }
           disabled={tier.score < 1 || !matches}
         >
           Save and sign in

@@ -48,6 +48,7 @@ vi.mock("@/lib/db", () => {
       whatsappOptedIn: false,
       whatsappPhone: null,
       whatsappTemplateLocale: "en",
+      mentionEscalation: true,
     },
   ]);
   const selWhere = vi.fn(() => ({ limit }));
@@ -119,6 +120,18 @@ vi.mock("@/lib/whatsapp/dispatch", () => ({
 vi.mock("@/lib/web-push/client", () => ({
   sendWebPushToUser: vi.fn(async () => "skip" as const),
 }));
+
+// Profile v2 — bypass unstable_cache so tests don't need Next's
+// incremental-cache context.
+vi.mock("@/lib/profile/notification-prefs", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/profile/notification-prefs")
+  >("@/lib/profile/notification-prefs");
+  return {
+    ...actual,
+    getNotificationPrefs: vi.fn(async () => ({})),
+  };
+});
 
 import { notify, dedupeRecipients } from "@/lib/notifications/dispatch";
 

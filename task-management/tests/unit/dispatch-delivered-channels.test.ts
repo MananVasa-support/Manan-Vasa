@@ -109,6 +109,18 @@ vi.mock("@/lib/queries/notification-matrix", () => ({
   getNotificationMatrix: vi.fn(async () => ({})),
 }));
 
+// Profile v2 — bypass unstable_cache so tests don't need Next's
+// incremental-cache context.
+vi.mock("@/lib/profile/notification-prefs", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/profile/notification-prefs")
+  >("@/lib/profile/notification-prefs");
+  return {
+    ...actual,
+    getNotificationPrefs: vi.fn(async () => ({})),
+  };
+});
+
 import { notify } from "@/lib/notifications/dispatch";
 
 function setPrefs(p: Partial<{
@@ -121,6 +133,7 @@ function setPrefs(p: Partial<{
   whatsappOptedIn: boolean;
   whatsappPhone: string | null;
   whatsappTemplateLocale: string;
+  mentionEscalation: boolean;
 }>): void {
   selectChain.prefs = {
     id: "u-1",
@@ -132,6 +145,7 @@ function setPrefs(p: Partial<{
     whatsappOptedIn: false,
     whatsappPhone: null,
     whatsappTemplateLocale: "en",
+    mentionEscalation: true,
     ...p,
   };
 }

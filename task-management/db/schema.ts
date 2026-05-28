@@ -9,6 +9,9 @@ import {
   jsonb,
   integer,
   primaryKey,
+  time,
+  date,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import {
@@ -62,7 +65,176 @@ export const employees = pgTable("employees", {
   whatsappPhone: text("whatsapp_phone"),
   whatsappOptedIn: boolean("whatsapp_opted_in").notNull().default(false),
   whatsappTemplateLocale: text("whatsapp_template_locale").notNull().default("en"),
+  // Profile v2 (migration 0035) — identity, workflow, appearance preferences.
+  // All columns NOT NULL with defaults so existing rows behave identically.
+  bio: text("bio"),
+  tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+  availability: text("availability")
+    .notNull()
+    .default("available")
+    .$type<"available" | "focused" | "heads_down" | "away">(),
+  availabilityAutoRevertAt: timestamp("availability_auto_revert_at", { withTimezone: true }),
+  timezone: text("timezone").notNull().default("Asia/Kolkata"),
+  workingHoursStart: time("working_hours_start").notNull().default("10:00"),
+  workingHoursEnd: time("working_hours_end").notNull().default("19:00"),
+  workingDays: integer("working_days").array().notNull().default(sql`'{1,2,3,4,5,6}'::int[]`),
+  quietHoursStart: time("quiet_hours_start"),
+  quietHoursEnd: time("quiet_hours_end"),
+  digestTime: time("digest_time").notNull().default("08:00"),
+  digestFrequency: text("digest_frequency")
+    .notNull()
+    .default("daily")
+    .$type<"off" | "daily" | "weekly">(),
+  theme: text("theme")
+    .notNull()
+    .default("system")
+    .$type<"light" | "dark" | "system">(),
+  density: text("density").notNull().default("cozy").$type<"cozy" | "compact">(),
+  accent: text("accent").notNull().default("#E10600"),
+  oooStart: date("ooo_start"),
+  oooEnd: date("ooo_end"),
+  oooDelegateId: uuid("ooo_delegate_id").references((): AnyPgColumn => employees.id, {
+    onDelete: "set null",
+  }),
+  // Profile v2 (migration 0038) — mention escalation override scalar.
+  mentionEscalation: boolean("mention_escalation").notNull().default(true),
 });
+
+/**
+ * Profile v2 — achievements_earned (migration 0040).
+ * Per-user badge unlocks. Definitions live in `lib/achievements/definitions.ts`
+ * keyed by string; no separate `achievements` table to seed.
+ */
+export const achievementsEarned = pgTable(
+  "achievements_earned",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    achievementKey: text("achievement_key").notNull(),
+    earnedAt: timestamp("earned_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    progress: jsonb("progress"),
+  },
+  (t) => [index("achievements_earned_employee_idx").on(t.employeeId)],
+);
+
+/**
+ * Profile v2 — pinned_items (migration 0039).
+ * Per-user shelf of pinned tasks/projects/documents on /profile.
+ * Order via `sort_order`; uniqueness on (employee, kind, item).
+ */
+export const pinnedItems = pgTable(
+  "pinned_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull().$type<"task" | "project" | "document">(),
+    itemId: uuid("item_id").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    pinnedAt: timestamp("pinned_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("pinned_items_employee_idx").on(t.employeeId, t.sortOrder)],
+);
+
+/**
+ * Profile v2 — notification_preferences (migration 0038).
+ * Per-recipient × per-kind × per-channel override matrix. Absence of a
+ * row means "fall back to the legacy email_opt_in / slack_opt_in /
+ * whatsapp_opted_in scalars on employees".
+ */
+export const notificationPreferences = pgTable(
+  "notification_preferences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    channel: text("channel").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("notification_preferences_employee_idx").on(t.employeeId),
+  ],
+);
+
+/**
+ * Profile v2 — auth_sessions (migration 0036).
+ * Written by /api/auth/session on cookie mint; updated by a middleware
+ * helper on each request (debounced). Powers the Identity tab's
+ * "Active sessions" list + "Sign out everywhere" button.
+ */
+export const authSessions = pgTable(
+  "auth_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    firebaseUid: text("firebase_uid").notNull(),
+    sessionHash: text("session_hash").notNull().unique(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    userAgent: text("user_agent"),
+    ipHash: text("ip_hash"),
+    country: text("country"),
+    city: text("city"),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("auth_sessions_employee_idx").on(
+      t.employeeId,
+      t.revokedAt,
+      t.lastSeenAt,
+    ),
+    index("auth_sessions_firebase_uid_idx").on(t.firebaseUid),
+  ],
+);
+
+/**
+ * Profile v2 — audit_data_exports (migration 0037).
+ * "Download my data" request log. Cron picks pending rows, writes a ZIP
+ * to documents bucket, emails the user.
+ */
+export const auditDataExports = pgTable(
+  "audit_data_exports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    requestedAt: timestamp("requested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    filePath: text("file_path"),
+    status: text("status")
+      .notNull()
+      .default("pending")
+      .$type<"pending" | "processing" | "done" | "failed">(),
+    error: text("error"),
+  },
+  (t) => [
+    index("audit_data_exports_employee_idx").on(
+      t.employeeId,
+      t.requestedAt,
+    ),
+  ],
+);
 
 /**
  * M3 — admin-managed list of departments.  The seed migration backfills
@@ -668,3 +840,13 @@ export type EmployeeEvent = typeof employeeEvents.$inferSelect;
 export type NewEmployeeEvent = typeof employeeEvents.$inferInsert;
 export type SettingsEvent = typeof settingsEvents.$inferSelect;
 export type NewSettingsEvent = typeof settingsEvents.$inferInsert;
+export type AuthSession = typeof authSessions.$inferSelect;
+export type NewAuthSession = typeof authSessions.$inferInsert;
+export type AuditDataExport = typeof auditDataExports.$inferSelect;
+export type NewAuditDataExport = typeof auditDataExports.$inferInsert;
+export type NotificationPreference = typeof notificationPreferences.$inferSelect;
+export type NewNotificationPreference = typeof notificationPreferences.$inferInsert;
+export type PinnedItem = typeof pinnedItems.$inferSelect;
+export type NewPinnedItem = typeof pinnedItems.$inferInsert;
+export type AchievementEarned = typeof achievementsEarned.$inferSelect;
+export type NewAchievementEarned = typeof achievementsEarned.$inferInsert;

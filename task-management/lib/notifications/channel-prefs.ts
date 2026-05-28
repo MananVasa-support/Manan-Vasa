@@ -19,6 +19,11 @@ export interface RecipientChannelPrefs {
   whatsappOptedIn: boolean;
   whatsappPhone: string | null;
   whatsappTemplateLocale: string;
+  // Profile v2 — used by dispatch matrix gating + mention escalation + OOO.
+  mentionEscalation: boolean;
+  oooStart: string | null;
+  oooEnd: string | null;
+  oooDelegateId: string | null;
 }
 
 /**
@@ -40,6 +45,10 @@ export async function getRecipientChannelPrefs(
       whatsappOptedIn: employees.whatsappOptedIn,
       whatsappPhone: employees.whatsappPhone,
       whatsappTemplateLocale: employees.whatsappTemplateLocale,
+      mentionEscalation: employees.mentionEscalation,
+      oooStart: employees.oooStart,
+      oooEnd: employees.oooEnd,
+      oooDelegateId: employees.oooDelegateId,
     })
     .from(employees)
     .where(eq(employees.id, recipientId))

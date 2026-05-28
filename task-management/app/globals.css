@@ -60,6 +60,11 @@
 
   /* container */
   --max-content: 1280px;
+
+  /* Profile v2 — filled-input and subtle-stripe surfaces. Used heavily
+     in /profile cards. Override in dark theme for legible inputs. */
+  --color-surface-input:   rgba(15, 23, 42, 0.025);
+  --color-surface-stripe:  rgba(15, 23, 42, 0.03);
 }
 
 /* Heatmap step backgrounds (used as `background:` not `color:`, so they live
@@ -70,6 +75,31 @@
   --heat-2: linear-gradient(135deg, #fcd34d, #f59e0b);
   --heat-3: linear-gradient(135deg, #fb923c, #ea580c);
   --heat-4: linear-gradient(135deg, #fca5a5, #E10600);
+
+  /* Profile v2 — accent. Defaults to the Altus red; the root layout
+     overrides via inline style="--user-accent: <hex>" once the user
+     sets their pref. Components can opt in with var(--user-accent). */
+  --user-accent: #E10600;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   Profile v2 — density swap
+   Light-only theme; the root layout writes data-density on <html>.
+   Components that want to participate read --density-pad-y or
+   --density-line-height; everything else stays cozy.
+   ──────────────────────────────────────────────────────────────────── */
+
+html[data-density="cozy"] {
+  --density-pad-y: 1;
+  --density-line-height: 1.55;
+}
+html[data-density="compact"] {
+  --density-pad-y: 0.78;
+  --density-line-height: 1.45;
+}
+html[data-density="compact"] body {
+  font-size: 14px;
+  line-height: var(--density-line-height);
 }
 
 @layer base {
