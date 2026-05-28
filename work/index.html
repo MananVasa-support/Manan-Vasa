@@ -1272,6 +1272,10 @@ function saveEdit(id) {
   const tr = wrap ? wrap.querySelector('tr.editing') : null;
   if (!tr) return;
   const params = { action: 'save', id: id };
+  // Hint the backend with the Task Doer so it can jump straight to that
+  // employee's sheet instead of scanning every sheet in both spreadsheets.
+  const task = allTasks.find(t => t.id === id);
+  if (task && task.doer) params.doer = task.doer;
   const statusEl = tr.querySelector('[data-field="status"]');
   tr.querySelectorAll('[data-field]').forEach(el => {
     const f = el.getAttribute('data-field');
@@ -1309,7 +1313,7 @@ function doArchive(id, on) {
 /* ── generic JSONP write ── */
 function jsonpAction(params, done) {
   const cb = 'altusAct_' + Date.now() + '_' + Math.floor(Math.random()*1e6);
-  const timer = setTimeout(function(){ cleanupCb(cb); done({status:'error', message:'Request timed out.'}); }, 20000);
+  const timer = setTimeout(function(){ cleanupCb(cb); done({status:'error', message:'Request timed out.'}); }, 60000);
   window[cb] = function(res){ clearTimeout(timer); cleanupCb(cb); done(res); };
   let qs = 'callback=' + cb + '&t=' + Date.now();
   Object.keys(params).forEach(k => {
