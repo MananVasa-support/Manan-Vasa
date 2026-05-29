@@ -178,7 +178,26 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--page-bg);color:var(
 }
 .all-table tbody tr:nth-child(even){background:rgba(0,0,0,0.016);}
 .all-table tbody tr:hover td{background:rgba(229,0,0,0.04);}
-.all-table tbody td.name-cell{text-align:left;font-weight:700;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:16px;}
+.all-table tbody td.name-cell{text-align:left;font-weight:700;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:16px;cursor:pointer;}
+.all-table tbody td.name-cell:hover{color:var(--red);text-decoration:underline;}
+
+/* Person-tasks slider */
+.person-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:600;opacity:0;pointer-events:none;transition:opacity .2s;}
+.person-backdrop.open{opacity:1;pointer-events:auto;}
+.person-slider{position:fixed;top:0;right:0;height:100vh;width:min(720px,95vw);background:#fff;box-shadow:-18px 0 40px rgba(0,0,0,0.25);z-index:601;transform:translateX(100%);transition:transform .25s;display:flex;flex-direction:column;}
+.person-slider.open{transform:translateX(0);}
+.person-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1.5px solid var(--border);}
+.person-head .person-title{font-weight:800;font-size:14px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text2);}
+.person-head .person-sub{font-weight:700;font-size:12px;color:var(--muted);margin-top:3px;}
+.person-close{border:none;background:transparent;cursor:pointer;font-size:22px;line-height:1;color:var(--muted);padding:4px 10px;border-radius:6px;}
+.person-close:hover{background:rgba(0,0,0,0.06);color:var(--text);}
+.person-body{flex:1;overflow:auto;padding:10px 14px 18px;}
+.person-task{border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;}
+.person-task .pt-row1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.person-task .pt-id{font-weight:800;font-size:11px;letter-spacing:0.08em;color:var(--muted);}
+.person-task .pt-subj{font-weight:700;color:var(--text);}
+.person-task .pt-meta{font-size:11.5px;color:var(--muted);margin-top:4px;display:flex;gap:14px;flex-wrap:wrap;}
+.person-empty{padding:30px;text-align:center;color:var(--muted);}
 .all-table tbody td.pending-grp{background:rgba(229,0,0,0.03);}
 .all-table tbody tr:nth-child(even) td.pending-grp{background:rgba(229,0,0,0.055);}
 .all-table tbody tr.no-data-row{opacity:0.35;}
@@ -229,12 +248,13 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--page-bg);color:var(
   position:sticky;top:0;z-index:18;
   background:#4a4a4a;color:rgba(255,255,255,0.85);
   font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:800;
-  letter-spacing:0.08em;text-transform:uppercase;padding:10px 12px;
+  letter-spacing:0.06em;text-transform:uppercase;padding:6px 8px;
   text-align:center;border-right:1px solid rgba(255,255,255,0.08);
-  border-bottom:2px solid #2a2a2a;white-space:nowrap;
+  border-bottom:2px solid #2a2a2a;white-space:normal;line-height:1.15;
+  min-width:60px;
 }
 .task-table tbody td{
-  padding:8px 12px;border-bottom:1px solid rgba(0,0,0,0.06);
+  padding:6px 8px;border-bottom:1px solid rgba(0,0,0,0.06);
   font-family:Arial,Helvetica,sans-serif;font-size:12.5px;font-weight:500;
   text-align:left;color:var(--text);border-right:1px solid rgba(0,0,0,0.05);
   white-space:nowrap;background:#fff;vertical-align:middle;
@@ -242,7 +262,7 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--page-bg);color:var(
 .task-table tbody tr:nth-child(even) td{background:#f7f7f9;}
 .task-table tbody tr:hover td{background:#fdeded;}
 .task-table td.editable-cell{color:var(--text2);}
-.task-table td.wrap-cell{white-space:normal;max-width:280px;min-width:170px;overflow-wrap:anywhere;word-break:break-word;}
+.task-table td.wrap-cell{white-space:normal;max-width:360px;min-width:220px;overflow-wrap:anywhere;word-break:break-word;}
 
 /* Task Id cell with the 3-dots affordance */
 .id-cell{display:flex;align-items:center;gap:8px;justify-content:space-between;min-width:84px;}
@@ -383,6 +403,18 @@ textarea.task-input{min-height:34px;resize:vertical;white-space:normal;}
           </svg>
         </button>
         <div class="ms-panel" id="ms-panel"></div>
+      </div>
+    </div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">Status</span>
+      <div class="ms-wrapper" id="ms-status-wrapper">
+        <button class="ms-trigger" onclick="toggleStatusMS(event)">
+          <span id="ms-status-label">All Statuses</span>
+          <svg width="11" height="7" viewBox="0 0 12 8" fill="none">
+            <path d="M1 1l5 5 5-5" stroke="#999" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="ms-panel" id="ms-status-panel"></div>
       </div>
     </div>
     <button class="apply-btn" onclick="render()">Apply Filter</button>
@@ -527,6 +559,19 @@ textarea.task-input{min-height:34px;resize:vertical;white-space:normal;}
 
 <div class="task-menu" id="task-menu"></div>
 <div class="task-toast" id="task-toast"></div>
+
+<!-- PERSON TASKS SLIDER -->
+<div class="person-backdrop" id="person-backdrop" onclick="closePersonSlider()"></div>
+<aside class="person-slider" id="person-slider" aria-hidden="true">
+  <div class="person-head">
+    <div>
+      <div class="person-title" id="person-title">—</div>
+      <div class="person-sub" id="person-sub"></div>
+    </div>
+    <button class="person-close" onclick="closePersonSlider()" aria-label="Close">×</button>
+  </div>
+  <div class="person-body" id="person-body"></div>
+</aside>
 
 <script>
 /* ═══════════════════════════════════════════════════════════
@@ -703,15 +748,171 @@ document.getElementById('ms-panel').addEventListener('click', function(e) {
   e.stopPropagation();
 });
 
+/* ───────────────────────────────────────────────────────────
+   STATUS DROPDOWN (multi-select) — applies a global Task Status
+   filter to every tab (Doer, Initiator, Task, Archives) by
+   filtering the underlying rows / tasks before aggregation.
+─────────────────────────────────────────────────────────── */
+let checkedStatuses = new Set();
+function getStatusList() { return STATUS_KEYS.slice(); }
+function buildStatusDropdown() {
+  const list = getStatusList();
+  if (!checkedStatuses.size) checkedStatuses = new Set(list);
+  refreshStatusDropdown();
+}
+function refreshStatusDropdown() {
+  const list = getStatusList();
+  const panel = document.getElementById('ms-status-panel');
+  if (!panel) return;
+  const allChecked = checkedStatuses.size === list.length;
+  panel.innerHTML = `
+    <div class="ms-item" id="ms-status-all">
+      <input type="checkbox" id="chk-status-all" ${allChecked ? 'checked' : ''}/>
+      <span style="font-weight:700;color:#fff;">All Statuses</span>
+    </div>
+    <div class="ms-divider"></div>
+    ${list.map((s, i) => `
+      <div class="ms-item" data-status-idx="${i}">
+        <input type="checkbox" ${checkedStatuses.has(s) ? 'checked' : ''}/>
+        <span>${esc(s)}</span>
+      </div>`).join('')}`;
+  panel.querySelector('#ms-status-all').addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (checkedStatuses.size === list.length) checkedStatuses.clear();
+    else checkedStatuses = new Set(list);
+    refreshStatusDropdown();
+    render();
+  });
+  list.forEach(function(s, i) {
+    const row = panel.querySelector('[data-status-idx="' + i + '"]');
+    if (!row) return;
+    row.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (checkedStatuses.has(s)) checkedStatuses.delete(s);
+      else checkedStatuses.add(s);
+      refreshStatusDropdown();
+      render();
+    });
+  });
+  const n = checkedStatuses.size;
+  document.getElementById('ms-status-label').textContent =
+    n === 0           ? 'None selected' :
+    n === list.length ? 'All Statuses'  :
+    n === 1           ? [...checkedStatuses][0] :
+                        n + ' statuses';
+}
+function toggleStatusMS(e) {
+  e.stopPropagation();
+  document.getElementById('ms-status-panel').classList.toggle('open');
+}
+function getActiveStatusFilter() {
+  // null = no filter (all selected); a Set = only matching statuses
+  const list = getStatusList();
+  if (checkedStatuses.size === 0 || checkedStatuses.size === list.length) return null;
+  return checkedStatuses;
+}
+document.getElementById('ms-status-panel').addEventListener('click', function(e) {
+  e.stopPropagation();
+});
+
 // Close when clicking outside
 document.addEventListener('click', function() {
   document.getElementById('ms-panel').classList.remove('open');
+  const sp = document.getElementById('ms-status-panel');
+  if (sp) sp.classList.remove('open');
+});
+
+/* ───────────────────────────────────────────────────────────
+   PERSON-TASKS SLIDER — clicking a name in the Doer / Initiator
+   tables opens a side panel listing that person's tasks
+   (respecting the active date + status filters).
+─────────────────────────────────────────────────────────── */
+function openPersonSlider(name, role) {
+  const { start, end } = hasDateCol ? getRange() : { start:null, end:null };
+  const statusFilter = getActiveStatusFilter();
+  const matchesStatus = function (s) {
+    if (!statusFilter) return true;
+    const isFU = /^Follow Up( \d)?$/.test(s);
+    return statusFilter.has(s) || (isFU && statusFilter.has('Follow Up'));
+  };
+  const lo = String(name||'').toLowerCase();
+  const tasks = (allTasks||[]).filter(t => {
+    if (t.arch) return false;
+    if (!t.status) return false;
+    const who = (role === 'init') ? (t.init||'') : (t.doer||'');
+    if (who.toLowerCase() !== lo) return false;
+    if (!matchesStatus(t.status)) return false;
+    if (hasDateCol && (start || end)) {
+      const d = parseDate(t.due);
+      if (d) {
+        if (start && d < start) return false;
+        if (end && d > end) return false;
+      }
+    }
+    return true;
+  });
+  document.getElementById('person-title').textContent = name;
+  document.getElementById('person-sub').textContent =
+    (role === 'init' ? 'Tasks initiated · ' : 'Tasks assigned · ')
+    + tasks.length + ' task' + (tasks.length === 1 ? '' : 's');
+  const body = document.getElementById('person-body');
+  if (!tasks.length) {
+    body.innerHTML = `<div class="person-empty">No tasks match the current filters.</div>`;
+  } else {
+    body.innerHTML = tasks.map(t => {
+      const st = statusStyle(t.status||'');
+      return `<div class="person-task">
+        <div class="pt-row1">
+          <span class="pt-id">${esc(t.id||'')}</span>
+          <span class="status-badge" style="background:${st.bg};color:${st.fg};">${esc(t.status||'')}</span>
+          <span class="pt-subj">${esc(t.subj||t.task||'')}</span>
+        </div>
+        <div class="pt-meta">
+          ${t.doer?`<span>Doer: <b>${esc(t.doer)}</b></span>`:''}
+          ${t.init?`<span>Initiator: <b>${esc(t.init)}</b></span>`:''}
+          ${t.due?`<span>Due: <b>${esc(fmtDate(t.due))}</b></span>`:''}
+          ${t.client?`<span>Client: <b>${esc(t.client)}</b></span>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('person-backdrop').classList.add('open');
+  document.getElementById('person-slider').classList.add('open');
+  document.getElementById('person-slider').setAttribute('aria-hidden', 'false');
+}
+function closePersonSlider() {
+  document.getElementById('person-backdrop').classList.remove('open');
+  document.getElementById('person-slider').classList.remove('open');
+  document.getElementById('person-slider').setAttribute('aria-hidden', 'true');
+}
+document.addEventListener('click', function(e) {
+  const cell = e.target.closest && e.target.closest('.name-cell[data-name]');
+  if (!cell) return;
+  e.stopPropagation();
+  openPersonSlider(cell.getAttribute('data-name'), cell.getAttribute('data-role') || 'doer');
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closePersonSlider();
 });
 
 /* ═══════════════════════════════════════════════════════════
    DATE HELPERS
 ═══════════════════════════════════════════════════════════ */
 function parseDate(s) { if (!s) return null; const d = new Date(s); return isNaN(d.getTime()) ? null : d; }
+const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtDate(s) {
+  if (!s) return '';
+  const d = parseDate(s); if (!d) return String(s);
+  return String(d.getDate()).padStart(2,'0') + '-' + MONTH_ABBR[d.getMonth()] + '-' + d.getFullYear();
+}
+function fmtTs(s) {
+  if (!s) return '';
+  const d = parseDate(s); if (!d) return String(s);
+  const base = String(d.getDate()).padStart(2,'0') + '-' + MONTH_ABBR[d.getMonth()] + '-' + d.getFullYear();
+  // Preserve HH:MM if it was present in the source string.
+  const m = String(s).match(/(\d{1,2}):(\d{2})/);
+  return m ? base + ' ' + m[1].padStart(2,'0') + ':' + m[2] : base;
+}
 function getRange() { return { start: parseDate(document.getElementById('start-date').value), end: parseDate(document.getElementById('end-date').value) }; }
 
 /* ═══════════════════════════════════════════════════════════
@@ -721,16 +922,26 @@ const SK = ['Not Started','Initiated','Need Help','Follow Up 1','Follow Up 2','F
 
 function getFiltered(empData) {
   if (!empData) return null;
-  if (!hasDateCol) return empData;
-  const { start, end } = getRange();
-  if (!start && !end) return empData;
+  const { start, end } = hasDateCol ? getRange() : { start:null, end:null };
+  const statusFilter = getActiveStatusFilter();
+  if (!start && !end && !statusFilter) return empData;
   const r = { name: empData.name };
   SK.forEach(k => r[k] = 0);
+  const matchesStatus = function (s) {
+    if (!statusFilter) return true;
+    // Treat "Follow Up" as a meta-status that selects Follow Up 1/2/3.
+    if (statusFilter.has('Follow Up') && /^Follow Up( \d)?$/.test(s)) return true;
+    return statusFilter.has(s);
+  };
   const filtered = (empData.rows||[]).filter(row => {
-    if (!row.d) return true;
-    const rd = parseDate(row.d); if (!rd) return true;
-    if (start && rd < start) return false;
-    if (end && rd > end) return false;
+    if (!matchesStatus(row.s)) return false;
+    if (row.d) {
+      const rd = parseDate(row.d);
+      if (rd) {
+        if (start && rd < start) return false;
+        if (end && rd > end) return false;
+      }
+    }
     return true;
   });
   filtered.forEach(row => { if (row.s && r[row.s] !== undefined) r[row.s]++; });
@@ -804,7 +1015,7 @@ function renderTable(dataList, names, wrapId, badgeId, isInit) {
     const e = rows[i] || {};
     const hasData = e && e.Total > 0;
     html += `<tr${hasData?'':' class="no-data-row"'}>
-      <td class="name-cell" title="${esc(name)}">${esc(name)}</td>
+      <td class="name-cell" data-name="${escAttr(name)}" data-role="${isInit?'init':'doer'}" title="${esc(name)}">${esc(name)}</td>
       ${isInit?`<td class="task-initiated-cell">${v(e.Total||0)}</td>`:''}
       <td>${v(e.Approved||0)}</td>
       <td>${v(e['Not Approved']||0)}</td>
@@ -989,7 +1200,7 @@ function renderAgingTable(names) {
     const rowTotal = r.buckets.reduce((s,v)=>s+v,0);
     const hasData = rowTotal > 0;
     html += `<tr${hasData?'':' class="no-data-row"'}>
-      <td class="name-cell" title="${esc(r.name)}">${esc(r.name)}</td>
+      <td class="name-cell" data-name="${escAttr(r.name)}" data-role="doer" title="${esc(r.name)}">${esc(r.name)}</td>
       ${r.buckets.map(b => `<td>${v(b)}</td>`).join('')}
       <td>${v(rowTotal)}</td>
     </tr>`;
@@ -1100,6 +1311,7 @@ function getFilteredTasks(mode) {
   const allDoers = checkedEmps.size === list.length;        // "All Employees"
   const dispSet  = new Set(display.map(n => n.toLowerCase()));
   const { start, end } = hasDateCol ? getRange() : { start:null, end:null };
+  const statusFilter = getActiveStatusFilter();
 
   return allTasks.filter(t => {
     if (!!t.arch !== wantArch) return false;
@@ -1107,6 +1319,12 @@ function getFilteredTasks(mode) {
     if (!t.doer || !t.status) return false;
     if (!allDoers) {                                         // filter by Task Doer
       if (!dispSet.has(t.doer.toLowerCase())) return false;
+    }
+    if (statusFilter) {                                      // filter by Task Status
+      const s = t.status;
+      const isFU = /^Follow Up( \d)?$/.test(s);
+      const ok = statusFilter.has(s) || (isFU && statusFilter.has('Follow Up'));
+      if (!ok) return false;
     }
     if (hasDateCol && (start || end)) {                      // filter by Due Date
       const d = parseDate(t.due);
@@ -1213,6 +1431,8 @@ function displayCell(c, t) {
     return `<a class="att-link" href="${escAttr(val)}" target="_blank" rel="noopener">Open ↗</a>`;
   }
   if (!val) return '<span class="zero">—</span>';
+  if (c.key === 'ts') return esc(fmtTs(val));
+  if (c.key === 'due' || c.key === 'revDate' || c.key === 'compDate') return esc(fmtDate(val));
   return esc(val);
 }
 
@@ -1291,7 +1511,18 @@ function saveEdit(id) {
     try { console.log('save response', res); } catch (e) {}
     if (res && res.status === 'ok') {
       setToast(res.sheet ? ('Saved → ' + res.sheet) : 'Saved', 'ok');
+      // Optimistic local update: reflect the edited fields in the table
+      // immediately instead of waiting on the post-save reload.
+      const tLocal = allTasks.find(t => t.id === id);
+      if (tLocal) {
+        Object.keys(params).forEach(k => {
+          if (k === 'action' || k === 'id' || k === 'doer' || k === 'init' || k === 'transferredTo') return;
+          tLocal[k] = params[k];
+        });
+        if (params.transferredTo) tLocal.doer = params.transferredTo;
+      }
       editingTaskId = null;
+      render();
       loadData(true);
     } else {
       setToast((res && res.message) || 'Save failed', 'err');
@@ -1446,6 +1677,7 @@ function loadData(preserve) {
     editingTaskId     = null;
     if (!allEmployeeData.length && !allTasks.length) { showError('No data found in Website Report.'); return; }
     buildDropdown(preserve);
+    buildStatusDropdown();
     render();
   };
   const sc = document.createElement('script');
