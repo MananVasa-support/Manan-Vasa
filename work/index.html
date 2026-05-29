@@ -198,6 +198,92 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--page-bg);color:var(
 .person-task .pt-subj{font-weight:700;color:var(--text);}
 .person-task .pt-meta{font-size:11.5px;color:var(--muted);margin-top:4px;display:flex;gap:14px;flex-wrap:wrap;}
 .person-empty{padding:30px;text-align:center;color:var(--muted);}
+
+/* Person slider — full restructure: head + KPI strip + sticky-header table */
+.person-slider{display:flex;flex-direction:column;}
+.person-head{flex-shrink:0;}
+.person-kpis{padding:10px 14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:8px;background:#f7f8fa;border-bottom:1px solid var(--border);flex-shrink:0;}
+.pk{background:#fff;border:1.5px solid var(--border);border-radius:11px;padding:8px 10px;text-align:center;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s;}
+.pk:hover{border-color:var(--red);box-shadow:0 3px 8px rgba(229,0,0,0.12);transform:translateY(-1px);}
+.pk-label{font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);}
+.pk-val{font-weight:900;font-size:18px;color:var(--text);margin-top:2px;}
+.pk.active{border-color:var(--red);background:rgba(229,0,0,0.06);}
+.pk.active .pk-val{color:var(--red);}
+.person-table-wrap{flex:1;overflow:auto;background:#fff;}
+.person-table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px;}
+.person-table thead th{
+  position:sticky;top:0;z-index:5;background:#2a2a2a;color:#fff;
+  font-size:9px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;
+  padding:8px 8px;text-align:left;white-space:normal;line-height:1.15;
+  border-right:1px solid rgba(255,255,255,0.1);border-bottom:1px solid #1a1a1a;
+}
+.person-table tbody td{
+  padding:7px 8px;border-bottom:1px solid rgba(0,0,0,0.06);border-right:1px solid rgba(0,0,0,0.05);
+  vertical-align:top;font-weight:500;color:var(--text);white-space:nowrap;background:#fff;
+}
+.person-table tbody td.wrap{white-space:normal;max-width:260px;overflow-wrap:anywhere;word-break:break-word;}
+.person-table tbody tr:nth-child(even) td{background:#fafbfc;}
+.person-table tbody tr:hover td{background:#fdeded;cursor:pointer;}
+
+/* Task detail modal — premium */
+.modal-backdrop{position:fixed;inset:0;background:rgba(15,17,21,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:700;opacity:0;pointer-events:none;transition:opacity .2s;}
+.modal-backdrop.open{opacity:1;pointer-events:auto;}
+.task-modal{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.96);
+  width:min(960px,95vw);max-height:90vh;background:#fff;border-radius:20px;
+  box-shadow:0 30px 80px rgba(0,0,0,0.45);z-index:701;opacity:0;pointer-events:none;
+  transition:opacity .2s,transform .2s;display:flex;flex-direction:column;overflow:hidden;
+}
+.task-modal.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1);}
+.tm-head{padding:18px 22px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;gap:14px;justify-content:space-between;background:linear-gradient(180deg,#fafbfc 0%,#fff 100%);}
+.tm-head-l{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.tm-title{font-weight:800;font-size:10.5px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);}
+.tm-id{font-weight:900;font-size:18px;color:var(--text);font-family:'Courier New',monospace;}
+.tm-close{border:none;background:transparent;cursor:pointer;font-size:26px;line-height:1;color:var(--muted);padding:2px 12px;border-radius:10px;}
+.tm-close:hover{background:rgba(0,0,0,0.06);color:var(--text);}
+.tm-body{flex:1;overflow:auto;padding:18px 22px;background:#f7f8fa;}
+.tm-bubbles{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;}
+.bubble{background:#fff;border:1.5px solid var(--border);border-radius:13px;padding:10px 14px;display:flex;flex-direction:column;gap:5px;box-shadow:0 1px 3px rgba(0,0,0,0.04);transition:box-shadow .15s;}
+.bubble.full{grid-column:1/-1;}
+.bubble .bb-label{font-size:9.5px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);}
+.bubble .bb-value{font-weight:600;color:var(--text);word-break:break-word;white-space:pre-wrap;font-size:13px;line-height:1.35;}
+.bubble.editable{background:linear-gradient(180deg,#fffbf2 0%,#fff 100%);border-color:rgba(229,150,30,0.5);}
+.bubble.editable:focus-within{border-color:var(--red);box-shadow:0 4px 14px rgba(229,0,0,0.13);}
+.bubble.editable input,
+.bubble.editable select,
+.bubble.editable textarea{
+  border:1.5px solid rgba(0,0,0,0.12);border-radius:8px;padding:6px 9px;font-family:inherit;
+  font-size:13px;color:var(--text);outline:none;background:#fff;width:100%;box-sizing:border-box;
+}
+.bubble.editable input:focus,
+.bubble.editable select:focus,
+.bubble.editable textarea:focus{border-color:var(--red);}
+.bubble.editable textarea{min-height:54px;resize:vertical;}
+.bubble.editable select{font-weight:700;cursor:pointer;}
+.bubble .transfer-sub{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
+.tm-foot{padding:12px 18px;border-top:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:#fff;}
+.tm-arch-btn{border:1.5px solid var(--border);background:#fff;color:var(--text);padding:8px 18px;border-radius:10px;font-weight:700;cursor:pointer;font-size:12.5px;letter-spacing:0.05em;transition:border-color .15s,color .15s;}
+.tm-arch-btn:hover{border-color:var(--red);color:var(--red);}
+.tm-saves{display:flex;gap:8px;}
+.tm-saves button{border:none;border-radius:10px;padding:8px 22px;font-weight:800;cursor:pointer;font-size:13px;letter-spacing:0.05em;}
+.tm-cancel{background:rgba(0,0,0,0.06);color:var(--text);}
+.tm-cancel:hover{background:rgba(0,0,0,0.1);}
+.tm-save{background:#16a34a;color:#fff;}
+.tm-save:hover:not(:disabled){background:#15803d;}
+.tm-save:disabled{opacity:0.4;cursor:not-allowed;}
+
+/* Click affordance on the per-employee count tables */
+.all-table tbody td:not(.no-data){cursor:pointer;}
+.all-table tbody td:not(.name-cell):hover{background:rgba(229,0,0,0.06)!important;}
+.stat-box{cursor:pointer;}
+
+/* Task / Archives table — premium look: cell borders, row hover, click cursor */
+.task-table tbody td{
+  border-right:1px solid rgba(0,0,0,0.08);
+}
+.task-table thead th{border-right:1px solid rgba(255,255,255,0.14);}
+.task-table tbody tr{cursor:pointer;}
+.task-table tbody tr:hover td{background:#fff5f5!important;}
 .all-table tbody td.pending-grp{background:rgba(229,0,0,0.03);}
 .all-table tbody tr:nth-child(even) td.pending-grp{background:rgba(229,0,0,0.055);}
 .all-table tbody tr.no-data-row{opacity:0.35;}
@@ -442,12 +528,12 @@ textarea.task-input{min-height:34px;resize:vertical;white-space:normal;}
 
   <!-- STATS ROW -->
   <div class="stats-row">
-    <div class="stat-box"><div class="stat-label" id="s-total-label">Total Tasks Assigned</div><div class="stat-val" id="s-total">—</div></div>
-    <div class="stat-box"><div class="stat-label">Not Approved</div><div class="stat-val red2" id="s-approved">—</div></div>
-    <div class="stat-box"><div class="stat-label">Done</div><div class="stat-val blue" id="s-done">—</div></div>
-    <div class="stat-box"><div class="stat-label">Pending</div><div class="stat-val red2" id="s-pending">—</div></div>
-    <div class="stat-box"><div class="stat-label">Cancelled</div><div class="stat-val amber" id="s-cancelled">—</div></div>
-    <div class="stat-box"><div class="stat-label">Transferred</div><div class="stat-val" id="s-transferred">—</div></div>
+    <div class="stat-box" data-status=""><div class="stat-label" id="s-total-label">Total Tasks Assigned</div><div class="stat-val" id="s-total">—</div></div>
+    <div class="stat-box" data-status="Not Approved"><div class="stat-label">Not Approved</div><div class="stat-val red2" id="s-approved">—</div></div>
+    <div class="stat-box" data-status="Done"><div class="stat-label">Done</div><div class="stat-val blue" id="s-done">—</div></div>
+    <div class="stat-box" data-status="Pending"><div class="stat-label">Pending</div><div class="stat-val red2" id="s-pending">—</div></div>
+    <div class="stat-box" data-status="Cancelled"><div class="stat-label">Cancelled</div><div class="stat-val amber" id="s-cancelled">—</div></div>
+    <div class="stat-box" data-status="Transferred"><div class="stat-label">Transferred</div><div class="stat-val" id="s-transferred">—</div></div>
   </div>
 
   <!-- TASK DOER PANEL -->
@@ -557,7 +643,6 @@ textarea.task-input{min-height:34px;resize:vertical;white-space:normal;}
 
 </div><!-- /content -->
 
-<div class="task-menu" id="task-menu"></div>
 <div class="task-toast" id="task-toast"></div>
 
 <!-- PERSON TASKS SLIDER -->
@@ -570,14 +655,40 @@ textarea.task-input{min-height:34px;resize:vertical;white-space:normal;}
     </div>
     <button class="person-close" onclick="closePersonSlider()" aria-label="Close">×</button>
   </div>
-  <div class="person-body" id="person-body"></div>
+  <div class="person-kpis" id="person-kpis"></div>
+  <div class="person-table-wrap" id="person-table-wrap"></div>
 </aside>
+
+<!-- TASK DETAIL MODAL -->
+<div class="modal-backdrop" id="task-modal-backdrop" onclick="closeTaskModal()"></div>
+<div class="task-modal" id="task-modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="tm-head">
+    <div class="tm-head-l">
+      <div>
+        <div class="tm-title">Task</div>
+        <div class="tm-id" id="tm-id">—</div>
+      </div>
+      <div id="tm-status-display"></div>
+    </div>
+    <button class="tm-close" onclick="closeTaskModal()" aria-label="Close">×</button>
+  </div>
+  <div class="tm-body">
+    <div class="tm-bubbles" id="tm-bubbles"></div>
+  </div>
+  <div class="tm-foot">
+    <button class="tm-arch-btn" id="tm-arch-btn" onclick="archiveFromModal()">🗄️ Archive Task</button>
+    <div class="tm-saves">
+      <button class="tm-cancel" onclick="closeTaskModal()">Close</button>
+      <button class="tm-save" id="tm-save-btn" onclick="saveFromModal()" disabled>Save</button>
+    </div>
+  </div>
+</div>
 
 <script>
 /* ═══════════════════════════════════════════════════════════
    CONFIG
 ═══════════════════════════════════════════════════════════ */
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhOx_f6O0USBNjLmjIoW6WRg1AvC6adbNDmq7ja02YN2DaEmeXRQ0-OZUjLtpBn5gcSg/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwlrPIN5j9YWy8YpgAMJ07fLvKReXeaQYTLfzyJfwDSgRj_a-I5T1ssHqfdY8nmisDE_g/exec';
 const EMP_FIRST  = ['manan vasa'];
 const EMP_BOTTOM = ['dattaram kap', 'parvez khan'];
 
@@ -623,8 +734,8 @@ const TASK_DEF = [
   { key:'task',     label:'Task',                     frozen:true,  wrap:true },
   { key:'due',      label:'Due Date',                 frozen:true  },
   { key:'iNotes',   label:'Initiator Notes',          wrap:true },
-  { key:'att1',     label:'Attachment 1',             edit:'text' },
-  { key:'att2',     label:'Attachment 2',             edit:'text' },
+  { key:'att1',     label:'Attachment 1' },
+  { key:'att2',     label:'Attachment 2' },
   { key:'status',   label:'Task Status',              edit:'status' },
   { key:'revDate',  label:'Revised Target Date',      edit:'date' },
   { key:'compDate', label:'Task Completion Date',     edit:'date' },
@@ -827,21 +938,40 @@ document.addEventListener('click', function() {
    tables opens a side panel listing that person's tasks
    (respecting the active date + status filters).
 ─────────────────────────────────────────────────────────── */
-function openPersonSlider(name, role) {
-  const { start, end } = hasDateCol ? getRange() : { start:null, end:null };
-  const statusFilter = getActiveStatusFilter();
-  const matchesStatus = function (s) {
-    if (!statusFilter) return true;
+function openPersonSlider(opts) {
+  if (typeof opts === 'string') opts = { name: opts, role: arguments[1] || 'doer' };
+  const name      = opts.name || null;
+  const role      = opts.role || 'doer'; // 'doer' or 'init'
+  const statusKey = opts.status || null; // single status, or 'Pending'/'Follow Up' meta, or null = all
+
+  const { start, end }      = hasDateCol ? getRange() : { start:null, end:null };
+  const globalStatusFilter  = getActiveStatusFilter();
+  const display             = getDisplayEmps();
+  const dispSet             = new Set(display.map(n => n.toLowerCase()));
+
+  const matchesGlobal = (s) => {
+    if (!globalStatusFilter) return true;
     const isFU = /^Follow Up( \d)?$/.test(s);
-    return statusFilter.has(s) || (isFU && statusFilter.has('Follow Up'));
+    return globalStatusFilter.has(s) || (isFU && globalStatusFilter.has('Follow Up'));
   };
-  const lo = String(name||'').toLowerCase();
+  const matchesSpecific = (s) => {
+    if (!statusKey) return true;
+    if (statusKey === 'Pending') return /^Need Help$|^Initiated$|^Not Started$|^Follow Up( \d)?$/.test(s);
+    if (statusKey === 'Follow Up') return /^Follow Up( \d)?$/.test(s);
+    return s === statusKey;
+  };
+
   const tasks = (allTasks||[]).filter(t => {
     if (t.arch) return false;
     if (!t.status) return false;
     const who = (role === 'init') ? (t.init||'') : (t.doer||'');
-    if (who.toLowerCase() !== lo) return false;
-    if (!matchesStatus(t.status)) return false;
+    if (name) {
+      if (who.toLowerCase() !== name.toLowerCase()) return false;
+    } else {
+      if (!dispSet.has(who.toLowerCase())) return false;
+    }
+    if (!matchesGlobal(t.status)) return false;
+    if (!matchesSpecific(t.status)) return false;
     if (hasDateCol && (start || end)) {
       const d = parseDate(t.due);
       if (d) {
@@ -851,34 +981,80 @@ function openPersonSlider(name, role) {
     }
     return true;
   });
-  document.getElementById('person-title').textContent = name;
+
+  // KPI counts from the filtered set
+  let c = { Total:0, Done:0, 'Not Approved':0, Approved:0, Pending:0, Cancelled:0, Transferred:0 };
+  tasks.forEach(t => {
+    c.Total++;
+    if (t.status === 'Done') c.Done++;
+    else if (t.status === 'Not Approved') c['Not Approved']++;
+    else if (t.status === 'Approved') c.Approved++;
+    else if (t.status === 'Cancelled') c.Cancelled++;
+    else if (t.status === 'Transferred') c.Transferred++;
+    else if (/^Need Help$|^Initiated$|^Not Started$|^Follow Up( \d)?$/.test(t.status)) c.Pending++;
+  });
+
+  // Header
+  const titleParts = [];
+  if (name) titleParts.push(name);
+  if (statusKey) titleParts.push(statusKey);
+  document.getElementById('person-title').textContent = titleParts.length ? titleParts.join(' · ') : 'Tasks';
   document.getElementById('person-sub').textContent =
-    (role === 'init' ? 'Tasks initiated · ' : 'Tasks assigned · ')
+    (role === 'init' ? 'Initiator view · ' : 'Doer view · ')
     + tasks.length + ' task' + (tasks.length === 1 ? '' : 's');
-  const body = document.getElementById('person-body');
+
+  // KPI strip
+  const KPIS = [
+    { key:null,           label:'Total',        val:c.Total },
+    { key:'Done',         label:'Done',         val:c.Done },
+    { key:'Not Approved', label:'Not Approved', val:c['Not Approved'] },
+    { key:'Approved',     label:'Approved',     val:c.Approved },
+    { key:'Pending',      label:'Pending',      val:c.Pending },
+    { key:'Cancelled',    label:'Cancelled',    val:c.Cancelled },
+    { key:'Transferred',  label:'Transferred',  val:c.Transferred },
+  ];
+  document.getElementById('person-kpis').innerHTML = KPIS.map(k =>
+    `<div class="pk ${(k.key||'')===(statusKey||'')?'active':''}" data-pk-status="${escAttr(k.key||'')}">
+      <div class="pk-label">${esc(k.label)}</div>
+      <div class="pk-val">${k.val}</div>
+    </div>`).join('');
+
+  // Task table
+  const tableWrap = document.getElementById('person-table-wrap');
   if (!tasks.length) {
-    body.innerHTML = `<div class="person-empty">No tasks match the current filters.</div>`;
+    tableWrap.innerHTML = `<div class="person-empty">No tasks match the current filters.</div>`;
   } else {
-    body.innerHTML = tasks.map(t => {
+    const headers = ['Task Id','Status','Subject','Task','Doer','Initiator','Due','Doer Notes'];
+    let html = `<table class="person-table"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`;
+    tasks.forEach(t => {
       const st = statusStyle(t.status||'');
-      return `<div class="person-task">
-        <div class="pt-row1">
-          <span class="pt-id">${esc(t.id||'')}</span>
-          <span class="status-badge" style="background:${st.bg};color:${st.fg};">${esc(t.status||'')}</span>
-          <span class="pt-subj">${esc(t.subj||t.task||'')}</span>
-        </div>
-        <div class="pt-meta">
-          ${t.doer?`<span>Doer: <b>${esc(t.doer)}</b></span>`:''}
-          ${t.init?`<span>Initiator: <b>${esc(t.init)}</b></span>`:''}
-          ${t.due?`<span>Due: <b>${esc(fmtDate(t.due))}</b></span>`:''}
-          ${t.client?`<span>Client: <b>${esc(t.client)}</b></span>`:''}
-        </div>
-      </div>`;
-    }).join('');
+      html += `<tr data-id="${escAttr(t.id||'')}">
+        <td><b>${esc(t.id||'')}</b></td>
+        <td><span class="status-badge" style="background:${st.bg};color:${st.fg};">${esc(t.status||'')}</span></td>
+        <td class="wrap">${esc(t.subj||'')||'<span class="zero">—</span>'}</td>
+        <td class="wrap">${esc(t.task||'')||'<span class="zero">—</span>'}</td>
+        <td>${esc(t.doer||'')||'<span class="zero">—</span>'}</td>
+        <td>${esc(t.init||'')||'<span class="zero">—</span>'}</td>
+        <td>${esc(fmtDate(t.due||''))||'<span class="zero">—</span>'}</td>
+        <td class="wrap">${esc(t.dNotes||'')||'<span class="zero">—</span>'}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    tableWrap.innerHTML = html;
   }
+
+  // Always start scrolled to the top
+  tableWrap.scrollTop = 0;
+
+  // Save context for KPI re-filter clicks within the slider
+  const slider = document.getElementById('person-slider');
+  slider.dataset.name = name || '';
+  slider.dataset.role = role;
+  slider.dataset.status = statusKey || '';
+
   document.getElementById('person-backdrop').classList.add('open');
-  document.getElementById('person-slider').classList.add('open');
-  document.getElementById('person-slider').setAttribute('aria-hidden', 'false');
+  slider.classList.add('open');
+  slider.setAttribute('aria-hidden', 'false');
 }
 function closePersonSlider() {
   document.getElementById('person-backdrop').classList.remove('open');
@@ -886,13 +1062,66 @@ function closePersonSlider() {
   document.getElementById('person-slider').setAttribute('aria-hidden', 'true');
 }
 document.addEventListener('click', function(e) {
+  // Click a person's name in any aggregate table → open slider for them
   const cell = e.target.closest && e.target.closest('.name-cell[data-name]');
-  if (!cell) return;
-  e.stopPropagation();
-  openPersonSlider(cell.getAttribute('data-name'), cell.getAttribute('data-role') || 'doer');
+  if (cell) {
+    e.stopPropagation();
+    openPersonSlider({
+      name: cell.getAttribute('data-name'),
+      role: cell.getAttribute('data-role') || 'doer',
+    });
+    return;
+  }
+
+  // Click a count cell in the Doer / Initiator tables → slider filtered to that status
+  const numTd = e.target.closest && e.target.closest('.all-table tbody td[data-status]');
+  if (numTd) {
+    const tr = numTd.closest('tr');
+    const nameCell = tr && tr.querySelector('.name-cell[data-name]');
+    if (nameCell) {
+      e.stopPropagation();
+      const status = numTd.getAttribute('data-status') || '';
+      openPersonSlider({
+        name: nameCell.getAttribute('data-name'),
+        role: nameCell.getAttribute('data-role') || 'doer',
+        status: status || null,
+      });
+      return;
+    }
+  }
+
+  // Click a KPI stat box at the top of the Doer / Initiator panel → slider
+  const sb = e.target.closest && e.target.closest('.stat-box[data-status]');
+  if (sb) {
+    e.stopPropagation();
+    const role = currentTab === 'initiator' ? 'init' : 'doer';
+    openPersonSlider({ name: null, role, status: sb.getAttribute('data-status') || null });
+    return;
+  }
+
+  // Click a KPI tile inside the slider → re-filter the slider
+  const pk = e.target.closest && e.target.closest('.pk[data-pk-status]');
+  if (pk) {
+    e.stopPropagation();
+    const slider = document.getElementById('person-slider');
+    openPersonSlider({
+      name: slider.dataset.name || null,
+      role: slider.dataset.role || 'doer',
+      status: pk.getAttribute('data-pk-status') || null,
+    });
+    return;
+  }
+
+  // Click a row inside the slider → open the task modal
+  const sliderRow = e.target.closest && e.target.closest('.person-table tr[data-id]');
+  if (sliderRow) {
+    e.stopPropagation();
+    openTaskModal(sliderRow.getAttribute('data-id'));
+    return;
+  }
 });
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closePersonSlider();
+  if (e.key === 'Escape') { closePersonSlider(); closeTaskModal(); }
 });
 
 /* ═══════════════════════════════════════════════════════════
@@ -978,7 +1207,12 @@ function updateStats(dataList, names) {
    TABLE RENDER
 ═══════════════════════════════════════════════════════════ */
 function v(n)  { return n > 0 ? n : '<span class="zero">—</span>'; }
-function vp(n) { return n > 0 ? `<td class="pending-grp">${n}</td>` : `<td class="pending-grp zero"><span class="zero">—</span></td>`; }
+function vp(n, status) {
+  const ds = status ? ` data-status="${escAttr(status)}"` : '';
+  return n > 0
+    ? `<td class="pending-grp"${ds}>${n}</td>`
+    : `<td class="pending-grp zero"${ds}><span class="zero">—</span></td>`;
+}
 
 function renderTable(dataList, names, wrapId, badgeId, isInit) {
   const wrap = document.getElementById(wrapId), badge = document.getElementById(badgeId);
@@ -1016,14 +1250,14 @@ function renderTable(dataList, names, wrapId, badgeId, isInit) {
     const hasData = e && e.Total > 0;
     html += `<tr${hasData?'':' class="no-data-row"'}>
       <td class="name-cell" data-name="${escAttr(name)}" data-role="${isInit?'init':'doer'}" title="${esc(name)}">${esc(name)}</td>
-      ${isInit?`<td class="task-initiated-cell">${v(e.Total||0)}</td>`:''}
-      <td>${v(e.Approved||0)}</td>
-      <td>${v(e['Not Approved']||0)}</td>
-      <td>${v(e.Done||0)}</td>
-      <td>${v(e.Transferred||0)}</td>
-      <td>${v(e.Cancelled||0)}</td>
-      ${vp(e.Pending||0)}${vp(e['Need Help']||0)}${vp(e['Follow Up']||0)}${vp(e.Initiated||0)}${vp(e['Not Started']||0)}
-      ${isInit?'':`<td>${v(e.Total||0)}</td>`}
+      ${isInit?`<td class="task-initiated-cell" data-status="">${v(e.Total||0)}</td>`:''}
+      <td data-status="Approved">${v(e.Approved||0)}</td>
+      <td data-status="Not Approved">${v(e['Not Approved']||0)}</td>
+      <td data-status="Done">${v(e.Done||0)}</td>
+      <td data-status="Transferred">${v(e.Transferred||0)}</td>
+      <td data-status="Cancelled">${v(e.Cancelled||0)}</td>
+      ${vp(e.Pending||0,'Pending')}${vp(e['Need Help']||0,'Need Help')}${vp(e['Follow Up']||0,'Follow Up')}${vp(e.Initiated||0,'Initiated')}${vp(e['Not Started']||0,'Not Started')}
+      ${isInit?'':`<td data-status="">${v(e.Total||0)}</td>`}
     </tr>`;
   });
 
@@ -1295,7 +1529,6 @@ function renderCurrentTab() {
 /* ═══════════════════════════════════════════════════════════
    TASK / ARCHIVES TABLES
 ═══════════════════════════════════════════════════════════ */
-let menuCtx = { id:'', mode:'task' };
 let toastTimer = null;
 
 function escAttr(s){
@@ -1384,40 +1617,18 @@ function renderTaskTab(mode, display) {
 
 function buildTaskTableHTML(rows, mode) {
   let html = '<table class="task-table"><thead><tr>';
-  TASK_DEF.forEach(c => {
-    html += `<th class="${c.frozen?'frozen-col':''}">${esc(c.label)}</th>`;
-  });
+  TASK_DEF.forEach(c => { html += `<th>${esc(c.label)}</th>`; });
   html += '</tr></thead><tbody>';
-
   rows.forEach(t => {
-    const editing = (t.id !== '' && t.id === editingTaskId);
-    html += `<tr data-id="${escAttr(t.id)}"${editing?' class="editing"':''}>`;
-    TASK_DEF.forEach((c, ci) => {
-      const frozen = c.frozen ? ' frozen-col' : '';
-      const wrap   = c.wrap   ? ' wrap-cell'  : '';
-      if (ci === 0) {
-        html += `<td class="frozen-col${wrap}">${idCellHTML(t, mode, editing)}</td>`;
-      } else if (editing && c.edit) {
-        html += `<td class="editable-cell${wrap}">${editorHTML(c, t)}</td>`;
-      } else {
-        html += `<td class="${c.edit?'editable-cell':''}${frozen}${wrap}">${displayCell(c, t)}</td>`;
-      }
+    html += `<tr data-id="${escAttr(t.id)}">`;
+    TASK_DEF.forEach(c => {
+      const wrap = c.wrap ? ' wrap-cell' : '';
+      html += `<td class="${wrap}">${displayCell(c, t)}</td>`;
     });
     html += '</tr>';
   });
-
   html += '</tbody></table>';
   return html;
-}
-
-function idCellHTML(t, mode, editing) {
-  if (editing) {
-    return `<div class="id-cell"><span class="id-text">${esc(t.id)}</span>`
-         + `<span><button class="row-save" data-act="save">Save</button> `
-         + `<button class="row-cancel" data-act="cancel">Cancel</button></span></div>`;
-  }
-  return `<div class="id-cell"><span class="id-text">${esc(t.id)}</span>`
-       + `<button class="dots-btn" data-act="menu" title="Options">⋮</button></div>`;
 }
 
 function displayCell(c, t) {
@@ -1436,69 +1647,127 @@ function displayCell(c, t) {
   return esc(val);
 }
 
-function editorHTML(c, t) {
-  const val = t[c.key] || '';
-  if (c.edit === 'text') {
-    return `<textarea class="task-input" data-field="${c.key}">${esc(val)}</textarea>`;
+/* ═══════════════════════════════════════════════════════════
+   TASK DETAIL MODAL — clicking a Task / Archives row opens a
+   premium popup with every field as a bubble. Status → Doer
+   Notes are inline-editable; Save / Cancel light up only when
+   something changed. Archive / Unarchive sits bottom-left.
+═══════════════════════════════════════════════════════════ */
+let modalOriginals = {};
+
+function openTaskModal(id) {
+  const t = allTasks.find(x => x.id === id);
+  if (!t) return;
+  const modal = document.getElementById('task-modal');
+  modal.dataset.taskId = id;
+  modal.dataset.archived = t.arch ? '1' : '';
+
+  document.getElementById('tm-id').textContent = t.id || '—';
+  const sst = statusStyle(t.status||'');
+  document.getElementById('tm-status-display').innerHTML = t.status
+    ? `<span class="status-badge" style="background:${sst.bg};color:${sst.fg};">${esc(t.status)}</span>`
+    : '';
+
+  const valOr = v => (v && String(v).length) ? esc(v) : '<span class="zero">—</span>';
+  const ro = (label, value, full) =>
+    `<div class="bubble${full?' full':''}"><div class="bb-label">${esc(label)}</div><div class="bb-value">${value}</div></div>`;
+  const attHTML = v => /^https?:\/\//i.test(v||'')
+    ? `<a class="att-link" href="${escAttr(v)}" target="_blank" rel="noopener">Open ↗</a>`
+    : valOr(v);
+
+  // Editable status bubble + conditional Transferred-To.
+  const cur = t.status || '';
+  let opts = TASK_STATUS_OPTIONS.map(s =>
+    `<option value="${escAttr(s)}"${s===cur?' selected':''}>${esc(s)}</option>`).join('');
+  if (cur && TASK_STATUS_OPTIONS.indexOf(cur) === -1) {
+    opts = `<option value="${escAttr(cur)}" selected>${esc(cur)}</option>` + opts;
   }
-  if (c.edit === 'date') {
-    return `<input type="date" class="task-date" data-field="${c.key}" value="${escAttr(val)}"/>`;
-  }
-  if (c.edit === 'status') {
-    const cur = val;
-    let opts = TASK_STATUS_OPTIONS.map(s =>
-      `<option value="${escAttr(s)}"${s===cur?' selected':''}>${esc(s)}</option>`).join('');
-    if (cur && TASK_STATUS_OPTIONS.indexOf(cur) === -1) {
-      opts = `<option value="${escAttr(cur)}" selected>${esc(cur)}</option>` + opts;
-    }
-    const st = statusStyle(cur);
-    const showTransfer = (cur === 'Transferred');
-    const transfer =
-      `<div class="transfer-wrap" data-transfer style="${showTransfer?'':'display:none'}">`
-      + `<span class="transfer-label">Transferred To-</span>`
-      + `<select class="task-select" data-field="transferredTo"><option value="">— select —</option>`
-      + employeeNamesList.map(n => `<option value="${escAttr(n)}">${esc(n)}</option>`).join('')
-      + `</select></div>`;
-    return `<select class="task-select" data-field="status" `
-         + `style="background:${st.bg};color:${st.fg};">${opts}</select>${transfer}`;
-  }
-  return esc(val);
+  const showTransfer = (cur === 'Transferred');
+  const transferOpts = '<option value="">— select —</option>'
+    + (employeeNamesList||[]).map(n => `<option value="${escAttr(n)}">${esc(n)}</option>`).join('');
+  const statusBubble =
+    `<div class="bubble editable">
+       <div class="bb-label">Task Status</div>
+       <select data-field="status">${opts}</select>
+       <div class="transfer-sub" data-transfer style="display:${showTransfer?'flex':'none'};">
+         <div class="bb-label">Transferred To</div>
+         <select data-field="transferredTo">${transferOpts}</select>
+       </div>
+     </div>`;
+  const editDate = (label, key, val) =>
+    `<div class="bubble editable"><div class="bb-label">${esc(label)}</div><input type="date" data-field="${key}" value="${escAttr(val||'')}"/></div>`;
+  const editText = (label, key, val) =>
+    `<div class="bubble editable full"><div class="bb-label">${esc(label)}</div><textarea data-field="${key}">${esc(val||'')}</textarea></div>`;
+
+  document.getElementById('tm-bubbles').innerHTML = [
+    ro('Timestamp',        valOr(fmtTs(t.ts||''))),
+    ro('Task Initiator',   valOr(t.init)),
+    ro('Task Doer',        valOr(t.doer)),
+    ro('Due Date',         valOr(fmtDate(t.due||''))),
+    ro('Subject',          valOr(t.subj), true),
+    ro('Client / Participant Name', valOr(t.client), true),
+    ro('Task',             valOr(t.task), true),
+    ro('Initiator Notes',  valOr(t.iNotes), true),
+    ro('Attachment 1',     attHTML(t.att1)),
+    ro('Attachment 2',     attHTML(t.att2)),
+    statusBubble,
+    editDate('Revised Target Date',   'revDate',  t.revDate),
+    editDate('Task Completion Date',  'compDate', t.compDate),
+    editText('Initiator Follow Up Notes', 'iFollow', t.iFollow),
+    editText('Doer Notes',                'dNotes',  t.dNotes),
+  ].join('');
+
+  const archBtn = document.getElementById('tm-arch-btn');
+  archBtn.textContent = t.arch ? '↩️ Unarchive Task' : '🗄️ Archive Task';
+
+  // Snapshot for change detection.
+  modalOriginals = {};
+  modal.querySelectorAll('[data-field]').forEach(el => {
+    modalOriginals[el.getAttribute('data-field')] = el.value;
+  });
+  document.getElementById('tm-save-btn').disabled = true;
+
+  document.getElementById('task-modal-backdrop').classList.add('open');
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
 }
 
-/* ── 3-dots menu ── */
-function openTaskMenu(anchor, id, mode) {
-  const menu = document.getElementById('task-menu');
-  menuCtx = { id: id, mode: mode };
-  menu.innerHTML = (mode === 'archives')
-    ? `<button data-menuact="unarchive">↩️ Unarchive Task</button>`
-    : `<button data-menuact="edit">✏️ Edit</button>`
-      + `<button data-menuact="archive" class="danger">🗄️ Archive Task</button>`;
-  const r = anchor.getBoundingClientRect();
-  menu.style.top  = (window.scrollY + r.bottom + 4) + 'px';
-  menu.style.left = (window.scrollX + r.left) + 'px';
-  menu.classList.add('open');
-}
-function closeTaskMenu() {
-  const m = document.getElementById('task-menu');
-  if (m) m.classList.remove('open');
+function closeTaskModal() {
+  document.getElementById('task-modal-backdrop').classList.remove('open');
+  document.getElementById('task-modal').classList.remove('open');
+  document.getElementById('task-modal').setAttribute('aria-hidden', 'true');
 }
 
-/* ── edit lifecycle ── */
-function startEdit(id) { editingTaskId = id; render(); }
-function cancelEdit()  { editingTaskId = null; render(); }
+function onModalInputChange(e) {
+  const modal = document.getElementById('task-modal');
+  // Status change → recolor badge + show/hide Transferred-To.
+  const sel = e.target;
+  if (sel.tagName === 'SELECT' && sel.getAttribute('data-field') === 'status') {
+    const tw = modal.querySelector('[data-transfer]');
+    if (tw) tw.style.display = (sel.value === 'Transferred') ? 'flex' : 'none';
+    const sst = statusStyle(sel.value);
+    document.getElementById('tm-status-display').innerHTML =
+      `<span class="status-badge" style="background:${sst.bg};color:${sst.fg};">${esc(sel.value)}</span>`;
+  }
+  let dirty = false;
+  modal.querySelectorAll('[data-field]').forEach(el => {
+    if (el.value !== (modalOriginals[el.getAttribute('data-field')] || '')) dirty = true;
+  });
+  document.getElementById('tm-save-btn').disabled = !dirty;
+}
 
-function saveEdit(id) {
-  const wrap = document.getElementById(currentTab === 'archives' ? 'wrap-archives' : 'wrap-task');
-  const tr = wrap ? wrap.querySelector('tr.editing') : null;
-  if (!tr) return;
-  const params = { action: 'save', id: id };
-  // Hint the backend with the Task Doer so it can jump straight to that
-  // employee's sheet instead of scanning every sheet in both spreadsheets.
+function saveFromModal() {
+  const modal = document.getElementById('task-modal');
+  const id = modal.dataset.taskId;
+  if (!id) return;
+  const params = { action: 'save', id };
   const task = allTasks.find(t => t.id === id);
-  if (task && task.doer) params.doer = task.doer;
-  if (task && task.init) params.init = task.init;
-  const statusEl = tr.querySelector('[data-field="status"]');
-  tr.querySelectorAll('[data-field]').forEach(el => {
+  if (task) {
+    if (task.doer) params.doer = task.doer;
+    if (task.init) params.init = task.init;
+  }
+  const statusEl = modal.querySelector('[data-field="status"]');
+  modal.querySelectorAll('[data-field]').forEach(el => {
     const f = el.getAttribute('data-field');
     if (f === 'transferredTo') {
       if (statusEl && statusEl.value === 'Transferred' && el.value) params.transferredTo = el.value;
@@ -1507,12 +1776,10 @@ function saveEdit(id) {
     }
   });
   setToast('Saving…');
+  document.getElementById('tm-save-btn').disabled = true;
   jsonpAction(params, function(res) {
-    try { console.log('save response', res); } catch (e) {}
     if (res && res.status === 'ok') {
       setToast(res.sheet ? ('Saved → ' + res.sheet) : 'Saved', 'ok');
-      // Optimistic local update: reflect the edited fields in the table
-      // immediately instead of waiting on the post-save reload.
       const tLocal = allTasks.find(t => t.id === id);
       if (tLocal) {
         Object.keys(params).forEach(k => {
@@ -1521,21 +1788,29 @@ function saveEdit(id) {
         });
         if (params.transferredTo) tLocal.doer = params.transferredTo;
       }
-      editingTaskId = null;
+      closeTaskModal();
       render();
       loadData(true);
     } else {
       setToast((res && res.message) || 'Save failed', 'err');
+      document.getElementById('tm-save-btn').disabled = false;
     }
   });
 }
 
-function doArchive(id, on) {
+function archiveFromModal() {
+  const modal = document.getElementById('task-modal');
+  const id = modal.dataset.taskId;
+  if (!id) return;
+  const on = modal.dataset.archived !== '1';
   setToast(on ? 'Archiving…' : 'Unarchiving…');
-  jsonpAction({ action: on ? 'archive' : 'unarchive', id: id }, function(res) {
+  jsonpAction({ action: on ? 'archive' : 'unarchive', id }, function(res) {
     if (res && res.status === 'ok') {
       setToast(on ? 'Task archived' : 'Task unarchived', 'ok');
-      editingTaskId = null;
+      const tLocal = allTasks.find(t => t.id === id);
+      if (tLocal) tLocal.arch = on;
+      closeTaskModal();
+      render();
       loadData(true);
     } else {
       setToast((res && res.message) || 'Action failed', 'err');
@@ -1574,51 +1849,28 @@ function setToast(msg, kind) {
   if (kind) toastTimer = setTimeout(() => { el.className = 'task-toast'; }, 2600);
 }
 
-/* ── event wiring (delegated) ── */
+/* ── event wiring (delegated) ──
+   Row click on Task / Archives opens the detail modal. Attachment
+   links keep working because we ignore clicks inside <a>. */
 function onTaskWrapClick(e) {
-  const btn = e.target.closest('[data-act]');
-  if (!btn) return;
-  const tr = btn.closest('tr[data-id]');
-  const id = tr ? tr.getAttribute('data-id') : '';
-  const mode = (e.currentTarget.id === 'wrap-archives') ? 'archives' : 'task';
-  const act = btn.getAttribute('data-act');
-  if (act === 'menu') { e.stopPropagation(); openTaskMenu(btn, id, mode); }
-  else if (act === 'save')   saveEdit(id);
-  else if (act === 'cancel') cancelEdit();
-}
-function onTaskWrapChange(e) {
-  const sel = e.target;
-  if (sel.classList && sel.classList.contains('task-select') && sel.getAttribute('data-field') === 'status') {
-    const st = statusStyle(sel.value);
-    sel.style.background = st.bg;
-    sel.style.color = st.fg;
-    const cell = sel.closest('td');
-    const tw = cell && cell.querySelector('[data-transfer]');
-    if (tw) tw.style.display = (sel.value === 'Transferred') ? 'flex' : 'none';
-  }
+  if (e.target.closest('a')) return;
+  const tr = e.target.closest('tr[data-id]');
+  if (!tr) return;
+  const id = tr.getAttribute('data-id');
+  if (id) openTaskModal(id);
 }
 function wireTaskTables() {
   ['wrap-task','wrap-archives'].forEach(id => {
     const wrap = document.getElementById(id);
     if (!wrap) return;
     wrap.addEventListener('click', onTaskWrapClick);
-    wrap.addEventListener('change', onTaskWrapChange);
   });
-  const menu = document.getElementById('task-menu');
-  if (menu) {
-    menu.addEventListener('click', function(e) {
-      const b = e.target.closest('[data-menuact]');
-      if (!b) return;
-      e.stopPropagation();
-      const act = b.getAttribute('data-menuact');
-      closeTaskMenu();
-      if (act === 'edit')           startEdit(menuCtx.id);
-      else if (act === 'archive')   doArchive(menuCtx.id, true);
-      else if (act === 'unarchive') doArchive(menuCtx.id, false);
-    });
+  // Modal field change → enable Save and resync transferred / badge color.
+  const modal = document.getElementById('task-modal');
+  if (modal) {
+    modal.addEventListener('input',  onModalInputChange);
+    modal.addEventListener('change', onModalInputChange);
   }
-  document.addEventListener('click', closeTaskMenu);
-  window.addEventListener('scroll', closeTaskMenu, true);
 }
 
 /* ═══════════════════════════════════════════════════════════
