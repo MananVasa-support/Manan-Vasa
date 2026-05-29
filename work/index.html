@@ -532,7 +532,7 @@ textarea.task-input{min-height:34px;resize:vertical;white-space:normal;}
 /* ═══════════════════════════════════════════════════════════
    CONFIG
 ═══════════════════════════════════════════════════════════ */
-const SCRIPT_URL = 'https://script.google.com/a/macros/unleashed.in/s/AKfycbyhOx_f6O0USBNjLmjIoW6WRg1AvC6adbNDmq7ja02YN2DaEmeXRQ0-OZUjLtpBn5gcSg/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhOx_f6O0USBNjLmjIoW6WRg1AvC6adbNDmq7ja02YN2DaEmeXRQ0-OZUjLtpBn5gcSg/exec';
 const EMP_FIRST  = ['manan vasa'];
 const EMP_BOTTOM = ['dattaram kap', 'parvez khan'];
 
@@ -577,7 +577,7 @@ const TASK_DEF = [
   { key:'doer',     label:'Task Doer',                frozen:true  },
   { key:'task',     label:'Task',                     frozen:true,  wrap:true },
   { key:'due',      label:'Due Date',                 frozen:true  },
-  { key:'iNotes',   label:'Initiator Notes',          edit:'text', wrap:true },
+  { key:'iNotes',   label:'Initiator Notes',          wrap:true },
   { key:'att1',     label:'Attachment 1',             edit:'text' },
   { key:'att2',     label:'Attachment 2',             edit:'text' },
   { key:'status',   label:'Task Status',              edit:'status' },
@@ -1276,6 +1276,7 @@ function saveEdit(id) {
   // employee's sheet instead of scanning every sheet in both spreadsheets.
   const task = allTasks.find(t => t.id === id);
   if (task && task.doer) params.doer = task.doer;
+  if (task && task.init) params.init = task.init;
   const statusEl = tr.querySelector('[data-field="status"]');
   tr.querySelectorAll('[data-field]').forEach(el => {
     const f = el.getAttribute('data-field');
@@ -1287,8 +1288,9 @@ function saveEdit(id) {
   });
   setToast('Saving…');
   jsonpAction(params, function(res) {
+    try { console.log('save response', res); } catch (e) {}
     if (res && res.status === 'ok') {
-      setToast('Saved', 'ok');
+      setToast(res.sheet ? ('Saved → ' + res.sheet) : 'Saved', 'ok');
       editingTaskId = null;
       loadData(true);
     } else {
@@ -1432,7 +1434,7 @@ function loadData(preserve) {
   setRefreshing(true);
   const old = document.getElementById('_jsonp'); if (old) old.remove();
   const cb = 'altusWMD_' + Date.now();
-  const timer = setTimeout(() => { cleanup(cb); showError('Request timed out.'); }, 15000);
+  const timer = setTimeout(() => { cleanup(cb); showError('Request timed out.'); }, 60000);
   window[cb] = function(data) {
     clearTimeout(timer); cleanup(cb); setRefreshing(false);
     if (data.status === 'error') { showError(data.message); return; }
