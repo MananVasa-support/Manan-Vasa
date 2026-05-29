@@ -1651,12 +1651,22 @@ function renderTaskTab(mode, display) {
 
   const wrap = document.getElementById(wrapId);
   if (!rows.length) {
-    const sub = (allTasks.length === 0)
-      ? 'No task data received from the server. Deploy the updated Code.gs as a NEW VERSION and confirm SCRIPT_URL points to that /exec endpoint (open it with ?callback=test — the response must contain a "tasks" array).'
-      : 'No tasks match the current employee / date filters. Try selecting All Employees and clearing the dates.';
+    let sub;
+    if (allTasks.length === 0) {
+      // Distinguish "server returned no tasks field" from "tasks present
+      // but the active filters or archive flag exclude them all".
+      sub = (allEmployeeData.length > 0)
+        ? 'Payload has employees but no tasks. The deployed Code.gs is older than the saved version — Deploy → Manage deployments → Edit → New version. Then hard-refresh.'
+        : 'No data received from the server. Open SCRIPT_URL with ?callback=test in a browser and check what comes back.';
+    } else {
+      sub = 'No tasks match the current employee / date / status filters. Try selecting All Employees, All Statuses, and clearing the dates.';
+    }
     wrap.innerHTML = `<div class="state-box"><div class="state-icon">${mode==='archives'?'🗄️':'📭'}</div>`
       + `<div class="state-title">No ${mode==='archives'?'archived ':''}tasks</div>`
-      + `<div class="state-sub">${esc(sub)}</div></div>`;
+      + `<div class="state-sub">${esc(sub)}</div>`
+      + `<div class="state-sub" style="margin-top:10px;font-size:11.5px;">`
+      + `Loaded · employees: ${allEmployeeData.length} · initiators: ${allInitiatorData.length} · `
+      + `tasks: ${allTasks.length} · employeeNames: ${employeeNamesList.length}</div></div>`;
     return;
   }
   wrap.innerHTML = buildTaskTableHTML(rows, mode);
@@ -1967,6 +1977,18 @@ function loadData(preserve) {
   const timer = setTimeout(() => { cleanup(cb); showError('Request timed out.'); }, 60000);
   window[cb] = function(data) {
     clearTimeout(timer); cleanup(cb); setRefreshing(false);
+    try {
+      console.log('[dashboard] payload received', {
+        status: data && data.status,
+        hasDateCol: data && data.hasDateCol,
+        keys: data ? Object.keys(data) : null,
+        employees: data && data.employees ? data.employees.length : '(absent)',
+        initiators: data && data.initiators ? data.initiators.length : '(absent)',
+        tasks: data && data.tasks ? data.tasks.length : '(absent)',
+        employeeNames: data && data.employeeNames ? data.employeeNames.length : '(absent)',
+        sampleTask: data && data.tasks && data.tasks[0] ? data.tasks[0] : null,
+      });
+    } catch (e) {}
     if (data.status === 'error') { showError(data.message); return; }
     allEmployeeData   = data.employees     || [];
     allInitiatorData  = data.initiators    || [];
