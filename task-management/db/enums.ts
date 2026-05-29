@@ -128,11 +128,18 @@ export const TASK_PRIORITIES = [
 ] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
+// Manan 2026-05-30 — priorities renamed to a simple 1-4 scale. The
+// underlying Eisenhower enum values are unchanged (no data migration); only
+// the user-facing labels change, system-wide via this single map.
+//   Critical  = Important & Urgent
+//   Important = Important, Not Urgent
+//   Urgent    = Not Important, Urgent
+//   Normal    = Not Important, Not Urgent
 export const PRIORITY_LABELS: Record<TaskPriority, string> = {
-  imp_urgent:         "Important & Urgent",
-  imp_not_urgent:     "Important, Not Urgent",
-  not_imp_urgent:     "Not Important, Urgent",
-  not_imp_not_urgent: "Not Important, Not Urgent",
+  imp_urgent:         "Critical",
+  imp_not_urgent:     "Important",
+  not_imp_urgent:     "Urgent",
+  not_imp_not_urgent: "Normal",
 };
 
 export const DEPARTMENTS = [

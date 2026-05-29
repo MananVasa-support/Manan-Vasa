@@ -6,6 +6,7 @@ import "./globals.css";
 import { ToastHost } from "@/components/ui/toast";
 import { RegisterSW } from "@/components/pwa/register-sw";
 import { getCurrentEmployee } from "@/lib/auth/current";
+import { accentVars, resolveAccent } from "@/lib/appearance";
 
 const roboto = Roboto({
   variable: "--font-roboto",
@@ -52,11 +53,10 @@ export default async function RootLayout({
   // employees is kept but unused.
   const me = await getCurrentEmployee();
   const density = me?.density ?? "cozy";
-  const accent =
-    me?.accent && /^#[0-9a-fA-F]{6}$/.test(me.accent) ? me.accent : "#E10600";
-  const htmlStyle: React.CSSProperties & Record<string, string> = {
-    ["--user-accent"]: accent,
-  };
+  // Map the user's accent onto the brand accent CSS variables the whole app
+  // consumes (--color-altus-red*, --vp-cyan*). For the default red this
+  // reproduces globals.css exactly, so default users see no change.
+  const htmlStyle = accentVars(resolveAccent(me?.accent)) as React.CSSProperties;
 
   return (
     <html

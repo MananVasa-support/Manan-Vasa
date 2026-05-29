@@ -5,6 +5,20 @@ import { useRouter } from "next/navigation";
 import { patchIdentity } from "@/app/(app)/profile/actions";
 import { fireToast } from "@/lib/toast";
 import { SectionHeader } from "@/components/profile/identity/avatar-and-name";
+import { accentVars } from "@/lib/appearance";
+
+/** Apply a density/accent change to <html> immediately for instant feedback,
+ *  independent of the server round-trip + route refresh. */
+function applyAppearanceLive(patch: { density?: Density; accent?: string }) {
+  if (typeof document === "undefined") return;
+  const el = document.documentElement;
+  if (patch.density) el.setAttribute("data-density", patch.density);
+  if (patch.accent && /^#[0-9a-fA-F]{6}$/.test(patch.accent)) {
+    for (const [k, v] of Object.entries(accentVars(patch.accent))) {
+      el.style.setProperty(k, v);
+    }
+  }
+}
 
 type Density = "cozy" | "compact";
 
@@ -32,6 +46,7 @@ export function AppearanceControls({ initial }: Props) {
   const [, startTransition] = useTransition();
 
   function save(patch: Parameters<typeof patchIdentity>[0]) {
+    applyAppearanceLive(patch); // instant visible feedback
     startTransition(async () => {
       const res = await patchIdentity(patch);
       if (!res.ok) {

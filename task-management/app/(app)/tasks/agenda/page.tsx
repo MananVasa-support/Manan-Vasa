@@ -46,11 +46,12 @@ export default async function AgendaPage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[1600px] px-8 max-md:px-4 pt-8 pb-16">
+      <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
         <AgendaBoard
           firstName={me.name.split(" ")[0] ?? me.name}
           dueToday={dueToday}
           overdue={overdueTasks.length}
+          todayYmd={todayYmd}
           days={days}
           overdueTasks={overdueTasks}
           tasks={upcoming}

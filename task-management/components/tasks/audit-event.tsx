@@ -47,15 +47,37 @@ interface Props {
  * UI like the "fresh" ring pulse.
  */
 export function AuditEvent({ row, fresh, statusLabels, me }: Props) {
-  const when = formatDistanceToNow(row.createdAt, { addSuffix: true });
   const who = row.actorName ?? "Someone";
   const labels = statusLabels ?? STATUS_LABELS_FALLBACK;
+
+  // Relative time is computed against Date.now(), so the server render
+  // ("13 minutes ago") will differ from the client render ("9 minutes
+  // ago") if SSR was cached even briefly. We render the initial value
+  // on first render and then refresh on mount + every 60s to stay
+  // current. `suppressHydrationWarning` lets React swap the text on
+  // hydration without flagging the (deliberately) different value.
+  const [when, setWhen] = React.useState(() =>
+    formatDistanceToNow(row.createdAt, { addSuffix: true }),
+  );
+  React.useEffect(() => {
+    function refresh() {
+      setWhen(formatDistanceToNow(row.createdAt, { addSuffix: true }));
+    }
+    refresh();
+    const handle = setInterval(refresh, 60_000);
+    return () => clearInterval(handle);
+  }, [row.createdAt]);
 
   return (
     <div className="text-[14.5px] text-ink break-words" style={{ lineHeight: 1.5, overflowWrap: "anywhere" }}>
       <Body row={row} who={who} labels={labels} me={me} />
       <div className="mt-1.5 flex items-center gap-2">
-        <span className="text-[12.5px] text-ink-subtle tabular-nums">{when}</span>
+        <span
+          className="text-[12.5px] text-ink-subtle tabular-nums"
+          suppressHydrationWarning
+        >
+          {when}
+        </span>
         {fresh && (
           <span
             className="text-[11px] uppercase tracking-[0.08em] font-bold px-2 py-0.5 rounded-full"

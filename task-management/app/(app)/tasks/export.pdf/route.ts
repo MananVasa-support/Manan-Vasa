@@ -100,10 +100,10 @@ const STATUS_PILL: Record<TaskStatus, { bg: string; fg: string; label: string }>
 // internally — much more scannable than the full 4-word label in a cramped
 // table column. The dot colour signals urgency at a glance.
 const PRIORITY_GLYPH: Record<TaskPriority, { code: string; label: string; color: string }> = {
-  imp_urgent:         { code: "P0", label: "Important & Urgent",       color: COLORS.brand },
-  imp_not_urgent:     { code: "P1", label: "Important, Not Urgent",    color: "#D97706" },
-  not_imp_urgent:     { code: "P2", label: "Urgent, Not Important",    color: "#2563EB" },
-  not_imp_not_urgent: { code: "P3", label: "Backlog",                  color: "#94A3B8" },
+  imp_urgent:         { code: "P0", label: "Critical",  color: COLORS.brand },
+  imp_not_urgent:     { code: "P1", label: "Important", color: "#D97706" },
+  not_imp_urgent:     { code: "P2", label: "Urgent",    color: "#2563EB" },
+  not_imp_not_urgent: { code: "P3", label: "Normal",    color: "#94A3B8" },
 };
 
 const APPROVAL_LABEL: Record<ApprovalStatus, string> = {

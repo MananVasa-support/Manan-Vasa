@@ -16,10 +16,12 @@ const client =
     // Required for Supabase's pgbouncer (transaction-mode pooler):
     // prepared statements are per-session and break under txn pooling.
     prepare: false,
-    // Higher ceiling so multiple parallel page reads (header counts +
-    // page queries) don't serialise. Supabase free tier allows 60
-    // direct + ~200 pooled; 10 leaves plenty of headroom.
-    max: 10,
+    // Higher ceiling so the dashboard's query burst (header counts +
+    // loadDashboardData's ~5 selects + My Day + status map ≈ 15-20
+    // concurrent reads) runs in parallel instead of queuing 10-at-a-time
+    // and piling up to 25s+ on a cold remote DB. Supabase pooled allows
+    // ~200, so 18 is safe headroom.
+    max: 18,
     // Keep connections warm for a minute so back-to-back navigations
     // reuse the TLS handshake. The previous 20s window meant any quiet
     // user paid a fresh handshake (~50-150ms remote) on their next click.

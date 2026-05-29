@@ -292,7 +292,16 @@ export default async function ProfilePage() {
                   />
                   <AchievementsGrid
                     rows={achievements.map((a) => ({
-                      def: a.def,
+                      // Pass ONLY the serializable fields — `a.def` also carries
+                      // an `evaluate` function, which can't cross the RSC→client
+                      // boundary (throws "Functions cannot be passed…").
+                      def: {
+                        key: a.def.key,
+                        name: a.def.name,
+                        description: a.def.description,
+                        icon: a.def.icon,
+                        category: a.def.category,
+                      },
                       earned: a.earned,
                       earnedAt:
                         a.earnedAt instanceof Date

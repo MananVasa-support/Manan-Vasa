@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { markAllNotificationsRead } from "./actions";
+import { fireToast } from "@/lib/toast";
 
 interface Props {
   hasUnread: boolean;
@@ -22,7 +23,8 @@ export function MarkAllButton({ hasUnread }: Props) {
       disabled={disabled}
       onClick={() => {
         startTransition(async () => {
-          await markAllNotificationsRead();
+          const res = await markAllNotificationsRead();
+          if (!res.ok) fireToast({ message: res.error });
         });
       }}
       className="nav-pill text-body disabled:cursor-not-allowed disabled:opacity-40"

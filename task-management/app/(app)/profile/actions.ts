@@ -10,6 +10,7 @@ import { requireUser } from "@/lib/auth/current";
 import { CACHE_TAGS, PROFILE_CACHE_TAGS } from "@/lib/cache-tags";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
+import { isAcceptableAvatarUrl } from "@/lib/avatar-url";
 
 /**
  * M4 — self-serve per-channel opt-in flags.  Only the two channels the
@@ -63,8 +64,8 @@ const ProfilePatchSchema = z
       .trim()
       .max(2000)
       .refine(
-        (v) => v === "" || /^https?:\/\//i.test(v),
-        "Avatar must be an http(s) URL or empty",
+        isAcceptableAvatarUrl,
+        "Avatar must be a public image URL, a chosen preset, or empty",
       ),
   })
   .strict();

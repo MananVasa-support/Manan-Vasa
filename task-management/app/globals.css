@@ -67,6 +67,31 @@
   --color-surface-stripe:  rgba(15, 23, 42, 0.03);
 }
 
+/* ────────────────────────────────────────────────────────────────────
+   Status palette as REAL CSS custom properties.
+   Tailwind v4 `@theme inline` only emits theme vars referenced by utility
+   CLASSES. The status tones are consumed almost entirely via inline
+   `var(--color-<token>)` in style props (dots, pills, the distribution
+   bar, kanban), so the extended tones (yellow / orange / slate / brown /
+   stone) were pruned from the output and rendered transparent — which is
+   why Initiated never showed yellow, Follow-Ups never orange, etc.
+   Declaring them here guarantees every `var(--color-…)` resolves at
+   runtime, system-wide. Values mirror the @theme block exactly.
+   ──────────────────────────────────────────────────────────────────── */
+:root {
+  --color-blue:    #3b82f6;  --color-blue-deep:   #1d4ed8;  --color-blue-bg:   #eff6ff;
+  --color-green:   #22c55e;  --color-green-deep:  #15803d;  --color-green-bg:  #ecfdf5;
+  --color-amber:   #f59e0b;  --color-amber-deep:  #b45309;  --color-amber-bg:  #fffbeb;
+  --color-red:     #E10600;  --color-red-deep:    #A80400;  --color-red-bg:    #fef2f2;
+  --color-rose:    #f43f5e;  --color-rose-deep:   #be123c;  --color-rose-bg:   #fff1f2;
+  --color-purple:  #a855f7;  --color-purple-deep: #7c3aed;  --color-purple-bg: #faf5ff;
+  --color-yellow:  #eab308;  --color-yellow-deep: #a16207;  --color-yellow-bg: #fefce8;
+  --color-orange:  #f97316;  --color-orange-deep: #c2410c;  --color-orange-bg: #fff7ed;
+  --color-slate:   #64748b;  --color-slate-deep:  #334155;  --color-slate-bg:  #f1f5f9;
+  --color-brown:   #92724e;  --color-brown-deep:  #6b4a2b;  --color-brown-bg:  #f6f1ea;
+  --color-stone:   #9ca3af;  --color-stone-deep:  #6b7280;  --color-stone-bg:  #f9fafb;
+}
+
 /* Heatmap step backgrounds (used as `background:` not `color:`, so they live
    outside @theme as raw CSS custom properties.) */
 :root {
@@ -97,8 +122,12 @@ html[data-density="compact"] {
   --density-pad-y: 0.78;
   --density-line-height: 1.45;
 }
+/* Compact density: uniformly scale the whole UI down so it visibly "fits
+   more on screen" (the control's promise). `zoom` reflows correctly (unlike
+   transform) and scales the app's many fixed-px sizes that a font-size
+   change alone wouldn't touch. */
 html[data-density="compact"] body {
-  font-size: 14px;
+  zoom: 0.92;
   line-height: var(--density-line-height);
 }
 
@@ -900,12 +929,12 @@ html[data-density="compact"] body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 28px;
-  padding: 1px 8px;
+  min-width: 26px;
+  padding: 2px 9px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.14);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
@@ -919,11 +948,12 @@ html[data-density="compact"] body {
   background: var(--vp-cyan-tint);
   border: 1.5px solid rgba(225, 6, 0, 0.28);
   color: rgb(var(--vp-cyan-deep));
-  font-size: 12.5px;
+  font-size: 15px;
   font-weight: 700;
-  padding: 6px 11px;
+  padding: 12px 18px;
   letter-spacing: 0.005em;
-  gap: 5px;
+  gap: 9px;
+  line-height: 1;
 }
 .header-light .nav-pill:hover {
   background: rgba(225, 6, 0, 0.16);

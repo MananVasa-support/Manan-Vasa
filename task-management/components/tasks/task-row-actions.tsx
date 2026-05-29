@@ -3,7 +3,7 @@ import * as React from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { MoreHorizontal, Archive, ArchiveRestore } from "lucide-react";
+import { MoreHorizontal, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -21,6 +21,7 @@ import {
   setTaskStatus,
   setTaskPriority,
   reassignDoer,
+  deleteTask,
 } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
 import {
@@ -54,9 +55,42 @@ export function TaskRowActions({ row, employees, me }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = React.useTransition();
 
-  function withTransition(label: string, fn: () => Promise<unknown>) {
+  // Result shape every mutating action now returns. `void` is tolerated for
+  // any legacy callsite. On failure we toast the reason and skip the success
+  // toast — the user keeps their place instead of hitting an error screen.
+  type ActionResult =
+    | { ok: true }
+    | { ok: false; error?: string; message?: string }
+    | void;
+
+  function friendlyError(res: { error?: string; message?: string }): string {
+    if (res.message) return res.message;
+    switch (res.error) {
+      case "forbidden":
+        return "You're not allowed to make that change.";
+      case "stale":
+        return "This task changed elsewhere — refreshing.";
+      case "not-found":
+        return "That task no longer exists.";
+      default:
+        return res.error ?? "Something went wrong — please try again.";
+    }
+  }
+
+  function withTransition(label: string, fn: () => Promise<ActionResult>) {
     startTransition(async () => {
-      await fn();
+      let res: ActionResult;
+      try {
+        res = await fn();
+      } catch {
+        fireToast({ message: "Something went wrong — please try again." });
+        return;
+      }
+      if (res && res.ok === false) {
+        fireToast({ message: friendlyError(res) });
+        if (res.error === "stale") router.refresh();
+        return;
+      }
       router.refresh();
       fireToast({ message: label });
     });
@@ -64,25 +98,55 @@ export function TaskRowActions({ row, employees, me }: Props) {
 
   function handleArchive() {
     startTransition(async () => {
-      await archiveTask(row.id);
+      const res = await archiveTask(row.id);
+      if (!res.ok) {
+        fireToast({ message: res.error });
+        return;
+      }
       router.refresh();
       fireToast({
         message: "Task archived.",
         actionLabel: "Undo",
-        action: () => unarchiveTask(row.id),
+        action: () => {
+          void unarchiveTask(row.id);
+        },
       });
     });
   }
 
   function handleUnarchive() {
     startTransition(async () => {
-      await unarchiveTask(row.id);
+      const res = await unarchiveTask(row.id);
+      if (!res.ok) {
+        fireToast({ message: res.error });
+        return;
+      }
       router.refresh();
       fireToast({
         message: "Task restored.",
         actionLabel: "Undo",
-        action: () => archiveTask(row.id),
+        action: () => {
+          void archiveTask(row.id);
+        },
       });
+    });
+  }
+
+  function handleDelete() {
+    if (
+      !confirm(
+        `Permanently delete "${row.title}"?\n\nThis removes the task and its history and cannot be undone. Use Archive or Cancel instead if you just want to hide it.`,
+      )
+    )
+      return;
+    startTransition(async () => {
+      const res = await deleteTask(row.id);
+      if (!res.ok) {
+        fireToast({ message: res.error });
+        return;
+      }
+      router.refresh();
+      fireToast({ message: "Task deleted." });
     });
   }
 
@@ -201,6 +265,18 @@ export function TaskRowActions({ row, employees, me }: Props) {
             </>
           );
         })()}
+
+        {/* Permanent delete — destructive, so admin-only + confirmed. Lives
+            at the very bottom, highlighted red. */}
+        {me.isAdmin && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem danger onClick={handleDelete}>
+              <Trash2 size={14} />
+              Delete task…
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

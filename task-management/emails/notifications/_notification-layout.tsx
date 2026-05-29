@@ -400,10 +400,10 @@ export const STATUS_LABEL_MAP: Record<string, string> = {
 };
 
 export const PRIORITY_LABEL_MAP: Record<string, string> = {
-  imp_urgent:         "Important & Urgent",
-  imp_not_urgent:     "Important, Not Urgent",
-  not_imp_urgent:     "Not Important, Urgent",
-  not_imp_not_urgent: "Not Important, Not Urgent",
+  imp_urgent:         "Critical",
+  imp_not_urgent:     "Important",
+  not_imp_urgent:     "Urgent",
+  not_imp_not_urgent: "Normal",
 };
 
 /* ------------------------------------------------------------------ */

@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import type { Route } from "next";
+import { Trophy, Crown, Inbox } from "lucide-react";
 import type { TopPerformer } from "@/lib/types";
 import { useCountUp } from "@/lib/use-count-up";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
@@ -8,30 +9,30 @@ import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 const PODIUM_THEMES = [
   // GOLD
   {
-    medal: "🥇",
     bar: "linear-gradient(90deg, #FBBF24, #D97706)",
     badge:
       "linear-gradient(135deg, #FCD34D 0%, #F59E0B 60%, #B45309 100%)",
     glow: "0 18px 40px -18px rgba(245, 158, 11, 0.55)",
     border: "#FDE68A",
+    ring: "#F59E0B",
   },
   // SILVER
   {
-    medal: "🥈",
     bar: "linear-gradient(90deg, #E5E7EB, #94A3B8)",
     badge:
       "linear-gradient(135deg, #F1F5F9 0%, #CBD5E1 55%, #64748B 100%)",
     glow: "0 18px 40px -18px rgba(100, 116, 139, 0.45)",
     border: "#E2E8F0",
+    ring: "#94A3B8",
   },
   // BRONZE
   {
-    medal: "🥉",
     bar: "linear-gradient(90deg, #FCA774, #B45309)",
     badge:
       "linear-gradient(135deg, #FED7AA 0%, #FB923C 55%, #B45309 100%)",
     glow: "0 18px 40px -18px rgba(180, 83, 9, 0.45)",
     border: "#FED7AA",
+    ring: "#FB923C",
   },
 ];
 
@@ -52,16 +53,23 @@ export function TopPerformersSection({
         animation: "fadeUp 500ms ease-out 500ms forwards",
       }}
     >
-      <header className="mb-5">
-        <h2 className="text-display-lg text-ink-strong">
-          <span aria-hidden className="mr-2">
-            🏆
-          </span>
-          Top Performers
-        </h2>
-        <p className="text-body-lg text-ink-subtle mt-1">
-          Ranked by completed tasks — click any card to see their work
-        </p>
+      <header className="mb-5 flex items-start gap-3">
+        <span
+          aria-hidden
+          className="mt-1 inline-flex size-10 shrink-0 items-center justify-center rounded-xl"
+          style={{
+            background: "color-mix(in srgb, var(--color-amber) 14%, transparent)",
+            color: "var(--color-amber-deep)",
+          }}
+        >
+          <Trophy size={20} strokeWidth={2.2} />
+        </span>
+        <div>
+          <h2 className="text-display-lg text-ink-strong">Top Performers</h2>
+          <p className="text-body-lg text-ink-subtle mt-0.5">
+            Ranked by completed tasks — click any card to see their work
+          </p>
+        </div>
       </header>
 
       {performers.length === 0 ? (
@@ -112,7 +120,7 @@ function PodiumCard({
     <Link
       href={`/tasks?initiator=${performer.employeeId}` as Route}
       aria-label={`Open ${performer.employeeName}'s tasks (rank ${rank + 1}, ${performer.doneCount} done)`}
-      className="podium-card group relative block rounded-leader overflow-hidden bg-surface-card"
+      className="podium-card group relative block cursor-pointer rounded-leader overflow-hidden bg-surface-card"
       style={{
         border: `1.5px solid ${theme.border}`,
         boxShadow: theme.glow,
@@ -127,8 +135,20 @@ function PodiumCard({
           background: theme.bar,
         }}
       />
+
+      {/* Crown marks the #1 spot (SVG, not emoji) */}
+      {rank === 0 && (
+        <span
+          aria-hidden
+          className="absolute right-3 top-3"
+          style={{ color: theme.ring }}
+        >
+          <Crown size={18} strokeWidth={2.4} fill="currentColor" />
+        </span>
+      )}
+
       <div className="p-5 pt-6 flex flex-col items-center text-center gap-3">
-        {/* Avatar with initials + medal overlay (channel-themed for the podium) */}
+        {/* Avatar with initials + numbered rank badge */}
         <span className="relative inline-block">
           <EmployeeAvatar
             name={performer.employeeName}
@@ -137,10 +157,15 @@ function PodiumCard({
           />
           <span
             aria-hidden
-            className="absolute -top-1 -right-1"
-            style={{ fontSize: 22, lineHeight: 1 }}
+            className="absolute -bottom-1 -right-1 inline-flex size-6 items-center justify-center rounded-full font-black text-white tabular-nums"
+            style={{
+              background: theme.badge,
+              fontSize: 12,
+              border: "2px solid var(--color-surface-card)",
+              boxShadow: "0 2px 6px rgba(15, 23, 42, 0.25)",
+            }}
           >
-            {theme.medal}
+            {rank + 1}
           </span>
         </span>
 
@@ -190,7 +215,7 @@ function LeaderRow({
     <li>
       <Link
         href={`/tasks?initiator=${performer.employeeId}` as Route}
-        className="leader-row group flex items-center gap-3 px-3 py-2.5 rounded-chip transition-all"
+        className="leader-row group flex cursor-pointer items-center gap-3 px-3 py-2.5 rounded-chip transition-all"
         style={{
           background: "var(--color-surface-soft)",
           border: "1px solid transparent",
@@ -240,8 +265,15 @@ function EmptyState() {
         borderRadius: 14,
       }}
     >
-      <span aria-hidden style={{ fontSize: 36 }}>
-        📭
+      <span
+        aria-hidden
+        className="inline-flex size-12 items-center justify-center rounded-full"
+        style={{
+          background: "rgba(15, 23, 42, 0.05)",
+          color: "var(--color-ink-muted)",
+        }}
+      >
+        <Inbox size={24} strokeWidth={2} />
       </span>
       <p
         className="mt-3 font-bold"

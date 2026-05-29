@@ -1,6 +1,13 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { LayoutGrid } from "lucide-react";
+import {
+  LayoutGrid,
+  ListTodo,
+  CheckCircle2,
+  Loader,
+  Flame,
+  type LucideIcon,
+} from "lucide-react";
 import { TaskTable } from "./task-table";
 import type { TaskListRow } from "@/lib/types";
 import {
@@ -24,7 +31,7 @@ const KPI_SPECS: KpiSpec[] = [
   { key: "total",    label: "TOTAL",    sublabel: "All matching tasks", tone: "blue"  },
   { key: "done",     label: "DONE",     sublabel: "Done + Approved",    tone: "green" },
   { key: "pending",  label: "PENDING",  sublabel: "Open work",          tone: "amber" },
-  { key: "critical", label: "CRITICAL", sublabel: "Important & Urgent", tone: "red"   },
+  { key: "critical", label: "CRITICAL", sublabel: "Highest priority", tone: "red"   },
 ];
 
 export function TaskListPage({
@@ -126,10 +133,18 @@ export function TaskListPage({
   );
 }
 
+const KPI_ICONS: Record<KpiSpec["key"], LucideIcon> = {
+  total: ListTodo,
+  done: CheckCircle2,
+  pending: Loader,
+  critical: Flame,
+};
+
 function StatCard({ spec, value }: { spec: KpiSpec; value: number }) {
+  const Icon = KPI_ICONS[spec.key];
   return (
     <div
-      className="relative bg-surface-card rounded-section overflow-hidden"
+      className="group relative bg-surface-card rounded-section overflow-hidden transition-all duration-200 hover:-translate-y-0.5"
       style={{
         border: "1px solid var(--color-hairline)",
         boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
@@ -144,6 +159,18 @@ function StatCard({ spec, value }: { spec: KpiSpec; value: number }) {
           background: `linear-gradient(90deg, var(--color-${spec.tone}), var(--color-${spec.tone}-deep))`,
         }}
       />
+      {/* Tinted icon chip — adds colour + visual anchor without hurting
+          the white card's readability. */}
+      <span
+        aria-hidden
+        className="absolute right-5 top-6 inline-flex size-10 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110"
+        style={{
+          background: `color-mix(in srgb, var(--color-${spec.tone}) 14%, transparent)`,
+          color: `var(--color-${spec.tone}-deep)`,
+        }}
+      >
+        <Icon size={20} strokeWidth={2.3} />
+      </span>
       <span
         className="uppercase font-black tracking-[0.08em] leading-none"
         style={{

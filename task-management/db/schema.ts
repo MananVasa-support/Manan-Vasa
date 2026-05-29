@@ -355,6 +355,13 @@ export const projectNodes = pgTable(
     parentId: uuid("parent_id"),
     sortOrder: integer("sort_order").notNull().default(100),
     isArchived: boolean("is_archived").notNull().default(false),
+    // #13 — overhaul fields.
+    description: text("description"),
+    notes: text("notes"),
+    targetDate: timestamp("target_date", { withTimezone: true }),
+    ownerId: uuid("owner_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
     createdById: uuid("created_by_id").references(() => employees.id, {
       onDelete: "set null",
     }),
@@ -365,6 +372,24 @@ export const projectNodes = pgTable(
     index("project_nodes_parent_idx").on(t.parentId),
     index("project_nodes_kind_idx").on(t.kind, t.isArchived),
   ],
+);
+
+/**
+ * #13 — team members involved in a project node (alongside owner_id).
+ * Composite PK so a person can't be added twice to the same node.
+ */
+export const projectMembers = pgTable(
+  "project_members",
+  {
+    projectNodeId: uuid("project_node_id")
+      .notNull()
+      .references(() => projectNodes.id, { onDelete: "cascade" }),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.projectNodeId, t.employeeId] })],
 );
 
 /**
@@ -830,6 +855,8 @@ export type Subject = typeof subjects.$inferSelect;
 export type NewSubject = typeof subjects.$inferInsert;
 export type ProjectNode = typeof projectNodes.$inferSelect;
 export type NewProjectNode = typeof projectNodes.$inferInsert;
+export type ProjectMember = typeof projectMembers.$inferSelect;
+export type NewProjectMember = typeof projectMembers.$inferInsert;
 export type Document = typeof documents.$inferSelect;
 export type NewDocument = typeof documents.$inferInsert;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;

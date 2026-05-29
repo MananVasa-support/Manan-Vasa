@@ -1,10 +1,16 @@
 import "server-only";
 import { asc, desc, eq, sql, and, inArray } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
-import { projectNodes, tasks, employees } from "@/db/schema";
+import { projectNodes, tasks, employees, projectMembers } from "@/db/schema";
 import type { TaskStatus } from "@/db/enums";
 import { CACHE_TAGS } from "@/lib/cache-tags";
+
+export interface ProjectMemberRef {
+  id: string;
+  name: string | null;
+}
 
 export interface ProjectTreeNode {
   id: string;
@@ -13,6 +19,12 @@ export interface ProjectTreeNode {
   parentId: string | null;
   sortOrder: number;
   actionCount: number;
+  description: string | null;
+  notes: string | null;
+  targetDate: Date | null;
+  ownerId: string | null;
+  ownerName: string | null;
+  members: ProjectMemberRef[];
   children: ProjectTreeNode[];
 }
 
@@ -21,27 +33,56 @@ export interface ProjectTreeNode {
  * of tasks ("actions") linked to each node.
  */
 export async function listProjectTree(): Promise<ProjectTreeNode[]> {
-  const rows = await db
-    .select({
-      id: projectNodes.id,
-      name: projectNodes.name,
-      kind: projectNodes.kind,
-      parentId: projectNodes.parentId,
-      sortOrder: projectNodes.sortOrder,
-      actionCount: sql<number>`count(${tasks.id})::int`,
-    })
-    .from(projectNodes)
-    .leftJoin(
-      tasks,
-      and(eq(tasks.projectNodeId, projectNodes.id), eq(tasks.archived, false)),
-    )
-    .where(eq(projectNodes.isArchived, false))
-    .groupBy(projectNodes.id)
-    .orderBy(asc(projectNodes.sortOrder), asc(projectNodes.name));
+  const owner = alias(employees, "owner");
+  const [rows, memberRows] = await Promise.all([
+    db
+      .select({
+        id: projectNodes.id,
+        name: projectNodes.name,
+        kind: projectNodes.kind,
+        parentId: projectNodes.parentId,
+        sortOrder: projectNodes.sortOrder,
+        description: projectNodes.description,
+        notes: projectNodes.notes,
+        targetDate: projectNodes.targetDate,
+        ownerId: projectNodes.ownerId,
+        ownerName: owner.name,
+        actionCount: sql<number>`count(${tasks.id})::int`,
+      })
+      .from(projectNodes)
+      .leftJoin(
+        tasks,
+        and(eq(tasks.projectNodeId, projectNodes.id), eq(tasks.archived, false)),
+      )
+      .leftJoin(owner, eq(owner.id, projectNodes.ownerId))
+      .where(eq(projectNodes.isArchived, false))
+      .groupBy(projectNodes.id, owner.name)
+      .orderBy(asc(projectNodes.sortOrder), asc(projectNodes.name)),
+    db
+      .select({
+        nodeId: projectMembers.projectNodeId,
+        employeeId: projectMembers.employeeId,
+        name: employees.name,
+      })
+      .from(projectMembers)
+      .innerJoin(employees, eq(employees.id, projectMembers.employeeId))
+      .orderBy(asc(employees.name)),
+  ]);
+
+  const membersByNode = new Map<string, ProjectMemberRef[]>();
+  for (const m of memberRows) {
+    const list = membersByNode.get(m.nodeId) ?? [];
+    list.push({ id: m.employeeId, name: m.name });
+    membersByNode.set(m.nodeId, list);
+  }
 
   const byId = new Map<string, ProjectTreeNode>();
   for (const r of rows) {
-    byId.set(r.id, { ...r, children: [] });
+    byId.set(r.id, {
+      ...r,
+      members: membersByNode.get(r.id) ?? [],
+      children: [],
+    });
   }
   const roots: ProjectTreeNode[] = [];
   for (const node of byId.values()) {

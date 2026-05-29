@@ -22,21 +22,34 @@ function isUuid(v: string): boolean {
  */
 export async function markNotificationRead(
   notificationId: string,
-): Promise<void> {
-  if (!isUuid(notificationId)) return;
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!isUuid(notificationId)) return { ok: false, error: "Invalid id." };
   const me = await requireUser();
-  await markReadQuery(notificationId, me.id);
+  try {
+    await markReadQuery(notificationId, me.id);
+  } catch (err) {
+    // Non-critical: marking read failing must never block opening the task.
+    return { ok: false, error: `Could not mark read: ${(err as Error).message}` };
+  }
   revalidatePath("/inbox");
   revalidatePath("/");
+  return { ok: true };
 }
 
 /**
  * Mark every unread notification for the current user as read.  Powers
  * the "Mark all read" button at the top of /inbox.
  */
-export async function markAllNotificationsRead(): Promise<void> {
+export async function markAllNotificationsRead(): Promise<
+  { ok: true } | { ok: false; error: string }
+> {
   const me = await requireUser();
-  await markAllReadQuery(me.id);
+  try {
+    await markAllReadQuery(me.id);
+  } catch (err) {
+    return { ok: false, error: `Could not mark all read: ${(err as Error).message}` };
+  }
   revalidatePath("/inbox");
   revalidatePath("/");
+  return { ok: true };
 }

@@ -38,6 +38,7 @@ import {
 } from "@/db/enums";
 import { setTaskStatus } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
+import { STATUS_TONES_FALLBACK } from "@/lib/format";
 
 interface Props {
   task: TaskDetailModel;
@@ -94,16 +95,16 @@ const STATUS_TONE: Record<
   },
   initiated: {
     label: "Initiated",
-    rgb: "59, 130, 246",
-    ink: "var(--color-blue-deep)",
-    bg: "var(--color-blue-bg)",
+    rgb: "234, 179, 8",
+    ink: "var(--color-yellow-deep)",
+    bg: "var(--color-yellow-bg)",
     live: true,
   },
   follow_up: {
     label: "Follow Up",
-    rgb: "245, 158, 11",
-    ink: "var(--color-amber-deep)",
-    bg: "var(--color-amber-bg)",
+    rgb: "249, 115, 22",
+    ink: "var(--color-orange-deep)",
+    bg: "var(--color-orange-bg)",
     live: true,
   },
   need_help: {
@@ -115,30 +116,30 @@ const STATUS_TONE: Record<
   },
   need_info: {
     label: "Need Info",
-    rgb: "59, 130, 246",
-    ink: "var(--color-blue-deep)",
-    bg: "var(--color-blue-bg)",
+    rgb: "225, 6, 0",
+    ink: "var(--color-red-deep)",
+    bg: "var(--color-red-bg)",
     live: false,
   },
   follow_up_1: {
     label: "Follow Up 1",
-    rgb: "245, 158, 11",
-    ink: "var(--color-amber-deep)",
-    bg: "var(--color-amber-bg)",
+    rgb: "249, 115, 22",
+    ink: "var(--color-orange-deep)",
+    bg: "var(--color-orange-bg)",
     live: true,
   },
   follow_up_2: {
     label: "Follow Up 2",
-    rgb: "245, 158, 11",
-    ink: "var(--color-amber-deep)",
-    bg: "var(--color-amber-bg)",
+    rgb: "249, 115, 22",
+    ink: "var(--color-orange-deep)",
+    bg: "var(--color-orange-bg)",
     live: true,
   },
   follow_up_3: {
     label: "Follow Up 3",
-    rgb: "225, 6, 0",
-    ink: "var(--color-red-deep)",
-    bg: "var(--color-red-bg)",
+    rgb: "249, 115, 22",
+    ink: "var(--color-orange-deep)",
+    bg: "var(--color-orange-bg)",
     live: true,
   },
   done: {
@@ -150,30 +151,30 @@ const STATUS_TONE: Record<
   },
   approved: {
     label: "Approved",
-    rgb: "34, 197, 94",
-    ink: "var(--color-green-deep)",
-    bg: "var(--color-green-bg)",
+    rgb: "168, 85, 247",
+    ink: "var(--color-purple-deep)",
+    bg: "var(--color-purple-bg)",
     live: false,
   },
   not_approved: {
     label: "Not Approved",
-    rgb: "225, 6, 0",
-    ink: "var(--color-red-deep)",
-    bg: "var(--color-red-bg)",
-    live: false,
-  },
-  cancelled: {
-    label: "Cancelled",
     rgb: "244, 63, 94",
     ink: "var(--color-rose-deep)",
     bg: "var(--color-rose-bg)",
     live: false,
   },
+  cancelled: {
+    label: "Cancelled",
+    rgb: "100, 116, 139",
+    ink: "var(--color-slate-deep)",
+    bg: "var(--color-slate-bg)",
+    live: false,
+  },
   transferred: {
     label: "Transferred",
-    rgb: "168, 85, 247",
-    ink: "var(--color-purple-deep)",
-    bg: "var(--color-purple-bg)",
+    rgb: "146, 114, 78",
+    ink: "var(--color-brown-deep)",
+    bg: "var(--color-brown-bg)",
     live: false,
   },
 };
@@ -733,7 +734,7 @@ function InteractiveStatusPill({
         >
           {options.map((s) => {
             const sel = s === shown;
-            const tone = tones?.[s] ?? "amber";
+            const tone = tones?.[s] || STATUS_TONES_FALLBACK[s];
             const label = labels?.[s] ?? STATUS_TONE[s]?.label ?? s;
             return (
               <li
@@ -760,10 +761,10 @@ function InteractiveStatusPill({
               >
                 <span
                   aria-hidden
-                  className="inline-block size-2 rounded-full"
+                  className="inline-block size-2.5 rounded-full shrink-0"
                   style={{
                     background: `var(--color-${tone})`,
-                    boxShadow: `0 0 6px var(--color-${tone})`,
+                    boxShadow: "inset 0 0 0 1px rgba(15, 23, 42, 0.18)",
                   }}
                 />
                 <span

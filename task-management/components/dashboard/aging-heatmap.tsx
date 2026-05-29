@@ -552,21 +552,23 @@ function Segment({
           align="center"
           sideOffset={10}
           collisionPadding={12}
-          className="z-[100] bg-surface-card border rounded-section overflow-hidden max-h-[var(--radix-popover-content-available-height)]"
+          className="z-[100] bg-surface-card border rounded-section overflow-hidden max-h-[var(--radix-popover-content-available-height)] flex flex-col"
           style={{
             borderColor: c.deep,
             borderWidth: 2,
             boxShadow:
               "0 24px 56px -16px rgba(15, 23, 42, 0.24), 0 8px 24px -8px rgba(15, 23, 42, 0.14)",
-            // Tier-3 mobile fix — never exceed the viewport minus the
-            // collisionPadding gutter (12px both sides = 24px).
-            minWidth: "min(360px, calc(100vw - 24px))",
+            // Fixed, bounded width so a long task title can never stretch the
+            // popover off-screen — titles wrap inside instead. Never exceeds
+            // the viewport minus the 12px collision gutter on each side.
+            width: "min(420px, calc(100vw - 24px))",
+            maxWidth: "calc(100vw - 24px)",
           }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header — coloured band with the bucket label */}
           <div
-            className="px-5 py-4"
+            className="px-5 py-4 shrink-0"
             style={{
               background: `linear-gradient(135deg, ${c.fill}, ${c.deep})`,
               color: "#ffffff",
@@ -594,12 +596,14 @@ function Segment({
             </p>
           </div>
 
-          {/* Task list — big bold rows */}
-          <ul className="flex flex-col p-2 max-h-80 overflow-y-auto min-w-[360px] bg-surface-card">
+          {/* Task list — each title wraps to 2 lines (with long URLs/emails
+              broken) so nothing spills out of the popover. The list scrolls
+              when there are many tasks. */}
+          <ul className="flex flex-col flex-1 min-h-0 p-2 overflow-y-auto bg-surface-card">
             {tasks.length === 0 && (
               <li
                 className="py-4 px-3 font-semibold"
-                style={{ fontSize: 17, color: "var(--color-ink-muted)" }}
+                style={{ fontSize: 16, color: "var(--color-ink-muted)" }}
               >
                 No tasks.
               </li>
@@ -608,19 +612,27 @@ function Segment({
               <li key={t.id}>
                 <Link
                   href={`/tasks/${t.id}` as Route}
-                  className="aging-popover-row flex items-center justify-between gap-3 py-3 px-3 rounded-chip transition-colors"
+                  className="aging-popover-row flex items-start justify-between gap-3 py-3 px-3 rounded-chip transition-colors"
                 >
                   <span
-                    className="text-ink-strong font-bold truncate"
-                    style={{ fontSize: 17 }}
+                    className="text-ink-strong font-bold min-w-0"
+                    style={{
+                      fontSize: 15.5,
+                      lineHeight: 1.4,
+                      overflowWrap: "anywhere",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
                   >
                     {t.title}
                   </span>
                   <span
-                    className="tabular-nums font-black shrink-0 rounded-pill px-2.5 py-1"
+                    className="tabular-nums font-black shrink-0 rounded-pill px-2.5 py-1 mt-0.5"
                     style={{
                       fontFamily: "var(--font-display), system-ui, sans-serif",
-                      fontSize: 16,
+                      fontSize: 15,
                       color: c.deep,
                       background: c.tint,
                       border: `1px solid ${c.light}`,

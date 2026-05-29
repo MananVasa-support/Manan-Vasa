@@ -12,6 +12,7 @@ import {
 } from "@/db/enums";
 import { setTaskStatus } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
+import { STATUS_TONES_FALLBACK } from "@/lib/format";
 
 interface Props {
   taskId: string;
@@ -52,7 +53,9 @@ export function InlineStatusCell({
     ? TASK_STATUSES
     : USER_TASK_STATUSES;
 
-  const tone = tones[shown] ?? "amber";
+  // `||` (not `??`) so an empty/blank token also falls back to the
+  // canonical per-status colour — guarantees every status renders coloured.
+  const tone = tones[shown] || STATUS_TONES_FALLBACK[shown];
 
   async function pick(next: TaskStatus) {
     setOpen(false);
@@ -132,7 +135,7 @@ export function InlineStatusCell({
           <ul role="listbox" aria-label="Set task status">
             {options.map((s) => {
               const sel = s === shown;
-              const t = tones[s] ?? "amber";
+              const t = tones[s] || STATUS_TONES_FALLBACK[s];
               return (
                 <li
                   key={s}
@@ -158,10 +161,13 @@ export function InlineStatusCell({
                 >
                   <span
                     aria-hidden
-                    className="inline-block size-2 rounded-full"
+                    className="inline-block size-2.5 rounded-full shrink-0"
                     style={{
                       background: `var(--color-${t})`,
-                      boxShadow: `0 0 6px var(--color-${t})`,
+                      // Inset ring keeps light tones (yellow, light-grey)
+                      // visible on the white menu instead of a glow that
+                      // washes them out.
+                      boxShadow: "inset 0 0 0 1px rgba(15, 23, 42, 0.18)",
                     }}
                   />
                   <span

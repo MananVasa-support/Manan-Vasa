@@ -173,9 +173,16 @@ export function StatusTable({
       }}
     >
       <header className="mb-5 flex items-end justify-between gap-4 flex-wrap">
-        <div>
+        <div className="flex items-start gap-3">
+          <span
+            aria-hidden
+            className="mt-1 inline-flex size-10 shrink-0 items-center justify-center rounded-xl"
+            style={{ background: "rgba(15, 23, 42, 0.05)", color: "var(--color-ink-strong)" }}
+          >
+            <Users size={20} strokeWidth={2.2} />
+          </span>
+          <div>
           <h2 className="text-display-lg text-ink-strong">
-            <span aria-hidden className="mr-2">👥</span>
             Status by {view === "doer" ? "Doer" : "Initiator"}
           </h2>
           <p className="text-body-lg text-ink-subtle mt-1">
@@ -191,6 +198,7 @@ export function StatusTable({
               <>Tasks broken down per person</>
             )}
           </p>
+          </div>
         </div>
       </header>
 
@@ -235,7 +243,7 @@ export function StatusTable({
           className="bg-surface-card rounded-section border border-hairline overflow-x-auto"
           style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
         >
-          <table className="min-w-[720px]">
+          <table className="w-full min-w-[720px]">
             <thead>
               {table.getHeaderGroups().map((hg) => (
                 <tr key={hg.id} className="border-b border-hairline">

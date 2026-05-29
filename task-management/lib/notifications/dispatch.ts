@@ -116,6 +116,18 @@ async function safeSend(
 }
 
 export async function notify(opts: NotifyOpts): Promise<void> {
+  // Best-effort: a notification failure (a slow-DB insert timeout, a channel
+  // error, a deleted recipient) must NEVER crash the action that triggered
+  // it — that's what surfaced as "we hit a snag" on reassign/transfer. The
+  // core mutation has already committed by the time we get here; swallow + log.
+  try {
+    await notifyImpl(opts);
+  } catch (err) {
+    console.warn("[notify] non-fatal dispatch failure:", (err as Error)?.message ?? err);
+  }
+}
+
+async function notifyImpl(opts: NotifyOpts): Promise<void> {
   const [row] = await db
     .insert(notifications)
     .values({
@@ -478,6 +490,19 @@ export interface NotifyManyOpts {
  * task; we only ever READ it here.
  */
 export async function notifyManyForTask(
+  taskId: string,
+  opts: NotifyManyOpts,
+): Promise<void> {
+  // Best-effort, same rationale as notify(): never let a fan-out failure
+  // crash the triggering action.
+  try {
+    await notifyManyForTaskImpl(taskId, opts);
+  } catch (err) {
+    console.warn("[notifyManyForTask] non-fatal dispatch failure:", (err as Error)?.message ?? err);
+  }
+}
+
+async function notifyManyForTaskImpl(
   taskId: string,
   opts: NotifyManyOpts,
 ): Promise<void> {
