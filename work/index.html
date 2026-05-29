@@ -374,6 +374,21 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--page-bg);color:var(
 .task-table tbody tr:hover td{background:#fdeded;}
 .task-table td.editable-cell{color:var(--text2);}
 .task-table td.wrap-cell{white-space:normal;max-width:360px;min-width:220px;overflow-wrap:anywhere;word-break:break-word;}
+/* Per-column tuning — Subject + Client narrower (with wrapping headers), Task / Initiator Notes wider. */
+.task-table th.col-subj,
+.task-table td.col-subj{max-width:200px;min-width:140px;}
+.task-table th.col-client,
+.task-table td.col-client{max-width:170px;min-width:130px;}
+.task-table th.col-task,
+.task-table td.col-task{max-width:440px;min-width:280px;}
+.task-table th.col-iNotes,
+.task-table td.col-iNotes{max-width:440px;min-width:280px;}
+.task-table th{white-space:normal;}
+/* Same treatment for the sidebar's compact task table. */
+.person-table th.col-task,
+.person-table td.col-task{max-width:320px;min-width:220px;}
+.person-table th.col-iNotes,
+.person-table td.col-iNotes{max-width:320px;min-width:220px;}
 
 /* Task Id cell with the 3-dots affordance */
 .id-cell{display:flex;align-items:center;gap:8px;justify-content:space-between;min-width:84px;}
@@ -967,9 +982,11 @@ document.addEventListener('click', function() {
 ─────────────────────────────────────────────────────────── */
 function openPersonSlider(opts) {
   if (typeof opts === 'string') opts = { name: opts, role: arguments[1] || 'doer' };
-  const name      = opts.name || null;
-  const role      = opts.role || 'doer'; // 'doer' or 'init'
-  const statusKey = opts.status || null; // single status, or 'Pending'/'Follow Up' meta, or null = all
+  const name        = opts.name || null;
+  const role        = opts.role || 'doer';            // 'doer' or 'init'
+  const statusKey   = opts.status || null;            // single status, 'Pending'/'Follow Up' meta, or null
+  const isAging     = opts.mode === 'aging';
+  const agingBucket = opts.agingBucket || null;       // '0'..'7', 'all', or null
 
   const { start, end }      = hasDateCol ? getRange() : { start:null, end:null };
   const globalStatusFilter  = getActiveStatusFilter();
@@ -987,6 +1004,14 @@ function openPersonSlider(opts) {
     if (statusKey === 'Follow Up') return /^Follow Up( \d)?$/.test(s);
     return s === statusKey;
   };
+  const isPendingStatus = (s) => /^Need Help$|^Initiated$|^Not Started$|^Follow Up( \d)?$/.test(s);
+  const computeBucket = (t) => {
+    if (!t.due) return 0;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const d = parseDate(t.due); if (!d) return 0;
+    const days = Math.floor((today - d) / 86400000);
+    return getBucket(days);
+  };
 
   const tasks = (allTasks||[]).filter(t => {
     if (t.arch) return false;
@@ -998,7 +1023,13 @@ function openPersonSlider(opts) {
       if (!dispSet.has(who.toLowerCase())) return false;
     }
     if (!matchesGlobal(t.status)) return false;
-    if (!matchesSpecific(t.status)) return false;
+    if (isAging) {
+      // Aging view = pending tasks only, optionally filtered to one bucket.
+      if (!isPendingStatus(t.status)) return false;
+      if (agingBucket && agingBucket !== 'all' && computeBucket(t) !== Number(agingBucket)) return false;
+    } else {
+      if (!matchesSpecific(t.status)) return false;
+    }
     if (hasDateCol && (start || end)) {
       const d = parseDate(t.due);
       if (d) {
@@ -1009,61 +1040,104 @@ function openPersonSlider(opts) {
     return true;
   });
 
-  // KPI counts from the filtered set
-  let c = { Total:0, Done:0, 'Not Approved':0, Approved:0, Pending:0, Cancelled:0, Transferred:0 };
-  tasks.forEach(t => {
-    c.Total++;
-    if (t.status === 'Done') c.Done++;
-    else if (t.status === 'Not Approved') c['Not Approved']++;
-    else if (t.status === 'Approved') c.Approved++;
-    else if (t.status === 'Cancelled') c.Cancelled++;
-    else if (t.status === 'Transferred') c.Transferred++;
-    else if (/^Need Help$|^Initiated$|^Not Started$|^Follow Up( \d)?$/.test(t.status)) c.Pending++;
-  });
-
   // Header
   const titleParts = [];
   if (name) titleParts.push(name);
-  if (statusKey) titleParts.push(statusKey);
+  if (isAging) {
+    titleParts.push(agingBucket && agingBucket !== 'all'
+      ? 'Aging · ' + AGING_TABLE_LABELS[Number(agingBucket)]
+      : 'Aging · All pending');
+  } else if (statusKey) {
+    titleParts.push(statusKey);
+  }
   document.getElementById('person-title').textContent = titleParts.length ? titleParts.join(' · ') : 'Tasks';
   document.getElementById('person-sub').textContent =
-    (role === 'init' ? 'Initiator view · ' : 'Doer view · ')
+    (isAging ? 'Aging view · ' : (role === 'init' ? 'Initiator view · ' : 'Doer view · '))
     + tasks.length + ' task' + (tasks.length === 1 ? '' : 's');
 
-  // KPI strip
-  const KPIS = [
-    { key:null,           label:'Total',        val:c.Total },
-    { key:'Done',         label:'Done',         val:c.Done },
-    { key:'Not Approved', label:'Not Approved', val:c['Not Approved'] },
-    { key:'Approved',     label:'Approved',     val:c.Approved },
-    { key:'Pending',      label:'Pending',      val:c.Pending },
-    { key:'Cancelled',    label:'Cancelled',    val:c.Cancelled },
-    { key:'Transferred',  label:'Transferred',  val:c.Transferred },
-  ];
-  document.getElementById('person-kpis').innerHTML = KPIS.map(k =>
-    `<div class="pk ${(k.key||'')===(statusKey||'')?'active':''}" data-pk-status="${escAttr(k.key||'')}">
-      <div class="pk-label">${esc(k.label)}</div>
-      <div class="pk-val">${k.val}</div>
-    </div>`).join('');
+  // KPI strip — aging mode shows the 8 bucket counts; default mode shows status counts.
+  if (isAging) {
+    const buckets = new Array(8).fill(0);
+    // Count buckets across all pending tasks for this person (ignoring the
+    // bucket filter, so each tile shows its own total) within other filters.
+    (allTasks||[]).forEach(t => {
+      if (t.arch || !t.status) return;
+      if (name && String(t.doer||'').trim().toLowerCase() !== String(name).trim().toLowerCase()) return;
+      if (!isPendingStatus(t.status)) return;
+      if (!matchesGlobal(t.status)) return;
+      if (hasDateCol && (start || end)) {
+        const d = parseDate(t.due);
+        if (d) {
+          if (start && d < start) return;
+          if (end && d > end) return;
+        }
+      }
+      buckets[computeBucket(t)]++;
+    });
+    const grandTotal = buckets.reduce((s,v)=>s+v,0);
+    const tiles = [{ key:'all', label:'Total Pending', val:grandTotal }]
+      .concat(AGING_TABLE_LABELS.map((label,i) => ({ key:String(i), label, val:buckets[i] })));
+    document.getElementById('person-kpis').innerHTML = tiles.map(k =>
+      `<div class="pk ${(k.key)===(agingBucket||'all')?'active':''}" data-pk-aging="${escAttr(k.key)}">
+        <div class="pk-label">${esc(k.label)}</div>
+        <div class="pk-val">${k.val}</div>
+      </div>`).join('');
+  } else {
+    const c = { Total:0, Done:0, 'Not Approved':0, Approved:0, Pending:0, Cancelled:0, Transferred:0 };
+    tasks.forEach(t => {
+      c.Total++;
+      if (t.status === 'Done') c.Done++;
+      else if (t.status === 'Not Approved') c['Not Approved']++;
+      else if (t.status === 'Approved') c.Approved++;
+      else if (t.status === 'Cancelled') c.Cancelled++;
+      else if (t.status === 'Transferred') c.Transferred++;
+      else if (isPendingStatus(t.status)) c.Pending++;
+    });
+    const KPIS = [
+      { key:null,           label:'Total',        val:c.Total },
+      { key:'Done',         label:'Done',         val:c.Done },
+      { key:'Not Approved', label:'Not Approved', val:c['Not Approved'] },
+      { key:'Approved',     label:'Approved',     val:c.Approved },
+      { key:'Pending',      label:'Pending',      val:c.Pending },
+      { key:'Cancelled',    label:'Cancelled',    val:c.Cancelled },
+      { key:'Transferred',  label:'Transferred',  val:c.Transferred },
+    ];
+    document.getElementById('person-kpis').innerHTML = KPIS.map(k =>
+      `<div class="pk ${(k.key||'')===(statusKey||'')?'active':''}" data-pk-status="${escAttr(k.key||'')}">
+        <div class="pk-label">${esc(k.label)}</div>
+        <div class="pk-val">${k.val}</div>
+      </div>`).join('');
+  }
 
   // Task table
   const tableWrap = document.getElementById('person-table-wrap');
   if (!tasks.length) {
     tableWrap.innerHTML = `<div class="person-empty">No tasks match the current filters.</div>`;
   } else {
-    const headers = ['Task Id','Status','Subject','Task','Doer','Initiator','Due','Doer Notes'];
-    let html = `<table class="person-table"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`;
+    const headerCols = [
+      { key:'id',     label:'Task Id' },
+      { key:'status', label:'Status' },
+      { key:'subj',   label:'Subject' },
+      { key:'task',   label:'Task' },
+      { key:'doer',   label:'Doer' },
+      { key:'init',   label:'Initiator' },
+      { key:'due',    label:'Due' },
+      { key:'iNotes', label:'Initiator Notes' },
+      { key:'dNotes', label:'Doer Notes' },
+    ];
+    let html = `<table class="person-table"><thead><tr>${headerCols.map(c=>`<th class="col-${c.key}">${esc(c.label)}</th>`).join('')}</tr></thead><tbody>`;
     tasks.forEach(t => {
       const st = statusStyle(t.status||'');
       html += `<tr data-id="${escAttr(t.id||'')}">
-        <td><b>${esc(t.id||'')}</b></td>
-        <td><span class="status-badge" style="background:${st.bg};color:${st.fg};">${esc(t.status||'')}</span></td>
-        <td class="wrap">${esc(t.subj||'')||'<span class="zero">—</span>'}</td>
-        <td class="wrap">${esc(t.task||'')||'<span class="zero">—</span>'}</td>
-        <td>${esc(t.doer||'')||'<span class="zero">—</span>'}</td>
-        <td>${esc(t.init||'')||'<span class="zero">—</span>'}</td>
-        <td>${esc(fmtDate(t.due||''))||'<span class="zero">—</span>'}</td>
-        <td class="wrap">${esc(t.dNotes||'')||'<span class="zero">—</span>'}</td>
+        <td class="col-id"><b>${esc(t.id||'')}</b></td>
+        <td class="col-status"><span class="status-badge" style="background:${st.bg};color:${st.fg};">${esc(t.status||'')}</span></td>
+        <td class="col-subj wrap">${esc(t.subj||'')||'<span class="zero">—</span>'}</td>
+        <td class="col-task wrap">${esc(t.task||'')||'<span class="zero">—</span>'}</td>
+        <td class="col-doer">${esc(t.doer||'')||'<span class="zero">—</span>'}</td>
+        <td class="col-init">${esc(t.init||'')||'<span class="zero">—</span>'}</td>
+        <td class="col-due">${esc(fmtDate(t.due||''))||'<span class="zero">—</span>'}</td>
+        <td class="col-iNotes wrap">${esc(t.iNotes||'')||'<span class="zero">—</span>'}</td>
+        <td class="col-dNotes wrap">${esc(t.dNotes||'')||'<span class="zero">—</span>'}</td>
       </tr>`;
     });
     html += '</tbody></table>';
@@ -1078,6 +1152,8 @@ function openPersonSlider(opts) {
   slider.dataset.name = name || '';
   slider.dataset.role = role;
   slider.dataset.status = statusKey || '';
+  slider.dataset.mode = isAging ? 'aging' : '';
+  slider.dataset.agingBucket = agingBucket || '';
 
   document.getElementById('person-backdrop').classList.add('open');
   slider.classList.add('open');
@@ -1117,6 +1193,23 @@ document.addEventListener('click', function(e) {
     }
   }
 
+  // Click an aging-bucket cell → slider in "aging" mode (pending tasks bucketed by overdue days)
+  const agingTd = e.target.closest && e.target.closest('.all-table tbody td[data-aging-bucket]');
+  if (agingTd) {
+    const tr = agingTd.closest('tr');
+    const nameCell = tr && tr.querySelector('.name-cell[data-name]');
+    if (nameCell) {
+      e.stopPropagation();
+      openPersonSlider({
+        name: nameCell.getAttribute('data-name'),
+        role: 'doer',
+        mode: 'aging',
+        agingBucket: agingTd.getAttribute('data-aging-bucket'),
+      });
+      return;
+    }
+  }
+
   // Click a KPI stat box at the top of the Doer / Initiator panel → slider
   const sb = e.target.closest && e.target.closest('.stat-box[data-status]');
   if (sb) {
@@ -1127,15 +1220,24 @@ document.addEventListener('click', function(e) {
   }
 
   // Click a KPI tile inside the slider → re-filter the slider
-  const pk = e.target.closest && e.target.closest('.pk[data-pk-status]');
+  const pk = e.target.closest && e.target.closest('.pk[data-pk-status],.pk[data-pk-aging]');
   if (pk) {
     e.stopPropagation();
     const slider = document.getElementById('person-slider');
-    openPersonSlider({
-      name: slider.dataset.name || null,
-      role: slider.dataset.role || 'doer',
-      status: pk.getAttribute('data-pk-status') || null,
-    });
+    if (pk.hasAttribute('data-pk-aging')) {
+      openPersonSlider({
+        name: slider.dataset.name || null,
+        role: 'doer',
+        mode: 'aging',
+        agingBucket: pk.getAttribute('data-pk-aging'),
+      });
+    } else {
+      openPersonSlider({
+        name: slider.dataset.name || null,
+        role: slider.dataset.role || 'doer',
+        status: pk.getAttribute('data-pk-status') || null,
+      });
+    }
     return;
   }
 
@@ -1482,8 +1584,8 @@ function renderAgingTable(names) {
     const hasData = rowTotal > 0;
     html += `<tr${hasData?'':' class="no-data-row"'}>
       <td class="name-cell" data-name="${escAttr(r.name)}" data-role="doer" title="${esc(r.name)}">${esc(r.name)}</td>
-      ${r.buckets.map(b => `<td data-status="Pending">${v(b)}</td>`).join('')}
-      <td data-status="Pending">${v(rowTotal)}</td>
+      ${r.buckets.map((b,i) => `<td data-aging-bucket="${i}">${v(b)}</td>`).join('')}
+      <td data-aging-bucket="all">${v(rowTotal)}</td>
     </tr>`;
   });
 
@@ -1674,13 +1776,13 @@ function renderTaskTab(mode, display) {
 
 function buildTaskTableHTML(rows, mode) {
   let html = '<table class="task-table"><thead><tr>';
-  TASK_DEF.forEach(c => { html += `<th>${esc(c.label)}</th>`; });
+  TASK_DEF.forEach(c => { html += `<th class="col-${c.key}">${esc(c.label)}</th>`; });
   html += '</tr></thead><tbody>';
   rows.forEach(t => {
     html += `<tr data-id="${escAttr(t.id)}">`;
     TASK_DEF.forEach(c => {
       const wrap = c.wrap ? ' wrap-cell' : '';
-      html += `<td class="${wrap}">${displayCell(c, t)}</td>`;
+      html += `<td class="col-${c.key}${wrap}">${displayCell(c, t)}</td>`;
     });
     html += '</tr>';
   });
@@ -1761,8 +1863,8 @@ function openTaskModal(id) {
     ro('Task Initiator',   valOr(t.init)),
     ro('Task Doer',        valOr(t.doer)),
     ro('Due Date',         valOr(fmtDate(t.due||''))),
-    ro('Subject',          valOr(t.subj), true),
-    ro('Client / Participant Name', valOr(t.client), true),
+    ro('Subject',          valOr(t.subj)),
+    ro('Client / Participant Name', valOr(t.client)),
     ro('Task',             valOr(t.task), true),
     ro('Initiator Notes',  valOr(t.iNotes), true),
     ro('Attachment 1',     attHTML(t.att1)),
@@ -1847,7 +1949,12 @@ function saveFromModal() {
       }
       closeTaskModal();
       render();
-      loadData(true);
+      // Skip the immediate post-save reload: the Website Report's
+      // VSTACK cascade often hasn't recomputed yet when this fires,
+      // and the reload would clobber the just-saved values with stale
+      // data, making the edit "flicker back". The KPIs / pies catch
+      // up on the next manual Refresh.
+      scheduleAggregateRefresh();
     } else {
       setToast((res && res.message) || 'Save failed', 'err');
       document.getElementById('tm-save-btn').disabled = false;
@@ -1868,11 +1975,24 @@ function archiveFromModal() {
       if (tLocal) tLocal.arch = on;
       closeTaskModal();
       render();
-      loadData(true);
+      scheduleAggregateRefresh();
     } else {
       setToast((res && res.message) || 'Action failed', 'err');
     }
   });
+}
+
+// Debounced background reload so KPIs / pies eventually pick up the
+// edit once the Website Report cascade has settled, without clobbering
+// the optimistic local update. Fires 8s after the last edit; new edits
+// reset the timer. Manual Refresh still works as the fast path.
+let _aggReloadTimer = null;
+function scheduleAggregateRefresh() {
+  if (_aggReloadTimer) clearTimeout(_aggReloadTimer);
+  _aggReloadTimer = setTimeout(() => {
+    _aggReloadTimer = null;
+    loadData(true);
+  }, 8000);
 }
 
 /* ── generic JSONP write ── */
