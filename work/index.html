@@ -104,16 +104,25 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--page-bg);color:var(
 .refresh-btn.spinning svg{animation:spin 0.9s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
-/* ══ TABS ══ */
-.tabs-bar{max-width:1440px;margin:1.4rem auto 0;padding:0 2rem;display:flex;gap:8px;}
-.tab-btn{
-  padding:9px 24px;border-radius:8px;
-  border:1.5px solid rgba(0,0,0,0.12);background:rgba(0,0,0,0.04);
-  color:rgba(0,0,0,0.48);font-family:Arial,Helvetica,sans-serif;
-  font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;letter-spacing:0.01em;
+/* ══ TABS — bright-red hyperlink style, horizontally scrollable, red breaker below ══ */
+.tabs-bar{
+  max-width:1440px;margin:1.4rem auto 0;padding:0 2rem;
+  display:flex;gap:28px;align-items:flex-end;
+  overflow-x:auto;overflow-y:visible;
+  border-bottom:3px solid var(--red);
+  scrollbar-width:none;-ms-overflow-style:none;
 }
-.tab-btn:hover{border-color:rgba(229,0,0,0.4);color:var(--text);}
-.tab-btn.active{background:var(--red);border-color:var(--red);color:#fff;}
+.tabs-bar::-webkit-scrollbar{display:none;}
+.tab-btn{
+  padding:8px 2px 10px;background:transparent;border:none;
+  color:#ff0a0a;font-family:Arial,Helvetica,sans-serif;
+  font-size:13.5px;font-weight:800;letter-spacing:0.04em;
+  cursor:pointer;white-space:nowrap;flex-shrink:0;
+  border-bottom:3px solid transparent;margin-bottom:-3px;
+  transition:color .15s,border-color .15s;
+}
+.tab-btn:hover{color:#b30000;}
+.tab-btn.active{color:#1a1a1a;border-bottom-color:#1a1a1a;}
 .period-info{
   max-width:1440px;margin:0.45rem auto 0;padding:0 2rem;
   font-size:11.5px;font-weight:500;color:var(--muted);letter-spacing:0.01em;
@@ -775,8 +784,6 @@ function sortEmployees(arr) {
 ═══════════════════════════════════════════════════════════ */
 function switchTab(tab) {
   currentTab = tab;
-  closeTaskMenu();
-  editingTaskId = null;
   ['task','doer','initiator','archives'].forEach(t => {
     document.getElementById('tab-btn-'+t).classList.toggle('active', t===tab);
     document.getElementById('tab-'+t).classList.toggle('active', t===tab);
@@ -964,10 +971,10 @@ function openPersonSlider(opts) {
   const tasks = (allTasks||[]).filter(t => {
     if (t.arch) return false;
     if (!t.status) return false;
-    const who = (role === 'init') ? (t.init||'') : (t.doer||'');
+    const who = String((role === 'init') ? (t.init||'') : (t.doer||'')).trim();
     if (name) {
-      if (who.toLowerCase() !== name.toLowerCase()) return false;
-    } else {
+      if (who.toLowerCase() !== String(name).trim().toLowerCase()) return false;
+    } else if (dispSet.size) {
       if (!dispSet.has(who.toLowerCase())) return false;
     }
     if (!matchesGlobal(t.status)) return false;
@@ -1117,6 +1124,18 @@ document.addEventListener('click', function(e) {
   if (sliderRow) {
     e.stopPropagation();
     openTaskModal(sliderRow.getAttribute('data-id'));
+    return;
+  }
+
+  // Click a pie legend item → open slider for that status
+  const pl = e.target.closest && e.target.closest('.pie-legend-item[data-pie-status]');
+  if (pl) {
+    e.stopPropagation();
+    openPersonSlider({
+      name: null,
+      role: pl.getAttribute('data-pie-role') || 'doer',
+      status: pl.getAttribute('data-pie-status') || null,
+    });
     return;
   }
 });
@@ -1309,6 +1328,13 @@ function renderPie(canvasId, legendContainerId, labels, data, colors, chartRef) 
       responsive: true,
       maintainAspectRatio: true,
       cutout: '55%',
+      onClick: (evt, elements) => {
+        if (!elements || !elements.length) return;
+        const idx = elements[0].index;
+        const label = labels[idx];
+        const role = (legendContainerId === 'legend-init-status') ? 'init' : 'doer';
+        openPersonSlider({ name: null, role, status: label });
+      },
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -1327,10 +1353,11 @@ function renderPie(canvasId, legendContainerId, labels, data, colors, chartRef) 
   // Legend
   const leg = document.getElementById(legendContainerId);
   if (leg) {
+    const role = (legendContainerId === 'legend-init-status') ? 'init' : 'doer';
     leg.innerHTML = labels.map((lbl, i) => {
       if (data[i] === 0) return '';
       const pct = ((data[i]/total)*100).toFixed(1);
-      return `<div class="pie-legend-item">
+      return `<div class="pie-legend-item" data-pie-status="${escAttr(lbl)}" data-pie-role="${role}" style="cursor:pointer;">
         <div class="pie-legend-swatch" style="background:${colors[i]}"></div>
         <span class="pie-legend-label">${lbl}</span>
         <span class="pie-legend-val">${data[i]}</span>
@@ -1435,8 +1462,8 @@ function renderAgingTable(names) {
     const hasData = rowTotal > 0;
     html += `<tr${hasData?'':' class="no-data-row"'}>
       <td class="name-cell" data-name="${escAttr(r.name)}" data-role="doer" title="${esc(r.name)}">${esc(r.name)}</td>
-      ${r.buckets.map(b => `<td>${v(b)}</td>`).join('')}
-      <td>${v(rowTotal)}</td>
+      ${r.buckets.map(b => `<td data-status="Pending">${v(b)}</td>`).join('')}
+      <td data-status="Pending">${v(rowTotal)}</td>
     </tr>`;
   });
 
