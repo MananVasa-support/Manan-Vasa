@@ -209,7 +209,11 @@ body{font-family:Arial,Helvetica,sans-serif;background:var(--page-bg);color:var(
 /* Person-tasks slider */
 .person-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:600;opacity:0;pointer-events:none;transition:opacity .2s;}
 .person-backdrop.open{opacity:1;pointer-events:auto;}
-.person-slider{position:fixed;top:0;right:0;height:100vh;width:min(720px,95vw);background:#fff;box-shadow:-18px 0 40px rgba(0,0,0,0.25);z-index:601;transform:translateX(100%);transition:transform .25s;display:flex;flex-direction:column;}
+/* Slider widens until just before the "Total Tasks Assigned" KPI's left
+   edge: dashboard content is centered with max-width 1440px and 2rem
+   padding, so leaving ~2rem of breathing room on the left of the KPI
+   means right-edge ≈ viewport, left-edge ≈ max((vw-1440)/2 + 4rem, 90px). */
+.person-slider{position:fixed;top:0;right:0;height:100vh;width:min(1340px, calc(100vw - max((100vw - 1440px)/2 + 4rem, 90px)));background:#fff;box-shadow:-18px 0 40px rgba(0,0,0,0.25);z-index:601;transform:translateX(100%);transition:transform .25s;display:flex;flex-direction:column;}
 .person-slider.open{transform:translateX(0);}
 .person-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1.5px solid var(--border);}
 .person-head .person-title{font-weight:800;font-size:14px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text2);}
@@ -1249,15 +1253,24 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // Click a pie legend item → open slider for that status
-  const pl = e.target.closest && e.target.closest('.pie-legend-item[data-pie-status]');
+  // Click a pie legend item → open slider for that status or aging bucket
+  const pl = e.target.closest && e.target.closest('.pie-legend-item[data-pie-status],.pie-legend-item[data-pie-aging]');
   if (pl) {
     e.stopPropagation();
-    openPersonSlider({
-      name: null,
-      role: pl.getAttribute('data-pie-role') || 'doer',
-      status: pl.getAttribute('data-pie-status') || null,
-    });
+    if (pl.hasAttribute('data-pie-aging')) {
+      openPersonSlider({
+        name: null,
+        role: 'doer',
+        mode: 'aging',
+        agingBucket: pl.getAttribute('data-pie-aging'),
+      });
+    } else {
+      openPersonSlider({
+        name: null,
+        role: pl.getAttribute('data-pie-role') || 'doer',
+        status: pl.getAttribute('data-pie-status') || null,
+      });
+    }
     return;
   }
 });
@@ -1454,8 +1467,12 @@ function renderPie(canvasId, legendContainerId, labels, data, colors, chartRef) 
         if (!elements || !elements.length) return;
         const idx = elements[0].index;
         const label = labels[idx];
-        const role = (legendContainerId === 'legend-init-status') ? 'init' : 'doer';
-        openPersonSlider({ name: null, role, status: label });
+        if (legendContainerId === 'aging-legend') {
+          openPersonSlider({ name: null, role: 'doer', mode: 'aging', agingBucket: String(idx) });
+        } else {
+          const role = (legendContainerId === 'legend-init-status') ? 'init' : 'doer';
+          openPersonSlider({ name: null, role, status: label });
+        }
       },
       plugins: {
         legend: { display: false },
@@ -1475,11 +1492,15 @@ function renderPie(canvasId, legendContainerId, labels, data, colors, chartRef) 
   // Legend
   const leg = document.getElementById(legendContainerId);
   if (leg) {
+    const isAging = (legendContainerId === 'aging-legend');
     const role = (legendContainerId === 'legend-init-status') ? 'init' : 'doer';
     leg.innerHTML = labels.map((lbl, i) => {
       if (data[i] === 0) return '';
       const pct = ((data[i]/total)*100).toFixed(1);
-      return `<div class="pie-legend-item" data-pie-status="${escAttr(lbl)}" data-pie-role="${role}" style="cursor:pointer;">
+      const dataAttrs = isAging
+        ? `data-pie-aging="${i}"`
+        : `data-pie-status="${escAttr(lbl)}" data-pie-role="${role}"`;
+      return `<div class="pie-legend-item" ${dataAttrs} style="cursor:pointer;">
         <div class="pie-legend-swatch" style="background:${colors[i]}"></div>
         <span class="pie-legend-label">${lbl}</span>
         <span class="pie-legend-val">${data[i]}</span>
