@@ -1132,7 +1132,7 @@ function openPersonSlider(opts) {
     let html = `<table class="person-table"><thead><tr>${headerCols.map(c=>`<th class="col-${c.key}">${esc(c.label)}</th>`).join('')}</tr></thead><tbody>`;
     tasks.forEach(t => {
       const st = statusStyle(t.status||'');
-      html += `<tr data-id="${escAttr(t.id||'')}">
+      html += `<tr data-id="${escAttr(t.id||'')}" data-uid="${t._uid}">
         <td class="col-id"><b>${esc(t.id||'')}</b></td>
         <td class="col-status"><span class="status-badge" style="background:${st.bg};color:${st.fg};">${esc(t.status||'')}</span></td>
         <td class="col-subj wrap">${esc(t.subj||'')||'<span class="zero">—</span>'}</td>
@@ -1246,10 +1246,10 @@ document.addEventListener('click', function(e) {
   }
 
   // Click a row inside the slider → open the task modal
-  const sliderRow = e.target.closest && e.target.closest('.person-table tr[data-id]');
+  const sliderRow = e.target.closest && e.target.closest('.person-table tr[data-uid]');
   if (sliderRow) {
     e.stopPropagation();
-    openTaskModal(sliderRow.getAttribute('data-id'));
+    openTaskModal(Number(sliderRow.getAttribute('data-uid')));
     return;
   }
 
@@ -1800,7 +1800,7 @@ function buildTaskTableHTML(rows, mode) {
   TASK_DEF.forEach(c => { html += `<th class="col-${c.key}">${esc(c.label)}</th>`; });
   html += '</tr></thead><tbody>';
   rows.forEach(t => {
-    html += `<tr data-id="${escAttr(t.id)}">`;
+    html += `<tr data-id="${escAttr(t.id)}" data-uid="${t._uid}">`;
     TASK_DEF.forEach(c => {
       const wrap = c.wrap ? ' wrap-cell' : '';
       html += `<td class="col-${c.key}${wrap}">${displayCell(c, t)}</td>`;
@@ -1835,11 +1835,16 @@ function displayCell(c, t) {
 ═══════════════════════════════════════════════════════════ */
 let modalOriginals = {};
 
-function openTaskModal(id) {
-  const t = allTasks.find(x => x.id === id);
+function openTaskModal(uid) {
+  // uid is the per-load _uid stamped on every task in loadData.
+  // Backward-compat: if a string id sneaks in, fall back to the first id match.
+  const t = (typeof uid === 'number')
+    ? allTasks.find(x => x._uid === uid)
+    : allTasks.find(x => x.id === uid);
   if (!t) return;
   const modal = document.getElementById('task-modal');
-  modal.dataset.taskId = id;
+  modal.dataset.taskUid = String(t._uid);
+  modal.dataset.taskId  = t.id || '';
   modal.dataset.archived = t.arch ? '1' : '';
 
   document.getElementById('tm-id').textContent = t.id || '—';
@@ -1938,14 +1943,13 @@ function onModalInputChange(e) {
 
 function saveFromModal() {
   const modal = document.getElementById('task-modal');
-  const id = modal.dataset.taskId;
-  if (!id) return;
+  const uid = modal.dataset.taskUid ? Number(modal.dataset.taskUid) : null;
+  const task = (uid !== null) ? allTasks.find(t => t._uid === uid) : null;
+  if (!task) return;
+  const id = task.id;
   const params = { action: 'save', id };
-  const task = allTasks.find(t => t.id === id);
-  if (task) {
-    if (task.doer) params.doer = task.doer;
-    if (task.init) params.init = task.init;
-  }
+  if (task.doer) params.doer = task.doer;
+  if (task.init) params.init = task.init;
   const statusEl = modal.querySelector('[data-field="status"]');
   modal.querySelectorAll('[data-field]').forEach(el => {
     const f = el.getAttribute('data-field');
@@ -1960,7 +1964,7 @@ function saveFromModal() {
   jsonpAction(params, function(res) {
     if (res && res.status === 'ok') {
       setToast(res.sheet ? ('Saved → ' + res.sheet) : 'Saved', 'ok');
-      const tLocal = allTasks.find(t => t.id === id);
+      const tLocal = task;
       if (tLocal) {
         Object.keys(params).forEach(k => {
           if (k === 'action' || k === 'id' || k === 'doer' || k === 'init' || k === 'transferredTo') return;
@@ -1985,15 +1989,19 @@ function saveFromModal() {
 
 function archiveFromModal() {
   const modal = document.getElementById('task-modal');
-  const id = modal.dataset.taskId;
-  if (!id) return;
+  const uid = modal.dataset.taskUid ? Number(modal.dataset.taskUid) : null;
+  const task = (uid !== null) ? allTasks.find(t => t._uid === uid) : null;
+  if (!task) return;
+  const id = task.id;
   const on = modal.dataset.archived !== '1';
+  const archiveParams = { action: on ? 'archive' : 'unarchive', id };
+  if (task.doer) archiveParams.doer = task.doer;
+  if (task.init) archiveParams.init = task.init;
   setToast(on ? 'Archiving…' : 'Unarchiving…');
-  jsonpAction({ action: on ? 'archive' : 'unarchive', id }, function(res) {
+  jsonpAction(archiveParams, function(res) {
     if (res && res.status === 'ok') {
       setToast(on ? 'Task archived' : 'Task unarchived', 'ok');
-      const tLocal = allTasks.find(t => t.id === id);
-      if (tLocal) tLocal.arch = on;
+      task.arch = on;
       closeTaskModal();
       render();
       scheduleAggregateRefresh();
@@ -2052,10 +2060,10 @@ function setToast(msg, kind) {
    links keep working because we ignore clicks inside <a>. */
 function onTaskWrapClick(e) {
   if (e.target.closest('a')) return;
-  const tr = e.target.closest('tr[data-id]');
+  const tr = e.target.closest('tr[data-uid]');
   if (!tr) return;
-  const id = tr.getAttribute('data-id');
-  if (id) openTaskModal(id);
+  const uid = tr.getAttribute('data-uid');
+  if (uid !== null && uid !== '') openTaskModal(Number(uid));
 }
 function wireTaskTables() {
   ['wrap-task','wrap-archives'].forEach(id => {
@@ -2134,6 +2142,12 @@ function loadData(preserve) {
     allEmployeeData   = data.employees     || [];
     allInitiatorData  = data.initiators    || [];
     allTasks          = data.tasks         || [];
+    // Task Ids aren't globally unique across employees and interns
+    // (Jeevan's T1 ≠ Dhruv's T1). Stamp each task with a stable per-load
+    // _uid so the modal / save / archive can target the exact row that
+    // was clicked instead of allTasks.find by id (which returns the
+    // first match and shows the wrong task).
+    allTasks.forEach((t, i) => { t._uid = i; });
     employeeNamesList = data.employeeNames || [];
     hasDateCol        = data.hasDateCol    || false;
     editingTaskId     = null;
