@@ -266,8 +266,8 @@ export function FilterBar({
             onChange={handleEmpChange}
             placeholder={
               showScopeChip && assigneeMode === "default"
-                ? "+ add teammate"
-                : "All employees"
+                ? "+ Add Teammate"
+                : "All Employees"
             }
           />
         </div>

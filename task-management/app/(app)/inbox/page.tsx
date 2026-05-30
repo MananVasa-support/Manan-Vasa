@@ -5,6 +5,8 @@ import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { requireUser } from "@/lib/auth/current";
 import { listInboxNotifications } from "@/lib/queries/notifications";
+import { getStatusDisplayMap } from "@/lib/queries/status-display";
+import type { TaskStatus, StatusColorToken } from "@/db/enums";
 import { NotificationRow } from "./notification-row";
 import { MarkAllButton } from "./mark-all-button";
 
@@ -31,11 +33,18 @@ export default async function InboxPage({ searchParams }: PageProps) {
     return Number.isNaN(d.getTime()) ? undefined : d;
   })();
 
-  const { notifications, nextCursor, hasMore } = await listInboxNotifications({
-    userId: me.id,
-    isAdmin: me.isAdmin,
-    before,
-  });
+  const [{ notifications, nextCursor, hasMore }, statusDisplay] =
+    await Promise.all([
+      listInboxNotifications({ userId: me.id, isAdmin: me.isAdmin, before }),
+      getStatusDisplayMap(),
+    ]);
+
+  const statusLabels = Object.fromEntries(
+    Object.entries(statusDisplay).map(([k, v]) => [k, v.label]),
+  ) as Record<TaskStatus, string>;
+  const statusTones = Object.fromEntries(
+    Object.entries(statusDisplay).map(([k, v]) => [k, v.color]),
+  ) as Record<TaskStatus, StatusColorToken>;
 
   const isEmpty = notifications.length === 0;
   const hasUnread = notifications.some((n) => n.readAt === null);
@@ -43,7 +52,7 @@ export default async function InboxPage({ searchParams }: PageProps) {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[960px] px-12 max-md:px-4 pt-10 pb-16">
+      <main className="mx-auto max-w-[1500px] px-12 max-md:px-4 pt-10 pb-16">
         <header className="mb-8 flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h1
@@ -74,7 +83,12 @@ export default async function InboxPage({ searchParams }: PageProps) {
           >
             <ol>
               {notifications.map((n) => (
-                <NotificationRow key={n.id} row={n} />
+                <NotificationRow
+                  key={n.id}
+                  row={n}
+                  statusLabels={statusLabels}
+                  statusTones={statusTones}
+                />
               ))}
             </ol>
           </section>

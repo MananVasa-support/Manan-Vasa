@@ -180,7 +180,7 @@ export function ClientSelect({
           {name}
         </option>
       ))}
-      <option value={ADD_NEW}>+ Add new client…</option>
+      <option value={ADD_NEW}>+ Add New Client…</option>
     </select>
   );
 }

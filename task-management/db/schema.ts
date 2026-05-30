@@ -52,6 +52,12 @@ export const employees = pgTable("employees", {
   isActive: boolean("is_active").notNull().default(true),
   invitedAt: timestamp("invited_at", { withTimezone: true }),
   joinedAt: timestamp("joined_at", { withTimezone: true }),
+  // Admin password-reset lockout marker (migration 0043). Set when an admin
+  // resets the password (sessions revoked); cleared on next successful login.
+  // Non-null => show the "changed by admin" message on a failed sign-in.
+  passwordResetByAdminAt: timestamp("password_reset_by_admin_at", {
+    withTimezone: true,
+  }),
   // M2.3-lite: inbox last-visit marker — drives unread-badge math.
   lastInboxVisitAt: timestamp("last_inbox_visit_at", { withTimezone: true })
     .notNull()
@@ -461,6 +467,10 @@ export const tasks = pgTable(
     ),
     notes: text("notes"),
     subject: text("subject"),
+    // Client this task belongs to. Free-text mirroring `subject` (the
+    // `clients` table is just the picker roster). Added in migration 0042 and
+    // backfilled from the old "Client/Participant:" notes / form title.
+    client: text("client"),
     archived: boolean("archived").notNull().default(false),
     // M2.1 additions — provenance + approval (approved_* used in M2.2) + optimistic lock
     createdById: uuid("created_by_id").references(() => employees.id, {

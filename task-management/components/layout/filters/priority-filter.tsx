@@ -22,7 +22,7 @@ export function PriorityFilter({
         options={OPTIONS}
         selected={selected}
         onChange={onChange}
-        placeholder="All priorities"
+        placeholder="All Priorities"
       />
     </div>
   );

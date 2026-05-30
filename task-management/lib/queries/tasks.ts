@@ -43,6 +43,7 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
       id: tasks.id,
       title: tasks.title,
       subject: tasks.subject,
+      client: tasks.client,
       description: tasks.description,
       status: tasks.status,
       priority: tasks.priority,
@@ -69,6 +70,7 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
     id: r.id,
     title: r.title,
     subject: r.subject,
+    client: r.client,
     description: r.description,
     status: r.status,
     priority: r.priority,
@@ -180,6 +182,7 @@ export async function listTasksPage(
       id: tasks.id,
       title: tasks.title,
       subject: tasks.subject,
+      client: tasks.client,
       description: tasks.description,
       status: tasks.status,
       priority: tasks.priority,
@@ -211,6 +214,7 @@ export async function listTasksPage(
     id: r.id,
     title: r.title,
     subject: r.subject,
+    client: r.client,
     description: r.description,
     status: r.status,
     priority: r.priority,
@@ -238,13 +242,18 @@ export interface BoardTask {
   description: string | null;
   status: (typeof TASK_STATUSES)[number];
   priority: (typeof TASK_PRIORITIES)[number];
+  doerId: string;
   doerName: string | null;
+  archived: boolean;
   dueAt: Date;
   updatedAt: Date;
 }
 
 /** Non-archived tasks for the Kanban board, lightest possible payload. */
 export async function listBoardTasks(): Promise<BoardTask[]> {
+  // Includes archived tasks: the board renders them in a dedicated "Archived"
+  // column (drag a card there to archive, drag back out to restore). The
+  // column count stays small in practice, so no separate query is needed.
   const rows = await db
     .select({
       id: tasks.id,
@@ -253,13 +262,14 @@ export async function listBoardTasks(): Promise<BoardTask[]> {
       description: tasks.description,
       status: tasks.status,
       priority: tasks.priority,
+      doerId: tasks.doerId,
       dueAt: tasks.dueAt,
       updatedAt: tasks.updatedAt,
+      archived: tasks.archived,
       doerName: employees.name,
     })
     .from(tasks)
     .leftJoin(employees, eq(tasks.doerId, employees.id))
-    .where(eq(tasks.archived, false))
     .orderBy(desc(tasks.createdAt))
     .limit(1000);
   return rows.map((r) => ({ ...r, doerName: r.doerName ?? null }));
@@ -278,8 +288,10 @@ export async function listAgendaTasks(employeeId: string): Promise<BoardTask[]> 
       description: tasks.description,
       status: tasks.status,
       priority: tasks.priority,
+      doerId: tasks.doerId,
       dueAt: tasks.dueAt,
       updatedAt: tasks.updatedAt,
+      archived: tasks.archived,
       doerName: employees.name,
     })
     .from(tasks)

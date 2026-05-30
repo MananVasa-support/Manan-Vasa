@@ -66,6 +66,8 @@ export default async function ArchivedPage({ searchParams }: PageProps) {
       <TaskListPage
         title="Archived"
         rows={rows}
+        filters={filters}
+        basePath="/archived"
         employees={allEmployees.map((e) => ({ id: e.id, name: e.name }))}
         me={{ id: me.id, isAdmin: me.isAdmin }}
         statusLabels={statusLabels}

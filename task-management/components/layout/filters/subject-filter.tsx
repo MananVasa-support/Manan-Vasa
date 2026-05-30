@@ -19,7 +19,7 @@ export function SubjectFilter({
         options={opts}
         selected={selected}
         onChange={onChange}
-        placeholder="All subjects"
+        placeholder="All Subjects"
       />
     </div>
   );

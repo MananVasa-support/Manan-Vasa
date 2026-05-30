@@ -21,6 +21,7 @@ function task(partial: Partial<Task>): Task {
     transferredFromId: null,
     notes: null,
     subject: null,
+    client: null,
     archived: false,
     createdById: null,
     approvedById: null,

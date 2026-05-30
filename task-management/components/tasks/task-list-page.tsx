@@ -2,14 +2,15 @@ import Link from "next/link";
 import type { Route } from "next";
 import {
   LayoutGrid,
-  ListTodo,
   CheckCircle2,
   Loader,
   Flame,
+  AlarmClock,
   type LucideIcon,
 } from "lucide-react";
 import { TaskTable } from "./task-table";
-import type { TaskListRow } from "@/lib/types";
+import type { TaskListRow, TaskListFilters } from "@/lib/types";
+import { taskFiltersToSearchString } from "@/lib/task-filters";
 import {
   PENDING_STATUSES as CANONICAL_PENDING_STATUSES,
   type TaskStatus,
@@ -20,41 +21,81 @@ const DONE_STATUSES = new Set<TaskStatus>(["done", "approved"]);
 // Sourced from the canonical export so Tier-3 statuses count correctly.
 const PENDING_STATUSES = new Set<TaskStatus>(CANONICAL_PENDING_STATUSES);
 
+type KpiKey = "done" | "pending" | "critical" | "urgent";
+
 interface KpiSpec {
-  key: "total" | "done" | "pending" | "critical";
+  key: KpiKey;
   label: string;
   sublabel: string;
-  tone: "blue" | "green" | "amber" | "red";
+  tone: "green" | "amber" | "red" | "orange";
 }
 
+// The four clickable summary cards. Each one links to the Tasks list with the
+// matching status/priority filter applied (preserving the current
+// date/employee/department scope) so tapping a card "views" those tasks.
 const KPI_SPECS: KpiSpec[] = [
-  { key: "total",    label: "TOTAL",    sublabel: "All matching tasks", tone: "blue"  },
-  { key: "done",     label: "DONE",     sublabel: "Done + Approved",    tone: "green" },
-  { key: "pending",  label: "PENDING",  sublabel: "Open work",          tone: "amber" },
-  { key: "critical", label: "CRITICAL", sublabel: "Highest priority", tone: "red"   },
+  { key: "done",     label: "DONE",     sublabel: "Done + Approved", tone: "green"  },
+  { key: "pending",  label: "PENDING",  sublabel: "Open work",       tone: "amber"  },
+  { key: "critical", label: "CRITICAL", sublabel: "Important & urgent", tone: "red" },
+  { key: "urgent",   label: "URGENT",   sublabel: "Urgent priority", tone: "orange" },
 ];
 
 export function TaskListPage({
   title,
   rows,
+  filters,
   employees,
   me,
   statusLabels,
   statusTones,
+  basePath = "/tasks",
 }: {
   title: string;
   rows: TaskListRow[];
+  filters: TaskListFilters;
   employees: { id: string; name: string }[];
   me: { id: string; isAdmin: boolean };
   statusLabels?: Record<TaskStatus, string>;
   statusTones?: Record<TaskStatus, StatusColorToken>;
+  /** List route the summary cards link into (so Archived keeps its own scope). */
+  basePath?: string;
 }) {
-  const counts = {
-    total: rows.length,
+  const counts: Record<KpiKey, number> = {
     done: rows.filter((r) => DONE_STATUSES.has(r.status)).length,
     pending: rows.filter((r) => PENDING_STATUSES.has(r.status)).length,
     critical: rows.filter((r) => r.priority === "imp_urgent").length,
+    urgent: rows.filter((r) => r.priority === "not_imp_urgent").length,
   };
+
+  // Build each card's destination by overriding the relevant filter dimension
+  // on top of the current filters — so date/employee/department scope carries
+  // over, and the other status/priority filter is cleared for a clean view.
+  function cardHref(key: KpiKey): Route {
+    const base = { ...filters };
+    let next: TaskListFilters;
+    if (key === "done") {
+      next = { ...base, statuses: ["done", "approved"], priorities: [] };
+    } else if (key === "pending") {
+      next = { ...base, statuses: [...CANONICAL_PENDING_STATUSES], priorities: [] };
+    } else if (key === "critical") {
+      next = { ...base, priorities: ["imp_urgent"], statuses: [] };
+    } else {
+      next = { ...base, priorities: ["not_imp_urgent"], statuses: [] };
+    }
+    const qs = taskFiltersToSearchString(next);
+    return (qs ? `${basePath}?${qs}` : basePath) as Route;
+  }
+
+  // Highlight a card when the list is already filtered to exactly its view.
+  function cardActive(key: KpiKey): boolean {
+    const s = new Set(filters.statuses);
+    const p = new Set(filters.priorities);
+    if (key === "done") return p.size === 0 && s.size === 2 && s.has("done") && s.has("approved");
+    if (key === "pending")
+      return p.size === 0 && s.size === PENDING_STATUSES.size && [...s].every((x) => PENDING_STATUSES.has(x));
+    if (key === "critical") return s.size === 0 && p.size === 1 && p.has("imp_urgent");
+    return s.size === 0 && p.size === 1 && p.has("not_imp_urgent");
+  }
 
   return (
     <main className="mx-auto max-w-[1600px] px-12 max-md:px-4 pt-8 pb-16">
@@ -82,10 +123,15 @@ export function TaskListPage({
         </div>
         <Link
           href={"/tasks/kanban" as Route}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[14px] font-semibold text-ink-soft border border-hairline bg-white hover:border-hairline-strong transition-all"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[14.5px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+            boxShadow: "0 6px 18px -6px rgba(225, 6, 0, 0.55)",
+          }}
         >
-          <LayoutGrid size={15} strokeWidth={2.2} />
-          Board view
+          <LayoutGrid size={16} strokeWidth={2.4} />
+          Kanban View
         </Link>
       </header>
 
@@ -94,11 +140,14 @@ export function TaskListPage({
           font-black label, big count, sublabel. */}
       <div className="mb-7 grid grid-cols-4 gap-4 max-lg:grid-cols-2 max-sm:grid-cols-1">
         {KPI_SPECS.map((spec) => (
-          <StatCard
+          <Link
             key={spec.key}
-            spec={spec}
-            value={counts[spec.key]}
-          />
+            href={cardHref(spec.key)}
+            aria-label={`View ${spec.label.toLowerCase()} tasks`}
+            className="block rounded-section focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
+          >
+            <StatCard spec={spec} value={counts[spec.key]} active={cardActive(spec.key)} />
+          </Link>
         ))}
       </div>
 
@@ -133,21 +182,33 @@ export function TaskListPage({
   );
 }
 
-const KPI_ICONS: Record<KpiSpec["key"], LucideIcon> = {
-  total: ListTodo,
+const KPI_ICONS: Record<KpiKey, LucideIcon> = {
   done: CheckCircle2,
   pending: Loader,
   critical: Flame,
+  urgent: AlarmClock,
 };
 
-function StatCard({ spec, value }: { spec: KpiSpec; value: number }) {
+function StatCard({
+  spec,
+  value,
+  active,
+}: {
+  spec: KpiSpec;
+  value: number;
+  active: boolean;
+}) {
   const Icon = KPI_ICONS[spec.key];
   return (
     <div
-      className="group relative bg-surface-card rounded-section overflow-hidden transition-all duration-200 hover:-translate-y-0.5"
+      className="group relative bg-surface-card rounded-section overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
       style={{
-        border: "1px solid var(--color-hairline)",
-        boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
+        border: active
+          ? `1.5px solid var(--color-${spec.tone}-deep)`
+          : "1px solid var(--color-hairline)",
+        boxShadow: active
+          ? `0 0 0 3px color-mix(in srgb, var(--color-${spec.tone}) 16%, transparent)`
+          : "0 1px 3px rgba(15, 23, 42, 0.04)",
         padding: "24px 24px 22px",
       }}
     >

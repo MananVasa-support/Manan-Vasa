@@ -58,7 +58,7 @@ export default async function NewTaskPage({ searchParams }: PageProps) {
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto max-w-[720px] px-12 max-md:px-4 pt-8 pb-16">
         <header className="mb-6">
-          <h1 className="text-display-lg text-ink-strong">New task</h1>
+          <h1 className="text-display-lg text-ink-strong">New Task</h1>
           <p className="text-body-lg text-ink-subtle mt-1">
             Create a task and assign it to a doer. The initiator approves it
             once it's done.

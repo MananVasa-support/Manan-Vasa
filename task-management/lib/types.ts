@@ -161,6 +161,7 @@ export interface TaskListRow {
   id: string;
   title: string;
   subject: string | null;
+  client: string | null;
   /** Full task body — used by the hover-to-preview popover in the table. */
   description: string | null;
   status: TaskStatus;

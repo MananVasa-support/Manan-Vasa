@@ -23,6 +23,7 @@ function profileV2Defaults() {
     oooEnd: null as string | null,
     oooDelegateId: null as string | null,
     mentionEscalation: true,
+    passwordResetByAdminAt: null as Date | null,
   };
 }
 
@@ -126,6 +127,7 @@ function task(partial: Partial<Task>): Task {
     transferredFromId: partial.transferredFromId ?? null,
     notes: null,
     subject: partial.subject ?? null,
+    client: partial.client ?? null,
     archived: partial.archived ?? false,
     createdById: partial.createdById ?? null,
     approvedById: partial.approvedById ?? null,

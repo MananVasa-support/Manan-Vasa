@@ -984,13 +984,6 @@ function NodeRow({
   detailsOpen: boolean;
   onToggleDetails: () => void;
 }) {
-  // Summary chips so set metadata is visible at a glance without expanding.
-  const hasMeta =
-    Boolean(node.ownerName) ||
-    node.members.length > 0 ||
-    Boolean(node.targetDate) ||
-    Boolean(node.notes);
-
   return (
     <div className="group flex items-center gap-2.5 py-2 px-2.5 -mx-2.5 rounded-md transition-colors hover:bg-surface-soft">
       {/* Drag handle — appears on hover, cursor signals grab. */}
@@ -1027,23 +1020,12 @@ function NodeRow({
 
       <EditableName node={node} typeStyle={typeStyle} depth={depth} />
 
-      {/* Meta summary chips */}
-      {node.ownerName && (
-        <span
-          className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill max-md:hidden"
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: "var(--color-ink-soft)",
-            background: "var(--color-surface-soft)",
-            border: "1px solid var(--color-hairline)",
-          }}
-          title={`Owner: ${node.ownerName}`}
-        >
-          <UserCircle2 size={13} strokeWidth={2.2} />
-          {node.ownerName.split(" ")[0]}
-        </span>
-      )}
+      {/* Assign-owner pill — interactive and always shown on every row, so any
+          node (milestone, action, sub-action, …) can be assigned to a person
+          directly without opening the details panel. */}
+      <span className="shrink-0">
+        <OwnerPicker node={node} compact />
+      </span>
       {node.targetDate && (
         <span
           className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill tabular-nums max-md:hidden"
@@ -1079,28 +1061,28 @@ function NodeRow({
         </Link>
       )}
 
-      {/* Details toggle — owner / team / target / notes editor. */}
+      {/* Details toggle — team / target date / notes editor. Always visible
+          and big enough to spot, so the extra controls are discoverable on
+          every node. */}
       <button
         type="button"
         onClick={onToggleDetails}
-        aria-label={detailsOpen ? "Hide details" : "Edit details"}
+        aria-label={detailsOpen ? "Hide details" : "Edit team, target date & notes"}
         aria-expanded={detailsOpen}
-        className={`shrink-0 inline-flex items-center justify-center size-6 rounded-md transition-all ${
-          detailsOpen || hasMeta
-            ? "opacity-100"
-            : "opacity-0 group-hover:opacity-100"
-        } hover:bg-white`}
+        className="shrink-0 inline-flex items-center justify-center size-8 rounded-lg border transition-all hover:border-altus-red"
         style={{
-          color: detailsOpen
+          borderColor: detailsOpen
             ? "var(--color-altus-red)"
-            : "var(--color-ink-subtle)",
+            : "var(--color-hairline-strong)",
+          color: detailsOpen ? "var(--color-altus-red)" : "var(--color-ink-soft)",
+          background: "var(--color-surface-card)",
         }}
-        title="Owner, team, target date & notes"
+        title="Team, target date & notes"
       >
         {detailsOpen ? (
-          <ChevronDown size={14} strokeWidth={2.4} />
+          <ChevronDown size={16} strokeWidth={2.4} />
         ) : (
-          <Pencil size={12.5} strokeWidth={2.2} />
+          <Pencil size={15} strokeWidth={2.2} />
         )}
       </button>
 
@@ -1550,7 +1532,9 @@ function NodeDetailPanel({
       }}
     >
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <OwnerPicker node={node} />
+        {/* Project header keeps its Owner picker here; tree rows show the owner
+            pill inline on the row itself, so it'd be redundant in this panel. */}
+        {isProject && <OwnerPicker node={node} />}
         <MembersPicker node={node} />
         <TargetDateEditor node={node} />
       </div>
@@ -1583,7 +1567,13 @@ function FieldLabel({
   );
 }
 
-function OwnerPicker({ node }: { node: ProjectTreeNode }) {
+function OwnerPicker({
+  node,
+  compact = false,
+}: {
+  node: ProjectTreeNode;
+  compact?: boolean;
+}) {
   const employees = useEmployees();
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -1609,25 +1599,44 @@ function OwnerPicker({ node }: { node: ProjectTreeNode }) {
 
   return (
     <div className="flex items-center gap-2">
-      <FieldLabel icon={<UserCircle2 size={12} strokeWidth={2.2} />}>
-        Owner
-      </FieldLabel>
+      {!compact && (
+        <FieldLabel icon={<UserCircle2 size={12} strokeWidth={2.2} />}>
+          Owner
+        </FieldLabel>
+      )}
       <Popover.Root open={open} onOpenChange={setOpen}>
         <Popover.Trigger asChild>
           <button
             type="button"
             disabled={pending}
-            className="inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[14.5px] font-semibold transition-colors hover:border-altus-red disabled:opacity-50"
+            title={node.ownerName ? `Owner: ${node.ownerName}` : "Assign an owner"}
+            className="inline-flex items-center gap-1.5 rounded-pill border px-3.5 py-2 text-[15px] font-semibold transition-colors hover:border-altus-red disabled:opacity-50"
             style={{
-              borderColor: "var(--color-hairline-strong)",
-              background: "var(--color-surface-card)",
+              borderColor: node.ownerName
+                ? "color-mix(in srgb, var(--color-altus-red) 35%, transparent)"
+                : "var(--color-hairline-strong)",
+              background: node.ownerName
+                ? "color-mix(in srgb, var(--color-altus-red) 8%, transparent)"
+                : "var(--color-surface-card)",
               color: node.ownerName
                 ? "var(--color-ink-strong)"
                 : "var(--color-ink-muted)",
             }}
           >
-            {node.ownerName ?? "Assign owner"}
-            <ChevronDown size={12} strokeWidth={2.4} className="text-ink-subtle" />
+            <UserCircle2
+              size={15}
+              strokeWidth={2.2}
+              className="shrink-0"
+              style={{
+                color: node.ownerName
+                  ? "var(--color-altus-red)"
+                  : "var(--color-ink-subtle)",
+              }}
+            />
+            {compact && node.ownerName
+              ? node.ownerName.split(" ")[0]
+              : (node.ownerName ?? "Assign owner")}
+            <ChevronDown size={13} strokeWidth={2.4} className="text-ink-subtle" />
           </button>
         </Popover.Trigger>
         <Popover.Portal>
@@ -1960,9 +1969,13 @@ function AddChildButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-ink-muted hover:text-altus-red transition-colors py-1"
+        className="inline-flex items-center gap-1.5 rounded-pill border px-3.5 py-1.5 text-[15px] font-semibold text-ink-soft hover:text-altus-red hover:border-altus-red transition-colors"
+        style={{
+          borderColor: "var(--color-hairline-strong)",
+          background: "var(--color-surface-card)",
+        }}
       >
-        <Plus size={12} strokeWidth={2.4} />
+        <Plus size={15} strokeWidth={2.4} />
         {label}
       </button>
     );
@@ -2031,7 +2044,7 @@ function NewProjectButton({ hero = false }: { hero?: boolean }) {
               }}
             >
               <Plus size={15} strokeWidth={2.6} />
-              New project
+              New Project
               <span
                 aria-hidden
                 className="absolute inset-0 rounded-pill pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
@@ -2049,7 +2062,7 @@ function NewProjectButton({ hero = false }: { hero?: boolean }) {
             className="inline-flex items-center gap-1.5 rounded-pill border border-hairline-strong bg-surface-card px-3.5 py-2 text-[13px] font-semibold text-ink-strong hover:border-altus-red transition-colors"
           >
             <Plus size={14} strokeWidth={2.4} />
-            New project
+            New Project
           </button>
         );
       }}
@@ -2067,7 +2080,7 @@ function NewProjectInlineLink() {
           className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-ink-muted hover:text-altus-red transition-colors py-1"
         >
           <Plus size={12} strokeWidth={2.4} />
-          New project
+          New Project
         </button>
       )}
     />

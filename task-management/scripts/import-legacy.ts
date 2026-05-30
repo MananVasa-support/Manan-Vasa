@@ -20,6 +20,7 @@ import { getApps, initializeApp, cert } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
 import { Resend } from "resend";
 import { db } from "@/lib/db";
+import { siteUrl } from "@/lib/site-url";
 import {
   departments,
   employees,
@@ -234,7 +235,7 @@ async function runEmployeesPhase(csv: string, args: Args, report: Report) {
     if (args.sendInvites) {
       try {
         const link = await auth.generatePasswordResetLink(row.email, {
-          url: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/welcome`,
+          url: `${siteUrl()}/welcome`,
         });
         const sent = await sendInviteEmailLite({ email: row.email, resetLink: link });
         if (!sent.ok) {

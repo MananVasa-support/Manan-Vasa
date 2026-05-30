@@ -19,7 +19,7 @@ export function DepartmentFilter({
         options={OPTIONS}
         selected={selected}
         onChange={onChange}
-        placeholder="All departments"
+        placeholder="All Departments"
       />
     </div>
   );

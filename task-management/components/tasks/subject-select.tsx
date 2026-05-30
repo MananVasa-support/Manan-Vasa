@@ -173,7 +173,7 @@ export function SubjectSelect({
           {name}
         </option>
       ))}
-      <option value={ADD_NEW}>+ Add new subject…</option>
+      <option value={ADD_NEW}>+ Add New Subject…</option>
     </select>
   );
 }

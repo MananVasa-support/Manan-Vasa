@@ -16,6 +16,7 @@ import { getApps, initializeApp, cert } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { Resend } from "resend";
 import { db } from "../lib/db";
+import { siteUrl } from "../lib/site-url";
 import { employees } from "../db/schema";
 import { normalizeName } from "../lib/validators/employee";
 
@@ -98,7 +99,7 @@ async function main() {
 
   // Step 3: Generate password-reset link and email it
   const link = await auth.generatePasswordResetLink(email, {
-    url: `${process.env.NEXT_PUBLIC_SITE_URL}/welcome`,
+    url: `${siteUrl()}/welcome`,
   });
 
   const sent = await sendResetPasswordEmail({ email, resetLink: link });

@@ -66,6 +66,7 @@ export default async function TasksPage({ searchParams }: PageProps) {
       <TaskListPage
         title="Tasks"
         rows={rows}
+        filters={filters}
         employees={allEmployees}
         me={{ id: me.id, isAdmin: me.isAdmin }}
         statusLabels={statusLabels}

@@ -498,6 +498,9 @@ export async function createTask(input: CreateTaskInput): Promise<
           .values({
             id: taskId,
             title: parsed.title,
+            // The form's "Client Name" field writes to `title`; mirror it into
+            // the dedicated `client` column so new tasks sort/group cleanly.
+            client: parsed.title,
             description: parsed.description,
             subject: parsed.subject,
             notes: parsed.notes,
@@ -766,7 +769,13 @@ export async function editTaskFields(
   const now = new Date();
   const updated = await db
     .update(tasks)
-    .set({ ...(diff as Partial<typeof tasks.$inferInsert>), updatedAt: now })
+    // The "Client Name" field edits `title`; mirror it into `client` (not an
+    // audited field of its own) so sort/group stay correct after an edit.
+    .set({
+      ...(diff as Partial<typeof tasks.$inferInsert>),
+      ...("title" in diff ? { client: parsed.title } : {}),
+      updatedAt: now,
+    })
     .where(and(eq(tasks.id, taskId), optimisticLockMatches(expectedDate)))
     .returning({ id: tasks.id });
 

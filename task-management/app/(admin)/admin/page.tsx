@@ -49,7 +49,7 @@ const QUICK_ACTIONS: QuickAction[] = [
     tone: "altus",
   },
   {
-    label: "New task",
+    label: "New Task",
     description: "Create + assign a doer",
     href: "/tasks/new" as Route,
     icon: Plus,

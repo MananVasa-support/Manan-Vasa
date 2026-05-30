@@ -86,6 +86,48 @@ export async function createClient(
   return { ok: true, id: inserted.id };
 }
 
+export async function deleteClient(
+  clientId: string,
+): Promise<ActionResult> {
+  const me = await requireAdmin();
+
+  const parsedId = ClientIdSchema.safeParse(clientId);
+  if (!parsedId.success) {
+    return { ok: false, error: parsedId.error.issues[0]?.message ?? "Invalid client id" };
+  }
+
+  const client = await db.query.clients.findFirst({
+    where: eq(clients.id, parsedId.data),
+  });
+  if (!client) return { ok: false, error: "Client not found" };
+
+  // Roster-only delete: `clients` is just the picker list (no FK from tasks),
+  // so removing a row leaves every task untouched — tasks keep their existing
+  // Client Name text. This only removes the name from the picker.
+  try {
+    await db.delete(clients).where(eq(clients.id, client.id));
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `DB: ${msg}` };
+  }
+
+  try {
+    await db.insert(settingsEvents).values({
+      scope: "client",
+      targetId: client.id,
+      actorId: me.id,
+      eventType: "deleted",
+      fromValue: { name: client.name },
+      toValue: null,
+    });
+  } catch (err) {
+    console.error("[deleteClient] audit write failed", err);
+  }
+
+  revalidateClientSurfaces();
+  return { ok: true };
+}
+
 export async function updateClient(
   clientId: string,
   fields: UpdateClientInput,

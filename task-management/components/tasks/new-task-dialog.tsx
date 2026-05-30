@@ -133,7 +133,7 @@ export function NewTaskDialog({ employees, clients, subjects, projectNodes, defa
                   }}
                 >
                   <Plus size={15} strokeWidth={2.6} />
-                  <span className="max-md:sr-only">New task</span>
+                  <span className="max-md:sr-only">New Task</span>
                   <kbd
                     aria-hidden
                     className="ml-1 inline-flex items-center justify-center font-mono max-md:hidden"
@@ -277,7 +277,7 @@ export function NewTaskDialog({ employees, clients, subjects, projectNodes, defa
                 lineHeight: 1.02,
               }}
             >
-              New task
+              New Task
             </Dialog.Title>
             <Dialog.Description
               className="mt-2 font-bold"

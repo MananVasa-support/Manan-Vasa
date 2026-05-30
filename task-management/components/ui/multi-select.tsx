@@ -27,7 +27,7 @@ export function MultiSelect({
   options,
   selected,
   onChange,
-  placeholder = "All employees",
+  placeholder = "All Employees",
   className,
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);

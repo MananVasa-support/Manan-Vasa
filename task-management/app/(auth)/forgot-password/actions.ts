@@ -6,16 +6,11 @@ import { db } from "@/lib/db";
 import { employees } from "@/db/schema";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
 import { sendResetPasswordEmail } from "@/lib/email/resend";
+import { siteUrl } from "@/lib/site-url";
 
 const RequestSchema = z.object({
   email: z.string().trim().toLowerCase().email("Invalid email"),
 });
-
-function requireSiteUrl(): string {
-  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (fromEnv && fromEnv.length > 0) return fromEnv.replace(/\/+$/, "");
-  return "https://altus-corp-dashboard.vercel.app";
-}
 
 /**
  * Send a password-reset link to `email`.
@@ -41,7 +36,7 @@ export async function requestPasswordReset(
 
   try {
     const link = await getFirebaseAdminAuth().generatePasswordResetLink(email, {
-      url: `${requireSiteUrl()}/login`,
+      url: `${siteUrl()}/login`,
     });
 
     // Look up the recipient name so the email can greet them by first

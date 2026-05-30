@@ -10,13 +10,30 @@ import {
   useReactTable,
   type ColumnDef,
   type VisibilityState,
+  type SortingState,
+  type Updater,
   type Table as TableInstance,
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 
-// Initial rows rendered; "Load more" reveals this many additional rows each
-// tap. Keeps the page light — a few hundred tasks no longer paint at once.
-const PAGE_STEP = 10;
+// Classic numbered pagination: 25 rows per page with Prev / 1 2 3 … N / Next.
+const PAGE_SIZE = 25;
+
+// Build the windowed list of page numbers to render: always first + last, the
+// current page with one neighbour on each side, and "ellipsis" gaps between.
+// e.g. total 34 on page 17 → [1, …, 16, 17, 18, …, 34]. Short lists (≤7) show
+// every page with no ellipsis.
+function pageWindow(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | "ellipsis")[] = [1];
+  const left = Math.max(2, current - 1);
+  const right = Math.min(total - 1, current + 1);
+  if (left > 2) pages.push("ellipsis");
+  for (let p = left; p <= right; p++) pages.push(p);
+  if (right < total - 1) pages.push("ellipsis");
+  pages.push(total);
+  return pages;
+}
 
 // date-fns `format()` throws RangeError on a null/invalid Date — which would
 // crash the ENTIRE table render. Guard every cell so one bad row degrades to
@@ -27,7 +44,31 @@ function safeFormat(value: unknown, pattern: string): string {
   return Number.isNaN(d.getTime()) ? "—" : format(d, pattern);
 }
 import * as Tooltip from "@radix-ui/react-tooltip";
-import { SlidersHorizontal, Check, ChevronDown } from "lucide-react";
+import {
+  SlidersHorizontal,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUp,
+  ArrowDown,
+  ChevronsUpDown,
+} from "lucide-react";
+
+// Group-by options for the Tasks table. "none" = flat list (default).
+type GroupKey = "none" | "client" | "subject";
+const GROUP_OPTIONS: { key: GroupKey; label: string }[] = [
+  { key: "none", label: "None" },
+  { key: "client", label: "Client" },
+  { key: "subject", label: "Subject" },
+];
+
+// The section label a row falls under for the current grouping. NULL/empty
+// values collapse into a single explicit "—" bucket rather than vanishing.
+function groupValue(row: TaskListRow, by: Exclude<GroupKey, "none">): string {
+  const raw = by === "client" ? row.client : row.subject;
+  const v = raw?.trim();
+  return v && v.length > 0 ? v : by === "client" ? "— No client" : "— No subject";
+}
 import { CriticalBadge } from "@/components/ui/critical-badge";
 import { PRIORITY_LABELS } from "@/db/enums";
 import type { TaskStatus, StatusColorToken } from "@/db/enums";
@@ -49,6 +90,7 @@ import {
 
 // Friendly labels for the column show/hide menu (#11).
 const COLUMN_LABELS: Record<string, string> = {
+  client: "Client",
   doerName: "Doer",
   priority: "Priority",
   status: "Status",
@@ -77,6 +119,36 @@ function buildColumns(
   statusTones: StatusTones,
 ): TaskCol[] {
   return [
+    {
+      accessorKey: "client",
+      header: "Client",
+      meta: { narrow: true },
+      // Sort nulls last and case-insensitively so "altus" and "Altus" cluster.
+      sortingFn: (a, b) =>
+        (a.original.client ?? "￿").localeCompare(b.original.client ?? "￿", undefined, {
+          sensitivity: "base",
+        }),
+      cell: (info) => {
+        const v = info.getValue<string | null>();
+        return v ? (
+          <span className="text-ink-strong font-semibold" style={{ fontSize: 15 }}>
+            {v}
+          </span>
+        ) : (
+          <span className="text-ink-subtle">—</span>
+        );
+      },
+    },
+    {
+      accessorKey: "subject",
+      header: "Subject",
+      meta: { narrow: true },
+      cell: (info) => (
+        <span className="text-body-lg text-ink-muted">
+          {info.getValue<string>() ?? "—"}
+        </span>
+      ),
+    },
     {
       accessorKey: "title",
       header: "Task",
@@ -130,16 +202,6 @@ function buildColumns(
           />
         );
       },
-    },
-    {
-      accessorKey: "subject",
-      header: "Subject",
-      meta: { mobileHide: true, narrow: true },
-      cell: (info) => (
-        <span className="text-body-lg text-ink-muted">
-          {info.getValue<string>() ?? "—"}
-        </span>
-      ),
     },
     {
       accessorKey: "createdAt",
@@ -224,30 +286,85 @@ export function TaskTable({
     }
   }, [columnVisibility]);
 
+  // Click-to-sort state (the user's chosen column) + group-by selection.
+  // When grouped, the group column becomes the PRIMARY sort key so rows
+  // cluster, and the user's sort applies within each group — see
+  // `effectiveSorting`. We strip the group key out of `sorting` so toggling
+  // grouping off restores exactly the user's manual sort.
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [groupBy, setGroupBy] = React.useState<GroupKey>("none");
+
+  const groupColId = groupBy === "client" ? "client" : groupBy === "subject" ? "subject" : null;
+
+  const effectiveSorting = React.useMemo<SortingState>(() => {
+    if (!groupColId) return sorting;
+    return [{ id: groupColId, desc: false }, ...sorting.filter((s) => s.id !== groupColId)];
+  }, [groupColId, sorting]);
+
+  function handleSortingChange(updater: Updater<SortingState>) {
+    const next = typeof updater === "function" ? updater(effectiveSorting) : updater;
+    // Persist only the user's part; the group key is re-applied each render.
+    setSorting(groupColId ? next.filter((s) => s.id !== groupColId) : next);
+  }
+
   const table = useReactTable({
     data: rows,
     columns,
-    state: { columnVisibility },
+    state: { columnVisibility, sorting: effectiveSorting },
     onColumnVisibilityChange: setColumnVisibility,
+    onSortingChange: handleSortingChange,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    // Progressive reveal: render PAGE_STEP rows, "Load more" grows the page.
-    // Sorting/visibility still apply across the full set before the slice.
+    // Fixed PAGE_SIZE pages; sorting/visibility apply across the full set
+    // before the page slice. Page index is driven by the numbered pager below.
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageIndex: 0, pageSize: PAGE_STEP } },
+    initialState: { pagination: { pageIndex: 0, pageSize: PAGE_SIZE } },
     autoResetPageIndex: false,
   });
 
-  // Reset back to the first 10 whenever the underlying rows change (new
-  // filter / refresh) so a deep "load more" doesn't persist onto a fresh,
-  // shorter result set.
+  // Total rows per group across the full (unpaginated) set, for the count
+  // shown in each group header. Keyed by the same label `groupValue` renders.
+  const groupCounts = React.useMemo(() => {
+    if (groupBy === "none") return null;
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      const k = groupValue(r, groupBy);
+      m.set(k, (m.get(k) ?? 0) + 1);
+    }
+    return m;
+  }, [groupBy, rows]);
+
+  // Jump back to the first page whenever the grouping changes, so you start at
+  // the top of the newly-ordered list rather than a now-meaningless page.
   React.useEffect(() => {
-    table.setPageSize(PAGE_STEP);
+    table.setPageIndex(0);
+  }, [groupBy, table]);
+
+  // Keep the current page valid when the underlying rows change (new filter /
+  // refresh). Clamp to the last page rather than always snapping to page 1, so
+  // an inline status edit doesn't yank you back to the top — you only move if
+  // your page no longer exists (e.g. a filter shrank the result set).
+  React.useEffect(() => {
+    const maxIndex = Math.max(0, Math.ceil(rows.length / PAGE_SIZE) - 1);
+    if (table.getState().pagination.pageIndex > maxIndex) {
+      table.setPageIndex(maxIndex);
+    }
   }, [rows, table]);
 
-  const shown = table.getRowModel().rows.length;
+  // Scroll the table back into view when the page changes, so the new rows are
+  // visible without a manual scroll up.
+  const listTopRef = React.useRef<HTMLDivElement>(null);
+  function goToPage(index: number) {
+    table.setPageIndex(index);
+    listTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   const totalFiltered = table.getPrePaginationRowModel().rows.length;
-  const remaining = totalFiltered - shown;
+  const pageCount = table.getPageCount();
+  const pageIndex = table.getState().pagination.pageIndex;
+  const rangeStart = totalFiltered === 0 ? 0 : pageIndex * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(totalFiltered, (pageIndex + 1) * PAGE_SIZE);
+  const pages = pageWindow(pageIndex + 1, pageCount);
 
   function alignClass(c: TaskCol): string {
     const a = c.meta?.align;
@@ -255,8 +372,9 @@ export function TaskTable({
   }
 
   return (
-    <div>
-      <div className="mb-3 flex justify-end">
+    <div ref={listTopRef} className="scroll-mt-6">
+      <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
+        <GroupByControl value={groupBy} onChange={setGroupBy} />
         <ColumnsMenu table={table} />
       </div>
       <div
@@ -266,18 +384,61 @@ export function TaskTable({
       <table className="min-w-full">
         <thead>
           {table.getHeaderGroups().map((hg) => (
-            <tr key={hg.id} className="border-b border-hairline">
+            <tr key={hg.id} className="border-b border-hairline-strong">
               {hg.headers.map((h) => {
                 const col = h.column.columnDef as TaskCol;
                 const hide = col.meta?.mobileHide;
                 const isActions = h.column.id === "actions";
+                const canSort = h.column.getCanSort();
+                const sorted = h.column.getIsSorted(); // false | "asc" | "desc"
+                const headerNode = flexRender(h.column.columnDef.header, h.getContext());
                 return (
                   <th
                     key={h.id}
-                    className={`px-5 py-4 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "sticky right-0 z-20 bg-surface-card" : ""}`}
-                    style={isActions ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" } : undefined}
+                    aria-sort={
+                      sorted === "asc"
+                        ? "ascending"
+                        : sorted === "desc"
+                          ? "descending"
+                          : undefined
+                    }
+                    className={`px-5 py-4 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "sticky right-0 z-20" : ""}`}
+                    style={{
+                      // Highlighted header bar — a tinted strip with darker
+                      // label text that sets the column row apart from the
+                      // white body rows below.
+                      background: "var(--color-surface-track)",
+                      color: "var(--color-ink-soft)",
+                      ...(isActions
+                        ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" }
+                        : {}),
+                    }}
                   >
-                    {flexRender(h.column.columnDef.header, h.getContext())}
+                    {canSort ? (
+                      <button
+                        type="button"
+                        onClick={h.column.getToggleSortingHandler()}
+                        className={`group/sort inline-flex items-center gap-1.5 select-none transition-colors hover:text-ink-strong ${
+                          col.meta?.align === "center" ? "mx-auto" : ""
+                        } ${sorted ? "text-ink-strong" : ""}`}
+                        title={`Sort by ${typeof headerNode === "string" ? headerNode : h.column.id}`}
+                      >
+                        {headerNode}
+                        {sorted === "asc" ? (
+                          <ArrowUp size={13} strokeWidth={2.6} />
+                        ) : sorted === "desc" ? (
+                          <ArrowDown size={13} strokeWidth={2.6} />
+                        ) : (
+                          <ChevronsUpDown
+                            size={13}
+                            strokeWidth={2.4}
+                            className="opacity-0 text-ink-subtle transition-opacity group-hover/sort:opacity-100"
+                          />
+                        )}
+                      </button>
+                    ) : (
+                      headerNode
+                    )}
                   </th>
                 );
               })}
@@ -285,9 +446,42 @@ export function TaskTable({
           ))}
         </thead>
         <tbody>
-          {table.getRowModel().rows.map((row) => (
+          {table.getRowModel().rows.map((row, i, arr) => {
+          // Group mode: render a section header whenever the group label
+          // changes from the previous row — and always at the top of a page
+          // (i === 0) so you can see which group you're in mid-scroll.
+          const label = groupBy === "none" ? null : groupValue(row.original, groupBy);
+          const prev = i > 0 ? arr[i - 1] : undefined;
+          const prevLabel =
+            groupBy === "none" || !prev ? null : groupValue(prev.original, groupBy);
+          const showHeader = label !== null && (i === 0 || label !== prevLabel);
+          const visibleCols = table.getVisibleLeafColumns().length;
+          return (
+            <React.Fragment key={row.id}>
+              {showHeader && (
+                <tr className="bg-surface-subtle/60">
+                  <td
+                    colSpan={visibleCols}
+                    className="px-5 py-2.5 max-md:px-3 border-b border-hairline"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        className="font-black tracking-[-0.01em] text-ink-strong"
+                        style={{
+                          fontFamily: "var(--font-display), system-ui, sans-serif",
+                          fontSize: 16,
+                        }}
+                      >
+                        {label}
+                      </span>
+                      <span className="inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-full bg-altus-red/10 text-altus-red font-bold tabular-nums text-[12px]">
+                        {groupCounts?.get(label!) ?? 0}
+                      </span>
+                    </span>
+                  </td>
+                </tr>
+              )}
             <tr
-              key={row.id}
               className="task-row border-b border-hairline last:border-b-0 transition-colors"
             >
               {row.getVisibleCells().map((cell) => {
@@ -318,34 +512,136 @@ export function TaskTable({
                 );
               })}
             </tr>
-          ))}
+            </React.Fragment>
+          );
+          })}
         </tbody>
       </table>
       </div>
 
-      {/* Progressive reveal footer — keeps the initial page light. Shows the
-          running count and a "Load more" that grows the visible set by 10. */}
-      <div className="mt-4 flex flex-col items-center gap-2.5">
-        <p className="text-[13px] font-semibold text-ink-subtle tabular-nums">
-          Showing {shown} of {totalFiltered}
-        </p>
-        {remaining > 0 && (
-          <button
-            type="button"
-            onClick={() =>
-              table.setPageSize(
-                table.getState().pagination.pageSize + PAGE_STEP,
-              )
-            }
-            className="inline-flex items-center gap-2 px-5 h-10 rounded-pill text-[14px] font-bold border border-hairline-strong bg-surface-card text-ink-strong hover:border-altus-red hover:text-altus-red transition-all"
+      {/* Numbered pagination — 25 rows per page: Prev · 1 2 3 … N · Next,
+          with the current page highlighted and a "Page X of Y" readout. */}
+      <div className="mt-5 flex flex-col items-center gap-3">
+        {pageCount > 1 && (
+          <nav
+            className="flex items-center gap-1.5 flex-wrap justify-center"
+            aria-label="Task list pages"
           >
-            <ChevronDown size={15} strokeWidth={2.4} />
-            Load {Math.min(PAGE_STEP, remaining)} more
-            <span className="text-ink-subtle font-semibold">
-              ({remaining} left)
-            </span>
-          </button>
+            <PagerNavButton
+              onClick={() => goToPage(pageIndex - 1)}
+              disabled={!table.getCanPreviousPage()}
+              ariaLabel="Previous page"
+            >
+              <ChevronLeft size={16} strokeWidth={2.4} />
+              <span className="max-sm:hidden">Prev</span>
+            </PagerNavButton>
+
+            {pages.map((p, i) =>
+              p === "ellipsis" ? (
+                <span
+                  key={`ellipsis-${i}`}
+                  className="px-1.5 text-ink-subtle font-bold select-none"
+                  aria-hidden
+                >
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => goToPage(p - 1)}
+                  aria-current={p - 1 === pageIndex ? "page" : undefined}
+                  className={`inline-flex items-center justify-center min-w-10 h-10 px-3 rounded-xl text-[14px] font-bold tabular-nums border transition-all ${
+                    p - 1 === pageIndex
+                      ? "bg-altus-red text-white border-altus-red"
+                      : "bg-surface-card text-ink-strong border-hairline hover:border-altus-red hover:text-altus-red"
+                  }`}
+                >
+                  {p}
+                </button>
+              ),
+            )}
+
+            <PagerNavButton
+              onClick={() => goToPage(pageIndex + 1)}
+              disabled={!table.getCanNextPage()}
+              ariaLabel="Next page"
+            >
+              <span className="max-sm:hidden">Next</span>
+              <ChevronRight size={16} strokeWidth={2.4} />
+            </PagerNavButton>
+          </nav>
         )}
+        <p className="text-[13px] font-semibold text-ink-subtle tabular-nums">
+          {totalFiltered === 0
+            ? "No tasks"
+            : pageCount > 1
+              ? `Page ${pageIndex + 1} of ${pageCount} · showing ${rangeStart}–${rangeEnd} of ${totalFiltered}`
+              : `Showing all ${totalFiltered} ${totalFiltered === 1 ? "task" : "tasks"}`}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Prev / Next control — a pill button that dims + blocks clicks at the ends of
+// the range. Shares the table's red-on-hover language.
+function PagerNavButton({
+  onClick,
+  disabled,
+  ariaLabel,
+  children,
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  ariaLabel: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      className="inline-flex items-center gap-1.5 h-10 px-3.5 rounded-pill text-[14px] font-bold border border-hairline bg-surface-card text-ink-strong transition-all enabled:hover:border-altus-red enabled:hover:text-altus-red disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      {children}
+    </button>
+  );
+}
+
+// "Group by" segmented control — None · Client · Subject. Grouping clusters
+// the rows under that field and shows a count per section; the 25/page paging
+// still applies across the grouped order.
+function GroupByControl({
+  value,
+  onChange,
+}: {
+  value: GroupKey;
+  onChange: (v: GroupKey) => void;
+}) {
+  return (
+    <div className="inline-flex items-center gap-2">
+      <span className="text-[13px] font-bold text-ink-soft">Group by</span>
+      <div className="inline-flex items-center rounded-pill border border-hairline bg-surface-card p-0.5">
+        {GROUP_OPTIONS.map((opt) => {
+          const active = value === opt.key;
+          return (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => onChange(opt.key)}
+              aria-pressed={active}
+              className={`px-3.5 h-8 rounded-pill text-[13px] font-bold transition-all ${
+                active
+                  ? "bg-altus-red text-white"
+                  : "text-ink-soft hover:text-ink-strong"
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

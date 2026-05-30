@@ -2,6 +2,7 @@ import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { KanbanBoard } from "@/components/tasks/kanban-board";
 import { listBoardTasks } from "@/lib/queries/tasks";
+import { listEmployeeOptions } from "@/lib/queries/employees";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
 import { requireUser } from "@/lib/auth/current";
 import type { TaskStatus, StatusColorToken } from "@/db/enums";
@@ -12,9 +13,10 @@ export const dynamic = "force-dynamic";
 
 export default async function KanbanPage() {
   const me = await requireUser();
-  const [tasks, statusDisplay] = await Promise.all([
+  const [tasks, statusDisplay, employees] = await Promise.all([
     listBoardTasks(),
     getStatusDisplayMap(),
+    listEmployeeOptions(),
   ]);
   const labels = Object.fromEntries(
     Object.entries(statusDisplay).map(([k, v]) => [k, v.label]),
@@ -76,7 +78,7 @@ export default async function KanbanPage() {
               className="text-[14px] font-semibold transition-colors"
               style={{ color: "rgba(255,255,255,0.85)" }}
             >
-              List view →
+              List View →
             </Link>
           </header>
           <div className="relative">
@@ -84,6 +86,7 @@ export default async function KanbanPage() {
               tasks={tasks}
               labels={labels}
               tones={tones}
+              employees={employees.map((e) => ({ id: e.id, name: e.name }))}
               isAdmin={me.isAdmin}
               dark
             />
