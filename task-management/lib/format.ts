@@ -38,7 +38,7 @@ import type { TaskStatus, StatusColorToken } from "@/db/enums";
 // instead so admin renames flow through. These exist for purely-client surfaces
 // and as a safety net if a DB read fails.
 export const STATUS_LABELS_FALLBACK: Record<TaskStatus, string> = {
-  dont_know:    "Don't Know",
+  dont_know:    "Not Read",
   not_started:  "Not Started",
   initiated:    "Initiated",
   follow_up:    "Follow Up",         // legacy — kept for already-imported rows

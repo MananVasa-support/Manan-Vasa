@@ -64,7 +64,7 @@ export default async function KanbanPage() {
                   textShadow: "0 2px 12px rgba(0,0,0,0.45)",
                 }}
               >
-                Board
+                Kanban
               </h1>
               <p
                 className="mt-1.5"

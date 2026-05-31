@@ -4,10 +4,23 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
-import { Loader2, Archive, X } from "lucide-react";
+import * as Tooltip from "@radix-ui/react-tooltip";
+import { format } from "date-fns";
+import {
+  Loader2,
+  Archive,
+  X,
+  Flag,
+  Tag,
+  Building2,
+  CalendarDays,
+  AlignLeft,
+  User,
+  ChevronDown,
+  Check,
+} from "lucide-react";
 import {
   USER_TASK_STATUSES,
-  TASK_STATUSES,
   TASK_PRIORITIES,
   PRIORITY_LABELS,
   type TaskStatus,
@@ -16,7 +29,22 @@ import {
 } from "@/db/enums";
 import { setTaskStatus, archiveTask, unarchiveTask } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
+import { EmployeeAvatar } from "@/components/ui/employee-avatar";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import type { BoardTask } from "@/lib/queries/tasks";
+
+// Priority → colour token + label for the hover-card badge.
+const PRIORITY_TONE: Record<TaskPriority, string> = {
+  imp_urgent: "red",
+  imp_not_urgent: "amber",
+  not_imp_urgent: "orange",
+  not_imp_not_urgent: "slate",
+};
 
 interface Props {
   tasks: BoardTask[];
@@ -32,6 +60,26 @@ interface Props {
 // Sentinel id for the synthetic "Archived" column (not a real TaskStatus).
 const ARCHIVE_COL = "__archived__";
 type ColId = TaskStatus | typeof ARCHIVE_COL;
+
+// Admin board column order (Manan's sequence): the working lane first, then
+// Done → Not Approved → Approved → [Archived] → Cancelled → Transferred.
+// The Archived drop-zone is slotted right before "cancelled".
+const KANBAN_ADMIN_STATUSES: TaskStatus[] = [
+  "dont_know",
+  "not_started",
+  "initiated",
+  "follow_up",
+  "follow_up_1",
+  "follow_up_2",
+  "follow_up_3",
+  "need_help",
+  "need_info",
+  "done",
+  "not_approved",
+  "approved",
+  "cancelled",
+  "transferred",
+];
 
 /**
  * Status Kanban (Manan #25). One column per status; drag a card to another
@@ -120,11 +168,11 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, dark = f
     [items, empFilter, prioFilter],
   );
 
-  // Status columns (admins see every status) + a trailing Archived column.
-  const columns: ColId[] = [
-    ...(isAdmin ? [...TASK_STATUSES] : [...USER_TASK_STATUSES]),
-    ARCHIVE_COL,
-  ];
+  // Admins: the curated sequence with the Archived drop-zone before Cancelled.
+  // Everyone else: their status set with Archived appended at the end.
+  const columns: ColId[] = isAdmin
+    ? KANBAN_ADMIN_STATUSES.flatMap((s) => (s === "cancelled" ? [ARCHIVE_COL, s] : [s]))
+    : [...USER_TASK_STATUSES, ARCHIVE_COL];
 
   // Archive (drag a card into the Archived column). Optimistic, with revert.
   async function archiveCard(taskId: string) {
@@ -194,25 +242,30 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, dark = f
   }
 
   return (
+    <Tooltip.Provider delayDuration={180} skipDelayDuration={400}>
     <div>
       {/* Filters — employee + priority, applied client-side across the board. */}
       <div className="mb-5 flex items-center gap-2.5 flex-wrap">
-        <FilterSelect label="Employee" value={empFilter} onChange={setEmpFilter} dark={dark}>
-          <option value="all">All Employees</option>
-          {employees.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name}
-            </option>
-          ))}
-        </FilterSelect>
-        <FilterSelect label="Priority" value={prioFilter} onChange={setPrioFilter} dark={dark}>
-          <option value="all">All Priorities</option>
-          {TASK_PRIORITIES.map((p) => (
-            <option key={p} value={p}>
-              {PRIORITY_LABELS[p]}
-            </option>
-          ))}
-        </FilterSelect>
+        <FilterDropdown
+          label="Employee"
+          value={empFilter}
+          onChange={setEmpFilter}
+          dark={dark}
+          options={[
+            { value: "all", label: "All Employees" },
+            ...employees.map((e) => ({ value: e.id, label: e.name })),
+          ]}
+        />
+        <FilterDropdown
+          label="Priority"
+          value={prioFilter}
+          onChange={setPrioFilter}
+          dark={dark}
+          options={[
+            { value: "all", label: "All Priorities" },
+            ...TASK_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] })),
+          ]}
+        />
         {(empFilter !== "all" || prioFilter !== "all") && (
           <button
             type="button"
@@ -236,7 +289,8 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, dark = f
 
       <div
         ref={scrollRef}
-        className="flex gap-4 overflow-x-auto pb-4"
+        className="flex items-start gap-4 overflow-x-auto overflow-y-auto pb-4"
+        style={{ maxHeight: "calc(100dvh - 280px)", minHeight: 420 }}
         onDragOver={(e) => {
           // Bubbles up from the columns; track the pointer for edge auto-scroll.
           updateEdgeFromPointer(e.clientX);
@@ -303,8 +357,18 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, dark = f
                 : undefined,
             }}
           >
-            {/* Column header */}
-            <div className="flex items-center justify-between mb-3 px-1">
+            {/* Column header — frozen to the top of the board while scrolling so
+                the status label stays readable no matter how far you scroll. */}
+            <div
+              className="sticky top-0 z-20 flex items-center justify-between -mx-3.5 -mt-3.5 mb-3 px-3.5 pt-3.5 pb-2.5"
+              style={{
+                background: dark ? "rgba(18,11,10,0.82)" : "var(--color-surface-soft)",
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)",
+                borderTopLeftRadius: 16,
+                borderTopRightRadius: 16,
+              }}
+            >
               <span
                 className="inline-flex items-center gap-2 text-[15.5px] font-bold"
                 style={{
@@ -348,49 +412,64 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, dark = f
                 </p>
               )}
               {shownTasks.map((t) => (
-                <div
-                  key={t.id}
-                  draggable
-                  onDragStart={() => {
-                    setDragId(t.id);
-                    beginAutoScroll();
-                  }}
-                  onDragEnd={() => {
-                    setDragId(null);
-                    setOverCol(null);
-                    endAutoScroll();
-                  }}
-                  className="group rounded-chip bg-white border border-hairline p-3.5 cursor-grab active:cursor-grabbing transition-shadow hover:shadow-md"
-                  style={{ opacity: dragId === t.id ? 0.5 : 1 }}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <Link
-                      href={`/tasks/${t.id}/focus` as Route}
-                      className="text-[15.5px] font-semibold text-ink-strong leading-snug hover:underline"
-                      style={{
-                        display: "-webkit-box",
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
+                <Tooltip.Root key={t.id} delayDuration={180}>
+                  <Tooltip.Trigger asChild>
+                    <div
+                      draggable
+                      onDragStart={() => {
+                        setDragId(t.id);
+                        beginAutoScroll();
                       }}
+                      onDragEnd={() => {
+                        setDragId(null);
+                        setOverCol(null);
+                        endAutoScroll();
+                      }}
+                      className="group rounded-chip bg-white border border-hairline p-3.5 cursor-grab active:cursor-grabbing transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:border-altus-red/40"
+                      style={{ opacity: dragId === t.id ? 0.5 : 1 }}
                     >
-                      {t.description || t.title}
-                    </Link>
-                    {savingId === t.id && (
-                      <Loader2 size={14} className="animate-spin text-ink-subtle shrink-0 mt-0.5" />
-                    )}
-                  </div>
-                  <div className="mt-2.5 flex items-center gap-2 flex-wrap">
-                    {t.subject && (
-                      <span className="text-[13px] font-semibold text-ink-subtle">
-                        {t.subject}
-                      </span>
-                    )}
-                    {t.doerName && (
-                      <span className="text-[13px] text-ink-subtle">· {t.doerName}</span>
-                    )}
-                  </div>
-                </div>
+                      <div className="flex items-start justify-between gap-2">
+                        <Link
+                          href={`/tasks/${t.id}/focus` as Route}
+                          className="text-[15.5px] font-semibold text-ink-strong leading-snug hover:underline"
+                          style={{
+                            display: "-webkit-box",
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {t.description || t.title}
+                        </Link>
+                        {savingId === t.id && (
+                          <Loader2 size={14} className="animate-spin text-ink-subtle shrink-0 mt-0.5" />
+                        )}
+                      </div>
+                      <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                        {t.subject && (
+                          <span className="text-[13px] font-semibold text-ink-subtle">
+                            {t.subject}
+                          </span>
+                        )}
+                        {t.doerName && (
+                          <span className="text-[13px] text-ink-subtle">· {t.doerName}</span>
+                        )}
+                      </div>
+                    </div>
+                  </Tooltip.Trigger>
+                  <Tooltip.Portal>
+                    <Tooltip.Content
+                      side="right"
+                      align="start"
+                      sideOffset={12}
+                      collisionPadding={16}
+                      className="kanban-hovercard z-[80]"
+                    >
+                      <TaskHoverCard t={t} labels={labels} tones={tones} />
+                      <Tooltip.Arrow width={14} height={7} style={{ fill: "var(--color-surface-card)" }} />
+                    </Tooltip.Content>
+                  </Tooltip.Portal>
+                </Tooltip.Root>
               ))}
 
               {hiddenCount > 0 && (
@@ -417,46 +496,247 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, dark = f
       })}
       </div>
     </div>
+    </Tooltip.Provider>
   );
 }
 
-// A compact labelled <select> for the board's employee / priority filters.
-// Styled for both the dark canvas (Kanban) and a light surface.
-function FilterSelect({
+// Labelled single-select for the board's employee / priority filters. Built on
+// the app's Radix dropdown (NOT a native <select> — those render unstyleable
+// white-on-white option lists over the dark board). The trigger is dark-themed;
+// the menu is the standard light popover with a check on the active option.
+function FilterDropdown({
   label,
   value,
   onChange,
   dark,
-  children,
+  options,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   dark: boolean;
-  children: React.ReactNode;
+  options: { value: string; label: string }[];
 }) {
+  const current = options.find((o) => o.value === value) ?? options[0];
   return (
-    <label className="inline-flex items-center gap-2">
+    <div className="inline-flex items-center gap-2">
       <span
         className="text-[13.5px] font-bold uppercase tracking-[0.05em]"
         style={{ color: dark ? "rgba(255,255,255,0.7)" : "var(--color-ink-subtle)" }}
       >
         {label}
       </span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-12 rounded-pill px-5 pr-10 text-[16px] font-semibold cursor-pointer transition-colors focus:outline-none"
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="group inline-flex items-center gap-2 h-12 rounded-pill px-5 text-[16px] font-semibold transition-colors outline-none data-[state=open]:ring-2 data-[state=open]:ring-altus-red/40"
+            style={{
+              color: dark ? "#fff" : "var(--color-ink-strong)",
+              background: dark ? "rgba(255,255,255,0.09)" : "var(--color-surface-card)",
+              border: dark ? "1px solid rgba(255,255,255,0.18)" : "1px solid var(--color-hairline)",
+            }}
+          >
+            <span className="truncate max-w-[200px]">{current?.label ?? ""}</span>
+            <ChevronDown
+              size={16}
+              strokeWidth={2.4}
+              className="shrink-0 opacity-70 transition-transform duration-200 group-data-[state=open]:rotate-180"
+            />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" sideOffset={8} className="min-w-[var(--radix-dropdown-menu-trigger-width)]">
+          {options.map((o) => {
+            const selected = o.value === value;
+            return (
+              <DropdownMenuItem
+                key={o.value}
+                onSelect={() => onChange(o.value)}
+                className={selected ? "font-bold" : ""}
+              >
+                <span className="inline-flex w-4 justify-center shrink-0">
+                  {selected ? (
+                    <Check size={15} strokeWidth={2.8} className="text-altus-red" />
+                  ) : null}
+                </span>
+                <span className="truncate">{o.label}</span>
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+// ── Hover preview ─────────────────────────────────────────────────────────
+// The whole task at a glance on card hover — status, priority, full title +
+// description, client/subject/due/doer — so you never have to open it just to
+// read it. Always a light card so it reads over the dark board.
+
+function Pill({
+  tone,
+  icon,
+  children,
+}: {
+  tone: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[12.5px] font-bold whitespace-nowrap"
+      style={{
+        color: `var(--color-${tone}-deep)`,
+        background: `color-mix(in srgb, var(--color-${tone}) 14%, transparent)`,
+        border: `1px solid color-mix(in srgb, var(--color-${tone}) 30%, transparent)`,
+      }}
+    >
+      {icon}
+      {children}
+    </span>
+  );
+}
+
+function FieldHead({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div
+      className="flex items-center gap-1.5 text-ink-subtle"
+      style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}
+    >
+      {icon}
+      {children}
+    </div>
+  );
+}
+
+function Meta({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | null;
+}) {
+  return (
+    <div className="min-w-0">
+      <FieldHead icon={icon}>{label}</FieldHead>
+      <div className="mt-1 truncate text-ink-strong" style={{ fontSize: 14.5, fontWeight: 600 }}>
+        {value && value.trim() ? value : "—"}
+      </div>
+    </div>
+  );
+}
+
+function TaskHoverCard({
+  t,
+  labels,
+  tones,
+}: {
+  t: BoardTask;
+  labels: Record<TaskStatus, string>;
+  tones: Record<TaskStatus, StatusColorToken>;
+}) {
+  const statusTone = tones[t.status] ?? "blue";
+  const prioTone = PRIORITY_TONE[t.priority] ?? "slate";
+  const desc = t.description?.trim();
+  // Staggered entrance delays — header, title, description, divider, meta.
+  const DELAY = ["40ms", "95ms", "150ms", "205ms", "260ms"] as const;
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-2xl bg-surface-card"
+      style={{
+        width: 384,
+        maxWidth: "calc(100vw - 32px)",
+        border: "1px solid var(--color-hairline-strong)",
+        boxShadow: "0 24px 60px -16px rgba(15,23,42,0.40), 0 4px 12px rgba(15,23,42,0.12)",
+      }}
+    >
+      {/* Status accent that sweeps across the top */}
+      <span
+        aria-hidden
+        className="hc-accent absolute inset-x-0 top-0 h-1"
         style={{
-          color: dark ? "#fff" : "var(--color-ink-strong)",
-          background: dark ? "rgba(255,255,255,0.09)" : "var(--color-surface-card)",
-          border: dark
-            ? "1px solid rgba(255,255,255,0.18)"
-            : "1px solid var(--color-hairline)",
+          background: `linear-gradient(90deg, var(--color-${statusTone}), var(--color-${statusTone}-deep))`,
         }}
-      >
-        {children}
-      </select>
-    </label>
+      />
+
+      <div className="p-5 pt-6">
+        {/* Status / priority / archived badges */}
+        <div className="hc-item flex items-center gap-2 flex-wrap" style={{ animationDelay: DELAY[0] }}>
+          <Pill
+            tone={statusTone}
+            icon={<span className="h-2 w-2 rounded-full" style={{ background: `var(--color-${statusTone})` }} />}
+          >
+            {labels[t.status]}
+          </Pill>
+          <Pill tone={prioTone} icon={<Flag size={12} strokeWidth={2.6} />}>
+            {PRIORITY_LABELS[t.priority]}
+          </Pill>
+          {t.archived && (
+            <Pill tone="slate" icon={<Archive size={12} strokeWidth={2.4} />}>
+              Archived
+            </Pill>
+          )}
+        </div>
+
+        {/* Title */}
+        <h3
+          className="hc-item mt-3.5 text-ink-strong"
+          style={{ animationDelay: DELAY[1], fontSize: 17, fontWeight: 800, lineHeight: 1.3, letterSpacing: "-0.01em" }}
+        >
+          {t.title}
+        </h3>
+
+        {/* Description */}
+        <div className="hc-item mt-3" style={{ animationDelay: DELAY[2] }}>
+          <FieldHead icon={<AlignLeft size={14} strokeWidth={2.2} />}>Description</FieldHead>
+          {desc ? (
+            <p
+              className="mt-1.5 whitespace-pre-wrap text-ink-soft"
+              style={{ fontSize: 14.5, lineHeight: 1.6, maxHeight: 208, overflowY: "auto" }}
+            >
+              {desc}
+            </p>
+          ) : (
+            <p className="mt-1.5 italic text-ink-subtle" style={{ fontSize: 14 }}>
+              No description added.
+            </p>
+          )}
+        </div>
+
+        <div className="hc-item my-4 h-px bg-hairline" style={{ animationDelay: DELAY[3] }} />
+
+        {/* Meta grid */}
+        <div className="hc-item grid grid-cols-2 gap-x-4 gap-y-4" style={{ animationDelay: DELAY[4] }}>
+          <Meta icon={<Building2 size={14} strokeWidth={2.2} />} label="Client" value={t.client} />
+          <Meta icon={<Tag size={14} strokeWidth={2.2} />} label="Subject" value={t.subject} />
+          <Meta
+            icon={<CalendarDays size={14} strokeWidth={2.2} />}
+            label="Due"
+            value={t.dueAt ? format(t.dueAt, "MMM d, yyyy") : null}
+          />
+          <div className="min-w-0">
+            <FieldHead icon={<User size={14} strokeWidth={2.2} />}>Doer</FieldHead>
+            <div className="mt-1 flex items-center gap-2 min-w-0">
+              {t.doerName ? (
+                <>
+                  <EmployeeAvatar name={t.doerName} size="sm" />
+                  <span className="truncate text-ink-strong" style={{ fontSize: 14.5, fontWeight: 600 }}>
+                    {t.doerName}
+                  </span>
+                </>
+              ) : (
+                <span className="text-ink-subtle" style={{ fontSize: 14.5 }}>
+                  Unassigned
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

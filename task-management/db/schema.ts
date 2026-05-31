@@ -104,6 +104,12 @@ export const employees = pgTable("employees", {
   }),
   // Profile v2 (migration 0038) — mention escalation override scalar.
   mentionEscalation: boolean("mention_escalation").notNull().default(true),
+  // Google Calendar sync (migration 0043) — per-user OAuth. The refresh token
+  // is long-lived; we exchange it for short-lived access tokens on demand.
+  // Server-only: never selected into client-bound queries.
+  googleRefreshToken: text("google_refresh_token"),
+  googleEmail: text("google_email"),
+  googleConnectedAt: timestamp("google_connected_at", { withTimezone: true }),
 });
 
 /**
@@ -471,6 +477,11 @@ export const tasks = pgTable(
     // `clients` table is just the picker roster). Added in migration 0042 and
     // backfilled from the old "Client/Participant:" notes / form title.
     client: text("client"),
+    // Google Calendar sync (migration 0043): the event id created on the
+    // synced doer's calendar, and which doer's calendar holds it (so a
+    // reassign can move the event). Null when not synced.
+    googleEventId: text("google_event_id"),
+    googleSyncedDoerId: uuid("google_synced_doer_id"),
     archived: boolean("archived").notNull().default(false),
     // M2.1 additions — provenance + approval (approved_* used in M2.2) + optimistic lock
     createdById: uuid("created_by_id").references(() => employees.id, {
@@ -496,6 +507,9 @@ export const tasks = pgTable(
     tags: text("tags").array(),
     approvalStatus: approvalStatusEnum("approval_status"),
     revisedTargetDate: timestamp("revised_target_date", { withTimezone: true }),
+    // Read-receipt (migration 0045): set when any user first opens the task
+    // detail. NULL = never opened. Powers the "Not Read" stat card.
+    firstReadAt: timestamp("first_read_at", { withTimezone: true }),
     // Tier-4 (2026-05-20) — Google-Calendar-style internal scheduling.
     // NOT synced to any actual calendar API; these are just metadata
     // fields the team uses to plan when work happens.

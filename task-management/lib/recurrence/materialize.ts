@@ -3,21 +3,24 @@ import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { tasks, taskEvents } from "@/db/schema";
 import { deriveShortId, nextShortIdCandidate } from "@/lib/import/short-id";
-import { generateOccurrences, parseRRule } from "@/lib/recurrence/rrule";
+import { generateOccurrences, parseRRule, ymd as ymdUTC } from "@/lib/recurrence/rrule";
 
 /**
- * Phase 5.2 — recurrence materializer.
+ * Recurrence materializer — "single actionable instance" model.
  *
- * Walks every active "template" task (one that holds a `recurrence_rule`
- * but is not itself a materialized child) and creates the missing
- * dated child instances inside a forward window (default 14 days).
+ * For each active template (holds a `recurrence_rule`, not itself a child) we
+ * keep at most ONE occurrence materialized *ahead* of today — the immediate
+ * next. When today reaches it, the next cron tick creates the following one.
+ * We never pre-generate a window of future rows, so a daily task no longer
+ * explodes into 14+ future instances cluttering the lists.
+ *
+ * Past occurrences that were materialized when they were "current" stay as
+ * real rows (history / overdue / done). Brand-new templates whose start is in
+ * the future generate nothing until their start date is reached.
  *
  * Idempotent: the unique partial index on
- * (recurrence_parent_id, recurrence_occurrence_date) means a duplicate
- * INSERT just no-ops via ON CONFLICT DO NOTHING. Safe to run as often
- * as you like.
- *
- * Returns counts so the cron route can log a digest.
+ * (recurrence_parent_id, recurrence_occurrence_date) means a duplicate INSERT
+ * just no-ops via ON CONFLICT DO NOTHING. Safe to run as often as you like.
  */
 export interface MaterializeStats {
   templates: number;
@@ -26,14 +29,29 @@ export interface MaterializeStats {
   errors: number;
 }
 
-const DEFAULT_LOOKAHEAD_DAYS = 14;
+// Catch-up guard: if the cron was down for a while we backfill missed
+// occurrences up to today (+ one future), capped so a long outage can't spawn
+// a runaway. Normal daily operation creates exactly one row per run.
+const MAX_CATCHUP = 40;
+// Forward search window when finding the next occurrence (covers yearly).
+const NEXT_SEARCH_DAYS = 400;
+
+function toMidnightUTC(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+function fromYmd(s: string): Date {
+  const [y, m, d] = s.split("-").map(Number) as [number, number, number];
+  return new Date(Date.UTC(y, m - 1, d));
+}
+function addDaysUTC(d: Date, n: number): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + n));
+}
 
 export async function materializeRecurringTasks(
-  opts: { lookaheadDays?: number; now?: Date } = {},
+  opts: { now?: Date } = {},
 ): Promise<MaterializeStats> {
-  const lookahead = opts.lookaheadDays ?? DEFAULT_LOOKAHEAD_DAYS;
   const now = opts.now ?? new Date();
-  const windowEnd = new Date(now.getTime() + lookahead * 24 * 60 * 60 * 1000);
+  const today = toMidnightUTC(now);
   const stats: MaterializeStats = { templates: 0, created: 0, skipped: 0, errors: 0 };
 
   // Pick rule-holders only: recurrence_rule set, NOT a materialized child,
@@ -59,12 +77,57 @@ export async function materializeRecurringTasks(
       stats.skipped++;
       continue;
     }
-    // Anchor = the template's calendar date. We use `dueAt` because
-    // that's the date the human chose; `startsAt` would also be fine
-    // but might be null for tasks without explicit start/end.
+    // Anchor = the template's calendar date (occurrence #1). We use `dueAt`
+    // because that's the date the human chose.
     const anchor = t.dueAt;
-    const occurrences = generateOccurrences(rule, anchor, windowEnd);
-    if (occurrences.length === 0) continue;
+
+    // Existing children — their occurrence dates tell us how far we've gone
+    // and (with the template) how many occurrences have been materialized.
+    const kids = await db
+      .select({ d: tasks.recurrenceOccurrenceDate })
+      .from(tasks)
+      .where(eq(tasks.recurrenceParentId, t.id));
+    const childDates = kids.map((k) => k.d).filter((d): d is string => Boolean(d));
+    const materializedCount = 1 + childDates.length; // template is occurrence #1
+
+    // Furthest occurrence already created (a child, else the template anchor).
+    const floorYmd = childDates.length
+      ? childDates.reduce((a, b) => (a > b ? a : b))
+      : ymdUTC(toMidnightUTC(anchor));
+    const floor = fromYmd(floorYmd);
+
+    // We already have an occurrence queued ahead of today → nothing to do.
+    if (floor.getTime() > today.getTime()) {
+      stats.skipped++;
+      continue;
+    }
+    // A COUNT-limited series (Google "after N") that's already complete.
+    if (rule.count !== null && materializedCount >= rule.count) {
+      stats.skipped++;
+      continue;
+    }
+
+    // Build the set to create: catch up any occurrence up to today, then
+    // exactly ONE future occurrence. Generate FROM the floor (a valid
+    // on-pattern date) so a long-running daily series doesn't hit the
+    // from-original-anchor occurrence cap. COUNT is enforced above; strip it.
+    const genRule = { ...rule, count: null };
+    const occurrences: string[] = [];
+    let cursor = floor;
+    let made = materializedCount;
+    for (let guard = 0; guard < MAX_CATCHUP; guard++) {
+      if (rule.count !== null && made >= rule.count) break;
+      const nxt = generateOccurrences(genRule, cursor, addDaysUTC(cursor, NEXT_SEARCH_DAYS))[0];
+      if (!nxt) break; // series ended (past UNTIL)
+      occurrences.push(nxt);
+      made++;
+      cursor = fromYmd(nxt);
+      if (cursor.getTime() > today.getTime()) break; // created the one future → stop
+    }
+    if (occurrences.length === 0) {
+      stats.skipped++;
+      continue;
+    }
 
     // Hour-of-day to clone — pin the new task's dueAt to the same
     // wall-clock the template uses, just on the occurrence date.

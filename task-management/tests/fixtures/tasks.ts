@@ -24,6 +24,9 @@ function profileV2Defaults() {
     oooDelegateId: null as string | null,
     mentionEscalation: true,
     passwordResetByAdminAt: null as Date | null,
+    googleRefreshToken: null as string | null,
+    googleEmail: null as string | null,
+    googleConnectedAt: null as Date | null,
   };
 }
 
@@ -128,6 +131,8 @@ function task(partial: Partial<Task>): Task {
     notes: null,
     subject: partial.subject ?? null,
     client: partial.client ?? null,
+    googleEventId: partial.googleEventId ?? null,
+    googleSyncedDoerId: partial.googleSyncedDoerId ?? null,
     archived: partial.archived ?? false,
     createdById: partial.createdById ?? null,
     approvedById: partial.approvedById ?? null,

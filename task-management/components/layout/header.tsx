@@ -36,7 +36,7 @@ export async function DashboardHeader({
           borderBottom: "1px solid var(--color-hairline)",
         }}
       >
-        <div className="relative w-full h-[96px] px-6 max-md:h-[72px] max-md:px-4 flex items-center gap-6 max-md:gap-3">
+        <div className="relative w-full h-[96px] px-6 max-md:h-[72px] max-md:px-4 flex items-center gap-4 2xl:gap-6 max-md:gap-3">
           {/* LEFT-MOST: Back / Forward history pills (md+ only).
               On mobile, replaced by the hamburger menu (same slot). */}
           <NavHistoryButtons />
@@ -48,7 +48,7 @@ export async function DashboardHeader({
             <img
               src="/logo.png"
               alt="Altus Corp"
-              className="h-[88px] w-auto max-md:h-16"
+              className="h-16 w-auto max-md:h-14"
               style={{ display: "block" }}
             />
           </a>
@@ -58,14 +58,15 @@ export async function DashboardHeader({
             <MainNavServer />
           </div>
 
-          {/* RIGHT: live indicator + actions + avatar */}
-          <div className="flex items-center gap-3 shrink-0 max-md:gap-1.5">
-            <span className="max-md:hidden">
+          {/* RIGHT: live indicator + actions + avatar. The Live pill hides
+              below 2xl so the centred nav has room at laptop widths. */}
+          <div className="flex items-center gap-2.5 2xl:gap-3 shrink-0 max-md:gap-1.5">
+            <span className="max-2xl:hidden">
               <LiveIndicator />
             </span>
             <NewTaskTrigger />
             {isAdmin && (
-              <span className="max-md:hidden">
+              <span className="max-lg:hidden">
                 <AdminPill />
               </span>
             )}

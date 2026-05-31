@@ -23,6 +23,7 @@ export function MainNavPill({ href, label, Icon, active, count, badge, grow }: P
   return (
     <Link
       href={href}
+      title={label}
       aria-current={active ? "page" : undefined}
       className={
         (active ? "nav-pill nav-pill-active" : "nav-pill") +
@@ -32,11 +33,13 @@ export function MainNavPill({ href, label, Icon, active, count, badge, grow }: P
       aria-label={
         showBadge
           ? `${label} — ${badge} new ${badge === 1 ? "event" : "events"}`
-          : undefined
+          : label
       }
     >
       <Icon size={18} strokeWidth={2.2} />
-      <span className="max-md:hidden">{label}</span>
+      {/* Labels collapse to icon-only below xl so the centred nav never
+          overflows into the logo / right cluster on a maximized laptop. */}
+      <span className="max-xl:hidden">{label}</span>
       {typeof count === "number" && (
         <span className="nav-pill-count max-md:hidden">{formatCount(count)}</span>
       )}

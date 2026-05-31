@@ -141,6 +141,51 @@ describe("generateOccurrences", () => {
     const out = generateOccurrences(r, utc(2026, 1, 1), utc(2027, 1, 1));
     expect(out.length).toBe(200);
   });
+
+  // ── INTERVAL (Google "Repeat every N …") ──────────────────────────────
+  it("honours INTERVAL for DAILY (every 2 days)", () => {
+    const r = parseRRule("FREQ=DAILY;INTERVAL=2")!;
+    expect(r.interval).toBe(2);
+    const out = generateOccurrences(r, utc(2026, 6, 1), utc(2026, 6, 9));
+    expect(out).toEqual(["2026-06-03", "2026-06-05", "2026-06-07", "2026-06-09"]);
+  });
+
+  it("honours INTERVAL for WEEKLY (every 2 weeks on Mon)", () => {
+    // Anchor Mon 2026-06-01. Active weeks: anchor week, +2, +4 …
+    const r = parseRRule("FREQ=WEEKLY;INTERVAL=2;BYDAY=MO")!;
+    const out = generateOccurrences(r, utc(2026, 6, 1), utc(2026, 7, 31));
+    // Mondays: Jun 8 (week+1 → skipped), Jun 15 (week+2 → kept), Jun 29, Jul 13, Jul 27.
+    expect(out).toEqual(["2026-06-15", "2026-06-29", "2026-07-13", "2026-07-27"]);
+  });
+
+  it("honours INTERVAL for MONTHLY (every 2 months on day 1)", () => {
+    const r = parseRRule("FREQ=MONTHLY;INTERVAL=2;BYMONTHDAY=1")!;
+    const out = generateOccurrences(r, utc(2026, 6, 1), utc(2026, 12, 31));
+    // Jun (anchor), Aug, Oct, Dec.
+    expect(out).toEqual(["2026-08-01", "2026-10-01", "2026-12-01"]);
+  });
+
+  it("honours INTERVAL for YEARLY (every 2 years)", () => {
+    const r = parseRRule("FREQ=YEARLY;INTERVAL=2")!;
+    const out = generateOccurrences(r, utc(2026, 6, 1), utc(2032, 12, 31));
+    expect(out).toEqual(["2028-06-01", "2030-06-01", "2032-06-01"]);
+  });
+
+  // ── COUNT (Google "After N occurrences") ──────────────────────────────
+  it("honours COUNT — anchor is #1, so emits at most count-1 more", () => {
+    const r = parseRRule("FREQ=DAILY;COUNT=3")!;
+    expect(r.count).toBe(3);
+    const out = generateOccurrences(r, utc(2026, 6, 1), utc(2026, 6, 30));
+    // #1 = anchor (Jun 1), #2 = Jun 2, #3 = Jun 3 → only 2 generated.
+    expect(out).toEqual(["2026-06-02", "2026-06-03"]);
+  });
+
+  it("COUNT and INTERVAL combine", () => {
+    const r = parseRRule("FREQ=DAILY;INTERVAL=2;COUNT=3")!;
+    const out = generateOccurrences(r, utc(2026, 6, 1), utc(2026, 6, 30));
+    // every 2 days, 3 total incl anchor → Jun 3, Jun 5.
+    expect(out).toEqual(["2026-06-03", "2026-06-05"]);
+  });
 });
 
 describe("ymd", () => {

@@ -18,6 +18,8 @@ function task(p: Partial<Task>): Task {
     notes: null,
     subject: null,
     client: null,
+    googleEventId: null,
+    googleSyncedDoerId: null,
     archived: false,
     createdById: null,
     approvedById: null,

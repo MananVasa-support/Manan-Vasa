@@ -15,6 +15,7 @@ import { DigestAndQuiet } from "@/components/profile/notifications/digest-and-qu
 import { OooControls } from "@/components/profile/workflow/ooo-controls";
 import { WorkingHours } from "@/components/profile/workflow/working-hours";
 import { PinnedShelf } from "@/components/profile/workflow/pinned-shelf";
+import { GoogleCalendarCard } from "@/components/profile/workflow/google-calendar-card";
 import { PerfCard } from "@/components/profile/performance/perf-card";
 import { ActivityFeed } from "@/components/profile/performance/activity-feed";
 import { AchievementsGrid } from "@/components/profile/performance/achievements-grid";
@@ -251,6 +252,10 @@ export default async function ProfilePage() {
               ),
               workflow: (
                 <div style={{ display: "grid", gap: 24 }}>
+                  <GoogleCalendarCard
+                    connected={Boolean(me.googleConnectedAt)}
+                    email={me.googleEmail}
+                  />
                   <OooControls
                     initial={{
                       oooStart: me.oooStart,

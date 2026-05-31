@@ -1,6 +1,6 @@
 "use client";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ListTodo, Archive, Inbox, CalendarDays, FolderKanban, FileText } from "lucide-react";
+import { LayoutDashboard, ListTodo, Archive, Inbox, CalendarDays, FolderKanban, FileText, SquareKanban } from "lucide-react";
 import type { Route } from "next";
 import { MainNavPill } from "./main-nav-pill";
 
@@ -25,7 +25,7 @@ export function MainNav({
   return (
     <nav
       aria-label="Primary"
-      className="flex items-center gap-2 max-md:gap-1.5"
+      className="flex items-center gap-1.5 2xl:gap-2 max-md:gap-1.5"
     >
       <MainNavPill
         href={"/" as Route}
@@ -41,8 +41,17 @@ export function MainNav({
         href={"/tasks" as Route}
         label="Tasks"
         Icon={ListTodo}
-        active={isActive("/tasks") && !pathname.startsWith("/tasks/agenda")}
+        active={
+          isActive("/tasks") &&
+          !pathname.startsWith("/tasks/agenda") &&
+          !pathname.startsWith("/tasks/kanban")
+        }
         count={activeTasks}      />
+      <MainNavPill
+        href={"/tasks/kanban" as Route}
+        label="Kanban"
+        Icon={SquareKanban}
+        active={pathname.startsWith("/tasks/kanban")}      />
       <MainNavPill
         href={"/projects" as Route}
         label="Projects"

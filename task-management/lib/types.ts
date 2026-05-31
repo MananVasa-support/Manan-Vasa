@@ -177,4 +177,6 @@ export interface TaskListRow {
   archived: boolean;
   createdById: string | null;
   updatedAt: Date;
+  approvalStatus: "approved" | "not_approved" | "cancelled" | "transferred" | null;
+  firstReadAt: Date | null;
 }

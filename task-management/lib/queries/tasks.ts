@@ -57,6 +57,8 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
       initiatorName: initEmp.name,
       createdById: tasks.createdById,
       updatedAt: tasks.updatedAt,
+      approvalStatus: tasks.approvalStatus,
+      firstReadAt: tasks.firstReadAt,
     })
     .from(tasks)
     .leftJoin(doerEmp, eq(tasks.doerId, doerEmp.id))
@@ -85,6 +87,8 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
     archived: r.archived,
     createdById: r.createdById,
     updatedAt: r.updatedAt,
+    approvalStatus: r.approvalStatus,
+    firstReadAt: r.firstReadAt,
   }));
 }
 
@@ -196,6 +200,8 @@ export async function listTasksPage(
       initiatorName: initEmp.name,
       createdById: tasks.createdById,
       updatedAt: tasks.updatedAt,
+      approvalStatus: tasks.approvalStatus,
+      firstReadAt: tasks.firstReadAt,
     })
     .from(tasks)
     .leftJoin(doerEmp, eq(tasks.doerId, doerEmp.id))
@@ -229,6 +235,8 @@ export async function listTasksPage(
     archived: r.archived,
     createdById: r.createdById,
     updatedAt: r.updatedAt,
+    approvalStatus: r.approvalStatus,
+    firstReadAt: r.firstReadAt,
   }));
 
   return { rows, nextCursor };
@@ -239,6 +247,7 @@ export interface BoardTask {
   id: string;
   title: string;
   subject: string | null;
+  client: string | null;
   description: string | null;
   status: (typeof TASK_STATUSES)[number];
   priority: (typeof TASK_PRIORITIES)[number];
@@ -259,6 +268,7 @@ export async function listBoardTasks(): Promise<BoardTask[]> {
       id: tasks.id,
       title: tasks.title,
       subject: tasks.subject,
+      client: tasks.client,
       description: tasks.description,
       status: tasks.status,
       priority: tasks.priority,
@@ -285,6 +295,7 @@ export async function listAgendaTasks(employeeId: string): Promise<BoardTask[]> 
       id: tasks.id,
       title: tasks.title,
       subject: tasks.subject,
+      client: tasks.client,
       description: tasks.description,
       status: tasks.status,
       priority: tasks.priority,

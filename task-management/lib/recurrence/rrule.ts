@@ -26,11 +26,13 @@ export type Weekday = "SU" | "MO" | "TU" | "WE" | "TH" | "FR" | "SA";
 
 export interface ParsedRule {
   freq: Freq;
+  interval: number;           // every N periods (default 1)
   byDay: Weekday[];           // for WEEKLY
   monthlyNth: number | null;  // for MONTHLY (1..5 or -1 = "last"), set when BYDAY="2MO" etc.
   monthlyWeekday: Weekday | null;
   byMonthDay: number | null;  // for MONTHLY (1..31)
   until: string | null;       // yyyy-mm-dd, inclusive
+  count: number | null;       // total occurrences incl. the anchor (Google "After N")
 }
 
 const WD_ORDER: Weekday[] = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
@@ -52,11 +54,13 @@ export function parseRRule(rule: string): ParsedRule | null {
   if (!rule || typeof rule !== "string") return null;
   const out: ParsedRule = {
     freq: "DAILY",
+    interval: 1,
     byDay: [],
     monthlyNth: null,
     monthlyWeekday: null,
     byMonthDay: null,
     until: null,
+    count: null,
   };
   let sawFreq = false;
   for (const seg of rule.split(";")) {
@@ -101,7 +105,17 @@ export function parseRRule(rule: string): ParsedRule | null {
         if (m) out.until = `${m[1]}-${m[2]}-${m[3]}`;
         break;
       }
-      // INTERVAL, COUNT, BYSETPOS not supported in the picker; ignore.
+      case "INTERVAL": {
+        const n = Number(val);
+        if (Number.isInteger(n) && n >= 1) out.interval = n;
+        break;
+      }
+      case "COUNT": {
+        const n = Number(val);
+        if (Number.isInteger(n) && n >= 1) out.count = n;
+        break;
+      }
+      // BYSETPOS not supported in the picker; ignore.
     }
   }
   return sawFreq ? out : null;
@@ -133,14 +147,21 @@ export function generateOccurrences(
 
   if (start.getTime() > end.getTime()) return out;
 
-  // Cursor walks one day at a time for DAILY/WEEKLY; one month at a time
-  // for MONTHLY; one year for YEARLY. Either way bounded by `end`.
+  const interval = Math.max(1, rule.interval || 1);
+  // The anchor is occurrence #1, so we only ever emit up to (count - 1) more.
+  const limit =
+    rule.count !== null
+      ? Math.min(MAX_OCCURRENCES, Math.max(0, rule.count - 1))
+      : MAX_OCCURRENCES;
+  if (limit === 0) return out;
+
+  // Cursor walks one period at a time, stepping by `interval`, bounded by `end`.
   if (rule.freq === "DAILY") {
-    let cur = nextDay(start);
-    while (cur.getTime() <= end.getTime() && out.length < MAX_OCCURRENCES) {
+    let cur = addDays(start, interval);
+    while (cur.getTime() <= end.getTime() && out.length < limit) {
       if (untilCap && cur.getTime() > untilCap.getTime()) break;
       out.push(ymd(cur));
-      cur = nextDay(cur);
+      cur = addDays(cur, interval);
     }
     return out;
   }
@@ -150,11 +171,18 @@ export function generateOccurrences(
     const wantedDays = rule.byDay.length
       ? new Set(rule.byDay)
       : new Set<Weekday>([WD_ORDER[start.getUTCDay()]!]);
+    const anchorWeek = weekStartUTC(start);
     let cur = nextDay(start);
-    while (cur.getTime() <= end.getTime() && out.length < MAX_OCCURRENCES) {
+    while (cur.getTime() <= end.getTime() && out.length < limit) {
       if (untilCap && cur.getTime() > untilCap.getTime()) break;
       const wd = WD_ORDER[cur.getUTCDay()]!;
-      if (wantedDays.has(wd)) out.push(ymd(cur));
+      if (wantedDays.has(wd)) {
+        // Honour INTERVAL: only weeks a multiple of `interval` from the anchor.
+        const weeks = Math.round(
+          (weekStartUTC(cur).getTime() - anchorWeek.getTime()) / WEEK_MS,
+        );
+        if (weeks % interval === 0) out.push(ymd(cur));
+      }
       cur = nextDay(cur);
     }
     return out;
@@ -168,13 +196,18 @@ export function generateOccurrences(
     // (e.g. "last Friday" of an early-month anchor) absolutely qualify.
     let y = start.getUTCFullYear();
     let m = start.getUTCMonth();
-    for (let safety = 0; safety < 24 * 12 && out.length < MAX_OCCURRENCES; safety++) {
-      const occ = monthlyOccurrence(y, m, rule, start);
-      if (occ) {
-        if (occ.getTime() > end.getTime()) break;
-        if (occ.getTime() > start.getTime()) {
-          if (untilCap && occ.getTime() > untilCap.getTime()) break;
-          out.push(ymd(occ));
+    for (let safety = 0; safety < 24 * 12 && out.length < limit; safety++) {
+      // Honour INTERVAL: only months a multiple of `interval` from the anchor.
+      const monthsFromAnchor =
+        (y - start.getUTCFullYear()) * 12 + (m - start.getUTCMonth());
+      if (monthsFromAnchor % interval === 0) {
+        const occ = monthlyOccurrence(y, m, rule, start);
+        if (occ) {
+          if (occ.getTime() > end.getTime()) break;
+          if (occ.getTime() > start.getTime()) {
+            if (untilCap && occ.getTime() > untilCap.getTime()) break;
+            out.push(ymd(occ));
+          }
         }
       }
       m += 1;
@@ -187,9 +220,11 @@ export function generateOccurrences(
   }
 
   if (rule.freq === "YEARLY") {
-    // Same month + day each year, starting the year after the anchor.
-    let y = start.getUTCFullYear() + 1;
-    for (let safety = 0; safety < 50 && out.length < MAX_OCCURRENCES; safety++, y++) {
+    // Same month + day every `interval` years, starting after the anchor.
+    const anchorYear = start.getUTCFullYear();
+    let y = anchorYear + 1;
+    for (let safety = 0; safety < 200 && out.length < limit; safety++, y++) {
+      if ((y - anchorYear) % interval !== 0) continue;
       const occ = new Date(Date.UTC(y, start.getUTCMonth(), start.getUTCDate()));
       if (occ.getTime() > end.getTime()) break;
       if (untilCap && occ.getTime() > untilCap.getTime()) break;
@@ -203,6 +238,19 @@ export function generateOccurrences(
 
 function nextDay(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1));
+}
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+function addDays(d: Date, n: number): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + n));
+}
+
+/** Sunday (UTC) on or before `d` — the start of d's week. */
+function weekStartUTC(d: Date): Date {
+  return new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - d.getUTCDay()),
+  );
 }
 
 /**

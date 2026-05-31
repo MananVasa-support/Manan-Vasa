@@ -11,6 +11,28 @@ import { CACHE_TAGS, PROFILE_CACHE_TAGS } from "@/lib/cache-tags";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { isAcceptableAvatarUrl } from "@/lib/avatar-url";
+import { revokeToken } from "@/lib/google/calendar";
+
+/**
+ * Disconnect Google Calendar — revoke the stored refresh token at Google and
+ * clear it locally. New tasks for this doer simply stop syncing; existing
+ * calendar events stay put (we no longer hold a token to delete them).
+ */
+export async function disconnectGoogleCalendar(): Promise<{ ok: boolean }> {
+  const me = await requireUser();
+  const [row] = await db
+    .select({ token: employees.googleRefreshToken })
+    .from(employees)
+    .where(eq(employees.id, me.id))
+    .limit(1);
+  if (row?.token) await revokeToken(row.token);
+  await db
+    .update(employees)
+    .set({ googleRefreshToken: null, googleEmail: null, googleConnectedAt: null })
+    .where(eq(employees.id, me.id));
+  revalidatePath("/profile");
+  return { ok: true };
+}
 
 /**
  * M4 — self-serve per-channel opt-in flags.  Only the two channels the

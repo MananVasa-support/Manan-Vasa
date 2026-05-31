@@ -4,9 +4,17 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CalendarCheck2, Clock, Hourglass, type LucideIcon } from "lucide-react";
 import { rescheduleTask } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
+
+/** Calendar-add days to a yyyy-mm-dd string (lexicographic == chronological). */
+function addDaysYmd(ymd: string, n: number): string {
+  const [y, m, d] = ymd.split("-").map(Number) as [number, number, number];
+  const dt = new Date(Date.UTC(y, m - 1, d + n));
+  const p = (x: number) => String(x).padStart(2, "0");
+  return `${dt.getUTCFullYear()}-${p(dt.getUTCMonth() + 1)}-${p(dt.getUTCDate())}`;
+}
 
 export interface AgendaTask {
   id: string;
@@ -128,6 +136,17 @@ export function AgendaBoard({
     (t) => t.dueYmd >= todayYmd && lastYmd && t.dueYmd > lastYmd,
   );
 
+  // The four lifecycle buckets. Window-independent so the labels are stable
+  // regardless of the day-count selector: Overdue < today, Due Now = today,
+  // Upcoming = next 7 days, Not Due = beyond.
+  const horizon = addDaysYmd(todayYmd, 7);
+  const buckets: { key: string; label: string; tone: string; icon: LucideIcon; n: number }[] = [
+    { key: "due", label: "Due Now", tone: "blue", icon: CalendarCheck2, n: items.filter((t) => t.dueYmd === todayYmd).length },
+    { key: "upcoming", label: "Upcoming", tone: "amber", icon: Clock, n: items.filter((t) => t.dueYmd > todayYmd && t.dueYmd <= horizon).length },
+    { key: "overdue", label: "Overdue", tone: "red", icon: AlertTriangle, n: overdueItems.length },
+    { key: "notdue", label: "Not Due", tone: "slate", icon: Hourglass, n: items.filter((t) => t.dueYmd > horizon).length },
+  ];
+
   function moveTo(id: string, ymd: string) {
     setOverCol(null);
     const cur = items.find((t) => t.id === id);
@@ -180,6 +199,52 @@ export function AgendaBoard({
           )}
           . <span className="text-ink-subtle">Drag a card to another day to reschedule it.</span>
         </p>
+      </div>
+
+      {/* Lifecycle buckets — Due Now · Upcoming · Overdue · Not Due. */}
+      <div className="mb-7 grid grid-cols-4 gap-4 max-lg:grid-cols-2 max-sm:grid-cols-1">
+        {buckets.map((b) => {
+          const Icon = b.icon;
+          return (
+            <div
+              key={b.key}
+              className="relative bg-surface-card rounded-section overflow-hidden"
+              style={{
+                border: "1px solid var(--color-hairline)",
+                boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
+                padding: "20px 22px",
+              }}
+            >
+              <span
+                aria-hidden
+                className="absolute inset-x-0 top-0"
+                style={{ height: 4, background: `linear-gradient(90deg, var(--color-${b.tone}), var(--color-${b.tone}-deep))` }}
+              />
+              <span
+                aria-hidden
+                className="absolute right-5 top-5 inline-flex size-9 items-center justify-center rounded-xl"
+                style={{
+                  background: `color-mix(in srgb, var(--color-${b.tone}) 14%, transparent)`,
+                  color: `var(--color-${b.tone}-deep)`,
+                }}
+              >
+                <Icon size={18} strokeWidth={2.3} />
+              </span>
+              <span
+                className="uppercase font-black tracking-[0.06em] leading-none"
+                style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontSize: 13, color: `var(--color-${b.tone}-deep)` }}
+              >
+                {b.label}
+              </span>
+              <span
+                className="block mt-2 leading-[0.85] tabular-nums text-ink-strong"
+                style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 40 }}
+              >
+                {b.n}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {/* Day-count selector */}
@@ -236,7 +301,7 @@ export function AgendaBoard({
           />
         ))}
         {laterItems.length > 0 && (
-          <Column label="Later" sub={`${laterItems.length}`} tone="stone" tasks={laterItems} />
+          <Column label="Not Due" sub={`${laterItems.length}`} tone="slate" tasks={laterItems} />
         )}
       </div>
     </div>

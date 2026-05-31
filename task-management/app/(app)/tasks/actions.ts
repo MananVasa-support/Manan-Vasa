@@ -2,7 +2,9 @@
 
 import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
+import { afterResponse } from "@/lib/after";
 import { db, tasks } from "@/lib/db";
+import { reconcileTaskEvent, removeTaskEvent } from "@/lib/google/sync";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import {
   TASK_STATUSES,
@@ -140,6 +142,7 @@ export async function archiveTask(
   } catch (err) {
     return { ok: false, error: `Could not archive: ${(err as Error).message}` };
   }
+  afterResponse(() => reconcileTaskEvent(taskId)); // remove from the doer's calendar
   revalidateTaskRoutes();
   return { ok: true };
 }
@@ -162,6 +165,12 @@ export async function deleteTask(
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
+  // Grab the calendar pointers before the row (and its columns) are gone.
+  const doomed = await db.query.tasks.findFirst({
+    where: eq(tasks.id, taskId),
+    columns: { googleEventId: true, googleSyncedDoerId: true },
+  });
+
   try {
     const deleted = await db
       .delete(tasks)
@@ -174,6 +183,14 @@ export async function deleteTask(
     return { ok: false, error: `Could not delete: ${(err as Error).message}` };
   }
 
+  if (doomed?.googleEventId) {
+    afterResponse(() =>
+      removeTaskEvent({
+        googleEventId: doomed.googleEventId,
+        googleSyncedDoerId: doomed.googleSyncedDoerId,
+      }),
+    );
+  }
   revalidateTaskRoutes();
   return { ok: true };
 }
@@ -206,6 +223,7 @@ export async function unarchiveTask(
   } catch (err) {
     return { ok: false, error: `Could not restore: ${(err as Error).message}` };
   }
+  afterResponse(() => reconcileTaskEvent(taskId)); // re-add to the doer's calendar
   revalidateTaskRoutes();
   return { ok: true };
 }
@@ -444,6 +462,8 @@ export async function reassignDoer(
   } catch (err) {
     return { ok: false, error: `Could not reassign: ${(err as Error).message}` };
   }
+  // Move the event off the old doer's calendar and onto the new doer's.
+  afterResponse(() => reconcileTaskEvent(taskId));
   revalidateTaskRoutes();
   return { ok: true };
 }
@@ -520,8 +540,10 @@ export async function createTask(input: CreateTaskInput): Promise<
             projectNodeId: parsed.projectNodeId ?? null,
             createdById: me.id,
             shortId,
-            // status defaults to "not_started"; archived defaults to false;
-            // createdAt + updatedAt default to now().
+            // New tasks land in "Not Read" (dont_know) — the doer moves them to
+            // "Not Started" once they've actually read the task. archived
+            // defaults to false; createdAt + updatedAt default to now().
+            status: "dont_know",
           })
           .returning({ id: tasks.id });
         break;
@@ -582,6 +604,10 @@ export async function createTask(input: CreateTaskInput): Promise<
 
     createdIds.push(row.id);
   }
+
+  // Push each new task onto its doer's Google Calendar (if connected), after
+  // the response is sent so it never slows down task creation.
+  for (const id of createdIds) afterResponse(() => reconcileTaskEvent(id));
 
   revalidateTaskRoutes();
   // `id` kept as a string for backward compat with single-doer callers.
@@ -801,6 +827,7 @@ export async function editTaskFields(
     });
   }
 
+  afterResponse(() => reconcileTaskEvent(taskId)); // push edits to the calendar event
   revalidateTaskRoutes();
   revalidatePath(`/tasks/${taskId}`);
   return { ok: true };
@@ -1064,6 +1091,8 @@ export async function reassignTask(
     });
   }
 
+  // Move the calendar event to the new doer's calendar.
+  afterResponse(() => reconcileTaskEvent(taskId));
   revalidateTaskRoutes();
   revalidatePath(`/tasks/${taskId}`);
   return { ok: true };

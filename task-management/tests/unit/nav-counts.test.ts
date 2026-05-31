@@ -12,20 +12,15 @@ vi.mock("next/cache", () => ({
 
 vi.mock("@/lib/db", () => ({
   db: {
-    // The query is now `select({archived, n}).from(tasks).groupBy(tasks.archived)`
-    // returning one row per archived value.
+    // The query is now two counts: `select({n}).from(tasks).where(...)` for
+    // open work, and again for archived. Both resolve to `[{ n }]`.
     select: vi.fn(() => ({
       from: vi.fn(() => ({
-        groupBy: vi.fn(() =>
-          Promise.resolve([
-            { archived: false, n: 1200 },
-            { archived: true, n: 300 },
-          ]),
-        ),
+        where: vi.fn(() => Promise.resolve([{ n: 321 }])),
       })),
     })),
   },
-  tasks: { archived: "tasks.archived" },
+  tasks: { archived: "tasks.archived", status: "tasks.status" },
 }));
 
 vi.mock("drizzle-orm", async () => {

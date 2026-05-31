@@ -429,10 +429,13 @@ export function TaskTable({
                         ) : sorted === "desc" ? (
                           <ArrowDown size={13} strokeWidth={2.6} />
                         ) : (
+                          // Always show a dim ⇅ so every column reads as
+                          // clickable-to-sort; it brightens on hover. (Was
+                          // opacity-0, which hid the affordance entirely.)
                           <ChevronsUpDown
                             size={13}
                             strokeWidth={2.4}
-                            className="opacity-0 text-ink-subtle transition-opacity group-hover/sort:opacity-100"
+                            className="opacity-45 text-ink-subtle transition-opacity group-hover/sort:opacity-100"
                           />
                         )}
                       </button>
