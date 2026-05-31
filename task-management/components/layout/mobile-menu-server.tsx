@@ -14,7 +14,7 @@ export async function MobileMenuServer({ isAdmin }: { isAdmin: boolean }) {
     <MobileMenu>
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-1">
-          <MainNavServer />
+          <MainNavServer variant="drawer" />
         </div>
         <div className="border-t pt-4 flex flex-col gap-3" style={{ borderColor: "var(--color-hairline)" }}>
           <div className="px-2">

@@ -289,7 +289,7 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, dark = f
 
       <div
         ref={scrollRef}
-        className="flex items-start gap-4 overflow-x-auto overflow-y-auto pb-4"
+        className="flex items-start gap-4 overflow-x-auto overflow-y-auto pb-4 max-sm:snap-x max-sm:snap-mandatory"
         style={{ maxHeight: "calc(100dvh - 280px)", minHeight: 420 }}
         onDragOver={(e) => {
           // Bubbles up from the columns; track the pointer for edge auto-scroll.
@@ -334,7 +334,7 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, dark = f
               setDragId(null);
               endAutoScroll();
             }}
-            className="flex-shrink-0 w-[320px] rounded-section p-3.5 transition-colors"
+            className="flex-shrink-0 w-[320px] max-sm:w-[85vw] max-sm:snap-center rounded-section p-3.5 transition-colors"
             style={{
               background: isOver
                 ? dark

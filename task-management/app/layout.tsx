@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Roboto, Bricolage_Grotesque, JetBrains_Mono } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -43,6 +43,13 @@ export const metadata: Metadata = {
   description: "Altus Corp work management dashboard",
   metadataBase: new URL("https://altus-corp-dashboard.vercel.app"),
   manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // Allow pinch-zoom up to 5x for accessibility; never disable user scaling.
+  maximumScale: 5,
 };
 
 export default async function RootLayout({

@@ -178,9 +178,9 @@ function DocRow({ doc }: { doc: DocumentRow }) {
             {doc.url && (
               <a href={doc.url} target="_blank" rel="noopener noreferrer" aria-label="Download" className="p-1.5 rounded-md text-ink-soft hover:bg-surface-soft"><Download size={16} /></a>
             )}
-            <button type="button" onClick={() => replaceRef.current?.click()} disabled={pending} aria-label="Replace file" className="p-1.5 rounded-md text-ink-soft hover:bg-surface-soft opacity-0 group-hover:opacity-100 transition-opacity"><RefreshCw size={15} /></button>
-            <button type="button" onClick={() => setEditing(true)} disabled={pending} aria-label="Edit" className="p-1.5 rounded-md text-ink-soft hover:bg-surface-soft opacity-0 group-hover:opacity-100 transition-opacity"><Pencil size={15} /></button>
-            <button type="button" onClick={del} disabled={pending} aria-label="Delete" className="p-1.5 rounded-md text-ink-soft hover:bg-surface-soft hover:text-[var(--color-red-deep)] opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={15} /></button>
+            <button type="button" onClick={() => replaceRef.current?.click()} disabled={pending} aria-label="Replace file" className="p-1.5 rounded-md text-ink-soft hover:bg-surface-soft opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity"><RefreshCw size={15} /></button>
+            <button type="button" onClick={() => setEditing(true)} disabled={pending} aria-label="Edit" className="p-1.5 rounded-md text-ink-soft hover:bg-surface-soft opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity"><Pencil size={15} /></button>
+            <button type="button" onClick={del} disabled={pending} aria-label="Delete" className="p-1.5 rounded-md text-ink-soft hover:bg-surface-soft hover:text-[var(--color-red-deep)] opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity"><Trash2 size={15} /></button>
           </>
         )}
       </div>

@@ -133,7 +133,6 @@ function task(partial: Partial<Task>): Task {
     client: partial.client ?? null,
     googleEventId: partial.googleEventId ?? null,
     googleSyncedDoerId: partial.googleSyncedDoerId ?? null,
-    firstReadAt: partial.firstReadAt ?? null,
     archived: partial.archived ?? false,
     createdById: partial.createdById ?? null,
     approvedById: partial.approvedById ?? null,
@@ -142,6 +141,7 @@ function task(partial: Partial<Task>): Task {
     updatedAt: partial.updatedAt ?? createdAt,
     legacyImportKey: partial.legacyImportKey ?? null,
     shortId: partial.shortId ?? null,
+    firstReadAt: partial.firstReadAt ?? null,
     // Tier-3 (2026-05-20) additions — default to null so existing
     // fixtures keep working without per-task overrides.
     tags: partial.tags ?? null,

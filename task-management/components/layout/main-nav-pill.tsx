@@ -14,9 +14,10 @@ interface Props {
   badge?: number;
   /** Stretch to fill available width on desktop (header spreads pills edge-to-edge). */
   grow?: boolean;
+  variant?: "drawer";
 }
 
-export function MainNavPill({ href, label, Icon, active, count, badge, grow }: Props) {
+export function MainNavPill({ href, label, Icon, active, count, badge, grow, variant }: Props) {
   const showBadge = typeof badge === "number" && badge > 0;
   const badgeLabel = showBadge ? (badge > 99 ? "99+" : formatCount(badge)) : "";
 
@@ -28,7 +29,8 @@ export function MainNavPill({ href, label, Icon, active, count, badge, grow }: P
       className={
         (active ? "nav-pill nav-pill-active" : "nav-pill") +
         (grow ? " md:flex-1 md:justify-center" : "") +
-        (showBadge ? " relative" : "")
+        (showBadge ? " relative" : "") +
+        (variant === "drawer" ? " w-full justify-start" : "")
       }
       aria-label={
         showBadge
@@ -39,9 +41,9 @@ export function MainNavPill({ href, label, Icon, active, count, badge, grow }: P
       <Icon size={18} strokeWidth={2.2} />
       {/* Labels collapse to icon-only below xl so the centred nav never
           overflows into the logo / right cluster on a maximized laptop. */}
-      <span className="max-xl:hidden">{label}</span>
+      <span className={variant === "drawer" ? "" : "max-xl:hidden"}>{label}</span>
       {typeof count === "number" && (
-        <span className="nav-pill-count max-md:hidden">{formatCount(count)}</span>
+        <span className={variant === "drawer" ? "nav-pill-count" : "nav-pill-count max-md:hidden"}>{formatCount(count)}</span>
       )}
       {showBadge && (
         <span

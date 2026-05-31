@@ -374,11 +374,12 @@ export function TaskTable({
   return (
     <div ref={listTopRef} className="scroll-mt-6">
       <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
+        <MobileSortControl table={table} className="hidden max-md:flex" />
         <GroupByControl value={groupBy} onChange={setGroupBy} />
         <ColumnsMenu table={table} />
       </div>
       <div
-        className="bg-surface-card rounded-section border border-hairline overflow-x-auto"
+        className="bg-surface-card rounded-section border border-hairline overflow-x-auto max-md:hidden"
         style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
       >
       <table className="min-w-full">
@@ -520,6 +521,46 @@ export function TaskTable({
           })}
         </tbody>
       </table>
+      </div>
+
+      {/* Phone card layout (< sm). Same rows as the table above so sort,
+          group-by, and pagination apply identically. Shows every desktop
+          field — parity. */}
+      <div className="hidden max-md:flex max-md:flex-col max-md:gap-3">
+        {table.getRowModel().rows.map((row, i, arr) => {
+          const t = row.original;
+          const label = groupBy === "none" ? null : groupValue(t, groupBy);
+          const prevRow = i > 0 ? arr[i - 1] : undefined;
+          const prevLabel =
+            groupBy === "none" || !prevRow
+              ? null
+              : groupValue(prevRow.original, groupBy);
+          const showHeader = label !== null && (i === 0 || label !== prevLabel);
+          return (
+            <React.Fragment key={row.id}>
+              {showHeader && (
+                <div className="flex items-center gap-2 pt-2">
+                  <span
+                    className="font-black tracking-[-0.01em] text-ink-strong"
+                    style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontSize: 16 }}
+                  >
+                    {label}
+                  </span>
+                  <span className="inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-full bg-altus-red/10 text-altus-red font-bold tabular-nums text-[12px]">
+                    {groupCounts?.get(label!) ?? 0}
+                  </span>
+                </div>
+              )}
+              <TaskCard
+                row={t}
+                employees={employees}
+                me={me}
+                statusLabels={resolvedLabels}
+                statusTones={resolvedTones}
+              />
+            </React.Fragment>
+          );
+        })}
       </div>
 
       {/* Numbered pagination — 25 rows per page: Prev · 1 2 3 … N · Next,
@@ -729,6 +770,60 @@ function TaskTitleCell({ row }: { row: TaskListRow }) {
   );
 }
 
+// Phone-only sort dropdown — appears below sm breakpoint where the clickable
+// column headers are hidden. Iterates all sortable columns and lets the user
+// toggle asc/desc for each.
+function MobileSortControl({
+  table,
+  className = "",
+}: {
+  table: TableInstance<TaskListRow>;
+  className?: string;
+}) {
+  const sortable = table.getAllLeafColumns().filter((c) => c.getCanSort());
+  const labelFor = (id: string) =>
+    id === "title" ? "Task" : COLUMN_LABELS[id] ?? id;
+  return (
+    <div className={className}>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-pill text-[13px] font-bold border border-hairline bg-surface-card text-ink-soft"
+          >
+            <ChevronsUpDown size={14} strokeWidth={2.2} />
+            Sort
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+          {sortable.map((c) => {
+            const sorted = c.getIsSorted();
+            return (
+              <DropdownMenuItem
+                key={c.id}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  c.toggleSorting(sorted === "asc");
+                }}
+              >
+                <span className="inline-flex w-4 justify-center">
+                  {sorted === "asc" ? (
+                    <ArrowUp size={14} strokeWidth={2.6} />
+                  ) : sorted === "desc" ? (
+                    <ArrowDown size={14} strokeWidth={2.6} />
+                  ) : null}
+                </span>
+                {labelFor(c.id)}
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 // #11 — column show/hide menu. Lists the optional columns (everything
 // except the always-on Task + Actions) with a check for visible ones.
 // `onSelect → preventDefault` keeps the menu open for multiple toggles.
@@ -765,5 +860,79 @@ function ColumnsMenu({ table }: { table: TableInstance<TaskListRow> }) {
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+// Full-parity task card for phones (< sm). Every field shown in the desktop
+// table is present here so the two views stay in sync.
+function TaskCard({
+  row,
+  employees,
+  me,
+  statusLabels,
+  statusTones,
+}: {
+  row: TaskListRow;
+  employees: { id: string; name: string }[];
+  me: { id: string; isAdmin: boolean };
+  statusLabels: StatusLabels;
+  statusTones: StatusTones;
+}) {
+  const p = row.priority as keyof typeof PRIORITY_LABELS;
+  return (
+    <div
+      className="bg-surface-card rounded-section border border-hairline p-4"
+      style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-ink-strong font-semibold" style={{ fontSize: 15 }}>
+          {row.client?.trim() ? row.client : "— No client"}
+        </span>
+        <div className="flex items-center gap-1 shrink-0">
+          <InlineStatusCell
+            taskId={row.id}
+            status={row.status}
+            updatedAt={row.updatedAt}
+            labels={statusLabels}
+            tones={statusTones}
+            isAdmin={me.isAdmin}
+          />
+          <TaskRowActions row={row} employees={employees} me={me} />
+        </div>
+      </div>
+
+      <Link
+        href={`/tasks/${row.id}` as Route}
+        className="task-title-link mt-2 block text-body text-ink-strong"
+        style={{ fontWeight: 700, lineHeight: 1.3 }}
+      >
+        {row.title}
+      </Link>
+
+      <div className="mt-3 flex items-center gap-2">
+        {row.doerName ? (
+          <>
+            <EmployeeAvatar name={row.doerName} size="sm" />
+            <span className="text-ink-strong font-bold" style={{ fontSize: 14 }}>
+              {row.doerName}
+            </span>
+          </>
+        ) : (
+          <span className="text-ink-subtle">Unassigned</span>
+        )}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-muted" style={{ fontSize: 13 }}>
+        <span>{row.subject?.trim() ? row.subject : "—"}</span>
+        <span aria-hidden>·</span>
+        {p === "imp_urgent" ? <CriticalBadge /> : <span>{PRIORITY_LABELS[p]}</span>}
+        <span aria-hidden>·</span>
+        <span className="tabular-nums">Due {safeFormat(row.dueAt, "MMM d")}</span>
+        <span aria-hidden>·</span>
+        <span className="tabular-nums">Created {safeFormat(row.createdAt, "MMM d")}</span>
+        <span aria-hidden>·</span>
+        <span className="tabular-nums">{row.ageDays}d old</span>
+      </div>
+    </div>
   );
 }

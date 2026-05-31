@@ -252,7 +252,7 @@ export function StatusTable({
                       key={h.id}
                       className={`px-5 py-4 text-table-head whitespace-nowrap ${
                         i <= 1 ? "text-left" : "text-right"
-                      }`}
+                      } ${i === 0 ? "sticky left-0 z-10 bg-surface-card" : ""}`}
                     >
                       {flexRender(h.column.columnDef.header, h.getContext())}
                     </th>
@@ -288,7 +288,7 @@ export function StatusTable({
                         key={cell.id}
                         className={`px-5 py-4 text-body-lg whitespace-nowrap ${
                           i === 0
-                            ? "text-ink-strong"
+                            ? "text-ink-strong sticky left-0 z-10 bg-surface-card"
                             : i === 1
                               ? "text-ink-muted"
                               : "text-right"

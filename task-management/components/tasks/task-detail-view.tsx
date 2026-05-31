@@ -316,7 +316,7 @@ export function TaskDetailView({
         />
       )}
 
-      <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-10 max-lg:grid-cols-1 max-lg:gap-6">
+      <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-10 max-lg:grid-cols-1 max-lg:gap-6 max-md:grid-cols-1 max-md:gap-5">
         {/* LEFT COLUMN — editorial document */}
         <div className="min-w-0">
           {/* Recurrence badge — small inline indicator for materialized
@@ -481,7 +481,7 @@ export function TaskDetailView({
             previously `order-first` shoved the entire audit feed above the
             task body on small screens. Dropped — Status + ActionRail are
             valuable above, but the audit timeline belongs below the doc. */}
-        <aside>
+        <aside className="max-md:w-full">
           <div
             className="lg:sticky lg:top-24 flex flex-col gap-4"
             style={{ scrollMarginTop: "6rem" }}

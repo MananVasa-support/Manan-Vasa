@@ -131,7 +131,7 @@ export function FocusWorkspace({
         onShortcuts={() => setShowShortcuts(true)}
       />
 
-      <div className="relative z-10 grid grid-cols-[280px_minmax(0,1fr)_320px] max-xl:grid-cols-[240px_minmax(0,1fr)_280px] max-lg:grid-cols-1 gap-8 max-md:gap-5 px-10 max-md:px-4 pt-24 pb-16 max-w-[1600px] mx-auto">
+      <div className="relative z-10 grid grid-cols-[280px_minmax(0,1fr)_320px] max-xl:grid-cols-[240px_minmax(0,1fr)_280px] max-lg:grid-cols-1 max-md:grid-cols-1 gap-8 max-md:gap-5 px-10 max-md:px-4 pt-24 pb-16 max-w-[1600px] mx-auto">
         {/* LEFT — Pomodoro timer */}
         <motion.aside
           initial={{ opacity: 0, x: -16 }}

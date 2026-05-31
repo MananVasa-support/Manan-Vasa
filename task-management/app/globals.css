@@ -183,7 +183,7 @@ html[data-density="compact"] body {
 @utility text-display-xl {
   font-family: var(--font-serif);
   font-weight: 600;
-  font-size: 76px;
+  font-size: clamp(40px, 9vw, 76px);
   line-height: 0.95;
   letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
@@ -192,7 +192,7 @@ html[data-density="compact"] body {
 @utility text-display-lg {
   font-family: var(--font-serif);
   font-weight: 400;
-  font-size: 40px;
+  font-size: clamp(28px, 6vw, 40px);
   line-height: 1.1;
   letter-spacing: -0.015em;
 }
@@ -200,7 +200,7 @@ html[data-density="compact"] body {
 @utility text-display-md {
   font-family: var(--font-serif);
   font-weight: 600;
-  font-size: 32px;
+  font-size: clamp(24px, 5.2vw, 32px);
   line-height: 1;
   letter-spacing: -0.025em;
   font-variant-numeric: tabular-nums;
@@ -209,7 +209,7 @@ html[data-density="compact"] body {
 @utility text-display-sm {
   font-family: var(--font-serif);
   font-weight: 400;
-  font-size: 34px;
+  font-size: clamp(25px, 5.4vw, 34px);
   line-height: 1.05;
   letter-spacing: -0.02em;
 }
@@ -217,7 +217,7 @@ html[data-density="compact"] body {
 @utility text-display-xs {
   font-family: var(--font-serif);
   font-weight: 600;
-  font-size: 26px;
+  font-size: clamp(21px, 4.4vw, 26px);
   line-height: 1;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
@@ -226,7 +226,7 @@ html[data-density="compact"] body {
 @utility text-display-2xs {
   font-family: var(--font-serif);
   font-weight: 700;
-  font-size: 22px;
+  font-size: clamp(19px, 3.6vw, 22px);
   line-height: 1;
   letter-spacing: -0.015em;
   font-variant-numeric: tabular-nums;
@@ -235,7 +235,7 @@ html[data-density="compact"] body {
 @utility text-display-3xs {
   font-family: var(--font-serif);
   font-weight: 600;
-  font-size: 20px;
+  font-size: clamp(18px, 3.2vw, 20px);
   line-height: 1;
   letter-spacing: -0.015em;
   font-variant-numeric: tabular-nums;

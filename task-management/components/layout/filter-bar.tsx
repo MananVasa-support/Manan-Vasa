@@ -74,6 +74,7 @@ export function FilterBar({
   const [dept, setDept] = React.useState<string[]>(initial.dept);
   const [prio, setPrio] = React.useState<string[]>(initial.prio);
   const [subj, setSubj] = React.useState<string[]>(initial.subj);
+  const [sheetOpen, setSheetOpen] = React.useState(false);
   const pathname = usePathname();
 
   const range: DateRange | undefined = React.useMemo(() => {
@@ -165,236 +166,248 @@ export function FilterBar({
         WebkitBackdropFilter: "blur(20px) saturate(150%)",
       }}
     >
-      <div className="mx-auto max-w-[1600px] flex flex-wrap items-center gap-3 px-12 py-4 max-md:px-4">
-        <span
-          className="inline-flex items-center gap-1.5 text-table-head mr-1"
-          style={{ color: "var(--color-ink-subtle)" }}
-        >
-          <SlidersHorizontal size={14} strokeWidth={2.4} />
-          Filters
-          {activeCount > 0 && (
-            <span
-              className="ml-1 inline-flex items-center justify-center rounded-full text-white"
-              style={{
-                fontSize: 11.5,
-                fontWeight: 700,
-                letterSpacing: 0,
-                minWidth: 18,
-                height: 18,
-                padding: "0 6px",
-                background: "var(--color-altus-red)",
-              }}
-            >
-              {activeCount}
-            </span>
-          )}
-        </span>
-
-        {/* Date range */}
-        <Popover.Root>
-          <Popover.Trigger asChild>
-            <button type="button" className="filter-chip">
-              <Calendar size={16} className="text-ink-subtle" strokeWidth={2} />
-              <span className="text-chip text-ink-strong tabular-nums">
-                {formattedRange}
+      <div className="mx-auto max-w-[1600px] flex flex-wrap items-center gap-3 px-12 py-4 max-md:px-4 max-sm:flex-col max-sm:items-stretch">
+        <div className="sm:contents max-sm:flex max-sm:w-full max-sm:items-center max-sm:gap-2">
+          <span
+            className="inline-flex items-center gap-1.5 text-table-head mr-1"
+            style={{ color: "var(--color-ink-subtle)" }}
+          >
+            <SlidersHorizontal size={14} strokeWidth={2.4} />
+            Filters
+            {activeCount > 0 && (
+              <span
+                className="ml-1 inline-flex items-center justify-center rounded-full text-white"
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  letterSpacing: 0,
+                  minWidth: 18,
+                  height: 18,
+                  padding: "0 6px",
+                  background: "var(--color-altus-red)",
+                }}
+              >
+                {activeCount}
               </span>
-            </button>
-          </Popover.Trigger>
-          <Popover.Portal>
-            <Popover.Content
-              align="start"
-              sideOffset={10}
-              collisionPadding={12}
-              className="z-[100] bg-surface-card border border-hairline-strong rounded-chip p-3 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto"
-              style={{ boxShadow: "0 16px 40px rgba(15, 23, 42, 0.14)" }}
-            >
-              <DayPicker
-                mode="range"
-                selected={range}
-                onSelect={handleRange}
-                numberOfMonths={2}
-                showOutsideDays
-                weekStartsOn={1}
-              />
-              <Popover.Arrow className="fill-white" />
-            </Popover.Content>
-          </Popover.Portal>
-        </Popover.Root>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => setSheetOpen((v) => !v)}
+            className="hidden max-sm:inline-flex items-center gap-1.5 filter-chip ml-auto"
+            aria-expanded={sheetOpen}
+          >
+            {sheetOpen ? "Hide" : "Show"} filters
+          </button>
+        </div>
 
-        {/* Scope chip: My tasks / All tasks (non-admins only) */}
-        {showScopeChip && (
+        <div className={`sm:contents max-sm:w-full max-sm:flex-col max-sm:gap-3 max-sm:mt-3 ${sheetOpen ? "max-sm:flex" : "max-sm:hidden"}`}>
+          {/* Date range */}
+          <Popover.Root>
+            <Popover.Trigger asChild>
+              <button type="button" className="filter-chip max-sm:w-full max-sm:justify-between">
+                <Calendar size={16} className="text-ink-subtle" strokeWidth={2} />
+                <span className="text-chip text-ink-strong tabular-nums">
+                  {formattedRange}
+                </span>
+              </button>
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content
+                align="start"
+                sideOffset={10}
+                collisionPadding={12}
+                className="z-[100] bg-surface-card border border-hairline-strong rounded-chip p-3 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto"
+                style={{ boxShadow: "0 16px 40px rgba(15, 23, 42, 0.14)" }}
+              >
+                <DayPicker
+                  mode="range"
+                  selected={range}
+                  onSelect={handleRange}
+                  numberOfMonths={2}
+                  showOutsideDays
+                  weekStartsOn={1}
+                />
+                <Popover.Arrow className="fill-white" />
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
+
+          {/* Scope chip: My tasks / All tasks (non-admins only) */}
+          {showScopeChip && (
+            <div
+              className="inline-flex items-center bg-surface-card border border-hairline rounded-chip relative"
+              style={{
+                padding: 4,
+                boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
+              }}
+              aria-label="Task scope"
+            >
+              <SegButton
+                layoutId="scope-seg-active"
+                active={assigneeMode === "default" && emp.length === 0}
+                onClick={() => {
+                  setAssigneeMode("default");
+                  setEmp([]);
+                }}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <User size={13} strokeWidth={2.2} />
+                  My tasks
+                </span>
+              </SegButton>
+              <SegButton
+                layoutId="scope-seg-active"
+                active={assigneeMode === "all" && emp.length === 0}
+                onClick={() => {
+                  setAssigneeMode("all");
+                  setEmp([]);
+                }}
+              >
+                All tasks
+              </SegButton>
+            </div>
+          )}
+
+          {/* Employees */}
+          <div className="filter-chip max-sm:w-full">
+            <Users size={16} className="text-ink-subtle" strokeWidth={2} />
+            <MultiSelect
+              options={employees}
+              selected={emp}
+              onChange={handleEmpChange}
+              placeholder={
+                showScopeChip && assigneeMode === "default"
+                  ? "+ Add Teammate"
+                  : "All Employees"
+              }
+            />
+          </div>
+
+          <DepartmentFilter selected={dept} onChange={setDept} />
+          <PriorityFilter selected={prio} onChange={setPrio} />
+          {subjects && subjects.length > 0 && (
+            <SubjectFilter options={subjects} selected={subj} onChange={setSubj} />
+          )}
+
+          {/* View segmented toggle */}
           <div
             className="inline-flex items-center bg-surface-card border border-hairline rounded-chip relative"
             style={{
               padding: 4,
               boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
             }}
-            aria-label="Task scope"
           >
-            <SegButton
-              layoutId="scope-seg-active"
-              active={assigneeMode === "default" && emp.length === 0}
-              onClick={() => {
-                setAssigneeMode("default");
-                setEmp([]);
-              }}
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <User size={13} strokeWidth={2.2} />
-                My tasks
-              </span>
+            <SegButton active={view === "doer"} onClick={() => setView("doer")}>
+              Doer
             </SegButton>
             <SegButton
-              layoutId="scope-seg-active"
-              active={assigneeMode === "all" && emp.length === 0}
-              onClick={() => {
-                setAssigneeMode("all");
-                setEmp([]);
-              }}
+              active={view === "initiator"}
+              onClick={() => setView("initiator")}
             >
-              All tasks
+              Initiator
             </SegButton>
           </div>
-        )}
 
-        {/* Employees */}
-        <div className="filter-chip">
-          <Users size={16} className="text-ink-subtle" strokeWidth={2} />
-          <MultiSelect
-            options={employees}
-            selected={emp}
-            onChange={handleEmpChange}
-            placeholder={
-              showScopeChip && assigneeMode === "default"
-                ? "+ Add Teammate"
-                : "All Employees"
-            }
-          />
-        </div>
-
-        <DepartmentFilter selected={dept} onChange={setDept} />
-        <PriorityFilter selected={prio} onChange={setPrio} />
-        {subjects && subjects.length > 0 && (
-          <SubjectFilter options={subjects} selected={subj} onChange={setSubj} />
-        )}
-
-        {/* View segmented toggle */}
-        <div
-          className="inline-flex items-center bg-surface-card border border-hairline rounded-chip relative"
-          style={{
-            padding: 4,
-            boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
-          }}
-        >
-          <SegButton active={view === "doer"} onClick={() => setView("doer")}>
-            Doer
-          </SegButton>
-          <SegButton
-            active={view === "initiator"}
-            onClick={() => setView("initiator")}
-          >
-            Initiator
-          </SegButton>
-        </div>
-
-        <div className="ml-auto flex items-center gap-2.5">
-          {/* Export current view — admin-only, shown on the task list
-              views. XLS for spreadsheet workflows, PDF for sharing /
-              archival. The CSV export route still exists at
-              /tasks/export but is no longer surfaced in the UI (per
-              Manan's request — the two human-friendly formats cover
-              every reporting need). */}
-          {(pathname === "/tasks" || pathname === "/archived") &&
-            me?.isAdmin &&
-            (() => {
-              const buildExportHref = (path: string) => {
-                const exportSp = new URLSearchParams(searchParams.toString());
-                if (pathname === "/archived") exportSp.set("archived", "1");
-                return `${path}?${exportSp.toString()}`;
-              };
-              return (
-                <div
-                  className="inline-flex items-center bg-surface-card border border-hairline rounded-chip overflow-hidden max-md:hidden"
-                  style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)" }}
-                >
-                  <a
-                    href={buildExportHref("/tasks/export.xlsx")}
-                    download
-                    className="inline-flex items-center gap-1.5 text-chip font-medium text-ink-strong hover:bg-surface-soft transition-colors px-3 py-2 border-r border-hairline"
-                    title="Download current view as XLSX"
-                    aria-label="Export XLS"
+          <div className="ml-auto flex items-center gap-2.5 max-sm:ml-0 max-sm:w-full max-sm:flex-wrap">
+            {/* Export current view — admin-only, shown on the task list
+                views. XLS for spreadsheet workflows, PDF for sharing /
+                archival. The CSV export route still exists at
+                /tasks/export but is no longer surfaced in the UI (per
+                Manan's request — the two human-friendly formats cover
+                every reporting need). */}
+            {(pathname === "/tasks" || pathname === "/archived") &&
+              me?.isAdmin &&
+              (() => {
+                const buildExportHref = (path: string) => {
+                  const exportSp = new URLSearchParams(searchParams.toString());
+                  if (pathname === "/archived") exportSp.set("archived", "1");
+                  return `${path}?${exportSp.toString()}`;
+                };
+                return (
+                  <div
+                    className="inline-flex items-center bg-surface-card border border-hairline rounded-chip overflow-hidden"
+                    style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)" }}
                   >
-                    <FileSpreadsheet
-                      size={14}
-                      strokeWidth={2}
-                      style={{ color: "var(--color-success, #16a34a)" }}
-                    />
-                    XLS
-                  </a>
-                  <a
-                    href={buildExportHref("/tasks/export.pdf")}
-                    download
-                    className="inline-flex items-center gap-1.5 text-chip font-medium text-ink-strong hover:bg-surface-soft transition-colors px-3 py-2"
-                    title="Download current view as PDF"
-                    aria-label="Export PDF"
-                  >
-                    <FileText
-                      size={14}
-                      strokeWidth={2}
-                      style={{ color: "var(--color-altus-red, #dc2626)" }}
-                    />
-                    PDF
-                  </a>
-                </div>
-              );
-            })()}
-          <button
-            type="button"
-            onClick={(e) => {
-              const icon = e.currentTarget.querySelector("svg");
-              if (icon) {
-                icon.style.transition = "transform 450ms cubic-bezier(.4, 1.4, .5, 1)";
-                icon.style.transform = "rotate(-360deg)";
-                setTimeout(() => {
-                  if (icon) {
-                    icon.style.transition = "none";
-                    icon.style.transform = "rotate(0deg)";
-                  }
-                }, 480);
-              }
-              reset();
-            }}
-            className="inline-flex items-center gap-1.5 text-chip text-ink-subtle hover:text-ink-strong transition-colors px-3 py-2 rounded-chip"
-            aria-label="Reset filters"
-          >
-            <RotateCcw size={14} strokeWidth={2.2} />
-            Reset
-          </button>
-          <button
-            type="button"
-            onClick={apply}
-            disabled={isPending}
-            className="inline-flex items-center gap-2 text-cta text-white px-6 py-3 rounded-chip transition-transform disabled:opacity-60"
-            style={{
-              background:
-                "linear-gradient(135deg, rgb(225, 6, 0), rgb(168, 4, 0))",
-              boxShadow: "0 6px 16px rgba(225, 6, 0, 0.32)",
-            }}
-            onMouseEnter={(e) => {
-              if (isPending) return;
-              e.currentTarget.style.transform = "translateY(-1px)";
-              e.currentTarget.style.boxShadow =
-                "0 10px 24px rgba(225, 6, 0, 0.42)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow =
-                "0 6px 16px rgba(225, 6, 0, 0.32)";
-            }}
-          >
-            {isPending ? "Applying…" : "Apply Filter"}
-            <ArrowRight size={16} strokeWidth={2.4} />
-          </button>
+                    <a
+                      href={buildExportHref("/tasks/export.xlsx")}
+                      download
+                      className="inline-flex items-center gap-1.5 text-chip font-medium text-ink-strong hover:bg-surface-soft transition-colors px-3 py-2 border-r border-hairline"
+                      title="Download current view as XLSX"
+                      aria-label="Export XLS"
+                    >
+                      <FileSpreadsheet
+                        size={14}
+                        strokeWidth={2}
+                        style={{ color: "var(--color-success, #16a34a)" }}
+                      />
+                      XLS
+                    </a>
+                    <a
+                      href={buildExportHref("/tasks/export.pdf")}
+                      download
+                      className="inline-flex items-center gap-1.5 text-chip font-medium text-ink-strong hover:bg-surface-soft transition-colors px-3 py-2"
+                      title="Download current view as PDF"
+                      aria-label="Export PDF"
+                    >
+                      <FileText
+                        size={14}
+                        strokeWidth={2}
+                        style={{ color: "var(--color-altus-red, #dc2626)" }}
+                      />
+                      PDF
+                    </a>
+                  </div>
+                );
+              })()}
+            <button
+              type="button"
+              onClick={(e) => {
+                const icon = e.currentTarget.querySelector("svg");
+                if (icon) {
+                  icon.style.transition = "transform 450ms cubic-bezier(.4, 1.4, .5, 1)";
+                  icon.style.transform = "rotate(-360deg)";
+                  setTimeout(() => {
+                    if (icon) {
+                      icon.style.transition = "none";
+                      icon.style.transform = "rotate(0deg)";
+                    }
+                  }, 480);
+                }
+                reset();
+              }}
+              className="inline-flex items-center gap-1.5 text-chip text-ink-subtle hover:text-ink-strong transition-colors px-3 py-2 rounded-chip"
+              aria-label="Reset filters"
+            >
+              <RotateCcw size={14} strokeWidth={2.2} />
+              Reset
+            </button>
+            <button
+              type="button"
+              onClick={apply}
+              disabled={isPending}
+              className="inline-flex items-center gap-2 text-cta text-white px-6 py-3 rounded-chip transition-transform disabled:opacity-60"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgb(225, 6, 0), rgb(168, 4, 0))",
+                boxShadow: "0 6px 16px rgba(225, 6, 0, 0.32)",
+              }}
+              onMouseEnter={(e) => {
+                if (isPending) return;
+                e.currentTarget.style.transform = "translateY(-1px)";
+                e.currentTarget.style.boxShadow =
+                  "0 10px 24px rgba(225, 6, 0, 0.42)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow =
+                  "0 6px 16px rgba(225, 6, 0, 0.32)";
+              }}
+            >
+              {isPending ? "Applying…" : "Apply Filter"}
+              <ArrowRight size={16} strokeWidth={2.4} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
