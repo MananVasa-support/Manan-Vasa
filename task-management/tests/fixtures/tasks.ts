@@ -133,6 +133,7 @@ function task(partial: Partial<Task>): Task {
     client: partial.client ?? null,
     googleEventId: partial.googleEventId ?? null,
     googleSyncedDoerId: partial.googleSyncedDoerId ?? null,
+    firstReadAt: partial.firstReadAt ?? null,
     archived: partial.archived ?? false,
     createdById: partial.createdById ?? null,
     approvedById: partial.approvedById ?? null,

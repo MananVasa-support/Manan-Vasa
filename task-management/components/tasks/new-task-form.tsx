@@ -451,8 +451,10 @@ function DoerMultiSelect({
 }) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
+  const [hi, setHi] = React.useState(0); // highlighted option index
   const ref = React.useRef<HTMLDivElement>(null);
-  const searchRef = React.useRef<HTMLInputElement>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const listRef = React.useRef<HTMLUListElement>(null);
 
   React.useEffect(() => {
     function onDown(e: MouseEvent) {
@@ -461,16 +463,6 @@ function DoerMultiSelect({
     }
     if (open) document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
-
-  // Focus the search box the moment the menu opens so the initiator can
-  // start typing a name immediately — no mouse needed (Manan's ask).
-  React.useEffect(() => {
-    if (open) {
-      setQuery("");
-      const t = setTimeout(() => searchRef.current?.focus(), 0);
-      return () => clearTimeout(t);
-    }
   }, [open]);
 
   const byId = React.useMemo(() => {
@@ -485,53 +477,111 @@ function DoerMultiSelect({
     return employees.filter((e) => e.name.toLowerCase().includes(q));
   }, [employees, query]);
 
+  // Keep the highlight in range, and scroll it into view as it moves.
+  React.useEffect(() => {
+    setHi((h) => Math.min(h, Math.max(0, filtered.length - 1)));
+  }, [filtered.length]);
+  React.useEffect(() => {
+    if (!open) return;
+    (listRef.current?.children[hi] as HTMLElement | undefined)?.scrollIntoView({
+      block: "nearest",
+    });
+  }, [hi, open]);
+
+  // Toggle a doer, clear the query, and keep the input focused so you can
+  // type the next name — fully keyboard-driven, no trackpad needed.
+  function commit(id: string | undefined) {
+    if (!id) return;
+    onToggle(id);
+    setQuery("");
+    setHi(0);
+    inputRef.current?.focus();
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setOpen(true);
+      setHi((h) => Math.min(h + 1, filtered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHi((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (open && filtered.length > 0) commit(filtered[hi]?.id ?? filtered[0]?.id);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    } else if (e.key === "Tab") {
+      // Don't preventDefault — let Tab move focus to Priority. Just close.
+      setOpen(false);
+    } else if (e.key === "Backspace" && query === "" && selected.length > 0) {
+      onToggle(selected[selected.length - 1]!); // remove the last picked doer
+    }
+  }
+
   return (
     <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="nt-input flex items-center justify-between gap-2 text-left"
-        aria-haspopup="listbox"
-        aria-expanded={open}
+      {/* Combobox control: Tab lands in the input, type to filter, ↑/↓ + Enter
+          to pick, Tab to move on — no trackpad needed. Chips + input share the
+          field; the input is the only tab stop. */}
+      <div
+        className="nt-input flex items-center flex-wrap gap-1.5 cursor-text"
+        style={{ minHeight: 46, height: "auto" }}
+        onMouseDown={(e) => {
+          const t = e.target as HTMLElement;
+          if (t.closest("[data-chip-remove]") || t === inputRef.current) return;
+          e.preventDefault();
+          inputRef.current?.focus();
+          setOpen(true);
+        }}
       >
-        <span className="flex flex-wrap items-center gap-1.5 min-h-[24px] max-h-[88px] overflow-y-auto">
-          {selected.length === 0 ? (
-            <span style={{ color: "var(--color-ink-subtle)" }}>
-              Pick one or more…
+        {selected.map((id) => {
+          const name = byId.get(id) ?? "Unknown";
+          return (
+            <span
+              key={id}
+              className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1"
+              style={{
+                background: "var(--vp-cyan-tint)",
+                color: "rgb(var(--vp-cyan-deep))",
+                fontSize: 14,
+                fontWeight: 700,
+              }}
+            >
+              <EmployeeAvatar name={name} size="sm" />
+              {name}
+              <button
+                type="button"
+                data-chip-remove
+                tabIndex={-1}
+                aria-label={`Remove ${name}`}
+                onClick={() => onToggle(id)}
+                className="inline-flex items-center justify-center"
+                style={{ width: 18, height: 18, borderRadius: 999 }}
+              >
+                <X size={12} strokeWidth={2.6} />
+              </button>
             </span>
-          ) : (
-            selected.map((id) => {
-              const name = byId.get(id) ?? "Unknown";
-              return (
-                <span
-                  key={id}
-                  className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1"
-                  style={{
-                    background: "var(--vp-cyan-tint)",
-                    color: "rgb(var(--vp-cyan-deep))",
-                    fontSize: 14,
-                    fontWeight: 700,
-                  }}
-                >
-                  <EmployeeAvatar name={name} size="sm" />
-                  {name}
-                  <span
-                    role="button"
-                    aria-label={`Remove ${name}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggle(id);
-                    }}
-                    className="inline-flex items-center justify-center"
-                    style={{ width: 18, height: 18, borderRadius: 999 }}
-                  >
-                    <X size={12} strokeWidth={2.6} />
-                  </span>
-                </span>
-              );
-            })
-          )}
-        </span>
+          );
+        })}
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          role="combobox"
+          aria-expanded={open}
+          aria-autocomplete="list"
+          onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+            setHi(0);
+          }}
+          onKeyDown={onKeyDown}
+          placeholder={selected.length === 0 ? "Type a name…" : ""}
+          className="flex-1 min-w-[90px] bg-transparent outline-none"
+          style={{ fontSize: 15, fontWeight: 600, color: "var(--color-ink-strong)", padding: "2px 0" }}
+        />
         <span
           aria-hidden
           style={{
@@ -542,7 +592,7 @@ function DoerMultiSelect({
         >
           ▾
         </span>
-      </button>
+      </div>
 
       {open && (
         <div
@@ -552,38 +602,8 @@ function DoerMultiSelect({
             boxShadow: "0 16px 40px rgba(15, 23, 42, 0.18)",
           }}
         >
-          {/* Type-to-filter — focus on open so the keyboard is enough. */}
-          <div
-            className="p-2"
-            style={{ borderBottom: "1px solid var(--color-hairline)" }}
-          >
-            <input
-              ref={searchRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  if (filtered.length === 1) {
-                    onToggle(filtered[0]!.id);
-                    setQuery("");
-                  }
-                } else if (e.key === "Escape") {
-                  setOpen(false);
-                }
-              }}
-              placeholder="Type a name to filter…"
-              className="w-full bg-transparent outline-none"
-              style={{
-                fontSize: 15,
-                fontWeight: 600,
-                color: "var(--color-ink-strong)",
-                padding: "6px 8px",
-              }}
-            />
-          </div>
           <ul
+            ref={listRef}
             role="listbox"
             aria-multiselectable
             className="max-h-[240px] overflow-y-auto"
@@ -603,25 +623,26 @@ function DoerMultiSelect({
               No match for “{query}”.
             </li>
           ) : (
-            filtered.map((emp) => {
+            filtered.map((emp, i) => {
               const isSel = selected.includes(emp.id);
+              const isHi = i === hi;
               return (
                 <li
                   key={emp.id}
                   role="option"
                   aria-selected={isSel}
-                  onClick={() => onToggle(emp.id)}
+                  // preventDefault on mousedown keeps the input focused so a
+                  // click doesn't blur-close the menu before the toggle lands.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setHi(i)}
+                  onClick={() => commit(emp.id)}
                   className="flex items-center gap-3 px-3.5 py-2.5 cursor-pointer transition-colors"
                   style={{
-                    background: isSel ? "var(--vp-cyan-tint)" : "transparent",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isSel)
-                      e.currentTarget.style.background =
-                        "var(--color-surface-soft)";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isSel) e.currentTarget.style.background = "transparent";
+                    background: isSel
+                      ? "var(--vp-cyan-tint)"
+                      : isHi
+                        ? "var(--color-surface-soft)"
+                        : "transparent",
                   }}
                 >
                   <EmployeeAvatar name={emp.name} size="sm" />

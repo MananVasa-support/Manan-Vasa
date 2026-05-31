@@ -20,6 +20,7 @@ function task(p: Partial<Task>): Task {
     client: null,
     googleEventId: null,
     googleSyncedDoerId: null,
+    firstReadAt: null,
     archived: false,
     createdById: null,
     approvedById: null,
