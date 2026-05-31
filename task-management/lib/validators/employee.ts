@@ -44,6 +44,21 @@ export type InviteEmployeeInput = z.infer<typeof InviteEmployeeSchema>;
 export const EmployeeIdSchema = z.string().uuid("Invalid employee id");
 
 /**
+ * Validates a new password for the admin-driven reset flow. Firebase
+ * requires >= 6 chars; we require 8 for a sane floor. Upper bound guards
+ * against absurd inputs. No complexity rule here — the Generate button
+ * produces strong passwords; manual entry is the admin's call.
+ */
+export const ResetPasswordSchema = z.object({
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(128, "Password is too long"),
+});
+
+export type ResetPasswordInput = z.infer<typeof ResetPasswordSchema>;
+
+/**
  * Patch-shaped schema for `editEmployee`. Every field is optional and only
  * supplied keys are written. `email` and `firebase_uid` are intentionally
  * absent — those are immutable identity. Reject empty patches so callers

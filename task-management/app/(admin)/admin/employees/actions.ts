@@ -5,6 +5,7 @@ import { CACHE_TAGS } from "@/lib/cache-tags";
 import { eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
+  authSessions,
   departments,
   employeeDepartments,
   employeeEvents,
@@ -19,20 +20,18 @@ import {
   InviteEmployeeSchema,
   EditEmployeeSchema,
   EmployeeIdSchema,
+  ResetPasswordSchema,
   type InviteEmployeeInput,
   type EditEmployeeInput,
 } from "@/lib/validators/employee";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
-import { sendInviteEmail } from "@/lib/email/resend";
-
-/** Resolve the public site URL exactly once. Falls back to the prod
- *  Vercel host so a missing `NEXT_PUBLIC_SITE_URL` in dev doesn't yield
- *  `"undefined/welcome"` (which Firebase would reject). */
-function requireSiteUrl(): string {
-  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (fromEnv && fromEnv.length > 0) return fromEnv.replace(/\/+$/, "");
-  return "https://altus-corp-dashboard.vercel.app";
-}
+import {
+  sendInviteEmail,
+  sendPasswordChangedByAdminEmail,
+  sendCredentialsEmail,
+} from "@/lib/email/resend";
+import { siteUrl } from "@/lib/site-url";
+import { DEFAULT_INVITE_PASSWORD } from "@/lib/auth/default-password";
 
 /** Run an async function up to `tries` times with linear backoff. Throws
  *  the last error if all attempts fail. */
@@ -160,7 +159,8 @@ export async function inviteEmployee(input: InviteEmployeeInput): Promise<{
   try {
     const fbUser = await auth.createUser({
       email: parsed.email,
-      emailVerified: false,
+      password: DEFAULT_INVITE_PASSWORD,
+      emailVerified: true,
       disabled: false,
     });
     fbUid = fbUser.uid;
@@ -252,22 +252,20 @@ export async function inviteEmployee(input: InviteEmployeeInput): Promise<{
   //    failure to the caller via `warning` so they know to retry.
   let emailWarning: string | undefined;
   try {
-    const link = await auth.generatePasswordResetLink(parsed.email, {
-      url: `${requireSiteUrl()}/welcome?intent=invite`,
-    });
-    const { error: sendError } = await sendInviteEmail({
+    const { error: sendError } = await sendCredentialsEmail({
       email:       parsed.email,
       inviteeName: parsed.name,
       inviterName: me.name,
-      inviteLink:  link,
+      password:    DEFAULT_INVITE_PASSWORD,
+      loginUrl:    `${siteUrl()}/login`,
     });
     if (sendError) {
-      emailWarning = `Created the account but the invite email failed: ${sendError}. Use "Resend invite" to retry.`;
-      console.error("[inviteEmployee] sendInviteEmail returned error", sendError);
+      emailWarning = `Created the account but the login-details email failed: ${sendError}. Use "Resend invite" to retry.`;
+      console.error("[inviteEmployee] sendCredentialsEmail returned error", sendError);
     }
   } catch (err: any) {
-    emailWarning = `Created the account but couldn't generate the invite link: ${err?.message ?? err}. Use "Resend invite" to retry.`;
-    console.error("[inviteEmployee] generatePasswordResetLink/sendInviteEmail threw", err);
+    emailWarning = `Created the account but the login-details email failed: ${err?.message ?? err}. Use "Resend invite" to retry.`;
+    console.error("[inviteEmployee] sendCredentialsEmail threw", err);
   }
 
   try {
@@ -454,7 +452,7 @@ export async function getInviteLink(
   try {
     const link = await getFirebaseAdminAuth().generatePasswordResetLink(
       emp.email,
-      { url: `${requireSiteUrl()}/welcome?intent=invite` },
+      { url: `${siteUrl()}/welcome?intent=invite` },
     );
     return { ok: true, link };
   } catch (err: any) {
@@ -477,14 +475,12 @@ export async function resendInvite(employeeId: string): Promise<{ ok: boolean; e
   if (!emp) return { ok: false, error: "Employee not found" };
   if (emp.joinedAt !== null) return { ok: false, error: "Employee has already joined." };
   try {
-    const link = await getFirebaseAdminAuth().generatePasswordResetLink(emp.email, {
-      url: `${requireSiteUrl()}/welcome?intent=invite`,
-    });
-    const { error } = await sendInviteEmail({
+    const { error } = await sendCredentialsEmail({
       email:       emp.email,
       inviteeName: emp.name,
       inviterName: me.name,
-      inviteLink:  link,
+      password:    DEFAULT_INVITE_PASSWORD,
+      loginUrl:    `${siteUrl()}/login`,
     });
     if (error) return { ok: false, error };
   } catch (err: any) {
@@ -504,6 +500,95 @@ export async function resendInvite(employeeId: string): Promise<{ ok: boolean; e
   revalidatePath("/admin/employees");
   updateTag(CACHE_TAGS.employees);
   return { ok: true };
+}
+
+/**
+ * Admin-driven password reset. Sets a new Firebase password, revokes the
+ * employee's refresh tokens + tracked sessions (signing them out everywhere),
+ * stamps `password_reset_by_admin_at` so a stale-password sign-in shows the
+ * "changed by admin" message, emails the employee (best-effort), and audits.
+ * Never logs the password. Admin-only; cannot target self.
+ */
+export async function resetEmployeePassword(
+  employeeId: string,
+  newPassword: string,
+): Promise<{ ok: boolean; error?: string; warning?: string }> {
+  const me = await requireAdmin();
+
+  const parsedId = EmployeeIdSchema.safeParse(employeeId);
+  if (!parsedId.success) {
+    return { ok: false, error: parsedId.error.issues[0]?.message ?? "Invalid employee id" };
+  }
+  const parsedPw = ResetPasswordSchema.safeParse({ password: newPassword });
+  if (!parsedPw.success) {
+    return { ok: false, error: parsedPw.error.issues[0]?.message ?? "Invalid password" };
+  }
+  if (parsedId.data === me.id) {
+    return { ok: false, error: "You can't reset your own password here — use Forgot password." };
+  }
+
+  const emp = await db.query.employees.findFirst({
+    where: eq(employees.id, parsedId.data),
+  });
+  if (!emp) return { ok: false, error: "Employee not found." };
+  if (!emp.isActive) return { ok: false, error: "Employee is deactivated — reactivate first." };
+  if (!emp.firebaseUid) {
+    return { ok: false, error: "This employee has no Firebase account yet — contact support." };
+  }
+
+  // 1-2. Firebase: set password + revoke tokens (sign-out everywhere).
+  try {
+    const auth = getFirebaseAdminAuth();
+    await auth.updateUser(emp.firebaseUid, { password: parsedPw.data.password });
+    await auth.revokeRefreshTokens(emp.firebaseUid);
+  } catch (err: any) {
+    return { ok: false, error: translateFirebaseAdminError(err) ?? (err?.message ?? String(err)) };
+  }
+
+  // 3. Drop tracked sessions so logged-in devices are bounced on next request.
+  try {
+    await db.delete(authSessions).where(eq(authSessions.employeeId, emp.id));
+  } catch (err) {
+    console.error("[resetEmployeePassword] auth_sessions delete failed", err);
+  }
+
+  // 4. Stamp the lockout marker.
+  try {
+    await db
+      .update(employees)
+      .set({ passwordResetByAdminAt: new Date() })
+      .where(eq(employees.id, emp.id));
+  } catch (err: any) {
+    return { ok: false, error: `DB: ${err?.message ?? err}` };
+  }
+
+  // 5. Email the employee (best-effort — never blocks the reset).
+  let warning: string | undefined;
+  try {
+    const { error } = await sendPasswordChangedByAdminEmail({
+      email: emp.email,
+      recipientName: emp.name,
+    });
+    if (error) warning = `Password reset, but the email couldn't be sent: ${error}`;
+  } catch (err) {
+    console.error("[resetEmployeePassword] email send threw", err);
+    warning = "Password reset, but the notification email failed to send.";
+  }
+
+  // 6. Audit (no password). Non-fatal.
+  try {
+    await db.insert(employeeEvents).values({
+      employeeId: emp.id,
+      actorId: me.id,
+      eventType: "password_reset_by_admin",
+    });
+  } catch (err) {
+    console.error("[resetEmployeePassword] audit write failed", err);
+  }
+
+  revalidatePath("/admin/employees");
+  updateTag(CACHE_TAGS.employees);
+  return { ok: true, warning };
 }
 
 export async function deactivateEmployee(

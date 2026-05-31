@@ -7,6 +7,7 @@ import {
   signOut as firebaseSignOut,
 } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/client";
+import { wasPasswordResetByAdmin } from "@/app/(auth)/login/actions";
 import Link from "next/link";
 import type { Route } from "next";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
@@ -94,6 +95,19 @@ export function LoginFormGlass() {
           } catch {
             /* best effort */
           }
+          return;
+        }
+        // A credential failure might be because an admin reset this account.
+        // Check the marker and, if set, show the specific message instead of
+        // the generic "wrong password".
+        const credentialFail =
+          code === "auth/wrong-password" ||
+          code === "auth/invalid-credential" ||
+          code === "auth/invalid-login-credentials";
+        if (credentialFail && (await wasPasswordResetByAdmin(email))) {
+          setError(
+            "Your password was changed by an administrator. Please use the new password, or contact support.",
+          );
           return;
         }
         setError(translateFirebaseError(code));

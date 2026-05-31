@@ -67,11 +67,18 @@ export async function POST(req: Request) {
   }
 
   // Link / refresh the firebase_uid so getCurrentEmployee()'s UID-based lookup
-  // resolves regardless of which provider the user signed in through.
-  if (emp.firebaseUid !== decoded.uid) {
+  // resolves regardless of which provider the user signed in through. Also
+  // clear any admin-reset lockout marker — a successful sign-in means the
+  // employee is back in, so the "changed by admin" message must stop showing.
+  const needsUidLink = emp.firebaseUid !== decoded.uid;
+  const needsMarkerClear = emp.passwordResetByAdminAt !== null;
+  if (needsUidLink || needsMarkerClear) {
     await db
       .update(employees)
-      .set({ firebaseUid: decoded.uid })
+      .set({
+        ...(needsUidLink ? { firebaseUid: decoded.uid } : {}),
+        ...(needsMarkerClear ? { passwordResetByAdminAt: null } : {}),
+      })
       .where(eq(employees.id, emp.id));
   }
 

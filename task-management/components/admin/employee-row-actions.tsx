@@ -11,6 +11,7 @@ import {
   Trash2,
   AlertTriangle,
   Link2,
+  KeyRound,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -33,6 +34,7 @@ import {
   EditEmployeeDialog,
   type EmployeeDepartmentMembership,
 } from "@/components/admin/edit-employee-dialog";
+import { ResetPasswordDialog } from "@/components/admin/reset-password-dialog";
 import type { DepartmentOption } from "@/components/admin/department-multi-select";
 
 type Role = "doer" | "initiator" | "both";
@@ -66,6 +68,7 @@ export function EmployeeRowActions({
   const [pending, startTransition] = useTransition();
   const [confirm, setConfirm] = useState<ConfirmKind>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteImpact, setDeleteImpact] = useState<EmployeeDeletionImpact | null>(null);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
@@ -180,6 +183,7 @@ export function EmployeeRowActions({
   // The "link" group (resend + copy) only makes sense while the account is
   // active — deactivated users can't sign in regardless.
   const canShareLink = employee.isActive;
+  const canResetPassword = employee.isActive && !isSelf;
   const showSeparator = canShareLink || canDeactivate || canReactivate;
   const showDeleteSeparator = canDelete;
 
@@ -212,6 +216,12 @@ export function EmployeeRowActions({
             <DropdownMenuItem onClick={handleCopyInviteLink}>
               <Link2 size={14} />
               {isInvited ? "Copy invite link" : "Copy password-reset link"}
+            </DropdownMenuItem>
+          )}
+          {canResetPassword && (
+            <DropdownMenuItem onClick={() => setResetOpen(true)}>
+              <KeyRound size={14} />
+              Reset password
             </DropdownMenuItem>
           )}
           {canDeactivate && (
@@ -251,6 +261,12 @@ export function EmployeeRowActions({
         }}
         isSelf={isSelf}
         departmentOptions={departmentOptions}
+      />
+
+      <ResetPasswordDialog
+        open={resetOpen}
+        onOpenChange={setResetOpen}
+        employee={{ id: employee.id, name: employee.name }}
       />
 
       {/* Hard-delete dialog — typed-email gate prevents accidental clicks. */}
