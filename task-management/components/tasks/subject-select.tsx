@@ -1,10 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Check, X } from "lucide-react";
+import { Check, Plus, X, ChevronDown, Search } from "lucide-react";
 import { quickAddSubject } from "@/app/(app)/tasks/actions";
-
-const ADD_NEW = "__add_new_subject__";
 
 interface Props {
   /** Currently selected subject name (tasks.subject). */
@@ -21,10 +19,10 @@ interface Props {
 }
 
 /**
- * "Subject" picker. A native select over the shared subject roster plus a
- * "+ Add new subject…" option that flips the control into an inline text
- * input. Saving persists the name (quickAddSubject) so it's there next
- * time, then selects it. Mirrors ClientSelect.
+ * "Subject" picker — a fully-styled searchable combobox (NOT a native
+ * <select>, whose OS option list can't be themed). Type to filter, ↑/↓ +
+ * Enter to pick, and a "+ Add new subject…" row that flips into an inline add
+ * input. Keyboard-first; mouse works too. Mirrors ClientSelect.
  */
 export function SubjectSelect({
   value,
@@ -42,14 +40,19 @@ export function SubjectSelect({
   const [draft, setDraft] = React.useState("");
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const inputRef = React.useRef<HTMLInputElement>(null);
+  const addInputRef = React.useRef<HTMLInputElement>(null);
 
-  React.useEffect(() => {
-    setOptions(subjects);
-  }, [subjects]);
+  const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const [hi, setHi] = React.useState(0);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const searchRef = React.useRef<HTMLInputElement>(null);
+  const listRef = React.useRef<HTMLUListElement>(null);
 
+  React.useEffect(() => setOptions(subjects), [subjects]);
   React.useEffect(() => {
-    if (adding) inputRef.current?.focus();
+    if (adding) addInputRef.current?.focus();
   }, [adding]);
 
   const sorted = React.useMemo(() => {
@@ -60,18 +63,52 @@ export function SubjectSelect({
     );
   }, [options, value]);
 
-  function startAdd() {
-    setError(null);
-    setDraft("");
-    setAdding(true);
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? sorted.filter((c) => c.toLowerCase().includes(q)) : sorted;
+  }, [sorted, query]);
+
+  React.useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    setHi(0);
+    const t = setTimeout(() => searchRef.current?.focus(), 0);
+    return () => clearTimeout(t);
+  }, [open]);
+
+  React.useEffect(() => {
+    setHi((h) => Math.min(h, filtered.length));
+  }, [filtered.length]);
+  React.useEffect(() => {
+    if (!open) return;
+    (listRef.current?.children[hi] as HTMLElement | undefined)?.scrollIntoView({ block: "nearest" });
+  }, [hi, open]);
+
+  function choose(name: string) {
+    onChange(name);
+    setOpen(false);
+    setQuery("");
+    triggerRef.current?.focus();
   }
 
+  function startAdd() {
+    setOpen(false);
+    setError(null);
+    setDraft(query.trim());
+    setAdding(true);
+  }
   function cancelAdd() {
     setAdding(false);
     setDraft("");
     setError(null);
   }
-
   async function saveAdd() {
     const name = draft.trim();
     if (!name) {
@@ -87,13 +124,41 @@ export function SubjectSelect({
       return;
     }
     setOptions((prev) =>
-      prev.some((c) => c.toLowerCase() === res.name.toLowerCase())
-        ? prev
-        : [...prev, res.name],
+      prev.some((c) => c.toLowerCase() === res.name.toLowerCase()) ? prev : [...prev, res.name],
     );
     onChange(res.name);
     setAdding(false);
     setDraft("");
+  }
+
+  function searchKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHi((h) => Math.min(h + 1, filtered.length));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHi((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (hi === filtered.length) startAdd();
+      else if (filtered[hi]) choose(filtered[hi]);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    } else if (e.key === "Tab") {
+      setOpen(false);
+    }
+  }
+
+  function triggerKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setOpen(true);
+    } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      setOpen(true);
+      setQuery(e.key);
+    }
   }
 
   if (adding) {
@@ -101,10 +166,10 @@ export function SubjectSelect({
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-2">
           <input
-            ref={inputRef}
+            ref={addInputRef}
             type="text"
             value={draft}
-            maxLength={80}
+            maxLength={120}
             placeholder="New subject name"
             className={className}
             disabled={saving}
@@ -127,7 +192,7 @@ export function SubjectSelect({
             disabled={saving}
             aria-label="Save new subject"
             className="inline-flex shrink-0 items-center justify-center rounded-lg border border-hairline bg-white text-ink-strong transition-colors hover:bg-surface-muted disabled:opacity-50"
-            style={{ width: 42, height: 42 }}
+            style={{ width: 46, height: 46 }}
           >
             <Check size={18} strokeWidth={2.4} />
           </button>
@@ -137,7 +202,7 @@ export function SubjectSelect({
             disabled={saving}
             aria-label="Cancel"
             className="inline-flex shrink-0 items-center justify-center rounded-lg border border-hairline bg-white text-ink-muted transition-colors hover:bg-surface-muted disabled:opacity-50"
-            style={{ width: 42, height: 42 }}
+            style={{ width: 46, height: 46 }}
           >
             <X size={18} strokeWidth={2.4} />
           </button>
@@ -152,28 +217,124 @@ export function SubjectSelect({
   }
 
   return (
-    <select
-      id={id}
-      required={required}
-      value={value}
-      className={className}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      onChange={(e) => {
-        if (e.target.value === ADD_NEW) {
-          startAdd();
-          return;
-        }
-        onChange(e.target.value);
-      }}
-    >
-      <option value="">{placeholder}</option>
-      {sorted.map((name) => (
-        <option key={name} value={name}>
-          {name}
-        </option>
-      ))}
-      <option value={ADD_NEW}>+ Add New Subject…</option>
-    </select>
+    <div className="relative" ref={containerRef}>
+      <button
+        ref={triggerRef}
+        type="button"
+        id={id}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={triggerKeyDown}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={(className ? className + " " : "") + "flex items-center justify-between gap-2 text-left cursor-pointer"}
+      >
+        <span
+          style={{
+            color: value ? "var(--color-ink-strong)" : "var(--color-ink-subtle)",
+            fontWeight: value ? 600 : 500,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {value || placeholder}
+        </span>
+        <ChevronDown
+          size={17}
+          strokeWidth={2.4}
+          className="shrink-0 transition-transform"
+          style={{ color: "var(--color-ink-muted)", transform: open ? "rotate(180deg)" : "none" }}
+        />
+      </button>
+
+      {required && (
+        <input
+          tabIndex={-1}
+          aria-hidden
+          value={value}
+          onChange={() => {}}
+          required
+          style={{ position: "absolute", opacity: 0, height: 1, width: 1, left: 18, bottom: 4 }}
+        />
+      )}
+
+      {open && (
+        <div
+          className="absolute left-0 right-0 mt-2 z-50 rounded-chip border bg-surface-card overflow-hidden"
+          style={{
+            borderColor: "var(--color-hairline-strong)",
+            boxShadow: "0 20px 50px -12px rgba(15, 23, 42, 0.28), 0 4px 12px rgba(15, 23, 42, 0.10)",
+          }}
+        >
+          <div className="p-2.5" style={{ borderBottom: "1px solid var(--color-hairline)" }}>
+            <div
+              className="flex items-center gap-2 rounded-lg px-3"
+              style={{ background: "var(--color-surface-soft)", border: "1px solid var(--color-hairline)" }}
+            >
+              <Search size={16} strokeWidth={2.2} style={{ color: "var(--color-ink-subtle)" }} />
+              <input
+                ref={searchRef}
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setHi(0);
+                }}
+                onKeyDown={searchKeyDown}
+                placeholder="Search subjects…"
+                className="w-full bg-transparent outline-none py-2.5"
+                style={{ fontSize: 15, fontWeight: 600, color: "var(--color-ink-strong)" }}
+              />
+            </div>
+          </div>
+          <ul ref={listRef} role="listbox" className="max-h-[300px] overflow-y-auto py-1.5">
+            {filtered.length === 0 && (
+              <li className="px-4 py-3 text-[14px] font-semibold" style={{ color: "var(--color-ink-muted)" }}>
+                No match for “{query}”.
+              </li>
+            )}
+            {filtered.map((name, i) => {
+              const isSel = name === value;
+              const isHi = i === hi;
+              return (
+                <li
+                  key={name}
+                  role="option"
+                  aria-selected={isSel}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setHi(i)}
+                  onClick={() => choose(name)}
+                  className="flex items-center justify-between gap-3 mx-1.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors"
+                  style={{ background: isHi ? "var(--color-surface-soft)" : "transparent" }}
+                >
+                  <span className="font-semibold truncate" style={{ fontSize: 15, color: "var(--color-ink-strong)" }}>
+                    {name}
+                  </span>
+                  {isSel && <Check size={17} strokeWidth={2.6} style={{ color: "rgb(var(--vp-cyan-deep))" }} />}
+                </li>
+              );
+            })}
+            <li
+              role="option"
+              aria-selected={hi === filtered.length}
+              onMouseDown={(e) => e.preventDefault()}
+              onMouseEnter={() => setHi(filtered.length)}
+              onClick={() => startAdd()}
+              className="flex items-center gap-2 mx-1.5 mt-1 px-3 py-2.5 rounded-lg cursor-pointer font-bold transition-colors"
+              style={{
+                background: hi === filtered.length ? "color-mix(in srgb, var(--color-altus-red) 8%, transparent)" : "transparent",
+                color: "var(--color-altus-red-deep)",
+                borderTop: "1px solid var(--color-hairline)",
+                fontSize: 15,
+              }}
+            >
+              <Plus size={16} strokeWidth={2.6} />
+              Add new subject…
+            </li>
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
