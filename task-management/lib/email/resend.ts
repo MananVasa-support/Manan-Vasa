@@ -74,6 +74,14 @@ function clampSubject(s: string): string {
   return `${trimmed.slice(0, SUBJECT_MAX - 1)}…`;
 }
 
+export function digestSubject(pendingCount: number): string {
+  if (pendingCount === 0) {
+    return "You're all clear — no pending tasks — Altus Corp Dashboard";
+  }
+  const noun = pendingCount === 1 ? "task" : "tasks";
+  return `You have ${pendingCount} pending ${noun} — Altus Corp Dashboard`;
+}
+
 function errorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
@@ -309,24 +317,16 @@ export async function sendDigestEmail(
   args: SendDigestEmailArgs,
 ): Promise<{ id: string | null; error: string | null }> {
   try {
-    if (args.overdueTasks.length === 0) {
-      return { id: null, error: null };
-    }
     const resend = getResend();
     if (!resend) return { id: null, error: null };
-
-    const n = args.overdueTasks.length;
-    const subject = clampSubject(
-      `You have ${n} overdue ${n === 1 ? "task" : "tasks"} — Altus Corp Dashboard`,
-    );
 
     const { data, error } = await resend.emails.send({
       from: FROM,
       to: args.recipient.email,
-      subject,
+      subject: clampSubject(digestSubject(args.pendingTasks.length)),
       react: DailyDigestEmail({
         recipientName: args.recipient.name,
-        overdueTasks:  args.overdueTasks,
+        pendingTasks:  args.pendingTasks,
         siteUrl:       args.siteUrl ?? "",
       }),
     });

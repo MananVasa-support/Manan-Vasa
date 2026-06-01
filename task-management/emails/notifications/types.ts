@@ -52,13 +52,23 @@ export interface OverdueDigestTask {
   daysOverdue: number;
 }
 
+/** Per-row payload for the daily PENDING digest. */
+export interface PendingDigestTask {
+  id: string;
+  subject: string;
+  dueAt: Date | null;
+  doerName: string;
+  isOverdue: boolean;
+  daysOverdue: number;
+}
+
 /**
  * Arguments to `sendDigestEmail`.  Mirrors the stub Agent A landed in
  * `lib/email/resend.ts` — the cron route owns this contract.
  */
 export interface SendDigestEmailArgs {
   recipient: { email: string; name: string };
-  overdueTasks: OverdueDigestTask[];
+  pendingTasks: PendingDigestTask[];
   /** Origin for CTA links; may be undefined (falls back to relative URLs). */
   siteUrl: string | undefined;
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { OverdueTask } from "@/lib/queries/overdue";
+import type { PendingTask } from "@/lib/queries/overdue";
 
 // ── Mock dependencies BEFORE importing the route ─────────────────────
 // Vitest hoists vi.mock(), so the mocks are in place when the route
@@ -11,7 +11,7 @@ import type { OverdueTask } from "@/lib/queries/overdue";
 vi.mock("server-only", () => ({}));
 
 const {
-  listOverdueByEmployee,
+  listPendingByEmployee,
   sendDigestEmail,
   dbInsert,
   dbSelect,
@@ -19,7 +19,7 @@ const {
   selectWhereMock,
   insertValuesMock,
 } = vi.hoisted(() => ({
-  listOverdueByEmployee: vi.fn(),
+  listPendingByEmployee: vi.fn(),
   sendDigestEmail: vi.fn(),
   dbInsert: vi.fn(),
   dbSelect: vi.fn(),
@@ -29,16 +29,13 @@ const {
 }));
 
 vi.mock("@/lib/queries/overdue", () => ({
-  listOverdueByEmployee,
+  listPendingByEmployee,
 }));
 
 vi.mock("@/lib/email/resend", () => ({
   sendDigestEmail,
 }));
 
-// M4 Commit 3a — cron now also dispatches a Slack digest.  Stub the
-// recipient prefs lookup + the send so the legacy email-focused tests
-// keep their assertions.
 vi.mock("@/lib/notifications/channel-prefs", () => ({
   getRecipientChannelPrefs: vi.fn(async () => null),
 }));
@@ -49,10 +46,9 @@ vi.mock("@/lib/whatsapp/dispatch", () => ({
   sendWhatsAppDigest: vi.fn(async () => "skip" as const),
 }));
 
-// M5 — handler now consults `org_settings.digest_hour_ist` and skips
-// when the current IST hour doesn't match.  Default the mock to "match"
-// so the legacy tests below keep exercising the send path; the off-hour
-// behavior gets its own explicit test.
+// M5 — handler consults `org_settings.digest_hour_ist` and skips when the
+// current IST hour doesn't match.  Default the mock to "match" so the
+// send-path tests proceed; the off-hour behavior has its own test.
 const getOrgSettingsMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/queries/org-settings", () => ({
   getOrgSettings: getOrgSettingsMock,
@@ -64,7 +60,7 @@ function currentIstHour(): number {
 }
 
 // Mock @/lib/db so the route can: db.insert(notifications).values({...})
-// and db.select({...}).from(employees).where(...).
+// and db.select({...}).from(employees).where(eq(isActive,true)).
 vi.mock("@/lib/db", () => {
   dbInsert.mockImplementation(() => ({
     values: insertValuesMock,
@@ -80,17 +76,17 @@ vi.mock("@/lib/db", () => {
       insert: dbInsert,
       select: dbSelect,
     },
-    employees: { id: "employees.id", email: "employees.email", name: "employees.name" },
+    employees: { id: "employees.id", email: "employees.email", name: "employees.name", isActive: "employees.is_active" },
     notifications: { __table: "notifications" },
   };
 });
 
-// drizzle-orm — the route only uses `inArray`; we stub it as a marker.
+// drizzle-orm — the route now uses `eq` for the active-employee filter.
 vi.mock("drizzle-orm", () => ({
-  inArray: (col: unknown, values: unknown) => ({ __inArray: { col, values } }),
+  eq: (col: unknown, value: unknown) => ({ __eq: { col, value } }),
 }));
 
-// next/server's NextResponse — give it a minimal Response-shaped stub.
+// next/server's NextResponse — minimal Response-shaped stub.
 vi.mock("next/server", () => ({
   NextResponse: {
     json: <T,>(body: T, init?: { status?: number }) =>
@@ -109,36 +105,35 @@ function mkRequest(authorization?: string): Request {
   });
 }
 
-function mkOverdueTask(
-  over: Partial<OverdueTask> & { id: string; doerId: string },
-): OverdueTask {
+function mkPendingTask(
+  over: Partial<PendingTask> & { id: string; doerId: string },
+): PendingTask {
   return {
+    shortId: null,
     subject: `Task ${over.id}`,
     dueAt: new Date("2026-05-10T00:00:00Z"),
     doerName: "Doer One",
+    isOverdue: true,
     daysOverdue: 4,
     ...over,
-  } as OverdueTask;
+  } as PendingTask;
 }
 
 beforeEach(() => {
-  listOverdueByEmployee.mockReset();
+  listPendingByEmployee.mockReset();
   sendDigestEmail.mockReset();
   dbInsert.mockClear();
   dbSelect.mockClear();
   selectFromMock.mockClear();
   selectWhereMock.mockReset();
   insertValuesMock.mockReset();
-  // Default: notification inserts resolve to nothing.
   insertValuesMock.mockResolvedValue(undefined);
-  // Default: recipient lookup returns no rows.
+  // Default: no pending tasks for anyone, no active employees.
+  listPendingByEmployee.mockResolvedValue(new Map());
   selectWhereMock.mockResolvedValue([]);
-  // Default: settings say "send right now" so the legacy tests proceed.
+  sendDigestEmail.mockResolvedValue({ id: "msg", error: null });
   getOrgSettingsMock.mockReset();
-  getOrgSettingsMock.mockResolvedValue({
-    id: 1,
-    digestHourIst: currentIstHour(),
-  });
+  getOrgSettingsMock.mockResolvedValue({ id: 1, digestHourIst: currentIstHour() });
   process.env.CRON_SECRET = "test-secret-1234567890abcdef";
 });
 
@@ -149,7 +144,7 @@ describe("POST /api/cron/digest", () => {
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe("Unauthorized");
-    expect(listOverdueByEmployee).not.toHaveBeenCalled();
+    expect(listPendingByEmployee).not.toHaveBeenCalled();
     expect(sendDigestEmail).not.toHaveBeenCalled();
   });
 
@@ -166,129 +161,102 @@ describe("POST /api/cron/digest", () => {
     expect(res.status).toBe(401);
   });
 
-  it("short-circuits to processed=0 when no employees have overdue tasks", async () => {
-    listOverdueByEmployee.mockResolvedValue(new Map());
-
+  it("processes zero when there are no active employees", async () => {
+    selectWhereMock.mockResolvedValue([]);
     const { POST } = await import("@/app/api/cron/digest/route");
     const res = await POST(mkRequest("Bearer test-secret-1234567890abcdef"));
     expect(res.status).toBe(200);
-    const body = (await res.json()) as {
-      ok: boolean;
-      processed: number;
-      sent: number;
-      skipped: number;
-    };
+    const body = (await res.json()) as { ok: boolean; processed: number; sent: number };
     expect(body).toEqual({ ok: true, processed: 0, sent: 0, skipped: 0 });
     expect(sendDigestEmail).not.toHaveBeenCalled();
     expect(insertValuesMock).not.toHaveBeenCalled();
   });
 
-  it("sends one email per employee with overdue tasks and returns the right counts", async () => {
+  it("force-sends to EVERY active employee (incl. zero-pending 'all clear') with pending tasks", async () => {
     const e1 = "emp-1";
     const e2 = "emp-2";
-    const overdueByEmp = new Map<string, OverdueTask[]>([
-      [
-        e1,
+    // e1 has 2 pending, e2 has none → e2 gets an all-clear.
+    listPendingByEmployee.mockResolvedValue(
+      new Map<string, PendingTask[]>([
         [
-          mkOverdueTask({ id: "t1", doerId: e1, subject: "Send NOC" }),
-          mkOverdueTask({ id: "t2", doerId: e1, subject: "Chase KYC" }),
+          e1,
+          [
+            mkPendingTask({ id: "t1", doerId: e1, subject: "Send NOC" }),
+            mkPendingTask({ id: "t2", doerId: e1, subject: "Chase KYC" }),
+          ],
         ],
-      ],
-      [e2, [mkOverdueTask({ id: "t3", doerId: e2, subject: "Audit reconcile" })]],
-    ]);
-    listOverdueByEmployee.mockResolvedValue(overdueByEmp);
-
+      ]),
+    );
     selectWhereMock.mockResolvedValue([
       { id: e1, email: "one@vp.com", name: "Doer One" },
       { id: e2, email: "two@vp.com", name: "Doer Two" },
     ]);
-
     sendDigestEmail.mockResolvedValue({ id: "msg-1", error: null });
 
     const { POST } = await import("@/app/api/cron/digest/route");
     const res = await POST(mkRequest("Bearer test-secret-1234567890abcdef"));
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as {
-      ok: boolean;
-      processed: number;
-      sent: number;
-      skipped: number;
-    };
+    const body = (await res.json()) as { ok: boolean; processed: number; sent: number };
+    // Both active employees processed + emailed (one real list, one all-clear).
     expect(body).toEqual({ ok: true, processed: 2, sent: 2, skipped: 0 });
     expect(sendDigestEmail).toHaveBeenCalledTimes(2);
 
-    // One notification row per employee.
+    // One in-app notification row per employee, all overdue_digest kind.
     expect(insertValuesMock).toHaveBeenCalledTimes(2);
     const insertedRows = insertValuesMock.mock.calls.map(
       (c: unknown[]) => c[0] as Record<string, unknown>,
     );
     expect(insertedRows.every((r) => r.kind === "overdue_digest")).toBe(true);
     const titles = insertedRows.map((r) => r.title as string).sort();
-    expect(titles).toEqual(["You have 1 overdue task", "You have 2 overdue tasks"]);
+    expect(titles).toEqual([
+      "No pending tasks — you're all clear",
+      "You have 2 pending tasks",
+    ]);
 
-    // Confirm the recipients we sent to + that overdueTasks are passed.
+    // sendDigestEmail receives pendingTasks (not overdueTasks).
     const callArgs = sendDigestEmail.mock.calls.map(
       (c: unknown[]) =>
         c[0] as {
           recipient: { email: string; name: string };
-          overdueTasks: OverdueTask[];
+          pendingTasks: unknown[];
         },
     );
-    const recipients = callArgs.map((a) => a.recipient.email).sort();
-    expect(recipients).toEqual(["one@vp.com", "two@vp.com"]);
     const e1Call = callArgs.find((a) => a.recipient.email === "one@vp.com")!;
-    expect(e1Call.overdueTasks).toHaveLength(2);
+    expect(e1Call.pendingTasks).toHaveLength(2);
     const e2Call = callArgs.find((a) => a.recipient.email === "two@vp.com")!;
-    expect(e2Call.overdueTasks).toHaveLength(1);
+    expect(e2Call.pendingTasks).toHaveLength(0);
   });
 
-  it("continues on email failure and reports it in 'sent' but not 'processed'", async () => {
+  it("continues on email failure (counts in processed, not sent)", async () => {
     const e1 = "emp-1";
-    listOverdueByEmployee.mockResolvedValue(
-      new Map<string, OverdueTask[]>([
-        [e1, [mkOverdueTask({ id: "t1", doerId: e1 })]],
-      ]),
+    listPendingByEmployee.mockResolvedValue(
+      new Map<string, PendingTask[]>([[e1, [mkPendingTask({ id: "t1", doerId: e1 })]]]),
     );
-    selectWhereMock.mockResolvedValue([
-      { id: e1, email: "one@vp.com", name: "Doer One" },
-    ]);
+    selectWhereMock.mockResolvedValue([{ id: e1, email: "one@vp.com", name: "Doer One" }]);
     sendDigestEmail.mockResolvedValue({ id: null, error: "Resend exploded" });
 
-    // Silence the console.error from the error branch.
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
     const { POST } = await import("@/app/api/cron/digest/route");
     const res = await POST(mkRequest("Bearer test-secret-1234567890abcdef"));
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as {
-      ok: boolean;
-      processed: number;
-      sent: number;
-      skipped: number;
-    };
-    // processed counts attempted; sent counts successful.
+    const body = (await res.json()) as { processed: number; sent: number };
     expect(body.processed).toBe(1);
     expect(body.sent).toBe(0);
-
     errSpy.mockRestore();
   });
 
   it("supports GET too (Vercel Cron uses GET by default)", async () => {
-    listOverdueByEmployee.mockResolvedValue(new Map());
+    selectWhereMock.mockResolvedValue([]);
     const { GET } = await import("@/app/api/cron/digest/route");
     const res = await GET(mkRequest("Bearer test-secret-1234567890abcdef"));
     expect(res.status).toBe(200);
   });
 
   it("skips with ok:true when current IST hour ≠ org_settings.digest_hour_ist", async () => {
-    // Pick an hour the current IST clock is guaranteed not to be on.
     const offHour = (currentIstHour() + 6) % 24;
-    getOrgSettingsMock.mockResolvedValue({
-      id: 1,
-      digestHourIst: offHour,
-    });
+    getOrgSettingsMock.mockResolvedValue({ id: 1, digestHourIst: offHour });
 
     const { POST } = await import("@/app/api/cron/digest/route");
     const res = await POST(mkRequest("Bearer test-secret-1234567890abcdef"));
@@ -305,8 +273,7 @@ describe("POST /api/cron/digest", () => {
     expect(body.digestHourIst).toBe(offHour);
     expect(body.istHour).not.toBe(offHour);
 
-    // No DB queries, no sends.
-    expect(listOverdueByEmployee).not.toHaveBeenCalled();
+    expect(listPendingByEmployee).not.toHaveBeenCalled();
     expect(sendDigestEmail).not.toHaveBeenCalled();
     expect(insertValuesMock).not.toHaveBeenCalled();
   });

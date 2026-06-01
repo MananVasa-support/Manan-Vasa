@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db, employees, notifications } from "@/lib/db";
-import { listOverdueByEmployee } from "@/lib/queries/overdue";
+import { listPendingByEmployee } from "@/lib/queries/overdue";
 import { sendDigestEmail } from "@/lib/email/resend";
 import { getRecipientChannelPrefs } from "@/lib/notifications/channel-prefs";
 import { sendSlackDigest } from "@/lib/slack/dispatch";
@@ -109,169 +109,111 @@ async function runDigest(request: Request): Promise<NextResponse> {
     });
   }
 
-  const overdueByEmployee = await listOverdueByEmployee(now);
+  const pendingByEmployee = await listPendingByEmployee(now);
 
-  // Pull the recipient roster in one go so we have email + name for the send.
-  // Employees with overdue tasks are guaranteed to exist (innerJoin) but the
-  // is_active filter happened in the query — we just need to look up contact info.
-  const recipientIds = Array.from(overdueByEmployee.keys());
+  // Force-send: every ACTIVE employee gets the digest — even with zero pending
+  // tasks (an "all clear" message) and regardless of any per-user opt-out.
+  const activeEmployees = await db
+    .select({ id: employees.id, email: employees.email, name: employees.name })
+    .from(employees)
+    .where(eq(employees.isActive, true));
 
   let processed = 0;
   let sent = 0;
-  let skipped = 0;
+  const skipped = 0;
 
-  if (recipientIds.length === 0) {
-    return NextResponse.json<DigestResult>({
-      ok: true,
-      processed: 0,
-      sent: 0,
-      skipped: 0,
-    });
-  }
-
-  // One trip to grab email + name for every recipient.  We don't N+1.
-  const recipientRows = await db
-    .select({
-      id: employees.id,
-      email: employees.email,
-      name: employees.name,
-    })
-    .from(employees)
-    .where(inArray(employees.id, recipientIds));
-
-  const recipientById = new Map<string, { email: string; name: string }>();
-  for (const row of recipientRows) {
-    recipientById.set(row.id, { email: row.email, name: row.name });
-  }
-
-  for (const [employeeId, overdueTasks] of overdueByEmployee.entries()) {
-    if (overdueTasks.length === 0) {
-      skipped++;
-      continue;
-    }
-    const recipient = recipientById.get(employeeId);
-    if (!recipient) {
-      // Defensive: employee disappeared between the join + the lookup.
-      skipped++;
-      continue;
-    }
-
+  for (const recipient of activeEmployees) {
+    const pendingTasks = pendingByEmployee.get(recipient.id) ?? [];
     processed++;
 
-    const count = overdueTasks.length;
-    const previewSubjects = overdueTasks
-      .slice(0, 3)
-      .map((t) => t.subject)
-      .join(", ");
+    const count = pendingTasks.length;
+    const previewSubjects = pendingTasks.slice(0, 3).map((t) => t.subject).join(", ");
 
-    // 1) Notification row (Agent A's `notifications` table, M2.3).
+    // 1) In-app notification row (reuse the overdue_digest kind).
     try {
       await db.insert(notifications).values({
-        userId: employeeId,
+        userId: recipient.id,
         kind: "overdue_digest",
-        title: `You have ${count} overdue task${count === 1 ? "" : "s"}`,
-        body: previewSubjects,
+        title:
+          count === 0
+            ? "No pending tasks — you're all clear"
+            : `You have ${count} pending task${count === 1 ? "" : "s"}`,
+        body: previewSubjects || null,
         taskId: null,
         eventId: null,
         actorId: null,
       });
     } catch (err) {
-      console.error(
-        `[cron/digest] failed to insert notification for ${employeeId}`,
-        err,
-      );
-      // Continue — a failed notification insert shouldn't block the email.
+      console.error(`[cron/digest] notification insert failed for ${recipient.id}`, err);
     }
 
-    // 2) Email (Agent B's send — wrapped, never throws upward).
+    // 2) Email — force-sent regardless of opt-out (mandatory morning briefing).
     try {
       const result = await withTimeout(
         sendDigestEmail({
           recipient: { email: recipient.email, name: recipient.name },
-          overdueTasks,
+          pendingTasks: pendingTasks.map((t) => ({
+            id: t.id,
+            subject: t.subject,
+            dueAt: t.dueAt,
+            doerName: t.doerName,
+            isOverdue: t.isOverdue,
+            daysOverdue: t.daysOverdue,
+          })),
           siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
         }),
         SEND_TIMEOUT_MS,
         "sendDigestEmail",
       );
       if (result.error) {
-        console.error(
-          `[cron/digest] sendDigestEmail returned error for ${recipient.email}:`,
-          result.error,
-        );
+        console.error(`[cron/digest] sendDigestEmail error for ${recipient.email}:`, result.error);
       } else {
         sent++;
       }
     } catch (err) {
-      console.error(
-        `[cron/digest] sendDigestEmail threw for ${recipient.email}`,
-        err,
-      );
+      console.error(`[cron/digest] sendDigestEmail threw for ${recipient.email}`, err);
     }
 
-    // Channel prefs are read by both the Slack and WhatsApp arms.
-    // Look up once per recipient instead of twice.
-    const channelPrefs = await getRecipientChannelPrefs(employeeId).catch(
-      (err) => {
-        console.error(
-          `[cron/digest] getRecipientChannelPrefs failed for ${recipient.email}`,
-          err,
-        );
+    // 3) Slack + WhatsApp — only when there are pending tasks (no all-clear noise).
+    if (count > 0) {
+      const channelPrefs = await getRecipientChannelPrefs(recipient.id).catch((err) => {
+        console.error(`[cron/digest] getRecipientChannelPrefs failed for ${recipient.email}`, err);
         return null;
-      },
-    );
-
-    // 3) Slack (M4 Commit 3a) — best-effort DM. Wrapped + timed out so
-    //    a Slack outage can't park the cron loop.
-    if (channelPrefs) {
-      try {
-        await withTimeout(
-          sendSlackDigest(
-            channelPrefs,
-            overdueTasks.map((t) => ({
-              subject: t.subject,
-              shortId: t.shortId ?? "",
-              daysOverdue: t.daysOverdue,
-            })),
-          ),
-          SEND_TIMEOUT_MS,
-          "sendSlackDigest",
-        );
-      } catch (err) {
-        console.error(
-          `[cron/digest] sendSlackDigest threw for ${recipient.email}`,
-          err,
-        );
-      }
-
-      // 4) WhatsApp (M4 Commit 3b) — same wrap.
-      try {
-        await withTimeout(
-          sendWhatsAppDigest(
-            channelPrefs,
-            overdueTasks.map((t) => ({
-              subject: t.subject,
-              daysOverdue: t.daysOverdue,
-            })),
-          ),
-          SEND_TIMEOUT_MS,
-          "sendWhatsAppDigest",
-        );
-      } catch (err) {
-        console.error(
-          `[cron/digest] sendWhatsAppDigest threw for ${recipient.email}`,
-          err,
-        );
+      });
+      if (channelPrefs) {
+        try {
+          await withTimeout(
+            sendSlackDigest(
+              channelPrefs,
+              pendingTasks.map((t) => ({
+                subject: t.subject,
+                shortId: t.shortId ?? "",
+                daysOverdue: t.daysOverdue,
+              })),
+            ),
+            SEND_TIMEOUT_MS,
+            "sendSlackDigest",
+          );
+        } catch (err) {
+          console.error(`[cron/digest] sendSlackDigest threw for ${recipient.email}`, err);
+        }
+        try {
+          await withTimeout(
+            sendWhatsAppDigest(
+              channelPrefs,
+              pendingTasks.map((t) => ({ subject: t.subject, daysOverdue: t.daysOverdue })),
+            ),
+            SEND_TIMEOUT_MS,
+            "sendWhatsAppDigest",
+          );
+        } catch (err) {
+          console.error(`[cron/digest] sendWhatsAppDigest threw for ${recipient.email}`, err);
+        }
       }
     }
   }
 
-  return NextResponse.json<DigestResult>({
-    ok: true,
-    processed,
-    sent,
-    skipped,
-  });
+  return NextResponse.json<DigestResult>({ ok: true, processed, sent, skipped });
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
