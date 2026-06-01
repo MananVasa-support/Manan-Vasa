@@ -6,6 +6,8 @@ import {
   Loader,
   Flame,
   AlarmClock,
+  XCircle,
+  EyeOff,
   type LucideIcon,
 } from "lucide-react";
 import { TaskTable } from "./task-table";
@@ -21,24 +23,53 @@ const DONE_STATUSES = new Set<TaskStatus>(["done", "approved"]);
 // Sourced from the canonical export so Tier-3 statuses count correctly.
 const PENDING_STATUSES = new Set<TaskStatus>(CANONICAL_PENDING_STATUSES);
 
-type KpiKey = "done" | "pending" | "critical" | "urgent";
+export type KpiKey =
+  | "notApproved"
+  | "done"
+  | "pending"
+  | "critical"
+  | "urgent"
+  | "notRead";
 
 interface KpiSpec {
   key: KpiKey;
   label: string;
   sublabel: string;
-  tone: "green" | "amber" | "red" | "orange";
+  tone: "green" | "amber" | "red" | "orange" | "rose" | "slate";
 }
 
-// The four clickable summary cards. Each one links to the Tasks list with the
-// matching status/priority filter applied (preserving the current
-// date/employee/department scope) so tapping a card "views" those tasks.
+// Six summary cards. The four middle ones (done/pending/critical/urgent) link
+// to the Tasks list with the matching status/priority filter applied; the two
+// new ones (notApproved/notRead) are display-only — they don't map to the
+// existing status/priority filter dimensions.
 const KPI_SPECS: KpiSpec[] = [
-  { key: "done",     label: "DONE",     sublabel: "Done + Approved", tone: "green"  },
-  { key: "pending",  label: "PENDING",  sublabel: "Open work",       tone: "amber"  },
-  { key: "critical", label: "CRITICAL", sublabel: "Important & urgent", tone: "red" },
-  { key: "urgent",   label: "URGENT",   sublabel: "Urgent priority", tone: "orange" },
+  { key: "notApproved", label: "NOT APPROVED", sublabel: "Declined or awaiting sign-off", tone: "rose"   },
+  { key: "done",        label: "DONE",         sublabel: "Done + Approved",               tone: "green"  },
+  { key: "pending",     label: "PENDING",      sublabel: "Open work",                     tone: "amber"  },
+  { key: "critical",    label: "CRITICAL",     sublabel: "Important & urgent",            tone: "red"    },
+  { key: "urgent",      label: "URGENT",       sublabel: "Urgent priority",               tone: "orange" },
+  { key: "notRead",     label: "NOT READ",     sublabel: "Unopened pending tasks",        tone: "slate"  },
 ];
+
+/** Pure, testable count logic for the six summary cards. Operates on the
+ *  already-filtered rows so every count respects the page filters. */
+export function computeStatCounts(rows: TaskListRow[]): Record<KpiKey, number> {
+  return {
+    notApproved: rows.filter(
+      (r) =>
+        r.approvalStatus === "not_approved" ||
+        r.status === "not_approved" ||
+        (r.status === "done" && r.approvalStatus == null),
+    ).length,
+    done: rows.filter((r) => DONE_STATUSES.has(r.status)).length,
+    pending: rows.filter((r) => PENDING_STATUSES.has(r.status)).length,
+    critical: rows.filter((r) => r.priority === "imp_urgent").length,
+    urgent: rows.filter((r) => r.priority === "not_imp_urgent").length,
+    notRead: rows.filter(
+      (r) => PENDING_STATUSES.has(r.status) && r.firstReadAt == null,
+    ).length,
+  };
+}
 
 export function TaskListPage({
   title,
@@ -60,17 +91,12 @@ export function TaskListPage({
   /** List route the summary cards link into (so Archived keeps its own scope). */
   basePath?: string;
 }) {
-  const counts: Record<KpiKey, number> = {
-    done: rows.filter((r) => DONE_STATUSES.has(r.status)).length,
-    pending: rows.filter((r) => PENDING_STATUSES.has(r.status)).length,
-    critical: rows.filter((r) => r.priority === "imp_urgent").length,
-    urgent: rows.filter((r) => r.priority === "not_imp_urgent").length,
-  };
+  const counts = computeStatCounts(rows);
 
   // Build each card's destination by overriding the relevant filter dimension
   // on top of the current filters — so date/employee/department scope carries
   // over, and the other status/priority filter is cleared for a clean view.
-  function cardHref(key: KpiKey): Route {
+  function cardHref(key: "done" | "pending" | "critical" | "urgent"): Route {
     const base = { ...filters };
     let next: TaskListFilters;
     if (key === "done") {
@@ -87,7 +113,7 @@ export function TaskListPage({
   }
 
   // Highlight a card when the list is already filtered to exactly its view.
-  function cardActive(key: KpiKey): boolean {
+  function cardActive(key: "done" | "pending" | "critical" | "urgent"): boolean {
     const s = new Set(filters.statuses);
     const p = new Set(filters.priorities);
     if (key === "done") return p.size === 0 && s.size === 2 && s.has("done") && s.has("approved");
@@ -138,17 +164,29 @@ export function TaskListPage({
       {/* KPI summary — 4 stat cards in the same visual language as the
           main dashboard tiles. Each card has a top channel-color bar,
           font-black label, big count, sublabel. */}
-      <div className="mb-7 grid grid-cols-4 gap-4 max-lg:grid-cols-2 max-sm:grid-cols-1">
-        {KPI_SPECS.map((spec) => (
-          <Link
-            key={spec.key}
-            href={cardHref(spec.key)}
-            aria-label={`View ${spec.label.toLowerCase()} tasks`}
-            className="block rounded-section focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
-          >
-            <StatCard spec={spec} value={counts[spec.key]} active={cardActive(spec.key)} />
-          </Link>
-        ))}
+      <div className="mb-7 grid grid-cols-3 gap-4 max-lg:grid-cols-2 max-sm:grid-cols-1">
+        {KPI_SPECS.map((spec) => {
+          // notApproved + notRead don't map to the status/priority filter
+          // dimensions, so they're display-only (not click-to-filter).
+          if (spec.key === "notApproved" || spec.key === "notRead") {
+            return (
+              <div key={spec.key} className="block rounded-section">
+                <StatCard spec={spec} value={counts[spec.key]} active={false} />
+              </div>
+            );
+          }
+          const filterKey = spec.key;
+          return (
+            <Link
+              key={spec.key}
+              href={cardHref(filterKey)}
+              aria-label={`View ${spec.label.toLowerCase()} tasks`}
+              className="block rounded-section focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
+            >
+              <StatCard spec={spec} value={counts[spec.key]} active={cardActive(filterKey)} />
+            </Link>
+          );
+        })}
       </div>
 
       {rows.length === 0 ? (
@@ -183,10 +221,12 @@ export function TaskListPage({
 }
 
 const KPI_ICONS: Record<KpiKey, LucideIcon> = {
+  notApproved: XCircle,
   done: CheckCircle2,
   pending: Loader,
   critical: Flame,
   urgent: AlarmClock,
+  notRead: EyeOff,
 };
 
 function StatCard({

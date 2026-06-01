@@ -4,6 +4,7 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { TaskDetailLoader } from "@/components/tasks/task-detail-loader";
 import { TaskDetailSkeleton } from "@/components/tasks/task-detail-skeleton";
 import { requireUser } from "@/lib/auth/current";
+import { markTaskRead } from "@/app/(app)/tasks/read-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,10 @@ export default async function TaskDetailPage({ params }: PageProps) {
   // `cache()`); doing it here keeps auth-gating ahead of any rendering
   // and gives the loader its `me` payload without a second resolve.
   const me = await requireUser();
+
+  // Read-receipt: mark this task read on first open by anyone. Fire-and-forget;
+  // markTaskRead is best-effort and the NULL guard makes repeat opens a no-op.
+  void markTaskRead(id);
 
   return (
     <>
