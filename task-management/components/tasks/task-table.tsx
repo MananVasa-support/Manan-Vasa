@@ -55,23 +55,36 @@ import {
 } from "lucide-react";
 
 // Group-by options for the Tasks table. "none" = flat list (default).
-type GroupKey = "none" | "client" | "subject";
+type GroupKey = "none" | "client" | "subject" | "status";
 const GROUP_OPTIONS: { key: GroupKey; label: string }[] = [
   { key: "none", label: "None" },
   { key: "client", label: "Client" },
   { key: "subject", label: "Subject" },
+  { key: "status", label: "Status" },
 ];
 
 // The section label a row falls under for the current grouping. NULL/empty
-// values collapse into a single explicit "—" bucket rather than vanishing.
-function groupValue(row: TaskListRow, by: Exclude<GroupKey, "none">): string {
+// values collapse into a single explicit "—" bucket rather than vanishing;
+// status groups use the human label (admin-overridable).
+function groupValue(
+  row: TaskListRow,
+  by: Exclude<GroupKey, "none">,
+  statusLabels: Record<TaskStatus, string>,
+): string {
+  if (by === "status") return statusLabels[row.status] ?? row.status;
   const raw = by === "client" ? row.client : row.subject;
   const v = raw?.trim();
   return v && v.length > 0 ? v : by === "client" ? "— No client" : "— No subject";
 }
 import { CriticalBadge } from "@/components/ui/critical-badge";
-import { PRIORITY_LABELS } from "@/db/enums";
+import { PRIORITY_LABELS, TASK_STATUSES } from "@/db/enums";
 import type { TaskStatus, StatusColorToken } from "@/db/enums";
+
+// Canonical status order (Not Read → … → Done → Approved → …) so grouping /
+// sorting by status follows the workflow rather than alphabetical by label.
+const STATUS_ORDER: Record<string, number> = Object.fromEntries(
+  TASK_STATUSES.map((s, i) => [s, i]),
+);
 import type { TaskListRow } from "@/lib/types";
 import { TaskRowActions } from "./task-row-actions";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
@@ -189,6 +202,8 @@ function buildColumns(
     {
       accessorKey: "status",
       header: "Status",
+      sortingFn: (a, b) =>
+        (STATUS_ORDER[a.original.status] ?? 99) - (STATUS_ORDER[b.original.status] ?? 99),
       cell: (info) => {
         const row = info.row.original;
         return (
@@ -294,7 +309,7 @@ export function TaskTable({
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [groupBy, setGroupBy] = React.useState<GroupKey>("none");
 
-  const groupColId = groupBy === "client" ? "client" : groupBy === "subject" ? "subject" : null;
+  const groupColId = groupBy === "client" ? "client" : groupBy === "subject" ? "subject" : groupBy === "status" ? "status" : null;
 
   const effectiveSorting = React.useMemo<SortingState>(() => {
     if (!groupColId) return sorting;
@@ -328,7 +343,7 @@ export function TaskTable({
     if (groupBy === "none") return null;
     const m = new Map<string, number>();
     for (const r of rows) {
-      const k = groupValue(r, groupBy);
+      const k = groupValue(r, groupBy, resolvedLabels);
       m.set(k, (m.get(k) ?? 0) + 1);
     }
     return m;
@@ -454,10 +469,10 @@ export function TaskTable({
           // Group mode: render a section header whenever the group label
           // changes from the previous row — and always at the top of a page
           // (i === 0) so you can see which group you're in mid-scroll.
-          const label = groupBy === "none" ? null : groupValue(row.original, groupBy);
+          const label = groupBy === "none" ? null : groupValue(row.original, groupBy, resolvedLabels);
           const prev = i > 0 ? arr[i - 1] : undefined;
           const prevLabel =
-            groupBy === "none" || !prev ? null : groupValue(prev.original, groupBy);
+            groupBy === "none" || !prev ? null : groupValue(prev.original, groupBy, resolvedLabels);
           const showHeader = label !== null && (i === 0 || label !== prevLabel);
           const visibleCols = table.getVisibleLeafColumns().length;
           return (
@@ -529,12 +544,12 @@ export function TaskTable({
       <div className="hidden max-md:flex max-md:flex-col max-md:gap-3">
         {table.getRowModel().rows.map((row, i, arr) => {
           const t = row.original;
-          const label = groupBy === "none" ? null : groupValue(t, groupBy);
+          const label = groupBy === "none" ? null : groupValue(t, groupBy, resolvedLabels);
           const prevRow = i > 0 ? arr[i - 1] : undefined;
           const prevLabel =
             groupBy === "none" || !prevRow
               ? null
-              : groupValue(prevRow.original, groupBy);
+              : groupValue(prevRow.original, groupBy, resolvedLabels);
           const showHeader = label !== null && (i === 0 || label !== prevLabel);
           return (
             <React.Fragment key={row.id}>
