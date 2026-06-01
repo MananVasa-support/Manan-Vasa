@@ -1555,30 +1555,62 @@ html[data-density="compact"] body {
 
 /* New Task dialog — shared input chrome. Cyan focus ring + smooth
    transitions so every input/select/textarea reads as one family. */
+/* Professional skeuomorphic field: subtle top-lit gradient, crisp bevel,
+   inner highlight + soft outer shadow so it reads as a tactile, raised
+   control rather than a flat box. */
 .nt-input {
   width: 100%;
-  padding: 16px 18px;
+  padding: 15px 18px;
   font-family: var(--font-sans, system-ui, sans-serif);
   font-size: 17px;
   font-weight: 600;
   line-height: 1.4;
   color: var(--color-ink-strong);
-  background: #ffffff;
-  border: 1.5px solid var(--color-hairline);
-  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f7fa 100%);
+  border: 1.5px solid var(--color-hairline-strong);
+  border-radius: 13px;
   outline: none;
-  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 3px 8px -3px rgba(15, 23, 42, 0.10);
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease, transform 120ms ease;
 }
 .nt-input::placeholder {
   color: var(--color-ink-subtle);
+  font-weight: 500;
 }
 .nt-input:hover {
-  border-color: var(--color-hairline-strong);
+  border-color: var(--color-ink-subtle);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 2px 4px rgba(15, 23, 42, 0.06),
+    0 5px 12px -4px rgba(15, 23, 42, 0.14);
 }
 .nt-input:focus,
-.nt-input:focus-visible {
+.nt-input:focus-visible,
+.nt-input:focus-within {
+  background: #ffffff;
   border-color: rgb(var(--vp-cyan));
-  box-shadow: 0 0 0 3px rgb(var(--vp-cyan) / 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 0 0 3px rgb(var(--vp-cyan) / 0.18),
+    0 4px 10px -4px rgba(15, 23, 42, 0.12);
+}
+/* Native <select> as a skeuomorphic field with a custom chevron — the OS
+   arrow is hidden so the control matches the rest of the form. */
+select.nt-input {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 46px;
+  cursor: pointer;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, #ffffff 0%, #f5f7fa 100%);
+  background-repeat: no-repeat, no-repeat;
+  background-position: right 16px center, center;
+  background-size: 14px, auto;
 }
 
 /* Task title link — cyan hover instead of altus red */
