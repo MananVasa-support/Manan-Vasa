@@ -77,6 +77,7 @@ export const EditEmployeeSchema = z
     // one mirrors to the legacy single-department columns.
     departmentIds:        z.array(z.string().uuid()).optional(),
     primaryDepartmentId:  z.string().uuid().nullable().optional(),
+    managerId:  z.string().uuid().nullable().optional(),
     isAdmin:    z.boolean().optional(),
     // M4 — multi-channel admin controls.  `whatsappPhone` must be valid
     // E.164 (or empty/null to clear); the other three are simple booleans.

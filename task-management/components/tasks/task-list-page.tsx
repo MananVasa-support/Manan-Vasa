@@ -164,7 +164,7 @@ export function TaskListPage({
       {/* KPI summary — 4 stat cards in the same visual language as the
           main dashboard tiles. Each card has a top channel-color bar,
           font-black label, big count, sublabel. */}
-      <div className="mb-7 grid grid-cols-3 gap-4 max-lg:grid-cols-2 max-sm:grid-cols-1">
+      <div className="mb-7 grid grid-cols-6 gap-3 max-xl:grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1">
         {KPI_SPECS.map((spec) => {
           // notApproved + notRead don't map to the status/priority filter
           // dimensions, so they're display-only (not click-to-filter).
@@ -249,7 +249,7 @@ function StatCard({
         boxShadow: active
           ? `0 0 0 3px color-mix(in srgb, var(--color-${spec.tone}) 16%, transparent)`
           : "0 1px 3px rgba(15, 23, 42, 0.04)",
-        padding: "24px 24px 22px",
+        padding: "14px 16px 13px",
       }}
     >
       <span
@@ -264,19 +264,19 @@ function StatCard({
           the white card's readability. */}
       <span
         aria-hidden
-        className="absolute right-5 top-6 inline-flex size-10 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110"
+        className="absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110"
         style={{
           background: `color-mix(in srgb, var(--color-${spec.tone}) 14%, transparent)`,
           color: `var(--color-${spec.tone}-deep)`,
         }}
       >
-        <Icon size={20} strokeWidth={2.3} />
+        <Icon size={16} strokeWidth={2.3} />
       </span>
       <span
         className="uppercase font-black tracking-[0.08em] leading-none"
         style={{
           fontFamily: "var(--font-display), system-ui, sans-serif",
-          fontSize: 15,
+          fontSize: 12,
           color: `var(--color-${spec.tone}-deep)`,
         }}
       >
@@ -287,14 +287,14 @@ function StatCard({
         style={{
           fontFamily: "var(--font-display), system-ui, sans-serif",
           fontWeight: 900,
-          fontSize: "clamp(48px, 4.6vw, 72px)",
+          fontSize: "clamp(28px, 2.2vw, 40px)",
         }}
       >
         {value}
       </span>
       <span
         className="block mt-2 font-bold leading-tight"
-        style={{ fontSize: 15, color: "var(--color-ink-soft)" }}
+        style={{ fontSize: 12, color: "var(--color-ink-soft)" }}
       >
         {spec.sublabel}
       </span>

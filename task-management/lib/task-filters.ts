@@ -22,6 +22,12 @@ function parseDate(v: unknown): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+const DEFAULT_START = new Date("2026-01-01T00:00:00.000Z");
+function todayUtcMidnight(): Date {
+  const n = new Date();
+  return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
+}
+
 /** Sentinel value for ?emp=all — meaning "explicitly show all assignees,
  *  do not apply the default-to-me behavior for non-admins". */
 const EMP_ALL = "all";
@@ -80,8 +86,8 @@ export function parseTaskFilters(
   }
 
   return {
-    startDate: parseDate(get("start")),
-    endDate: parseDate(get("end")),
+    startDate: parseDate(get("start")) ?? DEFAULT_START,
+    endDate: parseDate(get("end")) ?? todayUtcMidnight(),
     statuses,
     doerIds,
     initiatorIds: split(get("initiator")),

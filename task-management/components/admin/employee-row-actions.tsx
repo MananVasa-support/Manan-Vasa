@@ -50,12 +50,14 @@ type RowEmployee = {
   joinedAt: Date | null;
   whatsappPhone: string | null;
   whatsappOptedIn: boolean;
+  managerId: string | null;
 };
 
 interface Props {
   employee: RowEmployee;
   isSelf: boolean;
   departmentOptions: DepartmentOption[];
+  managerOptions: { value: string; label: string }[];
 }
 
 type ConfirmKind = "deactivate" | "reactivate" | null;
@@ -64,6 +66,7 @@ export function EmployeeRowActions({
   employee,
   isSelf,
   departmentOptions,
+  managerOptions,
 }: Props) {
   const [pending, startTransition] = useTransition();
   const [confirm, setConfirm] = useState<ConfirmKind>(null);
@@ -258,9 +261,11 @@ export function EmployeeRowActions({
           isAdmin: employee.isAdmin,
           whatsappPhone: employee.whatsappPhone,
           whatsappOptedIn: employee.whatsappOptedIn,
+          managerId: employee.managerId,
         }}
         isSelf={isSelf}
         departmentOptions={departmentOptions}
+        managerOptions={managerOptions}
       />
 
       <ResetPasswordDialog

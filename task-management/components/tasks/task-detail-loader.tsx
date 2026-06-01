@@ -74,7 +74,9 @@ export async function TaskDetailLoader({ taskId, me }: Props) {
   // cards on a "Not Started" task — misleading. Restrict the CTA to the
   // moment it's meaningful (doer has marked work done). Admins keep the
   // override at the server level if they ever need to force a verdict.
-  const showApproveCard = canApprove(permInput) && task.status === "done";
+  const isDoersManager = !!task.doerManagerId && task.doerManagerId === me.id;
+  const showApproveCard =
+    canApprove({ ...permInput, isDoersManager }) && task.status === "done";
 
   return (
     <TaskDetailView

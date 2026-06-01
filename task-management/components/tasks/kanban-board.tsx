@@ -74,6 +74,7 @@ const KANBAN_ADMIN_STATUSES: TaskStatus[] = [
   "follow_up_3",
   "need_help",
   "need_info",
+  "on_hold",
   "done",
   "not_approved",
   "approved",

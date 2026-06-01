@@ -33,7 +33,7 @@ import {
   SetRevisedTargetDateSchema,
   type SetRevisedTargetDateInput,
 } from "@/lib/validators/task";
-import { taskEvents, clients, subjects } from "@/db/schema";
+import { taskEvents, clients, subjects, employees } from "@/db/schema";
 import { CreateClientSchema } from "@/lib/validators/client";
 import { CreateSubjectSchema } from "@/lib/validators/subject";
 import { requireUser } from "@/lib/auth/current";
@@ -41,6 +41,7 @@ import { rateLimitOrError } from "@/lib/rate-limit";
 import {
   canEditTaskFields,
   canApprove,
+  canDecline,
   canReassign,
   canTransferExternal,
   canCancel,
@@ -874,19 +875,22 @@ export async function approveTask(
   });
   if (!current) return { ok: false, error: "not-found" };
 
-  if (
-    !canApprove({
-      employee: { id: me.id, isAdmin: me.isAdmin },
-      task: {
-        createdById: current.createdById,
-        initiatorId: current.initiatorId,
-        doerId: current.doerId,
-        status: current.status,
-      },
-    })
-  ) {
-    return { ok: false, error: "forbidden" };
-  }
+  const doerRow = await db.query.employees.findFirst({
+    where: eq(employees.id, current.doerId),
+    columns: { managerId: true },
+  });
+  const isDoersManager = !!doerRow?.managerId && doerRow.managerId === me.id;
+  const permTask = {
+    createdById: current.createdById,
+    initiatorId: current.initiatorId,
+    doerId: current.doerId,
+    status: current.status,
+  };
+  const permitted =
+    parsed.decision === "approved"
+      ? canApprove({ employee: { id: me.id, isAdmin: me.isAdmin }, task: permTask, isDoersManager })
+      : canDecline({ employee: { id: me.id, isAdmin: me.isAdmin }, task: permTask });
+  if (!permitted) return { ok: false, error: "forbidden" };
 
   const expectedDate = new Date(expectedUpdatedAt);
   if (Number.isNaN(expectedDate.getTime())) {

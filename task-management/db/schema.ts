@@ -102,6 +102,9 @@ export const employees = pgTable("employees", {
   oooDelegateId: uuid("ooo_delegate_id").references((): AnyPgColumn => employees.id, {
     onDelete: "set null",
   }),
+  managerId: uuid("manager_id").references((): AnyPgColumn => employees.id, {
+    onDelete: "set null",
+  }),
   // Profile v2 (migration 0038) — mention escalation override scalar.
   mentionEscalation: boolean("mention_escalation").notNull().default(true),
   // Google Calendar sync (migration 0043) — per-user OAuth. The refresh token

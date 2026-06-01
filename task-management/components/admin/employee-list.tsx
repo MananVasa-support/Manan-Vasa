@@ -13,6 +13,7 @@ interface Props {
   membershipsByEmployee: Record<string, EmployeeDepartmentMembership[]>;
   currentEmployeeId: string;
   departmentOptions: DepartmentOption[];
+  managerOptions: { value: string; label: string }[];
 }
 
 function DepartmentCell({
@@ -148,6 +149,7 @@ export function EmployeeList({
   membershipsByEmployee,
   currentEmployeeId,
   departmentOptions,
+  managerOptions,
 }: Props) {
   const [query, setQuery] = useState("");
 
@@ -288,9 +290,11 @@ export function EmployeeList({
                         joinedAt: e.joinedAt,
                         whatsappPhone: e.whatsappPhone,
                         whatsappOptedIn: e.whatsappOptedIn,
+                        managerId: e.managerId,
                       }}
                       isSelf={e.id === currentEmployeeId}
                       departmentOptions={departmentOptions}
+                      managerOptions={managerOptions}
                     />
                   </td>
                 </tr>

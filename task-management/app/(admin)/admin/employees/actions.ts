@@ -342,6 +342,13 @@ export async function editEmployee(
   }
   if (parsed.data.isAdmin !== undefined) patch.isAdmin = parsed.data.isAdmin;
 
+  if (parsed.data.managerId !== undefined) {
+    if (parsed.data.managerId === emp.id) {
+      return { ok: false, error: "An employee can't be their own manager." };
+    }
+    patch.managerId = parsed.data.managerId;
+  }
+
   // M4 — multi-channel fields.  WhatsApp phone is normalised to null
   // when empty/null; other flags are passed through verbatim.
   if (parsed.data.whatsappPhone !== undefined) {

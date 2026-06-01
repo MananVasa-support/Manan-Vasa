@@ -85,6 +85,7 @@ const STATUS_PILL: Record<TaskStatus, { bg: string; fg: string; label: string }>
   initiated:    { bg: "#DBEAFE", fg: "#1D4ED8", label: "Initiated" },
   follow_up:    { bg: "#FEF3C7", fg: "#92400E", label: "Follow-up" },
   need_help:    { bg: "#FEE2E2", fg: "#B91C1C", label: "Need Help" },
+  on_hold:      { bg: "#F1F5F9", fg: "#475569", label: "On Hold" },
   need_info:    { bg: "#EDE9FE", fg: "#6D28D9", label: "Need Info" },
   follow_up_1:  { bg: "#FEF3C7", fg: "#92400E", label: "Follow-up 1" },
   follow_up_2:  { bg: "#FED7AA", fg: "#9A3412", label: "Follow-up 2" },

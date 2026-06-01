@@ -245,7 +245,7 @@ export function TaskRowActions({ row, employees, me }: Props) {
             },
           };
           const items: Array<{ label: string; href: string }> = [];
-          if (canApprove(permInput))
+          if (canApprove({ ...permInput, isDoersManager: false }))
             items.push({ label: "Approve / Decline…", href: `/tasks/${row.id}#approve` });
           if (canReassign(permInput))
             items.push({ label: "Reassign…", href: `/tasks/${row.id}#reassign` });

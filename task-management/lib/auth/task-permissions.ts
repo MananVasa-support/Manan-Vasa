@@ -60,12 +60,41 @@ function actorRoleFor(input: TaskPermissionInput): ActorRole {
 }
 
 /**
- * canApprove — initiator OR admin, only when status === "done".
- * Spec line 226 ("Move done → approved | not_approved").
+ * canApprove — Task 10 approval hierarchy.
+ *
+ * Approve (done → approved) is allowed iff the actor is admin, the
+ * initiator, OR the doer's *direct* manager (doer.managerId === me.id) —
+ * and is NOT the doer themselves. Only valid while status === "done".
+ * The direct-manager relationship is resolved by the caller and passed
+ * in as `isDoersManager` (this module stays I/O-free).
  */
-export function canApprove(input: TaskPermissionInput): boolean {
-  const role = actorRoleFor(input);
-  return canTransitionTo(input.task.status, "approved", role);
+export type ApprovePermissionInput = TaskPermissionInput & {
+  isDoersManager: boolean;
+};
+
+export function canApprove(input: ApprovePermissionInput): boolean {
+  const { employee, task, isDoersManager } = input;
+  if (task.status !== "done") return false;
+  if (employee.id === task.doerId) return false;
+  if (employee.isAdmin) return true;
+  if (employee.id === task.initiatorId) return true;
+  return isDoersManager;
+}
+
+/**
+ * canDecline — Task 10. Decline (done → not_approved) is open to any
+ * participant (creator / initiator / doer) or admin. No manager gate.
+ * Only valid while status === "done".
+ */
+export function canDecline(input: TaskPermissionInput): boolean {
+  const { employee, task } = input;
+  if (task.status !== "done") return false;
+  if (employee.isAdmin) return true;
+  return (
+    employee.id === task.createdById ||
+    employee.id === task.initiatorId ||
+    employee.id === task.doerId
+  );
 }
 
 /**

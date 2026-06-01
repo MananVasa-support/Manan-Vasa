@@ -124,3 +124,17 @@ describe("parseTaskFilters — default-to-me scoping", () => {
     expect(round.doerIds).toEqual([]);
   });
 });
+
+describe("default date range", () => {
+  it("defaults start to 2026-01-01 and end to today when params absent", () => {
+    const f = parseTaskFilters({}, false);
+    expect(f.startDate?.toISOString().slice(0, 10)).toBe("2026-01-01");
+    const today = new Date().toISOString().slice(0, 10);
+    expect(f.endDate?.toISOString().slice(0, 10)).toBe(today);
+  });
+  it("respects explicit start/end params", () => {
+    const f = parseTaskFilters({ start: "2026-03-05", end: "2026-03-10" }, false);
+    expect(f.startDate?.toISOString().slice(0, 10)).toBe("2026-03-05");
+    expect(f.endDate?.toISOString().slice(0, 10)).toBe("2026-03-10");
+  });
+});

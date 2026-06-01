@@ -29,9 +29,11 @@ export interface EditEmployeeDialogProps {
     isAdmin: boolean;
     whatsappPhone: string | null;
     whatsappOptedIn: boolean;
+    managerId?: string | null;
   };
   isSelf: boolean;
   departmentOptions: DepartmentOption[];
+  managerOptions: { value: string; label: string }[];
 }
 
 /** Compare two id lists as sets (order-independent). */
@@ -47,6 +49,7 @@ export function EditEmployeeDialog({
   employee,
   isSelf,
   departmentOptions,
+  managerOptions,
 }: EditEmployeeDialogProps) {
   const initialDeptIds = employee.departments.map((d) => d.id);
   const initialPrimaryId =
@@ -59,6 +62,7 @@ export function EditEmployeeDialog({
   const [deptIds, setDeptIds]   = useState<string[]>(initialDeptIds);
   const [primaryId, setPrimaryId] = useState<string | null>(initialPrimaryId);
   const [isAdmin, setIsAdmin]   = useState(employee.isAdmin);
+  const [managerId, setManagerId] = useState<string | null>(employee.managerId ?? null);
   const [waPhone, setWaPhone]   = useState(employee.whatsappPhone ?? "");
   const [waOptIn, setWaOptIn]   = useState(employee.whatsappOptedIn);
   const [error, setError]       = useState<string | null>(null);
@@ -77,6 +81,7 @@ export function EditEmployeeDialog({
           null,
       );
       setIsAdmin(employee.isAdmin);
+      setManagerId(employee.managerId ?? null);
       setWaPhone(employee.whatsappPhone ?? "");
       setWaOptIn(employee.whatsappOptedIn);
       setError(null);
@@ -89,6 +94,7 @@ export function EditEmployeeDialog({
     employee.name,
     employee.role,
     employee.isAdmin,
+    employee.managerId,
     employee.whatsappPhone,
     employee.whatsappOptedIn,
   ]);
@@ -104,6 +110,7 @@ export function EditEmployeeDialog({
       departmentIds?: string[];
       primaryDepartmentId?: string | null;
       isAdmin?: boolean;
+      managerId?: string | null;
       whatsappPhone?: string | null;
       whatsappOptedIn?: boolean;
     } = {};
@@ -118,6 +125,7 @@ export function EditEmployeeDialog({
       patch.primaryDepartmentId = primaryId;
     }
     if (isAdmin !== employee.isAdmin) patch.isAdmin = isAdmin;
+    if (managerId !== (employee.managerId ?? null)) patch.managerId = managerId;
     if (trimmedWaPhone !== currentWaPhone) {
       patch.whatsappPhone = trimmedWaPhone === "" ? null : trimmedWaPhone;
     }
@@ -171,6 +179,22 @@ export function EditEmployeeDialog({
                 <option value="doer">Doer</option>
                 <option value="initiator">Initiator</option>
                 <option value="both">Both</option>
+              </select>
+            </Field>
+            <Field label="Manager">
+              <select
+                value={managerId ?? ""}
+                onChange={(e) => setManagerId(e.target.value || null)}
+                className="w-full rounded-md border border-[#CBD5E1] px-3.5 py-2.5 text-[15px] bg-white"
+              >
+                <option value="">— None —</option>
+                {managerOptions
+                  .filter((o) => o.value !== employee.id)
+                  .map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
               </select>
             </Field>
             <Field label="Departments (optional)">

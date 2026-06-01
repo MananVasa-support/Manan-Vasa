@@ -22,6 +22,7 @@ export default async function EmployeesPage() {
     id: d.id,
     name: d.name,
   }));
+  const managerOptions = all.map((e) => ({ value: e.id, label: e.name }));
   const membershipsByEmployee: Record<string, EmployeeDepartmentMembership[]> =
     Object.fromEntries(departmentMap);
   const activeCount = all.filter((e) => e.isActive).length;
@@ -71,6 +72,7 @@ export default async function EmployeesPage() {
         membershipsByEmployee={membershipsByEmployee}
         currentEmployeeId={me.id}
         departmentOptions={departmentOptions}
+        managerOptions={managerOptions}
       />
     </div>
   );

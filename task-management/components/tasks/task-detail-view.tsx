@@ -114,6 +114,13 @@ const STATUS_TONE: Record<
     bg: "var(--color-red-bg)",
     live: false,
   },
+  on_hold: {
+    label: "On Hold",
+    rgb: "100, 116, 139",
+    ink: "var(--color-slate-deep)",
+    bg: "var(--color-slate-bg)",
+    live: false,
+  },
   need_info: {
     label: "Need Info",
     rgb: "225, 6, 0",

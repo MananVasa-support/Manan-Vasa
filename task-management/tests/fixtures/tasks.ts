@@ -22,6 +22,7 @@ function profileV2Defaults() {
     oooStart: null as string | null,
     oooEnd: null as string | null,
     oooDelegateId: null as string | null,
+    managerId: null as string | null,
     mentionEscalation: true,
     passwordResetByAdminAt: null as Date | null,
     googleRefreshToken: null as string | null,

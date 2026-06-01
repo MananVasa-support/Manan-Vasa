@@ -98,6 +98,7 @@ describe("canApprove", () => {
       canApprove({
         employee: { id: me, isAdmin: false },
         task: task({ initiatorId: me, status: "done" }),
+        isDoersManager: false,
       }),
     ).toBe(true);
   });
@@ -107,6 +108,7 @@ describe("canApprove", () => {
       canApprove({
         employee: { id: me, isAdmin: false },
         task: task({ initiatorId: me, status: "follow_up" }),
+        isDoersManager: false,
       }),
     ).toBe(false);
   });
@@ -116,6 +118,7 @@ describe("canApprove", () => {
       canApprove({
         employee: { id: me, isAdmin: false },
         task: task({ doerId: me, status: "done" }),
+        isDoersManager: false,
       }),
     ).toBe(false);
   });
@@ -125,6 +128,7 @@ describe("canApprove", () => {
       canApprove({
         employee: { id: me, isAdmin: true },
         task: task({ status: "done" }),
+        isDoersManager: false,
       }),
     ).toBe(true);
   });
@@ -215,6 +219,26 @@ describe("canCancel", () => {
       }),
     ).toBe(false);
   });
+});
+
+import { canApprove as canApproveH, canDecline } from "@/lib/auth/task-permissions";
+
+const dbase = {
+  task: { createdById: "c", initiatorId: "i", doerId: "d", status: "done" as const },
+};
+
+describe("canApprove (hierarchy)", () => {
+  it("admin approves", () => expect(canApproveH({ employee: { id: "x", isAdmin: true }, ...dbase, isDoersManager: false })).toBe(true));
+  it("initiator approves", () => expect(canApproveH({ employee: { id: "i", isAdmin: false }, ...dbase, isDoersManager: false })).toBe(true));
+  it("doer's manager approves", () => expect(canApproveH({ employee: { id: "m", isAdmin: false }, ...dbase, isDoersManager: true })).toBe(true));
+  it("doer cannot self-approve even if flagged manager", () => expect(canApproveH({ employee: { id: "d", isAdmin: false }, ...dbase, isDoersManager: true })).toBe(false));
+  it("unrelated non-manager cannot", () => expect(canApproveH({ employee: { id: "z", isAdmin: false }, ...dbase, isDoersManager: false })).toBe(false));
+  it("only when done", () => expect(canApproveH({ employee: { id: "i", isAdmin: false }, task: { ...dbase.task, status: "not_started" }, isDoersManager: false })).toBe(false));
+});
+describe("canDecline", () => {
+  it("participant declines", () => expect(canDecline({ employee: { id: "d", isAdmin: false }, ...dbase })).toBe(true));
+  it("admin declines", () => expect(canDecline({ employee: { id: "x", isAdmin: true }, ...dbase })).toBe(true));
+  it("stranger cannot", () => expect(canDecline({ employee: { id: "z", isAdmin: false }, ...dbase })).toBe(false));
 });
 
 describe("canComment", () => {

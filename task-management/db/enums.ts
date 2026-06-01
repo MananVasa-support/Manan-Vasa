@@ -10,6 +10,7 @@ export const TASK_STATUSES = [
   "initiated",
   "follow_up",
   "need_help",
+  "on_hold",
   "need_info",      // NEW
   "follow_up_1",    // NEW
   "follow_up_2",    // NEW
@@ -33,6 +34,7 @@ export const USER_TASK_STATUSES = [
   "not_started",
   "initiated",
   "need_help",
+  "on_hold",
   "need_info",
   "follow_up_1",
   "follow_up_2",
@@ -46,6 +48,7 @@ export const PENDING_STATUSES = [
   "initiated",
   "follow_up",
   "need_help",
+  "on_hold",
   "need_info",
   "follow_up_1",
   "follow_up_2",

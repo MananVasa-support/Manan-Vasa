@@ -122,7 +122,7 @@ type StatusTones = Record<TaskStatus, StatusColorToken>;
 // ≤768px; `align` centers the date/age columns; `narrow` caps the Subject
 // width so it stays compact.
 type TaskCol = ColumnDef<TaskListRow> & {
-  meta?: { mobileHide?: boolean; align?: "center" | "right"; narrow?: boolean };
+  meta?: { mobileHide?: boolean; align?: "center" | "right"; narrow?: boolean; wide?: boolean };
 };
 
 function buildColumns(
@@ -165,6 +165,7 @@ function buildColumns(
     {
       accessorKey: "title",
       header: "Task",
+      meta: { wide: true },
       cell: ({ row }) => <TaskTitleCell row={row.original} />,
     },
     {
@@ -418,7 +419,7 @@ export function TaskTable({
                           ? "descending"
                           : undefined
                     }
-                    className={`px-5 py-4 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "sticky right-0 z-20" : ""}`}
+                    className={`px-3 py-4 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "sticky right-0 top-0 z-40" : "sticky top-0 z-30"}`}
                     style={{
                       // Highlighted header bar — a tinted strip with darker
                       // label text that sets the column row apart from the
@@ -520,7 +521,7 @@ export function TaskTable({
                 return (
                   <td
                     key={cell.id}
-                    className={`px-5 py-4 whitespace-nowrap overflow-hidden text-ellipsis max-md:px-3 max-md:py-3 ${maxW} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "sticky right-0 z-10 bg-surface-card" : ""}`}
+                    className={`px-3 py-4 whitespace-nowrap overflow-hidden text-ellipsis max-md:px-3 max-md:py-3 ${maxW} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "sticky right-0 z-10 bg-surface-card" : ""}`}
                     style={isActions ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" } : undefined}
                   >
                     {flexRender(

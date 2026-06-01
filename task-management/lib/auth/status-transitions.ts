@@ -42,6 +42,7 @@ export function nextStatusesFor(
     case "initiated":
     case "follow_up":         // legacy
     case "need_help":
+    case "on_hold":           // Manan 2026-05 — pending lane (neutral hold)
     case "need_info":         // Tier-3
     case "follow_up_1":       // Tier-3
     case "follow_up_2":       // Tier-3

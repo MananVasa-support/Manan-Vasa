@@ -11,10 +11,13 @@ vi.mock("@/lib/queries/status-display", () => ({
   getStatusDisplayMap: vi.fn(async () => ({})),
 }));
 
-const { insertCall, queryCall, updateCall } = vi.hoisted(() => ({
+const { insertCall, queryCall, updateCall, employeeQueryCall } = vi.hoisted(() => ({
   insertCall: vi.fn(),
   queryCall: vi.fn(),
   updateCall: vi.fn(),
+  // Task 10 — approveTask now looks up the doer's manager. Default to no
+  // manager so the manager gate stays closed unless a test opts in.
+  employeeQueryCall: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => {
@@ -38,13 +41,19 @@ vi.mock("@/lib/db", () => {
   const txDb = {
     insert: insertCall,
     update: updateCall,
-    query: { tasks: { findFirst: queryCall } },
+    query: {
+      tasks: { findFirst: queryCall },
+      employees: { findFirst: employeeQueryCall },
+    },
   };
   return {
     db: {
       insert: insertCall,
       update: updateCall,
-      query: { tasks: { findFirst: queryCall } },
+      query: {
+        tasks: { findFirst: queryCall },
+        employees: { findFirst: employeeQueryCall },
+      },
       transaction: vi.fn(async (cb: (tx: typeof txDb) => unknown) => cb(txDb)),
     },
     tasks: { id: "tasks.id", updatedAt: "tasks.updatedAt" },
@@ -88,6 +97,9 @@ beforeEach(() => {
   insertCall.mockReset();
   queryCall.mockReset();
   updateCall.mockReset();
+  employeeQueryCall.mockReset();
+  // Default: doer has no manager, so approveTask's manager gate stays closed.
+  employeeQueryCall.mockResolvedValue({ managerId: null });
 
   const makeInsert = () => {
     const returning = vi.fn(() => Promise.resolve([{ id: "tid" }]));
