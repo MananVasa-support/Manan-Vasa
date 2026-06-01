@@ -79,10 +79,10 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
     recurrence: null,
     recurrenceRule: null,
   });
-  // Default due: 7 days out.
-  const sevenDays = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  // Default due: 1 day after the entry date.
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const [dueAt, setDueAt] = React.useState(
-    sevenDays.toISOString().slice(0, 10),
+    tomorrow.toISOString().slice(0, 10),
   );
 
   const [media, setMedia] = React.useState<PreviewFile[]>([]);
