@@ -123,8 +123,21 @@ export interface AgingHeatmapData {
   byCell: Record<string, Record<string, HeatmapCellTask[]>>;
 }
 
+/** Operational summary metrics surfaced when a KPI card is expanded. All
+ *  respect the active dashboard filters (date / employee / department / etc.). */
+export interface WmsSummary {
+  overdue: number;          // open & past due
+  dueToday: number;         // open & due today
+  dueThisWeek: number;      // open & due within 7 days
+  completionRate: number;   // done ÷ total, %
+  approvalRate: number;     // approved ÷ (approved + not_approved), %
+  avgAgeDays: number;       // mean age of open tasks
+  avgTimeToDoneDays: number; // mean created→completed for completed tasks
+}
+
 export interface DashboardData {
   kpis: KpiSet;
+  wmsSummary: WmsSummary;
   pullQuote: string;
   velocity: VelocityPoint[];
   statusTable: EmployeeStatusRow[];

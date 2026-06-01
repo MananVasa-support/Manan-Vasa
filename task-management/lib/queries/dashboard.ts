@@ -182,6 +182,39 @@ async function loadDashboardDataUncached(
     },
   };
 
+  // ── WMS operational summary (shown when a KPI card is expanded) ──────────
+  // Day boundaries in UTC; form-created tasks store dueAt at noon UTC, so UTC
+  // day comparison classifies them correctly without timezone drift.
+  const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const tomorrowUTC = new Date(todayUTC.getTime() + MS_PER_DAY);
+  const weekUTC = new Date(todayUTC.getTime() + 7 * MS_PER_DAY);
+
+  const openTasks = periodTasks.filter((t) => !t.archived && PENDING_SET.has(t.status));
+  const doneTasks = periodTasks.filter((t) => isDone(t.status));
+  const approvedN = periodTasks.filter(
+    (t) => t.status === "approved" || t.approvalStatus === "approved",
+  ).length;
+  const notApprovedN = periodTasks.filter(
+    (t) => t.status === "not_approved" || t.approvalStatus === "not_approved",
+  ).length;
+  const completed = periodTasks.filter((t) => t.completedAt != null);
+
+  const pct = (num: number, den: number) => (den > 0 ? Math.round((num / den) * 100) : 0);
+  const avgDays = (rows: Task[], to: (t: Task) => number) =>
+    rows.length > 0
+      ? Math.round(rows.reduce((s, t) => s + (to(t) - t.createdAt.getTime()), 0) / rows.length / MS_PER_DAY)
+      : 0;
+
+  const wmsSummary = {
+    overdue: openTasks.filter((t) => t.dueAt < todayUTC).length,
+    dueToday: openTasks.filter((t) => t.dueAt >= todayUTC && t.dueAt < tomorrowUTC).length,
+    dueThisWeek: openTasks.filter((t) => t.dueAt >= todayUTC && t.dueAt < weekUTC).length,
+    completionRate: pct(doneTasks.length, totals.total),
+    approvalRate: pct(approvedN, approvedN + notApprovedN),
+    avgAgeDays: avgDays(openTasks, () => now.getTime()),
+    avgTimeToDoneDays: avgDays(completed, (t) => t.completedAt!.getTime()),
+  };
+
   const wowDone = computeWeekOverWeekDelta(
     wideTasks.filter((t) => isDone(t.status)),
     now,
@@ -220,6 +253,7 @@ async function loadDashboardDataUncached(
 
   return {
     kpis,
+    wmsSummary,
     pullQuote: generatePullQuote({
       doneThisWeek: wowDone.current,
       doneLastWeek: wowDone.previous,

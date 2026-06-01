@@ -100,7 +100,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 counts={myDay}
               />
             )}
-            <KpiStrip kpis={data.kpis} />
+            <KpiStrip kpis={data.kpis} summary={data.wmsSummary} />
             <VelocityHero data={data.velocity} />
             <div className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-12 grid grid-cols-2 max-lg:grid-cols-1 gap-6">
               <StatusDistributionChart

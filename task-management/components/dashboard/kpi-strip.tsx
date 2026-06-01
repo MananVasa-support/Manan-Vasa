@@ -1,8 +1,12 @@
+"use client";
+
 import * as React from "react";
+import Link from "next/link";
 import type { Route } from "next";
-import { KpiHeroTile, KpiStatusTile, type NeonKey } from "./kpi-card";
-import Aurora from "@/components/effects/Aurora";
-import type { KpiSet } from "@/lib/types";
+import { Plus, Minus, ArrowUpRight } from "lucide-react";
+import type { NeonKey } from "./kpi-card";
+import { KpiDetailPanel } from "./kpi-detail-panel";
+import type { KpiSet, WmsSummary } from "@/lib/types";
 
 interface Entry {
   key: keyof KpiSet;
@@ -12,127 +16,136 @@ interface Entry {
   href: Route;
 }
 
-const HERO: Entry = {
-  key: "total",
-  label: "TOTAL",
-  sublabel: "All Tasks",
-  neonKey: "total",
-  href: "/tasks",
-};
-
-const STATUS_ITEMS: Entry[] = [
-  {
-    key: "needHelp",
-    label: "NEED HELP",
-    sublabel: "Blocked",
-    neonKey: "need-help",
-    href: "/tasks?status=need_help",
-  },
-  {
-    key: "notApproved",
-    label: "NOT APPROVED",
-    sublabel: "Sent Back",
-    neonKey: "not-approved",
-    href: "/tasks?status=not_approved",
-  },
-  {
-    key: "done",
-    label: "DONE",
-    sublabel: "Done + Approved",
-    neonKey: "done",
-    href: "/tasks?status=done,approved",
-  },
-  {
-    key: "pending",
-    label: "PENDING",
-    sublabel: "In Progress",
-    neonKey: "pending",
-    href: "/tasks?status=initiated,follow_up",
-  },
-  {
-    key: "notStarted",
-    label: "NOT STARTED",
-    sublabel: "Awaiting Pickup",
-    neonKey: "not-started",
-    href: "/tasks?status=not_started",
-  },
+// One compact card per KPI, in a single row. The first (Total) reads as the
+// anchor; the rest follow in the operational reading order.
+const ITEMS: Entry[] = [
+  { key: "total", label: "Total", sublabel: "All Tasks", neonKey: "total", href: "/tasks" },
+  { key: "needHelp", label: "Need Help", sublabel: "Blocked", neonKey: "need-help", href: "/tasks?status=need_help" },
+  { key: "notApproved", label: "Not Approved", sublabel: "Sent Back", neonKey: "not-approved", href: "/tasks?status=not_approved" },
+  { key: "done", label: "Done", sublabel: "Done + Approved", neonKey: "done", href: "/tasks?status=done,approved" },
+  { key: "pending", label: "Pending", sublabel: "In Progress", neonKey: "pending", href: "/tasks?status=initiated,follow_up" },
+  { key: "notStarted", label: "Not Started", sublabel: "Awaiting Pickup", neonKey: "not-started", href: "/tasks?status=not_started" },
 ];
 
-export function KpiStrip({ kpis }: { kpis: KpiSet }) {
+export function KpiStrip({ kpis, summary }: { kpis: KpiSet; summary: WmsSummary }) {
+  const [expanded, setExpanded] = React.useState<keyof KpiSet | null>(null);
+  const active = expanded ? ITEMS.find((i) => i.key === expanded) ?? null : null;
+
   return (
-    <section
-      className="kpi-strip-shell mt-10 mx-auto max-w-[1600px] rounded-[28px] px-12 pt-12 pb-14 max-md:px-4 max-md:pt-6 max-md:pb-8"
-      aria-label="Task summary"
-    >
-      {/* Aurora — WebGL flowing-gradient background (ReactBits/ogl).
-          Dialled down to 0.25 so the tile surfaces stay legible; the
-          ambient colour still telegraphs the cyan/violet brand voice
-          but no longer competes with on-tile text. */}
+    <section className="mt-10 mx-auto max-w-[1600px] px-12 max-md:px-4" aria-label="Task summary">
       <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ opacity: 0.25 }}
-        aria-hidden
+        className="grid grid-cols-6 gap-4 max-xl:grid-cols-3 max-md:grid-cols-2"
+        role="list"
       >
-        <Aurora
-          colorStops={["#A78BFA", "#EC4899", "#E10600"]}
-          amplitude={0.8}
-          blend={0.5}
-          speed={0.5}
-        />
-      </div>
-      {/* Subtle grain noise overlay — caps the polish to feel like a
-          printed-poster surface rather than flat CSS. */}
-      <span className="kpi-strip-grain" aria-hidden />
+        {ITEMS.map((item) => {
+          const kpi = kpis[item.key];
+          const delta = kpi.current - kpi.previous;
+          const up = delta > 0;
+          const flat = delta === 0;
+          const arrow = up ? "▲" : flat ? "→" : "▼";
+          const deltaColor = flat
+            ? "var(--color-ink-subtle)"
+            : up
+              ? "var(--color-green-deep)"
+              : "var(--color-red-deep)";
+          const isOpen = expanded === item.key;
+          const neon = `var(--kpi-neon-${item.neonKey})`;
+          const neonDeep = `var(--kpi-neon-${item.neonKey}-deep)`;
 
-      <div className="relative z-10 flex flex-col gap-5">
-        {/* Hero band — Total */}
-        <KpiHeroTile
-          index={0}
-          neonKey={HERO.neonKey}
-          label={HERO.label}
-          sublabel={HERO.sublabel}
-          value={kpis[HERO.key].current}
-          previous={kpis[HERO.key].previous}
-          sparkline={kpis[HERO.key].sparkline}
-          href={HERO.href}
-        />
-
-        {/* Status grid — 5 tiles laid out across a 6-col bus so the row
-            never leaves an orphan cell. Top row: 3 cards at col-span-2
-            (≈33% wide). Bottom row: 2 cards at col-span-3 (≈50% wide).
-            Each card is dramatically bigger than the old 5-up strip,
-            with the bottom row featuring the highest-volume statuses.
-            On mobile, scroll-snaps horizontally. */}
-        <div
-          className="grid grid-cols-6 gap-5 max-lg:grid-cols-2 max-sm:flex max-sm:gap-3 max-sm:overflow-x-auto max-sm:snap-x max-sm:snap-mandatory max-sm:[-webkit-overflow-scrolling:touch] max-sm:px-1 max-sm:pb-2"
-          role="list"
-        >
-          {STATUS_ITEMS.map((item, i) => {
-            // 0-2 → col-span-2 (3 cards × 2 = 6 cols on top row)
-            // 3-4 → col-span-3 (2 cards × 3 = 6 cols on bottom row)
-            const spanClass =
-              i < 3
-                ? "col-span-2 max-lg:col-span-1"
-                : "col-span-3 max-lg:col-span-1";
-            return (
+          return (
+            <div role="listitem" key={item.key}>
               <div
-                key={item.key}
-                role="listitem"
-                className={`${spanClass} max-sm:snap-center max-sm:flex-none max-sm:w-[78%]`}
+                className="group relative overflow-hidden rounded-2xl transition-all duration-200"
+                style={{
+                  background: "var(--color-surface-card)",
+                  border: `1px solid ${isOpen ? `rgb(${neonDeep})` : "var(--color-hairline-strong)"}`,
+                  boxShadow: isOpen
+                    ? `0 0 0 1px rgb(${neonDeep}), 0 12px 28px -16px rgb(${neon} / 0.6)`
+                    : "0 1px 2px rgba(15,23,42,0.05)",
+                }}
               >
-                <KpiStatusTile
-                  index={i + 1}
-                  neonKey={item.neonKey}
-                  label={item.label}
-                  sublabel={item.sublabel}
-                  value={kpis[item.key].current}
-                  previous={kpis[item.key].previous}
-                  sparkline={kpis[item.key].sparkline}
-                  href={item.href}
+                {/* top accent rail */}
+                <span
+                  aria-hidden
+                  className="absolute inset-x-0 top-0 h-[3px]"
+                  style={{ background: `linear-gradient(90deg, rgb(${neon}), rgb(${neonDeep}))` }}
                 />
+                <div className="flex items-start justify-between gap-2 px-4 pt-4 pb-3.5">
+                  <Link
+                    href={item.href}
+                    className="group/link min-w-0 flex-1 outline-none"
+                    aria-label={`${item.label} — view tasks`}
+                  >
+                    <span
+                      className="flex items-center gap-1 uppercase font-black tracking-[0.07em] leading-none"
+                      style={{ fontSize: 12.5, color: `rgb(${neonDeep})` }}
+                    >
+                      {item.label}
+                      <ArrowUpRight
+                        size={13}
+                        strokeWidth={3}
+                        className="opacity-0 -translate-x-0.5 transition-all group-hover/link:opacity-100 group-hover/link:translate-x-0"
+                      />
+                    </span>
+                    <span
+                      className="block tabular-nums leading-none mt-2.5 text-ink-strong"
+                      style={{
+                        fontFamily: "var(--font-display), system-ui, sans-serif",
+                        fontWeight: 900,
+                        fontSize: 38,
+                        letterSpacing: "-0.02em",
+                      }}
+                    >
+                      {kpi.current.toLocaleString()}
+                    </span>
+                    <span
+                      className="mt-2 inline-flex items-center gap-1 tabular-nums font-extrabold"
+                      style={{ fontSize: 12.5, color: deltaColor }}
+                    >
+                      {arrow} {Math.abs(delta)}
+                      <span className="font-semibold opacity-60">vs last</span>
+                    </span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => setExpanded((cur) => (cur === item.key ? null : item.key))}
+                    aria-expanded={isOpen}
+                    aria-label={isOpen ? `Collapse ${item.label} details` : `Expand ${item.label} details`}
+                    className="inline-flex size-7 shrink-0 items-center justify-center rounded-full transition-colors"
+                    style={{
+                      color: isOpen ? "#fff" : `rgb(${neonDeep})`,
+                      background: isOpen ? `rgb(${neonDeep})` : `color-mix(in srgb, rgb(${neon}) 14%, transparent)`,
+                    }}
+                  >
+                    {isOpen ? <Minus size={16} strokeWidth={3} /> : <Plus size={16} strokeWidth={3} />}
+                  </button>
+                </div>
               </div>
-            );
-          })}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Single per-card detail panel — animates open via the 0fr→1fr grid trick. */}
+      <div
+        className="grid transition-[grid-template-rows] duration-300 ease-out"
+        style={{ gridTemplateRows: active ? "1fr" : "0fr" }}
+      >
+        <div className="overflow-hidden">
+          {active && (
+            <div className="pt-4">
+              <KpiDetailPanel
+                label={active.label}
+                sublabel={active.sublabel}
+                value={kpis[active.key].current}
+                kpi={kpis[active.key]}
+                summary={summary}
+                neon={`var(--kpi-neon-${active.neonKey})`}
+                neonDeep={`var(--kpi-neon-${active.neonKey}-deep)`}
+              />
+            </div>
+          )}
         </div>
       </div>
     </section>
