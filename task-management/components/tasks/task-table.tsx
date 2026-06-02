@@ -14,7 +14,7 @@ import {
   type Updater,
   type Table as TableInstance,
 } from "@tanstack/react-table";
-import { format } from "date-fns";
+import { format, differenceInCalendarDays } from "date-fns";
 
 // Classic numbered pagination: a rows-per-page selector (default 25) with
 // First « · Prev · 1 2 3 … N · Next · Last » controls.
@@ -45,6 +45,34 @@ function safeFormat(value: unknown, pattern: string): string {
   const d = value instanceof Date ? value : new Date(value as string);
   return Number.isNaN(d.getTime()) ? "—" : format(d, pattern);
 }
+
+// Due-date urgency for the list. Terminal/finished tasks never read as overdue
+// — only open work is "on fire". `soon` = due within the next 2 days.
+const URGENCY_TERMINAL = new Set<TaskStatus>([
+  "done",
+  "approved",
+  "not_approved",
+  "cancelled",
+  "transferred",
+]);
+type Urgency = { level: "overdue" | "today" | "soon" | "none"; label: string };
+function taskUrgency(dueAt: Date | null, status: TaskStatus): Urgency {
+  if (!dueAt || URGENCY_TERMINAL.has(status)) return { level: "none", label: "" };
+  const d = dueAt instanceof Date ? dueAt : new Date(dueAt as unknown as string);
+  if (Number.isNaN(d.getTime())) return { level: "none", label: "" };
+  const days = differenceInCalendarDays(d, new Date()); // <0 past, 0 today, >0 future
+  if (days < 0) return { level: "overdue", label: `${Math.abs(days)}d overdue` };
+  if (days === 0) return { level: "today", label: "Due today" };
+  if (days <= 2) return { level: "soon", label: `in ${days}d` };
+  return { level: "none", label: "" };
+}
+// Tone token per urgency level, for the chip + the row's left accent.
+const URGENCY_COLOR: Record<Urgency["level"], string> = {
+  overdue: "var(--color-red-deep)",
+  today: "var(--color-orange-deep)",
+  soon: "var(--color-ink-soft)",
+  none: "var(--color-ink-muted)",
+};
 import * as Tooltip from "@radix-ui/react-tooltip";
 import {
   SlidersHorizontal,
@@ -255,11 +283,27 @@ function buildColumns(
       accessorKey: "dueAt",
       header: "Due",
       meta: { align: "center" },
-      cell: (info) => (
-        <span className="text-body-lg text-ink-muted tabular-nums">
-          {safeFormat(info.getValue<Date>(), "MMM d")}
-        </span>
-      ),
+      cell: (info) => {
+        const row = info.row.original;
+        const u = taskUrgency(row.dueAt, row.status);
+        const color = URGENCY_COLOR[u.level];
+        const strong = u.level === "overdue" || u.level === "today";
+        return (
+          <span className="inline-flex flex-col items-center leading-tight">
+            <span
+              className="text-body-lg tabular-nums"
+              style={{ color, fontWeight: strong ? 700 : undefined }}
+            >
+              {safeFormat(row.dueAt, "MMM d")}
+            </span>
+            {u.label && (
+              <span className="text-[11px] font-bold tabular-nums" style={{ color }}>
+                {u.label}
+              </span>
+            )}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "ageDays",
@@ -538,6 +582,15 @@ export function TaskTable({
             groupBy === "none" || !prev ? null : groupValue(prev.original, groupBy, resolvedLabels);
           const showHeader = label !== null && (i === 0 || label !== prevLabel);
           const visibleCols = table.getVisibleLeafColumns().length;
+          // Left accent stripe for at-risk rows so overdue/today work is
+          // impossible to miss without reading the date column.
+          const rowUrgency = taskUrgency(row.original.dueAt, row.original.status);
+          const rowAccent =
+            rowUrgency.level === "overdue"
+              ? "inset 3px 0 0 0 var(--color-red)"
+              : rowUrgency.level === "today"
+                ? "inset 3px 0 0 0 var(--color-orange)"
+                : undefined;
           return (
             <React.Fragment key={row.id}>
               {showHeader && (
@@ -565,6 +618,7 @@ export function TaskTable({
               )}
             <tr
               className="task-row border-b border-hairline last:border-b-0 transition-colors"
+              style={rowAccent ? { boxShadow: rowAccent } : undefined}
             >
               {row.getVisibleCells().map((cell) => {
                 const col = cell.column.columnDef as TaskCol;
@@ -1121,7 +1175,20 @@ function TaskCard({
         <span aria-hidden>·</span>
         {p === "imp_urgent" ? <CriticalBadge /> : <span>{PRIORITY_LABELS[p]}</span>}
         <span aria-hidden>·</span>
-        <span className="tabular-nums">Due {safeFormat(row.dueAt, "MMM d")}</span>
+        {(() => {
+          const u = taskUrgency(row.dueAt, row.status);
+          const color = URGENCY_COLOR[u.level];
+          const strong = u.level === "overdue" || u.level === "today";
+          return (
+            <span
+              className="tabular-nums"
+              style={{ color, fontWeight: strong ? 700 : undefined }}
+            >
+              Due {safeFormat(row.dueAt, "MMM d")}
+              {u.label ? ` · ${u.label}` : ""}
+            </span>
+          );
+        })()}
         <span aria-hidden>·</span>
         <span className="tabular-nums">Created {safeFormat(row.createdAt, "MMM d")}</span>
         <span aria-hidden>·</span>
