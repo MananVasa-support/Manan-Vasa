@@ -490,12 +490,14 @@ function DoerMultiSelect({
 
   // Toggle a doer, clear the query, and keep the input focused so you can
   // type the next name — fully keyboard-driven, no trackpad needed.
-  function commit(id: string | undefined) {
+  function commit(id: string | undefined, refocus = true) {
     if (!id) return;
     onToggle(id);
     setQuery("");
     setHi(0);
-    inputRef.current?.focus();
+    // On Tab we deliberately skip the refocus so the browser's default
+    // Tab can carry focus on to the next field (Priority).
+    if (refocus) inputRef.current?.focus();
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -507,12 +509,20 @@ function DoerMultiSelect({
       e.preventDefault();
       setHi((h) => Math.max(h - 1, 0));
     } else if (e.key === "Enter") {
+      // Enter picks the highlighted match (or the only match) and keeps the
+      // field focused so you can add another doer. Never submits the form.
       e.preventDefault();
-      if (open && filtered.length > 0) commit(filtered[hi]?.id ?? filtered[0]?.id);
+      if (filtered.length > 0) commit(filtered[hi]?.id ?? filtered[0]?.id);
     } else if (e.key === "Escape") {
       setOpen(false);
     } else if (e.key === "Tab") {
-      // Don't preventDefault — let Tab move focus to Priority. Just close.
+      // Tab also confirms the highlighted match (so typing "Mis" + Tab picks
+      // "Mishtie Kanani"), then lets focus move on to the next field. Only
+      // when something is typed AND there's a match — an empty field just
+      // tabs through.
+      if (query.trim() !== "" && filtered.length > 0) {
+        commit(filtered[hi]?.id ?? filtered[0]?.id, /* refocus */ false);
+      }
       setOpen(false);
     } else if (e.key === "Backspace" && query === "" && selected.length > 0) {
       onToggle(selected[selected.length - 1]!); // remove the last picked doer

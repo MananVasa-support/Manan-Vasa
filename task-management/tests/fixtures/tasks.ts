@@ -142,6 +142,7 @@ function task(partial: Partial<Task>): Task {
     updatedAt: partial.updatedAt ?? createdAt,
     legacyImportKey: partial.legacyImportKey ?? null,
     shortId: partial.shortId ?? null,
+    taskNo: partial.taskNo ?? null,
     firstReadAt: partial.firstReadAt ?? null,
     // Tier-3 (2026-05-20) additions — default to null so existing
     // fixtures keep working without per-task overrides.

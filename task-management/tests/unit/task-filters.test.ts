@@ -54,6 +54,7 @@ describe("parseTaskFilters", () => {
       departments: ["Sales" as const],
       priorities: ["imp_urgent" as const],
       subjects: [],
+      clients: [],
       taskId: null,
       archived: false,
       assigneeMode: "all" as const,

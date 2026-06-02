@@ -500,6 +500,10 @@ export const tasks = pgTable(
       .defaultNow(),
     legacyImportKey: text("legacy_import_key"),
     shortId: text("short_id"),
+    // Friendly sequential task number (#1042). DB-assigned via a sequence
+    // default + NOT NULL (see migration 0046); kept nullable here so inserts
+    // don't have to supply it and the DB fills it in.
+    taskNo: integer("task_no"),
     // Tier-3 (2026-05-20) additions:
     //   tags          — comma-of-chips, free-form (no enum). NULL = no tags.
     //   approvalStatus — admin-only verdict layered on top of `status`. NULL

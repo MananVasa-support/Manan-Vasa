@@ -159,6 +159,7 @@ export interface TaskListFilters {
   departments: Department[];
   priorities: EisenhowerPriority[];
   subjects: string[];
+  clients: string[];
   taskId: string | null;
   archived: boolean;
   /** How the assignee filter was resolved.
@@ -172,6 +173,9 @@ export interface TaskListFilters {
 
 export interface TaskListRow {
   id: string;
+  /** Friendly sequential task number (#1042). Null only until the backfill
+   *  migration has run. */
+  taskNo: number | null;
   title: string;
   subject: string | null;
   client: string | null;
