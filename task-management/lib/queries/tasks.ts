@@ -21,6 +21,7 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
     conditions.push(inArray(tasks.initiatorId, filters.initiatorIds));
   if (filters.priorities.length > 0) conditions.push(inArray(tasks.priority, filters.priorities));
   if (filters.subjects.length > 0)   conditions.push(inArray(tasks.subject, filters.subjects));
+  if (filters.clients.length > 0)    conditions.push(inArray(tasks.client, filters.clients));
   if (filters.taskId)                conditions.push(eq(tasks.id, filters.taskId));
 
   if (filters.departments.length > 0) {
@@ -41,6 +42,7 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
   const rows = await db
     .select({
       id: tasks.id,
+      taskNo: tasks.taskNo,
       title: tasks.title,
       subject: tasks.subject,
       client: tasks.client,
@@ -70,6 +72,7 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
   const now = Date.now();
   return rows.map((r) => ({
     id: r.id,
+    taskNo: r.taskNo,
     title: r.title,
     subject: r.subject,
     client: r.client,
@@ -184,6 +187,7 @@ export async function listTasksPage(
   const fetched = await db
     .select({
       id: tasks.id,
+      taskNo: tasks.taskNo,
       title: tasks.title,
       subject: tasks.subject,
       client: tasks.client,
@@ -218,6 +222,7 @@ export async function listTasksPage(
   const now = Date.now();
   const rows: TaskListRow[] = pageRows.map((r) => ({
     id: r.id,
+    taskNo: r.taskNo,
     title: r.title,
     subject: r.subject,
     client: r.client,
@@ -245,6 +250,7 @@ export async function listTasksPage(
 /** Minimal card shape for the status Kanban board. */
 export interface BoardTask {
   id: string;
+  taskNo: number | null;
   title: string;
   subject: string | null;
   client: string | null;
@@ -266,6 +272,7 @@ export async function listBoardTasks(): Promise<BoardTask[]> {
   const rows = await db
     .select({
       id: tasks.id,
+      taskNo: tasks.taskNo,
       title: tasks.title,
       subject: tasks.subject,
       client: tasks.client,
@@ -293,6 +300,7 @@ export async function listAgendaTasks(employeeId: string): Promise<BoardTask[]> 
   const rows = await db
     .select({
       id: tasks.id,
+      taskNo: tasks.taskNo,
       title: tasks.title,
       subject: tasks.subject,
       client: tasks.client,
@@ -368,6 +376,7 @@ export async function listTasksForExport(
     conditions.push(inArray(tasks.initiatorId, filters.initiatorIds));
   if (filters.priorities.length > 0) conditions.push(inArray(tasks.priority, filters.priorities));
   if (filters.subjects.length > 0)   conditions.push(inArray(tasks.subject, filters.subjects));
+  if (filters.clients.length > 0)    conditions.push(inArray(tasks.client, filters.clients));
   if (filters.taskId)                conditions.push(eq(tasks.id, filters.taskId));
 
   if (filters.departments.length > 0) {
@@ -453,8 +462,25 @@ export const listDistinctSubjects = unstable_cache(
   { tags: [CACHE_TAGS.subjects, CACHE_TAGS.tasks], revalidate: 600 },
 );
 
+/** Distinct non-empty `client` values across all tasks, for the filter bar's
+ *  Clients picker. Mirrors listDistinctSubjects. */
+export const listDistinctClients = unstable_cache(
+  async (): Promise<string[]> => {
+    const rows = await db
+      .selectDistinct({ client: tasks.client })
+      .from(tasks);
+    return rows
+      .map((r) => r.client)
+      .filter((c): c is string => typeof c === "string" && c.length > 0)
+      .sort();
+  },
+  ["list-distinct-clients"],
+  { tags: [CACHE_TAGS.clients, CACHE_TAGS.tasks], revalidate: 600 },
+);
+
 export type TaskDetail = {
   id: string;
+  taskNo: number | null;
   title: string;
   description: string | null;
   subject: string | null;
@@ -498,6 +524,7 @@ export async function getTaskById(taskId: string): Promise<TaskDetail | null> {
   const [row] = await db
     .select({
       id: tasks.id,
+      taskNo: tasks.taskNo,
       title: tasks.title,
       description: tasks.description,
       subject: tasks.subject,

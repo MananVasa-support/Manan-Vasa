@@ -29,6 +29,7 @@ function task(p: Partial<Task>): Task {
     updatedAt: new Date("2026-05-01"),
     legacyImportKey: null,
     shortId: null,
+    taskNo: null,
     tags: null,
     approvalStatus: null,
     revisedTargetDate: null,

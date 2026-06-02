@@ -7,6 +7,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import {
   Building2,
   Clock,
+  Hash,
   CheckCircle2,
   History,
   Flag,
@@ -514,6 +515,14 @@ export function TaskDetailView({
               {/* Meta rows directly under the status — keeps the screenshot's
                   "status header + meta block" pairing in one card. */}
               <div className="mt-5 pt-4 border-t border-hairline grid grid-cols-1 gap-3.5">
+                {task.taskNo != null && (
+                  <MetaRow
+                    icon={<Hash size={13} strokeWidth={2.4} />}
+                    label="Task No."
+                    value={`#${task.taskNo}`}
+                    emphasized
+                  />
+                )}
                 <MetaRow
                   icon={<Clock size={13} strokeWidth={2.4} />}
                   label="Created"

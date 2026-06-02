@@ -290,7 +290,11 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, dark = f
 
       <div
         ref={scrollRef}
-        className="flex items-start gap-4 overflow-x-auto overflow-y-auto pb-4 max-sm:snap-x max-sm:snap-mandatory"
+        // items-stretch (not items-start) so every column is as tall as the
+        // tallest one — this keeps each column's sticky header pinned for the
+        // full vertical scroll, even short columns like "Approved" that would
+        // otherwise run out of body and let their header scroll away.
+        className="flex items-stretch gap-4 overflow-x-auto overflow-y-auto pb-4 max-sm:snap-x max-sm:snap-mandatory"
         style={{ maxHeight: "calc(100dvh - 280px)", minHeight: 420 }}
         onDragOver={(e) => {
           // Bubbles up from the columns; track the pointer for edge auto-scroll.
@@ -317,6 +321,9 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, dark = f
             key={col}
             onDragOver={(e) => {
               e.preventDefault();
+              // Tell the browser this is a valid "move" target — without a
+              // dropEffect the drop can be silently rejected in some browsers.
+              e.dataTransfer.dropEffect = "move";
               setOverCol(col);
             }}
             onDragLeave={() => setOverCol((c) => (c === col ? null : c))}
@@ -413,25 +420,40 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, dark = f
                 </p>
               )}
               {shownTasks.map((t) => (
-                <Tooltip.Root key={t.id} delayDuration={180}>
+                // The draggable wrapper is OUTSIDE the Radix Tooltip.Trigger.
+                // Wrapping a native-draggable node *as* a Radix trigger (and
+                // nesting a draggable <Link> inside it) reliably broke HTML5
+                // drag — the anchor / trigger hijacked the gesture. Keeping
+                // drag on this plain wrapper and the tooltip on the inner card
+                // lets both work without fighting each other.
+                <div
+                  key={t.id}
+                  draggable
+                  onDragStart={(e) => {
+                    // Firefox refuses to start a drag unless data is set;
+                    // effectAllowed "move" pairs with the column's dropEffect.
+                    e.dataTransfer.setData("text/plain", t.id);
+                    e.dataTransfer.effectAllowed = "move";
+                    setDragId(t.id);
+                    beginAutoScroll();
+                  }}
+                  onDragEnd={() => {
+                    setDragId(null);
+                    setOverCol(null);
+                    endAutoScroll();
+                  }}
+                  className="cursor-grab active:cursor-grabbing"
+                  style={{ opacity: dragId === t.id ? 0.5 : 1 }}
+                >
+                <Tooltip.Root delayDuration={180}>
                   <Tooltip.Trigger asChild>
-                    <div
-                      draggable
-                      onDragStart={() => {
-                        setDragId(t.id);
-                        beginAutoScroll();
-                      }}
-                      onDragEnd={() => {
-                        setDragId(null);
-                        setOverCol(null);
-                        endAutoScroll();
-                      }}
-                      className="group rounded-chip bg-white border border-hairline p-3.5 cursor-grab active:cursor-grabbing transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:border-altus-red/40"
-                      style={{ opacity: dragId === t.id ? 0.5 : 1 }}
-                    >
+                    <div className="group rounded-chip bg-white border border-hairline p-3.5 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:border-altus-red/40">
                       <div className="flex items-start justify-between gap-2">
                         <Link
                           href={`/tasks/${t.id}/focus` as Route}
+                          // draggable={false}: stop the anchor from starting
+                          // its own "drag link" gesture and stealing the card's.
+                          draggable={false}
                           className="text-[15.5px] font-semibold text-ink-strong leading-snug hover:underline"
                           style={{
                             display: "-webkit-box",
@@ -447,9 +469,14 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, dark = f
                         )}
                       </div>
                       <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                        {t.taskNo != null && (
+                          <span className="text-[12.5px] font-bold tabular-nums text-ink-subtle">
+                            #{t.taskNo}
+                          </span>
+                        )}
                         {t.subject && (
                           <span className="text-[13px] font-semibold text-ink-subtle">
-                            {t.subject}
+                            {t.taskNo != null ? "· " : ""}{t.subject}
                           </span>
                         )}
                         {t.doerName && (
@@ -471,6 +498,7 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, dark = f
                     </Tooltip.Content>
                   </Tooltip.Portal>
                 </Tooltip.Root>
+                </div>
               ))}
 
               {hiddenCount > 0 && (
@@ -683,11 +711,14 @@ function TaskHoverCard({
           )}
         </div>
 
-        {/* Title */}
+        {/* Title (prefixed with the friendly task No.) */}
         <h3
           className="hc-item mt-3.5 text-ink-strong"
           style={{ animationDelay: DELAY[1], fontSize: 17, fontWeight: 800, lineHeight: 1.3, letterSpacing: "-0.01em" }}
         >
+          {t.taskNo != null && (
+            <span className="text-ink-subtle tabular-nums">#{t.taskNo} · </span>
+          )}
           {t.title}
         </h3>
 

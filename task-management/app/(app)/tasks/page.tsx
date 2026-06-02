@@ -3,10 +3,11 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { FilterBar } from "@/components/layout/filter-bar";
 import { TaskListPage } from "@/components/tasks/task-list-page";
 import { listEmployeeOptions } from "@/lib/queries/employees";
-import { listTasks, listDistinctSubjects } from "@/lib/queries/tasks";
+import { listTasks, listDistinctSubjects, listDistinctClients } from "@/lib/queries/tasks";
 import { parseTaskFilters } from "@/lib/task-filters";
 import { requireUser } from "@/lib/auth/current";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
+import { TASK_STATUSES } from "@/db/enums";
 import type { TaskStatus, StatusColorToken } from "@/db/enums";
 
 export const dynamic = "force-dynamic";
@@ -23,10 +24,11 @@ export default async function TasksPage({ searchParams }: PageProps) {
     defaultDoerId: me.isAdmin ? undefined : me.id,
   });
 
-  const [allEmployees, rows, subjects, statusDisplay] = await Promise.all([
+  const [allEmployees, rows, subjects, clients, statusDisplay] = await Promise.all([
     listEmployeeOptions(),
     listTasks(filters),
     listDistinctSubjects(),
+    listDistinctClients(),
     getStatusDisplayMap(),
   ]);
 
@@ -42,6 +44,13 @@ export default async function TasksPage({ searchParams }: PageProps) {
     label: e.name,
   }));
 
+  // Status filter options in canonical workflow order, carrying the
+  // admin-overridable human labels.
+  const statusOptions = TASK_STATUSES.map((s) => ({
+    value: s,
+    label: statusLabels[s] ?? s,
+  }));
+
   const isoDay = (d: Date | null) =>
     d ? d.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
 
@@ -51,16 +60,20 @@ export default async function TasksPage({ searchParams }: PageProps) {
       <FilterBar
         employees={employeeOptions}
         subjects={subjects}
+        statusOptions={statusOptions}
+        clients={clients}
         me={{ id: me.id, isAdmin: me.isAdmin }}
         assigneeMode={filters.assigneeMode}
         initial={{
-          start: isoDay(filters.startDate),
-          end:   isoDay(filters.endDate),
-          emp:   filters.doerIds,
-          view:  "doer",
-          dept:  filters.departments,
-          prio:  filters.priorities,
-          subj:  filters.subjects,
+          start:  isoDay(filters.startDate),
+          end:    isoDay(filters.endDate),
+          emp:    filters.doerIds,
+          view:   "doer",
+          dept:   filters.departments,
+          prio:   filters.priorities,
+          subj:   filters.subjects,
+          status: filters.statuses,
+          client: filters.clients,
         }}
       />
       <TaskListPage

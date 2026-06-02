@@ -94,6 +94,7 @@ export function parseTaskFilters(
     departments,
     priorities,
     subjects: split(get("subj")),
+    clients: split(get("client")),
     taskId: typeof id === "string" && id.length > 0 ? id : null,
     archived,
     assigneeMode,
@@ -117,6 +118,7 @@ export function taskFiltersToSearchString(f: TaskListFilters): string {
   if (f.departments.length > 0)  sp.set("dept", f.departments.join(","));
   if (f.priorities.length > 0)   sp.set("prio", f.priorities.join(","));
   if (f.subjects.length > 0)     sp.set("subj", f.subjects.join(","));
+  if (f.clients.length > 0)      sp.set("client", f.clients.join(","));
   if (f.taskId) sp.set("id", f.taskId);
   return sp.toString();
 }
