@@ -537,9 +537,7 @@
       <a class="uh-btn" href="https://mananvasa.com/attendance" target="_blank"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>Employee Attendance</a>
       <a class="uh-btn" href="https://mananvasa.com/incentive" target="_blank"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>Incentive Dashboard</a>
       <button type="button" class="uh-btn" onclick="openGasApp('', 'Outstanding Tracker')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Outstanding Tracker</button>
-      <button type="button" class="uh-btn" onclick="openGasApp('collection', 'Collection Form')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Collection Form</button>
-      <button type="button" class="uh-btn" onclick="openGasApp('dashboard', 'Tracker Dashboard')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Tracker Dashboard</button>
-      <button type="button" class="uh-btn signout" id="signout-btn" title="Sign out of the Ecosystem"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign out</button>
+<button type="button" class="uh-btn signout" id="signout-btn" title="Sign out of the Ecosystem"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign out</button>
       </div>
     </div>
     <div class="uh-logo-wrap">
@@ -1760,7 +1758,12 @@
     <button onclick="closeGasApp()" style="background:#CC1A10;border:none;color:#fff;padding:7px 16px;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:700;font-family:inherit">← Back to Ecosystem</button>
     <span id="gasOverlayTitle" style="color:#fff;font-size:.85rem;font-weight:600;letter-spacing:.5px"></span>
   </div>
-  <iframe id="gasFrame" src="" style="flex:1;width:100%;border:none;" allowfullscreen></iframe>
+  <div id="gasLoader" style="position:absolute;inset:0;top:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#050505;z-index:2;">
+    <div style="width:40px;height:40px;border:3px solid #3A1E1E;border-top-color:#CC1A10;border-radius:50%;animation:gasSpin 0.7s linear infinite;"></div>
+    <div style="color:#aaa;font-size:.8rem;margin-top:14px;letter-spacing:.05em;">Loading…</div>
+  </div>
+  <style>@keyframes gasSpin{to{transform:rotate(360deg)}}</style>
+  <iframe id="gasFrame" src="" style="flex:1;width:100%;border:none;position:relative;z-index:1;" allowfullscreen onload="document.getElementById('gasLoader').style.display='none'"></iframe>
 </div>
 
 <script>
@@ -1768,6 +1771,7 @@
 
   function openGasApp(page, title) {
     var url = page ? GAS_BASE + '?page=' + page : GAS_BASE;
+    document.getElementById('gasLoader').style.display = 'flex';
     document.getElementById('gasFrame').src = url;
     document.getElementById('gasOverlayTitle').textContent = title || '';
     var el = document.getElementById('gasOverlay');
