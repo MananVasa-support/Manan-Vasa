@@ -1753,89 +1753,94 @@
 </script>
 <!-- END AUTH SIGN-OUT -->
  <!-- ── GAS App Overlay ── -->
+<style>@keyframes gasSpin{to{transform:rotate(360deg)}}</style>
 <div id="gasOverlay" style="display:none;position:fixed;inset:0;z-index:9999;background:#050505;flex-direction:column;">
-  <div style="display:flex;align-items:center;gap:12px;background:#080808;padding:10px 20px;border-bottom:1px solid #3A1E1E;flex-shrink:0">
-    <button onclick="closeGasApp()" style="background:#CC1A10;border:none;color:#fff;padding:7px 16px;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:700;font-family:inherit">← Back to Ecosystem</button>
-    <span id="gasOverlayTitle" style="color:#fff;font-size:.85rem;font-weight:600;letter-spacing:.5px"></span>
+  <div style="display:flex;align-items:center;gap:12px;background:#080808;padding:10px 20px;border-bottom:1px solid #3A1E1E;flex-shrink:0;">
+    <button onclick="closeGasApp()" style="background:#CC1A10;border:none;color:#fff;padding:7px 16px;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:700;font-family:inherit;">← Back to Ecosystem</button>
+    <span id="gasOverlayTitle" style="color:#fff;font-size:.85rem;font-weight:600;letter-spacing:.5px;"></span>
   </div>
-  <div id="gasLoader" style="position:absolute;inset:0;top:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#050505;z-index:2;">
+  <div id="gasLoader" style="position:absolute;inset:0;top:44px;display:none;flex-direction:column;align-items:center;justify-content:center;background:#050505;z-index:3;">
     <div style="width:40px;height:40px;border:3px solid #3A1E1E;border-top-color:#CC1A10;border-radius:50%;animation:gasSpin 0.7s linear infinite;"></div>
     <div style="color:#aaa;font-size:.8rem;margin-top:14px;letter-spacing:.05em;">Loading…</div>
   </div>
-  <style>@keyframes gasSpin{to{transform:rotate(360deg)}}</style>
-  <div style="flex:1;position:relative;">
-    <iframe id="gasFrame-tracker"    data-page=""           src="" style="position:absolute;inset:0;width:100%;height:100%;border:none;display:none;" allowfullscreen></iframe>
-    <iframe id="gasFrame-collection" data-page="collection" src="" style="position:absolute;inset:0;width:100%;height:100%;border:none;display:none;" allowfullscreen></iframe>
-    <iframe id="gasFrame-dashboard"  data-page="dashboard"  src="" style="position:absolute;inset:0;width:100%;height:100%;border:none;display:none;" allowfullscreen></iframe>
+  <div style="flex:1;position:relative;overflow:hidden;">
+    <iframe id="gf-tracker"    src="" style="position:absolute;inset:0;width:100%;height:100%;border:none;display:none;z-index:1;" allowfullscreen onload="gasFrameLoaded('')"></iframe>
+    <iframe id="gf-collection" src="" style="position:absolute;inset:0;width:100%;height:100%;border:none;display:none;z-index:1;" allowfullscreen onload="gasFrameLoaded('collection')"></iframe>
+    <iframe id="gf-dashboard"  src="" style="position:absolute;inset:0;width:100%;height:100%;border:none;display:none;z-index:1;" allowfullscreen onload="gasFrameLoaded('dashboard')"></iframe>
   </div>
 </div>
 
 <script>
   var GAS_BASE = 'https://script.google.com/a/macros/unleashed.in/s/AKfycbx9Z0jqK9EzLH_VKb7TClTmwLiG1QSLzLs7VVel0Gz9y-AraWVSC-prAvXJ75pQTnro/exec';
-  var GAS_FRAMES = { '': 'gasFrame-tracker', 'collection': 'gasFrame-collection', 'dashboard': 'gasFrame-dashboard' };
-  var GAS_LOADED = {};
+  var GAS_FRAMES = { '': 'gf-tracker', 'collection': 'gf-collection', 'dashboard': 'gf-dashboard' };
+  var GAS_READY  = { '': false, 'collection': false, 'dashboard': false };
+  var GAS_PENDING = null; // which page key the user is currently waiting for
 
-  // Preload all 3 pages silently after ecosystem loads (so first click is fast)
+  // Called by each iframe's inline onload — fires reliably regardless of cross-origin
+  function gasFrameLoaded(pageKey) {
+    GAS_READY[pageKey] = true;
+    if (GAS_PENDING === pageKey) {
+      // User is waiting for this page — show it now
+      document.getElementById('gasLoader').style.display = 'none';
+      document.getElementById(GAS_FRAMES[pageKey]).style.display = 'block';
+      GAS_PENDING = null;
+    }
+  }
+
+  // Silently preload all 3 pages 2 s after ecosystem loads
   window.addEventListener('load', function() {
     setTimeout(function() {
-      ['', 'collection', 'dashboard'].forEach(function(page) {
-        var id = GAS_FRAMES[page];
-        var frame = document.getElementById(id);
-        if (frame && !frame.src) {
-          frame.src = page ? GAS_BASE + '?page=' + page : GAS_BASE;
-          GAS_LOADED[page] = false;
-          frame.onload = function() { GAS_LOADED[page] = true; };
+      Object.keys(GAS_FRAMES).forEach(function(page) {
+        var f = document.getElementById(GAS_FRAMES[page]);
+        if (!f.src || f.src === window.location.href) {
+          f.src = page ? GAS_BASE + '?page=' + page : GAS_BASE;
         }
       });
-    }, 1500); // start preloading 1.5s after page ready
+    }, 2000);
   });
 
   function openGasApp(page, title) {
-    var pageKey = page || '';
-    var frameId = GAS_FRAMES[pageKey];
-    var frame = document.getElementById(frameId);
+    var pageKey = (page === undefined || page === null) ? '' : page;
 
-    // Hide all iframes
-    Object.values(GAS_FRAMES).forEach(function(id) {
-      document.getElementById(id).style.display = 'none';
+    // Hide all iframes first
+    Object.keys(GAS_FRAMES).forEach(function(p) {
+      document.getElementById(GAS_FRAMES[p]).style.display = 'none';
     });
 
-    // Show loader only if not already loaded
-    var loader = document.getElementById('gasLoader');
-    if (!GAS_LOADED[pageKey]) {
-      loader.style.display = 'flex';
-      if (!frame.src || frame.src === 'about:blank' || frame.src === '') {
-        frame.src = pageKey ? GAS_BASE + '?page=' + pageKey : GAS_BASE;
-      }
-      frame.onload = function() {
-        GAS_LOADED[pageKey] = true;
-        loader.style.display = 'none';
-        frame.style.display = 'block';
-      };
-    } else {
-      loader.style.display = 'none';
-    }
-
-    frame.style.display = 'block';
     document.getElementById('gasOverlayTitle').textContent = title || '';
     document.getElementById('gasOverlay').style.display = 'flex';
     document.body.style.overflow = 'hidden';
+
+    var frame  = document.getElementById(GAS_FRAMES[pageKey]);
+    var loader = document.getElementById('gasLoader');
+
+    if (GAS_READY[pageKey]) {
+      // Already loaded — instant switch, no spinner
+      loader.style.display = 'none';
+      frame.style.display  = 'block';
+    } else {
+      // Not ready yet — show spinner and wait for gasFrameLoaded()
+      loader.style.display = 'flex';
+      GAS_PENDING = pageKey;
+      // Kick off load if not started yet (preload may not have run)
+      if (!frame.src || frame.src === window.location.href) {
+        frame.src = pageKey ? GAS_BASE + '?page=' + pageKey : GAS_BASE;
+      }
+    }
   }
 
   function closeGasApp() {
     document.getElementById('gasOverlay').style.display = 'none';
-    Object.values(GAS_FRAMES).forEach(function(id) {
-      document.getElementById(id).style.display = 'none';
+    document.getElementById('gasLoader').style.display  = 'none';
+    Object.keys(GAS_FRAMES).forEach(function(p) {
+      document.getElementById(GAS_FRAMES[p]).style.display = 'none';
     });
     document.body.style.overflow = '';
+    GAS_PENDING = null;
   }
 
-  // Close on Escape key
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeGasApp();
-  });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeGasApp(); });
 
-  // Handle navigation from inside the GAS iframe
   window.addEventListener('message', function(e) {
     if (e.data && typeof e.data.gasNav !== 'undefined') {
       openGasApp(e.data.gasNav, e.data.title);
