@@ -1763,25 +1763,70 @@
     <div style="color:#aaa;font-size:.8rem;margin-top:14px;letter-spacing:.05em;">Loading…</div>
   </div>
   <style>@keyframes gasSpin{to{transform:rotate(360deg)}}</style>
-  <iframe id="gasFrame" src="" style="flex:1;width:100%;border:none;position:relative;z-index:1;" allowfullscreen onload="document.getElementById('gasLoader').style.display='none'"></iframe>
+  <div style="flex:1;position:relative;">
+    <iframe id="gasFrame-tracker"    data-page=""           src="" style="position:absolute;inset:0;width:100%;height:100%;border:none;display:none;" allowfullscreen></iframe>
+    <iframe id="gasFrame-collection" data-page="collection" src="" style="position:absolute;inset:0;width:100%;height:100%;border:none;display:none;" allowfullscreen></iframe>
+    <iframe id="gasFrame-dashboard"  data-page="dashboard"  src="" style="position:absolute;inset:0;width:100%;height:100%;border:none;display:none;" allowfullscreen></iframe>
+  </div>
 </div>
 
 <script>
   var GAS_BASE = 'https://script.google.com/a/macros/unleashed.in/s/AKfycbx9Z0jqK9EzLH_VKb7TClTmwLiG1QSLzLs7VVel0Gz9y-AraWVSC-prAvXJ75pQTnro/exec';
+  var GAS_FRAMES = { '': 'gasFrame-tracker', 'collection': 'gasFrame-collection', 'dashboard': 'gasFrame-dashboard' };
+  var GAS_LOADED = {};
+
+  // Preload all 3 pages silently after ecosystem loads (so first click is fast)
+  window.addEventListener('load', function() {
+    setTimeout(function() {
+      ['', 'collection', 'dashboard'].forEach(function(page) {
+        var id = GAS_FRAMES[page];
+        var frame = document.getElementById(id);
+        if (frame && !frame.src) {
+          frame.src = page ? GAS_BASE + '?page=' + page : GAS_BASE;
+          GAS_LOADED[page] = false;
+          frame.onload = function() { GAS_LOADED[page] = true; };
+        }
+      });
+    }, 1500); // start preloading 1.5s after page ready
+  });
 
   function openGasApp(page, title) {
-    var url = page ? GAS_BASE + '?page=' + page : GAS_BASE;
-    document.getElementById('gasLoader').style.display = 'flex';
-    document.getElementById('gasFrame').src = url;
+    var pageKey = page || '';
+    var frameId = GAS_FRAMES[pageKey];
+    var frame = document.getElementById(frameId);
+
+    // Hide all iframes
+    Object.values(GAS_FRAMES).forEach(function(id) {
+      document.getElementById(id).style.display = 'none';
+    });
+
+    // Show loader only if not already loaded
+    var loader = document.getElementById('gasLoader');
+    if (!GAS_LOADED[pageKey]) {
+      loader.style.display = 'flex';
+      if (!frame.src || frame.src === 'about:blank' || frame.src === '') {
+        frame.src = pageKey ? GAS_BASE + '?page=' + pageKey : GAS_BASE;
+      }
+      frame.onload = function() {
+        GAS_LOADED[pageKey] = true;
+        loader.style.display = 'none';
+        frame.style.display = 'block';
+      };
+    } else {
+      loader.style.display = 'none';
+    }
+
+    frame.style.display = 'block';
     document.getElementById('gasOverlayTitle').textContent = title || '';
-    var el = document.getElementById('gasOverlay');
-    el.style.display = 'flex';
-    document.body.style.overflow = 'hidden'; // prevent background scroll
+    document.getElementById('gasOverlay').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
   }
 
   function closeGasApp() {
     document.getElementById('gasOverlay').style.display = 'none';
-    document.getElementById('gasFrame').src = '';
+    Object.values(GAS_FRAMES).forEach(function(id) {
+      document.getElementById(id).style.display = 'none';
+    });
     document.body.style.overflow = '';
   }
 
@@ -1790,9 +1835,9 @@
     if (e.key === 'Escape') closeGasApp();
   });
 
-  // Handle navigation from inside the GAS iframe (Collection Form / Dashboard buttons)
+  // Handle navigation from inside the GAS iframe
   window.addEventListener('message', function(e) {
-    if (e.data && e.data.gasNav) {
+    if (e.data && typeof e.data.gasNav !== 'undefined') {
       openGasApp(e.data.gasNav, e.data.title);
     }
   });
