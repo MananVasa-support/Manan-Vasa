@@ -92,9 +92,9 @@ export function TaskDetail({ task }: { task: TaskDetailModel }) {
         style={{
           fontFamily: "var(--font-serif)",
           fontWeight: 500,
-          fontSize: "clamp(26px, 2.8vw, 38px)",
-          lineHeight: 1.25,
-          letterSpacing: "-0.015em",
+          fontSize: "clamp(21px, 1.9vw, 28px)",
+          lineHeight: 1.3,
+          letterSpacing: "-0.01em",
           textWrap: "balance",
         }}
       >
@@ -109,7 +109,7 @@ export function TaskDetail({ task }: { task: TaskDetailModel }) {
           </span>
           <span
             className="block text-ink-strong mt-0.5"
-            style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em" }}
+            style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em" }}
           >
             {clientName}
           </span>

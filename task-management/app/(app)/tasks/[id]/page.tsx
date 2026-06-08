@@ -36,7 +36,7 @@ export default async function TaskDetailPage({ params }: PageProps) {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[1280px] px-12 max-md:px-4 pt-10 pb-20">
+      <main className="w-full px-6 max-md:px-4 pt-8 pb-16">
         <Suspense key={id} fallback={<TaskDetailSkeleton />}>
           <TaskDetailLoader
             taskId={id}
