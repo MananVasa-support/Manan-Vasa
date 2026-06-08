@@ -3,7 +3,7 @@ import * as React from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { PieChart, LayoutGrid } from "lucide-react";
-import { PENDING_STATUSES } from "@/db/enums";
+import { PENDING_STATUSES, isDeprecatedStatus } from "@/db/enums";
 import type {
   StatusDistributionPayload,
   StatusDistribution,
@@ -35,7 +35,11 @@ export function StatusDistributionChart({
     TaskStatus,
     Tone
   >;
-  const rows = [...data.rows].sort((a, b) => b.count - a.count);
+  // Drop retired statuses (transferred / cancelled / follow_up_1-3) — those
+  // tasks are migrated/archived now and shouldn't get their own tiles.
+  const rows = [...data.rows]
+    .filter((r) => !isDeprecatedStatus(r.status))
+    .sort((a, b) => b.count - a.count);
   const totalCount = rows.reduce((s, r) => s + r.count, 0);
   const denom = data.denominator;
   // Defensive: Next's Data Cache can serve a payload cached before `summary`
@@ -130,9 +134,9 @@ export function StatusDistributionChart({
         })}
       </div>
 
-      {/* Legend grid — one consistent tile per status. Colour lives only
-          in the dot + share bar; the count and % stay neutral and legible.
-          3 columns desktop, 2 on tablet, 1 on mobile. */}
+      {/* Legend grid — one continuous grid of status tiles followed by the
+          pending / not-approved / archived summary tiles (same design), so the
+          cards flow without odd mid-grid gaps. 3 cols desktop, 2 tablet, 1 mobile. */}
       <ul className="mt-6 grid grid-cols-3 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
         {rows.map((r, i) => (
           <StatTile
@@ -144,13 +148,6 @@ export function StatusDistributionChart({
             tone={resolvedTones[r.status]}
           />
         ))}
-      </ul>
-
-      {/* Headline counts — pending / not-approved / archived. They cut across
-          the status breakdown so they get their own row, but use the EXACT
-          same tile design as the 9 status cards above (dot + label + count +
-          share% + bar) for a seamless grid. */}
-      <ul className="mt-3 grid grid-cols-3 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
         <SummaryTile
           label="Pending"
           value={summary.pending}
