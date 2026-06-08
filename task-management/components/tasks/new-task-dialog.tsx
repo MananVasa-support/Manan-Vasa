@@ -7,6 +7,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { Plus, X, Upload } from "lucide-react";
 import { NewTaskForm } from "./new-task-form";
+import { TaskImport } from "./task-import";
 
 interface Props {
   employees: { id: string; name: string }[];
@@ -27,11 +28,15 @@ const HINT_STORAGE_KEY = "vp_seen_new_task_hint";
 export function NewTaskDialog({ employees, clients, subjects, projectNodes, defaultInitiatorId, isAdmin }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [showHint, setShowHint] = useState(false);
 
+  // Open the Import popup instead of navigating to a page (the page round-trip
+  // hit the remote DB and felt slow). Close New Task first so the two dialogs
+  // never stack.
   function goImport() {
     setOpen(false);
-    router.push("/tasks/import" as Route);
+    setImportOpen(true);
   }
 
   // First-time hint: surface if the user has never seen it before.
@@ -104,6 +109,7 @@ export function NewTaskDialog({ employees, clients, subjects, projectNodes, defa
   }
 
   return (
+    <>
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <div className="relative">
         <Tooltip.Provider delayDuration={600}>
@@ -352,5 +358,56 @@ export function NewTaskDialog({ employees, clients, subjects, projectNodes, defa
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+
+    {/* Import popup (admin) — opens in place instead of navigating to a page. */}
+    {isAdmin && (
+      <Dialog.Root open={importOpen} onOpenChange={setImportOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay
+            className="fixed inset-0 z-[60]"
+            style={{ background: "rgba(15, 23, 42, 0.45)", backdropFilter: "blur(4px)" }}
+          />
+          <Dialog.Content
+            className="fixed left-1/2 top-1/2 z-[70] w-[min(1100px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 rounded-section border border-hairline bg-surface-card shadow-xl overflow-hidden"
+            style={{ maxHeight: "calc(100vh - 48px)" }}
+          >
+            <div
+              className="relative px-8 py-6 max-md:px-5 max-md:py-5"
+              style={{
+                borderBottom: "1px solid var(--color-hairline)",
+                background: "linear-gradient(135deg, #ffffff 0%, #FFF5F5 100%)",
+              }}
+            >
+              <span
+                aria-hidden
+                className="absolute inset-x-0 top-0"
+                style={{ height: 5, background: "linear-gradient(90deg, rgb(225, 6, 0), rgb(168, 4, 0))" }}
+              />
+              <Dialog.Title
+                className="text-ink-strong inline-flex items-center gap-2.5"
+                style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(26px, 2.6vw, 36px)", letterSpacing: "-0.02em", lineHeight: 1.05 }}
+              >
+                <Upload size={26} strokeWidth={2.4} style={{ color: "var(--color-altus-red)" }} />
+                Import tasks
+              </Dialog.Title>
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  className="absolute top-5 right-5 inline-flex items-center justify-center rounded-full transition-all hover:bg-surface-soft"
+                  style={{ width: 44, height: 44, border: "1px solid var(--color-hairline)", background: "#ffffff", color: "var(--color-ink-muted)" }}
+                >
+                  <X size={22} strokeWidth={2.4} />
+                </button>
+              </Dialog.Close>
+            </div>
+            <div className="px-8 py-6 max-md:px-5 max-md:py-5" style={{ maxHeight: "calc(100vh - 190px)", overflowY: "auto" }}>
+              <TaskImport embedded onSuccess={() => setImportOpen(false)} />
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+    )}
+    </>
   );
 }

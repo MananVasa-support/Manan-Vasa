@@ -43,7 +43,15 @@ const COLUMNS: { name: string; required: boolean }[] = [
  * review a per-row preview with inline errors → commit. Parsing is server-side
  * so the spreadsheet lib never ships to the browser.
  */
-export function TaskImport() {
+export function TaskImport({
+  embedded = false,
+  onSuccess,
+}: {
+  /** Rendered inside a dialog — drop the page chrome (back link, big hero). */
+  embedded?: boolean;
+  /** Called after a successful import instead of navigating to /tasks. */
+  onSuccess?: () => void;
+} = {}) {
   const router = useRouter();
   const [file, setFile] = React.useState<File | null>(null);
   const [preview, setPreview] = React.useState<ImportPreview | null>(null);
@@ -86,7 +94,12 @@ export function TaskImport() {
           res.skipped ? ` · ${res.skipped} skipped` : ""
         }.`,
       });
-      router.push("/tasks" as Route);
+      if (onSuccess) {
+        onSuccess();
+        router.refresh();
+      } else {
+        router.push("/tasks" as Route);
+      }
     });
   }
 
@@ -103,43 +116,53 @@ export function TaskImport() {
   const hasPreview = preview && !preview.fatal;
 
   return (
-    <div className="mx-auto w-full max-w-[1120px] px-6 max-md:px-4 py-8">
-      {/* Breadcrumb / back */}
-      <button
-        type="button"
-        onClick={() => router.push("/tasks" as Route)}
-        className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink-subtle hover:text-ink-strong transition-colors mb-5"
-      >
-        <ArrowLeft size={15} strokeWidth={2.4} />
-        Back to Tasks
-      </button>
+    <div className={embedded ? "w-full" : "mx-auto w-full max-w-[1120px] px-6 max-md:px-4 py-8"}>
+      {/* Breadcrumb / back — page only */}
+      {!embedded && (
+        <button
+          type="button"
+          onClick={() => router.push("/tasks" as Route)}
+          className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink-subtle hover:text-ink-strong transition-colors mb-5"
+        >
+          <ArrowLeft size={15} strokeWidth={2.4} />
+          Back to Tasks
+        </button>
+      )}
 
-      {/* Hero */}
-      <div className="flex items-start justify-between gap-4 flex-wrap mb-7">
-        <div className="flex items-start gap-3.5">
-          <span
-            className="inline-flex items-center justify-center h-12 w-12 rounded-2xl shrink-0"
-            style={{ background: "var(--color-red-bg, #fef2f2)", color: "var(--color-altus-red)" }}
-          >
-            <Upload size={22} strokeWidth={2.2} />
-          </span>
-          <div>
-            <h1
-              className="text-ink-strong"
-              style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontWeight: 500, fontSize: 32, letterSpacing: "-0.02em", lineHeight: 1.1 }}
+      {/* Hero — full hero on the page; in a dialog the dialog title covers it,
+          so we only keep the subtitle + Download template row. */}
+      <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
+        {embedded ? (
+          <p className="text-ink-soft" style={{ fontSize: 14.5, maxWidth: "60ch" }}>
+            Upload a CSV or Excel file — each row becomes one task. Doer &amp;
+            Initiator are matched by employee name or email.
+          </p>
+        ) : (
+          <div className="flex items-start gap-3.5">
+            <span
+              className="inline-flex items-center justify-center h-12 w-12 rounded-2xl shrink-0"
+              style={{ background: "var(--color-red-bg, #fef2f2)", color: "var(--color-altus-red)" }}
             >
-              Import tasks
-            </h1>
-            <p className="mt-1.5 text-ink-soft" style={{ fontSize: 15, maxWidth: "60ch" }}>
-              Upload a CSV or Excel file — each row becomes one task. Doer &amp;
-              Initiator are matched by employee name or email.
-            </p>
+              <Upload size={22} strokeWidth={2.2} />
+            </span>
+            <div>
+              <h1
+                className="text-ink-strong"
+                style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontWeight: 500, fontSize: 32, letterSpacing: "-0.02em", lineHeight: 1.1 }}
+              >
+                Import tasks
+              </h1>
+              <p className="mt-1.5 text-ink-soft" style={{ fontSize: 15, maxWidth: "60ch" }}>
+                Upload a CSV or Excel file — each row becomes one task. Doer &amp;
+                Initiator are matched by employee name or email.
+              </p>
+            </div>
           </div>
-        </div>
+        )}
         <button
           type="button"
           onClick={downloadTemplate}
-          className="inline-flex items-center gap-2 rounded-pill border border-hairline bg-surface-card px-4 h-11 text-[14px] font-semibold text-ink-strong hover:bg-surface-soft hover:border-hairline-strong transition-colors"
+          className="inline-flex items-center gap-2 rounded-pill border border-hairline bg-surface-card px-4 h-11 text-[14px] font-semibold text-ink-strong hover:bg-surface-soft hover:border-hairline-strong transition-colors shrink-0"
         >
           <Download size={16} strokeWidth={2.2} />
           Download template
