@@ -7,9 +7,6 @@ import { NewTaskTrigger } from "@/components/header/new-task-trigger";
 import { AdminPill } from "@/components/header/admin-pill";
 import { GlobalSearch } from "@/components/header/global-search";
 import { getCurrentEmployee } from "@/lib/auth/current";
-import Link from "next/link";
-import type { Route } from "next";
-import { Upload } from "lucide-react";
 
 /**
  * Light glassy application header — single row, ~72px tall.
@@ -77,17 +74,6 @@ export async function DashboardHeader({
             <span className="max-2xl:hidden">
               <LiveIndicator />
             </span>
-            {isAdmin && (
-              <Link
-                href={"/tasks/import" as Route}
-                title="Bulk-import tasks from CSV or Excel"
-                aria-label="Import tasks"
-                className="inline-flex items-center gap-2 rounded-pill border border-hairline bg-surface-card px-3.5 h-10 text-[14px] font-semibold text-ink-strong transition-colors hover:bg-surface-soft hover:border-hairline-strong max-md:h-9 max-md:px-2.5"
-              >
-                <Upload size={16} strokeWidth={2.2} className="shrink-0" />
-                <span className="max-lg:hidden">Import</span>
-              </Link>
-            )}
             <NewTaskTrigger />
             {isAdmin && (
               <span className="max-2xl:hidden">

@@ -22,6 +22,7 @@ export async function NewTaskTrigger() {
       subjects={subjects}
       projectNodes={projectNodes}
       defaultInitiatorId={me.id}
+      isAdmin={me.isAdmin}
     />
   );
 }

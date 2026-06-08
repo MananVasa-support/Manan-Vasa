@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import * as Dialog from "@radix-ui/react-dialog";
 import * as Tooltip from "@radix-ui/react-tooltip";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Upload } from "lucide-react";
 import { NewTaskForm } from "./new-task-form";
 
 interface Props {
@@ -18,14 +18,21 @@ interface Props {
   projectNodes?: { id: string; label: string }[];
   /** Optional defaults — usually pre-fill initiator = current user. */
   defaultInitiatorId?: string;
+  /** Admins get the "Import" shortcut in the dialog header. */
+  isAdmin?: boolean;
 }
 
 const HINT_STORAGE_KEY = "vp_seen_new_task_hint";
 
-export function NewTaskDialog({ employees, clients, subjects, projectNodes, defaultInitiatorId }: Props) {
+export function NewTaskDialog({ employees, clients, subjects, projectNodes, defaultInitiatorId, isAdmin }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [showHint, setShowHint] = useState(false);
+
+  function goImport() {
+    setOpen(false);
+    router.push("/tasks/import" as Route);
+  }
 
   // First-time hint: surface if the user has never seen it before.
   // Dismisses on dialog open, on explicit close, or after 10s.
@@ -288,22 +295,41 @@ export function NewTaskDialog({ employees, clients, subjects, projectNodes, defa
             >
               Capture work, attach context, assign owners — all in one go.
             </Dialog.Description>
-            <Dialog.Close asChild>
-              <button
-                type="button"
-                aria-label="Close"
-                className="absolute top-6 right-6 inline-flex items-center justify-center rounded-full transition-all"
-                style={{
-                  width: 48,
-                  height: 48,
-                  border: "1px solid var(--color-hairline)",
-                  background: "#ffffff",
-                  color: "var(--color-ink-muted)",
-                }}
-              >
-                <X size={24} strokeWidth={2.4} />
-              </button>
-            </Dialog.Close>
+            {/* Top-right actions — Import shortcut (admin) + Close. */}
+            <div className="absolute top-6 right-6 flex items-center gap-2.5">
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={goImport}
+                  title="Bulk-import tasks from CSV or Excel"
+                  className="inline-flex items-center gap-2 rounded-full px-4 h-12 text-[14px] font-semibold transition-colors hover:bg-surface-soft max-md:px-3"
+                  style={{
+                    border: "1px solid var(--color-hairline)",
+                    background: "#ffffff",
+                    color: "var(--color-ink-strong)",
+                  }}
+                >
+                  <Upload size={17} strokeWidth={2.2} style={{ color: "var(--color-altus-red)" }} />
+                  <span className="max-md:hidden">Import</span>
+                </button>
+              )}
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  className="inline-flex items-center justify-center rounded-full transition-all"
+                  style={{
+                    width: 48,
+                    height: 48,
+                    border: "1px solid var(--color-hairline)",
+                    background: "#ffffff",
+                    color: "var(--color-ink-muted)",
+                  }}
+                >
+                  <X size={24} strokeWidth={2.4} />
+                </button>
+              </Dialog.Close>
+            </div>
           </div>
 
           {/* Scrollable body — fills the rectangle */}
