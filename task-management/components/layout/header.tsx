@@ -7,6 +7,9 @@ import { NewTaskTrigger } from "@/components/header/new-task-trigger";
 import { AdminPill } from "@/components/header/admin-pill";
 import { GlobalSearch } from "@/components/header/global-search";
 import { getCurrentEmployee } from "@/lib/auth/current";
+import Link from "next/link";
+import type { Route } from "next";
+import { Upload } from "lucide-react";
 
 /**
  * Light glassy application header — single row, ~72px tall.
@@ -54,12 +57,15 @@ export async function DashboardHeader({
             />
           </a>
 
-          {/* CENTER: primary pill nav — shown only at xl+ where the full row
-              genuinely fits. Below xl it collapses into the hamburger drawer
-              (MobileMenuServer) rather than clipping/overlapping under zoom
-              (sir's changes #13). */}
-          <div className="flex-1 min-w-0 flex justify-center max-xl:hidden">
-            <MainNavServer />
+          {/* CENTER: primary pill nav — visible on every desktop width (and
+              under zoom). It stays centred while it fits; when space gets tight
+              it scrolls horizontally FROM THE LEFT (w-max + mx-auto) so pills
+              are never clipped, never overlap, and never disappear. Collapses
+              to the hamburger drawer only on real phones (max-md). */}
+          <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar max-md:hidden">
+            <div className="flex w-max mx-auto">
+              <MainNavServer />
+            </div>
           </div>
 
           {/* RIGHT: search + live indicator + actions + avatar. Every item is
@@ -71,6 +77,17 @@ export async function DashboardHeader({
             <span className="max-2xl:hidden">
               <LiveIndicator />
             </span>
+            {isAdmin && (
+              <Link
+                href={"/tasks/import" as Route}
+                title="Bulk-import tasks from CSV or Excel"
+                aria-label="Import tasks"
+                className="inline-flex items-center gap-2 rounded-pill border border-hairline bg-surface-card px-3.5 h-10 text-[14px] font-semibold text-ink-strong transition-colors hover:bg-surface-soft hover:border-hairline-strong max-md:h-9 max-md:px-2.5"
+              >
+                <Upload size={16} strokeWidth={2.2} className="shrink-0" />
+                <span className="max-lg:hidden">Import</span>
+              </Link>
+            )}
             <NewTaskTrigger />
             {isAdmin && (
               <span className="max-2xl:hidden">

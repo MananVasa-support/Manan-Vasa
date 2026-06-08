@@ -25,7 +25,7 @@ export function MobileMenu({ children }: { children: React.ReactNode }) {
         <button
           type="button"
           aria-label="Open navigation"
-          className="xl:hidden inline-flex items-center justify-center size-10 rounded-full border border-hairline bg-white/80 text-ink-strong active:scale-95 transition-transform"
+          className="md:hidden inline-flex items-center justify-center size-10 rounded-full border border-hairline bg-white/80 text-ink-strong active:scale-95 transition-transform"
           style={{
             boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)",
           }}

@@ -46,7 +46,7 @@ export function NavHistoryButtons() {
   };
 
   return (
-    <div className="flex items-center gap-1 max-2xl:hidden shrink-0">
+    <div className="flex items-center gap-1 max-xl:hidden shrink-0">
       <button
         type="button"
         aria-label="Back"
