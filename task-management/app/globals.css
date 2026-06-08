@@ -2027,3 +2027,29 @@ select.nt-input {
   background: color-mix(in srgb, var(--color-ink-subtle) 55%, transparent);
   background-clip: padding-box;
 }
+
+/* Slim, premium sliding bar for the header pill nav — only appears when the
+   pills overflow (e.g. under zoom), so it's obvious the row scrolls instead of
+   looking cut-off. Branded thumb that warms to red on hover. A little bottom
+   padding gives the bar breathing room beneath the pills. */
+.nav-scroll {
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-ink-subtle) 32%, transparent) transparent;
+  padding-bottom: 5px;
+}
+.nav-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.nav-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 0 12px;
+}
+.nav-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-ink-subtle) 32%, transparent);
+  border-radius: 9999px;
+}
+.nav-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-altus-red) 55%, transparent);
+}

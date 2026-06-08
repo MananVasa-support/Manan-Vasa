@@ -59,7 +59,7 @@ export async function DashboardHeader({
               it scrolls horizontally FROM THE LEFT (w-max + mx-auto) so pills
               are never clipped, never overlap, and never disappear. Collapses
               to the hamburger drawer only on real phones (max-md). */}
-          <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar max-md:hidden">
+          <div className="flex-1 min-w-0 overflow-x-auto nav-scroll max-md:hidden">
             <div className="flex w-max mx-auto">
               <MainNavServer />
             </div>
