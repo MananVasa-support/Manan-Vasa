@@ -82,8 +82,6 @@ vi.mock("@/lib/notifications/dispatch", () => ({
 import {
   approveTask,
   reassignTask,
-  transferTaskExternal,
-  cancelTask,
   addComment,
   setTaskStatus,
 } from "@/app/(app)/tasks/actions";
@@ -242,65 +240,6 @@ describe("reassignTask", () => {
     );
     expect(result.ok).toBe(true);
     expect(insertCall).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("transferTaskExternal", () => {
-  it("requires a non-empty note (validator rejects empty)", async () => {
-    queryCall.mockResolvedValueOnce(taskRow({ initiatorId: "me-id" }));
-    const result = await transferTaskExternal(
-      VALID_UUID,
-      { note: "" },
-      baseDate.toISOString(),
-    );
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toBe("invalid");
-  });
-
-  it("happy path: writes transferred_external event", async () => {
-    queryCall.mockResolvedValueOnce(taskRow({ initiatorId: "me-id" }));
-    const result = await transferTaskExternal(
-      VALID_UUID,
-      { note: "Sent to KYC vendor" },
-      baseDate.toISOString(),
-    );
-    expect(result.ok).toBe(true);
-    expect(insertCall).toHaveBeenCalledTimes(1);
-  });
-
-  it("forbids the doer", async () => {
-    queryCall.mockResolvedValueOnce(
-      taskRow({ doerId: "me-id", initiatorId: "other" }),
-    );
-    const result = await transferTaskExternal(
-      VALID_UUID,
-      { note: "Anything" },
-      baseDate.toISOString(),
-    );
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toBe("forbidden");
-  });
-});
-
-describe("cancelTask", () => {
-  it("happy path: writes status_changed event", async () => {
-    queryCall.mockResolvedValueOnce(taskRow({ initiatorId: "me-id" }));
-    const result = await cancelTask(
-      VALID_UUID,
-      { note: "Customer withdrew" },
-      baseDate.toISOString(),
-    );
-    expect(result.ok).toBe(true);
-    expect(insertCall).toHaveBeenCalledTimes(1);
-  });
-
-  it("forbids the doer", async () => {
-    queryCall.mockResolvedValueOnce(
-      taskRow({ doerId: "me-id", initiatorId: "other" }),
-    );
-    const result = await cancelTask(VALID_UUID, {}, baseDate.toISOString());
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toBe("forbidden");
   });
 });
 

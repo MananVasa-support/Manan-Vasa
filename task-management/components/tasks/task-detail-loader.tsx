@@ -13,8 +13,6 @@ import {
   canEditTaskFields,
   canApprove,
   canReassign,
-  canTransferExternal,
-  canCancel,
   canComment,
 } from "@/lib/auth/task-permissions";
 
@@ -84,8 +82,6 @@ export async function TaskDetailLoader({ taskId, me }: Props) {
       canEdit={canEditTaskFields(permInput)}
       canApproveTask={showApproveCard}
       canReassignTask={canReassign(permInput)}
-      canTransferTaskExternal={canTransferExternal(permInput)}
-      canCancelTask={canCancel(permInput)}
       canCommentOnTask={canComment(permInput)}
       events={events}
       employees={employeeOptions}

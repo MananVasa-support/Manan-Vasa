@@ -1990,3 +1990,40 @@ select.nt-input {
     transform: none;
   }
 }
+
+/* Hide scrollbars while keeping scrollability — used by the header nav so it
+   can scroll within its slot under heavy zoom instead of overlapping the
+   logo / action cluster (sir's changes #13). */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Premium, slim scrollbar for the kanban board — smooth horizontal scroll
+   with a subtle pill thumb instead of the chunky native bar (sir's #1). */
+.kanban-scroll {
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-ink-subtle) 35%, transparent) transparent;
+}
+.kanban-scroll::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+.kanban-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.kanban-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-ink-subtle) 30%, transparent);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.kanban-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-ink-subtle) 55%, transparent);
+  background-clip: padding-box;
+}

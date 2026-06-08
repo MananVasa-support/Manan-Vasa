@@ -3,7 +3,8 @@ import { Roboto, Bricolage_Grotesque, JetBrains_Mono } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
-import { ToastHost } from "@/components/ui/toast";
+import { AppToaster } from "@/components/ui/sonner-toaster";
+import { Providers } from "@/components/providers";
 import { RegisterSW } from "@/components/pwa/register-sw";
 import { getCurrentEmployee } from "@/lib/auth/current";
 import { accentVars, resolveAccent } from "@/lib/appearance";
@@ -86,9 +87,9 @@ export default async function RootLayout({
             Required by nuqs v2+ — without it any client component calling
             useQueryState throws "nuqs requires an adapter". */}
         <NuqsAdapter>
-          {children}
+          <Providers>{children}</Providers>
         </NuqsAdapter>
-        <ToastHost />
+        <AppToaster />
         <RegisterSW />
         {/* Phase 0.3 — Vercel Speed Insights. Auto-no-ops outside Vercel
             (no env vars needed); on Vercel it records real-user Core Web

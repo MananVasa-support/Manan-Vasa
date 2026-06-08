@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { orgSettings, settingsEvents, statusSettings } from "@/db/schema";
 import { TASK_STATUSES } from "@/db/enums";
 import { requireAdmin } from "@/lib/auth/current";
+import { isValidColumnId } from "@/lib/kanban-columns";
 import {
   UpdateOrgSettingsSchema,
   type UpdateOrgSettingsInput,
@@ -158,6 +159,32 @@ export async function updateStatusSettingAction(
   revalidatePath("/admin/settings");
   revalidatePath("/");
   updateTag(CACHE_TAGS.statusSettings);
+  return { ok: true };
+}
+
+/**
+ * sir's changes #8 — persist the kanban column order (admin-only). Accepts the
+ * full ordered list of column ids; unknown/deprecated ids are rejected so a
+ * stale client can't poison the stored order.
+ */
+export async function setBoardColumnOrder(order: string[]): Promise<ActionResult> {
+  const me = await requireAdmin();
+  if (!Array.isArray(order) || order.length === 0 || order.length > 40) {
+    return { ok: false, error: "Invalid column order." };
+  }
+  if (!order.every((id) => typeof id === "string" && isValidColumnId(id))) {
+    return { ok: false, error: "Unknown column in order." };
+  }
+  try {
+    await db
+      .update(orgSettings)
+      .set({ boardColumnOrder: order, updatedAt: new Date(), updatedById: me.id })
+      .where(eq(orgSettings.id, 1));
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `DB: ${msg}` };
+  }
+  revalidatePath("/tasks/kanban");
   return { ok: true };
 }
 

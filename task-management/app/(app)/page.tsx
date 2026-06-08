@@ -11,6 +11,7 @@ import { WelcomeHero } from "@/components/dashboard/welcome-hero";
 import { MyDayCard } from "@/components/dashboard/my-day-card";
 import { DashboardLoadError } from "@/components/dashboard/dashboard-load-error";
 import { listEmployees } from "@/lib/queries/employees";
+import { listDistinctSubjects } from "@/lib/queries/tasks";
 import { loadDashboardData } from "@/lib/queries/dashboard";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
 import { getMyDayCounts } from "@/lib/queries/my-day";
@@ -38,12 +39,16 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   let data: Awaited<ReturnType<typeof loadDashboardData>>;
   let statusDisplay: Awaited<ReturnType<typeof getStatusDisplayMap>>;
   let myDay: Awaited<ReturnType<typeof getMyDayCounts>> | null;
+  let subjects: string[];
   try {
-    [allEmployees, data, statusDisplay, myDay] = await Promise.all([
+    [allEmployees, data, statusDisplay, myDay, subjects] = await Promise.all([
       listEmployees(),
       loadDashboardData(filters),
       getStatusDisplayMap(),
       me ? getMyDayCounts(me.id).catch(() => null) : Promise.resolve(null),
+      // Auxiliary (only powers the Subject filter chip) — must NEVER take down
+      // the whole dashboard, so it degrades to an empty list on failure.
+      listDistinctSubjects().catch(() => [] as string[]),
     ]);
   } catch (err) {
     console.error("[dashboard] data load failed:", err);
@@ -79,6 +84,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       <DashboardHeader generatedAt={data.generatedAt} />
       <FilterBar
         employees={employeeOptions}
+        subjects={subjects}
         initial={{
           start: isoDay(filters.startDate ?? new Date()),
           end:   isoDay(filters.endDate   ?? new Date()),

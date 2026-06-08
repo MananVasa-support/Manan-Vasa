@@ -22,10 +22,6 @@ import {
   type ApproveParsed,
   ReassignSchema,
   type ReassignInput,
-  TransferExternalSchema,
-  type TransferExternalInput,
-  CancelSchema,
-  type CancelInput,
   CommentSchema,
   type CommentInput,
   SetApprovalStatusSchema,
@@ -43,8 +39,6 @@ import {
   canApprove,
   canDecline,
   canReassign,
-  canTransferExternal,
-  canCancel,
   canComment,
 } from "@/lib/auth/task-permissions";
 import { canTransitionTo, type ActorRole } from "@/lib/auth/status-transitions";
@@ -59,6 +53,17 @@ import {
 } from "@/lib/notifications/dispatch";
 import { deriveShortId, nextShortIdCandidate } from "@/lib/import/short-id";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
+import { searchTasks, type TaskSearchResult } from "@/lib/queries/task-search";
+
+/**
+ * sir's changes #12 — app-wide task search for the header command palette.
+ * Auth-gated (signed-in users only); returns up to 20 freshest matches.
+ */
+export async function searchTasksAction(query: string): Promise<TaskSearchResult[]> {
+  await requireUser();
+  if (typeof query !== "string" || query.trim().length < 2) return [];
+  return searchTasks(query);
+}
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -493,6 +498,11 @@ export async function createTask(input: CreateTaskInput): Promise<
   }
 
   const createdIds: string[] = [];
+  // Notifications are collected here and fired AFTER the response (see below),
+  // never inline — the old code awaited every notify() in the loop, chaining
+  // dozens of email/Slack/WhatsApp/push network calls on the critical path,
+  // which is what intermittently surfaced "we hit a snag" on a 5-6 task batch.
+  const notifyIntents: Array<Parameters<typeof notify>[0]> = [];
   const label = taskLabel({
     subject: parsed.subject ?? null,
     title: parsed.title,
@@ -568,24 +578,36 @@ export async function createTask(input: CreateTaskInput): Promise<
       };
     }
 
-    await db.insert(taskEvents).values({
-      taskId: row.id,
-      actorId: me.id,
-      eventType: "created",
-      toValue: {
-        title: parsed.title,
-        doerId,
-        initiatorId: parsed.initiatorId,
-        priority: parsed.priority,
-        dueAt: parsed.dueAt.toISOString(),
-        tags: parsed.tags ?? null,
-      },
-    });
+    // Audit row — best-effort. The task itself is already committed; a
+    // transient failure writing the "created" event must never abort the
+    // batch (which would half-create a multi-doer upload) or bubble up as
+    // "we hit a snag".
+    try {
+      await db.insert(taskEvents).values({
+        taskId: row.id,
+        actorId: me.id,
+        eventType: "created",
+        toValue: {
+          title: parsed.title,
+          doerId,
+          initiatorId: parsed.initiatorId,
+          priority: parsed.priority,
+          dueAt: parsed.dueAt.toISOString(),
+          tags: parsed.tags ?? null,
+        },
+      });
+    } catch (err) {
+      console.warn(
+        "[createTask] created-event insert failed (non-fatal):",
+        (err as Error)?.message ?? err,
+      );
+    }
 
-    // Fan-out: doer is now assigned; initiator is on the hook for review.
-    // Both are explicit per-recipient kinds so emails can use distinct copy.
+    // Fan-out (deferred): doer is now assigned; initiator is on the hook for
+    // review. Both are explicit per-recipient kinds so emails can use distinct
+    // copy. Collected now, fired after the response.
     if (doerId !== me.id) {
-      await notify({
+      notifyIntents.push({
         userId: doerId,
         kind: "task_assigned",
         title: `${me.name} assigned you '${label}'`,
@@ -594,7 +616,7 @@ export async function createTask(input: CreateTaskInput): Promise<
       });
     }
     if (parsed.initiatorId !== me.id && parsed.initiatorId !== doerId) {
-      await notify({
+      notifyIntents.push({
         userId: parsed.initiatorId,
         kind: "task_initiated",
         title: `${me.name} made you initiator on '${label}'`,
@@ -606,8 +628,14 @@ export async function createTask(input: CreateTaskInput): Promise<
     createdIds.push(row.id);
   }
 
-  // Push each new task onto its doer's Google Calendar (if connected), after
-  // the response is sent so it never slows down task creation.
+  // Fire notifications + Google Calendar sync AFTER the response is flushed,
+  // so none of that (sequential email/Slack/WhatsApp/push + GCal API) sits on
+  // the task-creation critical path. notify() is already best-effort.
+  if (notifyIntents.length > 0) {
+    afterResponse(async () => {
+      for (const intent of notifyIntents) await notify(intent);
+    });
+  }
   for (const id of createdIds) afterResponse(() => reconcileTaskEvent(id));
 
   revalidateTaskRoutes();
@@ -957,13 +985,13 @@ export async function approveTask(
 }
 
 /**
- * Reassign the doer.  Optionally resets status to not_started.
+ * Reassign the doer.  Optionally resets status to "Not Read" (dont_know).
  * - Permission: doer OR initiator OR admin, and the task must be in the
  *   pending lane (the existing canReassign predicate enforces this).
  * - Optimistic-lock: caller passes expectedUpdatedAt.
  * - Side effect: sets transferred_from_id to the previous doer; writes
  *   a `reassigned` task_events row carrying from + to doer ids.  If
- *   resetStatus is set and the task isn't already not_started, also
+ *   resetStatus is set and the task isn't already dont_know, also
  *   writes a `status_changed` row (since the matrix treats status
  *   changes and reassigns as distinct concerns).
  */
@@ -1021,8 +1049,10 @@ export async function reassignTask(
   }
 
   const now = new Date();
+  // sir's changes #3 — a reassign resets the task to "Not Read" (dont_know),
+  // not "Not Started", so the new doer has to actually open it first.
   const shouldReset =
-    parsed.resetStatus === true && current.status !== "not_started";
+    parsed.resetStatus === true && current.status !== "dont_know";
 
   // Atomic reassign — the UPDATE, the `reassigned` audit row, and the
   // optional `status_changed` audit row all commit together or roll
@@ -1034,7 +1064,7 @@ export async function reassignTask(
         doerId: parsed.newDoerId,
         transferredFromId: current.doerId,
         updatedAt: now,
-        ...(shouldReset ? { status: "not_started" as const } : {}),
+        ...(shouldReset ? { status: "dont_know" as const } : {}),
       })
       .where(and(eq(tasks.id, taskId), optimisticLockMatches(expectedDate)))
       .returning({ id: tasks.id });
@@ -1052,7 +1082,7 @@ export async function reassignTask(
         actorId: me.id,
         eventType: "status_changed",
         fromValue: { status: current.status },
-        toValue: { status: "not_started" },
+        toValue: { status: "dont_know" },
       });
     }
     return false;
@@ -1097,190 +1127,6 @@ export async function reassignTask(
 
   // Move the calendar event to the new doer's calendar.
   afterResponse(() => reconcileTaskEvent(taskId));
-  revalidateTaskRoutes();
-  revalidatePath(`/tasks/${taskId}`);
-  return { ok: true };
-}
-
-/**
- * Move the task to "transferred" (work has left the system — handed
- * off to an external party).  A non-empty note is REQUIRED.
- * - Permission: initiator OR admin, status must be non-terminal.
- * - Optimistic-lock: caller passes expectedUpdatedAt.
- * - Side effect: writes a `transferred_external` task_events row carrying
- *   the note.
- */
-export async function transferTaskExternal(
-  taskId: string,
-  input: TransferExternalInput,
-  expectedUpdatedAt: string,
-): Promise<
-  | { ok: true }
-  | {
-      ok: false;
-      error: "invalid" | "not-found" | "forbidden" | "stale";
-      message?: string;
-    }
-> {
-  if (!isUuid(taskId)) return { ok: false, error: "invalid", message: "Bad task id" };
-
-  const me = await requireUser();
-
-  let parsed;
-  try {
-    parsed = TransferExternalSchema.parse(input);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Invalid input";
-    return { ok: false, error: "invalid", message: msg };
-  }
-
-  const current = await db.query.tasks.findFirst({
-    where: eq(tasks.id, taskId),
-  });
-  if (!current) return { ok: false, error: "not-found" };
-
-  if (
-    !canTransferExternal({
-      employee: { id: me.id, isAdmin: me.isAdmin },
-      task: {
-        createdById: current.createdById,
-        initiatorId: current.initiatorId,
-        doerId: current.doerId,
-        status: current.status,
-      },
-    })
-  ) {
-    return { ok: false, error: "forbidden" };
-  }
-
-  const expectedDate = new Date(expectedUpdatedAt);
-  if (Number.isNaN(expectedDate.getTime())) {
-    return { ok: false, error: "invalid", message: "Bad expectedUpdatedAt" };
-  }
-
-  // Atomic transfer — UPDATE + audit must commit together.
-  const now = new Date();
-  const stale = await db.transaction(async (tx) => {
-    const u = await tx
-      .update(tasks)
-      .set({ status: "transferred" as const, updatedAt: now })
-      .where(and(eq(tasks.id, taskId), optimisticLockMatches(expectedDate)))
-      .returning({ id: tasks.id });
-    if (u.length === 0) return true;
-    await tx.insert(taskEvents).values({
-      taskId,
-      actorId: me.id,
-      eventType: "transferred_external",
-      fromValue: { status: current.status },
-      toValue: { status: "transferred" },
-      note: parsed.note,
-    });
-    return false;
-  });
-  if (stale) return { ok: false, error: "stale" };
-
-  // Fan-out: every participant (creator/initiator/doer minus me).
-  const label = taskLabel({ subject: current.subject, title: current.title });
-  await notifyManyForTask(taskId, {
-    actorId: me.id,
-    kind: "transferred",
-    title: `${me.name} transferred '${label}' externally`,
-    body: parsed.note,
-    recipients: [current.createdById, current.initiatorId, current.doerId],
-  });
-
-  revalidateTaskRoutes();
-  revalidatePath(`/tasks/${taskId}`);
-  return { ok: true };
-}
-
-/**
- * Cancel the task — terminates without external transfer.
- * - Permission: initiator OR admin, status must be non-terminal.
- * - Optimistic-lock: caller passes expectedUpdatedAt.
- * - Side effect: writes a `status_changed` task_events row with optional
- *   note.  (Cancellation is treated as a status transition, not a separate
- *   event type, since the matrix already models it.)
- */
-export async function cancelTask(
-  taskId: string,
-  input: CancelInput,
-  expectedUpdatedAt: string,
-): Promise<
-  | { ok: true }
-  | {
-      ok: false;
-      error: "invalid" | "not-found" | "forbidden" | "stale";
-      message?: string;
-    }
-> {
-  if (!isUuid(taskId)) return { ok: false, error: "invalid", message: "Bad task id" };
-
-  const me = await requireUser();
-
-  let parsed;
-  try {
-    parsed = CancelSchema.parse(input);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Invalid input";
-    return { ok: false, error: "invalid", message: msg };
-  }
-
-  const current = await db.query.tasks.findFirst({
-    where: eq(tasks.id, taskId),
-  });
-  if (!current) return { ok: false, error: "not-found" };
-
-  if (
-    !canCancel({
-      employee: { id: me.id, isAdmin: me.isAdmin },
-      task: {
-        createdById: current.createdById,
-        initiatorId: current.initiatorId,
-        doerId: current.doerId,
-        status: current.status,
-      },
-    })
-  ) {
-    return { ok: false, error: "forbidden" };
-  }
-
-  const expectedDate = new Date(expectedUpdatedAt);
-  if (Number.isNaN(expectedDate.getTime())) {
-    return { ok: false, error: "invalid", message: "Bad expectedUpdatedAt" };
-  }
-
-  // Atomic cancel — UPDATE + audit must commit together.
-  const now = new Date();
-  const stale = await db.transaction(async (tx) => {
-    const u = await tx
-      .update(tasks)
-      .set({ status: "cancelled" as const, updatedAt: now })
-      .where(and(eq(tasks.id, taskId), optimisticLockMatches(expectedDate)))
-      .returning({ id: tasks.id });
-    if (u.length === 0) return true;
-    await tx.insert(taskEvents).values({
-      taskId,
-      actorId: me.id,
-      eventType: "status_changed",
-      fromValue: { status: current.status },
-      toValue: { status: "cancelled" },
-      note: parsed.note?.trim() || null,
-    });
-    return false;
-  });
-  if (stale) return { ok: false, error: "stale" };
-
-  // Fan-out: every participant.
-  const label = taskLabel({ subject: current.subject, title: current.title });
-  await notifyManyForTask(taskId, {
-    actorId: me.id,
-    kind: "cancelled",
-    title: `${me.name} cancelled '${label}'`,
-    body: parsed.note?.trim() || null,
-    recipients: [current.createdById, current.initiatorId, current.doerId],
-  });
-
   revalidateTaskRoutes();
   revalidatePath(`/tasks/${taskId}`);
   return { ok: true };

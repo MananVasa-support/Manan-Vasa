@@ -9,15 +9,12 @@ import {
   X,
   Users,
   ArrowUpRight,
-  Ban,
   Pencil,
   ChevronRight,
 } from "lucide-react";
 import { approveTask } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
 import { ReassignDialog } from "./reassign-dialog";
-import { TransferExternalDialog } from "./transfer-external-dialog";
-import { CancelDialog } from "./cancel-dialog";
 
 interface Props {
   taskId: string;
@@ -27,8 +24,6 @@ interface Props {
   canEdit: boolean;
   canApproveTask: boolean;
   canReassignTask: boolean;
-  canTransferTaskExternal: boolean;
-  canCancelTask: boolean;
   /** When the user clicks Edit (left column). */
   onStartEdit: () => void;
   /** Dialog hash open-state from the wrapper. */
@@ -36,10 +31,6 @@ interface Props {
   setApproveOpen: (next: boolean) => void;
   reassignOpen: boolean;
   setReassignOpen: (next: boolean) => void;
-  transferOpen: boolean;
-  setTransferOpen: (next: boolean) => void;
-  cancelOpen: boolean;
-  setCancelOpen: (next: boolean) => void;
   /** Viewer's relationship to the task — drives the role banner above
    *  the action cards. `null` = neither doer nor initiator. */
   myRole: "doer" | "initiator" | "both" | null;
@@ -64,17 +55,11 @@ export function ActionRail({
   canEdit,
   canApproveTask,
   canReassignTask,
-  canTransferTaskExternal,
-  canCancelTask,
   onStartEdit,
   approveOpen,
   setApproveOpen,
   reassignOpen,
   setReassignOpen,
-  transferOpen,
-  setTransferOpen,
-  cancelOpen,
-  setCancelOpen,
   myRole,
   adminOverride,
 }: Props) {
@@ -175,34 +160,6 @@ export function ActionRail({
           subtext="Hand the doer role to someone else."
           tone="ink"
           onClick={() => setReassignOpen(true)}
-          disabled={pending}
-        />
-      ),
-    },
-    {
-      key: "transfer",
-      visible: canTransferTaskExternal,
-      node: (
-        <ActionCard
-          icon={<ArrowUpRight size={16} strokeWidth={2.4} />}
-          label="Transfer externally"
-          subtext="Hand off to a vendor or external party."
-          tone="purple"
-          onClick={() => setTransferOpen(true)}
-          disabled={pending}
-        />
-      ),
-    },
-    {
-      key: "cancel",
-      visible: canCancelTask,
-      node: (
-        <ActionCard
-          icon={<Ban size={16} strokeWidth={2.4} />}
-          label="Cancel task"
-          subtext="Close without completing the work."
-          tone="rose"
-          onClick={() => setCancelOpen(true)}
           disabled={pending}
         />
       ),
@@ -322,9 +279,9 @@ export function ActionRail({
         </Dialog.Portal>
       </Dialog.Root>
 
-      {/* Reassign / Transfer / Cancel dialogs.  Their hidden triggers stay
-          out of the layout via display:none — open-state is fully driven
-          by the cards above and the hash-open effect in the wrapper. */}
+      {/* Reassign dialog.  Its hidden trigger stays out of the layout via
+          display:none — open-state is fully driven by the card above and the
+          hash-open effect in the wrapper. */}
       {canReassignTask && (
         <ReassignDialog
           taskId={taskId}
@@ -333,24 +290,6 @@ export function ActionRail({
           employees={employees}
           open={reassignOpen}
           onOpenChange={setReassignOpen}
-          renderTrigger={false}
-        />
-      )}
-      {canTransferTaskExternal && (
-        <TransferExternalDialog
-          taskId={taskId}
-          expectedUpdatedAt={expectedUpdatedAt}
-          open={transferOpen}
-          onOpenChange={setTransferOpen}
-          renderTrigger={false}
-        />
-      )}
-      {canCancelTask && (
-        <CancelDialog
-          taskId={taskId}
-          expectedUpdatedAt={expectedUpdatedAt}
-          open={cancelOpen}
-          onOpenChange={setCancelOpen}
           renderTrigger={false}
         />
       )}
@@ -395,7 +334,7 @@ function RoleBanner({
       tone: "purple",
       icon: <ArrowUpRight size={13} strokeWidth={2.6} />,
       label: "Initiator",
-      detail: "Approve, decline, reassign, transfer, cancel.",
+      detail: "Approve, decline, reassign.",
     });
   }
   if (!role && adminOverride) {
