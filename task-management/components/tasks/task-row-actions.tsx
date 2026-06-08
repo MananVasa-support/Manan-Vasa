@@ -34,6 +34,8 @@ import type { TaskListRow } from "@/lib/types";
 import {
   canApprove,
   canReassign,
+  canTransferExternal,
+  canCancel,
 } from "@/lib/auth/task-permissions";
 
 interface Props {
@@ -247,6 +249,10 @@ export function TaskRowActions({ row, employees, me }: Props) {
             items.push({ label: "Approve / Decline…", href: `/tasks/${row.id}#approve` });
           if (canReassign(permInput))
             items.push({ label: "Reassign…", href: `/tasks/${row.id}#reassign` });
+          if (canTransferExternal(permInput))
+            items.push({ label: "Transfer externally…", href: `/tasks/${row.id}#transfer` });
+          if (canCancel(permInput))
+            items.push({ label: "Cancel task…", href: `/tasks/${row.id}#cancel` });
           if (items.length === 0) return null;
           return (
             <>

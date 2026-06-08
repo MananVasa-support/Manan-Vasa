@@ -21,8 +21,6 @@ import {
   Repeat,
   Tag,
   Pencil,
-  Archive,
-  ArchiveRestore,
 } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -34,12 +32,12 @@ import { CommentInput } from "./comment-input";
 import type { TaskDetail as TaskDetailModel } from "@/lib/queries/tasks";
 import type { AuditFeedRow } from "@/lib/queries/audit";
 import {
-  ADMIN_TASK_STATUSES,
+  TASK_STATUSES,
   USER_TASK_STATUSES,
   type TaskStatus,
   type StatusColorToken,
 } from "@/db/enums";
-import { setTaskStatus, archiveTask, unarchiveTask } from "@/app/(app)/tasks/actions";
+import { setTaskStatus } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
 import { STATUS_TONES_FALLBACK } from "@/lib/format";
 
@@ -48,6 +46,8 @@ interface Props {
   canEdit: boolean;
   canApproveTask: boolean;
   canReassignTask: boolean;
+  canTransferTaskExternal: boolean;
+  canCancelTask: boolean;
   canCommentOnTask: boolean;
   events: AuditFeedRow[];
   employees: { id: string; name: string }[];
@@ -211,6 +211,8 @@ export function TaskDetailView({
   canEdit,
   canApproveTask,
   canReassignTask,
+  canTransferTaskExternal,
+  canCancelTask,
   canCommentOnTask,
   events,
   employees,
@@ -224,6 +226,8 @@ export function TaskDetailView({
   const [editing, setEditing] = useState(false);
   const [approveOpen, setApproveOpen] = useState(false);
   const [reassignOpen, setReassignOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const expectedUpdatedAt = task.updatedAt.toISOString();
 
   // Hash-driven dialog open — preserves the row-action menu deep-links.
@@ -237,6 +241,12 @@ export function TaskDetailView({
       opened = true;
     } else if (hash === "#reassign" && canReassignTask) {
       setReassignOpen(true);
+      opened = true;
+    } else if (hash === "#transfer" && canTransferTaskExternal) {
+      setTransferOpen(true);
+      opened = true;
+    } else if (hash === "#cancel" && canCancelTask) {
+      setCancelOpen(true);
       opened = true;
     }
     if (opened) {
@@ -272,7 +282,9 @@ export function TaskDetailView({
   const anyAction =
     canEdit ||
     canApproveTask ||
-    canReassignTask;
+    canReassignTask ||
+    canTransferTaskExternal ||
+    canCancelTask;
 
   // Approval timestamp surfaced only when the task is approved/declined.
   const approvedRelative =
@@ -282,17 +294,18 @@ export function TaskDetailView({
 
   return (
     <div className="relative">
-      {/* Plain background (sir's changes #11) — the decorative "constellation"
-          dots/lines on the left edge were removed; a faint radial wash stays
-          for a touch of depth without distracting from the content. */}
+      {/* Ambient backdrop — soft radial wash + a decorative constellation
+          pattern on the left edge (echoes the design comp).  Both layers
+          are decorative, behind the content, never interactive. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
           background:
-            "radial-gradient(ellipse 38% 60% at 92% 10%, rgba(225, 6, 0, 0.04), transparent 65%)",
+            "radial-gradient(ellipse 38% 60% at 92% 10%, rgba(225, 6, 0, 0.06), transparent 65%), radial-gradient(ellipse 30% 50% at 105% 60%, rgba(168, 85, 247, 0.06), transparent 65%)",
         }}
       />
+      <ConstellationBackdrop />
 
       {/* TOP HEADER STRIP — back/forward affordance, status, priority pill
           on the left; Focus / Duplicate / Edit Task on the right.  Sits
@@ -541,11 +554,6 @@ export function TaskDetailView({
                   value={PRIORITY_LABEL_SHORT[task.priority] ?? task.priority}
                 />
               </div>
-              {/* Archive / Unarchive — sir's changes #11: manage the task's
-                  archived state right here, no need to go to the list. */}
-              {canCommentOnTask && (
-                <ArchiveToggle taskId={task.id} archived={task.archived} />
-              )}
             </section>
 
             {/* (2) Action rail */}
@@ -562,11 +570,17 @@ export function TaskDetailView({
                   canEdit={canEdit && !editing}
                   canApproveTask={canApproveTask}
                   canReassignTask={canReassignTask}
+                  canTransferTaskExternal={canTransferTaskExternal}
+                  canCancelTask={canCancelTask}
                   onStartEdit={() => setEditing(true)}
                   approveOpen={approveOpen}
                   setApproveOpen={setApproveOpen}
                   reassignOpen={reassignOpen}
                   setReassignOpen={setReassignOpen}
+                  transferOpen={transferOpen}
+                  setTransferOpen={setTransferOpen}
+                  cancelOpen={cancelOpen}
+                  setCancelOpen={setCancelOpen}
                   myRole={myRole}
                   adminOverride={!myRole && !!me?.isAdmin}
                 />
@@ -629,7 +643,7 @@ function InteractiveStatusPill({
 
   const t = STATUS_TONE[shown];
   const options: readonly TaskStatus[] = isAdmin
-    ? ADMIN_TASK_STATUSES
+    ? TASK_STATUSES
     : USER_TASK_STATUSES;
 
   function pick(next: TaskStatus) {
@@ -820,41 +834,81 @@ function MetaRow({
 }
 
 /**
- * Archive / Unarchive toggle for the task detail right rail (sir's changes
- * #11). Optimistic-free but snappy — disables while the action is in flight,
- * toasts the outcome, and refreshes so the rest of the page reflects it.
+ * Decorative SVG constellation pattern anchored to the left edge of the
+ * page.  Pure visual — never interactive.  Mirrors the design comp where
+ * a soft network of dots-and-lines fills the negative space outside the
+ * content column.  Opacity tuned low so it never competes with the doc.
  */
-function ArchiveToggle({ taskId, archived }: { taskId: string; archived: boolean }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  function toggle() {
-    startTransition(async () => {
-      const res = archived ? await unarchiveTask(taskId) : await archiveTask(taskId);
-      if (!res.ok) {
-        fireToast({ message: res.error || "Action failed." });
-        return;
-      }
-      fireToast({ message: archived ? "Restored from archive." : "Task archived." });
-      router.refresh();
-    });
-  }
+function ConstellationBackdrop() {
+  const nodes = [
+    [40, 80],
+    [120, 200],
+    [60, 320],
+    [180, 380],
+    [80, 480],
+    [160, 560],
+    [40, 660],
+    [140, 760],
+    [100, 880],
+    [50, 1000],
+  ] as const;
+  const lines = [
+    [0, 1],
+    [1, 2],
+    [1, 3],
+    [2, 3],
+    [3, 4],
+    [4, 5],
+    [5, 6],
+    [5, 7],
+    [7, 8],
+    [8, 9],
+  ] as const;
   return (
-    <div className="mt-4 pt-4 border-t border-hairline">
-      <button
-        type="button"
-        onClick={toggle}
-        disabled={pending}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-chip border border-hairline px-3.5 py-2.5 text-[14px] font-semibold text-ink-strong transition-colors hover:bg-surface-soft disabled:opacity-60"
+    <div
+      aria-hidden
+      className="pointer-events-none absolute -z-10 max-lg:hidden"
+      style={{
+        top: 0,
+        left: -240,
+        width: 240,
+        height: "100%",
+        opacity: 0.45,
+      }}
+    >
+      <svg
+        width="240"
+        height="1080"
+        viewBox="0 0 240 1080"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
       >
-        {pending ? (
-          <Loader2 size={15} className="animate-spin" />
-        ) : archived ? (
-          <ArchiveRestore size={15} strokeWidth={2.2} />
-        ) : (
-          <Archive size={15} strokeWidth={2.2} />
-        )}
-        {archived ? "Restore from archive" : "Archive task"}
-      </button>
+        {lines.map(([a, b], i) => {
+          const A = nodes[a];
+          const B = nodes[b];
+          if (!A || !B) return null;
+          return (
+            <line
+              key={i}
+              x1={A[0]}
+              y1={A[1]}
+              x2={B[0]}
+              y2={B[1]}
+              stroke="rgba(15, 23, 42, 0.18)"
+              strokeWidth={1}
+            />
+          );
+        })}
+        {nodes.map(([x, y], i) => (
+          <circle
+            key={i}
+            cx={x}
+            cy={y}
+            r={3}
+            fill="rgba(15, 23, 42, 0.45)"
+          />
+        ))}
+      </svg>
     </div>
   );
 }

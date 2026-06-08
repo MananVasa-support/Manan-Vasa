@@ -30,7 +30,6 @@ const DEFAULTS: OrgSettings = {
     commented:      ["email", "slack", "whatsapp", "push"],
     overdue_digest: ["email"],
   },
-  boardColumnOrder: null,
   updatedAt: new Date(0),
   updatedById: null,
 };

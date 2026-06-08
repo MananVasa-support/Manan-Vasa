@@ -14,10 +14,7 @@ import {
   User,
   FileText,
   FileSpreadsheet,
-  Upload,
 } from "lucide-react";
-import Link from "next/link";
-import type { Route } from "next";
 import { motion } from "motion/react";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { DepartmentFilter } from "./filters/department-filter";
@@ -342,17 +339,6 @@ export function FilterBar({
           </div>
 
           <div className="ml-auto flex items-center gap-2.5 max-sm:ml-0 max-sm:w-full max-sm:flex-wrap">
-            {/* Import tasks from CSV/XLSX — admin-only, on the task list. */}
-            {(pathname === "/tasks" || pathname === "/archived") && me?.isAdmin && (
-              <Link
-                href={"/tasks/import" as Route}
-                className="inline-flex items-center gap-1.5 text-chip font-medium text-ink-strong hover:bg-surface-soft transition-colors px-3 py-2 rounded-chip border border-hairline bg-surface-card"
-                title="Bulk-import tasks from a CSV or Excel file"
-              >
-                <Upload size={14} strokeWidth={2} style={{ color: "var(--color-altus-red)" }} />
-                Import
-              </Link>
-            )}
             {/* Export current view — admin-only, shown on the task list
                 views. XLS for spreadsheet workflows, PDF for sharing /
                 archival. The CSV export route still exists at

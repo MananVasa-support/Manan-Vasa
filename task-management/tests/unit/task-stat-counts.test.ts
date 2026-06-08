@@ -28,7 +28,7 @@ describe("computeStatCounts", () => {
   });
 
   it("counts pending statuses", () => {
-    const rows = [row({ status: "not_started" }), row({ status: "follow_up" }), row({ status: "done" })];
+    const rows = [row({ status: "not_started" }), row({ status: "follow_up_1" }), row({ status: "done" })];
     expect(computeStatCounts(rows).pending).toBe(2);
   });
 
@@ -53,7 +53,7 @@ describe("computeStatCounts", () => {
   it("notRead = pending status AND firstReadAt null only", () => {
     const rows = [
       row({ status: "not_started", firstReadAt: null }),
-      row({ status: "follow_up", firstReadAt: null }),
+      row({ status: "follow_up_2", firstReadAt: null }),
       row({ status: "not_started", firstReadAt: new Date() }),
       row({ status: "done", firstReadAt: null }),
     ];

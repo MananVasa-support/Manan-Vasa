@@ -3,28 +3,23 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Users, X } from "lucide-react";
-import { reassignTask } from "@/app/(app)/tasks/actions";
+import { Ban, X } from "lucide-react";
+import { cancelTask } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
 
 interface Props {
   taskId: string;
-  currentDoerId: string;
   expectedUpdatedAt: string;
-  employees: { id: string; name: string }[];
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   /** When false the visible trigger button is omitted; open-state is
-   *  driven entirely by the controlled `open` prop.  Used by the
-   *  showcase right-rail action cards. */
+   *  driven entirely by the controlled `open` prop. */
   renderTrigger?: boolean;
 }
 
-export function ReassignDialog({
+export function CancelDialog({
   taskId,
-  currentDoerId,
   expectedUpdatedAt,
-  employees,
   open: openProp,
   onOpenChange,
   renderTrigger = true,
@@ -37,47 +32,34 @@ export function ReassignDialog({
     if (onOpenChange) onOpenChange(next);
     else setInternalOpen(next);
   };
-  const [newDoerId, setNewDoerId] = useState("");
-  const [resetStatus, setResetStatus] = useState(false);
+  const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!newDoerId) {
-      setError("Pick a new doer.");
-      return;
-    }
-    if (newDoerId === currentDoerId) {
-      setError("That's already the current doer.");
-      return;
-    }
     startTransition(async () => {
-      const result = await reassignTask(
+      const result = await cancelTask(
         taskId,
-        { newDoerId, resetStatus },
+        { note: note.trim() || undefined },
         expectedUpdatedAt,
       );
       if (!result.ok) {
         if (result.error === "stale") {
           setError("Task changed by someone else. Reload first.");
         } else if (result.error === "forbidden") {
-          setError("You don't have permission to reassign.");
+          setError("You don't have permission to cancel.");
         } else {
           setError(result.message ?? "Action failed.");
         }
         return;
       }
-      fireToast({ message: "Task reassigned." });
+      fireToast({ message: "Task cancelled." });
       setOpen(false);
-      setNewDoerId("");
-      setResetStatus(false);
+      setNote("");
       router.refresh();
     });
   }
-
-  // Filter the current doer out of the picker.
-  const options = employees.filter((e) => e.id !== currentDoerId);
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -87,8 +69,8 @@ export function ReassignDialog({
             type="button"
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-[14px] font-medium border border-hairline bg-surface-card text-ink-strong hover:bg-surface-soft"
           >
-            <Users size={15} strokeWidth={2.2} />
-            Reassign
+            <Ban size={15} strokeWidth={2.2} />
+            Cancel task
           </button>
         </Dialog.Trigger>
       )}
@@ -98,15 +80,15 @@ export function ReassignDialog({
           style={{ background: "rgba(15, 23, 42, 0.45)", backdropFilter: "blur(4px)" }}
         />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 z-[70] w-[min(520px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-section border border-hairline bg-surface-card p-6 shadow-xl"
+          className="fixed left-1/2 top-1/2 z-[70] w-[min(480px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-section border border-hairline bg-surface-card p-6 shadow-xl"
         >
           <div className="flex items-start justify-between mb-4">
             <div>
               <Dialog.Title className="text-display-md text-ink-strong">
-                Reassign task
+                Cancel this task?
               </Dialog.Title>
               <Dialog.Description className="text-[15px] text-ink-subtle mt-1.5" style={{ lineHeight: 1.5 }}>
-                Pick the new doer. You can optionally reset the status to "Not Started".
+                The task moves to "Cancelled" permanently. Add an optional note for the audit log.
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
@@ -122,32 +104,18 @@ export function ReassignDialog({
 
           <form onSubmit={submit} className="grid grid-cols-1 gap-4">
             <div>
-              <label htmlFor="rd-doer" className="block text-[14px] font-semibold text-ink-strong mb-1.5">
-                New doer <span className="text-rose">*</span>
+              <label htmlFor="cd-note" className="block text-[14px] font-semibold text-ink-strong mb-1.5">
+                Note (optional)
               </label>
-              <select
-                id="rd-doer"
-                required
-                value={newDoerId}
-                onChange={(e) => setNewDoerId(e.target.value)}
-                className="w-full rounded-md border border-hairline px-3.5 py-3 text-[15px] bg-white"
-              >
-                <option value="">Select an employee…</option>
-                {options.map((e) => (
-                  <option key={e.id} value={e.id}>{e.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <label className="flex items-center gap-2.5 text-[15px] text-ink-strong cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={resetStatus}
-                onChange={(e) => setResetStatus(e.target.checked)}
-                className="h-4 w-4"
+              <textarea
+                id="cd-note"
+                rows={3}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="w-full rounded-md border border-hairline px-3.5 py-3 text-[15px] bg-white resize-y"
+                placeholder="Why is this being cancelled?"
               />
-              Reset status to "Not Started"
-            </label>
+            </div>
 
             {error && (
               <p className="text-[14px]" style={{ color: "var(--color-red-deep)" }}>{error}</p>
@@ -160,7 +128,7 @@ export function ReassignDialog({
                   disabled={pending}
                   className="px-5 py-2.5 rounded-md text-[14px] font-medium border border-hairline bg-surface-soft text-ink-strong disabled:opacity-50"
                 >
-                  Cancel
+                  Keep open
                 </button>
               </Dialog.Close>
               <button
@@ -169,10 +137,10 @@ export function ReassignDialog({
                 className="px-5 py-2.5 rounded-md text-[14px] font-medium text-white disabled:opacity-50"
                 style={{
                   background:
-                    "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+                    "linear-gradient(135deg, var(--color-rose), var(--color-rose-deep))",
                 }}
               >
-                {pending ? "Saving…" : "Reassign"}
+                {pending ? "Cancelling…" : "Cancel task"}
               </button>
             </div>
           </form>

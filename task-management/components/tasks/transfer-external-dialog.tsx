@@ -3,28 +3,23 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Users, X } from "lucide-react";
-import { reassignTask } from "@/app/(app)/tasks/actions";
+import { ArrowUpRight, X } from "lucide-react";
+import { transferTaskExternal } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
 
 interface Props {
   taskId: string;
-  currentDoerId: string;
   expectedUpdatedAt: string;
-  employees: { id: string; name: string }[];
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   /** When false the visible trigger button is omitted; open-state is
-   *  driven entirely by the controlled `open` prop.  Used by the
-   *  showcase right-rail action cards. */
+   *  driven entirely by the controlled `open` prop. */
   renderTrigger?: boolean;
 }
 
-export function ReassignDialog({
+export function TransferExternalDialog({
   taskId,
-  currentDoerId,
   expectedUpdatedAt,
-  employees,
   open: openProp,
   onOpenChange,
   renderTrigger = true,
@@ -37,47 +32,38 @@ export function ReassignDialog({
     if (onOpenChange) onOpenChange(next);
     else setInternalOpen(next);
   };
-  const [newDoerId, setNewDoerId] = useState("");
-  const [resetStatus, setResetStatus] = useState(false);
+  const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!newDoerId) {
-      setError("Pick a new doer.");
-      return;
-    }
-    if (newDoerId === currentDoerId) {
-      setError("That's already the current doer.");
+    if (!note.trim()) {
+      setError("A reason is required for external transfers.");
       return;
     }
     startTransition(async () => {
-      const result = await reassignTask(
+      const result = await transferTaskExternal(
         taskId,
-        { newDoerId, resetStatus },
+        { note: note.trim() },
         expectedUpdatedAt,
       );
       if (!result.ok) {
         if (result.error === "stale") {
           setError("Task changed by someone else. Reload first.");
         } else if (result.error === "forbidden") {
-          setError("You don't have permission to reassign.");
+          setError("You don't have permission to transfer this task.");
         } else {
           setError(result.message ?? "Action failed.");
         }
         return;
       }
-      fireToast({ message: "Task reassigned." });
+      fireToast({ message: "Task transferred externally." });
       setOpen(false);
-      setNewDoerId("");
-      setResetStatus(false);
+      setNote("");
       router.refresh();
     });
   }
-
-  // Filter the current doer out of the picker.
-  const options = employees.filter((e) => e.id !== currentDoerId);
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -87,8 +73,8 @@ export function ReassignDialog({
             type="button"
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-[14px] font-medium border border-hairline bg-surface-card text-ink-strong hover:bg-surface-soft"
           >
-            <Users size={15} strokeWidth={2.2} />
-            Reassign
+            <ArrowUpRight size={15} strokeWidth={2.2} />
+            Transfer externally
           </button>
         </Dialog.Trigger>
       )}
@@ -103,10 +89,11 @@ export function ReassignDialog({
           <div className="flex items-start justify-between mb-4">
             <div>
               <Dialog.Title className="text-display-md text-ink-strong">
-                Reassign task
+                Transfer externally
               </Dialog.Title>
               <Dialog.Description className="text-[15px] text-ink-subtle mt-1.5" style={{ lineHeight: 1.5 }}>
-                Pick the new doer. You can optionally reset the status to "Not Started".
+                Use this when the work leaves the system (handed off to an external party).
+                The task moves to &quot;Transferred&quot; permanently.
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
@@ -122,32 +109,19 @@ export function ReassignDialog({
 
           <form onSubmit={submit} className="grid grid-cols-1 gap-4">
             <div>
-              <label htmlFor="rd-doer" className="block text-[14px] font-semibold text-ink-strong mb-1.5">
-                New doer <span className="text-rose">*</span>
+              <label htmlFor="te-note" className="block text-[14px] font-semibold text-ink-strong mb-1.5">
+                Reason <span className="text-rose">*</span>
               </label>
-              <select
-                id="rd-doer"
+              <textarea
+                id="te-note"
+                rows={3}
                 required
-                value={newDoerId}
-                onChange={(e) => setNewDoerId(e.target.value)}
-                className="w-full rounded-md border border-hairline px-3.5 py-3 text-[15px] bg-white"
-              >
-                <option value="">Select an employee…</option>
-                {options.map((e) => (
-                  <option key={e.id} value={e.id}>{e.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <label className="flex items-center gap-2.5 text-[15px] text-ink-strong cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={resetStatus}
-                onChange={(e) => setResetStatus(e.target.checked)}
-                className="h-4 w-4"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="w-full rounded-md border border-hairline px-3.5 py-3 text-[15px] bg-white resize-y"
+                placeholder="Where is this going and why?"
               />
-              Reset status to "Not Started"
-            </label>
+            </div>
 
             {error && (
               <p className="text-[14px]" style={{ color: "var(--color-red-deep)" }}>{error}</p>
@@ -169,10 +143,10 @@ export function ReassignDialog({
                 className="px-5 py-2.5 rounded-md text-[14px] font-medium text-white disabled:opacity-50"
                 style={{
                   background:
-                    "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+                    "linear-gradient(135deg, var(--color-purple), var(--color-purple-deep))",
                 }}
               >
-                {pending ? "Saving…" : "Reassign"}
+                {pending ? "Transferring…" : "Transfer"}
               </button>
             </div>
           </form>

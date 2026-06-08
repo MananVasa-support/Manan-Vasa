@@ -3,9 +3,6 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { ImagePlus, Link2, Plus, X, FileImage, Check } from "lucide-react";
 import {
   TASK_PRIORITIES,
@@ -48,22 +45,6 @@ interface Props {
 const DEFAULT_PRIORITY: TaskPriority = "not_imp_not_urgent";
 const MEDIA_SLOT_COUNT = 4;
 
-// react-hook-form + zod own the validated core fields. Complex/auxiliary
-// widgets (tags, schedule, media, links) stay in local state and are folded
-// into the payload at submit — same shape createTask has always received.
-const NewTaskSchema = z.object({
-  title: z.string().trim().min(1, "Client name is required"),
-  initiatorId: z.string().min(1, "Initiator is required"),
-  doerIds: z.array(z.string()).min(1, "Pick at least one Doer"),
-  priority: z.enum(TASK_PRIORITIES),
-  dueAt: z.string().min(1, "Due date is required"),
-  subject: z.string().trim().min(1, "Subject is required"),
-  description: z.string().trim().min(1, "Task Description is required"),
-  notes: z.string(),
-  projectNodeId: z.string(),
-});
-type NewTaskFormValues = z.infer<typeof NewTaskSchema>;
-
 // Media slots are UI-only for now — files live in component state and
 // aren't uploaded anywhere. The Links section is wired: URLs get
 // appended to the `notes` payload on submit ("Links:\n- ..."), so they
@@ -77,33 +58,18 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
 
-  // Default due: 1 day after the entry date.
-  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
-
-  const {
-    register,
-    control,
-    handleSubmit,
-    watch,
-    formState: { errors },
-  } = useForm<NewTaskFormValues>({
-    resolver: zodResolver(NewTaskSchema),
-    defaultValues: {
-      title: defaults?.title ?? "",
-      initiatorId: defaults?.initiatorId ?? "",
-      doerIds: defaults?.doerId ? [defaults.doerId] : [],
-      priority: defaults?.priority ?? DEFAULT_PRIORITY,
-      dueAt: tomorrow,
-      subject: defaults?.subject ?? "",
-      description: defaults?.description ?? "",
-      notes: defaults?.notes ?? "",
-      projectNodeId: defaults?.projectNodeId ?? "",
-    },
-  });
-
-  // Auxiliary widgets — local state, folded into the payload at submit.
+  const [title, setTitle] = React.useState(defaults?.title ?? "");
+  const [description, setDesc] = React.useState(defaults?.description ?? "");
+  const [subject, setSubject] = React.useState(defaults?.subject ?? "");
+  const [notes, setNotes] = React.useState(defaults?.notes ?? "");
+  const [projectNodeId, setProjectNodeId] = React.useState(defaults?.projectNodeId ?? "");
+  const [doerIds, setDoerIds] = React.useState<string[]>(
+    defaults?.doerId ? [defaults.doerId] : [],
+  );
+  const [initiatorId, setInit] = React.useState(defaults?.initiatorId ?? "");
+  const [priority, setPriority] = React.useState<TaskPriority>(
+    defaults?.priority ?? DEFAULT_PRIORITY,
+  );
   const [tags, setTags] = React.useState<string[]>([]);
   const [tagInput, setTagInput] = React.useState("");
   const [schedule, setSchedule] = React.useState<ScheduleValue>({
@@ -113,14 +79,16 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
     recurrence: null,
     recurrenceRule: null,
   });
+  // Default due: 1 day after the entry date.
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const [dueAt, setDueAt] = React.useState(
+    tomorrow.toISOString().slice(0, 10),
+  );
+
   const [media, setMedia] = React.useState<PreviewFile[]>([]);
   const [linkInput, setLinkInput] = React.useState("");
   const [links, setLinks] = React.useState<string[]>([]);
-  // Server-side error from createTask (field validation is handled by RHF/zod).
   const [error, setError] = React.useState<string | null>(null);
-
-  const doerCount = watch("doerIds").length;
-  const tagsCount = tags.length;
 
   // Release object-URLs the moment the dialog tears down so we don't
   // leak blobs into the document for the rest of the session.
@@ -167,19 +135,33 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
     setLinks((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  const submit = handleSubmit((values) => {
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
     setError(null);
+    if (doerIds.length === 0 || !initiatorId) {
+      setError("Pick at least one Doer and an Initiator.");
+      return;
+    }
+    if (!subject) {
+      setError("Subject is required.");
+      return;
+    }
+    if (!description.trim()) {
+      setError("Task Description is required.");
+      return;
+    }
     // The <input type="date"> gives YYYY-MM-DD; convert to ISO at noon UTC
     // so timezone wrap-arounds don't push the due into the wrong day.
-    const dueIso = new Date(`${values.dueAt}T12:00:00.000Z`).toISOString();
+    const dueIso = new Date(`${dueAt}T12:00:00.000Z`).toISOString();
 
-    // Stamp link URLs onto the notes payload — they survive into the task
-    // record so the team can click through later. Media files are UI-only.
+    // Stamp link URLs onto the notes payload — they survive into the
+    // task record so the team can click through later. Media files are
+    // UI-only for now (blob backend not wired yet).
     const linksBlock =
       links.length > 0
         ? `\n\nLinks:\n${links.map((l) => `- ${l}`).join("\n")}`
         : "";
-    const composedNotes = (values.notes + linksBlock).trim() || null;
+    const composedNotes = (notes + linksBlock).trim() || null;
 
     // Commit any pending tag text the user hasn't pressed Enter on yet.
     const pendingTag = tagInput.trim();
@@ -188,23 +170,25 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
 
     startTransition(async () => {
       const result = await createTask({
-        title: values.title,
-        doerIds: values.doerIds,       // multi-doer fanout — N tasks if N doers
-        initiatorId: values.initiatorId,
-        priority: values.priority,
+        title,
+        doerIds,                      // multi-doer fanout — N tasks if N doers
+        initiatorId,
+        priority,
         dueAt: dueIso,
-        description: values.description || null,
-        subject: values.subject || null,
+        description: description || null,
+        subject: subject || null,
         notes: composedNotes,
         tags: finalTags.length > 0 ? finalTags : null,
         // Tier-4 — GCal-style scheduling. All fields nullable; only ship
         // values when the user actually filled in the Schedule section.
-        startsAt: schedule.startsAt ? schedule.startsAt.toISOString() : null,
+        startsAt: schedule.startsAt
+          ? schedule.startsAt.toISOString()
+          : null,
         endsAt: schedule.endsAt ? schedule.endsAt.toISOString() : null,
         allDay: schedule.allDay,
         recurrence: schedule.recurrence,
         recurrenceRule: schedule.recurrenceRule,
-        projectNodeId: values.projectNodeId || null,
+        projectNodeId: projectNodeId || null,
       });
       if (!result.ok) {
         setError(result.error);
@@ -219,7 +203,13 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
         router.push("/tasks" as Route);
       }
     });
-  });
+  }
+
+  function toggleDoer(id: string) {
+    setDoerIds((prev) =>
+      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id],
+    );
+  }
 
   function commitTag() {
     const t = tagInput.trim();
@@ -237,21 +227,16 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-6" noValidate>
+    <form onSubmit={onSubmit} className="flex flex-col gap-6">
       {/* Client Name — full width hero field (was: Title) */}
       <Field id="nt-title" label="Client Name" required>
-        <Controller
-          control={control}
-          name="title"
-          render={({ field }) => (
-            <ClientSelect
-              id="nt-title"
-              value={field.value}
-              onChange={field.onChange}
-              clients={clients}
-              className="nt-input"
-            />
-          )}
+        <ClientSelect
+          id="nt-title"
+          required
+          value={title}
+          onChange={setTitle}
+          clients={clients}
+          className="nt-input"
         />
       </Field>
 
@@ -261,7 +246,13 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
           and native date pickers. */}
       <div className="grid grid-cols-4 gap-4 max-md:grid-cols-1 max-md:gap-3">
         <Field id="nt-initiator" label="Initiator" required>
-          <select id="nt-initiator" className="nt-input" {...register("initiatorId")}>
+          <select
+            id="nt-initiator"
+            required
+            value={initiatorId}
+            onChange={(e) => setInit(e.target.value)}
+            className="nt-input"
+          >
             <option value="">Select an employee…</option>
             {employees.map((emp) => (
               <option key={emp.id} value={emp.id}>
@@ -272,29 +263,22 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
         </Field>
         <Field
           id="nt-doer"
-          label={`Doer${doerCount > 1 ? ` · ${doerCount} selected` : ""}`}
+          label={`Doer${doerIds.length > 1 ? ` · ${doerIds.length} selected` : ""}`}
           required
         >
-          <Controller
-            control={control}
-            name="doerIds"
-            render={({ field }) => (
-              <DoerMultiSelect
-                employees={employees}
-                selected={field.value}
-                onToggle={(id) =>
-                  field.onChange(
-                    field.value.includes(id)
-                      ? field.value.filter((d) => d !== id)
-                      : [...field.value, id],
-                  )
-                }
-              />
-            )}
+          <DoerMultiSelect
+            employees={employees}
+            selected={doerIds}
+            onToggle={toggleDoer}
           />
         </Field>
         <Field id="nt-priority" label="Priority">
-          <select id="nt-priority" className="nt-input" {...register("priority")}>
+          <select
+            id="nt-priority"
+            value={priority}
+            onChange={(e) => setPriority(e.target.value as TaskPriority)}
+            className="nt-input"
+          >
             {TASK_PRIORITIES.map((p) => (
               <option key={p} value={p}>
                 {PRIORITY_LABELS[p]}
@@ -303,26 +287,28 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
           </select>
         </Field>
         <Field id="nt-due" label="Due Date" required>
-          <input id="nt-due" type="date" className="nt-input" {...register("dueAt")} />
+          <input
+            id="nt-due"
+            type="date"
+            required
+            value={dueAt}
+            onChange={(e) => setDueAt(e.target.value)}
+            className="nt-input"
+          />
         </Field>
       </div>
 
       {/* Subject · Task Description · Initiator Notes — each full-width
           single column, stacked top-to-bottom per spec. */}
       <Field id="nt-subject" label="Subject" required>
-        <Controller
-          control={control}
-          name="subject"
-          render={({ field }) => (
-            <SubjectSelect
-              id="nt-subject"
-              value={field.value}
-              onChange={field.onChange}
-              subjects={subjects}
-              className="nt-input"
-              placeholder="Select a subject…"
-            />
-          )}
+        <SubjectSelect
+          id="nt-subject"
+          required
+          value={subject}
+          onChange={setSubject}
+          subjects={subjects}
+          className="nt-input"
+          placeholder="Select a subject…"
         />
       </Field>
 
@@ -330,10 +316,12 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
         <textarea
           id="nt-desc"
           rows={4}
+          required
+          value={description}
+          onChange={(e) => setDesc(e.target.value)}
           className="nt-input resize-y"
           style={{ fontWeight: 400 }}
           placeholder="What needs to happen, in detail…"
-          {...register("description")}
         />
       </Field>
 
@@ -341,16 +329,17 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
         <textarea
           id="nt-notes"
           rows={3}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
           className="nt-input resize-y"
           style={{ fontWeight: 400 }}
           placeholder="Notes only the team sees…"
-          {...register("notes")}
         />
       </Field>
 
       {/* Tags — free-form chips. Type a tag, hit Enter or comma to commit.
           Stored as text[] on the task; each chip is searchable later. */}
-      <Field id="nt-tags" label={`Tags${tagsCount > 0 ? ` · ${tagsCount}` : ""}`}>
+      <Field id="nt-tags" label={`Tags${tags.length > 0 ? ` · ${tags.length}` : ""}`}>
         <TagsInput
           id="nt-tags"
           tags={tags}
@@ -364,7 +353,12 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
       {/* Project link — optional connection to a Project / Milestone / Result. */}
       {projectNodes.length > 0 && (
         <Field id="nt-project" label="Project">
-          <select id="nt-project" className="nt-input" {...register("projectNodeId")}>
+          <select
+            id="nt-project"
+            value={projectNodeId}
+            onChange={(e) => setProjectNodeId(e.target.value)}
+            className="nt-input"
+          >
             <option value="">Not linked to a project</option>
             {projectNodes.map((n) => (
               <option key={n.id} value={n.id}>
@@ -395,12 +389,12 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
         />
       </div>
 
-      {(error || Object.values(errors)[0]?.message) && (
+      {error && (
         <p
           className="font-semibold"
           style={{ fontSize: 14, color: "var(--color-red-deep)" }}
         >
-          {error ?? (Object.values(errors)[0]?.message as string)}
+          {error}
         </p>
       )}
 

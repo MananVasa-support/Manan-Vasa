@@ -37,14 +37,10 @@ const PRIORITY_PILL: Record<
  */
 export function TaskDetail({ task }: { task: TaskDetailModel }) {
   const eyebrow = PRIORITY_PILL[task.priority];
-  // sir's changes #11 — the HERO is the task itself (its description = the
-  // work to do), not the client name. The form writes Client Name into both
-  // `title` and `client`, so the client gets its own clearly-labelled field
-  // below the hero instead of dominating as the headline.
-  const description = task.description?.trim() || null;
-  const clientName = task.client?.trim() || task.title?.trim() || null;
-  const headline =
-    description || task.subject?.trim() || clientName || "Untitled task";
+  // The TITLE is always the headline — that's what the user actually
+  // typed when creating the task.  Subject (e.g. "Marketing") is a short
+  // category and now lives in the meta strip, not as the hero text.
+  const headline = task.title.trim();
   const subjectChip = task.subject?.trim() || null;
   const overdue =
     task.dueAt.getTime() < Date.now() &&
@@ -84,37 +80,23 @@ export function TaskDetail({ task }: { task: TaskDetailModel }) {
         </span>
       </div>
 
-      {/* HEADLINE — the task itself (its description). The biggest element on
-          the page; serif, sized to stay legible whether it's a phrase or a
-          paragraph. */}
+      {/* HEADLINE — the user's actual task title. Serif italic, sized
+          to read comfortably without dominating the page. Clamp keeps
+          it legible at all column widths. */}
       <h1
         className="text-ink-strong"
         style={{
           fontFamily: "var(--font-serif)",
+          fontStyle: "italic",
           fontWeight: 500,
-          fontSize: "clamp(26px, 2.8vw, 38px)",
-          lineHeight: 1.25,
-          letterSpacing: "-0.015em",
+          fontSize: "clamp(32px, 3.4vw, 44px)",
+          lineHeight: 1.1,
+          letterSpacing: "-0.02em",
           textWrap: "balance",
         }}
       >
         {headline}
       </h1>
-
-      {/* CLIENT — prominent but clearly secondary to the task headline. */}
-      {clientName && (
-        <div className="mt-4">
-          <span className="block text-[12px] uppercase tracking-[0.10em] text-ink-subtle font-bold">
-            Client
-          </span>
-          <span
-            className="block text-ink-strong mt-0.5"
-            style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em" }}
-          >
-            {clientName}
-          </span>
-        </div>
-      )}
 
       {/* Attribution strip — created-by / initiator → doer avatars */}
       <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-4">
@@ -133,8 +115,21 @@ export function TaskDetail({ task }: { task: TaskDetailModel }) {
         />
       </div>
 
-      {/* The task description is now the hero above (sir's changes #11), so it
-          is no longer repeated here as body prose. */}
+      {/* Description body — 17px, comfortable prose line-height. */}
+      {task.description && (
+        <div className="mt-8" style={{ maxWidth: "68ch" }}>
+          <p
+            className="text-ink whitespace-pre-wrap"
+            style={{
+              fontSize: 17,
+              lineHeight: 1.6,
+              fontWeight: 400,
+            }}
+          >
+            {task.description}
+          </p>
+        </div>
+      )}
 
       {/* Internal notes — boxed sub-card, distinct from the body. The
           design comp shows it as its own clear region with a labeled

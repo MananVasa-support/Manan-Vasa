@@ -5,7 +5,6 @@ import { MobileMenuServer } from "./mobile-menu-server";
 import { UserMenuServer } from "@/components/header/user-menu-server";
 import { NewTaskTrigger } from "@/components/header/new-task-trigger";
 import { AdminPill } from "@/components/header/admin-pill";
-import { GlobalSearch } from "@/components/header/global-search";
 import { getCurrentEmployee } from "@/lib/auth/current";
 
 /**
@@ -54,26 +53,20 @@ export async function DashboardHeader({
             />
           </a>
 
-          {/* CENTER: primary pill nav — shown only at xl+ where the full row
-              genuinely fits. Below xl it collapses into the hamburger drawer
-              (MobileMenuServer) rather than clipping/overlapping under zoom
-              (sir's changes #13). */}
-          <div className="flex-1 min-w-0 flex justify-center max-xl:hidden">
+          {/* CENTER: primary nav — airy, ink-on-light */}
+          <div className="flex-1 flex justify-center min-w-0 max-md:hidden">
             <MainNavServer />
           </div>
 
-          {/* RIGHT: search + live indicator + actions + avatar. Every item is
-              shrink-0; secondary chrome (Live / Admin pill) hides below 2xl and
-              the search collapses to an icon there too, so the nav always has
-              room and nothing ever overlaps. */}
-          <div className="flex items-center gap-2.5 2xl:gap-3 shrink-0 max-xl:ml-auto max-md:gap-1.5">
-            <GlobalSearch />
+          {/* RIGHT: live indicator + actions + avatar. The Live pill hides
+              below 2xl so the centred nav has room at laptop widths. */}
+          <div className="flex items-center gap-2.5 2xl:gap-3 shrink-0 max-md:gap-1.5">
             <span className="max-2xl:hidden">
               <LiveIndicator />
             </span>
             <NewTaskTrigger />
             {isAdmin && (
-              <span className="max-2xl:hidden">
+              <span className="max-lg:hidden">
                 <AdminPill />
               </span>
             )}

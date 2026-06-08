@@ -29,6 +29,8 @@ let createTask: typeof import("@/app/(app)/tasks/actions").createTask;
 let setTaskStatus: typeof import("@/app/(app)/tasks/actions").setTaskStatus;
 let approveTask: typeof import("@/app/(app)/tasks/actions").approveTask;
 let reassignTask: typeof import("@/app/(app)/tasks/actions").reassignTask;
+let cancelTask: typeof import("@/app/(app)/tasks/actions").cancelTask;
+let transferTaskExternal: typeof import("@/app/(app)/tasks/actions").transferTaskExternal;
 let addComment: typeof import("@/app/(app)/tasks/actions").addComment;
 
 describeIfDb("workflow integration", () => {
@@ -42,6 +44,8 @@ describeIfDb("workflow integration", () => {
       setTaskStatus,
       approveTask,
       reassignTask,
+      cancelTask,
+      transferTaskExternal,
       addComment,
     } = actions);
 
@@ -140,9 +144,32 @@ describeIfDb("workflow integration", () => {
     expect(result.ok).toBe(true);
 
     const events = await db.select().from(schema.taskEvents);
-    // created + status_changed(→follow_up) + reassigned + status_changed(→dont_know)
+    // created + status_changed(→follow_up) + reassigned + status_changed(→not_started)
     expect(events.filter((e) => e.eventType === "reassigned")).toHaveLength(1);
     expect(events.filter((e) => e.eventType === "status_changed")).toHaveLength(2);
+  });
+
+  it("transferTaskExternal requires a non-empty note", async () => {
+    const taskId = await makeTask(ME_ID, OTHER_ID);
+    const result = await transferTaskExternal(
+      taskId,
+      { note: "" },
+      await currentUpdatedAt(taskId),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe("invalid");
+  });
+
+  it("cancelTask appends a status_changed row and terminates the task", async () => {
+    const taskId = await makeTask(ME_ID, OTHER_ID);
+    const result = await cancelTask(
+      taskId,
+      { note: "No longer relevant" },
+      await currentUpdatedAt(taskId),
+    );
+    expect(result.ok).toBe(true);
+    const [task] = await db.select().from(schema.tasks);
+    expect(task!.status).toBe("cancelled");
   });
 
   it("addComment writes a commented event without touching the task row", async () => {

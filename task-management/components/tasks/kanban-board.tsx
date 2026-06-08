@@ -18,42 +18,24 @@ import {
   User,
   ChevronDown,
   Check,
-  GripVertical,
 } from "lucide-react";
 import {
-  DndContext,
-  DragOverlay,
-  MouseSensor,
-  TouchSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-  useDraggable,
-  closestCorners,
-  type DragStartEvent,
-  type DragEndEvent,
-  type DragOverEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  horizontalListSortingStrategy,
-  useSortable,
-  sortableKeyboardCoordinates,
-  arrayMove,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import {
+  USER_TASK_STATUSES,
   TASK_PRIORITIES,
   PRIORITY_LABELS,
   type TaskStatus,
   type TaskPriority,
   type StatusColorToken,
 } from "@/db/enums";
-import { ARCHIVE_COL, type ColId } from "@/lib/kanban-columns";
 import { setTaskStatus, archiveTask, unarchiveTask } from "@/app/(app)/tasks/actions";
-import { setBoardColumnOrder } from "@/app/(admin)/admin/settings/actions";
 import { fireToast } from "@/lib/toast";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import type { BoardTask } from "@/lib/queries/tasks";
 
 // Priority → colour token + label for the hover-card badge.
@@ -71,55 +53,111 @@ interface Props {
   /** Roster for the employee filter. */
   employees: { id: string; name: string }[];
   isAdmin: boolean;
-  /** Ordered column ids to render (statuses + the synthetic Archive column).
-   *  Admins can drag column headers to reorder; the new order is persisted. */
-  columnOrder: ColId[];
+  /** Frosted-glass columns for the dark canvas page. */
+  dark?: boolean;
 }
 
-// Cards rendered per column before "Show more"; each tap reveals 10 more.
-const COL_STEP = 10;
+// Sentinel id for the synthetic "Archived" column (not a real TaskStatus).
+const ARCHIVE_COL = "__archived__";
+type ColId = TaskStatus | typeof ARCHIVE_COL;
 
-function accentFor(col: ColId, tones: Record<TaskStatus, StatusColorToken>) {
-  const isArchive = col === ARCHIVE_COL;
-  const tone = isArchive ? null : tones[col as TaskStatus];
-  return {
-    isArchive,
-    accent: isArchive ? "#94a3b8" : `var(--color-${tone})`,
-    accentDeep: isArchive ? "#64748b" : `var(--color-${tone}-deep)`,
-    accentBgLight: isArchive ? "#f1f5f9" : `var(--color-${tone}-bg)`,
-  };
-}
+// Admin board column order (Manan's sequence): the working lane first, then
+// Done → Not Approved → Approved → [Archived] → Cancelled → Transferred.
+// The Archived drop-zone is slotted right before "cancelled".
+const KANBAN_ADMIN_STATUSES: TaskStatus[] = [
+  "dont_know",
+  "not_started",
+  "initiated",
+  "follow_up",
+  "follow_up_1",
+  "follow_up_2",
+  "follow_up_3",
+  "need_help",
+  "need_info",
+  "on_hold",
+  "done",
+  "not_approved",
+  "approved",
+  "cancelled",
+  "transferred",
+];
 
 /**
- * Status Kanban (Manan #25), rebuilt on dnd-kit for buttery pointer-based
- * drag: drag a card between columns to change its status (or into Archived to
- * archive / out to restore), and — as an admin — drag a column header to
- * reorder the whole board (persisted globally). A DragOverlay renders the
- * floating preview; dnd-kit handles auto-scroll, keyboard a11y and animation.
+ * Status Kanban (Manan #25). One column per status; drag a card to another
+ * column to change its status. HTML5 drag-and-drop (no extra deps). The
+ * server action validates the transition + optimistic lock; on success we
+ * refresh, on failure we revert and toast.
+ *
+ * Admins get every status as a column; everyone else gets USER_TASK_STATUSES.
  */
-export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, columnOrder }: Props) {
+// Cards rendered per column before "Show more"; each tap reveals 10 more.
+// Keeps the board light when a column holds dozens of tasks.
+const COL_STEP = 10;
+
+export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, dark = false }: Props) {
   const router = useRouter();
   const [items, setItems] = React.useState(tasks);
+  const [dragId, setDragId] = React.useState<string | null>(null);
+  const [overCol, setOverCol] = React.useState<ColId | null>(null);
   const [savingId, setSavingId] = React.useState<string | null>(null);
+  // Client-side filters — the board holds every task in state, so filtering is
+  // instant (no server round-trip). "all" = no constraint.
   const [empFilter, setEmpFilter] = React.useState<string>("all");
   const [prioFilter, setPrioFilter] = React.useState<string>("all");
-  const [visibleByCol, setVisibleByCol] = React.useState<Record<string, number>>({});
-  // Column order is local state so an admin's drag-reorder is instant.
-  const [columns, setColumns] = React.useState<ColId[]>(columnOrder);
-  // The active drag (card or column) — drives the DragOverlay + drop targeting.
-  const [active, setActive] = React.useState<{ id: string; type: "card" | "column" } | null>(null);
-  const [overCol, setOverCol] = React.useState<string | null>(null);
+  // Per-column visible cap (status → count). Missing = COL_STEP.
+  const [visibleByCol, setVisibleByCol] = React.useState<
+    Record<string, number>
+  >({});
+
+  // Edge auto-scroll: native HTML5 drag won't scroll an overflow container
+  // near its edges, so a card can't be dragged to an off-screen column. While
+  // a drag is active we run a rAF loop that scrolls the board left/right when
+  // the pointer enters an edge zone — letting a drag cross the full width.
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const autoScroll = React.useRef({ dir: 0, speed: 0, raf: 0 });
+
+  function updateEdgeFromPointer(clientX: number) {
+    const el = scrollRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const zone = 110; // px from each edge that triggers scrolling
+    const max = 26; // px per frame at the very edge
+    if (clientX < rect.left + zone) {
+      autoScroll.current.dir = -1;
+      autoScroll.current.speed = Math.ceil(((rect.left + zone - clientX) / zone) * max);
+    } else if (clientX > rect.right - zone) {
+      autoScroll.current.dir = 1;
+      autoScroll.current.speed = Math.ceil(((clientX - (rect.right - zone)) / zone) * max);
+    } else {
+      autoScroll.current.dir = 0;
+    }
+  }
+
+  function beginAutoScroll() {
+    if (autoScroll.current.raf) return;
+    const tick = () => {
+      const el = scrollRef.current;
+      const { dir, speed } = autoScroll.current;
+      if (el && dir !== 0) el.scrollLeft += dir * speed;
+      autoScroll.current.raf = requestAnimationFrame(tick);
+    };
+    autoScroll.current.raf = requestAnimationFrame(tick);
+  }
+
+  function endAutoScroll() {
+    if (autoScroll.current.raf) cancelAnimationFrame(autoScroll.current.raf);
+    autoScroll.current = { dir: 0, speed: 0, raf: 0 };
+  }
+
+  // Safety net: stop the loop if the component unmounts mid-drag.
+  React.useEffect(
+    () => () => {
+      if (autoScroll.current.raf) cancelAnimationFrame(autoScroll.current.raf);
+    },
+    [],
+  );
 
   React.useEffect(() => setItems(tasks), [tasks]);
-  React.useEffect(() => setColumns(columnOrder), [columnOrder]);
-
-  const sensors = useSensors(
-    // Mouse: a 6px move starts a drag, so clicking a card's link still works.
-    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
-    // Touch: long-press to drag, so normal swipes still scroll the board.
-    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
 
   const filtered = React.useMemo(
     () =>
@@ -131,16 +169,13 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, columnOr
     [items, empFilter, prioFilter],
   );
 
-  async function persistOrder(next: ColId[]) {
-    const prev = columns;
-    setColumns(next);
-    const res = await setBoardColumnOrder(next as string[]);
-    if (!res.ok) {
-      setColumns(prev);
-      fireToast({ message: res.error || "Couldn't save the column order." });
-    }
-  }
+  // Admins: the curated sequence with the Archived drop-zone before Cancelled.
+  // Everyone else: their status set with Archived appended at the end.
+  const columns: ColId[] = isAdmin
+    ? KANBAN_ADMIN_STATUSES.flatMap((s) => (s === "cancelled" ? [ARCHIVE_COL, s] : [s]))
+    : [...USER_TASK_STATUSES, ARCHIVE_COL];
 
+  // Archive (drag a card into the Archived column). Optimistic, with revert.
   async function archiveCard(taskId: string) {
     const task = items.find((t) => t.id === taskId);
     if (!task || task.archived) return;
@@ -152,12 +187,15 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, columnOr
     if (!res.ok) {
       setItems(prev);
       fireToast({ message: res.error || "Couldn't archive the task." });
-    } else {
-      fireToast({ message: "Archived." });
+      router.refresh();
+      return;
     }
+    fireToast({ message: "Archived." });
     router.refresh();
   }
 
+  // Restore (drag an archived card back to any status column). Keeps the
+  // task's existing status — same semantics as the List view's restore.
   async function restoreCard(taskId: string) {
     const task = items.find((t) => t.id === taskId);
     if (!task || !task.archived) return;
@@ -169,9 +207,10 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, columnOr
     if (!res.ok) {
       setItems(prev);
       fireToast({ message: res.error || "Couldn't restore the task." });
-    } else {
-      fireToast({ message: "Restored." });
+      router.refresh();
+      return;
     }
+    fireToast({ message: "Restored." });
     router.refresh();
   }
 
@@ -179,12 +218,13 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, columnOr
     const task = items.find((t) => t.id === taskId);
     if (!task || task.status === status) return;
     const prev = items;
+    // Optimistic move.
     setItems((cur) => cur.map((t) => (t.id === taskId ? { ...t, status } : t)));
     setSavingId(taskId);
     const res = await setTaskStatus(taskId, status, task.updatedAt.toISOString());
     setSavingId(null);
     if (!res.ok) {
-      setItems(prev);
+      setItems(prev); // revert
       fireToast({
         message:
           res.error === "forbidden"
@@ -195,406 +235,374 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, columnOr
                 ? "Task changed elsewhere — refreshing."
                 : "Couldn't update the task.",
       });
-    } else {
-      fireToast({ message: `Moved to ${labels[status]}.` });
+      router.refresh();
+      return;
     }
+    fireToast({ message: `Moved to ${labels[status]}.` });
     router.refresh();
   }
 
-  function onDragStart(e: DragStartEvent) {
-    const type = (e.active.data.current?.type as "card" | "column") ?? "card";
-    setActive({ id: String(e.active.id), type });
-  }
-
-  function onDragOver(e: DragOverEvent) {
-    setOverCol(e.over ? String(e.over.id) : null);
-  }
-
-  function onDragEnd(e: DragEndEvent) {
-    const a = active;
-    setActive(null);
-    setOverCol(null);
-    const { over } = e;
-    if (!over || !a) return;
-    const overId = String(over.id);
-
-    if (a.type === "column") {
-      if (!isAdmin || overId === a.id) return;
-      const from = columns.indexOf(a.id as ColId);
-      const to = columns.indexOf(overId as ColId);
-      if (from < 0 || to < 0) return;
-      void persistOrder(arrayMove(columns, from, to));
-      return;
-    }
-
-    // Card drop — `over` resolves to a column droppable.
-    const card = items.find((t) => t.id === a.id);
-    if (!card) return;
-    if (overId === ARCHIVE_COL) {
-      if (!card.archived) void archiveCard(card.id);
-      return;
-    }
-    // A status column. Dropping an archived card restores it (keeps status).
-    if (card.archived) {
-      void restoreCard(card.id);
-      return;
-    }
-    void moveTo(card.id, overId as TaskStatus);
-  }
-
-  const activeCard = active?.type === "card" ? items.find((t) => t.id === active.id) ?? null : null;
-
   return (
     <Tooltip.Provider delayDuration={180} skipDelayDuration={400}>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={onDragStart}
-        onDragOver={onDragOver}
-        onDragEnd={onDragEnd}
-        onDragCancel={() => {
-          setActive(null);
-          setOverCol(null);
+    <div>
+      {/* Filters — employee + priority, applied client-side across the board. */}
+      <div className="mb-5 flex items-center gap-2.5 flex-wrap">
+        <FilterDropdown
+          label="Employee"
+          value={empFilter}
+          onChange={setEmpFilter}
+          dark={dark}
+          options={[
+            { value: "all", label: "All Employees" },
+            ...employees.map((e) => ({ value: e.id, label: e.name })),
+          ]}
+        />
+        <FilterDropdown
+          label="Priority"
+          value={prioFilter}
+          onChange={setPrioFilter}
+          dark={dark}
+          options={[
+            { value: "all", label: "All Priorities" },
+            ...TASK_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] })),
+          ]}
+        />
+        {(empFilter !== "all" || prioFilter !== "all") && (
+          <button
+            type="button"
+            onClick={() => {
+              setEmpFilter("all");
+              setPrioFilter("all");
+            }}
+            className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] font-bold transition-colors"
+            style={{
+              color: dark ? "rgba(255,255,255,0.85)" : "var(--color-ink-soft)",
+              border: dark
+                ? "1px solid rgba(255,255,255,0.18)"
+                : "1px solid var(--color-hairline)",
+            }}
+          >
+            <X size={16} strokeWidth={2.6} />
+            Reset
+          </button>
+        )}
+      </div>
+
+      <div
+        ref={scrollRef}
+        // items-stretch (not items-start) so every column is as tall as the
+        // tallest one — this keeps each column's sticky header pinned for the
+        // full vertical scroll, even short columns like "Approved" that would
+        // otherwise run out of body and let their header scroll away.
+        className="flex items-stretch gap-4 overflow-x-auto overflow-y-auto pb-4 max-sm:snap-x max-sm:snap-mandatory"
+        style={{ maxHeight: "calc(100dvh - 280px)", minHeight: 420 }}
+        onDragOver={(e) => {
+          // Bubbles up from the columns; track the pointer for edge auto-scroll.
+          updateEdgeFromPointer(e.clientX);
         }}
       >
-        <div>
-          {/* Filters — employee + priority, applied client-side across the board. */}
-          <div className="mb-5 flex items-center gap-2.5 flex-wrap">
-            <FilterDropdown
-              label="Employee"
-              value={empFilter}
-              onChange={setEmpFilter}
-              options={[
-                { value: "all", label: "All Employees" },
-                ...employees.map((e) => ({ value: e.id, label: e.name })),
-              ]}
-            />
-            <FilterDropdown
-              label="Priority"
-              value={prioFilter}
-              onChange={setPrioFilter}
-              options={[
-                { value: "all", label: "All Priorities" },
-                ...TASK_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] })),
-              ]}
-            />
-            {(empFilter !== "all" || prioFilter !== "all") && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEmpFilter("all");
-                  setPrioFilter("all");
-                }}
-                className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] font-bold transition-colors text-ink-soft border border-hairline hover:bg-surface-soft"
-              >
-                <X size={16} strokeWidth={2.6} />
-                Reset
-              </button>
-            )}
-          </div>
-
+      {columns.map((col) => {
+        const isArchive = col === ARCHIVE_COL;
+        const colTasks = isArchive
+          ? filtered.filter((t) => t.archived)
+          : filtered.filter((t) => !t.archived && t.status === col);
+        const limit = visibleByCol[col] ?? COL_STEP;
+        const shownTasks = colTasks.slice(0, limit);
+        const hiddenCount = colTasks.length - shownTasks.length;
+        const tone = isArchive ? null : tones[col as TaskStatus];
+        const isOver = overCol === col;
+        // The Archived column has no status token — use a neutral slate accent.
+        const accent = isArchive ? "#94a3b8" : `var(--color-${tone})`;
+        const accentDeep = isArchive ? "#64748b" : `var(--color-${tone}-deep)`;
+        const accentBgLight = isArchive ? "#f1f5f9" : `var(--color-${tone}-bg)`;
+        const label = isArchive ? "Archived" : labels[col as TaskStatus];
+        return (
           <div
-            className="kanban-scroll flex items-stretch gap-4 overflow-x-auto overflow-y-auto pb-3 max-sm:snap-x max-sm:snap-mandatory"
-            style={{ maxHeight: "calc(100dvh - 230px)", minHeight: 460 }}
+            key={col}
+            onDragOver={(e) => {
+              e.preventDefault();
+              // Tell the browser this is a valid "move" target — without a
+              // dropEffect the drop can be silently rejected in some browsers.
+              e.dataTransfer.dropEffect = "move";
+              setOverCol(col);
+            }}
+            onDragLeave={() => setOverCol((c) => (c === col ? null : c))}
+            onDrop={(e) => {
+              e.preventDefault();
+              setOverCol(null);
+              if (dragId) {
+                if (isArchive) {
+                  void archiveCard(dragId);
+                } else {
+                  const card = items.find((t) => t.id === dragId);
+                  if (card?.archived) void restoreCard(dragId);
+                  else void moveTo(dragId, col as TaskStatus);
+                }
+              }
+              setDragId(null);
+              endAutoScroll();
+            }}
+            className="flex-shrink-0 w-[320px] max-sm:w-[85vw] max-sm:snap-center rounded-section p-3.5 transition-colors"
+            style={{
+              background: isOver
+                ? dark
+                  ? `color-mix(in srgb, ${accent} 28%, rgba(18,11,10,0.55))`
+                  : accentBgLight
+                : dark
+                  ? "rgba(255,255,255,0.055)"
+                  : "var(--color-surface-soft)",
+              border: `1px solid ${
+                isOver
+                  ? accent
+                  : dark
+                    ? "rgba(255,255,255,0.12)"
+                    : "var(--color-hairline)"
+              }`,
+              backdropFilter: dark ? "blur(12px)" : undefined,
+              WebkitBackdropFilter: dark ? "blur(12px)" : undefined,
+              boxShadow: dark
+                ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 24px -12px rgba(0,0,0,0.5)"
+                : undefined,
+            }}
           >
-            <SortableContext items={columns} strategy={horizontalListSortingStrategy}>
-              {columns.map((col) => {
-                const { isArchive, accent, accentDeep, accentBgLight } = accentFor(col, tones);
-                const colTasks = isArchive
-                  ? filtered.filter((t) => t.archived)
-                  : filtered.filter((t) => !t.archived && t.status === col);
-                const limit = visibleByCol[col] ?? COL_STEP;
-                const shownTasks = colTasks.slice(0, limit);
-                const hiddenCount = colTasks.length - shownTasks.length;
-                const label = isArchive ? "Archived" : labels[col as TaskStatus];
-                const isCardOver = active?.type === "card" && overCol === col;
-                return (
-                  <KanbanColumn
-                    key={col}
-                    col={col}
-                    isAdmin={isAdmin}
-                    isArchive={isArchive}
-                    label={label}
-                    count={colTasks.length}
-                    accent={accent}
-                    accentDeep={accentDeep}
-                    accentBgLight={accentBgLight}
-                    isCardOver={isCardOver}
-                  >
-                    {isArchive && colTasks.length === 0 && (
-                      <p className="px-2 py-6 text-center text-[14px] font-semibold leading-relaxed text-ink-subtle">
-                        Drag a card here to archive it.
-                      </p>
-                    )}
-                    {!isArchive && colTasks.length === 0 && (
-                      <p className="px-2 py-6 text-center text-[13.5px] text-ink-subtle">
-                        Nothing here.
-                      </p>
-                    )}
-                    {shownTasks.map((t) => (
-                      <KanbanCard
-                        key={t.id}
-                        t={t}
-                        labels={labels}
-                        tones={tones}
-                        saving={savingId === t.id}
-                      />
-                    ))}
-                    {hiddenCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setVisibleByCol((m) => ({ ...m, [col]: limit + COL_STEP }))
-                        }
-                        className="mt-1 w-full rounded-chip py-2.5 text-[14px] font-bold transition-colors text-ink-soft hover:bg-surface-card"
-                        style={{ border: "1px dashed var(--color-hairline-strong)" }}
-                      >
-                        Show {Math.min(COL_STEP, hiddenCount)} more ({hiddenCount} hidden)
-                      </button>
-                    )}
-                  </KanbanColumn>
-                );
-              })}
-            </SortableContext>
-          </div>
-        </div>
-
-        {/* Floating drag preview. */}
-        <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.2,0.7,0.3,1)" }}>
-          {activeCard ? (
-            <div className="w-[300px] rotate-2 cursor-grabbing rounded-chip border border-altus-red/40 bg-white p-3.5 shadow-2xl">
+            {/* Column header — frozen to the top of the board while scrolling so
+                the status label stays readable no matter how far you scroll. */}
+            <div
+              className="sticky top-0 z-20 flex items-center justify-between -mx-3.5 -mt-3.5 mb-3 px-3.5 pt-3.5 pb-2.5"
+              style={{
+                background: dark ? "rgba(18,11,10,0.82)" : "var(--color-surface-soft)",
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)",
+                borderTopLeftRadius: 16,
+                borderTopRightRadius: 16,
+              }}
+            >
               <span
-                className="block text-[15.5px] font-semibold text-ink-strong leading-snug"
-                style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+                className="inline-flex items-center gap-2 text-[15.5px] font-bold"
+                style={{
+                  color: dark ? "rgba(255,255,255,0.92)" : accentDeep,
+                }}
               >
-                {activeCard.description || activeCard.title}
+                {isArchive ? (
+                  <Archive size={17} strokeWidth={2.4} style={{ color: accent }} />
+                ) : (
+                  <span
+                    className="h-3 w-3 rounded-full"
+                    style={{
+                      background: accent,
+                      boxShadow: dark
+                        ? `0 0 8px color-mix(in srgb, ${accent} 70%, transparent)`
+                        : undefined,
+                    }}
+                  />
+                )}
+                {label}
               </span>
-              <div className="mt-2.5 flex items-center gap-2 text-[13px] text-ink-subtle">
-                {activeCard.taskNo != null && <span className="font-bold tabular-nums">#{activeCard.taskNo}</span>}
-                {activeCard.doerName && <span>· {activeCard.doerName}</span>}
-              </div>
-            </div>
-          ) : active?.type === "column" ? (
-            <div className="rounded-section border border-hairline-strong bg-surface-soft px-4 py-3 shadow-2xl">
-              <span className="text-[15.5px] font-bold text-ink-strong">
-                {active.id === ARCHIVE_COL ? "Archived" : labels[active.id as TaskStatus]}
+              <span
+                className="text-[14px] font-bold tabular-nums"
+                style={{
+                  color: dark ? "rgba(255,255,255,0.7)" : "var(--color-ink-subtle)",
+                }}
+              >
+                {colTasks.length}
               </span>
             </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+
+            <div className="flex flex-col gap-2 min-h-[40px]">
+              {isArchive && colTasks.length === 0 && (
+                <p
+                  className="px-2 py-6 text-center text-[14px] font-semibold leading-relaxed"
+                  style={{
+                    color: dark ? "rgba(255,255,255,0.5)" : "var(--color-ink-subtle)",
+                  }}
+                >
+                  Drag a card here to archive it.
+                </p>
+              )}
+              {shownTasks.map((t) => (
+                // The draggable wrapper is OUTSIDE the Radix Tooltip.Trigger.
+                // Wrapping a native-draggable node *as* a Radix trigger (and
+                // nesting a draggable <Link> inside it) reliably broke HTML5
+                // drag — the anchor / trigger hijacked the gesture. Keeping
+                // drag on this plain wrapper and the tooltip on the inner card
+                // lets both work without fighting each other.
+                <div
+                  key={t.id}
+                  draggable
+                  onDragStart={(e) => {
+                    // Firefox refuses to start a drag unless data is set;
+                    // effectAllowed "move" pairs with the column's dropEffect.
+                    e.dataTransfer.setData("text/plain", t.id);
+                    e.dataTransfer.effectAllowed = "move";
+                    setDragId(t.id);
+                    beginAutoScroll();
+                  }}
+                  onDragEnd={() => {
+                    setDragId(null);
+                    setOverCol(null);
+                    endAutoScroll();
+                  }}
+                  className="cursor-grab active:cursor-grabbing"
+                  style={{ opacity: dragId === t.id ? 0.5 : 1 }}
+                >
+                <Tooltip.Root delayDuration={180}>
+                  <Tooltip.Trigger asChild>
+                    <div className="group rounded-chip bg-white border border-hairline p-3.5 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:border-altus-red/40">
+                      <div className="flex items-start justify-between gap-2">
+                        <Link
+                          href={`/tasks/${t.id}/focus` as Route}
+                          // draggable={false}: stop the anchor from starting
+                          // its own "drag link" gesture and stealing the card's.
+                          draggable={false}
+                          className="text-[15.5px] font-semibold text-ink-strong leading-snug hover:underline"
+                          style={{
+                            display: "-webkit-box",
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {t.description || t.title}
+                        </Link>
+                        {savingId === t.id && (
+                          <Loader2 size={14} className="animate-spin text-ink-subtle shrink-0 mt-0.5" />
+                        )}
+                      </div>
+                      <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                        {t.taskNo != null && (
+                          <span className="text-[12.5px] font-bold tabular-nums text-ink-subtle">
+                            #{t.taskNo}
+                          </span>
+                        )}
+                        {t.subject && (
+                          <span className="text-[13px] font-semibold text-ink-subtle">
+                            {t.taskNo != null ? "· " : ""}{t.subject}
+                          </span>
+                        )}
+                        {t.doerName && (
+                          <span className="text-[13px] text-ink-subtle">· {t.doerName}</span>
+                        )}
+                      </div>
+                    </div>
+                  </Tooltip.Trigger>
+                  <Tooltip.Portal>
+                    <Tooltip.Content
+                      side="right"
+                      align="start"
+                      sideOffset={12}
+                      collisionPadding={16}
+                      className="kanban-hovercard z-[80]"
+                    >
+                      <TaskHoverCard t={t} labels={labels} tones={tones} />
+                      <Tooltip.Arrow width={14} height={7} style={{ fill: "var(--color-surface-card)" }} />
+                    </Tooltip.Content>
+                  </Tooltip.Portal>
+                </Tooltip.Root>
+                </div>
+              ))}
+
+              {hiddenCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVisibleByCol((m) => ({ ...m, [col]: limit + COL_STEP }))
+                  }
+                  className="mt-1 w-full rounded-chip py-2.5 text-[14px] font-bold transition-colors"
+                  style={{
+                    border: dark
+                      ? "1px dashed rgba(255,255,255,0.22)"
+                      : "1px dashed var(--color-hairline-strong)",
+                    color: dark ? "rgba(255,255,255,0.82)" : "var(--color-ink-soft)",
+                    background: dark ? "rgba(255,255,255,0.04)" : "transparent",
+                  }}
+                >
+                  Show {Math.min(COL_STEP, hiddenCount)} more ({hiddenCount} hidden)
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+      </div>
+    </div>
     </Tooltip.Provider>
   );
 }
 
-// ── Column (sortable for admin reorder + drop target for cards) ─────────────
-function KanbanColumn({
-  col,
-  isAdmin,
-  isArchive,
-  label,
-  count,
-  accent,
-  accentDeep,
-  accentBgLight,
-  isCardOver,
-  children,
-}: {
-  col: ColId;
-  isAdmin: boolean;
-  isArchive: boolean;
-  label: string;
-  count: number;
-  accent: string;
-  accentDeep: string;
-  accentBgLight: string;
-  isCardOver: boolean;
-  children: React.ReactNode;
-}) {
-  // Disable only the column DRAG for non-admins — the column must stay a drop
-  // target so anyone can still drag cards between columns.
-  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
-    id: col,
-    disabled: { draggable: !isAdmin, droppable: false },
-    data: { type: "column" },
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      className="flex-shrink-0 w-[320px] max-sm:w-[85vw] max-sm:snap-center rounded-section p-3.5 transition-colors"
-      style={{
-        transform: CSS.Translate.toString(transform),
-        transition,
-        background: isCardOver ? accentBgLight : "var(--color-surface-soft)",
-        border: `1px solid ${isCardOver ? accent : "var(--color-hairline)"}`,
-        opacity: isDragging ? 0.5 : 1,
-        boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -18px rgba(15,23,42,0.20)",
-        touchAction: "manipulation",
-      }}
-    >
-      {/* Column header — sticky; the grip is the admin reorder handle. */}
-      <div
-        className="sticky top-0 z-20 flex items-center justify-between -mx-3.5 -mt-3.5 mb-3 px-3.5 pt-3.5 pb-2.5"
-        style={{
-          background: "var(--color-surface-soft)",
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
-        }}
-      >
-        <span
-          className="inline-flex items-center gap-2 text-[15.5px] font-bold min-w-0"
-          style={{ color: accentDeep }}
-        >
-          {isAdmin && (
-            <button
-              type="button"
-              {...attributes}
-              {...listeners}
-              aria-label={`Reorder ${label} column`}
-              className="shrink-0 cursor-grab active:cursor-grabbing text-ink-subtle hover:text-ink-strong touch-none"
-            >
-              <GripVertical size={15} strokeWidth={2.2} aria-hidden />
-            </button>
-          )}
-          {isArchive ? (
-            <Archive size={17} strokeWidth={2.4} style={{ color: accent }} />
-          ) : (
-            <span className="h-3 w-3 rounded-full" style={{ background: accent }} />
-          )}
-          {label}
-        </span>
-        <span className="text-[14px] font-bold tabular-nums text-ink-subtle">{count}</span>
-      </div>
-
-      <div className="flex flex-col gap-2 min-h-[40px]">{children}</div>
-    </div>
-  );
-}
-
-// ── Card (draggable) ─────────────────────────────────────────────────────────
-function KanbanCard({
-  t,
-  labels,
-  tones,
-  saving,
-}: {
-  t: BoardTask;
-  labels: Record<TaskStatus, string>;
-  tones: Record<TaskStatus, StatusColorToken>;
-  saving: boolean;
-}) {
-  const { setNodeRef, attributes, listeners, isDragging } = useDraggable({
-    id: t.id,
-    data: { type: "card" },
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      className="cursor-grab active:cursor-grabbing"
-      style={{ opacity: isDragging ? 0.4 : 1 }}
-    >
-      <Tooltip.Root delayDuration={220}>
-        <Tooltip.Trigger asChild>
-          <div className="group rounded-chip bg-white border border-hairline p-3.5 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:border-altus-red/40">
-            <div className="flex items-start justify-between gap-2">
-              <Link
-                href={`/tasks/${t.id}/focus` as Route}
-                draggable={false}
-                onClick={(e) => e.stopPropagation()}
-                className="text-[15.5px] font-semibold text-ink-strong leading-snug hover:underline"
-                style={{
-                  display: "-webkit-box",
-                  WebkitLineClamp: 3,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }}
-              >
-                {t.description || t.title}
-              </Link>
-              {saving && (
-                <Loader2 size={14} className="animate-spin text-ink-subtle shrink-0 mt-0.5" />
-              )}
-            </div>
-            <div className="mt-2.5 flex items-center gap-2 flex-wrap">
-              {t.taskNo != null && (
-                <span className="text-[12.5px] font-bold tabular-nums text-ink-subtle">
-                  #{t.taskNo}
-                </span>
-              )}
-              {t.subject && (
-                <span className="text-[13px] font-semibold text-ink-subtle">
-                  {t.taskNo != null ? "· " : ""}
-                  {t.subject}
-                </span>
-              )}
-              {t.doerName && <span className="text-[13px] text-ink-subtle">· {t.doerName}</span>}
-            </div>
-          </div>
-        </Tooltip.Trigger>
-        <Tooltip.Portal>
-          <Tooltip.Content
-            side="right"
-            align="start"
-            sideOffset={12}
-            collisionPadding={16}
-            className="kanban-hovercard z-[80]"
-          >
-            <TaskHoverCard t={t} labels={labels} tones={tones} />
-            <Tooltip.Arrow width={14} height={7} style={{ fill: "var(--color-surface-card)" }} />
-          </Tooltip.Content>
-        </Tooltip.Portal>
-      </Tooltip.Root>
-    </div>
-  );
-}
-
-// Labelled single-select for the board's employee / priority filters.
+// Labelled single-select for the board's employee / priority filters. Built on
+// the app's Radix dropdown (NOT a native <select> — those render unstyleable
+// white-on-white option lists over the dark board). The trigger is dark-themed;
+// the menu is the standard light popover with a check on the active option.
 function FilterDropdown({
   label,
   value,
   onChange,
+  dark,
   options,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  dark: boolean;
   options: { value: string; label: string }[];
 }) {
   const current = options.find((o) => o.value === value) ?? options[0];
   return (
-    <label className="inline-flex items-center gap-2">
-      <span className="text-[13.5px] font-bold uppercase tracking-[0.05em] text-ink-subtle">
+    <div className="inline-flex items-center gap-2">
+      <span
+        className="text-[13.5px] font-bold uppercase tracking-[0.05em]"
+        style={{ color: dark ? "rgba(255,255,255,0.7)" : "var(--color-ink-subtle)" }}
+      >
         {label}
       </span>
-      <span className="relative inline-flex items-center">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="appearance-none h-12 rounded-pill pl-5 pr-10 text-[16px] font-semibold text-ink-strong bg-surface-card border border-hairline outline-none focus:ring-2 focus:ring-altus-red/40 cursor-pointer"
-        >
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <ChevronDown
-          size={16}
-          strokeWidth={2.4}
-          className="pointer-events-none absolute right-4 text-ink-subtle"
-        />
-      </span>
-    </label>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="group inline-flex items-center gap-2 h-12 rounded-pill px-5 text-[16px] font-semibold transition-colors outline-none data-[state=open]:ring-2 data-[state=open]:ring-altus-red/40"
+            style={{
+              color: dark ? "#fff" : "var(--color-ink-strong)",
+              background: dark ? "rgba(255,255,255,0.09)" : "var(--color-surface-card)",
+              border: dark ? "1px solid rgba(255,255,255,0.18)" : "1px solid var(--color-hairline)",
+            }}
+          >
+            <span className="truncate max-w-[200px]">{current?.label ?? ""}</span>
+            <ChevronDown
+              size={16}
+              strokeWidth={2.4}
+              className="shrink-0 opacity-70 transition-transform duration-200 group-data-[state=open]:rotate-180"
+            />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" sideOffset={8} className="min-w-[var(--radix-dropdown-menu-trigger-width)]">
+          {options.map((o) => {
+            const selected = o.value === value;
+            return (
+              <DropdownMenuItem
+                key={o.value}
+                onSelect={() => onChange(o.value)}
+                className={selected ? "font-bold" : ""}
+              >
+                <span className="inline-flex w-4 justify-center shrink-0">
+                  {selected ? (
+                    <Check size={15} strokeWidth={2.8} className="text-altus-red" />
+                  ) : null}
+                </span>
+                <span className="truncate">{o.label}</span>
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 
 // ── Hover preview ─────────────────────────────────────────────────────────
+// The whole task at a glance on card hover — status, priority, full title +
+// description, client/subject/due/doer — so you never have to open it just to
+// read it. Always a light card so it reads over the dark board.
+
 function Pill({
   tone,
   icon,
@@ -662,6 +670,7 @@ function TaskHoverCard({
   const statusTone = tones[t.status] ?? "blue";
   const prioTone = PRIORITY_TONE[t.priority] ?? "slate";
   const desc = t.description?.trim();
+  // Staggered entrance delays — header, title, description, divider, meta.
   const DELAY = ["40ms", "95ms", "150ms", "205ms", "260ms"] as const;
 
   return (
@@ -674,6 +683,7 @@ function TaskHoverCard({
         boxShadow: "0 24px 60px -16px rgba(15,23,42,0.40), 0 4px 12px rgba(15,23,42,0.12)",
       }}
     >
+      {/* Status accent that sweeps across the top */}
       <span
         aria-hidden
         className="hc-accent absolute inset-x-0 top-0 h-1"
@@ -683,6 +693,7 @@ function TaskHoverCard({
       />
 
       <div className="p-5 pt-6">
+        {/* Status / priority / archived badges */}
         <div className="hc-item flex items-center gap-2 flex-wrap" style={{ animationDelay: DELAY[0] }}>
           <Pill
             tone={statusTone}
@@ -700,14 +711,18 @@ function TaskHoverCard({
           )}
         </div>
 
+        {/* Title (prefixed with the friendly task No.) */}
         <h3
           className="hc-item mt-3.5 text-ink-strong"
           style={{ animationDelay: DELAY[1], fontSize: 17, fontWeight: 800, lineHeight: 1.3, letterSpacing: "-0.01em" }}
         >
-          {t.taskNo != null && <span className="text-ink-subtle tabular-nums">#{t.taskNo} · </span>}
+          {t.taskNo != null && (
+            <span className="text-ink-subtle tabular-nums">#{t.taskNo} · </span>
+          )}
           {t.title}
         </h3>
 
+        {/* Description */}
         <div className="hc-item mt-3" style={{ animationDelay: DELAY[2] }}>
           <FieldHead icon={<AlignLeft size={14} strokeWidth={2.2} />}>Description</FieldHead>
           {desc ? (
@@ -726,6 +741,7 @@ function TaskHoverCard({
 
         <div className="hc-item my-4 h-px bg-hairline" style={{ animationDelay: DELAY[3] }} />
 
+        {/* Meta grid */}
         <div className="hc-item grid grid-cols-2 gap-x-4 gap-y-4" style={{ animationDelay: DELAY[4] }}>
           <Meta icon={<Building2 size={14} strokeWidth={2.2} />} label="Client" value={t.client} />
           <Meta icon={<Tag size={14} strokeWidth={2.2} />} label="Subject" value={t.subject} />

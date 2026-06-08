@@ -3,7 +3,7 @@ import { Roboto, Bricolage_Grotesque, JetBrains_Mono } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
-import { AppToaster } from "@/components/ui/sonner-toaster";
+import { ToastHost } from "@/components/ui/toast";
 import { RegisterSW } from "@/components/pwa/register-sw";
 import { getCurrentEmployee } from "@/lib/auth/current";
 import { accentVars, resolveAccent } from "@/lib/appearance";
@@ -88,7 +88,7 @@ export default async function RootLayout({
         <NuqsAdapter>
           {children}
         </NuqsAdapter>
-        <AppToaster />
+        <ToastHost />
         <RegisterSW />
         {/* Phase 0.3 — Vercel Speed Insights. Auto-no-ops outside Vercel
             (no env vars needed); on Vercel it records real-user Core Web

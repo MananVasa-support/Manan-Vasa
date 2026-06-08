@@ -6,7 +6,7 @@ import * as Popover from "@radix-ui/react-popover";
 import { ChevronDown, Check, Loader2 } from "lucide-react";
 import {
   USER_TASK_STATUSES,
-  ADMIN_TASK_STATUSES,
+  TASK_STATUSES,
   type TaskStatus,
   type StatusColorToken,
 } from "@/db/enums";
@@ -50,7 +50,7 @@ export function InlineStatusCell({
   // Non-admins get the curated lifecycle list; admins see everything so
   // they can recover legacy rows or force a state.
   const options: readonly TaskStatus[] = isAdmin
-    ? ADMIN_TASK_STATUSES
+    ? TASK_STATUSES
     : USER_TASK_STATUSES;
 
   // `||` (not `??`) so an empty/blank token also falls back to the
