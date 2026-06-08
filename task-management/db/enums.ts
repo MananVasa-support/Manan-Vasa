@@ -28,17 +28,17 @@ export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 /** Statuses available to non-admin users in the in-app status picker.
  *  The legacy four (approved / not_approved / cancelled / transferred) are
- *  excluded — those are admin-only via the separate approval_status column. */
+ *  excluded — those are admin-only via the separate approval_status column.
+ *  2026-06-08 (sir's changes #2): the granular follow_up_1/2/3 collapsed back
+ *  into the single `follow_up`; cancelled is gone (use Archive instead). */
 export const USER_TASK_STATUSES = [
   "dont_know",
   "not_started",
   "initiated",
+  "follow_up",
   "need_help",
   "on_hold",
   "need_info",
-  "follow_up_1",
-  "follow_up_2",
-  "follow_up_3",
   "done",
 ] as const satisfies readonly TaskStatus[];
 
@@ -50,10 +50,36 @@ export const PENDING_STATUSES = [
   "need_help",
   "on_hold",
   "need_info",
+] as const satisfies readonly TaskStatus[];
+
+/** Statuses retired on 2026-06-08 (sir's changes #2/#4/#6). The physical
+ *  pgEnum keeps them so already-imported rows still render, but nothing
+ *  user-facing should offer them: filter them out of every picker, filter
+ *  dropdown and kanban column. The follow_up_* rows migrate to `follow_up`;
+ *  cancelled/transferred rows migrate to Archived. */
+export const DEPRECATED_TASK_STATUSES = [
   "follow_up_1",
   "follow_up_2",
   "follow_up_3",
+  "cancelled",
+  "transferred",
 ] as const satisfies readonly TaskStatus[];
+
+const DEPRECATED_STATUS_SET: ReadonlySet<TaskStatus> = new Set(
+  DEPRECATED_TASK_STATUSES,
+);
+
+/** True for statuses retired on 2026-06-08 — use to drop them from any
+ *  dynamically-built status list (filter options, kanban columns, …). */
+export function isDeprecatedStatus(status: TaskStatus): boolean {
+  return DEPRECATED_STATUS_SET.has(status);
+}
+
+/** What admins see in the in-app status pickers: every live status (incl.
+ *  the approval verdicts, so they can force a state) minus retired values. */
+export const ADMIN_TASK_STATUSES: readonly TaskStatus[] = TASK_STATUSES.filter(
+  (s) => !DEPRECATED_STATUS_SET.has(s),
+);
 
 // New admin-only column. Defaults to NULL (no approval verdict yet); the
 // terminal verdict moves the task out of "pending" without touching status.

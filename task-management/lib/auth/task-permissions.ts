@@ -5,7 +5,7 @@
  */
 
 import { PENDING_STATUSES, type TaskStatus } from "@/db/enums";
-import { canTransitionTo, type ActorRole } from "@/lib/auth/status-transitions";
+import { type ActorRole } from "@/lib/auth/status-transitions";
 
 export type TaskPermissionInput = {
   employee: {
@@ -116,24 +116,6 @@ export function canReassign(input: TaskPermissionInput): boolean {
   );
   if (role === "admin") return isPending || input.task.status === "not_approved";
   return isPending; // doer OR initiator in the pending lane
-}
-
-/**
- * canTransferExternal — initiator OR admin, only from a non-terminal status.
- * Spec line 228.
- */
-export function canTransferExternal(input: TaskPermissionInput): boolean {
-  const role = actorRoleFor(input);
-  return canTransitionTo(input.task.status, "transferred", role);
-}
-
-/**
- * canCancel — initiator OR admin, only from a non-terminal status.
- * Spec line 227.
- */
-export function canCancel(input: TaskPermissionInput): boolean {
-  const role = actorRoleFor(input);
-  return canTransitionTo(input.task.status, "cancelled", role);
 }
 
 /**

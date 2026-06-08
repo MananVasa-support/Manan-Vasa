@@ -3,11 +3,27 @@ import { alias } from "drizzle-orm/pg-core";
 import { unstable_cache } from "next/cache";
 import { db, employees, tasks } from "@/lib/db";
 import { TASK_STATUSES, TASK_PRIORITIES, PENDING_STATUSES } from "@/db/enums";
+import type { TaskStatus, ApprovalStatus } from "@/db/enums";
 import { employeeIdsInDepartments } from "@/lib/queries/departments";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import type { TaskListFilters, TaskListRow } from "@/lib/types";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+// A task's "effective" status spans two columns: the working `status` and the
+// admin `approval_status` verdict. The dashboard counts treat a task as e.g.
+// Not Approved when EITHER column says so (lib/queries/dashboard.ts), so the
+// list filter must match the same way — otherwise the "Not Approved" KPI
+// filtered on `status` alone and showed almost nothing (sir's changes #14).
+const APPROVAL_VERDICTS = new Set<TaskStatus>(["approved", "not_approved"]);
+
+function statusFilterCondition(statuses: TaskStatus[]) {
+  if (statuses.length === 0) return undefined;
+  const byStatus = inArray(tasks.status, statuses);
+  const verdicts = statuses.filter((s) => APPROVAL_VERDICTS.has(s));
+  if (verdicts.length === 0) return byStatus;
+  return or(byStatus, inArray(tasks.approvalStatus, verdicts as ApprovalStatus[]));
+}
 
 export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]> {
   const conditions = [eq(tasks.archived, filters.archived)];
@@ -15,7 +31,8 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
   if (filters.startDate) conditions.push(gte(tasks.createdAt, filters.startDate));
   if (filters.endDate)
     conditions.push(lt(tasks.createdAt, new Date(filters.endDate.getTime() + MS_PER_DAY)));
-  if (filters.statuses.length > 0)   conditions.push(inArray(tasks.status, filters.statuses));
+  const statusCond = statusFilterCondition(filters.statuses);
+  if (statusCond)                    conditions.push(statusCond);
   if (filters.doerIds.length > 0)    conditions.push(inArray(tasks.doerId, filters.doerIds));
   if (filters.initiatorIds.length > 0)
     conditions.push(inArray(tasks.initiatorId, filters.initiatorIds));
@@ -152,7 +169,8 @@ export async function listTasksPage(
   if (filters.startDate) conditions.push(gte(tasks.createdAt, filters.startDate));
   if (filters.endDate)
     conditions.push(lt(tasks.createdAt, new Date(filters.endDate.getTime() + MS_PER_DAY)));
-  if (filters.statuses.length > 0) conditions.push(inArray(tasks.status, filters.statuses));
+  const statusCond = statusFilterCondition(filters.statuses);
+  if (statusCond) conditions.push(statusCond);
   if (filters.doerIds.length > 0) conditions.push(inArray(tasks.doerId, filters.doerIds));
   if (filters.initiatorIds.length > 0)
     conditions.push(inArray(tasks.initiatorId, filters.initiatorIds));
@@ -370,7 +388,8 @@ export async function listTasksForExport(
   if (filters.startDate) conditions.push(gte(tasks.createdAt, filters.startDate));
   if (filters.endDate)
     conditions.push(lt(tasks.createdAt, new Date(filters.endDate.getTime() + MS_PER_DAY)));
-  if (filters.statuses.length > 0)   conditions.push(inArray(tasks.status, filters.statuses));
+  const statusCond = statusFilterCondition(filters.statuses);
+  if (statusCond)                    conditions.push(statusCond);
   if (filters.doerIds.length > 0)    conditions.push(inArray(tasks.doerId, filters.doerIds));
   if (filters.initiatorIds.length > 0)
     conditions.push(inArray(tasks.initiatorId, filters.initiatorIds));
@@ -482,6 +501,7 @@ export type TaskDetail = {
   id: string;
   taskNo: number | null;
   title: string;
+  client: string | null;
   description: string | null;
   subject: string | null;
   notes: string | null;
@@ -526,6 +546,7 @@ export async function getTaskById(taskId: string): Promise<TaskDetail | null> {
       id: tasks.id,
       taskNo: tasks.taskNo,
       title: tasks.title,
+      client: tasks.client,
       description: tasks.description,
       subject: tasks.subject,
       notes: tasks.notes,

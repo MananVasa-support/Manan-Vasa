@@ -800,6 +800,11 @@ export const orgSettings = pgTable("org_settings", {
     .notNull()
     .$type<Record<string, string[]>>()
     .default({}),
+  // sir's changes #8 — admin-defined kanban column order (ordered array of
+  // column ids: TaskStatus values + the synthetic "__archived__"). null = use
+  // the built-in default order. Lives here, not status_settings, because the
+  // Archived column isn't a real status.
+  boardColumnOrder: jsonb("board_column_order").$type<string[]>(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

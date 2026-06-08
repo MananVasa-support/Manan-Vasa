@@ -89,40 +89,58 @@ import {
 } from "lucide-react";
 
 // Group-by options for the Tasks table. "none" = flat list (default).
-type GroupKey = "none" | "client" | "subject" | "status";
+type GroupKey = "none" | "client" | "subject" | "status" | "employee" | "priority";
 const GROUP_OPTIONS: { key: GroupKey; label: string }[] = [
   { key: "none", label: "None" },
   { key: "client", label: "Client" },
   { key: "subject", label: "Subject" },
   { key: "status", label: "Status" },
+  { key: "employee", label: "Employee" },
+  { key: "priority", label: "Priority" },
 ];
 
 // The section label a row falls under for the current grouping. NULL/empty
 // values collapse into a single explicit "—" bucket rather than vanishing;
-// status groups use the human label (admin-overridable).
+// status/priority groups use the human label (admin-overridable for status).
 function groupValue(
   row: TaskListRow,
   by: Exclude<GroupKey, "none">,
   statusLabels: Record<TaskStatus, string>,
 ): string {
   if (by === "status") return statusLabels[row.status] ?? row.status;
+  if (by === "priority") return PRIORITY_LABELS[row.priority];
+  if (by === "employee") {
+    const v = row.doerName?.trim();
+    return v && v.length > 0 ? v : "— Unassigned";
+  }
   const raw = by === "client" ? row.client : row.subject;
   const v = raw?.trim();
   return v && v.length > 0 ? v : by === "client" ? "— No client" : "— No subject";
 }
 import { CriticalBadge } from "@/components/ui/critical-badge";
-import { PRIORITY_LABELS, TASK_STATUSES } from "@/db/enums";
-import type { TaskStatus, StatusColorToken } from "@/db/enums";
+import { PRIORITY_LABELS, TASK_STATUSES, TASK_PRIORITIES } from "@/db/enums";
+import type { TaskStatus, StatusColorToken, TaskPriority } from "@/db/enums";
 
 // Canonical status order (Not Read → … → Done → Approved → …) so grouping /
 // sorting by status follows the workflow rather than alphabetical by label.
 const STATUS_ORDER: Record<string, number> = Object.fromEntries(
   TASK_STATUSES.map((s, i) => [s, i]),
 );
+
+// Priority rank (Critical → Important → Urgent → Normal) so grouping/sorting
+// by priority follows severity, not the enum's alphabetical string order.
+const PRIORITY_RANK: Record<string, number> = Object.fromEntries(
+  TASK_PRIORITIES.map((p, i) => [p, i]),
+);
 import type { TaskListRow } from "@/lib/types";
 import { TaskRowActions } from "./task-row-actions";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { InlineStatusCell } from "./inline-status-cell";
+import {
+  InlineDoerCell,
+  InlinePriorityCell,
+  InlineDueCell,
+} from "./inline-edit-cells";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -221,34 +239,29 @@ function buildColumns(
     {
       accessorKey: "doerName",
       header: "Doer",
-      cell: (info) => {
-        const name = info.getValue<string>();
-        if (!name) return <span className="text-ink-subtle">—</span>;
-        return (
-          <span className="inline-flex items-center gap-2.5">
-            <EmployeeAvatar name={name} size="sm" />
-            <span
-              className="text-ink-strong font-bold"
-              style={{ fontSize: 15 }}
-            >
-              {name}
-            </span>
-          </span>
-        );
-      },
+      cell: ({ row }) => (
+        <InlineDoerCell
+          taskId={row.original.id}
+          doerId={row.original.doerId}
+          doerName={row.original.doerName}
+          employees={employees}
+          editable={me.isAdmin}
+        />
+      ),
     },
     {
       accessorKey: "priority",
       header: "Priority",
       meta: { mobileHide: true },
-      cell: (info) => {
-        const p = info.getValue<keyof typeof PRIORITY_LABELS>();
-        return p === "imp_urgent" ? (
-          <CriticalBadge />
-        ) : (
-          <span className="text-body-lg text-ink-muted">{PRIORITY_LABELS[p]}</span>
-        );
-      },
+      sortingFn: (a, b) =>
+        (PRIORITY_RANK[a.original.priority] ?? 99) - (PRIORITY_RANK[b.original.priority] ?? 99),
+      cell: ({ row }) => (
+        <InlinePriorityCell
+          taskId={row.original.id}
+          priority={row.original.priority as TaskPriority}
+          editable={me.isAdmin}
+        />
+      ),
     },
     {
       accessorKey: "status",
@@ -283,27 +296,14 @@ function buildColumns(
       accessorKey: "dueAt",
       header: "Due",
       meta: { align: "center" },
-      cell: (info) => {
-        const row = info.row.original;
-        const u = taskUrgency(row.dueAt, row.status);
-        const color = URGENCY_COLOR[u.level];
-        const strong = u.level === "overdue" || u.level === "today";
-        return (
-          <span className="inline-flex flex-col items-center leading-tight">
-            <span
-              className="text-body-lg tabular-nums"
-              style={{ color, fontWeight: strong ? 700 : undefined }}
-            >
-              {safeFormat(row.dueAt, "MMM d")}
-            </span>
-            {u.label && (
-              <span className="text-[11px] font-bold tabular-nums" style={{ color }}>
-                {u.label}
-              </span>
-            )}
-          </span>
-        );
-      },
+      cell: ({ row }) => (
+        <InlineDueCell
+          taskId={row.original.id}
+          dueAt={row.original.dueAt}
+          status={row.original.status}
+          editable={me.isAdmin}
+        />
+      ),
     },
     {
       accessorKey: "ageDays",
@@ -399,7 +399,13 @@ export function TaskTable({
     });
   }, [rows, query, resolvedLabels]);
 
-  const groupColId = groupBy === "client" ? "client" : groupBy === "subject" ? "subject" : groupBy === "status" ? "status" : null;
+  const groupColId =
+    groupBy === "client" ? "client"
+    : groupBy === "subject" ? "subject"
+    : groupBy === "status" ? "status"
+    : groupBy === "employee" ? "doerName"
+    : groupBy === "priority" ? "priority"
+    : null;
 
   const effectiveSorting = React.useMemo<SortingState>(() => {
     if (!groupColId) return sorting;

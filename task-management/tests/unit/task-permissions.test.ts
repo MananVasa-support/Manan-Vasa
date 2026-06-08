@@ -87,8 +87,6 @@ describe("canEditTaskFields", () => {
 import {
   canApprove,
   canReassign,
-  canTransferExternal,
-  canCancel,
   canComment,
 } from "@/lib/auth/task-permissions";
 
@@ -167,55 +165,6 @@ describe("canReassign", () => {
       canReassign({
         employee: { id: me, isAdmin: false },
         task: task({ doerId: me, status: "done" }),
-      }),
-    ).toBe(false);
-  });
-});
-
-describe("canTransferExternal", () => {
-  it("initiator in pending lane → true", () => {
-    expect(
-      canTransferExternal({
-        employee: { id: me, isAdmin: false },
-        task: task({ initiatorId: me, status: "follow_up" }),
-      }),
-    ).toBe(true);
-  });
-
-  it("doer → false (initiator-only)", () => {
-    expect(
-      canTransferExternal({
-        employee: { id: me, isAdmin: false },
-        task: task({ doerId: me, status: "follow_up" }),
-      }),
-    ).toBe(false);
-  });
-
-  it("terminal status → false", () => {
-    expect(
-      canTransferExternal({
-        employee: { id: me, isAdmin: false },
-        task: task({ initiatorId: me, status: "approved" }),
-      }),
-    ).toBe(false);
-  });
-});
-
-describe("canCancel", () => {
-  it("initiator in pending lane → true", () => {
-    expect(
-      canCancel({
-        employee: { id: me, isAdmin: false },
-        task: task({ initiatorId: me, status: "initiated" }),
-      }),
-    ).toBe(true);
-  });
-
-  it("doer → false (initiator-only)", () => {
-    expect(
-      canCancel({
-        employee: { id: me, isAdmin: false },
-        task: task({ doerId: me, status: "initiated" }),
       }),
     ).toBe(false);
   });
