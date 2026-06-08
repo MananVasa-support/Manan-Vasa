@@ -2037,7 +2037,11 @@ select.nt-input {
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--color-ink-subtle) 32%, transparent) transparent;
-  padding-bottom: 5px;
+  /* overflow-x:auto forces overflow-y to clip too, which would cut off the
+     notification badges that poke ABOVE the pills (e.g. Inbox). The top pad
+     gives those badges room; the bottom pad leaves space for the slider. */
+  padding-top: 12px;
+  padding-bottom: 6px;
 }
 .nav-scroll::-webkit-scrollbar {
   height: 6px;
