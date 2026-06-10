@@ -238,7 +238,18 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-6" noValidate>
+    <form
+      onSubmit={submit}
+      onKeyDown={(e) => {
+        // ⌘/Ctrl + Enter submits from anywhere in the form.
+        if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+          e.preventDefault();
+          void submit();
+        }
+      }}
+      className="flex flex-col gap-6"
+      noValidate
+    >
       {/* Client Name — full width hero field (was: Title) */}
       <Field id="nt-title" label="Client Name" required>
         <Controller

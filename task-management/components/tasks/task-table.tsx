@@ -2,6 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import type { Route } from "next";
+import { useRouter } from "next/navigation";
 import {
   flexRender,
   getCoreRowModel,
@@ -409,6 +410,10 @@ export function TaskTable({
   // Multi-select (bulk actions). Keyed by task id via getRowId, so selection
   // survives sorting, paging, and grouping.
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
+  // Keyboard list navigation: J/K move a highlight, Enter opens, F → Focus
+  // mode. Tracked by task id so it survives re-sorts.
+  const [focusedId, setFocusedId] = React.useState<string | null>(null);
+  const router = useRouter();
   // Rows per page — user-selectable (10/25/50/100), default 25.
   const [pageSize, setPageSize] = React.useState<number>(DEFAULT_PAGE_SIZE);
 
@@ -518,6 +523,55 @@ export function TaskTable({
     table.setPageIndex(index);
     listTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
+
+  // J/K/Enter/F — keyboard navigation over the current page's rows. Skips when
+  // typing or when a modifier is held, so it never fights ⌘K, browser
+  // shortcuts, or text entry. Coexists with the global G-sequences (different
+  // keys).
+  React.useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT" ||
+          t.isContentEditable)
+      ) {
+        return;
+      }
+      const ids = table.getRowModel().rows.map((r) => r.original.id);
+      if (ids.length === 0) return;
+      const cur = focusedId ? ids.indexOf(focusedId) : -1;
+      const k = e.key.toLowerCase();
+      if (k === "j") {
+        e.preventDefault();
+        setFocusedId(ids[cur < 0 ? 0 : Math.min(ids.length - 1, cur + 1)] ?? null);
+      } else if (k === "k") {
+        e.preventDefault();
+        setFocusedId(ids[cur < 0 ? 0 : Math.max(0, cur - 1)] ?? null);
+      } else if (cur >= 0 && (e.key === "Enter" || k === "f")) {
+        // Don't steal Enter from a focused button / link / menu item.
+        const ae = document.activeElement as HTMLElement | null;
+        if (e.key === "Enter" && ae && (ae.tagName === "BUTTON" || ae.tagName === "A")) {
+          return;
+        }
+        e.preventDefault();
+        router.push(`/tasks/${focusedId}${k === "f" ? "/focus" : ""}` as Route);
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [table, focusedId, router]);
+
+  // Keep the highlighted row visible while J/K-ing through a tall list.
+  React.useEffect(() => {
+    if (!focusedId) return;
+    document
+      .querySelector(`[data-task-row="${focusedId}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [focusedId]);
 
   const totalFiltered = table.getPrePaginationRowModel().rows.length;
   const pageCount = table.getPageCount();
@@ -687,8 +741,21 @@ export function TaskTable({
                 </tr>
               )}
             <tr
-              className="task-row border-b border-hairline last:border-b-0 transition-colors"
-              style={rowAccent ? { boxShadow: rowAccent } : undefined}
+              data-task-row={row.original.id}
+              className={`task-row border-b border-hairline last:border-b-0 transition-colors ${
+                row.original.id === focusedId ? "bg-altus-red/[0.06]" : ""
+              }`}
+              style={{
+                boxShadow:
+                  [
+                    rowAccent,
+                    row.original.id === focusedId
+                      ? "inset 0 0 0 2px var(--color-altus-red)"
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(", ") || undefined,
+              }}
             >
               {row.getVisibleCells().map((cell) => {
                 const col = cell.column.columnDef as TaskCol;

@@ -27,8 +27,7 @@ export function CommentInput({ taskId, me }: Props) {
   const [focused, setFocused] = useState(false);
   const canSubmit = body.trim().length > 0 && !pending;
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
+  function post() {
     setError(null);
     if (!body.trim()) {
       setError("Comment cannot be empty.");
@@ -48,6 +47,11 @@ export function CommentInput({ taskId, me }: Props) {
       setBody("");
       router.refresh();
     });
+  }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    post();
   }
 
   return (
@@ -78,7 +82,14 @@ export function CommentInput({ taskId, me }: Props) {
               onChange={(e) => setBody(e.target.value)}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              placeholder="Add a comment, ask a question, or leave a note for the team…"
+              onKeyDown={(e) => {
+                // ⌘/Ctrl + Enter posts without reaching for the mouse.
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                  e.preventDefault();
+                  if (canSubmit) post();
+                }
+              }}
+              placeholder="Add a comment, ask a question, or leave a note for the team…  (⌘↵ to post)"
               className="w-full resize-y bg-transparent px-4 pt-3 pb-2 text-[16px] text-ink outline-none placeholder:text-ink-subtle"
               style={{ lineHeight: 1.55, minHeight: 72 }}
             />

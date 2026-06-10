@@ -1,41 +1,7 @@
 "use client";
 
 import { SectionHeader } from "@/components/profile/identity/avatar-and-name";
-
-interface Shortcut {
-  keys: string[];
-  description: string;
-}
-
-const GROUPS: { title: string; rows: Shortcut[] }[] = [
-  {
-    title: "Global",
-    rows: [
-      { keys: ["?"], description: "Show this cheatsheet anywhere" },
-      { keys: ["⌘", "K"], description: "Open command palette" },
-      { keys: ["G", "D"], description: "Go to Dashboard" },
-      { keys: ["G", "T"], description: "Go to Tasks" },
-      { keys: ["G", "I"], description: "Go to Inbox" },
-    ],
-  },
-  {
-    title: "Tasks",
-    rows: [
-      { keys: ["N"], description: "New task" },
-      { keys: ["F"], description: "Focus mode on selected task" },
-      { keys: ["⌘", "Enter"], description: "Submit a form / send a comment" },
-      { keys: ["Esc"], description: "Cancel an inline edit" },
-    ],
-  },
-  {
-    title: "Navigation",
-    rows: [
-      { keys: ["J"], description: "Next item in a list" },
-      { keys: ["K"], description: "Previous item in a list" },
-      { keys: ["Enter"], description: "Open the focused item" },
-    ],
-  },
-];
+import { SHORTCUT_GROUPS as GROUPS } from "@/lib/shortcuts";
 
 export function ShortcutsCheatsheet() {
   return (
