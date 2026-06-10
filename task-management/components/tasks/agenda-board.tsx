@@ -342,7 +342,7 @@ function Column({
           tasks.map((t) => (
             <Link
               key={t.id}
-              href={`/tasks/${t.id}/focus` as Route}
+              href={`/tasks/${t.id}` as Route}
               draggable={canReschedule}
               onDragStart={
                 canReschedule
