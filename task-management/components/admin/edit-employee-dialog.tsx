@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { fireToast } from "@/lib/toast";
 import { editEmployee } from "@/app/(admin)/admin/employees/actions";
+import { Select } from "@/components/ui/select";
 import {
   DepartmentMultiSelect,
   type DepartmentOption,
@@ -171,31 +172,28 @@ export function EditEmployeeDialog({
               />
             </Field>
             <Field label="Task role">
-              <select
+              <Select
                 value={role}
-                onChange={(e) => setRole(e.target.value as Role)}
-                className="w-full rounded-md border border-[#CBD5E1] px-3.5 py-2.5 text-[15px] bg-white"
-              >
-                <option value="doer">Doer</option>
-                <option value="initiator">Initiator</option>
-                <option value="both">Both</option>
-              </select>
+                onValueChange={(v) => setRole(v as Role)}
+                options={[
+                  { value: "doer", label: "Doer" },
+                  { value: "initiator", label: "Initiator" },
+                  { value: "both", label: "Both" },
+                ]}
+              />
             </Field>
             <Field label="Manager">
-              <select
+              <Select
                 value={managerId ?? ""}
-                onChange={(e) => setManagerId(e.target.value || null)}
-                className="w-full rounded-md border border-[#CBD5E1] px-3.5 py-2.5 text-[15px] bg-white"
-              >
-                <option value="">— None —</option>
-                {managerOptions
-                  .filter((o) => o.value !== employee.id)
-                  .map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-              </select>
+                onValueChange={(v) => setManagerId(v || null)}
+                searchable
+                options={[
+                  { value: "", label: "— None —" },
+                  ...managerOptions
+                    .filter((o) => o.value !== employee.id)
+                    .map((o) => ({ value: o.value, label: o.label })),
+                ]}
+              />
             </Field>
             <Field label="Departments (optional)">
               <DepartmentMultiSelect

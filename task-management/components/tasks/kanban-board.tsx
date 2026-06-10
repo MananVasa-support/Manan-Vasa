@@ -16,7 +16,6 @@ import {
   CalendarDays,
   AlignLeft,
   User,
-  ChevronDown,
   Check,
   GripVertical,
 } from "lucide-react";
@@ -42,6 +41,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Select } from "@/components/ui/select";
 import {
   TASK_PRIORITIES,
   PRIORITY_LABELS,
@@ -572,24 +572,12 @@ function FilterDropdown({
       <span className="text-[13.5px] font-bold uppercase tracking-[0.05em] text-ink-subtle">
         {label}
       </span>
-      <span className="relative inline-flex items-center">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="appearance-none h-12 rounded-pill pl-5 pr-10 text-[16px] font-semibold text-ink-strong bg-surface-card border border-hairline outline-none focus:ring-2 focus:ring-altus-red/40 cursor-pointer"
-        >
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <ChevronDown
-          size={16}
-          strokeWidth={2.4}
-          className="pointer-events-none absolute right-4 text-ink-subtle"
-        />
-      </span>
+      <Select
+        value={value}
+        onValueChange={onChange}
+        options={options}
+        className="h-12 rounded-pill min-w-[11rem] w-auto text-[16px] font-semibold"
+      />
     </label>
   );
 }

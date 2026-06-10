@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { setWorkingHours } from "@/app/(app)/profile/actions";
 import { fireToast } from "@/lib/toast";
 import { SectionHeader } from "@/components/profile/identity/avatar-and-name";
+import { Select } from "@/components/ui/select";
 
 const TZ_OPTIONS = [
   "Asia/Kolkata",
@@ -98,22 +99,20 @@ export function WorkingHours({ initial }: Props) {
         }}
       >
         <Label htmlFor="wh-tz">Timezone</Label>
-        <select
+        <Select
           id="wh-tz"
           value={tz}
-          onChange={(e) => {
-            setTz(e.target.value);
-            save({ timezone: e.target.value });
+          onValueChange={(v) => {
+            setTz(v);
+            save({ timezone: v });
           }}
-          style={inputStyle}
-        >
-          {TZ_OPTIONS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-          {!TZ_OPTIONS.includes(tz) && <option value={tz}>{tz}</option>}
-        </select>
+          searchable
+          searchPlaceholder="Search timezone…"
+          options={[
+            ...TZ_OPTIONS.map((t) => ({ value: t, label: t })),
+            ...(!TZ_OPTIONS.includes(tz) ? [{ value: tz, label: tz }] : []),
+          ]}
+        />
 
         <Label htmlFor="wh-start">Start</Label>
         <input

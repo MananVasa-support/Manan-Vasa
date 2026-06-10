@@ -6,6 +6,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Users, X } from "lucide-react";
 import { reassignTask } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
+import { Select } from "@/components/ui/select";
 
 interface Props {
   taskId: string;
@@ -125,18 +126,15 @@ export function ReassignDialog({
               <label htmlFor="rd-doer" className="block text-[14px] font-semibold text-ink-strong mb-1.5">
                 New doer <span className="text-rose">*</span>
               </label>
-              <select
+              <Select
                 id="rd-doer"
-                required
                 value={newDoerId}
-                onChange={(e) => setNewDoerId(e.target.value)}
-                className="w-full rounded-md border border-hairline px-3.5 py-3 text-[15px] bg-white"
-              >
-                <option value="">Select an employee…</option>
-                {options.map((e) => (
-                  <option key={e.id} value={e.id}>{e.name}</option>
-                ))}
-              </select>
+                onValueChange={setNewDoerId}
+                placeholder="Select an employee…"
+                searchable
+                searchPlaceholder="Search employees…"
+                options={options.map((e) => ({ value: e.id, label: e.name }))}
+              />
             </div>
 
             <label className="flex items-center gap-2.5 text-[15px] text-ink-strong cursor-pointer select-none">

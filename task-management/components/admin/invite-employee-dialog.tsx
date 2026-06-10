@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { inviteEmployee } from "@/app/(admin)/admin/employees/actions";
 import { fireToast } from "@/lib/toast";
+import { Select } from "@/components/ui/select";
 import {
   DepartmentMultiSelect,
   type DepartmentOption,
@@ -102,15 +103,15 @@ export function InviteEmployeeDialog({
               />
             </Field>
             <Field label="Task role">
-              <select
+              <Select
                 value={role}
-                onChange={(e) => setRole(e.target.value as "doer" | "initiator" | "both")}
-                className="w-full rounded-md border border-[#CBD5E1] px-3.5 py-2.5 text-[15px] bg-white"
-              >
-                <option value="doer">Doer</option>
-                <option value="initiator">Initiator</option>
-                <option value="both">Both</option>
-              </select>
+                onValueChange={(v) => setRole(v as "doer" | "initiator" | "both")}
+                options={[
+                  { value: "doer", label: "Doer" },
+                  { value: "initiator", label: "Initiator" },
+                  { value: "both", label: "Both" },
+                ]}
+              />
             </Field>
             <Field label="Departments (optional)">
               <DepartmentMultiSelect

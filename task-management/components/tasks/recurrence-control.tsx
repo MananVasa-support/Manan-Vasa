@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { ChevronDown, Repeat } from "lucide-react";
+import { Repeat } from "lucide-react";
 import type { TaskRecurrence } from "@/db/enums";
+import { Select } from "@/components/ui/select";
 
 /**
  * Google-Calendar-faithful recurrence picker.
@@ -189,24 +190,11 @@ export function RecurrenceControl({ anchor, recurrence, recurrenceRule, onChange
         Repeat
       </span>
       <div>
-        <div className="relative">
-          <select
-            value={preset}
-            onChange={(e) => selectPreset(e.target.value as PresetKey)}
-            className="nt-input w-full appearance-none pr-9"
-          >
-            {presetOptions.map((o) => (
-              <option key={o.key} value={o.key}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown
-            size={16}
-            strokeWidth={2.2}
-            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-subtle"
-          />
-        </div>
+        <Select
+          value={preset}
+          onValueChange={(v) => selectPreset(v as PresetKey)}
+          options={presetOptions.map((o) => ({ value: o.key, label: o.label }))}
+        />
         {summary && (
           <p className="mt-2 text-[13px] font-semibold" style={{ color: "rgb(var(--vp-cyan-deep))" }}>
             {summary}{" "}
@@ -316,17 +304,12 @@ function CustomDialog({
               onChange={(e) => patch({ interval: Math.max(1, Number(e.target.value) || 1) })}
               className="nt-input w-20 text-center tabular-nums"
             />
-            <select
+            <Select
               value={draft.freq}
-              onChange={(e) => patch({ freq: e.target.value as Freq })}
-              className="nt-input"
-            >
-              {UNITS.map((u) => (
-                <option key={u.value} value={u.value}>
-                  {u.label(draft.interval)}
-                </option>
-              ))}
-            </select>
+              onValueChange={(v) => patch({ freq: v as Freq })}
+              options={UNITS.map((u) => ({ value: u.value, label: u.label(draft.interval) }))}
+              className="w-auto min-w-[8rem]"
+            />
           </div>
 
           {/* Weekly → weekday chips */}
@@ -362,16 +345,15 @@ function CustomDialog({
           {/* Monthly → day-of-month vs nth weekday */}
           {draft.freq === "MONTHLY" && (
             <div className="mb-5">
-              <select
+              <Select
                 value={draft.monthlyMode}
-                onChange={(e) => patch({ monthlyMode: e.target.value as "day" | "weekday" })}
-                className="nt-input w-full"
-              >
-                <option value="day">Monthly on day {anchor.getDate()}</option>
-                <option value="weekday">
-                  Monthly on the {nthLabel(anchor)} {wdFull(anchor)}
-                </option>
-              </select>
+                onValueChange={(v) => patch({ monthlyMode: v as "day" | "weekday" })}
+                options={[
+                  { value: "day", label: `Monthly on day ${anchor.getDate()}` },
+                  { value: "weekday", label: `Monthly on the ${nthLabel(anchor)} ${wdFull(anchor)}` },
+                ]}
+              />
+
             </div>
           )}
 

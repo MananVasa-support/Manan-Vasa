@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { setOoo } from "@/app/(app)/profile/actions";
 import { fireToast } from "@/lib/toast";
 import { SectionHeader } from "@/components/profile/identity/avatar-and-name";
+import { Select } from "@/components/ui/select";
 
 export interface ColleagueOption {
   id: string;
@@ -180,28 +181,27 @@ export function OooControls({ initial, colleagues }: Props) {
             style={dateInputStyle}
           />
           <Label htmlFor="ooo-delegate">Delegate</Label>
-          <select
+          <Select
             id="ooo-delegate"
             value={delegate}
-            onChange={(e) => {
-              setDelegate(e.target.value);
+            onValueChange={(v) => {
+              setDelegate(v);
               commit({
                 enabled: true,
                 oooStart: start,
                 oooEnd: end,
-                oooDelegateId: e.target.value || null,
+                oooDelegateId: v || null,
               });
             }}
-            style={dateInputStyle}
-          >
-            <option value="">No delegate</option>
-            {colleagues.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-                {c.department ? ` · ${c.department}` : ""}
-              </option>
-            ))}
-          </select>
+            searchable
+            options={[
+              { value: "", label: "No delegate" },
+              ...colleagues.map((c) => ({
+                value: c.id,
+                label: `${c.name}${c.department ? ` · ${c.department}` : ""}`,
+              })),
+            ]}
+          />
         </div>
       )}
     </section>
