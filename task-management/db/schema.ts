@@ -8,9 +8,11 @@ import {
   boolean,
   jsonb,
   integer,
+  numeric,
   primaryKey,
   time,
   date,
+  uniqueIndex,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -871,6 +873,160 @@ export const settingsEvents = pgTable(
   ],
 );
 
+/**
+ * Attendance (migration 0053) — one row per punch. Ported from the Ecosystem
+ * "Employee Attendance Form" (Date + In/Out + Notes). `log_date` is the
+ * calendar day in the employee's own timezone, computed server-side at punch
+ * time; UNIQUE (employee, day, kind) means one check-in + one check-out per
+ * day — a second punch of the same kind is a friendly error, not an update,
+ * so the log stays honest.
+ */
+export const attendanceLogs = pgTable(
+  "attendance_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    logDate: date("log_date").notNull(),
+    kind: text("kind").$type<"in" | "out">().notNull(),
+    loggedAt: timestamp("logged_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    note: text("note"),
+  },
+  (t) => [
+    uniqueIndex("attendance_logs_employee_day_kind_uq").on(
+      t.employeeId,
+      t.logDate,
+      t.kind,
+    ),
+    index("attendance_logs_date_idx").on(t.logDate),
+    index("attendance_logs_employee_date_idx").on(t.employeeId, t.logDate),
+  ],
+);
+
+/**
+ * Incentive requests (migration 0053) — ported from the Ecosystem "Incentive
+ * Request" form. `type` picks one of the four request shapes; the per-type
+ * fields live in `details` (validated against lib/incentive-fields.ts at the
+ * action layer, same generic field-config the form renders from). Admins
+ * approve/reject via the decided_* columns.
+ */
+export const incentiveRequests = pgTable(
+  "incentive_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    type: text("type")
+      .$type<
+        "bss_conversion" | "sales_pitch" | "client_happiness" | "group_intro"
+      >()
+      .notNull(),
+    status: text("status")
+      .$type<"pending" | "approved" | "rejected">()
+      .notNull()
+      .default("pending"),
+    details: jsonb("details")
+      .notNull()
+      .$type<Record<string, string>>()
+      .default({}),
+    decidedById: uuid("decided_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    decisionNote: text("decision_note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("incentive_requests_employee_created_idx").on(
+      t.employeeId,
+      t.createdAt,
+    ),
+    index("incentive_requests_status_created_idx").on(t.status, t.createdAt),
+  ],
+);
+
+/**
+ * Outstanding tracker (migration 0053) — receivables ledger. The Ecosystem
+ * version lived in a Google Apps Script app (tracker / collection /
+ * dashboard); this is the native rebuild. Entries are admin-managed; any
+ * authenticated user can log a collection follow-up (note + optional payment
+ * received), which rolls up into amount_received and auto-advances status
+ * (open → partial → paid). `written_off` is an explicit admin verdict.
+ */
+export const outstandingEntries = pgTable(
+  "outstanding_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    client: text("client").notNull(),
+    // Invoice no / particulars — free text, optional.
+    particulars: text("particulars"),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    amountReceived: numeric("amount_received", { precision: 14, scale: 2 })
+      .notNull()
+      .default("0"),
+    dueDate: date("due_date"),
+    status: text("status")
+      .$type<"open" | "partial" | "paid" | "written_off">()
+      .notNull()
+      .default("open"),
+    // Who chases this receivable. Optional.
+    ownerId: uuid("owner_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("outstanding_entries_status_due_idx").on(t.status, t.dueDate),
+    index("outstanding_entries_client_idx").on(t.client),
+  ],
+);
+
+/** Collection follow-up log — append-only, one row per touch. */
+export const outstandingFollowups = pgTable(
+  "outstanding_followups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    entryId: uuid("entry_id")
+      .notNull()
+      .references(() => outstandingEntries.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "restrict" }),
+    note: text("note").notNull(),
+    // Client promised to pay by this date (optional).
+    promisedDate: date("promised_date"),
+    // Payment recorded with this follow-up (optional) — rolled up into the
+    // parent entry's amount_received by the action.
+    amountReceived: numeric("amount_received", { precision: 14, scale: 2 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("outstanding_followups_entry_created_idx").on(
+      t.entryId,
+      t.createdAt,
+    ),
+  ],
+);
+
 export type Employee = typeof employees.$inferSelect;
 export type NewEmployee = typeof employees.$inferInsert;
 export type Task = typeof tasks.$inferSelect;
@@ -913,3 +1069,11 @@ export type PinnedItem = typeof pinnedItems.$inferSelect;
 export type NewPinnedItem = typeof pinnedItems.$inferInsert;
 export type AchievementEarned = typeof achievementsEarned.$inferSelect;
 export type NewAchievementEarned = typeof achievementsEarned.$inferInsert;
+export type AttendanceLog = typeof attendanceLogs.$inferSelect;
+export type NewAttendanceLog = typeof attendanceLogs.$inferInsert;
+export type IncentiveRequest = typeof incentiveRequests.$inferSelect;
+export type NewIncentiveRequest = typeof incentiveRequests.$inferInsert;
+export type OutstandingEntry = typeof outstandingEntries.$inferSelect;
+export type NewOutstandingEntry = typeof outstandingEntries.$inferInsert;
+export type OutstandingFollowup = typeof outstandingFollowups.$inferSelect;
+export type NewOutstandingFollowup = typeof outstandingFollowups.$inferInsert;

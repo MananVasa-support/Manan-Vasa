@@ -25,6 +25,42 @@ export function formatDate(d: Date): string {
   return dateFmt.format(d);
 }
 
+/**
+ * Calendar day (YYYY-MM-DD) of `d` in the given IANA timezone. Used by
+ * attendance to pin a punch to the employee's own "today" regardless of
+ * the server's timezone (Vercel runs UTC).
+ */
+export function localDateString(timeZone: string, d: Date = new Date()): string {
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+/** Clock time of `d` in the given IANA timezone (e.g. "10:42 am"). */
+export function formatTimeInTz(d: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(d);
+}
+
+const inrFmt = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 0,
+});
+
+/** ₹ amount in Indian digit grouping, no paise (e.g. "₹1,25,000"). */
+export function formatInr(n: number): string {
+  return inrFmt.format(n);
+}
+
 export function formatDelta(n: number): string {
   if (n > 0) return `↑ ${n}`;
   if (n < 0) return `↓ ${Math.abs(n)}`;
