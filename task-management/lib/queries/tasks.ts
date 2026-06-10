@@ -282,11 +282,34 @@ export interface BoardTask {
   updatedAt: Date;
 }
 
-/** Non-archived tasks for the Kanban board, lightest possible payload. */
-export async function listBoardTasks(): Promise<BoardTask[]> {
-  // Includes archived tasks: the board renders them in a dedicated "Archived"
-  // column (drag a card there to archive, drag back out to restore). The
-  // column count stays small in practice, so no separate query is needed.
+/**
+ * Tasks for the Kanban board, lightest possible payload. Optionally filtered by
+ * the same `TaskListFilters` the list view uses (so the board can carry the
+ * full filter bar). The `archived` flag is deliberately NOT applied — the board
+ * renders archived tasks in a dedicated "Archived" column — but every other
+ * dimension (date range, status, doer, priority, subject, client, department)
+ * narrows the board.
+ */
+export async function listBoardTasks(filters?: TaskListFilters): Promise<BoardTask[]> {
+  const conditions = [];
+  if (filters) {
+    if (filters.startDate) conditions.push(gte(tasks.createdAt, filters.startDate));
+    if (filters.endDate)
+      conditions.push(lt(tasks.createdAt, new Date(filters.endDate.getTime() + MS_PER_DAY)));
+    const statusCond = statusFilterCondition(filters.statuses);
+    if (statusCond) conditions.push(statusCond);
+    if (filters.doerIds.length > 0) conditions.push(inArray(tasks.doerId, filters.doerIds));
+    if (filters.initiatorIds.length > 0)
+      conditions.push(inArray(tasks.initiatorId, filters.initiatorIds));
+    if (filters.priorities.length > 0) conditions.push(inArray(tasks.priority, filters.priorities));
+    if (filters.subjects.length > 0) conditions.push(inArray(tasks.subject, filters.subjects));
+    if (filters.clients.length > 0) conditions.push(inArray(tasks.client, filters.clients));
+    if (filters.departments.length > 0) {
+      const ids = await employeeIdsInDepartments(filters.departments);
+      if (ids.length === 0) return [];
+      conditions.push(inArray(tasks.doerId, ids));
+    }
+  }
   const rows = await db
     .select({
       id: tasks.id,
@@ -305,6 +328,7 @@ export async function listBoardTasks(): Promise<BoardTask[]> {
     })
     .from(tasks)
     .leftJoin(employees, eq(tasks.doerId, employees.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(tasks.createdAt))
     .limit(1000);
   return rows.map((r) => ({ ...r, doerName: r.doerName ?? null }));

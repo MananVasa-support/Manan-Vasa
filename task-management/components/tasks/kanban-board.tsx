@@ -9,7 +9,6 @@ import { format } from "date-fns";
 import {
   Loader2,
   Archive,
-  X,
   Flag,
   Tag,
   Building2,
@@ -41,9 +40,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Select } from "@/components/ui/select";
 import {
-  TASK_PRIORITIES,
   PRIORITY_LABELS,
   type TaskStatus,
   type TaskPriority,
@@ -68,8 +65,6 @@ interface Props {
   tasks: BoardTask[];
   labels: Record<TaskStatus, string>;
   tones: Record<TaskStatus, StatusColorToken>;
-  /** Roster for the employee filter. */
-  employees: { id: string; name: string }[];
   isAdmin: boolean;
   /** Ordered column ids to render (statuses + the synthetic Archive column).
    *  Admins can drag column headers to reorder; the new order is persisted. */
@@ -97,12 +92,10 @@ function accentFor(col: ColId, tones: Record<TaskStatus, StatusColorToken>) {
  * reorder the whole board (persisted globally). A DragOverlay renders the
  * floating preview; dnd-kit handles auto-scroll, keyboard a11y and animation.
  */
-export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, columnOrder }: Props) {
+export function KanbanBoard({ tasks, labels, tones, isAdmin, columnOrder }: Props) {
   const router = useRouter();
   const [items, setItems] = React.useState(tasks);
   const [savingId, setSavingId] = React.useState<string | null>(null);
-  const [empFilter, setEmpFilter] = React.useState<string>("all");
-  const [prioFilter, setPrioFilter] = React.useState<string>("all");
   const [visibleByCol, setVisibleByCol] = React.useState<Record<string, number>>({});
   // Column order is local state so an admin's drag-reorder is instant.
   const [columns, setColumns] = React.useState<ColId[]>(columnOrder);
@@ -121,15 +114,11 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, columnOr
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const filtered = React.useMemo(
-    () =>
-      items.filter(
-        (t) =>
-          (empFilter === "all" || t.doerId === empFilter) &&
-          (prioFilter === "all" || t.priority === prioFilter),
-      ),
-    [items, empFilter, prioFilter],
-  );
+  // Filtering now happens server-side via the page's FilterBar; the board just
+  // renders what it's given (kept as `filtered` so the column logic below is
+  // unchanged). Optimistic drag still mutates `items`.
+  const filtered = items;
+  const activeCount = items.filter((t) => !t.archived).length;
 
   async function persistOrder(next: ColId[]) {
     const prev = columns;
@@ -258,44 +247,17 @@ export function KanbanBoard({ tasks, labels, tones, employees, isAdmin, columnOr
         }}
       >
         <div>
-          {/* Filters — employee + priority, applied client-side across the board. */}
+          {/* Running total — filtering lives in the top filter bar now. */}
           <div className="mb-5 flex items-center gap-2.5 flex-wrap">
-            <FilterDropdown
-              label="Employee"
-              value={empFilter}
-              onChange={setEmpFilter}
-              options={[
-                { value: "all", label: "All Employees" },
-                ...employees.map((e) => ({ value: e.id, label: e.name })),
-              ]}
-            />
-            <FilterDropdown
-              label="Priority"
-              value={prioFilter}
-              onChange={setPrioFilter}
-              options={[
-                { value: "all", label: "All Priorities" },
-                ...TASK_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] })),
-              ]}
-            />
-            {(empFilter !== "all" || prioFilter !== "all") && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEmpFilter("all");
-                  setPrioFilter("all");
-                }}
-                className="inline-flex items-center gap-2 h-12 px-5 rounded-pill text-[15px] font-bold transition-colors text-ink-soft border border-hairline hover:bg-surface-soft"
-              >
-                <X size={16} strokeWidth={2.6} />
-                Reset
-              </button>
-            )}
+            <span className="text-[15px] font-semibold text-ink-soft">
+              <span className="text-ink-strong font-bold tabular-nums">{activeCount}</span>{" "}
+              {activeCount === 1 ? "task" : "tasks"} on the board
+            </span>
           </div>
 
           <div
             className="kanban-scroll flex items-stretch gap-4 overflow-x-auto overflow-y-auto pb-3 max-sm:snap-x max-sm:snap-mandatory"
-            style={{ maxHeight: "calc(100dvh - 230px)", minHeight: 460 }}
+            style={{ maxHeight: "calc(100dvh - 290px)", minHeight: 460 }}
           >
             <SortableContext items={columns} strategy={horizontalListSortingStrategy}>
               {columns.map((col) => {
@@ -551,34 +513,6 @@ function KanbanCard({
         </Tooltip.Portal>
       </Tooltip.Root>
     </div>
-  );
-}
-
-// Labelled single-select for the board's employee / priority filters.
-function FilterDropdown({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  const current = options.find((o) => o.value === value) ?? options[0];
-  return (
-    <label className="inline-flex items-center gap-2">
-      <span className="text-[13.5px] font-bold uppercase tracking-[0.05em] text-ink-subtle">
-        {label}
-      </span>
-      <Select
-        value={value}
-        onValueChange={onChange}
-        options={options}
-        className="h-12 rounded-pill min-w-[11rem] w-auto text-[16px] font-semibold"
-      />
-    </label>
   );
 }
 
