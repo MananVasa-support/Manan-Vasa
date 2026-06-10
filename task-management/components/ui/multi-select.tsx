@@ -14,6 +14,7 @@ import {
   CommandList,
 } from "./command";
 import { cn } from "@/lib/utils";
+import { focusNextFrom } from "@/lib/focus-next";
 
 interface MultiSelectProps {
   options: { value: string; label: string }[];
@@ -31,7 +32,22 @@ export function MultiSelect({
   className,
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
   const labelMap = new Map(options.map((o) => [o.value, o.label]));
+
+  // Tab commits the highlighted option and advances to the next field, instead
+  // of just dismissing the menu (cmdk only commits on Enter / click).
+  function onCommandKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key !== "Tab") return;
+    const active = e.currentTarget.querySelector<HTMLElement>(
+      '[cmdk-item][aria-selected="true"]',
+    );
+    if (!active) return;
+    e.preventDefault();
+    active.click();
+    setOpen(false);
+    requestAnimationFrame(() => focusNextFrom(triggerRef.current, e.shiftKey ? -1 : 1));
+  }
 
   function toggle(value: string) {
     onChange(
@@ -45,6 +61,7 @@ export function MultiSelect({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
+          ref={triggerRef}
           type="button"
           className={cn(
             "inline-flex items-center gap-2 min-w-40 text-chip text-ink-strong bg-transparent outline-none text-left",
@@ -82,8 +99,8 @@ export function MultiSelect({
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-0">
-        <Command>
-          <CommandInput placeholder="Search employees..." />
+        <Command onKeyDown={onCommandKeyDown}>
+          <CommandInput placeholder="Search…" />
           <CommandList className="max-h-64 overflow-auto">
             <CommandEmpty className="px-2 py-3 text-[15px] text-ink-subtle">
               No results.
@@ -93,7 +110,9 @@ export function MultiSelect({
               return (
                 <CommandItem
                   key={opt.value}
-                  value={opt.value}
+                  // cmdk fuzzy-matches on `value`, so search the LABEL (the name
+                  // the user reads), not the opaque id. The id keeps it unique.
+                  value={`${opt.label} ${opt.value}`}
                   onSelect={() => toggle(opt.value)}
                 >
                   <span className="flex items-center gap-2 w-full">

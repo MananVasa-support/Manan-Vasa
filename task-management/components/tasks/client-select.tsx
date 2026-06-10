@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Check, Plus, X, ChevronDown, Search } from "lucide-react";
 import { quickAddClient } from "@/app/(app)/tasks/actions";
+import { focusNextFrom } from "@/lib/focus-next";
 
 interface Props {
   /** Currently selected client name (the task title). */
@@ -154,7 +155,15 @@ export function ClientSelect({
       setOpen(false);
       triggerRef.current?.focus();
     } else if (e.key === "Tab") {
-      setOpen(false);
+      // Commit the highlighted client on Tab, then advance to the next field
+      // (on the "Add new…" row, just close so Tab doesn't trap the user).
+      if (hi < filtered.length && filtered[hi]) {
+        e.preventDefault();
+        choose(filtered[hi]);
+        requestAnimationFrame(() => focusNextFrom(triggerRef.current, e.shiftKey ? -1 : 1));
+      } else {
+        setOpen(false);
+      }
     }
   }
 
