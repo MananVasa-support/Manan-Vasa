@@ -38,7 +38,16 @@ function bucketByWeek(points: VelocityPoint[]): WeeklyPoint[] {
     .sort((a, b) => a.weekStart.localeCompare(b.weekStart));
 }
 
-export function VelocityHero({ data }: { data: VelocityPoint[] }) {
+export function VelocityHero({
+  data,
+  embedded = false,
+}: {
+  data: VelocityPoint[];
+  /** Rendered inside the collapsible section — drop the standalone card
+   *  wrapper + the internal "Task Velocity" header (the collapsible bar owns
+   *  the title). */
+  embedded?: boolean;
+}) {
   const weekly = React.useMemo(() => bucketByWeek(data), [data]);
 
   const totalCreated = weekly.reduce((s, w) => s + w.created, 0);
@@ -68,25 +77,35 @@ export function VelocityHero({ data }: { data: VelocityPoint[] }) {
 
   return (
     <section
-      className="mx-auto max-w-[1600px] mt-12 bg-surface-card rounded-section p-8 max-md:p-4 max-md:mt-6"
-      style={{
-        border: "1px solid var(--color-hairline)",
-        boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
-        opacity: 0,
-        animation: "fadeUp 500ms ease-out 300ms forwards",
-      }}
+      className={
+        embedded
+          ? "p-8 max-md:p-4"
+          : "mx-auto max-w-[1600px] mt-12 bg-surface-card rounded-section p-8 max-md:p-4 max-md:mt-6"
+      }
+      style={
+        embedded
+          ? undefined
+          : {
+              border: "1px solid var(--color-hairline)",
+              boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
+              opacity: 0,
+              animation: "fadeUp 500ms ease-out 300ms forwards",
+            }
+      }
     >
       <VelocityHeadline totalCreated={totalCreated} totalCompleted={totalCompleted} />
       <div>
-        <header className="mb-5">
-          <h2 className="text-display-lg text-ink-strong">
-            <span aria-hidden className="mr-2">📈</span>Task Velocity
-          </h2>
-          <p className="text-body-lg text-ink-subtle mt-1">
-            Each bar = one week. Blue = new tasks coming in. Green = tasks
-            finished. A healthy team keeps green at or above blue.
-          </p>
-        </header>
+        {!embedded && (
+          <header className="mb-5">
+            <h2 className="text-display-lg text-ink-strong">
+              <span aria-hidden className="mr-2">📈</span>Task Velocity
+            </h2>
+            <p className="text-body-lg text-ink-subtle mt-1">
+              Each bar = one week. Blue = new tasks coming in. Green = tasks
+              finished. A healthy team keeps green at or above blue.
+            </p>
+          </header>
+        )}
 
         {/* Auto-generated insight chip */}
         <div

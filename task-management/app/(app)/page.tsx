@@ -2,7 +2,7 @@ import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { FilterBar } from "@/components/layout/filter-bar";
 import { KpiStrip } from "@/components/dashboard/kpi-strip";
-import { VelocityHero } from "@/components/dashboard/velocity-hero";
+import { CollapsibleVelocity } from "@/components/dashboard/collapsible-velocity";
 import { StatusTable } from "@/components/dashboard/status-table";
 import { StatusDistributionChart } from "@/components/dashboard/status-distribution";
 import { TopPerformersSection } from "@/components/dashboard/top-performers";
@@ -107,7 +107,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               />
             )}
             <KpiStrip kpis={data.kpis} summary={data.wmsSummary} />
-            <VelocityHero data={data.velocity} />
             <div className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-12 grid grid-cols-2 max-lg:grid-cols-1 gap-6">
               <StatusDistributionChart
                 data={data.statusDistribution}
@@ -119,6 +118,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             </div>
             <StatusTable rows={data.statusTable} view={filters.view} />
             <AgingHeatmap rows={data.agingTable} cellTasks={data.agingHeatmapData.byCell} />
+            <CollapsibleVelocity data={data.velocity} />
           </>
         )}
       </main>
