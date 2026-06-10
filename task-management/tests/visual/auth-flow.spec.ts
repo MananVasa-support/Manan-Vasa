@@ -93,14 +93,8 @@ test.describe("M2.0 auth flow", () => {
     await userPage.fill("#confirm", "newuser1234");
     await userPage.click('button:has-text("Save and sign in")');
 
-    // Step 7: Should land on /welcome
-    await expect(userPage).toHaveURL("/welcome", { timeout: 10_000 });
-    await expect(
-      userPage.getByText(`Welcome, ${newName.split(" ")[0]}`),
-    ).toBeVisible();
-
-    // Step 8: "Take me in" → /
-    await userPage.click("text=Take me in");
+    // Step 7: Should land straight on the dashboard — the welcome/celebration
+    // interstitial was removed (every login now lands on the destination).
     await expect(userPage).toHaveURL("/", { timeout: 10_000 });
 
     await ctx.close();

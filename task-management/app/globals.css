@@ -916,8 +916,8 @@ html[data-density="compact"] body {
 @utility filter-chip {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: 6px;
+  padding: 6px 10px;
   background: var(--color-surface-card);
   border: 1px solid var(--color-hairline);
   border-radius: var(--radius-chip);
@@ -937,8 +937,8 @@ html[data-density="compact"] body {
 @utility nav-pill {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 9px 12px;
+  gap: 6px;
+  padding: 7px 10px;
   border-radius: 999px;
   white-space: nowrap;
   background: var(--color-nav-pill-bg);
@@ -974,12 +974,12 @@ html[data-density="compact"] body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 26px;
-  padding: 2px 9px;
+  min-width: 22px;
+  padding: 2px 7px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.14);
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;

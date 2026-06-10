@@ -125,10 +125,19 @@ import {
   setTaskPriority,
   reassignDoer,
 } from "@/app/(app)/tasks/actions";
+import { requireUser } from "@/lib/auth/current";
 
 const VALID = "11111111-1111-1111-1111-111111111111";
 const OTHER = "22222222-2222-2222-2222-222222222222";
 const INVALID = "not-a-uuid";
+// Archive/restore are admin-only; the default mock actor is a non-admin.
+const ADMIN_USER = {
+  id: "me-id",
+  isAdmin: true,
+  isActive: true,
+  name: "Me",
+  email: "me@vp.com",
+} as Awaited<ReturnType<typeof requireUser>>;
 
 beforeEach(() => {
   updateCall.mockClear();
@@ -138,6 +147,8 @@ beforeEach(() => {
 
 describe("task actions", () => {
   it("archiveTask runs an update + emits an `archived` audit event", async () => {
+    // Archive/restore are admin-only — give this call an admin actor.
+    vi.mocked(requireUser).mockResolvedValueOnce(ADMIN_USER);
     await archiveTask(VALID);
     expect(updateCall).toHaveBeenCalledTimes(1);
     expect(insertCall).toHaveBeenCalledTimes(1);
@@ -157,6 +168,7 @@ describe("task actions", () => {
   });
 
   it("unarchiveTask emits a `restored` audit event", async () => {
+    vi.mocked(requireUser).mockResolvedValueOnce(ADMIN_USER);
     await unarchiveTask(VALID);
     expect(updateCall).toHaveBeenCalledTimes(1);
     expect(insertCall).toHaveBeenCalledTimes(1);

@@ -1,6 +1,6 @@
 # Altus WMS — Hardening, Performance & Reliability Plan
 
-**Status:** active · **Last updated:** 2026-05-25 · **Owner:** Hetesh + Claude pair
+**Status:** active · **Last updated:** 2026-06-09 · **Owner:** Hetesh + Claude pair
 **Trigger:** Manan reported "clicking on a task takes multiple seconds to load."
 **Scope:** This is the canonical, multi-session plan for hardening the dashboard. Treat it as a backlog — pick the next unstarted item, do it, check the box, write a one-line outcome.
 
@@ -111,6 +111,19 @@ Without numbers we'll make changes that feel faster but aren't. Establish the ba
   - **Risk:** Up to 60s window where a revoked session still works. Acceptable for this app.
   - **Verify:** Slow-query log + console.time around verify shows ~5ms (cache hit) for repeat requests.
   - **Outcome:** Audit found this is **already done** by an earlier session — `middleware.ts` sets `checkRevoked: false`, so token verification uses cached Google public keys locally with no Firebase round-trip. `lib/auth/current.ts`'s `getCurrentEmployee` is `cache()`-wrapped (React per-request dedup) so the employee-row lookup happens at most once per request. The remaining ~5ms DB hit per navigation isn't worth the per-UID cache-invalidation complexity at current scale. **Follow-up rule:** if employee-row lookup ever shows up in the slow-query log >300ms (e.g. under heavy concurrent load), add `unstable_cache` keyed by Firebase UID with a `revalidateTag("employee:${uid}")` triggered by `updateEmployee`/`deactivateEmployee` admin actions.
+
+- [x] **1.6 Perceived-performance loading UI (brain-hack layer).**
+  - **What:** A global top-of-page progress bar that fires the instant any in-app link is clicked and completes when the new route paints, plus a reusable circular spinner / buffering state shown over the slow pages' skeletons.
+  - **Why:** 1.4 proved the queries are fast and the residual cold-load latency is network RTT we can't remove in code. Making the wait *feel* short and intentional is the highest-ROI lever short of the infra fix (1.7). Manan reported "opening tasks takes time to load."
+  - **Verify:** Click Dashboard ↔ Tasks ↔ Kanban — the bar animates immediately on click; Tasks shows a centered "Loading tasks…" spinner over its skeleton.
+  - **Outcome:** Added `components/layout/route-progress.tsx` (App-Router-safe: detects nav START by capturing internal-anchor clicks, COMPLETE by pathname/searchParams change; trickles to 90%, snaps to 100%, 8s safety net) — mounted globally in `app/(app)/layout.tsx`. Added `components/ui/spinner.tsx` (`<Spinner/>` SVG ring + `<BufferingState/>` labelled centre state) and dropped `<BufferingState label="Loading tasks…"/>` over the table skeleton in `tasks/loading.tsx`. Typecheck + lint clean. Dev session 2026-06-09. **Staged on `feat/mobile-responsive`, not yet deployed.**
+
+- [ ] **1.7 Co-locate the Vercel function region with the Supabase DB region.**
+  - **What:** Check the Supabase project's region (Dashboard → Project Settings → General). Set the Vercel project's Serverless Function Region (Project Settings → Functions, or `regions` in `vercel.json`) to the Vercel region physically nearest that DB region — e.g. `bom1` (Mumbai) or `sin1` (Singapore) if the DB is in an India/SEA region. Keep the pooled `:6543` connection (see 1.3).
+  - **Why:** This is the *actual* durable fix for the slow loads. 1.4's `EXPLAIN` showed every hot query is sub-4ms; re-confirmed 2026-06-09 that the same `listTasks` query measured **2685ms cold vs ~300ms warm** in one session — pure cross-continent latency variance, not query cost. Each DB round-trip currently crosses ~100–300ms of network; co-locating function + DB collapses that to single-digit-ms intra-region, multiplying across every round-trip per page. No code change can fix this — it's where the function runs relative to the DB.
+  - **Risk:** The function region also affects latency *to users*. If users and the DB are both in India, an India region (`bom1`) wins on both. If they diverge, optimise for the DB (round-trips dominate) and lean on caching (1.1) + the perceived-perf UI (1.6) for the user-distance portion.
+  - **Verify:** After the region move, cold `/tasks` `application-code` time drops from ~2–4s toward <800ms, and the slow-query log's per-query times collapse to <50ms. Capture before/after from the dev/Vercel logs.
+  - **Outcome:** _(fill in: Supabase region, chosen Vercel region, before/after cold-load numbers)_
 
 ---
 
@@ -254,3 +267,4 @@ These aren't infra but they're real commitments:
 ## Changelog of this plan
 
 - 2026-05-25 — Created. Phases scoped after a perf investigation of `/tasks/[id]`. (Hetesh + Claude)
+- 2026-06-09 — Added 1.6 (perceived-perf loading UI — top progress bar + circular buffer, shipped) and 1.7 (co-locate Vercel function region with the Supabase DB region — the durable network-RTT fix), after a fresh "opening tasks is slow" report confirmed the residual latency is cross-region RTT, not query cost. (Hetesh + Claude)

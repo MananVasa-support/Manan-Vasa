@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateMyProfile } from "@/app/(app)/profile/actions";
 import { fireToast } from "@/lib/toast";
 import { AvatarGallery } from "./avatar-gallery";
 
@@ -11,43 +10,14 @@ interface Props {
   initialAvatarUrl: string | null;
 }
 
-const NAME_SAVE_DEBOUNCE_MS = 500;
-
 export function AvatarAndName({ initialName, initialAvatarUrl }: Props) {
   const router = useRouter();
-  const [name, setName] = useState(initialName);
-  const [savedName, setSavedName] = useState(initialName);
+  // Display name is assigned by an admin and final — not self-editable here.
+  const name = initialName;
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl);
   const [uploading, setUploading] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
-  const [, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    const trimmed = name.trim();
-    if (trimmed === savedName.trim() || trimmed.length === 0) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      startTransition(async () => {
-        const res = await updateMyProfile({
-          name: trimmed,
-          avatarUrl: avatarUrl ?? "",
-        });
-        if (!res.ok) {
-          fireToast({ message: res.error });
-          setName(savedName);
-          return;
-        }
-        setSavedName(trimmed);
-        setSavedAt(Date.now());
-        router.refresh();
-      });
-    }, NAME_SAVE_DEBOUNCE_MS);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [name, savedName, avatarUrl, router]);
 
   const showSaved = savedAt !== null && Date.now() - savedAt < 2500;
   useEffect(() => {
@@ -128,7 +98,7 @@ export function AvatarAndName({ initialName, initialAvatarUrl }: Props) {
     >
       <SectionHeader
         title="Photo & name"
-        description="Upload a picture, pick a character, or stick with your initials. Either way, change your display name below."
+        description="Upload a picture, pick a character, or stick with your initials. Your display name is set by your administrator and can't be changed here."
         savedAt={showSaved ? savedAt : null}
       />
 
@@ -204,31 +174,48 @@ export function AvatarAndName({ initialName, initialAvatarUrl }: Props) {
         </div>
 
         <div style={{ minWidth: 0 }}>
-          <label
-            htmlFor="profile-name"
-            style={fieldLabelStyle}
-          >
-            Display name
-          </label>
-          <input
-            id="profile-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={120}
+          <label style={fieldLabelStyle}>Display name</label>
+          {/* Read-only — the name is admin-assigned and final. */}
+          <div
             style={{
               width: "100%",
               padding: "14px 18px",
               fontSize: 19,
               fontWeight: 600,
               color: "var(--color-ink-strong)",
-              background: "var(--color-surface-input)",
-              border: "1px solid var(--color-hairline-strong)",
+              background: "var(--color-surface-soft)",
+              border: "1px solid var(--color-hairline)",
               borderRadius: 12,
-              outline: "none",
               letterSpacing: "-0.005em",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
             }}
-          />
+          >
+            <span
+              style={{
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {name}
+            </span>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                color: "var(--color-ink-subtle)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Set by admin
+            </span>
+          </div>
           <div
             style={{
               marginTop: 14,

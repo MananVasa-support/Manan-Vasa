@@ -13,6 +13,8 @@ import {
   LogOut,
   UserCog,
   Inbox,
+  FileText,
+  Archive,
 } from "lucide-react";
 
 type Props = {
@@ -20,9 +22,18 @@ type Props = {
   email: string;
   isAdmin: boolean;
   avatarUrl: string | null;
+  inboxUnread: number;
+  archivedTasks: number;
 };
 
-export function UserMenu({ name, email, isAdmin, avatarUrl }: Props) {
+export function UserMenu({
+  name,
+  email,
+  isAdmin,
+  avatarUrl,
+  inboxUnread,
+  archivedTasks,
+}: Props) {
   const router = useRouter();
 
   async function handleSignOut() {
@@ -60,10 +71,21 @@ export function UserMenu({ name, email, isAdmin, avatarUrl }: Props) {
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
         <button
-          aria-label="User menu"
-          className="group flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-white/40 transition-transform"
+          aria-label={
+            inboxUnread > 0 ? `User menu — ${inboxUnread} unread` : "User menu"
+          }
+          className="group relative flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-white/40 transition-transform"
           style={{ transition: "transform 200ms ease" }}
         >
+          {/* Unread-inbox dot — the badge that used to sit on the nav's Inbox
+              pill, now that Inbox lives inside this menu. */}
+          {inboxUnread > 0 && (
+            <span
+              aria-hidden
+              className="absolute -top-0.5 -right-0.5 z-10 h-2.5 w-2.5 rounded-full ring-2 ring-white"
+              style={{ background: "var(--color-altus-red)" }}
+            />
+          )}
           <span
             className="inline-flex rounded-full"
             style={{
@@ -225,6 +247,25 @@ export function UserMenu({ name, email, isAdmin, avatarUrl }: Props) {
             </Link>
           </DropdownMenu.Item>
 
+          {/* Section: workspace — Documents / Inbox / Archived moved off the
+              top nav into here. Inbox + Archived carry their live counts. */}
+          <DropdownMenu.Label className="px-3 pt-2 pb-1 text-[11px] uppercase tracking-wide text-[#94A3B8] font-bold">
+            Workspace
+          </DropdownMenu.Label>
+
+          <DropdownMenu.Item asChild>
+            <Link
+              href={"/documents" as Route}
+              className="flex items-center justify-between gap-2.5 px-3.5 py-2.5 text-[15px] rounded-lg cursor-pointer outline-none text-[#0F172A] data-[highlighted]:bg-[#F1F5F9]"
+            >
+              <span className="inline-flex items-center gap-2">
+                <FileText size={14} strokeWidth={2.2} style={{ color: "#475569" }} />
+                <span className="font-medium">Documents</span>
+              </span>
+              <ChevronRight size={14} strokeWidth={2.2} style={{ color: "#94A3B8" }} />
+            </Link>
+          </DropdownMenu.Item>
+
           <DropdownMenu.Item asChild>
             <Link
               href={"/inbox" as Route}
@@ -234,13 +275,31 @@ export function UserMenu({ name, email, isAdmin, avatarUrl }: Props) {
                 <Inbox size={14} strokeWidth={2.2} style={{ color: "#475569" }} />
                 <span className="font-medium">Inbox</span>
               </span>
-              <ChevronRight
-                size={14}
-                strokeWidth={2.2}
-                style={{ color: "#94A3B8" }}
-              />
+              <span className="inline-flex items-center gap-2">
+                {inboxUnread > 0 && <MenuCount n={inboxUnread} tone="red" />}
+                <ChevronRight size={14} strokeWidth={2.2} style={{ color: "#94A3B8" }} />
+              </span>
             </Link>
           </DropdownMenu.Item>
+
+          {/* Archiving is admin-only, so the Archived view is too. */}
+          {isAdmin && (
+            <DropdownMenu.Item asChild>
+              <Link
+                href={"/archived" as Route}
+                className="flex items-center justify-between gap-2.5 px-3.5 py-2.5 text-[15px] rounded-lg cursor-pointer outline-none text-[#0F172A] data-[highlighted]:bg-[#F1F5F9]"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Archive size={14} strokeWidth={2.2} style={{ color: "#475569" }} />
+                  <span className="font-medium">Archived</span>
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  {archivedTasks > 0 && <MenuCount n={archivedTasks} tone="neutral" />}
+                  <ChevronRight size={14} strokeWidth={2.2} style={{ color: "#94A3B8" }} />
+                </span>
+              </Link>
+            </DropdownMenu.Item>
+          )}
 
           <DropdownMenu.Separator className="my-1 h-px bg-[#E2E8F0]" />
 
@@ -254,5 +313,23 @@ export function UserMenu({ name, email, isAdmin, avatarUrl }: Props) {
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
+  );
+}
+
+// Small count chip for the menu items. `red` = unread inbox (demands
+// attention); `neutral` = archived total (informational).
+function MenuCount({ n, tone }: { n: number; tone: "red" | "neutral" }) {
+  const display = n > 99 ? "99+" : String(n);
+  return (
+    <span
+      className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold tabular-nums"
+      style={
+        tone === "red"
+          ? { background: "var(--color-altus-red)", color: "#fff" }
+          : { background: "#F1F5F9", color: "#475569" }
+      }
+    >
+      {display}
+    </span>
   );
 }

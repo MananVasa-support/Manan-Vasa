@@ -23,6 +23,7 @@ export function PriorityFilter({
         selected={selected}
         onChange={onChange}
         placeholder="All Priorities"
+        className="min-w-[6.5rem] !text-[14px]"
       />
     </div>
   );

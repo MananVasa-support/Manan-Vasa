@@ -1,8 +1,10 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageBuffering } from "@/components/ui/spinner";
 
 export default function ProjectsLoading() {
   return (
     <>
+      <PageBuffering label="Loading projects…" />
       <div className="sticky top-0 z-40 h-[96px] max-md:h-[72px] border-b border-[color:var(--color-hairline,#e5e7eb)] bg-white/70 backdrop-blur" />
       <main className="mx-auto max-w-[1480px] px-12 max-md:px-4 pt-10 pb-20 w-full">
         {/* Page header skeleton */}

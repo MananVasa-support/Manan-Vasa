@@ -113,6 +113,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 data={data.statusDistribution}
                 labels={statusLabels}
                 tones={statusTones}
+                isAdmin={Boolean(me?.isAdmin)}
               />
               <TopPerformersSection performers={data.topPerformers} />
             </div>

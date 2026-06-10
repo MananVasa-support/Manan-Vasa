@@ -20,6 +20,7 @@ export function SubjectFilter({
         selected={selected}
         onChange={onChange}
         placeholder="All Subjects"
+        className="min-w-[6.5rem] !text-[14px]"
       />
     </div>
   );

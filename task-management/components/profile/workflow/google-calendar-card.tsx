@@ -2,9 +2,12 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CalendarCheck2, Link2, Unlink, Loader2 } from "lucide-react";
+import { CalendarCheck2, Link2, Unlink, Loader2, RefreshCw } from "lucide-react";
 import { fireToast } from "@/lib/toast";
-import { disconnectGoogleCalendar } from "@/app/(app)/profile/actions";
+import {
+  disconnectGoogleCalendar,
+  syncGoogleCalendarNow,
+} from "@/app/(app)/profile/actions";
 
 /**
  * Connect / disconnect a personal Google Calendar. When connected, tasks
@@ -24,6 +27,7 @@ export function GoogleCalendarCard({
   const router = useRouter();
   const params = useSearchParams();
   const [pending, start] = React.useTransition();
+  const [syncing, startSync] = React.useTransition();
 
   // Surface the OAuth callback result once, then clean the URL.
   React.useEffect(() => {
@@ -44,6 +48,22 @@ export function GoogleCalendarCard({
       await disconnectGoogleCalendar();
       fireToast({ message: "Google Calendar disconnected." });
       router.refresh();
+    });
+  }
+
+  function syncNow() {
+    startSync(async () => {
+      const res = await syncGoogleCalendarNow();
+      if (!res.ok) {
+        fireToast({ message: res.error });
+        return;
+      }
+      fireToast({
+        message:
+          res.synced === 0
+            ? "No active tasks to sync — nothing assigned to you right now."
+            : `Synced ${res.synced} of ${res.attempted} task${res.attempted === 1 ? "" : "s"} to your calendar.`,
+      });
     });
   }
 
@@ -85,8 +105,21 @@ export function GoogleCalendarCard({
               </span>
               <button
                 type="button"
+                onClick={syncNow}
+                disabled={syncing || pending}
+                className="inline-flex items-center gap-1.5 rounded-pill border border-hairline-strong px-3.5 py-1.5 text-[13px] font-bold text-ink-soft hover:border-altus-red hover:text-altus-red transition-colors disabled:opacity-50"
+              >
+                {syncing ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={14} strokeWidth={2.4} />
+                )}
+                {syncing ? "Syncing…" : "Sync now"}
+              </button>
+              <button
+                type="button"
                 onClick={disconnect}
-                disabled={pending}
+                disabled={pending || syncing}
                 className="inline-flex items-center gap-1.5 rounded-pill border border-hairline-strong px-3.5 py-1.5 text-[13px] font-bold text-ink-soft hover:border-altus-red hover:text-altus-red transition-colors disabled:opacity-50"
               >
                 {pending ? <Loader2 size={14} className="animate-spin" /> : <Unlink size={14} strokeWidth={2.4} />}

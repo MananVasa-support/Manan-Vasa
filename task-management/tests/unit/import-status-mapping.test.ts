@@ -7,7 +7,8 @@ describe("mapLegacyStatus", () => {
       ["Not Started", "not_started"],
       ["Initiated", "initiated"],
       ["Follow Up", "follow_up"],
-      ["Need Help", "need_help"],
+      // need_help retired 2026-06-10 — legacy "Need Help" now imports as need_info.
+      ["Need Help", "need_info"],
       ["Done", "done"],
       ["Approved", "approved"],
       ["Not Approved", "not_approved"],

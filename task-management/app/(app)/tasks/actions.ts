@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { afterResponse } from "@/lib/after";
 import { db, tasks } from "@/lib/db";
@@ -125,6 +125,9 @@ export async function archiveTask(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!isUuid(taskId)) return { ok: false, error: "Invalid task id." };
   const me = await requireUser();
+  if (!me.isAdmin) {
+    return { ok: false, error: "Only admins can archive a task." };
+  }
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   try {
@@ -206,6 +209,9 @@ export async function unarchiveTask(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!isUuid(taskId)) return { ok: false, error: "Invalid task id." };
   const me = await requireUser();
+  if (!me.isAdmin) {
+    return { ok: false, error: "Only admins can restore a task from the archive." };
+  }
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   try {
@@ -407,6 +413,9 @@ export async function rescheduleTask(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dueYmd))
     return { ok: false, error: "Invalid date." };
   const me = await requireUser();
+  if (!me.isAdmin) {
+    return { ok: false, error: "Only admins can reschedule a task." };
+  }
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
@@ -472,6 +481,264 @@ export async function reassignDoer(
   afterResponse(() => reconcileTaskEvent(taskId));
   revalidateTaskRoutes();
   return { ok: true };
+}
+
+// ───────────────────────── Bulk / multi-select actions ─────────────────────
+//
+// Power the task-list "select many → act" toolbar. Each takes an array of
+// task ids, applies ONE rate-limit check (not per-row), batches the DB writes
+// (`inArray`), writes one audit row per task, and revalidates once.
+//
+// Permissions mirror the single-task actions: status honours the transition
+// matrix per task (rows the actor can't move are skipped, not failed);
+// priority + reassign are open to any signed-in user; archive + delete are
+// admin-only. Bulk ops intentionally DON'T fan out per-task notifications — a
+// 50-task sweep would flood every participant's inbox (single-task actions
+// still notify).
+
+const MAX_BULK = 500;
+
+type BulkResult =
+  | { ok: true; updated: number; skipped: number }
+  | { ok: false; error: string };
+
+function parseBulkIds(taskIds: unknown): string[] | null {
+  if (!Array.isArray(taskIds)) return null;
+  const ids = Array.from(
+    new Set(taskIds.filter((x): x is string => typeof x === "string")),
+  );
+  if (ids.length === 0 || ids.length > MAX_BULK) return null;
+  if (!ids.every(isUuid)) return null;
+  return ids;
+}
+
+export async function bulkSetStatus(
+  taskIds: string[],
+  status: TaskStatus,
+): Promise<BulkResult> {
+  const ids = parseBulkIds(taskIds);
+  if (!ids) return { ok: false, error: "Invalid selection." };
+  if (!TASK_STATUSES.includes(status))
+    return { ok: false, error: "Unknown status." };
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const rows = await db
+    .select({
+      id: tasks.id,
+      status: tasks.status,
+      doerId: tasks.doerId,
+      initiatorId: tasks.initiatorId,
+      createdById: tasks.createdById,
+    })
+    .from(tasks)
+    .where(inArray(tasks.id, ids));
+
+  // Honour the transition matrix per task; silently skip rows this actor's
+  // role can't move (reported back as `skipped`).
+  const prevStatus = new Map(rows.map((r) => [r.id, r.status]));
+  const allowed = rows
+    .filter((r) => {
+      const role: ActorRole = me.isAdmin
+        ? "admin"
+        : r.doerId === me.id
+          ? "doer"
+          : r.initiatorId === me.id
+            ? "initiator"
+            : r.createdById === me.id
+              ? "creator"
+              : "stranger";
+      return canTransitionTo(r.status, status, role);
+    })
+    .map((r) => r.id);
+
+  if (allowed.length === 0) return { ok: true, updated: 0, skipped: ids.length };
+
+  const now = new Date();
+  try {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(tasks)
+        .set({ status, updatedAt: now, completedAt: status === "done" ? now : null })
+        .where(inArray(tasks.id, allowed));
+      await tx.insert(taskEvents).values(
+        allowed.map((id) => ({
+          taskId: id,
+          actorId: me.id,
+          eventType: "status_changed" as const,
+          fromValue: { status: prevStatus.get(id) },
+          toValue: { status },
+        })),
+      );
+    });
+  } catch (err) {
+    return { ok: false, error: `Could not update: ${(err as Error).message}` };
+  }
+  for (const id of allowed) afterResponse(() => reconcileTaskEvent(id));
+  revalidateTaskRoutes();
+  return { ok: true, updated: allowed.length, skipped: ids.length - allowed.length };
+}
+
+export async function bulkSetPriority(
+  taskIds: string[],
+  priority: TaskPriority,
+): Promise<BulkResult> {
+  const ids = parseBulkIds(taskIds);
+  if (!ids) return { ok: false, error: "Invalid selection." };
+  if (!TASK_PRIORITIES.includes(priority))
+    return { ok: false, error: "Unknown priority." };
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const rows = await db
+    .select({ id: tasks.id, priority: tasks.priority })
+    .from(tasks)
+    .where(inArray(tasks.id, ids));
+  const prev = new Map(rows.map((r) => [r.id, r.priority]));
+  const changed = rows.filter((r) => r.priority !== priority).map((r) => r.id);
+  if (changed.length === 0) return { ok: true, updated: 0, skipped: ids.length };
+
+  try {
+    await db.transaction(async (tx) => {
+      await tx.update(tasks).set({ priority }).where(inArray(tasks.id, changed));
+      await tx.insert(taskEvents).values(
+        changed.map((id) => ({
+          taskId: id,
+          actorId: me.id,
+          eventType: "priority_changed" as const,
+          fromValue: { priority: prev.get(id) },
+          toValue: { priority },
+        })),
+      );
+    });
+  } catch (err) {
+    return { ok: false, error: `Could not update: ${(err as Error).message}` };
+  }
+  revalidateTaskRoutes();
+  return { ok: true, updated: changed.length, skipped: ids.length - changed.length };
+}
+
+export async function bulkReassignDoer(
+  taskIds: string[],
+  doerId: string,
+): Promise<BulkResult> {
+  const ids = parseBulkIds(taskIds);
+  if (!ids) return { ok: false, error: "Invalid selection." };
+  if (!isUuid(doerId)) return { ok: false, error: "Invalid doer." };
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const [target] = await db
+    .select({ id: employees.id })
+    .from(employees)
+    .where(and(eq(employees.id, doerId), eq(employees.isActive, true)))
+    .limit(1);
+  if (!target) return { ok: false, error: "That employee can't take tasks." };
+
+  const rows = await db
+    .select({ id: tasks.id, doerId: tasks.doerId })
+    .from(tasks)
+    .where(inArray(tasks.id, ids));
+  const prev = new Map(rows.map((r) => [r.id, r.doerId]));
+  const changed = rows.filter((r) => r.doerId !== doerId).map((r) => r.id);
+  if (changed.length === 0) return { ok: true, updated: 0, skipped: ids.length };
+
+  try {
+    await db.transaction(async (tx) => {
+      await tx.update(tasks).set({ doerId }).where(inArray(tasks.id, changed));
+      await tx.insert(taskEvents).values(
+        changed.map((id) => ({
+          taskId: id,
+          actorId: me.id,
+          eventType: "reassigned" as const,
+          fromValue: { doerId: prev.get(id) },
+          toValue: { doerId },
+        })),
+      );
+    });
+  } catch (err) {
+    return { ok: false, error: `Could not reassign: ${(err as Error).message}` };
+  }
+  for (const id of changed) afterResponse(() => reconcileTaskEvent(id));
+  revalidateTaskRoutes();
+  return { ok: true, updated: changed.length, skipped: ids.length - changed.length };
+}
+
+export async function bulkArchive(taskIds: string[]): Promise<BulkResult> {
+  const ids = parseBulkIds(taskIds);
+  if (!ids) return { ok: false, error: "Invalid selection." };
+  const me = await requireUser();
+  if (!me.isAdmin) return { ok: false, error: "Only admins can archive tasks." };
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const rows = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(inArray(tasks.id, ids), eq(tasks.archived, false)));
+  const toArchive = rows.map((r) => r.id);
+  if (toArchive.length === 0) return { ok: true, updated: 0, skipped: ids.length };
+
+  try {
+    await db.transaction(async (tx) => {
+      await tx.update(tasks).set({ archived: true }).where(inArray(tasks.id, toArchive));
+      await tx.insert(taskEvents).values(
+        toArchive.map((id) => ({
+          taskId: id,
+          actorId: me.id,
+          eventType: "archived" as const,
+          fromValue: null,
+          toValue: null,
+        })),
+      );
+    });
+  } catch (err) {
+    return { ok: false, error: `Could not archive: ${(err as Error).message}` };
+  }
+  for (const id of toArchive) afterResponse(() => reconcileTaskEvent(id));
+  revalidateTaskRoutes();
+  return { ok: true, updated: toArchive.length, skipped: ids.length - toArchive.length };
+}
+
+export async function bulkDelete(taskIds: string[]): Promise<BulkResult> {
+  const ids = parseBulkIds(taskIds);
+  if (!ids) return { ok: false, error: "Invalid selection." };
+  const me = await requireUser();
+  if (!me.isAdmin) return { ok: false, error: "Only admins can delete tasks." };
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  // Capture calendar pointers before the rows (and their columns) are gone.
+  const doomed = await db
+    .select({
+      id: tasks.id,
+      googleEventId: tasks.googleEventId,
+      googleSyncedDoerId: tasks.googleSyncedDoerId,
+    })
+    .from(tasks)
+    .where(inArray(tasks.id, ids));
+  if (doomed.length === 0) return { ok: true, updated: 0, skipped: ids.length };
+
+  try {
+    await db.delete(tasks).where(inArray(tasks.id, doomed.map((d) => d.id)));
+  } catch (err) {
+    return { ok: false, error: `Could not delete: ${(err as Error).message}` };
+  }
+  for (const d of doomed) {
+    if (d.googleEventId) {
+      afterResponse(() =>
+        removeTaskEvent({
+          googleEventId: d.googleEventId,
+          googleSyncedDoerId: d.googleSyncedDoerId,
+        }),
+      );
+    }
+  }
+  revalidateTaskRoutes();
+  return { ok: true, updated: doomed.length, skipped: ids.length - doomed.length };
 }
 
 export async function createTask(input: CreateTaskInput): Promise<

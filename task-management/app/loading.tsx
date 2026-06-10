@@ -1,5 +1,9 @@
+import { PageBuffering } from "@/components/ui/spinner";
+
 export default function Loading() {
   return (
+    <>
+      <PageBuffering label="Loading…" />
     <div className="mx-auto max-w-[1600px] px-12 max-md:px-4 py-16">
       <div className="h-10 w-64 bg-surface-track rounded-section animate-pulse mb-10" />
       <div className="grid grid-cols-3 max-lg:grid-cols-2 max-sm:grid-cols-1 gap-5 mb-12">
@@ -17,5 +21,6 @@ export default function Loading() {
       </div>
       <div className="h-96 bg-surface-track rounded-section animate-pulse" />
     </div>
+    </>
   );
 }

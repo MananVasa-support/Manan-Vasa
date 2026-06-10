@@ -36,7 +36,6 @@ export const USER_TASK_STATUSES = [
   "not_started",
   "initiated",
   "follow_up",
-  "need_help",
   "on_hold",
   "need_info",
   "done",
@@ -47,22 +46,23 @@ export const PENDING_STATUSES = [
   "not_started",
   "initiated",
   "follow_up",
-  "need_help",
   "on_hold",
   "need_info",
 ] as const satisfies readonly TaskStatus[];
 
-/** Statuses retired on 2026-06-08 (sir's changes #2/#4/#6). The physical
- *  pgEnum keeps them so already-imported rows still render, but nothing
- *  user-facing should offer them: filter them out of every picker, filter
- *  dropdown and kanban column. The follow_up_* rows migrate to `follow_up`;
- *  cancelled/transferred rows migrate to Archived. */
+/** Statuses retired on 2026-06-08 (sir's changes #2/#4/#6) and 2026-06-10
+ *  (need_help). The physical pgEnum keeps them so already-imported rows still
+ *  render, but nothing user-facing should offer them: filter them out of every
+ *  picker, filter dropdown and kanban column. The follow_up_* rows migrate to
+ *  `follow_up`; cancelled/transferred rows migrate to Archived; need_help rows
+ *  migrate to `need_info` (see db/migrations/0051_retire_need_help.sql). */
 export const DEPRECATED_TASK_STATUSES = [
   "follow_up_1",
   "follow_up_2",
   "follow_up_3",
   "cancelled",
   "transferred",
+  "need_help",
 ] as const satisfies readonly TaskStatus[];
 
 const DEPRECATED_STATUS_SET: ReadonlySet<TaskStatus> = new Set(

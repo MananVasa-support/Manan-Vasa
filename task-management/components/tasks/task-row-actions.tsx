@@ -161,19 +161,25 @@ export function TaskRowActions({ row, employees, me }: Props) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        {row.archived ? (
-          <DropdownMenuItem onClick={handleUnarchive}>
-            <ArchiveRestore size={14} />
-            Unarchive
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem onClick={handleArchive}>
-            <Archive size={14} />
-            Archive
-          </DropdownMenuItem>
-        )}
+        {/* Archive / Unarchive — admin-only (doers change status instead; a
+            doer archiving a task effectively hid it from the board). */}
+        {me.isAdmin && (
+          <>
+            {row.archived ? (
+              <DropdownMenuItem onClick={handleUnarchive}>
+                <ArchiveRestore size={14} />
+                Unarchive
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onClick={handleArchive}>
+                <Archive size={14} />
+                Archive
+              </DropdownMenuItem>
+            )}
 
-        <DropdownMenuSeparator />
+            <DropdownMenuSeparator />
+          </>
+        )}
 
         {STATUS_ACTIONS.map((s) => (
           <DropdownMenuItem

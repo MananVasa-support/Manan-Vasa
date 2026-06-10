@@ -5,8 +5,7 @@ import { fireToast } from "@/lib/toast";
 
 /**
  * M4 Commit 3c — the per-device "Enable push" affordance.  Lives under
- * /profile's notification-channel card and (optionally) on /welcome as a
- * dismissible banner.
+ * /profile's notification-channel card.
  *
  * Lifecycle:
  *   1. On mount, inspect Notification.permission + the existing

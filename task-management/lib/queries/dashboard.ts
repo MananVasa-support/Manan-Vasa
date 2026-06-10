@@ -138,16 +138,13 @@ async function loadDashboardDataUncached(
     );
 
   const isDone = (s: TaskStatus) => s === "done" || s === "approved";
-  // Tier-3 (2026-05-20) — `pending` covers every non-terminal status
-  // EXCEPT the dedicated `need_help`/`need_info` tiles + `not_started`
-  // (which has its own tile). That mirrors computeKpiTotals.
+  // Tier-3 (2026-05-20) — `pending` covers every non-terminal status EXCEPT
+  // the dedicated `need_info` tile + `not_started` (which has its own tile).
+  // That mirrors computeKpiTotals. (need_help retired 2026-06-10 → need_info.)
   const PENDING_SET = new Set<TaskStatus>(PENDING_STATUSES);
   const isPending = (s: TaskStatus) =>
-    PENDING_SET.has(s) &&
-    s !== "not_started" &&
-    s !== "need_help" &&
-    s !== "need_info";
-  const isNeedHelp = (s: TaskStatus) => s === "need_help" || s === "need_info";
+    PENDING_SET.has(s) && s !== "not_started" && s !== "need_info";
+  const isNeedHelp = (s: TaskStatus) => s === "need_info";
 
   const kpis: KpiSet = {
     total: {

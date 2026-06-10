@@ -1,5 +1,5 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull, notInArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { tasks, employees } from "@/db/schema";
 import {
@@ -64,6 +64,59 @@ export async function reconcileTaskEvent(taskId: string): Promise<void> {
     // eslint-disable-next-line no-console
     console.warn("[google-sync] reconcile failed", taskId, err instanceof Error ? err.message : err);
   }
+}
+
+/**
+ * Terminal/closed statuses we don't seed onto the calendar during a backfill —
+ * a freshly-connected calendar shouldn't fill with months of completed work.
+ * (Live `reconcileTaskEvent` still keeps a task's event in sync if it later
+ * moves into one of these — backfill is only about the initial bulk seed.)
+ */
+const BACKFILL_SKIP_STATUSES = [
+  "done",
+  "approved",
+  "not_approved",
+  "cancelled",
+  "transferred",
+] as const;
+
+/**
+ * One-time bulk seed: push all of a doer's active (non-archived, non-terminal)
+ * tasks onto their freshly-connected calendar. Reuses `reconcileTaskEvent` per
+ * task, so already-synced tasks are updated rather than duplicated — it's safe
+ * to run repeatedly (the "Sync now" button does exactly that).
+ *
+ * Returns how many tasks were attempted vs. how many actually carry a calendar
+ * event afterwards, so the caller can surface a meaningful count.
+ */
+export async function backfillDoerCalendar(
+  doerId: string,
+): Promise<{ attempted: number; synced: number }> {
+  if (!isGoogleConfigured()) return { attempted: 0, synced: 0 };
+  const tok = await doerToken(doerId);
+  if (!tok) return { attempted: 0, synced: 0 };
+
+  const candidateWhere = and(
+    eq(tasks.doerId, doerId),
+    eq(tasks.archived, false),
+    notInArray(tasks.status, [...BACKFILL_SKIP_STATUSES]),
+  );
+
+  const rows = await db.select({ id: tasks.id }).from(tasks).where(candidateWhere);
+
+  // Sequential, not parallel: a backfill is best-effort background work and we
+  // don't want to burst Google's rate limit with one request per task.
+  for (const { id } of rows) {
+    await reconcileTaskEvent(id); // never throws — logs internally
+  }
+
+  // Count how many of those candidates now actually hold an event id.
+  const seeded = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(candidateWhere, isNotNull(tasks.googleEventId)));
+
+  return { attempted: rows.length, synced: seeded.length };
 }
 
 /** Delete a task's event — call BEFORE hard-deleting the row (which loses the

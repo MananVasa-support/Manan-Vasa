@@ -38,7 +38,7 @@ export function MainNavPill({ href, label, Icon, active, count, badge, grow, var
           : label
       }
     >
-      <Icon size={18} strokeWidth={2.2} />
+      <Icon size={16} strokeWidth={2.2} />
       {/* Labels collapse to icon-only below xl so the centred nav never
           overflows into the logo / right cluster on a maximized laptop. */}
       <span className={variant === "drawer" ? "" : "max-xl:hidden"}>{label}</span>

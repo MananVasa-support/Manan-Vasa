@@ -12,12 +12,16 @@ import {
 } from "@/lib/kanban-columns";
 import type { TaskStatus, StatusColorToken } from "@/db/enums";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import type { Route } from "next";
 
 export const dynamic = "force-dynamic";
 
 export default async function KanbanPage() {
   const me = await requireUser();
+  // Kanban is an admin-only board — doers work from the list / My Day. A doer
+  // who lands here by typing the URL is sent to their task list.
+  if (!me.isAdmin) redirect("/tasks" as Route);
   const [tasks, statusDisplay, employees, org] = await Promise.all([
     listBoardTasks(),
     getStatusDisplayMap(),

@@ -26,7 +26,7 @@ export function computeKpiTotals(tasks: Task[]): KpiTotals {
       continue;
     }
     if (t.status === "not_started") notStarted++;
-    else if (t.status === "need_help" || t.status === "need_info") needHelp++;
+    else if (t.status === "need_info") needHelp++; // need_help retired → need_info
     else if (
       t.status === "initiated" ||
       t.status === "follow_up" ||

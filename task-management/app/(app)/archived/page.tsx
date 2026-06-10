@@ -8,6 +8,8 @@ import { parseTaskFilters } from "@/lib/task-filters";
 import { requireUser } from "@/lib/auth/current";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
 import type { TaskStatus, StatusColorToken } from "@/db/enums";
+import { redirect } from "next/navigation";
+import type { Route } from "next";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +20,9 @@ interface PageProps {
 export default async function ArchivedPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const me = await requireUser();
+  // Archiving is admin-only, so the archive view is too — a doer who types the
+  // URL is sent back to their task list.
+  if (!me.isAdmin) redirect("/tasks" as Route);
   // Non-admins default to "assigned to me" when no explicit ?emp= is set.
   const filters = parseTaskFilters(sp, /*archived*/ true, {
     defaultDoerId: me.isAdmin ? undefined : me.id,

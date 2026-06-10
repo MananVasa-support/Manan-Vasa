@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Roboto, Bricolage_Grotesque, JetBrains_Mono } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -6,6 +7,7 @@ import "./globals.css";
 import { AppToaster } from "@/components/ui/sonner-toaster";
 import { Providers } from "@/components/providers";
 import { RegisterSW } from "@/components/pwa/register-sw";
+import { RouteProgress } from "@/components/layout/route-progress";
 import { getCurrentEmployee } from "@/lib/auth/current";
 import { accentVars, resolveAccent } from "@/lib/appearance";
 
@@ -82,6 +84,12 @@ export default async function RootLayout({
           safe and React's normal hydration warnings still apply
           everywhere else. */}
       <body suppressHydrationWarning>
+        {/* Global navigation progress bar — fires on every in-app link click
+            across ALL route groups (app, admin, auth). Wrapped in Suspense
+            because it reads useSearchParams. */}
+        <Suspense fallback={null}>
+          <RouteProgress />
+        </Suspense>
         {/* NuqsAdapter wires nuqs's useQueryState into the Next App Router
             so URL-as-state hooks (settings tabs, filter bars, etc.) work.
             Required by nuqs v2+ — without it any client component calling

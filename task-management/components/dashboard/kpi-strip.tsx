@@ -20,7 +20,7 @@ interface Entry {
 // anchor; the rest follow in the operational reading order.
 const ITEMS: Entry[] = [
   { key: "total", label: "Total", sublabel: "All Tasks", neonKey: "total", href: "/tasks" },
-  { key: "needHelp", label: "Need Help", sublabel: "Blocked", neonKey: "need-help", href: "/tasks?status=need_help" },
+  { key: "needHelp", label: "Need Info", sublabel: "Awaiting info", neonKey: "need-help", href: "/tasks?status=need_info" },
   { key: "notApproved", label: "Not Approved", sublabel: "Sent Back", neonKey: "not-approved", href: "/tasks?status=not_approved" },
   { key: "done", label: "Done", sublabel: "Done + Approved", neonKey: "done", href: "/tasks?status=done,approved" },
   { key: "pending", label: "Pending", sublabel: "In Progress", neonKey: "pending", href: "/tasks?status=initiated,follow_up" },

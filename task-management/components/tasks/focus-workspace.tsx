@@ -986,9 +986,9 @@ function QuickActions({
           {(
             [
               "initiated",
-              "follow_up_1",
+              "follow_up",
               "need_info",
-              "need_help",
+              "on_hold",
             ] as TaskStatus[]
           )
             .filter((s) => s !== task.status)

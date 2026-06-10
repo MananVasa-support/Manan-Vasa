@@ -25,10 +25,12 @@ export function StatusDistributionChart({
   data,
   labels,
   tones,
+  isAdmin,
 }: {
   data: StatusDistributionPayload;
   labels?: Record<TaskStatus, string>;
   tones?: Record<TaskStatus, Tone>;
+  isAdmin: boolean;
 }) {
   const resolvedLabels = labels ?? STATUS_LABELS_FALLBACK;
   const resolvedTones = (tones ?? STATUS_TONES_FALLBACK) as Record<
@@ -53,7 +55,7 @@ export function StatusDistributionChart({
         className="rounded-section bg-surface-card border border-hairline p-8"
         style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
       >
-        <Header />
+        <Header isAdmin={isAdmin} />
         <p className="mt-3 text-body-lg text-ink-subtle">
           No data for the current filter.
         </p>
@@ -70,7 +72,7 @@ export function StatusDistributionChart({
         animation: "fadeUp 500ms ease-out 500ms forwards",
       }}
     >
-      <Header />
+      <Header isAdmin={isAdmin} />
 
       {/* Proportional ribbon — a VISUAL OVERVIEW only (not clickable):
           tiny segments can't be both proportional and tappable, so the
@@ -164,14 +166,17 @@ export function StatusDistributionChart({
           index={rows.length + 1}
           href={"/tasks?status=not_approved" as Route}
         />
-        <SummaryTile
-          label="Archived"
-          value={summary.archived}
-          tone="slate"
-          denom={denom}
-          index={rows.length + 2}
-          href={"/archived" as Route}
-        />
+        {/* Archived view is admin-only — hide the jump-to-archive tile from doers. */}
+        {isAdmin && (
+          <SummaryTile
+            label="Archived"
+            value={summary.archived}
+            tone="slate"
+            denom={denom}
+            index={rows.length + 2}
+            href={"/archived" as Route}
+          />
+        )}
       </ul>
     </section>
   );
@@ -258,7 +263,7 @@ function SummaryTile({
   );
 }
 
-function Header() {
+function Header({ isAdmin }: { isAdmin: boolean }) {
   return (
     <header className="flex items-start justify-between gap-3">
       <div className="flex items-start gap-3 min-w-0">
@@ -279,17 +284,20 @@ function Header() {
           </p>
         </div>
       </div>
-      <Link
-        href={"/tasks/kanban" as Route}
-        className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[14px] font-semibold text-white transition-all hover:-translate-y-0.5"
-        style={{
-          background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-          boxShadow: "0 4px 12px rgba(225, 6, 0, 0.25)",
-        }}
-      >
-        <LayoutGrid size={15} strokeWidth={2.4} />
-        View in Kanban
-      </Link>
+      {/* Kanban is admin-only — doers don't see the jump-to-board link. */}
+      {isAdmin && (
+        <Link
+          href={"/tasks/kanban" as Route}
+          className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[14px] font-semibold text-white transition-all hover:-translate-y-0.5"
+          style={{
+            background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+            boxShadow: "0 4px 12px rgba(225, 6, 0, 0.25)",
+          }}
+        >
+          <LayoutGrid size={15} strokeWidth={2.4} />
+          View in Kanban
+        </Link>
+      )}
     </header>
   );
 }

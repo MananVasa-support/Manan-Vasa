@@ -21,6 +21,7 @@ export function ClientFilter({
         selected={selected}
         onChange={onChange}
         placeholder="All Clients"
+        className="min-w-[6.5rem] !text-[14px]"
       />
     </div>
   );

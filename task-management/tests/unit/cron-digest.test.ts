@@ -172,10 +172,10 @@ describe("POST /api/cron/digest", () => {
     expect(insertValuesMock).not.toHaveBeenCalled();
   });
 
-  it("force-sends to EVERY active employee (incl. zero-pending 'all clear') with pending tasks", async () => {
+  it("skips zero-pending employees (no all-clear noise); emails only those with pending tasks", async () => {
     const e1 = "emp-1";
     const e2 = "emp-2";
-    // e1 has 2 pending, e2 has none → e2 gets an all-clear.
+    // e1 has 2 pending → digest; e2 has none → skipped entirely (no noise).
     listPendingByEmployee.mockResolvedValue(
       new Map<string, PendingTask[]>([
         [
@@ -198,23 +198,20 @@ describe("POST /api/cron/digest", () => {
 
     expect(res.status).toBe(200);
     const body = (await res.json()) as { ok: boolean; processed: number; sent: number };
-    // Both active employees processed + emailed (one real list, one all-clear).
-    expect(body).toEqual({ ok: true, processed: 2, sent: 2, skipped: 0 });
-    expect(sendDigestEmail).toHaveBeenCalledTimes(2);
+    // Both processed; only the one with pending tasks is emailed, the other skipped.
+    expect(body).toEqual({ ok: true, processed: 2, sent: 1, skipped: 1 });
+    expect(sendDigestEmail).toHaveBeenCalledTimes(1);
 
-    // One in-app notification row per employee, all overdue_digest kind.
-    expect(insertValuesMock).toHaveBeenCalledTimes(2);
+    // Only the pending employee gets an in-app notification row.
+    expect(insertValuesMock).toHaveBeenCalledTimes(1);
     const insertedRows = insertValuesMock.mock.calls.map(
       (c: unknown[]) => c[0] as Record<string, unknown>,
     );
     expect(insertedRows.every((r) => r.kind === "overdue_digest")).toBe(true);
     const titles = insertedRows.map((r) => r.title as string).sort();
-    expect(titles).toEqual([
-      "No pending tasks — you're all clear",
-      "You have 2 pending tasks",
-    ]);
+    expect(titles).toEqual(["You have 2 pending tasks"]);
 
-    // sendDigestEmail receives pendingTasks (not overdueTasks).
+    // sendDigestEmail receives pendingTasks; only e1 (with pending) is emailed.
     const callArgs = sendDigestEmail.mock.calls.map(
       (c: unknown[]) =>
         c[0] as {
@@ -224,8 +221,7 @@ describe("POST /api/cron/digest", () => {
     );
     const e1Call = callArgs.find((a) => a.recipient.email === "one@vp.com")!;
     expect(e1Call.pendingTasks).toHaveLength(2);
-    const e2Call = callArgs.find((a) => a.recipient.email === "two@vp.com")!;
-    expect(e2Call.pendingTasks).toHaveLength(0);
+    expect(callArgs.find((a) => a.recipient.email === "two@vp.com")).toBeUndefined();
   });
 
   it("continues on email failure (counts in processed, not sent)", async () => {

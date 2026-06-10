@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageBuffering } from "@/components/ui/spinner";
 
 /**
  * Streamed skeleton for /tasks. Mirrors the real page chrome — header
@@ -45,6 +46,8 @@ export default function TasksLoading() {
           ))}
         </div>
       </main>
+
+      <PageBuffering label="Loading tasks…" />
     </>
   );
 }

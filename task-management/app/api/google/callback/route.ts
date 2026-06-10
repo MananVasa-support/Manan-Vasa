@@ -1,10 +1,11 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, after, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { employees } from "@/db/schema";
 import { getCurrentEmployee } from "@/lib/auth/current";
 import { exchangeCode, fetchGoogleEmail } from "@/lib/google/calendar";
+import { backfillDoerCalendar } from "@/lib/google/sync";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,9 @@ export async function GET(req: NextRequest) {
         googleConnectedAt: new Date(),
       })
       .where(eq(employees.id, me.id));
+    // Seed the calendar with the doer's existing active tasks, without
+    // delaying the redirect — best-effort, logs internally.
+    after(() => backfillDoerCalendar(me.id));
     return NextResponse.redirect(`${back}?google=connected`);
   } catch (err) {
     // eslint-disable-next-line no-console

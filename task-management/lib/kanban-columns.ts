@@ -13,7 +13,6 @@ export const DEFAULT_ADMIN_COLUMN_ORDER: ColId[] = [
   "not_started",
   "initiated",
   "follow_up",
-  "need_help",
   "need_info",
   "done",
   "not_approved",

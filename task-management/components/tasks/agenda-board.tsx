@@ -31,15 +31,15 @@ interface DayCol {
 }
 
 interface Props {
-  firstName: string;
-  dueToday: number;
-  overdue: number;
   /** Today in IST (yyyy-mm-dd) — the overdue boundary. */
   todayYmd: string;
   /** Up to 6 upcoming day columns, today first (IST). */
   days: DayCol[];
-  overdueTasks: AgendaTask[];
+  /** All agenda cards (any due date); the board buckets them internally. */
   tasks: AgendaTask[];
+  /** Rescheduling (drag a card to another day) is admin-only. Doers get a
+   *  read-only board: cards still open, but can't be dragged between days. */
+  isAdmin: boolean;
 }
 
 const DAY_CHOICES = [3, 4, 5, 6] as const;
@@ -48,17 +48,10 @@ const DAY_CHOICES = [3, 4, 5, 6] as const;
  * "My Day" agenda board. Date-wise kanban with a selectable 3/4/5/6-day
  * window. Cards are draggable (#7) — drop a task onto a day column to
  * reschedule its due date there (optimistic, with rollback on failure).
- * Clicking a card still opens the focused task.
+ * Clicking a card still opens the focused task. The welcome banner + view
+ * toggle live in the parent MyDayWorkspace.
  */
-export function AgendaBoard({
-  firstName,
-  dueToday,
-  overdue,
-  todayYmd,
-  days,
-  overdueTasks,
-  tasks,
-}: Props) {
+export function AgendaBoard({ todayYmd, days, tasks, isAdmin }: Props) {
   const router = useRouter();
   const [, startTransition] = React.useTransition();
   const [dayCount, setDayCount] = React.useState<number>(5);
@@ -111,13 +104,10 @@ export function AgendaBoard({
   );
 
   // Single source of truth so optimistic drag-moves re-bucket instantly.
-  const [items, setItems] = React.useState<AgendaTask[]>(() => [
-    ...overdueTasks,
-    ...tasks,
-  ]);
+  const [items, setItems] = React.useState<AgendaTask[]>(() => [...tasks]);
   React.useEffect(() => {
-    setItems([...overdueTasks, ...tasks]);
-  }, [overdueTasks, tasks]);
+    setItems([...tasks]);
+  }, [tasks]);
 
   const shownDays = days.slice(0, dayCount);
   const lastYmd = shownDays.length ? shownDays[shownDays.length - 1]!.ymd : "";
@@ -170,37 +160,6 @@ export function AgendaBoard({
 
   return (
     <div>
-      {/* Welcome banner */}
-      <div className="mb-7">
-        <h1
-          className="text-ink-strong"
-          style={{
-            fontFamily: "var(--font-display), system-ui, sans-serif",
-            fontWeight: 900,
-            fontSize: "clamp(42px, 4.6vw, 60px)",
-            letterSpacing: "-0.025em",
-            lineHeight: 1,
-          }}
-        >
-          Welcome, {firstName}
-        </h1>
-        <p className="text-ink-subtle mt-3" style={{ fontSize: 19, lineHeight: 1.5 }}>
-          You have{" "}
-          <span className="font-bold text-ink-strong tabular-nums">{dueToday}</span>{" "}
-          {dueToday === 1 ? "task" : "tasks"} due today
-          {overdue > 0 && (
-            <>
-              {" "}and{" "}
-              <span className="font-bold tabular-nums" style={{ color: "var(--color-red-deep)" }}>
-                {overdue}
-              </span>{" "}
-              overdue
-            </>
-          )}
-          . <span className="text-ink-subtle">Drag a card to another day to reschedule it.</span>
-        </p>
-      </div>
-
       {/* Lifecycle buckets — Due Now · Upcoming · Overdue · Not Due. */}
       <div className="mb-7 grid grid-cols-4 gap-4 max-lg:grid-cols-2 max-sm:grid-cols-1">
         {buckets.map((b) => {
@@ -284,6 +243,7 @@ export function AgendaBoard({
             sub={`${overdueItems.length} ${overdueItems.length === 1 ? "task" : "tasks"}`}
             tone="red"
             tasks={overdueItems}
+            canReschedule={isAdmin}
           />
         )}
         {shownDays.map((d) => (
@@ -298,10 +258,11 @@ export function AgendaBoard({
             onOver={() => setOverCol(d.ymd)}
             onLeave={() => setOverCol((c) => (c === d.ymd ? null : c))}
             onDropTask={moveTo}
+            canReschedule={isAdmin}
           />
         ))}
         {laterItems.length > 0 && (
-          <Column label="Not Due" sub={`${laterItems.length}`} tone="slate" tasks={laterItems} />
+          <Column label="Not Due" sub={`${laterItems.length}`} tone="slate" tasks={laterItems} canReschedule={isAdmin} />
         )}
       </div>
     </div>
@@ -318,6 +279,7 @@ function Column({
   onOver,
   onLeave,
   onDropTask,
+  canReschedule,
 }: {
   label: string;
   sub: string;
@@ -328,8 +290,10 @@ function Column({
   onOver?: () => void;
   onLeave?: () => void;
   onDropTask?: (id: string, ymd: string) => void;
+  /** Admin-only: when false, cards aren't draggable and columns reject drops. */
+  canReschedule: boolean;
 }) {
-  const droppable = !!ymd;
+  const droppable = !!ymd && canReschedule;
   return (
     <div
       className="flex-shrink-0 w-[360px] max-md:w-[300px] rounded-section p-4 transition-colors"
@@ -379,12 +343,18 @@ function Column({
             <Link
               key={t.id}
               href={`/tasks/${t.id}/focus` as Route}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData("text/plain", t.id);
-                e.dataTransfer.effectAllowed = "move";
-              }}
-              className="rounded-chip bg-white border border-hairline p-4 transition-shadow hover:shadow-md block cursor-grab active:cursor-grabbing"
+              draggable={canReschedule}
+              onDragStart={
+                canReschedule
+                  ? (e) => {
+                      e.dataTransfer.setData("text/plain", t.id);
+                      e.dataTransfer.effectAllowed = "move";
+                    }
+                  : undefined
+              }
+              className={`rounded-chip bg-white border border-hairline p-4 transition-shadow hover:shadow-md block ${
+                canReschedule ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+              }`}
             >
               <span
                 className="text-[16.5px] font-semibold text-ink-strong block"

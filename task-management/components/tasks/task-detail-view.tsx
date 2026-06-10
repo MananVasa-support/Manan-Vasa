@@ -541,9 +541,10 @@ export function TaskDetailView({
                   value={PRIORITY_LABEL_SHORT[task.priority] ?? task.priority}
                 />
               </div>
-              {/* Archive / Unarchive — sir's changes #11: manage the task's
-                  archived state right here, no need to go to the list. */}
-              {canCommentOnTask && (
+              {/* Archive / Unarchive — admin-only. Doers manage a task via its
+                  status; archiving (which hides it from the board) is an admin
+                  power tool, same as permanent delete. */}
+              {me?.isAdmin && (
                 <ArchiveToggle taskId={task.id} archived={task.archived} />
               )}
             </section>

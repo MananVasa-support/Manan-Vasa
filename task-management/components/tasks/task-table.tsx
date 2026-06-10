@@ -11,6 +11,7 @@ import {
   type ColumnDef,
   type VisibilityState,
   type SortingState,
+  type RowSelectionState,
   type Updater,
   type Table as TableInstance,
 } from "@tanstack/react-table";
@@ -77,26 +78,33 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import {
   SlidersHorizontal,
   Check,
-  ChevronLeft,
   ChevronRight,
-  ChevronsLeft,
   ChevronsRight,
   ArrowUp,
   ArrowDown,
   ChevronsUpDown,
+  ChevronDown,
   Search,
   X,
+  Building2,
+  Tag,
+  CircleDot,
+  User,
+  Flag,
+  Ban,
+  Group as GroupIcon,
+  type LucideIcon,
 } from "lucide-react";
 
 // Group-by options for the Tasks table. "none" = flat list (default).
 type GroupKey = "none" | "client" | "subject" | "status" | "employee" | "priority";
-const GROUP_OPTIONS: { key: GroupKey; label: string }[] = [
-  { key: "none", label: "None" },
-  { key: "client", label: "Client" },
-  { key: "subject", label: "Subject" },
-  { key: "status", label: "Status" },
-  { key: "employee", label: "Employee" },
-  { key: "priority", label: "Priority" },
+const GROUP_OPTIONS: { key: GroupKey; label: string; Icon: LucideIcon }[] = [
+  { key: "none", label: "None", Icon: Ban },
+  { key: "client", label: "Client", Icon: Building2 },
+  { key: "subject", label: "Subject", Icon: Tag },
+  { key: "status", label: "Status", Icon: CircleDot },
+  { key: "employee", label: "Employee", Icon: User },
+  { key: "priority", label: "Priority", Icon: Flag },
 ];
 
 // The section label a row falls under for the current grouping. NULL/empty
@@ -134,6 +142,8 @@ const PRIORITY_RANK: Record<string, number> = Object.fromEntries(
 );
 import type { TaskListRow } from "@/lib/types";
 import { TaskRowActions } from "./task-row-actions";
+import { BulkActionBar } from "./bulk-action-bar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { InlineStatusCell } from "./inline-status-cell";
 import {
@@ -185,6 +195,27 @@ function buildColumns(
   statusTones: StatusTones,
 ): TaskCol[] {
   return [
+    {
+      id: "select",
+      enableSorting: false,
+      enableHiding: false,
+      meta: { narrow: true, align: "center" },
+      header: ({ table }) => (
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected()}
+          indeterminate={table.getIsSomePageRowsSelected()}
+          onChange={(v) => table.toggleAllPageRowsSelected(v)}
+          ariaLabel="Select all tasks on this page"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onChange={(v) => row.toggleSelected(v)}
+          ariaLabel="Select task"
+        />
+      ),
+    },
     {
       accessorKey: "taskNo",
       header: "ID No.",
@@ -375,6 +406,9 @@ export function TaskTable({
   // grouping off restores exactly the user's manual sort.
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [groupBy, setGroupBy] = React.useState<GroupKey>("none");
+  // Multi-select (bulk actions). Keyed by task id via getRowId, so selection
+  // survives sorting, paging, and grouping.
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
   // Rows per page — user-selectable (10/25/50/100), default 25.
   const [pageSize, setPageSize] = React.useState<number>(DEFAULT_PAGE_SIZE);
 
@@ -421,9 +455,12 @@ export function TaskTable({
   const table = useReactTable({
     data: visibleRows,
     columns,
-    state: { columnVisibility, sorting: effectiveSorting },
+    state: { columnVisibility, sorting: effectiveSorting, rowSelection },
     onColumnVisibilityChange: setColumnVisibility,
     onSortingChange: handleSortingChange,
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: true,
+    getRowId: (row) => row.id,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     // Fixed PAGE_SIZE pages; sorting/visibility apply across the full set
@@ -494,16 +531,43 @@ export function TaskTable({
     return a === "center" ? "text-center" : a === "right" ? "text-right" : "text-left";
   }
 
+  const selectedIds = table.getSelectedRowModel().rows.map((r) => r.original.id);
+
   return (
     <div ref={listTopRef} className="scroll-mt-6">
-      <div className="mb-3">
-        <SearchBox value={query} onChange={setQuery} resultCount={visibleRows.length} />
+      {/* Toolbar: Group-by ▾ · Search · compact pager — all packed left — with
+          Columns pushed to the far right. Keeps the header compact so the
+          table gets the vertical space. */}
+      <div className="mb-3 flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap min-w-0">
+          <GroupByControl value={groupBy} onChange={setGroupBy} />
+          <div className="w-full sm:w-[340px] md:w-[400px] min-w-[200px]">
+            <SearchBox value={query} onChange={setQuery} resultCount={visibleRows.length} />
+          </div>
+          <CompactPager
+            pages={pages}
+            pageIndex={pageIndex}
+            pageCount={pageCount}
+            canNext={table.getCanNextPage()}
+            onGoto={goToPage}
+          />
+        </div>
+        <div className="ml-auto flex items-center gap-3">
+          <MobileSortControl table={table} className="hidden max-md:flex" />
+          <ColumnsMenu table={table} />
+        </div>
       </div>
-      <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
-        <MobileSortControl table={table} className="hidden max-md:flex" />
-        <GroupByControl value={groupBy} onChange={setGroupBy} />
-        <ColumnsMenu table={table} />
-      </div>
+
+      {selectedIds.length > 0 && (
+        <BulkActionBar
+          selectedIds={selectedIds}
+          employees={employees}
+          isAdmin={me.isAdmin}
+          statusLabels={resolvedLabels}
+          onClear={() => table.resetRowSelection()}
+        />
+      )}
+
       <div
         // Cap the table to the viewport and scroll it internally so the
         // sticky header row below stays frozen while you page through rows.
@@ -695,119 +759,99 @@ export function TaskTable({
                 me={me}
                 statusLabels={resolvedLabels}
                 statusTones={resolvedTones}
+                selected={row.getIsSelected()}
+                onToggleSelect={(v) => row.toggleSelected(v)}
               />
             </React.Fragment>
           );
         })}
       </div>
 
-      {/* Numbered pagination — 25 rows per page: Prev · 1 2 3 … N · Next,
-          with the current page highlighted and a "Page X of Y" readout. */}
-      <div className="mt-5 flex flex-col items-center gap-3">
-        {pageCount > 1 && (
-          <nav
-            className="flex items-center gap-1.5 flex-wrap justify-center"
-            aria-label="Task list pages"
-          >
-            <PagerNavButton
-              onClick={() => goToPage(0)}
-              disabled={!table.getCanPreviousPage()}
-              ariaLabel="First page"
-            >
-              <ChevronsLeft size={16} strokeWidth={2.4} />
-              <span className="max-sm:hidden">First</span>
-            </PagerNavButton>
-            <PagerNavButton
-              onClick={() => goToPage(pageIndex - 1)}
-              disabled={!table.getCanPreviousPage()}
-              ariaLabel="Previous page"
-            >
-              <ChevronLeft size={16} strokeWidth={2.4} />
-              <span className="max-sm:hidden">Prev</span>
-            </PagerNavButton>
-
-            {pages.map((p, i) =>
-              p === "ellipsis" ? (
-                <span
-                  key={`ellipsis-${i}`}
-                  className="px-1.5 text-ink-subtle font-bold select-none"
-                  aria-hidden
-                >
-                  …
-                </span>
-              ) : (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => goToPage(p - 1)}
-                  aria-current={p - 1 === pageIndex ? "page" : undefined}
-                  className={`inline-flex items-center justify-center min-w-10 h-10 px-3 rounded-xl text-[14px] font-bold tabular-nums border transition-all ${
-                    p - 1 === pageIndex
-                      ? "bg-altus-red text-white border-altus-red"
-                      : "bg-surface-card text-ink-strong border-hairline hover:border-altus-red hover:text-altus-red"
-                  }`}
-                >
-                  {p}
-                </button>
-              ),
-            )}
-
-            <PagerNavButton
-              onClick={() => goToPage(pageIndex + 1)}
-              disabled={!table.getCanNextPage()}
-              ariaLabel="Next page"
-            >
-              <span className="max-sm:hidden">Next</span>
-              <ChevronRight size={16} strokeWidth={2.4} />
-            </PagerNavButton>
-            <PagerNavButton
-              onClick={() => goToPage(pageCount - 1)}
-              disabled={!table.getCanNextPage()}
-              ariaLabel="Last page"
-            >
-              <span className="max-sm:hidden">Last</span>
-              <ChevronsRight size={16} strokeWidth={2.4} />
-            </PagerNavButton>
-          </nav>
-        )}
-        <div className="flex items-center gap-4 flex-wrap justify-center">
-          <RowsPerPageSelect value={pageSize} onChange={setPageSize} />
-          <p className="text-[13px] font-semibold text-ink-subtle tabular-nums">
-            {totalFiltered === 0
-              ? "No tasks"
-              : pageCount > 1
-                ? `Page ${pageIndex + 1} of ${pageCount} · showing ${rangeStart}–${rangeEnd} of ${totalFiltered}`
-                : `Showing all ${totalFiltered} ${totalFiltered === 1 ? "task" : "tasks"}`}
-          </p>
-        </div>
+      {/* Slim footer: rows-per-page + range readout. The page navigation
+          itself now lives in the top toolbar, beside the search. */}
+      <div className="mt-5 flex items-center gap-4 flex-wrap justify-center">
+        <RowsPerPageSelect value={pageSize} onChange={setPageSize} />
+        <p className="text-[13px] font-semibold text-ink-subtle tabular-nums">
+          {totalFiltered === 0
+            ? "No tasks"
+            : pageCount > 1
+              ? `Page ${pageIndex + 1} of ${pageCount} · showing ${rangeStart}–${rangeEnd} of ${totalFiltered}`
+              : `Showing all ${totalFiltered} ${totalFiltered === 1 ? "task" : "tasks"}`}
+        </p>
       </div>
     </div>
   );
 }
 
-// Prev / Next control — a pill button that dims + blocks clicks at the ends of
-// the range. Shares the table's red-on-hover language.
-function PagerNavButton({
-  onClick,
-  disabled,
-  ariaLabel,
-  children,
+// Compact numbered pager for the top toolbar: 1 2 3 … N · Next · Last. The
+// current page reads red; the always-present "1" doubles as a jump-to-first
+// (so a dedicated First/Prev is unnecessary — the previous page number is
+// always one tap away in the window). Hidden entirely on a single-page list.
+function CompactPager({
+  pages,
+  pageIndex,
+  pageCount,
+  canNext,
+  onGoto,
 }: {
-  onClick: () => void;
-  disabled: boolean;
-  ariaLabel: string;
-  children: React.ReactNode;
+  pages: (number | "ellipsis")[];
+  pageIndex: number;
+  pageCount: number;
+  canNext: boolean;
+  onGoto: (index: number) => void;
 }) {
+  if (pageCount <= 1) return null;
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={ariaLabel}
-      className="inline-flex items-center gap-1.5 h-10 px-3.5 rounded-pill text-[14px] font-bold border border-hairline bg-surface-card text-ink-strong transition-all enabled:hover:border-altus-red enabled:hover:text-altus-red disabled:opacity-40 disabled:cursor-not-allowed"
+    <nav
+      className="flex items-center gap-1 flex-wrap"
+      aria-label="Task list pages"
     >
-      {children}
-    </button>
+      {pages.map((p, i) =>
+        p === "ellipsis" ? (
+          <span
+            key={`ellipsis-${i}`}
+            className="px-1 text-ink-subtle font-bold select-none"
+            aria-hidden
+          >
+            …
+          </span>
+        ) : (
+          <button
+            key={p}
+            type="button"
+            onClick={() => onGoto(p - 1)}
+            aria-current={p - 1 === pageIndex ? "page" : undefined}
+            className={`inline-flex items-center justify-center min-w-9 h-9 px-2.5 rounded-lg text-[13.5px] font-bold tabular-nums border transition-all ${
+              p - 1 === pageIndex
+                ? "bg-altus-red text-white border-altus-red"
+                : "bg-surface-card text-ink-strong border-hairline hover:border-altus-red hover:text-altus-red"
+            }`}
+          >
+            {p}
+          </button>
+        ),
+      )}
+      <button
+        type="button"
+        onClick={() => onGoto(pageIndex + 1)}
+        disabled={!canNext}
+        aria-label="Next page"
+        className="inline-flex items-center gap-1 h-9 px-3 rounded-lg text-[13.5px] font-bold border border-hairline bg-surface-card text-ink-strong transition-all enabled:hover:border-altus-red enabled:hover:text-altus-red disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Next
+        <ChevronRight size={15} strokeWidth={2.4} />
+      </button>
+      <button
+        type="button"
+        onClick={() => onGoto(pageCount - 1)}
+        disabled={!canNext}
+        aria-label="Last page"
+        className="inline-flex items-center gap-1 h-9 px-3 rounded-lg text-[13.5px] font-bold border border-hairline bg-surface-card text-ink-strong transition-all enabled:hover:border-altus-red enabled:hover:text-altus-red disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Last
+        <ChevronsRight size={15} strokeWidth={2.4} />
+      </button>
+    </nav>
   );
 }
 
@@ -901,9 +945,11 @@ function RowsPerPageSelect({
   );
 }
 
-// "Group by" segmented control — None · Client · Subject. Grouping clusters
-// the rows under that field and shows a count per section; the 25/page paging
-// still applies across the grouped order.
+// "Group by" control — a single compact pill that reflects the current
+// grouping (red-tinted + "Group: Client" when active), opening a rich menu
+// with a leading icon per field and the active one checked in red. Grouping
+// clusters the rows under that field and shows a count per section; the
+// per-page paging still applies across the grouped order.
 function GroupByControl({
   value,
   onChange,
@@ -911,30 +957,50 @@ function GroupByControl({
   value: GroupKey;
   onChange: (v: GroupKey) => void;
 }) {
+  const active = GROUP_OPTIONS.find((o) => o.key === value) ?? GROUP_OPTIONS[0]!;
+  const grouped = value !== "none";
   return (
-    <div className="inline-flex items-center gap-2">
-      <span className="text-[13px] font-bold text-ink-soft">Group by</span>
-      <div className="inline-flex items-center rounded-pill border border-hairline bg-surface-card p-0.5">
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Group tasks by"
+          className={`inline-flex items-center gap-2 h-9 px-3.5 rounded-pill text-[13px] font-bold border transition-all ${
+            grouped
+              ? "border-altus-red bg-altus-red/10 text-altus-red"
+              : "border-hairline bg-surface-card text-ink-soft hover:border-hairline-strong hover:text-ink-strong"
+          }`}
+        >
+          <GroupIcon size={15} strokeWidth={2.3} />
+          {grouped ? `Group: ${active.label}` : "Group by"}
+          <ChevronDown size={14} strokeWidth={2.4} className="opacity-60" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuLabel>Group by</DropdownMenuLabel>
         {GROUP_OPTIONS.map((opt) => {
-          const active = value === opt.key;
+          const sel = opt.key === value;
+          const Icon = opt.Icon;
           return (
-            <button
+            <DropdownMenuItem
               key={opt.key}
-              type="button"
-              onClick={() => onChange(opt.key)}
-              aria-pressed={active}
-              className={`px-3.5 h-8 rounded-pill text-[13px] font-bold transition-all ${
-                active
-                  ? "bg-altus-red text-white"
-                  : "text-ink-soft hover:text-ink-strong"
-              }`}
+              onSelect={() => onChange(opt.key)}
+              className={sel ? "font-bold text-altus-red" : ""}
             >
+              <span className="inline-flex w-4 justify-center">
+                {sel ? <Check size={14} strokeWidth={2.6} /> : null}
+              </span>
+              <Icon
+                size={15}
+                strokeWidth={2.2}
+                className={sel ? "text-altus-red" : "text-ink-soft"}
+              />
               {opt.label}
-            </button>
+            </DropdownMenuItem>
           );
         })}
-      </div>
-    </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -945,6 +1011,19 @@ function GroupByControl({
 // title is long enough to be truncated — so hovering always reveals more
 // than the few visible words. A truly short, description-less title (nothing
 // extra to show) skips the popover.
+/**
+ * Label shown in the "Task" column. Imported rows frequently store the client
+ * name as the title (so Client and Task look identical), while the real task
+ * wording lives in `description`. Prefer the description — collapsed to a
+ * single line — and fall back to the title only when there's no description.
+ * The cell itself is capped at 32ch with an ellipsis, so this naturally shows
+ * the first several words.
+ */
+function taskCellLabel(row: TaskListRow): string {
+  const desc = row.description?.replace(/\s+/g, " ").trim();
+  return desc && desc.length > 0 ? desc : row.title;
+}
+
 function TaskTitleCell({ row }: { row: TaskListRow }) {
   const link = (
     <Link
@@ -952,7 +1031,7 @@ function TaskTitleCell({ row }: { row: TaskListRow }) {
       className="task-title-link text-body text-ink-strong underline-offset-2 transition-colors"
       style={{ fontWeight: 700 }}
     >
-      {row.title}
+      {taskCellLabel(row)}
     </Link>
   );
   const desc = row.description?.trim();
@@ -1118,29 +1197,40 @@ function TaskCard({
   me,
   statusLabels,
   statusTones,
+  selected,
+  onToggleSelect,
 }: {
   row: TaskListRow;
   employees: { id: string; name: string }[];
   me: { id: string; isAdmin: boolean };
   statusLabels: StatusLabels;
   statusTones: StatusTones;
+  selected: boolean;
+  onToggleSelect: (next: boolean) => void;
 }) {
   const p = row.priority as keyof typeof PRIORITY_LABELS;
   return (
     <div
-      className="bg-surface-card rounded-section border border-hairline p-4"
+      className={`bg-surface-card rounded-section border p-4 transition-colors ${
+        selected ? "border-altus-red" : "border-hairline"
+      }`}
       style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex flex-col gap-0.5 min-w-0">
-          {row.taskNo != null && (
-            <span className="text-ink-subtle font-bold tabular-nums text-[12px]">
-              #{row.taskNo}
-            </span>
-          )}
-          <span className="text-ink-strong font-semibold truncate" style={{ fontSize: 15 }}>
-            {row.client?.trim() ? row.client : "— No client"}
+        <div className="flex items-start gap-2.5 min-w-0">
+          <span className="pt-0.5">
+            <Checkbox checked={selected} onChange={onToggleSelect} ariaLabel="Select task" />
           </span>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            {row.taskNo != null && (
+              <span className="text-ink-subtle font-bold tabular-nums text-[12px]">
+                #{row.taskNo}
+              </span>
+            )}
+            <span className="text-ink-strong font-semibold truncate" style={{ fontSize: 15 }}>
+              {row.client?.trim() ? row.client : "— No client"}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <InlineStatusCell
@@ -1157,10 +1247,10 @@ function TaskCard({
 
       <Link
         href={`/tasks/${row.id}` as Route}
-        className="task-title-link mt-2 block text-body text-ink-strong"
+        className="task-title-link mt-2 block text-body text-ink-strong line-clamp-2"
         style={{ fontWeight: 700, lineHeight: 1.3 }}
       >
-        {row.title}
+        {taskCellLabel(row)}
       </Link>
 
       <div className="mt-3 flex items-center gap-2">

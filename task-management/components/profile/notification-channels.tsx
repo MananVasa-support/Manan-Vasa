@@ -64,7 +64,7 @@ export function NotificationChannels({ current }: { current: Current }) {
       />
       <Row
         label="Web Push"
-        sub="Use the 'Enable push' button on /welcome or below to set up this device."
+        sub="Use the 'Enable push' button below to set up this device."
         checked={false}
         onChange={() => {}}
         pending={pending}

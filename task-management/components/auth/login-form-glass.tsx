@@ -63,7 +63,6 @@ export function LoginFormGlass() {
   const router = useRouter();
   const params = useSearchParams();
   const requestedNext = params.get("next") || "/";
-  const welcomeTarget = `/welcome?next=${encodeURIComponent(requestedNext)}`;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -83,7 +82,7 @@ export function LoginFormGlass() {
         );
         const idToken = await cred.user.getIdToken();
         await exchangeIdTokenForSession(idToken);
-        router.replace(welcomeTarget as Route);
+        router.replace(requestedNext as Route);
       } catch (err: unknown) {
         const code = (err as { code?: string })?.code;
         if ((err as Error)?.message === "not-enrolled") {

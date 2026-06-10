@@ -15,9 +15,16 @@ import {
   FileText,
   FileSpreadsheet,
   Upload,
+  MoreHorizontal,
 } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { motion } from "motion/react";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { DepartmentFilter } from "./filters/department-filter";
@@ -188,8 +195,10 @@ export function FilterBar({
         WebkitBackdropFilter: "blur(20px) saturate(150%)",
       }}
     >
-      <div className="mx-auto max-w-[1600px] flex flex-wrap items-center gap-3 px-12 py-4 max-md:px-4 max-sm:flex-col max-sm:items-stretch">
-        <div className="sm:contents max-sm:flex max-sm:w-full max-sm:items-center max-sm:gap-2">
+      <div className="mx-auto max-w-[1600px] px-12 py-2.5 max-md:px-4">
+        {/* Mobile-only header (Filters label + show/hide). On desktop the label
+            is dropped entirely so all the chips fit on a single line. */}
+        <div className="hidden max-sm:flex max-sm:w-full max-sm:items-center max-sm:gap-2">
           <span
             className="inline-flex items-center gap-1.5 text-table-head mr-1"
             style={{ color: "var(--color-ink-subtle)" }}
@@ -223,13 +232,18 @@ export function FilterBar({
           </button>
         </div>
 
-        <div className={`sm:contents max-sm:w-full max-sm:flex-col max-sm:gap-3 max-sm:mt-3 ${sheetOpen ? "max-sm:flex" : "max-sm:hidden"}`}>
+        <div className={`flex items-center gap-2 max-sm:w-full max-sm:flex-col max-sm:items-stretch max-sm:gap-3 max-sm:mt-3 ${sheetOpen ? "" : "max-sm:hidden"}`}>
+          {/* Filter chips — one horizontally-scrollable line on desktop; stack
+              vertically on mobile. The dropdowns portal out, so the scroll
+              container never clips them. */}
+          <div className="flex-1 min-w-0 overflow-x-auto nav-scroll max-sm:flex-none max-sm:overflow-visible">
+            <div className="flex items-center gap-2 w-max max-sm:w-full max-sm:flex-col max-sm:items-stretch max-sm:gap-3">
           {/* Date range */}
           <Popover.Root>
             <Popover.Trigger asChild>
               <button type="button" className="filter-chip max-sm:w-full max-sm:justify-between">
                 <Calendar size={16} className="text-ink-subtle" strokeWidth={2} />
-                <span className="text-chip text-ink-strong tabular-nums">
+                <span className="text-[14px] font-medium text-ink-strong tabular-nums">
                   {formattedRange}
                 </span>
               </button>
@@ -303,6 +317,7 @@ export function FilterBar({
                   ? "+ Add Teammate"
                   : "All Employees"
               }
+              className="min-w-[6.5rem] !text-[14px]"
             />
           </div>
 
@@ -341,24 +356,15 @@ export function FilterBar({
             </SegButton>
           </div>
 
-          <div className="ml-auto flex items-center gap-2.5 max-sm:ml-0 max-sm:w-full max-sm:flex-wrap">
-            {/* Import tasks from CSV/XLSX — admin-only, on the task list. */}
-            {(pathname === "/tasks" || pathname === "/archived") && me?.isAdmin && (
-              <Link
-                href={"/tasks/import" as Route}
-                className="inline-flex items-center gap-1.5 text-chip font-medium text-ink-strong hover:bg-surface-soft transition-colors px-3 py-2 rounded-chip border border-hairline bg-surface-card"
-                title="Bulk-import tasks from a CSV or Excel file"
-              >
-                <Upload size={14} strokeWidth={2} style={{ color: "var(--color-altus-red)" }} />
-                Import
-              </Link>
-            )}
-            {/* Export current view — admin-only, shown on the task list
-                views. XLS for spreadsheet workflows, PDF for sharing /
-                archival. The CSV export route still exists at
-                /tasks/export but is no longer surfaced in the UI (per
-                Manan's request — the two human-friendly formats cover
-                every reporting need). */}
+            </div>
+          </div>
+          {/* Pinned actions — stay put on the right while the filters scroll. */}
+          <div className="flex items-center gap-2 shrink-0 max-sm:w-full max-sm:flex-wrap max-sm:mt-1">
+            {/* Import / export — admin-only, on the task list views. Tucked
+                into a ⋯ menu (these are occasional actions) so the filter row
+                stays a single line and the table gets the screen space. The
+                CSV export route still exists at /tasks/export but isn't
+                surfaced — XLS + PDF cover every reporting need. */}
             {(pathname === "/tasks" || pathname === "/archived") &&
               me?.isAdmin &&
               (() => {
@@ -368,39 +374,39 @@ export function FilterBar({
                   return `${path}?${exportSp.toString()}`;
                 };
                 return (
-                  <div
-                    className="inline-flex items-center bg-surface-card border border-hairline rounded-chip overflow-hidden"
-                    style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)" }}
-                  >
-                    <a
-                      href={buildExportHref("/tasks/export.xlsx")}
-                      download
-                      className="inline-flex items-center gap-1.5 text-chip font-medium text-ink-strong hover:bg-surface-soft transition-colors px-3 py-2 border-r border-hairline"
-                      title="Download current view as XLSX"
-                      aria-label="Export XLS"
-                    >
-                      <FileSpreadsheet
-                        size={14}
-                        strokeWidth={2}
-                        style={{ color: "var(--color-success, #16a34a)" }}
-                      />
-                      XLS
-                    </a>
-                    <a
-                      href={buildExportHref("/tasks/export.pdf")}
-                      download
-                      className="inline-flex items-center gap-1.5 text-chip font-medium text-ink-strong hover:bg-surface-soft transition-colors px-3 py-2"
-                      title="Download current view as PDF"
-                      aria-label="Export PDF"
-                    >
-                      <FileText
-                        size={14}
-                        strokeWidth={2}
-                        style={{ color: "var(--color-altus-red, #dc2626)" }}
-                      />
-                      PDF
-                    </a>
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="Import and export"
+                        title="Import / export"
+                        className="inline-flex items-center justify-center h-9 w-9 rounded-chip border border-hairline bg-surface-card text-ink-soft hover:text-ink-strong hover:border-altus-red transition-colors"
+                        style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)" }}
+                      >
+                        <MoreHorizontal size={16} strokeWidth={2.4} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <Link href={"/tasks/import" as Route}>
+                          <Upload size={14} strokeWidth={2} style={{ color: "var(--color-altus-red)" }} />
+                          Import tasks
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <a href={buildExportHref("/tasks/export.xlsx")} download>
+                          <FileSpreadsheet size={14} strokeWidth={2} style={{ color: "var(--color-success, #16a34a)" }} />
+                          Export XLS
+                        </a>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <a href={buildExportHref("/tasks/export.pdf")} download>
+                          <FileText size={14} strokeWidth={2} style={{ color: "var(--color-altus-red, #dc2626)" }} />
+                          Export PDF
+                        </a>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 );
               })()}
             <button
@@ -473,7 +479,7 @@ function SegButton({
     <button
       type="button"
       onClick={onClick}
-      className="relative text-chip px-4 py-1.5 rounded-pill transition-colors"
+      className="relative text-[14px] px-2.5 py-1.5 rounded-pill transition-colors"
       style={{
         color: active ? "var(--color-ink-strong)" : "var(--color-ink-subtle)",
         fontWeight: active ? 600 : 500,

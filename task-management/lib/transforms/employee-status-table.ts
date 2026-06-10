@@ -91,8 +91,8 @@ export function computeEmployeeStatusTable(
       case "cancelled":
         row.cancelled += 1;
         break;
-      case "need_help":
       case "need_info":           // Tier-3 — rolls into the "need" bucket
+                                  // (need_help retired 2026-06-10)
         row.needHelp += 1;
         row.pendingTotal += 1;
         break;

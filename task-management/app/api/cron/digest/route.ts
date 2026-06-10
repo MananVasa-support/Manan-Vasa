@@ -111,8 +111,9 @@ async function runDigest(request: Request): Promise<NextResponse> {
 
   const pendingByEmployee = await listPendingByEmployee(now);
 
-  // Force-send: every ACTIVE employee gets the digest — even with zero pending
-  // tasks (an "all clear" message) and regardless of any per-user opt-out.
+  // Consider every ACTIVE employee, then (in the loop) skip anyone with zero
+  // pending tasks — no all-clear noise on any channel. Recipients who DO have
+  // pending tasks get the digest regardless of per-user opt-out.
   const activeEmployees = await db
     .select({ id: employees.id, email: employees.email, name: employees.name })
     .from(employees)
@@ -120,13 +121,21 @@ async function runDigest(request: Request): Promise<NextResponse> {
 
   let processed = 0;
   let sent = 0;
-  const skipped = 0;
+  let skipped = 0;
 
   for (const recipient of activeEmployees) {
     const pendingTasks = pendingByEmployee.get(recipient.id) ?? [];
     processed++;
 
     const count = pendingTasks.length;
+    // No pending tasks → send nothing on any channel. A daily "all clear" ping
+    // just fills the inbox and mailbox with noise, so skip these recipients
+    // entirely (Slack/WhatsApp already did).
+    if (count === 0) {
+      skipped++;
+      continue;
+    }
+
     const previewSubjects = pendingTasks.slice(0, 3).map((t) => t.subject).join(", ");
 
     // 1) In-app notification row (reuse the overdue_digest kind).
@@ -134,10 +143,7 @@ async function runDigest(request: Request): Promise<NextResponse> {
       await db.insert(notifications).values({
         userId: recipient.id,
         kind: "overdue_digest",
-        title:
-          count === 0
-            ? "No pending tasks — you're all clear"
-            : `You have ${count} pending task${count === 1 ? "" : "s"}`,
+        title: `You have ${count} pending task${count === 1 ? "" : "s"}`,
         body: previewSubjects || null,
         taskId: null,
         eventId: null,
@@ -147,7 +153,8 @@ async function runDigest(request: Request): Promise<NextResponse> {
       console.error(`[cron/digest] notification insert failed for ${recipient.id}`, err);
     }
 
-    // 2) Email — force-sent regardless of opt-out (mandatory morning briefing).
+    // 2) Email — sent to everyone with ≥1 pending task, regardless of opt-out
+    //    (mandatory morning briefing).
     try {
       const result = await withTimeout(
         sendDigestEmail({
@@ -174,41 +181,39 @@ async function runDigest(request: Request): Promise<NextResponse> {
       console.error(`[cron/digest] sendDigestEmail threw for ${recipient.email}`, err);
     }
 
-    // 3) Slack + WhatsApp — only when there are pending tasks (no all-clear noise).
-    if (count > 0) {
-      const channelPrefs = await getRecipientChannelPrefs(recipient.id).catch((err) => {
-        console.error(`[cron/digest] getRecipientChannelPrefs failed for ${recipient.email}`, err);
-        return null;
-      });
-      if (channelPrefs) {
-        try {
-          await withTimeout(
-            sendSlackDigest(
-              channelPrefs,
-              pendingTasks.map((t) => ({
-                subject: t.subject,
-                shortId: t.shortId ?? "",
-                daysOverdue: t.daysOverdue,
-              })),
-            ),
-            SEND_TIMEOUT_MS,
-            "sendSlackDigest",
-          );
-        } catch (err) {
-          console.error(`[cron/digest] sendSlackDigest threw for ${recipient.email}`, err);
-        }
-        try {
-          await withTimeout(
-            sendWhatsAppDigest(
-              channelPrefs,
-              pendingTasks.map((t) => ({ subject: t.subject, daysOverdue: t.daysOverdue })),
-            ),
-            SEND_TIMEOUT_MS,
-            "sendWhatsAppDigest",
-          );
-        } catch (err) {
-          console.error(`[cron/digest] sendWhatsAppDigest threw for ${recipient.email}`, err);
-        }
+    // 3) Slack + WhatsApp.
+    const channelPrefs = await getRecipientChannelPrefs(recipient.id).catch((err) => {
+      console.error(`[cron/digest] getRecipientChannelPrefs failed for ${recipient.email}`, err);
+      return null;
+    });
+    if (channelPrefs) {
+      try {
+        await withTimeout(
+          sendSlackDigest(
+            channelPrefs,
+            pendingTasks.map((t) => ({
+              subject: t.subject,
+              shortId: t.shortId ?? "",
+              daysOverdue: t.daysOverdue,
+            })),
+          ),
+          SEND_TIMEOUT_MS,
+          "sendSlackDigest",
+        );
+      } catch (err) {
+        console.error(`[cron/digest] sendSlackDigest threw for ${recipient.email}`, err);
+      }
+      try {
+        await withTimeout(
+          sendWhatsAppDigest(
+            channelPrefs,
+            pendingTasks.map((t) => ({ subject: t.subject, daysOverdue: t.daysOverdue })),
+          ),
+          SEND_TIMEOUT_MS,
+          "sendWhatsAppDigest",
+        );
+      } catch (err) {
+        console.error(`[cron/digest] sendWhatsAppDigest threw for ${recipient.email}`, err);
       }
     }
   }

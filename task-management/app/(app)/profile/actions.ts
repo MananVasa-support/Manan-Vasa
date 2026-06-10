@@ -12,6 +12,7 @@ import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { isAcceptableAvatarUrl } from "@/lib/avatar-url";
 import { revokeToken } from "@/lib/google/calendar";
+import { backfillDoerCalendar } from "@/lib/google/sync";
 
 /**
  * Disconnect Google Calendar — revoke the stored refresh token at Google and
@@ -32,6 +33,35 @@ export async function disconnectGoogleCalendar(): Promise<{ ok: boolean }> {
     .where(eq(employees.id, me.id));
   revalidatePath("/profile");
   return { ok: true };
+}
+
+/**
+ * "Sync now" — push all of my active tasks onto my connected Google Calendar.
+ * Runs the same backfill that fires automatically on connect, but on demand so
+ * you can verify the integration end-to-end and re-seed after any drift.
+ */
+export async function syncGoogleCalendarNow(): Promise<
+  { ok: true; attempted: number; synced: number } | { ok: false; error: string }
+> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const [row] = await db
+    .select({ token: employees.googleRefreshToken })
+    .from(employees)
+    .where(eq(employees.id, me.id))
+    .limit(1);
+  if (!row?.token) {
+    return { ok: false, error: "Connect Google Calendar first." };
+  }
+
+  try {
+    const { attempted, synced } = await backfillDoerCalendar(me.id);
+    return { ok: true, attempted, synced };
+  } catch (err) {
+    return { ok: false, error: `Sync failed: ${(err as Error).message}` };
+  }
 }
 
 /**
@@ -73,10 +103,11 @@ export async function updateMyChannels(
 }
 
 /**
- * Self-serve profile edits — display name + avatar URL. Email is locked
- * (it's the identity key — admins manage it). Department + admin flag are
- * also locked. Avatar URL is just a string; no file upload — paste a public
- * image link from Gravatar, ImgBB, or any CDN. Empty string clears it.
+ * Self-serve profile edits — avatar URL only. The display NAME is set by an
+ * admin and is final: it's intentionally NOT written here (even if a `name`
+ * is supplied), so a user can never rename themselves. Email, department and
+ * the admin flag are likewise admin-managed. Avatar URL is just a string;
+ * empty string clears it.
  */
 const ProfilePatchSchema = z
   .object({
@@ -108,8 +139,8 @@ export async function updateMyProfile(
   try {
     await db
       .update(employees)
+      // Name is admin-managed and final — only the avatar is self-editable.
       .set({
-        name: parsed.data.name,
         avatarUrl: parsed.data.avatarUrl === "" ? null : parsed.data.avatarUrl,
       })
       .where(eq(employees.id, me.id));

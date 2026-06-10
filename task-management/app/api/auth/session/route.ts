@@ -72,12 +72,18 @@ export async function POST(req: Request) {
   // employee is back in, so the "changed by admin" message must stop showing.
   const needsUidLink = emp.firebaseUid !== decoded.uid;
   const needsMarkerClear = emp.passwordResetByAdminAt !== null;
-  if (needsUidLink || needsMarkerClear) {
+  // First-ever sign-in: stamp joinedAt so the admin "Invited/Joined" pill and
+  // the pending-invites count stay accurate. This used to be done by the
+  // /welcome interstitial (now removed) — the session mint is the canonical
+  // "first time in the app" moment and runs on every login.
+  const needsJoinedStamp = emp.joinedAt === null;
+  if (needsUidLink || needsMarkerClear || needsJoinedStamp) {
     await db
       .update(employees)
       .set({
         ...(needsUidLink ? { firebaseUid: decoded.uid } : {}),
         ...(needsMarkerClear ? { passwordResetByAdminAt: null } : {}),
+        ...(needsJoinedStamp ? { joinedAt: new Date() } : {}),
       })
       .where(eq(employees.id, emp.id));
   }

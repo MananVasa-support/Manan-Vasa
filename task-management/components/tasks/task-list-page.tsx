@@ -147,18 +147,20 @@ export function TaskListPage({
             current filter
           </p>
         </div>
-        <Link
-          href={"/tasks/kanban" as Route}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[14.5px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-            boxShadow: "0 6px 18px -6px rgba(225, 6, 0, 0.55)",
-          }}
-        >
-          <LayoutGrid size={16} strokeWidth={2.4} />
-          Kanban View
-        </Link>
+        {me.isAdmin && (
+          <Link
+            href={"/tasks/kanban" as Route}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[14.5px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+              boxShadow: "0 6px 18px -6px rgba(225, 6, 0, 0.55)",
+            }}
+          >
+            <LayoutGrid size={16} strokeWidth={2.4} />
+            Kanban View
+          </Link>
+        )}
       </header>
 
       {/* KPI summary — 4 stat cards in the same visual language as the

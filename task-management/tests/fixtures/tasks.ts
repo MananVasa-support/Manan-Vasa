@@ -171,12 +171,13 @@ export const fixtureTasks: Task[] = [
   ),
   task({ doerId: ANKIT, status: "initiated", createdAt: new Date("2026-04-22") }),
 
-  // Priya: 3 done, 1 cancelled, 2 pending (need_help, follow_up)
+  // Priya: 3 done, 1 cancelled, 2 pending (need_info, follow_up)
+  // (need_help retired 2026-06-10 → need_info; both roll into the "need" bucket)
   ...Array.from({ length: 3 }).map(() =>
     task({ doerId: PRIYA, status: "done", createdAt: new Date("2026-04-18") }),
   ),
   task({ doerId: PRIYA, status: "cancelled", createdAt: new Date("2026-04-19") }),
-  task({ doerId: PRIYA, status: "need_help", createdAt: new Date("2026-04-25") }),
+  task({ doerId: PRIYA, status: "need_info", createdAt: new Date("2026-04-25") }),
   task({ doerId: PRIYA, status: "follow_up", createdAt: new Date("2026-04-26") }),
 
   // Ravi: 1 transferred, 1 not_approved

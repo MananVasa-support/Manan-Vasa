@@ -1,22 +1,16 @@
 "use client";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ListTodo, Archive, Inbox, CalendarDays, FolderKanban, FileText, SquareKanban } from "lucide-react";
+import { LayoutDashboard, ListTodo, CalendarDays, FolderKanban, SquareKanban, Target, CalendarCheck, Award } from "lucide-react";
 import type { Route } from "next";
 import { MainNavPill } from "./main-nav-pill";
 
 interface Props {
   activeTasks: number;
-  archivedTasks: number;
-  inboxUnread: number;
+  isAdmin: boolean;
   variant?: "drawer";
 }
 
-export function MainNav({
-  activeTasks,
-  archivedTasks,
-  inboxUnread,
-  variant,
-}: Props) {
+export function MainNav({ activeTasks, isAdmin, variant }: Props) {
   const pathname = usePathname();
 
   function isActive(href: string): boolean {
@@ -30,7 +24,7 @@ export function MainNav({
       className={
         variant === "drawer"
           ? "flex flex-col gap-1.5 w-full"
-          : "flex items-center gap-1.5 2xl:gap-2 max-md:gap-1.5"
+          : "flex items-center gap-1 2xl:gap-1.5 max-md:gap-1"
       }
     >
       <MainNavPill
@@ -56,37 +50,41 @@ export function MainNav({
         }
         count={activeTasks}
         variant={variant}      />
-      <MainNavPill
-        href={"/tasks/kanban" as Route}
-        label="Kanban"
-        Icon={SquareKanban}
-        active={pathname.startsWith("/tasks/kanban")}
-        variant={variant}      />
+      {/* Kanban is an admin-only board — hidden from doers. */}
+      {isAdmin && (
+        <MainNavPill
+          href={"/tasks/kanban" as Route}
+          label="Kanban"
+          Icon={SquareKanban}
+          active={pathname.startsWith("/tasks/kanban")}
+          variant={variant}
+        />
+      )}
       <MainNavPill
         href={"/projects" as Route}
         label="Projects"
         Icon={FolderKanban}
         active={isActive("/projects")}
         variant={variant}      />
+      {/* Weekly Goals · Attendance · Incentive — new workspace areas (coming
+          soon). Documents / Archived / Inbox moved into the user menu. */}
       <MainNavPill
-        href={"/documents" as Route}
-        label="Docs"
-        Icon={FileText}
-        active={isActive("/documents")}
+        href={"/weekly-goals" as Route}
+        label="Weekly Goals"
+        Icon={Target}
+        active={isActive("/weekly-goals")}
         variant={variant}      />
       <MainNavPill
-        href={"/archived" as Route}
-        label="Archived"
-        Icon={Archive}
-        active={isActive("/archived")}
-        count={archivedTasks}
+        href={"/attendance" as Route}
+        label="Attendance"
+        Icon={CalendarCheck}
+        active={isActive("/attendance")}
         variant={variant}      />
       <MainNavPill
-        href={"/inbox" as Route}
-        label="Inbox"
-        Icon={Inbox}
-        active={isActive("/inbox")}
-        badge={inboxUnread > 0 ? inboxUnread : undefined}
+        href={"/incentive" as Route}
+        label="Incentive"
+        Icon={Award}
+        active={isActive("/incentive")}
         variant={variant}      />
     </nav>
   );

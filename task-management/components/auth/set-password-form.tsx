@@ -67,10 +67,10 @@ export function SetPasswordForm() {
         setEmail(verifiedEmail);
         setStatus("ready");
         // Overlap navigation cost with the rest of the form-fill: by the
-        // time the user clicks submit, /welcome's RSC payload is already
+        // time the user clicks submit, the dashboard's RSC payload is already
         // warm in the Next client cache, so step 5 (router.replace) is
         // an instant transition instead of a fresh round-trip.
-        router.prefetch("/welcome" as Route);
+        router.prefetch("/" as Route);
       })
       .catch((err) => {
         setStatus("error");
@@ -119,7 +119,7 @@ export function SetPasswordForm() {
           });
           if (!res.ok) throw new Error("session-exchange-failed");
           setStatus("done");
-          router.replace("/welcome" as Route);
+          router.replace("/" as Route);
         } catch (signInErr) {
           // Password was set, but auto-sign-in failed — fall back to
           // sending the user to /login with their password ready.
