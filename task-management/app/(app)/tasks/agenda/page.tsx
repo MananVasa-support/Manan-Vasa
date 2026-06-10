@@ -4,7 +4,8 @@ import { FilterBar } from "@/components/layout/filter-bar";
 import { MyDayWorkspace } from "@/components/tasks/my-day-workspace";
 import type { AgendaTask } from "@/components/tasks/agenda-board";
 import { listEmployeeOptions } from "@/lib/queries/employees";
-import { listTasks, listDistinctSubjects, listDistinctClients } from "@/lib/queries/tasks";
+import { listTasks, listDistinctSubjects } from "@/lib/queries/tasks";
+import { listActiveClientNames } from "@/lib/queries/clients";
 import { parseTaskFilters } from "@/lib/task-filters";
 import { requireUser } from "@/lib/auth/current";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
@@ -35,7 +36,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     listEmployeeOptions(),
     listTasks(filters),
     listDistinctSubjects(),
-    listDistinctClients(),
+    listActiveClientNames(),
     getStatusDisplayMap(),
   ]);
 

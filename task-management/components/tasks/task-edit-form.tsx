@@ -21,6 +21,7 @@ import { fireToast } from "@/lib/toast";
 import { ScheduleSection, type ScheduleValue } from "./schedule-section";
 import { ClientSelect } from "./client-select";
 import { SubjectSelect } from "./subject-select";
+import { Select } from "@/components/ui/select";
 
 interface Props {
   taskId: string;
@@ -309,19 +310,14 @@ export function TaskEditForm({
           setFocused={setFPrio}
         >
           {(p) => (
-            <select
+            <Select
               id="te-priority"
               value={priority}
-              onChange={(e) => setPriority(e.target.value as TaskPriority)}
-              className={inputClass}
-              {...p}
-            >
-              {TASK_PRIORITIES.map((pr) => (
-                <option key={pr} value={pr}>
-                  {PRIORITY_LABELS[pr]}
-                </option>
-              ))}
-            </select>
+              onValueChange={(v) => setPriority(v as TaskPriority)}
+              onFocus={p.onFocus}
+              onBlur={p.onBlur}
+              options={TASK_PRIORITIES.map((pr) => ({ value: pr, label: PRIORITY_LABELS[pr] }))}
+            />
           )}
         </FieldShell>
         <FieldShell
@@ -479,20 +475,17 @@ export function TaskEditForm({
       {projectNodes.length > 0 && (
         <FieldShell label="Project" htmlFor="te-project" focused={false} setFocused={() => {}}>
           {(p) => (
-            <select
+            <Select
               id="te-project"
               value={projectNodeId}
-              onChange={(e) => setProjectNodeId(e.target.value)}
-              className={inputClass}
-              {...p}
-            >
-              <option value="">Not linked to a project</option>
-              {projectNodes.map((n) => (
-                <option key={n.id} value={n.id}>
-                  {n.label}
-                </option>
-              ))}
-            </select>
+              onValueChange={setProjectNodeId}
+              onFocus={p.onFocus}
+              onBlur={p.onBlur}
+              options={[
+                { value: "", label: "Not linked to a project" },
+                ...projectNodes.map((n) => ({ value: n.id, label: n.label })),
+              ]}
+            />
           )}
         </FieldShell>
       )}
@@ -528,22 +521,17 @@ export function TaskEditForm({
             setFocused={setFApproval}
           >
             {(p) => (
-              <select
+              <Select
                 id="te-approval"
                 value={approvalStatus}
-                onChange={(e) =>
-                  setApprovalStatus(e.target.value as ApprovalStatus | "")
-                }
-                className={inputClass}
-                {...p}
-              >
-                <option value="">No verdict</option>
-                {APPROVAL_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {APPROVAL_LABEL[s]}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => setApprovalStatus(v as ApprovalStatus | "")}
+                onFocus={p.onFocus}
+                onBlur={p.onBlur}
+                options={[
+                  { value: "", label: "No verdict" },
+                  ...APPROVAL_STATUSES.map((s) => ({ value: s, label: APPROVAL_LABEL[s] })),
+                ]}
+              />
             )}
           </FieldShell>
           <FieldShell

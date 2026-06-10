@@ -18,6 +18,7 @@ import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { ScheduleSection, type ScheduleValue } from "./schedule-section";
 import { ClientSelect } from "./client-select";
 import { SubjectSelect } from "./subject-select";
+import { Select } from "@/components/ui/select";
 
 type EmployeeOption = { id: string; name: string };
 
@@ -261,14 +262,21 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
           and native date pickers. */}
       <div className="grid grid-cols-4 gap-4 max-md:grid-cols-1 max-md:gap-3">
         <Field id="nt-initiator" label="Initiator" required>
-          <select id="nt-initiator" className="nt-input" {...register("initiatorId")}>
-            <option value="">Select an employee…</option>
-            {employees.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.name}
-              </option>
-            ))}
-          </select>
+          <Controller
+            control={control}
+            name="initiatorId"
+            render={({ field }) => (
+              <Select
+                id="nt-initiator"
+                value={field.value ?? ""}
+                onValueChange={field.onChange}
+                placeholder="Select an employee…"
+                searchPlaceholder="Search employees…"
+                searchable
+                options={employees.map((emp) => ({ value: emp.id, label: emp.name }))}
+              />
+            )}
+          />
         </Field>
         <Field
           id="nt-doer"
@@ -294,13 +302,18 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
           />
         </Field>
         <Field id="nt-priority" label="Priority">
-          <select id="nt-priority" className="nt-input" {...register("priority")}>
-            {TASK_PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                {PRIORITY_LABELS[p]}
-              </option>
-            ))}
-          </select>
+          <Controller
+            control={control}
+            name="priority"
+            render={({ field }) => (
+              <Select
+                id="nt-priority"
+                value={field.value}
+                onValueChange={field.onChange}
+                options={TASK_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
+              />
+            )}
+          />
         </Field>
         <Field id="nt-due" label="Due Date" required>
           <input id="nt-due" type="date" className="nt-input" {...register("dueAt")} />
@@ -364,14 +377,21 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
       {/* Project link — optional connection to a Project / Milestone / Result. */}
       {projectNodes.length > 0 && (
         <Field id="nt-project" label="Project">
-          <select id="nt-project" className="nt-input" {...register("projectNodeId")}>
-            <option value="">Not linked to a project</option>
-            {projectNodes.map((n) => (
-              <option key={n.id} value={n.id}>
-                {n.label}
-              </option>
-            ))}
-          </select>
+          <Controller
+            control={control}
+            name="projectNodeId"
+            render={({ field }) => (
+              <Select
+                id="nt-project"
+                value={field.value ?? ""}
+                onValueChange={field.onChange}
+                options={[
+                  { value: "", label: "Not linked to a project" },
+                  ...projectNodes.map((n) => ({ value: n.id, label: n.label })),
+                ]}
+              />
+            )}
+          />
         </Field>
       )}
 

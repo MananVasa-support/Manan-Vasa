@@ -3,7 +3,8 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { FilterBar } from "@/components/layout/filter-bar";
 import { TaskListPage } from "@/components/tasks/task-list-page";
 import { listEmployeeOptions } from "@/lib/queries/employees";
-import { listTasks, listDistinctSubjects, listDistinctClients } from "@/lib/queries/tasks";
+import { listTasks, listDistinctSubjects } from "@/lib/queries/tasks";
+import { listActiveClientNames } from "@/lib/queries/clients";
 import { parseTaskFilters } from "@/lib/task-filters";
 import { requireUser } from "@/lib/auth/current";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
@@ -28,7 +29,7 @@ export default async function TasksPage({ searchParams }: PageProps) {
     listEmployeeOptions(),
     listTasks(filters),
     listDistinctSubjects(),
-    listDistinctClients(),
+    listActiveClientNames(),
     getStatusDisplayMap(),
   ]);
 
