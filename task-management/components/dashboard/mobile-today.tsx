@@ -5,8 +5,8 @@ import {
   CalendarCheck2,
   CheckCircle2,
   ChevronRight,
+  Fingerprint,
   LayoutDashboard,
-  ListTodo,
 } from "lucide-react";
 import { CriticalBadge } from "@/components/ui/critical-badge";
 import { PRIORITY_LABELS } from "@/db/enums";
@@ -140,12 +140,12 @@ export function MobileToday({
       {/* Footer actions — 48px targets */}
       <div className="mt-7 grid gap-2.5">
         <Link
-          href={"/tasks" as Route}
+          href={"/attendance" as Route}
           className="inline-flex h-12 items-center justify-center gap-2 rounded-pill bg-altus-red font-semibold text-white transition-colors hover:bg-altus-red-deep"
           style={{ fontSize: 15.5 }}
         >
-          <ListTodo size={18} strokeWidth={2.2} aria-hidden />
-          View all tasks
+          <Fingerprint size={18} strokeWidth={2.2} aria-hidden />
+          Attendance
         </Link>
         <Link
           href={"/?full=1" as Route}
