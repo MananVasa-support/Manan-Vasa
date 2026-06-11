@@ -16,6 +16,7 @@ import {
   FileSpreadsheet,
   Upload,
   MoreHorizontal,
+  CopyMinus,
 } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -391,6 +392,12 @@ export function FilterBar({
                         <Link href={"/tasks/import" as Route}>
                           <Upload size={14} strokeWidth={2} style={{ color: "var(--color-altus-red)" }} />
                           Import tasks
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href={"/tasks/duplicates" as Route}>
+                          <CopyMinus size={14} strokeWidth={2} style={{ color: "var(--color-amber-deep, #b45309)" }} />
+                          Find duplicates
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
