@@ -61,6 +61,10 @@ export async function updateOrgSettings(
     patch.idleTimeoutMinutes = parsed.data.idleTimeoutMinutes;
   if (parsed.data.allowSelfRegister !== undefined)
     patch.allowSelfRegister = parsed.data.allowSelfRegister;
+  if (parsed.data.officeLat !== undefined) patch.officeLat = parsed.data.officeLat;
+  if (parsed.data.officeLng !== undefined) patch.officeLng = parsed.data.officeLng;
+  if (parsed.data.attendanceRadiusM !== undefined)
+    patch.attendanceRadiusM = parsed.data.attendanceRadiusM;
 
   try {
     await db.update(orgSettings).set(patch).where(eq(orgSettings.id, 1));

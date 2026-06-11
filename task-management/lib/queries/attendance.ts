@@ -3,16 +3,32 @@ import { and, desc, eq, gte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { attendanceLogs, employees } from "@/db/schema";
 
+export interface PunchDetail {
+  at: Date;
+  note: string | null;
+  /** How the person was verified at punch time (0054). */
+  verifyMethod: "biometric" | "gps_only" | "none";
+  /** Metres from the office anchor, when a geofence was active. */
+  distanceM: number | null;
+}
+
 export interface DayPunches {
   date: string; // YYYY-MM-DD
-  in: { at: Date; note: string | null } | null;
-  out: { at: Date; note: string | null } | null;
+  in: PunchDetail | null;
+  out: PunchDetail | null;
+}
+
+interface RawPunch {
+  logDate: string;
+  kind: "in" | "out";
+  loggedAt: Date;
+  note: string | null;
+  verifyMethod: "biometric" | "gps_only" | "none";
+  distanceM: number | null;
 }
 
 /** Fold raw punch rows into one row per day (newest first). */
-function foldByDay(
-  rows: { logDate: string; kind: "in" | "out"; loggedAt: Date; note: string | null }[],
-): DayPunches[] {
+function foldByDay(rows: RawPunch[]): DayPunches[] {
   const byDay = new Map<string, DayPunches>();
   for (const r of rows) {
     let day = byDay.get(r.logDate);
@@ -20,7 +36,12 @@ function foldByDay(
       day = { date: r.logDate, in: null, out: null };
       byDay.set(r.logDate, day);
     }
-    day[r.kind] = { at: r.loggedAt, note: r.note };
+    day[r.kind] = {
+      at: r.loggedAt,
+      note: r.note,
+      verifyMethod: r.verifyMethod,
+      distanceM: r.distanceM,
+    };
   }
   return [...byDay.values()].sort((a, b) => b.date.localeCompare(a.date));
 }
@@ -36,6 +57,8 @@ export async function listMyAttendance(
       kind: attendanceLogs.kind,
       loggedAt: attendanceLogs.loggedAt,
       note: attendanceLogs.note,
+      verifyMethod: attendanceLogs.verifyMethod,
+      distanceM: attendanceLogs.distanceM,
     })
     .from(attendanceLogs)
     .where(
@@ -52,8 +75,8 @@ export interface TeamAttendanceRow {
   employeeId: string;
   name: string;
   avatarUrl: string | null;
-  in: { at: Date; note: string | null } | null;
-  out: { at: Date; note: string | null } | null;
+  in: PunchDetail | null;
+  out: PunchDetail | null;
 }
 
 /**
@@ -79,6 +102,8 @@ export async function listTeamAttendanceForDate(
         kind: attendanceLogs.kind,
         loggedAt: attendanceLogs.loggedAt,
         note: attendanceLogs.note,
+        verifyMethod: attendanceLogs.verifyMethod,
+        distanceM: attendanceLogs.distanceM,
       })
       .from(attendanceLogs)
       .where(eq(attendanceLogs.logDate, date)),
@@ -94,7 +119,12 @@ export async function listTeamAttendanceForDate(
       slot = { in: null, out: null };
       byEmployee.set(p.employeeId, slot);
     }
-    slot[p.kind] = { at: p.loggedAt, note: p.note };
+    slot[p.kind] = {
+      at: p.loggedAt,
+      note: p.note,
+      verifyMethod: p.verifyMethod,
+      distanceM: p.distanceM,
+    };
   }
 
   return people

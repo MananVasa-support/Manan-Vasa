@@ -31,6 +31,9 @@ const DEFAULTS: OrgSettings = {
     overdue_digest: ["email"],
   },
   boardColumnOrder: null,
+  officeLat: null,
+  officeLng: null,
+  attendanceRadiusM: 100,
   updatedAt: new Date(0),
   updatedById: null,
 };

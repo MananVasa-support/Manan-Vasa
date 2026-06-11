@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Info, Clock, Globe, Lock, ShieldCheck } from "lucide-react";
+import { Info, Clock, Globe, Lock, ShieldCheck, MapPin, LocateFixed } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { updateOrgSettings } from "@/app/(admin)/admin/settings/actions";
 import type { OrgSettings } from "@/db/schema";
@@ -30,8 +30,36 @@ export function SettingsForm({ current }: Props) {
   const [allowSelfRegister, setAllowSelfRegister] = useState(
     current.allowSelfRegister,
   );
+  const [officeLat, setOfficeLat] = useState(
+    current.officeLat != null ? String(current.officeLat) : "",
+  );
+  const [officeLng, setOfficeLng] = useState(
+    current.officeLng != null ? String(current.officeLng) : "",
+  );
+  const [radiusM, setRadiusM] = useState(current.attendanceRadiusM);
+  const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  function useMyLocation() {
+    if (!("geolocation" in navigator)) {
+      setError("This browser has no location support.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setOfficeLat(pos.coords.latitude.toFixed(6));
+        setOfficeLng(pos.coords.longitude.toFixed(6));
+        setLocating(false);
+      },
+      () => {
+        setError("Couldn't read your location — allow location access and retry.");
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 12_000 },
+    );
+  }
 
   function toggleDay(d: number) {
     setWorkingDays((prev) =>
@@ -49,6 +77,9 @@ export function SettingsForm({ current }: Props) {
     setTimezone(current.timezone);
     setIdleTimeout(current.idleTimeoutMinutes);
     setAllowSelfRegister(current.allowSelfRegister);
+    setOfficeLat(current.officeLat != null ? String(current.officeLat) : "");
+    setOfficeLng(current.officeLng != null ? String(current.officeLng) : "");
+    setRadiusM(current.attendanceRadiusM);
     setError(null);
   }
 
@@ -68,6 +99,9 @@ export function SettingsForm({ current }: Props) {
       timezone?: string;
       idleTimeoutMinutes?: number;
       allowSelfRegister?: boolean;
+      officeLat?: number | null;
+      officeLng?: number | null;
+      attendanceRadiusM?: number;
     } = {};
 
     if (trimmedName !== current.companyName) patch.companyName = trimmedName;
@@ -82,6 +116,31 @@ export function SettingsForm({ current }: Props) {
       patch.idleTimeoutMinutes = idleTimeout;
     if (allowSelfRegister !== current.allowSelfRegister)
       patch.allowSelfRegister = allowSelfRegister;
+
+    // Geofence: both blank = clear; otherwise both must parse as numbers.
+    // NB: Number("") is 0, which would silently anchor the office on the
+    // equator — half-filled pairs must be a hard error, not a coercion.
+    const latStr = officeLat.trim();
+    const lngStr = officeLng.trim();
+    if (latStr === "" && lngStr === "") {
+      if (current.officeLat != null || current.officeLng != null) {
+        patch.officeLat = null;
+        patch.officeLng = null;
+      }
+    } else if (latStr === "" || lngStr === "") {
+      setError("Office latitude and longitude must both be set (or both blank to disable the fence).");
+      return;
+    } else {
+      const lat = Number(latStr);
+      const lng = Number(lngStr);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        setError("Latitude/longitude must be plain decimal numbers, e.g. 19.076090.");
+        return;
+      }
+      if (lat !== current.officeLat) patch.officeLat = lat;
+      if (lng !== current.officeLng) patch.officeLng = lng;
+    }
+    if (radiusM !== current.attendanceRadiusM) patch.attendanceRadiusM = radiusM;
 
     if (Object.keys(patch).length === 0) {
       setError("No changes to save.");
@@ -98,9 +157,20 @@ export function SettingsForm({ current }: Props) {
     });
   }
 
+  // Deterministic format (explicit locale + tz) — bare toLocaleString()
+  // differs between the server and the browser, which made this exact text
+  // a hydration mismatch that re-rendered (and could wipe) the whole form.
   const updatedAtLabel =
     current.updatedAt instanceof Date && current.updatedAt.getTime() > 0
-      ? current.updatedAt.toLocaleString()
+      ? new Intl.DateTimeFormat("en-IN", {
+          timeZone: "Asia/Kolkata",
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        }).format(current.updatedAt)
       : "never";
 
   return (
@@ -215,6 +285,62 @@ export function SettingsForm({ current }: Props) {
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
               placeholder="Asia/Kolkata"
+            />
+          </Field>
+        </Section>
+
+        <Section
+          title="Attendance geofence"
+          icon={<MapPin size={14} strokeWidth={2.2} />}
+        >
+          <Field
+            label="Office location"
+            hint="Punches only register within the radius of this point. Leave both blank to accept punches from anywhere. Tip: stand at the office entrance and tap the locate button."
+          >
+            <div className="flex items-center gap-2 flex-wrap">
+              <Input
+                value={officeLat}
+                onChange={(e) => setOfficeLat(e.target.value)}
+                placeholder="Latitude (e.g. 19.076090)"
+                className="w-56 tabular-nums"
+                inputMode="decimal"
+              />
+              <Input
+                value={officeLng}
+                onChange={(e) => setOfficeLng(e.target.value)}
+                placeholder="Longitude (e.g. 72.877426)"
+                className="w-56 tabular-nums"
+                inputMode="decimal"
+              />
+              <button
+                type="button"
+                onClick={useMyLocation}
+                disabled={locating}
+                title="Use my current location"
+                className="inline-flex items-center gap-1.5 rounded-md border px-3.5 py-2.5 text-[13px] font-semibold transition-colors disabled:opacity-50"
+                style={{
+                  borderColor: "var(--color-hairline-strong)",
+                  background: "var(--color-surface-card)",
+                  color: "var(--color-ink-soft)",
+                }}
+              >
+                <LocateFixed size={14} strokeWidth={2.2} />
+                {locating ? "Locating…" : "Use my location"}
+              </button>
+            </div>
+          </Field>
+          <Field
+            label="Allowed radius (metres)"
+            hint="How far from the office point a punch is accepted. 100m recommended — GPS itself wobbles 10–30m."
+          >
+            <Input
+              type="number"
+              min={25}
+              max={5000}
+              step={5}
+              value={radiusM}
+              onChange={(e) => setRadiusM(Number(e.target.value))}
+              className="w-28 tabular-nums"
             />
           </Field>
         </Section>

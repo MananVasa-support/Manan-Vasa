@@ -9,6 +9,7 @@ import {
   computeWeekOverWeekDelta,
   computeDailySparkline,
   computeTopPerformers,
+  pickPerformersForEmployees,
   computeVelocity,
   generatePullQuote,
   computeEmployeeStatusTable,
@@ -73,49 +74,64 @@ async function loadDashboardDataUncached(
     filters.startDate ?? new Date(Date.now() - 30 * MS_PER_DAY);
   const end = filters.endDate ?? new Date();
 
-  const conditions = [
+  // Base = date/priority/subject scoping; people = the employee/department
+  // narrowing. Kept separate so the Top-Performers ranking can run on the
+  // base scope — a user filtered to themselves must see their TRUE position
+  // in the whole team, not "1st of 1".
+  const baseConditions = [
     gte(tasks.createdAt, start),
     lt(tasks.createdAt, new Date(end.getTime() + MS_PER_DAY)),
   ];
+  if (filters.priorities.length > 0) {
+    baseConditions.push(inArray(tasks.priority, filters.priorities));
+  }
+  if (filters.subjects.length > 0) {
+    baseConditions.push(inArray(tasks.subject, filters.subjects));
+  }
+
+  const peopleConditions = [];
+  let departmentEmployeeIds: string[] = [];
   if (filters.employeeIds.length > 0) {
     const idCol =
       filters.view === "doer" ? tasks.doerId : tasks.initiatorId;
-    conditions.push(inArray(idCol, filters.employeeIds));
+    peopleConditions.push(inArray(idCol, filters.employeeIds));
   }
   if (filters.departments.length > 0) {
     // Match doers who belong to ANY selected department via the membership
     // join table (not just their primary department).
-    const ids = await employeeIdsInDepartments(filters.departments);
-    if (ids.length === 0) {
+    departmentEmployeeIds = await employeeIdsInDepartments(filters.departments);
+    if (departmentEmployeeIds.length === 0) {
       // no matching employees → no matching tasks
-      conditions.push(inArray(tasks.doerId, ["00000000-0000-0000-0000-000000000000"]));
+      peopleConditions.push(inArray(tasks.doerId, ["00000000-0000-0000-0000-000000000000"]));
     } else {
-      conditions.push(inArray(tasks.doerId, ids));
+      peopleConditions.push(inArray(tasks.doerId, departmentEmployeeIds));
     }
   }
-  if (filters.priorities.length > 0) {
-    conditions.push(inArray(tasks.priority, filters.priorities));
-  }
-  if (filters.subjects.length > 0) {
-    conditions.push(inArray(tasks.subject, filters.subjects));
-  }
+  const conditions = [...baseConditions, ...peopleConditions];
+  const peopleFilterActive = peopleConditions.length > 0;
 
   const fourteenAgo = new Date(Date.now() - 14 * MS_PER_DAY);
   const ninetyAgo = new Date(Date.now() - 90 * MS_PER_DAY);
 
-  const [allEmployees, periodTasksRaw, wideTasksRaw, velocityTasksRaw, departmentMap] =
+  const [allEmployees, periodTasksRaw, wideTasksRaw, velocityTasksRaw, departmentMap, rankingTasksRaw] =
     await Promise.all([
       db.select().from(employees),
       db.select(TASK_COLS).from(tasks).where(and(...conditions)),
       db.select(TASK_COLS).from(tasks).where(gte(tasks.createdAt, fourteenAgo)),
       db.select(TASK_COLS).from(tasks).where(gte(tasks.createdAt, ninetyAgo)),
       getEmployeeDepartmentMap(),
+      // Ranking scope: only fetched when a people filter narrows the period
+      // set — otherwise the period set IS the ranking set.
+      peopleFilterActive
+        ? db.select(TASK_COLS).from(tasks).where(and(...baseConditions))
+        : Promise.resolve(null),
     ]);
   // Cast back to Task[] for the transform signatures — the dropped
   // description/notes fields are simply absent and never accessed.
   const periodTasks = periodTasksRaw as unknown as Task[];
   const wideTasks = wideTasksRaw as unknown as Task[];
   const velocityTasks = velocityTasksRaw as unknown as Task[];
+  const rankingTasks = (rankingTasksRaw ?? periodTasksRaw) as unknown as Task[];
 
   const now = new Date();
 
@@ -217,12 +233,22 @@ async function loadDashboardDataUncached(
     now,
   );
 
-  const topPerformers = computeTopPerformers(
-    periodTasks,
+  // Rank the WHOLE team on the base scope, then narrow the display to the
+  // filtered people (keeping their global rank). No people filter → top 6.
+  const globalRanking = computeTopPerformers(
+    rankingTasks,
     allEmployees,
     now,
-    6,
+    Number.MAX_SAFE_INTEGER,
   );
+  const focusEmployeeIds =
+    filters.employeeIds.length > 0
+      ? filters.employeeIds
+      : departmentEmployeeIds;
+  const topPerformers =
+    focusEmployeeIds.length > 0
+      ? pickPerformersForEmployees(globalRanking, focusEmployeeIds, allEmployees, 10)
+      : globalRanking.slice(0, 6);
 
   // Aging heatmap shows EVERY pending task (any non-terminal status),
   // sourced from the canonical enum list so Tier-3 statuses appear.
@@ -254,8 +280,9 @@ async function loadDashboardDataUncached(
     pullQuote: generatePullQuote({
       doneThisWeek: wowDone.current,
       doneLastWeek: wowDone.previous,
-      topPerformerName: topPerformers[0]?.employeeName ?? "the team",
-      topPerformerCount: topPerformers[0]?.doneCount ?? 0,
+      // Always the GLOBAL #1 — never the first of a filtered selection.
+      topPerformerName: globalRanking[0]?.employeeName ?? "the team",
+      topPerformerCount: globalRanking[0]?.doneCount ?? 0,
     }),
     velocity: computeVelocity(velocityTasks, ninetyAgo, now),
     statusTable: computeEmployeeStatusTable(

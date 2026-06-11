@@ -36,6 +36,19 @@ const PODIUM_THEMES = [
   },
 ];
 
+// Everyone outside the podium — neutral slate, no medal glow. The medal
+// look follows the TRUE rank, so a user filtered to themselves at #7 gets
+// this, not a gold card pretending they're 1st.
+const NEUTRAL_THEME = {
+  bar: "linear-gradient(90deg, #CBD5E1, #94A3B8)",
+  badge: "linear-gradient(135deg, #64748B 0%, #475569 60%, #1F2937 100%)",
+  glow: "0 10px 24px -16px rgba(15, 23, 42, 0.3)",
+  border: "var(--color-hairline-strong, #E2E8F0)",
+  ring: "#64748B",
+} satisfies (typeof PODIUM_THEMES)[number];
+
+const themeForRank = (rank: number) => PODIUM_THEMES[rank - 1] ?? NEUTRAL_THEME;
+
 export function TopPerformersSection({
   performers,
 }: {
@@ -76,27 +89,20 @@ export function TopPerformersSection({
         <EmptyState />
       ) : (
         <>
-          {/* PODIUM — top 3 as featured cards */}
+          {/* PODIUM — first three entries as featured cards. The medal
+              styling keys off each person's TRUE rank, not their position
+              in this (possibly filtered) list. */}
           <div className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
             {top3.map((p, i) => (
-              <PodiumCard
-                key={p.employeeId}
-                rank={i}
-                performer={p}
-                theme={PODIUM_THEMES[i]!}
-              />
+              <PodiumCard key={p.employeeId} performer={p} stagger={i} />
             ))}
           </div>
 
-          {/* LEADERBOARD — ranks 4-10 in compact rows */}
+          {/* LEADERBOARD — remaining entries in compact rows */}
           {rest.length > 0 && (
             <ol className="mt-4 flex flex-col gap-1.5">
-              {rest.map((p, i) => (
-                <LeaderRow
-                  key={p.employeeId}
-                  rank={i + 4}
-                  performer={p}
-                />
+              {rest.map((p) => (
+                <LeaderRow key={p.employeeId} performer={p} />
               ))}
             </ol>
           )}
@@ -107,19 +113,19 @@ export function TopPerformersSection({
 }
 
 function PodiumCard({
-  rank,
   performer,
-  theme,
+  stagger,
 }: {
-  rank: number;
   performer: TopPerformer;
-  theme: (typeof PODIUM_THEMES)[number];
+  /** Position in the rendered list — only used to stagger the count-up. */
+  stagger: number;
 }) {
-  const animated = useCountUp(performer.doneCount, 900 + rank * 120);
+  const theme = themeForRank(performer.rank);
+  const animated = useCountUp(performer.doneCount, 900 + stagger * 120);
   return (
     <Link
       href={`/tasks?initiator=${performer.employeeId}` as Route}
-      aria-label={`Open ${performer.employeeName}'s tasks (rank ${rank + 1}, ${performer.doneCount} done)`}
+      aria-label={`Open ${performer.employeeName}'s tasks (rank ${performer.rank}, ${performer.doneCount} done)`}
       className="podium-card group relative block cursor-pointer rounded-leader overflow-hidden bg-surface-card"
       style={{
         border: `1.5px solid ${theme.border}`,
@@ -136,8 +142,8 @@ function PodiumCard({
         }}
       />
 
-      {/* Crown marks the #1 spot (SVG, not emoji) */}
-      {rank === 0 && (
+      {/* Crown marks the TRUE #1 only (SVG, not emoji) */}
+      {performer.rank === 1 && (
         <span
           aria-hidden
           className="absolute right-3 top-3"
@@ -165,7 +171,7 @@ function PodiumCard({
               boxShadow: "0 2px 6px rgba(15, 23, 42, 0.25)",
             }}
           >
-            {rank + 1}
+            {performer.rank}
           </span>
         </span>
 
@@ -204,13 +210,8 @@ function PodiumCard({
   );
 }
 
-function LeaderRow({
-  rank,
-  performer,
-}: {
-  rank: number;
-  performer: TopPerformer;
-}) {
+function LeaderRow({ performer }: { performer: TopPerformer }) {
+  const rank = performer.rank;
   return (
     <li>
       <Link

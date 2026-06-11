@@ -13,6 +13,9 @@ import {
   time,
   date,
   uniqueIndex,
+  doublePrecision,
+  real,
+  bigint,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -807,6 +810,12 @@ export const orgSettings = pgTable("org_settings", {
   // the built-in default order. Lives here, not status_settings, because the
   // Archived column isn't a real status.
   boardColumnOrder: jsonb("board_column_order").$type<string[]>(),
+  // 0054 — geofenced attendance. The office anchor point + how far from it
+  // a punch is accepted (metres). Null lat/lng = geofence not configured,
+  // punches are accepted from anywhere (location still recorded if granted).
+  officeLat: doublePrecision("office_lat"),
+  officeLng: doublePrecision("office_lng"),
+  attendanceRadiusM: integer("attendance_radius_m").notNull().default(100),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -894,6 +903,16 @@ export const attendanceLogs = pgTable(
       .notNull()
       .defaultNow(),
     note: text("note"),
+    // 0054 — where the punch happened and how the person was verified.
+    lat: doublePrecision("lat"),
+    lng: doublePrecision("lng"),
+    accuracyM: real("accuracy_m"),
+    distanceM: real("distance_m"),
+    verifyMethod: text("verify_method")
+      .$type<"biometric" | "gps_only" | "none">()
+      .notNull()
+      .default("none"),
+    credentialId: text("credential_id"),
   },
   (t) => [
     uniqueIndex("attendance_logs_employee_day_kind_uq").on(
@@ -1071,6 +1090,34 @@ export type AchievementEarned = typeof achievementsEarned.$inferSelect;
 export type NewAchievementEarned = typeof achievementsEarned.$inferInsert;
 export type AttendanceLog = typeof attendanceLogs.$inferSelect;
 export type NewAttendanceLog = typeof attendanceLogs.$inferInsert;
+
+/**
+ * WebAuthn device passkeys (migration 0054) — one row per registered
+ * platform authenticator (phone fingerprint / Face ID). Punching attendance
+ * requires a fresh user-verified assertion against one of these, which is
+ * what makes the punch "biometric" rather than just "logged in".
+ */
+export const webauthnCredentials = pgTable(
+  "webauthn_credentials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    credentialId: text("credential_id").notNull().unique(),
+    publicKey: text("public_key").notNull(),
+    counter: bigint("counter", { mode: "number" }).notNull().default(0),
+    transports: text("transports"),
+    deviceLabel: text("device_label"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (t) => [index("webauthn_credentials_employee_idx").on(t.employeeId)],
+);
+
+export type WebauthnCredential = typeof webauthnCredentials.$inferSelect;
 export type IncentiveRequest = typeof incentiveRequests.$inferSelect;
 export type NewIncentiveRequest = typeof incentiveRequests.$inferInsert;
 export type OutstandingEntry = typeof outstandingEntries.$inferSelect;

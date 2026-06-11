@@ -90,6 +90,9 @@ export interface TopPerformer {
   employeeName: string;
   doneCount: number;
   weeklySparkline: number[];
+  /** 1-based position in the GLOBAL ranking (ties share the better rank) —
+   *  stays honest even when the dashboard is filtered to a subset of people. */
+  rank: number;
 }
 
 export interface AgingRow {

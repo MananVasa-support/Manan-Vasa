@@ -1,3 +1,4 @@
+import { MapPin, ShieldCheck } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { PunchCard } from "@/components/attendance/punch-card";
@@ -8,8 +9,11 @@ import {
   listMyAttendance,
   listTeamAttendanceForDate,
   type DayPunches,
+  type PunchDetail,
   type TeamAttendanceRow,
 } from "@/lib/queries/attendance";
+import { listCredentials } from "@/lib/webauthn/attendance";
+import { getOrgSettings } from "@/lib/queries/org-settings";
 import { formatTimeInTz, localDateString } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -45,12 +49,22 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   const rawDate = typeof sp.date === "string" ? sp.date : today;
   const teamDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : today;
 
-  const [myDays, team] = await Promise.all([
+  const [myDays, team, settings, creds] = await Promise.all([
     listMyAttendance(me.id, since),
     me.isAdmin ? listTeamAttendanceForDate(teamDate) : Promise.resolve(null),
+    getOrgSettings(),
+    listCredentials(me.id),
   ]);
 
   const todayRow = myDays.find((d) => d.date === today);
+  const office =
+    settings.officeLat != null && settings.officeLng != null
+      ? {
+          lat: settings.officeLat,
+          lng: settings.officeLng,
+          radiusM: settings.attendanceRadiusM,
+        }
+      : null;
 
   return (
     <>
@@ -59,8 +73,9 @@ export default async function AttendancePage({ searchParams }: PageProps) {
         <header className="mb-6">
           <h1 className="text-display-lg text-ink-strong">Attendance</h1>
           <p className="text-body-lg text-ink-subtle mt-1">
-            Check in when you start, check out when you wrap up. One of each
-            per day.
+            {office
+              ? `Punch with your fingerprint, within ${office.radiusM}m of the office.`
+              : "Check in when you start, check out when you wrap up. One of each per day."}
           </p>
         </header>
 
@@ -68,6 +83,9 @@ export default async function AttendancePage({ searchParams }: PageProps) {
           todayLabel={labelForDate(today)}
           inLabel={todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : null}
           outLabel={todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null}
+          tz={tz}
+          office={office}
+          hasCredential={creds.length > 0}
         />
 
         <MyLog days={myDays} tz={tz} />
@@ -78,6 +96,47 @@ export default async function AttendancePage({ searchParams }: PageProps) {
       </main>
       <DashboardFooter />
     </>
+  );
+}
+
+/**
+ * Punch time + verification badge: green shield = biometric-verified,
+ * blue pin = location captured without biometric. Hover shows the distance
+ * from office when a geofence was active.
+ */
+function PunchTime({ punch, tz }: { punch: PunchDetail | null; tz: string }) {
+  if (!punch) return <>—</>;
+  const dist =
+    punch.distanceM != null ? `${Math.round(punch.distanceM)}m from office` : null;
+  return (
+    <span className="inline-flex items-center gap-1.5 text-ink-soft">
+      {formatTimeInTz(punch.at, tz)}
+      {punch.verifyMethod === "biometric" ? (
+        <span
+          title={`Biometric-verified${dist ? ` · ${dist}` : ""}`}
+          aria-label={`Biometric-verified${dist ? ` · ${dist}` : ""}`}
+          className="inline-flex"
+        >
+          <ShieldCheck
+            size={14}
+            strokeWidth={2.4}
+            style={{ color: "var(--color-green-deep)" }}
+          />
+        </span>
+      ) : punch.verifyMethod === "gps_only" ? (
+        <span
+          title={`Location-verified${dist ? ` · ${dist}` : ""}`}
+          aria-label={`Location-verified${dist ? ` · ${dist}` : ""}`}
+          className="inline-flex"
+        >
+          <MapPin
+            size={14}
+            strokeWidth={2.4}
+            style={{ color: "var(--color-blue-deep)" }}
+          />
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -114,10 +173,10 @@ function MyLog({ days, tz }: { days: DayPunches[]; tz: string }) {
                   {labelForDate(d.date)}
                 </td>
                 <td className="py-2.5 pr-3 tabular-nums text-ink-soft">
-                  {d.in ? formatTimeInTz(d.in.at, tz) : "—"}
+                  <PunchTime punch={d.in} tz={tz} />
                 </td>
                 <td className="py-2.5 pr-3 tabular-nums text-ink-soft">
-                  {d.out ? formatTimeInTz(d.out.at, tz) : "—"}
+                  <PunchTime punch={d.out} tz={tz} />
                 </td>
                 <td className="py-2.5 text-ink-subtle max-md:hidden">
                   {[d.in?.note, d.out?.note].filter(Boolean).join(" · ") || ""}
@@ -182,7 +241,7 @@ function TeamSection({
               </td>
               <td className="py-2.5 pr-3 tabular-nums">
                 {r.in ? (
-                  <span className="text-ink-soft">{formatTimeInTz(r.in.at, tz)}</span>
+                  <PunchTime punch={r.in} tz={tz} />
                 ) : (
                   <span
                     className="rounded-pill px-2 py-0.5 text-[12px] font-semibold"
@@ -196,7 +255,7 @@ function TeamSection({
                 )}
               </td>
               <td className="py-2.5 pr-3 tabular-nums text-ink-soft">
-                {r.out ? formatTimeInTz(r.out.at, tz) : "—"}
+                <PunchTime punch={r.out} tz={tz} />
               </td>
               <td className="py-2.5 text-ink-subtle max-md:hidden">
                 {[r.in?.note, r.out?.note].filter(Boolean).join(" · ") || ""}

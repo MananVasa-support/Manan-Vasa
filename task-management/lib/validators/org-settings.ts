@@ -48,6 +48,16 @@ export const UpdateOrgSettingsSchema = z
       .max(60, "Idle timeout must be at most 60 minutes")
       .optional(),
     allowSelfRegister: z.boolean().optional(),
+    // 0054 — attendance geofence. Lat+lng move together; null clears the
+    // fence (punches accepted from anywhere again).
+    officeLat: z.number().min(-90).max(90).optional().nullable(),
+    officeLng: z.number().min(-180).max(180).optional().nullable(),
+    attendanceRadiusM: z
+      .number()
+      .int("Radius must be a whole number of metres")
+      .min(25, "Radius must be at least 25m (GPS accuracy floor)")
+      .max(5000, "Radius must be at most 5km")
+      .optional(),
   })
   .strict()
   .refine(

@@ -268,11 +268,12 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
         />
       </Field>
 
-      {/* Metadata row — Initiator first now, then Doer · Priority · Due Date.
-          Tier-3 mobile fix: collapse straight to 1-col at md (768), the
-          2-col tablet step was too cramped for the multi-doer chip selector
-          and native date pickers. */}
-      <div className="grid grid-cols-4 gap-4 max-md:grid-cols-1 max-md:gap-3">
+      {/* Metadata — two balanced rows (Initiator · Doer / Priority · Due
+          Date). The old 4-across row squeezed each field to ~170px: the
+          multi-doer chips grew an inner scrollbox and the date input
+          clipped its own value. Two columns give every field real room;
+          1-col under md. */}
+      <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1 max-md:gap-3">
         <Field id="nt-initiator" label="Initiator" required>
           <Controller
             control={control}
@@ -566,8 +567,10 @@ function DoerMultiSelect({
       <PopoverAnchor asChild>
         <div
           ref={ref}
+          // Grows with its chips — a capped, scrolling field reads as broken
+          // (stray scrollbars) and hides who's already selected.
           className="nt-input flex items-center flex-wrap gap-1.5 cursor-text"
-          style={{ minHeight: 46, maxHeight: 116, overflowY: "auto" }}
+          style={{ minHeight: 46, height: "auto" }}
           onMouseDown={(e) => {
           const t = e.target as HTMLElement;
           if (t.closest("[data-chip-remove]") || t === inputRef.current) return;
