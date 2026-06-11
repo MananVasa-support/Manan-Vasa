@@ -7,6 +7,7 @@ import { listEmployeeOptions } from "@/lib/queries/employees";
 import { listTasks, listDistinctSubjects } from "@/lib/queries/tasks";
 import { listActiveClientNames } from "@/lib/queries/clients";
 import { parseTaskFilters } from "@/lib/task-filters";
+import { isDoneLate } from "@/lib/task-late";
 import { requireUser } from "@/lib/auth/current";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
 import { TASK_STATUSES, isDeprecatedStatus } from "@/db/enums";
@@ -62,6 +63,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     subject: r.subject,
     description: r.description,
     dueYmd: istYmd(r.dueAt),
+    late: isDoneLate({ status: r.status, completedAt: r.completedAt, dueAt: r.dueAt }),
   }));
 
   const now = new Date();

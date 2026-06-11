@@ -196,4 +196,5 @@ export interface TaskListRow {
   updatedAt: Date;
   approvalStatus: "approved" | "not_approved" | "cancelled" | "transferred" | null;
   firstReadAt: Date | null;
+  completedAt: Date | null;
 }

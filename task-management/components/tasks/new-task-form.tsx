@@ -19,6 +19,7 @@ import { ScheduleSection, type ScheduleValue } from "./schedule-section";
 import { ClientSelect } from "./client-select";
 import { SubjectSelect } from "./subject-select";
 import { Select } from "@/components/ui/select";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 
 type EmployeeOption = { id: string; name: string };
 
@@ -493,15 +494,6 @@ function DoerMultiSelect({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLUListElement>(null);
 
-  React.useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (!ref.current) return;
-      if (!ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    if (open) document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
-
   const byId = React.useMemo(() => {
     const m = new Map<string, string>();
     for (const e of employees) m.set(e.id, e.name);
@@ -567,14 +559,16 @@ function DoerMultiSelect({
   }
 
   return (
-    <div ref={ref} className="relative">
+    <Popover open={open} onOpenChange={setOpen}>
       {/* Combobox control: Tab lands in the input, type to filter, ↑/↓ + Enter
-          to pick, Tab to move on — no trackpad needed. Chips + input share the
-          field; the input is the only tab stop. */}
-      <div
-        className="nt-input flex items-center flex-wrap gap-1.5 cursor-text"
-        style={{ minHeight: 46, height: "auto" }}
-        onMouseDown={(e) => {
+          to pick, Tab to move on. Chips + input share the field; the dropdown is
+          a portalled Popover so it floats above the form, not over the fields. */}
+      <PopoverAnchor asChild>
+        <div
+          ref={ref}
+          className="nt-input flex items-center flex-wrap gap-1.5 cursor-text"
+          style={{ minHeight: 46, maxHeight: 116, overflowY: "auto" }}
+          onMouseDown={(e) => {
           const t = e.target as HTMLElement;
           if (t.closest("[data-chip-remove]") || t === inputRef.current) return;
           e.preventDefault();
@@ -639,21 +633,23 @@ function DoerMultiSelect({
         >
           ▾
         </span>
-      </div>
+        </div>
+      </PopoverAnchor>
 
-      {open && (
-        <div
-          className="absolute left-0 right-0 mt-2 z-50 rounded-chip border bg-surface-card shadow-xl overflow-hidden"
-          style={{
-            borderColor: "var(--color-hairline-strong)",
-            boxShadow: "0 16px 40px rgba(15, 23, 42, 0.18)",
-          }}
-        >
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onInteractOutside={(e) => {
+          if (ref.current?.contains(e.target as Node)) e.preventDefault();
+        }}
+        className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[14rem] overflow-hidden"
+      >
           <ul
             ref={listRef}
             role="listbox"
             aria-multiselectable
-            className="max-h-[240px] overflow-y-auto"
+            className="max-h-[240px] overflow-y-auto py-1"
           >
           {employees.length === 0 ? (
             <li
@@ -714,9 +710,8 @@ function DoerMultiSelect({
             })
           )}
           </ul>
-        </div>
-      )}
-    </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

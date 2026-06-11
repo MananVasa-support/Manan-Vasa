@@ -78,6 +78,7 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
       updatedAt: tasks.updatedAt,
       approvalStatus: tasks.approvalStatus,
       firstReadAt: tasks.firstReadAt,
+      completedAt: tasks.completedAt,
     })
     .from(tasks)
     .leftJoin(doerEmp, eq(tasks.doerId, doerEmp.id))
@@ -109,6 +110,7 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
     updatedAt: r.updatedAt,
     approvalStatus: r.approvalStatus,
     firstReadAt: r.firstReadAt,
+    completedAt: r.completedAt,
   }));
 }
 
@@ -224,6 +226,7 @@ export async function listTasksPage(
       updatedAt: tasks.updatedAt,
       approvalStatus: tasks.approvalStatus,
       firstReadAt: tasks.firstReadAt,
+      completedAt: tasks.completedAt,
     })
     .from(tasks)
     .leftJoin(doerEmp, eq(tasks.doerId, doerEmp.id))
@@ -260,6 +263,7 @@ export async function listTasksPage(
     updatedAt: r.updatedAt,
     approvalStatus: r.approvalStatus,
     firstReadAt: r.firstReadAt,
+    completedAt: r.completedAt,
   }));
 
   return { rows, nextCursor };
@@ -280,6 +284,7 @@ export interface BoardTask {
   archived: boolean;
   dueAt: Date;
   updatedAt: Date;
+  completedAt: Date | null;
 }
 
 /**
@@ -324,6 +329,7 @@ export async function listBoardTasks(filters?: TaskListFilters): Promise<BoardTa
       dueAt: tasks.dueAt,
       updatedAt: tasks.updatedAt,
       archived: tasks.archived,
+      completedAt: tasks.completedAt,
       doerName: employees.name,
     })
     .from(tasks)
@@ -353,6 +359,7 @@ export async function listAgendaTasks(employeeId: string): Promise<BoardTask[]> 
       dueAt: tasks.dueAt,
       updatedAt: tasks.updatedAt,
       archived: tasks.archived,
+      completedAt: tasks.completedAt,
       doerName: employees.name,
     })
     .from(tasks)

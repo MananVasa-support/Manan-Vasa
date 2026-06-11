@@ -51,6 +51,8 @@ import { setTaskStatus, archiveTask, unarchiveTask } from "@/app/(app)/tasks/act
 import { setBoardColumnOrder } from "@/app/(admin)/admin/settings/actions";
 import { fireToast } from "@/lib/toast";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
+import { LateBadge } from "@/components/ui/late-badge";
+import { isDoneLate } from "@/lib/task-late";
 import type { BoardTask } from "@/lib/queries/tasks";
 
 // Priority → colour token + label for the hover-card badge.
@@ -496,6 +498,9 @@ function KanbanCard({
                 </span>
               )}
               {t.doerName && <span className="text-[13px] text-ink-subtle">· {t.doerName}</span>}
+              {isDoneLate({ status: t.status, completedAt: t.completedAt, dueAt: t.dueAt }) && (
+                <LateBadge />
+              )}
             </div>
           </div>
         </Tooltip.Trigger>

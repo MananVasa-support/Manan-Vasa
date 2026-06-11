@@ -7,6 +7,7 @@ import type { Route } from "next";
 import { AlertTriangle, CalendarCheck2, Clock, Hourglass, type LucideIcon } from "lucide-react";
 import { rescheduleTask } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
+import { LateBadge } from "@/components/ui/late-badge";
 
 /** Calendar-add days to a yyyy-mm-dd string (lexicographic == chronological). */
 function addDaysYmd(ymd: string, n: number): string {
@@ -22,6 +23,8 @@ export interface AgendaTask {
   subject: string | null;
   description: string | null;
   dueYmd: string; // IST calendar day, yyyy-mm-dd
+  /** Done after its due date — drives the "Late" badge. */
+  late?: boolean;
 }
 
 interface DayCol {
@@ -371,6 +374,11 @@ function Column({
               {t.subject && (
                 <span className="mt-2 text-[13px] font-semibold text-ink-subtle block">
                   {t.subject}
+                </span>
+              )}
+              {t.late && (
+                <span className="mt-2 block">
+                  <LateBadge />
                 </span>
               )}
             </Link>

@@ -42,6 +42,8 @@ import {
 import { setTaskStatus, archiveTask, unarchiveTask } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
 import { STATUS_TONES_FALLBACK } from "@/lib/format";
+import { LateBadge } from "@/components/ui/late-badge";
+import { isDoneLate } from "@/lib/task-late";
 
 interface Props {
   task: TaskDetailModel;
@@ -929,6 +931,10 @@ function TopHeaderStrip({
           />
           STATUS: {statusLabel}
         </span>
+
+        {isDoneLate({ status: task.status, completedAt: task.completedAt, dueAt: task.dueAt }) && (
+          <LateBadge />
+        )}
 
         <span
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-bold uppercase tracking-[0.06em] border text-ink-muted"

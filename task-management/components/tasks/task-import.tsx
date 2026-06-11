@@ -20,11 +20,6 @@ import { previewTaskImport, commitTaskImport } from "@/app/(app)/tasks/import-ac
 import type { ImportPreview } from "@/lib/import/task-import";
 import { fireToast } from "@/lib/toast";
 
-const TEMPLATE =
-  "Client,Subject,Doer,Initiator,Priority,Due Date,Description,Notes,Tags\n" +
-  "Acme Corp,Marketing,Riya Shah,Manan Vasa,Critical,2026-06-20,Prepare the Q3 campaign deck,Share internally first,deck;q3\n" +
-  "Globex,Documentation,arjun@altus.in,Manan Vasa,Normal,2026-06-25,Collect signed agreements,,docs";
-
 const COLUMNS: { name: string; required: boolean }[] = [
   { name: "Client", required: true },
   { name: "Subject", required: true },
@@ -104,13 +99,10 @@ export function TaskImport({
   }
 
   function downloadTemplate() {
-    const blob = new Blob([TEMPLATE], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = "task-import-template.csv";
+    a.href = "/task-import-template.xlsx";
+    a.download = "task-import-template.xlsx";
     a.click();
-    URL.revokeObjectURL(url);
   }
 
   const hasPreview = preview && !preview.fatal;

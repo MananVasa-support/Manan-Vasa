@@ -23,18 +23,19 @@ import { format, differenceInCalendarDays } from "date-fns";
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 const DEFAULT_PAGE_SIZE = 25;
 
-// Build the windowed list of page numbers to render: always first + last, the
-// current page with one neighbour on each side, and "ellipsis" gaps between.
-// e.g. total 34 on page 17 → [1, …, 16, 17, 18, …, 34]. Short lists (≤7) show
-// every page with no ellipsis.
+// Up to ~12 numbered buttons: first + a 10-wide window around the current
+// page + last, with an ellipsis wherever the window detaches from an end —
+// e.g. 1 2 3 4 5 6 7 8 9 10 11 … 18, or 1 … 4 5 6 7 8 9 10 11 12 13 … 18.
 function pageWindow(current: number, total: number): (number | "ellipsis")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const WINDOW = 10;
+  if (total <= WINDOW + 2) return Array.from({ length: total }, (_, i) => i + 1);
+  let end = Math.min(total - 1, Math.max(current + 4, WINDOW + 1));
+  const start = Math.max(2, end - WINDOW + 1);
+  end = Math.min(total - 1, start + WINDOW - 1);
   const pages: (number | "ellipsis")[] = [1];
-  const left = Math.max(2, current - 1);
-  const right = Math.min(total - 1, current + 1);
-  if (left > 2) pages.push("ellipsis");
-  for (let p = left; p <= right; p++) pages.push(p);
-  if (right < total - 1) pages.push("ellipsis");
+  if (start > 2) pages.push("ellipsis");
+  for (let p = start; p <= end; p++) pages.push(p);
+  if (end < total - 1) pages.push("ellipsis");
   pages.push(total);
   return pages;
 }
@@ -146,6 +147,8 @@ import { TaskRowActions } from "./task-row-actions";
 import { BulkActionBar } from "./bulk-action-bar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
+import { LateBadge } from "@/components/ui/late-badge";
+import { isDoneLate } from "@/lib/task-late";
 import { InlineStatusCell } from "./inline-status-cell";
 import {
   InlineDoerCell,
@@ -303,14 +306,19 @@ function buildColumns(
       cell: (info) => {
         const row = info.row.original;
         return (
-          <InlineStatusCell
-            taskId={row.id}
-            status={row.status}
-            updatedAt={row.updatedAt}
-            labels={statusLabels}
-            tones={statusTones}
-            isAdmin={me.isAdmin}
-          />
+          <span className="inline-flex items-center gap-1.5">
+            <InlineStatusCell
+              taskId={row.id}
+              status={row.status}
+              updatedAt={row.updatedAt}
+              labels={statusLabels}
+              tones={statusTones}
+              isAdmin={me.isAdmin}
+            />
+            {isDoneLate({ status: row.status, completedAt: row.completedAt, dueAt: row.dueAt }) && (
+              <LateBadge />
+            )}
+          </span>
         );
       },
     },
@@ -587,11 +595,18 @@ export function TaskTable({
 
   const selectedIds = table.getSelectedRowModel().rows.map((r) => r.original.id);
 
+  const pageInfo =
+    totalFiltered === 0
+      ? "No tasks"
+      : pageCount > 1
+        ? `Page ${pageIndex + 1} of ${pageCount} · showing ${rangeStart}–${rangeEnd} of ${totalFiltered}`
+        : `Showing all ${totalFiltered} ${totalFiltered === 1 ? "task" : "tasks"}`;
+
   return (
     <div ref={listTopRef} className="scroll-mt-6">
-      {/* Toolbar: Group-by ▾ · Search · compact pager — all packed left — with
-          Columns pushed to the far right. Keeps the header compact so the
-          table gets the vertical space. */}
+      {/* Toolbar — one line: Group-by ▾ · Search · pager (1 … N · Next · Last)
+          · Rows/page · page readout · Columns. Everything pagination-related
+          lives up here so the table gets the vertical space below. */}
       <div className="mb-3 flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap min-w-0">
           <GroupByControl value={groupBy} onChange={setGroupBy} />
@@ -606,7 +621,10 @@ export function TaskTable({
             onGoto={goToPage}
           />
         </div>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-3 flex-wrap">
+          <div className="flex items-center max-md:hidden">
+            <RowsPerPageSelect value={pageSize} onChange={setPageSize} />
+          </div>
           <MobileSortControl table={table} className="hidden max-md:flex" />
           <ColumnsMenu table={table} />
         </div>
@@ -834,16 +852,13 @@ export function TaskTable({
         })}
       </div>
 
-      {/* Slim footer: rows-per-page + range readout. The page navigation
-          itself now lives in the top toolbar, beside the search. */}
-      <div className="mt-5 flex items-center gap-4 flex-wrap justify-center">
+      {/* Mobile-only footer: on phones the toolbar is too tight for the
+          rows-per-page + readout, and after scrolling a page of cards the
+          controls should be at hand. On md+ they live in the top toolbar. */}
+      <div className="mt-5 flex items-center gap-4 flex-wrap justify-center md:hidden">
         <RowsPerPageSelect value={pageSize} onChange={setPageSize} />
         <p className="text-[13px] font-semibold text-ink-subtle tabular-nums">
-          {totalFiltered === 0
-            ? "No tasks"
-            : pageCount > 1
-              ? `Page ${pageIndex + 1} of ${pageCount} · showing ${rangeStart}–${rangeEnd} of ${totalFiltered}`
-              : `Showing all ${totalFiltered} ${totalFiltered === 1 ? "task" : "tasks"}`}
+          {pageInfo}
         </p>
       </div>
     </div>
@@ -1300,6 +1315,9 @@ function TaskCard({
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {isDoneLate({ status: row.status, completedAt: row.completedAt, dueAt: row.dueAt }) && (
+            <LateBadge />
+          )}
           <InlineStatusCell
             taskId={row.id}
             status={row.status}

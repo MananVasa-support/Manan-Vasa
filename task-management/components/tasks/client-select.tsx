@@ -4,6 +4,7 @@ import * as React from "react";
 import { Check, Plus, X, ChevronDown, Search } from "lucide-react";
 import { quickAddClient } from "@/app/(app)/tasks/actions";
 import { focusNextFrom } from "@/lib/focus-next";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Props {
   /** Currently selected client name (the task title). */
@@ -22,10 +23,11 @@ interface Props {
 }
 
 /**
- * "Client Name" picker — a fully-styled searchable combobox (NOT a native
- * <select>, whose OS-rendered option list can't be themed). Type to filter,
- * ↑/↓ + Enter to pick, and a "+ Add new client…" row that flips the control
- * into an inline add input. Keyboard-first; mouse works too.
+ * "Client Name" picker — a fully-styled searchable combobox. The dropdown is a
+ * portalled Radix Popover so it floats cleanly above the form (no overlap with
+ * the fields below, no clipping inside the dialog's scroll). Type to filter,
+ * ↑/↓ + Enter to pick, Tab to confirm + move on, and a "+ Add new client…" row
+ * that flips the control into an inline add input.
  */
 export function ClientSelect({
   value,
@@ -49,7 +51,6 @@ export function ClientSelect({
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [hi, setHi] = React.useState(0);
-  const containerRef = React.useRef<HTMLDivElement>(null);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const searchRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLUListElement>(null);
@@ -74,21 +75,13 @@ export function ClientSelect({
     return q ? sorted.filter((c) => c.toLowerCase().includes(q)) : sorted;
   }, [sorted, query]);
 
-  // Close on outside click.
+  // Reset the highlight + query each time the menu opens (Radix focuses the
+  // search box for us).
   React.useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    if (open) {
+      setHi(0);
+      setQuery("");
     }
-    if (open) document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
-
-  // Focus the search box the moment the menu opens.
-  React.useEffect(() => {
-    if (!open) return;
-    setHi(0);
-    const t = setTimeout(() => searchRef.current?.focus(), 0);
-    return () => clearTimeout(t);
   }, [open]);
 
   React.useEffect(() => {
@@ -103,7 +96,6 @@ export function ClientSelect({
     onChange(name);
     setOpen(false);
     setQuery("");
-    triggerRef.current?.focus();
   }
 
   function startAdd() {
@@ -150,13 +142,8 @@ export function ClientSelect({
       e.preventDefault();
       if (hi === filtered.length) startAdd();
       else if (filtered[hi]) choose(filtered[hi]);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      setOpen(false);
-      triggerRef.current?.focus();
     } else if (e.key === "Tab") {
-      // Commit the highlighted client on Tab, then advance to the next field
-      // (on the "Add new…" row, just close so Tab doesn't trap the user).
+      // Commit the highlighted client on Tab, then advance to the next field.
       if (hi < filtered.length && filtered[hi]) {
         e.preventDefault();
         choose(filtered[hi]);
@@ -164,17 +151,6 @@ export function ClientSelect({
       } else {
         setOpen(false);
       }
-    }
-  }
-
-  function triggerKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      setOpen(true);
-    } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
-      // Native-select-style typeahead: open and seed the search with the key.
-      setOpen(true);
-      setQuery(e.key);
     }
   }
 
@@ -236,37 +212,36 @@ export function ClientSelect({
 
   // ── Combobox ──────────────────────────────────────────────────────────────
   return (
-    <div className="relative" ref={containerRef}>
-      <button
-        ref={triggerRef}
-        type="button"
-        id={id}
-        onFocus={onFocus}
-        onBlur={onBlur}
-        onClick={() => setOpen((o) => !o)}
-        onKeyDown={triggerKeyDown}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className={(className ? className + " " : "") + "flex items-center justify-between gap-2 text-left cursor-pointer"}
-      >
-        <span
-          style={{
-            color: value ? "var(--color-ink-strong)" : "var(--color-ink-subtle)",
-            fontWeight: value ? 600 : 500,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          ref={triggerRef}
+          type="button"
+          id={id}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          aria-haspopup="listbox"
+          className={(className ? className + " " : "") + "flex items-center justify-between gap-2 text-left cursor-pointer"}
         >
-          {value || placeholder}
-        </span>
-        <ChevronDown
-          size={17}
-          strokeWidth={2.4}
-          className="shrink-0 transition-transform"
-          style={{ color: "var(--color-ink-muted)", transform: open ? "rotate(180deg)" : "none" }}
-        />
-      </button>
+          <span
+            style={{
+              color: value ? "var(--color-ink-strong)" : "var(--color-ink-subtle)",
+              fontWeight: value ? 600 : 500,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {value || placeholder}
+          </span>
+          <ChevronDown
+            size={17}
+            strokeWidth={2.4}
+            className="shrink-0 transition-transform"
+            style={{ color: "var(--color-ink-muted)", transform: open ? "rotate(180deg)" : "none" }}
+          />
+        </button>
+      </PopoverTrigger>
 
       {/* Hidden mirror so the browser still enforces `required`. */}
       {required && (
@@ -276,85 +251,79 @@ export function ClientSelect({
           value={value}
           onChange={() => {}}
           required
-          style={{ position: "absolute", opacity: 0, height: 1, width: 1, left: 18, bottom: 4 }}
+          style={{ position: "absolute", opacity: 0, height: 1, width: 1, pointerEvents: "none" }}
         />
       )}
 
-      {open && (
-        <div
-          className="absolute left-0 right-0 mt-2 z-50 rounded-chip border bg-surface-card overflow-hidden"
-          style={{
-            borderColor: "var(--color-hairline-strong)",
-            boxShadow: "0 20px 50px -12px rgba(15, 23, 42, 0.28), 0 4px 12px rgba(15, 23, 42, 0.10)",
-          }}
-        >
-          <div className="p-2.5" style={{ borderBottom: "1px solid var(--color-hairline)" }}>
-            <div
-              className="flex items-center gap-2 rounded-lg px-3"
-              style={{ background: "var(--color-surface-soft)", border: "1px solid var(--color-hairline)" }}
-            >
-              <Search size={16} strokeWidth={2.2} style={{ color: "var(--color-ink-subtle)" }} />
-              <input
-                ref={searchRef}
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setHi(0);
-                }}
-                onKeyDown={searchKeyDown}
-                placeholder="Search clients…"
-                className="w-full bg-transparent outline-none py-2.5"
-                style={{ fontSize: 15, fontWeight: 600, color: "var(--color-ink-strong)" }}
-              />
-            </div>
-          </div>
-          <ul ref={listRef} role="listbox" className="max-h-[300px] overflow-y-auto py-1.5">
-            {filtered.length === 0 && (
-              <li className="px-4 py-3 text-[14px] font-semibold" style={{ color: "var(--color-ink-muted)" }}>
-                No match for “{query}”.
-              </li>
-            )}
-            {filtered.map((name, i) => {
-              const isSel = name === value;
-              const isHi = i === hi;
-              return (
-                <li
-                  key={name}
-                  role="option"
-                  aria-selected={isSel}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onMouseEnter={() => setHi(i)}
-                  onClick={() => choose(name)}
-                  className="flex items-center justify-between gap-3 mx-1.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors"
-                  style={{ background: isHi ? "var(--color-surface-soft)" : "transparent" }}
-                >
-                  <span className="font-semibold truncate" style={{ fontSize: 15, color: "var(--color-ink-strong)" }}>
-                    {name}
-                  </span>
-                  {isSel && <Check size={17} strokeWidth={2.6} style={{ color: "rgb(var(--vp-cyan-deep))" }} />}
-                </li>
-              );
-            })}
-            <li
-              role="option"
-              aria-selected={hi === filtered.length}
-              onMouseDown={(e) => e.preventDefault()}
-              onMouseEnter={() => setHi(filtered.length)}
-              onClick={() => startAdd()}
-              className="flex items-center gap-2 mx-1.5 mt-1 px-3 py-2.5 rounded-lg cursor-pointer font-bold transition-colors"
-              style={{
-                background: hi === filtered.length ? "color-mix(in srgb, var(--color-altus-red) 8%, transparent)" : "transparent",
-                color: "var(--color-altus-red-deep)",
-                borderTop: "1px solid var(--color-hairline)",
-                fontSize: 15,
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[14rem] overflow-hidden"
+      >
+        <div className="p-2.5" style={{ borderBottom: "1px solid var(--color-hairline)" }}>
+          <div
+            className="flex items-center gap-2 rounded-lg px-3"
+            style={{ background: "var(--color-surface-soft)", border: "1px solid var(--color-hairline)" }}
+          >
+            <Search size={16} strokeWidth={2.2} style={{ color: "var(--color-ink-subtle)" }} />
+            <input
+              ref={searchRef}
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setHi(0);
               }}
-            >
-              <Plus size={16} strokeWidth={2.6} />
-              Add new client…
-            </li>
-          </ul>
+              onKeyDown={searchKeyDown}
+              placeholder="Search clients…"
+              className="w-full bg-transparent outline-none py-2.5"
+              style={{ fontSize: 15, fontWeight: 600, color: "var(--color-ink-strong)" }}
+            />
+          </div>
         </div>
-      )}
-    </div>
+        <ul ref={listRef} role="listbox" className="max-h-[300px] overflow-y-auto py-1.5">
+          {filtered.length === 0 && (
+            <li className="px-4 py-3 text-[14px] font-semibold" style={{ color: "var(--color-ink-muted)" }}>
+              No match for “{query}”.
+            </li>
+          )}
+          {filtered.map((name, i) => {
+            const isSel = name === value;
+            const isHi = i === hi;
+            return (
+              <li
+                key={name}
+                role="option"
+                aria-selected={isSel}
+                onMouseEnter={() => setHi(i)}
+                onClick={() => choose(name)}
+                className="flex items-center justify-between gap-3 mx-1.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors"
+                style={{ background: isHi ? "var(--color-surface-soft)" : "transparent" }}
+              >
+                <span className="font-semibold truncate" style={{ fontSize: 15, color: "var(--color-ink-strong)" }}>
+                  {name}
+                </span>
+                {isSel && <Check size={17} strokeWidth={2.6} style={{ color: "rgb(var(--vp-cyan-deep))" }} />}
+              </li>
+            );
+          })}
+          <li
+            role="option"
+            aria-selected={hi === filtered.length}
+            onMouseEnter={() => setHi(filtered.length)}
+            onClick={() => startAdd()}
+            className="flex items-center gap-2 mx-1.5 mt-1 px-3 py-2.5 rounded-lg cursor-pointer font-bold transition-colors"
+            style={{
+              background: hi === filtered.length ? "color-mix(in srgb, var(--color-altus-red) 8%, transparent)" : "transparent",
+              color: "var(--color-altus-red-deep)",
+              borderTop: "1px solid var(--color-hairline)",
+              fontSize: 15,
+            }}
+          >
+            <Plus size={16} strokeWidth={2.6} />
+            Add new client…
+          </li>
+        </ul>
+      </PopoverContent>
+    </Popover>
   );
 }
