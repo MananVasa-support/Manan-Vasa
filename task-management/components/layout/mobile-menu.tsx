@@ -37,8 +37,10 @@ export function MobileMenu({ children }: { children: React.ReactNode }) {
         <Dialog.Overlay
           className="fixed inset-0 z-[60]"
           style={{
-            background: "rgba(15, 23, 42, 0.38)",
-            backdropFilter: "blur(2px)",
+            // No backdrop-filter here: animating opacity over a backdrop
+            // blur re-blurs the whole page every frame and visibly stutters
+            // the drawer on phones (the header already runs its own blur).
+            background: "rgba(15, 23, 42, 0.44)",
             animation: "fadeOverlayIn 200ms ease-out forwards",
           }}
         />
@@ -50,6 +52,9 @@ export function MobileMenu({ children }: { children: React.ReactNode }) {
             borderRight: "1px solid var(--color-hairline)",
             boxShadow: "0 20px 48px rgba(15, 23, 42, 0.18)",
             animation: "slideMenuIn 220ms cubic-bezier(0.22, 1, 0.36, 1) forwards",
+            // Own compositor layer — the slide stays on the GPU instead of
+            // repainting the gradient + shadow every frame.
+            willChange: "transform, opacity",
           }}
         >
           <div

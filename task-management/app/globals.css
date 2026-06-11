@@ -1480,14 +1480,16 @@ html[data-density="compact"] body {
   color: #A80400;
 }
 
-/* Mobile menu drawer keyframes — slide in from the left, overlay fades. */
+/* Mobile menu drawer keyframes — slide in from the left, overlay fades.
+   translate3d (not translateX) keeps the drawer on a GPU layer for the
+   whole slide — translateX alone can repaint per-frame on phones. */
 @keyframes slideMenuIn {
   from {
-    transform: translateX(-100%);
+    transform: translate3d(-100%, 0, 0);
     opacity: 0.4;
   }
   to {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
     opacity: 1;
   }
 }
