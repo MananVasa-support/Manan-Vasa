@@ -31,6 +31,7 @@ export interface EditEmployeeDialogProps {
     whatsappPhone: string | null;
     whatsappOptedIn: boolean;
     managerId?: string | null;
+    attendanceBiometricExempt: boolean;
   };
   isSelf: boolean;
   departmentOptions: DepartmentOption[];
@@ -66,6 +67,7 @@ export function EditEmployeeDialog({
   const [managerId, setManagerId] = useState<string | null>(employee.managerId ?? null);
   const [waPhone, setWaPhone]   = useState(employee.whatsappPhone ?? "");
   const [waOptIn, setWaOptIn]   = useState(employee.whatsappOptedIn);
+  const [bioExempt, setBioExempt] = useState(employee.attendanceBiometricExempt);
   const [error, setError]       = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -85,6 +87,7 @@ export function EditEmployeeDialog({
       setManagerId(employee.managerId ?? null);
       setWaPhone(employee.whatsappPhone ?? "");
       setWaOptIn(employee.whatsappOptedIn);
+      setBioExempt(employee.attendanceBiometricExempt);
       setError(null);
     }
     // employee.departments is a fresh array per render; key on id only.
@@ -98,6 +101,7 @@ export function EditEmployeeDialog({
     employee.managerId,
     employee.whatsappPhone,
     employee.whatsappOptedIn,
+    employee.attendanceBiometricExempt,
   ]);
 
   function onSubmit(e: React.FormEvent) {
@@ -114,6 +118,7 @@ export function EditEmployeeDialog({
       managerId?: string | null;
       whatsappPhone?: string | null;
       whatsappOptedIn?: boolean;
+      attendanceBiometricExempt?: boolean;
     } = {};
     const trimmedName = name.trim();
     const trimmedWaPhone = waPhone.trim();
@@ -132,6 +137,9 @@ export function EditEmployeeDialog({
     }
     if (waOptIn !== employee.whatsappOptedIn) {
       patch.whatsappOptedIn = waOptIn;
+    }
+    if (bioExempt !== employee.attendanceBiometricExempt) {
+      patch.attendanceBiometricExempt = bioExempt;
     }
 
     if (Object.keys(patch).length === 0) {
@@ -245,6 +253,24 @@ export function EditEmployeeDialog({
                 className="h-4 w-4"
               />
               Admin (can manage employees + settings)
+            </label>
+            <label className="flex items-start gap-2.5 text-[15px] text-[#334155]" style={{ lineHeight: 1.5 }}>
+              <input
+                type="checkbox"
+                checked={bioExempt}
+                onChange={(e) => setBioExempt(e.target.checked)}
+                className="mt-1.5 h-4 w-4"
+              />
+              <span>
+                <span className="font-semibold text-[#0F172A]">
+                  Exempt from biometric attendance
+                </span>
+                <span className="block text-[13px] text-[#64748B] mt-0.5">
+                  Only for employees whose phone has no fingerprint/Face-ID
+                  sensor. They&apos;ll punch with location only — everyone else
+                  must use biometric. Leave off unless needed.
+                </span>
+              </span>
             </label>
             {error && (
               <div

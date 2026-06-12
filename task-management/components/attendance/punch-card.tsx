@@ -50,6 +50,7 @@ export function PunchCard({
   tz,
   office,
   hasCredential,
+  biometricExempt,
 }: {
   todayLabel: string;
   inLabel: string | null;
@@ -57,6 +58,9 @@ export function PunchCard({
   tz: string;
   office: Office | null;
   hasCredential: boolean;
+  /** Admin-set: this employee's device has no biometric sensor, so they're
+   *  allowed to punch with location only. Everyone else MUST set up biometric. */
+  biometricExempt: boolean;
 }) {
   const router = useRouter();
   const [note, setNote] = React.useState("");
@@ -65,6 +69,9 @@ export function PunchCard({
   const [bioSupported, setBioSupported] = React.useState<boolean | null>(null);
   const [fix, setFix] = React.useState<Fix | null>(null);
   const [fixError, setFixError] = React.useState<string | null>(null);
+  const [locating, setLocating] = React.useState(false);
+  // Hard-denied (the OS/browser won't re-prompt) → show the re-enable hint.
+  const [denied, setDenied] = React.useState(false);
 
   React.useEffect(() => {
     let alive = true;
@@ -78,22 +85,46 @@ export function PunchCard({
     };
   }, []);
 
-  // Warm location fix for the live geofence chip (punch always refetches).
-  React.useEffect(() => {
-    if (!office) return;
+  // Request a GPS fix and reflect it in the live geofence status. Surfaced as a
+  // one-tap "Enable location" button so a missed or denied permission is a
+  // zero-effort fix rather than a silent punch failure later.
+  const requestLocation = React.useCallback((fromUser = false) => {
+    setLocating(true);
     getPosition()
       .then((f) => {
         setFix(f);
         setFixError(null);
+        setDenied(false);
       })
-      .catch((e: Error) => setFixError(e.message));
-  }, [office]);
+      .catch((e: Error & { denied?: boolean }) => {
+        setFixError(e.message);
+        setDenied(Boolean(e.denied));
+        // Only nag with a toast when the user tapped the button — not on the
+        // silent warm-up fetch when the screen first opens.
+        if (fromUser) fireToast({ message: e.message, type: "error" });
+      })
+      .finally(() => setLocating(false));
+  }, []);
+
+  // Warm the fix on open (punch always refetches a fresh one anyway).
+  React.useEffect(() => {
+    if (!office) return;
+    requestLocation();
+  }, [office, requestLocation]);
 
   const liveDistance =
     office && fix
       ? distanceMeters(fix.lat, fix.lng, office.lat, office.lng)
       : null;
   const inRange = liveDistance != null && office != null && liveDistance <= office.radiusM;
+  // Biometric setup is the second-priority nudge — only offer it once location
+  // is sorted (or no geofence is configured), so the first thing people see on
+  // open is the action that actually unblocks punching.
+  const locationReady = !office || (fix != null && fixError == null);
+  // Biometric is mandatory unless an admin exempted this employee. Until they
+  // register a device, block the punch client-side (the server enforces it too)
+  // and point them at the "Enable biometric punch" button.
+  const mustSetUpBio = !hasCredential && !biometricExempt;
 
   async function setUpBiometric() {
     setSettingUp(true);
@@ -212,28 +243,39 @@ export function PunchCard({
         {/* Status chips */}
         <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
           {office &&
-            (fixError ? (
-              <Chip tone="amber" icon={<MapPinOff size={13} strokeWidth={2.4} />}>
-                {fixError}
-              </Chip>
-            ) : liveDistance == null ? (
+            (locating ? (
               <Chip tone="slate" icon={<MapPin size={13} strokeWidth={2.4} />}>
                 Locating…
               </Chip>
-            ) : inRange ? (
-              <Chip tone="green" icon={<MapPin size={13} strokeWidth={2.4} />}>
-                {Math.round(liveDistance)}m from office · in range
-              </Chip>
+            ) : fix && !fixError ? (
+              inRange ? (
+                <Chip tone="green" icon={<MapPin size={13} strokeWidth={2.4} />}>
+                  {Math.round(liveDistance ?? 0)}m from office · in range
+                </Chip>
+              ) : (
+                <Chip tone="red" icon={<MapPinOff size={13} strokeWidth={2.4} />}>
+                  {Math.round(liveDistance ?? 0)}m away · outside {office.radiusM}m
+                </Chip>
+              )
             ) : (
-              <Chip tone="red" icon={<MapPinOff size={13} strokeWidth={2.4} />}>
-                {Math.round(liveDistance)}m away · outside {office.radiusM}m
-              </Chip>
+              // No fix yet or permission denied → one tap to fix it. This is the
+              // prominent CTA on open, ahead of biometric setup, because
+              // location is what actually gates the punch.
+              <button
+                type="button"
+                onClick={() => requestLocation(true)}
+                className="inline-flex items-center gap-1.5 rounded-pill px-3 h-8 text-[13px] font-bold text-white transition-colors"
+                style={{ background: "var(--color-altus-red)" }}
+              >
+                <MapPin size={13} strokeWidth={2.4} />
+                Enable location
+              </button>
             ))}
           {hasCredential ? (
             <Chip tone="green" icon={<ShieldCheck size={13} strokeWidth={2.4} />}>
               Biometric ready
             </Chip>
-          ) : bioSupported ? (
+          ) : bioSupported && locationReady ? (
             <button
               type="button"
               onClick={setUpBiometric}
@@ -254,6 +296,19 @@ export function PunchCard({
             </Chip>
           ) : null}
         </div>
+
+        {/* Hard-denied: the browser won't re-prompt, so "Enable location" can't
+            help on its own. Point people to their site settings to re-allow it. */}
+        {denied && (
+          <p
+            className="mt-2.5 mx-auto max-w-[20rem] text-[12.5px] leading-snug text-ink-subtle"
+            role="note"
+          >
+            Location is blocked for this site. Allow{" "}
+            <span className="font-semibold text-ink-soft">Location</span> for this
+            site in your browser settings, then tap Enable location again.
+          </p>
+        )}
       </div>
 
       <div className="px-6 pb-6 max-md:px-4">
@@ -284,6 +339,7 @@ export function PunchCard({
             done={inLabel !== null}
             pending={pending}
             biometric={hasCredential}
+            blocked={mustSetUpBio}
             onClick={() => punch("in")}
           />
           <PunchButton
@@ -291,9 +347,19 @@ export function PunchCard({
             done={outLabel !== null}
             pending={pending}
             biometric={hasCredential}
+            blocked={mustSetUpBio}
             onClick={() => punch("out")}
           />
         </div>
+
+        {mustSetUpBio && (
+          <p className="mt-3 text-[13.5px] leading-snug text-ink-subtle" role="note">
+            Biometric punch is required to check in. Tap{" "}
+            <span className="font-semibold text-ink-soft">Enable biometric punch</span>{" "}
+            above to register this device. No fingerprint sensor on your phone?
+            Ask an admin to mark you exempt.
+          </p>
+        )}
       </div>
     </section>
   );
@@ -339,19 +405,22 @@ function PunchButton({
   done,
   pending,
   biometric,
+  blocked = false,
   onClick,
 }: {
   kind: "in" | "out";
   done: boolean;
   pending: boolean;
   biometric: boolean;
+  /** Biometric setup required but not done — disable until they register. */
+  blocked?: boolean;
   onClick: () => void;
 }) {
   const Icon = pending ? Loader2 : biometric ? Fingerprint : kind === "in" ? LogIn : LogOut;
   return (
     <button
       type="button"
-      disabled={pending || done}
+      disabled={pending || done || blocked}
       onClick={onClick}
       className="inline-flex h-14 items-center justify-center gap-2.5 rounded-xl text-[16px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-40"
       style={{
@@ -431,14 +500,16 @@ function getPosition(): Promise<Fix> {
           lng: pos.coords.longitude,
           accuracyM: pos.coords.accuracy,
         }),
-      (err) =>
-        reject(
-          new Error(
-            err.code === err.PERMISSION_DENIED
-              ? "Location access denied — allow it to punch."
-              : "Couldn't get your location — try again.",
-          ),
-        ),
+      (err) => {
+        const denied = err.code === err.PERMISSION_DENIED;
+        const e = new Error(
+          denied
+            ? "Location access denied — allow it to punch."
+            : "Couldn't get your location — try again.",
+        ) as Error & { denied?: boolean };
+        e.denied = denied;
+        reject(e);
+      },
       { enableHighAccuracy: true, timeout: 12_000, maximumAge: 30_000 },
     );
   });

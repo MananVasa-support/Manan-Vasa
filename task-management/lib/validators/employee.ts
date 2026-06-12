@@ -97,6 +97,9 @@ export const EditEmployeeSchema = z
     whatsappOptedIn: z.boolean().optional(),
     emailOptIn:      z.boolean().optional(),
     slackOptIn:      z.boolean().optional(),
+    // Anti-proxy attendance: exempt employees whose device has no biometric
+    // sensor from the mandatory-fingerprint punch rule (they fall back to GPS).
+    attendanceBiometricExempt: z.boolean().optional(),
   })
   .strict()
   .refine(

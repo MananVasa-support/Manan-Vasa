@@ -88,7 +88,10 @@ export async function verifyAndStoreRegistration(
   employeeId: string,
   response: RegistrationResponseJSON,
   deviceLabel: string | null,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; isNewDevice: boolean; deviceCount: number }
+  | { ok: false; error: string }
+> {
   const expectedChallenge = await consumeChallenge();
   if (!expectedChallenge) {
     return { ok: false, error: "Setup expired — try again." };
@@ -110,7 +113,10 @@ export async function verifyAndStoreRegistration(
     return { ok: false, error: "Device verification failed." };
   }
   const cred = verification.registrationInfo.credential;
-  await db
+  // `.returning()` is empty when the credential already existed (re-submit of
+  // the same device) — lets the caller distinguish a genuinely new device,
+  // which is the signal worth alerting admins on.
+  const inserted = await db
     .insert(webauthnCredentials)
     .values({
       employeeId,
@@ -120,8 +126,10 @@ export async function verifyAndStoreRegistration(
       transports: cred.transports?.join(",") ?? null,
       deviceLabel,
     })
-    .onConflictDoNothing({ target: webauthnCredentials.credentialId });
-  return { ok: true };
+    .onConflictDoNothing({ target: webauthnCredentials.credentialId })
+    .returning({ id: webauthnCredentials.id });
+  const deviceCount = (await listCredentials(employeeId)).length;
+  return { ok: true, isNewDevice: inserted.length > 0, deviceCount };
 }
 
 export async function mintPunchOptions(employeeId: string) {

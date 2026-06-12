@@ -10,7 +10,7 @@ import {
   Users,
   RotateCcw,
   SlidersHorizontal,
-  ArrowRight,
+  Loader2,
   User,
   FileText,
   FileSpreadsheet,
@@ -110,8 +110,12 @@ export function FilterBar({
   }, [start, end]);
 
   function handleRange(r: DateRange | undefined) {
-    if (r?.from) setStart(format(r.from, "yyyy-MM-dd"));
-    if (r?.to) setEnd(format(r.to, "yyyy-MM-dd"));
+    if (!r?.from) return;
+    // Keep a valid (non-empty) range at every step so the auto-apply effect
+    // never fires a half-selected range: while the user is mid-pick (only
+    // `from` chosen), treat it as a single day until they click the end date.
+    setStart(format(r.from, "yyyy-MM-dd"));
+    setEnd(format(r.to ?? r.from, "yyyy-MM-dd"));
   }
 
   function apply() {
@@ -139,6 +143,22 @@ export function FilterBar({
     if (client.length > 0) sp.set("client", client.join(",")); else sp.delete("client");
     startTransition(() => router.replace(`${pathname}?${sp.toString()}` as any));
   }
+
+  // Auto-apply: whenever any filter changes, push the new query string. A short
+  // debounce coalesces rapid changes (toggling several multi-select options, a
+  // two-click date range) into a single navigation so it feels instant without
+  // firing one request per click. The first render is skipped — the page is
+  // already rendered for the initial params, so re-applying them is wasted work.
+  const didMount = React.useRef(false);
+  React.useEffect(() => {
+    if (!didMount.current) {
+      didMount.current = true;
+      return;
+    }
+    const t = setTimeout(apply, 200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start, end, view, emp, assigneeMode, dept, prio, subj, status, client]);
 
   function reset() {
     const today = new Date();
@@ -438,31 +458,16 @@ export function FilterBar({
               <RotateCcw size={14} strokeWidth={2.2} />
               Reset
             </button>
-            <button
-              type="button"
-              onClick={apply}
-              disabled={isPending}
-              className="inline-flex items-center gap-2 text-cta text-white px-6 py-3 rounded-chip transition-transform disabled:opacity-60"
-              style={{
-                background:
-                  "linear-gradient(135deg, rgb(225, 6, 0), rgb(168, 4, 0))",
-                boxShadow: "0 6px 16px rgba(225, 6, 0, 0.32)",
-              }}
-              onMouseEnter={(e) => {
-                if (isPending) return;
-                e.currentTarget.style.transform = "translateY(-1px)";
-                e.currentTarget.style.boxShadow =
-                  "0 10px 24px rgba(225, 6, 0, 0.42)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow =
-                  "0 6px 16px rgba(225, 6, 0, 0.32)";
-              }}
+            {/* Filters auto-apply as you change them — no Apply button. This
+                tiny indicator just confirms a refresh is in flight. */}
+            <span
+              aria-live="polite"
+              className="inline-flex items-center gap-1.5 text-chip text-ink-subtle transition-opacity"
+              style={{ opacity: isPending ? 1 : 0 }}
             >
-              {isPending ? "Applying…" : "Apply Filter"}
-              <ArrowRight size={16} strokeWidth={2.4} />
-            </button>
+              <Loader2 size={14} strokeWidth={2.2} className="animate-spin" />
+              Updating…
+            </span>
           </div>
         </div>
       </div>

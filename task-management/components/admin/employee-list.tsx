@@ -291,6 +291,7 @@ export function EmployeeList({
                         whatsappPhone: e.whatsappPhone,
                         whatsappOptedIn: e.whatsappOptedIn,
                         managerId: e.managerId,
+                        attendanceBiometricExempt: e.attendanceBiometricExempt,
                       }}
                       isSelf={e.id === currentEmployeeId}
                       departmentOptions={departmentOptions}

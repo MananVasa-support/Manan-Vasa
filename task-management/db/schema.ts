@@ -63,6 +63,12 @@ export const employees = pgTable("employees", {
   passwordResetByAdminAt: timestamp("password_reset_by_admin_at", {
     withTimezone: true,
   }),
+  // Anti-proxy attendance (migration 0056): biometric punch is mandatory,
+  // enforced in app code. Admins can exempt employees whose device has no
+  // fingerprint/Face-ID sensor — exempt employees fall back to GPS-only.
+  attendanceBiometricExempt: boolean("attendance_biometric_exempt")
+    .notNull()
+    .default(false),
   // M2.3-lite: inbox last-visit marker — drives unread-badge math.
   lastInboxVisitAt: timestamp("last_inbox_visit_at", { withTimezone: true })
     .notNull()

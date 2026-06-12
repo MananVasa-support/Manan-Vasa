@@ -86,6 +86,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
           tz={tz}
           office={office}
           hasCredential={creds.length > 0}
+          biometricExempt={me.attendanceBiometricExempt}
         />
 
         <MyLog days={myDays} tz={tz} />

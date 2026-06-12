@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { and, eq } from "drizzle-orm";
 import type {
   RegistrationResponseJSON,
   AuthenticationResponseJSON,
@@ -9,7 +10,8 @@ import type {
   PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/server";
 import { db } from "@/lib/db";
-import { attendanceLogs } from "@/db/schema";
+import { attendanceLogs, employees, type Employee, type NotificationKind } from "@/db/schema";
+import { notify } from "@/lib/notifications/dispatch";
 import { requireUser } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { localDateString } from "@/lib/format";
@@ -106,7 +108,13 @@ export async function punchAttendance(input: {
     distanceM = null;
   }
 
-  // ── Gate 2: biometric ───────────────────────────────────────────────
+  // ── Gate 2: biometric (MANDATORY unless admin-exempted) ─────────────
+  // This is the anti-proxy gate. Without it, an account with no passkey only
+  // needed a GPS fix inside the fence, so a colleague at the office could
+  // punch for an absent person with a shared password. Now: a registered
+  // device + live fingerprint/Face-ID is required. The only bypass is an
+  // admin-set exemption for employees whose phone has no biometric sensor —
+  // they fall back to GPS-only.
   let verifyMethod: "biometric" | "gps_only" = "gps_only";
   let credentialId: string | null = null;
   const creds = await listCredentials(me.id);
@@ -114,14 +122,21 @@ export async function punchAttendance(input: {
     if (!assertion) {
       return {
         ok: false,
-        error: "Biometric confirmation required — punch from a registered device.",
+        error: "Biometric confirmation required — punch from your own registered device.",
       };
     }
     const verdict = await verifyPunchAssertion(me.id, assertion);
     if (!verdict.ok) return verdict;
     verifyMethod = "biometric";
     credentialId = verdict.credentialId;
+  } else if (!me.attendanceBiometricExempt) {
+    return {
+      ok: false,
+      error:
+        "Set up biometric punch on your own phone before checking in. (No fingerprint sensor on your device? Ask an admin to enable the exemption.)",
+    };
   }
+  // exempt + no credential → GPS-only is allowed (verifyMethod stays "gps_only").
 
   const today = localDateString(me.timezone || "Asia/Kolkata");
 
@@ -184,8 +199,57 @@ export async function finishBiometricSetup(
     response,
     deviceLabel?.slice(0, 120) ?? null,
   );
-  if (result.ok) revalidatePath("/attendance");
-  return result;
+  if (!result.ok) return result;
+  revalidatePath("/attendance");
+  // Tell admins a new attendance device was enrolled — the second line of
+  // defence against proxy punching (someone enrolling on a colleague's phone).
+  if (result.isNewDevice) {
+    await alertAdminsNewAttendanceDevice(me, deviceLabel ?? null, result.deviceCount);
+  }
+  return { ok: true };
+}
+
+/**
+ * In-app heads-up to every active admin that an employee registered a new
+ * biometric device for attendance. In-app only (forceChannels: []) — it's a
+ * security audit signal, not something to email/Slack the whole admin team.
+ * Best-effort: never blocks the registration that triggered it.
+ */
+async function alertAdminsNewAttendanceDevice(
+  actor: Employee,
+  deviceLabel: string | null,
+  deviceCount: number,
+): Promise<void> {
+  try {
+    const admins = await db
+      .select({ id: employees.id })
+      .from(employees)
+      .where(and(eq(employees.isAdmin, true), eq(employees.isActive, true)));
+
+    const label = deviceLabel?.trim() || "a new device";
+    const title =
+      deviceCount > 1
+        ? `${actor.name} added another attendance device`
+        : `${actor.name} enrolled a biometric attendance device`;
+    const body = `${actor.name} registered ${label} for biometric punch (now ${deviceCount} device${deviceCount === 1 ? "" : "s"}). A passkey on someone else's phone can punch on their behalf — review if this looks off.`;
+
+    await Promise.all(
+      admins
+        .filter((a) => a.id !== actor.id) // don't alert the registrant themselves
+        .map((a) =>
+          notify({
+            userId: a.id,
+            kind: "attendance_device" as NotificationKind,
+            title,
+            body,
+            actorId: actor.id,
+            forceChannels: [], // in-app inbox only
+          }),
+        ),
+    );
+  } catch (err) {
+    console.warn("[attendance] admin new-device alert failed (non-fatal)", err);
+  }
 }
 
 /** Fresh challenge for a biometric punch. Null options = nothing registered. */

@@ -10,7 +10,7 @@ import {
   SlidersHorizontal,
   Bell,
   AlertCircle,
-  ArrowRight,
+  Loader2,
 } from "lucide-react";
 import { MultiSelect } from "@/components/ui/multi-select";
 
@@ -96,15 +96,27 @@ export function NotificationFilterBar({ employees, initial }: Props) {
     });
   }
 
+  // Auto-apply: push the new query string whenever a filter changes, debounced
+  // so toggling several options coalesces into one navigation. First render is
+  // skipped — the page already matches the initial params.
+  const didMount = React.useRef(false);
+  React.useEffect(() => {
+    if (!didMount.current) {
+      didMount.current = true;
+      return;
+    }
+    const t = setTimeout(apply, 200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kinds, recipientIds, failuresOnly, from, to]);
+
   function reset() {
+    // Just clear state — the auto-apply effect navigates (and drops ?before=).
     setKinds([]);
     setRecipientIds([]);
     setFailuresOnly(false);
     setFrom("");
     setTo("");
-    startTransition(() => {
-      router.replace(pathname as any);
-    });
   }
 
   const activeCount =
@@ -251,20 +263,16 @@ export function NotificationFilterBar({ employees, initial }: Props) {
             <RotateCcw size={14} strokeWidth={2.2} />
             Reset
           </button>
-          <button
-            type="button"
-            onClick={apply}
-            disabled={isPending}
-            className="inline-flex items-center gap-2 text-cta text-white px-6 py-3 rounded-chip transition-transform disabled:opacity-60"
-            style={{
-              background:
-                "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-              boxShadow: "0 6px 16px rgba(225, 6, 0, 0.28)",
-            }}
+          {/* Filters auto-apply — no Apply button. This just confirms a refresh
+              is in flight. */}
+          <span
+            aria-live="polite"
+            className="inline-flex items-center gap-1.5 text-chip text-ink-subtle transition-opacity"
+            style={{ opacity: isPending ? 1 : 0 }}
           >
-            {isPending ? "Applying…" : "Apply"}
-            <ArrowRight size={16} strokeWidth={2.4} />
-          </button>
+            <Loader2 size={14} strokeWidth={2.2} className="animate-spin" />
+            Updating…
+          </span>
         </div>
       </div>
     </div>

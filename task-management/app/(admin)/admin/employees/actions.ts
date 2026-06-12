@@ -364,6 +364,9 @@ export async function editEmployee(
   if (parsed.data.slackOptIn !== undefined) {
     patch.slackOptIn = parsed.data.slackOptIn;
   }
+  if (parsed.data.attendanceBiometricExempt !== undefined) {
+    patch.attendanceBiometricExempt = parsed.data.attendanceBiometricExempt;
+  }
 
   if (Object.keys(patch).length === 0) {
     return { ok: false, error: "No changes to save." };

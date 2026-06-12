@@ -25,6 +25,7 @@ function profileV2Defaults() {
     managerId: null as string | null,
     mentionEscalation: true,
     passwordResetByAdminAt: null as Date | null,
+    attendanceBiometricExempt: false,
     googleRefreshToken: null as string | null,
     googleEmail: null as string | null,
     googleConnectedAt: null as Date | null,

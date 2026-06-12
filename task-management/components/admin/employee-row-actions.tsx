@@ -51,6 +51,7 @@ type RowEmployee = {
   whatsappPhone: string | null;
   whatsappOptedIn: boolean;
   managerId: string | null;
+  attendanceBiometricExempt: boolean;
 };
 
 interface Props {
@@ -262,6 +263,7 @@ export function EmployeeRowActions({
           whatsappPhone: employee.whatsappPhone,
           whatsappOptedIn: employee.whatsappOptedIn,
           managerId: employee.managerId,
+          attendanceBiometricExempt: employee.attendanceBiometricExempt,
         }}
         isSelf={isSelf}
         departmentOptions={departmentOptions}
