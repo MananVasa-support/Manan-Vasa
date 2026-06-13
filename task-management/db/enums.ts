@@ -263,3 +263,51 @@ export const STATUS_COLOR_TOKENS = [
   "stone",  // light grey (Dont Know)
 ] as const;
 export type StatusColorToken = (typeof STATUS_COLOR_TOKENS)[number];
+
+// ── Outstanding tracker (native rebuild) ───────────────────────────────────
+export const OUTSTANDING_CYCLES = [
+  "subscription",
+  "monthly_bill",
+  "full_payment",
+] as const;
+export type OutstandingCycle = (typeof OUTSTANDING_CYCLES)[number];
+export const OUTSTANDING_CYCLE_LABELS: Record<OutstandingCycle, string> = {
+  subscription: "Subscription",
+  monthly_bill: "Monthly Bill",
+  full_payment: "Full Payment",
+};
+
+export const GST_RATES = [0, 5, 12, 18, 28] as const;
+export type GstRate = (typeof GST_RATES)[number];
+
+export const OUTSTANDING_CONTRACT_STATUS = [
+  "active",
+  "closed",
+  "written_off",
+] as const;
+export type OutstandingContractStatus = (typeof OUTSTANDING_CONTRACT_STATUS)[number];
+
+// Derived per-installment state (never stored).
+export const INSTALLMENT_STATES = ["not_due", "overdue", "paid"] as const;
+export type InstallmentState = (typeof INSTALLMENT_STATES)[number];
+
+// Overdue-by-days buckets — boundaries match the source dashboard.
+export const OUTSTANDING_OVERDUE_BUCKETS = [
+  { id: "0-3",   label: "0–3 Days Overdue",   min: 0,  max: 3 },
+  { id: "4-7",   label: "4–7 Days Overdue",   min: 4,  max: 7 },
+  { id: "8-15",  label: "8–15 Days Overdue",  min: 8,  max: 15 },
+  { id: "16-30", label: "16–30 Days Overdue", min: 16, max: 30 },
+  { id: "31-45", label: "31–45 Days Overdue", min: 31, max: 45 },
+  { id: "46-60", label: "46–60 Days Overdue", min: 46, max: 60 },
+  { id: "60+",   label: "60+ Days Overdue",   min: 61, max: Infinity },
+] as const;
+export type OverdueBucketId = (typeof OUTSTANDING_OVERDUE_BUCKETS)[number]["id"];
+
+// Seed roster values (admin-editable after seeding).
+export const SEED_ENTITIES = [
+  "Altus Corp", "Cash", "JSV HUF", "Khushboo", "Kotak - MJV HUF", "Unleashed",
+] as const;
+export const SEED_PRODUCTS = ["BSU", "BSS", "PS", "Consulting", "Rent"] as const;
+export const SEED_PAYMENT_MODES = [
+  "Altus Kotak", "Cash", "Altus Corp", "MJV HUF", "CMV Gpay", "Unknown",
+] as const;

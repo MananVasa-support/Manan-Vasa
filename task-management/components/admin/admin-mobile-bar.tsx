@@ -16,6 +16,9 @@ import {
   Building2,
   Briefcase,
   Tag,
+  Package,
+  Landmark,
+  CreditCard,
   Settings as SettingsIcon,
   ArrowLeft,
   LogOut,
@@ -43,6 +46,9 @@ const NAV: ReadonlyArray<NavItem> = [
   { href: "/admin/departments" as Route, label: "Departments", icon: Building2 },
   { href: "/admin/clients" as Route, label: "Clients", icon: Briefcase },
   { href: "/admin/subjects" as Route, label: "Subjects", icon: Tag },
+  { href: "/admin/outstanding-products" as Route, label: "Outstanding Products", icon: Package },
+  { href: "/admin/outstanding-entities" as Route, label: "Outstanding Entities", icon: Landmark },
+  { href: "/admin/outstanding-payment-modes" as Route, label: "Outstanding Modes", icon: CreditCard },
   { href: "/admin/settings" as Route, label: "Settings", icon: SettingsIcon },
 ];
 

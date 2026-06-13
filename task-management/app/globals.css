@@ -2059,3 +2059,26 @@ select.nt-input {
 .nav-scroll::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--color-altus-red) 55%, transparent);
 }
+
+/* Outstanding dashboard print — when this page is printed, hide the global
+   chrome (sticky header, footer); the filter bar + export toolbar carry
+   Tailwind's `print:hidden` themselves. Then flatten the print root to a clean
+   full-width white sheet. Scoped to @media print so screen styles are
+   untouched, and gated on :has(.outstanding-print-root) so it only applies on
+   the Outstanding dashboard, not other pages that share the header/footer. */
+@media print {
+  body:has(.outstanding-print-root) header.header-light,
+  body:has(.outstanding-print-root) footer {
+    display: none !important;
+  }
+  .outstanding-print-root {
+    margin: 0 !important;
+    padding: 12px !important;
+    max-width: none !important;
+  }
+  .outstanding-print-root section {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border-color: #d4d4d8 !important;
+  }
+}
