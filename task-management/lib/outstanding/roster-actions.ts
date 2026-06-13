@@ -8,6 +8,7 @@ import {
   outstandingProducts,
   outstandingEntitiesTbl,
   outstandingPaymentModes,
+  outstandingResponsibles,
 } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
@@ -25,7 +26,8 @@ export type ActionResult<T = unknown> =
 type RosterTable =
   | typeof outstandingProducts
   | typeof outstandingEntitiesTbl
-  | typeof outstandingPaymentModes;
+  | typeof outstandingPaymentModes
+  | typeof outstandingResponsibles;
 
 const NameSchema = z
   .string()

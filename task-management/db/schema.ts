@@ -1179,6 +1179,22 @@ export const outstandingPaymentModes = pgTable(
   (t) => [index("outstanding_payment_modes_active_name_idx").on(t.isActive, t.name)],
 );
 
+// iter-2: responsibles became their own roster (was a direct employees FK).
+// The actual DB FK swap happens in a later SQL migration; this model points the
+// Drizzle references at the new target.
+export const outstandingResponsibles = pgTable(
+  "outstanding_responsibles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull().unique(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("outstanding_responsibles_active_name_idx").on(t.isActive, t.name)],
+);
+
 export const outstandingContracts = pgTable(
   "outstanding_contracts",
   {
@@ -1187,16 +1203,24 @@ export const outstandingContracts = pgTable(
     contactPhone: text("contact_phone"),
     productId: uuid("product_id").references(() => outstandingProducts.id, { onDelete: "set null" }),
     entityId: uuid("entity_id").references(() => outstandingEntitiesTbl.id, { onDelete: "set null" }),
-    responsibleId: uuid("responsible_id").references(() => employees.id, { onDelete: "set null" }),
+    responsibleId: uuid("responsible_id").references(() => outstandingResponsibles.id, { onDelete: "set null" }),
     expectedModeId: uuid("expected_mode_id").references(() => outstandingPaymentModes.id, { onDelete: "set null" }),
-    cycle: text("cycle").$type<"subscription" | "monthly_bill" | "full_payment">().notNull(),
+    cycle: text("cycle").$type<"subscription" | "monthly_bill" | "full_payment" | "partial_payment" | "slabs">().notNull(),
+    firstName: text("first_name"),
+    lastName: text("last_name"),
     baseAmount: numeric("base_amount", { precision: 14, scale: 2 }).notNull(),
     gstRate: integer("gst_rate").notNull().default(0),
     startDate: date("start_date").notNull(),
+    retainerStart: date("retainer_start"),
+    retainerEnd: date("retainer_end"),
+    billDate: integer("bill_date"),
+    emiCount: integer("emi_count"),
+    frequency: text("frequency"),
     periods: integer("periods"),
     endDate: date("end_date"),
     pdcReceived: boolean("pdc_received").notNull().default(false),
     comments: text("comments"),
+    importBatchId: uuid("import_batch_id"),
     status: text("status")
       .$type<"active" | "closed" | "written_off">()
       .notNull()
@@ -1237,9 +1261,10 @@ export const outstandingCollections = pgTable(
     contractId: uuid("contract_id").references(() => outstandingContracts.id, { onDelete: "set null" }),
     amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
     paymentModeId: uuid("payment_mode_id").references(() => outstandingPaymentModes.id, { onDelete: "set null" }),
-    responsibleId: uuid("responsible_id").references(() => employees.id, { onDelete: "set null" }),
+    responsibleId: uuid("responsible_id").references(() => outstandingResponsibles.id, { onDelete: "set null" }),
     collectedAt: date("collected_at").notNull(),
     comments: text("comments"),
+    importBatchId: uuid("import_batch_id"),
     createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1265,6 +1290,8 @@ export const outstandingAttachments = pgTable(
   (t) => [index("outstanding_attachments_owner_idx").on(t.ownerType, t.ownerId)],
 );
 
+export type OutstandingResponsible = typeof outstandingResponsibles.$inferSelect;
+export type NewOutstandingResponsible = typeof outstandingResponsibles.$inferInsert;
 export type OutstandingContract = typeof outstandingContracts.$inferSelect;
 export type NewOutstandingContract = typeof outstandingContracts.$inferInsert;
 export type OutstandingInstallment = typeof outstandingInstallments.$inferSelect;

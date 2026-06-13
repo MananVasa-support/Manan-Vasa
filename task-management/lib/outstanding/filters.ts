@@ -1,11 +1,14 @@
 export interface OutstandingFilters {
   employees: string[];
   entities: string[];
+  /** Month-of-year codes "01".."12" (matched against dueDate month, any year). */
   months: string[];
   years: string[];
   cycles: string[];
   modes: string[];
   statuses: string[];
+  /** When true, keep only rows whose PDC has NOT been received. */
+  pdcOnly: boolean;
 }
 
 /** A row that can be filtered. Denormalized contract fields are optional;
@@ -17,6 +20,7 @@ export interface FilterRow {
   expectedModeName?: string | null;
   dueDate: string;
   state: string;
+  pdcReceived?: boolean;
 }
 
 const split = (v: unknown): string[] =>
@@ -37,6 +41,7 @@ export function parseOutstandingFilters(
     cycles: split(get("cycle")),
     modes: split(get("mode")),
     statuses: split(get("status")),
+    pdcOnly: get("pdc") === "1",
   };
 }
 
@@ -51,10 +56,12 @@ export function applyOutstandingFilters<T extends FilterRow>(
     (r) =>
       matches(f.employees, r.responsibleName) &&
       matches(f.entities, r.entityName) &&
-      matches(f.months, r.dueDate.slice(0, 7)) &&
+      // Month-of-year (01..12), independent of year.
+      matches(f.months, r.dueDate.slice(5, 7)) &&
       matches(f.years, r.dueDate.slice(0, 4)) &&
       matches(f.cycles, r.cycle) &&
       matches(f.modes, r.expectedModeName) &&
-      matches(f.statuses, r.state),
+      matches(f.statuses, r.state) &&
+      (!f.pdcOnly || r.pdcReceived === false),
   );
 }

@@ -11,7 +11,9 @@ import { PdcPanel } from "@/components/outstanding/dashboard/pdc-table";
 import { OutstandingEntriesTable } from "@/components/outstanding/dashboard/entries-table";
 import { CollectionOverview } from "@/components/outstanding/dashboard/collection-overview";
 import { CollectionEntriesTable } from "@/components/outstanding/dashboard/collection-entries";
-import { OutstandingExportButtons } from "@/components/outstanding/dashboard/export-buttons";
+import { OutstandingExportDialog } from "@/components/outstanding/export-dialog";
+import { OutstandingPrintButton } from "@/components/outstanding/dashboard/export-buttons";
+import { OutstandingImportDialog } from "@/components/outstanding/import-dialog";
 import Link from "next/link";
 import type { Route } from "next";
 import { Settings2 } from "lucide-react";
@@ -23,6 +25,7 @@ import {
   listOutstandingProducts,
   listOutstandingEntities,
   listOutstandingPaymentModes,
+  listOutstandingResponsibles,
 } from "@/lib/queries/outstanding-rosters";
 import { listActiveClientNames } from "@/lib/queries/clients";
 import { listEmployeeOptions } from "@/lib/queries/employees";
@@ -58,9 +61,10 @@ export default async function OutstandingPage({ searchParams }: PageProps) {
   let modes: { id: string; name: string }[];
   let clients: string[];
   let employees: { id: string; name: string }[];
+  let responsibles: { id: string; name: string }[];
 
   try {
-    const [loaded, productsR, entitiesR, modesR, clientsR, employeesR] =
+    const [loaded, productsR, entitiesR, modesR, clientsR, employeesR, responsiblesR] =
       await Promise.all([
         loadOutstandingDashboard(filters, today, horizon),
         listOutstandingProducts(),
@@ -68,6 +72,7 @@ export default async function OutstandingPage({ searchParams }: PageProps) {
         listOutstandingPaymentModes(),
         listActiveClientNames(),
         listEmployeeOptions(),
+        listOutstandingResponsibles(),
       ]);
     dashboard = loaded.dashboard;
     entries = loaded.entries;
@@ -77,6 +82,7 @@ export default async function OutstandingPage({ searchParams }: PageProps) {
     modes = modesR;
     clients = clientsR;
     employees = employeesR;
+    responsibles = responsiblesR;
   } catch (err) {
     console.error("[outstanding] dashboard load failed:", err);
     return (
@@ -147,28 +153,29 @@ export default async function OutstandingPage({ searchParams }: PageProps) {
                 Manage contracts
               </Link>
             )}
-            <OutstandingExportButtons
+            {isAdmin && <OutstandingImportDialog />}
+            <OutstandingExportDialog
               entries={entries}
               collectionEntries={collectionEntries}
             />
+            <OutstandingPrintButton />
             <OutstandingFormDialog
-              clients={clients}
-              employees={employees}
+              responsibles={responsibles}
               products={products}
               entities={entities}
               modes={modes}
             />
             <CollectionFormDialog
               clients={clients}
-              employees={employees}
+              responsibles={responsibles}
               modes={modes}
             />
           </div>
         </header>
 
-        <OutstandingStatCards totals={dashboard.totals} />
+        <OutstandingStatCards totals={dashboard.totals} sp={sp} />
 
-        <OverdueBucketsPanel buckets={dashboard.buckets} />
+        <OverdueBucketsPanel buckets={dashboard.buckets} sp={sp} />
 
         <div className="mt-7 grid grid-cols-2 gap-3 max-lg:grid-cols-1">
           <MonthSummaryPanel
@@ -186,9 +193,10 @@ export default async function OutstandingPage({ searchParams }: PageProps) {
         <EmployeeEntityRollups
           byEmployee={dashboard.byEmployee}
           byEntity={dashboard.byEntity}
+          sp={sp}
         />
 
-        <PdcPanel pdc={dashboard.pdc} />
+        <PdcPanel pdc={dashboard.pdc} sp={sp} />
 
         <OutstandingEntriesTable entries={entries} />
 

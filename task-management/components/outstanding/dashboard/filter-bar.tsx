@@ -9,6 +9,7 @@ import {
   Repeat,
   CreditCard,
   CircleDot,
+  CalendarDays,
   CalendarRange,
   RotateCcw,
   Loader2,
@@ -32,20 +33,24 @@ interface Props {
   cycles: { value: string; label: string }[];
 }
 
-// Status options map to the derived installment `state` (not_due | overdue | paid).
+// Status options map to the derived installment `state`
+// (not_due | due_soon | overdue | paid).
 const STATUS_OPTIONS: Option[] = [
   { value: "overdue", label: "Overdue" },
+  { value: "due_soon", label: "Due Soon (≤7 days)" },
   { value: "not_due", label: "Not Due" },
   { value: "paid", label: "Paid" },
 ];
 
+// Month-of-year options. Values are "01".."12" and match dueDate's month
+// component regardless of year (engine compares against dueDate.slice(5, 7)).
+const MONTH_OPTIONS: Option[] = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+].map((label, i) => ({ value: String(i + 1).padStart(2, "0"), label }));
+
 // Year options: last 3 calendar years through next 2 (matches the engine's
 // `years` filter, which compares against dueDate.slice(0, 4)).
-//
-// NOTE: a standalone Month filter is deferred for v1. The engine's `months`
-// filter expects `YYYY-MM`, which can't be composed from a month-only control
-// without a paired year — too fiddly for the bar. Year filtering covers the
-// common case; the month-wise PANELS still show every month regardless.
 function yearOptions(): Option[] {
   const now = new Date().getUTCFullYear();
   const out: Option[] = [];
@@ -86,6 +91,7 @@ export function OutstandingFilterBar({ employees, entities, modes, cycles }: Pro
   const cycle = split(searchParams.get("cycle"));
   const mode = split(searchParams.get("mode"));
   const status = split(searchParams.get("status"));
+  const month = split(searchParams.get("month"));
   const year = split(searchParams.get("year"));
 
   const [sheetOpen, setSheetOpen] = React.useState(false);
@@ -109,6 +115,7 @@ export function OutstandingFilterBar({ employees, entities, modes, cycles }: Pro
     (cycle.length > 0 ? 1 : 0) +
     (mode.length > 0 ? 1 : 0) +
     (status.length > 0 ? 1 : 0) +
+    (month.length > 0 ? 1 : 0) +
     (year.length > 0 ? 1 : 0);
 
   return (
@@ -218,6 +225,18 @@ export function OutstandingFilterBar({ employees, entities, modes, cycles }: Pro
                   selected={status}
                   onChange={(v) => setParam("status", v)}
                   placeholder="All Statuses"
+                  className="min-w-[5.5rem] !text-[14px]"
+                />
+              </div>
+
+              {/* Months → month (01..12, any year) */}
+              <div className="filter-chip max-sm:w-full">
+                <CalendarDays size={16} className="text-ink-subtle" strokeWidth={2} />
+                <MultiSelect
+                  options={MONTH_OPTIONS}
+                  selected={month}
+                  onChange={(v) => setParam("month", v)}
+                  placeholder="All Months"
                   className="min-w-[5.5rem] !text-[14px]"
                 />
               </div>

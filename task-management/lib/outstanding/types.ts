@@ -10,6 +10,13 @@ export interface ContractInput {
   periods: number | null;
   endDate: string | null;
   status: "active" | "closed" | "written_off";
+  // iter-2 optional cycle-specific fields
+  retainerStart?: string | null;
+  retainerEnd?: string | null;
+  billDate?: number | null;
+  emiCount?: number | null;
+  frequency?: "10_days" | "15_days" | "30_days" | "weekly" | null;
+  explicitInstallments?: { dueDate: string; amount: number }[] | null;
 }
 
 export interface InstallmentSpec {

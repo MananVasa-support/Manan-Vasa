@@ -9,6 +9,7 @@ import {
   YAxis,
 } from "recharts";
 import { formatInr, formatCount } from "@/lib/format";
+import { SectionHeading } from "./section-heading";
 
 interface MonthRow {
   month: string; // YYYY-MM
@@ -66,7 +67,7 @@ export function MonthSummaryPanel({
       className="rounded-section bg-surface-card border border-hairline p-7 max-md:p-5"
       style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
     >
-      <h2 className="text-display-lg text-ink-strong">{title}</h2>
+      <SectionHeading title={title} tone={tone} />
 
       {data.length === 0 ? (
         <p

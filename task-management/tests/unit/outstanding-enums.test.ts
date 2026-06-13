@@ -7,8 +7,12 @@ import {
 } from "@/db/enums";
 
 describe("outstanding enums", () => {
-  it("has 3 cycles each with a label", () => {
-    expect(OUTSTANDING_CYCLES).toEqual(["subscription", "monthly_bill", "full_payment"]);
+  it("has cycles each with a label", () => {
+    // iter-2 expanded cycles with partial_payment + slabs (see
+    // outstanding-enums-iter2.test.ts for the canonical list).
+    expect(OUTSTANDING_CYCLES).toContain("subscription");
+    expect(OUTSTANDING_CYCLES).toContain("monthly_bill");
+    expect(OUTSTANDING_CYCLES).toContain("full_payment");
     for (const c of OUTSTANDING_CYCLES) expect(OUTSTANDING_CYCLE_LABELS[c]).toBeTruthy();
   });
   it("gst rates are 0/5/12/18/28", () => {
@@ -18,12 +22,17 @@ describe("outstanding enums", () => {
     expect(OUTSTANDING_CONTRACT_STATUS).toEqual(["active", "closed", "written_off"]);
   });
   it("seed rosters non-empty", () => {
+    // iter-2 dropped BSU from the fresh-seed product list (see
+    // outstanding-enums-iter2.test.ts for the updated rosters).
     expect(SEED_ENTITIES).toContain("Altus Corp");
-    expect(SEED_PRODUCTS).toContain("BSU");
+    expect(SEED_PRODUCTS).toContain("BSS");
     expect(SEED_PAYMENT_MODES).toContain("Cash");
   });
   it("installment states", () => {
-    expect(INSTALLMENT_STATES).toEqual(["not_due", "overdue", "paid"]);
+    // iter-2 added due_soon.
+    expect(INSTALLMENT_STATES).toContain("not_due");
+    expect(INSTALLMENT_STATES).toContain("overdue");
+    expect(INSTALLMENT_STATES).toContain("paid");
   });
   it("overdue buckets cover 0..Infinity with 7 buckets", () => {
     expect(OUTSTANDING_OVERDUE_BUCKETS).toHaveLength(7);

@@ -12,6 +12,7 @@ import {
   outstandingProducts,
   outstandingEntitiesTbl,
   outstandingPaymentModes,
+  outstandingResponsibles,
 } from "@/db/schema";
 import type { OutstandingStatus, OutstandingCycle } from "@/db/enums";
 import { generateSchedule } from "@/lib/outstanding/schedule";
@@ -181,7 +182,7 @@ export async function loadOutstanding(
   const product = alias(outstandingProducts, "product");
   const entity = alias(outstandingEntitiesTbl, "entity");
   const expectedMode = alias(outstandingPaymentModes, "expected_mode");
-  const responsible = alias(employees, "responsible");
+  const responsible = alias(outstandingResponsibles, "responsible");
 
   // 1. Contracts (non-written-off) with denormalized names.
   const contractRows = await db
@@ -308,7 +309,7 @@ export async function loadOutstanding(
   }
 
   // 3. Collections with payment-mode + responsible names.
-  const collResponsible = alias(employees, "coll_responsible");
+  const collResponsible = alias(outstandingResponsibles, "coll_responsible");
   const collectionRows = await db
     .select({
       id: outstandingCollections.id,
@@ -455,7 +456,7 @@ export async function listOutstandingContractsAdmin(): Promise<
   const product = alias(outstandingProducts, "product");
   const entity = alias(outstandingEntitiesTbl, "entity");
   const expectedMode = alias(outstandingPaymentModes, "expected_mode");
-  const responsible = alias(employees, "responsible");
+  const responsible = alias(outstandingResponsibles, "responsible");
 
   const rows = await db
     .select({
