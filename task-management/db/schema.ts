@@ -1130,3 +1130,146 @@ export type OutstandingEntry = typeof outstandingEntries.$inferSelect;
 export type NewOutstandingEntry = typeof outstandingEntries.$inferInsert;
 export type OutstandingFollowup = typeof outstandingFollowups.$inferSelect;
 export type NewOutstandingFollowup = typeof outstandingFollowups.$inferInsert;
+
+/**
+ * Outstanding tracker v2 (native rebuild). Admin-managed rosters
+ * (products / entities / payment modes) mirror the `clients` pattern; a
+ * `contract` defines a payment schedule that is materialized into editable
+ * `installment` rows; `collections` net oldest-first against balances.
+ * `installments.contract_id` is intentionally nullable to allow ad-hoc
+ * one-off receivables not tied to a contract.
+ */
+// ── Outstanding tracker v2 (native rebuild, migration 0055) ────────────────
+export const outstandingProducts = pgTable(
+  "outstanding_products",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull().unique(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("outstanding_products_active_name_idx").on(t.isActive, t.name)],
+);
+
+export const outstandingEntitiesTbl = pgTable(
+  "outstanding_entities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull().unique(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("outstanding_entities_active_name_idx").on(t.isActive, t.name)],
+);
+
+export const outstandingPaymentModes = pgTable(
+  "outstanding_payment_modes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull().unique(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("outstanding_payment_modes_active_name_idx").on(t.isActive, t.name)],
+);
+
+export const outstandingContracts = pgTable(
+  "outstanding_contracts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientName: text("client_name").notNull(),
+    contactPhone: text("contact_phone"),
+    productId: uuid("product_id").references(() => outstandingProducts.id, { onDelete: "set null" }),
+    entityId: uuid("entity_id").references(() => outstandingEntitiesTbl.id, { onDelete: "set null" }),
+    responsibleId: uuid("responsible_id").references(() => employees.id, { onDelete: "set null" }),
+    expectedModeId: uuid("expected_mode_id").references(() => outstandingPaymentModes.id, { onDelete: "set null" }),
+    cycle: text("cycle").$type<"subscription" | "monthly_bill" | "full_payment">().notNull(),
+    baseAmount: numeric("base_amount", { precision: 14, scale: 2 }).notNull(),
+    gstRate: integer("gst_rate").notNull().default(0),
+    startDate: date("start_date").notNull(),
+    periods: integer("periods"),
+    endDate: date("end_date"),
+    pdcReceived: boolean("pdc_received").notNull().default(false),
+    comments: text("comments"),
+    status: text("status")
+      .$type<"active" | "closed" | "written_off">()
+      .notNull()
+      .default("active"),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("outstanding_contracts_client_idx").on(t.clientName),
+    index("outstanding_contracts_status_idx").on(t.status),
+  ],
+);
+
+export const outstandingInstallments = pgTable(
+  "outstanding_installments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contractId: uuid("contract_id").references(() => outstandingContracts.id, { onDelete: "cascade" }),
+    periodIndex: integer("period_index"),
+    dueDate: date("due_date").notNull(),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    isOverride: boolean("is_override").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("outstanding_installments_due_idx").on(t.dueDate),
+    index("outstanding_installments_contract_idx").on(t.contractId, t.periodIndex),
+  ],
+);
+
+export const outstandingCollections = pgTable(
+  "outstanding_collections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientName: text("client_name").notNull(),
+    contractId: uuid("contract_id").references(() => outstandingContracts.id, { onDelete: "set null" }),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    paymentModeId: uuid("payment_mode_id").references(() => outstandingPaymentModes.id, { onDelete: "set null" }),
+    responsibleId: uuid("responsible_id").references(() => employees.id, { onDelete: "set null" }),
+    collectedAt: date("collected_at").notNull(),
+    comments: text("comments"),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("outstanding_collections_client_idx").on(t.clientName),
+    index("outstanding_collections_date_idx").on(t.collectedAt),
+  ],
+);
+
+export const outstandingAttachments = pgTable(
+  "outstanding_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerType: text("owner_type").$type<"contract" | "collection">().notNull(),
+    ownerId: uuid("owner_id").notNull(),
+    storagePath: text("storage_path").notNull(),
+    fileName: text("file_name").notNull(),
+    mimeType: text("mime_type"),
+    sizeBytes: integer("size_bytes"),
+    uploadedById: uuid("uploaded_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("outstanding_attachments_owner_idx").on(t.ownerType, t.ownerId)],
+);
+
+export type OutstandingContract = typeof outstandingContracts.$inferSelect;
+export type NewOutstandingContract = typeof outstandingContracts.$inferInsert;
+export type OutstandingInstallment = typeof outstandingInstallments.$inferSelect;
+export type NewOutstandingInstallment = typeof outstandingInstallments.$inferInsert;
+export type OutstandingCollection = typeof outstandingCollections.$inferSelect;
+export type NewOutstandingCollection = typeof outstandingCollections.$inferInsert;
+export type OutstandingAttachment = typeof outstandingAttachments.$inferSelect;
+export type NewOutstandingAttachment = typeof outstandingAttachments.$inferInsert;
