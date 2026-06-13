@@ -6,6 +6,7 @@ import { formatInr } from "@/lib/format";
 import { OUTSTANDING_CYCLE_LABELS } from "@/db/enums";
 import type { OutstandingCycle } from "@/db/enums";
 import type { DerivedInstallment } from "@/lib/outstanding/types";
+import { SectionHeading } from "./section-heading";
 
 const PAGE_SIZE = 20;
 
@@ -75,18 +76,22 @@ export function OutstandingEntriesTable({
 
   return (
     <section
-      className="mt-7 rounded-section bg-surface-card border border-hairline p-7 max-md:p-5"
+      id="entries"
+      className="mt-7 rounded-section bg-surface-card border border-hairline p-7 max-md:p-5 scroll-mt-[160px] max-md:scroll-mt-[120px]"
       style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
     >
-      <header className="flex items-baseline justify-between gap-3 flex-wrap">
-        <h2 className="text-display-lg text-ink-strong">All Outstanding Entries</h2>
-        <span
-          className="tabular-nums font-bold"
-          style={{ fontSize: 14, color: "var(--color-ink-soft)" }}
-        >
-          {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
-        </span>
-      </header>
+      <SectionHeading
+        title="All Outstanding Entries"
+        tone="slate"
+        right={
+          <span
+            className="tabular-nums font-bold"
+            style={{ fontSize: 14, color: "var(--color-ink-soft)" }}
+          >
+            {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
+          </span>
+        }
+      />
 
       <div className="mt-5 flex items-center gap-3 flex-wrap">
         <div className="relative w-full max-w-md">
@@ -132,10 +137,25 @@ export function OutstandingEntriesTable({
         </p>
       ) : (
         <>
-          <div className="mt-5 overflow-x-auto">
+          <div className="mt-5 overflow-x-auto -mx-1">
             <table className="w-full border-collapse">
+              <colgroup>
+                <col style={{ width: "3.5rem" }} />
+                <col />
+                <col />
+                <col />
+                <col />
+                <col style={{ width: "9rem" }} />
+                <col style={{ width: "7rem" }} />
+                <col />
+                <col />
+                <col style={{ width: "7.5rem" }} />
+              </colgroup>
               <thead>
-                <tr>
+                <tr
+                  className="border-b"
+                  style={{ borderColor: "var(--color-hairline-strong)" }}
+                >
                   <Th align="right">S.No</Th>
                   <Th>Client Name</Th>
                   <Th>Product</Th>
@@ -154,14 +174,14 @@ export function OutstandingEntriesTable({
                   return (
                     <tr
                       key={e.id}
-                      className="border-t"
+                      className="border-t transition-colors hover:bg-surface-soft"
                       style={{ borderColor: "var(--color-hairline)" }}
                     >
                       <Td align="right" muted>
                         {start + i + 1}
                       </Td>
                       <td
-                        className="py-2.5 font-semibold text-ink-strong"
+                        className="px-3 py-2.5 font-semibold text-ink-strong"
                         style={{ fontSize: 14 }}
                       >
                         {e.clientName}
@@ -188,8 +208,8 @@ export function OutstandingEntriesTable({
                       </Td>
                       <Cell>{e.entityName ?? "—"}</Cell>
                       <Cell>{e.responsibleName ?? "—"}</Cell>
-                      <td className="py-2.5">
-                        <StatePill overdue={overdue} />
+                      <td className="px-3 py-2.5">
+                        <StatePill state={e.state} />
                       </td>
                     </tr>
                   );
@@ -262,17 +282,23 @@ export function OutstandingEntriesTable({
   );
 }
 
-function StatePill({ overdue }: { overdue: boolean }) {
+// Pill colours per derived installment state. Overdue=red, due_soon=amber,
+// paid=slate, everything else (not_due) reads as green.
+const PILL: Record<string, { label: string; bg: string; fg: string }> = {
+  overdue: { label: "Overdue", bg: "var(--color-red-bg)", fg: "var(--color-red-deep)" },
+  due_soon: { label: "Due Soon", bg: "var(--color-amber-bg)", fg: "var(--color-amber-deep)" },
+  paid: { label: "Paid", bg: "var(--color-surface-track)", fg: "var(--color-ink-soft)" },
+  not_due: { label: "Not Due", bg: "var(--color-green-bg)", fg: "var(--color-green-deep)" },
+};
+
+function StatePill({ state }: { state: string }) {
+  const p = PILL[state] ?? PILL.not_due!;
   return (
     <span
-      className="inline-flex items-center rounded-full px-2.5 py-1 font-bold tracking-[0.02em]"
-      style={{
-        fontSize: 12,
-        background: overdue ? "var(--color-red-bg)" : "var(--color-green-bg)",
-        color: overdue ? "var(--color-red-deep)" : "var(--color-green-deep)",
-      }}
+      className="inline-flex items-center rounded-full px-2.5 py-1 font-bold tracking-[0.02em] whitespace-nowrap"
+      style={{ fontSize: 12, background: p.bg, color: p.fg }}
     >
-      {overdue ? "Overdue" : "Not Due"}
+      {p.label}
     </span>
   );
 }
@@ -286,7 +312,7 @@ function Th({
 }) {
   return (
     <th
-      className="pb-2 uppercase font-bold tracking-[0.06em] text-ink-subtle whitespace-nowrap"
+      className="px-3 pb-2.5 uppercase font-bold tracking-[0.06em] text-ink-subtle whitespace-nowrap"
       style={{ fontSize: 11, textAlign: align }}
     >
       {children}
@@ -303,7 +329,7 @@ function Cell({
 }) {
   return (
     <td
-      className={`py-2.5 font-semibold text-ink-soft ${nowrap ? "whitespace-nowrap" : ""}`}
+      className={`px-3 py-2.5 font-semibold text-ink-soft ${nowrap ? "whitespace-nowrap" : ""}`}
       style={{ fontSize: 14 }}
     >
       {children}
@@ -326,7 +352,7 @@ function Td({
 }) {
   return (
     <td
-      className={`py-2.5 tabular-nums ${
+      className={`px-3 py-2.5 tabular-nums whitespace-nowrap ${
         bold
           ? "font-black text-ink-strong"
           : muted

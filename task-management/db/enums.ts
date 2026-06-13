@@ -269,16 +269,41 @@ export const OUTSTANDING_CYCLES = [
   "subscription",
   "monthly_bill",
   "full_payment",
+  "partial_payment",
+  "slabs",
 ] as const;
 export type OutstandingCycle = (typeof OUTSTANDING_CYCLES)[number];
 export const OUTSTANDING_CYCLE_LABELS: Record<OutstandingCycle, string> = {
-  subscription: "Subscription",
-  monthly_bill: "Monthly Bill",
-  full_payment: "Full Payment",
+  subscription:    "Subscription",
+  monthly_bill:    "Monthly Bill",
+  full_payment:    "Full Payment",
+  partial_payment: "Partial Payment",
+  slabs:           "Slabs",
+};
+
+// Subscription billing cadence (iter-2). Stored as text on
+// outstanding_contracts.frequency; only meaningful for the subscription cycle.
+export const SUBSCRIPTION_FREQUENCIES = [
+  "10_days",
+  "15_days",
+  "30_days",
+  "weekly",
+] as const;
+export type SubscriptionFrequency = (typeof SUBSCRIPTION_FREQUENCIES)[number];
+export const SUBSCRIPTION_FREQUENCY_LABELS: Record<SubscriptionFrequency, string> = {
+  "10_days": "10 Days",
+  "15_days": "15 Days",
+  "30_days": "30 Days",
+  weekly:    "Weekly",
 };
 
 export const GST_RATES = [0, 5, 12, 18, 28] as const;
 export type GstRate = (typeof GST_RATES)[number];
+
+// iter-2: the New Contract form offers only 0% / 18% GST (the source sheet
+// never used the other slabs). The wider GST_RATES list stays for any legacy
+// data / other callers.
+export const GST_FORM_RATES = [0, 18] as const;
 
 export const OUTSTANDING_CONTRACT_STATUS = [
   "active",
@@ -288,7 +313,7 @@ export const OUTSTANDING_CONTRACT_STATUS = [
 export type OutstandingContractStatus = (typeof OUTSTANDING_CONTRACT_STATUS)[number];
 
 // Derived per-installment state (never stored).
-export const INSTALLMENT_STATES = ["not_due", "overdue", "paid"] as const;
+export const INSTALLMENT_STATES = ["not_due", "due_soon", "overdue", "paid"] as const;
 export type InstallmentState = (typeof INSTALLMENT_STATES)[number];
 
 // Overdue-by-days buckets — boundaries match the source dashboard.
@@ -303,11 +328,56 @@ export const OUTSTANDING_OVERDUE_BUCKETS = [
 ] as const;
 export type OverdueBucketId = (typeof OUTSTANDING_OVERDUE_BUCKETS)[number]["id"];
 
-// Seed roster values (admin-editable after seeding).
-export const SEED_ENTITIES = [
-  "Altus Corp", "Cash", "JSV HUF", "Khushboo", "Kotak - MJV HUF", "Unleashed",
+// Seed roster values (admin-editable after seeding). Updated for iter-2 to
+// match the source sheet's master lists. BSU is intentionally dropped from the
+// fresh-seed product list (it stays in the DB for any already-imported rows).
+export const SEED_RESPONSIBLES = [
+  "Anand Singh",
+  "Dhanashree Solkar",
+  "Jeevan Bharambe",
+  "Kiran Bhosale",
+  "Manan Vasa",
+  "Mishtie Kanani",
+  "Rohan Choudhary",
+  "Ruchita Ambre",
+  "Rutvisha Mehta",
+  "Sanket Thorat",
+  "Satish Sonawane",
+  "Siddesh Walve",
 ] as const;
-export const SEED_PRODUCTS = ["BSU", "BSS", "PS", "Consulting", "Rent"] as const;
+export const SEED_ENTITIES = [
+  "Altus Corp",
+  "Unleashed",
+  "Cash",
+  "Khushboo",
+  "MJV HUF",
+  "JSV HUF",
+  "Dharav Enterprises",
+  "Colour Graphics",
+  "Smita Raut",
+  "Sunil Raut",
+] as const;
+export const SEED_PRODUCTS = [
+  "BSS",
+  "Billing",
+  "Commission",
+  "Consulting",
+  "PS",
+  "Rent",
+  "Retainer",
+] as const;
 export const SEED_PAYMENT_MODES = [
-  "Altus Kotak", "Cash", "Altus Corp", "MJV HUF", "CMV Gpay", "Unknown",
+  "Kotak - Altus",
+  "Pay U",
+  "Jodo",
+  "Cash",
+  "Kotak - Unleashed",
+  "Kotak - Khushboo",
+  "Kotak - MJV HUF",
+  "Kotak - JSV HUF",
+  "Gpay - JSV HUF",
+  "Gpay - MJV",
+  "Gpay - CMV",
+  "PDC",
+  "Barter",
 ] as const;

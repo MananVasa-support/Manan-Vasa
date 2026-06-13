@@ -64,9 +64,31 @@ describe("allocatePayments", () => {
       expect(r.state).toBe("paid");
     }
   });
-  it("installment due exactly today is not_due (daysOverdue 0), not overdue", () => {
+  it("installment due exactly today is due_soon (daysOverdue 0), not overdue", () => {
+    // iter-2: due_soon now covers 0..7 days until due, so a due-today
+    // installment is due_soon (still not overdue, daysOverdue stays 0).
     const out = allocatePayments([inst({ id: "i1", dueDate: "2026-06-13" })], [], "2026-06-13");
     expect(out[0]!.daysOverdue).toBe(0);
-    expect(out[0]!.state).toBe("not_due");
+    expect(out[0]!.state).toBe("due_soon");
+  });
+  it("due_soon when balance>0 and dueDate is within 7 days of today", () => {
+    const out = allocatePayments(
+      [
+        inst({ id: "soon", dueDate: "2026-06-18" }),  // 5 days after today
+        inst({ id: "far", dueDate: "2026-07-03" }),   // 20 days after today
+        inst({ id: "past", dueDate: "2026-06-01" }),  // in the past
+        inst({ id: "done", dueDate: "2026-06-18", amount: 25000 }),
+      ],
+      [{ id: "p", clientName: "A", contractId: null, amount: 25000, collectedAt: "2026-06-10" }],
+      "2026-06-13",
+    );
+    const byId = Object.fromEntries(out.map((r) => [r.id, r]));
+    // payment (oldest-first) clears the "past" installment fully
+    expect(byId.past!.state).toBe("paid");
+    expect(byId.soon!.state).toBe("due_soon");
+    expect(byId.soon!.daysOverdue).toBe(0);
+    expect(byId.far!.state).toBe("not_due");
+    expect(byId.far!.daysOverdue).toBe(0);
+    expect(byId.done!.state).toBe("due_soon");
   });
 });

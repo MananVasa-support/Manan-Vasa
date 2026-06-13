@@ -35,7 +35,16 @@ export function allocatePayments(
       pool -= paid;
       const balance = amt - paid;
       const overdueDays = balance > 0 ? Math.max(0, daysBetween(i.dueDate, today)) : 0;
-      const state = balance <= 0 ? "paid" : overdueDays > 0 ? "overdue" : "not_due";
+      let state: DerivedInstallment["state"];
+      if (balance <= 0) {
+        state = "paid";
+      } else if (overdueDays > 0) {
+        state = "overdue";
+      } else {
+        // not overdue and unpaid: due within 7 days → due_soon, else not_due
+        const daysUntilDue = daysBetween(today, i.dueDate);
+        state = daysUntilDue >= 0 && daysUntilDue <= 7 ? "due_soon" : "not_due";
+      }
       result.push({
         ...i,
         paid: paid / 100,

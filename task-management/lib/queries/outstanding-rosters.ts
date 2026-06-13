@@ -6,6 +6,7 @@ import {
   outstandingProducts,
   outstandingEntitiesTbl,
   outstandingPaymentModes,
+  outstandingResponsibles,
 } from "@/db/schema";
 
 export interface RosterOption {
@@ -39,6 +40,18 @@ export async function listOutstandingEntities(): Promise<RosterOption[]> {
     .orderBy(
       asc(outstandingEntitiesTbl.sortOrder),
       asc(outstandingEntitiesTbl.name),
+    );
+}
+
+/** Active responsibles, ordered by sortOrder then name. Drives the contract/collection form picker. */
+export async function listOutstandingResponsibles(): Promise<RosterOption[]> {
+  return db
+    .select({ id: outstandingResponsibles.id, name: outstandingResponsibles.name })
+    .from(outstandingResponsibles)
+    .where(eq(outstandingResponsibles.isActive, true))
+    .orderBy(
+      asc(outstandingResponsibles.sortOrder),
+      asc(outstandingResponsibles.name),
     );
 }
 
@@ -100,6 +113,32 @@ export async function listOutstandingEntitiesWithCounts(): Promise<
       eq(outstandingContracts.entityId, outstandingEntitiesTbl.id),
     )
     .groupBy(outstandingEntitiesTbl.id);
+  return rows.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  );
+}
+
+/**
+ * Every responsible (active + inactive) plus a count of contracts referencing
+ * it via responsible_id.
+ */
+export async function listOutstandingResponsiblesWithCounts(): Promise<
+  RosterRowWithCount[]
+> {
+  const rows = await db
+    .select({
+      id: outstandingResponsibles.id,
+      name: outstandingResponsibles.name,
+      isActive: outstandingResponsibles.isActive,
+      sortOrder: outstandingResponsibles.sortOrder,
+      usageCount: sql<number>`count(${outstandingContracts.id})::int`,
+    })
+    .from(outstandingResponsibles)
+    .leftJoin(
+      outstandingContracts,
+      eq(outstandingContracts.responsibleId, outstandingResponsibles.id),
+    )
+    .groupBy(outstandingResponsibles.id);
   return rows.sort((a, b) =>
     a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
   );

@@ -1,4 +1,7 @@
+import Link from "next/link";
 import { formatInr, formatCount } from "@/lib/format";
+import { buildDrillHref } from "@/lib/outstanding/drill-href";
+import { SectionHeading } from "./section-heading";
 
 interface PdcRow {
   name: string;
@@ -12,24 +15,33 @@ interface Pdc {
   totalAmount: number;
 }
 
-export function PdcPanel({ pdc }: { pdc: Pdc }) {
+export function PdcPanel({
+  pdc,
+  sp,
+}: {
+  pdc: Pdc;
+  sp: Record<string, string | string[] | undefined>;
+}) {
   return (
     <section
       className="mt-7 rounded-section bg-surface-card border border-hairline p-7 max-md:p-5"
       style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
     >
-      <header className="flex items-baseline justify-between gap-3 flex-wrap">
-        <h2 className="text-display-lg text-ink-strong">PDC Not Received</h2>
-        <span
-          className="tabular-nums font-bold"
-          style={{ fontSize: 14, color: "var(--color-ink-soft)" }}
-        >
-          {formatCount(pdc.totalEntries)} entries ·{" "}
-          <span style={{ color: "var(--color-red-deep)" }}>
-            {formatInr(pdc.totalAmount)}
+      <SectionHeading
+        title="PDC Not Received"
+        tone="amber"
+        right={
+          <span
+            className="tabular-nums font-bold"
+            style={{ fontSize: 14, color: "var(--color-ink-soft)" }}
+          >
+            {formatCount(pdc.totalEntries)} entries ·{" "}
+            <span style={{ color: "var(--color-red-deep)" }}>
+              {formatInr(pdc.totalAmount)}
+            </span>
           </span>
-        </span>
-      </header>
+        }
+      />
 
       {pdc.rows.length === 0 ? (
         <p
@@ -52,14 +64,16 @@ export function PdcPanel({ pdc }: { pdc: Pdc }) {
               {pdc.rows.map((r) => (
                 <tr
                   key={r.name}
-                  className="border-t"
+                  className="border-t transition-colors hover:bg-surface-soft"
                   style={{ borderColor: "var(--color-hairline)" }}
                 >
-                  <td
-                    className="py-2.5 font-semibold text-ink-soft"
-                    style={{ fontSize: 14 }}
-                  >
-                    {r.name}
+                  <td className="py-2.5" style={{ fontSize: 14 }}>
+                    <Link
+                      href={buildDrillHref(sp, { pdc: "1", emp: r.name })}
+                      className="font-semibold text-ink-soft hover:text-altus-red hover:underline underline-offset-2 transition-colors"
+                    >
+                      {r.name}
+                    </Link>
                   </td>
                   <Td align="right">{formatCount(r.entries)}</Td>
                   <Td align="right" style={{ color: "var(--color-red-deep)" }}>

@@ -13,12 +13,12 @@ import { AttachmentField } from "./attachment-field";
 
 export function CollectionFormDialog({
   clients,
-  employees,
+  responsibles,
   modes,
   trigger,
 }: {
   clients: string[];
-  employees: { id: string; name: string }[];
+  responsibles: { id: string; name: string }[];
   modes: { id: string; name: string }[];
   trigger?: React.ReactNode;
 }) {
@@ -158,7 +158,7 @@ export function CollectionFormDialog({
             <Section title="Responsible Person">
               <Field label="Responsible person" required>
                 <Select
-                  options={employees.map((e) => ({ value: e.id, label: e.name }))}
+                  options={responsibles.map((r) => ({ value: r.id, label: r.name }))}
                   value={responsibleId}
                   onValueChange={setResponsibleId}
                   placeholder="— Select person —"

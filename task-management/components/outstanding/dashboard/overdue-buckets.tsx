@@ -1,5 +1,8 @@
+import Link from "next/link";
 import { formatInr, formatCount } from "@/lib/format";
 import { Donut } from "@/components/charts/donut";
+import { buildDrillHref } from "@/lib/outstanding/drill-href";
+import { SectionHeading } from "./section-heading";
 
 interface Bucket {
   id: string;
@@ -23,9 +26,16 @@ const BUCKET_RAMP: Record<string, string> = {
   "60+": "#A80400", // red-deep
 };
 
-export function OverdueBucketsPanel({ buckets }: { buckets: Bucket[] }) {
+export function OverdueBucketsPanel({
+  buckets,
+  sp,
+}: {
+  buckets: Bucket[];
+  sp: Record<string, string | string[] | undefined>;
+}) {
   const totalCount = buckets.reduce((s, b) => s + b.count, 0);
   const totalAmount = buckets.reduce((s, b) => s + b.amount, 0);
+  const overdueHref = buildDrillHref(sp, { status: "overdue", pdc: null });
 
   const slices = buckets
     .filter((b) => b.amount > 0)
@@ -40,10 +50,11 @@ export function OverdueBucketsPanel({ buckets }: { buckets: Bucket[] }) {
       className="mt-7 rounded-section bg-surface-card border border-hairline p-7 max-md:p-5"
       style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
     >
-      <h2 className="text-display-lg text-ink-strong">Overdue by Days</h2>
-      <p className="text-body-lg text-ink-subtle mt-0.5">
-        Overdue balance bucketed by how long it has been past due
-      </p>
+      <SectionHeading
+        title="Overdue by Days"
+        description="Overdue balance bucketed by how long it has been past due"
+        tone="red"
+      />
 
       <div className="mt-6 grid grid-cols-[1fr_auto] gap-8 max-lg:grid-cols-1">
         {/* Table */}
@@ -60,23 +71,26 @@ export function OverdueBucketsPanel({ buckets }: { buckets: Bucket[] }) {
               {buckets.map((b) => (
                 <tr
                   key={b.id}
-                  className="border-t"
+                  className="border-t transition-colors hover:bg-surface-soft"
                   style={{ borderColor: "var(--color-hairline)" }}
                 >
                   <td className="py-2.5">
-                    <span className="inline-flex items-center gap-2">
+                    <Link
+                      href={overdueHref}
+                      className="group inline-flex items-center gap-2"
+                    >
                       <span
                         aria-hidden
                         className="size-2.5 shrink-0 rounded-full"
                         style={{ background: BUCKET_RAMP[b.id] ?? "var(--color-stone)" }}
                       />
                       <span
-                        className="font-semibold text-ink-soft"
+                        className="font-semibold text-ink-soft group-hover:text-altus-red group-hover:underline underline-offset-2 transition-colors"
                         style={{ fontSize: 14 }}
                       >
                         {b.label}
                       </span>
-                    </span>
+                    </Link>
                   </td>
                   <Td align="right">{formatCount(b.count)}</Td>
                   <Td align="right">{formatInr(b.amount)}</Td>

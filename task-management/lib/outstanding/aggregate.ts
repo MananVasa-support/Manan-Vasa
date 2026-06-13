@@ -9,7 +9,8 @@ export interface CollectionAggRow {
 export function buildDashboard(rows: DerivedInstallment[], collections: CollectionAggRow[]) {
   const open = rows.filter((r) => r.state !== "paid");
   const overdue = open.filter((r) => r.state === "overdue");
-  const notDue = open.filter((r) => r.state === "not_due");
+  // due_soon is open + not overdue, so it counts within the Not Due total.
+  const notDue = open.filter((r) => r.state === "not_due" || r.state === "due_soon");
   const sum = (xs: DerivedInstallment[]) => xs.reduce((s, r) => s + r.balance, 0);
 
   const buckets = OUTSTANDING_OVERDUE_BUCKETS.map((b) => {
@@ -23,7 +24,7 @@ export function buildDashboard(rows: DerivedInstallment[], collections: Collecti
       const k = key(r) || "—";
       const cur = m.get(k) ?? { notDue: 0, overdue: 0, balance: 0 };
       if (r.state === "overdue") cur.overdue += r.balance;
-      if (r.state === "not_due") cur.notDue += r.balance;
+      if (r.state === "not_due" || r.state === "due_soon") cur.notDue += r.balance;
       cur.balance += r.balance;
       m.set(k, cur);
     }

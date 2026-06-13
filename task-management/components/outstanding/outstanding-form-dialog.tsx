@@ -12,9 +12,17 @@ import {
 import {
   OUTSTANDING_CYCLES,
   OUTSTANDING_CYCLE_LABELS,
-  GST_RATES,
+  SUBSCRIPTION_FREQUENCIES,
+  SUBSCRIPTION_FREQUENCY_LABELS,
+  type OutstandingCycle,
+  type SubscriptionFrequency,
 } from "@/db/enums";
 import { AttachmentField } from "./attachment-field";
+import {
+  RowsEditor,
+  rowsMatchTotal,
+  type InstallmentRow,
+} from "./cycle-fields";
 
 // Live total wants paise precision (an 18% GST total is rarely round), so use a
 // local 2-dp formatter rather than lib/format's whole-rupee formatInr.
@@ -24,14 +32,25 @@ const totalFmt = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 2,
 });
 
-const GST_OPTIONS = GST_RATES.map((r) => ({
-  value: String(r),
-  label: r === 0 ? "0 — No GST" : `${r}%`,
-}));
+// iter-2: the New Contract form offers only 0% / 18% GST.
+const GST_OPTIONS = [
+  { value: "0", label: "0 — No GST" },
+  { value: "18", label: "YES — 18%" },
+];
 
 const CYCLE_OPTIONS = OUTSTANDING_CYCLES.map((c) => ({
   value: c,
   label: OUTSTANDING_CYCLE_LABELS[c],
+}));
+
+const FREQUENCY_OPTIONS = SUBSCRIPTION_FREQUENCIES.map((f) => ({
+  value: f,
+  label: SUBSCRIPTION_FREQUENCY_LABELS[f],
+}));
+
+const BILL_DATE_OPTIONS = [1, 3, 12, 21, 30].map((d) => ({
+  value: String(d),
+  label: String(d),
 }));
 
 const YES_NO_OPTIONS = [
@@ -40,15 +59,13 @@ const YES_NO_OPTIONS = [
 ];
 
 export function OutstandingFormDialog({
-  clients,
-  employees,
+  responsibles,
   products,
   entities,
   modes,
   trigger,
 }: {
-  clients: string[];
-  employees: { id: string; name: string }[];
+  responsibles: { id: string; name: string }[];
   products: { id: string; name: string }[];
   entities: { id: string; name: string }[];
   modes: { id: string; name: string }[];
@@ -59,23 +76,46 @@ export function OutstandingFormDialog({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  // Form state
-  const [clientName, setClientName] = useState("");
+  // Client + amount
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [productId, setProductId] = useState("");
   const [responsibleId, setResponsibleId] = useState("");
   const [amount, setAmount] = useState("");
   const [gst, setGst] = useState("18");
-  const [cycle, setCycle] = useState<string>("");
-  const [startDate, setStartDate] = useState("");
-  const [periods, setPeriods] = useState("");
+
+  // Cycle + confirmation gate
+  const [cycle, setCycle] = useState<OutstandingCycle | "">("");
+  const [confirmedCycle, setConfirmedCycle] = useState<OutstandingCycle | null>(
+    null,
+  );
+
+  // full_payment
+  const [fullDate, setFullDate] = useState("");
+
+  // monthly_bill
+  const [retainerStart, setRetainerStart] = useState("");
+  const [retainerEnd, setRetainerEnd] = useState("");
+  const [billDate, setBillDate] = useState("");
+
+  // subscription
+  const [subStart, setSubStart] = useState("");
+  const [subEnd, setSubEnd] = useState("");
+  const [subAmount, setSubAmount] = useState("");
+  const [emiCount, setEmiCount] = useState("");
+  const [emiStart, setEmiStart] = useState("");
+  const [frequency, setFrequency] = useState<SubscriptionFrequency | "">("");
+
+  // partial_payment / slabs
+  const [rows, setRows] = useState<InstallmentRow[]>([]);
+
+  // Payment details
   const [entityId, setEntityId] = useState("");
   const [modeId, setModeId] = useState("");
   const [pdc, setPdc] = useState(""); // "yes" | "no"
   const [comments, setComments] = useState("");
   const [file, setFile] = useState<File | null>(null);
-
-  const isFullPayment = cycle === "full_payment";
 
   const total = useMemo(() => {
     const a = Number(amount);
@@ -84,16 +124,81 @@ export function OutstandingFormDialog({
     return a * (1 + (Number.isFinite(g) ? g : 0) / 100);
   }, [amount, gst]);
 
+  // Any edit to a cycle field (or the green total the rows must hit) resets a
+  // prior confirmation, forcing the user to re-confirm against current values.
+  function resetConfirm() {
+    setConfirmedCycle(null);
+  }
+
+  // Whether the currently-selected cycle's sub-form is in a confirmable state.
+  const cycleValid = useMemo(() => {
+    switch (cycle) {
+      case "full_payment":
+        return !!fullDate;
+      case "monthly_bill":
+        return (
+          !!retainerStart &&
+          !!retainerEnd &&
+          !!billDate &&
+          retainerEnd >= retainerStart
+        );
+      case "subscription": {
+        const a = Number(subAmount);
+        const n = Number(emiCount);
+        return (
+          Number.isFinite(a) &&
+          a > 0 &&
+          Number.isInteger(n) &&
+          n > 0 &&
+          !!emiStart &&
+          !!frequency
+        );
+      }
+      case "partial_payment":
+      case "slabs":
+        return rowsMatchTotal(rows, total ?? 0);
+      default:
+        return false;
+    }
+  }, [
+    cycle,
+    fullDate,
+    retainerStart,
+    retainerEnd,
+    billDate,
+    subAmount,
+    emiCount,
+    emiStart,
+    frequency,
+    rows,
+    total,
+  ]);
+
+  // For partial/slabs the green Total can change (amount/gst) AFTER confirming;
+  // if the rows no longer match, drop the confirmation defensively.
+  const confirmed = cycle !== "" && confirmedCycle === cycle && cycleValid;
+
   function reset() {
-    setClientName("");
+    setFirstName("");
+    setLastName("");
     setContactPhone("");
     setProductId("");
     setResponsibleId("");
     setAmount("");
     setGst("18");
     setCycle("");
-    setStartDate("");
-    setPeriods("");
+    setConfirmedCycle(null);
+    setFullDate("");
+    setRetainerStart("");
+    setRetainerEnd("");
+    setBillDate("");
+    setSubStart("");
+    setSubEnd("");
+    setSubAmount("");
+    setEmiCount("");
+    setEmiStart("");
+    setFrequency("");
+    setRows([]);
     setEntityId("");
     setModeId("");
     setPdc("");
@@ -106,32 +211,74 @@ export function OutstandingFormDialog({
     e.preventDefault();
     setError(null);
 
-    if (!clientName) return setError("Pick a client.");
+    if (!firstName.trim()) return setError("Enter a first name.");
+    if (!lastName.trim()) return setError("Enter a last name.");
     if (!productId) return setError("Pick a product.");
     if (!responsibleId) return setError("Pick a responsible person.");
     const amt = Number(amount);
     if (!Number.isFinite(amt) || amt <= 0) return setError("Enter a valid amount.");
     if (!cycle) return setError("Pick a payment cycle.");
-    if (!startDate) return setError("Pick a date.");
+    if (!confirmed) {
+      return setError(`Confirm the ${OUTSTANDING_CYCLE_LABELS[cycle]} details first.`);
+    }
     if (!entityId) return setError("Pick an entity.");
     if (!modeId) return setError("Pick a payment mode.");
     if (!pdc) return setError("Select whether a PDC was received.");
 
-    const input = {
-      clientName,
+    // Base input — common to every cycle.
+    const input: Parameters<typeof createOutstandingContract>[0] = {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
       contactPhone: contactPhone.trim() || undefined,
       productId,
       entityId,
       responsibleId,
       expectedModeId: modeId,
-      cycle: cycle as (typeof OUTSTANDING_CYCLES)[number],
+      cycle,
       baseAmount: amt,
       gstRate: Number(gst),
-      startDate,
-      periods: isFullPayment ? undefined : periods.trim() ? Number(periods) : null,
+      startDate: "", // filled per-cycle below
       pdcReceived: pdc === "yes",
       comments: comments.trim() || undefined,
     };
+
+    // Cycle-specific fields → the exact server keys.
+    switch (cycle) {
+      case "full_payment":
+        input.startDate = fullDate;
+        break;
+      case "monthly_bill":
+        // monthly_bill drives the schedule off retainer window + bill date; a
+        // startDate is still required by the schema, so anchor it on the
+        // retainer start.
+        input.startDate = retainerStart;
+        input.retainerStart = retainerStart;
+        input.retainerEnd = retainerEnd;
+        input.billDate = Number(billDate);
+        break;
+      case "subscription":
+        input.startDate = emiStart; // EMI start anchors the schedule
+        input.baseAmount = Number(subAmount); // per-EMI amount
+        input.emiCount = Number(emiCount);
+        input.frequency = frequency as SubscriptionFrequency;
+        // Start/End are retainer-style context for the record.
+        if (subStart) input.retainerStart = subStart;
+        if (subEnd) input.retainerEnd = subEnd;
+        break;
+      case "partial_payment":
+      case "slabs": {
+        const explicit = rows.map((r) => ({
+          dueDate: r.dueDate,
+          amount: Number(r.amount),
+        }));
+        // startDate must be a valid date for the schema; the earliest row works.
+        input.startDate = explicit
+          .map((r) => r.dueDate)
+          .sort()[0] ?? "";
+        input.explicitInstallments = explicit;
+        break;
+      }
+    }
 
     startTransition(async () => {
       const res = await createOutstandingContract(input);
@@ -158,6 +305,8 @@ export function OutstandingFormDialog({
       router.refresh();
     });
   }
+
+  const totalLabel = total === null ? "—" : totalFmt.format(total);
 
   return (
     <Dialog.Root
@@ -187,24 +336,36 @@ export function OutstandingFormDialog({
             className="text-[15px] text-[#64748B] mb-4"
             style={{ lineHeight: 1.5 }}
           >
-            Record a receivable. The payment schedule is generated automatically
-            from the cycle, amount and start date.
+            Record a receivable. Pick the payment cycle, fill its details, then
+            confirm — the schedule is generated automatically.
           </Dialog.Description>
 
           <form onSubmit={onSubmit} className="space-y-5">
-            {/* Client */}
-            <Section title="Client">
-              <Field label="Client" required>
-                <Select
-                  options={clients.map((c) => ({ value: c, label: c }))}
-                  value={clientName}
-                  onValueChange={setClientName}
-                  placeholder="— Select client —"
-                  searchable
-                  ariaLabel="Client"
-                />
-              </Field>
-              <Field label="Contact phone">
+            {/* Personal Information */}
+            <Section title="Personal Information">
+              <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+                <Field label="First Name" required>
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="First name"
+                    maxLength={100}
+                    className={INPUT_CLASS}
+                  />
+                </Field>
+                <Field label="Last Name" required>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Last name"
+                    maxLength={100}
+                    className={INPUT_CLASS}
+                  />
+                </Field>
+              </div>
+              <Field label="Cell No">
                 <input
                   type="tel"
                   value={contactPhone}
@@ -233,7 +394,7 @@ export function OutstandingFormDialog({
             <Section title="Responsible Person">
               <Field label="Responsible person" required>
                 <Select
-                  options={employees.map((e) => ({ value: e.id, label: e.name }))}
+                  options={responsibles.map((r) => ({ value: r.id, label: r.name }))}
                   value={responsibleId}
                   onValueChange={setResponsibleId}
                   placeholder="— Select person —"
@@ -252,7 +413,10 @@ export function OutstandingFormDialog({
                   min={0}
                   step="0.01"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => {
+                    setAmount(e.target.value);
+                    resetConfirm();
+                  }}
                   placeholder="0.00"
                   className={INPUT_CLASS}
                 />
@@ -261,52 +425,105 @@ export function OutstandingFormDialog({
                 <Select
                   options={GST_OPTIONS}
                   value={gst}
-                  onValueChange={setGst}
+                  onValueChange={(v) => {
+                    setGst(v);
+                    resetConfirm();
+                  }}
                   placeholder="— Select GST —"
                   ariaLabel="GST rate"
                 />
               </Field>
-              <div className="rounded-md border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 py-2.5 flex items-center justify-between">
-                <span className="text-[14px] font-semibold text-[#0F172A]">Total</span>
-                <span className="text-[15px] font-semibold text-[#0F172A]">
-                  {total === null ? "—" : totalFmt.format(total)}
+              <div className="rounded-md border border-[#BBF7D0] bg-[#F0FDF4] px-3.5 py-2.5 flex items-center justify-between">
+                <span className="text-[14px] font-semibold text-[#166534]">Total</span>
+                <span className="text-[16px] font-bold text-[#15803D] tabular-nums">
+                  {totalLabel}
                 </span>
               </div>
             </Section>
 
-            {/* Payment cycle */}
+            {/* Payment cycle + sub-form */}
             <Section title="Payment Cycle">
               <Field label="Cycle" required>
                 <Select
                   options={CYCLE_OPTIONS}
                   value={cycle}
-                  onValueChange={setCycle}
+                  onValueChange={(v) => {
+                    setCycle(v as OutstandingCycle);
+                    setConfirmedCycle(null);
+                  }}
                   placeholder="— Select cycle —"
                   ariaLabel="Payment cycle"
                 />
               </Field>
+
               {cycle && (
-                <Field label={isFullPayment ? "Date" : "Start date"} required>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className={INPUT_CLASS}
-                  />
-                </Field>
-              )}
-              {cycle && !isFullPayment && (
-                <Field label="# of months (periods)">
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={periods}
-                    onChange={(e) => setPeriods(e.target.value)}
-                    placeholder="Leave blank for open-ended"
-                    className={INPUT_CLASS}
-                  />
-                </Field>
+                <CycleSubForm
+                  cycle={cycle}
+                  total={total}
+                  totalLabel={totalLabel}
+                  confirmed={confirmed}
+                  cycleValid={cycleValid}
+                  onConfirm={() => cycleValid && setConfirmedCycle(cycle)}
+                  // full_payment
+                  fullDate={fullDate}
+                  setFullDate={(v) => {
+                    setFullDate(v);
+                    resetConfirm();
+                  }}
+                  // monthly_bill
+                  retainerStart={retainerStart}
+                  setRetainerStart={(v) => {
+                    setRetainerStart(v);
+                    resetConfirm();
+                  }}
+                  retainerEnd={retainerEnd}
+                  setRetainerEnd={(v) => {
+                    setRetainerEnd(v);
+                    resetConfirm();
+                  }}
+                  billDate={billDate}
+                  setBillDate={(v) => {
+                    setBillDate(v);
+                    resetConfirm();
+                  }}
+                  // subscription
+                  subStart={subStart}
+                  setSubStart={(v) => {
+                    setSubStart(v);
+                    resetConfirm();
+                  }}
+                  subEnd={subEnd}
+                  setSubEnd={(v) => {
+                    setSubEnd(v);
+                    resetConfirm();
+                  }}
+                  subAmount={subAmount}
+                  setSubAmount={(v) => {
+                    setSubAmount(v);
+                    resetConfirm();
+                  }}
+                  emiCount={emiCount}
+                  setEmiCount={(v) => {
+                    setEmiCount(v);
+                    resetConfirm();
+                  }}
+                  emiStart={emiStart}
+                  setEmiStart={(v) => {
+                    setEmiStart(v);
+                    resetConfirm();
+                  }}
+                  frequency={frequency}
+                  setFrequency={(v) => {
+                    setFrequency(v as SubscriptionFrequency);
+                    resetConfirm();
+                  }}
+                  // partial / slabs
+                  rows={rows}
+                  setRows={(r) => {
+                    setRows(r);
+                    resetConfirm();
+                  }}
+                />
               )}
             </Section>
 
@@ -376,7 +593,7 @@ export function OutstandingFormDialog({
               </Dialog.Close>
               <button
                 type="submit"
-                disabled={pending}
+                disabled={pending || !confirmed}
                 className="rounded-md py-2.5 px-5 text-[14px] font-medium text-white disabled:opacity-50"
                 style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}
               >
@@ -387,6 +604,229 @@ export function OutstandingFormDialog({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+// ── Cycle sub-form router ───────────────────────────────────────────────────
+
+interface SubFormProps {
+  cycle: OutstandingCycle;
+  total: number | null;
+  totalLabel: string;
+  confirmed: boolean;
+  cycleValid: boolean;
+  onConfirm: () => void;
+  fullDate: string;
+  setFullDate: (v: string) => void;
+  retainerStart: string;
+  setRetainerStart: (v: string) => void;
+  retainerEnd: string;
+  setRetainerEnd: (v: string) => void;
+  billDate: string;
+  setBillDate: (v: string) => void;
+  subStart: string;
+  setSubStart: (v: string) => void;
+  subEnd: string;
+  setSubEnd: (v: string) => void;
+  subAmount: string;
+  setSubAmount: (v: string) => void;
+  emiCount: string;
+  setEmiCount: (v: string) => void;
+  emiStart: string;
+  setEmiStart: (v: string) => void;
+  frequency: SubscriptionFrequency | "";
+  setFrequency: (v: string) => void;
+  rows: InstallmentRow[];
+  setRows: (r: InstallmentRow[]) => void;
+}
+
+function CycleSubForm(p: SubFormProps) {
+  const label = OUTSTANDING_CYCLE_LABELS[p.cycle];
+
+  let body: React.ReactNode = null;
+  switch (p.cycle) {
+    case "full_payment":
+      body = (
+        <>
+          <Field label="Date" required>
+            <input
+              type="date"
+              value={p.fullDate}
+              onChange={(e) => p.setFullDate(e.target.value)}
+              className={INPUT_CLASS}
+            />
+          </Field>
+          <div className="rounded-md border border-[#BBF7D0] bg-[#F0FDF4] px-3.5 py-2.5 text-[14px] font-semibold text-[#166534]">
+            Total Amount to be paid in full: {p.totalLabel}
+          </div>
+        </>
+      );
+      break;
+    case "monthly_bill":
+      body = (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+            <Field label="Retainer Start Date" required>
+              <input
+                type="date"
+                value={p.retainerStart}
+                onChange={(e) => p.setRetainerStart(e.target.value)}
+                className={INPUT_CLASS}
+              />
+            </Field>
+            <Field label="Retainer End Date" required>
+              <input
+                type="date"
+                value={p.retainerEnd}
+                onChange={(e) => p.setRetainerEnd(e.target.value)}
+                className={INPUT_CLASS}
+              />
+            </Field>
+          </div>
+          <Field label="Bill Date" required>
+            <Select
+              options={BILL_DATE_OPTIONS}
+              value={p.billDate}
+              onValueChange={p.setBillDate}
+              placeholder="— Select bill date —"
+              ariaLabel="Bill date"
+            />
+          </Field>
+        </div>
+      );
+      break;
+    case "subscription":
+      body = (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+            <Field label="Start Date">
+              <input
+                type="date"
+                value={p.subStart}
+                onChange={(e) => p.setSubStart(e.target.value)}
+                className={INPUT_CLASS}
+              />
+            </Field>
+            <Field label="End Date">
+              <input
+                type="date"
+                value={p.subEnd}
+                onChange={(e) => p.setSubEnd(e.target.value)}
+                className={INPUT_CLASS}
+              />
+            </Field>
+          </div>
+          <Field label="Amount (₹)" required>
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="0.01"
+              value={p.subAmount}
+              onChange={(e) => p.setSubAmount(e.target.value)}
+              placeholder="Per-EMI amount"
+              className={INPUT_CLASS}
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+            <Field label="No. of EMI" required>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={p.emiCount}
+                onChange={(e) => p.setEmiCount(e.target.value)}
+                placeholder="e.g. 12"
+                className={INPUT_CLASS}
+              />
+            </Field>
+            <Field label="EMI Start Date" required>
+              <input
+                type="date"
+                value={p.emiStart}
+                onChange={(e) => p.setEmiStart(e.target.value)}
+                className={INPUT_CLASS}
+              />
+            </Field>
+          </div>
+          <Field label="Frequency" required>
+            <Select
+              options={FREQUENCY_OPTIONS}
+              value={p.frequency}
+              onValueChange={p.setFrequency}
+              placeholder="— Select frequency —"
+              ariaLabel="Billing frequency"
+            />
+          </Field>
+        </div>
+      );
+      break;
+    case "partial_payment":
+    case "slabs":
+      body = (
+        <div className="space-y-2">
+          <RowsEditor rows={p.rows} total={p.total} onChange={p.setRows} />
+          <p className="text-[13px] text-[#64748B]">
+            Row amounts must sum to the total {p.totalLabel}.
+          </p>
+        </div>
+      );
+      break;
+  }
+
+  return (
+    <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3.5 space-y-3">
+      {body}
+      <ConfirmButton
+        label={`Confirm ${label}`}
+        enabled={p.cycleValid}
+        confirmed={p.confirmed}
+        onClick={p.onConfirm}
+      />
+    </div>
+  );
+}
+
+/**
+ * Cycle confirmation button. When the sub-form is not yet valid it is PINK and
+ * disabled; once valid it turns RED and active. After pressing it (and while
+ * the values still match) it shows a confirmed state.
+ */
+function ConfirmButton({
+  label,
+  enabled,
+  confirmed,
+  onClick,
+}: {
+  label: string;
+  enabled: boolean;
+  confirmed: boolean;
+  onClick: () => void;
+}) {
+  if (confirmed) {
+    return (
+      <div className="rounded-md border border-[#BBF7D0] bg-[#F0FDF4] px-4 py-2.5 text-center text-[14px] font-semibold text-[#15803D]">
+        ✓ {label.replace("Confirm", "Confirmed")}
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!enabled}
+      aria-disabled={!enabled}
+      className="w-full rounded-md py-2.5 px-4 text-[14px] font-semibold text-white transition-colors"
+      style={{
+        background: enabled
+          ? "linear-gradient(135deg, #E10600, #A80400)"
+          : "#FBCFE8",
+        cursor: enabled ? "pointer" : "not-allowed",
+        color: enabled ? "#FFFFFF" : "#9D174D",
+      }}
+    >
+      {label}
+    </button>
   );
 }
 

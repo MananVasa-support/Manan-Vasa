@@ -45,6 +45,23 @@ describe("buildDashboard", () => {
     );
     expect(d.totals.pdcNotReceived).toBe(1);
   });
+  it("due_soon rows count within the Not Due total and stay open with state preserved", () => {
+    const d = buildDashboard(
+      [
+        di({ id: "i1", state: "overdue", balance: 25000, daysOverdue: 100 }),
+        di({ id: "i2", state: "not_due", balance: 50000, daysOverdue: 0 }),
+        di({ id: "i3", state: "due_soon", balance: 10000, daysOverdue: 0 }),
+      ],
+      [],
+    );
+    // due_soon contributes to notDue (not overdue, not paid) and to total
+    expect(d.totals.notDue).toBe(60000);
+    expect(d.totals.overdue).toBe(25000);
+    expect(d.totals.totalOutstanding).toBe(85000);
+    // appears in per-employee entries with notDue bumped and state preserved on the row
+    const emp = d.byEmployee.find((e) => e.name === "Manan Vasa");
+    expect(emp!.notDue).toBe(60000);
+  });
   it("collection totals", () => {
     const d = buildDashboard([], [
       { clientName: "A", amount: 1000, paymentMode: "Cash", responsible: "Manan Vasa" },

@@ -1,4 +1,7 @@
+import Link from "next/link";
 import { formatInr } from "@/lib/format";
+import { buildDrillHref } from "@/lib/outstanding/drill-href";
+import { SectionHeading } from "./section-heading";
 
 interface Rollup {
   name: string;
@@ -10,14 +13,26 @@ interface Rollup {
 export function EmployeeEntityRollups({
   byEmployee,
   byEntity,
+  sp,
 }: {
   byEmployee: Rollup[];
   byEntity: Rollup[];
+  sp: Record<string, string | string[] | undefined>;
 }) {
   return (
     <div className="mt-7 grid grid-cols-2 gap-3 max-lg:grid-cols-1">
-      <RollupCard title="Employee Wise Outstanding" rows={byEmployee} nameLabel="Name" />
-      <RollupCard title="Entity Wise Outstanding" rows={byEntity} nameLabel="Entity" />
+      <RollupCard
+        title="Employee Wise Outstanding"
+        rows={byEmployee}
+        nameLabel="Name"
+        hrefFor={(name) => buildDrillHref(sp, { emp: name })}
+      />
+      <RollupCard
+        title="Entity Wise Outstanding"
+        rows={byEntity}
+        nameLabel="Entity"
+        hrefFor={(name) => buildDrillHref(sp, { entity: name })}
+      />
     </div>
   );
 }
@@ -26,10 +41,12 @@ function RollupCard({
   title,
   rows,
   nameLabel,
+  hrefFor,
 }: {
   title: string;
   rows: Rollup[];
   nameLabel: string;
+  hrefFor: (name: string) => ReturnType<typeof buildDrillHref>;
 }) {
   const totalNotDue = rows.reduce((s, r) => s + r.notDue, 0);
   const totalOverdue = rows.reduce((s, r) => s + r.overdue, 0);
@@ -40,7 +57,7 @@ function RollupCard({
       className="rounded-section bg-surface-card border border-hairline p-7 max-md:p-5"
       style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
     >
-      <h2 className="text-display-lg text-ink-strong">{title}</h2>
+      <SectionHeading title={title} tone="slate" />
 
       {rows.length === 0 ? (
         <p
@@ -64,14 +81,16 @@ function RollupCard({
               {rows.map((r) => (
                 <tr
                   key={r.name}
-                  className="border-t"
+                  className="border-t transition-colors hover:bg-surface-soft"
                   style={{ borderColor: "var(--color-hairline)" }}
                 >
-                  <td
-                    className="py-2.5 font-semibold text-ink-soft"
-                    style={{ fontSize: 14 }}
-                  >
-                    {r.name}
+                  <td className="py-2.5" style={{ fontSize: 14 }}>
+                    <Link
+                      href={hrefFor(r.name)}
+                      className="font-semibold text-ink-soft hover:text-altus-red hover:underline underline-offset-2 transition-colors"
+                    >
+                      {r.name}
+                    </Link>
                   </td>
                   <Td align="right">{formatInr(r.notDue)}</Td>
                   <Td align="right" style={{ color: "var(--color-red-deep)" }}>

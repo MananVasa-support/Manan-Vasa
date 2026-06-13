@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Wallet,
   AlertTriangle,
@@ -6,6 +7,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { formatInr, formatCount } from "@/lib/format";
+import { buildDrillHref } from "@/lib/outstanding/drill-href";
 
 interface Totals {
   totalOutstanding: number;
@@ -22,6 +24,8 @@ interface CardSpec {
   icon: LucideIcon;
   /** money cards format with formatInr; the PDC count formats plainly. */
   kind: "money" | "count";
+  /** Filter override applied when the card is clicked (merged onto current). */
+  drill: Record<string, string | null>;
 }
 
 const SPECS: CardSpec[] = [
@@ -32,6 +36,8 @@ const SPECS: CardSpec[] = [
     tone: "slate",
     icon: Wallet,
     kind: "money",
+    // No status filter — clear status & pdc so all open rows show.
+    drill: { status: null, pdc: null },
   },
   {
     key: "overdue",
@@ -40,6 +46,7 @@ const SPECS: CardSpec[] = [
     tone: "red",
     icon: AlertTriangle,
     kind: "money",
+    drill: { status: "overdue", pdc: null },
   },
   {
     key: "notDue",
@@ -48,6 +55,7 @@ const SPECS: CardSpec[] = [
     tone: "green",
     icon: CalendarClock,
     kind: "money",
+    drill: { status: "not_due", pdc: null },
   },
   {
     key: "pdcNotReceived",
@@ -56,16 +64,24 @@ const SPECS: CardSpec[] = [
     tone: "amber",
     icon: FileWarning,
     kind: "count",
+    drill: { pdc: "1", status: null },
   },
 ];
 
-export function OutstandingStatCards({ totals }: { totals: Totals }) {
+export function OutstandingStatCards({
+  totals,
+  sp,
+}: {
+  totals: Totals;
+  sp: Record<string, string | string[] | undefined>;
+}) {
   return (
     <div className="grid grid-cols-4 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
       {SPECS.map((spec) => (
         <StatCard
           key={spec.key}
           spec={spec}
+          href={buildDrillHref(sp, spec.drill)}
           value={
             spec.kind === "money"
               ? formatInr(totals[spec.key])
@@ -77,11 +93,21 @@ export function OutstandingStatCards({ totals }: { totals: Totals }) {
   );
 }
 
-function StatCard({ spec, value }: { spec: CardSpec; value: string }) {
+function StatCard({
+  spec,
+  value,
+  href,
+}: {
+  spec: CardSpec;
+  value: string;
+  href: ReturnType<typeof buildDrillHref>;
+}) {
   const Icon = spec.icon;
   return (
-    <div
-      className="group relative bg-surface-card rounded-section overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+    <Link
+      href={href}
+      aria-label={`${spec.label} — view matching entries`}
+      className="group relative block bg-surface-card rounded-section overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40 cursor-pointer"
       style={{
         border: "1px solid var(--color-hairline)",
         boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
@@ -132,6 +158,6 @@ function StatCard({ spec, value }: { spec: CardSpec; value: string }) {
       >
         {spec.sublabel}
       </span>
-    </div>
+    </Link>
   );
 }
