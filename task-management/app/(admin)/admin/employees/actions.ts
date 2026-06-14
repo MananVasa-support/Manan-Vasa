@@ -16,6 +16,7 @@ import {
   tasks,
 } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/current";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import {
   InviteEmployeeSchema,
   EditEmployeeSchema,
@@ -147,6 +148,12 @@ export async function inviteEmployee(input: InviteEmployeeInput): Promise<{
   const me = await requireAdmin();
 
   const parsed = InviteEmployeeSchema.parse(input);
+
+  // Only super-admins may create an admin. Reject BEFORE the Firebase user is
+  // created / the row is inserted so no orphan account is left behind.
+  if (parsed.isAdmin === true && !isSuperAdmin(me.email)) {
+    return { ok: false, error: "Only Hetesh or Manan can create an admin." };
+  }
 
   // Case-insensitive dup check — historical imports may have mixed-case
   // emails even though new ones are normalized by Zod.
@@ -323,6 +330,19 @@ export async function editEmployee(
     where: eq(employees.id, parsedId.data),
   });
   if (!emp) return { ok: false, error: "Employee not found" };
+
+  // Only super-admins may CHANGE an employee's admin status. A no-op re-save
+  // with the same value is still allowed; only an actual flip is gated.
+  if (
+    parsed.data.isAdmin !== undefined &&
+    parsed.data.isAdmin !== emp.isAdmin &&
+    !isSuperAdmin(me.email)
+  ) {
+    return {
+      ok: false,
+      error: "Only Hetesh or Manan can change an employee's admin access.",
+    };
+  }
 
   // Build the patch — only include keys that were actually supplied.
   // (Zod's `.optional()` leaves omitted keys absent, so we can safely spread.)

@@ -12,6 +12,8 @@ interface Props {
   /** employeeId → the departments they belong to (primary flagged). */
   membershipsByEmployee: Record<string, EmployeeDepartmentMembership[]>;
   currentEmployeeId: string;
+  /** True only for super-admins (Hetesh / Manan) — gates the admin toggle. */
+  canManageAdmins: boolean;
   departmentOptions: DepartmentOption[];
   managerOptions: { value: string; label: string }[];
 }
@@ -148,6 +150,7 @@ export function EmployeeList({
   employees,
   membershipsByEmployee,
   currentEmployeeId,
+  canManageAdmins,
   departmentOptions,
   managerOptions,
 }: Props) {
@@ -299,6 +302,7 @@ export function EmployeeList({
                         attEarlyBefore: e.attEarlyBefore,
                       }}
                       isSelf={e.id === currentEmployeeId}
+                      canManageAdmins={canManageAdmins}
                       departmentOptions={departmentOptions}
                       managerOptions={managerOptions}
                     />

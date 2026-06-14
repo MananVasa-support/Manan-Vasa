@@ -42,6 +42,8 @@ export interface EditEmployeeDialogProps {
     attEarlyBefore: string | null;
   };
   isSelf: boolean;
+  /** True only for super-admins (Hetesh / Manan) — gates the admin toggle. */
+  canManageAdmins: boolean;
   departmentOptions: DepartmentOption[];
   managerOptions: { value: string; label: string }[];
 }
@@ -75,6 +77,7 @@ export function EditEmployeeDialog({
   onOpenChange,
   employee,
   isSelf,
+  canManageAdmins,
   departmentOptions,
   managerOptions,
 }: EditEmployeeDialogProps) {
@@ -302,21 +305,35 @@ export function EditEmployeeDialog({
                 </span>
               </span>
             </label>
-            <label
-              className={`flex items-center gap-2.5 text-[15px] text-[#334155] ${
-                isSelf ? "opacity-60 cursor-not-allowed" : ""
-              }`}
-              title={isSelf ? "You can't remove your own admin role." : undefined}
-            >
-              <input
-                type="checkbox"
-                checked={isAdmin}
-                onChange={(e) => setIsAdmin(e.target.checked)}
-                disabled={isSelf}
-                className="h-4 w-4"
-              />
-              Admin (can manage employees + settings)
-            </label>
+            {canManageAdmins ? (
+              <label
+                className={`flex items-center gap-2.5 text-[15px] text-[#334155] ${
+                  isSelf ? "opacity-60 cursor-not-allowed" : ""
+                }`}
+                title={isSelf ? "You can't remove your own admin role." : undefined}
+              >
+                <input
+                  type="checkbox"
+                  checked={isAdmin}
+                  onChange={(e) => setIsAdmin(e.target.checked)}
+                  disabled={isSelf}
+                  className="h-4 w-4"
+                />
+                Admin (can manage employees + settings)
+              </label>
+            ) : employee.isAdmin ? (
+              // Non-super-admins see the status read-only with a hint, never an
+              // editable control. The server guard is the real boundary.
+              <div className="flex items-center gap-2.5 text-[15px] text-[#334155] opacity-70">
+                <input type="checkbox" checked readOnly disabled className="h-4 w-4" />
+                <span>
+                  Admin
+                  <span className="block text-[13px] text-[#64748B]">
+                    Only Hetesh or Manan can change admin access.
+                  </span>
+                </span>
+              </div>
+            ) : null}
             <label className="flex items-start gap-2.5 text-[15px] text-[#334155]" style={{ lineHeight: 1.5 }}>
               <input
                 type="checkbox"

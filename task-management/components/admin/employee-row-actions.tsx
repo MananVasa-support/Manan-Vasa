@@ -62,6 +62,8 @@ type RowEmployee = {
 interface Props {
   employee: RowEmployee;
   isSelf: boolean;
+  /** True only for super-admins (Hetesh / Manan) — gates the admin toggle. */
+  canManageAdmins: boolean;
   departmentOptions: DepartmentOption[];
   managerOptions: { value: string; label: string }[];
 }
@@ -71,6 +73,7 @@ type ConfirmKind = "deactivate" | "reactivate" | null;
 export function EmployeeRowActions({
   employee,
   isSelf,
+  canManageAdmins,
   departmentOptions,
   managerOptions,
 }: Props) {
@@ -276,6 +279,7 @@ export function EmployeeRowActions({
           attEarlyBefore: employee.attEarlyBefore,
         }}
         isSelf={isSelf}
+        canManageAdmins={canManageAdmins}
         departmentOptions={departmentOptions}
         managerOptions={managerOptions}
       />
