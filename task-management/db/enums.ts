@@ -206,11 +206,40 @@ export type AgeBucketId = (typeof AGE_BUCKETS)[number]["id"];
 export const ATTENDANCE_KINDS = ["in", "out"] as const;
 export type AttendanceKind = (typeof ATTENDANCE_KINDS)[number];
 
-// Attendance (Phase A). Holiday/HP/H-H-D/PL/LWP codes arrive in later phases.
-export const ATTENDANCE_CODES = ["P","H/D","A","W/O","incomplete"] as const;
+// Attendance codes. Phase A: P / H/D / A / W/O / incomplete. Phase B (0059)
+// adds holiday (H / HP / H-H/D), leave (PL paid, LWP unpaid) and comp-off (CO).
+export const ATTENDANCE_CODES = ["P","H/D","A","W/O","incomplete","H","HP","H-H/D","PL","LWP","CO"] as const;
 export type AttendanceCode = (typeof ATTENDANCE_CODES)[number];
-export const ATTENDANCE_CODE_VALUES: Record<AttendanceCode, number> = { "P":1, "H/D":0.5, "A":0, "W/O":1, "incomplete":0 };
-export const ATTENDANCE_CODE_LABELS: Record<AttendanceCode, string> = { "P":"Present", "H/D":"Half Day", "A":"Absent", "W/O":"Weekly Off", "incomplete":"No Check-out" };
+export const ATTENDANCE_CODE_VALUES: Record<AttendanceCode, number> = {
+  "P":1, "H/D":0.5, "A":0, "W/O":1, "incomplete":0,
+  "H":1, "HP":2, "H-H/D":1.5, "PL":1, "LWP":0, "CO":1,
+};
+export const ATTENDANCE_CODE_LABELS: Record<AttendanceCode, string> = {
+  "P":"Present", "H/D":"Half Day", "A":"Absent", "W/O":"Weekly Off", "incomplete":"No Check-out",
+  "H":"Holiday", "HP":"Holiday Present", "H-H/D":"Holiday Half-Day",
+  "PL":"Paid Leave", "LWP":"Unpaid Leave", "CO":"Comp Off",
+};
+
+// Phase B (0059) — leave_requests / comp_off_credits enums. The DB columns are
+// `text` (not pgEnums) so these unions are the canonical source of truth.
+export const LEAVE_KINDS = ["paid","unpaid"] as const;
+export type LeaveKind = (typeof LEAVE_KINDS)[number];
+export const LEAVE_KIND_LABELS: Record<LeaveKind, string> = {
+  paid:   "Paid Leave",
+  unpaid: "Unpaid Leave",
+};
+
+export const LEAVE_STATUS = ["pending","approved","rejected","cancelled"] as const;
+export type LeaveStatus = (typeof LEAVE_STATUS)[number];
+export const LEAVE_STATUS_LABELS: Record<LeaveStatus, string> = {
+  pending:   "Pending",
+  approved:  "Approved",
+  rejected:  "Rejected",
+  cancelled: "Cancelled",
+};
+
+export const COMP_OFF_STATUS = ["open","redeemed"] as const;
+export type CompOffStatus = (typeof COMP_OFF_STATUS)[number];
 export const PUNCH_SOURCES = ["self","admin"] as const;
 export type PunchSource = (typeof PUNCH_SOURCES)[number];
 export const PUNCH_REASONS = ["client_visit","wfh","forgot","correction"] as const;

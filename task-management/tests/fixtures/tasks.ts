@@ -35,6 +35,8 @@ function profileV2Defaults() {
     attLateAfter: null as string | null,
     attOfficialEnd: null as string | null,
     attEarlyBefore: null as string | null,
+    // Attendance Phase B (migration 0060).
+    probationEnd: null as string | null,
   };
 }
 

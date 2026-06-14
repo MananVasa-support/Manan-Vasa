@@ -110,15 +110,20 @@ async function renderPdf(
   const pageBottom = doc.page.height - doc.page.margins.bottom;
 
   const columns: ColSpec[] = [
-    { key: "name", label: "EMPLOYEE", width: 180 },
-    { key: "present", label: "PRESENT", width: 70, align: "right" },
-    { key: "absent", label: "ABSENT", width: 70, align: "right" },
-    { key: "halfDay", label: "HALF-DAY", width: 70, align: "right" },
-    { key: "late", label: "LATE", width: 64, align: "right" },
-    { key: "leftEarly", label: "LEFT-EARLY", width: 80, align: "right" },
-    { key: "lateWaived", label: "LATE-WAIVED", width: 86, align: "right" },
-    { key: "weeklyOff", label: "WEEKLY-OFF", width: 84, align: "right" },
-    { key: "payableDays", label: "PAYABLE", width: 76, align: "right" },
+    { key: "name", label: "EMPLOYEE", width: 150 },
+    { key: "present", label: "PRES", width: 48, align: "right" },
+    { key: "absent", label: "ABS", width: 44, align: "right" },
+    { key: "halfDay", label: "HALF", width: 46, align: "right" },
+    { key: "late", label: "LATE", width: 46, align: "right" },
+    { key: "leftEarly", label: "L-EARLY", width: 56, align: "right" },
+    { key: "lateWaived", label: "L-WAIVED", width: 62, align: "right" },
+    { key: "weeklyOff", label: "W/O", width: 44, align: "right" },
+    { key: "holiday", label: "HOL", width: 44, align: "right" },
+    { key: "holidayPresent", label: "HP", width: 40, align: "right" },
+    { key: "paidLeave", label: "PL", width: 40, align: "right" },
+    { key: "unpaidLeave", label: "LWP", width: 44, align: "right" },
+    { key: "compOff", label: "C-OFF", width: 48, align: "right" },
+    { key: "payableDays", label: "PAYABLE", width: 66, align: "right" },
   ];
   const totalColWidth = columns.reduce((a, c) => a + c.width, 0);
   const scale = pageWidth / totalColWidth;

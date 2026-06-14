@@ -31,7 +31,8 @@ import {
   notifyAttendance,
   decideCheckoutNotification,
 } from "@/lib/attendance/notify";
-import { toMin } from "@/lib/attendance/status";
+import { toMin, lateDeductionCrossed } from "@/lib/attendance/status";
+import { getEmployeeMonthStatus } from "@/lib/queries/attendance-status";
 import type { AttendanceSchedule } from "@/lib/attendance/schedule";
 import {
   AdminUpsertPunch,
@@ -464,7 +465,10 @@ export async function adminUpsertPunch(
   // If this upsert finalized the day (both in + out now present), fire the
   // same waived/half-day email an organic check-out would. Best-effort.
   const target = await targetForNotify(employeeId);
-  if (target) await notifyOnDayFinalized(target, logDate);
+  if (target) {
+    await notifyOnDayFinalized(target, logDate);
+    await notifyAdminLateDeduction(target, logDate);
+  }
   revalidateAttendanceAdmin();
   return { ok: true };
 }
@@ -527,7 +531,10 @@ export async function adminEditDayTimes(
   });
   // Re-grade the (now edited) day and fire waived/half-day if it applies.
   const target = await targetForNotify(employeeId);
-  if (target) await notifyOnDayFinalized(target, logDate);
+  if (target) {
+    await notifyOnDayFinalized(target, logDate);
+    await notifyAdminLateDeduction(target, logDate);
+  }
   revalidateAttendanceAdmin();
   return { ok: true };
 }
@@ -621,10 +628,19 @@ async function readDayTimes(
   return { inAt, outAt };
 }
 
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
 /**
  * Decide + fire the right attendance email for a SELF check-in. A late arrival
  * gets the `attendance_late` heads-up immediately (the waiver, if any, comes
  * later on check-out). Best-effort.
+ *
+ * B8 — on a late check-in we ALSO fire the `attendance_late_deduction` alert
+ * when this late lands the employee's un-waived month total exactly on a
+ * multiple of 3 (every 3rd late → a ½-day salary deduction this period).
  */
 async function notifyOnInPunch(
   emp: { id: string; attLateAfter: string | null; attEarlyBefore: string | null },
@@ -633,11 +649,46 @@ async function notifyOnInPunch(
 ): Promise<void> {
   try {
     const sched = await resolveScheduleFor(emp);
-    if (toMin(inAt) > toMin(sched.lateAfter)) {
-      await notifyAttendance("attendance_late", emp, { logDate, inAt });
-    }
+    if (toMin(inAt) <= toMin(sched.lateAfter)) return; // on-time — nothing to do.
+
+    await notifyAttendance("attendance_late", emp, { logDate, inAt });
+    await maybeFireDeductionAlert(emp, logDate, inAt);
   } catch (err) {
     console.warn("[attendance] notifyOnInPunch failed (non-fatal)", err);
+  }
+}
+
+/**
+ * B8 deduction trigger (self + admin). Re-grades the month and fires the
+ * `attendance_late_deduction` alert when the employee's UN-WAIVED late count
+ * lands exactly on a multiple of 3 (every 3rd late → a ½-day salary deduction).
+ *
+ * `now` = the month's un-waived late count INCLUDING this just-recorded day;
+ * `prev` = now - 1 (this fresh late added exactly one). It can't double-fire:
+ *  - self path: a re-punch fails the unique index and never reaches the late
+ *    branch, so each fresh late advances the count by one.
+ *  - admin path: callers gate this to a day that grades late && !waived, and an
+ *    idempotent edit to an already-late day leaves the count unchanged
+ *    (prev == now), so `lateDeductionCrossed` returns false.
+ * Best-effort: wrapped by the caller's try/catch; never blocks the punch.
+ */
+async function maybeFireDeductionAlert(
+  emp: { id: string; attLateAfter: string | null; attEarlyBefore: string | null },
+  logDate: string,
+  inAt: string,
+): Promise<void> {
+  const year = Number(logDate.slice(0, 4));
+  const month = Number(logDate.slice(5, 7));
+  const status = await getEmployeeMonthStatus(emp.id, year, month, logDate);
+  const now = status.summary.late;
+  const prev = now - 1;
+  if (lateDeductionCrossed(prev, now)) {
+    await notifyAttendance("attendance_late_deduction", emp, {
+      logDate,
+      inAt,
+      lateCount: now,
+      monthLabel: `${MONTH_NAMES[month - 1] ?? ""} ${year}`.trim(),
+    });
   }
 }
 
@@ -661,6 +712,29 @@ async function notifyOnDayFinalized(
     await notifyAttendance(kind, emp, { logDate, inAt, outAt, workedMinutes: worked });
   } catch (err) {
     console.warn("[attendance] notifyOnDayFinalized failed (non-fatal)", err);
+  }
+}
+
+/**
+ * Admin-side B8 trigger. After an admin upsert/edit, re-read the day's in-time;
+ * if it grades late, run the same deduction boundary check the self path does.
+ * Best-effort. Idempotent edits to an already-late day leave the un-waived count
+ * unchanged, so `lateDeductionCrossed` (prev == now) stays silent — no
+ * double-fire. Only fires when an admin newly pushes the month onto a 3-boundary.
+ */
+async function notifyAdminLateDeduction(
+  emp: { id: string; timezone: string; attLateAfter: string | null; attEarlyBefore: string | null },
+  logDate: string,
+): Promise<void> {
+  try {
+    const tz = emp.timezone || "Asia/Kolkata";
+    const { inAt } = await readDayTimes(emp.id, logDate, tz);
+    if (!inAt) return;
+    const sched = await resolveScheduleFor(emp);
+    if (toMin(inAt) <= toMin(sched.lateAfter)) return; // not a late day.
+    await maybeFireDeductionAlert(emp, logDate, inAt);
+  } catch (err) {
+    console.warn("[attendance] notifyAdminLateDeduction failed (non-fatal)", err);
   }
 }
 

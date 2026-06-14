@@ -22,6 +22,7 @@ import { DailyDigestEmail } from "@/emails/notifications/DailyDigest";
 import { AttendanceLateEmail } from "@/emails/notifications/attendance-late";
 import { AttendanceLateWaivedEmail } from "@/emails/notifications/attendance-late-waived";
 import { AttendanceHalfDayEmail } from "@/emails/notifications/attendance-half-day";
+import { AttendanceLateDeductionEmail } from "@/emails/notifications/attendance-late-deduction";
 import type {
   NotificationMeta,
   OverdueDigestTask,
@@ -403,6 +404,14 @@ function renderNotificationTemplate(ctx: RenderContext): ReactElement | null {
         hoursLabel: meta.hoursLabel ?? "—",
         siteUrl: ctx.siteUrl,
       });
+    case "attendance_late_deduction":
+      return AttendanceLateDeductionEmail({
+        recipientName: ctx.recipient.name,
+        monthLabel: meta.monthLabel ?? "this month",
+        lateCount: meta.lateCount ?? 0,
+        dateLabel: attendanceDateLabel(meta.logDate),
+        siteUrl: ctx.siteUrl,
+      });
     default:
       break;
   }
@@ -519,11 +528,11 @@ function renderNotificationTemplate(ctx: RenderContext): ReactElement | null {
 
     case "overdue_digest":
     // Attendance Phase A — `attendance_device` stays inbox-only (no email).
-    // The other three attendance kinds are routed above (before the task
-    // guard) and never reach this switch.
+    // The four other attendance kinds (late / late-waived / half-day /
+    // late-deduction) are routed above the task guard and never reach here.
     case "attendance_device":
-      // overdue_digest belongs in `sendDigestEmail`; attendance_device is
-      // an admin audit signal we keep in-app only. Skip the per-row email.
+      // overdue_digest belongs in `sendDigestEmail`; attendance_device is kept
+      // in-app only. Skip the per-row email.
       return null;
   }
 }

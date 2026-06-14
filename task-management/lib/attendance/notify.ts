@@ -18,7 +18,8 @@ export { decideCheckoutNotification };
 export type AttendanceNotifyKind =
   | "attendance_late"
   | "attendance_late_waived"
-  | "attendance_half_day";
+  | "attendance_half_day"
+  | "attendance_late_deduction";
 
 export interface AttendanceNotifyInfo {
   /** YYYY-MM-DD in the employee's timezone. */
@@ -29,6 +30,10 @@ export interface AttendanceNotifyInfo {
   outAt?: string | null;
   /** Minutes worked, when known (out-punch flows). */
   workedMinutes?: number | null;
+  /** Un-waived late count for the month (B8 deduction alert). */
+  lateCount?: number | null;
+  /** Friendly month label, e.g. "June 2026" (B8 deduction alert). */
+  monthLabel?: string | null;
 }
 
 /** Pretty "h:mm" from minutes, or "—". */
@@ -43,9 +48,11 @@ const TITLES: Record<AttendanceNotifyKind, string> = {
   attendance_late: "You checked in late",
   attendance_late_waived: "Late arrival waived — full day logged",
   attendance_half_day: "Half-day recorded",
+  attendance_late_deduction: "Half-day salary deduction — 3 lates this month",
 };
 
-/** Build the JSON body the email templates parse (date / in / out / hours). */
+/** Build the JSON body the email templates parse (date / in / out / hours and
+ *  the B8 deduction fields). */
 export function attendanceMetaBody(info: AttendanceNotifyInfo): string {
   return JSON.stringify({
     logDate: info.logDate,
@@ -53,6 +60,8 @@ export function attendanceMetaBody(info: AttendanceNotifyInfo): string {
     outAt: info.outAt ?? null,
     workedMinutes: info.workedMinutes ?? null,
     hoursLabel: hoursLabel(info.workedMinutes),
+    lateCount: info.lateCount ?? null,
+    monthLabel: info.monthLabel ?? null,
   });
 }
 

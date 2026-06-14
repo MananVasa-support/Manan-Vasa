@@ -16,6 +16,7 @@ import {
   Landmark,
   CreditCard,
   UserCog,
+  CalendarDays,
   Settings as SettingsIcon,
   ArrowLeft,
   LogOut,
@@ -50,6 +51,7 @@ const NAV: ReadonlyArray<NavItem> = [
   { href: "/admin/outstanding-entities" as Route,      label: "Outstanding Entities", icon: Landmark },
   { href: "/admin/outstanding-payment-modes" as Route, label: "Outstanding Modes",    icon: CreditCard },
   { href: "/admin/outstanding-responsibles" as Route,  label: "Outstanding Responsibles", icon: UserCog },
+  { href: "/admin/holidays" as Route,    label: "Holidays",    icon: CalendarDays },
   { href: "/admin/settings" as Route,    label: "Settings",    icon: SettingsIcon },
 ];
 

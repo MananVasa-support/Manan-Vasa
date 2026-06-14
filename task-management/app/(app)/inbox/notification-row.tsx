@@ -50,6 +50,7 @@ const KIND_META: Record<NotificationKind, { icon: LucideIcon; tone: string }> = 
   attendance_late_waived: { icon: CheckCircle2, tone: "green" },
   attendance_half_day: { icon: AlarmClock, tone: "amber" },
   attendance_device: { icon: Smartphone, tone: "blue" },
+  attendance_late_deduction: { icon: AlarmClock, tone: "rose" },
 };
 
 /**

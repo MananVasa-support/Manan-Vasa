@@ -31,6 +31,7 @@ const EMOJI: Record<NotificationKind, string> = {
   attendance_late_waived: ":white_check_mark:",
   attendance_half_day: ":clock5:",
   attendance_device: ":iphone:",
+  attendance_late_deduction: ":heavy_minus_sign:",
 };
 
 const VERB: Record<NotificationKind, (actor: string, statusLabel?: string) => string> = {
@@ -52,6 +53,7 @@ const VERB: Record<NotificationKind, (actor: string, statusLabel?: string) => st
   attendance_late_waived: () => `Late check-in waived`,
   attendance_half_day: () => `Half day recorded`,
   attendance_device: () => `New device used for attendance`,
+  attendance_late_deduction: () => `Late deduction applied`,
 };
 
 export interface SlackCtx {
