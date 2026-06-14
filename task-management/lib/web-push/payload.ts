@@ -30,6 +30,7 @@ const TITLES: Record<NotificationKind, (actor: string) => string> = {
   attendance_late_waived: () => `Late check-in waived`,
   attendance_half_day: () => `Half day recorded`,
   attendance_device: () => `New device used for attendance`,
+  attendance_late_deduction: () => `Late deduction applied`,
 };
 
 export interface PushCtx {

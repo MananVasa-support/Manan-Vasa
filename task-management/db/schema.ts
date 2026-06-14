@@ -131,6 +131,10 @@ export const employees = pgTable("employees", {
   attLateAfter: time("att_late_after"),
   attOfficialEnd: time("att_official_end"),
   attEarlyBefore: time("att_early_before"),
+  // Attendance Phase B (0060) — probation-end anchor for the paid-leave cycle.
+  // Pulled forward from Phase C (salary): the leave allowance accrues from this
+  // date and nothing accrues before it. Null => no anchor yet (0 paid leaves).
+  probationEnd: date("probation_end"),
 });
 
 /**
@@ -634,6 +638,9 @@ export const NOTIFICATION_KINDS = [
   "attendance_late_waived",
   "attendance_half_day",
   "attendance_device",
+  // Attendance Phase B (0059) — late-deduction alert. Inbox-only until B8 wires
+  // its email template; routed to the inbox-only arm in lib/email/resend.ts.
+  "attendance_late_deduction",
 ] as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
@@ -1151,6 +1158,91 @@ export const webauthnCredentials = pgTable(
 export type WebauthnCredential = typeof webauthnCredentials.$inferSelect;
 export type IncentiveRequest = typeof incentiveRequests.$inferSelect;
 export type NewIncentiveRequest = typeof incentiveRequests.$inferInsert;
+
+// ── Attendance Phase B (migration 0059) ────────────────────────────────────
+// Holiday calendar, paid/unpaid leave requests, and comp-off credits. All
+// columns are `text` enums (canonical unions live in db/enums.ts).
+
+export const holidays = pgTable(
+  "holidays",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    holidayDate: date("holiday_date").notNull().unique(),
+    label: text("label").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("holidays_date_idx").on(t.holidayDate)],
+);
+
+export type Holiday = typeof holidays.$inferSelect;
+export type NewHoliday = typeof holidays.$inferInsert;
+
+export const leaveRequests = pgTable(
+  "leave_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<"paid" | "unpaid">().notNull(),
+    startDate: date("start_date").notNull(),
+    endDate: date("end_date").notNull(),
+    days: numeric("days", { precision: 5, scale: 1 }).notNull(),
+    reason: text("reason"),
+    status: text("status")
+      .$type<"pending" | "approved" | "rejected" | "cancelled">()
+      .notNull()
+      .default("pending"),
+    decidedById: uuid("decided_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    decisionNote: text("decision_note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("leave_requests_employee_start_idx").on(t.employeeId, t.startDate),
+    index("leave_requests_status_idx").on(t.status),
+  ],
+);
+
+export type LeaveRequest = typeof leaveRequests.$inferSelect;
+export type NewLeaveRequest = typeof leaveRequests.$inferInsert;
+
+export const compOffCredits = pgTable(
+  "comp_off_credits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    earnedDate: date("earned_date").notNull(),
+    redeemedDate: date("redeemed_date"),
+    status: text("status")
+      .$type<"open" | "redeemed">()
+      .notNull()
+      .default("open"),
+    note: text("note"),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("comp_off_credits_employee_status_idx").on(t.employeeId, t.status)],
+);
+
+export type CompOffCredit = typeof compOffCredits.$inferSelect;
+export type NewCompOffCredit = typeof compOffCredits.$inferInsert;
 export type OutstandingEntry = typeof outstandingEntries.$inferSelect;
 export type NewOutstandingEntry = typeof outstandingEntries.$inferInsert;
 export type OutstandingFollowup = typeof outstandingFollowups.$inferSelect;

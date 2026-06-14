@@ -47,6 +47,10 @@ export type NotificationMeta = {
   hoursLabel?: string;
   /** Attendance — raw worked minutes. */
   workedMinutes?: number | null;
+  /** Attendance (B8) — un-waived late count for the month (deduction alert). */
+  lateCount?: number | null;
+  /** Attendance (B8) — friendly month label, e.g. "June 2026". */
+  monthLabel?: string | null;
 };
 
 /**

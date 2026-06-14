@@ -21,6 +21,7 @@ const NAMES: Record<NotificationKind, string> = {
   attendance_late_waived: "vp_attendance_late_waived",
   attendance_half_day: "vp_attendance_half_day",
   attendance_device: "vp_attendance_device",
+  attendance_late_deduction: "vp_attendance_late_deduction",
 };
 
 export function templateNameForKind(kind: NotificationKind): string {
@@ -109,6 +110,7 @@ const VARS: Record<NotificationKind, (ctx: TemplateCtx) => Param[]> = {
   attendance_late_waived: (c) => [t(c.body ?? "")],
   attendance_half_day: (c) => [t(c.body ?? "")],
   attendance_device: (c) => [t(c.body ?? "")],
+  attendance_late_deduction: (c) => [t(c.body ?? "")],
 };
 
 /**

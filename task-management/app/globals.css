@@ -38,6 +38,9 @@
   --color-slate:   #64748b;  --color-slate-deep:  #334155;  --color-slate-bg:  #f1f5f9;
   --color-brown:   #92724e;  --color-brown-deep:  #6b4a2b;  --color-brown-bg:  #f6f1ea;
   --color-stone:   #9ca3af;  --color-stone-deep:  #6b7280;  --color-stone-bg:  #f9fafb;
+  /* attendance Phase B tones: teal=comp-off, indigo=holiday */
+  --color-teal:    #14b8a6;  --color-teal-deep:   #0f766e;  --color-teal-bg:   #f0fdfa;
+  --color-indigo:  #6366f1;  --color-indigo-deep: #4338ca;  --color-indigo-bg: #eef2ff;
 
   /* main-nav pills */
   --color-nav-pill-bg:        rgba(255, 255, 255, 0.06);
@@ -90,6 +93,8 @@
   --color-slate:   #64748b;  --color-slate-deep:  #334155;  --color-slate-bg:  #f1f5f9;
   --color-brown:   #92724e;  --color-brown-deep:  #6b4a2b;  --color-brown-bg:  #f6f1ea;
   --color-stone:   #9ca3af;  --color-stone-deep:  #6b7280;  --color-stone-bg:  #f9fafb;
+  --color-teal:    #14b8a6;  --color-teal-deep:   #0f766e;  --color-teal-bg:   #f0fdfa;
+  --color-indigo:  #6366f1;  --color-indigo-deep: #4338ca;  --color-indigo-bg: #eef2ff;
 }
 
 /* Heatmap step backgrounds (used as `background:` not `color:`, so they live

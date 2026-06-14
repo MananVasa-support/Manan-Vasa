@@ -3,20 +3,30 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
-import { fetchEmployeeMonthDetail } from "@/app/(app)/attendance/dashboard/actions";
+import { Check, Gift, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  fetchEmployeeMonthDetail,
+  fetchCompOff,
+  convertToCompOff,
+  redeemCompOff,
+} from "@/app/(app)/attendance/dashboard/actions";
 import {
   adminEditDayTimes,
   adminUpsertPunch,
   adminDeletePunch,
 } from "@/app/(app)/attendance/actions";
+import { adminMarkLeave } from "@/app/(app)/attendance/leave/actions";
 import { fireToast } from "@/lib/toast";
 import {
   ATTENDANCE_CODE_LABELS,
+  LEAVE_KINDS,
+  LEAVE_KIND_LABELS,
   PUNCH_REASONS,
   type AttendanceCode,
+  type LeaveKind,
   type PunchReason,
 } from "@/db/enums";
+import type { CompOffRow } from "@/lib/queries/comp-off";
 import type {
   DayRow,
   EmployeeMonthStatus,
@@ -55,6 +65,14 @@ const CODE_STYLE: Record<string, { bg: string; fg: string }> = {
   A: { bg: "var(--color-red-bg)", fg: "var(--color-red-deep)" },
   "W/O": { bg: "var(--color-surface-track)", fg: "var(--color-ink-soft)" },
   incomplete: { bg: "var(--color-surface-track)", fg: "var(--color-ink-soft)" },
+  // Phase B codes — holiday=indigo, worked-holiday=green, leave=blue/grey,
+  // comp-off=teal.
+  H: { bg: "var(--color-indigo-bg)", fg: "var(--color-indigo-deep)" },
+  HP: { bg: "var(--color-green-bg)", fg: "var(--color-green-deep)" },
+  "H-H/D": { bg: "var(--color-indigo-bg)", fg: "var(--color-indigo-deep)" },
+  PL: { bg: "var(--color-blue-bg)", fg: "var(--color-blue-deep)" },
+  LWP: { bg: "var(--color-slate-bg)", fg: "var(--color-slate-deep)" },
+  CO: { bg: "var(--color-teal-bg)", fg: "var(--color-teal-deep)" },
 };
 
 function codeLabel(code: DayRow["code"]): string {
@@ -95,6 +113,15 @@ function FlagPill({ label, tone }: { label: string; tone: "red" | "amber" | "blu
 }
 
 const TIME_RE = /^\d{2}:\d{2}$/;
+
+/** A worked holiday or weekly-off can be converted to a comp-off credit. Worked
+ *  holidays grade HP / H-H/D; a worked weekly-off keeps Phase A's "P" code, so
+ *  we also allow isWeeklyOff + an in-punch. (The action re-validates server-side.) */
+function isConvertible(d: DayRow): boolean {
+  if (d.code === "HP" || d.code === "H-H/D") return true;
+  if (d.isWeeklyOff && d.inAt) return true;
+  return false;
+}
 
 export function EmployeeDetailDialog({
   open,
@@ -269,21 +296,30 @@ export function EmployeeDetailDialog({
                         </td>
                         <td className="px-3 py-2.5 text-right">
                           {!notJoined && (
-                            <button
-                              type="button"
-                              onClick={() => setEditingDate(d.logDate)}
-                              className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-1.5 px-2.5 text-[12px] font-semibold text-ink-soft hover:text-ink-strong hover:border-hairline-strong transition-colors"
-                            >
-                              {d.inAt || d.outAt ? (
-                                <>
-                                  <Pencil size={13} strokeWidth={2.2} /> Edit
-                                </>
-                              ) : (
-                                <>
-                                  <Plus size={13} strokeWidth={2.2} /> Add
-                                </>
+                            <div className="inline-flex items-center justify-end gap-1.5">
+                              {employeeId && isConvertible(d) && (
+                                <ConvertButton
+                                  employeeId={employeeId}
+                                  earnedDate={d.logDate}
+                                  onDone={afterMutation}
+                                />
                               )}
-                            </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingDate(d.logDate)}
+                                className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-1.5 px-2.5 text-[12px] font-semibold text-ink-soft hover:text-ink-strong hover:border-hairline-strong transition-colors"
+                              >
+                                {d.inAt || d.outAt ? (
+                                  <>
+                                    <Pencil size={13} strokeWidth={2.2} /> Edit
+                                  </>
+                                ) : (
+                                  <>
+                                    <Plus size={13} strokeWidth={2.2} /> Add
+                                  </>
+                                )}
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -291,6 +327,14 @@ export function EmployeeDetailDialog({
                   })}
                 </tbody>
               </table>
+              {employeeId && (
+                <LeaveCompOffPanel
+                  employeeId={employeeId}
+                  year={year}
+                  month={month}
+                  onDone={afterMutation}
+                />
+              )}
             </div>
           ) : null}
         </Dialog.Content>
@@ -477,6 +521,280 @@ function EditRow({
         </div>
       </td>
     </tr>
+  );
+}
+
+/** Inline "→ Comp-off" button on a worked holiday / weekly-off row. */
+function ConvertButton({
+  employeeId,
+  earnedDate,
+  onDone,
+}: {
+  employeeId: string;
+  earnedDate: string;
+  onDone: () => void | Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  async function run() {
+    setBusy(true);
+    try {
+      const res = await convertToCompOff({ employeeId, earnedDate });
+      if (res.ok) {
+        fireToast({ message: "Converted to comp-off." });
+        await onDone();
+      } else {
+        fireToast({ message: res.error ?? "Could not convert.", type: "error" });
+      }
+    } catch (e) {
+      fireToast({ message: (e as Error).message ?? "Could not convert.", type: "error" });
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={run}
+      title="Convert this worked holiday / weekly-off to a redeemable comp-off"
+      className="inline-flex items-center gap-1.5 rounded-md border py-1.5 px-2.5 text-[12px] font-semibold transition-colors disabled:opacity-60"
+      style={{
+        borderColor: "var(--color-teal)",
+        color: "var(--color-teal-deep)",
+        background: "var(--color-teal-bg)",
+      }}
+    >
+      <Gift size={13} strokeWidth={2.2} /> Comp-off
+    </button>
+  );
+}
+
+/**
+ * Compact admin "Leave / Comp-off" subsection inside the day-detail dialog:
+ *  - Mark leave: paid/unpaid for a date range → adminMarkLeave
+ *  - Redeem comp-off: pick an OPEN credit + a date → redeemCompOff
+ * Convert-to-comp-off lives inline on each eligible day row (ConvertButton).
+ * After any action it re-fetches the dialog detail + dashboard via onDone.
+ */
+function LeaveCompOffPanel({
+  employeeId,
+  year,
+  month,
+  onDone,
+}: {
+  employeeId: string;
+  year: number;
+  month: number;
+  onDone: () => void | Promise<void>;
+}) {
+  const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+  const [kind, setKind] = useState<LeaveKind>("paid");
+  const [startDate, setStartDate] = useState(monthStart);
+  const [endDate, setEndDate] = useState(monthStart);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const [credits, setCredits] = useState<CompOffRow[]>([]);
+  const [creditId, setCreditId] = useState("");
+  const [redeemDate, setRedeemDate] = useState(monthStart);
+
+  const loadCredits = useCallback(async () => {
+    const res = await fetchCompOff(employeeId);
+    if (res.ok && res.data) {
+      setCredits(res.data);
+      const firstOpen = res.data.find((c) => c.status === "open");
+      setCreditId((prev) => prev || firstOpen?.id || "");
+    }
+  }, [employeeId]);
+
+  useEffect(() => {
+    void loadCredits();
+  }, [loadCredits]);
+
+  const openCredits = credits.filter((c) => c.status === "open");
+
+  async function markLeave() {
+    if (!startDate || !endDate) {
+      fireToast({ message: "Pick a start and end date.", type: "error" });
+      return;
+    }
+    if (endDate < startDate) {
+      fireToast({ message: "End date can't be before start.", type: "error" });
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await adminMarkLeave({
+        employeeId,
+        kind,
+        startDate,
+        endDate,
+        ...(reason.trim() ? { reason: reason.trim() } : {}),
+      });
+      if (res.ok) {
+        fireToast({ message: `${LEAVE_KIND_LABELS[kind]} marked.` });
+        setReason("");
+        await onDone();
+      } else {
+        fireToast({ message: res.error ?? "Could not mark leave.", type: "error" });
+      }
+    } catch (e) {
+      fireToast({ message: (e as Error).message ?? "Could not mark leave.", type: "error" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function redeem() {
+    if (!creditId) {
+      fireToast({ message: "Pick an open comp-off credit.", type: "error" });
+      return;
+    }
+    if (!redeemDate) {
+      fireToast({ message: "Pick a date to redeem on.", type: "error" });
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await redeemCompOff({ creditId, redeemedDate: redeemDate });
+      if (res.ok) {
+        fireToast({ message: "Comp-off redeemed." });
+        setCreditId("");
+        await loadCredits();
+        await onDone();
+      } else {
+        fireToast({ message: res.error ?? "Could not redeem.", type: "error" });
+      }
+    } catch (e) {
+      fireToast({ message: (e as Error).message ?? "Could not redeem.", type: "error" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const fieldCls =
+    "rounded-md border border-hairline bg-surface-card px-2 py-1.5 text-[13px] font-semibold text-ink-strong disabled:opacity-60";
+  const labelCls =
+    "block text-[10px] uppercase tracking-wide font-bold text-ink-subtle mb-1";
+
+  return (
+    <div className="mt-6 rounded-lg border border-hairline bg-surface-soft p-4">
+      <p className="text-[11px] uppercase tracking-[0.06em] font-bold text-ink-subtle mb-3">
+        Leave / Comp-off
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Mark leave */}
+        <div>
+          <p className="text-[13px] font-bold text-ink-strong mb-2">Mark leave</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="block">
+              <span className={labelCls}>Type</span>
+              <select
+                value={kind}
+                disabled={busy}
+                onChange={(e) => setKind(e.target.value as LeaveKind)}
+                className={fieldCls}
+              >
+                {LEAVE_KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {LEAVE_KIND_LABELS[k]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className={labelCls}>From</span>
+              <input
+                type="date"
+                value={startDate}
+                disabled={busy}
+                onChange={(e) => setStartDate(e.target.value)}
+                className={`${fieldCls} tabular-nums`}
+              />
+            </label>
+            <label className="block">
+              <span className={labelCls}>To</span>
+              <input
+                type="date"
+                value={endDate}
+                disabled={busy}
+                onChange={(e) => setEndDate(e.target.value)}
+                className={`${fieldCls} tabular-nums`}
+              />
+            </label>
+          </div>
+          <label className="block mt-2">
+            <span className={labelCls}>Reason (optional)</span>
+            <input
+              type="text"
+              value={reason}
+              disabled={busy}
+              maxLength={500}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. medical"
+              className={`${fieldCls} w-full`}
+            />
+          </label>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={markLeave}
+            className="mt-2.5 inline-flex items-center gap-1.5 rounded-md bg-altus-red py-1.5 px-3 text-[12px] font-bold text-white disabled:opacity-60 transition-opacity"
+          >
+            <Check size={13} strokeWidth={2.6} /> Mark leave
+          </button>
+        </div>
+
+        {/* Redeem comp-off */}
+        <div>
+          <p className="text-[13px] font-bold text-ink-strong mb-2">Redeem comp-off</p>
+          {openCredits.length === 0 ? (
+            <p className="text-[13px] text-ink-subtle font-semibold">
+              No open comp-off credits. Convert a worked holiday / weekly-off above to earn one.
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="block">
+                  <span className={labelCls}>Credit (earned)</span>
+                  <select
+                    value={creditId}
+                    disabled={busy}
+                    onChange={(e) => setCreditId(e.target.value)}
+                    className={fieldCls}
+                  >
+                    {openCredits.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.earnedDate}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className={labelCls}>Redeem on</span>
+                  <input
+                    type="date"
+                    value={redeemDate}
+                    disabled={busy}
+                    onChange={(e) => setRedeemDate(e.target.value)}
+                    className={`${fieldCls} tabular-nums`}
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={redeem}
+                className="mt-2.5 inline-flex items-center gap-1.5 rounded-md py-1.5 px-3 text-[12px] font-bold text-white disabled:opacity-60 transition-opacity"
+                style={{ background: "var(--color-teal-deep)" }}
+              >
+                <Gift size={13} strokeWidth={2.4} /> Redeem
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

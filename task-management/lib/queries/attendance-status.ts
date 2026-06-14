@@ -8,6 +8,12 @@ import {
   type AttendanceSchedule,
 } from "@/lib/attendance/schedule";
 import { computeDayCode, type DayCodeResult } from "@/lib/attendance/status";
+import { listHolidayDateSet } from "@/lib/queries/holidays";
+import { listEmployeeLeaveForRange, type LeaveRow } from "@/lib/queries/leave";
+import {
+  getCompOffMapForRange,
+  type CompOffRangeMaps,
+} from "@/lib/queries/comp-off";
 import type { AttendanceCode } from "@/db/enums";
 
 /**
@@ -60,6 +66,13 @@ export interface MonthSummary {
   lateRaw: number;
   leftEarly: number;
   lateWaived: number;
+  // ── Phase B (B7) calendar/leave/comp-off columns ──────────────────────────
+  holiday: number; // code "H"
+  holidayPresent: number; // code "HP" (worked a holiday/WO → extra pay)
+  holidayHalfDay: number; // code "H-H/D"
+  paidLeave: number; // code "PL"
+  unpaidLeave: number; // code "LWP"
+  compOff: number; // code "CO" (redeemed comp-off)
 }
 
 export interface EmployeeMonthStatus {
@@ -185,6 +198,12 @@ function emptySummary(): MonthSummary {
     lateRaw: 0,
     leftEarly: 0,
     lateWaived: 0,
+    holiday: 0,
+    holidayPresent: 0,
+    holidayHalfDay: 0,
+    paidLeave: 0,
+    unpaidLeave: 0,
+    compOff: 0,
   };
 }
 
@@ -206,6 +225,24 @@ function tally(summary: MonthSummary, r: DayCodeResult): void {
     case "incomplete":
       summary.incomplete += 1;
       break;
+    case "H":
+      summary.holiday += 1;
+      break;
+    case "HP":
+      summary.holidayPresent += 1;
+      break;
+    case "H-H/D":
+      summary.holidayHalfDay += 1;
+      break;
+    case "PL":
+      summary.paidLeave += 1;
+      break;
+    case "LWP":
+      summary.unpaidLeave += 1;
+      break;
+    case "CO":
+      summary.compOff += 1;
+      break;
   }
   if (r.late) {
     summary.lateRaw += 1;
@@ -213,6 +250,37 @@ function tally(summary: MonthSummary, r: DayCodeResult): void {
   }
   if (r.leftEarly) summary.leftEarly += 1;
   if (r.lateWaived) summary.lateWaived += 1;
+}
+
+// ── Phase-B day-context helpers ──────────────────────────────────────────────
+
+/**
+ * Per-day context inputs the grader needs beyond the punches: the active
+ * holiday set, this employee's approved leaves, and their comp-off maps. The
+ * batched dashboard path builds these once and slices per employee.
+ */
+interface DayContextInputs {
+  holidaySet: Set<string>;
+  /** Approved leaves for THIS employee (already filtered to the employee). */
+  leaves: LeaveRow[];
+  /** Converted earnedDates for this employee (suppress HP → H/W-O). */
+  converted: Set<string>;
+  /** Redeemed dates for this employee (grade CO). */
+  redeemed: Set<string>;
+}
+
+/** Which leave kind ("paid"|"unpaid") covers `ymd`, or null. A date is covered
+ *  when it falls within an approved leave's inclusive [startDate,endDate].
+ *  Paid wins if (unusually) both overlap. */
+function leaveKindOn(ymd: string, leaves: LeaveRow[]): "paid" | "unpaid" | null {
+  let unpaid: "unpaid" | null = null;
+  for (const lv of leaves) {
+    if (ymd >= lv.startDate && ymd <= lv.endDate) {
+      if (lv.kind === "paid") return "paid";
+      unpaid = "unpaid";
+    }
+  }
+  return unpaid;
 }
 
 // ── core grader ─────────────────────────────────────────────────────────────
@@ -241,6 +309,7 @@ function gradeMonth(
   year: number,
   month: number,
   refTodayISO: string,
+  dayCtx: DayContextInputs,
 ): EmployeeMonthStatus {
   const tz = emp.timezone || "Asia/Kolkata";
 
@@ -278,12 +347,39 @@ function gradeMonth(
 
     const isWeeklyOff = wd === emp.weeklyOff;
     const refNow = ymd === refTodayISO ? nowHHmm : "23:59";
-    const graded = computeDayCode(
-      { inAt: folded.inAt, outAt: folded.outAt },
-      sched,
-      { isWeeklyOff },
-      refNow,
-    );
+
+    // ── Phase-B dayContext assembly ──────────────────────────────────────
+    const isHoliday = dayCtx.holidaySet.has(ymd);
+    const isConverted = dayCtx.converted.has(ymd);
+    const isRedeemed = dayCtx.redeemed.has(ymd);
+
+    // Holiday-over-leave precedence: a holiday during an approved leave should
+    // NOT consume the leave (you don't burn a paid leave on a day off). So if
+    // it's a holiday, we pass leave:null and let the holiday/W-O credit stand.
+    // Otherwise the engine's PL/LWP precedence applies.
+    const leave = isHoliday ? null : leaveKindOn(ymd, dayCtx.leaves);
+
+    let graded: DayCodeResult;
+    if (isConverted) {
+      // Converted comp-off: this worked holiday/WO had its extra pay REPLACED
+      // by a redeemable credit, so it must NOT grade HP. We don't change the
+      // engine — instead we grade the day as if NON-worked (in/out null), which
+      // yields H (holiday) or W/O (weekly-off), value 1. The matching credit
+      // (and any later CO redemption) lives in comp_off_credits.
+      graded = computeDayCode(
+        { inAt: null, outAt: null },
+        sched,
+        { isWeeklyOff, isHoliday, leave, compOffRedeemed: isRedeemed },
+        refNow,
+      );
+    } else {
+      graded = computeDayCode(
+        { inAt: folded.inAt, outAt: folded.outAt },
+        sched,
+        { isWeeklyOff, isHoliday, leave, compOffRedeemed: isRedeemed },
+        refNow,
+      );
+    }
     tally(summary, graded);
     days.push({
       logDate: ymd,
@@ -353,10 +449,23 @@ export async function getEmployeeMonthStatus(
       ),
     );
 
+  // Phase-B calendar/leave/comp-off context. `listHolidayDateSet` is per
+  // calendar year; a month is always within one year so `year` is correct.
+  const [holidaySet, leaves, compOff] = await Promise.all([
+    listHolidayDateSet(year),
+    listEmployeeLeaveForRange([employeeId], first, last),
+    getCompOffMapForRange([employeeId], first, last),
+  ]);
+
   const defaults = companyDefaults(org);
   const sched = employeeSchedule(emp, defaults);
   const byDay = foldPunches(rows, tz);
-  return gradeMonth(emp, sched, byDay, year, month, refTodayISO);
+  return gradeMonth(emp, sched, byDay, year, month, refTodayISO, {
+    holidaySet,
+    leaves,
+    converted: compOff.convertedByEmp.get(employeeId) ?? new Set<string>(),
+    redeemed: compOff.redeemedByEmp.get(employeeId) ?? new Set<string>(),
+  });
 }
 
 export interface DashboardRow {
@@ -372,10 +481,11 @@ export interface MonthDashboardFilters {
 }
 
 /**
- * Month dashboard: a summary row per ACTIVE employee. Batched — ONE punch
- * query for the whole month across all employees, then grouped in memory, to
- * avoid an N+1 of per-employee log queries. Holiday/PL/LWP columns are Phase B
- * and are omitted here.
+ * Month dashboard: a summary row per ACTIVE employee. Batched to avoid an N+1:
+ * ONE punch query, ONE holiday-set load, ONE approved-leave query and ONE
+ * comp-off query for the WHOLE month across all employees, then grouped in
+ * memory and graded per employee. Phase B holiday/leave/comp-off columns are
+ * populated via the shared day-context (B7).
  */
 export async function getMonthDashboard(
   year: number,
@@ -385,7 +495,9 @@ export async function getMonthDashboard(
 ): Promise<DashboardRow[]> {
   const { first, last } = monthBounds(year, month);
 
-  const [org, people, allRows] = await Promise.all([
+  // First batch: things that DON'T need the employee-id list — org settings,
+  // the roster, the month's punches, and the (employee-independent) holiday set.
+  const [org, people, allRows, holidaySet] = await Promise.all([
     getOrgSettings(),
     db
       .select({
@@ -409,7 +521,28 @@ export async function getMonthDashboard(
       })
       .from(attendanceLogs)
       .where(between(attendanceLogs.logDate, first, last)),
+    listHolidayDateSet(year),
   ]);
+
+  // Second batch: leave + comp-off need the resolved employee-id list. ONE
+  // query each across ALL employees (still no N+1) — the result maps are then
+  // sliced per employee in the grade loop below.
+  const allEmpIds = people.map((p) => p.id);
+  const [allLeaves, compOff]: [LeaveRow[], CompOffRangeMaps] = await Promise.all([
+    listEmployeeLeaveForRange(allEmpIds, first, last),
+    getCompOffMapForRange(allEmpIds, first, last),
+  ]);
+
+  // Group approved leaves by employee once.
+  const leavesByEmp = new Map<string, LeaveRow[]>();
+  for (const lv of allLeaves) {
+    let arr = leavesByEmp.get(lv.employeeId);
+    if (!arr) {
+      arr = [];
+      leavesByEmp.set(lv.employeeId, arr);
+    }
+    arr.push(lv);
+  }
 
   const defaults = companyDefaults(org);
 
@@ -432,7 +565,12 @@ export async function getMonthDashboard(
     const tz = p.timezone || "Asia/Kolkata";
     const sched = employeeSchedule(p, defaults);
     const byDay = foldPunches(rowsByEmp.get(p.id) ?? [], tz);
-    const { summary } = gradeMonth(p, sched, byDay, year, month, refTodayISO);
+    const { summary } = gradeMonth(p, sched, byDay, year, month, refTodayISO, {
+      holidaySet,
+      leaves: leavesByEmp.get(p.id) ?? [],
+      converted: compOff.convertedByEmp.get(p.id) ?? new Set<string>(),
+      redeemed: compOff.redeemedByEmp.get(p.id) ?? new Set<string>(),
+    });
     out.push({
       employeeId: p.id,
       name: p.name,

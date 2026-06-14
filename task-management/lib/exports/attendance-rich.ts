@@ -40,6 +40,11 @@ export const SUMMARY_HEADERS = [
   "Left-Early",
   "Late-Waived",
   "Weekly-Off",
+  "Holiday",
+  "Holiday-Present",
+  "Paid-Leave",
+  "Unpaid-Leave",
+  "Comp-Off",
   "Payable-Days",
 ] as const;
 
@@ -55,6 +60,11 @@ export function toSummaryRow(r: DashboardRow): (string | number)[] {
     s.leftEarly,
     s.lateWaived,
     s.weeklyOff,
+    s.holiday,
+    s.holidayPresent,
+    s.paidLeave,
+    s.unpaidLeave,
+    s.compOff,
     s.payableDays,
   ];
 }

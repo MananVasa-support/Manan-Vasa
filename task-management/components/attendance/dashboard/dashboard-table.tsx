@@ -5,10 +5,6 @@ import { Search } from "lucide-react";
 import type { DashboardRow } from "@/lib/queries/attendance-status";
 import { EmployeeDetailDialog } from "./employee-detail";
 
-/** Placeholder columns are Phase 2 (Holiday / Paid Leave / Unpaid Leave). They
- *  render as "—" with a hint so the surface already matches Sir's report. */
-const PHASE2_COLS = ["Holiday", "Paid Leave", "Unpaid Leave"] as const;
-
 export function AttendanceDashboardTable({
   rows,
   year,
@@ -78,11 +74,11 @@ export function AttendanceDashboardTable({
                 <Th align="right">Left-Early</Th>
                 <Th align="right">Late-Waived</Th>
                 <Th align="right">Weekly-Off</Th>
-                {PHASE2_COLS.map((c) => (
-                  <Th key={c} align="right" hint="Phase 2">
-                    {c}
-                  </Th>
-                ))}
+                <Th align="right">Holiday</Th>
+                <Th align="right" hint="Holiday Present">HP</Th>
+                <Th align="right">Paid Leave</Th>
+                <Th align="right">Unpaid Leave</Th>
+                <Th align="right">Comp-Off</Th>
                 <Th align="right">Payable Days</Th>
               </tr>
             </thead>
@@ -133,16 +129,32 @@ export function AttendanceDashboardTable({
                       {s.lateWaived}
                     </Td>
                     <Td align="right">{s.weeklyOff}</Td>
-                    {PHASE2_COLS.map((c) => (
-                      <td
-                        key={c}
-                        className="px-3 py-3 text-right font-semibold text-ink-subtle tabular-nums"
-                        style={{ fontSize: 14 }}
-                        title="Holiday / Leave tracking arrives in Phase 2"
-                      >
-                        —
-                      </td>
-                    ))}
+                    <Td align="right">{s.holiday}</Td>
+                    <Td
+                      align="right"
+                      style={
+                        s.holidayPresent > 0 ? { color: "var(--color-green-deep)" } : undefined
+                      }
+                    >
+                      {s.holidayPresent}
+                    </Td>
+                    <Td
+                      align="right"
+                      style={
+                        s.paidLeave > 0 ? { color: "var(--color-blue-deep)" } : undefined
+                      }
+                    >
+                      {s.paidLeave}
+                    </Td>
+                    <Td align="right">{s.unpaidLeave}</Td>
+                    <Td
+                      align="right"
+                      style={
+                        s.compOff > 0 ? { color: "var(--color-teal-deep)" } : undefined
+                      }
+                    >
+                      {s.compOff}
+                    </Td>
                     <td
                       className="px-3 py-3 text-right font-black text-ink-strong tabular-nums whitespace-nowrap"
                       style={{ fontSize: 14 }}
