@@ -3,6 +3,7 @@ import { Download } from "lucide-react";
 import { db } from "@/lib/db";
 import { employees } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/current";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import {
   listActiveDepartments,
   getEmployeeDepartmentMap,
@@ -27,6 +28,10 @@ export default async function EmployeesPage() {
     Object.fromEntries(departmentMap);
   const activeCount = all.filter((e) => e.isActive).length;
   const invitedCount = all.filter((e) => e.isActive && !e.joinedAt).length;
+  // Only super-admins may change an employee's admin status; non-super-admins
+  // get the admin toggle hidden in the create + edit dialogs. The server
+  // guards in actions.ts are the real boundary — this is UX, not security.
+  const canManageAdmins = isSuperAdmin(me.email);
 
   return (
     <div>
@@ -64,13 +69,17 @@ export default async function EmployeesPage() {
             <Download size={14} strokeWidth={2.2} />
             Export CSV
           </a>
-          <InviteEmployeeDialog departmentOptions={departmentOptions} />
+          <InviteEmployeeDialog
+            departmentOptions={departmentOptions}
+            canManageAdmins={canManageAdmins}
+          />
         </div>
       </header>
       <EmployeeList
         employees={all}
         membershipsByEmployee={membershipsByEmployee}
         currentEmployeeId={me.id}
+        canManageAdmins={canManageAdmins}
         departmentOptions={departmentOptions}
         managerOptions={managerOptions}
       />

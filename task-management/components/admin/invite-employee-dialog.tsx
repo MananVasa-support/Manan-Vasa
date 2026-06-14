@@ -12,10 +12,13 @@ import {
 
 interface InviteEmployeeDialogProps {
   departmentOptions: DepartmentOption[];
+  /** True only for super-admins (Hetesh / Manan) — gates the admin toggle. */
+  canManageAdmins: boolean;
 }
 
 export function InviteEmployeeDialog({
   departmentOptions,
+  canManageAdmins,
 }: InviteEmployeeDialogProps) {
   const [open, setOpen]       = useState(false);
   const [name, setName]       = useState("");
@@ -124,15 +127,17 @@ export function InviteEmployeeDialog({
                 }}
               />
             </Field>
-            <label className="flex items-center gap-2.5 text-[15px] text-[#334155]">
-              <input
-                type="checkbox"
-                checked={isAdmin}
-                onChange={(e) => setIsAdmin(e.target.checked)}
-                className="h-4 w-4"
-              />
-              Admin (can manage employees + settings)
-            </label>
+            {canManageAdmins && (
+              <label className="flex items-center gap-2.5 text-[15px] text-[#334155]">
+                <input
+                  type="checkbox"
+                  checked={isAdmin}
+                  onChange={(e) => setIsAdmin(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                Admin (can manage employees + settings)
+              </label>
+            )}
             {error && <div className="text-[14px] text-[#A80400]">{error}</div>}
             <div className="flex justify-end gap-2 pt-2">
               <Dialog.Close asChild>
