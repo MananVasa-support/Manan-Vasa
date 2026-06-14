@@ -124,6 +124,13 @@ export const employees = pgTable("employees", {
   googleRefreshToken: text("google_refresh_token"),
   googleEmail: text("google_email"),
   googleConnectedAt: timestamp("google_connected_at", { withTimezone: true }),
+  // Attendance Phase A (0058) — weekly off day (0=Sun..6=Sat; default Sunday)
+  // and per-employee schedule overrides. Null override => use org defaults.
+  weeklyOff: integer("weekly_off").notNull().default(0),
+  attOfficialStart: time("att_official_start"),
+  attLateAfter: time("att_late_after"),
+  attOfficialEnd: time("att_official_end"),
+  attEarlyBefore: time("att_early_before"),
 });
 
 /**
@@ -622,6 +629,11 @@ export const NOTIFICATION_KINDS = [
   "cancelled",
   "commented",
   "overdue_digest",
+  // Attendance Phase A (0058) — text column, no DB change needed.
+  "attendance_late",
+  "attendance_late_waived",
+  "attendance_half_day",
+  "attendance_device",
 ] as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
@@ -822,6 +834,12 @@ export const orgSettings = pgTable("org_settings", {
   officeLat: doublePrecision("office_lat"),
   officeLng: doublePrecision("office_lng"),
   attendanceRadiusM: integer("attendance_radius_m").notNull().default(100),
+  // Attendance Phase A (0058) — org-wide schedule defaults. Per-employee
+  // overrides live on `employees`; null there => fall back to these.
+  attLateAfter: time("att_late_after").default("10:50"),
+  attEarlyBefore: time("att_early_before").default("19:20"),
+  attFullDayHours: numeric("att_full_day_hours").default("9"),
+  attHalfDayHours: numeric("att_half_day_hours").default("5"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -919,6 +937,13 @@ export const attendanceLogs = pgTable(
       .notNull()
       .default("none"),
     credentialId: text("credential_id"),
+    // Attendance Phase A (0058) — who recorded the punch and why. `admin`
+    // punches carry a `recordedById`; `reason` is one of PUNCH_REASONS.
+    source: text("source").$type<"self" | "admin">().notNull().default("self"),
+    reason: text("reason"),
+    recordedById: uuid("recorded_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
   },
   (t) => [
     uniqueIndex("attendance_logs_employee_day_kind_uq").on(

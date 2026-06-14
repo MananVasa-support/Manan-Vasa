@@ -19,6 +19,9 @@ import { TransferredEmail } from "@/emails/notifications/Transferred";
 import { CancelledEmail } from "@/emails/notifications/Cancelled";
 import { CommentedEmail } from "@/emails/notifications/Commented";
 import { DailyDigestEmail } from "@/emails/notifications/DailyDigest";
+import { AttendanceLateEmail } from "@/emails/notifications/attendance-late";
+import { AttendanceLateWaivedEmail } from "@/emails/notifications/attendance-late-waived";
+import { AttendanceHalfDayEmail } from "@/emails/notifications/attendance-half-day";
 import type {
   NotificationMeta,
   OverdueDigestTask,
@@ -350,13 +353,61 @@ interface RenderContext {
   statusDisplay: Awaited<ReturnType<typeof getStatusDisplayMap>>;
 }
 
+/** Friendly "Sat, Jun 14, 2026" for a YYYY-MM-DD attendance log date. Falls
+ *  back to the raw string if it isn't a parseable date. */
+function attendanceDateLabel(ymd: string | undefined): string {
+  if (!ymd) return "—";
+  const d = new Date(`${ymd}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return ymd;
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(d);
+}
+
 function renderNotificationTemplate(ctx: RenderContext): ReactElement | null {
   const meta = parseMeta(ctx.notification.body);
   const actor = ctx.actorName ?? "Someone";
   const subject = ctx.taskSubject ?? "your task";
   const taskId = ctx.notification.taskId ?? "";
 
-  // Without a task to link to, none of the per-task templates make
+  // Attendance Phase A (Task A8) — these kinds carry no taskId; route them
+  // BEFORE the task guard below. The meta JSON is read off `notification.body`
+  // (logDate / inAt / outAt / hoursLabel — see lib/attendance/notify.ts).
+  switch (ctx.notification.kind) {
+    case "attendance_late":
+      return AttendanceLateEmail({
+        recipientName: ctx.recipient.name,
+        dateLabel: attendanceDateLabel(meta.logDate),
+        inAt: meta.inAt ?? null,
+        siteUrl: ctx.siteUrl,
+      });
+    case "attendance_late_waived":
+      return AttendanceLateWaivedEmail({
+        recipientName: ctx.recipient.name,
+        dateLabel: attendanceDateLabel(meta.logDate),
+        inAt: meta.inAt ?? null,
+        outAt: meta.outAt ?? null,
+        hoursLabel: meta.hoursLabel ?? "—",
+        siteUrl: ctx.siteUrl,
+      });
+    case "attendance_half_day":
+      return AttendanceHalfDayEmail({
+        recipientName: ctx.recipient.name,
+        dateLabel: attendanceDateLabel(meta.logDate),
+        inAt: meta.inAt ?? null,
+        outAt: meta.outAt ?? null,
+        hoursLabel: meta.hoursLabel ?? "—",
+        siteUrl: ctx.siteUrl,
+      });
+    default:
+      break;
+  }
+
+  // Without a task to link to, none of the remaining per-task templates make
   // sense.  Drop the email — the in-app inbox still surfaces the row.
   if (!taskId) return null;
 
@@ -467,8 +518,12 @@ function renderNotificationTemplate(ctx: RenderContext): ReactElement | null {
       });
 
     case "overdue_digest":
-      // Belongs in `sendDigestEmail`.  The per-row sender silently skips
-      // this kind so dispatcher fan-out doesn't accidentally double-send.
+    // Attendance Phase A — `attendance_device` stays inbox-only (no email).
+    // The other three attendance kinds are routed above (before the task
+    // guard) and never reach this switch.
+    case "attendance_device":
+      // overdue_digest belongs in `sendDigestEmail`; attendance_device is
+      // an admin audit signal we keep in-app only. Skip the per-row email.
       return null;
   }
 }

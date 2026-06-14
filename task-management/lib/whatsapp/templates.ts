@@ -16,6 +16,11 @@ const NAMES: Record<NotificationKind, string> = {
   cancelled: "vp_cancelled",
   commented: "vp_commented",
   overdue_digest: "vp_overdue_digest",
+  // Attendance Phase A — inbox-only kinds; no registered WhatsApp template.
+  attendance_late: "vp_attendance_late",
+  attendance_late_waived: "vp_attendance_late_waived",
+  attendance_half_day: "vp_attendance_half_day",
+  attendance_device: "vp_attendance_device",
 };
 
 export function templateNameForKind(kind: NotificationKind): string {
@@ -99,6 +104,11 @@ const VARS: Record<NotificationKind, (ctx: TemplateCtx) => Param[]> = {
     t(String(c.digestCount ?? 0)),
     t(c.digestPreview ?? ""),
   ],
+  // Attendance Phase A — inbox-only kinds; simple single-body fallback.
+  attendance_late: (c) => [t(c.body ?? "")],
+  attendance_late_waived: (c) => [t(c.body ?? "")],
+  attendance_half_day: (c) => [t(c.body ?? "")],
+  attendance_device: (c) => [t(c.body ?? "")],
 };
 
 /**

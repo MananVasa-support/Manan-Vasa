@@ -37,6 +37,16 @@ export type NotificationMeta = {
   note?: string;
   /** For commented — the comment body. */
   comment?: string;
+  /** Attendance (Task A8) — YYYY-MM-DD of the affected log day. */
+  logDate?: string;
+  /** Attendance — "HH:mm" check-in time. */
+  inAt?: string | null;
+  /** Attendance — "HH:mm" check-out time. */
+  outAt?: string | null;
+  /** Attendance — pretty "Hh MMm" worked-hours label. */
+  hoursLabel?: string;
+  /** Attendance — raw worked minutes. */
+  workedMinutes?: number | null;
 };
 
 /**

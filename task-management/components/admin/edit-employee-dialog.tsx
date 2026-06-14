@@ -3,7 +3,10 @@
 import { useEffect, useState, useTransition } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { fireToast } from "@/lib/toast";
-import { editEmployee } from "@/app/(admin)/admin/employees/actions";
+import {
+  editEmployee,
+  updateEmployeeAttendanceSchedule,
+} from "@/app/(admin)/admin/employees/actions";
 import { Select } from "@/components/ui/select";
 import {
   DepartmentMultiSelect,
@@ -32,6 +35,11 @@ export interface EditEmployeeDialogProps {
     whatsappOptedIn: boolean;
     managerId?: string | null;
     attendanceBiometricExempt: boolean;
+    weeklyOff: number;
+    attOfficialStart: string | null;
+    attLateAfter: string | null;
+    attOfficialEnd: string | null;
+    attEarlyBefore: string | null;
   };
   isSelf: boolean;
   departmentOptions: DepartmentOption[];
@@ -43,6 +51,23 @@ function sameSet(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   const sb = new Set(b);
   return a.every((x) => sb.has(x));
+}
+
+const WEEKDAY_OPTIONS = [
+  { value: "0", label: "Sunday" },
+  { value: "1", label: "Monday" },
+  { value: "2", label: "Tuesday" },
+  { value: "3", label: "Wednesday" },
+  { value: "4", label: "Thursday" },
+  { value: "5", label: "Friday" },
+  { value: "6", label: "Saturday" },
+];
+
+/** Postgres `time` columns can read back as "HH:mm:ss"; trim to "HH:mm" so the
+ *  native time input accepts them. Null stays "". */
+function toHHmm(v: string | null): string {
+  if (!v) return "";
+  return v.slice(0, 5);
 }
 
 export function EditEmployeeDialog({
@@ -68,8 +93,15 @@ export function EditEmployeeDialog({
   const [waPhone, setWaPhone]   = useState(employee.whatsappPhone ?? "");
   const [waOptIn, setWaOptIn]   = useState(employee.whatsappOptedIn);
   const [bioExempt, setBioExempt] = useState(employee.attendanceBiometricExempt);
+  const [weeklyOff, setWeeklyOff] = useState<number>(employee.weeklyOff);
+  const [offStart, setOffStart]   = useState(toHHmm(employee.attOfficialStart));
+  const [lateAfter, setLateAfter] = useState(toHHmm(employee.attLateAfter));
+  const [offEnd, setOffEnd]       = useState(toHHmm(employee.attOfficialEnd));
+  const [earlyBefore, setEarlyBefore] = useState(toHHmm(employee.attEarlyBefore));
   const [error, setError]       = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [schedError, setSchedError] = useState<string | null>(null);
+  const [schedPending, startSchedTransition] = useTransition();
 
   // Re-sync local state whenever the dialog opens for a (possibly different)
   // employee — otherwise stale values bleed across rows.
@@ -88,7 +120,13 @@ export function EditEmployeeDialog({
       setWaPhone(employee.whatsappPhone ?? "");
       setWaOptIn(employee.whatsappOptedIn);
       setBioExempt(employee.attendanceBiometricExempt);
+      setWeeklyOff(employee.weeklyOff);
+      setOffStart(toHHmm(employee.attOfficialStart));
+      setLateAfter(toHHmm(employee.attLateAfter));
+      setOffEnd(toHHmm(employee.attOfficialEnd));
+      setEarlyBefore(toHHmm(employee.attEarlyBefore));
       setError(null);
+      setSchedError(null);
     }
     // employee.departments is a fresh array per render; key on id only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -102,6 +140,11 @@ export function EditEmployeeDialog({
     employee.whatsappPhone,
     employee.whatsappOptedIn,
     employee.attendanceBiometricExempt,
+    employee.weeklyOff,
+    employee.attOfficialStart,
+    employee.attLateAfter,
+    employee.attOfficialEnd,
+    employee.attEarlyBefore,
   ]);
 
   function onSubmit(e: React.FormEvent) {
@@ -155,6 +198,26 @@ export function EditEmployeeDialog({
       }
       fireToast({ message: `${trimmedName || employee.name} updated.` });
       onOpenChange(false);
+    });
+  }
+
+  function onSaveSchedule() {
+    setSchedError(null);
+    startSchedTransition(async () => {
+      const res = await updateEmployeeAttendanceSchedule({
+        employeeId: employee.id,
+        weeklyOff,
+        // "" clears the override back to the company default.
+        attOfficialStart: offStart || null,
+        attLateAfter: lateAfter || null,
+        attOfficialEnd: offEnd || null,
+        attEarlyBefore: earlyBefore || null,
+      });
+      if (!res.ok) {
+        setSchedError(res.error ?? "Could not save schedule.");
+        return;
+      }
+      fireToast({ message: `${employee.name}'s attendance schedule saved.` });
     });
   }
 
@@ -280,6 +343,62 @@ export function EditEmployeeDialog({
                 {error}
               </div>
             )}
+
+            {/* ── Attendance schedule (Task A5) ─────────────────────────────
+                Saved independently of the main form via its own action so an
+                admin can tweak just the schedule without re-submitting the
+                identity fields. */}
+            <div className="pt-4 mt-2 border-t border-[#E2E8F0]">
+              <div className="text-[14px] font-semibold text-[#0F172A]">
+                Attendance schedule
+              </div>
+              <p className="text-[13px] text-[#64748B] mt-0.5" style={{ lineHeight: 1.5 }}>
+                Leave the times blank to use the company defaults
+                (late after 10:50, leave before 19:20).
+              </p>
+              <div className="mt-3 space-y-4">
+                <Field label="Weekly off">
+                  <Select
+                    value={String(weeklyOff)}
+                    onValueChange={(v) => setWeeklyOff(Number(v))}
+                    options={WEEKDAY_OPTIONS}
+                  />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Official start">
+                    <TimeInput value={offStart} onChange={setOffStart} placeholder="10:00" />
+                  </Field>
+                  <Field label="Late after">
+                    <TimeInput value={lateAfter} onChange={setLateAfter} placeholder="10:50" />
+                  </Field>
+                  <Field label="Official end">
+                    <TimeInput value={offEnd} onChange={setOffEnd} placeholder="19:00" />
+                  </Field>
+                  <Field label="Early before">
+                    <TimeInput value={earlyBefore} onChange={setEarlyBefore} placeholder="19:20" />
+                  </Field>
+                </div>
+                {schedError && (
+                  <div
+                    role="alert"
+                    className="rounded-md border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-[14px] text-[#A80400]"
+                  >
+                    {schedError}
+                  </div>
+                )}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={onSaveSchedule}
+                    disabled={schedPending}
+                    className="rounded-md py-2 px-4 text-[14px] font-medium text-[#0F172A] border border-[#CBD5E1] bg-white hover:border-[#94A3B8] transition-colors disabled:opacity-50"
+                  >
+                    {schedPending ? "Saving…" : "Save schedule"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-end gap-2 pt-2">
               <Dialog.Close asChild>
                 <button
@@ -312,5 +431,25 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <label className="block text-[14px] font-semibold text-[#0F172A] mb-1.5">{label}</label>
       {children}
     </div>
+  );
+}
+
+function TimeInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <input
+      type="time"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full rounded-md border border-[#CBD5E1] px-3 py-2.5 text-[15px] tabular-nums"
+    />
   );
 }

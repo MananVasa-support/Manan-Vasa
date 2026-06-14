@@ -25,6 +25,11 @@ const TITLES: Record<NotificationKind, (actor: string) => string> = {
   cancelled: (a) => `${a} cancelled a task`,
   commented: (a) => `${a} commented on your task`,
   overdue_digest: () => `You have overdue tasks`,
+  // Attendance Phase A — inbox-only kinds.
+  attendance_late: () => `Late check-in recorded`,
+  attendance_late_waived: () => `Late check-in waived`,
+  attendance_half_day: () => `Half day recorded`,
+  attendance_device: () => `New device used for attendance`,
 };
 
 export interface PushCtx {
