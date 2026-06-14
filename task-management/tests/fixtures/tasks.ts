@@ -29,6 +29,12 @@ function profileV2Defaults() {
     googleRefreshToken: null as string | null,
     googleEmail: null as string | null,
     googleConnectedAt: null as Date | null,
+    // Attendance Phase A (migration 0058).
+    weeklyOff: 0,
+    attOfficialStart: null as string | null,
+    attLateAfter: null as string | null,
+    attOfficialEnd: null as string | null,
+    attEarlyBefore: null as string | null,
   };
 }
 

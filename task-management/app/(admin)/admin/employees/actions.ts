@@ -24,6 +24,10 @@ import {
   type InviteEmployeeInput,
   type EditEmployeeInput,
 } from "@/lib/validators/employee";
+import {
+  UpdateEmployeeSchedule,
+  type UpdateEmployeeScheduleInput,
+} from "@/lib/validators/attendance";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
 import {
   sendInviteEmail,
@@ -420,6 +424,75 @@ export async function editEmployee(
   }
 
   revalidatePath("/admin/employees");
+  updateTag(CACHE_TAGS.employees);
+  return { ok: true };
+}
+
+/**
+ * Set an employee's attendance schedule (Task A5): their weekly-off day plus
+ * the four optional time overrides. An empty-string / null override CLEARS the
+ * column back to the company default. Admin-only. Audited; revalidates the
+ * employees + attendance-dashboard surfaces.
+ */
+export async function updateEmployeeAttendanceSchedule(
+  input: UpdateEmployeeScheduleInput,
+): Promise<{ ok: boolean; error?: string }> {
+  const me = await requireAdmin();
+
+  const parsed = UpdateEmployeeSchedule.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const emp = await db.query.employees.findFirst({
+    where: eq(employees.id, parsed.data.employeeId),
+  });
+  if (!emp) return { ok: false, error: "Employee not found." };
+
+  // Normalise "" → null so a cleared override falls back to the org default.
+  const norm = (v: string | null | undefined): string | null =>
+    v == null || v === "" ? null : v;
+
+  const patch = {
+    weeklyOff: parsed.data.weeklyOff,
+    attOfficialStart: norm(parsed.data.attOfficialStart),
+    attLateAfter: norm(parsed.data.attLateAfter),
+    attOfficialEnd: norm(parsed.data.attOfficialEnd),
+    attEarlyBefore: norm(parsed.data.attEarlyBefore),
+  };
+
+  try {
+    await db.update(employees).set(patch).where(eq(employees.id, emp.id));
+  } catch (err: any) {
+    return { ok: false, error: `DB: ${err?.message ?? err}` };
+  }
+
+  try {
+    const fromValue: Record<string, unknown> = {};
+    const toValue: Record<string, unknown> = {};
+    for (const key of Object.keys(patch) as Array<keyof typeof patch>) {
+      const prev = (emp as Record<string, unknown>)[key as string] ?? null;
+      const next = patch[key] ?? null;
+      if (prev !== next) {
+        fromValue[key as string] = prev;
+        toValue[key as string] = next;
+      }
+    }
+    if (Object.keys(toValue).length > 0) {
+      await db.insert(employeeEvents).values({
+        employeeId: emp.id,
+        actorId: me.id,
+        eventType: "edited",
+        fromValue,
+        toValue,
+      });
+    }
+  } catch (err) {
+    console.error("[updateEmployeeAttendanceSchedule] audit write failed", err);
+  }
+
+  revalidatePath("/admin/employees");
+  revalidatePath("/attendance/dashboard");
   updateTag(CACHE_TAGS.employees);
   return { ok: true };
 }

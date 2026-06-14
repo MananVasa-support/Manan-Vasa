@@ -206,6 +206,16 @@ export type AgeBucketId = (typeof AGE_BUCKETS)[number]["id"];
 export const ATTENDANCE_KINDS = ["in", "out"] as const;
 export type AttendanceKind = (typeof ATTENDANCE_KINDS)[number];
 
+// Attendance (Phase A). Holiday/HP/H-H-D/PL/LWP codes arrive in later phases.
+export const ATTENDANCE_CODES = ["P","H/D","A","W/O","incomplete"] as const;
+export type AttendanceCode = (typeof ATTENDANCE_CODES)[number];
+export const ATTENDANCE_CODE_VALUES: Record<AttendanceCode, number> = { "P":1, "H/D":0.5, "A":0, "W/O":1, "incomplete":0 };
+export const ATTENDANCE_CODE_LABELS: Record<AttendanceCode, string> = { "P":"Present", "H/D":"Half Day", "A":"Absent", "W/O":"Weekly Off", "incomplete":"No Check-out" };
+export const PUNCH_SOURCES = ["self","admin"] as const;
+export type PunchSource = (typeof PUNCH_SOURCES)[number];
+export const PUNCH_REASONS = ["client_visit","wfh","forgot","correction"] as const;
+export type PunchReason = (typeof PUNCH_REASONS)[number];
+
 export const INCENTIVE_TYPES = [
   "bss_conversion",
   "sales_pitch",

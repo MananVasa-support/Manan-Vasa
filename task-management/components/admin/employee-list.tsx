@@ -292,6 +292,11 @@ export function EmployeeList({
                         whatsappOptedIn: e.whatsappOptedIn,
                         managerId: e.managerId,
                         attendanceBiometricExempt: e.attendanceBiometricExempt,
+                        weeklyOff: e.weeklyOff,
+                        attOfficialStart: e.attOfficialStart,
+                        attLateAfter: e.attLateAfter,
+                        attOfficialEnd: e.attOfficialEnd,
+                        attEarlyBefore: e.attEarlyBefore,
                       }}
                       isSelf={e.id === currentEmployeeId}
                       departmentOptions={departmentOptions}

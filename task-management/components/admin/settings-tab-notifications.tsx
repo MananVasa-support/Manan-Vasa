@@ -21,6 +21,11 @@ const KIND_LABEL: Record<NotificationKind, string> = {
   cancelled:      "Cancelled",
   commented:      "Comment posted",
   overdue_digest: "Daily overdue digest",
+  // Attendance Phase A — inbox-only kinds.
+  attendance_late:        "Attendance: late check-in",
+  attendance_late_waived: "Attendance: late waived",
+  attendance_half_day:    "Attendance: half day",
+  attendance_device:      "Attendance: new device",
 };
 
 const CHANNEL_LABEL: Record<NotificationChannel, string> = {

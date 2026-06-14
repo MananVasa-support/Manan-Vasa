@@ -26,6 +26,11 @@ const EMOJI: Record<NotificationKind, string> = {
   cancelled: ":wastebasket:",
   commented: ":speech_balloon:",
   overdue_digest: ":warning:",
+  // Attendance Phase A — inbox-only kinds.
+  attendance_late: ":hourglass:",
+  attendance_late_waived: ":white_check_mark:",
+  attendance_half_day: ":clock5:",
+  attendance_device: ":iphone:",
 };
 
 const VERB: Record<NotificationKind, (actor: string, statusLabel?: string) => string> = {
@@ -42,6 +47,11 @@ const VERB: Record<NotificationKind, (actor: string, statusLabel?: string) => st
   cancelled: (a) => `${a} cancelled a task`,
   commented: (a) => `${a} commented on your task`,
   overdue_digest: () => `You have overdue tasks`,
+  // Attendance Phase A — inbox-only kinds.
+  attendance_late: () => `Late check-in recorded`,
+  attendance_late_waived: () => `Late check-in waived`,
+  attendance_half_day: () => `Half day recorded`,
+  attendance_device: () => `New device used for attendance`,
 };
 
 export interface SlackCtx {

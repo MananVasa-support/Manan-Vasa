@@ -1,6 +1,6 @@
 "use client";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ListTodo, CalendarDays, FolderKanban, SquareKanban, Target, CalendarCheck, Award, IndianRupee } from "lucide-react";
+import { LayoutDashboard, ListTodo, CalendarDays, FolderKanban, SquareKanban, Target, CalendarCheck, CalendarRange, Award, IndianRupee } from "lucide-react";
 import type { Route } from "next";
 import { MainNavPill } from "./main-nav-pill";
 
@@ -78,8 +78,21 @@ export function MainNav({ activeTasks, isAdmin, variant }: Props) {
         href={"/attendance" as Route}
         label="Attendance"
         Icon={CalendarCheck}
-        active={isActive("/attendance")}
+        active={
+          isActive("/attendance") &&
+          !pathname.startsWith("/attendance/dashboard")
+        }
         variant={variant}      />
+      {/* Admin-only monthly attendance report (Task A6). */}
+      {isAdmin && (
+        <MainNavPill
+          href={"/attendance/dashboard" as Route}
+          label="Att Report"
+          Icon={CalendarRange}
+          active={pathname.startsWith("/attendance/dashboard")}
+          variant={variant}
+        />
+      )}
       <MainNavPill
         href={"/incentive" as Route}
         label="Incentive"

@@ -52,6 +52,11 @@ type RowEmployee = {
   whatsappOptedIn: boolean;
   managerId: string | null;
   attendanceBiometricExempt: boolean;
+  weeklyOff: number;
+  attOfficialStart: string | null;
+  attLateAfter: string | null;
+  attOfficialEnd: string | null;
+  attEarlyBefore: string | null;
 };
 
 interface Props {
@@ -264,6 +269,11 @@ export function EmployeeRowActions({
           whatsappOptedIn: employee.whatsappOptedIn,
           managerId: employee.managerId,
           attendanceBiometricExempt: employee.attendanceBiometricExempt,
+          weeklyOff: employee.weeklyOff,
+          attOfficialStart: employee.attOfficialStart,
+          attLateAfter: employee.attLateAfter,
+          attOfficialEnd: employee.attOfficialEnd,
+          attEarlyBefore: employee.attEarlyBefore,
         }}
         isSelf={isSelf}
         departmentOptions={departmentOptions}
