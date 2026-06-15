@@ -7,6 +7,9 @@ import {
   outstandingEntitiesTbl,
   outstandingPaymentModes,
   outstandingResponsibles,
+  designations,
+  payingEntities,
+  employees,
 } from "@/db/schema";
 
 export interface RosterOption {
@@ -165,6 +168,52 @@ export async function listOutstandingPaymentModesWithCounts(): Promise<
       eq(outstandingContracts.expectedModeId, outstandingPaymentModes.id),
     )
     .groupBy(outstandingPaymentModes.id);
+  return rows.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  );
+}
+
+/**
+ * Every designation (active + inactive) plus a count of employees referencing
+ * it via designation_id. Backs the /admin/designations roster table.
+ */
+export async function listDesignationsWithCounts(): Promise<
+  RosterRowWithCount[]
+> {
+  const rows = await db
+    .select({
+      id: designations.id,
+      name: designations.name,
+      isActive: designations.isActive,
+      sortOrder: designations.sortOrder,
+      usageCount: sql<number>`count(${employees.id})::int`,
+    })
+    .from(designations)
+    .leftJoin(employees, eq(employees.designationId, designations.id))
+    .groupBy(designations.id);
+  return rows.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  );
+}
+
+/**
+ * Every paying entity (active + inactive) plus a count of employees referencing
+ * it via paying_entity_id. Backs the /admin/paying-entities roster table.
+ */
+export async function listPayingEntitiesWithCounts(): Promise<
+  RosterRowWithCount[]
+> {
+  const rows = await db
+    .select({
+      id: payingEntities.id,
+      name: payingEntities.name,
+      isActive: payingEntities.isActive,
+      sortOrder: payingEntities.sortOrder,
+      usageCount: sql<number>`count(${employees.id})::int`,
+    })
+    .from(payingEntities)
+    .leftJoin(employees, eq(employees.payingEntityId, payingEntities.id))
+    .groupBy(payingEntities.id);
   return rows.sort((a, b) =>
     a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
   );

@@ -37,6 +37,9 @@ function profileV2Defaults() {
     attEarlyBefore: null as string | null,
     // Attendance Phase B (migration 0060).
     probationEnd: null as string | null,
+    // Salary module (migration 0062).
+    designationId: null as string | null,
+    payingEntityId: null as string | null,
   };
 }
 

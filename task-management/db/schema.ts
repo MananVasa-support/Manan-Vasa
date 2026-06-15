@@ -31,6 +31,34 @@ export const employeeRoleEnum = pgEnum("employee_role", EMPLOYEE_ROLES);
 export const taskPriorityEnum = pgEnum("task_priority", TASK_PRIORITIES);
 export const approvalStatusEnum = pgEnum("approval_status", APPROVAL_STATUSES);
 
+// Salary module (migration 0062) — admin-managed rosters referenced by the
+// employees FKs below. Declared first so the FK callbacks resolve cleanly.
+export const designations = pgTable(
+  "designations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull().unique(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("designations_active_name_idx").on(t.isActive, t.name)],
+);
+
+export const payingEntities = pgTable(
+  "paying_entities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull().unique(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("paying_entities_active_name_idx").on(t.isActive, t.name)],
+);
+
 export const employees = pgTable("employees", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
@@ -114,6 +142,13 @@ export const employees = pgTable("employees", {
     onDelete: "set null",
   }),
   managerId: uuid("manager_id").references((): AnyPgColumn => employees.id, {
+    onDelete: "set null",
+  }),
+  // Salary module (migration 0062) — admin-managed roster FKs.
+  designationId: uuid("designation_id").references(() => designations.id, {
+    onDelete: "set null",
+  }),
+  payingEntityId: uuid("paying_entity_id").references(() => payingEntities.id, {
     onDelete: "set null",
   }),
   // Profile v2 (migration 0038) — mention escalation override scalar.
@@ -1429,3 +1464,122 @@ export type OutstandingCollection = typeof outstandingCollections.$inferSelect;
 export type NewOutstandingCollection = typeof outstandingCollections.$inferInsert;
 export type OutstandingAttachment = typeof outstandingAttachments.$inferSelect;
 export type NewOutstandingAttachment = typeof outstandingAttachments.$inferInsert;
+
+// ── Salary module (migration 0062) ─────────────────────────────────────────
+// Per-employee salary profiles, monthly salary runs, advances, policy and
+// policy-consent records. Money is numeric(14,2) rupees (house style), read as
+// strings. The designations/paying_entities rosters are declared above (near
+// employees) so the employees FKs resolve.
+
+export const salaryProfiles = pgTable("salary_profiles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  employeeId: uuid("employee_id")
+    .notNull()
+    .unique()
+    .references(() => employees.id, { onDelete: "cascade" }),
+  annualCtc: numeric("annual_ctc", { precision: 14, scale: 2 }).notNull().default("0"),
+  tdsMonthly: numeric("tds_monthly", { precision: 14, scale: 2 }).notNull().default("0"),
+  ptExempt: boolean("pt_exempt").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const salaryAdvances = pgTable(
+  "salary_advances",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    advanceDate: date("advance_date").notNull(),
+    fy: text("fy").notNull(),
+    month: text("month").notNull(),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    note: text("note"),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("salary_advances_emp_month_idx").on(t.employeeId, t.month)],
+);
+
+export const salaryRuns = pgTable(
+  "salary_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    fy: text("fy").notNull(),
+    month: text("month").notNull(),
+    annualCtc: numeric("annual_ctc", { precision: 14, scale: 2 }).notNull(),
+    daysInMonth: integer("days_in_month").notNull(),
+    payableDays: numeric("payable_days", { precision: 6, scale: 2 }).notNull(),
+    lateMarks: integer("late_marks").notNull().default(0),
+    lateDeductionDays: numeric("late_deduction_days", { precision: 6, scale: 2 })
+      .notNull()
+      .default("0"),
+    gross: numeric("gross", { precision: 14, scale: 2 }).notNull(),
+    pt: numeric("pt", { precision: 14, scale: 2 }).notNull().default("0"),
+    tds: numeric("tds", { precision: 14, scale: 2 }).notNull().default("0"),
+    advances: numeric("advances", { precision: 14, scale: 2 }).notNull().default("0"),
+    pendingBalanceIn: numeric("pending_balance_in", { precision: 14, scale: 2 })
+      .notNull()
+      .default("0"),
+    netPayable: numeric("net_payable", { precision: 14, scale: 2 }).notNull(),
+    disbursed: boolean("disbursed").notNull().default(false),
+    disbursedAmount: numeric("disbursed_amount", { precision: 14, scale: 2 }),
+    approvedById: uuid("approved_by_id").references(() => employees.id, { onDelete: "set null" }),
+    generatedById: uuid("generated_by_id").references(() => employees.id, { onDelete: "set null" }),
+    source: text("source").notNull().default("generated"),
+    importBatchId: uuid("import_batch_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("salary_runs_emp_month_uq").on(t.employeeId, t.month),
+    index("salary_runs_month_idx").on(t.month),
+    index("salary_runs_import_batch_idx").on(t.importBatchId),
+  ],
+);
+
+export const salaryPolicies = pgTable("salary_policies", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  version: text("version").notNull(),
+  storagePath: text("storage_path").notNull(),
+  uploadedById: uuid("uploaded_by_id").references(() => employees.id, { onDelete: "set null" }),
+  isCurrent: boolean("is_current").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const salaryPolicyConsents = pgTable(
+  "salary_policy_consents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    policyVersion: text("policy_version").notNull(),
+    signedAt: timestamp("signed_at", { withTimezone: true }).notNull().defaultNow(),
+    signatureKind: text("signature_kind").notNull(),
+    signaturePath: text("signature_path").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("salary_policy_consents_emp_version_uq").on(t.employeeId, t.policyVersion),
+  ],
+);
+
+export type Designation = typeof designations.$inferSelect;
+export type NewDesignation = typeof designations.$inferInsert;
+export type PayingEntity = typeof payingEntities.$inferSelect;
+export type NewPayingEntity = typeof payingEntities.$inferInsert;
+export type SalaryProfile = typeof salaryProfiles.$inferSelect;
+export type NewSalaryProfile = typeof salaryProfiles.$inferInsert;
+export type SalaryAdvance = typeof salaryAdvances.$inferSelect;
+export type NewSalaryAdvance = typeof salaryAdvances.$inferInsert;
+export type SalaryRun = typeof salaryRuns.$inferSelect;
+export type NewSalaryRun = typeof salaryRuns.$inferInsert;
+export type SalaryPolicy = typeof salaryPolicies.$inferSelect;
+export type NewSalaryPolicy = typeof salaryPolicies.$inferInsert;
+export type SalaryPolicyConsent = typeof salaryPolicyConsents.$inferSelect;
+export type NewSalaryPolicyConsent = typeof salaryPolicyConsents.$inferInsert;

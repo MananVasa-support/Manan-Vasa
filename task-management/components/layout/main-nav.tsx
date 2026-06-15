@@ -93,6 +93,16 @@ export function MainNav({ activeTasks, isAdmin, variant }: Props) {
           variant={variant}
         />
       )}
+      {/* Admin-only salary report (Phase C). */}
+      {isAdmin && (
+        <MainNavPill
+          href={"/salary" as Route}
+          label="Salary"
+          Icon={IndianRupee}
+          active={isActive("/salary")}
+          variant={variant}
+        />
+      )}
       <MainNavPill
         href={"/incentive" as Route}
         label="Incentive"
