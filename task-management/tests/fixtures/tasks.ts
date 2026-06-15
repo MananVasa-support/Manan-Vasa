@@ -167,6 +167,9 @@ function task(partial: Partial<Task>): Task {
     recurrenceParentId: partial.recurrenceParentId ?? null,
     recurrenceOccurrenceDate: partial.recurrenceOccurrenceDate ?? null,
     projectNodeId: partial.projectNodeId ?? null,
+    // Search infra (migration 0061) — DB-generated STORED column. Test
+    // fixtures never exercise it; default null keeps the select shape valid.
+    searchText: partial.searchText ?? null,
   };
 }
 

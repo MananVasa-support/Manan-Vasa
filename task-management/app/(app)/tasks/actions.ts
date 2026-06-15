@@ -53,17 +53,6 @@ import {
 } from "@/lib/notifications/dispatch";
 import { deriveShortId, nextShortIdCandidate } from "@/lib/import/short-id";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
-import { searchTasks, type TaskSearchResult } from "@/lib/queries/task-search";
-
-/**
- * sir's changes #12 — app-wide task search for the header command palette.
- * Auth-gated (signed-in users only); returns up to 20 freshest matches.
- */
-export async function searchTasksAction(query: string): Promise<TaskSearchResult[]> {
-  await requireUser();
-  if (typeof query !== "string" || query.trim().length < 2) return [];
-  return searchTasks(query);
-}
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
