@@ -17,8 +17,10 @@ import {
   type Employee,
   type NotificationKind,
 } from "@/db/schema";
+import type { PunchReason } from "@/db/enums";
 import { notify } from "@/lib/notifications/dispatch";
 import { requireUser, requireAdmin } from "@/lib/auth/current";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { localDateString } from "@/lib/format";
 import { distanceMeters } from "@/lib/geo";
@@ -418,8 +420,33 @@ export async function adminUpsertPunch(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { employeeId, logDate, kind, timeHHmm, reason } = parsed.data;
+  return upsertPunchCore(me.id, parsed.data);
+}
 
+/**
+ * Shared upsert body for admin-recorded punches: writes the in/out punch as
+ * `source:"admin"` (`verifyMethod:"none"`, no biometric/geofence), audits it,
+ * fires the day-finalized / late-deduction emails when the day is now
+ * complete, and revalidates. Called by `adminUpsertPunch` (any admin, via the
+ * dashboard day-detail dialog) and `superAdminQuickPunch` (super-admins,
+ * inline on the team list).
+ */
+async function upsertPunchCore(
+  meId: string,
+  {
+    employeeId,
+    logDate,
+    kind,
+    timeHHmm,
+    reason,
+  }: {
+    employeeId: string;
+    logDate: string;
+    kind: "in" | "out";
+    timeHHmm: string;
+    reason: PunchReason;
+  },
+): Promise<ActionResult> {
   const tz = await targetTz(employeeId);
   if (!tz) return { ok: false, error: "Employee not found." };
   const loggedAt = zonedWallClockToUtc(logDate, timeHHmm, tz);
@@ -434,7 +461,7 @@ export async function adminUpsertPunch(
         loggedAt,
         source: "admin",
         reason,
-        recordedById: me.id,
+        recordedById: meId,
         verifyMethod: "none",
       })
       .onConflictDoUpdate({
@@ -447,7 +474,7 @@ export async function adminUpsertPunch(
           loggedAt,
           source: "admin",
           reason,
-          recordedById: me.id,
+          recordedById: meId,
           verifyMethod: "none",
         },
       });
@@ -456,7 +483,7 @@ export async function adminUpsertPunch(
     return { ok: false, error: `DB: ${msg}` };
   }
 
-  await auditPunch(me.id, employeeId, "attendance_punch_upsert", {
+  await auditPunch(meId, employeeId, "attendance_punch_upsert", {
     logDate,
     kind,
     timeHHmm,
@@ -471,6 +498,42 @@ export async function adminUpsertPunch(
   }
   revalidateAttendanceAdmin();
   return { ok: true };
+}
+
+/**
+ * Inline team-list quick punch — super-admins (Hetesh / Manan) only, TODAY
+ * only. Stamps an employee's in/out for the current day at a super-admin-typed
+ * time. The reason is fixed to "correction" so the UI stays decoupled from the
+ * reason enum; everything else (audit, emails, source:"admin") flows through
+ * `upsertPunchCore`. Guarded on BOTH super-admin and today so a crafted call
+ * for another admin or a past date is refused.
+ */
+export async function superAdminQuickPunch(
+  input: unknown,
+): Promise<ActionResult> {
+  const me = await requireAdmin();
+  if (!isSuperAdmin(me.email)) {
+    return { ok: false, error: "Only super-admins can mark attendance here." };
+  }
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  // Inject the fixed reason before parsing the strict schema (the client only
+  // sends employeeId / logDate / kind / timeHHmm).
+  const withReason =
+    typeof input === "object" && input !== null
+      ? { ...(input as Record<string, unknown>), reason: "correction" }
+      : input;
+  const parsed = AdminUpsertPunch.safeParse(withReason);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const tz = me.timezone || "Asia/Kolkata";
+  if (parsed.data.logDate !== localDateString(tz)) {
+    return { ok: false, error: "Quick punch is for today only." };
+  }
+  return upsertPunchCore(me.id, parsed.data);
 }
 
 /**

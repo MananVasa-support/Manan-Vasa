@@ -3,8 +3,10 @@ import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { PunchCard } from "@/components/attendance/punch-card";
 import { TeamDatePicker } from "@/components/attendance/team-date-picker";
+import { TeamPunchButton } from "@/components/attendance/team-punch-button";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { requireUser } from "@/lib/auth/current";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import {
   listMyAttendance,
   listTeamAttendanceForDate,
@@ -92,7 +94,12 @@ export default async function AttendancePage({ searchParams }: PageProps) {
         <MyLog days={myDays} tz={tz} />
 
         {team && (
-          <TeamSection team={team} date={teamDate} tz={tz} />
+          <TeamSection
+            team={team}
+            date={teamDate}
+            tz={tz}
+            canQuickPunch={isSuperAdmin(me.email) && teamDate === today}
+          />
         )}
       </main>
       <DashboardFooter />
@@ -195,10 +202,13 @@ function TeamSection({
   team,
   date,
   tz,
+  canQuickPunch,
 }: {
   team: TeamAttendanceRow[];
   date: string;
   tz: string;
+  /** Super-admin viewing today — show inline Check in / Check out controls. */
+  canQuickPunch: boolean;
 }) {
   const present = team.filter((r) => r.in).length;
   return (
@@ -243,6 +253,14 @@ function TeamSection({
               <td className="py-2.5 pr-3 tabular-nums">
                 {r.in ? (
                   <PunchTime punch={r.in} tz={tz} />
+                ) : canQuickPunch ? (
+                  <TeamPunchButton
+                    employeeId={r.employeeId}
+                    logDate={date}
+                    kind="in"
+                    name={r.name}
+                    tz={tz}
+                  />
                 ) : (
                   <span
                     className="rounded-pill px-2 py-0.5 text-[12px] font-semibold"
@@ -256,7 +274,19 @@ function TeamSection({
                 )}
               </td>
               <td className="py-2.5 pr-3 tabular-nums text-ink-soft">
-                <PunchTime punch={r.out} tz={tz} />
+                {r.out ? (
+                  <PunchTime punch={r.out} tz={tz} />
+                ) : canQuickPunch && r.in ? (
+                  <TeamPunchButton
+                    employeeId={r.employeeId}
+                    logDate={date}
+                    kind="out"
+                    name={r.name}
+                    tz={tz}
+                  />
+                ) : (
+                  <PunchTime punch={r.out} tz={tz} />
+                )}
               </td>
               <td className="py-2.5 text-ink-subtle max-md:hidden">
                 {[r.in?.note, r.out?.note].filter(Boolean).join(" · ") || ""}

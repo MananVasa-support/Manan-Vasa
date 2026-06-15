@@ -125,27 +125,20 @@ export function TaskListPage({
 
   return (
     <main className="mx-auto max-w-[1600px] px-12 max-md:px-4 pt-8 pb-16">
-      <header className="mb-7 flex items-start justify-between gap-4 flex-wrap">
+      <header className="mb-4 flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1
             className="text-ink-strong"
             style={{
               fontFamily: "var(--font-display), system-ui, sans-serif",
               fontWeight: 900,
-              fontSize: "clamp(40px, 4.2vw, 56px)",
+              fontSize: "clamp(34px, 3.4vw, 46px)",
               letterSpacing: "-0.025em",
               lineHeight: 1,
             }}
           >
             {title}
           </h1>
-          <p
-            className="mt-2 text-ink-muted tabular-nums font-semibold"
-            style={{ fontSize: 18 }}
-          >
-            {rows.length} {rows.length === 1 ? "task" : "tasks"} match your
-            current filter
-          </p>
         </div>
         {me.isAdmin && (
           <Link
@@ -166,7 +159,7 @@ export function TaskListPage({
       {/* KPI summary — 4 stat cards in the same visual language as the
           main dashboard tiles. Each card has a top channel-color bar,
           font-black label, big count, sublabel. */}
-      <div className="mb-7 grid grid-cols-6 gap-3 max-xl:grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1">
+      <div className="mb-4 grid grid-cols-6 gap-3 max-xl:grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1">
         {KPI_SPECS.map((spec) => {
           // notApproved + notRead don't map to the status/priority filter
           // dimensions, so they're display-only (not click-to-filter).
@@ -251,14 +244,14 @@ function StatCard({
         boxShadow: active
           ? `0 0 0 3px color-mix(in srgb, var(--color-${spec.tone}) 16%, transparent)`
           : "0 1px 3px rgba(15, 23, 42, 0.04)",
-        padding: "14px 16px 13px",
+        padding: "10px 14px 10px",
       }}
     >
       <span
         aria-hidden
         className="absolute inset-x-0 top-0"
         style={{
-          height: 5,
+          height: 4,
           background: `linear-gradient(90deg, var(--color-${spec.tone}), var(--color-${spec.tone}-deep))`,
         }}
       />
@@ -266,37 +259,37 @@ function StatCard({
           the white card's readability. */}
       <span
         aria-hidden
-        className="absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110"
+        className="absolute right-2.5 top-2.5 inline-flex size-7 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-110"
         style={{
           background: `color-mix(in srgb, var(--color-${spec.tone}) 14%, transparent)`,
           color: `var(--color-${spec.tone}-deep)`,
         }}
       >
-        <Icon size={16} strokeWidth={2.3} />
+        <Icon size={15} strokeWidth={2.3} />
       </span>
       <span
         className="uppercase font-black tracking-[0.08em] leading-none"
         style={{
           fontFamily: "var(--font-display), system-ui, sans-serif",
-          fontSize: 12,
+          fontSize: 11.5,
           color: `var(--color-${spec.tone}-deep)`,
         }}
       >
         {spec.label}
       </span>
       <span
-        className="block mt-2 leading-[0.85] tracking-[-0.035em] tabular-nums text-ink-strong"
+        className="block mt-1 leading-[0.85] tracking-[-0.035em] tabular-nums text-ink-strong"
         style={{
           fontFamily: "var(--font-display), system-ui, sans-serif",
           fontWeight: 900,
-          fontSize: "clamp(28px, 2.2vw, 40px)",
+          fontSize: "clamp(25px, 1.9vw, 33px)",
         }}
       >
         {value}
       </span>
       <span
-        className="block mt-2 font-bold leading-tight"
-        style={{ fontSize: 12, color: "var(--color-ink-soft)" }}
+        className="block mt-1 font-bold leading-tight"
+        style={{ fontSize: 11.5, color: "var(--color-ink-soft)" }}
       >
         {spec.sublabel}
       </span>
