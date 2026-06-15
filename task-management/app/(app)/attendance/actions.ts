@@ -23,7 +23,7 @@ import { requireUser, requireAdmin } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { localDateString } from "@/lib/format";
-import { distanceMeters } from "@/lib/geo";
+import { distanceMeters, evaluateGeofence } from "@/lib/geo";
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import {
   companyDefaults,
@@ -53,14 +53,11 @@ type ActionResult<T = unknown> =
   | ({ ok: true } & T)
   | { ok: false; error: string };
 
-// A GPS fix worse than this is treated as "no fix" — accepting a ±2km blob
-// would make the 100m geofence meaningless.
-const MAX_ACCURACY_M = 250;
-
 const PunchSchema = z
   .object({
     kind: z.enum(["in", "out"]),
     note: z.string().trim().max(500).optional(),
+    deviceLabel: z.string().max(120).optional(),
     location: z
       .object({
         lat: z.number().min(-90).max(90),
@@ -86,17 +83,20 @@ export async function punchAttendance(input: {
   note?: string;
   location?: { lat: number; lng: number; accuracyM: number };
   assertion?: AuthenticationResponseJSON;
+  registration?: RegistrationResponseJSON;
+  deviceLabel?: string;
 }): Promise<ActionResult<{ date: string }>> {
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
-  const { assertion, ...rest } = input;
+  // WebAuthn blobs ride alongside the validated fields, not through zod.
+  const { assertion, registration, ...rest } = input;
   const parsed = PunchSchema.safeParse(rest);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { kind, note, location } = parsed.data;
+  const { kind, note, location, deviceLabel } = parsed.data;
 
   // ── Gate 1: geofence ────────────────────────────────────────────────
   // This gate runs for BOTH `kind: "in"` and `kind: "out"` — neither punch is
@@ -111,22 +111,24 @@ export async function punchAttendance(input: {
         error: "Location is required to punch — please allow location access.",
       };
     }
-    if (location.accuracyM > MAX_ACCURACY_M) {
-      return {
-        ok: false,
-        error: `GPS fix too imprecise (±${Math.round(location.accuracyM)}m). Enable precise location and try again.`,
-      };
-    }
     distanceM = distanceMeters(
       location.lat,
       location.lng,
       settings.officeLat!,
       settings.officeLng!,
     );
-    if (distanceM > settings.attendanceRadiusM) {
+    const verdict = evaluateGeofence(
+      distanceM,
+      location.accuracyM,
+      settings.attendanceRadiusM,
+    );
+    if (!verdict.ok) {
       return {
         ok: false,
-        error: `You're ${Math.round(distanceM)}m from the office — punches register only within ${settings.attendanceRadiusM}m.`,
+        error:
+          verdict.reason === "too_imprecise"
+            ? `GPS fix too imprecise (±${Math.round(location.accuracyM)}m). Move near a window or step outside briefly and try again.`
+            : `You're ~${Math.round(verdict.effectiveDistanceM)}m from the office — punches register only within ${settings.attendanceRadiusM}m.`,
       };
     }
   } else if (location) {
@@ -134,35 +136,49 @@ export async function punchAttendance(input: {
     distanceM = null;
   }
 
-  // ── Gate 2: biometric (MANDATORY unless admin-exempted) ─────────────
-  // This is the anti-proxy gate. Without it, an account with no passkey only
-  // needed a GPS fix inside the fence, so a colleague at the office could
-  // punch for an absent person with a shared password. Now: a registered
-  // device + live fingerprint/Face-ID is required. The only bypass is an
-  // admin-set exemption for employees whose phone has no biometric sensor —
-  // they fall back to GPS-only.
+  // ── Gate 2: biometric ───────────────────────────────────────────────
+  // One unified path: an `assertion` proves a returning device; a verified
+  // `registration` (user-verified WebAuthn ceremony) both enrolls a NEW device
+  // and proves presence for THIS punch — so a new phone enrolls + punches in a
+  // single fingerprint/Face-ID prompt. Biometric stays mandatory unless the
+  // admin exempted this employee (no sensor → GPS-only).
   let verifyMethod: "biometric" | "gps_only" = "gps_only";
   let credentialId: string | null = null;
-  const creds = await listCredentials(me.id);
-  if (creds.length > 0) {
-    if (!assertion) {
+  if (assertion) {
+    const verdict = await verifyPunchAssertion(me.id, assertion);
+    if (!verdict.ok) return verdict;
+    verifyMethod = "biometric";
+    credentialId = verdict.credentialId;
+  } else if (registration) {
+    const reg = await verifyAndStoreRegistration(
+      me.id,
+      registration,
+      deviceLabel?.slice(0, 120) ?? null,
+    );
+    if (!reg.ok) return reg;
+    verifyMethod = "biometric";
+    // New device enrolled mid-punch → fire the same admin alert as standalone
+    // setup (best-effort; never blocks the punch).
+    if (reg.isNewDevice) {
+      await alertAdminsNewAttendanceDevice(me, deviceLabel ?? null, reg.deviceCount);
+    }
+  } else {
+    const creds = await listCredentials(me.id);
+    if (creds.length > 0) {
       return {
         ok: false,
         error: "Biometric confirmation required — punch from your own registered device.",
       };
     }
-    const verdict = await verifyPunchAssertion(me.id, assertion);
-    if (!verdict.ok) return verdict;
-    verifyMethod = "biometric";
-    credentialId = verdict.credentialId;
-  } else if (!me.attendanceBiometricExempt) {
-    return {
-      ok: false,
-      error:
-        "Set up biometric punch on your own phone before checking in. (No fingerprint sensor on your device? Ask an admin to enable the exemption.)",
-    };
+    if (!me.attendanceBiometricExempt) {
+      return {
+        ok: false,
+        error:
+          "Use your fingerprint or Face ID to punch from your own phone. (No biometric sensor on your device? Ask an admin to enable the exemption.)",
+      };
+    }
+    // exempt + nothing supplied → GPS-only allowed (verifyMethod stays "gps_only").
   }
-  // exempt + no credential → GPS-only is allowed (verifyMethod stays "gps_only").
 
   const tz = me.timezone || "Asia/Kolkata";
   const today = localDateString(tz);

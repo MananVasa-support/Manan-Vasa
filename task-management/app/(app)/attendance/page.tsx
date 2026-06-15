@@ -14,7 +14,6 @@ import {
   type PunchDetail,
   type TeamAttendanceRow,
 } from "@/lib/queries/attendance";
-import { listCredentials } from "@/lib/webauthn/attendance";
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import { formatTimeInTz, localDateString } from "@/lib/format";
 
@@ -51,11 +50,10 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   const rawDate = typeof sp.date === "string" ? sp.date : today;
   const teamDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : today;
 
-  const [myDays, team, settings, creds] = await Promise.all([
+  const [myDays, team, settings] = await Promise.all([
     listMyAttendance(me.id, since),
     me.isAdmin ? listTeamAttendanceForDate(teamDate) : Promise.resolve(null),
     getOrgSettings(),
-    listCredentials(me.id),
   ]);
 
   const todayRow = myDays.find((d) => d.date === today);
@@ -87,7 +85,6 @@ export default async function AttendancePage({ searchParams }: PageProps) {
           outLabel={todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null}
           tz={tz}
           office={office}
-          hasCredential={creds.length > 0}
           biometricExempt={me.attendanceBiometricExempt}
         />
 
