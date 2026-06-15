@@ -568,6 +568,15 @@ export const tasks = pgTable(
     projectNodeId: uuid("project_node_id").references(() => projectNodes.id, {
       onDelete: "set null",
     }),
+    // Search infra (migration 0061). DB-generated STORED columns — never
+    // written by app code. `searchText` backs the trigram GIN (indexed ILIKE +
+    // fuzzy). Declared here only so drizzle-kit generate stays consistent with
+    // the live DB. The `search_tsv` tsvector column is intentionally NOT
+    // declared as a Drizzle column (no first-class tsvector type); its index
+    // is created by the migration directly.
+    searchText: text("search_text").generatedAlwaysAs(
+      sql`coalesce(title,'') || ' ' || coalesce(description,'') || ' ' || coalesce(client,'') || ' ' || coalesce(subject,'') || ' ' || coalesce(notes,'')`,
+    ),
   },
   (t) => [
     index("tasks_doer_created_idx").on(t.doerId, t.createdAt),
@@ -587,6 +596,9 @@ export const tasks = pgTable(
     index("tasks_approved_by_idx").on(t.approvedById),
     index("tasks_transferred_from_idx").on(t.transferredFromId),
     index("tasks_project_node_idx").on(t.projectNodeId),
+    // Search infra (migration 0061) — trigram GIN backing indexed ILIKE +
+    // fuzzy over the generated `search_text` column.
+    index("tasks_search_trgm_idx").using("gin", t.searchText.asc().op("gin_trgm_ops")),
   ],
 );
 

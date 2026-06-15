@@ -41,6 +41,7 @@ function task(p: Partial<Task>): Task {
     recurrenceParentId: null,
     recurrenceOccurrenceDate: null,
     projectNodeId: null,
+    searchText: null,
     ...p,
   };
 }

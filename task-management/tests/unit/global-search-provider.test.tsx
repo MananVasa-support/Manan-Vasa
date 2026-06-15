@@ -8,8 +8,10 @@ import { Providers } from "@/components/providers";
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
-vi.mock("@/app/(app)/tasks/actions", () => ({
-  searchTasksAction: vi.fn(async () => []),
+vi.mock("@/app/(app)/search/actions", () => ({
+  globalSearchAction: vi.fn(async () => ({
+    tasks: [], clients: [], projects: [], people: [], outstanding: [], documents: [],
+  })),
 }));
 
 import { GlobalSearch } from "@/components/header/global-search";
