@@ -17,6 +17,8 @@ import {
   CreditCard,
   UserCog,
   CalendarDays,
+  BadgeIndianRupee,
+  IdCard,
   Settings as SettingsIcon,
   ArrowLeft,
   LogOut,
@@ -52,6 +54,9 @@ const NAV: ReadonlyArray<NavItem> = [
   { href: "/admin/outstanding-payment-modes" as Route, label: "Outstanding Modes",    icon: CreditCard },
   { href: "/admin/outstanding-responsibles" as Route,  label: "Outstanding Responsibles", icon: UserCog },
   { href: "/admin/holidays" as Route,    label: "Holidays",    icon: CalendarDays },
+  { href: "/admin/salary-profiles" as Route, label: "Salary Profiles", icon: BadgeIndianRupee },
+  { href: "/admin/designations" as Route,    label: "Designations",    icon: IdCard },
+  { href: "/admin/paying-entities" as Route, label: "Paying Entities", icon: Building2 },
   { href: "/admin/settings" as Route,    label: "Settings",    icon: SettingsIcon },
 ];
 
