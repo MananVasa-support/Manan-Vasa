@@ -19,16 +19,24 @@ import {
 } from "@simplewebauthn/browser";
 import { fireToast } from "@/lib/toast";
 import { distanceMeters, evaluateGeofence } from "@/lib/geo";
+import { isAuthenticatorAlreadyRegistered } from "@/lib/webauthn/errors";
 import {
   punchAttendance,
   startBiometricSetup,
   startBiometricPunch,
 } from "@/app/(app)/attendance/actions";
 
-/** Marks (in this browser) that this device has registered a passkey, so the
- *  punch flow authenticates instead of re-enrolling. Set only after a
- *  successful enroll-via-punch on this device. */
+/** Marks (in this browser) that this device has a working passkey, so the punch
+ *  flow goes straight to authenticate instead of attempting a re-enroll. Set
+ *  after ANY successful biometric punch (enroll OR authenticate) so a device
+ *  enrolled on an older build self-heals on its first punch. */
 const ENROLL_KEY = "att_cred_enrolled";
+
+type BioProof = {
+  assertion?: Awaited<ReturnType<typeof startAuthentication>>;
+  registration?: Awaited<ReturnType<typeof startRegistration>>;
+  deviceLabel?: string;
+};
 
 interface Office {
   lat: number;
@@ -152,31 +160,13 @@ export function PunchCard({
           location = await getPosition().catch(() => undefined);
         }
 
-        // 2. Biometric: per-device decide authenticate vs enroll-inline.
-        let assertion: Awaited<ReturnType<typeof startAuthentication>> | undefined;
-        let registration: Awaited<ReturnType<typeof startRegistration>> | undefined;
-        let deviceLabel: string | undefined;
+        // 2. Biometric: per-device, authenticate an enrolled device or enroll a
+        //    new one — with a bidirectional fallback so a punch never dead-ends
+        //    on the wrong branch (see acquireBioProof).
+        let proof: BioProof = {};
         if (bioSupported) {
           const enrolledHere = localStorage.getItem(ENROLL_KEY) === "1";
-          if (enrolledHere) {
-            const opts = await startBiometricPunch();
-            if (!opts.ok) throw new Error(opts.error);
-            if (opts.options) {
-              assertion = await startAuthentication({ optionsJSON: opts.options });
-            } else {
-              // Server has no credentials (e.g. admin reset this employee's
-              // devices) — the marker is stale; enroll this device afresh.
-              const start = await startBiometricSetup();
-              if (!start.ok) throw new Error(start.error);
-              registration = await startRegistration({ optionsJSON: start.options });
-              deviceLabel = guessDeviceLabel();
-            }
-          } else {
-            const start = await startBiometricSetup();
-            if (!start.ok) throw new Error(start.error);
-            registration = await startRegistration({ optionsJSON: start.options });
-            deviceLabel = guessDeviceLabel();
-          }
+          proof = await acquireBioProof(enrolledHere);
         } else if (!biometricExempt) {
           fireToast({
             message:
@@ -191,15 +181,19 @@ export function PunchCard({
           kind,
           note: note.trim() || undefined,
           location,
-          assertion,
-          registration,
-          deviceLabel,
+          assertion: proof.assertion,
+          registration: proof.registration,
+          deviceLabel: proof.deviceLabel,
         });
         if (!res.ok) {
           fireToast({ message: res.error, type: "error" });
           return;
         }
-        if (registration) localStorage.setItem(ENROLL_KEY, "1");
+        // Any successful biometric punch proves this device has a working
+        // passkey — remember it so the next punch authenticates directly.
+        if (proof.assertion || proof.registration) {
+          localStorage.setItem(ENROLL_KEY, "1");
+        }
         fireToast({
           message:
             kind === "in" ? "Checked in — have a great day!" : "Checked out. See you tomorrow!",
@@ -534,4 +528,50 @@ function guessDeviceLabel(): string {
   if (/Windows/.test(ua)) return "Windows PC";
   if (/Mac/.test(ua)) return "Mac";
   return "This device";
+}
+
+/** Authenticate this device's existing passkey. Returns `null` (so the caller
+ *  can enroll) when the server holds no credential for this user — e.g. an
+ *  admin reset their devices. */
+async function authenticatePunch(): Promise<BioProof | null> {
+  const opts = await startBiometricPunch();
+  if (!opts.ok) throw new Error(opts.error);
+  if (!opts.options) return null;
+  return { assertion: await startAuthentication({ optionsJSON: opts.options }) };
+}
+
+/** Enroll this device's fingerprint/Face ID and return the registration to
+ *  punch with (the user-verified ceremony doubles as presence proof). */
+async function enrollPunch(): Promise<BioProof> {
+  const start = await startBiometricSetup();
+  if (!start.ok) throw new Error(start.error);
+  return {
+    registration: await startRegistration({ optionsJSON: start.options }),
+    deviceLabel: guessDeviceLabel(),
+  };
+}
+
+/**
+ * Get biometric proof for a punch, deciding per device with a BIDIRECTIONAL
+ * fallback so a punch can't dead-end on the wrong branch:
+ *  - marker set → authenticate; if the server has no credential (reset), enroll.
+ *  - marker unset → enroll; but if WebAuthn reports the device is ALREADY
+ *    registered (enrolled on an older build, or the marker was cleared),
+ *    authenticate instead. (This is the fix for devices enrolled before the
+ *    per-device marker existed — they were getting blocked at check-out by
+ *    `ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED`.)
+ */
+async function acquireBioProof(enrolledHere: boolean): Promise<BioProof> {
+  if (enrolledHere) {
+    return (await authenticatePunch()) ?? (await enrollPunch());
+  }
+  try {
+    return await enrollPunch();
+  } catch (err) {
+    if (isAuthenticatorAlreadyRegistered(err)) {
+      const proof = await authenticatePunch();
+      if (proof) return proof;
+    }
+    throw err;
+  }
 }
