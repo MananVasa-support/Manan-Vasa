@@ -95,7 +95,13 @@ export function TaskDetail({ task }: { task: TaskDetailModel }) {
           fontSize: "clamp(21px, 1.9vw, 28px)",
           lineHeight: 1.3,
           letterSpacing: "-0.01em",
-          textWrap: "balance",
+          // Preserve the line breaks the author typed (multi-line descriptions
+          // like an imported list of clients/notes) instead of collapsing them
+          // into one run-on paragraph — matches the list hover preview. A
+          // single-line title renders identically. `balance` only helps short
+          // headings, so it's only applied when there are no newlines.
+          whiteSpace: "pre-wrap",
+          textWrap: headline.includes("\n") ? "wrap" : "balance",
         }}
       >
         {headline}
