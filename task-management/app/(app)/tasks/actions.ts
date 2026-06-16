@@ -656,6 +656,94 @@ export async function bulkReassignDoer(
   return { ok: true, updated: changed.length, skipped: ids.length - changed.length };
 }
 
+export async function bulkSetSubject(
+  taskIds: string[],
+  subject: string,
+): Promise<BulkResult> {
+  const ids = parseBulkIds(taskIds);
+  if (!ids) return { ok: false, error: "Invalid selection." };
+  const value = typeof subject === "string" ? subject.trim() : "";
+  if (!value || value.length > 80)
+    return { ok: false, error: "Invalid subject." };
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const rows = await db
+    .select({ id: tasks.id, subject: tasks.subject })
+    .from(tasks)
+    .where(inArray(tasks.id, ids));
+  const prev = new Map(rows.map((r) => [r.id, r.subject]));
+  const changed = rows.filter((r) => r.subject !== value).map((r) => r.id);
+  if (changed.length === 0) return { ok: true, updated: 0, skipped: ids.length };
+
+  try {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(tasks)
+        .set({ subject: value, updatedAt: new Date() })
+        .where(inArray(tasks.id, changed));
+      await tx.insert(taskEvents).values(
+        changed.map((id) => ({
+          taskId: id,
+          actorId: me.id,
+          eventType: "field_updated" as const,
+          fromValue: { field: "subject", value: prev.get(id) ?? null },
+          toValue: { field: "subject", value },
+        })),
+      );
+    });
+  } catch (err) {
+    return { ok: false, error: `Could not update: ${(err as Error).message}` };
+  }
+  revalidateTaskRoutes();
+  return { ok: true, updated: changed.length, skipped: ids.length - changed.length };
+}
+
+export async function bulkSetClient(
+  taskIds: string[],
+  client: string,
+): Promise<BulkResult> {
+  const ids = parseBulkIds(taskIds);
+  if (!ids) return { ok: false, error: "Invalid selection." };
+  const value = typeof client === "string" ? client.trim() : "";
+  if (!value || value.length > 120)
+    return { ok: false, error: "Invalid client." };
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const rows = await db
+    .select({ id: tasks.id, client: tasks.client })
+    .from(tasks)
+    .where(inArray(tasks.id, ids));
+  const prev = new Map(rows.map((r) => [r.id, r.client]));
+  const changed = rows.filter((r) => r.client !== value).map((r) => r.id);
+  if (changed.length === 0) return { ok: true, updated: 0, skipped: ids.length };
+
+  try {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(tasks)
+        .set({ client: value, updatedAt: new Date() })
+        .where(inArray(tasks.id, changed));
+      await tx.insert(taskEvents).values(
+        changed.map((id) => ({
+          taskId: id,
+          actorId: me.id,
+          eventType: "field_updated" as const,
+          fromValue: { field: "client", value: prev.get(id) ?? null },
+          toValue: { field: "client", value },
+        })),
+      );
+    });
+  } catch (err) {
+    return { ok: false, error: `Could not update: ${(err as Error).message}` };
+  }
+  revalidateTaskRoutes();
+  return { ok: true, updated: changed.length, skipped: ids.length - changed.length };
+}
+
 export async function bulkArchive(taskIds: string[]): Promise<BulkResult> {
   const ids = parseBulkIds(taskIds);
   if (!ids) return { ok: false, error: "Invalid selection." };

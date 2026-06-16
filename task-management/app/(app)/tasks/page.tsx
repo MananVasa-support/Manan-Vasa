@@ -87,6 +87,8 @@ export default async function TasksPage({ searchParams }: PageProps) {
         me={{ id: me.id, isAdmin: me.isAdmin }}
         statusLabels={statusLabels}
         statusTones={statusTones}
+        subjects={subjects}
+        clients={clients}
       />
       <DashboardFooter />
     </>

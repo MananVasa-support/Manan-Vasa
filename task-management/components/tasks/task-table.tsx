@@ -370,15 +370,40 @@ export function TaskTable({
   me,
   statusLabels,
   statusTones,
+  subjects,
+  clients,
 }: {
   rows: TaskListRow[];
   employees: { id: string; name: string }[];
   me: { id: string; isAdmin: boolean };
   statusLabels?: StatusLabels;
   statusTones?: StatusTones;
+  /** Bulk-set option rosters. When omitted, fall back to the distinct
+   *  subject/client values present in the current rows. */
+  subjects?: string[];
+  clients?: string[];
 }) {
   const resolvedLabels = statusLabels ?? STATUS_LABELS_FALLBACK;
   const resolvedTones = statusTones ?? STATUS_TONES_FALLBACK;
+  // Prefer the server-provided rosters; otherwise derive distinct values from
+  // the loaded rows so bulk Subject/Client still works on pages that don't
+  // pass the full picker lists (e.g. Archived).
+  const subjectOptions = React.useMemo(
+    () =>
+      subjects ??
+      Array.from(
+        new Set(rows.map((r) => r.subject).filter((s): s is string => !!s)),
+      ).sort((a, b) => a.localeCompare(b)),
+    [subjects, rows],
+  );
+  const clientOptions = React.useMemo(
+    () =>
+      clients ??
+      Array.from(
+        new Set(rows.map((r) => r.client).filter((c): c is string => !!c)),
+      ).sort((a, b) => a.localeCompare(b)),
+    [clients, rows],
+  );
   const columns = React.useMemo(
     () => buildColumns(employees, me, resolvedLabels, resolvedTones),
     [employees, me, resolvedLabels, resolvedTones],
@@ -634,6 +659,8 @@ export function TaskTable({
         <BulkActionBar
           selectedIds={selectedIds}
           employees={employees}
+          subjects={subjectOptions}
+          clients={clientOptions}
           isAdmin={me.isAdmin}
           statusLabels={resolvedLabels}
           onClear={() => table.resetRowSelection()}
