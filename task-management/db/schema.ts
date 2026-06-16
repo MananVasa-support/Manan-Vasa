@@ -991,6 +991,9 @@ export const attendanceLogs = pgTable(
       .notNull()
       .default("none"),
     credentialId: text("credential_id"),
+    // Mobile (device-binding, 0063) — the registered phone a native self-punch
+    // came from. NULL for web/WebAuthn or admin punches. FK enforced in SQL.
+    mobileDeviceId: uuid("mobile_device_id"),
     // Attendance Phase A (0058) — who recorded the punch and why. `admin`
     // punches carry a `recordedById`; `reason` is one of PUNCH_REASONS.
     source: text("source").$type<"self" | "admin">().notNull().default("self"),
@@ -1007,6 +1010,34 @@ export const attendanceLogs = pgTable(
     ),
     index("attendance_logs_date_idx").on(t.logDate),
     index("attendance_logs_employee_date_idx").on(t.employeeId, t.logDate),
+  ],
+);
+
+/**
+ * Mobile attendance devices (0063) — device-binding anti-proxy for the native
+ * app. Each physical phone generates an opaque `deviceId` (kept in the OS
+ * keystore) and enrolls it to ONE employee; `deviceId` is globally unique so a
+ * phone can't be shared across people. The native app gates each punch with the
+ * device's own fingerprint/Face ID (`expo-local-authentication`) before calling
+ * the punch API, and the punch is stamped with this device (attendance_logs.
+ * mobile_device_id). Admins are alerted whenever a new device enrolls.
+ */
+export const mobileDevices = pgTable(
+  "mobile_devices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    deviceId: text("device_id").notNull(),
+    label: text("label"),
+    platform: text("platform"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("mobile_devices_device_id_uq").on(t.deviceId),
+    index("mobile_devices_employee_idx").on(t.employeeId),
   ],
 );
 
