@@ -53,6 +53,11 @@ import {
 } from "@/lib/notifications/dispatch";
 import { deriveShortId, nextShortIdCandidate } from "@/lib/import/short-id";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
+import {
+  applyTaskStatusChange,
+  optimisticLockMatches,
+  taskLabel,
+} from "@/lib/tasks/set-status";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -79,23 +84,6 @@ function isUuid(v: string): boolean {
  * parse — Drizzle only knows to call `.toISOString()` when the column type
  * is in scope, which it isn't inside an arbitrary SQL fragment.
  */
-function optimisticLockMatches(expectedDate: Date) {
-  return sql`date_trunc('milliseconds', ${tasks.updatedAt}) = ${expectedDate.toISOString()}::timestamptz`;
-}
-
-/**
- * Picks the user-facing label for a task in a notification subject line.
- * Falls back through subject → title → "a task" so we never render an
- * empty string in someone's inbox.
- */
-function taskLabel(t: { subject: string | null; title: string }): string {
-  const s = t.subject?.trim();
-  if (s) return s;
-  const ti = t.title?.trim();
-  if (ti) return ti;
-  return "a task";
-}
-
 function revalidateTaskRoutes(): void {
   revalidatePath("/tasks");
   revalidatePath("/archived");
@@ -249,92 +237,20 @@ export async function setTaskStatus(
       message?: string;
     }
 > {
-  if (!isUuid(taskId)) return { ok: false, error: "invalid", message: "Bad task id" };
-  if (!TASK_STATUSES.includes(status))
-    return { ok: false, error: "invalid", message: "Unknown status" };
-
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return { ok: false, error: "invalid", message: limited.error };
 
-  const current = await db.query.tasks.findFirst({
-    where: eq(tasks.id, taskId),
-  });
-  if (!current) return { ok: false, error: "not-found" };
-
-  // Compute role + check transition.
-  const role: ActorRole = me.isAdmin
-    ? "admin"
-    : current.doerId === me.id
-      ? "doer"
-      : current.initiatorId === me.id
-        ? "initiator"
-        : current.createdById === me.id
-          ? "creator"
-          : "stranger";
-
-  if (!canTransitionTo(current.status, status, role)) {
-    return { ok: false, error: "forbidden" };
-  }
-
-  const expectedDate = new Date(expectedUpdatedAt);
-  if (Number.isNaN(expectedDate.getTime())) {
-    return { ok: false, error: "invalid", message: "Bad expectedUpdatedAt" };
-  }
-
-  // Atomic: the task UPDATE and audit-event INSERT must either both
-  // commit or both roll back. Without a transaction, a failure on the
-  // task_events insert leaves the row updated with no audit trail —
-  // silent desync. Notifications stay OUTSIDE the txn so a slow
-  // Slack/email send doesn't hold the row lock.
-  const now = new Date();
-  const stale = await db.transaction(async (tx) => {
-    const u = await tx
-      .update(tasks)
-      .set({
-        status,
-        updatedAt: now,
-        // If status moves to "done", stamp completedAt; if moving away from
-        // done into rework, clear it.
-        completedAt: status === "done" ? now : current.status === "done" ? null : current.completedAt,
-      })
-      .where(and(eq(tasks.id, taskId), optimisticLockMatches(expectedDate)))
-      .returning({ id: tasks.id });
-    if (u.length === 0) return true;
-    await tx.insert(taskEvents).values({
-      taskId,
-      actorId: me.id,
-      eventType: "status_changed",
-      fromValue: { status: current.status },
-      toValue: { status },
-      note: note?.trim() || null,
-    });
-    return false;
-  });
-  if (stale) return { ok: false, error: "stale" };
-
-  // Fan-out: every other participant (creator/initiator/doer minus me).
-  // Tier-3 fix — the notification body MUST be JSON meta so email/Slack/
-  // WhatsApp templates can pluck `toStatus` + `fromStatus` and render the
-  // real transition (the templates default `toStatus` to "done" which
-  // made every status_changed email lie). Also resolve the new-status
-  // human label server-side so the title never includes raw enum tokens
-  // like "follow_up_2".
-  const trimmedNote = note?.trim() || undefined;
-  const statusDisplay = await getStatusDisplayMap();
-  const newStatusLabel = statusDisplay[status]?.label ?? status;
-  const label = taskLabel({ subject: current.subject, title: current.title });
-  await notifyManyForTask(taskId, {
-    actorId: me.id,
-    kind: "status_changed",
-    title: `${me.name} changed status on '${label}' to ${newStatusLabel}`,
-    body: JSON.stringify({
-      toStatus: status,
-      fromStatus: current.status,
-      ...(trimmedNote ? { note: trimmedNote } : {}),
-    }),
-    recipients: [current.createdById, current.initiatorId, current.doerId],
-  });
+  // Delegate to the transport-agnostic core (shared with the mobile API so the
+  // permission matrix + audit + notifications never diverge between clients).
+  const result = await applyTaskStatusChange(
+    { id: me.id, name: me.name, isAdmin: me.isAdmin },
+    taskId,
+    status,
+    expectedUpdatedAt,
+    note,
+  );
+  if (!result.ok) return result;
 
   revalidateTaskRoutes();
   revalidatePath(`/tasks/${taskId}`);
