@@ -58,6 +58,7 @@ import {
   optimisticLockMatches,
   taskLabel,
 } from "@/lib/tasks/set-status";
+import { addTaskComment } from "@/lib/tasks/add-comment";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1411,56 +1412,17 @@ export async function addComment(
       message?: string;
     }
 > {
-  if (!isUuid(taskId)) return { ok: false, error: "invalid", message: "Bad task id" };
-
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return { ok: false, error: "invalid", message: limited.error };
 
-  let parsed;
-  try {
-    parsed = CommentSchema.parse(input);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Invalid input";
-    return { ok: false, error: "invalid", message: msg };
-  }
-
-  const current = await db.query.tasks.findFirst({
-    where: eq(tasks.id, taskId),
-  });
-  if (!current) return { ok: false, error: "not-found" };
-
-  if (
-    !canComment({
-      employee: { id: me.id, isAdmin: me.isAdmin },
-      task: {
-        createdById: current.createdById,
-        initiatorId: current.initiatorId,
-        doerId: current.doerId,
-        status: current.status,
-      },
-    })
-  ) {
-    return { ok: false, error: "forbidden" };
-  }
-
-  await db.insert(taskEvents).values({
+  // Delegate to the shared core (same rules as the mobile comment API).
+  const result = await addTaskComment(
+    { id: me.id, name: me.name, isAdmin: me.isAdmin },
     taskId,
-    actorId: me.id,
-    eventType: "commented",
-    toValue: { body: parsed.body },
-  });
-
-  // Fan-out: every participant except me; body is the first 140 chars.
-  const label = taskLabel({ subject: current.subject, title: current.title });
-  const preview = parsed.body.length > 140 ? `${parsed.body.slice(0, 140)}…` : parsed.body;
-  await notifyManyForTask(taskId, {
-    actorId: me.id,
-    kind: "commented",
-    title: `${me.name} commented on '${label}'`,
-    body: preview,
-    recipients: [current.createdById, current.initiatorId, current.doerId],
-  });
+    input,
+  );
+  if (!result.ok) return result;
 
   revalidatePath(`/tasks/${taskId}`);
   return { ok: true };
