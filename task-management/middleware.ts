@@ -20,6 +20,10 @@ const PUBLIC_API = [
   // before the route can verify CRON_SECRET — silently breaking every
   // Vercel cron invocation.
   "/api/cron/",
+  // Native-app endpoints authenticate via `Authorization: Bearer <firebaseIdToken>`
+  // inside the route (lib/auth/mobile.ts) — there's no session cookie, so the
+  // cookie-based auth middleware must skip them or it 307s the app to /login.
+  "/api/mobile/",
 ];
 
 // PWA assets — must be reachable without auth so the browser can install
