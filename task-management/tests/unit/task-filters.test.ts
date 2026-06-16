@@ -13,6 +13,23 @@ describe("parseTaskFilters", () => {
     expect(f.assigneeMode).toBe("all");
   });
 
+  it("treats the 'archived' status chip as the archived flag, not a real status", () => {
+    const f = parseTaskFilters({ status: "archived" }, /*archived*/ false);
+    expect(f.archived).toBe(true);
+    expect(f.statuses).toEqual([]); // 'archived' is not a real TaskStatus
+  });
+
+  it("keeps real statuses while the 'archived' chip flips archived on", () => {
+    const f = parseTaskFilters({ status: "done,archived" }, false);
+    expect(f.archived).toBe(true);
+    expect(f.statuses).toEqual(["done"]);
+  });
+
+  it("stays active when the archived chip is absent", () => {
+    const f = parseTaskFilters({ status: "done" }, false);
+    expect(f.archived).toBe(false);
+  });
+
   it("parses comma-separated multi-values", () => {
     const f = parseTaskFilters(
       {
