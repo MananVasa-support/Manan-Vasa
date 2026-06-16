@@ -59,6 +59,7 @@ import {
   taskLabel,
 } from "@/lib/tasks/set-status";
 import { addTaskComment } from "@/lib/tasks/add-comment";
+import { createTasksCore } from "@/lib/tasks/create-task";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -742,166 +743,13 @@ export async function createTask(input: CreateTaskInput): Promise<
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
-  let parsed;
-  try {
-    parsed = CreateTaskSchema.parse(input);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Invalid input";
-    return { ok: false, error: msg };
-  }
 
-  // Tier-3 fanout: normalise to an array so we always loop. Backward-compat
-  // callers (existing tests + any legacy callsite) pass `doerId`; the new
-  // form passes `doerIds`. The refine() rule guarantees exactly one is set.
-  const doerIds = parsed.doerIds ?? (parsed.doerId ? [parsed.doerId] : []);
-  if (doerIds.length === 0) {
-    return { ok: false, error: "At least one doer is required" };
-  }
-
-  const createdIds: string[] = [];
-  // Notifications are collected here and fired AFTER the response (see below),
-  // never inline — the old code awaited every notify() in the loop, chaining
-  // dozens of email/Slack/WhatsApp/push network calls on the critical path,
-  // which is what intermittently surfaced "we hit a snag" on a 5-6 task batch.
-  const notifyIntents: Array<Parameters<typeof notify>[0]> = [];
-  const label = taskLabel({
-    subject: parsed.subject ?? null,
-    title: parsed.title,
-  });
-
-  for (const doerId of doerIds) {
-    // M4 — generate id client-side so short_id can be derived deterministically
-    // from the same UUID.  UNIQUE constraint on tasks.short_id catches the
-    // rare collision; retry with the next 10-char slice of the dashless UUID.
-    const taskId = crypto.randomUUID();
-    let attempt = 0;
-    let row: { id: string } | undefined;
-    while (attempt < 23) {
-      const shortId =
-        attempt === 0
-          ? deriveShortId(taskId)
-          : nextShortIdCandidate(taskId, attempt);
-      if (!shortId) {
-        return { ok: false, error: "Could not derive short_id (uuid exhausted)" };
-      }
-      try {
-        [row] = await db
-          .insert(tasks)
-          .values({
-            id: taskId,
-            title: parsed.title,
-            // The form's "Client Name" field writes to `title`; mirror it into
-            // the dedicated `client` column so new tasks sort/group cleanly.
-            client: parsed.title,
-            description: parsed.description,
-            subject: parsed.subject,
-            notes: parsed.notes,
-            doerId,
-            initiatorId: parsed.initiatorId,
-            priority: parsed.priority,
-            dueAt: parsed.dueAt,
-            tags: parsed.tags ?? null,
-            // Tier-4 — GCal-style scheduling fields. All null on a one-off
-            // task; the form sends real values when the user opens the
-            // Schedule section.
-            startsAt: parsed.startsAt ?? null,
-            endsAt: parsed.endsAt ?? null,
-            allDay: parsed.allDay ?? false,
-            recurrence: parsed.recurrence ?? null,
-            recurrenceRule: parsed.recurrenceRule ?? null,
-            projectNodeId: parsed.projectNodeId ?? null,
-            createdById: me.id,
-            shortId,
-            // New tasks land in "Not Read" (dont_know) — the doer moves them to
-            // "Not Started" once they've actually read the task. archived
-            // defaults to false; createdAt + updatedAt default to now().
-            status: "dont_know",
-          })
-          .returning({ id: tasks.id });
-        break;
-      } catch (err: unknown) {
-        const e = err as { code?: string; constraint?: string; message?: string };
-        if (e?.code === "23505" && e?.constraint === "tasks_short_id_uidx") {
-          attempt++;
-          continue;
-        }
-        return { ok: false, error: `DB: ${e?.message ?? String(err)}` };
-      }
-    }
-
-    if (!row) {
-      return {
-        ok: false,
-        error:
-          attempt >= 23
-            ? "Could not allocate unique short_id after 23 attempts"
-            : "Insert returned no row",
-      };
-    }
-
-    // Audit row — best-effort. The task itself is already committed; a
-    // transient failure writing the "created" event must never abort the
-    // batch (which would half-create a multi-doer upload) or bubble up as
-    // "we hit a snag".
-    try {
-      await db.insert(taskEvents).values({
-        taskId: row.id,
-        actorId: me.id,
-        eventType: "created",
-        toValue: {
-          title: parsed.title,
-          doerId,
-          initiatorId: parsed.initiatorId,
-          priority: parsed.priority,
-          dueAt: parsed.dueAt.toISOString(),
-          tags: parsed.tags ?? null,
-        },
-      });
-    } catch (err) {
-      console.warn(
-        "[createTask] created-event insert failed (non-fatal):",
-        (err as Error)?.message ?? err,
-      );
-    }
-
-    // Fan-out (deferred): doer is now assigned; initiator is on the hook for
-    // review. Both are explicit per-recipient kinds so emails can use distinct
-    // copy. Collected now, fired after the response.
-    if (doerId !== me.id) {
-      notifyIntents.push({
-        userId: doerId,
-        kind: "task_assigned",
-        title: `${me.name} assigned you '${label}'`,
-        taskId: row.id,
-        actorId: me.id,
-      });
-    }
-    if (parsed.initiatorId !== me.id && parsed.initiatorId !== doerId) {
-      notifyIntents.push({
-        userId: parsed.initiatorId,
-        kind: "task_initiated",
-        title: `${me.name} made you initiator on '${label}'`,
-        taskId: row.id,
-        actorId: me.id,
-      });
-    }
-
-    createdIds.push(row.id);
-  }
-
-  // Fire notifications + Google Calendar sync AFTER the response is flushed,
-  // so none of that (sequential email/Slack/WhatsApp/push + GCal API) sits on
-  // the task-creation critical path. notify() is already best-effort.
-  if (notifyIntents.length > 0) {
-    afterResponse(async () => {
-      for (const intent of notifyIntents) await notify(intent);
-    });
-  }
-  for (const id of createdIds) afterResponse(() => reconcileTaskEvent(id));
+  // Delegate to the shared core (same rules as the mobile create API).
+  const result = await createTasksCore({ id: me.id, name: me.name }, input);
+  if (!result.ok) return result;
 
   revalidateTaskRoutes();
-  // `id` kept as a string for backward compat with single-doer callers.
-  return { ok: true, id: createdIds[0]!, ids: createdIds };
+  return result;
 }
 
 /**
