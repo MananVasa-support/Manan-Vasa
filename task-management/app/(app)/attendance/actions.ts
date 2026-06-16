@@ -127,7 +127,7 @@ export async function punchAttendance(input: {
         ok: false,
         error:
           verdict.reason === "too_imprecise"
-            ? `GPS fix too imprecise (±${Math.round(location.accuracyM)}m). Move near a window or step outside briefly and try again.`
+            ? `GPS too imprecise (±${Math.round(location.accuracyM)}m). Turn on Precise/High-accuracy location and try again.`
             : `You're ~${Math.round(verdict.effectiveDistanceM)}m from the office — punches register only within ${settings.attendanceRadiusM}m.`,
       };
     }
