@@ -59,9 +59,6 @@ export default async function LoginPage({ searchParams }: PageProps) {
             ALTUS · CORP
           </span>
         </div>
-        <span className="max-md:hidden" style={{ fontSize: 10, letterSpacing: "0.22em", color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-mono-display)" }}>
-          PRODUCTIVITY · SHASTRA
-        </span>
       </div>
 
       {/* Layer 2 — centred dark card */}
