@@ -18,24 +18,19 @@ import {
   type NotificationKind,
 } from "@/db/schema";
 import type { PunchReason } from "@/db/enums";
-import { notify } from "@/lib/notifications/dispatch";
 import { requireUser, requireAdmin } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { localDateString } from "@/lib/format";
-import { distanceMeters, evaluateGeofence } from "@/lib/geo";
 import { getOrgSettings } from "@/lib/queries/org-settings";
+import { resolvePunchGeofence, insertPunchRow } from "@/lib/attendance/record-punch";
 import {
-  companyDefaults,
-  employeeSchedule,
-} from "@/lib/queries/attendance-status";
-import {
-  notifyAttendance,
-  decideCheckoutNotification,
-} from "@/lib/attendance/notify";
-import { toMin, lateDeductionCrossed } from "@/lib/attendance/status";
-import { getEmployeeMonthStatus } from "@/lib/queries/attendance-status";
-import type { AttendanceSchedule } from "@/lib/attendance/schedule";
+  notifyOnInPunch,
+  notifyOnDayFinalized,
+  notifyAdminLateDeduction,
+  clockInTz,
+  alertAdminsNewAttendanceDevice,
+} from "@/lib/attendance/punch-notify";
 import {
   AdminUpsertPunch,
   AdminEditDayTimes,
@@ -99,42 +94,12 @@ export async function punchAttendance(input: {
   const { kind, note, location, deviceLabel } = parsed.data;
 
   // ── Gate 1: geofence ────────────────────────────────────────────────
-  // This gate runs for BOTH `kind: "in"` and `kind: "out"` — neither punch is
-  // special-cased below, so check-out is fenced exactly like check-in.
+  // Runs for BOTH "in" and "out". Shared with the native punch API via
+  // resolvePunchGeofence so the security rule never diverges between clients.
   const settings = await getOrgSettings();
-  const fenced = settings.officeLat != null && settings.officeLng != null;
-  let distanceM: number | null = null;
-  if (fenced) {
-    if (!location) {
-      return {
-        ok: false,
-        error: "Location is required to punch — please allow location access.",
-      };
-    }
-    distanceM = distanceMeters(
-      location.lat,
-      location.lng,
-      settings.officeLat!,
-      settings.officeLng!,
-    );
-    const verdict = evaluateGeofence(
-      distanceM,
-      location.accuracyM,
-      settings.attendanceRadiusM,
-    );
-    if (!verdict.ok) {
-      return {
-        ok: false,
-        error:
-          verdict.reason === "too_imprecise"
-            ? `GPS too imprecise (±${Math.round(location.accuracyM)}m). Turn on Precise/High-accuracy location and try again.`
-            : `You're ~${Math.round(verdict.effectiveDistanceM)}m from the office — punches register only within ${settings.attendanceRadiusM}m.`,
-      };
-    }
-  } else if (location) {
-    // No fence configured — still record where the punch happened.
-    distanceM = null;
-  }
+  const geo = resolvePunchGeofence(settings, location);
+  if (!geo.ok) return { ok: false, error: geo.error };
+  const distanceM = geo.distanceM;
 
   // ── Gate 2: biometric ───────────────────────────────────────────────
   // One unified path: an `assertion` proves a returning device; a verified
@@ -183,40 +148,13 @@ export async function punchAttendance(input: {
   const tz = me.timezone || "Asia/Kolkata";
   const today = localDateString(tz);
 
-  // Self punches are today-only: an employee may never backfill a past day.
-  // `today` is derived from the employee's own clock above, so this also
-  // hard-stops any future variant that lets the client pass a logDate.
-  // Backfilling / corrections go through the audited admin actions below.
-  if (today !== localDateString(tz)) {
-    return { ok: false, error: "You can only mark attendance for today." };
-  }
-
-  try {
-    await db.insert(attendanceLogs).values({
-      employeeId: me.id,
-      logDate: today,
-      kind,
-      note: note ? note : null,
-      lat: location?.lat ?? null,
-      lng: location?.lng ?? null,
-      accuracyM: location?.accuracyM ?? null,
-      distanceM,
-      verifyMethod,
-      credentialId,
-    });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("attendance_logs_employee_day_kind_uq")) {
-      return {
-        ok: false,
-        error:
-          kind === "in"
-            ? "You already checked in today."
-            : "You already checked out today.",
-      };
-    }
-    return { ok: false, error: `DB: ${msg}` };
-  }
+  // Insert via the shared core (today-only; one punch per kind per day).
+  const inserted = await insertPunchRow(
+    { id: me.id, timezone: tz },
+    { kind, note, location, distanceM },
+    { verifyMethod, credentialId, source: "self" },
+  );
+  if (!inserted.ok) return inserted;
 
   // ── Best-effort attendance notifications (Task A8) ───────────────────
   // The punch is committed above; a notify failure must never surface to the
@@ -271,48 +209,6 @@ export async function finishBiometricSetup(
   return { ok: true };
 }
 
-/**
- * In-app heads-up to every active admin that an employee registered a new
- * biometric device for attendance. In-app only (forceChannels: []) — it's a
- * security audit signal, not something to email/Slack the whole admin team.
- * Best-effort: never blocks the registration that triggered it.
- */
-async function alertAdminsNewAttendanceDevice(
-  actor: Employee,
-  deviceLabel: string | null,
-  deviceCount: number,
-): Promise<void> {
-  try {
-    const admins = await db
-      .select({ id: employees.id })
-      .from(employees)
-      .where(and(eq(employees.isAdmin, true), eq(employees.isActive, true)));
-
-    const label = deviceLabel?.trim() || "a new device";
-    const title =
-      deviceCount > 1
-        ? `${actor.name} added another attendance device`
-        : `${actor.name} enrolled a biometric attendance device`;
-    const body = `${actor.name} registered ${label} for biometric punch (now ${deviceCount} device${deviceCount === 1 ? "" : "s"}). A passkey on someone else's phone can punch on their behalf — review if this looks off.`;
-
-    await Promise.all(
-      admins
-        .filter((a) => a.id !== actor.id) // don't alert the registrant themselves
-        .map((a) =>
-          notify({
-            userId: a.id,
-            kind: "attendance_device" as NotificationKind,
-            title,
-            body,
-            actorId: actor.id,
-            forceChannels: [], // in-app inbox only
-          }),
-        ),
-    );
-  } catch (err) {
-    console.warn("[attendance] admin new-device alert failed (non-fatal)", err);
-  }
-}
 
 /** Fresh challenge for a biometric punch. Null options = nothing registered. */
 export async function startBiometricPunch(): Promise<
@@ -655,167 +551,6 @@ export async function adminDeletePunch(
   return { ok: true };
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// Attendance notifications (Task A8) — best-effort triggers
-//
-// Fired AFTER the punch/edit is committed. Each helper is wrapped so a notify
-// failure (or a schedule lookup miss) can never break the underlying punch.
-// ════════════════════════════════════════════════════════════════════════════
-
-/** "HH:mm" wall-clock of a timestamptz in `tz`. */
-function clockInTz(at: Date, tz: string): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: tz,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(at);
-}
-
-/** Resolve an employee's effective attendance schedule (org defaults + their
- *  per-employee lateAfter/earlyBefore overrides). */
-async function resolveScheduleFor(emp: {
-  attLateAfter: string | null;
-  attEarlyBefore: string | null;
-}): Promise<AttendanceSchedule> {
-  const org = await getOrgSettings();
-  return employeeSchedule(emp, companyDefaults(org));
-}
-
-/** Read an employee's folded in/out "HH:mm" (in `tz`) for one log day. */
-async function readDayTimes(
-  employeeId: string,
-  logDate: string,
-  tz: string,
-): Promise<{ inAt: string | null; outAt: string | null }> {
-  const rows = await db
-    .select({ kind: attendanceLogs.kind, loggedAt: attendanceLogs.loggedAt })
-    .from(attendanceLogs)
-    .where(
-      and(
-        eq(attendanceLogs.employeeId, employeeId),
-        eq(attendanceLogs.logDate, logDate),
-      ),
-    );
-  let inAt: string | null = null;
-  let outAt: string | null = null;
-  for (const r of rows) {
-    const t = clockInTz(r.loggedAt, tz);
-    if (r.kind === "in") inAt = t;
-    else outAt = t;
-  }
-  return { inAt, outAt };
-}
-
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
-/**
- * Decide + fire the right attendance email for a SELF check-in. A late arrival
- * gets the `attendance_late` heads-up immediately (the waiver, if any, comes
- * later on check-out). Best-effort.
- *
- * B8 — on a late check-in we ALSO fire the `attendance_late_deduction` alert
- * when this late lands the employee's un-waived month total exactly on a
- * multiple of 3 (every 3rd late → a ½-day salary deduction this period).
- */
-async function notifyOnInPunch(
-  emp: { id: string; attLateAfter: string | null; attEarlyBefore: string | null },
-  logDate: string,
-  inAt: string,
-): Promise<void> {
-  try {
-    const sched = await resolveScheduleFor(emp);
-    if (toMin(inAt) <= toMin(sched.lateAfter)) return; // on-time — nothing to do.
-
-    await notifyAttendance("attendance_late", emp, { logDate, inAt });
-    await maybeFireDeductionAlert(emp, logDate, inAt);
-  } catch (err) {
-    console.warn("[attendance] notifyOnInPunch failed (non-fatal)", err);
-  }
-}
-
-/**
- * B8 deduction trigger (self + admin). Re-grades the month and fires the
- * `attendance_late_deduction` alert when the employee's UN-WAIVED late count
- * lands exactly on a multiple of 3 (every 3rd late → a ½-day salary deduction).
- *
- * `now` = the month's un-waived late count INCLUDING this just-recorded day;
- * `prev` = now - 1 (this fresh late added exactly one). It can't double-fire:
- *  - self path: a re-punch fails the unique index and never reaches the late
- *    branch, so each fresh late advances the count by one.
- *  - admin path: callers gate this to a day that grades late && !waived, and an
- *    idempotent edit to an already-late day leaves the count unchanged
- *    (prev == now), so `lateDeductionCrossed` returns false.
- * Best-effort: wrapped by the caller's try/catch; never blocks the punch.
- */
-async function maybeFireDeductionAlert(
-  emp: { id: string; attLateAfter: string | null; attEarlyBefore: string | null },
-  logDate: string,
-  inAt: string,
-): Promise<void> {
-  const year = Number(logDate.slice(0, 4));
-  const month = Number(logDate.slice(5, 7));
-  const status = await getEmployeeMonthStatus(emp.id, year, month, logDate);
-  const now = status.summary.late;
-  const prev = now - 1;
-  if (lateDeductionCrossed(prev, now)) {
-    await notifyAttendance("attendance_late_deduction", emp, {
-      logDate,
-      inAt,
-      lateCount: now,
-      monthLabel: `${MONTH_NAMES[month - 1] ?? ""} ${year}`.trim(),
-    });
-  }
-}
-
-/**
- * Decide + fire the right attendance email when a day's OUT is finalized (self
- * check-out, or an admin edit/upsert that completes the day). Re-reads both
- * punches so the decision matches the graded day. Best-effort.
- */
-async function notifyOnDayFinalized(
-  emp: { id: string; timezone: string; attLateAfter: string | null; attEarlyBefore: string | null },
-  logDate: string,
-): Promise<void> {
-  try {
-    const tz = emp.timezone || "Asia/Kolkata";
-    const { inAt, outAt } = await readDayTimes(emp.id, logDate, tz);
-    if (!inAt || !outAt) return;
-    const sched = await resolveScheduleFor(emp);
-    const kind = decideCheckoutNotification({ inAt, outAt, sched });
-    if (!kind) return;
-    const worked = Math.max(0, toMin(outAt) - toMin(inAt));
-    await notifyAttendance(kind, emp, { logDate, inAt, outAt, workedMinutes: worked });
-  } catch (err) {
-    console.warn("[attendance] notifyOnDayFinalized failed (non-fatal)", err);
-  }
-}
-
-/**
- * Admin-side B8 trigger. After an admin upsert/edit, re-read the day's in-time;
- * if it grades late, run the same deduction boundary check the self path does.
- * Best-effort. Idempotent edits to an already-late day leave the un-waived count
- * unchanged, so `lateDeductionCrossed` (prev == now) stays silent — no
- * double-fire. Only fires when an admin newly pushes the month onto a 3-boundary.
- */
-async function notifyAdminLateDeduction(
-  emp: { id: string; timezone: string; attLateAfter: string | null; attEarlyBefore: string | null },
-  logDate: string,
-): Promise<void> {
-  try {
-    const tz = emp.timezone || "Asia/Kolkata";
-    const { inAt } = await readDayTimes(emp.id, logDate, tz);
-    if (!inAt) return;
-    const sched = await resolveScheduleFor(emp);
-    if (toMin(inAt) <= toMin(sched.lateAfter)) return; // not a late day.
-    await maybeFireDeductionAlert(emp, logDate, inAt);
-  } catch (err) {
-    console.warn("[attendance] notifyAdminLateDeduction failed (non-fatal)", err);
-  }
-}
 
 /** Append an immutable `employee_events` audit row for an admin punch change.
  *  Best-effort: a failed audit write must never roll back the data change. */
