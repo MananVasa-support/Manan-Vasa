@@ -79,6 +79,8 @@ export function TaskListPage({
   me,
   statusLabels,
   statusTones,
+  subjects,
+  clients,
   basePath = "/tasks",
 }: {
   title: string;
@@ -88,6 +90,9 @@ export function TaskListPage({
   me: { id: string; isAdmin: boolean };
   statusLabels?: Record<TaskStatus, string>;
   statusTones?: Record<TaskStatus, StatusColorToken>;
+  /** Bulk-set option rosters, threaded down to the bulk-action bar. */
+  subjects?: string[];
+  clients?: string[];
   /** List route the summary cards link into (so Archived keeps its own scope). */
   basePath?: string;
 }) {
@@ -209,6 +214,8 @@ export function TaskListPage({
           me={me}
           statusLabels={statusLabels}
           statusTones={statusTones}
+          subjects={subjects}
+          clients={clients}
         />
       )}
     </main>

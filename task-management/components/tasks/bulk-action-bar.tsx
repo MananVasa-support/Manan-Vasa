@@ -11,6 +11,8 @@ import {
   X,
   Loader2,
   ChevronDown,
+  Tag,
+  Building2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -24,6 +26,8 @@ import {
   bulkSetStatus,
   bulkSetPriority,
   bulkReassignDoer,
+  bulkSetSubject,
+  bulkSetClient,
   bulkArchive,
   bulkDelete,
 } from "@/app/(app)/tasks/actions";
@@ -49,12 +53,16 @@ type BulkResult =
 export function BulkActionBar({
   selectedIds,
   employees,
+  subjects = [],
+  clients = [],
   isAdmin,
   statusLabels,
   onClear,
 }: {
   selectedIds: string[];
   employees: { id: string; name: string }[];
+  subjects?: string[];
+  clients?: string[];
   isAdmin: boolean;
   statusLabels: Record<TaskStatus, string>;
   onClear: () => void;
@@ -164,6 +172,54 @@ export function BulkActionBar({
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Subject */}
+      {subjects.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" disabled={pending} className={chipBtn}>
+              <Tag size={14} strokeWidth={2.2} />
+              Subject
+              <ChevronDown size={13} className="opacity-60" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
+            <DropdownMenuLabel>Set subject to…</DropdownMenuLabel>
+            {subjects.map((s) => (
+              <DropdownMenuItem
+                key={s}
+                onSelect={() => run("Updated", () => bulkSetSubject(selectedIds, s))}
+              >
+                {s}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
+      {/* Client */}
+      {clients.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" disabled={pending} className={chipBtn}>
+              <Building2 size={14} strokeWidth={2.2} />
+              Client
+              <ChevronDown size={13} className="opacity-60" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
+            <DropdownMenuLabel>Set client to…</DropdownMenuLabel>
+            {clients.map((c) => (
+              <DropdownMenuItem
+                key={c}
+                onSelect={() => run("Updated", () => bulkSetClient(selectedIds, c))}
+              >
+                {c}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       {isAdmin && (
         <>

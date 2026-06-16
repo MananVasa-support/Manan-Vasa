@@ -77,6 +77,7 @@ export default async function ArchivedPage({ searchParams }: PageProps) {
         me={{ id: me.id, isAdmin: me.isAdmin }}
         statusLabels={statusLabels}
         statusTones={statusTones}
+        subjects={subjects}
       />
       <DashboardFooter />
     </>
