@@ -150,7 +150,7 @@ export function PunchCard({
             fireToast({
               message:
                 verdict.reason === "too_imprecise"
-                  ? `GPS fix too imprecise (±${Math.round(location.accuracyM)}m). Move near a window and try again.`
+                  ? `GPS too imprecise (±${Math.round(location.accuracyM)}m). Turn on Precise Location (iPhone) / High-accuracy mode (Android), then try again.`
                   : `You're ~${Math.round(verdict.effectiveDistanceM)}m from the office — punches register only within ${office.radiusM}m.`,
               type: "error",
             });
@@ -176,15 +176,18 @@ export function PunchCard({
           return;
         }
 
-        // 3. Server verifies geofence + biometric and writes the row.
-        const res = await punchAttendance({
-          kind,
-          note: note.trim() || undefined,
-          location,
-          assertion: proof.assertion,
-          registration: proof.registration,
-          deviceLabel: proof.deviceLabel,
-        });
+        // 3. Server verifies geofence + biometric and writes the row. Retry
+        //    once on a transient network failure ("Failed to fetch").
+        const res = await withNetworkRetry(() =>
+          punchAttendance({
+            kind,
+            note: note.trim() || undefined,
+            location,
+            assertion: proof.assertion,
+            registration: proof.registration,
+            deviceLabel: proof.deviceLabel,
+          }),
+        );
         if (!res.ok) {
           fireToast({ message: res.error, type: "error" });
           return;
@@ -201,14 +204,7 @@ export function PunchCard({
         setNote("");
         router.refresh();
       } catch (err) {
-        const e = err as Error & { name?: string };
-        fireToast({
-          message:
-            e.name === "NotAllowedError"
-              ? "Biometric cancelled — tap to try again."
-              : e.message || "Punch failed.",
-          type: "error",
-        });
+        fireToast({ message: mapPunchError(err), type: "error" });
       }
     });
   }
@@ -476,7 +472,7 @@ function Stat({ label, value }: { label: string; value: string | null }) {
  */
 function getPosition(): Promise<Fix> {
   const GOOD_ENOUGH_M = 35;
-  const MAX_WAIT_MS = 8_000;
+  const MAX_WAIT_MS = 11_000;
   return new Promise((resolve, reject) => {
     if (!("geolocation" in navigator)) {
       reject(new Error("Location not supported on this device."));
@@ -574,4 +570,46 @@ async function acquireBioProof(enrolledHere: boolean): Promise<BioProof> {
     }
     throw err;
   }
+}
+
+/** A `fetch`/server-action failure that's a connectivity blip, not a real
+ *  server response — worth one automatic retry. */
+function isNetworkError(err: unknown): boolean {
+  const e = err as Error | undefined;
+  return (
+    e instanceof TypeError ||
+    /failed to fetch|networkerror|load failed|network request failed/i.test(e?.message ?? "")
+  );
+}
+
+/** Run `fn`; retry exactly once after a short pause if it failed on the
+ *  network (so a momentary signal drop doesn't lose a punch). */
+async function withNetworkRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (isNetworkError(err)) {
+      await new Promise((r) => setTimeout(r, 800));
+      return fn();
+    }
+    throw err;
+  }
+}
+
+/** Turn a raw punch failure into an actionable message — the three real-world
+ *  failure modes employees hit (imprecise GPS, unset biometric / Android
+ *  Credential Manager, and lost connection) instead of a cryptic browser error. */
+function mapPunchError(err: unknown): string {
+  const e = err as (Error & { name?: string }) | undefined;
+  const msg = (e?.message ?? "").toLowerCase();
+  if (e?.name === "NotAllowedError") {
+    return "Biometric cancelled — tap to try again.";
+  }
+  if (msg.includes("credential manager") || e?.name === "UnknownError" || e?.name === "NotReadableError") {
+    return "Couldn't use your fingerprint / Face ID. Set up a screen lock + fingerprint on your phone (and update Google Play Services), or ask an admin to mark you exempt.";
+  }
+  if (isNetworkError(err)) {
+    return "Couldn't reach the server. Check your connection, fully reload the app, and try again.";
+  }
+  return e?.message || "Punch failed. Please try again.";
 }
