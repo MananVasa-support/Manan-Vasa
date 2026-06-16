@@ -22,6 +22,10 @@ interface MultiSelectProps {
   onChange: (selected: string[]) => void;
   placeholder?: string;
   className?: string;
+  /** Optional custom trigger (e.g. a FilterPill). Receives the resolved labels
+   *  of the current selection + the open state. When set, replaces the default
+   *  inline button trigger entirely. Must forward props/ref (Radix asChild). */
+  renderTrigger?: (state: { selectedLabels: string[]; open: boolean }) => React.ReactElement;
 }
 
 export function MultiSelect({
@@ -30,6 +34,7 @@ export function MultiSelect({
   onChange,
   placeholder = "All Employees",
   className,
+  renderTrigger,
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
@@ -60,6 +65,12 @@ export function MultiSelect({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
+        {renderTrigger ? (
+          renderTrigger({
+            selectedLabels: selected.map((v) => labelMap.get(v) ?? v),
+            open,
+          })
+        ) : (
         <button
           ref={triggerRef}
           type="button"
@@ -97,6 +108,7 @@ export function MultiSelect({
           )}
           <ChevronDown size={14} className="text-ink-subtle" />
         </button>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-72 p-0">
         <Command onKeyDown={onCommandKeyDown}>
