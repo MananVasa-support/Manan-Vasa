@@ -56,26 +56,21 @@ function Tile({
   );
 }
 
-/** The signature red angular A-mark, drawn inline so it tints/scales freely. */
+/** The real Altus logo mark (transparent PNG), sized to taste. */
 function Triangle({ size = 40, glow = true }: { size?: number; glow?: boolean }) {
+  const w = Math.round(size * 0.88);
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 100 100"
+    <Image
+      src="/logo-mark.png"
+      alt=""
       aria-hidden
-      style={glow ? { filter: "drop-shadow(0 4px 14px rgba(225,6,0,0.55))" } : undefined}
-    >
-      <defs>
-        <linearGradient id="trg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor={RED_LIGHT} />
-          <stop offset="0.55" stopColor={RED} />
-          <stop offset="1" stopColor={RED_DEEP} />
-        </linearGradient>
-      </defs>
-      <path d="M50 8 L86 92 L62 92 L50 54 L38 92 L14 92 Z" fill="url(#trg)" />
-      <path d="M50 30 L68 78 L54 78 L50 64 L46 78 L32 78 Z" fill="rgba(0,0,0,0.18)" />
-    </svg>
+      width={w}
+      height={size}
+      style={{
+        objectFit: "contain",
+        filter: glow ? "drop-shadow(0 4px 14px rgba(225,6,0,0.45))" : undefined,
+      }}
+    />
   );
 }
 

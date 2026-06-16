@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   signInWithEmailAndPassword,
@@ -103,19 +104,16 @@ export function LoginFormCanva() {
 
   return (
     <form onSubmit={onSubmit} className="w-full" noValidate>
-      {/* Brand mark */}
+      {/* Brand mark — the real Altus logo */}
       <div className="flex justify-center">
-        <svg width={48} height={48} viewBox="0 0 100 100" aria-hidden style={{ filter: "drop-shadow(0 6px 18px rgba(225,6,0,0.55))" }}>
-          <defs>
-            <linearGradient id="cvtrg" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stopColor="#F4554D" />
-              <stop offset="0.55" stopColor="#E10600" />
-              <stop offset="1" stopColor="#A80400" />
-            </linearGradient>
-          </defs>
-          <path d="M50 8 L86 92 L62 92 L50 54 L38 92 L14 92 Z" fill="url(#cvtrg)" />
-          <path d="M50 30 L68 78 L54 78 L50 64 L46 78 L32 78 Z" fill="rgba(0,0,0,0.2)" />
-        </svg>
+        <Image
+          src="/logo-mark.png"
+          alt="Altus Corp"
+          width={48}
+          height={55}
+          priority
+          style={{ height: 54, width: "auto", filter: "drop-shadow(0 8px 20px rgba(225,6,0,0.45))" }}
+        />
       </div>
 
       <h1
