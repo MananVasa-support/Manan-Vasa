@@ -939,6 +939,31 @@ html[data-density="compact"] body {
   }
 }
 
+/* Pill-card filter trigger — icon badge + value/sublabel + chevron. */
+@utility filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-hairline);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  transition: box-shadow 180ms ease, border-color 180ms ease;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+@utility filter-pill {
+  &:hover {
+    border-color: var(--color-hairline-strong);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  }
+  &[data-active="true"] {
+    border-color: color-mix(in srgb, var(--color-altus-red) 30%, transparent);
+  }
+}
+
 @utility nav-pill {
   display: inline-flex;
   align-items: center;

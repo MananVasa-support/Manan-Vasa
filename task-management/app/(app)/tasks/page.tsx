@@ -73,6 +73,7 @@ export default async function TasksPage({ searchParams }: PageProps) {
         clients={clients}
         me={{ id: me.id, isAdmin: me.isAdmin }}
         assigneeMode={filters.assigneeMode}
+        taskCount={rows.length}
         initial={{
           start:  isoDay(filters.startDate),
           end:    isoDay(filters.endDate),
