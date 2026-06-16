@@ -49,9 +49,15 @@ export function parseTaskFilters(
     return Array.isArray(v) ? v[0] : v;
   };
 
-  const statuses = split(get("status")).filter((s): s is TaskStatus =>
+  const rawStatuses = split(get("status"));
+  const statuses = rawStatuses.filter((s): s is TaskStatus =>
     STATUS_SET.has(s as TaskStatus),
   );
+  // "archived" is a pseudo-status chip in the filter: it isn't a real
+  // `tasks.status` value (archived lives on its own boolean column), so
+  // selecting it flips the list to show archived tasks. Any real status chips
+  // selected alongside it still narrow by status within the archived set.
+  const wantsArchived = rawStatuses.includes("archived");
   const priorities = split(get("prio")).filter((p): p is TaskPriority =>
     PRIO_SET.has(p as TaskPriority),
   );
@@ -96,7 +102,7 @@ export function parseTaskFilters(
     subjects: split(get("subj")),
     clients: split(get("client")),
     taskId: typeof id === "string" && id.length > 0 ? id : null,
-    archived,
+    archived: archived || wantsArchived,
     assigneeMode,
   };
 }

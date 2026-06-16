@@ -49,10 +49,16 @@ export default async function TasksPage({ searchParams }: PageProps) {
   // admin-overridable human labels. Retired statuses (follow_up_1/2/3,
   // cancelled, transferred) are dropped from the picker — see sir's changes
   // #2/#4/#6 — but approved/not_approved stay so the KPI links still filter.
-  const statusOptions = TASK_STATUSES.filter((s) => !isDeprecatedStatus(s)).map((s) => ({
-    value: s,
-    label: statusLabels[s] ?? s,
-  }));
+  const statusOptions: { value: string; label: string }[] = [
+    ...TASK_STATUSES.filter((s) => !isDeprecatedStatus(s)).map((s) => ({
+      value: s as string,
+      label: statusLabels[s] ?? s,
+    })),
+    // Pseudo-status: selecting it shows archived tasks (handled in
+    // parseTaskFilters → filters.archived). Lets you reach the Archive from the
+    // main Tasks list without leaving for the dedicated /archived page.
+    { value: "archived", label: "Archived" },
+  ];
 
   const isoDay = (d: Date | null) =>
     d ? d.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
@@ -75,7 +81,8 @@ export default async function TasksPage({ searchParams }: PageProps) {
           dept:   filters.departments,
           prio:   filters.priorities,
           subj:   filters.subjects,
-          status: filters.statuses,
+          // Reflect the Archived pseudo-chip back into the picker when active.
+          status: filters.archived ? [...filters.statuses, "archived"] : filters.statuses,
           client: filters.clients,
         }}
       />
