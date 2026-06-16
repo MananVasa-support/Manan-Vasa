@@ -10,7 +10,6 @@ import {
   User,
   Users,
   ListFilter,
-  Plus,
   Bookmark,
   X,
   Loader2,
@@ -104,7 +103,6 @@ export function FilterBar({
   const [subj, setSubj] = React.useState<string[]>(initial.subj);
   const [status, setStatus] = React.useState<string[]>(initial.status ?? []);
   const [client, setClient] = React.useState<string[]>(initial.client ?? []);
-  const [showExtra, setShowExtra] = React.useState(false);
 
   const range: DateRange | undefined = React.useMemo(() => {
     try {
@@ -280,40 +278,22 @@ export function FilterBar({
           )}
           <DepartmentFilter selected={dept} onChange={setDept} />
 
-          {/* Extra filters (revealed by "Add filter") */}
-          {showExtra && (
-            <>
-              {subjects && subjects.length > 0 && (
-                <SubjectFilter options={subjects} selected={subj} onChange={setSubj} />
-              )}
-              {showScopeChip && (
-                <SegGroup label="Scope">
-                  <SegButton active={assigneeMode === "default" && emp.length === 0} onClick={() => { setAssigneeMode("default"); setEmp([]); }}>My tasks</SegButton>
-                  <SegButton active={assigneeMode === "all" && emp.length === 0} onClick={() => { setAssigneeMode("all"); setEmp([]); }}>All tasks</SegButton>
-                </SegGroup>
-              )}
-              <SegGroup label="View">
-                <SegButton layoutId="view-seg-active" active={view === "doer"} onClick={() => setView("doer")}>Doer</SegButton>
-                <SegButton layoutId="view-seg-active" active={view === "initiator"} onClick={() => setView("initiator")}>Initiator</SegButton>
-              </SegGroup>
-            </>
+          {/* Subject — always shown */}
+          {subjects && subjects.length > 0 && (
+            <SubjectFilter options={subjects} selected={subj} onChange={setSubj} />
           )}
 
-          {/* Add filter */}
-          <button
-            type="button"
-            onClick={() => setShowExtra((v) => !v)}
-            aria-expanded={showExtra}
-            className="inline-flex items-center gap-1.5 rounded-2xl px-3.5 py-2.5 text-[14px] font-semibold transition-colors"
-            style={{
-              color: "var(--color-altus-red)",
-              border: "1.5px dashed color-mix(in srgb, var(--color-altus-red) 45%, transparent)",
-              background: showExtra ? "color-mix(in srgb, var(--color-altus-red) 7%, transparent)" : "transparent",
-            }}
-          >
-            <Plus size={16} strokeWidth={2.4} />
-            Add filter
-          </button>
+          {/* Scope (non-admins) + View — always shown */}
+          {showScopeChip && (
+            <SegGroup label="Scope">
+              <SegButton active={assigneeMode === "default" && emp.length === 0} onClick={() => { setAssigneeMode("default"); setEmp([]); }}>My tasks</SegButton>
+              <SegButton active={assigneeMode === "all" && emp.length === 0} onClick={() => { setAssigneeMode("all"); setEmp([]); }}>All tasks</SegButton>
+            </SegGroup>
+          )}
+          <SegGroup label="View">
+            <SegButton layoutId="view-seg-active" active={view === "doer"} onClick={() => setView("doer")}>Doer</SegButton>
+            <SegButton layoutId="view-seg-active" active={view === "initiator"} onClick={() => setView("initiator")}>Initiator</SegButton>
+          </SegGroup>
 
           {/* Right-pinned actions */}
           <div className="flex items-center gap-2 ml-auto">
