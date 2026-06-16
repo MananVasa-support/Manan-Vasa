@@ -1,16 +1,74 @@
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db, tasks } from "@/lib/db";
-import { PENDING_STATUSES, type TaskStatus } from "@/db/enums";
+import { PENDING_STATUSES, TASK_PRIORITIES, type TaskStatus } from "@/db/enums";
 import { authenticateMobileRequest, MOBILE_CORS } from "@/lib/auth/mobile";
 import { nextStatusesFor, type ActorRole } from "@/lib/auth/status-transitions";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
+import { rateLimitOrError } from "@/lib/rate-limit";
+import { createTasksCore } from "@/lib/tasks/create-task";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: MOBILE_CORS });
+}
+
+/**
+ * POST /api/mobile/tasks — create a task from the app. Single doer; the
+ * initiator defaults to the creator. Reuses createTasksCore so short-id, default
+ * status, audit, notifications + calendar sync match the web create exactly.
+ */
+export async function POST(req: Request) {
+  const auth = await authenticateMobileRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status, headers: MOBILE_CORS });
+  }
+  const me = auth.employee;
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) {
+    return NextResponse.json({ error: limited.error }, { status: 429, headers: MOBILE_CORS });
+  }
+
+  const b = (await req.json().catch(() => null)) as {
+    title?: string;
+    doerId?: string;
+    initiatorId?: string;
+    priority?: string;
+    dueAt?: string;
+    subject?: string | null;
+    description?: string | null;
+  } | null;
+  if (!b || typeof b.title !== "string" || !b.title.trim()) {
+    return NextResponse.json({ error: "A client/title is required." }, { status: 400, headers: MOBILE_CORS });
+  }
+  if (typeof b.doerId !== "string") {
+    return NextResponse.json({ error: "Pick a doer." }, { status: 400, headers: MOBILE_CORS });
+  }
+  if (typeof b.dueAt !== "string") {
+    return NextResponse.json({ error: "A due date is required." }, { status: 400, headers: MOBILE_CORS });
+  }
+  if (!TASK_PRIORITIES.includes((b.priority ?? "") as (typeof TASK_PRIORITIES)[number])) {
+    return NextResponse.json({ error: "Pick a priority." }, { status: 400, headers: MOBILE_CORS });
+  }
+
+  const result = await createTasksCore(
+    { id: me.id, name: me.name },
+    {
+      title: b.title,
+      doerId: b.doerId,
+      initiatorId: b.initiatorId ?? me.id,
+      priority: b.priority as (typeof TASK_PRIORITIES)[number],
+      dueAt: b.dueAt,
+      subject: b.subject ?? null,
+      description: b.description ?? null,
+    },
+  );
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 400, headers: MOBILE_CORS });
+  }
+  return NextResponse.json({ ok: true, id: result.id }, { headers: MOBILE_CORS });
 }
 
 const PENDING = new Set<TaskStatus>(PENDING_STATUSES);
