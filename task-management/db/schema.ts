@@ -1732,3 +1732,54 @@ export type IncentiveEntry = typeof incentiveEntries.$inferSelect;
 export type NewIncentiveEntry = typeof incentiveEntries.$inferInsert;
 export type IncentiveProject = typeof incentiveProjects.$inferSelect;
 export type NewIncentiveProject = typeof incentiveProjects.$inferInsert;
+
+/* ================================================================== */
+/* Weekly Goals (Manan 2026-06) — per-week priority planner.           */
+/* Each row = ONE priority a team member commits to in a Mon→Sun week  */
+/* (client, subject, priority, incentive flag + amount, kpi, target,   */
+/* % done, explanation/link, carry-over chain). Ported from the        */
+/* intern app (migration 0065 here = their 0055 + 0062 incentiveAmount)*/
+/* ================================================================== */
+
+export const weeklyGoals = pgTable(
+  "weekly_goals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    weekStart: date("week_start").notNull(),
+    position: integer("position").notNull().default(1),
+    client: text("client"),
+    subject: text("subject"),
+    priority: taskPriorityEnum("priority").notNull().default("imp_not_urgent"),
+    incentive: boolean("incentive").notNull().default(false),
+    incentiveAmount: integer("incentive_amount").notNull().default(0),
+    kpi: boolean("kpi").notNull().default(false),
+    targetDone: text("target_done"),
+    pctDone: integer("pct_done").notNull().default(0),
+    pctUpdatedById: uuid("pct_updated_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    pctUpdatedAt: timestamp("pct_updated_at", { withTimezone: true }),
+    explanation: text("explanation"),
+    linkUrl: text("link_url"),
+    carriedFromId: uuid("carried_from_id"),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    updatedById: uuid("updated_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("weekly_goals_employee_week_idx").on(t.employeeId, t.weekStart),
+    index("weekly_goals_week_idx").on(t.weekStart),
+    index("weekly_goals_carried_from_idx").on(t.carriedFromId),
+  ],
+);
+
+export type WeeklyGoal = typeof weeklyGoals.$inferSelect;
+export type NewWeeklyGoal = typeof weeklyGoals.$inferInsert;

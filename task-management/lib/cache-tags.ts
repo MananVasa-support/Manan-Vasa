@@ -17,6 +17,8 @@ export const CACHE_TAGS = {
   clients: "clients",
   /** Project tree nodes (Project / Milestone / Result / Action / Sub-Action). */
   projectNodes: "project-nodes",
+  /** Weekly Goals planner rows (board + dashboard reads). */
+  weeklyGoals: "weekly-goals",
 } as const;
 
 export type CacheTag = (typeof CACHE_TAGS)[keyof typeof CACHE_TAGS];
