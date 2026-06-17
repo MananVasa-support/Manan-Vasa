@@ -21,6 +21,10 @@ const KIND_LABEL: Record<NotificationKind, string> = {
   cancelled:      "Cancelled",
   commented:      "Comment posted",
   overdue_digest: "Daily overdue digest",
+  // Weekly Goals reminder cron — sent directly, not via the matrix.
+  weekly_goals_assigned:      "Weekly goals — Monday briefing",
+  weekly_goals_fill_reminder: "Weekly goals — fill % done",
+  weekly_goals_incomplete:    "Weekly goals — unmarked nudge",
   // Attendance Phase A — inbox-only kinds.
   attendance_late:        "Attendance: late check-in",
   attendance_late_waived: "Attendance: late waived",

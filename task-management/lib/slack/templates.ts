@@ -26,6 +26,11 @@ const EMOJI: Record<NotificationKind, string> = {
   cancelled: ":wastebasket:",
   commented: ":speech_balloon:",
   overdue_digest: ":warning:",
+  // Weekly Goals — delivered by their own cron; present to satisfy the
+  // exhaustive map but not sent via Slack.
+  weekly_goals_assigned: ":dart:",
+  weekly_goals_fill_reminder: ":bar_chart:",
+  weekly_goals_incomplete: ":warning:",
   // Attendance Phase A — inbox-only kinds.
   attendance_late: ":hourglass:",
   attendance_late_waived: ":white_check_mark:",
@@ -48,6 +53,10 @@ const VERB: Record<NotificationKind, (actor: string, statusLabel?: string) => st
   cancelled: (a) => `${a} cancelled a task`,
   commented: (a) => `${a} commented on your task`,
   overdue_digest: () => `You have overdue tasks`,
+  // Weekly Goals — delivered by their own cron; not sent via Slack.
+  weekly_goals_assigned: () => `Your priorities for the week`,
+  weekly_goals_fill_reminder: () => `Update your % done`,
+  weekly_goals_incomplete: () => `You have unmarked weekly goals`,
   // Attendance Phase A — inbox-only kinds.
   attendance_late: () => `Late check-in recorded`,
   attendance_late_waived: () => `Late check-in waived`,

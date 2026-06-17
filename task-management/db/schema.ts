@@ -688,6 +688,12 @@ export const NOTIFICATION_KINDS = [
   // Attendance Phase B (0059) — late-deduction alert. Inbox-only until B8 wires
   // its email template; routed to the inbox-only arm in lib/email/resend.ts.
   "attendance_late_deduction",
+  // Weekly Goals reminder cron — text column, no DB change needed. These are
+  // sent directly by app/api/cron/weekly-goals (bypassing the matrix), so they
+  // never flow through lib/notifications/dispatch.ts.
+  "weekly_goals_assigned",
+  "weekly_goals_fill_reminder",
+  "weekly_goals_incomplete",
 ] as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
