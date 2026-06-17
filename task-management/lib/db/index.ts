@@ -16,16 +16,19 @@ const client =
     // Required for Supabase's pgbouncer (transaction-mode pooler):
     // prepared statements are per-session and break under txn pooling.
     prepare: false,
-    // Higher ceiling so the dashboard's query burst (header counts +
-    // loadDashboardData's ~5 selects + My Day + status map ≈ 15-20
-    // concurrent reads) runs in parallel instead of queuing 10-at-a-time
-    // and piling up to 25s+ on a cold remote DB. Supabase pooled allows
-    // ~200, so 18 is safe headroom.
-    max: 18,
-    // Keep connections warm for a minute so back-to-back navigations
-    // reuse the TLS handshake. The previous 20s window meant any quiet
-    // user paid a fresh handshake (~50-150ms remote) on their next click.
-    idle_timeout: 60,
+    // The Postgres instance's REAL ceiling is max_connections=60 (measured),
+    // NOT ~200 — Supabase reserves some, leaving ~45 usable. On Vercel each
+    // warm function instance holds its own pool, so a high per-instance `max`
+    // exhausts the DB under load (e.g. the morning attendance rush): ~4
+    // instances × 18 = 72 > 60 → "couldn't get a connection" timeouts. Keep
+    // the per-instance pool small so many instances coexist; the dashboard's
+    // ~15-20 concurrent reads still parallelise 8-wide (2-3 quick waves). The
+    // durable cure for the slow cold scans is indexing those queries, not a
+    // bigger pool.
+    max: 8,
+    // Release idle connections quickly so a burst from one route doesn't
+    // park reservations that another instance then can't get. (Was 60s.)
+    idle_timeout: 20,
     max_lifetime: 60 * 30,
     connect_timeout: 10,
   });
