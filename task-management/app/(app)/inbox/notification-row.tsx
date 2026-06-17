@@ -18,6 +18,7 @@ import {
   ArrowRight,
   Bell,
   Smartphone,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 import type { InboxNotificationRow as NotificationRowData } from "@/lib/queries/notifications";
@@ -45,6 +46,10 @@ const KIND_META: Record<NotificationKind, { icon: LucideIcon; tone: string }> = 
   cancelled: { icon: Ban, tone: "red" },
   commented: { icon: MessageSquare, tone: "blue" },
   overdue_digest: { icon: AlarmClock, tone: "amber" },
+  // Weekly Goals reminder cron.
+  weekly_goals_assigned: { icon: Target, tone: "blue" },
+  weekly_goals_fill_reminder: { icon: AlarmClock, tone: "amber" },
+  weekly_goals_incomplete: { icon: AlarmClock, tone: "red" },
   // Attendance Phase A — inbox-only kinds.
   attendance_late: { icon: AlarmClock, tone: "amber" },
   attendance_late_waived: { icon: CheckCircle2, tone: "green" },

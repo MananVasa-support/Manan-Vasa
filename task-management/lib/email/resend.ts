@@ -19,6 +19,12 @@ import { TransferredEmail } from "@/emails/notifications/Transferred";
 import { CancelledEmail } from "@/emails/notifications/Cancelled";
 import { CommentedEmail } from "@/emails/notifications/Commented";
 import { DailyDigestEmail } from "@/emails/notifications/DailyDigest";
+import {
+  WeeklyGoalsMondayEmail,
+  type WeeklyGoalLine,
+} from "@/emails/notifications/WeeklyGoalsMonday";
+import { WeeklyGoalsFillReminderEmail } from "@/emails/notifications/WeeklyGoalsFillReminder";
+import { WeeklyGoalsIncompleteEmail } from "@/emails/notifications/WeeklyGoalsIncomplete";
 import { AttendanceLateEmail } from "@/emails/notifications/attendance-late";
 import { AttendanceLateWaivedEmail } from "@/emails/notifications/attendance-late-waived";
 import { AttendanceHalfDayEmail } from "@/emails/notifications/attendance-half-day";
@@ -342,6 +348,102 @@ export async function sendDigestEmail(
 }
 
 /* ------------------------------------------------------------------ */
+/* Weekly Goals — planner cron emails                                   */
+/* ------------------------------------------------------------------ */
+
+type EmailSendResult = { id: string | null; error: string | null };
+
+/** Monday 10:00 — the week's priorities (or a nudge to set some). */
+export async function sendWeeklyGoalsMondayEmail(args: {
+  recipient: { email: string; name: string };
+  weekLabel: string;
+  goals: WeeklyGoalLine[];
+  siteUrl: string | undefined;
+}): Promise<EmailSendResult> {
+  try {
+    const resend = getResend();
+    if (!resend) return { id: null, error: null };
+    const { data, error } = await resend.emails.send({
+      from: FROM,
+      to: args.recipient.email,
+      subject: clampSubject(
+        args.goals.length > 0
+          ? `Your ${args.goals.length} priorities for the week — Altus Corp`
+          : `Set your weekly priorities — Altus Corp`,
+      ),
+      react: WeeklyGoalsMondayEmail({
+        recipientName: args.recipient.name,
+        weekLabel: args.weekLabel,
+        goals: args.goals,
+        siteUrl: args.siteUrl ?? "",
+      }),
+    });
+    if (error) return { id: null, error: error.message };
+    return { id: data?.id ?? null, error: null };
+  } catch (err) {
+    return { id: null, error: errorMessage(err) };
+  }
+}
+
+/** Saturday 18:00 — reminder to fill in % done. */
+export async function sendWeeklyGoalsFillReminderEmail(args: {
+  recipient: { email: string; name: string };
+  weekLabel: string;
+  pendingCount: number;
+  siteUrl: string | undefined;
+}): Promise<EmailSendResult> {
+  try {
+    const resend = getResend();
+    if (!resend) return { id: null, error: null };
+    const { data, error } = await resend.emails.send({
+      from: FROM,
+      to: args.recipient.email,
+      subject: clampSubject("Update your % done before the week closes — Altus Corp"),
+      react: WeeklyGoalsFillReminderEmail({
+        recipientName: args.recipient.name,
+        weekLabel: args.weekLabel,
+        pendingCount: args.pendingCount,
+        siteUrl: args.siteUrl ?? "",
+      }),
+    });
+    if (error) return { id: null, error: error.message };
+    return { id: data?.id ?? null, error: null };
+  } catch (err) {
+    return { id: null, error: errorMessage(err) };
+  }
+}
+
+/** Sunday + Monday 09:45 — escalation when goals are still unmarked. */
+export async function sendWeeklyGoalsIncompleteEmail(args: {
+  recipient: { email: string; name: string };
+  weekLabel: string;
+  unmarkedCount: number;
+  siteUrl: string | undefined;
+}): Promise<EmailSendResult> {
+  try {
+    const resend = getResend();
+    if (!resend) return { id: null, error: null };
+    const { data, error } = await resend.emails.send({
+      from: FROM,
+      to: args.recipient.email,
+      subject: clampSubject(
+        `${args.unmarkedCount} weekly ${args.unmarkedCount === 1 ? "goal" : "goals"} still unmarked — Altus Corp`,
+      ),
+      react: WeeklyGoalsIncompleteEmail({
+        recipientName: args.recipient.name,
+        weekLabel: args.weekLabel,
+        unmarkedCount: args.unmarkedCount,
+        siteUrl: args.siteUrl ?? "",
+      }),
+    });
+    if (error) return { id: null, error: error.message };
+    return { id: data?.id ?? null, error: null };
+  } catch (err) {
+    return { id: null, error: errorMessage(err) };
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* internal — template selection + DB resolvers                         */
 /* ------------------------------------------------------------------ */
 
@@ -533,6 +635,13 @@ function renderNotificationTemplate(ctx: RenderContext): ReactElement | null {
     case "attendance_device":
       // overdue_digest belongs in `sendDigestEmail`; attendance_device is kept
       // in-app only. Skip the per-row email.
+      return null;
+
+    case "weekly_goals_assigned":
+    case "weekly_goals_fill_reminder":
+    case "weekly_goals_incomplete":
+      // Weekly Goals emails are sent by the weekly-goals cron via their own
+      // dedicated senders, never through the per-task dispatcher.
       return null;
   }
 }

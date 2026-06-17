@@ -16,6 +16,11 @@ const NAMES: Record<NotificationKind, string> = {
   cancelled: "vp_cancelled",
   commented: "vp_commented",
   overdue_digest: "vp_overdue_digest",
+  // Weekly Goals — delivered by their own cron, never via the WhatsApp
+  // dispatcher. Names are placeholders to satisfy the exhaustive map.
+  weekly_goals_assigned: "vp_weekly_goals_assigned",
+  weekly_goals_fill_reminder: "vp_weekly_goals_fill",
+  weekly_goals_incomplete: "vp_weekly_goals_incomplete",
   // Attendance Phase A — inbox-only kinds; no registered WhatsApp template.
   attendance_late: "vp_attendance_late",
   attendance_late_waived: "vp_attendance_late_waived",
@@ -105,6 +110,11 @@ const VARS: Record<NotificationKind, (ctx: TemplateCtx) => Param[]> = {
     t(String(c.digestCount ?? 0)),
     t(c.digestPreview ?? ""),
   ],
+  // Weekly Goals — delivered by their own cron; placeholder single-body
+  // builders to satisfy the exhaustive map.
+  weekly_goals_assigned: (c) => [t(String(c.digestCount ?? 0))],
+  weekly_goals_fill_reminder: (c) => [t(String(c.digestCount ?? 0))],
+  weekly_goals_incomplete: (c) => [t(String(c.digestCount ?? 0))],
   // Attendance Phase A — inbox-only kinds; simple single-body fallback.
   attendance_late: (c) => [t(c.body ?? "")],
   attendance_late_waived: (c) => [t(c.body ?? "")],

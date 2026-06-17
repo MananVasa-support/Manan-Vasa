@@ -25,6 +25,10 @@ const TITLES: Record<NotificationKind, (actor: string) => string> = {
   cancelled: (a) => `${a} cancelled a task`,
   commented: (a) => `${a} commented on your task`,
   overdue_digest: () => `You have overdue tasks`,
+  // Weekly Goals — delivered by their own cron (email + in-app), not via push.
+  weekly_goals_assigned: () => `Your priorities for the week`,
+  weekly_goals_fill_reminder: () => `Update your % done`,
+  weekly_goals_incomplete: () => `You have unmarked weekly goals`,
   // Attendance Phase A — inbox-only kinds.
   attendance_late: () => `Late check-in recorded`,
   attendance_late_waived: () => `Late check-in waived`,
