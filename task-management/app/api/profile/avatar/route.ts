@@ -8,7 +8,7 @@ import {
   AVATAR_SIGNED_URL_TTL_SECONDS,
   getSupabaseAdmin,
 } from "@/lib/supabase/admin";
-import { updateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { CACHE_TAGS, PROFILE_CACHE_TAGS } from "@/lib/cache-tags";
 
 export const runtime = "nodejs";
@@ -110,8 +110,8 @@ export async function POST(req: Request) {
     );
   }
 
-  updateTag(PROFILE_CACHE_TAGS.profile(me.id));
-  updateTag(CACHE_TAGS.employees);
+  revalidateTag(PROFILE_CACHE_TAGS.profile(me.id), "default");
+  revalidateTag(CACHE_TAGS.employees, "default");
 
   return NextResponse.json({ ok: true, url: signed.signedUrl });
 }
@@ -150,8 +150,8 @@ export async function DELETE() {
     // ignore
   }
 
-  updateTag(PROFILE_CACHE_TAGS.profile(me.id));
-  updateTag(CACHE_TAGS.employees);
+  revalidateTag(PROFILE_CACHE_TAGS.profile(me.id), "default");
+  revalidateTag(CACHE_TAGS.employees, "default");
 
   return NextResponse.json({ ok: true });
 }
