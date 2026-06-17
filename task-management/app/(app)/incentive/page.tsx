@@ -1,37 +1,70 @@
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
-import { IncentiveFormDialog } from "@/components/incentive/incentive-form-dialog";
-import { IncentiveList } from "@/components/incentive/incentive-list";
+import { IncentiveTabs } from "@/components/incentive/incentive-tabs";
 import { requireUser } from "@/lib/auth/current";
 import { listIncentiveRequests } from "@/lib/queries/incentive";
+import { getIncentiveDashboard } from "@/lib/queries/incentives";
 
 export const dynamic = "force-dynamic";
 
-export default async function IncentivePage() {
+interface PageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function IncentivePage({ searchParams }: PageProps) {
   const me = await requireUser();
-  const rows = await listIncentiveRequests({
-    employeeId: me.id,
-    isAdmin: me.isAdmin,
-  });
+  const sp = await searchParams;
+
+  // Year selector — default to the current calendar year; offer a small
+  // trailing window so prior years stay reachable.
+  const currentYear = new Date().getFullYear();
+  const raw = Array.isArray(sp.year) ? sp.year[0] : sp.year;
+  const parsed = raw ? Number(raw) : currentYear;
+  const year = Number.isFinite(parsed) ? parsed : currentYear;
+  const years = [currentYear, currentYear - 1, currentYear - 2, currentYear - 3].filter(
+    (y, i, a) => a.indexOf(y) === i,
+  );
+  if (!years.includes(year)) years.unshift(year);
+
+  const [dashboard, rows] = await Promise.all([
+    getIncentiveDashboard(year),
+    listIncentiveRequests({ employeeId: me.id, isAdmin: me.isAdmin }),
+  ]);
 
   const pendingCount = rows.filter((r) => r.status === "pending").length;
 
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[860px] px-8 max-md:px-4 pt-8 pb-16">
-        <header className="mb-6 flex items-end justify-between gap-3 flex-wrap">
-          <div>
-            <h1 className="text-display-lg text-ink-strong">Incentive</h1>
-            <p className="text-body-lg text-ink-subtle mt-1">
-              {me.isAdmin
-                ? `Team incentive requests — ${pendingCount} pending review.`
-                : "File incentive requests and track their approval."}
-            </p>
-          </div>
-          <IncentiveFormDialog />
+      <main className="mx-auto max-w-[1280px] px-8 max-md:px-4 pt-8 pb-16">
+        <header className="mb-6">
+          <h1
+            className="text-ink-strong"
+            style={{
+              fontFamily: "var(--font-display), system-ui, sans-serif",
+              fontWeight: 900,
+              fontSize: "clamp(36px, 4vw, 52px)",
+              letterSpacing: "-0.025em",
+              lineHeight: 1,
+            }}
+          >
+            Incentive
+          </h1>
+          <p className="mt-2 text-ink-muted font-semibold" style={{ fontSize: 18 }}>
+            {me.isAdmin
+              ? "Team incentive analytics and request review."
+              : "Track incentive earnings and file requests."}
+          </p>
         </header>
-        <IncentiveList rows={rows} isAdmin={me.isAdmin} />
+
+        <IncentiveTabs
+          dashboard={dashboard}
+          years={years}
+          year={year}
+          requests={rows}
+          isAdmin={me.isAdmin}
+          pendingCount={pendingCount}
+        />
       </main>
       <DashboardFooter />
     </>

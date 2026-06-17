@@ -1614,3 +1614,121 @@ export type SalaryPolicy = typeof salaryPolicies.$inferSelect;
 export type NewSalaryPolicy = typeof salaryPolicies.$inferInsert;
 export type SalaryPolicyConsent = typeof salaryPolicyConsents.$inferSelect;
 export type NewSalaryPolicyConsent = typeof salaryPolicyConsents.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// Incentive MIS (migration 0064) — native rebuild of the "Altus Eco System
+// MIS" Google Sheet incentive tabs. Three read-mostly tables imported (and
+// re-imported, idempotently) from the live sheet via scripts/import-incentives.ts:
+//   - incentive_catalog   ← "3.Incentive Chart"
+//   - incentive_entries   ← "4.Incentive MIS"
+//   - incentive_projects  ← "5. Altus Projects MIS"
+// Money is numeric(14,2) rupees (house style; read as strings). Employee
+// display names from the sheet are messy ("Foo Bar ( Intern - Baz )"), so we
+// keep the raw text AND a best-effort employee_id FK resolved on the leading
+// name. Period months ("Apr-26") are stored as the first-of-month date.
+// `unpaid` is always DERIVED (approved − paid); never stored. The older
+// incentive_requests table (migration 0053) is unrelated and left untouched.
+// ---------------------------------------------------------------------------
+
+export const incentiveCatalog = pgTable("incentive_catalog", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  amount: numeric("amount", { precision: 14, scale: 2 }).notNull().default("0"),
+  salesEligible: boolean("sales_eligible"),
+  internsEligible: boolean("interns_eligible"),
+  notes: text("notes"),
+  sortOrder: integer("sort_order"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const incentiveEntries = pgTable(
+  "incentive_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    srcSrNo: integer("src_sr_no"),
+    entryDate: date("entry_date"),
+    incentiveName: text("incentive_name").notNull(),
+    periodMonth: date("period_month"),
+    empName: text("emp_name").notNull(),
+    employeeId: uuid("employee_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    participantName: text("participant_name"),
+    prospectGroupName: text("prospect_group_name"),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull().default("0"),
+    approved: boolean("approved").notNull().default(false),
+    approvedAmt: numeric("approved_amt", { precision: 14, scale: 2 })
+      .notNull()
+      .default("0"),
+    paid: boolean("paid").notNull().default(false),
+    paidAmt: numeric("paid_amt", { precision: 14, scale: 2 }).notNull().default("0"),
+    paidDate: date("paid_date"),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("incentive_entries_period_idx").on(t.periodMonth),
+    index("incentive_entries_employee_idx").on(t.employeeId),
+  ],
+);
+
+export const incentiveProjects = pgTable(
+  "incentive_projects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    srcSrNo: integer("src_sr_no"),
+    subject: text("subject"),
+    projectName: text("project_name"),
+    initiatorName: text("initiator_name"),
+    supervisorName: text("supervisor_name"),
+    supervisorId: uuid("supervisor_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    internName: text("intern_name"),
+    internId: uuid("intern_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    projectDetails: text("project_details"),
+    periodMonth: date("period_month"),
+    approved: boolean("approved").notNull().default(false),
+    empAmount: numeric("emp_amount", { precision: 14, scale: 2 })
+      .notNull()
+      .default("0"),
+    internAmount: numeric("intern_amount", { precision: 14, scale: 2 })
+      .notNull()
+      .default("0"),
+    empApprovedAmt: numeric("emp_approved_amt", { precision: 14, scale: 2 })
+      .notNull()
+      .default("0"),
+    internApprovedAmt: numeric("intern_approved_amt", { precision: 14, scale: 2 })
+      .notNull()
+      .default("0"),
+    paid: boolean("paid").notNull().default(false),
+    empPaidAmt: numeric("emp_paid_amt", { precision: 14, scale: 2 })
+      .notNull()
+      .default("0"),
+    internPaidAmt: numeric("intern_paid_amt", { precision: 14, scale: 2 })
+      .notNull()
+      .default("0"),
+    paidDate: date("paid_date"),
+    initiatorNotes: text("initiator_notes"),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("incentive_projects_period_idx").on(t.periodMonth),
+    index("incentive_projects_supervisor_idx").on(t.supervisorId),
+    index("incentive_projects_intern_idx").on(t.internId),
+  ],
+);
+
+export type IncentiveCatalog = typeof incentiveCatalog.$inferSelect;
+export type NewIncentiveCatalog = typeof incentiveCatalog.$inferInsert;
+export type IncentiveEntry = typeof incentiveEntries.$inferSelect;
+export type NewIncentiveEntry = typeof incentiveEntries.$inferInsert;
+export type IncentiveProject = typeof incentiveProjects.$inferSelect;
+export type NewIncentiveProject = typeof incentiveProjects.$inferInsert;
