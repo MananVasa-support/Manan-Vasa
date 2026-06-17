@@ -26,7 +26,7 @@ function statusFilterCondition(statuses: TaskStatus[]) {
   return or(byStatus, inArray(tasks.approvalStatus, verdicts as ApprovalStatus[]));
 }
 
-export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]> {
+async function listTasksUncached(filters: TaskListFilters): Promise<TaskListRow[]> {
   const conditions = [eq(tasks.archived, filters.archived)];
 
   if (filters.startDate) conditions.push(gte(tasks.createdAt, filters.startDate));
@@ -117,6 +117,30 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
   }));
 }
 
+/**
+ * Cached wrapper for the hot list path (/tasks, /myday agenda, /archived all
+ * call this). Caching it means a burst of concurrent loads is served from
+ * cache instead of each hitting the DB — the key defence against connection
+ * exhaustion on the 60-conn ceiling. 30s window, busted instantly on any task
+ * mutation via the CACHE_TAGS.tasks tag (revalidateTaskRoutes → updateTag).
+ * `unstable_cache` serialises Date→string on a hit, so dates are rehydrated.
+ */
+export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]> {
+  const rows = await unstable_cache(
+    () => listTasksUncached(filters),
+    ["list-tasks", JSON.stringify(filters)],
+    { revalidate: 30, tags: [CACHE_TAGS.tasks] },
+  )();
+  return rows.map((r) => ({
+    ...r,
+    createdAt: new Date(r.createdAt as unknown as string | Date),
+    dueAt: new Date(r.dueAt as unknown as string | Date),
+    updatedAt: new Date(r.updatedAt as unknown as string | Date),
+    firstReadAt: r.firstReadAt ? new Date(r.firstReadAt as unknown as string | Date) : null,
+    completedAt: r.completedAt ? new Date(r.completedAt as unknown as string | Date) : null,
+  }));
+}
+
 // ─── Phase 4.2 — cursor pagination ────────────────────────────────────────
 //
 // `listTasks()` above keeps its existing "flat array up to 1000 rows"
@@ -163,7 +187,50 @@ function decodeCursor(c: string): { createdAt: Date; id: string } | null {
   }
 }
 
+/**
+ * Cached /tasks table page. The query is fast (<200ms) but under concurrent
+ * load every page view opens a DB connection; against the hard 60-connection
+ * ceiling that's the bottleneck, not latency. Memoise per (filters, opts) for
+ * 30s, tagged CACHE_TAGS.tasks, so repeated/concurrent loads in the window are
+ * served from cache. Mutations call updateTag(CACHE_TAGS.tasks) (see
+ * revalidateTaskRoutes in app/(app)/tasks/actions.ts) → read-your-writes.
+ *
+ * unstable_cache serialises the result, so Date fields arrive as ISO strings
+ * on a cache HIT — every Date in TaskListRow is re-wrapped below so the public
+ * return type stays Date-typed and all consumers keep working unchanged.
+ */
 export async function listTasksPage(
+  filters: TaskListFilters,
+  opts: TaskListPageOpts = {},
+): Promise<TaskListPage> {
+  const keyParts = [
+    "tasks-page",
+    JSON.stringify(filters ?? {}),
+    JSON.stringify(opts ?? {}),
+  ];
+  const page = await unstable_cache(
+    () => listTasksPageUncached(filters, opts),
+    keyParts,
+    { revalidate: 30, tags: [CACHE_TAGS.tasks] },
+  )();
+  return {
+    nextCursor: page.nextCursor,
+    rows: page.rows.map((r) => ({
+      ...r,
+      createdAt: new Date(r.createdAt as unknown as string | Date),
+      dueAt: new Date(r.dueAt as unknown as string | Date),
+      updatedAt: new Date(r.updatedAt as unknown as string | Date),
+      firstReadAt: r.firstReadAt
+        ? new Date(r.firstReadAt as unknown as string | Date)
+        : null,
+      completedAt: r.completedAt
+        ? new Date(r.completedAt as unknown as string | Date)
+        : null,
+    })),
+  };
+}
+
+async function listTasksPageUncached(
   filters: TaskListFilters,
   opts: TaskListPageOpts = {},
 ): Promise<TaskListPage> {
@@ -300,6 +367,25 @@ export interface BoardTask {
  * narrows the board.
  */
 export async function listBoardTasks(filters?: TaskListFilters): Promise<BoardTask[]> {
+  const keyParts = ["board-tasks", JSON.stringify(filters ?? {})];
+  const rows = await unstable_cache(
+    () => listBoardTasksUncached(filters),
+    keyParts,
+    { revalidate: 30, tags: [CACHE_TAGS.tasks] },
+  )();
+  // unstable_cache turns Date fields into ISO strings on a cache HIT; re-wrap
+  // every Date in BoardTask so the return type stays Date-typed.
+  return rows.map((r) => ({
+    ...r,
+    dueAt: new Date(r.dueAt as unknown as string | Date),
+    updatedAt: new Date(r.updatedAt as unknown as string | Date),
+    completedAt: r.completedAt
+      ? new Date(r.completedAt as unknown as string | Date)
+      : null,
+  }));
+}
+
+async function listBoardTasksUncached(filters?: TaskListFilters): Promise<BoardTask[]> {
   const conditions = [];
   if (filters) {
     if (filters.startDate) conditions.push(gte(tasks.createdAt, filters.startDate));
@@ -350,6 +436,25 @@ export async function listBoardTasks(filters?: TaskListFilters): Promise<BoardTa
  * due first. Same light shape as the Kanban board.
  */
 export async function listAgendaTasks(employeeId: string): Promise<BoardTask[]> {
+  const keyParts = ["agenda-tasks", employeeId];
+  const rows = await unstable_cache(
+    () => listAgendaTasksUncached(employeeId),
+    keyParts,
+    { revalidate: 30, tags: [CACHE_TAGS.tasks] },
+  )();
+  // unstable_cache turns Date fields into ISO strings on a cache HIT; re-wrap
+  // every Date in BoardTask so the return type stays Date-typed.
+  return rows.map((r) => ({
+    ...r,
+    dueAt: new Date(r.dueAt as unknown as string | Date),
+    updatedAt: new Date(r.updatedAt as unknown as string | Date),
+    completedAt: r.completedAt
+      ? new Date(r.completedAt as unknown as string | Date)
+      : null,
+  }));
+}
+
+async function listAgendaTasksUncached(employeeId: string): Promise<BoardTask[]> {
   const rows = await db
     .select({
       id: tasks.id,
