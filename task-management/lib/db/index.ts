@@ -16,31 +16,37 @@ const client =
     // Required for Supabase's pgbouncer (transaction-mode pooler):
     // prepared statements are per-session and break under txn pooling.
     prepare: false,
-    // The Postgres instance's REAL ceiling is max_connections=60 (measured),
-    // NOT ~200 — Supabase reserves some, leaving ~45 usable. On Vercel each
-    // warm function instance holds its own pool, so a high per-instance `max`
-    // exhausts the DB under load (e.g. the morning attendance rush): ~4
-    // instances × 18 = 72 > 60 → "couldn't get a connection" timeouts. Keep
-    // the per-instance pool small so many instances coexist; the dashboard's
-    // ~15-20 concurrent reads still parallelise 8-wide (2-3 quick waves). The
-    // durable cure for the slow cold scans is indexing those queries, not a
-    // bigger pool.
-    // INCIDENT 2026-06-17: authed pages (/myday, /kanban, dashboard) were
-    // throwing "that didn't go through" under concurrent load — the queries
-    // themselves are fast (<200ms on ~800 rows), so this is connection
-    // exhaustion: too many Vercel instances each opening connections blow past
-    // the DB's 60 ceiling, and the overflow connect attempts hit connect_timeout
-    // and throw. With Fluid Compute reusing instances, a small per-instance pool
-    // keeps total connections under 60 (queries just queue a touch instead of
-    // failing). max 8→4: even ~12 warm instances (48) stay under the ceiling.
-    // THE durable fix is raising Supabase's connection limit (compute size /
-    // pooler settings) — pool tuning alone can't fully square Fluid concurrency
-    // against a 60-conn DB.
-    max: 4,
-    // Release idle connections fast so a burst from one route doesn't park
-    // reservations another instance then can't get. (Was 60s.)
-    idle_timeout: 20,
-    max_lifetime: 60 * 30,
+    // We connect to the Supabase TRANSACTION pooler (Supavisor, port 6543), not
+    // Postgres directly. The pooler accepts up to ~200 client connections and
+    // multiplexes them onto its own server pool (≈40) against the DB's 60-conn
+    // ceiling. So this `max` is connections to the POOLER, not to Postgres —
+    // the pooler, not us, guards the 60 ceiling. An over-tight pool is actually
+    // harmful: a page like the dashboard fires 6–15 queries in one Promise.all,
+    // and with only 4 slots a single STALE connection blocks a quarter of them.
+    //
+    // INCIDENT 2026-06-17: after a Supabase restart-storm (network restrictions
+    // toggle + pooler bounce), warm Vercel instances kept handing out dead
+    // connections from before the bounce. With no query timeout, a query on a
+    // dead socket hung FOREVER → authed pages intermittently stuck on "Loading…"
+    // (≈1 in 5 requests). Root cause was NOT the 60-conn ceiling (queries are
+    // <200ms on ~800 rows) — it was stale connections + no timeout. Hardening:
+    //   • max 4→10  — headroom for parallel page queries; safe vs the pooler's
+    //                 200-client limit even across ~15 warm instances.
+    //   • max_lifetime 30m→10m and idle_timeout 20s→10s — recycle aggressively
+    //                 so a connection orphaned by a pooler restart is dropped
+    //                 (idle >10s → closed) instead of lingering up to 30m and
+    //                 being handed out dead. This is the primary anti-hang fix.
+    //
+    // NOTE on query timeouts: Supabase already enforces a server-side
+    // statement_timeout of 2min by default, so a query that REACHES the server
+    // can't hang forever. We deliberately do NOT pass `connection: {
+    // statement_timeout }` — Supavisor (the txn pooler) silently ignores
+    // startup GUCs (verified: it still reports 2min), so it'd be a misleading
+    // no-op. The aggressive recycling above + postgres-js's default TCP
+    // keep_alive (60s) are what actually bound the dead-socket case.
+    max: 10,
+    idle_timeout: 10,
+    max_lifetime: 60 * 10,
     connect_timeout: 10,
   });
 
