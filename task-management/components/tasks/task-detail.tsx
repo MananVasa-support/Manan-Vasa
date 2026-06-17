@@ -46,8 +46,11 @@ export function TaskDetail({ task }: { task: TaskDetailModel }) {
   const headline =
     description || task.subject?.trim() || clientName || "Untitled task";
   const subjectChip = task.subject?.trim() || null;
+  // Overdue is keyed off the EFFECTIVE due (revised ?? original), not the
+  // immutable original due_at.
+  const effectiveDue = task.revisedTargetDate ?? task.dueAt;
   const overdue =
-    task.dueAt.getTime() < Date.now() &&
+    effectiveDue.getTime() < Date.now() &&
     !["approved", "cancelled", "transferred"].includes(task.status);
 
   return (

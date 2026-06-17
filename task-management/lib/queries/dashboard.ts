@@ -16,6 +16,7 @@ import {
   computeEmployeeAgingTable,
 } from "@/lib/transforms";
 import { AGE_BUCKETS, PENDING_STATUSES } from "@/db/enums";
+import { effectiveDueAtSql } from "@/lib/tasks/effective-due";
 import type { TaskStatus } from "@/db/enums";
 import type { AgingHeatmapData } from "@/lib/types";
 import {
@@ -31,8 +32,15 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 // — the dashboard transforms never read them, and shipping them on every row
 // of three full scans bloats the payload over the remote connection. Dropping
 // them keeps the scans lean. (Verified: no transform accesses these fields.)
-const { description: _description, notes: _notes, ...TASK_COLS } =
+const { description: _description, notes: _notes, ...TASK_COLS_BASE } =
   getTableColumns(tasks);
+
+// Overdue/due-today/due-this-week counts must read the EFFECTIVE due
+// (revised ?? original), so project `dueAt` as that COALESCE for every
+// dashboard scan. `due_at` itself is immutable; revisions live in
+// `revised_target_date`. A fresh projection per call keeps each query's
+// sql fragment its own (drizzle chunks aren't meant to be shared).
+const taskCols = () => ({ ...TASK_COLS_BASE, dueAt: effectiveDueAtSql() });
 
 /**
  * Cached dashboard aggregate. The three task scans + transforms are
@@ -116,14 +124,14 @@ async function loadDashboardDataUncached(
   const [allEmployees, periodTasksRaw, wideTasksRaw, velocityTasksRaw, departmentMap, rankingTasksRaw] =
     await Promise.all([
       db.select().from(employees),
-      db.select(TASK_COLS).from(tasks).where(and(...conditions)),
-      db.select(TASK_COLS).from(tasks).where(gte(tasks.createdAt, fourteenAgo)),
-      db.select(TASK_COLS).from(tasks).where(gte(tasks.createdAt, ninetyAgo)),
+      db.select(taskCols()).from(tasks).where(and(...conditions)),
+      db.select(taskCols()).from(tasks).where(gte(tasks.createdAt, fourteenAgo)),
+      db.select(taskCols()).from(tasks).where(gte(tasks.createdAt, ninetyAgo)),
       getEmployeeDepartmentMap(),
       // Ranking scope: only fetched when a people filter narrows the period
       // set — otherwise the period set IS the ranking set.
       peopleFilterActive
-        ? db.select(TASK_COLS).from(tasks).where(and(...baseConditions))
+        ? db.select(taskCols()).from(tasks).where(and(...baseConditions))
         : Promise.resolve(null),
     ]);
   // Cast back to Task[] for the transform signatures — the dropped

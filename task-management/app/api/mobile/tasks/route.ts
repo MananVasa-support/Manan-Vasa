@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db, tasks } from "@/lib/db";
+import { effectiveDueAtSql } from "@/lib/tasks/effective-due";
 import { PENDING_STATUSES, TASK_PRIORITIES, type TaskStatus } from "@/db/enums";
 import { authenticateMobileRequest, MOBILE_CORS } from "@/lib/auth/mobile";
 import { nextStatusesFor, type ActorRole } from "@/lib/auth/status-transitions";
@@ -99,7 +100,8 @@ export async function GET(req: Request) {
       client: tasks.client,
       status: tasks.status,
       priority: tasks.priority,
-      dueAt: tasks.dueAt,
+      // Effective due (revised ?? original) so the app sorts + flags by it.
+      dueAt: effectiveDueAtSql(),
       updatedAt: tasks.updatedAt,
       completedAt: tasks.completedAt,
     })

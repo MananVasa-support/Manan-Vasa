@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { and, count, eq, inArray, lt } from "drizzle-orm";
 import { db, tasks } from "@/lib/db";
 import { PENDING_STATUSES } from "@/db/enums";
+import { effectiveDueAtSql } from "@/lib/tasks/effective-due";
 import { authenticateMobileRequest, MOBILE_CORS } from "@/lib/auth/mobile";
 import { listMyAttendance } from "@/lib/queries/attendance";
 import { localDateString, formatTimeInTz } from "@/lib/format";
@@ -36,7 +37,7 @@ export async function GET(req: Request) {
     db
       .select({ n: count() })
       .from(tasks)
-      .where(and(mine, inArray(tasks.status, pendingStatuses), lt(tasks.dueAt, new Date()))),
+      .where(and(mine, inArray(tasks.status, pendingStatuses), lt(effectiveDueAtSql(), new Date()))),
   ]);
 
   return NextResponse.json(
