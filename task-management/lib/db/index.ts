@@ -25,9 +25,20 @@ const client =
     // ~15-20 concurrent reads still parallelise 8-wide (2-3 quick waves). The
     // durable cure for the slow cold scans is indexing those queries, not a
     // bigger pool.
-    max: 8,
-    // Release idle connections quickly so a burst from one route doesn't
-    // park reservations that another instance then can't get. (Was 60s.)
+    // INCIDENT 2026-06-17: authed pages (/myday, /kanban, dashboard) were
+    // throwing "that didn't go through" under concurrent load — the queries
+    // themselves are fast (<200ms on ~800 rows), so this is connection
+    // exhaustion: too many Vercel instances each opening connections blow past
+    // the DB's 60 ceiling, and the overflow connect attempts hit connect_timeout
+    // and throw. With Fluid Compute reusing instances, a small per-instance pool
+    // keeps total connections under 60 (queries just queue a touch instead of
+    // failing). max 8→4: even ~12 warm instances (48) stay under the ceiling.
+    // THE durable fix is raising Supabase's connection limit (compute size /
+    // pooler settings) — pool tuning alone can't fully square Fluid concurrency
+    // against a 60-conn DB.
+    max: 4,
+    // Release idle connections fast so a burst from one route doesn't park
+    // reservations another instance then can't get. (Was 60s.)
     idle_timeout: 20,
     max_lifetime: 60 * 30,
     connect_timeout: 10,
