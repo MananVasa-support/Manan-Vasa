@@ -913,8 +913,16 @@ export async function editTaskFields(
   // Compute diff against current row.  Only changed fields go into the
   // update + audit rows.  zod has already trimmed strings and parsed
   // dueAt into a Date.
+  //
+  // `dueAt` is special-cased OUT of the generic loop: the first committed
+  // due date is permanent (immutable for audit), so a "due date" edit must
+  // never touch `tasks.due_at` — it writes `revised_target_date` instead.
+  // We compare the submitted date against the CURRENT effective due
+  // (revised ?? original) and, if it differs, fold a `revisedTargetDate`
+  // change into the same update + one audit row.
   const diff: Partial<Record<EditableTaskField, unknown>> = {};
   for (const field of EDITABLE_TASK_FIELDS) {
+    if (field === "dueAt") continue; // handled separately below
     if (!(field in parsed)) continue;
     const next = (parsed as Record<string, unknown>)[field];
     const prev = (current as Record<string, unknown>)[field];
@@ -924,7 +932,21 @@ export async function editTaskFields(
     if (a !== b) diff[field] = next;
   }
 
-  if (Object.keys(diff).length === 0) {
+  // Due-date edit → revised target date. The user edits the *effective* due
+  // (the form pre-fills with revised ?? due_at), so compare against that.
+  const currentRevised = current.revisedTargetDate ?? null;
+  const currentEffectiveDue = currentRevised ?? current.dueAt ?? null;
+  let revisedChange: { value: Date } | null = null;
+  if (parsed.dueAt instanceof Date) {
+    const submittedIso = parsed.dueAt.toISOString();
+    const effectiveIso =
+      currentEffectiveDue instanceof Date ? currentEffectiveDue.toISOString() : null;
+    if (submittedIso !== effectiveIso) {
+      revisedChange = { value: parsed.dueAt };
+    }
+  }
+
+  if (Object.keys(diff).length === 0 && !revisedChange) {
     // No-op: nothing to update.  Treat as success.
     return { ok: true };
   }
@@ -938,6 +960,8 @@ export async function editTaskFields(
     .set({
       ...(diff as Partial<typeof tasks.$inferInsert>),
       ...("title" in diff ? { client: parsed.title } : {}),
+      // A due-date edit revises the target date; due_at stays immutable.
+      ...(revisedChange ? { revisedTargetDate: revisedChange.value } : {}),
       updatedAt: now,
     })
     .where(and(eq(tasks.id, taskId), optimisticLockMatches(expectedDate)))
@@ -961,6 +985,23 @@ export async function editTaskFields(
       toValue: {
         field,
         value: value instanceof Date ? (value as Date).toISOString() : value,
+      },
+    });
+  }
+
+  // Audit the revised-target-date change as a single field_updated event.
+  if (revisedChange) {
+    await db.insert(taskEvents).values({
+      taskId,
+      actorId: me.id,
+      eventType: "field_updated",
+      fromValue: {
+        field: "revisedTargetDate",
+        value: currentRevised ? currentRevised.toISOString() : null,
+      },
+      toValue: {
+        field: "revisedTargetDate",
+        value: revisedChange.value.toISOString(),
       },
     });
   }

@@ -398,7 +398,10 @@ export function TaskDetailView({
                     subject: task.subject,
                     notes: task.notes,
                     priority: task.priority,
-                    dueAt: task.dueAt,
+                    // Pre-fill the Due Date control with the EFFECTIVE due
+                    // (revised ?? original) so the user edits the live target;
+                    // editTaskFields then writes the change to revised_target_date.
+                    dueAt: task.revisedTargetDate ?? task.dueAt,
                     tags: task.tags,
                     approvalStatus: task.approvalStatus,
                     revisedTargetDate: task.revisedTargetDate,
@@ -932,7 +935,12 @@ function TopHeaderStrip({
           STATUS: {statusLabel}
         </span>
 
-        {isDoneLate({ status: task.status, completedAt: task.completedAt, dueAt: task.dueAt }) && (
+        {isDoneLate({
+          status: task.status,
+          completedAt: task.completedAt,
+          // Late is judged against the EFFECTIVE due (revised ?? original).
+          dueAt: task.revisedTargetDate ?? task.dueAt,
+        }) && (
           <LateBadge />
         )}
 

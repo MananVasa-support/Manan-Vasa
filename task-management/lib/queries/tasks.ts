@@ -6,6 +6,7 @@ import { TASK_STATUSES, TASK_PRIORITIES, PENDING_STATUSES } from "@/db/enums";
 import type { TaskStatus, ApprovalStatus } from "@/db/enums";
 import { employeeIdsInDepartments } from "@/lib/queries/departments";
 import { CACHE_TAGS } from "@/lib/cache-tags";
+import { effectiveDueAtSql } from "@/lib/tasks/effective-due";
 import type { TaskListFilters, TaskListRow } from "@/lib/types";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -67,7 +68,9 @@ export async function listTasks(filters: TaskListFilters): Promise<TaskListRow[]
       status: tasks.status,
       priority: tasks.priority,
       createdAt: tasks.createdAt,
-      dueAt: tasks.dueAt,
+      // Effective due (revised ?? original) so the table shows + flags overdue
+      // from the revised date.
+      dueAt: effectiveDueAtSql(),
       archived: tasks.archived,
       doerId: tasks.doerId,
       doerName: doerEmp.name,
@@ -215,7 +218,8 @@ export async function listTasksPage(
       status: tasks.status,
       priority: tasks.priority,
       createdAt: tasks.createdAt,
-      dueAt: tasks.dueAt,
+      // Effective due (revised ?? original) — table shows + flags overdue from it.
+      dueAt: effectiveDueAtSql(),
       archived: tasks.archived,
       doerId: tasks.doerId,
       doerName: doerEmp.name,
@@ -326,7 +330,8 @@ export async function listBoardTasks(filters?: TaskListFilters): Promise<BoardTa
       status: tasks.status,
       priority: tasks.priority,
       doerId: tasks.doerId,
-      dueAt: tasks.dueAt,
+      // Effective due (revised ?? original) so the board flags overdue from it.
+      dueAt: effectiveDueAtSql(),
       updatedAt: tasks.updatedAt,
       archived: tasks.archived,
       completedAt: tasks.completedAt,
@@ -356,7 +361,8 @@ export async function listAgendaTasks(employeeId: string): Promise<BoardTask[]> 
       status: tasks.status,
       priority: tasks.priority,
       doerId: tasks.doerId,
-      dueAt: tasks.dueAt,
+      // Effective due (revised ?? original) so the agenda sorts + flags by it.
+      dueAt: effectiveDueAtSql(),
       updatedAt: tasks.updatedAt,
       archived: tasks.archived,
       completedAt: tasks.completedAt,
@@ -371,7 +377,7 @@ export async function listAgendaTasks(employeeId: string): Promise<BoardTask[]> 
         inArray(tasks.status, [...PENDING_STATUSES]),
       ),
     )
-    .orderBy(asc(tasks.dueAt))
+    .orderBy(asc(effectiveDueAtSql()))
     .limit(1000);
   return rows.map((r) => ({ ...r, doerName: r.doerName ?? null }));
 }
@@ -449,7 +455,8 @@ export async function listTasksForExport(
       status: tasks.status,
       priority: tasks.priority,
       createdAt: tasks.createdAt,
-      dueAt: tasks.dueAt,
+      // Effective due (revised ?? original) for the export's due column.
+      dueAt: effectiveDueAtSql(),
       completedAt: tasks.completedAt,
       approvedAt: tasks.approvedAt,
       updatedAt: tasks.updatedAt,
