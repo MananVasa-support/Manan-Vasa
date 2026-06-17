@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { authSessions, employees } from "@/db/schema";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
-import { updateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { PROFILE_CACHE_TAGS } from "@/lib/cache-tags";
 
 export const runtime = "nodejs";
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
         target: authSessions.sessionHash,
         set: { lastSeenAt: new Date(), revokedAt: null },
       });
-    updateTag(PROFILE_CACHE_TAGS.authSessions(emp.id));
+    revalidateTag(PROFILE_CACHE_TAGS.authSessions(emp.id), "default");
   } catch (err) {
     console.warn("[session] auth_sessions insert failed (non-fatal):", err);
   }
