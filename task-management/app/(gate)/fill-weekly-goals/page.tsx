@@ -8,13 +8,18 @@ import { WeeklyGoalsFillForm } from "@/components/weekly-goals/weekly-goals-fill
 export const dynamic = "force-dynamic";
 
 /**
- * The mandatory weekly-goals fill screen (design §11). Listed for any user the
- * layout gate redirected here because they have un-filled current-week goals.
- * They enter % Done (+ optional explanation) for each and submit once to enter
- * the app. If there's nothing to fill (e.g. they navigated here directly after
- * filling) we send them straight in — the gate is satisfied.
+ * The mandatory weekly-goals fill screen (design §11). Users with un-filled
+ * current-week goals are redirected here by the (app) layout gate. They enter
+ * % Done (+ optional explanation) for each and submit once to enter the app. If
+ * there's nothing to fill (e.g. they navigated here directly after filling) we
+ * send them straight in — the gate is satisfied.
+ *
+ * NOTE: this lives at `/fill-weekly-goals` (a standalone segment in the (gate)
+ * route group), deliberately NOT under `/weekly-goals/*` — keeping it off the
+ * (app) group's `weekly-goals` subtree avoids any route-group ambiguity and the
+ * stale-route-cache 404 that path collision produced on the first deploy.
  */
-export default async function WeeklyGoalsFillPage() {
+export default async function FillWeeklyGoalsPage() {
   const me = await requireUser();
   const goals = await listUnfilledWeekGoals(me.id);
 

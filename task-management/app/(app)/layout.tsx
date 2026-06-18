@@ -30,7 +30,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     mustFill = false;
   }
   if (mustFill) {
-    redirect("/weekly-goals/fill" as Route);
+    redirect("/fill-weekly-goals" as Route);
   }
 
   const settings = await getOrgSettings();
