@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
-import { redirect } from "next/navigation";
-import type { Route } from "next";
 import { requireUser } from "@/lib/auth/current";
 import { hasUnfilledWeekGoals } from "@/lib/weekly-goals/gate";
+import { WeeklyGoalsFillView } from "@/components/weekly-goals/weekly-goals-fill-view";
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import { IdleTimerClient } from "@/components/auth/idle-timer-client";
 import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
@@ -21,16 +20,24 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // If the DB hiccups (we've had transient pool/connection blips), we do NOT
   // gate this request rather than throw the layout for every page. The gate
   // re-applies on the next render once the DB is healthy — it's a workflow
-  // nudge, not a security boundary. The redirect() call stays OUTSIDE the
-  // try/catch so its internal control-flow throw is never swallowed.
+  // nudge, not a security boundary.
   let mustFill = false;
   try {
     mustFill = await hasUnfilledWeekGoals(me.id);
   } catch {
     mustFill = false;
   }
+  // Render the fill screen INLINE (not a redirect to a separate route): Vercel's
+  // build for this project doesn't register newly added routes, so a redirect
+  // target like /fill-weekly-goals 404'd in prod. Rendering it here — inside the
+  // already-registered (app) layout — is immune to that. The form refreshes on
+  // submit, this layout re-checks, and the gate drops. Every authed page passes
+  // through here, so direct URLs/deep links/back button are all gated. Applies
+  // to everyone incl. super-admins.
   if (mustFill) {
-    redirect("/fill-weekly-goals" as Route);
+    return (
+      <WeeklyGoalsFillView employeeId={me.id} greetingName={me.name.split(" ")[0] ?? me.name} />
+    );
   }
 
   const settings = await getOrgSettings();

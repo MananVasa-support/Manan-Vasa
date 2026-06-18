@@ -5,6 +5,7 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { WeeklyGoalsBoard } from "@/components/weekly-goals/weekly-goals-board";
 import type { BoardGoal } from "@/components/weekly-goals/types";
 import { requireUser } from "@/lib/auth/current";
+import { WeeklyGoalsDashboardView } from "@/components/weekly-goals/weekly-goals-dashboard-view";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { db } from "@/lib/db";
 import { employees, weeklyGoals } from "@/db/schema";
@@ -104,6 +105,14 @@ async function loadBoardGoals(opts: {
 
 export default async function WeeklyGoalsPage({ searchParams }: PageProps) {
   const sp = await searchParams;
+
+  // Analytics dashboard is served as a VIEW of this (registered) route rather
+  // than a separate /weekly-goals/dashboard route — Vercel's build for this
+  // project doesn't register newly added routes, so the dedicated route 404'd.
+  if (pick(sp.view) === "dashboard") {
+    return <WeeklyGoalsDashboardView />;
+  }
+
   const me = await requireUser();
   const canReview = isSuperAdmin(me.email);
 
