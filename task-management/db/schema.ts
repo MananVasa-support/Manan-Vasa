@@ -1812,3 +1812,99 @@ export const weeklyGoals = pgTable(
 
 export type WeeklyGoal = typeof weeklyGoals.$inferSelect;
 export type NewWeeklyGoal = typeof weeklyGoals.$inferInsert;
+
+// Index hub (migration 0067) — the Altus Corp Ecosystem Index brought into the
+// app as an admin-editable tab. `index_sections` are titled groups; each holds
+// any number of `index_links` (hyperlink buttons). Everyone views, admins edit.
+export const indexSections = pgTable("index_sections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull(),
+  sortOrder: integer("sort_order").notNull().default(100),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const indexLinks = pgTable(
+  "index_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sectionId: uuid("section_id")
+      .notNull()
+      .references(() => indexSections.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    url: text("url").notNull(),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("index_links_section_idx").on(t.sectionId, t.sortOrder)],
+);
+
+export type IndexSection = typeof indexSections.$inferSelect;
+export type NewIndexSection = typeof indexSections.$inferInsert;
+export type IndexLink = typeof indexLinks.$inferSelect;
+export type NewIndexLink = typeof indexLinks.$inferInsert;
+
+/* -------------------------------------------------------------------------- */
+/* Dynamic form modules (migration 0068):                                     */
+/* Reimbursements / Record Reference / Participant Breakthrough — admin-       */
+/* editable request + response forms, with a shared Product Name option list.  */
+/* -------------------------------------------------------------------------- */
+
+/** One employee submission to a dynamic module form. */
+export const moduleSubmissions = pgTable(
+  "module_submissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    module: text("module").notNull(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    fields: jsonb("fields").$type<Record<string, string>>().notNull().default({}),
+    adminFields: jsonb("admin_fields").$type<Record<string, string>>().notNull().default({}),
+    status: text("status").notNull().default("pending"),
+    decidedById: uuid("decided_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    archived: boolean("archived").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("module_submissions_module_created_idx").on(t.module, t.createdAt),
+    index("module_submissions_employee_idx").on(t.employeeId),
+  ],
+);
+
+/** Admin-saved override of a form's field list (keyed by form_key). */
+export const formConfigs = pgTable("form_configs", {
+  formKey: text("form_key").primaryKey(),
+  fields: jsonb("fields")
+    .$type<import("@/lib/forms/field-types").FormFieldDef[]>()
+    .notNull()
+    .default([]),
+  updatedById: uuid("updated_by_id").references(() => employees.id, {
+    onDelete: "set null",
+  }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Shared, admin-extensible Product Name MCQ options. */
+export const productOptions = pgTable(
+  "product_options",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    label: text("label").notNull(),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("product_options_label_idx").on(t.label)],
+);
+
+export type ModuleSubmission = typeof moduleSubmissions.$inferSelect;
+export type NewModuleSubmission = typeof moduleSubmissions.$inferInsert;
+export type FormConfig = typeof formConfigs.$inferSelect;
+export type NewFormConfig = typeof formConfigs.$inferInsert;
+export type ProductOption = typeof productOptions.$inferSelect;
+export type NewProductOption = typeof productOptions.$inferInsert;

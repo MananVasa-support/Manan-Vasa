@@ -19,6 +19,8 @@ export const CACHE_TAGS = {
   projectNodes: "project-nodes",
   /** Weekly Goals planner rows (board + dashboard reads). */
   weeklyGoals: "weekly-goals",
+  /** Index hub — admin-editable link sections + their hyperlink buttons. */
+  indexHub: "index-hub",
 } as const;
 
 export type CacheTag = (typeof CACHE_TAGS)[keyof typeof CACHE_TAGS];

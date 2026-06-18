@@ -1,6 +1,6 @@
 "use client";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ListTodo, CalendarDays, FolderKanban, SquareKanban, Target, CalendarCheck, CalendarRange, Award, IndianRupee } from "lucide-react";
+import { LayoutDashboard, ListTodo, CalendarDays, FolderKanban, SquareKanban, Target, CalendarCheck, CalendarRange, Award, IndianRupee, Compass, Receipt, Sparkles, BookMarked } from "lucide-react";
 import type { Route } from "next";
 import { MainNavPill } from "./main-nav-pill";
 
@@ -114,6 +114,33 @@ export function MainNav({ activeTasks, isAdmin, variant }: Props) {
         label="Outstanding"
         Icon={IndianRupee}
         active={isActive("/outstanding")}
+        variant={variant}      />
+      {/* Ecosystem Index + the dynamic-form modules (ported from the
+          Ecosystem WMS). Index is a link hub; the three form modules are
+          request/approval flows. */}
+      <MainNavPill
+        href={"/index" as Route}
+        label="Index"
+        Icon={Compass}
+        active={isActive("/index")}
+        variant={variant}      />
+      <MainNavPill
+        href={"/reimbursements" as Route}
+        label="Reimbursements"
+        Icon={Receipt}
+        active={isActive("/reimbursements")}
+        variant={variant}      />
+      <MainNavPill
+        href={"/participant-breakthrough" as Route}
+        label="Breakthrough"
+        Icon={Sparkles}
+        active={isActive("/participant-breakthrough")}
+        variant={variant}      />
+      <MainNavPill
+        href={"/record-reference" as Route}
+        label="References"
+        Icon={BookMarked}
+        active={isActive("/record-reference")}
         variant={variant}      />
     </nav>
   );
