@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { employees, type Employee } from "@/db/schema";
 import { readSession } from "@/lib/auth/session";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 
 /**
  * Resolves the signed-in employee row, or null if not signed in.
@@ -38,4 +39,47 @@ export async function requireAdmin(): Promise<Employee> {
   const e = await requireUser();
   if (!e.isAdmin) throw new Error("Forbidden");
   return e;
+}
+
+/**
+ * Like requireUser but additionally throws 403 unless the signed-in employee is
+ * a super-admin (the `SUPER_ADMIN_EMAILS` allow-list). Used to gate the
+ * Weekly-Goals review/approve/archive flow — those writes are super-admins only.
+ */
+export async function requireSuperAdmin(): Promise<Employee> {
+  const e = await requireUser();
+  if (!isSuperAdmin(e.email)) throw new Error("Forbidden");
+  return e;
+}
+
+/**
+ * Mandatory weekly-goals fill gate (design §11), defense-in-depth for mutating
+ * server actions: a user with un-filled current-week goals assigned to them is
+ * blocked from POSTing actions until they fill them (the authed layout performs
+ * the primary redirect). Applies to EVERYONE — admins and super-admins included.
+ *
+ * The actual EXISTS check lives in the query layer (`hasUnfilledWeekGoals`,
+ * added by the weekly-goals query-layer work); we import it lazily so this guard
+ * file has no hard build-time dependency on that module landing first. If the
+ * gate module isn't present yet the guard fails open (no-op) rather than break
+ * unrelated actions.
+ *
+ * @param me the already-resolved current employee (callers pass requireUser()'s result).
+ * @returns the same employee, for ergonomic chaining; throws "Fill your weekly goals" when gated.
+ */
+export async function requireWeeklyGoalsFilled(me: Employee): Promise<Employee> {
+  let gated = false;
+  try {
+    const mod = (await import("@/lib/queries/weekly-goals")) as {
+      hasUnfilledWeekGoals?: (employeeId: string) => Promise<boolean>;
+    };
+    if (typeof mod.hasUnfilledWeekGoals === "function") {
+      gated = await mod.hasUnfilledWeekGoals(me.id);
+    }
+  } catch {
+    // Gate module not available yet → fail open (no-op).
+    gated = false;
+  }
+  if (gated) throw new Error("Fill your weekly goals to continue");
+  return me;
 }

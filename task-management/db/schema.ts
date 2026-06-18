@@ -1770,6 +1770,29 @@ export const weeklyGoals = pgTable(
     pctUpdatedAt: timestamp("pct_updated_at", { withTimezone: true }),
     explanation: text("explanation"),
     linkUrl: text("link_url"),
+    // --- Redesign 2026-06-18 (additive) — Planning + Review field set. ---
+    // Weight: the goal's share of the weekly weighted-completion score.
+    weight: integer("weight").notNull().default(100),
+    // Per-goal target date, distinct from the week_start bucket.
+    targetDate: date("target_date"),
+    // Planning notes, distinct from the review-side `explanation`.
+    notes: text("notes"),
+    // Reuses the app-wide Task status enum (same default as tasks.status).
+    status: taskStatusEnum("status").notNull().default("not_started"),
+    // Manager-accepted % (review). NULL = not yet reviewed → effective %
+    // falls back to pct_done.
+    acceptPct: integer("accept_pct"),
+    reviewNotes: text("review_notes"),
+    // Hides the goal from the active board + weekly-score aggregates; the row
+    // stays queryable.
+    archived: boolean("archived").notNull().default(false),
+    // Review provenance.
+    reviewedById: uuid("reviewed_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    // Approval stamp — presence = approved + Accept % locked.
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
     carriedFromId: uuid("carried_from_id"),
     createdById: uuid("created_by_id").references(() => employees.id, {
       onDelete: "set null",

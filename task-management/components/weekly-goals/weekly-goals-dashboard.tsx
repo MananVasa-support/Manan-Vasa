@@ -3,11 +3,30 @@
 import * as React from "react";
 import Link from "next/link";
 import type { Route } from "next";
-import { Trophy, Medal, Award, ArrowLeft, Crown } from "lucide-react";
-import type { EmployeeRanking, GlobalRanking, WeekTrendPoint } from "@/lib/queries/weekly-goals";
+import {
+  Trophy,
+  Medal,
+  Award,
+  ArrowLeft,
+  Crown,
+  Flame,
+  Target,
+  CheckCircle2,
+  Sparkles,
+  ShieldCheck,
+} from "lucide-react";
+import type {
+  EmployeeRanking,
+  GlobalRanking,
+  WeekTrendPoint,
+  WeeklyGoalLeaderboardRow,
+} from "@/lib/queries/weekly-goals";
 import { formatWeekShort } from "@/lib/weekly-goals/week";
+import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 
 type Period = "week" | "month" | "year";
+type Window = "week" | "month" | "quarter" | "year";
+type Spec = "weighted" | "consistency" | "completed" | "kpi";
 
 interface Props {
   trend: WeekTrendPoint[];
@@ -16,6 +35,8 @@ interface Props {
   performers: Record<Period, EmployeeRanking | null>;
   /** Org-wide Star of the Month — tasks + goals, not just weekly goals. */
   starOfMonth: GlobalRanking | null;
+  /** §12 leaderboard data — all four specs at once per window. */
+  leaderboards: Record<Window, WeeklyGoalLeaderboardRow[]>;
   myId: string;
 }
 
@@ -25,15 +46,52 @@ const PERIOD_LABELS: Record<Period, string> = {
   year: "Performer of the Year (since Jan 1)",
 };
 
-const PERIOD_TAB: Record<Period, string> = {
+const WINDOW_TAB: Record<Window, string> = {
   week: "This week",
   month: "This month",
+  quarter: "This quarter",
   year: "Year to date",
 };
 
+/** Composite consistency at/above this counts a person as "consistent". */
+const CONSISTENT_THRESHOLD = 70;
+
+const SPECS: { id: Spec; label: string; icon: typeof Trophy }[] = [
+  { id: "weighted", label: "Weighted score", icon: Target },
+  { id: "consistency", label: "Consistency + streak", icon: Flame },
+  { id: "completed", label: "Goals completed", icon: CheckCircle2 },
+  { id: "kpi", label: "KPI & incentive", icon: Sparkles },
+];
+
 export function WeeklyGoalsDashboard(props: Props) {
   const [period, setPeriod] = React.useState<Period>("week");
+  const [window, setWindow] = React.useState<Window>("month");
+  const [spec, setSpec] = React.useState<Spec>("weighted");
+
   const ranking = props.rankings[period];
+  const board = props.leaderboards[window];
+
+  // Headline consistency stats for the selected window.
+  const consistentCount = board.filter(
+    (r) => r.consistency.composite >= CONSISTENT_THRESHOLD,
+  ).length;
+  const teamAvgConsistency =
+    board.length > 0
+      ? Math.round(
+          board.reduce((s, r) => s + r.consistency.composite, 0) / board.length,
+        )
+      : 0;
+  const longestStreak = board.reduce(
+    (max, r) => Math.max(max, r.consistency.streak),
+    0,
+  );
+  const streakLeader =
+    longestStreak > 0
+      ? board.find((r) => r.consistency.streak === longestStreak)?.name ?? null
+      : null;
+
+  // Re-rank the same roster by the active spec, client-side.
+  const sorted = React.useMemo(() => sortBySpec(board, spec), [board, spec]);
 
   return (
     <main className="mx-auto max-w-[1400px] px-12 max-md:px-4 pt-8 pb-24">
@@ -52,7 +110,7 @@ export function WeeklyGoalsDashboard(props: Props) {
             Weekly Goals — Performance
           </h1>
           <p className="mt-2 text-ink-muted font-semibold" style={{ fontSize: 17 }}>
-            % done, week-over-week, and who's leading the pack.
+            Effective % (weighted), consistency, and who&rsquo;s leading the pack.
           </p>
         </div>
         <Link
@@ -77,7 +135,7 @@ export function WeeklyGoalsDashboard(props: Props) {
       {/* Week-wise trend --------------------------------------------- */}
       <section className="mb-8">
         <h2 className="mb-3 font-black text-ink-strong text-[20px]">
-          {props.trendScope} average % done — last 8 weeks
+          {props.trendScope} average effective % — last 8 weeks
         </h2>
         <div className="rounded-section border border-hairline bg-surface-card p-6">
           <div className="flex items-end gap-3 h-52">
@@ -107,23 +165,119 @@ export function WeeklyGoalsDashboard(props: Props) {
         </div>
       </section>
 
-      {/* Leaderboard ------------------------------------------------- */}
+      {/* Consistency + Leaderboard ----------------------------------- */}
       <section>
+        <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="font-black text-ink-strong text-[20px]">
+              Consistency &amp; leaderboard
+            </h2>
+            <p className="mt-0.5 text-ink-muted font-semibold text-[14px]">
+              {WINDOW_TAB[window]} · consistency = 50% fill-on-time + 50% effective %.
+            </p>
+          </div>
+          <WindowSelect value={window} onChange={setWindow} />
+        </div>
+
+        {/* Headline consistency tiles */}
+        <div className="mb-6 grid grid-cols-3 gap-4 max-lg:grid-cols-1">
+          <ConsistencyTile
+            icon={ShieldCheck}
+            tone="green"
+            value={`${consistentCount}`}
+            unit={consistentCount === 1 ? "person" : "people"}
+            label={`Consistent (composite ≥ ${CONSISTENT_THRESHOLD})`}
+            sub={
+              board.length > 0
+                ? `${consistentCount} of ${board.length} on the board`
+                : "No goals this window yet"
+            }
+          />
+          <ConsistencyTile
+            icon={Target}
+            tone="purple"
+            value={`${teamAvgConsistency}`}
+            unit="/ 100"
+            label="Team avg consistency"
+            sub="Mean composite across the roster"
+          />
+          <ConsistencyTile
+            icon={Flame}
+            tone="amber"
+            value={`${longestStreak}`}
+            unit={longestStreak === 1 ? "week" : "weeks"}
+            label="Longest streak"
+            sub={
+              streakLeader
+                ? `${streakLeader} — fully-filled weeks`
+                : "No active streaks yet"
+            }
+          />
+        </div>
+
+        {/* Spec segmented control */}
+        <div className="mb-4 flex flex-wrap gap-2">
+          {SPECS.map(({ id, label, icon: Icon }) => {
+            const active = spec === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setSpec(id)}
+                aria-pressed={active}
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[14px] font-bold border transition-colors"
+                style={{
+                  background: active ? "var(--color-altus-red)" : "var(--color-surface-card)",
+                  color: active ? "#fff" : "var(--color-ink-soft)",
+                  borderColor: active ? "var(--color-altus-red)" : "var(--color-hairline)",
+                }}
+              >
+                <Icon size={15} strokeWidth={2.4} />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {sorted.length === 0 ? (
+          <div className="rounded-section border border-hairline bg-surface-card p-8 text-center text-ink-muted font-semibold">
+            No goals recorded for this window yet.
+          </div>
+        ) : (
+          <ol className="flex flex-col gap-2">
+            {sorted.map((row, i) => (
+              <LeaderboardRow
+                key={row.empId}
+                row={row}
+                rank={i + 1}
+                spec={spec}
+                isMe={row.empId === props.myId}
+              />
+            ))}
+          </ol>
+        )}
+      </section>
+
+      {/* Legacy period leaderboard (avg % done) ---------------------- */}
+      <section className="mt-12">
         <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="font-black text-ink-strong text-[20px]">Leaderboard</h2>
+          <h2 className="font-black text-ink-strong text-[20px]">
+            Goals leaderboard
+          </h2>
           <div className="inline-flex rounded-full border border-hairline bg-surface-card overflow-hidden">
             {(["week", "month", "year"] as Period[]).map((p) => (
               <button
                 key={p}
                 type="button"
                 onClick={() => setPeriod(p)}
+                aria-pressed={period === p}
                 className="px-4 py-2 text-[13.5px] font-bold transition-colors"
                 style={{
                   background: period === p ? "var(--color-altus-red)" : "transparent",
                   color: period === p ? "#fff" : "var(--color-ink-soft)",
                 }}
               >
-                {PERIOD_TAB[p]}
+                {WINDOW_TAB[p]}
               </button>
             ))}
           </div>
@@ -151,7 +305,7 @@ export function WeeklyGoalsDashboard(props: Props) {
                     Completed
                   </th>
                   <th className="px-4 py-3 text-left text-[12px] font-black uppercase tracking-[0.05em] text-ink-muted" style={{ width: 260 }}>
-                    Avg % done
+                    Avg effective %
                   </th>
                 </tr>
               </thead>
@@ -207,6 +361,329 @@ export function WeeklyGoalsDashboard(props: Props) {
         )}
       </section>
     </main>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* §12 switchable leaderboard                                          */
+/* ------------------------------------------------------------------ */
+
+/** Re-rank the roster by the active spec; tie-breaks keep ordering stable. */
+function sortBySpec(
+  rows: WeeklyGoalLeaderboardRow[],
+  spec: Spec,
+): WeeklyGoalLeaderboardRow[] {
+  const copy = [...rows];
+  copy.sort((a, b) => {
+    switch (spec) {
+      case "weighted":
+        return (
+          b.weightedScore - a.weightedScore ||
+          b.consistency.composite - a.consistency.composite ||
+          a.name.localeCompare(b.name)
+        );
+      case "consistency":
+        return (
+          b.consistency.composite - a.consistency.composite ||
+          b.consistency.streak - a.consistency.streak ||
+          a.name.localeCompare(b.name)
+        );
+      case "completed":
+        return (
+          b.completion.done - a.completion.done ||
+          b.completion.rate - a.completion.rate ||
+          a.name.localeCompare(b.name)
+        );
+      case "kpi":
+        return (
+          b.kpiHits - a.kpiHits ||
+          b.incentiveEarned - a.incentiveEarned ||
+          a.name.localeCompare(b.name)
+        );
+    }
+  });
+  return copy;
+}
+
+const INR = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 0,
+});
+
+/** Primary metric + two secondary stats for the active spec. */
+function specMetrics(row: WeeklyGoalLeaderboardRow, spec: Spec): {
+  primary: string;
+  secondary: { label: string; value: string }[];
+  /** 0..100 for the inline bar, or null when no bar applies. */
+  bar: number | null;
+} {
+  switch (spec) {
+    case "weighted":
+      return {
+        primary: `${row.weightedScore}%`,
+        bar: row.weightedScore,
+        secondary: [
+          { label: "Completed", value: `${row.completion.done}` },
+          { label: "Consistency", value: `${row.consistency.composite}` },
+        ],
+      };
+    case "consistency":
+      return {
+        primary: `${row.consistency.composite}`,
+        bar: row.consistency.composite,
+        secondary: [
+          { label: "Streak", value: `${row.consistency.streak}w` },
+          { label: "On-time", value: `${row.consistency.fillOnTimeRate}%` },
+        ],
+      };
+    case "completed":
+      return {
+        primary: `${row.completion.done}`,
+        bar: row.completion.rate,
+        secondary: [
+          { label: "Completion", value: `${row.completion.rate}%` },
+          { label: "Effective", value: `${row.weightedScore}%` },
+        ],
+      };
+    case "kpi":
+      return {
+        primary: `${row.kpiHits}`,
+        bar: null,
+        secondary: [
+          { label: "Incentive", value: INR.format(row.incentiveEarned) },
+          { label: "KPI hits", value: `${row.kpiHits}` },
+        ],
+      };
+  }
+}
+
+const PODIUM = [
+  { ring: "#F59E0B", chip: "linear-gradient(135deg, #FCD34D 0%, #F59E0B 60%, #B45309 100%)", border: "#FDE68A", glow: "0 16px 36px -20px rgba(245,158,11,0.5)" },
+  { ring: "#94A3B8", chip: "linear-gradient(135deg, #F1F5F9 0%, #CBD5E1 55%, #64748B 100%)", border: "#E2E8F0", glow: "0 16px 36px -20px rgba(100,116,139,0.4)" },
+  { ring: "#FB923C", chip: "linear-gradient(135deg, #FED7AA 0%, #FB923C 55%, #B45309 100%)", border: "#FED7AA", glow: "0 16px 36px -20px rgba(180,83,9,0.4)" },
+];
+
+function LeaderboardRow({
+  row,
+  rank,
+  spec,
+  isMe,
+}: {
+  row: WeeklyGoalLeaderboardRow;
+  rank: number;
+  spec: Spec;
+  isMe: boolean;
+}) {
+  const podium = rank <= 3 ? PODIUM[rank - 1]! : null;
+  const m = specMetrics(row, spec);
+
+  return (
+    <li
+      className="flex items-center gap-4 rounded-leader bg-surface-card px-5 py-4 max-md:px-4 max-md:gap-3 transition-all"
+      style={{
+        border: podium
+          ? `1.5px solid ${podium.border}`
+          : isMe
+            ? "1.5px solid color-mix(in srgb, var(--color-altus-red) 35%, var(--color-hairline))"
+            : "1px solid var(--color-hairline)",
+        boxShadow: podium ? podium.glow : "0 1px 3px rgba(15,23,42,0.04)",
+        background: isMe
+          ? "color-mix(in srgb, var(--color-altus-red) 4%, var(--color-surface-card))"
+          : undefined,
+      }}
+    >
+      {/* Rank / medal */}
+      <span
+        className="inline-flex size-9 shrink-0 items-center justify-center rounded-full font-black tabular-nums text-[15px]"
+        style={{
+          background: podium
+            ? podium.chip
+            : "var(--color-surface-soft)",
+          color: podium ? "#fff" : "var(--color-ink-muted)",
+          border: podium ? "none" : "1px solid var(--color-hairline)",
+          boxShadow: podium ? "inset 0 1px 0 rgba(255,255,255,0.3)" : undefined,
+        }}
+      >
+        {podium ? <Medal size={17} /> : rank}
+      </span>
+
+      {/* Avatar + name */}
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <span className="relative inline-block shrink-0">
+          <EmployeeAvatar
+            name={row.name}
+            size="md"
+            background={podium?.chip}
+          />
+          {podium && (
+            <span
+              aria-hidden
+              className="absolute -bottom-1 -right-1 inline-flex size-5 items-center justify-center rounded-full font-black text-white tabular-nums"
+              style={{
+                background: podium.chip,
+                fontSize: 11,
+                border: "2px solid var(--color-surface-card)",
+              }}
+            >
+              {rank}
+            </span>
+          )}
+        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-ink-strong text-[16px] truncate">
+              {row.name}
+            </span>
+            {isMe && (
+              <span className="text-[10.5px] font-black text-altus-red shrink-0">YOU</span>
+            )}
+            {row.consistency.streak >= 2 && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black shrink-0"
+                style={{
+                  background: "color-mix(in srgb, var(--color-amber) 16%, transparent)",
+                  color: "var(--color-amber-deep)",
+                }}
+              >
+                <Flame size={11} strokeWidth={2.6} />
+                {row.consistency.streak}w
+              </span>
+            )}
+          </div>
+          {/* Secondary stats */}
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12.5px] font-semibold text-ink-muted tabular-nums">
+            {m.secondary.map((s) => (
+              <span key={s.label}>
+                <span className="text-ink-subtle">{s.label}</span>{" "}
+                <span className="text-ink-soft font-bold">{s.value}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Optional progress bar (hidden on small screens) */}
+      {m.bar !== null && (
+        <div className="hidden md:flex items-center w-40 shrink-0">
+          <div className="h-2.5 flex-1 rounded-full bg-black/[0.06] overflow-hidden">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.min(100, Math.max(0, m.bar))}%`,
+                background:
+                  "linear-gradient(90deg, var(--color-green), var(--color-green-deep))",
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Primary metric */}
+      <span
+        className="shrink-0 tabular-nums font-black text-ink-strong text-right"
+        style={{
+          fontFamily: "var(--font-display), system-ui, sans-serif",
+          fontSize: 24,
+          letterSpacing: "-0.02em",
+          minWidth: spec === "kpi" ? 56 : 72,
+        }}
+      >
+        {m.primary}
+      </span>
+    </li>
+  );
+}
+
+function WindowSelect({
+  value,
+  onChange,
+}: {
+  value: Window;
+  onChange: (w: Window) => void;
+}) {
+  return (
+    <div className="inline-flex rounded-full border border-hairline bg-surface-card overflow-hidden">
+      {(["week", "month", "quarter", "year"] as Window[]).map((w) => (
+        <button
+          key={w}
+          type="button"
+          onClick={() => onChange(w)}
+          aria-pressed={value === w}
+          className="px-4 py-2 text-[13.5px] font-bold transition-colors max-md:px-3"
+          style={{
+            background: value === w ? "var(--color-altus-red)" : "transparent",
+            color: value === w ? "#fff" : "var(--color-ink-soft)",
+          }}
+        >
+          {WINDOW_TAB[w]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ConsistencyTile({
+  icon: Icon,
+  tone,
+  value,
+  unit,
+  label,
+  sub,
+}: {
+  icon: typeof Trophy;
+  tone: string;
+  value: string;
+  unit: string;
+  label: string;
+  sub: string;
+}) {
+  return (
+    <div
+      className="relative bg-surface-card rounded-section overflow-hidden p-6"
+      style={{ border: "1px solid var(--color-hairline)", boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
+    >
+      <span
+        aria-hidden
+        className="absolute inset-x-0 top-0"
+        style={{
+          height: 5,
+          background: `linear-gradient(90deg, var(--color-${tone}), var(--color-${tone}-deep))`,
+        }}
+      />
+      <span
+        aria-hidden
+        className="absolute right-5 top-6 inline-flex size-10 items-center justify-center rounded-xl"
+        style={{
+          background: `color-mix(in srgb, var(--color-${tone}) 14%, transparent)`,
+          color: `var(--color-${tone}-deep)`,
+        }}
+      >
+        <Icon size={20} strokeWidth={2.3} />
+      </span>
+      <span
+        className="uppercase font-black tracking-[0.06em] leading-none"
+        style={{
+          fontFamily: "var(--font-display), system-ui, sans-serif",
+          fontSize: 13,
+          color: `var(--color-${tone}-deep)`,
+        }}
+      >
+        {label}
+      </span>
+      <div className="mt-3 flex items-baseline gap-1.5">
+        <span
+          className="font-black text-ink-strong leading-none tabular-nums"
+          style={{ fontSize: 40, letterSpacing: "-0.02em" }}
+        >
+          {value}
+        </span>
+        <span className="font-bold text-ink-muted text-[15px]">{unit}</span>
+      </div>
+      <span className="block mt-2 font-semibold text-ink-muted text-[13.5px]">
+        {sub}
+      </span>
+    </div>
   );
 }
 

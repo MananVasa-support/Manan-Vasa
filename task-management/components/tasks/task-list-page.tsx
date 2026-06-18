@@ -11,6 +11,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { TaskTable } from "./task-table";
+import { WeeklyGoalTaskGroup } from "@/components/weekly-goals/weekly-goal-task-group";
+import type { VirtualTaskRow } from "@/lib/weekly-goals/as-task-row";
 import type { TaskListRow, TaskListFilters } from "@/lib/types";
 import { taskFiltersToSearchString } from "@/lib/task-filters";
 import {
@@ -81,6 +83,7 @@ export function TaskListPage({
   statusTones,
   subjects,
   clients,
+  weeklyGoals = [],
   basePath = "/tasks",
 }: {
   title: string;
@@ -93,9 +96,15 @@ export function TaskListPage({
   /** Bulk-set option rosters, threaded down to the bulk-action bar. */
   subjects?: string[];
   clients?: string[];
+  /** This week's goals for the view's scope, surfaced as a pinned group above
+   *  the task table (design §10). Display-only; NOT counted in the stat cards. */
+  weeklyGoals?: VirtualTaskRow[];
   /** List route the summary cards link into (so Archived keeps its own scope). */
   basePath?: string;
 }) {
+  // Weekly goals are surfaced as a pinned group above the table but are
+  // deliberately EXCLUDED from the task stat-card counts (design §10) — the
+  // KPIs stay tasks-only. So `counts` is computed from `rows` alone.
   const counts = computeStatCounts(rows);
 
   // Build each card's destination by overriding the relevant filter dimension
@@ -188,6 +197,15 @@ export function TaskListPage({
           );
         })}
       </div>
+
+      {/* Pinned "This week's goals" group above the table (design §10). Admins
+          viewing the unscoped "all" list see each goal's doer name. Excluded
+          from the stat-card counts above. */}
+      <WeeklyGoalTaskGroup
+        goals={weeklyGoals}
+        showDoer={me.isAdmin && filters.assigneeMode === "all"}
+        className="mb-4"
+      />
 
       {rows.length === 0 ? (
         <div

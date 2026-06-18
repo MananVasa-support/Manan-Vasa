@@ -5,6 +5,7 @@ import { TaskListPage } from "@/components/tasks/task-list-page";
 import { listEmployeeOptions } from "@/lib/queries/employees";
 import { listTasks, listDistinctSubjects } from "@/lib/queries/tasks";
 import { listActiveClientNames } from "@/lib/queries/clients";
+import { listWeekGoalsAsTasks } from "@/lib/weekly-goals/as-task-row";
 import { parseTaskFilters } from "@/lib/task-filters";
 import { requireUser } from "@/lib/auth/current";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
@@ -25,13 +26,29 @@ export default async function TasksPage({ searchParams }: PageProps) {
     defaultDoerId: me.isAdmin ? undefined : me.id,
   });
 
-  const [allEmployees, rows, subjects, clients, statusDisplay] = await Promise.all([
-    listEmployeeOptions(),
-    listTasks(filters),
-    listDistinctSubjects(),
-    listActiveClientNames(),
-    getStatusDisplayMap(),
-  ]);
+  // This week's goals for the view's scope, surfaced as a pinned group above
+  // the task table (design §10). "all" assignee view = every employee's goals
+  // (empty scope); otherwise scope to the selected doers. Honours the shared
+  // client/subject/priority filters. Display-only — never counted in the KPIs.
+  const goalScope =
+    filters.assigneeMode === "all" ? undefined : filters.doerIds;
+
+  const [allEmployees, rows, subjects, clients, statusDisplay, weeklyGoals] =
+    await Promise.all([
+      listEmployeeOptions(),
+      listTasks(filters),
+      listDistinctSubjects(),
+      listActiveClientNames(),
+      getStatusDisplayMap(),
+      listWeekGoalsAsTasks({
+        scope: { employeeIds: goalScope },
+        filters: {
+          priorities: filters.priorities,
+          subjects: filters.subjects,
+          clients: filters.clients,
+        },
+      }).catch(() => []),
+    ]);
 
   const statusLabels = Object.fromEntries(
     Object.entries(statusDisplay).map(([k, v]) => [k, v.label]),
@@ -97,6 +114,7 @@ export default async function TasksPage({ searchParams }: PageProps) {
         statusTones={statusTones}
         subjects={subjects}
         clients={clients}
+        weeklyGoals={weeklyGoals}
       />
       <DashboardFooter />
     </>

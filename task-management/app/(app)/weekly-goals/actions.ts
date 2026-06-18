@@ -6,7 +6,12 @@ import { revalidatePath, updateTag } from "next/cache";
 import { db } from "@/lib/db";
 import { weeklyGoals, employees } from "@/db/schema";
 import { CACHE_TAGS } from "@/lib/cache-tags";
-import { requireUser, requireAdmin } from "@/lib/auth/current";
+import {
+  requireUser,
+  requireAdmin,
+  requireSuperAdmin,
+  requireWeeklyGoalsFilled,
+} from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { mondayOf, nextWeekStart } from "@/lib/weekly-goals/week";
 import { type TaskPriority } from "@/db/enums";
@@ -20,6 +25,14 @@ import {
   CarryOverSchema,
   type CarryOverInput,
   DeleteWeeklyGoalSchema,
+  ReviewWeeklyGoalSchema,
+  type ReviewWeeklyGoalInput,
+  ApproveWeeklyGoalSchema,
+  type ApproveWeeklyGoalInput,
+  ArchiveWeeklyGoalSchema,
+  type ArchiveWeeklyGoalInput,
+  DuplicateWeeklyGoalSchema,
+  type DuplicateWeeklyGoalInput,
 } from "@/lib/validators/weekly-goal";
 
 type ActionOk<T> = T extends undefined ? { ok: true } : { ok: true } & T;
@@ -71,6 +84,14 @@ export async function createWeeklyGoal(
   input: CreateWeeklyGoalInput,
 ): Promise<ActionResult<{ id: string }>> {
   const me = await requireUser();
+  // Defense-in-depth fill gate (design §11): can't plan new goals while the
+  // current week's assigned goals are still un-filled. Filling itself goes via
+  // setWeeklyGoalPct/editWeeklyGoal, which are intentionally NOT gated.
+  try {
+    await requireWeeklyGoalsFilled(me);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Fill your weekly goals to continue" };
+  }
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
@@ -100,6 +121,9 @@ export async function createWeeklyGoal(
         targetDone: data.targetDone,
         explanation: data.explanation,
         linkUrl: data.linkUrl,
+        weight: data.weight,
+        targetDate: data.targetDate,
+        notes: data.notes,
         createdById: me.id,
         updatedById: me.id,
       })
@@ -264,7 +288,11 @@ type ImportField =
   | "pctDone"
   | "explanation"
   | "link"
-  | "employee";
+  | "employee"
+  // Redesign (additive): Planning columns.
+  | "weight"
+  | "targetDate"
+  | "notes";
 
 function mapHeader(raw: string): ImportField | null {
   const h = normHeader(raw);
@@ -277,11 +305,18 @@ function mapHeader(raw: string): ImportField | null {
   if (h.includes("priority") || h === "prio") return "priority";
   if (h.includes("incentive")) return "incentive";
   if (h.includes("kpi")) return "kpi";
+  if (h.includes("weight")) return "weight";
+  // "Target Date"/"Due Date" → the per-goal date; plain "Target" stays the Goal text.
+  if (h.includes("targetdate") || h.includes("duedate") || (h.includes("target") && h.includes("date")))
+    return "targetDate";
   if (h.includes("target")) return "target";
   if (h.includes("percent") || h.includes("%") || h.includes("pct") || h.includes("done") || h.includes("actual"))
     return "pctDone";
-  if (h.includes("explanation") || h.includes("explain") || h.includes("note") || h.includes("remark") || h.includes("comment"))
+  if (h.includes("explanation") || h.includes("explain") || h.includes("remark") || h.includes("comment"))
     return "explanation";
+  // Planning notes (kept distinct from Explanation; "note" stays a fallback for explanation below).
+  if (h === "notes" || h.includes("planningnote") || h.includes("plannote")) return "notes";
+  if (h.includes("note")) return "explanation";
   if (h.includes("link") || h.includes("url") || h.includes("proof")) return "link";
   return null; // Sr. No. and anything unrecognised is skipped.
 }
@@ -315,6 +350,32 @@ function cleanText(raw: unknown, max: number): string | null {
   return s.slice(0, max);
 }
 
+/** Parse an import Weight cell → integer in [1, 1000]; defaults to 100 when blank/invalid. */
+function parseWeight(raw: unknown): number {
+  const n = Math.round(Number(String(raw ?? "").replace(/[^0-9.\-]/g, "")));
+  if (!Number.isFinite(n) || n <= 0) return 100;
+  return Math.max(1, Math.min(1000, n));
+}
+
+/**
+ * Parse an import Target Date cell → yyyy-mm-dd string, or null. Accepts an
+ * Excel serial date (xlsx may hand us a number) or any Date-parseable string.
+ */
+function parseYmd(raw: unknown): string | null {
+  if (raw == null || raw === "") return null;
+  // Excel serial date (days since 1899-12-30).
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    const ms = Math.round((raw - 25569) * 86400 * 1000);
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+  }
+  const s = String(raw).trim();
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
 /**
  * Import many weekly goals at once from an uploaded CSV / Excel file (the same
  * format you'd export from Google Sheets). The first row must be headers whose
@@ -332,6 +393,13 @@ export async function importWeeklyGoals(
   formData: FormData,
 ): Promise<ActionResult<{ imported: number; skipped: number; warnings: string[] }>> {
   const me = await requireUser();
+  // Defense-in-depth fill gate (design §11): no bulk goal creation while the
+  // current week's assigned goals are still un-filled.
+  try {
+    await requireWeeklyGoalsFilled(me);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Fill your weekly goals to continue" };
+  }
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
@@ -425,6 +493,9 @@ export async function importWeeklyGoals(
       pctDone: parsePct(get("pctDone")),
       explanation,
       linkUrl,
+      weight: parseWeight(get("weight")),
+      targetDate: parseYmd(get("targetDate")),
+      notes: cleanText(get("notes"), 4000),
       createdById: me.id,
       updatedById: me.id,
     });
@@ -492,4 +563,194 @@ export async function setWeeklyGoalIncentive(input: {
 
   revalidateWeeklyGoals();
   return { ok: true };
+}
+
+/* ================================================================== */
+/* Review flow — super-admins only (design §5)                         */
+/* ================================================================== */
+
+/**
+ * Set the reviewer-side fields on a goal (Status, Accept %, Review Notes).
+ * Super-admins only. Stamps `reviewedById`/`reviewedAt` provenance. Only the
+ * keys actually supplied are written (a partial review doesn't clobber).
+ *
+ * Lock rule: once a goal is approved (`approvedAt` set), Accept % is locked —
+ * an `acceptPct` write is rejected until the goal is un-approved. Status and
+ * Review Notes remain editable.
+ */
+export async function setWeeklyGoalReview(
+  input: ReviewWeeklyGoalInput,
+): Promise<ActionResult> {
+  const me = await requireSuperAdmin();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const parsed = ReviewWeeklyGoalSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { id, status, acceptPct, reviewNotes } = parsed.data;
+
+  const [goal] = await db.select().from(weeklyGoals).where(eq(weeklyGoals.id, id)).limit(1);
+  if (!goal) return { ok: false, error: "Goal not found" };
+
+  // Accept % is locked once approved — reject the write rather than silently drop it.
+  if (acceptPct !== undefined && goal.approvedAt) {
+    return { ok: false, error: "Accept % is locked while approved — un-approve to change it" };
+  }
+
+  const patch: Record<string, unknown> = {
+    reviewedById: me.id,
+    reviewedAt: new Date(),
+    updatedById: me.id,
+    updatedAt: new Date(),
+  };
+  if (status !== undefined) patch.status = status;
+  if (acceptPct !== undefined) patch.acceptPct = acceptPct;
+  if (reviewNotes !== undefined) patch.reviewNotes = reviewNotes;
+
+  try {
+    await db.update(weeklyGoals).set(patch).where(eq(weeklyGoals.id, id));
+    revalidateWeeklyGoals();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+/**
+ * Approve (or un-approve) a goal. Super-admins only. On approve: stamps
+ * `approvedAt` + review provenance, sets `status='approved'`, and locks Accept %.
+ * On un-approve: clears `approvedAt` (unlocks Accept %); the status is left as-is
+ * for the reviewer to set. Reversible.
+ */
+export async function approveWeeklyGoal(
+  input: ApproveWeeklyGoalInput,
+): Promise<ActionResult> {
+  const me = await requireSuperAdmin();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const parsed = ApproveWeeklyGoalSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { id, approved } = parsed.data;
+
+  const [goal] = await db.select().from(weeklyGoals).where(eq(weeklyGoals.id, id)).limit(1);
+  if (!goal) return { ok: false, error: "Goal not found" };
+
+  const now = new Date();
+  const patch: Record<string, unknown> = approved
+    ? {
+        approvedAt: now,
+        status: "approved",
+        reviewedById: me.id,
+        reviewedAt: now,
+        updatedById: me.id,
+        updatedAt: now,
+      }
+    : {
+        approvedAt: null,
+        reviewedById: me.id,
+        reviewedAt: now,
+        updatedById: me.id,
+        updatedAt: now,
+      };
+
+  try {
+    await db.update(weeklyGoals).set(patch).where(eq(weeklyGoals.id, id));
+    revalidateWeeklyGoals();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+/**
+ * Toggle a goal's `archived` flag. Super-admins only. Archived goals drop off
+ * the active board and out of weekly-score aggregates but stay queryable.
+ * Reversible.
+ */
+export async function archiveWeeklyGoal(
+  input: ArchiveWeeklyGoalInput,
+): Promise<ActionResult> {
+  const me = await requireSuperAdmin();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const parsed = ArchiveWeeklyGoalSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { id, archived } = parsed.data;
+
+  const [goal] = await db.select().from(weeklyGoals).where(eq(weeklyGoals.id, id)).limit(1);
+  if (!goal) return { ok: false, error: "Goal not found" };
+
+  try {
+    await db
+      .update(weeklyGoals)
+      .set({ archived, updatedById: me.id, updatedAt: new Date() })
+      .where(eq(weeklyGoals.id, id));
+    revalidateWeeklyGoals();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+/**
+ * Duplicate a goal into the SAME week (owner or admin) — distinct from
+ * carry-over, which targets the NEXT week + sets `carriedFromId`. Copies the
+ * planning fields into a fresh row with a new `position`; progress (% Done +
+ * provenance) and all review fields are reset; `carriedFromId` is left NULL.
+ */
+export async function duplicateWeeklyGoal(
+  input: DuplicateWeeklyGoalInput,
+): Promise<ActionResult<{ id: string }>> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const parsed = DuplicateWeeklyGoalSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const loaded = await loadWritableGoal(parsed.data.id, me);
+  if (!loaded.ok) return loaded;
+  const src = loaded.row;
+
+  try {
+    const position = await nextPosition(src.employeeId, src.weekStart);
+    const [row] = await db
+      .insert(weeklyGoals)
+      .values({
+        employeeId: src.employeeId,
+        weekStart: src.weekStart,
+        position,
+        client: src.client,
+        subject: src.subject,
+        priority: src.priority,
+        incentive: src.incentive,
+        incentiveAmount: src.incentiveAmount,
+        kpi: src.kpi,
+        targetDone: src.targetDone,
+        explanation: src.explanation,
+        linkUrl: src.linkUrl,
+        weight: src.weight,
+        targetDate: src.targetDate,
+        notes: src.notes,
+        // Progress + review reset; no carry-over link.
+        pctDone: 0,
+        createdById: me.id,
+        updatedById: me.id,
+      })
+      .returning({ id: weeklyGoals.id });
+    if (!row) return { ok: false, error: "Insert returned no row" };
+    revalidateWeeklyGoals();
+    return { ok: true, id: row.id };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
 }

@@ -32,7 +32,7 @@ import {
 import { taskEvents, clients, subjects, employees } from "@/db/schema";
 import { CreateClientSchema } from "@/lib/validators/client";
 import { CreateSubjectSchema } from "@/lib/validators/subject";
-import { requireUser } from "@/lib/auth/current";
+import { requireUser, requireWeeklyGoalsFilled } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import {
   canEditTaskFields,
@@ -741,6 +741,10 @@ export async function createTask(input: CreateTaskInput): Promise<
   | { ok: false; error: string }
 > {
   const me = await requireUser();
+  // Defense-in-depth weekly-goals fill gate (design §11): a user with un-filled
+  // current-week goals can't create new work by POSTing past the layout
+  // redirect. Applies to everyone incl. super-admins. Throws when gated.
+  await requireWeeklyGoalsFilled(me);
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 

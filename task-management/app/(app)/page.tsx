@@ -17,6 +17,8 @@ import { getStatusDisplayMap } from "@/lib/queries/status-display";
 import { getMyDayCounts, getMyTodayTasks } from "@/lib/queries/my-day";
 import { MobileToday } from "@/components/dashboard/mobile-today";
 import { getCurrentEmployee } from "@/lib/auth/current";
+import { listWeekGoalsAsTasks } from "@/lib/weekly-goals/as-task-row";
+import { WeeklyGoalTaskGroup } from "@/components/weekly-goals/weekly-goal-task-group";
 import { parseFilters } from "@/lib/filters";
 import type { TaskStatus, StatusColorToken } from "@/db/enums";
 
@@ -47,8 +49,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   let myDay: Awaited<ReturnType<typeof getMyDayCounts>> | null;
   let todayTasks: Awaited<ReturnType<typeof getMyTodayTasks>> | null;
   let subjects: string[];
+  // My Day: this week's goals assigned to ME, pinned above today's tasks
+  // (design §10). Display-only; never mixed into the dashboard task KPIs.
+  let myGoals: Awaited<ReturnType<typeof listWeekGoalsAsTasks>>;
   try {
-    [allEmployees, data, statusDisplay, myDay, todayTasks, subjects] = await Promise.all([
+    [allEmployees, data, statusDisplay, myDay, todayTasks, subjects, myGoals] = await Promise.all([
       listEmployees(),
       loadDashboardData(filters),
       getStatusDisplayMap(),
@@ -59,6 +64,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       // Auxiliary (only powers the Subject filter chip) — must NEVER take down
       // the whole dashboard, so it degrades to an empty list on failure.
       listDistinctSubjects().catch(() => [] as string[]),
+      // My weekly goals — degrade to empty so a failure never takes down My Day.
+      me
+        ? listWeekGoalsAsTasks({ scope: { employeeIds: [me.id] } }).catch(() => [])
+        : Promise.resolve([]),
     ]);
   } catch (err) {
     console.error("[dashboard] data load failed:", err);
@@ -117,6 +126,14 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           <WelcomeHero />
         ) : (
           <>
+            {/* Pinned "This week's goals" group at the very top of My Day
+                (design §10) — visible on both the mobile Today home and the
+                desktop dashboard. Display-only; not counted in any task KPI. */}
+            {myGoals.length > 0 && (
+              <section className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-6">
+                <WeeklyGoalTaskGroup goals={myGoals} />
+              </section>
+            )}
             {mobileToday && me && (
               <div className="md:hidden">
                 <MobileToday

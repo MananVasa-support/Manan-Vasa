@@ -5,6 +5,7 @@ import { KanbanBoard } from "@/components/tasks/kanban-board";
 import { listBoardTasks, listDistinctSubjects } from "@/lib/queries/tasks";
 import { listEmployeeOptions } from "@/lib/queries/employees";
 import { listActiveClientNames } from "@/lib/queries/clients";
+import { listWeekGoalsAsTasks } from "@/lib/weekly-goals/as-task-row";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import { parseTaskFilters } from "@/lib/task-filters";
@@ -34,14 +35,29 @@ export default async function KanbanPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const filters = parseTaskFilters(sp, /*archived*/ false, {});
 
-  const [tasks, statusDisplay, employees, org, subjects, clients] = await Promise.all([
-    listBoardTasks(filters),
-    getStatusDisplayMap(),
-    listEmployeeOptions(),
-    getOrgSettings(),
-    listDistinctSubjects(),
-    listActiveClientNames(),
-  ]);
+  // Kanban is admin-only, so the board shows everyone's goals unless the
+  // assignee filter narrows the scope. They're injected as badged, link-out
+  // cards inside their status column (design §10) and never counted as tasks.
+  const goalScope =
+    filters.assigneeMode === "all" ? undefined : filters.doerIds;
+
+  const [tasks, statusDisplay, employees, org, subjects, clients, weeklyGoals] =
+    await Promise.all([
+      listBoardTasks(filters),
+      getStatusDisplayMap(),
+      listEmployeeOptions(),
+      getOrgSettings(),
+      listDistinctSubjects(),
+      listActiveClientNames(),
+      listWeekGoalsAsTasks({
+        scope: { employeeIds: goalScope },
+        filters: {
+          priorities: filters.priorities,
+          subjects: filters.subjects,
+          clients: filters.clients,
+        },
+      }).catch(() => []),
+    ]);
   const labels = Object.fromEntries(
     Object.entries(statusDisplay).map(([k, v]) => [k, v.label]),
   ) as Record<TaskStatus, string>;
@@ -120,6 +136,7 @@ export default async function KanbanPage({ searchParams }: PageProps) {
           <div className="relative">
             <KanbanBoard
               tasks={tasks}
+              weeklyGoals={weeklyGoals}
               labels={labels}
               tones={tones}
               isAdmin={me.isAdmin}

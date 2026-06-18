@@ -52,8 +52,10 @@ import { setBoardColumnOrder } from "@/app/(admin)/admin/settings/actions";
 import { fireToast } from "@/lib/toast";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { LateBadge } from "@/components/ui/late-badge";
+import { WeeklyGoalBadge } from "@/components/weekly-goals/weekly-goal-badge";
 import { isDoneLate } from "@/lib/task-late";
 import type { BoardTask } from "@/lib/queries/tasks";
+import type { VirtualTaskRow } from "@/lib/weekly-goals/as-task-row";
 
 // Priority → colour token + label for the hover-card badge.
 const PRIORITY_TONE: Record<TaskPriority, string> = {
@@ -65,6 +67,9 @@ const PRIORITY_TONE: Record<TaskPriority, string> = {
 
 interface Props {
   tasks: BoardTask[];
+  /** This week's goals (design §10), injected as badged, non-draggable
+   *  link-out cards into their matching status column. Never tasks. */
+  weeklyGoals?: VirtualTaskRow[];
   labels: Record<TaskStatus, string>;
   tones: Record<TaskStatus, StatusColorToken>;
   isAdmin: boolean;
@@ -94,7 +99,7 @@ function accentFor(col: ColId, tones: Record<TaskStatus, StatusColorToken>) {
  * reorder the whole board (persisted globally). A DragOverlay renders the
  * floating preview; dnd-kit handles auto-scroll, keyboard a11y and animation.
  */
-export function KanbanBoard({ tasks, labels, tones, isAdmin, columnOrder }: Props) {
+export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, columnOrder }: Props) {
   const router = useRouter();
   const [items, setItems] = React.useState(tasks);
   const [savingId, setSavingId] = React.useState<string | null>(null);
@@ -267,6 +272,11 @@ export function KanbanBoard({ tasks, labels, tones, isAdmin, columnOrder }: Prop
                 const colTasks = isArchive
                   ? filtered.filter((t) => t.archived)
                   : filtered.filter((t) => !t.archived && t.status === col);
+                // This week's goals whose task-status maps to this column.
+                // Never shown in the Archive column.
+                const colGoals = isArchive
+                  ? []
+                  : weeklyGoals.filter((g) => g.status === col);
                 const limit = visibleByCol[col] ?? COL_STEP;
                 const shownTasks = colTasks.slice(0, limit);
                 const hiddenCount = colTasks.length - shownTasks.length;
@@ -290,11 +300,16 @@ export function KanbanBoard({ tasks, labels, tones, isAdmin, columnOrder }: Prop
                         Drag a card here to archive it.
                       </p>
                     )}
-                    {!isArchive && colTasks.length === 0 && (
+                    {!isArchive && colTasks.length === 0 && colGoals.length === 0 && (
                       <p className="px-2 py-6 text-center text-[13.5px] text-ink-subtle">
                         Nothing here.
                       </p>
                     )}
+                    {/* Pinned weekly-goal cards at the top of the column —
+                        badged, distinct accent, link out to the workspace. */}
+                    {colGoals.map((g) => (
+                      <KanbanGoalCard key={g.id} g={g} />
+                    ))}
                     {shownTasks.map((t) => (
                       <KanbanCard
                         key={t.id}
@@ -518,6 +533,68 @@ function KanbanCard({
         </Tooltip.Portal>
       </Tooltip.Root>
     </div>
+  );
+}
+
+// ── Weekly-goal card (design §10) ───────────────────────────────────────────
+// A read-only, non-draggable card surfaced inside its status column. Visually
+// distinct (Altus accent + "Weekly Goal" badge) and links out to the Weekly
+// Goals workspace — the single edit/review surface. Never a real task.
+function KanbanGoalCard({ g }: { g: VirtualTaskRow }) {
+  const meta = [g.client?.trim(), g.subject?.trim(), g.doerName?.trim()].filter(
+    (p): p is string => !!p,
+  );
+  return (
+    <Link
+      href={g.href as Route}
+      className="group block rounded-chip p-3.5 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+      style={{
+        background:
+          "linear-gradient(180deg, color-mix(in srgb, var(--color-altus-red) 6%, white), white)",
+        border:
+          "1px solid color-mix(in srgb, var(--color-altus-red) 32%, transparent)",
+      }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <WeeklyGoalBadge />
+        <span
+          className="tabular-nums font-bold shrink-0"
+          style={{ fontSize: 12.5, color: "var(--color-altus-red-deep)" }}
+        >
+          {g.pct}%
+        </span>
+      </div>
+      <span
+        className="mt-2 block text-[15px] font-semibold text-ink-strong leading-snug group-hover:text-altus-red-deep transition-colors"
+        style={{
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+        }}
+      >
+        {g.title}
+      </span>
+      {meta.length > 0 && (
+        <span className="mt-1.5 block truncate text-[12.5px] text-ink-subtle">
+          {meta.join(" · ")}
+        </span>
+      )}
+      {/* Effective-% progress bar. */}
+      <span
+        aria-hidden
+        className="mt-2.5 block rounded-full overflow-hidden"
+        style={{ height: 5, background: "var(--color-hairline)" }}
+      >
+        <span
+          className="block h-full rounded-full"
+          style={{
+            width: `${Math.max(0, Math.min(100, g.pct))}%`,
+            background: "var(--color-altus-red)",
+          }}
+        />
+      </span>
+    </Link>
   );
 }
 
