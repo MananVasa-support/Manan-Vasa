@@ -13,6 +13,7 @@ import {
   requireWeeklyGoalsFilled,
 } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
+import { goalScopeFor, canManageGoalFor } from "@/lib/weekly-goals/hierarchy";
 import { mondayOf, nextWeekStart } from "@/lib/weekly-goals/week";
 import { type TaskPriority } from "@/db/enums";
 import {
@@ -57,7 +58,8 @@ async function nextPosition(employeeId: string, weekStart: string): Promise<numb
 
 /**
  * Fetch a goal + decide whether the signed-in user may write it.
- * Owners (the goal's employee) and admins may edit; nobody else.
+ * Owners (the goal's employee), admins, and managers (for any goal owned by
+ * someone in their full downline) may edit; nobody else.
  */
 type LoadResult =
   | { ok: false; error: string }
@@ -69,10 +71,11 @@ async function loadWritableGoal(
 ): Promise<LoadResult> {
   const [row] = await db.select().from(weeklyGoals).where(eq(weeklyGoals.id, id)).limit(1);
   if (!row) return { ok: false, error: "Goal not found" };
-  if (!me.isAdmin && row.employeeId !== me.id) {
-    return { ok: false, error: "You can only edit your own weekly goals" };
-  }
-  return { ok: true, row };
+  // Admins → anyone. Owners → their own. Managers → their downline.
+  if (me.isAdmin || row.employeeId === me.id) return { ok: true, row };
+  const scope = await goalScopeFor(me);
+  if (scope.ids.includes(row.employeeId)) return { ok: true, row };
+  return { ok: false, error: "You can only edit your own weekly goals" };
 }
 
 /**
@@ -101,8 +104,13 @@ export async function createWeeklyGoal(
   }
   const data = parsed.data;
 
-  // Owner enforcement: a non-admin may only target their own row.
-  const employeeId = me.isAdmin ? data.employeeId : me.id;
+  // Scope enforcement: admins target anyone; managers target themselves or
+  // their full downline; everyone else only themselves (self is always in scope).
+  const scope = await goalScopeFor(me);
+  if (!canManageGoalFor(scope, data.employeeId)) {
+    return { ok: false, error: "You can only create goals for yourself or your team." };
+  }
+  const employeeId = data.employeeId;
   const weekStart = mondayOf(data.weekStart);
 
   try {

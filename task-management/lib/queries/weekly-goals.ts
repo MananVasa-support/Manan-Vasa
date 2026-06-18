@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { employees, weeklyGoals, tasks, attendanceLogs, incentiveRequests } from "@/db/schema";
 import type { TaskPriority } from "@/db/enums";
@@ -98,6 +98,30 @@ export async function listGoalsForWeek(weekStart: string): Promise<WeeklyGoalRow
     .from(weeklyGoals)
     .innerJoin(employees, eq(weeklyGoals.employeeId, employees.id))
     .where(eq(weeklyGoals.weekStart, weekStart))
+    .orderBy(asc(employees.name), asc(weeklyGoals.position));
+}
+
+/**
+ * Goals across a set of employees for one week — the manager's team overview.
+ * Same shape/joins as `listGoalsForWeek`, but scoped to `employeeIds` (their
+ * downline + self). Returns [] for an empty id list. Sorted by employee then
+ * Sr. No.
+ */
+export async function listGoalsForEmployees(
+  employeeIds: string[],
+  weekStart: string,
+): Promise<WeeklyGoalRow[]> {
+  if (employeeIds.length === 0) return [];
+  return db
+    .select(ROW_SELECT)
+    .from(weeklyGoals)
+    .innerJoin(employees, eq(weeklyGoals.employeeId, employees.id))
+    .where(
+      and(
+        inArray(weeklyGoals.employeeId, employeeIds),
+        eq(weeklyGoals.weekStart, weekStart),
+      ),
+    )
     .orderBy(asc(employees.name), asc(weeklyGoals.position));
 }
 
@@ -529,5 +553,24 @@ export async function listGoalEmployees(): Promise<{ id: string; name: string }[
     .select({ id: employees.id, name: employees.name })
     .from(employees)
     .where(eq(employees.isActive, true))
+    .orderBy(asc(employees.name));
+}
+
+/**
+ * Active employees for the person selector, scoped to a goal-management scope:
+ *  - admin (`scope.all`) → every active employee (same as `listGoalEmployees`)
+ *  - manager → only the active employees in `scope.ids` (their downline + self)
+ * Always ordered by name. Returns [] for a non-admin scope with no ids.
+ */
+export async function listGoalEmployeesScoped(scope: {
+  all: boolean;
+  ids: string[];
+}): Promise<{ id: string; name: string }[]> {
+  if (scope.all) return listGoalEmployees();
+  if (scope.ids.length === 0) return [];
+  return db
+    .select({ id: employees.id, name: employees.name })
+    .from(employees)
+    .where(and(eq(employees.isActive, true), inArray(employees.id, scope.ids)))
     .orderBy(asc(employees.name));
 }

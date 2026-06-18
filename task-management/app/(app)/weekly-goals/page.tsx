@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
@@ -8,7 +8,8 @@ import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { db } from "@/lib/db";
 import { employees, weeklyGoals } from "@/db/schema";
-import { listGoalEmployees } from "@/lib/queries/weekly-goals";
+import { listGoalEmployeesScoped } from "@/lib/queries/weekly-goals";
+import { goalScopeFor } from "@/lib/weekly-goals/hierarchy";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
 import { listActiveClientNames } from "@/lib/queries/clients";
 import { listActiveSubjectNames } from "@/lib/queries/subjects";
@@ -43,13 +44,22 @@ const reviewer = alias(employees, "reviewer");
 async function loadBoardGoals(opts: {
   weekStart: string;
   employeeId?: string;
+  employeeIds?: string[];
 }): Promise<BoardGoal[]> {
+  // Scope precedence: a single employeeId (one-person view) > an employeeIds
+  // set (a manager's team) > unscoped (admin "all team members").
+  if (opts.employeeIds && opts.employeeIds.length === 0) return [];
   const where = opts.employeeId
     ? and(
         eq(weeklyGoals.weekStart, opts.weekStart),
         eq(weeklyGoals.employeeId, opts.employeeId),
       )
-    : eq(weeklyGoals.weekStart, opts.weekStart);
+    : opts.employeeIds
+      ? and(
+          eq(weeklyGoals.weekStart, opts.weekStart),
+          inArray(weeklyGoals.employeeId, opts.employeeIds),
+        )
+      : eq(weeklyGoals.weekStart, opts.weekStart);
 
   return db
     .select({
@@ -100,21 +110,47 @@ export default async function WeeklyGoalsPage({ searchParams }: PageProps) {
   const thisWeek = currentWeekStart();
   const weekStart = mondayOf(pick(sp.week) ?? thisWeek);
 
-  // Scope: non-admins are always locked to themselves. Admins default to the
-  // whole-team overview ("all") and may drill into one person.
+  // Org-chart scope. Admins manage everyone; managers (anyone with a downline)
+  // manage themselves + their full downline; everyone else only themselves.
+  const scope = await goalScopeFor(me);
+  // A "manager" is a non-admin whose scope has more than just themselves.
+  const isManager = !scope.all && scope.ids.length > 1;
+  const canPickTeam = me.isAdmin || isManager;
+  const manageableIds: "all" | string[] = scope.all ? "all" : scope.ids;
+
+  // Scope selection. Admins default to the whole-team overview ("all") and may
+  // drill into one person. Managers default to their team ("all" within scope)
+  // and may drill into any downline member (or themselves). Everyone else is
+  // locked to themselves.
   const empParam = pick(sp.emp);
-  const scopeEmp = me.isAdmin ? empParam ?? "all" : me.id;
+  let scopeEmp: string;
+  if (me.isAdmin) {
+    scopeEmp = empParam ?? "all";
+  } else if (isManager) {
+    // Honour a drill-in only when it targets someone the manager actually owns.
+    scopeEmp = empParam && scope.ids.includes(empParam) ? empParam : "all";
+  } else {
+    scopeEmp = me.id;
+  }
+
+  // Resolve the goals for the chosen scope:
+  //  - "all" + admin   → every employee's goals this week
+  //  - "all" + manager → only their downline + self
+  //  - a person id      → just that person
+  const boardScope =
+    scopeEmp === "all"
+      ? me.isAdmin
+        ? {}
+        : { employeeIds: scope.ids }
+      : { employeeId: scopeEmp };
 
   const [employeesList, clientOptions, subjectOptions, statusDisplay, rows] =
     await Promise.all([
-      listGoalEmployees(),
+      listGoalEmployeesScoped(scope),
       listActiveClientNames(),
       listActiveSubjectNames(),
       getStatusDisplayMap(),
-      loadBoardGoals({
-        weekStart,
-        employeeId: scopeEmp === "all" ? undefined : scopeEmp,
-      }),
+      loadBoardGoals({ weekStart, ...boardScope }),
     ]);
 
   return (
@@ -126,6 +162,8 @@ export default async function WeeklyGoalsPage({ searchParams }: PageProps) {
         weekLabel={formatWeekLabel(weekStart)}
         isCurrentWeek={weekStart === thisWeek}
         scopeEmp={scopeEmp}
+        canPickTeam={canPickTeam}
+        manageableIds={manageableIds}
         employees={employeesList}
         rows={rows}
         statusDisplay={statusDisplay}

@@ -33,6 +33,11 @@ interface Props {
   weekLabel: string;
   isCurrentWeek: boolean;
   scopeEmp: string;
+  /** True for admins AND managers (anyone who can pick a person / see a team). */
+  canPickTeam: boolean;
+  /** "all" for admins (manage anyone); otherwise the set of ids the user may
+   *  edit (self + downline for managers, just self for everyone else). */
+  manageableIds: "all" | string[];
   employees: { id: string; name: string }[];
   rows: BoardGoal[];
   statusDisplay: StatusDisplayMap;
@@ -47,6 +52,15 @@ interface Props {
 export function WeeklyGoalsBoard(props: Props) {
   const router = useRouter();
   const showingAll = props.scopeEmp === "all";
+
+  // Whether the signed-in user may edit a given goal. Admins ("all") can edit
+  // anyone; managers can edit self + downline; everyone else only their own
+  // (self is always in manageableIds for non-admins, so owners keep edit).
+  const canEditGoal = React.useCallback(
+    (employeeId: string) =>
+      props.manageableIds === "all" || props.manageableIds.includes(employeeId),
+    [props.manageableIds],
+  );
 
   // Client-side filters (priority) + a reviewer-only "show archived" toggle.
   const [priorityFilter, setPriorityFilter] = React.useState<string[]>([]);
@@ -190,13 +204,15 @@ export function WeeklyGoalsBoard(props: Props) {
           </label>
         )}
 
-        {props.me.isAdmin && (
+        {props.canPickTeam && (
           <select
             value={props.scopeEmp}
             onChange={(e) => go({ week: props.weekStart, emp: e.target.value })}
             className="ml-auto px-4 py-2 rounded-full border border-hairline bg-surface-card font-bold text-[14px] text-ink-strong"
           >
-            <option value="all">All team members</option>
+            <option value="all">
+              {props.canPickTeam && !props.me.isAdmin ? "My team" : "All team members"}
+            </option>
             {props.employees.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.name}
@@ -247,7 +263,7 @@ export function WeeklyGoalsBoard(props: Props) {
                       key={goal.id}
                       goal={goal}
                       srNo={i + 1}
-                      canEdit={props.me.isAdmin || goal.employeeId === props.me.id}
+                      canEdit={canEditGoal(goal.employeeId)}
                       autoFocus={props.focusId === goal.id}
                       {...sharedCardProps}
                     />
