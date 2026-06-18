@@ -119,10 +119,10 @@ export function MainNav({ activeTasks, isAdmin, variant }: Props) {
           Ecosystem WMS). Index is a link hub; the three form modules are
           request/approval flows. */}
       <MainNavPill
-        href={"/index" as Route}
+        href={"/index-hub" as Route}
         label="Index"
         Icon={Compass}
-        active={isActive("/index")}
+        active={isActive("/index-hub")}
         variant={variant}      />
       <MainNavPill
         href={"/reimbursements" as Route}
