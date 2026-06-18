@@ -8,22 +8,23 @@ import { WeeklyGoalsFillForm } from "@/components/weekly-goals/weekly-goals-fill
 export const dynamic = "force-dynamic";
 
 /**
- * The mandatory weekly-goals fill screen (design §11). Users with un-filled
- * current-week goals are redirected here by the (app) layout gate. They enter
- * % Done (+ optional explanation) for each and submit once to enter the app. If
- * there's nothing to fill (e.g. they navigated here directly after filling) we
- * send them straight in — the gate is satisfied.
+ * The mandatory weekly-goals fill screen (design §11).
  *
- * NOTE: this lives at `/fill-weekly-goals` (a standalone segment in the (gate)
- * route group), deliberately NOT under `/weekly-goals/*` — keeping it off the
- * (app) group's `weekly-goals` subtree avoids any route-group ambiguity and the
- * stale-route-cache 404 that path collision produced on the first deploy.
+ * This is a PLAIN top-level route (not inside the `(app)` group), so it is not
+ * subject to the `(app)` layout's fill-gate redirect — that's how a gated user
+ * can actually reach it without an infinite loop. It does its own `requireUser`
+ * for auth. (It deliberately avoids a `(…)` route group: the Vercel build for
+ * this project did not register routes added inside a brand-new route group,
+ * 404-ing the gate's redirect target; a plain route registers reliably.)
+ *
+ * Users with un-filled current-week goals are redirected here by the `(app)`
+ * layout gate; they fill % Done (+ optional explanation) and submit once to
+ * enter. If there's nothing left to fill we send them straight in.
  */
 export default async function FillWeeklyGoalsPage() {
   const me = await requireUser();
   const goals = await listUnfilledWeekGoals(me.id);
 
-  // Nothing left to fill → the gate is satisfied; go to the app.
   if (goals.length === 0) {
     redirect("/" as Route);
   }
