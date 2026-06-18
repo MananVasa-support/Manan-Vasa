@@ -437,7 +437,7 @@ export async function weeklyGoalLeaderboard(
       // On-time = every goal in the week was filled on/before week-end + grace.
       onTimeFilled: sql<number>`count(*) filter (
         where ${weeklyGoals.pctUpdatedAt} is not null
-          and ${weeklyGoals.pctUpdatedAt} <= ((${weeklyGoals.weekStart}::date + 6 + ${FILL_GRACE_DAYS}) + time '23:59:59')
+          and ${weeklyGoals.pctUpdatedAt} <= ((${weeklyGoals.weekStart}::date + ${6 + FILL_GRACE_DAYS}::int) + time '23:59:59')
       )::int`,
       done: effectiveCompletedSql,
       // Weighted numerator / denominator so we can re-aggregate across weeks
