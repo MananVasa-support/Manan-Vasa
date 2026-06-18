@@ -6,6 +6,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { AppToaster } from "@/components/ui/sonner-toaster";
 import { Providers } from "@/components/providers";
+import { DisplayScaleProvider } from "@/components/layout/display-scale-provider";
 import { RegisterSW } from "@/components/pwa/register-sw";
 import { RouteProgress } from "@/components/layout/route-progress";
 import { getCurrentEmployee } from "@/lib/auth/current";
@@ -84,6 +85,16 @@ export default async function RootLayout({
           safe and React's normal hydration warnings still apply
           everywhere else. */}
       <body suppressHydrationWarning>
+        {/* Display-scale no-flash: apply the saved/auto zoom BEFORE paint so the
+            UI never flashes at the wrong size. Mirrors lib/display-scale.ts
+            (kept inline because this must run pre-hydration). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var raw=localStorage.getItem('altus.displayScale')||'auto';var f;if(raw==='auto'){var r=window.innerWidth/1440;f=Math.round(Math.min(1.35,Math.max(1,r))*100)/100;}else{var m={smaller:0.9,'default':1,larger:1.15,largest:1.3};f=m[raw]||1;}document.documentElement.style.zoom=String(f);}catch(e){}})();",
+          }}
+        />
+        <DisplayScaleProvider />
         {/* Global navigation progress bar — fires on every in-app link click
             across ALL route groups (app, admin, auth). Wrapped in Suspense
             because it reads useSearchParams. */}
