@@ -22,10 +22,32 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { WeeklyGoalsImport } from "@/components/weekly-goals/weekly-goals-import";
 import { GoalCard } from "@/components/weekly-goals/goal-card";
 import { GoalQuickAdd } from "@/components/weekly-goals/goal-quick-add";
+import { ScoreRing } from "@/components/weekly-goals/score-ring";
 import type { BoardGoal, StatusDisplayMap } from "@/components/weekly-goals/types";
 import { weeklyScore } from "@/lib/weekly-goals/effective";
 import { deleteWeeklyGoal } from "@/app/(app)/weekly-goals/actions";
 import { fireToast } from "@/lib/toast";
+
+/* Editorial design tokens (scoped to this board — a warm cream canvas with
+ * near-black warm ink; Altus red used only as the goal-card accent + score
+ * ring). Kept local so the rest of the app's cooler palette is untouched. */
+const EDITORIAL = {
+  canvas: "#F6F3EC",
+  surface: "#FFFFFF",
+  inkStrong: "#171411",
+  inkSoft: "#6B6560",
+  inkSubtle: "#9A938B",
+  hairline: "rgba(23,20,17,0.08)",
+} as const;
+const SERIF = "var(--font-editorial), Georgia, serif";
+
+/** Up-to-two-letter initials for the avatar, from the member's display name. */
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+}
 
 interface Props {
   me: { id: string; isAdmin: boolean; canReview: boolean };
@@ -39,6 +61,8 @@ interface Props {
    *  edit (self + downline for managers, just self for everyone else). */
   manageableIds: "all" | string[];
   employees: { id: string; name: string }[];
+  /** Member id → role/designation label (e.g. "Head of Tech"); absent = no badge. */
+  roleById?: Record<string, string>;
   rows: BoardGoal[];
   statusDisplay: StatusDisplayMap;
   clientOptions: string[];
@@ -108,23 +132,27 @@ export function WeeklyGoalsBoard(props: Props) {
   };
 
   return (
-    <main className="mx-auto max-w-[1280px] px-12 max-md:px-4 pt-8 pb-24">
+    <main
+      className="min-h-screen"
+      style={{ background: EDITORIAL.canvas, color: EDITORIAL.inkStrong }}
+    >
+      <div className="mx-auto max-w-[1280px] px-12 max-md:px-4 pt-8 pb-24">
       {/* Header ------------------------------------------------------- */}
       <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1
-            className="text-ink-strong"
             style={{
-              fontFamily: "var(--font-display), system-ui, sans-serif",
+              fontFamily: SERIF,
               fontWeight: 900,
-              fontSize: "clamp(36px, 3.8vw, 52px)",
-              letterSpacing: "-0.025em",
+              color: EDITORIAL.inkStrong,
+              fontSize: "clamp(38px, 4vw, 56px)",
+              letterSpacing: "-0.02em",
               lineHeight: 1,
             }}
           >
             Weekly Goals
           </h1>
-          <p className="mt-2 text-ink-muted font-semibold" style={{ fontSize: 17 }}>
+          <p className="mt-2 font-semibold" style={{ fontSize: 17, color: EDITORIAL.inkSoft }}>
             Top priorities each team member commits to finishing this week.
           </p>
         </div>
@@ -243,20 +271,19 @@ export function WeeklyGoalsBoard(props: Props) {
         grouped.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="space-y-10">
-            {grouped.map(([empId, g]) => (
-              <section key={empId}>
-                <div className="mb-3 flex items-center gap-3 flex-wrap">
-                  <h2 className="font-black text-ink-strong text-[19px]">{g.name}</h2>
-                  <span className="text-ink-muted font-bold text-[14px]">
-                    {g.rows.length} {g.rows.length === 1 ? "goal" : "goals"}
-                  </span>
-                  <ScorePill
-                    label="Score"
-                    score={weeklyScore(g.rows.filter((r) => !r.archived))}
-                    compact
-                  />
-                </div>
+          <div>
+            {grouped.map(([empId, g], gi) => (
+              <section
+                key={empId}
+                className={gi > 0 ? "mt-12 pt-12" : ""}
+                style={gi > 0 ? { borderTop: `1px solid ${EDITORIAL.hairline}` } : undefined}
+              >
+                <MemberHeader
+                  name={g.name}
+                  role={props.roleById?.[empId] ?? null}
+                  goalCount={g.rows.length}
+                  score={weeklyScore(g.rows.filter((r) => !r.archived))}
+                />
                 <div className="grid gap-4 xl:grid-cols-2">
                   {g.rows.map((goal, i) => (
                     <GoalCard
@@ -305,7 +332,95 @@ export function WeeklyGoalsBoard(props: Props) {
           router.refresh();
         }}
       />
+      </div>
     </main>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Per-member editorial section header                                  */
+/* ------------------------------------------------------------------ */
+
+function MemberHeader({
+  name,
+  role,
+  goalCount,
+  score,
+}: {
+  name: string;
+  role: string | null;
+  goalCount: number;
+  score: number;
+}) {
+  return (
+    <div className="mb-5 flex items-start justify-between gap-4 flex-wrap">
+      {/* Identity: avatar + serif name + role badge + subline */}
+      <div className="flex items-center gap-4 min-w-0">
+        <span
+          aria-hidden
+          className="inline-flex size-12 shrink-0 items-center justify-center rounded-full text-[16px] font-black tabular-nums text-white"
+          style={{ background: EDITORIAL.inkStrong }}
+        >
+          {initialsOf(name)}
+        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h2
+              className="truncate"
+              style={{
+                fontFamily: SERIF,
+                fontWeight: 600,
+                fontSize: 24,
+                lineHeight: 1.1,
+                color: EDITORIAL.inkStrong,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {name}
+            </h2>
+            {role && (
+              <span
+                className="inline-flex items-center rounded-full px-2.5 py-1 text-[10.5px] font-black uppercase tracking-[0.08em]"
+                style={{
+                  background: EDITORIAL.canvas,
+                  color: EDITORIAL.inkSoft,
+                  border: `1px solid ${EDITORIAL.hairline}`,
+                }}
+              >
+                {role}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-[13.5px] font-semibold" style={{ color: EDITORIAL.inkSubtle }}>
+            {goalCount} {goalCount === 1 ? "goal" : "goals"} · committed Monday
+          </p>
+        </div>
+      </div>
+
+      {/* Weekly score ring (moves below the identity on narrow screens). */}
+      <div className="flex items-center gap-3">
+        <div className="text-right">
+          <p
+            className="text-[10.5px] font-black uppercase tracking-[0.1em]"
+            style={{ color: EDITORIAL.inkSubtle }}
+          >
+            Weekly Score
+          </p>
+          <p
+            className="tabular-nums leading-none"
+            style={{
+              fontFamily: SERIF,
+              fontWeight: 900,
+              fontSize: 34,
+              color: score >= 60 ? "var(--color-altus-red)" : EDITORIAL.inkStrong,
+            }}
+          >
+            {score}%
+          </p>
+        </div>
+        <ScoreRing value={score} size={64} label={`${score}% weekly score for ${name}`} />
+      </div>
+    </div>
   );
 }
 

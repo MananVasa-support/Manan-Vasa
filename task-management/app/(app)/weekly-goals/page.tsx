@@ -8,7 +8,7 @@ import { requireUser } from "@/lib/auth/current";
 import { WeeklyGoalsDashboardView } from "@/components/weekly-goals/weekly-goals-dashboard-view";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { db } from "@/lib/db";
-import { employees, weeklyGoals } from "@/db/schema";
+import { designations, employees, weeklyGoals } from "@/db/schema";
 import { listGoalEmployeesScoped } from "@/lib/queries/weekly-goals";
 import { goalScopeFor } from "@/lib/weekly-goals/hierarchy";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
@@ -162,6 +162,16 @@ export default async function WeeklyGoalsPage({ searchParams }: PageProps) {
       loadBoardGoals({ weekStart, ...boardScope }),
     ]);
 
+  // Designation / role label per member, for the board's section header badge
+  // (e.g. "HEAD OF TECH"). Additive: a flat id → label map; employees without
+  // a designation are simply absent and the badge hides for them.
+  const roleRows = await db
+    .select({ id: employees.id, role: designations.name })
+    .from(employees)
+    .innerJoin(designations, eq(employees.designationId, designations.id));
+  const roleById: Record<string, string> = {};
+  for (const r of roleRows) if (r.role) roleById[r.id] = r.role;
+
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
@@ -174,6 +184,7 @@ export default async function WeeklyGoalsPage({ searchParams }: PageProps) {
         canPickTeam={canPickTeam}
         manageableIds={manageableIds}
         employees={employeesList}
+        roleById={roleById}
         rows={rows}
         statusDisplay={statusDisplay}
         clientOptions={clientOptions}

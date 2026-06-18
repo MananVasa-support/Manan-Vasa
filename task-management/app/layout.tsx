@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Roboto, Bricolage_Grotesque, JetBrains_Mono } from "next/font/google";
+import { Roboto, Bricolage_Grotesque, JetBrains_Mono, Fraunces } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
@@ -42,6 +42,16 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+// Editorial serif for the Weekly Goals board (member names, section title,
+// goal titles only — body text stays on the existing sans). Exposed as
+// --font-editorial; consumed inline by the weekly-goals components.
+const fraunces = Fraunces({
+  variable: "--font-editorial",
+  subsets: ["latin"],
+  weight: ["400", "600", "900"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Altus Corp — Work Management Dashboard",
   description: "Altus Corp work management dashboard",
@@ -72,7 +82,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${roboto.variable} ${bricolage.variable} ${jetbrainsMono.variable}`}
+      className={`${roboto.variable} ${bricolage.variable} ${jetbrainsMono.variable} ${fraunces.variable}`}
       data-density={density}
       style={htmlStyle}
       suppressHydrationWarning
