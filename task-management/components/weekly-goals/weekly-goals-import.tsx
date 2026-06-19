@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Upload, Loader2, FileSpreadsheet, X, Download } from "lucide-react";
 import { importWeeklyGoals } from "@/app/(app)/weekly-goals/actions";
@@ -100,9 +101,9 @@ export function WeeklyGoalsImport(props: Props) {
         Import File
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4"
           onClick={() => !pending && setOpen(false)}
         >
           <div
@@ -207,7 +208,8 @@ export function WeeklyGoalsImport(props: Props) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

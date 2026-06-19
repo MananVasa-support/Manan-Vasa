@@ -86,7 +86,10 @@ export async function pullGoalToToday(
         target: [dailyChecklist.employeeId, dailyChecklist.planDate, dailyChecklist.goalId],
       })
       .returning();
-    revalidatePath(PATH);
+    // NOTE: no revalidatePath here. The daily-plan GATE is rendered by the (app)
+    // layout based on needsDailyPlan(); revalidating would re-run the layout and
+    // drop the gate the instant the 5th item lands — kicking the user in before
+    // they click "Start my day". Page mode refreshes via router.refresh() itself.
     return { ok: true, item: rows[0] ? toItem(rows[0]) : null };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -117,7 +120,8 @@ export async function addStandaloneItem(
         position: await nextPosition(me.id, ymd),
       })
       .returning();
-    revalidatePath(PATH);
+    // No revalidatePath — see addStandaloneItem note: keeps the gate from
+    // dropping mid-plan. Page mode refreshes via router.refresh().
     return { ok: true, item: toItem(row!) };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -214,7 +218,7 @@ export async function moveOverdueToToday(): Promise<
         ),
       )
       .returning();
-    revalidatePath(PATH);
+    // No revalidatePath — keeps the gate stable mid-plan (see addStandaloneItem).
     return { ok: true, moved: moved.length, items: moved.map(toItem) };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
