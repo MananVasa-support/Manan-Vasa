@@ -648,6 +648,31 @@ export async function approveWeeklyGoal(
   const [goal] = await db.select().from(weeklyGoals).where(eq(weeklyGoals.id, id)).limit(1);
   if (!goal) return { ok: false, error: "Goal not found" };
 
+  // Min-5 enforcement (design §6): a week can't be approved until the person has
+  // at least 5 active goals. Enforced HERE (on the approver) — never as an
+  // employee entry-lockout — so an under-assigned week is the manager's to fix,
+  // and nobody gets stranded out of the app. Un-approving is always allowed.
+  const MIN_WEEK_GOALS = 5;
+  if (approved) {
+    const [wk] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(weeklyGoals)
+      .where(
+        and(
+          eq(weeklyGoals.employeeId, goal.employeeId),
+          eq(weeklyGoals.weekStart, goal.weekStart),
+          eq(weeklyGoals.archived, false),
+        ),
+      );
+    const n = wk?.n ?? 0;
+    if (n < MIN_WEEK_GOALS) {
+      return {
+        ok: false,
+        error: `This week has only ${n} goal${n === 1 ? "" : "s"} — at least ${MIN_WEEK_GOALS} are required before approving.`,
+      };
+    }
+  }
+
   const now = new Date();
   const patch: Record<string, unknown> = approved
     ? {
