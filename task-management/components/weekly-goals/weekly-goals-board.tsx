@@ -22,6 +22,7 @@ import {
   type TaskPriority,
 } from "@/db/enums";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { Select } from "@/components/ui/select";
 import { WeeklyGoalsImport } from "@/components/weekly-goals/weekly-goals-import";
 import { GoalCard } from "@/components/weekly-goals/goal-card";
 import { GoalQuickAdd } from "@/components/weekly-goals/goal-quick-add";
@@ -148,10 +149,19 @@ export function WeeklyGoalsBoard(props: Props) {
 
   return (
     <main
-      className="min-h-screen"
-      style={{ background: EDITORIAL.canvas, color: EDITORIAL.inkStrong }}
+      className="relative min-h-screen"
+      style={{ background: "linear-gradient(160deg, #F4EEE3 0%, #FBF7F0 62%)", color: EDITORIAL.inkStrong }}
     >
-      <div className="mx-auto max-w-[1280px] px-12 max-md:px-4 pt-8 pb-24">
+      {/* Day-Ledger ruled-paper texture — the shared brand motif. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.55]"
+        style={{
+          backgroundImage: "repeating-linear-gradient(rgba(27,20,14,0.055) 0 1px, transparent 1px 40px)",
+          maskImage: "linear-gradient(180deg, transparent, #000 7%, #000 93%, transparent)",
+        }}
+      />
+      <div className="relative mx-auto max-w-[1280px] px-12 max-md:px-4 pt-8 pb-24">
       {/* ── HERO BAND ───────────────────────────────────────────────── */}
       <section
         className="wg-rise relative overflow-hidden rounded-[28px] px-9 py-8 max-md:px-5 max-md:py-6 mb-5"
@@ -339,20 +349,19 @@ export function WeeklyGoalsBoard(props: Props) {
         )}
 
         {props.canPickTeam && (
-          <select
-            value={props.scopeEmp}
-            onChange={(e) => go({ week: props.weekStart, emp: e.target.value })}
-            className="wg-btn cursor-pointer ml-auto px-4 py-2 rounded-full border border-hairline bg-surface-card font-bold text-[14px] text-ink-strong"
-          >
-            <option value="all">
-              {props.canPickTeam && !props.me.isAdmin ? "My team" : "All team members"}
-            </option>
-            {props.employees.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
+          <div className="ml-auto w-[230px] max-md:w-full">
+            <Select
+              value={props.scopeEmp}
+              onValueChange={(v) => go({ week: props.weekStart, emp: v })}
+              searchable
+              searchPlaceholder="Search people…"
+              ariaLabel="Filter by team member"
+              options={[
+                { value: "all", label: !props.me.isAdmin ? "My team" : "All team members" },
+                ...props.employees.map((e) => ({ value: e.id, label: e.name })),
+              ]}
+            />
+          </div>
         )}
       </div>
 
