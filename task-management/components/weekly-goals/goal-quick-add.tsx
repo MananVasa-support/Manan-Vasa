@@ -2,9 +2,19 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Loader2, Check } from "lucide-react";
+import { Plus, Loader2, Check, IndianRupee } from "lucide-react";
 import { createWeeklyGoal } from "@/app/(app)/weekly-goals/actions";
 import { ComboInput } from "@/components/weekly-goals/field-controls";
+import { formatInr } from "@/lib/format";
+
+/** One incentive-catalog row, as surfaced to the goal-entry Routine picker. */
+export interface IncentiveCatalogOption {
+  id: string;
+  name: string;
+  amount: number;
+}
+
+type IncentiveType = "" | "adhoc" | "onetime" | "routine";
 
 interface Props {
   /** The person the new goal is filed against. "" / "all" disables the form. */
@@ -16,6 +26,8 @@ interface Props {
   currentWeight: number;
   /** This person's active goal count this week (for the min-5 nudge). */
   currentCount: number;
+  /** Incentive catalog (for the Routine amount picker). */
+  catalog: IncentiveCatalogOption[];
 }
 
 const TOTAL = 100;
@@ -35,7 +47,9 @@ export function GoalQuickAdd(props: Props) {
   const [client, setClient] = React.useState("");
   const [subject, setSubject] = React.useState("");
   const [targetDone, setTargetDone] = React.useState("");
-  const [incentive, setIncentive] = React.useState(false);
+  const [incentiveType, setIncentiveType] = React.useState<IncentiveType>("");
+  const [incentiveAmount, setIncentiveAmount] = React.useState(0);
+  const [incentiveCatalogId, setIncentiveCatalogId] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const clientRef = React.useRef<HTMLInputElement>(null);
 
@@ -56,10 +70,17 @@ export function GoalQuickAdd(props: Props) {
     setClient("");
     setSubject("");
     setTargetDone("");
-    setIncentive(false);
+    setIncentiveType("");
+    setIncentiveAmount(0);
+    setIncentiveCatalogId("");
     setError(null);
     setWeight(nextRemaining > 0 ? nextRemaining : 10);
   }
+
+  // Routine amount is catalog-driven; Ad-hoc / One-time use the manual figure.
+  const selectedCatalog = props.catalog.find((c) => c.id === incentiveCatalogId) ?? null;
+  const effectiveIncentiveAmount =
+    incentiveType === "routine" ? (selectedCatalog?.amount ?? 0) : incentiveAmount;
 
   function submit() {
     if (!client.trim() && !subject.trim() && !targetDone.trim()) {
@@ -83,7 +104,9 @@ export function GoalQuickAdd(props: Props) {
       subject: subject.trim() || null,
       targetDone: targetDone.trim() || null,
       weight,
-      incentive,
+      incentiveType: incentiveType || null,
+      incentiveAmount: incentiveType === "routine" ? 0 : incentiveAmount,
+      incentiveCatalogId: incentiveType === "routine" ? incentiveCatalogId || null : null,
     })
       .then((res) => {
         setSaving(false);
@@ -205,11 +228,74 @@ export function GoalQuickAdd(props: Props) {
         </div>
       </div>
 
+      {/* ── Incentive: Ad-hoc / One-time (manual ₹) · Routine (from catalog) ── */}
+      <div className="mt-4 rounded-xl p-3.5" style={{ background: "rgba(27,20,14,0.025)", border: "1px solid rgba(27,20,14,0.08)" }}>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-bold text-ink-soft">
+            <IndianRupee size={13} /> Incentive
+          </span>
+          <select
+            value={incentiveType}
+            onChange={(e) => {
+              const v = e.target.value as IncentiveType;
+              setIncentiveType(v);
+              if (v !== "routine") setIncentiveCatalogId("");
+              if (v === "") setIncentiveAmount(0);
+            }}
+            aria-label="Incentive type"
+            className="rounded-md border bg-white px-2.5 py-1.5 text-[13.5px] font-bold text-ink-strong outline-none focus:border-altus-red cursor-pointer"
+            style={{ borderColor: "rgba(27,20,14,0.14)" }}
+          >
+            <option value="">No incentive</option>
+            <option value="adhoc">Ad-hoc</option>
+            <option value="onetime">Regular · One-time</option>
+            <option value="routine">Regular · Routine</option>
+          </select>
+
+          {(incentiveType === "adhoc" || incentiveType === "onetime") && (
+            <div className="inline-flex items-center rounded-md border bg-white px-2 py-1" style={{ borderColor: "rgba(27,20,14,0.14)" }}>
+              <span className="text-[13px] font-bold text-ink-subtle">₹</span>
+              <input
+                type="number"
+                min={0}
+                value={incentiveAmount || ""}
+                onChange={(e) => setIncentiveAmount(Math.max(0, Math.round(Number(e.target.value) || 0)))}
+                placeholder="amount"
+                aria-label="Incentive amount"
+                className="w-24 bg-transparent px-1 text-right text-[14px] font-black tabular-nums text-ink-strong outline-none"
+              />
+            </div>
+          )}
+
+          {incentiveType === "routine" && (
+            <select
+              value={incentiveCatalogId}
+              onChange={(e) => setIncentiveCatalogId(e.target.value)}
+              aria-label="Incentive from catalog"
+              className="rounded-md border bg-white px-2.5 py-1.5 text-[13.5px] font-medium text-ink-strong outline-none focus:border-altus-red cursor-pointer max-w-[260px]"
+              style={{ borderColor: "rgba(27,20,14,0.14)" }}
+            >
+              <option value="">Pick from catalog…</option>
+              {props.catalog.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} · {formatInr(c.amount)}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {incentiveType !== "" && (
+            <span className="ml-auto text-[13px] font-black tabular-nums text-altus-red">
+              {effectiveIncentiveAmount > 0 ? formatInr(effectiveIncentiveAmount) : "—"}
+            </span>
+          )}
+        </div>
+        {incentiveType === "routine" && props.catalog.length === 0 && (
+          <p className="mt-2 text-[12px] font-semibold text-ink-muted">No catalog entries yet — add them on the Incentive page.</p>
+        )}
+      </div>
+
       <div className="mt-3.5 flex flex-wrap items-center gap-3">
-        <label className="inline-flex items-center gap-1.5 text-[14px] font-bold text-ink-soft cursor-pointer">
-          <input type="checkbox" checked={incentive} onChange={(e) => setIncentive(e.target.checked)} />
-          Incentive
-        </label>
         <button
           type="button"
           onClick={submit}

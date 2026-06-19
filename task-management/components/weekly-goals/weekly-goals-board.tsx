@@ -67,6 +67,8 @@ interface Props {
   statusDisplay: StatusDisplayMap;
   clientOptions: string[];
   subjectOptions: string[];
+  /** Incentive catalog rows (Routine amount picker in the add form). */
+  catalog: { id: string; name: string; amount: number }[];
   prevWeek: string;
   nextWeek: string;
   thisWeek: string;
@@ -180,6 +182,7 @@ export function WeeklyGoalsBoard(props: Props) {
     statusDisplay: props.statusDisplay,
     clientOptions: props.clientOptions,
     subjectOptions: props.subjectOptions,
+    catalog: props.catalog,
     onRequestDelete: setDeleteTarget,
   };
 
@@ -450,6 +453,7 @@ export function WeeklyGoalsBoard(props: Props) {
               subjectOptions={props.subjectOptions}
               currentWeight={weightTotal}
               currentCount={activeVisible.length}
+              catalog={props.catalog}
             />
           </div>
         </div>

@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { db } from "@/lib/db";
-import { weeklyGoals, employees, tasks } from "@/db/schema";
+import { weeklyGoals, employees, tasks, incentiveCatalog } from "@/db/schema";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import {
   requireUser,
@@ -46,6 +46,48 @@ function revalidateWeeklyGoals() {
   revalidatePath("/weekly-goals");
   revalidatePath("/weekly-goals/dashboard");
   updateTag(CACHE_TAGS.weeklyGoals);
+}
+
+/**
+ * Phase 4 — normalise the structured incentive fields into the persisted shape.
+ * Ad-hoc / One-time keep the manual amount; **Routine** always re-reads the
+ * amount from the catalog server-side (the client never gets to set a Routine
+ * amount), and `incentive` (bool) stays true whenever a type is chosen.
+ */
+async function resolveIncentiveFields(input: {
+  incentiveType?: "adhoc" | "onetime" | "routine" | null;
+  incentiveAmount?: number;
+  incentiveCatalogId?: string | null;
+}): Promise<{
+  incentive: boolean;
+  incentiveType: string | null;
+  incentiveAmount: number;
+  incentiveCatalogId: string | null;
+}> {
+  const type = input.incentiveType ?? null;
+  if (!type) {
+    return { incentive: false, incentiveType: null, incentiveAmount: 0, incentiveCatalogId: null };
+  }
+  if (type === "routine") {
+    let amount = 0;
+    let catalogId = input.incentiveCatalogId ?? null;
+    if (catalogId) {
+      const [cat] = await db
+        .select({ amount: incentiveCatalog.amount })
+        .from(incentiveCatalog)
+        .where(eq(incentiveCatalog.id, catalogId));
+      if (cat) amount = Math.round(Number(cat.amount));
+      else catalogId = null;
+    }
+    return { incentive: true, incentiveType: "routine", incentiveAmount: amount, incentiveCatalogId: catalogId };
+  }
+  // adhoc | onetime → manual amount, no catalog link.
+  return {
+    incentive: true,
+    incentiveType: type,
+    incentiveAmount: Math.max(0, Math.round(input.incentiveAmount ?? 0)),
+    incentiveCatalogId: null,
+  };
 }
 
 /** Next Sr. No. for an (employee, week) — max(position)+1, 1-based. */
@@ -118,6 +160,7 @@ export async function createWeeklyGoal(
 
   try {
     const position = await nextPosition(employeeId, weekStart);
+    const inc = await resolveIncentiveFields(data);
     const [row] = await db
       .insert(weeklyGoals)
       .values({
@@ -127,7 +170,10 @@ export async function createWeeklyGoal(
         client: data.client,
         subject: data.subject,
         priority: data.priority,
-        incentive: data.incentive,
+        incentive: inc.incentive,
+        incentiveType: inc.incentiveType,
+        incentiveAmount: inc.incentiveAmount,
+        incentiveCatalogId: inc.incentiveCatalogId,
         kpi: data.kpi,
         targetDone: data.targetDone,
         explanation: data.explanation,
@@ -163,8 +209,20 @@ export async function editWeeklyGoal(
 
   // Only write the keys actually provided so a partial edit doesn't clobber.
   const patch: Record<string, unknown> = { updatedById: me.id, updatedAt: new Date() };
+  const incentiveKeys = ["incentiveType", "incentiveAmount", "incentiveCatalogId"];
   for (const [k, v] of Object.entries(fields)) {
+    if (incentiveKeys.includes(k)) continue; // handled together below
     if (v !== undefined) patch[k] = v;
+  }
+  // Phase 4 — when the edit touches incentive at all, recompute the whole trio
+  // (type/amount/catalog + the bool) server-side so Routine amounts stay
+  // catalog-authoritative and clearing the type wipes the amount.
+  if (incentiveKeys.some((k) => k in fields)) {
+    const inc = await resolveIncentiveFields(fields);
+    patch.incentive = inc.incentive;
+    patch.incentiveType = inc.incentiveType;
+    patch.incentiveAmount = inc.incentiveAmount;
+    patch.incentiveCatalogId = inc.incentiveCatalogId;
   }
 
   try {

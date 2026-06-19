@@ -1770,6 +1770,14 @@ export const weeklyGoals = pgTable(
     priority: taskPriorityEnum("priority").notNull().default("imp_not_urgent"),
     incentive: boolean("incentive").notNull().default(false),
     incentiveAmount: integer("incentive_amount").notNull().default(0),
+    // Phase 4 (migration 0071) — structured incentive classification.
+    //   'adhoc'   — unplanned, manual amount
+    //   'onetime' — planned Regular, non-recurring, manual amount
+    //   'routine' — recurring Regular, amount sourced from incentive_catalog
+    // NULL = no incentive. `incentive` bool stays in sync (true when type set).
+    incentiveType: text("incentive_type"),
+    // Set only for 'routine' — the catalog row the amount came from. FK in mig 0071.
+    incentiveCatalogId: uuid("incentive_catalog_id"),
     kpi: boolean("kpi").notNull().default(false),
     targetDone: text("target_done"),
     pctDone: integer("pct_done").notNull().default(0),

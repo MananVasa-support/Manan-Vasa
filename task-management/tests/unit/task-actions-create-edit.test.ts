@@ -70,6 +70,9 @@ vi.mock("@/lib/auth/current", () => ({
     name: "Me",
     email: "me@vp.com",
   })),
+  // The createTask action enforces the weekly-goals fill gate before inserting;
+  // the test exercises task creation in isolation, so the gate is a no-op pass.
+  requireWeeklyGoalsFilled: vi.fn(async () => {}),
 }));
 
 // M2.3 — actions now fan out via the notifications dispatcher (server-only).

@@ -14,6 +14,7 @@ import { goalScopeFor } from "@/lib/weekly-goals/hierarchy";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
 import { listActiveClientNames } from "@/lib/queries/clients";
 import { listActiveSubjectNames } from "@/lib/queries/subjects";
+import { listIncentiveCatalog } from "@/lib/queries/incentive-catalog";
 import {
   currentWeekStart,
   mondayOf,
@@ -75,6 +76,8 @@ async function loadBoardGoals(opts: {
       priority: weeklyGoals.priority,
       incentive: weeklyGoals.incentive,
       incentiveAmount: weeklyGoals.incentiveAmount,
+      incentiveType: weeklyGoals.incentiveType,
+      incentiveCatalogId: weeklyGoals.incentiveCatalogId,
       kpi: weeklyGoals.kpi,
       targetDone: weeklyGoals.targetDone,
       pctDone: weeklyGoals.pctDone,
@@ -157,14 +160,19 @@ export default async function WeeklyGoalsPage({ searchParams }: PageProps) {
         : { employeeIds: scope.ids }
       : { employeeId: scopeEmp };
 
-  const [employeesList, clientOptions, subjectOptions, statusDisplay, rows] =
+  const [employeesList, clientOptions, subjectOptions, statusDisplay, rows, catalogRows] =
     await Promise.all([
       listGoalEmployeesScoped(scope),
       listActiveClientNames(),
       listActiveSubjectNames(),
       getStatusDisplayMap(),
       loadBoardGoals({ weekStart, ...boardScope }),
+      listIncentiveCatalog(),
     ]);
+  // Trim the catalog to the active rows the Routine picker needs (id/name/amount).
+  const catalog = catalogRows
+    .filter((c) => c.active)
+    .map((c) => ({ id: c.id, name: c.name, amount: c.amount }));
 
   // Designation / role label per member, for the board's section header badge
   // (e.g. "HEAD OF TECH"). Additive: a flat id → label map; employees without
@@ -193,6 +201,7 @@ export default async function WeeklyGoalsPage({ searchParams }: PageProps) {
         statusDisplay={statusDisplay}
         clientOptions={clientOptions}
         subjectOptions={subjectOptions}
+        catalog={catalog}
         prevWeek={prevWeekStart(weekStart)}
         nextWeek={nextWeekStart(weekStart)}
         thisWeek={thisWeek}

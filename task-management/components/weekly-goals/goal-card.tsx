@@ -43,12 +43,19 @@ import {
   ComboInput,
   AutoTextarea,
   LinkField,
-  YesNo,
   pctTone,
 } from "@/components/weekly-goals/field-controls";
 import { GoalReviewPanel } from "@/components/weekly-goals/goal-review-panel";
 
 const PCT_PRESETS = [0, 25, 50, 75, 100];
+
+/** Phase 4 — friendly labels for the structured incentive type on the chip. */
+const INCENTIVE_TYPE_LABEL: Record<string, string> = {
+  adhoc: "Ad-hoc",
+  onetime: "One-time",
+  routine: "Routine",
+  "": "Incentive",
+};
 
 interface Props {
   goal: BoardGoal;
@@ -59,6 +66,8 @@ interface Props {
   statusDisplay: StatusDisplayMap;
   clientOptions: string[];
   subjectOptions: string[];
+  /** Incentive catalog (Routine amount picker in the edit form). */
+  catalog: { id: string; name: string; amount: number }[];
   /** Opens the board's shared two-step delete-confirm dialog. */
   onRequestDelete: (goal: BoardGoal) => void;
   /** When true the card auto-expands its editor (deep link `?focus=<id>`). */
@@ -74,6 +83,7 @@ export function GoalCard({
   statusDisplay,
   clientOptions,
   subjectOptions,
+  catalog,
   onRequestDelete,
   autoFocus = false,
 }: Props) {
@@ -82,6 +92,25 @@ export function GoalCard({
   const [editing, setEditing] = React.useState(autoFocus && canEdit);
   const [reviewOpen, setReviewOpen] = React.useState(autoFocus && canReview);
   const cardRef = React.useRef<HTMLDivElement>(null);
+
+  // Phase 4 — local incentive-type state drives which control (amount vs catalog)
+  // shows in the edit form; every commit passes the full trio so the server's
+  // partial-edit recompute never wipes the other fields.
+  const [incType, setIncType] = React.useState<"" | "adhoc" | "onetime" | "routine">(
+    (goal.incentiveType as "" | "adhoc" | "onetime" | "routine") ?? "",
+  );
+  function saveIncentive(
+    type: "" | "adhoc" | "onetime" | "routine",
+    amount: number,
+    catalogId: string | null,
+  ) {
+    save({
+      id: goal.id,
+      incentiveType: type || null,
+      incentiveAmount: amount,
+      incentiveCatalogId: catalogId,
+    });
+  }
 
   const eff = effectivePct(goal);
   const status = statusDisplay[goal.status];
@@ -226,7 +255,9 @@ export function GoalCard({
             {goal.incentive && (
               <Chip
                 icon={<IndianRupee size={12} />}
-                label={goal.incentiveAmount > 0 ? formatInr(goal.incentiveAmount) : "Incentive"}
+                label={`${INCENTIVE_TYPE_LABEL[goal.incentiveType ?? ""] ?? "Incentive"}${
+                  goal.incentiveAmount > 0 ? ` · ${formatInr(goal.incentiveAmount)}` : ""
+                }`}
                 tone="green"
               />
             )}
@@ -357,13 +388,60 @@ export function GoalCard({
                   className="rounded-md border border-hairline bg-white px-2.5 py-1.5 text-[14px] font-semibold text-ink-strong outline-none focus:border-altus-red/50"
                 />
               </label>
-              <div className="flex items-center gap-3 self-end pb-0.5">
-                <span className="text-[12px] font-bold text-ink-soft">Incentive</span>
-                <YesNo
-                  value={goal.incentive}
-                  onChange={(v) => save({ id: goal.id, incentive: v })}
-                />
-              </div>
+            </div>
+
+            {/* Incentive: Ad-hoc / One-time (manual ₹) · Routine (from catalog) */}
+            <div className="flex flex-wrap items-center gap-2.5 rounded-lg p-2.5" style={{ background: "rgba(27,20,14,0.025)", border: "1px solid rgba(27,20,14,0.07)" }}>
+              <span className="text-[12px] font-bold text-ink-soft">Incentive</span>
+              <select
+                value={incType}
+                onChange={(e) => {
+                  const v = e.target.value as "" | "adhoc" | "onetime" | "routine";
+                  setIncType(v);
+                  if (v === "") saveIncentive("", 0, null);
+                  else if (v === "routine") saveIncentive("routine", 0, goal.incentiveCatalogId ?? null);
+                  else saveIncentive(v, goal.incentiveAmount || 0, null);
+                }}
+                aria-label="Incentive type"
+                className="rounded-md border border-hairline bg-white px-2.5 py-1.5 text-[13.5px] font-bold text-ink-strong outline-none focus:border-altus-red/50 cursor-pointer"
+              >
+                <option value="">None</option>
+                <option value="adhoc">Ad-hoc</option>
+                <option value="onetime">Regular · One-time</option>
+                <option value="routine">Regular · Routine</option>
+              </select>
+              {(incType === "adhoc" || incType === "onetime") && (
+                <div className="inline-flex items-center rounded-md border border-hairline bg-white px-2 py-1">
+                  <span className="text-[13px] font-bold text-ink-subtle">₹</span>
+                  <input
+                    type="number"
+                    min={0}
+                    defaultValue={goal.incentiveAmount || ""}
+                    placeholder="amount"
+                    aria-label="Incentive amount"
+                    onBlur={(e) => saveIncentive(incType, Math.max(0, Math.round(Number(e.target.value) || 0)), null)}
+                    className="w-24 bg-transparent px-1 text-right text-[14px] font-black tabular-nums text-ink-strong outline-none"
+                  />
+                </div>
+              )}
+              {incType === "routine" && (
+                <select
+                  defaultValue={goal.incentiveCatalogId ?? ""}
+                  onChange={(e) => saveIncentive("routine", 0, e.target.value || null)}
+                  aria-label="Incentive from catalog"
+                  className="rounded-md border border-hairline bg-white px-2.5 py-1.5 text-[13.5px] font-medium text-ink-strong outline-none focus:border-altus-red/50 cursor-pointer max-w-[240px]"
+                >
+                  <option value="">Pick from catalog…</option>
+                  {catalog.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} · {formatInr(c.amount)}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {goal.incentive && goal.incentiveAmount > 0 && (
+                <span className="ml-auto text-[13px] font-black tabular-nums text-altus-red">{formatInr(goal.incentiveAmount)}</span>
+              )}
             </div>
 
             <label className="block">

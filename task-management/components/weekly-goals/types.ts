@@ -19,6 +19,10 @@ export interface BoardGoal {
   priority: TaskPriority;
   incentive: boolean;
   incentiveAmount: number;
+  /** Phase 4 — 'adhoc' | 'onetime' | 'routine' | null. */
+  incentiveType: string | null;
+  /** Phase 4 — the catalog row a Routine incentive draws its amount from. */
+  incentiveCatalogId: string | null;
   kpi: boolean;
   targetDone: string | null;
   pctDone: number;
