@@ -1,22 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { LayoutDashboard, ListChecks } from "lucide-react";
+import { LayoutDashboard, ListChecks, IndianRupee } from "lucide-react";
 import type { IncentiveDashboard as DashboardData } from "@/lib/queries/incentives";
 import type { IncentiveRequestRow } from "@/lib/queries/incentive";
+import type { BillingSummary } from "@/lib/billing/sheet";
 import { IncentiveDashboard } from "./incentive-dashboard";
+import { BillingDashboard } from "./billing-dashboard";
 import { IncentiveFormDialog } from "./incentive-form-dialog";
 import { IncentiveList } from "./incentive-list";
 
-type TabKey = "dashboard" | "requests";
+type TabKey = "dashboard" | "billing" | "requests";
 
 const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { key: "billing", label: "Billing", icon: IndianRupee },
   { key: "requests", label: "Requests", icon: ListChecks },
 ];
 
 export function IncentiveTabs({
   dashboard,
+  billing,
   years,
   year,
   requests,
@@ -24,6 +28,7 @@ export function IncentiveTabs({
   pendingCount,
 }: {
   dashboard: DashboardData;
+  billing: BillingSummary & { error?: string };
   years: number[];
   year: number;
   requests: IncentiveRequestRow[];
@@ -100,7 +105,7 @@ export function IncentiveTabs({
           })}
         </div>
 
-        {active === "dashboard" && (
+        {(active === "dashboard" || active === "billing") && (
           <label className="flex items-center gap-2 pb-2.5">
             <span
               className="uppercase font-bold tracking-[0.06em] text-ink-subtle"
@@ -126,6 +131,8 @@ export function IncentiveTabs({
 
       {active === "dashboard" ? (
         <IncentiveDashboard data={dashboard} />
+      ) : active === "billing" ? (
+        <BillingDashboard data={billing} />
       ) : (
         <div className="space-y-6">
           <div className="flex justify-end">

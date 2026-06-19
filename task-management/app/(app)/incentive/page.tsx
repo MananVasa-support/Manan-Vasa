@@ -4,6 +4,7 @@ import { IncentiveTabs } from "@/components/incentive/incentive-tabs";
 import { requireUser } from "@/lib/auth/current";
 import { listIncentiveRequests } from "@/lib/queries/incentive";
 import { getIncentiveDashboard } from "@/lib/queries/incentives";
+import { getBillingDashboard } from "@/lib/queries/billing";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +27,9 @@ export default async function IncentivePage({ searchParams }: PageProps) {
   );
   if (!years.includes(year)) years.unshift(year);
 
-  const [dashboard, rows] = await Promise.all([
+  const [dashboard, billing, rows] = await Promise.all([
     getIncentiveDashboard(year),
+    getBillingDashboard(year),
     listIncentiveRequests({ employeeId: me.id, isAdmin: me.isAdmin }),
   ]);
 
@@ -59,6 +61,7 @@ export default async function IncentivePage({ searchParams }: PageProps) {
 
         <IncentiveTabs
           dashboard={dashboard}
+          billing={billing}
           years={years}
           year={year}
           requests={rows}

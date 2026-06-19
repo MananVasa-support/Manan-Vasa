@@ -5,6 +5,7 @@ import {
   listPayingEntitiesWithCounts,
 } from "@/lib/queries/outstanding-rosters";
 import { SalaryProfileList } from "@/components/admin/salary-profile-list";
+import { SalaryProfileImportDialog } from "@/components/admin/salary-profile-import-dialog";
 
 export const dynamic = "force-dynamic";
 
@@ -29,28 +30,33 @@ export default async function SalaryProfilesPage() {
 
   return (
     <div>
-      <header className="mb-8">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-ink-subtle font-bold">
-          Admin · Salary
+      <header className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-ink-subtle font-bold">
+            Admin · Salary
+          </div>
+          <h1
+            className="mt-1 text-ink-strong"
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontStyle: "italic",
+              fontWeight: 500,
+              fontSize: 44,
+              lineHeight: 1.05,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            Salary Profiles
+          </h1>
+          <p className="text-body-lg text-ink-subtle mt-2 max-w-2xl tabular-nums">
+            {rows.length} active employees · {withCtc} with a CTC set · Set each
+            person&apos;s CTC, TDS, PT-exemption, designation, paying entity and
+            probation, and record monthly advances.
+          </p>
         </div>
-        <h1
-          className="mt-1 text-ink-strong"
-          style={{
-            fontFamily: "var(--font-serif)",
-            fontStyle: "italic",
-            fontWeight: 500,
-            fontSize: 44,
-            lineHeight: 1.05,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          Salary Profiles
-        </h1>
-        <p className="text-body-lg text-ink-subtle mt-2 max-w-2xl tabular-nums">
-          {rows.length} active employees · {withCtc} with a CTC set · Set each
-          person&apos;s CTC, TDS, PT-exemption, designation, paying entity and
-          probation, and record monthly advances.
-        </p>
+        <div className="shrink-0">
+          <SalaryProfileImportDialog />
+        </div>
       </header>
       <SalaryProfileList
         rows={rows}
