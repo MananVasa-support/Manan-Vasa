@@ -3,6 +3,9 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { tasks, weeklyGoals } from "@/db/schema";
 import type { TaskStatus } from "@/db/enums";
+import { pctToTaskStatus, taskStatusToGoalPct } from "@/lib/weekly-goals/task-sync-map";
+
+export { pctToTaskStatus, taskStatusToGoalPct };
 
 /**
  * Two-way sync for the Goal⇄Task link (Phase 2). One Weekly Goal owns at most
@@ -18,25 +21,6 @@ import type { TaskStatus } from "@/db/enums";
  * re-trigger a task→goal write — no feedback loop. Both are best-effort: a
  * sync failure must never fail the user's primary mutation.
  */
-
-/** Map a goal's % done onto a task status, preserving an existing in-progress
- *  nuance (follow_up / need_info / …) instead of flattening it to "initiated". */
-export function pctToTaskStatus(pct: number, currentStatus: TaskStatus): TaskStatus {
-  if (pct >= 100) return "done";
-  if (pct <= 0) return "not_started";
-  const isActiveNuance =
-    currentStatus !== "done" &&
-    currentStatus !== "not_started" &&
-    currentStatus !== "dont_know";
-  return isActiveNuance ? currentStatus : "initiated";
-}
-
-/** Map a task status onto a goal's % done, preserving an existing partial. */
-export function taskStatusToGoalPct(status: TaskStatus, currentPct: number): number {
-  if (status === "done") return 100;
-  if (status === "not_started" || status === "dont_know") return 0;
-  return currentPct > 0 && currentPct < 100 ? currentPct : 50;
-}
 
 /** Goal → Task: after a goal's % changes, reflect it on the linked task. */
 export async function syncGoalToTask(goalId: string): Promise<void> {
