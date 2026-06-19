@@ -7,10 +7,12 @@ import { db } from "@/lib/db";
 import {
   authSessions,
   departments,
+  documentEvents,
   employeeDepartments,
   employeeEvents,
   employees,
   notifications,
+  outstandingFollowups,
   settingsEvents,
   taskEvents,
   tasks,
@@ -147,7 +149,13 @@ export async function inviteEmployee(input: InviteEmployeeInput): Promise<{
 }> {
   const me = await requireAdmin();
 
-  const parsed = InviteEmployeeSchema.parse(input);
+  // safeParse (not parse) — a ZodError thrown here would bubble to the admin
+  // error boundary as "We hit a snag." instead of a friendly field message.
+  const parsedResult = InviteEmployeeSchema.safeParse(input);
+  if (!parsedResult.success) {
+    return { ok: false, error: parsedResult.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const parsed = parsedResult.data;
 
   // Only super-admins may create an admin. Reject BEFORE the Firebase user is
   // created / the row is inserted so no orphan account is left behind.
@@ -200,11 +208,21 @@ export async function inviteEmployee(input: InviteEmployeeInput): Promise<{
   }
 
   // Resolve the chosen departments + primary so the legacy single-department
-  // columns stay in lock-step with the membership join table.
-  const selection = await resolveDepartmentSelection(
-    parsed.departmentIds,
-    parsed.primaryDepartmentId,
-  );
+  // columns stay in lock-step with the membership join table. Guarded: this
+  // runs a DB query AFTER the Firebase user is created, so a throw here (e.g.
+  // pool exhaustion) would both surface "We hit a snag." AND orphan the new
+  // Firebase account. Roll the account back on failure.
+  let selection;
+  try {
+    selection = await resolveDepartmentSelection(
+      parsed.departmentIds,
+      parsed.primaryDepartmentId,
+    );
+  } catch (err) {
+    await auth.deleteUser(fbUid).catch(() => {});
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `DB: ${msg}` };
+  }
 
   // 3. Insert employees row.
   //
@@ -992,6 +1010,15 @@ export async function deleteEmployee(
           ),
         )
         .returning({ id: tasks.id });
+
+      // 4b. document_events + outstanding_followups authored by them — both
+      //     RESTRICT (schema.ts:764, 1152). Without these the whole delete
+      //     fails with a raw FK error for anyone who ever touched a document
+      //     or a collection follow-up, so the button was permanently broken.
+      await tx.delete(documentEvents).where(eq(documentEvents.actorId, id));
+      await tx
+        .delete(outstandingFollowups)
+        .where(eq(outstandingFollowups.actorId, id));
 
       // 5. The employees row itself. Cascades:
       //    - notifications WHERE user_id = id  (their inbox)

@@ -10,7 +10,6 @@ import {
   User,
   Users,
   ListFilter,
-  Bookmark,
   X,
   Loader2,
   FileText,
@@ -82,7 +81,6 @@ export function FilterBar({
   clients,
   me,
   assigneeMode: initialAssigneeMode = "all",
-  taskCount,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -297,10 +295,59 @@ export function FilterBar({
             <SegButton layoutId="view-seg-active" active={view === "initiator"} onClick={() => setView("initiator")}>Initiator</SegButton>
           </SegGroup>
 
-          {/* Right-pinned actions */}
+          {/* Import / export menu — sits right beside the View toggle.
+              Admin-only, on the Tasks + Archived lists. */}
+          {(pathname === "/tasks" || pathname === "/archived") && me?.isAdmin && (() => {
+            const buildExportHref = (path: string) => {
+              const exportSp = new URLSearchParams(searchParams.toString());
+              if (pathname === "/archived") exportSp.set("archived", "1");
+              return `${path}?${exportSp.toString()}`;
+            };
+            return (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Import and export"
+                    title="Import / export"
+                    className="inline-flex items-center justify-center h-10 w-10 rounded-2xl border border-hairline bg-surface-card text-ink-soft hover:text-ink-strong hover:border-altus-red transition-colors"
+                    style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)" }}
+                  >
+                    <MoreHorizontal size={16} strokeWidth={2.4} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href={"/tasks/import" as Route}>
+                      <Upload size={14} strokeWidth={2} style={{ color: "var(--color-altus-red)" }} />
+                      Import tasks
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href={"/tasks/duplicates" as Route}>
+                      <CopyMinus size={14} strokeWidth={2} style={{ color: "var(--color-amber-deep, #b45309)" }} />
+                      Find duplicates
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <a href={buildExportHref("/tasks/export.xlsx")} download>
+                      <FileSpreadsheet size={14} strokeWidth={2} style={{ color: "var(--color-success, #16a34a)" }} />
+                      Export XLS
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <a href={buildExportHref("/tasks/export.pdf")} download>
+                      <FileText size={14} strokeWidth={2} style={{ color: "var(--color-altus-red, #dc2626)" }} />
+                      Export PDF
+                    </a>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            );
+          })()}
+
+          {/* Right-pinned: subtle "updating…" indicator during filter changes. */}
           <div className="flex items-center gap-3 ml-auto shrink-0">
-            {/* Result count + updating indicator — moved here so the bar is a
-                single line (no separate count row). */}
             <span
               aria-live="polite"
               className="inline-flex items-center gap-1.5 text-[13px] text-ink-subtle transition-opacity"
@@ -309,83 +356,6 @@ export function FilterBar({
               <Loader2 size={13} strokeWidth={2.2} className="animate-spin" />
               Updating…
             </span>
-            {typeof taskCount === "number" && (
-              <span className="text-[13px] font-semibold tabular-nums whitespace-nowrap" style={{ color: "var(--color-ink-soft)" }}>
-                {taskCount.toLocaleString()} found
-              </span>
-            )}
-            {(pathname === "/tasks" || pathname === "/archived") && me?.isAdmin && (() => {
-              const buildExportHref = (path: string) => {
-                const exportSp = new URLSearchParams(searchParams.toString());
-                if (pathname === "/archived") exportSp.set("archived", "1");
-                return `${path}?${exportSp.toString()}`;
-              };
-              return (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label="Import and export"
-                      title="Import / export"
-                      className="inline-flex items-center justify-center h-10 w-10 rounded-2xl border border-hairline bg-surface-card text-ink-soft hover:text-ink-strong hover:border-altus-red transition-colors"
-                      style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)" }}
-                    >
-                      <MoreHorizontal size={16} strokeWidth={2.4} />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem asChild>
-                      <Link href={"/tasks/import" as Route}>
-                        <Upload size={14} strokeWidth={2} style={{ color: "var(--color-altus-red)" }} />
-                        Import tasks
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href={"/tasks/duplicates" as Route}>
-                        <CopyMinus size={14} strokeWidth={2} style={{ color: "var(--color-amber-deep, #b45309)" }} />
-                        Find duplicates
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <a href={buildExportHref("/tasks/export.xlsx")} download>
-                        <FileSpreadsheet size={14} strokeWidth={2} style={{ color: "var(--color-success, #16a34a)" }} />
-                        Export XLS
-                      </a>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <a href={buildExportHref("/tasks/export.pdf")} download>
-                        <FileText size={14} strokeWidth={2} style={{ color: "var(--color-altus-red, #dc2626)" }} />
-                        Export PDF
-                      </a>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              );
-            })()}
-
-            {/* Saved views (on-brand button) */}
-            <Popover.Root>
-              <Popover.Trigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded-2xl px-3.5 py-2.5 text-[14px] font-semibold border border-hairline bg-surface-card text-ink-strong hover:border-hairline-strong transition-colors"
-                  style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)" }}
-                >
-                  <Bookmark size={15} strokeWidth={2} className="text-ink-subtle" />
-                  Saved views
-                </button>
-              </Popover.Trigger>
-              <Popover.Portal>
-                <Popover.Content
-                  align="end"
-                  sideOffset={8}
-                  className="z-[100] w-60 bg-surface-card border border-hairline-strong rounded-chip p-3 text-[13px] text-ink-subtle"
-                  style={{ boxShadow: "0 16px 40px rgba(15, 23, 42, 0.14)" }}
-                >
-                  Saving named filter views is coming soon.
-                </Popover.Content>
-              </Popover.Portal>
-            </Popover.Root>
           </div>
         </div>
 
