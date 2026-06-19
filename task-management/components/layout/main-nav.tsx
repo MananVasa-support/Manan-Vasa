@@ -73,12 +73,6 @@ const TOP_LEVEL: NavItem[] = [
   { href: "/projects" as Route, label: "Projects", Icon: FolderKanban },
   { href: "/weekly-goals" as Route, label: "Weekly Goals", Icon: Target },
   { href: "/daily-checklist" as Route, label: "Daily Checklist", Icon: ListChecks },
-  {
-    href: "/attendance" as Route,
-    label: "Attendance",
-    Icon: CalendarCheck,
-    not: ["/attendance/dashboard"],
-  },
 ];
 
 // The remaining destinations, folded into three dropdown groups. Reorder /
@@ -88,6 +82,12 @@ const GROUPS: NavGroup[] = [
     label: "People",
     Icon: Users,
     items: [
+      {
+        href: "/attendance" as Route,
+        label: "Attendance",
+        Icon: CalendarCheck,
+        not: ["/attendance/dashboard"],
+      },
       {
         href: "/attendance/dashboard" as Route,
         label: "Att Report",
@@ -160,6 +160,19 @@ export function MainNav({ activeTasks, isAdmin, variant }: Props) {
 
   const topPills = visible(TOP_LEVEL);
 
+  // Everything that isn't a top-level work pill folds into one sectioned "More"
+  // dropdown (People / Finance / Ecosystem) — keeps the top bar to the 7 work
+  // destinations so it never overflows.
+  const moreSections = GROUPS.map((g) => ({
+    label: g.label,
+    items: visible(g.items).map((it) => ({
+      href: it.href,
+      label: it.label,
+      Icon: it.Icon,
+      active: isActive(it),
+    })),
+  })).filter((s) => s.items.length > 0);
+
   // ── Mobile drawer: flat, with a labelled section per group. Dropdowns are
   // awkward in a vertical list, so each group becomes a header + its pills.
   if (variant === "drawer") {
@@ -187,29 +200,17 @@ export function MainNav({ activeTasks, isAdmin, variant }: Props) {
       className="flex items-center gap-1 2xl:gap-1.5 max-md:gap-1"
     >
       {topPills.map(renderPill)}
-      <span aria-hidden className="nav-group-divider" />
-      {GROUPS.map((group) => {
-        const items = visible(group.items);
-        if (items.length === 0) return null;
-        // A single surviving item (e.g. a non-admin's People → Incentive)
-        // reads better as a direct pill than a one-row dropdown.
-        if (items.length === 1 && items[0]) return renderPill(items[0]);
-        const groupItems = items.map((it) => ({
-          href: it.href,
-          label: it.label,
-          Icon: it.Icon,
-          active: isActive(it),
-        }));
-        return (
+      {moreSections.length > 0 && (
+        <>
+          <span aria-hidden className="nav-group-divider" />
           <MainNavGroup
-            key={group.label}
-            label={group.label}
-            Icon={group.Icon}
-            items={groupItems}
-            active={groupItems.some((it) => it.active)}
+            label="More"
+            Icon={LayoutGrid}
+            sections={moreSections}
+            active={moreSections.some((s) => s.items.some((it) => it.active))}
           />
-        );
-      })}
+        </>
+      )}
     </nav>
   );
 }

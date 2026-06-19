@@ -13,10 +13,17 @@ export interface NavGroupItem {
   active: boolean;
 }
 
+export interface NavGroupSection {
+  label: string;
+  items: NavGroupItem[];
+}
+
 interface Props {
   label: string;
   Icon: LucideIcon;
-  items: NavGroupItem[];
+  /** Flat list of items, OR pass `sections` for a grouped menu with headers. */
+  items?: NavGroupItem[];
+  sections?: NavGroupSection[];
   /** True when any child route is active — the trigger then reads as active. */
   active: boolean;
 }
@@ -28,7 +35,24 @@ interface Props {
  * whenever one of its children is the current page. Used on desktop only —
  * the mobile drawer renders these groups as flat labelled sections instead.
  */
-export function MainNavGroup({ label, Icon, items, active }: Props) {
+export function MainNavGroup({ label, Icon, items, sections, active }: Props) {
+  const renderItem = (it: NavGroupItem) => (
+    <DropdownMenu.Item asChild key={it.href}>
+      <Link
+        href={it.href}
+        aria-current={it.active ? "page" : undefined}
+        className={
+          "flex items-center gap-2.5 px-3 py-2.5 text-[15px] rounded-lg cursor-pointer outline-none transition-colors data-[highlighted]:bg-[#F1F5F9] " +
+          (it.active ? "font-semibold" : "font-medium text-[#0F172A]")
+        }
+        style={it.active ? { background: "rgba(225, 6, 0, 0.08)", color: "var(--color-altus-red)" } : undefined}
+      >
+        <it.Icon size={15} strokeWidth={2.2} style={{ color: it.active ? "var(--color-altus-red)" : "#475569" }} />
+        <span>{it.label}</span>
+      </Link>
+    </DropdownMenu.Item>
+  );
+
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
@@ -65,37 +89,16 @@ export function MainNavGroup({ label, Icon, items, active }: Props) {
               "0 24px 48px -16px rgba(15, 23, 42, 0.18), 0 4px 12px rgba(15, 23, 42, 0.06)",
           }}
         >
-          {items.map((it) => (
-            <DropdownMenu.Item asChild key={it.href}>
-              <Link
-                href={it.href}
-                aria-current={it.active ? "page" : undefined}
-                className={
-                  "flex items-center gap-2.5 px-3 py-2.5 text-[15px] rounded-lg cursor-pointer outline-none transition-colors data-[highlighted]:bg-[#F1F5F9] " +
-                  (it.active
-                    ? "font-semibold"
-                    : "font-medium text-[#0F172A]")
-                }
-                style={
-                  it.active
-                    ? {
-                        background: "rgba(225, 6, 0, 0.08)",
-                        color: "var(--color-altus-red)",
-                      }
-                    : undefined
-                }
-              >
-                <it.Icon
-                  size={15}
-                  strokeWidth={2.2}
-                  style={{
-                    color: it.active ? "var(--color-altus-red)" : "#475569",
-                  }}
-                />
-                <span>{it.label}</span>
-              </Link>
-            </DropdownMenu.Item>
-          ))}
+          {sections
+            ? sections.map((sec, i) => (
+                <div key={sec.label} className={i > 0 ? "mt-1 border-t border-[#F1F5F9] pt-1" : ""}>
+                  <div className="px-3 pt-1.5 pb-1 text-[10.5px] font-black uppercase tracking-[0.12em] text-[#94A3B8]">
+                    {sec.label}
+                  </div>
+                  {sec.items.map(renderItem)}
+                </div>
+              ))
+            : (items ?? []).map(renderItem)}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
