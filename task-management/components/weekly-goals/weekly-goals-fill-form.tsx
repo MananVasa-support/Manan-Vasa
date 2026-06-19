@@ -84,7 +84,7 @@ export function WeeklyGoalsFillForm({ goals, weekLabel, greetingName }: Props) {
     : 0;
 
   return (
-    <div className="min-h-screen bg-[var(--color-canvas)] px-6 py-12 max-md:px-4 max-md:py-8">
+    <div className="min-h-screen ledger-paper px-6 py-12 max-md:px-4 max-md:py-8">
       <div className="mx-auto w-full max-w-[760px]">
         {/* Header --------------------------------------------------------- */}
         <header className="wg-rise mb-8 text-center">

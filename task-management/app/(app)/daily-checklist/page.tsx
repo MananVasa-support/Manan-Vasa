@@ -10,7 +10,7 @@ export default async function DailyChecklistPage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main>
+      <main className="ledger-paper min-h-screen">
         <DailyChecklistView employeeId={me.id} mode="page" />
       </main>
       <DashboardFooter />

@@ -95,7 +95,8 @@ export function WeeklyGoalsDashboard(props: Props) {
   const sorted = React.useMemo(() => sortBySpec(board, spec), [board, spec]);
 
   return (
-    <main className="mx-auto max-w-[1400px] px-12 max-md:px-4 pt-8 pb-24">
+    <main className="ledger-paper min-h-screen">
+      <div className="mx-auto max-w-[1400px] px-12 max-md:px-4 pt-8 pb-24">
       <header
         className="wg-rise relative overflow-hidden rounded-2xl bg-surface-card border border-hairline px-7 py-5 max-md:px-5 mb-7"
         style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}
@@ -383,6 +384,7 @@ export function WeeklyGoalsDashboard(props: Props) {
           </div>
         )}
       </section>
+      </div>
     </main>
   );
 }

@@ -2235,3 +2235,15 @@ select.nt-input {
   .wg-sheen:hover::after { animation: none !important; }
   .wg-ring-glow, .wg-pip-pop, .wg-nudge { animation: none !important; }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Day-Ledger paper — the shared brand canvas across the accountability suite
+   (gate, board, fill, dashboard). Warm-paper gradient + faint ruled lines, both
+   as BACKGROUNDS so they always sit behind content (never overlap text).
+   ────────────────────────────────────────────────────────────────────────── */
+.ledger-paper {
+  background-color: #FBF7F0;
+  background-image:
+    repeating-linear-gradient(rgba(27, 20, 14, 0.05) 0 1px, transparent 1px 40px),
+    linear-gradient(160deg, #F4EEE3 0%, #FBF7F0 62%);
+}
