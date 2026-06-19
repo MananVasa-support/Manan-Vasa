@@ -98,7 +98,7 @@ export function GoalQuickAdd(props: Props) {
           setOpen(true);
           requestAnimationFrame(() => clientRef.current?.focus());
         }}
-        className="group flex w-full items-center justify-center gap-2 rounded-section border border-dashed border-hairline-strong bg-surface-card px-4 py-5 text-[15px] font-bold text-ink-muted transition-colors hover:border-altus-red/50 hover:text-altus-red"
+        className="wg-btn cursor-pointer group flex w-full items-center justify-center gap-2 rounded-section border border-dashed border-hairline-strong bg-surface-card px-4 py-5 text-[15px] font-bold text-ink-muted hover:border-altus-red/50 hover:text-altus-red hover:bg-altus-red/[0.03]"
       >
         <Plus size={18} strokeWidth={2.4} />
         Add goal
@@ -187,7 +187,7 @@ export function GoalQuickAdd(props: Props) {
           type="button"
           onClick={submit}
           disabled={saving}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+          className="wg-btn wg-sheen cursor-pointer ml-auto inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[14px] font-bold text-white hover:brightness-110 disabled:opacity-60"
           style={{
             background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
           }}

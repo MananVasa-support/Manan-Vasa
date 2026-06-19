@@ -12,6 +12,8 @@ import {
   BarChart3,
   Trash2,
   Loader2,
+  CheckCircle2,
+  Flag,
 } from "lucide-react";
 import {
   PRIORITY_LABELS,
@@ -118,7 +120,19 @@ export function WeeklyGoalsBoard(props: Props) {
   }, [visible]);
 
   const totalCount = visible.length;
-  const overallScore = weeklyScore(visible.filter((r) => !r.archived));
+  const activeVisible = React.useMemo(() => visible.filter((r) => !r.archived), [visible]);
+  const overallScore = weeklyScore(activeVisible);
+
+  // Premium stat strip + the mandatory-5 enforcement. Effective % is the
+  // manager's accepted number once set, else the doer's self-report.
+  const effPct = (r: BoardGoal) => (r.acceptPct ?? r.pctDone);
+  const doneCount = activeVisible.filter((r) => effPct(r) >= 100).length;
+  const pendingCount = activeVisible.length - doneCount;
+  const weightTotal = activeVisible.reduce((s, r) => s + (r.weight || 0), 0);
+  // Min-5 rule applies per person; only meaningful when one person is scoped.
+  const TARGET_GOALS = 5;
+  const scopedCount = showingAll ? null : activeVisible.length;
+  const shortBy = scopedCount == null ? 0 : Math.max(0, TARGET_GOALS - scopedCount);
 
   // Props shared by every card (the card-specific srNo / goal / canEdit /
   // autoFocus are passed per-card at the render site).
@@ -137,46 +151,118 @@ export function WeeklyGoalsBoard(props: Props) {
       style={{ background: EDITORIAL.canvas, color: EDITORIAL.inkStrong }}
     >
       <div className="mx-auto max-w-[1280px] px-12 max-md:px-4 pt-8 pb-24">
-      {/* Header ------------------------------------------------------- */}
-      <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1
-            style={{
-              fontFamily: SERIF,
-              fontWeight: 900,
-              color: EDITORIAL.inkStrong,
-              fontSize: "clamp(38px, 4vw, 56px)",
-              letterSpacing: "-0.02em",
-              lineHeight: 1,
-            }}
-          >
-            Weekly Goals
-          </h1>
-          <p className="mt-2 font-semibold" style={{ fontSize: 17, color: EDITORIAL.inkSoft }}>
-            Top priorities each team member commits to finishing this week.
-          </p>
+      {/* ── HERO BAND ───────────────────────────────────────────────── */}
+      <section
+        className="wg-rise relative overflow-hidden rounded-[28px] px-9 py-8 max-md:px-5 max-md:py-6 mb-5"
+        style={{
+          background:
+            "radial-gradient(130% 150% at 88% -10%, rgba(225,6,0,0.34) 0%, transparent 55%), linear-gradient(135deg, #1C1511 0%, #0E0B09 100%)",
+          boxShadow: "0 30px 60px -28px rgba(14,11,9,0.55)",
+        }}
+      >
+        {/* faint ruled texture */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.05]"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(90deg, #fff 0 1px, transparent 1px 76px)",
+          }}
+        />
+        <div className="relative flex items-center justify-between gap-8 flex-wrap">
+          <div className="min-w-0">
+            <div
+              className="text-[11px] font-black uppercase tracking-[0.22em]"
+              style={{ color: "rgba(251,191,36,0.92)" }}
+            >
+              Accountability · {props.weekLabel}
+            </div>
+            <h1
+              className="mt-2"
+              style={{
+                fontFamily: SERIF,
+                fontWeight: 800,
+                color: "#F7F4ED",
+                fontSize: "clamp(40px, 5vw, 64px)",
+                letterSpacing: "-0.025em",
+                lineHeight: 0.98,
+              }}
+            >
+              Weekly Goals
+            </h1>
+            <p
+              className="mt-3 max-w-[46ch] font-medium"
+              style={{ fontSize: 16, lineHeight: 1.5, color: "rgba(247,244,237,0.66)" }}
+            >
+              The handful of priorities each person commits to — weighted, scored,
+              and reviewed. Five is the floor.
+            </p>
+            <div className="mt-5 flex items-center gap-2.5 flex-wrap">
+              <Link
+                href={"/weekly-goals?view=dashboard" as Route}
+                className="wg-btn wg-sheen inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[14.5px] font-bold text-white cursor-pointer"
+                style={{
+                  background:
+                    "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+                  boxShadow: "0 10px 24px -8px rgba(225, 6, 0, 0.7)",
+                }}
+              >
+                <BarChart3 size={16} strokeWidth={2.4} />
+                Performance Dashboard
+              </Link>
+              <span className="[&_button]:!border-white/15 [&_button]:!bg-white/[0.06] [&_button]:!text-white/90">
+                <WeeklyGoalsImport
+                  employeeId={props.scopeEmp}
+                  weekStart={props.weekStart}
+                  weekLabel={props.weekLabel}
+                  isAdmin={props.me.isAdmin}
+                />
+              </span>
+            </div>
+          </div>
+
+          {/* Signature: the weekly-score ring (gold glow when it clears target) */}
+          {totalCount > 0 && (
+            <div className="flex flex-col items-center shrink-0">
+              <div
+                className={`inline-flex items-center justify-center rounded-full p-2 ${overallScore >= 60 ? "wg-ring-glow" : ""}`}
+                style={{ background: "rgba(255,255,255,0.05)", backdropFilter: "blur(6px)" }}
+              >
+                <ScoreRing
+                  value={overallScore}
+                  size={132}
+                  label={`${overallScore}% ${showingAll ? "team " : ""}weekly score`}
+                />
+              </div>
+              <span
+                className="mt-3 text-[11px] font-black uppercase tracking-[0.16em]"
+                style={{ color: "rgba(247,244,237,0.55)" }}
+              >
+                {showingAll ? "Team" : "Weekly"} score · {doneCount}/{totalCount} done
+              </span>
+            </div>
+          )}
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <WeeklyGoalsImport
-            employeeId={props.scopeEmp}
-            weekStart={props.weekStart}
-            weekLabel={props.weekLabel}
-            isAdmin={props.me.isAdmin}
-          />
-          <Link
-            href={"/weekly-goals?view=dashboard" as Route}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[14.5px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
-            style={{
-              background:
-                "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-              boxShadow: "0 6px 18px -6px rgba(225, 6, 0, 0.55)",
-            }}
-          >
-            <BarChart3 size={16} strokeWidth={2.4} />
-            Performance Dashboard
-          </Link>
-        </div>
-      </header>
+      </section>
+
+      {/* ── STAT STRIP ──────────────────────────────────────────────── */}
+      <div className="mb-5 grid grid-cols-4 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
+        <StatCard i={0} label="Goals" value={String(totalCount)} tone="slate" hint={showingAll ? `${grouped.length} people` : "this week"} />
+        <StatCard i={1} label="Weekly score" value={`${overallScore}%`} tone="red" hint="weighted average" />
+        <StatCard i={2} label="Done" value={String(doneCount)} tone="green" hint={`${pendingCount} pending`} />
+        <StatCard
+          i={3}
+          label="Total weight"
+          value={`${weightTotal}`}
+          tone={weightTotal === 100 || showingAll ? "amber" : "red"}
+          hint={showingAll ? "across team" : weightTotal === 100 ? "balanced · 100" : `must total 100`}
+        />
+      </div>
+
+      {/* ── MANDATORY-5 TRACKER (single-person scope only) ──────────── */}
+      {scopedCount != null && (
+        <Min5Tracker count={scopedCount} target={TARGET_GOALS} shortBy={shortBy} />
+      )}
 
       {/* Controls: week nav + employee scope + filters --------------- */}
       <div className="mb-5 flex items-center gap-3 flex-wrap">
@@ -185,7 +271,7 @@ export function WeeklyGoalsBoard(props: Props) {
             type="button"
             aria-label="Previous week"
             onClick={() => go({ week: props.prevWeek, emp: props.scopeEmp })}
-            className="px-3 py-2 hover:bg-black/[0.03] transition-colors"
+            className="wg-btn cursor-pointer px-3 py-2 hover:bg-black/[0.05]"
           >
             <ChevronLeft size={18} />
           </button>
@@ -197,7 +283,7 @@ export function WeeklyGoalsBoard(props: Props) {
             type="button"
             aria-label="Next week"
             onClick={() => go({ week: props.nextWeek, emp: props.scopeEmp })}
-            className="px-3 py-2 hover:bg-black/[0.03] transition-colors"
+            className="wg-btn cursor-pointer px-3 py-2 hover:bg-black/[0.05]"
           >
             <ChevronRight size={18} />
           </button>
@@ -206,7 +292,7 @@ export function WeeklyGoalsBoard(props: Props) {
           <button
             type="button"
             onClick={() => go({ week: props.thisWeek, emp: props.scopeEmp })}
-            className="px-4 py-2 rounded-full border border-hairline bg-surface-card font-bold text-[14px] text-ink-soft hover:text-ink-strong transition-colors"
+            className="wg-btn cursor-pointer px-4 py-2 rounded-full border border-hairline bg-surface-card font-bold text-[14px] text-ink-soft hover:text-ink-strong"
           >
             This week
           </button>
@@ -236,7 +322,7 @@ export function WeeklyGoalsBoard(props: Props) {
           <select
             value={props.scopeEmp}
             onChange={(e) => go({ week: props.weekStart, emp: e.target.value })}
-            className="ml-auto px-4 py-2 rounded-full border border-hairline bg-surface-card font-bold text-[14px] text-ink-strong"
+            className="wg-btn cursor-pointer ml-auto px-4 py-2 rounded-full border border-hairline bg-surface-card font-bold text-[14px] text-ink-strong"
           >
             <option value="all">
               {props.canPickTeam && !props.me.isAdmin ? "My team" : "All team members"}
@@ -247,22 +333,6 @@ export function WeeklyGoalsBoard(props: Props) {
               </option>
             ))}
           </select>
-        )}
-      </div>
-
-      {/* Summary header: N goals + weekly score ----------------------- */}
-      <div className="mb-6 flex items-center gap-3 flex-wrap">
-        <span
-          className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[14px] font-bold"
-          style={{
-            background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)",
-            color: "var(--color-altus-red-deep)",
-          }}
-        >
-          {totalCount} {totalCount === 1 ? "goal" : "goals"}
-        </span>
-        {totalCount > 0 && (
-          <ScorePill label={showingAll ? "Team weekly score" : "Weekly score"} score={overallScore} />
         )}
       </div>
 
@@ -286,14 +356,15 @@ export function WeeklyGoalsBoard(props: Props) {
                 />
                 <div className="grid gap-4 xl:grid-cols-2">
                   {g.rows.map((goal, i) => (
-                    <GoalCard
-                      key={goal.id}
-                      goal={goal}
-                      srNo={i + 1}
-                      canEdit={canEditGoal(goal.employeeId)}
-                      autoFocus={props.focusId === goal.id}
-                      {...sharedCardProps}
-                    />
+                    <div key={goal.id} className="wg-rise" style={{ animationDelay: `${Math.min(i * 45, 360)}ms` }}>
+                      <GoalCard
+                        goal={goal}
+                        srNo={i + 1}
+                        canEdit={canEditGoal(goal.employeeId)}
+                        autoFocus={props.focusId === goal.id}
+                        {...sharedCardProps}
+                      />
+                    </div>
                   ))}
                 </div>
               </section>
@@ -303,14 +374,15 @@ export function WeeklyGoalsBoard(props: Props) {
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {visible.map((goal, i) => (
-            <GoalCard
-              key={goal.id}
-              goal={goal}
-              srNo={i + 1}
-              canEdit={props.me.isAdmin || goal.employeeId === props.me.id}
-              autoFocus={props.focusId === goal.id}
-              {...sharedCardProps}
-            />
+            <div key={goal.id} className="wg-rise" style={{ animationDelay: `${Math.min(i * 45, 360)}ms` }}>
+              <GoalCard
+                goal={goal}
+                srNo={i + 1}
+                canEdit={props.me.isAdmin || goal.employeeId === props.me.id}
+                autoFocus={props.focusId === goal.id}
+                {...sharedCardProps}
+              />
+            </div>
           ))}
           <div className="xl:col-span-2">
             <GoalQuickAdd
@@ -334,6 +406,120 @@ export function WeeklyGoalsBoard(props: Props) {
       />
       </div>
     </main>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Premium stat card (gradient top strip + serif number)                */
+/* ------------------------------------------------------------------ */
+
+function StatCard({
+  i,
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  i: number;
+  label: string;
+  value: string;
+  hint?: string;
+  tone: "slate" | "red" | "green" | "amber";
+}) {
+  return (
+    <div
+      className="wg-rise relative overflow-hidden rounded-2xl bg-white p-4"
+      style={{
+        border: `1px solid ${EDITORIAL.hairline}`,
+        boxShadow: "0 1px 3px rgba(15,23,42,0.05)",
+        animationDelay: `${120 + i * 70}ms`,
+      }}
+    >
+      <span
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-[3px]"
+        style={{ background: `linear-gradient(90deg, var(--color-${tone}), var(--color-${tone}-deep))` }}
+      />
+      <div className="text-[11px] font-black uppercase tracking-[0.1em]" style={{ color: EDITORIAL.inkSubtle }}>
+        {label}
+      </div>
+      <div
+        className="mt-1.5 tabular-nums"
+        style={{ fontFamily: SERIF, fontWeight: 800, fontSize: 34, lineHeight: 1, color: EDITORIAL.inkStrong }}
+      >
+        {value}
+      </div>
+      {hint && (
+        <div className="mt-1 text-[12px] font-bold" style={{ color: `var(--color-${tone}-deep)` }}>
+          {hint}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Mandatory-5 tracker — five pips that fill; nudges until met          */
+/* ------------------------------------------------------------------ */
+
+function Min5Tracker({ count, target, shortBy }: { count: number; target: number; shortBy: number }) {
+  const met = shortBy === 0;
+  return (
+    <div
+      className={`wg-rise mb-6 flex items-center justify-between gap-4 flex-wrap rounded-2xl p-4 sm:p-5 ${met ? "" : "wg-nudge"}`}
+      style={{
+        background: met
+          ? "color-mix(in srgb, var(--color-green) 7%, #fff)"
+          : "color-mix(in srgb, var(--color-altus-red) 6%, #fff)",
+        border: `1px solid ${met ? "color-mix(in srgb, var(--color-green) 30%, transparent)" : "color-mix(in srgb, var(--color-altus-red) 28%, transparent)"}`,
+      }}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <span
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl"
+          style={{
+            background: met
+              ? "color-mix(in srgb, var(--color-green) 16%, transparent)"
+              : "color-mix(in srgb, var(--color-altus-red) 14%, transparent)",
+            color: met ? "var(--color-green-deep)" : "var(--color-altus-red)",
+          }}
+        >
+          {met ? <CheckCircle2 size={20} strokeWidth={2.4} /> : <Flag size={19} strokeWidth={2.4} />}
+        </span>
+        <div className="min-w-0">
+          <div className="font-bold text-ink-strong" style={{ fontSize: 15 }}>
+            {met
+              ? "Weekly minimum met"
+              : `Add ${shortBy} more goal${shortBy === 1 ? "" : "s"} to meet the weekly minimum`}
+          </div>
+          <div className="text-[13px] font-semibold" style={{ color: EDITORIAL.inkSoft }}>
+            Everyone commits at least {target} goals each week · {count} of {target} set.
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5" aria-hidden>
+        {Array.from({ length: target }).map((_, i) => {
+          const filled = i < count;
+          return (
+            <span
+              key={i}
+              className={filled ? "wg-pip-pop" : ""}
+              style={{
+                width: 26,
+                height: 8,
+                borderRadius: 999,
+                animationDelay: `${i * 60}ms`,
+                background: filled
+                  ? met
+                    ? "linear-gradient(90deg, var(--color-green), var(--color-green-deep))"
+                    : "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))"
+                  : "rgba(0,0,0,0.08)",
+              }}
+            />
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

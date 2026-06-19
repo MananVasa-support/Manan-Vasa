@@ -2168,3 +2168,70 @@ select.nt-input {
     border-color: #d4d4d8 !important;
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Weekly Goals — premium redesign toolkit (jaw-dropping pass).
+   Reusable, GPU-friendly (transform/opacity only), reduced-motion safe.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Staggered entrance for cards/sections. Pair with inline animation-delay. */
+.wg-rise { animation: fadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Polished button: lift on hover, settle on press. */
+.wg-btn {
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.2s ease, filter 0.2s ease, background-color 0.2s ease,
+    border-color 0.2s ease, color 0.2s ease;
+}
+.wg-btn:hover { transform: translateY(-2px); }
+.wg-btn:active { transform: translateY(0) scale(0.985); }
+
+/* Primary CTA gets a slow light sheen sweeping across on hover. */
+.wg-sheen { position: relative; overflow: hidden; }
+.wg-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.28) 50%,
+    transparent 80%
+  );
+  transform: translateX(-130%);
+  pointer-events: none;
+}
+.wg-sheen:hover::after { animation: wgSheen 0.9s ease; }
+@keyframes wgSheen {
+  to { transform: translateX(130%); }
+}
+
+/* Score-ring "championship" glow — applied when score clears the target. */
+.wg-ring-glow { animation: wgRingGlow 3.2s ease-in-out infinite; }
+@keyframes wgRingGlow {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.35)); }
+  50%      { filter: drop-shadow(0 0 16px rgba(245, 158, 11, 0.7)); }
+}
+
+/* Mandatory 5-goal meter — a pip that just filled gives a soft pop. */
+.wg-pip-pop { animation: wgPipPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes wgPipPop {
+  0% { transform: scale(0.6); opacity: 0.4; }
+  60% { transform: scale(1.12); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* The "add N more" nudge breathes until the minimum is met. */
+.wg-nudge { animation: wgNudge 2.4s ease-in-out infinite; }
+@keyframes wgNudge {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(225, 6, 0, 0); }
+  50%      { box-shadow: 0 0 0 5px rgba(225, 6, 0, 0.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wg-rise { animation: none !important; }
+  .wg-btn { transition: none !important; }
+  .wg-btn:hover, .wg-btn:active { transform: none !important; }
+  .wg-sheen:hover::after { animation: none !important; }
+  .wg-ring-glow, .wg-pip-pop, .wg-nudge { animation: none !important; }
+}

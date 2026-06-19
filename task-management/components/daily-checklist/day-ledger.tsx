@@ -11,6 +11,8 @@ import {
   Circle,
   Trash2,
   Loader2,
+  CheckCircle2,
+  Flag,
 } from "lucide-react";
 import { ScoreRing } from "@/components/weekly-goals/score-ring";
 import { fireToast } from "@/lib/toast";
@@ -54,6 +56,8 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
   const doneCount = items.filter((i) => i.done).length;
   const total = items.length;
   const pct = total > 0 ? (doneCount / total) * 100 : 0;
+  const pendingCount = total - doneCount;
+  const goalCount = items.filter((i) => i.origin === "goal_related").length;
 
   type Res = { ok: true; [k: string]: unknown } | { ok: false; error: string };
   async function act(key: string, fn: () => Promise<Res>, onOk: (r: { ok: true; [k: string]: unknown }) => void) {
@@ -105,58 +109,56 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
     <div
       className={
         isGate
-          ? "min-h-dvh w-full flex flex-col items-center px-4 py-10"
-          : "mx-auto max-w-[1100px] px-8 max-md:px-4 pt-8 pb-16"
+          ? "h-dvh w-full flex flex-col overflow-hidden px-6 py-4 max-md:px-3 max-md:py-3"
+          : "w-full px-8 max-md:px-4 pt-6 pb-16"
       }
       style={isGate ? { background: "var(--color-canvas-base)" } : undefined}
     >
-      <div className={isGate ? "w-full max-w-[760px]" : "w-full"}>
-        {/* ── Header: title + day-completion ring (the signature) ── */}
-        <header className="flex items-start justify-between gap-6 mb-7">
-          <div className="min-w-0">
-            {isGate && (
-              <div className="text-[11px] uppercase tracking-[0.18em] text-altus-red font-bold mb-1">
-                Plan before you start{greetingName ? ` · ${greetingName}` : ""}
-              </div>
-            )}
-            <div className="text-[13px] uppercase tracking-[0.14em] text-ink-subtle font-bold">
-              {today.weekday}
-            </div>
+      <div className={isGate ? "w-full flex flex-col flex-1 min-h-0" : "w-full"}>
+        {/* ── Centered, compact header (no left-right gap) ── */}
+        <header
+          className="wg-rise relative overflow-hidden rounded-2xl bg-surface-card border border-hairline px-5 py-3 mb-3 shrink-0 text-center"
+          style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}
+        >
+          <span
+            aria-hidden
+            className="absolute inset-x-0 top-0 h-[3px]"
+            style={{ background: "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+          />
+          <div className="text-[11px] font-black uppercase tracking-[0.2em] text-altus-red">
+            {isGate ? `Plan before you start${greetingName ? ` · ${greetingName}` : ""}` : today.weekday}
+          </div>
+          <div className="mt-0.5 flex items-baseline justify-center gap-3 flex-wrap">
             <h1
-              className="mt-0.5 text-ink-strong"
+              className="text-ink-strong"
               style={{
                 fontFamily: "var(--font-serif)",
                 fontStyle: "italic",
-                fontWeight: 500,
-                fontSize: "clamp(38px, 5vw, 56px)",
-                lineHeight: 0.98,
+                fontWeight: 600,
+                fontSize: "clamp(28px, 3vw, 38px)",
+                lineHeight: 1,
                 letterSpacing: "-0.02em",
               }}
             >
               Today
             </h1>
-            <p className="mt-2 text-body-lg text-ink-subtle">
-              {today.date} ·{" "}
-              {total === 0
-                ? "Commit what you'll get done today."
-                : doneCount === total
-                  ? "Every commitment closed. Strong day."
-                  : `${doneCount} of ${total} done${isGate ? "" : " — close out the rest tonight"}.`}
-            </p>
-          </div>
-          <div className="flex flex-col items-center shrink-0">
-            <ScoreRing value={pct} size={84} label={`${Math.round(pct)}% of today done`} />
-            <span className="mt-1.5 tabular-nums font-bold text-ink-soft" style={{ fontSize: 13 }}>
-              {doneCount}/{total}
+            <span className="font-semibold text-ink-subtle" style={{ fontSize: 14 }}>
+              {today.date}
             </span>
+          </div>
+          <div className="mt-2 flex items-center justify-center gap-2 flex-wrap">
+            <HeroChip label="Committed" value={total} />
+            <HeroChip label="Done" value={doneCount} tone="green" />
+            <HeroChip label="Pending" value={pendingCount} tone="amber" />
+            {goalCount > 0 && <HeroChip label="Goal-linked" value={goalCount} tone="red" />}
           </div>
         </header>
 
         {/* ── Overdue strip ── */}
         {overdue.length > 0 && (
           <div
-            className="mb-5 flex items-center justify-between gap-3 rounded-section border px-4 py-3"
-            style={{ borderColor: "var(--color-amber)", background: "color-mix(in srgb, var(--color-amber) 9%, transparent)" }}
+            className="wg-rise shrink-0 mb-3 flex items-center justify-between gap-3 rounded-section border px-4 py-2.5"
+            style={{ borderColor: "var(--color-amber)", background: "color-mix(in srgb, var(--color-amber) 9%, transparent)", animationDelay: "80ms" }}
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <CornerUpRight size={18} strokeWidth={2.4} style={{ color: "var(--color-amber-deep)" }} className="shrink-0" />
@@ -168,7 +170,7 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
               type="button"
               onClick={onMoveOverdue}
               disabled={busyId === "overdue"}
-              className="inline-flex items-center gap-1.5 rounded-md py-2 px-3.5 text-[13px] font-bold text-white shrink-0 disabled:opacity-50"
+              className="wg-btn cursor-pointer inline-flex items-center gap-1.5 rounded-md py-2 px-3.5 text-[13px] font-bold text-white shrink-0 disabled:opacity-50"
               style={{ background: "linear-gradient(135deg, var(--color-amber), var(--color-amber-deep))" }}
             >
               {busyId === "overdue" ? <Loader2 size={14} className="animate-spin" /> : <CornerUpRight size={14} strokeWidth={2.6} />}
@@ -177,106 +179,300 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
           </div>
         )}
 
-        {/* ── Today's commitments (the ledger) ── */}
-        <section
-          className="rounded-section bg-surface-card border border-hairline p-6 max-md:p-4 mb-5"
-          style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
-        >
-          <h2 className="text-display-lg text-ink-strong mb-4">Today&apos;s commitments</h2>
+        {/* ── Mandatory-5 tracker (full width, prominent) ── */}
+        <DailyMin5 count={total} />
 
-          {items.length === 0 ? (
-            <p className="text-body-lg text-ink-subtle py-6 text-center">
-              Nothing yet — pull from your weekly goals below, or add an item.
-            </p>
-          ) : (
-            <ul className="divide-y" style={{ borderColor: "var(--color-hairline)" }}>
-              {items.map((it) => (
-                <LedgerRow
-                  key={it.id}
-                  item={it}
-                  closeout={!isGate}
-                  busy={busyId === it.id}
-                  onToggle={(done) => onToggle(it, done)}
-                  onNote={(note) => onNote(it, note)}
-                  onRemove={() => onRemove(it)}
-                />
-              ))}
-            </ul>
-          )}
-
-          <AddItem busy={busyId === "add"} onAdd={onAdd} />
-        </section>
-
-        {/* ── Pull from weekly goals ── */}
-        {pullable.length > 0 && (
+        {/* ── Two-column body: ledger (main) + intelligence sidebar ── */}
+        <div className={isGate ? "grid grid-cols-3 gap-4 max-lg:grid-cols-1 flex-1 min-h-0" : "grid grid-cols-3 gap-5 max-lg:grid-cols-1 items-start"}>
+          {/* MAIN — the commitments ledger */}
           <section
-            className="rounded-section bg-surface-card border border-hairline p-6 max-md:p-4"
-            style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
+            className="wg-rise lg:col-span-2 flex flex-col min-h-0 rounded-section bg-surface-card border border-hairline p-6 max-md:p-5"
+            style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)", animationDelay: "140ms" }}
           >
-            <h2 className="text-display-lg text-ink-strong mb-1">Pull from your weekly goals</h2>
-            <p className="text-body-lg text-ink-subtle mb-4">
-              Commit a goal to today — it joins the list as a goal-related item.
-            </p>
-            <ul className="space-y-2">
-              {pullable.map((g) => (
-                <li
-                  key={g.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-hairline px-3.5 py-2.5"
+            <div className="mb-4 flex items-center justify-between gap-3 shrink-0">
+              <h2
+                className="text-ink-strong"
+                style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontWeight: 600, fontSize: 30, letterSpacing: "-0.01em" }}
+              >
+                Today&apos;s commitments
+              </h2>
+              {total > 0 && (
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-bold tabular-nums"
+                  style={{ background: "color-mix(in srgb, var(--color-altus-red) 8%, transparent)", color: "var(--color-altus-red-deep)" }}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Target size={16} strokeWidth={2.2} style={{ color: "var(--color-altus-red)" }} className="shrink-0" />
-                    <div className="min-w-0">
-                      <div className="font-semibold text-ink-strong truncate" style={{ fontSize: 14 }}>
-                        {g.targetDone || g.subject || "Weekly goal"}
-                      </div>
-                      {(g.client || g.subject) && (
-                        <div className="text-ink-subtle truncate" style={{ fontSize: 12 }}>
-                          {[g.client, g.subject].filter(Boolean).join(" · ")}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="tabular-nums font-bold text-ink-subtle" style={{ fontSize: 12 }}>
-                      {g.weight} wt
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => onPull(g)}
-                      disabled={busyId === g.id}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card py-1.5 px-3 text-[13px] font-semibold text-ink-strong hover:border-altus-red hover:text-altus-red transition-colors disabled:opacity-50"
-                    >
-                      {busyId === g.id ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} strokeWidth={2.4} />}
-                      Move to today
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  {isGate ? `${total} committed` : `${doneCount}/${total} closed`}
+                </span>
+              )}
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
+            {items.length === 0 ? (
+              <div className="py-12 text-center">
+                <div
+                  className="mx-auto mb-3 inline-flex size-14 items-center justify-center rounded-2xl"
+                  style={{ background: "color-mix(in srgb, var(--color-altus-red) 8%, transparent)", color: "var(--color-altus-red)" }}
+                >
+                  <Plus size={26} strokeWidth={2.4} />
+                </div>
+                <p className="font-bold text-ink-strong" style={{ fontSize: 19 }}>Plan your day</p>
+                <p className="mx-auto mt-1.5 max-w-[40ch] font-medium text-ink-subtle" style={{ fontSize: 15.5, lineHeight: 1.5 }}>
+                  Pull from your weekly goals on the right, or add your own below. Five is the minimum.
+                </p>
+              </div>
+            ) : (
+              <ul className="divide-y" style={{ borderColor: "var(--color-hairline)" }}>
+                {items.map((it) => (
+                  <LedgerRow
+                    key={it.id}
+                    item={it}
+                    closeout={!isGate}
+                    busy={busyId === it.id}
+                    onToggle={(done) => onToggle(it, done)}
+                    onNote={(note) => onNote(it, note)}
+                    onRemove={() => onRemove(it)}
+                  />
+                ))}
+              </ul>
+            )}
+            </div>
+
+            <AddItem busy={busyId === "add"} onAdd={onAdd} />
           </section>
-        )}
+
+          {/* SIDEBAR — pull goals · at a glance · the ritual */}
+          <aside className={isGate ? "space-y-4 min-h-0 overflow-y-auto pr-0.5" : "space-y-5"}>
+            {pullable.length > 0 && (
+              <section
+                className="wg-rise rounded-section bg-surface-card border border-hairline p-5"
+                style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)", animationDelay: "200ms" }}
+              >
+                <h3 className="font-bold text-ink-strong mb-1" style={{ fontSize: 17 }}>Pull from weekly goals</h3>
+                <p className="text-ink-subtle mb-3" style={{ fontSize: 13.5, lineHeight: 1.45 }}>
+                  Commit a goal to today — it joins as a goal-related item.
+                </p>
+                <ul className="space-y-2">
+                  {pullable.map((g) => (
+                    <li
+                      key={g.id}
+                      className="rounded-xl border border-hairline px-3.5 py-2.5 transition-colors hover:border-altus-red/40 hover:bg-altus-red/[0.02]"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Target size={16} strokeWidth={2.2} style={{ color: "var(--color-altus-red)" }} className="shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-ink-strong truncate" style={{ fontSize: 14.5 }}>
+                            {g.targetDone || g.subject || "Weekly goal"}
+                          </div>
+                          {(g.client || g.subject) && (
+                            <div className="text-ink-subtle truncate" style={{ fontSize: 12.5 }}>
+                              {[g.client, g.subject].filter(Boolean).join(" · ")}
+                            </div>
+                          )}
+                        </div>
+                        <span className="tabular-nums font-bold text-ink-subtle shrink-0" style={{ fontSize: 12 }}>
+                          {g.weight} wt
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onPull(g)}
+                        disabled={busyId === g.id}
+                        className="wg-btn cursor-pointer mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card py-1.5 px-3 text-[13px] font-semibold text-ink-strong hover:border-altus-red hover:text-altus-red disabled:opacity-50"
+                      >
+                        {busyId === g.id ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} strokeWidth={2.4} />}
+                        Move to today
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <AtAGlance committed={total} done={doneCount} pending={pendingCount} goalCount={goalCount} />
+            <HowItWorks />
+          </aside>
+        </div>
 
         {/* ── Gate footer ── */}
         {isGate && (
-          <div className="mt-7 flex flex-col items-center gap-2">
+          <div className="mt-3 shrink-0 flex flex-col items-center gap-1.5">
             <button
               type="button"
               onClick={() => router.refresh()}
-              disabled={total === 0}
-              className="inline-flex items-center gap-2 rounded-lg py-3 px-7 text-[15px] font-bold text-white disabled:opacity-40"
-              style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+              disabled={total < 5}
+              className="wg-btn wg-sheen cursor-pointer inline-flex items-center gap-2 rounded-xl py-4 px-9 text-[17px] font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 14px 34px -10px rgba(225,6,0,0.65)" }}
             >
-              Start my day <ArrowRight size={17} strokeWidth={2.6} />
+              Start my day <ArrowRight size={19} strokeWidth={2.6} />
             </button>
-            <p className="text-ink-subtle" style={{ fontSize: 13 }}>
-              {total === 0
-                ? "Add at least one commitment to continue."
-                : `${total} committed — you can add more once you're in.`}
+            <p className="font-semibold text-ink-subtle" style={{ fontSize: 14 }}>
+              {total >= 5
+                ? `${total} committed — you're ready. Add more once you're in.`
+                : `Commit ${5 - total} more to start your day (${total}/5).`}
             </p>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+/* ── mandatory-5 tracker (five pips, nudges until met) ── */
+function DailyMin5({ count }: { count: number }) {
+  const TARGET = 5;
+  const met = count >= TARGET;
+  const shortBy = Math.max(0, TARGET - count);
+  return (
+    <div
+      className={`wg-rise shrink-0 mb-3 flex items-center justify-between gap-4 flex-wrap rounded-section p-4 ${met ? "" : "wg-nudge"}`}
+      style={{
+        background: met
+          ? "color-mix(in srgb, var(--color-green) 7%, #fff)"
+          : "color-mix(in srgb, var(--color-altus-red) 6%, #fff)",
+        border: `1px solid ${met ? "color-mix(in srgb, var(--color-green) 30%, transparent)" : "color-mix(in srgb, var(--color-altus-red) 28%, transparent)"}`,
+        animationDelay: "100ms",
+      }}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <span
+          className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl"
+          style={{
+            background: met
+              ? "color-mix(in srgb, var(--color-green) 16%, transparent)"
+              : "color-mix(in srgb, var(--color-altus-red) 14%, transparent)",
+            color: met ? "var(--color-green-deep)" : "var(--color-altus-red)",
+          }}
+        >
+          {met ? <CheckCircle2 size={22} strokeWidth={2.4} /> : <Flag size={21} strokeWidth={2.4} />}
+        </span>
+        <div className="min-w-0">
+          <div className="font-bold text-ink-strong" style={{ fontSize: 17 }}>
+            {met ? "Minimum met — you're set for the day" : `Commit ${shortBy} more to start your day`}
+          </div>
+          <div className="font-semibold text-ink-soft" style={{ fontSize: 14 }}>
+            At least 5 commitments are required each day · {count} of 5 added.
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2" aria-hidden>
+        {Array.from({ length: TARGET }).map((_, i) => {
+          const filled = i < count;
+          return (
+            <span
+              key={i}
+              className={filled ? "wg-pip-pop" : ""}
+              style={{
+                width: 34,
+                height: 10,
+                borderRadius: 999,
+                animationDelay: `${i * 60}ms`,
+                background: filled
+                  ? met
+                    ? "linear-gradient(90deg, var(--color-green), var(--color-green-deep))"
+                    : "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))"
+                  : "rgba(0,0,0,0.08)",
+              }}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ── sidebar: today at a glance (stat bars) ── */
+function AtAGlance({ committed, done, pending, goalCount }: { committed: number; done: number; pending: number; goalCount: number }) {
+  const rows: { label: string; value: number; tone: "slate" | "green" | "amber" | "red" }[] = [
+    { label: "Committed", value: committed, tone: "slate" },
+    { label: "Done", value: done, tone: "green" },
+    { label: "Pending", value: pending, tone: "amber" },
+    { label: "Goal-linked", value: goalCount, tone: "red" },
+  ];
+  const max = Math.max(committed, 1);
+  const pct = committed > 0 ? (done / committed) * 100 : 0;
+  return (
+    <section
+      className="wg-rise rounded-section bg-surface-card border border-hairline p-5"
+      style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)", animationDelay: "260ms" }}
+    >
+      <div className="mb-4 flex items-center gap-3">
+        <div className={pct >= 100 ? "wg-ring-glow shrink-0" : "shrink-0"}>
+          <ScoreRing value={pct} size={56} label={`${Math.round(pct)}% of today done`} />
+        </div>
+        <div className="min-w-0">
+          <h3 className="font-bold text-ink-strong" style={{ fontSize: 17 }}>Today at a glance</h3>
+          <p className="font-semibold text-ink-subtle" style={{ fontSize: 13 }}>
+            {done}/{committed} done · {Math.round(pct)}%
+          </p>
+        </div>
+      </div>
+      <div className="space-y-3.5">
+        {rows.map((r) => (
+          <div key={r.label}>
+            <div className="flex items-baseline justify-between">
+              <span className="font-semibold text-ink-soft" style={{ fontSize: 14 }}>{r.label}</span>
+              <span className="tabular-nums font-black text-ink-strong" style={{ fontSize: 17 }}>{r.value}</span>
+            </div>
+            <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full" style={{ background: "var(--color-hairline)" }}>
+              <span
+                className="block h-full rounded-full"
+                style={{ width: `${Math.max(4, (r.value / max) * 100)}%`, background: `linear-gradient(90deg, var(--color-${r.tone}), var(--color-${r.tone}-deep))` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ── sidebar: the daily ritual (dark guidance panel) ── */
+function HowItWorks() {
+  const steps = [
+    { n: "1", t: "Plan", d: "Commit at least 5 things you'll do today — pulled from goals or your own." },
+    { n: "2", t: "Do", d: "Work through them. This is the accountability list — not a WhatsApp message." },
+    { n: "3", t: "Close out", d: "Tonight, tick what's done and note what slipped." },
+  ];
+  return (
+    <section
+      className="wg-rise rounded-section border p-5"
+      style={{ background: "linear-gradient(135deg, #1C1511, #0E0B09)", borderColor: "rgba(255,255,255,0.08)", animationDelay: "320ms" }}
+    >
+      <h3 className="font-bold mb-3.5" style={{ fontSize: 16, color: "#F7F4ED" }}>The daily ritual</h3>
+      <ol className="space-y-3.5">
+        {steps.map((s) => (
+          <li key={s.n} className="flex gap-3">
+            <span
+              className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-[13px] font-black text-white"
+              style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+            >
+              {s.n}
+            </span>
+            <div>
+              <div className="font-bold" style={{ fontSize: 14.5, color: "#F7F4ED" }}>{s.t}</div>
+              <div className="font-medium" style={{ fontSize: 13, color: "rgba(247,244,237,0.62)", lineHeight: 1.45 }}>{s.d}</div>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/* ── stat chip for the (light) header ── */
+function HeroChip({ label, value, tone }: { label: string; value: number; tone?: "green" | "amber" | "red" }) {
+  const dot = tone ? `var(--color-${tone})` : "var(--color-ink-subtle)";
+  const bg = tone ? `color-mix(in srgb, var(--color-${tone}) 9%, #fff)` : "var(--color-surface-soft, #F4F4F5)";
+  const border = tone ? `color-mix(in srgb, var(--color-${tone}) 26%, transparent)` : "var(--color-hairline)";
+  return (
+    <span
+      className="inline-flex items-center gap-2 rounded-full px-3 py-1.5"
+      style={{ background: bg, border: `1px solid ${border}` }}
+    >
+      <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, background: dot }} />
+      <span className="tabular-nums font-black text-ink-strong" style={{ fontSize: 14.5 }}>{value}</span>
+      <span className="font-semibold text-ink-subtle" style={{ fontSize: 12.5 }}>{label}</span>
+    </span>
   );
 }
 
@@ -341,7 +537,7 @@ function LedgerRow({
           )}
           <span
             className={`font-semibold ${item.done ? "text-ink-subtle line-through" : "text-ink-strong"}`}
-            style={{ fontSize: 14.5 }}
+            style={{ fontSize: 16.5 }}
           >
             {item.title}
           </span>
@@ -399,27 +595,40 @@ function AddItem({ busy, onAdd }: { busy: boolean; onAdd: (fd: FormData) => void
         onAdd(fd);
         ref.current?.reset();
       }}
-      className="mt-4 flex items-center gap-2"
+      className="mt-4 shrink-0"
     >
-      <span className="inline-flex size-[22px] shrink-0 items-center justify-center rounded-full border-2 border-dashed" style={{ borderColor: "var(--color-hairline-strong)" }}>
-        <Plus size={13} strokeWidth={2.6} className="text-ink-subtle" />
-      </span>
-      <input
-        name="title"
-        type="text"
-        required
-        maxLength={280}
-        placeholder="Add something you'll do today…"
-        className="flex-1 bg-transparent text-[14.5px] text-ink-strong placeholder:text-ink-subtle outline-none border-b border-hairline focus:border-altus-red py-1"
-      />
-      <button
-        type="submit"
-        disabled={busy}
-        className="inline-flex items-center gap-1.5 rounded-md py-1.5 px-3.5 text-[13px] font-semibold text-white disabled:opacity-50"
-        style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+      <div
+        className="flex items-center gap-2.5 rounded-2xl border-2 bg-white px-3 py-2 transition-colors focus-within:border-[var(--color-altus-red)]"
+        style={{ borderColor: "var(--color-hairline-strong)", boxShadow: "0 1px 2px rgba(15,23,42,0.04)" }}
       >
-        Add
-      </button>
+        <span
+          className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl"
+          style={{ background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)", color: "var(--color-altus-red)" }}
+        >
+          <Plus size={18} strokeWidth={2.6} />
+        </span>
+        <input
+          name="title"
+          type="text"
+          required
+          maxLength={280}
+          autoComplete="off"
+          placeholder="Add something you'll do today…"
+          className="flex-1 min-w-0 bg-transparent text-[16px] font-medium text-ink-strong placeholder:text-ink-subtle outline-none py-1.5"
+        />
+        <button
+          type="submit"
+          disabled={busy}
+          className="wg-btn wg-sheen cursor-pointer inline-flex shrink-0 items-center gap-1.5 rounded-xl py-2 px-5 text-[14px] font-bold text-white disabled:opacity-50"
+          style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+        >
+          {busy ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} strokeWidth={2.8} />}
+          Add
+        </button>
+      </div>
+      <p className="mt-2 text-[12.5px] font-medium text-ink-subtle">
+        Press Enter to add · aim for at least 5 to start your day.
+      </p>
     </form>
   );
 }
