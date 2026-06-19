@@ -5,6 +5,7 @@ import {
 } from "@/lib/queries/daily-checklist";
 import { TZ } from "@/lib/weekly-goals/week";
 import { DayLedger } from "./day-ledger";
+import { DailyPlanGate } from "./daily-plan-gate";
 
 /**
  * Server view for the Daily Checklist — fetches today's items, overdue carry-
@@ -47,6 +48,20 @@ export async function DailyChecklistView({
     year: "numeric",
     timeZone: TZ,
   });
+
+  // The compulsory login gate gets the authored "Day Ledger" experience;
+  // the in-app /daily-checklist page keeps the working DayLedger surface.
+  if (mode === "gate") {
+    return (
+      <DailyPlanGate
+        greetingName={greetingName}
+        today={{ weekday, date }}
+        items={items}
+        overdue={overdue}
+        pullable={pullable}
+      />
+    );
+  }
 
   return (
     <DayLedger
