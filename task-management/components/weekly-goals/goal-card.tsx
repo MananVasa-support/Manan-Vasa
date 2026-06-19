@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Pencil,
@@ -14,6 +15,8 @@ import {
   Target,
   Loader2,
   Archive,
+  ListPlus,
+  SquareArrowOutUpRight,
 } from "lucide-react";
 
 /* Editorial tokens shared with the board (cream/warm-ink palette). */
@@ -30,6 +33,7 @@ import {
   editWeeklyGoal,
   setWeeklyGoalPct,
   duplicateWeeklyGoal,
+  createTaskFromGoal,
 } from "@/app/(app)/weekly-goals/actions";
 import type { BoardGoal, StatusDisplayMap } from "@/components/weekly-goals/types";
 import { effectivePct } from "@/lib/weekly-goals/effective";
@@ -110,6 +114,29 @@ export function GoalCard({
       fireToast({ message: "Goal duplicated.", type: "success" });
       router.refresh();
     });
+  }
+  // Decoupled from `pending` (the router.refresh transition) so the button
+  // never sticks disabled through a slow refresh — see the QuickAdd lesson.
+  const [addingTask, setAddingTask] = React.useState(false);
+  function addToTasks() {
+    if (addingTask || goal.taskId) return;
+    setAddingTask(true);
+    (async () => {
+      const res = await createTaskFromGoal({ goalId: goal.id });
+      if (!res.ok) {
+        fireToast({ message: res.error, type: "error" });
+        setAddingTask(false);
+        return;
+      }
+      fireToast({
+        message: res.alreadyLinked
+          ? `Already linked to task${res.taskNo ? ` #${res.taskNo}` : ""}.`
+          : `Added to Tasks${res.taskNo ? ` · #${res.taskNo}` : ""} — Important.`,
+        type: "success",
+      });
+      router.refresh();
+      setAddingTask(false);
+    })();
   }
 
   const title =
@@ -398,6 +425,33 @@ export function GoalCard({
               <CopyPlus size={14} />
               Duplicate
             </button>
+          )}
+
+          {/* Goal⇄Task link: spin off a real task, or jump to the linked one. */}
+          {goal.taskId ? (
+            <Link
+              href={`/tasks/${goal.taskId}`}
+              title="Open the linked task"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors"
+              style={{ background: "rgba(184,137,59,0.12)", color: "#8A6420" }}
+            >
+              <SquareArrowOutUpRight size={14} />
+              {goal.taskNo ? `Task #${goal.taskNo}` : "View task"}
+            </Link>
+          ) : (
+            canEdit && (
+              <button
+                type="button"
+                onClick={addToTasks}
+                disabled={addingTask}
+                title="Create a tracked task for this goal (auto-priority Important)"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors hover:bg-black/[0.04] disabled:opacity-60"
+                style={{ color: EDITORIAL.inkSoft }}
+              >
+                {addingTask ? <Loader2 size={14} className="animate-spin" /> : <ListPlus size={14} />}
+                Add to Tasks
+              </button>
+            )
           )}
 
           {canEdit && (

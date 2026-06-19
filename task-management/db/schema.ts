@@ -612,9 +612,18 @@ export const tasks = pgTable(
     searchText: text("search_text").generatedAlwaysAs(
       sql`coalesce(title,'') || ' ' || coalesce(description,'') || ' ' || coalesce(client,'') || ' ' || coalesce(subject,'') || ' ' || coalesce(notes,'')`,
     ),
+    // Phase 2 (Goal↔Task linkage, migration 0070) — provenance back to the
+    // Weekly Goal this task was spun off from ("Add to Tasks"). Powers the
+    // task→goal half of the two-way sync. NULL = an ordinary task. The FK
+    // (ON DELETE SET NULL, so deleting a goal never deletes its task) lives in
+    // migration 0070 — NOT declared with `.references()` here because pairing it
+    // with weekly_goals.task_id's reference would create a circular type
+    // (mirrors carriedFromId / recurrenceParentId, which are also FK-in-migration).
+    originGoalId: uuid("origin_goal_id"),
   },
   (t) => [
     index("tasks_doer_created_idx").on(t.doerId, t.createdAt),
+    index("tasks_origin_goal_idx").on(t.originGoalId),
     index("tasks_initiator_created_idx").on(t.initiatorId, t.createdAt),
     index("tasks_status_created_idx").on(t.status, t.createdAt),
     index("tasks_pending_created_idx")
@@ -1794,6 +1803,10 @@ export const weeklyGoals = pgTable(
     // Approval stamp — presence = approved + Accept % locked.
     approvedAt: timestamp("approved_at", { withTimezone: true }),
     carriedFromId: uuid("carried_from_id"),
+    // Phase 2 (Goal↔Task linkage, migration 0070) — the real task created from
+    // this goal via "Add to Tasks". One goal ⇄ one task; two-way %/done sync runs
+    // through this link (lib/weekly-goals/task-sync.ts). NULL = no task yet.
+    taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
     createdById: uuid("created_by_id").references(() => employees.id, {
       onDelete: "set null",
     }),
@@ -1807,6 +1820,7 @@ export const weeklyGoals = pgTable(
     index("weekly_goals_employee_week_idx").on(t.employeeId, t.weekStart),
     index("weekly_goals_week_idx").on(t.weekStart),
     index("weekly_goals_carried_from_idx").on(t.carriedFromId),
+    index("weekly_goals_task_id_idx").on(t.taskId),
   ],
 );
 

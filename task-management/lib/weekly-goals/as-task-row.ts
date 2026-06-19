@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { employees, weeklyGoals } from "@/db/schema";
 import type { TaskPriority, TaskStatus } from "@/db/enums";
@@ -130,6 +130,9 @@ export async function listWeekGoalsAsTasks(opts: {
   const conditions = [
     eq(weeklyGoals.weekStart, weekStart),
     eq(weeklyGoals.archived, false),
+    // Phase 2 — a goal with a real linked task is already in the Tasks list as
+    // that task; don't also surface its read-only virtual row (no duplicates).
+    isNull(weeklyGoals.taskId),
   ];
   if (employeeIds && employeeIds.length > 0) {
     conditions.push(inArray(weeklyGoals.employeeId, employeeIds));
@@ -176,6 +179,7 @@ export async function countWeekGoalsInScope(opts: {
   const conditions = [
     eq(weeklyGoals.weekStart, weekStart),
     eq(weeklyGoals.archived, false),
+    isNull(weeklyGoals.taskId),
   ];
   if (employeeIds && employeeIds.length > 0) {
     conditions.push(inArray(weeklyGoals.employeeId, employeeIds));

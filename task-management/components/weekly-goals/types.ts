@@ -39,6 +39,11 @@ export interface BoardGoal {
   reviewedByName: string | null;
   reviewedAt: Date | null;
   approvedAt: Date | null;
+  // --- Phase 2 — Goal↔Task link. ---
+  /** The real task spun off this goal via "Add to Tasks". NULL = none yet. */
+  taskId: string | null;
+  /** Friendly #number of the linked task (for the "View Task #1042" chip). */
+  taskNo: number | null;
 }
 
 export type { StatusDisplayMap };

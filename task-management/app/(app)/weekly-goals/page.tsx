@@ -8,7 +8,7 @@ import { requireUser } from "@/lib/auth/current";
 import { WeeklyGoalsDashboardView } from "@/components/weekly-goals/weekly-goals-dashboard-view";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { db } from "@/lib/db";
-import { designations, employees, weeklyGoals } from "@/db/schema";
+import { designations, employees, weeklyGoals, tasks } from "@/db/schema";
 import { listGoalEmployeesScoped } from "@/lib/queries/weekly-goals";
 import { goalScopeFor } from "@/lib/weekly-goals/hierarchy";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
@@ -33,6 +33,7 @@ function pick(v: string | string[] | undefined): string | undefined {
 }
 
 const reviewer = alias(employees, "reviewer");
+const linkedTask = alias(tasks, "linked_task");
 
 /**
  * Load the week's goals with the full Planning + Review field set (a superset of
@@ -92,10 +93,13 @@ async function loadBoardGoals(opts: {
       reviewedByName: reviewer.name,
       reviewedAt: weeklyGoals.reviewedAt,
       approvedAt: weeklyGoals.approvedAt,
+      taskId: weeklyGoals.taskId,
+      taskNo: linkedTask.taskNo,
     })
     .from(weeklyGoals)
     .innerJoin(employees, eq(weeklyGoals.employeeId, employees.id))
     .leftJoin(reviewer, eq(weeklyGoals.reviewedById, reviewer.id))
+    .leftJoin(linkedTask, eq(weeklyGoals.taskId, linkedTask.id))
     .where(where)
     .orderBy(
       opts.employeeId ? asc(weeklyGoals.position) : asc(employees.name),

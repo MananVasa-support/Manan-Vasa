@@ -5,6 +5,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { afterResponse } from "@/lib/after";
 import { db, tasks } from "@/lib/db";
 import { reconcileTaskEvent, removeTaskEvent } from "@/lib/google/sync";
+import { syncTaskToGoal } from "@/lib/weekly-goals/task-sync";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import {
   TASK_STATUSES,
@@ -483,6 +484,8 @@ export async function bulkSetStatus(
     return { ok: false, error: `Could not update: ${(err as Error).message}` };
   }
   for (const id of allowed) afterResponse(() => reconcileTaskEvent(id));
+  // Phase 2 — mirror status back onto any goal these tasks were spun off from.
+  for (const id of allowed) afterResponse(() => syncTaskToGoal(id, status));
   revalidateTaskRoutes();
   return { ok: true, updated: allowed.length, skipped: ids.length - allowed.length };
 }

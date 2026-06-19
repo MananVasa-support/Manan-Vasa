@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { db } from "@/lib/db";
-import { weeklyGoals, employees } from "@/db/schema";
+import { weeklyGoals, employees, tasks } from "@/db/schema";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import {
   requireUser,
@@ -14,8 +14,11 @@ import {
 } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { goalScopeFor, canManageGoalFor } from "@/lib/weekly-goals/hierarchy";
-import { mondayOf, nextWeekStart } from "@/lib/weekly-goals/week";
+import { mondayOf, nextWeekStart, weekEnd } from "@/lib/weekly-goals/week";
 import { type TaskPriority } from "@/db/enums";
+import { createTasksCore } from "@/lib/tasks/create-task";
+import { syncGoalToTask } from "@/lib/weekly-goals/task-sync";
+import { weeklyGoalTitle } from "@/lib/weekly-goals/as-task-row";
 import {
   CreateWeeklyGoalSchema,
   type CreateWeeklyGoalInput,
@@ -199,8 +202,90 @@ export async function setWeeklyGoalPct(
         updatedAt: new Date(),
       })
       .where(eq(weeklyGoals.id, parsed.data.id));
+    // Phase 2 — if this goal has a linked task, mirror the new % onto it.
+    await syncGoalToTask(parsed.data.id);
     revalidateWeeklyGoals();
+    revalidatePath("/tasks");
     return { ok: true };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+/**
+ * Phase 2 — "Add to Tasks". Spin a real, tracked Task off a Weekly Goal so the
+ * commitment lives in the doer's task list (and on their calendar) instead of
+ * WhatsApp. One goal ⇄ one task: idempotent, returns the existing link if the
+ * goal already has a live task. The task is auto-prioritised **Important**
+ * (`imp_not_urgent`, design §1 — goal-derived work is important-not-urgent) and
+ * two-way %/done sync runs through the link thereafter (task-sync.ts).
+ */
+export async function createTaskFromGoal(
+  input: { goalId: string },
+): Promise<ActionResult<{ taskId: string; taskNo: number | null; alreadyLinked: boolean }>> {
+  const me = await requireUser();
+  if (!input?.goalId || typeof input.goalId !== "string") {
+    return { ok: false, error: "Missing goal" };
+  }
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const loaded = await loadWritableGoal(input.goalId, me);
+  if (!loaded.ok) return loaded;
+  const goal = loaded.row;
+
+  // Idempotent: if the goal already points at a live (non-archived) task, just
+  // return it. A dangling link (task deleted → FK set null) falls through to a
+  // fresh create.
+  if (goal.taskId) {
+    const [existing] = await db
+      .select({ id: tasks.id, taskNo: tasks.taskNo, archived: tasks.archived })
+      .from(tasks)
+      .where(eq(tasks.id, goal.taskId));
+    if (existing && !existing.archived) {
+      return { ok: true, taskId: existing.id, taskNo: existing.taskNo, alreadyLinked: true };
+    }
+  }
+
+  const dueDate = goal.targetDate ?? weekEnd(goal.weekStart);
+  const title = weeklyGoalTitle(goal);
+
+  try {
+    const created = await createTasksCore(
+      { id: me.id, name: me.name },
+      {
+        title,
+        doerId: goal.employeeId,
+        initiatorId: me.id,
+        priority: "imp_not_urgent",
+        dueAt: new Date(`${dueDate}T12:00:00`).toISOString(),
+        subject: goal.subject,
+        description: goal.targetDone,
+        notes: goal.explanation,
+      },
+    );
+    if (!created.ok) return { ok: false, error: created.error };
+    const taskId = created.id;
+
+    // Stamp provenance + the goal's real client (createTasksCore mirrors client
+    // from title), then wire the goal → task link.
+    await db
+      .update(tasks)
+      .set({ originGoalId: goal.id, client: goal.client })
+      .where(eq(tasks.id, taskId));
+    await db
+      .update(weeklyGoals)
+      .set({ taskId, updatedById: me.id, updatedAt: new Date() })
+      .where(eq(weeklyGoals.id, goal.id));
+
+    // Seed the task status from the goal's current % (a goal already at 100%
+    // creates a done task; partial → in progress).
+    await syncGoalToTask(goal.id);
+
+    revalidateWeeklyGoals();
+    revalidatePath("/tasks");
+    const [row] = await db.select({ taskNo: tasks.taskNo }).from(tasks).where(eq(tasks.id, taskId));
+    return { ok: true, taskId, taskNo: row?.taskNo ?? null, alreadyLinked: false };
   } catch (err) {
     return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
   }

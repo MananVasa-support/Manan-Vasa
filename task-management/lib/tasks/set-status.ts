@@ -5,6 +5,7 @@ import { TASK_STATUSES, type TaskStatus } from "@/db/enums";
 import { canTransitionTo, type ActorRole } from "@/lib/auth/status-transitions";
 import { notifyManyForTask } from "@/lib/notifications/dispatch";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
+import { syncTaskToGoal } from "@/lib/weekly-goals/task-sync";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -132,6 +133,10 @@ export async function applyTaskStatusChange(
     }),
     recipients: [current.createdById, current.initiatorId, current.doerId],
   });
+
+  // Phase 2 — if this task was spun off a Weekly Goal, mirror the new status
+  // back onto that goal (% done + status). Best-effort; never blocks the change.
+  if (current.originGoalId) await syncTaskToGoal(taskId, status);
 
   return { ok: true, updatedAt: now.toISOString() };
 }
