@@ -6,13 +6,6 @@ import { patchIdentity } from "@/app/(app)/profile/actions";
 import { fireToast } from "@/lib/toast";
 import { SectionHeader } from "@/components/profile/identity/avatar-and-name";
 import { accentVars } from "@/lib/appearance";
-import {
-  DISPLAY_SCALE_EVENT,
-  DISPLAY_SCALE_KEY,
-  DISPLAY_SCALE_OPTIONS,
-  readScaleMode,
-  type DisplayScaleMode,
-} from "@/lib/display-scale";
 
 /** Apply a density/accent change to <html> immediately for instant feedback,
  *  independent of the server round-trip + route refresh. */
@@ -52,17 +45,10 @@ export function AppearanceControls({ initial }: Props) {
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [, startTransition] = useTransition();
 
-  // Display size — per-device (localStorage), applied live via the
-  // DisplayScaleProvider which listens for DISPLAY_SCALE_EVENT.
-  const [scaleMode, setScaleMode] = useState<DisplayScaleMode>("auto");
-  useEffect(() => {
-    setScaleMode(readScaleMode());
-  }, []);
-  function setScale(mode: DisplayScaleMode) {
-    if (typeof localStorage !== "undefined") localStorage.setItem(DISPLAY_SCALE_KEY, mode);
-    setScaleMode(mode);
-    if (typeof window !== "undefined") window.dispatchEvent(new Event(DISPLAY_SCALE_EVENT));
-  }
+  // Display size control removed — it applied a page-wide CSS `zoom` that
+  // broke every Radix dropdown/popover's anchoring (panels flew to a corner).
+  // Reintroduce "fit to screen" only via a non-zoom mechanism. See
+  // components/layout/display-scale-provider.tsx.
 
   function save(patch: Parameters<typeof patchIdentity>[0]) {
     applyAppearanceLive(patch); // instant visible feedback
@@ -125,58 +111,6 @@ export function AppearanceControls({ initial }: Props) {
                 }}
               >
                 {opt}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section style={cardStyle}>
-        <SectionHeader
-          title="Display size"
-          description="Fit the whole interface to your screen. Auto-fit scales it up on large monitors and keeps it comfortable on small ones; or pick a fixed size. Saved for this device only."
-          savedAt={null}
-        />
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {DISPLAY_SCALE_OPTIONS.map((opt) => {
-            const active = scaleMode === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                aria-pressed={active}
-                onClick={() => {
-                  if (opt.value === scaleMode) return;
-                  setScale(opt.value);
-                }}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 2,
-                  padding: "14px 20px",
-                  fontSize: 15,
-                  fontWeight: 600,
-                  color: active ? "white" : "#0F172A",
-                  background: active
-                    ? "linear-gradient(135deg, #0F172A, #1E293B)"
-                    : "rgba(15, 23, 42, 0.025)",
-                  border: `1px solid ${active ? "transparent" : "rgba(15, 23, 42, 0.08)"}`,
-                  borderRadius: 12,
-                  cursor: "pointer",
-                  minWidth: 110,
-                  textAlign: "left",
-                }}
-              >
-                <span>{opt.label}</span>
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color: active ? "rgba(255,255,255,0.7)" : "var(--color-ink-subtle)",
-                  }}
-                >
-                  {opt.hint}
-                </span>
               </button>
             );
           })}

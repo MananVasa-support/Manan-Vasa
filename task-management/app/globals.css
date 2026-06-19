@@ -1056,6 +1056,29 @@ html[data-density="compact"] body {
   color: #ffffff;
 }
 
+/* Hairline divider between the daily-driver pills and the grouped dropdowns
+   in the desktop header — gives the nav a clear "primary | more" hierarchy. */
+.nav-group-divider {
+  flex: none;
+  align-self: center;
+  width: 1px;
+  height: 22px;
+  margin: 0 6px;
+  border-radius: 1px;
+  background: rgba(225, 6, 0, 0.18);
+}
+
+/* Section label above each group's pills inside the mobile drawer. */
+.nav-drawer-section {
+  padding: 4px 12px 2px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted, #94a3b8);
+}
+
 /* Mobile drawer — render the primary nav as a full labelled vertical list.
    The header shows it icon-only at mobile widths (labels carry max-md:hidden);
    inside the drawer there's room, so un-hide the labels + counts and stack
@@ -1071,6 +1094,39 @@ html[data-density="compact"] body {
 }
 .mobile-menu-body nav[aria-label="Primary"] .nav-pill > span:not(.nav-pill-badge) {
   display: inline-flex !important;
+}
+/* The drawer is a LIGHT panel but lives outside the `.header-light` scope, so
+   the base `nav-pill` (white text, made for the dark header) renders invisible
+   on white — and its small padding shrinks the tap targets, causing mis-taps
+   onto the wrong link. Re-apply the light-panel pill treatment, scoped to the
+   drawer, so labels are legible and every row is a full 44px+ touch target. */
+.mobile-menu-body .nav-pill {
+  background: var(--vp-cyan-tint);
+  border: 1.5px solid rgba(225, 6, 0, 0.28);
+  color: rgb(var(--vp-cyan-deep));
+  padding: 13px 16px;
+  font-weight: 700;
+}
+.mobile-menu-body .nav-pill:hover {
+  background: rgba(225, 6, 0, 0.14);
+  color: rgb(var(--vp-cyan-deep));
+  transform: none;
+}
+.mobile-menu-body .nav-pill-active,
+.mobile-menu-body .nav-pill-active:hover {
+  background: linear-gradient(135deg, rgb(var(--vp-cyan)), rgb(var(--vp-cyan-deep)));
+  color: #ffffff;
+  border-color: transparent;
+  transform: none;
+}
+.mobile-menu-body .nav-pill-count {
+  background: rgba(225, 6, 0, 0.18);
+  color: rgb(var(--vp-cyan-deep));
+  font-weight: 800;
+}
+.mobile-menu-body .nav-pill-active .nav-pill-count {
+  background: rgba(255, 255, 255, 0.26);
+  color: #ffffff;
 }
 
 /* react-day-picker theme overrides — match Light Vibrant palette */

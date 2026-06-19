@@ -218,9 +218,11 @@ export function FilterBar({
         WebkitBackdropFilter: "blur(20px) saturate(150%)",
       }}
     >
-      <div className="mx-auto max-w-[1600px] px-12 py-3 max-md:px-4 flex flex-col gap-2.5">
-        {/* Row 1 — filter pill-cards */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+      <div className="mx-auto max-w-[1600px] px-12 py-2.5 max-md:px-4 flex flex-col gap-2">
+        {/* Row 1 — filter pill-cards. Single line (never wrap). No overflow
+            container here on purpose: a scroll ancestor would mis-anchor the
+            filter popovers. */}
+        <div className="flex items-center gap-2.5 flex-nowrap min-w-0">
           {/* Date range */}
           <Popover.Root>
             <Popover.Trigger asChild>
@@ -296,7 +298,22 @@ export function FilterBar({
           </SegGroup>
 
           {/* Right-pinned actions */}
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-3 ml-auto shrink-0">
+            {/* Result count + updating indicator — moved here so the bar is a
+                single line (no separate count row). */}
+            <span
+              aria-live="polite"
+              className="inline-flex items-center gap-1.5 text-[13px] text-ink-subtle transition-opacity"
+              style={{ opacity: isPending ? 1 : 0 }}
+            >
+              <Loader2 size={13} strokeWidth={2.2} className="animate-spin" />
+              Updating…
+            </span>
+            {typeof taskCount === "number" && (
+              <span className="text-[13px] font-semibold tabular-nums whitespace-nowrap" style={{ color: "var(--color-ink-soft)" }}>
+                {taskCount.toLocaleString()} found
+              </span>
+            )}
             {(pathname === "/tasks" || pathname === "/archived") && me?.isAdmin && (() => {
               const buildExportHref = (path: string) => {
                 const exportSp = new URLSearchParams(searchParams.toString());
@@ -372,62 +389,47 @@ export function FilterBar({
           </div>
         </div>
 
-        {/* Row 2 — active filters + result count */}
-        <div className="flex items-center gap-2.5 flex-wrap min-h-[28px]">
-          <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
-            <ListFilter size={15} strokeWidth={2.2} />
-            {activePills.length} active filter{activePills.length === 1 ? "" : "s"}
-          </span>
-
-          {activePills.map((p) => (
-            <span
-              key={p.key}
-              className="inline-flex items-center gap-1.5 rounded-full pl-2.5 pr-1.5 py-1 text-[13px] font-medium"
-              style={{
-                background: `color-mix(in srgb, ${p.color} 12%, transparent)`,
-                color: "var(--color-ink-strong)",
-              }}
-            >
-              <span className="size-2 rounded-full" style={{ background: p.color }} />
-              {p.label}
-              <button
-                type="button"
-                onClick={p.remove}
-                aria-label={`Remove ${p.label}`}
-                className="inline-flex items-center justify-center rounded-full size-4 text-ink-subtle hover:text-ink-strong hover:bg-black/5 transition-colors"
-              >
-                <X size={12} strokeWidth={2.4} />
-              </button>
+        {/* Active filters — rendered ONLY when something is selected, so the
+            bar stays a single line otherwise. (Result count lives in Row 1.)
+            Chips scroll horizontally if many; no popovers here, so the scroll
+            container is safe. */}
+        {activePills.length > 0 && (
+          <div className="flex items-center gap-2.5 flex-nowrap min-w-0 overflow-x-auto no-scrollbar">
+            <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold shrink-0" style={{ color: "var(--color-ink-subtle)" }}>
+              <ListFilter size={15} strokeWidth={2.2} />
+              {activePills.length} active
             </span>
-          ))}
-
-          {activePills.length > 0 && (
+            {activePills.map((p) => (
+              <span
+                key={p.key}
+                className="inline-flex items-center gap-1.5 rounded-full pl-2.5 pr-1.5 py-1 text-[13px] font-medium shrink-0"
+                style={{
+                  background: `color-mix(in srgb, ${p.color} 12%, transparent)`,
+                  color: "var(--color-ink-strong)",
+                }}
+              >
+                <span className="size-2 rounded-full" style={{ background: p.color }} />
+                {p.label}
+                <button
+                  type="button"
+                  onClick={p.remove}
+                  aria-label={`Remove ${p.label}`}
+                  className="inline-flex items-center justify-center rounded-full size-4 text-ink-subtle hover:text-ink-strong hover:bg-black/5 transition-colors"
+                >
+                  <X size={12} strokeWidth={2.4} />
+                </button>
+              </span>
+            ))}
             <button
               type="button"
               onClick={reset}
-              className="text-[13px] font-semibold transition-colors hover:underline"
+              className="text-[13px] font-semibold transition-colors hover:underline shrink-0"
               style={{ color: "var(--color-altus-red)" }}
             >
               Clear all
             </button>
-          )}
-
-          <div className="ml-auto inline-flex items-center gap-2">
-            <span
-              aria-live="polite"
-              className="inline-flex items-center gap-1.5 text-[13px] text-ink-subtle transition-opacity"
-              style={{ opacity: isPending ? 1 : 0 }}
-            >
-              <Loader2 size={13} strokeWidth={2.2} className="animate-spin" />
-              Updating…
-            </span>
-            {typeof taskCount === "number" && (
-              <span className="text-[13px] font-semibold tabular-nums" style={{ color: "var(--color-ink-soft)" }}>
-                {taskCount.toLocaleString()} task{taskCount === 1 ? "" : "s"} found
-              </span>
-            )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

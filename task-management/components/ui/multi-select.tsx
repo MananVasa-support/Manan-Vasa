@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Check, ChevronDown, X } from "lucide-react";
+import { Check, ChevronDown, X, Search } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -110,11 +110,35 @@ export function MultiSelect({
         </button>
         )}
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-0">
+      <PopoverContent
+        className="w-[286px] p-0 rounded-2xl border border-hairline overflow-hidden bg-surface-card data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-1"
+        style={{ boxShadow: "0 24px 60px -18px rgba(15,23,42,0.30), 0 2px 8px -2px rgba(15,23,42,0.10)" }}
+      >
         <Command onKeyDown={onCommandKeyDown}>
-          <CommandInput placeholder="Search…" />
-          <CommandList className="max-h-64 overflow-auto">
-            <CommandEmpty className="px-2 py-3 text-[15px] text-ink-subtle">
+          {/* Search row with leading icon */}
+          <div className="flex items-center gap-2 px-3 border-b border-hairline">
+            <Search size={15} strokeWidth={2.4} className="shrink-0 text-ink-subtle" />
+            <CommandInput placeholder="Search…" className="h-11 flex-1 border-0 px-0" />
+          </div>
+
+          {/* Selected count + clear */}
+          {selected.length > 0 && (
+            <div className="flex items-center justify-between px-3 py-2 border-b border-hairline bg-black/[0.02]">
+              <span className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-ink-subtle">
+                {selected.length} selected
+              </span>
+              <button
+                type="button"
+                onClick={() => onChange([])}
+                className="text-[12px] font-bold text-altus-red hover:underline"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
+          <CommandList className="max-h-72 overflow-auto p-1.5">
+            <CommandEmpty className="px-3 py-6 text-center text-[14px] text-ink-subtle">
               No results.
             </CommandEmpty>
             {options.map((opt) => {
@@ -126,17 +150,33 @@ export function MultiSelect({
                   // the user reads), not the opaque id. The id keeps it unique.
                   value={`${opt.label} ${opt.value}`}
                   onSelect={() => toggle(opt.value)}
+                  className="rounded-xl px-2.5 py-2.5 gap-2.5 transition-colors aria-selected:bg-black/[0.04]"
+                  style={checked ? { backgroundColor: "rgba(225,6,0,0.06)" } : undefined}
                 >
-                  <span className="flex items-center gap-2 w-full">
+                  <span className="flex items-center gap-2.5 w-full">
                     <span
                       className={cn(
-                        "size-4 rounded border border-hairline-strong flex items-center justify-center",
-                        checked && "bg-ink-strong border-ink-strong",
+                        "size-[18px] rounded-md flex items-center justify-center transition-all duration-150 shrink-0",
+                        checked
+                          ? "border-0 shadow-sm"
+                          : "border-2 border-hairline-strong",
+                      )}
+                      style={
+                        checked
+                          ? { background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }
+                          : undefined
+                      }
+                    >
+                      {checked && <Check size={12} strokeWidth={3.2} className="text-white" />}
+                    </span>
+                    <span
+                      className={cn(
+                        "flex-1 text-[14.5px] truncate",
+                        checked ? "font-semibold text-ink-strong" : "text-ink-soft",
                       )}
                     >
-                      {checked && <Check size={11} className="text-white" />}
+                      {opt.label}
                     </span>
-                    <span className="flex-1 text-ink-strong">{opt.label}</span>
                   </span>
                 </CommandItem>
               );

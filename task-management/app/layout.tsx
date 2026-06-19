@@ -95,13 +95,15 @@ export default async function RootLayout({
           safe and React's normal hydration warnings still apply
           everywhere else. */}
       <body suppressHydrationWarning>
-        {/* Display-scale no-flash: apply the saved/auto zoom BEFORE paint so the
-            UI never flashes at the wrong size. Mirrors lib/display-scale.ts
-            (kept inline because this must run pre-hydration). */}
+        {/* Display-scale's geometric `zoom` was removed — a non-unity zoom on
+            <html> double-applies to Radix/floating-ui portaled panels and threw
+            every dropdown/popover off toward a corner. This inline script now
+            only CLEARS any stale zoom a previous build may have left, pre-paint,
+            so an open tab self-heals on next load. See DisplayScaleProvider. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{var raw=localStorage.getItem('altus.displayScale')||'auto';var f;if(raw==='auto'){var r=window.innerWidth/1440;f=Math.round(Math.min(1.35,Math.max(1,r))*100)/100;}else{var m={smaller:0.9,'default':1,larger:1.15,largest:1.3};f=m[raw]||1;}document.documentElement.style.zoom=String(f);}catch(e){}})();",
+              "(function(){try{document.documentElement.style.zoom='';}catch(e){}})();",
           }}
         />
         <DisplayScaleProvider />

@@ -29,14 +29,18 @@ export const FilterPill = React.forwardRef<
       ref={ref}
       type="button"
       data-active={active}
+      // Single-line, compact: icon + value + chevron. The value (e.g. "All
+      // Status") is already self-describing, so the old sublabel is dropped to
+      // fit every filter on one line; it lives on as the hover title.
+      title={name}
       className={`filter-pill ${className ?? ""}`}
       {...props}
     >
       <span
-        className="inline-flex items-center justify-center rounded-[10px] shrink-0"
+        className="inline-flex items-center justify-center rounded-[9px] shrink-0"
         style={{
-          width: 34,
-          height: 34,
+          width: 30,
+          height: 30,
           background: active
             ? `color-mix(in srgb, ${tint} 14%, transparent)`
             : "var(--color-hairline)",
@@ -45,16 +49,8 @@ export const FilterPill = React.forwardRef<
       >
         {icon}
       </span>
-      <span className="flex flex-col min-w-0 leading-[1.15]">
-        <span
-          className="text-[14px] font-semibold truncate max-w-[170px]"
-          style={{ color: active ? "var(--color-ink-strong)" : "var(--color-ink-strong)" }}
-        >
-          {value}
-        </span>
-        <span className="text-[11.5px] font-medium" style={{ color: "var(--color-ink-subtle)" }}>
-          {name}
-        </span>
+      <span className="text-[14.5px] font-semibold truncate max-w-[160px] text-ink-strong">
+        {value}
       </span>
       <ChevronDown size={15} className="text-ink-subtle shrink-0" />
     </button>

@@ -138,15 +138,15 @@ export function TaskListPage({
   }
 
   return (
-    <main className="mx-auto max-w-[1600px] px-12 max-md:px-4 pt-8 pb-16">
-      <header className="mb-4 flex items-center justify-between gap-4 flex-wrap">
+    <main className="mx-auto max-w-[1600px] px-12 max-md:px-4 pt-4 max-md:pt-3 pb-16">
+      <header className="mb-3 flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1
             className="text-ink-strong"
             style={{
               fontFamily: "var(--font-display), system-ui, sans-serif",
               fontWeight: 900,
-              fontSize: "clamp(34px, 3.4vw, 46px)",
+              fontSize: "clamp(26px, 2.5vw, 34px)",
               letterSpacing: "-0.025em",
               lineHeight: 1,
             }}
@@ -173,7 +173,7 @@ export function TaskListPage({
       {/* KPI summary — 4 stat cards in the same visual language as the
           main dashboard tiles. Each card has a top channel-color bar,
           font-black label, big count, sublabel. */}
-      <div className="mb-4 grid grid-cols-6 gap-3 max-xl:grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1">
+      <div className="mb-3 grid grid-cols-6 gap-3 max-xl:grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1">
         {KPI_SPECS.map((spec) => {
           // notApproved + notRead don't map to the status/priority filter
           // dimensions, so they're display-only (not click-to-filter).
@@ -204,7 +204,7 @@ export function TaskListPage({
       <WeeklyGoalTaskGroup
         goals={weeklyGoals}
         showDoer={me.isAdmin && filters.assigneeMode === "all"}
-        className="mb-4"
+        className="mb-3"
       />
 
       {rows.length === 0 ? (

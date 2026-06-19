@@ -1,47 +1,35 @@
 "use client";
 
 import { useEffect } from "react";
-import {
-  DISPLAY_SCALE_EVENT,
-  DISPLAY_SCALE_KEY,
-  computeFactor,
-  readScaleMode,
-} from "@/lib/display-scale";
 
 /**
- * Keeps the document's `zoom` in sync with the user's display-scale preference.
- * In `auto` mode it re-applies on viewport resize so the UI tracks the screen;
- * it also listens for the in-app change event (Settings → Display size) and the
- * cross-tab `storage` event. Renders nothing. The initial pre-paint application
- * is handled by the inline no-flash script in app/layout.tsx so there's no
- * flash of unscaled UI before this mounts.
+ * Display scaling is DISABLED.
+ *
+ * This provider used to apply the user's display-scale preference as a CSS
+ * `zoom` on <html>. That broke the whole app: a non-unity `zoom` on an
+ * ancestor double-applies to Radix/floating-ui portaled panels (every
+ * dropdown, popover, tooltip, select), so menus flew off toward a screen
+ * corner instead of anchoring under their trigger. On wide monitors the
+ * default "auto-fit" produced zoom ≈ 1.33, so it broke for most users.
+ *
+ * CSS `zoom` is fundamentally incompatible with portaled floating UI — the
+ * portal target must sit at zoom 1 for floating-ui's coordinate math to
+ * work — so there is no small patch that keeps the geometric zoom. The
+ * feature is removed; if "fit the UI to the screen" is wanted again it must
+ * be rebuilt WITHOUT a geometric zoom (e.g. content max-widths or a density
+ * scale), which does not disturb portal positioning.
+ *
+ * Kept as a mounted no-op so it (a) preserves the layout import contract and
+ * (b) actively clears any stale `zoom` a previous build left on <html> in a
+ * still-open tab. Renders nothing.
  */
 export function DisplayScaleProvider() {
   useEffect(() => {
-    const apply = () => {
-      const factor = computeFactor(readScaleMode(), window.innerWidth);
-      document.documentElement.style.zoom = String(factor);
-    };
-    apply();
-
-    let raf = 0;
-    const onResize = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(apply);
-    };
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === DISPLAY_SCALE_KEY) apply();
-    };
-
-    window.addEventListener("resize", onResize);
-    window.addEventListener(DISPLAY_SCALE_EVENT, apply);
-    window.addEventListener("storage", onStorage);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener(DISPLAY_SCALE_EVENT, apply);
-      window.removeEventListener("storage", onStorage);
-    };
+    // Clear any leftover zoom from the previous (zoom-applying) build.
+    const root = document.documentElement;
+    if (root.style.zoom && root.style.zoom !== "1" && root.style.zoom !== "normal") {
+      root.style.zoom = "";
+    }
   }, []);
 
   return null;
