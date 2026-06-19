@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { requireUser } from "@/lib/auth/current";
 import { hasUnfilledWeekGoals } from "@/lib/weekly-goals/gate";
+import { needsDailyPlan } from "@/lib/daily-checklist/gate";
 import { WeeklyGoalsFillView } from "@/components/weekly-goals/weekly-goals-fill-view";
+import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist-view";
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import { IdleTimerClient } from "@/components/auth/idle-timer-client";
 import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
@@ -37,6 +39,27 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   if (mustFill) {
     return (
       <WeeklyGoalsFillView employeeId={me.id} greetingName={me.name.split(" ")[0] ?? me.name} />
+    );
+  }
+
+  // Mandatory DAILY-PLAN gate (WMS_OVERHAUL_MASTER_PLAN §5.3). After weekly
+  // goals, every authed page also gates on today's checklist: a user must
+  // commit ≥1 item to today before entering — the in-app replacement for the
+  // WhatsApp daily plan. Same inline render (not a redirect) + fail-open
+  // discipline as the weekly gate above.
+  let mustPlan = false;
+  try {
+    mustPlan = await needsDailyPlan(me.id);
+  } catch {
+    mustPlan = false;
+  }
+  if (mustPlan) {
+    return (
+      <DailyChecklistView
+        employeeId={me.id}
+        greetingName={me.name.split(" ")[0] ?? me.name}
+        mode="gate"
+      />
     );
   }
 

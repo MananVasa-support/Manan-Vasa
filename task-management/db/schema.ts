@@ -1813,6 +1813,54 @@ export const weeklyGoals = pgTable(
 export type WeeklyGoal = typeof weeklyGoals.$inferSelect;
 export type NewWeeklyGoal = typeof weeklyGoals.$inferInsert;
 
+// Daily Checklist (migration 0069) — the daily commitment ritual that replaces
+// the WhatsApp "aaj main ye karunga" plan. Each row is one thing the employee
+// committed to do on `plan_date`. A full table (not a view) so every day's list
+// is permanent nightly history. Items come from a Weekly Goal (origin
+// 'goal_related', goal_id set) or are typed ad-hoc (origin 'standalone').
+// Committing today's plan + the prior day's close-out are BOTH gated (design:
+// WMS_OVERHAUL_MASTER_PLAN §5.3): no one enters the app until today is planned.
+export const dailyChecklist = pgTable(
+  "daily_checklist",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    planDate: date("plan_date").notNull(),
+    // Provenance — at most one is set. goal_id ⇒ pulled from a Weekly Goal;
+    // task_id ⇒ pulled from an existing Task; neither ⇒ typed ad-hoc.
+    goalId: uuid("goal_id").references(() => weeklyGoals.id, { onDelete: "set null" }),
+    taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    origin: text("origin").notNull().default("standalone"), // 'goal_related' | 'standalone'
+    title: text("title").notNull(),
+    client: text("client"),
+    subject: text("subject"),
+    position: integer("position").notNull().default(1),
+    status: taskStatusEnum("status").notNull().default("not_started"),
+    // Night close-out: done/not-done + an optional note on what happened.
+    done: boolean("done").notNull().default(false),
+    doneNote: text("done_note"),
+    // When it entered today's plan (morning commit) and when it was closed out.
+    committedAt: timestamp("committed_at", { withTimezone: true }).notNull().defaultNow(),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    // Set when this item was rolled forward from an earlier, unfinished day.
+    movedFromDate: date("moved_from_date"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("daily_checklist_emp_date_idx").on(t.employeeId, t.planDate),
+    index("daily_checklist_date_idx").on(t.planDate),
+    // One pull of a given goal per employee per day (NULL goal_id ⇒ many ad-hoc
+    // rows allowed, since NULLs are distinct in a unique index).
+    uniqueIndex("daily_checklist_emp_date_goal_idx").on(t.employeeId, t.planDate, t.goalId),
+  ],
+);
+
+export type DailyChecklistItem = typeof dailyChecklist.$inferSelect;
+export type NewDailyChecklistItem = typeof dailyChecklist.$inferInsert;
+
 // Index hub (migration 0067) — the Altus Corp Ecosystem Index brought into the
 // app as an admin-editable tab. `index_sections` are titled groups; each holds
 // any number of `index_links` (hyperlink buttons). Everyone views, admins edit.

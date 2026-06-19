@@ -7,6 +7,7 @@ import {
   FolderKanban,
   SquareKanban,
   Target,
+  ListChecks,
   CalendarCheck,
   CalendarRange,
   Award,
@@ -71,6 +72,7 @@ const TOP_LEVEL: NavItem[] = [
   },
   { href: "/projects" as Route, label: "Projects", Icon: FolderKanban },
   { href: "/weekly-goals" as Route, label: "Weekly Goals", Icon: Target },
+  { href: "/daily-checklist" as Route, label: "Daily Checklist", Icon: ListChecks },
   {
     href: "/attendance" as Route,
     label: "Attendance",
