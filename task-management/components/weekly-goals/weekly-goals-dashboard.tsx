@@ -23,6 +23,7 @@ import type {
 } from "@/lib/queries/weekly-goals";
 import { formatWeekShort } from "@/lib/weekly-goals/week";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
+import { ScoreRing } from "@/components/weekly-goals/score-ring";
 
 type Period = "week" | "month" | "year";
 type Window = "week" | "month" | "quarter" | "year";
@@ -95,38 +96,60 @@ export function WeeklyGoalsDashboard(props: Props) {
 
   return (
     <main className="mx-auto max-w-[1400px] px-12 max-md:px-4 pt-8 pb-24">
-      <header className="mb-7 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1
-            className="text-ink-strong"
-            style={{
-              fontFamily: "var(--font-display), system-ui, sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(34px, 3.6vw, 48px)",
-              letterSpacing: "-0.025em",
-              lineHeight: 1,
-            }}
-          >
-            Weekly Goals — Performance
-          </h1>
-          <p className="mt-2 text-ink-muted font-semibold" style={{ fontSize: 17 }}>
-            Effective % (weighted), consistency, and who&rsquo;s leading the pack.
-          </p>
+      <header
+        className="wg-rise relative overflow-hidden rounded-2xl bg-surface-card border border-hairline px-7 py-5 max-md:px-5 mb-7"
+        style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}
+      >
+        <span
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-[3px]"
+          style={{ background: "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+        />
+        <div className="flex items-center justify-between gap-6 flex-wrap">
+          <div className="min-w-0">
+            <div className="text-[11px] font-black uppercase tracking-[0.2em] text-altus-red">
+              Accountability · Performance
+            </div>
+            <h1
+              className="mt-1 text-ink-strong"
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontStyle: "italic",
+                fontWeight: 600,
+                fontSize: "clamp(34px, 3.6vw, 50px)",
+                letterSpacing: "-0.02em",
+                lineHeight: 1,
+              }}
+            >
+              Weekly Goals Performance
+            </h1>
+            <p className="mt-2 text-ink-muted font-semibold" style={{ fontSize: 16.5 }}>
+              Effective % (weighted), consistency, and who&rsquo;s leading the pack.
+            </p>
+            <Link
+              href={"/weekly-goals" as Route}
+              className="wg-btn cursor-pointer mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full text-[14px] font-bold border border-hairline bg-surface-card text-ink-strong hover:border-hairline-strong"
+            >
+              <ArrowLeft size={15} strokeWidth={2.4} />
+              Back to Weekly Goals
+            </Link>
+          </div>
+          <div className="flex flex-col items-center shrink-0">
+            <div className={teamAvgConsistency >= 70 ? "wg-ring-glow" : ""}>
+              <ScoreRing value={teamAvgConsistency} size={104} label={`${teamAvgConsistency}% team consistency`} />
+            </div>
+            <span className="mt-2 text-[11px] font-black uppercase tracking-[0.14em] text-ink-subtle">
+              Team consistency · {WINDOW_TAB[window]}
+            </span>
+          </div>
         </div>
-        <Link
-          href={"/weekly-goals" as Route}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[14.5px] font-bold border border-hairline bg-surface-card text-ink-strong hover:brightness-95 transition-all"
-        >
-          <ArrowLeft size={16} strokeWidth={2.4} />
-          Back to Weekly Goals
-        </Link>
       </header>
 
       {/* Star of the Month ------------------------------------------- */}
       <StarOfMonth star={props.starOfMonth} />
 
       {/* Performer-of cards ------------------------------------------ */}
-      <div className="mb-8 grid grid-cols-3 gap-4 max-lg:grid-cols-1">
+      <div className="wg-rise mb-8 grid grid-cols-3 gap-4 max-lg:grid-cols-1" style={{ animationDelay: "120ms" }}>
         <PerformerCard label={PERIOD_LABELS.week} performer={props.performers.week} icon={Crown} tone="amber" />
         <PerformerCard label={PERIOD_LABELS.month} performer={props.performers.month} icon={Trophy} tone="purple" />
         <PerformerCard label={PERIOD_LABELS.year} performer={props.performers.year} icon={Award} tone="blue" />

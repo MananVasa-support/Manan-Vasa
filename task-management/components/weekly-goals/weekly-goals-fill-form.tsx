@@ -3,7 +3,8 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
-import { Target, Loader2, CheckCircle2, ArrowRight } from "lucide-react";
+import { Loader2, CheckCircle2, ArrowRight } from "lucide-react";
+import { ScoreRing } from "@/components/weekly-goals/score-ring";
 import { PRIORITY_LABELS, type TaskPriority } from "@/db/enums";
 import { fireToast } from "@/lib/toast";
 import type { UnfilledWeekGoal } from "@/lib/weekly-goals/gate";
@@ -78,36 +79,39 @@ export function WeeklyGoalsFillForm({ goals, weekLabel, greetingName }: Props) {
     });
   }
 
+  const avgPct = goals.length
+    ? Math.round(goals.reduce((s, g) => s + (drafts[g.id]?.pctDone ?? 0), 0) / goals.length)
+    : 0;
+
   return (
     <div className="min-h-screen bg-[var(--color-canvas)] px-6 py-12 max-md:px-4 max-md:py-8">
       <div className="mx-auto w-full max-w-[760px]">
         {/* Header --------------------------------------------------------- */}
-        <header className="mb-8 text-center">
-          <div
-            className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl text-white"
-            style={{
-              background:
-                "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-              boxShadow: "0 10px 28px -10px rgba(225, 6, 0, 0.6)",
-            }}
-          >
-            <Target size={28} strokeWidth={2.4} />
+        <header className="wg-rise mb-8 text-center">
+          <div className="text-[11px] font-black uppercase tracking-[0.2em] text-altus-red mb-3">
+            Weekly check-in · {weekLabel}
+          </div>
+          <div className="mx-auto mb-4 flex justify-center">
+            <div className={avgPct >= 100 ? "wg-ring-glow" : ""}>
+              <ScoreRing value={avgPct} size={92} label={`${avgPct}% average progress`} />
+            </div>
           </div>
           <h1
             className="text-ink-strong"
             style={{
-              fontFamily: "var(--font-display), system-ui, sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(28px, 3.4vw, 40px)",
-              letterSpacing: "-0.025em",
-              lineHeight: 1.05,
+              fontFamily: "var(--font-serif)",
+              fontStyle: "italic",
+              fontWeight: 600,
+              fontSize: "clamp(32px, 3.6vw, 46px)",
+              letterSpacing: "-0.02em",
+              lineHeight: 1.02,
             }}
           >
             Fill your weekly goals
           </h1>
           <p
             className="mx-auto mt-3 max-w-[52ch] text-ink-muted font-medium"
-            style={{ fontSize: 16, lineHeight: 1.5 }}
+            style={{ fontSize: 16.5, lineHeight: 1.5 }}
           >
             {greetingName}, update the progress on each goal assigned to you for{" "}
             <span className="font-bold text-ink-strong">{weekLabel}</span> to
@@ -126,8 +130,8 @@ export function WeeklyGoalsFillForm({ goals, weekLabel, greetingName }: Props) {
             return (
               <li
                 key={g.id}
-                className="rounded-2xl border border-hairline bg-white p-5 max-md:p-4"
-                style={{ boxShadow: "0 1px 2px rgba(15,23,42,0.04)" }}
+                className="wg-rise rounded-2xl border border-hairline bg-white p-5 max-md:p-4"
+                style={{ boxShadow: "0 1px 2px rgba(15,23,42,0.04)", animationDelay: `${Math.min(i * 60, 360)}ms` }}
               >
                 {/* Card head: index, priority, client·subject, target date */}
                 <div className="mb-3 flex items-start justify-between gap-3">
@@ -175,7 +179,7 @@ export function WeeklyGoalsFillForm({ goals, weekLabel, greetingName }: Props) {
                           type="button"
                           disabled={pending}
                           onClick={() => patch(g.id, { pctDone: p })}
-                          className="rounded-full border px-3.5 py-1.5 text-[14px] font-bold tabular-nums transition-all active:scale-[0.97] disabled:opacity-50"
+                          className="wg-btn cursor-pointer rounded-full border px-3.5 py-1.5 text-[14px] font-bold tabular-nums disabled:opacity-50"
                           style={
                             active
                               ? {
@@ -261,7 +265,7 @@ export function WeeklyGoalsFillForm({ goals, weekLabel, greetingName }: Props) {
             type="button"
             disabled={pending}
             onClick={submit}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-[16px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-70"
+            className="wg-btn wg-sheen cursor-pointer flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-[16px] font-bold text-white hover:brightness-110 disabled:opacity-70"
             style={{
               background:
                 "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
