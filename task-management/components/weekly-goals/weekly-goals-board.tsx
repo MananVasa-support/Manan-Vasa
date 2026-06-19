@@ -16,12 +16,6 @@ import {
   Flag,
   Target,
 } from "lucide-react";
-import {
-  PRIORITY_LABELS,
-  TASK_PRIORITIES,
-  type TaskPriority,
-} from "@/db/enums";
-import { MultiSelect } from "@/components/ui/multi-select";
 import { Select } from "@/components/ui/select";
 import { WeeklyGoalsImport } from "@/components/weekly-goals/weekly-goals-import";
 import { GoalCard } from "@/components/weekly-goals/goal-card";
@@ -91,7 +85,6 @@ export function WeeklyGoalsBoard(props: Props) {
   );
 
   // Client-side filters (priority) + a reviewer-only "show archived" toggle.
-  const [priorityFilter, setPriorityFilter] = React.useState<string[]>([]);
   const [showArchived, setShowArchived] = React.useState(false);
 
   // Shared two-step delete dialog state (one dialog for every card).
@@ -106,10 +99,9 @@ export function WeeklyGoalsBoard(props: Props) {
   const visible = React.useMemo(() => {
     return props.rows.filter((r) => {
       if (!showArchived && r.archived) return false;
-      if (priorityFilter.length > 0 && !priorityFilter.includes(r.priority)) return false;
       return true;
     });
-  }, [props.rows, showArchived, priorityFilter]);
+  }, [props.rows, showArchived]);
 
   // Group by employee for the admin "all" overview.
   const grouped = React.useMemo(() => {
@@ -312,15 +304,6 @@ export function WeeklyGoalsBoard(props: Props) {
           </button>
         )}
 
-        <div className="min-w-[200px]">
-          <MultiSelect
-            options={TASK_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
-            selected={priorityFilter}
-            onChange={setPriorityFilter}
-            placeholder="All priorities"
-          />
-        </div>
-
         {props.me.canReview && (
           <button
             type="button"
@@ -419,6 +402,8 @@ export function WeeklyGoalsBoard(props: Props) {
               weekStart={props.weekStart}
               clientOptions={props.clientOptions}
               subjectOptions={props.subjectOptions}
+              currentWeight={weightTotal}
+              currentCount={activeVisible.length}
             />
           </div>
         </div>
