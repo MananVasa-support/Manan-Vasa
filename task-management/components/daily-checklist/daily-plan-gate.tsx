@@ -176,6 +176,12 @@ export function DailyPlanGate({ greetingName, today, items: pItems, overdue: pOv
             <p className="mt-3 shrink-0 font-medium" style={{ fontSize: 16, lineHeight: 1.5, color: INK_SOFT, maxWidth: "42ch" }}>
               Rule in {met ? "your day" : `at least ${MIN} things`} you&apos;ll get done. Pull from your goals, or write your own — then start.
             </p>
+            {/* D14 + B30 — this is the record now (replaces the WhatsApp morning
+                message); not committing the day reads as absent. */}
+            <p className="mt-2 shrink-0 text-[13px] font-semibold" style={{ color: RED_DEEP, maxWidth: "46ch" }}>
+              This is your attendance for the day — it replaces the WhatsApp morning message.
+              Skip it and you&apos;ll be marked <span className="font-black">absent</span>.
+            </p>
 
             {/* overdue carry-forward (only if any) */}
             <AnimatePresence>

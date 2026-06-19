@@ -76,6 +76,22 @@ function getResend(): Resend | null {
 
 const FROM = process.env.RESEND_FROM_EMAIL || "Altus Corp Dashboard <onboarding@resend.dev>";
 
+/**
+ * D12 (WMS overhaul Phase 6) — company-record BCC. When `EMAIL_BCC_ADDRESS` is
+ * set (comma-separated allowed), every piece of OUTGOING CORRESPONDENCE
+ * (notifications, digests, weekly-goals planner mails) is blind-copied to the
+ * company archive inbox so management has a durable record. Returns a spreadable
+ * `{ bcc }` fragment, or `{}` when unconfigured (no-op). Deliberately NOT applied
+ * to auth credential mails (invite / reset / password) — those carry secrets we
+ * don't want archived.
+ */
+function companyBcc(): { bcc?: string[] } {
+  const raw = process.env.EMAIL_BCC_ADDRESS?.trim();
+  if (!raw) return {};
+  const list = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return list.length > 0 ? { bcc: list } : {};
+}
+
 const SUBJECT_MAX = 80;
 
 function clampSubject(s: string): string {
@@ -310,6 +326,7 @@ export async function sendNotificationEmail(
     to: recipient.email,
     subject: clampSubject(n.title),
     react: template,
+    ...companyBcc(),
   });
 }
 
@@ -339,6 +356,7 @@ export async function sendDigestEmail(
         pendingTasks:  args.pendingTasks,
         siteUrl:       args.siteUrl ?? "",
       }),
+      ...companyBcc(),
     });
     if (error) return { id: null, error: error.message };
     return { id: data?.id ?? null, error: null };
@@ -377,6 +395,7 @@ export async function sendWeeklyGoalsMondayEmail(args: {
         goals: args.goals,
         siteUrl: args.siteUrl ?? "",
       }),
+      ...companyBcc(),
     });
     if (error) return { id: null, error: error.message };
     return { id: data?.id ?? null, error: null };
@@ -405,6 +424,7 @@ export async function sendWeeklyGoalsFillReminderEmail(args: {
         pendingCount: args.pendingCount,
         siteUrl: args.siteUrl ?? "",
       }),
+      ...companyBcc(),
     });
     if (error) return { id: null, error: error.message };
     return { id: data?.id ?? null, error: null };
@@ -435,6 +455,7 @@ export async function sendWeeklyGoalsIncompleteEmail(args: {
         unmarkedCount: args.unmarkedCount,
         siteUrl: args.siteUrl ?? "",
       }),
+      ...companyBcc(),
     });
     if (error) return { id: null, error: error.message };
     return { id: data?.id ?? null, error: null };
