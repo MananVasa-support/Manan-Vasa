@@ -10,7 +10,6 @@ import {
   ChevronRight,
   CalendarClock,
   Gauge,
-  Flag,
   IndianRupee,
   Target,
   Loader2,
@@ -26,7 +25,6 @@ const EDITORIAL = {
   hairline: "rgba(23,20,17,0.08)",
 } as const;
 const SERIF = "var(--font-editorial), Georgia, serif";
-import { PRIORITY_LABELS, type TaskPriority } from "@/db/enums";
 import { fireToast } from "@/lib/toast";
 import {
   editWeeklyGoal,
@@ -41,9 +39,7 @@ import {
   ComboInput,
   AutoTextarea,
   LinkField,
-  PriorityPicker,
   YesNo,
-  PRIORITY_TONE,
   pctTone,
 } from "@/components/weekly-goals/field-controls";
 import { GoalReviewPanel } from "@/components/weekly-goals/goal-review-panel";
@@ -83,7 +79,6 @@ export function GoalCard({
   const [reviewOpen, setReviewOpen] = React.useState(autoFocus && canReview);
   const cardRef = React.useRef<HTMLDivElement>(null);
 
-  const tone = PRIORITY_TONE[goal.priority];
   const eff = effectivePct(goal);
   const status = statusDisplay[goal.status];
 
@@ -197,12 +192,7 @@ export function GoalCard({
         {/* Chips row ---------------------------------------------------- */}
         {!editing && (
           <div className="mt-3 flex flex-wrap items-center gap-1.5 pl-10">
-            <Chip
-              icon={<Flag size={12} />}
-              label={PRIORITY_LABELS[goal.priority]}
-              tone={tone}
-            />
-            <Chip icon={<Gauge size={12} />} label={`Weight ${goal.weight}`} />
+            <Chip icon={<Gauge size={12} />} label={`Weight ${goal.weight}`} tone="red" />
             {goal.targetDate && (
               <Chip icon={<CalendarClock size={12} />} label={formatWeekShort(goal.targetDate)} />
             )}
@@ -213,7 +203,6 @@ export function GoalCard({
                 tone="green"
               />
             )}
-            {goal.kpi && <Chip icon={<Target size={12} />} label="KPI" tone="purple" />}
             {goal.carriedFromId && <Chip label="↪ carried" />}
             {goal.archived && <Chip icon={<Archive size={12} />} label="Archived" tone="slate" />}
           </div>
@@ -326,13 +315,6 @@ export function GoalCard({
 
             <div className="flex flex-wrap items-end gap-3">
               <label className="block">
-                <span className="mb-1 block text-[12px] font-bold text-ink-soft">Priority</span>
-                <PriorityPicker
-                  value={goal.priority}
-                  onChange={(p) => save({ id: goal.id, priority: p })}
-                />
-              </label>
-              <label className="block">
                 <span className="mb-1 block text-[12px] font-bold text-ink-soft">Weight</span>
                 <WeightInput value={goal.weight} onCommit={(w) => save({ id: goal.id, weight: w })} />
               </label>
@@ -354,8 +336,6 @@ export function GoalCard({
                   value={goal.incentive}
                   onChange={(v) => save({ id: goal.id, incentive: v })}
                 />
-                <span className="text-[12px] font-bold text-ink-soft">KPI</span>
-                <YesNo value={goal.kpi} onChange={(v) => save({ id: goal.id, kpi: v })} />
               </div>
             </div>
 
