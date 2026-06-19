@@ -14,6 +14,7 @@ import {
   Loader2,
   CheckCircle2,
   Flag,
+  Target,
 } from "lucide-react";
 import {
   PRIORITY_LABELS,
@@ -265,7 +266,10 @@ export function WeeklyGoalsBoard(props: Props) {
       )}
 
       {/* Controls: week nav + employee scope + filters --------------- */}
-      <div className="mb-5 flex items-center gap-3 flex-wrap">
+      <div
+        className="wg-rise mb-5 flex items-center gap-3 flex-wrap rounded-2xl border border-hairline bg-surface-card px-4 py-3"
+        style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)", animationDelay: "60ms" }}
+      >
         <div className="inline-flex items-center rounded-full border border-hairline bg-surface-card overflow-hidden">
           <button
             type="button"
@@ -308,14 +312,30 @@ export function WeeklyGoalsBoard(props: Props) {
         </div>
 
         {props.me.canReview && (
-          <label className="inline-flex items-center gap-1.5 text-[14px] font-bold text-ink-soft">
-            <input
-              type="checkbox"
-              checked={showArchived}
-              onChange={(e) => setShowArchived(e.target.checked)}
-            />
-            Show archived
-          </label>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={showArchived}
+            onClick={() => setShowArchived((v) => !v)}
+            className="wg-btn cursor-pointer inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13.5px] font-bold transition-colors"
+            style={
+              showArchived
+                ? { background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)", borderColor: "var(--color-altus-red)", color: "var(--color-altus-red-deep)" }
+                : { borderColor: "var(--color-hairline)", color: "var(--color-ink-soft)" }
+            }
+          >
+            <span
+              aria-hidden
+              className="inline-flex h-[18px] w-8 shrink-0 items-center rounded-full p-0.5 transition-colors"
+              style={{ background: showArchived ? "var(--color-altus-red)" : "var(--color-hairline-strong)" }}
+            >
+              <span
+                className="size-[14px] rounded-full bg-white transition-transform"
+                style={{ transform: showArchived ? "translateX(14px)" : "translateX(0)" }}
+              />
+            </span>
+            Archived
+          </button>
         )}
 
         {props.canPickTeam && (
@@ -639,15 +659,45 @@ function ScorePill({
 function EmptyState() {
   return (
     <div
-      className="bg-surface-card rounded-section border border-hairline p-10 text-center"
+      className="wg-rise relative overflow-hidden bg-surface-card rounded-section border border-hairline px-8 py-14 text-center"
       style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
     >
-      <p className="font-bold" style={{ fontSize: 20, color: "var(--color-ink-strong)" }}>
-        No weekly goals set yet.
-      </p>
-      <p className="mt-2 font-semibold" style={{ fontSize: 15, color: "var(--color-ink-muted)" }}>
-        Pick a team member, then add their top priorities for the week.
-      </p>
+      {/* faint concentric target rings behind the icon */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-12 -translate-x-1/2 opacity-[0.06]"
+        style={{
+          width: 260,
+          height: 260,
+          borderRadius: "50%",
+          background:
+            "radial-gradient(circle, transparent 38%, var(--color-altus-red) 39%, transparent 41%, transparent 58%, var(--color-altus-red) 59%, transparent 61%)",
+        }}
+      />
+      <div className="relative">
+        <span
+          className="mx-auto mb-4 inline-flex size-16 items-center justify-center rounded-2xl"
+          style={{
+            background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)",
+            color: "var(--color-altus-red)",
+          }}
+        >
+          <Target size={30} strokeWidth={2.2} />
+        </span>
+        <h3
+          className="text-ink-strong"
+          style={{ fontFamily: SERIF, fontStyle: "italic", fontWeight: 600, fontSize: 28, letterSpacing: "-0.01em" }}
+        >
+          No weekly goals yet
+        </h3>
+        <p
+          className="mx-auto mt-2 max-w-[44ch] font-medium"
+          style={{ fontSize: 15.5, lineHeight: 1.5, color: "var(--color-ink-soft)" }}
+        >
+          Pick a team member from the toolbar above, then add their top priorities
+          for the week — five is the floor, weights total 100.
+        </p>
+      </div>
     </div>
   );
 }
