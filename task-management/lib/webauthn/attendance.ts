@@ -36,7 +36,10 @@ async function setChallenge(challenge: string): Promise<void> {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 300,
+    // 15 min (was 5): the punch flow does a slow GPS + biometric handoff on
+    // phones, and the 5-min challenge was expiring mid-punch ("authentication
+    // stuck" / only works in the foreground). G4 fix.
+    maxAge: 900,
   });
 }
 

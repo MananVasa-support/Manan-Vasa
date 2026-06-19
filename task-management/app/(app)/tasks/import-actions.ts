@@ -9,6 +9,7 @@ import { afterResponse } from "@/lib/after";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import { deriveShortId, nextShortIdCandidate } from "@/lib/import/short-id";
 import { notify } from "@/lib/notifications/dispatch";
+import { reconcileTaskEvent } from "@/lib/google/sync";
 import {
   buildImportPreview,
   type ImportPreview,
@@ -64,6 +65,7 @@ export async function commitTaskImport(formData: FormData): Promise<CommitImport
   }
 
   const notifyIntents: Array<Parameters<typeof notify>[0]> = [];
+  const createdIds: string[] = [];
   let created = 0;
 
   try {
@@ -147,6 +149,7 @@ export async function commitTaskImport(formData: FormData): Promise<CommitImport
         });
       }
       created += 1;
+      createdIds.push(inserted.id);
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -160,6 +163,11 @@ export async function commitTaskImport(formData: FormData): Promise<CommitImport
       for (const intent of notifyIntents) await notify(intent);
     });
   }
+
+  // G1 fix: push each imported task onto the doer's Google Calendar, same as the
+  // form-create path. Imports previously skipped this, so imported tasks never
+  // appeared on calendars. Deferred so the import stays snappy; never throws.
+  for (const id of createdIds) afterResponse(() => reconcileTaskEvent(id));
 
   revalidatePath("/tasks");
   revalidatePath("/archived");
