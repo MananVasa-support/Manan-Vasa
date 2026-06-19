@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   Flag,
   Target,
+  Search,
+  X,
 } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { WeeklyGoalsImport } from "@/components/weekly-goals/weekly-goals-import";
@@ -84,8 +86,12 @@ export function WeeklyGoalsBoard(props: Props) {
     [props.manageableIds],
   );
 
-  // Client-side filters (priority) + a reviewer-only "show archived" toggle.
+  // Reviewer-only "show archived" toggle + the list filters / sort.
   const [showArchived, setShowArchived] = React.useState(false);
+  const [search, setSearch] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState("all");
+  const [completion, setCompletion] = React.useState("all");
+  const [sort, setSort] = React.useState("weight");
 
   // Shared two-step delete dialog state (one dialog for every card).
   const [deleteTarget, setDeleteTarget] = React.useState<BoardGoal | null>(null);
@@ -96,37 +102,75 @@ export function WeeklyGoalsBoard(props: Props) {
     router.push(`/weekly-goals?${sp.toString()}` as Route);
   }
 
-  const visible = React.useMemo(() => {
-    return props.rows.filter((r) => {
-      if (!showArchived && r.archived) return false;
+  // Effective % = manager's accepted number once set, else the doer's report.
+  const effPct = (r: BoardGoal) => r.acceptPct ?? r.pctDone;
+
+  // `visible` = the week's goals minus archived — drives the headline score, the
+  // min-5 tracker and the weight total. Filters/sort must NOT change those.
+  const visible = React.useMemo(
+    () => props.rows.filter((r) => showArchived || !r.archived),
+    [props.rows, showArchived],
+  );
+
+  // `displayed` = what the LIST shows: `visible` narrowed by search / status /
+  // completion, then sorted. Keeps the headline stats off the filtered set.
+  const displayed = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const rows = visible.filter((r) => {
+      if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      if (completion !== "all") {
+        const p = effPct(r);
+        if (completion === "behind" && p >= 50) return false;
+        if (completion === "ontrack" && (p < 50 || p >= 100)) return false;
+        if (completion === "done" && p < 100) return false;
+      }
+      if (q) {
+        const hay = `${r.client ?? ""} ${r.subject ?? ""} ${r.targetDone ?? ""} ${r.employeeName}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       return true;
     });
-  }, [props.rows, showArchived]);
+    const cmp: Record<string, (a: BoardGoal, b: BoardGoal) => number> = {
+      weight: (a, b) => (b.weight || 0) - (a.weight || 0),
+      scoreDesc: (a, b) => effPct(b) - effPct(a),
+      scoreAsc: (a, b) => effPct(a) - effPct(b),
+      name: (a, b) => (a.client || a.subject || a.targetDone || "").localeCompare(b.client || b.subject || b.targetDone || ""),
+      recent: (a, b) => (b.pctUpdatedAt?.getTime() ?? 0) - (a.pctUpdatedAt?.getTime() ?? 0),
+    };
+    return [...rows].sort(cmp[sort] ?? cmp.weight);
+  }, [visible, search, statusFilter, completion, sort]);
 
-  // Group by employee for the admin "all" overview.
+  // Group by employee for the admin "all" overview (off the displayed list).
   const grouped = React.useMemo(() => {
     const map = new Map<string, { name: string; rows: BoardGoal[] }>();
-    for (const r of visible) {
+    for (const r of displayed) {
       if (!map.has(r.employeeId)) map.set(r.employeeId, { name: r.employeeName, rows: [] });
       map.get(r.employeeId)!.rows.push(r);
     }
     return [...map.entries()];
-  }, [visible]);
+  }, [displayed]);
 
   const totalCount = visible.length;
   const activeVisible = React.useMemo(() => visible.filter((r) => !r.archived), [visible]);
   const overallScore = weeklyScore(activeVisible);
-
-  // Premium stat strip + the mandatory-5 enforcement. Effective % is the
-  // manager's accepted number once set, else the doer's self-report.
-  const effPct = (r: BoardGoal) => (r.acceptPct ?? r.pctDone);
   const doneCount = activeVisible.filter((r) => effPct(r) >= 100).length;
   const pendingCount = activeVisible.length - doneCount;
   const weightTotal = activeVisible.reduce((s, r) => s + (r.weight || 0), 0);
-  // Min-5 rule applies per person; only meaningful when one person is scoped.
   const TARGET_GOALS = 5;
   const scopedCount = showingAll ? null : activeVisible.length;
   const shortBy = scopedCount == null ? 0 : Math.max(0, TARGET_GOALS - scopedCount);
+
+  // Distinct statuses present → the Status filter options (labelled via map).
+  const statusOptions = React.useMemo(
+    () => [...new Set(visible.map((r) => r.status))].map((s) => ({
+      value: s,
+      label: props.statusDisplay[s]?.label ?? s,
+    })),
+    [visible, props.statusDisplay],
+  );
+  const activeFilterCount =
+    (search.trim() ? 1 : 0) + (statusFilter !== "all" ? 1 : 0) + (completion !== "all" ? 1 : 0);
+  const clearFilters = () => { setSearch(""); setStatusFilter("all"); setCompletion("all"); };
 
   // Props shared by every card (the card-specific srNo / goal / canEdit /
   // autoFocus are passed per-card at the render site).
@@ -156,7 +200,7 @@ export function WeeklyGoalsBoard(props: Props) {
       <div className="relative mx-auto max-w-[1280px] px-12 max-md:px-4 pt-8 pb-24">
       {/* ── HERO BAND ───────────────────────────────────────────────── */}
       <section
-        className="wg-rise relative overflow-hidden rounded-[28px] px-9 py-8 max-md:px-5 max-md:py-6 mb-5"
+        className="wg-rise relative overflow-hidden rounded-3xl px-8 py-5 max-md:px-5 max-md:py-4 mb-4"
         style={{
           background:
             "radial-gradient(130% 150% at 88% -10%, rgba(225,6,0,0.34) 0%, transparent 55%), linear-gradient(135deg, #1C1511 0%, #0E0B09 100%)",
@@ -181,26 +225,25 @@ export function WeeklyGoalsBoard(props: Props) {
               Accountability · {props.weekLabel}
             </div>
             <h1
-              className="mt-2"
+              className="mt-1.5"
               style={{
                 fontFamily: SERIF,
                 fontWeight: 800,
                 color: "#F7F4ED",
-                fontSize: "clamp(40px, 5vw, 64px)",
+                fontSize: "clamp(30px, 3.2vw, 46px)",
                 letterSpacing: "-0.025em",
-                lineHeight: 0.98,
+                lineHeight: 1,
               }}
             >
               Weekly Goals
             </h1>
             <p
-              className="mt-3 max-w-[46ch] font-medium"
-              style={{ fontSize: 16, lineHeight: 1.5, color: "rgba(247,244,237,0.66)" }}
+              className="mt-1.5 max-w-[52ch] font-medium"
+              style={{ fontSize: 14, lineHeight: 1.45, color: "rgba(247,244,237,0.62)" }}
             >
-              The handful of priorities each person commits to — weighted, scored,
-              and reviewed. Five is the floor.
+              The handful of priorities each person commits to — weighted, scored, reviewed. Five is the floor.
             </p>
-            <div className="mt-5 flex items-center gap-2.5 flex-wrap">
+            <div className="mt-4 flex items-center gap-2.5 flex-wrap">
               <Link
                 href={"/weekly-goals?view=dashboard" as Route}
                 className="wg-btn wg-sheen inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[14.5px] font-bold text-white cursor-pointer"
@@ -233,12 +276,12 @@ export function WeeklyGoalsBoard(props: Props) {
               >
                 <ScoreRing
                   value={overallScore}
-                  size={132}
+                  size={94}
                   label={`${overallScore}% ${showingAll ? "team " : ""}weekly score`}
                 />
               </div>
               <span
-                className="mt-3 text-[11px] font-black uppercase tracking-[0.16em]"
+                className="mt-2 text-[10.5px] font-black uppercase tracking-[0.16em]"
                 style={{ color: "rgba(247,244,237,0.55)" }}
               >
                 {showingAll ? "Team" : "Weekly"} score · {doneCount}/{totalCount} done
@@ -248,104 +291,95 @@ export function WeeklyGoalsBoard(props: Props) {
         </div>
       </section>
 
-      {/* ── STAT STRIP ──────────────────────────────────────────────── */}
-      <div className="mb-5 grid grid-cols-4 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
-        <StatCard i={0} label="Goals" value={String(totalCount)} tone="slate" hint={showingAll ? `${grouped.length} people` : "this week"} />
-        <StatCard i={1} label="Weekly score" value={`${overallScore}%`} tone="red" hint="weighted average" />
-        <StatCard i={2} label="Done" value={String(doneCount)} tone="green" hint={`${pendingCount} pending`} />
-        <StatCard
-          i={3}
-          label="Total weight"
-          value={`${weightTotal}`}
-          tone={weightTotal === 100 || showingAll ? "amber" : "red"}
-          hint={showingAll ? "across team" : weightTotal === 100 ? "balanced · 100" : `must total 100`}
-        />
-      </div>
-
       {/* ── MANDATORY-5 TRACKER (single-person scope only) ──────────── */}
       {scopedCount != null && (
         <Min5Tracker count={scopedCount} target={TARGET_GOALS} shortBy={shortBy} />
       )}
 
-      {/* Controls: week nav + employee scope + filters --------------- */}
+      {/* ── Filter command bar ──────────────────────────────────────── */}
       <div
-        className="wg-rise mb-5 flex items-center gap-3 flex-wrap rounded-2xl border border-hairline bg-surface-card px-4 py-3"
-        style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)", animationDelay: "60ms" }}
+        className="wg-rise mb-5 rounded-2xl border border-hairline bg-surface-card p-3"
+        style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05), 0 18px 44px -30px rgba(27,20,14,0.28)", animationDelay: "60ms" }}
       >
-        <div className="inline-flex items-center rounded-full border border-hairline bg-surface-card overflow-hidden">
-          <button
-            type="button"
-            aria-label="Previous week"
-            onClick={() => go({ week: props.prevWeek, emp: props.scopeEmp })}
-            className="wg-btn cursor-pointer px-3 py-2 hover:bg-black/[0.05]"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <span className="px-4 py-2 inline-flex items-center gap-2 font-bold text-ink-strong text-[15px] tabular-nums border-x border-hairline">
-            <CalendarDays size={16} className="text-ink-muted" />
-            {props.weekLabel}
-          </span>
-          <button
-            type="button"
-            aria-label="Next week"
-            onClick={() => go({ week: props.nextWeek, emp: props.scopeEmp })}
-            className="wg-btn cursor-pointer px-3 py-2 hover:bg-black/[0.05]"
-          >
-            <ChevronRight size={18} />
-          </button>
-        </div>
-        {!props.isCurrentWeek && (
-          <button
-            type="button"
-            onClick={() => go({ week: props.thisWeek, emp: props.scopeEmp })}
-            className="wg-btn cursor-pointer px-4 py-2 rounded-full border border-hairline bg-surface-card font-bold text-[14px] text-ink-soft hover:text-ink-strong"
-          >
-            This week
-          </button>
-        )}
-
-        {props.me.canReview && (
-          <button
-            type="button"
-            role="switch"
-            aria-checked={showArchived}
-            onClick={() => setShowArchived((v) => !v)}
-            className="wg-btn cursor-pointer inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13.5px] font-bold transition-colors"
-            style={
-              showArchived
-                ? { background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)", borderColor: "var(--color-altus-red)", color: "var(--color-altus-red-deep)" }
-                : { borderColor: "var(--color-hairline)", color: "var(--color-ink-soft)" }
-            }
-          >
-            <span
-              aria-hidden
-              className="inline-flex h-[18px] w-8 shrink-0 items-center rounded-full p-0.5 transition-colors"
-              style={{ background: showArchived ? "var(--color-altus-red)" : "var(--color-hairline-strong)" }}
-            >
-              <span
-                className="size-[14px] rounded-full bg-white transition-transform"
-                style={{ transform: showArchived ? "translateX(14px)" : "translateX(0)" }}
-              />
-            </span>
-            Archived
-          </button>
-        )}
-
-        {props.canPickTeam && (
-          <div className="ml-auto w-[230px] max-md:w-full">
-            <Select
-              value={props.scopeEmp}
-              onValueChange={(v) => go({ week: props.weekStart, emp: v })}
-              searchable
-              searchPlaceholder="Search people…"
-              ariaLabel="Filter by team member"
-              options={[
-                { value: "all", label: !props.me.isAdmin ? "My team" : "All team members" },
-                ...props.employees.map((e) => ({ value: e.id, label: e.name })),
-              ]}
+        {/* primary: search · status · progress · sort · team */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="relative flex-1 min-w-[210px]">
+            <Search size={16} strokeWidth={2.4} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle pointer-events-none" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search goals, clients, subjects…"
+              className="w-full rounded-full border border-hairline bg-white pl-9 pr-9 py-2 text-[14px] font-medium text-ink-strong outline-none transition-colors focus:border-altus-red"
             />
+            {search && (
+              <button type="button" onClick={() => setSearch("")} aria-label="Clear search" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-subtle hover:text-ink-strong cursor-pointer">
+                <X size={15} />
+              </button>
+            )}
           </div>
-        )}
+          <div className="w-[148px] max-md:flex-1">
+            <Select value={statusFilter} onValueChange={setStatusFilter} ariaLabel="Filter by status"
+              options={[{ value: "all", label: "All statuses" }, ...statusOptions]} />
+          </div>
+          <div className="w-[150px] max-md:flex-1">
+            <Select value={completion} onValueChange={setCompletion} ariaLabel="Filter by progress"
+              options={[
+                { value: "all", label: "Any progress" },
+                { value: "behind", label: "Behind · <50%" },
+                { value: "ontrack", label: "On track" },
+                { value: "done", label: "Done · 100%" },
+              ]} />
+          </div>
+          <div className="w-[172px] max-md:flex-1">
+            <Select value={sort} onValueChange={setSort} ariaLabel="Sort goals"
+              options={[
+                { value: "weight", label: "Sort · Weight" },
+                { value: "scoreDesc", label: "Sort · Score high→low" },
+                { value: "scoreAsc", label: "Sort · Score low→high" },
+                { value: "name", label: "Sort · Name A→Z" },
+                { value: "recent", label: "Sort · Recently updated" },
+              ]} />
+          </div>
+          {props.canPickTeam && (
+            <div className="w-[196px] max-md:flex-1">
+              <Select value={props.scopeEmp} onValueChange={(v) => go({ week: props.weekStart, emp: v })} searchable searchPlaceholder="Search people…" ariaLabel="Filter by team member"
+                options={[{ value: "all", label: !props.me.isAdmin ? "My team" : "All team members" }, ...props.employees.map((e) => ({ value: e.id, label: e.name }))]} />
+            </div>
+          )}
+        </div>
+
+        {/* secondary: week nav · this week · archived · clear · count */}
+        <div className="mt-2.5 flex items-center gap-2.5 flex-wrap border-t border-hairline pt-2.5">
+          <div className="inline-flex items-center rounded-full border border-hairline overflow-hidden">
+            <button type="button" aria-label="Previous week" onClick={() => go({ week: props.prevWeek, emp: props.scopeEmp })} className="wg-btn cursor-pointer px-2.5 py-1.5 hover:bg-black/[0.05]"><ChevronLeft size={17} /></button>
+            <span className="px-3 py-1.5 inline-flex items-center gap-2 font-bold text-ink-strong text-[14px] tabular-nums border-x border-hairline">
+              <CalendarDays size={15} className="text-ink-muted" />{props.weekLabel}
+            </span>
+            <button type="button" aria-label="Next week" onClick={() => go({ week: props.nextWeek, emp: props.scopeEmp })} className="wg-btn cursor-pointer px-2.5 py-1.5 hover:bg-black/[0.05]"><ChevronRight size={17} /></button>
+          </div>
+          {!props.isCurrentWeek && (
+            <button type="button" onClick={() => go({ week: props.thisWeek, emp: props.scopeEmp })} className="wg-btn cursor-pointer px-3.5 py-1.5 rounded-full border border-hairline font-bold text-[13px] text-ink-soft hover:text-ink-strong">This week</button>
+          )}
+          {props.me.canReview && (
+            <button type="button" role="switch" aria-checked={showArchived} onClick={() => setShowArchived((v) => !v)} className="wg-btn cursor-pointer inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] font-bold transition-colors"
+              style={showArchived ? { background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)", borderColor: "var(--color-altus-red)", color: "var(--color-altus-red-deep)" } : { borderColor: "var(--color-hairline)", color: "var(--color-ink-soft)" }}>
+              <span aria-hidden className="inline-flex h-[16px] w-7 shrink-0 items-center rounded-full p-0.5 transition-colors" style={{ background: showArchived ? "var(--color-altus-red)" : "var(--color-hairline-strong)" }}>
+                <span className="size-[12px] rounded-full bg-white transition-transform" style={{ transform: showArchived ? "translateX(12px)" : "translateX(0)" }} />
+              </span>
+              Archived
+            </button>
+          )}
+          <div className="ml-auto flex items-center gap-2.5">
+            {activeFilterCount > 0 && (
+              <button type="button" onClick={clearFilters} className="wg-btn cursor-pointer inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold text-altus-red hover:bg-altus-red/[0.06]">
+                <X size={14} strokeWidth={2.6} /> Clear {activeFilterCount}
+              </button>
+            )}
+            <span className="text-[13px] font-bold text-ink-soft tabular-nums whitespace-nowrap">
+              {displayed.length}{activeFilterCount > 0 && displayed.length !== visible.length ? ` of ${visible.length}` : ""} goal{displayed.length === 1 ? "" : "s"}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Body --------------------------------------------------------- */}
@@ -385,7 +419,19 @@ export function WeeklyGoalsBoard(props: Props) {
         )
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
-          {visible.map((goal, i) => (
+          {displayed.length === 0 && visible.length > 0 && (
+            <div className="xl:col-span-2 rounded-2xl border border-dashed border-hairline-strong bg-surface-card px-6 py-8 text-center">
+              <p className="text-[15px] font-bold text-ink-strong">No goals match these filters</p>
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="wg-btn mt-3 cursor-pointer inline-flex items-center gap-1.5 rounded-full bg-altus-red px-4 py-2 text-[13px] font-bold text-white"
+              >
+                <X size={14} strokeWidth={2.6} /> Clear filters
+              </button>
+            </div>
+          )}
+          {displayed.map((goal, i) => (
             <div key={goal.id} className="wg-rise" style={{ animationDelay: `${Math.min(i * 45, 360)}ms` }}>
               <GoalCard
                 goal={goal}
