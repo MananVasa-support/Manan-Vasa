@@ -5,6 +5,8 @@ import { requireUser } from "@/lib/auth/current";
 import { listIncentiveRequests } from "@/lib/queries/incentive";
 import { getIncentiveDashboard } from "@/lib/queries/incentives";
 import { getBillingDashboard } from "@/lib/queries/billing";
+import { listIncentiveCatalog } from "@/lib/queries/incentive-catalog";
+import { IncentiveCatalogDialog } from "@/components/incentive/incentive-catalog-dialog";
 
 export const dynamic = "force-dynamic";
 
@@ -27,10 +29,11 @@ export default async function IncentivePage({ searchParams }: PageProps) {
   );
   if (!years.includes(year)) years.unshift(year);
 
-  const [dashboard, billing, rows] = await Promise.all([
+  const [dashboard, billing, rows, catalog] = await Promise.all([
     getIncentiveDashboard(year),
     getBillingDashboard(year),
     listIncentiveRequests({ employeeId: me.id, isAdmin: me.isAdmin }),
+    listIncentiveCatalog(),
   ]);
 
   const pendingCount = rows.filter((r) => r.status === "pending").length;
@@ -39,24 +42,29 @@ export default async function IncentivePage({ searchParams }: PageProps) {
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto max-w-[1280px] px-8 max-md:px-4 pt-8 pb-16">
-        <header className="mb-6">
-          <h1
-            className="text-ink-strong"
-            style={{
-              fontFamily: "var(--font-display), system-ui, sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(36px, 4vw, 52px)",
-              letterSpacing: "-0.025em",
-              lineHeight: 1,
-            }}
-          >
-            Incentive
-          </h1>
-          <p className="mt-2 text-ink-muted font-semibold" style={{ fontSize: 18 }}>
-            {me.isAdmin
-              ? "Team incentive analytics and request review."
-              : "Track incentive earnings and file requests."}
-          </p>
+        <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1
+              className="text-ink-strong"
+              style={{
+                fontFamily: "var(--font-display), system-ui, sans-serif",
+                fontWeight: 900,
+                fontSize: "clamp(36px, 4vw, 52px)",
+                letterSpacing: "-0.025em",
+                lineHeight: 1,
+              }}
+            >
+              Incentive
+            </h1>
+            <p className="mt-2 text-ink-muted font-semibold" style={{ fontSize: 18 }}>
+              {me.isAdmin
+                ? "Team incentive analytics and request review."
+                : "Track incentive earnings and file requests."}
+            </p>
+          </div>
+          <div className="shrink-0">
+            <IncentiveCatalogDialog rows={catalog} isAdmin={me.isAdmin} />
+          </div>
         </header>
 
         <IncentiveTabs
