@@ -34,7 +34,10 @@ interface Props {
 
 export function DayLedger({ mode, greetingName, today, items: pItems, overdue: pOverdue, pullable: pPullable }: Props) {
   const router = useRouter();
-  const [pending, start] = React.useTransition();
+  // Per-action busy key — NOT useTransition. A transition kept `pending` true
+  // through the whole (slow) server refresh, disabling every button so you
+  // couldn't add a second item. `busyId` clears the moment the action returns;
+  // the refresh runs in the background.
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const isGate = mode === "gate";
 
@@ -53,15 +56,24 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
   const pct = total > 0 ? (doneCount / total) * 100 : 0;
 
   type Res = { ok: true; [k: string]: unknown } | { ok: false; error: string };
-  function act(key: string | null, fn: () => Promise<Res>, onOk: (r: { ok: true; [k: string]: unknown }) => void) {
+  async function act(key: string, fn: () => Promise<Res>, onOk: (r: { ok: true; [k: string]: unknown }) => void) {
     setBusyId(key);
-    start(async () => {
+    try {
       const res = await fn();
+      if (!res.ok) {
+        fireToast({ message: res.error, type: "error" });
+        return;
+      }
+      // Apply the result optimistically in BOTH modes so the list updates
+      // instantly; in page mode also refresh in the background to re-sync from
+      // the server. Neither blocks the buttons (busyId clears in `finally`).
+      onOk(res);
+      if (!isGate) router.refresh();
+    } catch (e: unknown) {
+      fireToast({ message: e instanceof Error ? e.message : "Something went wrong.", type: "error" });
+    } finally {
       setBusyId(null);
-      if (!res.ok) return fireToast({ message: res.error, type: "error" });
-      if (isGate) onOk(res);
-      else router.refresh();
-    });
+    }
   }
 
   const onPull = (g: PullableGoal) =>
@@ -72,7 +84,7 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
     });
 
   const onAdd = (fd: FormData) =>
-    act(null, () => addStandaloneItem(fd), (r) => setItems((p) => [...p, (r as unknown as { item: DailyItem }).item]));
+    act("add", () => addStandaloneItem(fd), (r) => setItems((p) => [...p, (r as unknown as { item: DailyItem }).item]));
 
   const onMoveOverdue = () =>
     act("overdue", () => moveOverdueToToday(), (r) => {
@@ -155,7 +167,7 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
             <button
               type="button"
               onClick={onMoveOverdue}
-              disabled={pending}
+              disabled={busyId === "overdue"}
               className="inline-flex items-center gap-1.5 rounded-md py-2 px-3.5 text-[13px] font-bold text-white shrink-0 disabled:opacity-50"
               style={{ background: "linear-gradient(135deg, var(--color-amber), var(--color-amber-deep))" }}
             >
@@ -183,7 +195,7 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
                   key={it.id}
                   item={it}
                   closeout={!isGate}
-                  busy={busyId === it.id && pending}
+                  busy={busyId === it.id}
                   onToggle={(done) => onToggle(it, done)}
                   onNote={(note) => onNote(it, note)}
                   onRemove={() => onRemove(it)}
@@ -192,7 +204,7 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
             </ul>
           )}
 
-          <AddItem pending={pending} onAdd={onAdd} />
+          <AddItem busy={busyId === "add"} onAdd={onAdd} />
         </section>
 
         {/* ── Pull from weekly goals ── */}
@@ -231,10 +243,10 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
                     <button
                       type="button"
                       onClick={() => onPull(g)}
-                      disabled={pending}
+                      disabled={busyId === g.id}
                       className="inline-flex items-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card py-1.5 px-3 text-[13px] font-semibold text-ink-strong hover:border-altus-red hover:text-altus-red transition-colors disabled:opacity-50"
                     >
-                      {busyId === g.id && pending ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} strokeWidth={2.4} />}
+                      {busyId === g.id ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} strokeWidth={2.4} />}
                       Move to today
                     </button>
                   </div>
@@ -250,7 +262,7 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
             <button
               type="button"
               onClick={() => router.refresh()}
-              disabled={total === 0 || pending}
+              disabled={total === 0}
               className="inline-flex items-center gap-2 rounded-lg py-3 px-7 text-[15px] font-bold text-white disabled:opacity-40"
               style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
             >
@@ -378,7 +390,7 @@ function LedgerRow({
 }
 
 /* ── add ad-hoc item ── */
-function AddItem({ pending, onAdd }: { pending: boolean; onAdd: (fd: FormData) => void }) {
+function AddItem({ busy, onAdd }: { busy: boolean; onAdd: (fd: FormData) => void }) {
   const ref = React.useRef<HTMLFormElement>(null);
   return (
     <form
@@ -402,7 +414,7 @@ function AddItem({ pending, onAdd }: { pending: boolean; onAdd: (fd: FormData) =
       />
       <button
         type="submit"
-        disabled={pending}
+        disabled={busy}
         className="inline-flex items-center gap-1.5 rounded-md py-1.5 px-3.5 text-[13px] font-semibold text-white disabled:opacity-50"
         style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
       >

@@ -28,7 +28,12 @@ interface Props {
 export function GoalQuickAdd(props: Props) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
-  const [pending, start] = React.useTransition();
+  // NOTE: a local `saving` flag — deliberately NOT useTransition. Wrapping the
+  // create + router.refresh() in a transition kept `pending` true for the whole
+  // (slow) server refresh, leaving the Add button disabled so you could never
+  // add a second goal. This flips false the moment the insert returns; the
+  // refresh runs in the background.
+  const [saving, setSaving] = React.useState(false);
   const [client, setClient] = React.useState("");
   const [subject, setSubject] = React.useState("");
   const [priority, setPriority] = React.useState<TaskPriority>("imp_not_urgent");
@@ -56,25 +61,33 @@ export function GoalQuickAdd(props: Props) {
       return;
     }
     setError(null);
-    start(async () => {
-      const res = await createWeeklyGoal({
-        employeeId: props.employeeId,
-        weekStart: props.weekStart,
-        client: client.trim() || null,
-        subject: subject.trim() || null,
-        priority,
-        incentive,
-        kpi,
-        targetDone: targetDone.trim() || null,
+    setSaving(true);
+    createWeeklyGoal({
+      employeeId: props.employeeId,
+      weekStart: props.weekStart,
+      client: client.trim() || null,
+      subject: subject.trim() || null,
+      priority,
+      incentive,
+      kpi,
+      targetDone: targetDone.trim() || null,
+    })
+      .then((res) => {
+        setSaving(false);
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        // Re-enable + clear immediately so the next goal can be typed right away;
+        // refresh the list in the background (doesn't block the button).
+        reset();
+        clientRef.current?.focus();
+        router.refresh();
+      })
+      .catch((e: unknown) => {
+        setSaving(false);
+        setError(e instanceof Error ? e.message : "Couldn't save the goal. Try again.");
       });
-      if (!res.ok) {
-        setError(res.error);
-        return;
-      }
-      reset();
-      router.refresh();
-      clientRef.current?.focus();
-    });
   }
 
   if (!open) {
@@ -173,13 +186,13 @@ export function GoalQuickAdd(props: Props) {
         <button
           type="button"
           onClick={submit}
-          disabled={pending}
+          disabled={saving}
           className="ml-auto inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
           style={{
             background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
           }}
         >
-          {pending ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+          {saving ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
           Add goal
         </button>
       </div>
