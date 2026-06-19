@@ -85,7 +85,7 @@ export default async function AdminOverviewPage() {
       label: "Active employees",
       value: d.activeEmployees,
       hint: "Joined + still on the roster",
-      tone: "blue",
+      tone: "rose",
       icon: <Users size={16} strokeWidth={2.2} />,
       href: "/admin/employees" as Route,
     },

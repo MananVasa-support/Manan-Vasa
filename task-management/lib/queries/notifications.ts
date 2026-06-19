@@ -312,9 +312,12 @@ export async function listNotifications(
 
   const enriched: NotificationRow[] = sliced.map((r) => {
     const attempted = ((matrix[r.kind] ?? []) as string[]).filter(isChannel);
-    const delivered = ((r.deliveredChannels ?? []) as string[]).filter(
-      isChannel,
-    );
+    // The dispatcher records the web-push arm as "web_push"; the canonical
+    // channel name is "push". Alias on read so a delivered push isn't shown
+    // as failed.
+    const delivered = ((r.deliveredChannels ?? []) as string[])
+      .map((c) => (c === "web_push" ? "push" : c))
+      .filter(isChannel);
     const status: Record<Channel, ChannelStatus> = {
       email: "not_attempted",
       slack: "not_attempted",
@@ -384,7 +387,7 @@ export async function getNotificationDeliveryStats(
         'email',    COUNT(*) FILTER (WHERE 'email'    = ANY(delivered_channels)),
         'slack',    COUNT(*) FILTER (WHERE 'slack'    = ANY(delivered_channels)),
         'whatsapp', COUNT(*) FILTER (WHERE 'whatsapp' = ANY(delivered_channels)),
-        'push',     COUNT(*) FILTER (WHERE 'push'     = ANY(delivered_channels))
+        'push',     COUNT(*) FILTER (WHERE 'push' = ANY(delivered_channels) OR 'web_push' = ANY(delivered_channels))
       ) AS by_channel
     FROM last_24h
   `)) as unknown as Array<{

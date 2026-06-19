@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AdminSidebar } from "./admin-sidebar";
+import { AdminHeader } from "./admin-header";
 import { AdminMobileBar } from "./admin-mobile-bar";
 
 type Props = {
@@ -10,12 +10,10 @@ type Props = {
 };
 
 /**
- * Editorial two-column shell for the admin panel.  Dark sidebar (`.header-dark`
- * scope) on the left, soft canvas on the right.  The body-level radial
- * gradients defined in `globals.css :root body` show through the main column.
- *
- * On mobile (max-md) the sidebar hides and `AdminMobileBar` renders a sticky
- * top bar with a hamburger that opens the same nav in a slide-in drawer.
+ * Admin panel shell. The nav lives in a light frosted TOP header
+ * (`AdminHeader`, desktop) — matching the main app header — with the phone
+ * layout handled by the sticky `AdminMobileBar` + drawer. The soft body
+ * gradients from globals.css show through the main column.
  */
 export function AdminShell({
   children,
@@ -24,18 +22,16 @@ export function AdminShell({
   avatarUrl,
 }: Props) {
   return (
-    <div className="min-h-screen flex max-md:block">
-      <AdminSidebar
+    <div className="min-h-screen flex flex-col">
+      <AdminHeader
         adminName={adminName}
         adminEmail={adminEmail}
         avatarUrl={avatarUrl}
       />
-      <div className="flex-1 min-w-0 max-md:flex max-md:flex-col">
-        <AdminMobileBar adminName={adminName} adminEmail={adminEmail} />
-        <main className="flex-1 min-w-0 px-10 py-10 max-md:px-4 max-md:py-6">
-          <div className="mx-auto max-w-[1280px]">{children}</div>
-        </main>
-      </div>
+      <AdminMobileBar adminName={adminName} adminEmail={adminEmail} />
+      <main className="flex-1 min-w-0 px-8 py-8 max-md:px-4 max-md:py-6">
+        <div className="mx-auto max-w-[1400px]">{children}</div>
+      </main>
     </div>
   );
 }
