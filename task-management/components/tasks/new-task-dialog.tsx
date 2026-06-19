@@ -259,12 +259,12 @@ export function NewTaskDialog({ employees, clients, subjects, projectNodes, defa
           style={{ background: "rgba(15, 23, 42, 0.45)", backdropFilter: "blur(4px)" }}
         />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 z-[70] w-[min(1360px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 rounded-section border border-hairline bg-surface-card shadow-xl overflow-hidden"
+          className="fixed left-1/2 top-1/2 z-[70] w-[min(900px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-section border border-hairline bg-surface-card shadow-xl overflow-hidden"
           style={{ maxHeight: "calc(100vh - 48px)" }}
         >
-          {/* Header — cyan brand bar + big title */}
+          {/* Header — brand bar + title */}
           <div
-            className="relative px-10 py-7 max-md:px-5 max-md:py-5"
+            className="relative px-8 py-5 max-md:px-5 max-md:py-4"
             style={{
               borderBottom: "1px solid var(--color-hairline)",
               background:
@@ -275,7 +275,7 @@ export function NewTaskDialog({ employees, clients, subjects, projectNodes, defa
               aria-hidden
               className="absolute inset-x-0 top-0"
               style={{
-                height: 5,
+                height: 4,
                 background:
                   "linear-gradient(90deg, rgb(225, 6, 0), rgb(168, 4, 0))",
               }}
@@ -285,30 +285,30 @@ export function NewTaskDialog({ employees, clients, subjects, projectNodes, defa
               style={{
                 fontFamily: "var(--font-display), system-ui, sans-serif",
                 fontWeight: 900,
-                fontSize: "clamp(36px, 3.6vw, 52px)",
-                letterSpacing: "-0.024em",
+                fontSize: "clamp(26px, 2.6vw, 34px)",
+                letterSpacing: "-0.022em",
                 lineHeight: 1.02,
               }}
             >
               New Task
             </Dialog.Title>
             <Dialog.Description
-              className="mt-2 font-bold"
+              className="mt-1 font-semibold"
               style={{
-                fontSize: 19,
+                fontSize: 15,
                 color: "var(--color-ink-muted)",
               }}
             >
               Capture work, attach context, assign owners — all in one go.
             </Dialog.Description>
             {/* Top-right actions — Import shortcut (admin) + Close. */}
-            <div className="absolute top-6 right-6 flex items-center gap-2.5">
+            <div className="absolute top-4 right-5 flex items-center gap-2.5">
               {isAdmin && (
                 <button
                   type="button"
                   onClick={goImport}
                   title="Bulk-import tasks from CSV or Excel"
-                  className="inline-flex items-center gap-2 rounded-full px-4 h-12 text-[14px] font-semibold transition-colors hover:bg-surface-soft max-md:px-3"
+                  className="inline-flex items-center gap-2 rounded-full px-4 h-10 text-[14px] font-semibold transition-colors hover:bg-surface-soft max-md:px-3"
                   style={{
                     border: "1px solid var(--color-hairline)",
                     background: "#ffffff",
@@ -323,16 +323,16 @@ export function NewTaskDialog({ employees, clients, subjects, projectNodes, defa
                 <button
                   type="button"
                   aria-label="Close"
-                  className="inline-flex items-center justify-center rounded-full transition-all"
+                  className="inline-flex items-center justify-center rounded-full transition-all hover:bg-surface-soft"
                   style={{
-                    width: 48,
-                    height: 48,
+                    width: 40,
+                    height: 40,
                     border: "1px solid var(--color-hairline)",
                     background: "#ffffff",
                     color: "var(--color-ink-muted)",
                   }}
                 >
-                  <X size={24} strokeWidth={2.4} />
+                  <X size={20} strokeWidth={2.4} />
                 </button>
               </Dialog.Close>
             </div>
@@ -340,9 +340,9 @@ export function NewTaskDialog({ employees, clients, subjects, projectNodes, defa
 
           {/* Scrollable body — fills the rectangle */}
           <div
-            className="px-10 py-8 max-md:px-5 max-md:py-5"
+            className="px-8 py-6 max-md:px-5 max-md:py-5"
             style={{
-              maxHeight: "calc(100vh - 240px)",
+              maxHeight: "calc(100vh - 200px)",
               overflowY: "auto",
             }}
           >

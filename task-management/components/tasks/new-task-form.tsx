@@ -248,25 +248,43 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
           void submit();
         }
       }}
-      className="flex flex-col gap-6"
+      className="flex flex-col gap-5"
       noValidate
     >
-      {/* Client Name — full width hero field (was: Title) */}
-      <Field id="nt-title" label="Client Name" required>
-        <Controller
-          control={control}
-          name="title"
-          render={({ field }) => (
-            <ClientSelect
-              id="nt-title"
-              value={field.value}
-              onChange={field.onChange}
-              clients={clients}
-              className="nt-input"
-            />
-          )}
-        />
-      </Field>
+      {/* Client + Subject — paired top row (was two stretched full-width fields) */}
+      <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1 max-md:gap-3">
+        <Field id="nt-title" label="Client Name" required>
+          <Controller
+            control={control}
+            name="title"
+            render={({ field }) => (
+              <ClientSelect
+                id="nt-title"
+                value={field.value}
+                onChange={field.onChange}
+                clients={clients}
+                className="nt-input"
+              />
+            )}
+          />
+        </Field>
+        <Field id="nt-subject" label="Subject" required>
+          <Controller
+            control={control}
+            name="subject"
+            render={({ field }) => (
+              <SubjectSelect
+                id="nt-subject"
+                value={field.value}
+                onChange={field.onChange}
+                subjects={subjects}
+                className="nt-input"
+                placeholder="Select a subject…"
+              />
+            )}
+          />
+        </Field>
+      </div>
 
       {/* Metadata — two balanced rows (Initiator · Doer / Priority · Due
           Date). The old 4-across row squeezed each field to ~170px: the
@@ -333,25 +351,7 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
         </Field>
       </div>
 
-      {/* Subject · Task Description · Initiator Notes — each full-width
-          single column, stacked top-to-bottom per spec. */}
-      <Field id="nt-subject" label="Subject" required>
-        <Controller
-          control={control}
-          name="subject"
-          render={({ field }) => (
-            <SubjectSelect
-              id="nt-subject"
-              value={field.value}
-              onChange={field.onChange}
-              subjects={subjects}
-              className="nt-input"
-              placeholder="Select a subject…"
-            />
-          )}
-        />
-      </Field>
-
+      {/* Task Description · Initiator Notes — full-width textareas. */}
       <Field id="nt-desc" label="Task Description" required>
         <textarea
           id="nt-desc"
