@@ -387,7 +387,7 @@ export const SEED_RESPONSIBLES = [
 export const SEED_ENTITIES = [
   "Altus Corp",
   "Unleashed",
-  "Cash",
+  "IGV",
   "Khushboo",
   "MJV HUF",
   "JSV HUF",
@@ -409,7 +409,7 @@ export const SEED_PAYMENT_MODES = [
   "Kotak - Altus",
   "Pay U",
   "Jodo",
-  "Cash",
+  "IGV",
   "Kotak - Unleashed",
   "Kotak - Khushboo",
   "Kotak - MJV HUF",
