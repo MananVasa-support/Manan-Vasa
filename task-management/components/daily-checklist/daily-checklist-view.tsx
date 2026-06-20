@@ -4,6 +4,7 @@ import {
   listPullableGoals,
 } from "@/lib/queries/daily-checklist";
 import { TZ } from "@/lib/weekly-goals/week";
+import { withTimeout } from "@/lib/db/with-timeout";
 import { DayLedger } from "./day-ledger";
 import { DailyPlanGate } from "./daily-plan-gate";
 
@@ -29,11 +30,18 @@ export async function DailyChecklistView({
   let overdue: Awaited<ReturnType<typeof getOverdueItems>> = [];
   let pullable: Awaited<ReturnType<typeof listPullableGoals>> = [];
   try {
-    [items, overdue, pullable] = await Promise.all([
-      getTodayItems(employeeId),
-      getOverdueItems(employeeId),
-      listPullableGoals(employeeId),
-    ]);
+    // Bounded so a hung query (stale pooled connection) can't freeze this view
+    // — which renders inline as the compulsory gate on every page. On timeout we
+    // throw → caught → render the empty (but usable) ledger instead of hanging.
+    [items, overdue, pullable] = await withTimeout(
+      Promise.all([
+        getTodayItems(employeeId),
+        getOverdueItems(employeeId),
+        listPullableGoals(employeeId),
+      ]),
+      12000,
+      "daily-checklist-view",
+    );
   } catch {
     // keep the empty defaults
   }

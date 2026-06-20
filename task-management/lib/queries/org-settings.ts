@@ -2,6 +2,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { orgSettings, type OrgSettings } from "@/db/schema";
+import { withTimeoutOr } from "@/lib/db/with-timeout";
 
 /**
  * The single-row `org_settings` table has `id = 1` as the only valid row.
@@ -43,10 +44,14 @@ const DEFAULTS: OrgSettings = {
 };
 
 export async function getOrgSettings(): Promise<OrgSettings> {
-  const [row] = await db
-    .select()
-    .from(orgSettings)
-    .where(eq(orgSettings.id, 1))
-    .limit(1);
-  return row ?? DEFAULTS;
+  // Read in the app layout on every authed page, so a hang here would freeze the
+  // whole app. Bound it and fall back to DEFAULTS on timeout/error (a stale
+  // pooled connection must never block rendering).
+  const rows = await withTimeoutOr(
+    db.select().from(orgSettings).where(eq(orgSettings.id, 1)).limit(1),
+    5000,
+    [] as OrgSettings[],
+    "org-settings",
+  );
+  return rows[0] ?? DEFAULTS;
 }

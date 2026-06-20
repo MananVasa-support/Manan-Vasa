@@ -21,6 +21,7 @@ import { getCurrentEmployee } from "@/lib/auth/current";
 import { listWeekGoalsAsTasks } from "@/lib/weekly-goals/as-task-row";
 import { WeeklyGoalTaskGroup } from "@/components/weekly-goals/weekly-goal-task-group";
 import { parseFilters } from "@/lib/filters";
+import { withTimeout } from "@/lib/db/with-timeout";
 import type { TaskStatus, StatusColorToken } from "@/db/enums";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +55,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   // (design §10). Display-only; never mixed into the dashboard task KPIs.
   let myGoals: Awaited<ReturnType<typeof listWeekGoalsAsTasks>>;
   try {
-    [allEmployees, data, statusDisplay, myDay, todayTasks, subjects, myGoals] = await Promise.all([
+    [allEmployees, data, statusDisplay, myDay, todayTasks, subjects, myGoals] = await withTimeout(Promise.all([
       listEmployees(),
       loadDashboardData(filters),
       getStatusDisplayMap(),
@@ -69,7 +70,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       me
         ? listWeekGoalsAsTasks({ scope: { employeeIds: [me.id] } }).catch(() => [])
         : Promise.resolve([]),
-    ]);
+    ]), 18000, "dashboard-load");
   } catch (err) {
     console.error("[dashboard] data load failed:", err);
     return (

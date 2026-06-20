@@ -7,9 +7,20 @@ import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import { IdleTimerClient } from "@/components/auth/idle-timer-client";
 import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
+import { withTimeout, withTimeoutOr } from "@/lib/db/with-timeout";
+
+// This layout wraps EVERY authed page; if any await here hangs (e.g. a query on
+// a stale pooled connection), the whole app is stuck on its skeleton. So every
+// DB await below is bounded by a hard timeout — a hang becomes a fast rejection
+// the existing fail-open / default handling absorbs.
+const GATE_TIMEOUT_MS = 7000;
+const AUTH_TIMEOUT_MS = 10000;
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  const me = await requireUser();
+  // Auth must NOT fail open — but a hang here freezes every page. Bound it so a
+  // dead connection surfaces as an error (→ error boundary / retry) instead of
+  // an endless "Loading…". The user simply retries onto a fresh connection.
+  const me = await withTimeout(requireUser(), AUTH_TIMEOUT_MS, "requireUser");
 
   // Mandatory weekly-goals fill gate (design §11). Every authed page renders
   // through this layout, so a user with any un-filled current-week goal is
@@ -23,12 +34,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // gate this request rather than throw the layout for every page. The gate
   // re-applies on the next render once the DB is healthy — it's a workflow
   // nudge, not a security boundary.
-  let mustFill = false;
-  try {
-    mustFill = await hasUnfilledWeekGoals(me.id);
-  } catch {
-    mustFill = false;
-  }
+  // FAIL OPEN on error OR timeout: a hung gate query must never freeze the app.
+  const mustFill = await withTimeoutOr(
+    hasUnfilledWeekGoals(me.id),
+    GATE_TIMEOUT_MS,
+    false,
+    "weekly-goals-gate",
+  );
   // Render the fill screen INLINE (not a redirect to a separate route): Vercel's
   // build for this project doesn't register newly added routes, so a redirect
   // target like /fill-weekly-goals 404'd in prod. Rendering it here — inside the
@@ -47,12 +59,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // commit ≥1 item to today before entering — the in-app replacement for the
   // WhatsApp daily plan. Same inline render (not a redirect) + fail-open
   // discipline as the weekly gate above.
-  let mustPlan = false;
-  try {
-    mustPlan = await needsDailyPlan(me.id);
-  } catch {
-    mustPlan = false;
-  }
+  const mustPlan = await withTimeoutOr(
+    needsDailyPlan(me.id),
+    GATE_TIMEOUT_MS,
+    false,
+    "daily-plan-gate",
+  );
   if (mustPlan) {
     return (
       <DailyChecklistView
