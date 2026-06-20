@@ -7,3 +7,4 @@ export * from "./pull-quote";
 export * from "./employee-status-table";
 export * from "./employee-aging-table";
 export * from "./rolling-average";
+export * from "./punctuality";

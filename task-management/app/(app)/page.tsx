@@ -6,6 +6,7 @@ import { CollapsibleVelocity } from "@/components/dashboard/collapsible-velocity
 import { StatusTable } from "@/components/dashboard/status-table";
 import { StatusDistributionChart } from "@/components/dashboard/status-distribution";
 import { TopPerformersSection } from "@/components/dashboard/top-performers";
+import { PunctualityCard } from "@/components/dashboard/punctuality-card";
 import { AgingHeatmap } from "@/components/dashboard/aging-heatmap";
 import { WelcomeHero } from "@/components/dashboard/welcome-hero";
 import { MyDayCard } from "@/components/dashboard/my-day-card";
@@ -162,6 +163,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 />
                 <TopPerformersSection performers={data.topPerformers} />
               </div>
+              <section className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-6">
+                <PunctualityCard data={data.punctuality} isAdmin={Boolean(me?.isAdmin)} />
+              </section>
               <StatusTable rows={data.statusTable} view={filters.view} />
               <AgingHeatmap rows={data.agingTable} cellTasks={data.agingHeatmapData.byCell} />
               <CollapsibleVelocity data={data.velocity} />

@@ -138,9 +138,39 @@ export interface WmsSummary {
   avgTimeToDoneDays: number; // mean created→completed for completed tasks
 }
 
+/** D16 — punctuality of DELIVERED work. "On time" = a `done` task whose
+ *  completion day is on/before its EFFECTIVE due day (revised ?? original).
+ *  Uses the live `done` status only — never `approved` or archived. */
+export interface PunctualityPerson {
+  employeeId: string;
+  employeeName: string;
+  /** Dated done tasks (onTime + late). */
+  done: number;
+  onTime: number;
+  late: number;
+  /** onTime ÷ done, % (0 when none). */
+  rate: number;
+}
+
+export interface Punctuality {
+  /** All done & non-archived tasks in scope (incl. undated). */
+  total: number;
+  /** Done tasks that carry a completed_at (the on-time/late denominator). */
+  dated: number;
+  onTime: number;
+  late: number;
+  /** Done but with no completed_at timestamp — can't be classified. */
+  undated: number;
+  /** onTime ÷ dated, %. */
+  onTimeRate: number;
+  /** Per-doer breakdown, busiest first. */
+  byPerson: PunctualityPerson[];
+}
+
 export interface DashboardData {
   kpis: KpiSet;
   wmsSummary: WmsSummary;
+  punctuality: Punctuality;
   pullQuote: string;
   velocity: VelocityPoint[];
   statusTable: EmployeeStatusRow[];

@@ -14,6 +14,7 @@ import {
   generatePullQuote,
   computeEmployeeStatusTable,
   computeEmployeeAgingTable,
+  computePunctuality,
 } from "@/lib/transforms";
 import { AGE_BUCKETS, PENDING_STATUSES } from "@/db/enums";
 import { effectiveDueAtSql } from "@/lib/tasks/effective-due";
@@ -282,9 +283,15 @@ async function loadDashboardDataUncached(
     });
   }
 
+  // D16 — on-time vs late delivery, off the same filtered period scan
+  // (`periodTasks.dueAt` is already the effective revised-or-original due).
+  const nameById = new Map(allEmployees.map((e) => [e.id, e.name] as const));
+  const punctuality = computePunctuality(periodTasks, nameById);
+
   return {
     kpis,
     wmsSummary,
+    punctuality,
     pullQuote: generatePullQuote({
       doneThisWeek: wowDone.current,
       doneLastWeek: wowDone.previous,
