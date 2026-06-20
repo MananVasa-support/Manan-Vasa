@@ -23,9 +23,8 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { localDateString } from "@/lib/format";
 import { getOrgSettings } from "@/lib/queries/org-settings";
-import { resolvePunchGeofence, insertPunchRow } from "@/lib/attendance/record-punch";
-import { evaluateOfficeIp, getClientIp } from "@/lib/attendance/office-ip";
-import { orgSettings } from "@/db/schema";
+import { insertPunchRow } from "@/lib/attendance/record-punch";
+import { evaluateOfficeIp } from "@/lib/attendance/office-ip";
 import {
   notifyOnInPunch,
   notifyOnDayFinalized,
@@ -93,7 +92,7 @@ export async function punchAttendance(input: {
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { kind, note, location, deviceLabel } = parsed.data;
+  const { kind, note, deviceLabel } = parsed.data;
 
   const settings = await getOrgSettings();
 
@@ -109,12 +108,8 @@ export async function punchAttendance(input: {
     };
   }
 
-  // ── Gate 1: geofence ────────────────────────────────────────────────
-  // Runs for BOTH "in" and "out". Shared with the native punch API via
-  // resolvePunchGeofence so the security rule never diverges between clients.
-  const geo = resolvePunchGeofence(settings, location);
-  if (!geo.ok) return { ok: false, error: geo.error };
-  const distanceM = geo.distanceM;
+  // (Location tracking removed — the office Wi-Fi IP gate above is the presence
+  // check now. No geofence, no GPS captured.)
 
   // ── Gate 2: biometric ───────────────────────────────────────────────
   // One unified path: an `assertion` proves a returning device; a verified
@@ -166,7 +161,7 @@ export async function punchAttendance(input: {
   // Insert via the shared core (today-only; one punch per kind per day).
   const inserted = await insertPunchRow(
     { id: me.id, timezone: tz },
-    { kind, note, location, distanceM },
+    { kind, note, location: undefined, distanceM: null },
     { verifyMethod, credentialId, source: "self" },
   );
   if (!inserted.ok) return inserted;
@@ -241,39 +236,6 @@ export async function startBiometricPunch(): Promise<
   }
   const options = await mintPunchOptions(me.id);
   return { ok: true, options };
-}
-
-// ── Office Wi-Fi allowlist (admin) ──────────────────────────────────────────
-// Capture the office network's public IP while standing on the office Wi-Fi:
-// the gate then only accepts punches from that IP, which mock GPS can't defeat.
-
-/** Add the CURRENT request's public IP to the office allowlist. Admin only —
- *  the admin taps this while on the office Wi-Fi. Idempotent (dedupes). */
-export async function captureOfficeWifiAction(): Promise<
-  ActionResult<{ ip: string; allowlist: string[] }>
-> {
-  await requireAdmin();
-  const ip = await getClientIp();
-  if (!ip) return { ok: false, error: "Couldn't read your network IP. Try again." };
-  const settings = await getOrgSettings();
-  const current = settings.officeIpAllowlist ?? [];
-  if (current.includes(ip)) return { ok: true, ip, allowlist: current };
-  const next = [...current, ip];
-  await db.update(orgSettings).set({ officeIpAllowlist: next, updatedAt: new Date() }).where(eq(orgSettings.id, 1));
-  revalidatePath("/attendance");
-  return { ok: true, ip, allowlist: next };
-}
-
-/** Remove one IP/CIDR from the office allowlist. Admin only. */
-export async function removeOfficeWifiAction(
-  ip: string,
-): Promise<ActionResult<{ allowlist: string[] }>> {
-  await requireAdmin();
-  const settings = await getOrgSettings();
-  const next = (settings.officeIpAllowlist ?? []).filter((e) => e !== ip);
-  await db.update(orgSettings).set({ officeIpAllowlist: next.length ? next : null, updatedAt: new Date() }).where(eq(orgSettings.id, 1));
-  revalidatePath("/attendance");
-  return { ok: true, allowlist: next };
 }
 
 // ════════════════════════════════════════════════════════════════════════════

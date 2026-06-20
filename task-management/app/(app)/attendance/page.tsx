@@ -2,7 +2,6 @@ import { MapPin, ShieldCheck, Wifi } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { PunchCard } from "@/components/attendance/punch-card";
-import { OfficeWifiAdmin } from "@/components/attendance/office-wifi-admin";
 import { TeamDatePicker } from "@/components/attendance/team-date-picker";
 import { TeamPunchButton } from "@/components/attendance/team-punch-button";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
@@ -59,14 +58,6 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   ]);
 
   const todayRow = myDays.find((d) => d.date === today);
-  const office =
-    settings.officeLat != null && settings.officeLng != null
-      ? {
-          lat: settings.officeLat,
-          lng: settings.officeLng,
-          radiusM: settings.attendanceRadiusM,
-        }
-      : null;
 
   // Office Wi-Fi gate: when an allowlist is configured and the request isn't on
   // it, show a calm "connect to office Wi-Fi" panel instead of the punch UI —
@@ -83,9 +74,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
         <header className="mb-6">
           <h1 className="text-display-lg text-ink-strong">Attendance</h1>
           <p className="text-body-lg text-ink-subtle mt-1">
-            {office
-              ? `Punch with your fingerprint, within ${office.radiusM}m of the office.`
-              : "Check in when you start, check out when you wrap up. One of each per day."}
+            Punch in with your fingerprint on the office Wi-Fi. One check-in and one check-out per day.
           </p>
         </header>
 
@@ -97,13 +86,8 @@ export default async function AttendancePage({ searchParams }: PageProps) {
             inLabel={todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : null}
             outLabel={todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null}
             tz={tz}
-            office={office}
             biometricExempt={me.attendanceBiometricExempt}
           />
-        )}
-
-        {me.isAdmin && (
-          <OfficeWifiAdmin allowlist={settings.officeIpAllowlist ?? []} currentIp={ipGate.ip} />
         )}
 
         <MyLog days={myDays} tz={tz} />
