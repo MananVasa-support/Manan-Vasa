@@ -1,4 +1,4 @@
-import { MapPin, ShieldCheck, Wifi, WifiOff } from "lucide-react";
+import { MapPin, ShieldCheck, Wifi } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { PunchCard } from "@/components/attendance/punch-card";
@@ -69,10 +69,12 @@ export default async function AttendancePage({ searchParams }: PageProps) {
       : null;
 
   // Office Wi-Fi gate: when an allowlist is configured and the request isn't on
-  // it, show a calm "connect to office Wi-Fi" panel instead of the punch UI.
-  // Admins are exempt from the BLOCK so they can still capture/manage the IP.
+  // it, show a calm "connect to office Wi-Fi" panel instead of the punch UI —
+  // for EVERYONE (admins too, matching the punch action). Admins still get the
+  // capture/manage card below, and the allowlist actions aren't IP-gated, so a
+  // blocked admin can still fix a bad entry from anywhere.
   const ipGate = await evaluateOfficeIp(settings.officeIpAllowlist);
-  const wifiBlocked = ipGate.configured && !ipGate.allowed && !me.isAdmin;
+  const wifiBlocked = ipGate.configured && !ipGate.allowed;
 
   return (
     <>
@@ -90,24 +92,14 @@ export default async function AttendancePage({ searchParams }: PageProps) {
         {wifiBlocked ? (
           <OfficeWifiGate />
         ) : (
-          <>
-            {ipGate.configured && me.isAdmin && !ipGate.allowed && (
-              <p
-                className="mb-4 rounded-pill px-4 py-2 text-[13px] font-semibold inline-flex items-center gap-2"
-                style={{ background: "color-mix(in srgb, var(--color-amber-deep,#B45309) 12%, transparent)", color: "var(--color-amber-deep,#B45309)" }}
-              >
-                <WifiOff size={15} /> You&apos;re not on office Wi-Fi — admins can still punch, but staff are blocked here.
-              </p>
-            )}
-            <PunchCard
-              todayLabel={labelForDate(today)}
-              inLabel={todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : null}
-              outLabel={todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null}
-              tz={tz}
-              office={office}
-              biometricExempt={me.attendanceBiometricExempt}
-            />
-          </>
+          <PunchCard
+            todayLabel={labelForDate(today)}
+            inLabel={todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : null}
+            outLabel={todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null}
+            tz={tz}
+            office={office}
+            biometricExempt={me.attendanceBiometricExempt}
+          />
         )}
 
         {me.isAdmin && (
