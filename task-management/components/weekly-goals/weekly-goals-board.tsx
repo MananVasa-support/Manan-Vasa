@@ -12,8 +12,6 @@ import {
   BarChart3,
   Trash2,
   Loader2,
-  CheckCircle2,
-  Flag,
   Target,
   Search,
   X,
@@ -158,9 +156,6 @@ export function WeeklyGoalsBoard(props: Props) {
   const doneCount = activeVisible.filter((r) => effPct(r) >= 100).length;
   const pendingCount = activeVisible.length - doneCount;
   const weightTotal = activeVisible.reduce((s, r) => s + (r.weight || 0), 0);
-  const TARGET_GOALS = 5;
-  const scopedCount = showingAll ? null : activeVisible.length;
-  const shortBy = scopedCount == null ? 0 : Math.max(0, TARGET_GOALS - scopedCount);
 
   // Distinct statuses present → the Status filter options (labelled via map).
   const statusOptions = React.useMemo(
@@ -293,11 +288,6 @@ export function WeeklyGoalsBoard(props: Props) {
           )}
         </div>
       </section>
-
-      {/* ── MANDATORY-5 TRACKER (single-person scope only) ──────────── */}
-      {scopedCount != null && (
-        <Min5Tracker count={scopedCount} target={TARGET_GOALS} shortBy={shortBy} />
-      )}
 
       {/* ── Filter command bar ──────────────────────────────────────── */}
       <div
@@ -522,70 +512,6 @@ function StatCard({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Mandatory-5 tracker — five pips that fill; nudges until met          */
-/* ------------------------------------------------------------------ */
-
-function Min5Tracker({ count, target, shortBy }: { count: number; target: number; shortBy: number }) {
-  const met = shortBy === 0;
-  return (
-    <div
-      className={`wg-rise mb-6 flex items-center justify-between gap-4 flex-wrap rounded-2xl p-4 sm:p-5 ${met ? "" : "wg-nudge"}`}
-      style={{
-        background: met
-          ? "color-mix(in srgb, var(--color-green) 7%, #fff)"
-          : "color-mix(in srgb, var(--color-altus-red) 6%, #fff)",
-        border: `1px solid ${met ? "color-mix(in srgb, var(--color-green) 30%, transparent)" : "color-mix(in srgb, var(--color-altus-red) 28%, transparent)"}`,
-      }}
-    >
-      <div className="flex items-center gap-3 min-w-0">
-        <span
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl"
-          style={{
-            background: met
-              ? "color-mix(in srgb, var(--color-green) 16%, transparent)"
-              : "color-mix(in srgb, var(--color-altus-red) 14%, transparent)",
-            color: met ? "var(--color-green-deep)" : "var(--color-altus-red)",
-          }}
-        >
-          {met ? <CheckCircle2 size={20} strokeWidth={2.4} /> : <Flag size={19} strokeWidth={2.4} />}
-        </span>
-        <div className="min-w-0">
-          <div className="font-bold text-ink-strong" style={{ fontSize: 15 }}>
-            {met
-              ? "Weekly minimum met"
-              : `Add ${shortBy} more goal${shortBy === 1 ? "" : "s"} to meet the weekly minimum`}
-          </div>
-          <div className="text-[13px] font-semibold" style={{ color: EDITORIAL.inkSoft }}>
-            Everyone commits at least {target} goals each week · {count} of {target} set.
-          </div>
-        </div>
-      </div>
-      <div className="flex items-center gap-1.5" aria-hidden>
-        {Array.from({ length: target }).map((_, i) => {
-          const filled = i < count;
-          return (
-            <span
-              key={i}
-              className={filled ? "wg-pip-pop" : ""}
-              style={{
-                width: 26,
-                height: 8,
-                borderRadius: 999,
-                animationDelay: `${i * 60}ms`,
-                background: filled
-                  ? met
-                    ? "linear-gradient(90deg, var(--color-green), var(--color-green-deep))"
-                    : "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))"
-                  : "rgba(0,0,0,0.08)",
-              }}
-            />
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /* Per-member editorial section header                                  */

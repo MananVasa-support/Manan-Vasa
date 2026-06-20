@@ -54,6 +54,15 @@ function useEmployees() {
   return React.useContext(EmployeesContext);
 }
 
+/** Whether the signed-in user (admin or manager) may manage project structure.
+ *  A plain doer (false) may ONLY add results/actions; every other editing
+ *  control is hidden and the server actions reject the write too. Shared via
+ *  context so it doesn't have to thread through the recursive tree. */
+const CanManageContext = React.createContext<boolean>(false);
+function useCanManage() {
+  return React.useContext(CanManageContext);
+}
+
 const CHILD_KIND: Record<NodeKind, NodeKind | null> = {
   project: "milestone",
   milestone: "result",
@@ -121,6 +130,7 @@ interface Props {
   projects: ProjectTreeNode[];
   activeId: string | null;
   employees: EmployeeOption[];
+  canManage: boolean;
 }
 
 /**
@@ -132,7 +142,7 @@ interface Props {
  * refresh and is deep-linkable. The page itself stays a server component;
  * everything here is client because of inline add/rename/archive state.
  */
-export function ProjectsWorkspace({ projects, activeId, employees }: Props) {
+export function ProjectsWorkspace({ projects, activeId, employees, canManage }: Props) {
   const active = projects.find((p) => p.id === activeId) ?? null;
 
   // Org-wide rollups for the hero stat-strip. Cheap — these structures are
@@ -153,6 +163,7 @@ export function ProjectsWorkspace({ projects, activeId, employees }: Props) {
 
   return (
     <EmployeesContext.Provider value={employees}>
+    <CanManageContext.Provider value={canManage}>
       <HeroHeader
         totals={{
           projects: totalProjects,
@@ -173,6 +184,7 @@ export function ProjectsWorkspace({ projects, activeId, employees }: Props) {
           {active && <ProjectDetail key={active.id} project={active} />}
         </div>
       )}
+    </CanManageContext.Provider>
     </EmployeesContext.Provider>
   );
 }
@@ -875,6 +887,7 @@ function TreeNode({
   ordinal: number;
   dnd: Dnd;
 }) {
+  const canManage = useCanManage();
   const childKind = CHILD_KIND[node.kind];
   const hasChildren = node.children.length > 0;
   const linked = node.actionCount;
@@ -896,30 +909,47 @@ function TreeNode({
 
   return (
     <li
-      draggable
-      onDragStart={(e) => {
-        e.stopPropagation();
-        e.dataTransfer.effectAllowed = "move";
-        // A drag image of the whole subtree looks messy — drag the row only.
-        dnd.onDragStart();
-      }}
-      onDragEnd={(e) => {
-        e.stopPropagation();
-        dnd.onDragEnd();
-      }}
-      onDragOver={(e) => {
-        // Scope to the nearest list so a child drag doesn't paint a drop line
-        // on its ancestor rows too.
-        e.preventDefault();
-        e.stopPropagation();
-        e.dataTransfer.dropEffect = "move";
-        dnd.onDragOver();
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dnd.onDrop();
-      }}
+      // Drag-to-reorder is manager-only; a plain doer can't reorder the tree.
+      draggable={canManage}
+      onDragStart={
+        canManage
+          ? (e) => {
+              e.stopPropagation();
+              e.dataTransfer.effectAllowed = "move";
+              // A drag image of the whole subtree looks messy — drag the row only.
+              dnd.onDragStart();
+            }
+          : undefined
+      }
+      onDragEnd={
+        canManage
+          ? (e) => {
+              e.stopPropagation();
+              dnd.onDragEnd();
+            }
+          : undefined
+      }
+      onDragOver={
+        canManage
+          ? (e) => {
+              // Scope to the nearest list so a child drag doesn't paint a drop
+              // line on its ancestor rows too.
+              e.preventDefault();
+              e.stopPropagation();
+              e.dataTransfer.dropEffect = "move";
+              dnd.onDragOver();
+            }
+          : undefined
+      }
+      onDrop={
+        canManage
+          ? (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              dnd.onDrop();
+            }
+          : undefined
+      }
       style={{
         opacity: dnd.isDragging ? 0.45 : 1,
         borderTop: dnd.isOver
@@ -984,17 +1014,21 @@ function NodeRow({
   detailsOpen: boolean;
   onToggleDetails: () => void;
 }) {
+  const canManage = useCanManage();
   return (
     <div className="group flex items-center gap-2.5 py-2 px-2.5 -mx-2.5 rounded-md transition-colors hover:bg-surface-soft">
-      {/* Drag handle — appears on hover, cursor signals grab. */}
-      <span
-        aria-hidden
-        className="shrink-0 cursor-grab opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
-        title="Drag to reorder"
-        style={{ color: "var(--color-ink-muted)" }}
-      >
-        <GripVertical size={14} strokeWidth={2} />
-      </span>
+      {/* Drag handle — appears on hover, cursor signals grab. Manager-only;
+          hidden for plain doers since they can't reorder. */}
+      {canManage && (
+        <span
+          aria-hidden
+          className="shrink-0 cursor-grab opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
+          title="Drag to reorder"
+          style={{ color: "var(--color-ink-muted)" }}
+        >
+          <GripVertical size={14} strokeWidth={2} />
+        </span>
+      )}
 
       {/* Ordinal — the hierarchy number the brief asked for. */}
       <span
@@ -1119,6 +1153,7 @@ function EditableName({
   depth: number;
   asHeading?: boolean;
 }) {
+  const canManage = useCanManage();
   const router = useRouter();
   const [editing, setEditing] = React.useState(false);
   const [name, setName] = React.useState(node.name);
@@ -1153,6 +1188,15 @@ function EditableName({
     letterSpacing: asHeading ? "-0.025em" : "-0.005em",
     lineHeight: asHeading ? 1.05 : 1.35,
   };
+
+  // Plain doer: non-editable plain text (no double-click-to-rename).
+  if (!canManage) {
+    return (
+      <span className="flex-1 min-w-0 break-words" style={sharedStyle}>
+        {node.name}
+      </span>
+    );
+  }
 
   if (editing) {
     return (
@@ -1199,6 +1243,7 @@ function NodeMenu({
   node: ProjectTreeNode;
   compact?: boolean;
 }) {
+  const canManage = useCanManage();
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
@@ -1239,6 +1284,9 @@ function NodeMenu({
       router.refresh();
     });
   }
+
+  // Plain doer: no rename/archive/delete menu at all.
+  if (!canManage) return null;
 
   return (
     <>
@@ -1574,11 +1622,58 @@ function OwnerPicker({
   node: ProjectTreeNode;
   compact?: boolean;
 }) {
+  const canManage = useCanManage();
   const employees = useEmployees();
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [pending, start] = React.useTransition();
+
+  // Plain doer: static, read-only owner display — no people dropdown.
+  if (!canManage) {
+    return (
+      <div className="flex items-center gap-2">
+        {!compact && (
+          <FieldLabel icon={<UserCircle2 size={12} strokeWidth={2.2} />}>
+            Owner
+          </FieldLabel>
+        )}
+        <span
+          className="inline-flex items-center gap-1.5 rounded-pill border px-3.5 py-2 text-[15px] font-semibold"
+          title={node.ownerName ? `Owner: ${node.ownerName}` : "No owner"}
+          style={{
+            borderColor: node.ownerName
+              ? "color-mix(in srgb, var(--color-altus-red) 35%, transparent)"
+              : "var(--color-hairline-strong)",
+            background: node.ownerName
+              ? "color-mix(in srgb, var(--color-altus-red) 8%, transparent)"
+              : "var(--color-surface-card)",
+            color: node.ownerName
+              ? "var(--color-ink-strong)"
+              : "var(--color-ink-muted)",
+          }}
+        >
+          <UserCircle2
+            size={15}
+            strokeWidth={2.2}
+            className="shrink-0"
+            style={{
+              color: node.ownerName
+                ? "var(--color-altus-red)"
+                : "var(--color-ink-subtle)",
+            }}
+          />
+          {node.ownerName
+            ? compact
+              ? node.ownerName.split(" ")[0]
+              : node.ownerName
+            : compact
+              ? "—"
+              : "No owner"}
+        </span>
+      </div>
+    );
+  }
 
   function choose(ownerId: string | null) {
     setOpen(false);
@@ -1685,12 +1780,41 @@ function OwnerPicker({
 }
 
 function MembersPicker({ node }: { node: ProjectTreeNode }) {
+  const canManage = useCanManage();
   const employees = useEmployees();
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [pending, start] = React.useTransition();
   const memberIds = new Set(node.members.map((m) => m.id));
+
+  // Plain doer: static member chips — no remove "x", no Add picker.
+  if (!canManage) {
+    return (
+      <div className="flex items-center gap-2 min-w-0">
+        <FieldLabel icon={<Users size={12} strokeWidth={2.2} />}>Team</FieldLabel>
+        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+          {node.members.length === 0 ? (
+            <span className="text-[13.5px] text-ink-muted">—</span>
+          ) : (
+            node.members.map((m) => (
+              <span
+                key={m.id}
+                className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[13.5px] font-semibold"
+                style={{
+                  background: "color-mix(in srgb, var(--color-blue) 12%, transparent)",
+                  color: "var(--color-blue-deep)",
+                  border: "1px solid color-mix(in srgb, var(--color-blue) 28%, transparent)",
+                }}
+              >
+                {m.name ?? "—"}
+              </span>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
 
   function toggle(employeeId: string) {
     start(async () => {
@@ -1828,8 +1952,30 @@ function PickerRow({
 }
 
 function TargetDateEditor({ node }: { node: ProjectTreeNode }) {
+  const canManage = useCanManage();
   const router = useRouter();
   const [pending, start] = React.useTransition();
+
+  // Plain doer: static target-date text — no input, no clear button.
+  if (!canManage) {
+    return (
+      <div className="flex items-center gap-2">
+        <FieldLabel icon={<CalendarDays size={12} strokeWidth={2.2} />}>
+          Target
+        </FieldLabel>
+        <span
+          className="text-[14.5px] tabular-nums"
+          style={{
+            color: node.targetDate
+              ? "var(--color-ink-strong)"
+              : "var(--color-ink-muted)",
+          }}
+        >
+          {node.targetDate ? fmtDate(node.targetDate) : "—"}
+        </span>
+      </div>
+    );
+  }
 
   function save(ymd: string | null) {
     start(async () => {
@@ -1874,12 +2020,36 @@ function TargetDateEditor({ node }: { node: ProjectTreeNode }) {
 }
 
 function NotesEditor({ node, big }: { node: ProjectTreeNode; big: boolean }) {
+  const canManage = useCanManage();
   const router = useRouter();
   const [value, setValue] = React.useState(node.notes ?? "");
   const [pending, start] = React.useTransition();
   const dirty = value.trim() !== (node.notes ?? "").trim();
 
   React.useEffect(() => setValue(node.notes ?? ""), [node.notes]);
+
+  // Plain doer: read-only notes — no textarea, no Save.
+  if (!canManage) {
+    return (
+      <div className="mt-3">
+        <FieldLabel icon={<StickyNote size={12} strokeWidth={2.2} />}>
+          Notes
+        </FieldLabel>
+        <p
+          className="mt-1.5 whitespace-pre-wrap"
+          style={{
+            fontSize: big ? 17 : 15.5,
+            lineHeight: 1.6,
+            color: node.notes
+              ? "var(--color-ink-strong)"
+              : "var(--color-ink-muted)",
+          }}
+        >
+          {node.notes ? node.notes : "No notes."}
+        </p>
+      </div>
+    );
+  }
 
   function save() {
     if (!dirty) return;
@@ -1944,10 +2114,15 @@ function AddChildButton({
   parentId: string | null;
   label: string;
 }) {
+  const canManage = useCanManage();
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState("");
   const [pending, start] = React.useTransition();
+
+  // A plain doer may only ADD a result or an action; the milestone/sub-action/
+  // project add-buttons are hidden for them (the server rejects them too).
+  if (!canManage && kind !== "result" && kind !== "action") return null;
 
   function add() {
     const v = name.trim();
@@ -2025,6 +2200,8 @@ function AddChildButton({
 }
 
 function NewProjectButton({ hero = false }: { hero?: boolean }) {
+  const canManage = useCanManage();
+  if (!canManage) return null;
   return (
     <NewProjectControl
       hero={hero}
@@ -2071,6 +2248,8 @@ function NewProjectButton({ hero = false }: { hero?: boolean }) {
 }
 
 function NewProjectInlineLink() {
+  const canManage = useCanManage();
+  if (!canManage) return null;
   return (
     <NewProjectControl
       trigger={(openFn) => (

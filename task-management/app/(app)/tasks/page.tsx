@@ -6,6 +6,7 @@ import { listEmployeeOptions } from "@/lib/queries/employees";
 import { listTasks, listDistinctSubjects } from "@/lib/queries/tasks";
 import { listActiveClientNames } from "@/lib/queries/clients";
 import { listWeekGoalsAsTasks } from "@/lib/weekly-goals/as-task-row";
+import { goalScopeFor } from "@/lib/weekly-goals/hierarchy";
 import { parseTaskFilters } from "@/lib/task-filters";
 import { requireUser } from "@/lib/auth/current";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
@@ -27,11 +28,22 @@ export default async function TasksPage({ searchParams }: PageProps) {
   });
 
   // This week's goals for the view's scope, surfaced as a pinned group above
-  // the task table (design §10). "all" assignee view = every employee's goals
-  // (empty scope); otherwise scope to the selected doers. Honours the shared
-  // client/subject/priority filters. Display-only — never counted in the KPIs.
-  const goalScope =
-    filters.assigneeMode === "all" ? undefined : filters.doerIds;
+  // the task table (design §10). Honours the shared client/subject/priority
+  // filters. Display-only — never counted in the KPIs.
+  //
+  // PRIVACY: weekly goals are private to their owner. A NON-ADMIN must never see
+  // other people's goals — even via ?emp=all (which collapses doerIds to []).
+  // So clamp non-admins to their own goal scope (self + downline, matching the
+  // Weekly Goals board's rule); only admins may widen to "all" (undefined).
+  let goalScope: string[] | undefined;
+  if (me.isAdmin) {
+    goalScope = filters.assigneeMode === "all" ? undefined : filters.doerIds;
+  } else {
+    const scope = await goalScopeFor(me);
+    goalScope = filters.doerIds.length
+      ? filters.doerIds.filter((id) => scope.ids.includes(id))
+      : scope.ids;
+  }
 
   const [allEmployees, rows, subjects, clients, statusDisplay, weeklyGoals] =
     await Promise.all([

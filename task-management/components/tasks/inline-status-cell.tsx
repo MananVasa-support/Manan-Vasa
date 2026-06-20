@@ -23,6 +23,9 @@ interface Props {
   /** Admin can move to any value, including the legacy verdict statuses.
    *  Non-admins are limited to USER_TASK_STATUSES. */
   isAdmin: boolean;
+  /** When false, the cell renders a STATIC status badge (no dropdown) — the
+   *  current user isn't allowed to change this task's status. */
+  editable: boolean;
 }
 
 /**
@@ -38,6 +41,7 @@ export function InlineStatusCell({
   labels,
   tones,
   isAdmin,
+  editable,
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -86,6 +90,24 @@ export function InlineStatusCell({
     } finally {
       setPending(false);
     }
+  }
+
+  // Not editable by this user (not admin / not their task, or terminal status)
+  // → render a STATIC coloured badge. No dropdown, no chevron, not clickable.
+  if (!editable) {
+    return (
+      <span
+        aria-label={`Status: ${labels[shown] ?? shown}`}
+        className="inline-flex items-center px-3 py-1.5 rounded-pill text-[13px] font-bold tabular-nums"
+        style={{
+          background: `color-mix(in srgb, var(--color-${tone}) 12%, transparent)`,
+          color: `var(--color-${tone}-deep)`,
+          border: `1px solid color-mix(in srgb, var(--color-${tone}) 30%, transparent)`,
+        }}
+      >
+        {labels[shown] ?? shown}
+      </span>
+    );
   }
 
   // Popover is rendered via Radix Portal so the menu escapes the table

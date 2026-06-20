@@ -150,6 +150,7 @@ import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { LateBadge } from "@/components/ui/late-badge";
 import { isDoneLate } from "@/lib/task-late";
 import { InlineStatusCell } from "./inline-status-cell";
+import { canEditTaskFields } from "@/lib/auth/task-permissions";
 import {
   InlineDoerCell,
   InlinePriorityCell,
@@ -305,6 +306,15 @@ function buildColumns(
         (STATUS_ORDER[a.original.status] ?? 99) - (STATUS_ORDER[b.original.status] ?? 99),
       cell: (info) => {
         const row = info.row.original;
+        const canEdit = canEditTaskFields({
+          employee: me,
+          task: {
+            createdById: row.createdById,
+            initiatorId: row.initiatorId,
+            doerId: row.doerId,
+            status: row.status,
+          },
+        });
         return (
           <span className="inline-flex items-center gap-1.5">
             <InlineStatusCell
@@ -314,6 +324,7 @@ function buildColumns(
               labels={statusLabels}
               tones={statusTones}
               isAdmin={me.isAdmin}
+              editable={canEdit}
             />
             {isDoneLate({ status: row.status, completedAt: row.completedAt, dueAt: row.dueAt }) && (
               <LateBadge />
@@ -1318,6 +1329,15 @@ function TaskCard({
   onToggleSelect: (next: boolean) => void;
 }) {
   const p = row.priority as keyof typeof PRIORITY_LABELS;
+  const canEditStatus = canEditTaskFields({
+    employee: me,
+    task: {
+      createdById: row.createdById,
+      initiatorId: row.initiatorId,
+      doerId: row.doerId,
+      status: row.status,
+    },
+  });
   return (
     <div
       className={`bg-surface-card rounded-section border p-4 transition-colors ${
@@ -1352,6 +1372,7 @@ function TaskCard({
             labels={statusLabels}
             tones={statusTones}
             isAdmin={me.isAdmin}
+            editable={canEditStatus}
           />
           <TaskRowActions row={row} employees={employees} me={me} />
         </div>
