@@ -1,7 +1,8 @@
-import { and, gte, lt, inArray, getTableColumns } from "drizzle-orm";
-import { db, employees, tasks } from "@/lib/db";
+import { and, gte, lt, inArray, getTableColumns, sql } from "drizzle-orm";
+import { db, employees, tasks, taskEvents, holidays } from "@/lib/db";
 import type { Task } from "@/lib/db";
-import type { DashboardData, DashboardFilters, KpiSet } from "@/lib/types";
+import type { DashboardData, DashboardFilters, KpiSet, InitiatorBoard } from "@/lib/types";
+import { isFounderEmail } from "@/lib/auth/founder";
 import {
   computeKpiTotals,
   computeStatusDistribution,
@@ -15,6 +16,10 @@ import {
   computeEmployeeStatusTable,
   computeEmployeeAgingTable,
   computePunctuality,
+  computeDoneOnTime,
+  computeNotApprovedAging,
+  computeInitiatorScorecard,
+  countWorkingDays,
 } from "@/lib/transforms";
 import { AGE_BUCKETS, PENDING_STATUSES } from "@/db/enums";
 import { effectiveDueAtSql } from "@/lib/tasks/effective-due";
@@ -49,7 +54,7 @@ const {
 // dashboard scan. `due_at` itself is immutable; revisions live in
 // `revised_target_date`. A fresh projection per call keeps each query's
 // sql fragment its own (drizzle chunks aren't meant to be shared).
-const taskCols = () => ({ ...TASK_COLS_BASE, dueAt: effectiveDueAtSql() });
+const taskCols = () => ({ ...TASK_COLS_BASE, dueAt: effectiveDueAtSql(), originalDueAt: tasks.dueAt });
 
 /**
  * Cached dashboard aggregate. The three task scans + transforms are
@@ -151,6 +156,49 @@ async function loadDashboardDataUncached(
   const rankingTasks = (rankingTasksRaw ?? periodTasksRaw) as unknown as Task[];
 
   const now = new Date();
+
+  // ── Three extra dashboard datasets (each FAIL-OPEN so they can never crash
+  //    the dashboard). Run alongside the main work via their own Promise.all. ──
+  const MS = MS_PER_DAY;
+  const sevenAgo = new Date(now.getTime() - 7 * MS);
+  const threeAgo = new Date(now.getTime() - 3 * MS);
+
+  const [notApprovedRows, sentBackEvents, initiatorTasksRaw, holidayRows] = await Promise.all([
+    // Declined tasks (STRICT) — id, title, doer, completed_at, created_at.
+    db.select({
+        id: tasks.id, title: tasks.title, doerId: tasks.doerId,
+        completedAt: tasks.completedAt, createdAt: tasks.createdAt,
+      })
+      .from(tasks)
+      .where(and(
+        sql`(${tasks.approvalStatus} = 'not_approved' OR ${tasks.status} = 'not_approved')`,
+        sql`${tasks.archived} = false`,
+      ))
+      .catch(() => [] as { id: string; title: string; doerId: string; completedAt: Date | null; createdAt: Date }[]),
+
+    // Latest "entered not_approved" event time per task. Real shape (verified
+    // against prod): event_type='status_changed', to_value->>'status'. The
+    // extra 'declined'/'approvalStatus' checks are harmless robustness.
+    db.execute(sql`
+      SELECT task_id, MAX(created_at) AS sent_back_at
+        FROM ${taskEvents}
+       WHERE event_type IN ('status_changed','declined')
+         AND (to_value->>'status' = 'not_approved' OR to_value->>'approvalStatus' = 'not_approved')
+       GROUP BY task_id
+    `).then((r) => (r as unknown as { task_id: string; sent_back_at: string }[]))
+      .catch(() => [] as { task_id: string; sent_back_at: string }[]),
+
+    // Initiator window: tasks created in the last 7 days (covers both toggles).
+    db.select({ initiatorId: tasks.initiatorId, doerId: tasks.doerId, createdAt: tasks.createdAt })
+      .from(tasks)
+      .where(and(gte(tasks.createdAt, sevenAgo), sql`${tasks.archived} = false`))
+      .catch(() => [] as { initiatorId: string; doerId: string; createdAt: Date }[]),
+
+    // Holidays within the 7-day window for working-day math.
+    db.select({ holidayDate: holidays.holidayDate }).from(holidays)
+      .where(gte(holidays.holidayDate, sevenAgo.toISOString().slice(0, 10)))
+      .catch(() => [] as { holidayDate: string }[]),
+  ]);
 
   const totals = computeKpiTotals(periodTasks);
 
@@ -296,6 +344,32 @@ async function loadDashboardDataUncached(
   const nameById = new Map(allEmployees.map((e) => [e.id, e.name] as const));
   const punctuality = computePunctuality(periodTasks, nameById);
 
+  // ① Done on-time + aging (Original vs Revised). periodTasks already carry
+  //    originalDueAt (Step 1) + effective dueAt.
+  const doneOnTime = computeDoneOnTime(periodTasks as unknown as Parameters<typeof computeDoneOnTime>[0], nameById);
+
+  // ② Not Approved — anchor = event time → completed_at → created_at.
+  const sentBackByTask = new Map(sentBackEvents.map((e) => [e.task_id, e.sent_back_at] as const));
+  const notApprovedAging = computeNotApprovedAging(
+    notApprovedRows.map((t) => ({
+      id: t.id, title: t.title, doerId: t.doerId,
+      sentBackAt: sentBackByTask.get(t.id) ?? t.completedAt ?? t.createdAt,
+    })),
+    nameById,
+    now,
+  );
+
+  // ③ Manager Initiator — split the 7-day scan into 3-day and 7-day windows.
+  const holidaySet = new Set(holidayRows.map((h) => h.holidayDate));
+  const initEmployees = allEmployees.map((e) => ({ id: e.id, name: e.name, managerId: e.managerId, email: e.email }));
+  const board = (since: Date, windowDays: number): InitiatorBoard => {
+    const wd = countWorkingDays(since, now, holidaySet); // Sunday off (default)
+    const windowTasks = initiatorTasksRaw.filter((t) => t.createdAt >= since)
+      .map((t) => ({ initiatorId: t.initiatorId, doerId: t.doerId }));
+    return { windowDays, workingDays: wd, managers: computeInitiatorScorecard(windowTasks, initEmployees, wd, isFounderEmail) };
+  };
+  const initiator = { d3: board(threeAgo, 3), d7: board(sevenAgo, 7) };
+
   return {
     kpis,
     wmsSummary,
@@ -341,6 +415,9 @@ async function loadDashboardDataUncached(
     agingHeatmap: [],
     agingByDate: computeAgingByDate(periodTasks, now),
     agingHeatmapData: { byCell },
+    doneOnTime,
+    notApprovedAging,
+    initiator,
     generatedAt: now,
   };
 }

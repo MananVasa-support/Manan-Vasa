@@ -167,10 +167,58 @@ export interface Punctuality {
   byPerson: PunctualityPerson[];
 }
 
+/** A single signed early/late aging band with its done-task count. */
+export interface DoneAgingBandCount { id: string; label: string; count: number }
+
+/** Punctuality computed against ONE due-date basis (original or revised). */
+export interface PunctualityBasis {
+  basis: "original" | "revised";
+  total: number; dated: number; onTime: number; late: number; undated: number;
+  onTimeRate: number;
+  byPerson: PunctualityPerson[];      // reuse existing PunctualityPerson
+  histogram: DoneAgingBandCount[];     // 12 signed bands, always all present
+}
+
+/** On-time delivery measured against both the original and the revised due date. */
+export interface DoneOnTime { original: PunctualityBasis; revised: PunctualityBasis }
+
+/** A single positive "days waiting" band with its declined-task count. */
+export interface NotApprovedBandCount { id: string; label: string; count: number }
+
+/** One declined task, aged by days since it was sent back. */
+export interface NotApprovedTask { id: string; title: string; waitingDays: number }
+
+/** A doer with their outstanding declined tasks, oldest-waiting first. */
+export interface NotApprovedPerson {
+  employeeId: string; employeeName: string; count: number; tasks: NotApprovedTask[];
+}
+
+/** Declined ("not approved") tasks grouped per doer + a waiting-days histogram. */
+export interface NotApprovedAging {
+  total: number; byPerson: NotApprovedPerson[]; bands: NotApprovedBandCount[];
+}
+
+/** One of a manager's direct reports + how many tasks they were given vs the goal. */
+export interface InitiatorReportRow { employeeId: string; employeeName: string; given: number; goal: number; hit: boolean }
+
+/** Per-manager target-vs-actual: every initiated task classified into Direct
+ *  Reports (counts toward target) / Counterparts / Founder-Management. */
+export interface InitiatorScorecard {
+  managerId: string; managerName: string; directReports: number;
+  totalInitiated: number; toDirectReports: number; toCounterparts: number; toFounderMgmt: number;
+  target: number; actual: number; attainmentPct: number;
+  perReport: InitiatorReportRow[];
+}
+
+export interface InitiatorBoard { windowDays: number; workingDays: number; managers: InitiatorScorecard[] }
+
 export interface DashboardData {
   kpis: KpiSet;
   wmsSummary: WmsSummary;
   punctuality: Punctuality;
+  doneOnTime: DoneOnTime;
+  notApprovedAging: NotApprovedAging;
+  initiator: { d3: InitiatorBoard; d7: InitiatorBoard };
   pullQuote: string;
   velocity: VelocityPoint[];
   statusTable: EmployeeStatusRow[];

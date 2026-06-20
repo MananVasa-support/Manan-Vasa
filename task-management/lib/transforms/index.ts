@@ -8,3 +8,8 @@ export * from "./employee-status-table";
 export * from "./employee-aging-table";
 export * from "./rolling-average";
 export * from "./punctuality";
+export { computeDoneOnTime } from "./done-on-time";
+export { computeNotApprovedAging } from "./not-approved-aging";
+export { computeInitiatorScorecard } from "./initiator-scorecard";
+export { countWorkingDays } from "./working-days";
+export { DONE_AGING_BANDS, WAITING_AGING_BANDS, bucketSignedDays, bucketWaitingDays } from "./aging-bands";

@@ -7,6 +7,9 @@ import { StatusTable } from "@/components/dashboard/status-table";
 import { StatusDistributionChart } from "@/components/dashboard/status-distribution";
 import { TopPerformersSection } from "@/components/dashboard/top-performers";
 import { PunctualityCard } from "@/components/dashboard/punctuality-card";
+import { DoneAgingSection } from "@/components/dashboard/done-aging-section";
+import { NotApprovedSection } from "@/components/dashboard/not-approved-section";
+import { InitiatorSection } from "@/components/dashboard/initiator-section";
 import { AgingHeatmap } from "@/components/dashboard/aging-heatmap";
 import { WelcomeHero } from "@/components/dashboard/welcome-hero";
 import { MyDayCard } from "@/components/dashboard/my-day-card";
@@ -167,6 +170,17 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               <section className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-6">
                 <PunctualityCard data={data.punctuality} isAdmin={Boolean(me?.isAdmin)} />
               </section>
+              <DoneAgingSection data={data.doneOnTime} isAdmin={Boolean(me?.isAdmin)} />
+              <NotApprovedSection
+                data={data.notApprovedAging}
+                isAdmin={Boolean(me?.isAdmin)}
+                meId={me?.id ?? null}
+              />
+              <InitiatorSection
+                data={data.initiator}
+                isAdmin={Boolean(me?.isAdmin)}
+                meId={me?.id ?? null}
+              />
               <StatusTable rows={data.statusTable} view={filters.view} />
               <AgingHeatmap rows={data.agingTable} cellTasks={data.agingHeatmapData.byCell} />
               <CollapsibleVelocity data={data.velocity} />
