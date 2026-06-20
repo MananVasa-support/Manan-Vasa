@@ -12,6 +12,7 @@ import { listWeekGoalsAsTasks } from "@/lib/weekly-goals/as-task-row";
 import { hasUnfilledWeekGoals } from "@/lib/queries/weekly-goals";
 import { needsDailyPlan } from "@/lib/daily-checklist/gate";
 import { parseFilters } from "@/lib/filters";
+import { getCurrentEmployee } from "@/lib/auth/current";
 
 // PERF FORENSICS (temporary): persists across warm invocations on an instance.
 let probeFirstSeen: number | null = null;
@@ -164,9 +165,12 @@ async function runDeepProbe(): Promise<Response> {
 }
 
 export async function GET(request: Request) {
-  const deep = new URL(request.url).searchParams.get("deep");
-  if (deep && process.env.CRON_SECRET && deep === process.env.CRON_SECRET) {
-    return runDeepProbe();
+  // TEMPORARY perf-audit probe (removed after capture). Gated by a real
+  // ADMIN SESSION — no shared token. Read-only; returns only timings + counts.
+  if (new URL(request.url).searchParams.get("deep")) {
+    const me = await getCurrentEmployee();
+    if (me?.isAdmin) return runDeepProbe();
+    return Response.json({ error: "admin session required" }, { status: 403 });
   }
   const [dbCheck, storageCheck] = await Promise.all([checkDb(), checkStorage()]);
   const checks = [dbCheck, storageCheck];
