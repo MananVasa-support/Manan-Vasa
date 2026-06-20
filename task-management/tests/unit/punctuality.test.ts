@@ -126,6 +126,25 @@ describe("computePunctuality (D16)", () => {
     expect(r.byPerson[1]?.employeeName).toBe("Bob");
   });
 
+  it("tolerates a STRING dueAt (the dashboard projects it via a raw COALESCE SQL fragment → drizzle returns text, not a Date)", () => {
+    const tasks: Task[] = [
+      // dueAt arrives as a postgres timestamptz string; must not throw.
+      task({
+        doerId: "alice",
+        dueAt: "2026-06-10 12:00:00+00" as unknown as Date,
+        completedAt: new Date("2026-06-10T18:00:00Z"), // same UTC day → on time
+      }),
+      task({
+        doerId: "alice",
+        dueAt: "2026-06-10 12:00:00+00" as unknown as Date,
+        completedAt: new Date("2026-06-11T01:00:00Z"), // next day → late
+      }),
+    ];
+    const r = computePunctuality(tasks, names);
+    expect(r.onTime).toBe(1);
+    expect(r.late).toBe(1);
+  });
+
   it("is empty-safe (no done tasks)", () => {
     const r = computePunctuality([task({ status: "initiated" })], names);
     expect(r).toMatchObject({ total: 0, dated: 0, onTime: 0, late: 0, undated: 0, onTimeRate: 0 });

@@ -16,9 +16,17 @@ import type { Punctuality } from "@/lib/types";
  * they're surfaced separately as `undated` and excluded from the rate.
  */
 
-/** UTC calendar-day ordinal (days since epoch) for a timestamp. */
-function utcDay(d: Date): number {
-  return Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 86_400_000);
+/**
+ * UTC calendar-day key ("YYYY-MM-DD") for a timestamp. Tolerates BOTH a JS Date
+ * (normal columns like `completed_at`) AND a string — the dashboard projects
+ * `dueAt` through a raw `COALESCE(...)` SQL fragment, and drizzle returns raw SQL
+ * fragments as the driver's text form ("2026-05-25 18:30:00+00", already UTC), so
+ * calling Date methods on it throws. Day-string compares lexicographically =
+ * chronologically, which is exactly the calendar-day granularity we want.
+ */
+function utcDayKey(d: Date | string): string {
+  if (typeof d === "string") return d.slice(0, 10); // "YYYY-MM-DD…+00" is UTC
+  return d.toISOString().slice(0, 10);
 }
 
 export function computePunctuality(
@@ -37,7 +45,7 @@ export function computePunctuality(
       undated++;
       continue;
     }
-    const isOnTime = utcDay(t.completedAt) <= utcDay(t.dueAt);
+    const isOnTime = utcDayKey(t.completedAt) <= utcDayKey(t.dueAt);
     if (isOnTime) onTime++;
     else late++;
     const p = per.get(t.doerId) ?? { onTime: 0, late: 0 };
