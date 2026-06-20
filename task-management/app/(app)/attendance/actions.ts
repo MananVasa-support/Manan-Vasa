@@ -24,6 +24,8 @@ import { rateLimitOrError } from "@/lib/rate-limit";
 import { localDateString } from "@/lib/format";
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import { resolvePunchGeofence, insertPunchRow } from "@/lib/attendance/record-punch";
+import { evaluateOfficeIp, getClientIp } from "@/lib/attendance/office-ip";
+import { orgSettings } from "@/db/schema";
 import {
   notifyOnInPunch,
   notifyOnDayFinalized,
@@ -93,10 +95,23 @@ export async function punchAttendance(input: {
   }
   const { kind, note, location, deviceLabel } = parsed.data;
 
+  const settings = await getOrgSettings();
+
+  // ── Gate 0: office Wi-Fi IP ─────────────────────────────────────────
+  // The punch must come from the office network's public IP — a mock-GPS app on
+  // the phone cannot fake this (the IP is decided server-side from the request).
+  // When no allowlist is configured the gate is off (accepts from anywhere).
+  const ipGate = await evaluateOfficeIp(settings.officeIpAllowlist);
+  if (ipGate.configured && !ipGate.allowed) {
+    return {
+      ok: false,
+      error: "Attendance can only be marked on the office Wi-Fi. Connect to the office network and try again.",
+    };
+  }
+
   // ── Gate 1: geofence ────────────────────────────────────────────────
   // Runs for BOTH "in" and "out". Shared with the native punch API via
   // resolvePunchGeofence so the security rule never diverges between clients.
-  const settings = await getOrgSettings();
   const geo = resolvePunchGeofence(settings, location);
   if (!geo.ok) return { ok: false, error: geo.error };
   const distanceM = geo.distanceM;
@@ -217,8 +232,48 @@ export async function startBiometricPunch(): Promise<
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
+  // Office Wi-Fi gate up front — don't even start the fingerprint ceremony off
+  // the office network (cleaner UX; the punch action enforces it again anyway).
+  const settings = await getOrgSettings();
+  const ipGate = await evaluateOfficeIp(settings.officeIpAllowlist);
+  if (ipGate.configured && !ipGate.allowed) {
+    return { ok: false, error: "Connect to the office Wi-Fi to mark attendance." };
+  }
   const options = await mintPunchOptions(me.id);
   return { ok: true, options };
+}
+
+// ── Office Wi-Fi allowlist (admin) ──────────────────────────────────────────
+// Capture the office network's public IP while standing on the office Wi-Fi:
+// the gate then only accepts punches from that IP, which mock GPS can't defeat.
+
+/** Add the CURRENT request's public IP to the office allowlist. Admin only —
+ *  the admin taps this while on the office Wi-Fi. Idempotent (dedupes). */
+export async function captureOfficeWifiAction(): Promise<
+  ActionResult<{ ip: string; allowlist: string[] }>
+> {
+  await requireAdmin();
+  const ip = await getClientIp();
+  if (!ip) return { ok: false, error: "Couldn't read your network IP. Try again." };
+  const settings = await getOrgSettings();
+  const current = settings.officeIpAllowlist ?? [];
+  if (current.includes(ip)) return { ok: true, ip, allowlist: current };
+  const next = [...current, ip];
+  await db.update(orgSettings).set({ officeIpAllowlist: next, updatedAt: new Date() }).where(eq(orgSettings.id, 1));
+  revalidatePath("/attendance");
+  return { ok: true, ip, allowlist: next };
+}
+
+/** Remove one IP/CIDR from the office allowlist. Admin only. */
+export async function removeOfficeWifiAction(
+  ip: string,
+): Promise<ActionResult<{ allowlist: string[] }>> {
+  await requireAdmin();
+  const settings = await getOrgSettings();
+  const next = (settings.officeIpAllowlist ?? []).filter((e) => e !== ip);
+  await db.update(orgSettings).set({ officeIpAllowlist: next.length ? next : null, updatedAt: new Date() }).where(eq(orgSettings.id, 1));
+  revalidatePath("/attendance");
+  return { ok: true, allowlist: next };
 }
 
 // ════════════════════════════════════════════════════════════════════════════

@@ -903,6 +903,10 @@ export const orgSettings = pgTable("org_settings", {
   officeLat: doublePrecision("office_lat"),
   officeLng: doublePrecision("office_lng"),
   attendanceRadiusM: integer("attendance_radius_m").notNull().default(100),
+  // 0072 — office Wi-Fi public IP allowlist. When set, attendance can only be
+  // marked from one of these IPs/CIDRs (i.e. on the office network), which mock
+  // GPS cannot defeat. NULL/empty = gate OFF (punches accepted from anywhere).
+  officeIpAllowlist: text("office_ip_allowlist").array(),
   // Attendance Phase A (0058) — org-wide schedule defaults. Per-employee
   // overrides live on `employees`; null there => fall back to these.
   attLateAfter: time("att_late_after").default("10:50"),

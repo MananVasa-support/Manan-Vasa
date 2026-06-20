@@ -1,7 +1,8 @@
-import { MapPin, ShieldCheck } from "lucide-react";
+import { MapPin, ShieldCheck, Wifi, WifiOff } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { PunchCard } from "@/components/attendance/punch-card";
+import { OfficeWifiAdmin } from "@/components/attendance/office-wifi-admin";
 import { TeamDatePicker } from "@/components/attendance/team-date-picker";
 import { TeamPunchButton } from "@/components/attendance/team-punch-button";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
@@ -15,6 +16,7 @@ import {
   type TeamAttendanceRow,
 } from "@/lib/queries/attendance";
 import { getOrgSettings } from "@/lib/queries/org-settings";
+import { evaluateOfficeIp } from "@/lib/attendance/office-ip";
 import { formatTimeInTz, localDateString } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -66,6 +68,12 @@ export default async function AttendancePage({ searchParams }: PageProps) {
         }
       : null;
 
+  // Office Wi-Fi gate: when an allowlist is configured and the request isn't on
+  // it, show a calm "connect to office Wi-Fi" panel instead of the punch UI.
+  // Admins are exempt from the BLOCK so they can still capture/manage the IP.
+  const ipGate = await evaluateOfficeIp(settings.officeIpAllowlist);
+  const wifiBlocked = ipGate.configured && !ipGate.allowed && !me.isAdmin;
+
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
@@ -79,14 +87,32 @@ export default async function AttendancePage({ searchParams }: PageProps) {
           </p>
         </header>
 
-        <PunchCard
-          todayLabel={labelForDate(today)}
-          inLabel={todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : null}
-          outLabel={todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null}
-          tz={tz}
-          office={office}
-          biometricExempt={me.attendanceBiometricExempt}
-        />
+        {wifiBlocked ? (
+          <OfficeWifiGate />
+        ) : (
+          <>
+            {ipGate.configured && me.isAdmin && !ipGate.allowed && (
+              <p
+                className="mb-4 rounded-pill px-4 py-2 text-[13px] font-semibold inline-flex items-center gap-2"
+                style={{ background: "color-mix(in srgb, var(--color-amber-deep,#B45309) 12%, transparent)", color: "var(--color-amber-deep,#B45309)" }}
+              >
+                <WifiOff size={15} /> You&apos;re not on office Wi-Fi — admins can still punch, but staff are blocked here.
+              </p>
+            )}
+            <PunchCard
+              todayLabel={labelForDate(today)}
+              inLabel={todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : null}
+              outLabel={todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null}
+              tz={tz}
+              office={office}
+              biometricExempt={me.attendanceBiometricExempt}
+            />
+          </>
+        )}
+
+        {me.isAdmin && (
+          <OfficeWifiAdmin allowlist={settings.officeIpAllowlist ?? []} currentIp={ipGate.ip} />
+        )}
 
         <MyLog days={myDays} tz={tz} />
 
@@ -101,6 +127,29 @@ export default async function AttendancePage({ searchParams }: PageProps) {
       </main>
       <DashboardFooter />
     </>
+  );
+}
+
+/** Calm "you're not on office Wi-Fi" panel — shown instead of the punch UI when
+ *  the office-IP gate is active and the request isn't on the office network. */
+function OfficeWifiGate() {
+  return (
+    <section
+      className="rounded-section bg-surface-card p-8 max-md:p-6 text-center"
+      style={{ border: "1px solid var(--color-hairline)", boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
+    >
+      <span
+        className="inline-flex size-14 items-center justify-center rounded-full mb-4"
+        style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red)" }}
+      >
+        <Wifi size={26} strokeWidth={2.2} />
+      </span>
+      <h2 className="text-display-2xs text-ink-strong">Connect to the office Wi-Fi</h2>
+      <p className="mt-2 text-[15px] text-ink-soft mx-auto max-w-[42ch]">
+        Attendance can only be marked from the office network. Join the office Wi-Fi
+        (not mobile data) and reopen this page — then you can punch in.
+      </p>
+    </section>
   );
 }
 

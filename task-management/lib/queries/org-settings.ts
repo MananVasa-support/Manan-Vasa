@@ -35,6 +35,7 @@ const DEFAULTS: OrgSettings = {
   officeLat: null,
   officeLng: null,
   attendanceRadiusM: 100,
+  officeIpAllowlist: null,
   attLateAfter: "10:50",
   attEarlyBefore: "19:20",
   attFullDayHours: "9",
