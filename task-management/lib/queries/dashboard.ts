@@ -29,12 +29,20 @@ import { CACHE_TAGS } from "@/lib/cache-tags";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-// All task columns EXCEPT the large free-text fields (`description`, `notes`)
-// — the dashboard transforms never read them, and shipping them on every row
-// of three full scans bloats the payload over the remote connection. Dropping
-// them keeps the scans lean. (Verified: no transform accesses these fields.)
-const { description: _description, notes: _notes, ...TASK_COLS_BASE } =
-  getTableColumns(tasks);
+// All task columns EXCEPT the large free-text fields. The dashboard transforms
+// never read them, and shipping them on every row of three full scans bloats the
+// payload over the remote connection — which is what makes a scan's RESULT SEND
+// slow enough to be orphaned (stuck "sending to a dead client" for minutes,
+// holding a pooled connection). CRITICAL: also drop `searchText` — it's a
+// GENERATED column that concatenates title+description+client+subject+notes, so
+// shipping it re-ships everything we just dropped. (Verified: no transform reads
+// description / notes / searchText.)
+const {
+  description: _description,
+  notes: _notes,
+  searchText: _searchText,
+  ...TASK_COLS_BASE
+} = getTableColumns(tasks);
 
 // Overdue/due-today/due-this-week counts must read the EFFECTIVE due
 // (revised ?? original), so project `dueAt` as that COALESCE for every
