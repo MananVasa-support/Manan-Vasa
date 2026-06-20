@@ -489,7 +489,7 @@ export function TaskDetailView({
             {/* (1) Status picker — its own compact card, sits at the
                 top so the eye lands on it first. */}
             <section
-              className="rounded-section border border-hairline bg-surface-card px-5 py-4 relative overflow-hidden"
+              className="rounded-section border border-hairline bg-surface-card px-5 py-4 relative"
               style={{
                 boxShadow:
                   "0 1px 3px rgba(15, 23, 42, 0.04), 0 8px 24px -16px rgba(15, 23, 42, 0.08)",
