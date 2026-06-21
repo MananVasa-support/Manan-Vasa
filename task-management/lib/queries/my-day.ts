@@ -1,7 +1,9 @@
 import "server-only";
 import { and, asc, eq, inArray, lt, gte } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { tasks } from "@/db/schema";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 import { PENDING_STATUSES, TASK_PRIORITIES } from "@/db/enums";
 import type { TaskStatus, TaskPriority } from "@/db/enums";
 
@@ -30,7 +32,20 @@ function istBoundaries(now: Date = new Date()): { start: Date; end: Date } {
  * Cheap — three `count(*)` queries that all hit the existing
  * (doer_id, archived, status) index family. No join.
  */
+// Per-user short cache (15s, tag `tasks`). These run on EVERY dashboard load;
+// caching spares the DB on repeat loads / back-navigation by the same user. Any
+// task mutation calls updateTag(CACHE_TAGS.tasks) → busts this instantly, so a
+// user always sees their own changes (read-your-writes). 15s day-boundary drift
+// is negligible.
 export async function getMyDayCounts(userId: string): Promise<MyDayCounts> {
+  return unstable_cache(
+    () => getMyDayCountsUncached(userId),
+    ["my-day-counts:v1", userId],
+    { revalidate: 15, tags: [CACHE_TAGS.tasks] },
+  )();
+}
+
+async function getMyDayCountsUncached(userId: string): Promise<MyDayCounts> {
   const { start, end } = istBoundaries();
   const pendingList = [...PENDING_STATUSES];
 
@@ -108,6 +123,11 @@ const PRIORITY_RANK = Object.fromEntries(
  * then by due date. One indexed query — same predicate family as the
  * counters above, so the list always agrees with the counts.
  */
+// NOT cached on purpose: this returns Date fields (`dueAt`), and unstable_cache
+// JSON-serializes (Date → string) — the same Date→string footgun that caused the
+// D16 dashboard crash. It's a single indexed query, so the round-trip saving
+// isn't worth re-introducing that risk. (getMyDayCounts above IS cached — it
+// returns only numbers.)
 export async function getMyTodayTasks(userId: string): Promise<MyTodayTask[]> {
   const { start, end } = istBoundaries();
 

@@ -24,7 +24,7 @@ import { getCurrentEmployee } from "@/lib/auth/current";
 import { listWeekGoalsAsTasks } from "@/lib/weekly-goals/as-task-row";
 import { WeeklyGoalTaskGroup } from "@/components/weekly-goals/weekly-goal-task-group";
 import { parseFilters } from "@/lib/filters";
-import { withTimeout } from "@/lib/db/with-timeout";
+import { withRetry } from "@/lib/db/with-timeout";
 import type { TaskStatus, StatusColorToken } from "@/db/enums";
 
 export const dynamic = "force-dynamic";
@@ -57,8 +57,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   // My Day: this week's goals assigned to ME, pinned above today's tasks
   // (design §10). Display-only; never mixed into the dashboard task KPIs.
   let myGoals: Awaited<ReturnType<typeof listWeekGoalsAsTasks>>;
-  try {
-    [allEmployees, data, statusDisplay, myDay, todayTasks, subjects, myGoals] = await withTimeout(Promise.all([
+  // The fan-out is a FACTORY so withRetry can re-issue it on a fresh connection.
+  // If the first attempt lands on a stale pooled connection and times out, the
+  // retry deterministically picks a different/new connection (the stale one is
+  // still reserved draining the abandoned query) — so a load that used to wait
+  // 18s and show the error card now succeeds a few seconds later instead.
+  const loadAll = () =>
+    Promise.all([
       listEmployees(),
       loadDashboardData(filters),
       getStatusDisplayMap(),
@@ -73,7 +78,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       me
         ? listWeekGoalsAsTasks({ scope: { employeeIds: [me.id] } }).catch(() => [])
         : Promise.resolve([]),
-    ]), 18000, "dashboard-load");
+    ]);
+  try {
+    // Tight first timeout (a healthy load is <1s; cold is ~1.4s) so a stale hit
+    // is caught in 6s, then one retry with more headroom. Error card only if
+    // BOTH a fresh-connection retry also fails.
+    [allEmployees, data, statusDisplay, myDay, todayTasks, subjects, myGoals] =
+      await withRetry(loadAll, { attempts: 2, timeoutMs: [6000, 12000], label: "dashboard-load" });
   } catch (err) {
     console.error("[dashboard] data load failed:", err);
     return (

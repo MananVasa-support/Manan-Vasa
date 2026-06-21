@@ -61,3 +61,43 @@ export async function withTimeoutOr<T>(
     return fallback;
   }
 }
+
+/**
+ * Run a DB read with a hard timeout, and on timeout/error RETRY on a fresh
+ * connection — the durable cure for the stale-pooled-connection hang.
+ *
+ * Why this works: when `withTimeout` trips, postgres-js is still draining the
+ * abandoned query on its (stale) connection, so that connection stays reserved.
+ * The next call therefore lands on a DIFFERENT pooled connection — or opens a
+ * brand-new one — which is almost always healthy. So a request that would have
+ * shown the 18s error card instead succeeds a few seconds later, transparently.
+ *
+ * CRITICAL: `make` must be a FACTORY that builds a fresh promise each call
+ * (e.g. `() => db.select()...` or `() => Promise.all([...])`). Passing an
+ * already-started promise would just re-await the same stuck query.
+ *
+ * Each attempt gets its own timeout. Keep the first timeout tight (a healthy
+ * query is <1s) so a stale hit is detected fast and the retry happens quickly.
+ */
+export async function withRetry<T>(
+  make: () => Promise<T> | PromiseLike<T>,
+  opts: { attempts?: number; timeoutMs: number | number[]; label?: string },
+): Promise<T> {
+  const { attempts = 2, timeoutMs, label = "query" } = opts;
+  const msFor = (i: number) =>
+    Array.isArray(timeoutMs) ? (timeoutMs[i] ?? timeoutMs[timeoutMs.length - 1]!) : timeoutMs;
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await withTimeout(make(), msFor(i), i === 0 ? label : `${label}-retry${i}`);
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) {
+        console.warn(
+          `[db-retry] ${label} attempt ${i + 1}/${attempts} failed (${(err as Error)?.message ?? err}); retrying on a fresh connection`,
+        );
+      }
+    }
+  }
+  throw lastErr;
+}
