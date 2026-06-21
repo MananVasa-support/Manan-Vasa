@@ -689,6 +689,10 @@ export const NOTIFICATION_KINDS = [
   "cancelled",
   "commented",
   "overdue_digest",
+  // Task nudge — an on-demand "⚡ ping" from the initiator / doer's manager /
+  // admin to the doer. In-app + push only (routed inbox-only for email in
+  // lib/email/resend.ts); never sent via Slack/WhatsApp templates.
+  "nudged",
   // Attendance Phase A (0058) — text column, no DB change needed.
   "attendance_late",
   "attendance_late_waived",

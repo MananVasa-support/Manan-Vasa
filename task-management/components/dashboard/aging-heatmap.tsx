@@ -7,7 +7,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { AGE_BUCKETS, type AgeBucketId } from "@/db/enums";
 import type { AgingRow, HeatmapCellTask } from "@/lib/types";
-import { EmployeeAvatar } from "@/components/ui/employee-avatar";
+import { Avatar } from "@/components/ui/avatar";
 
 // Age-coded palette: cool/green for fresh, hot/red for old.
 // Bars use a gradient pair for depth; deep is the saturated label color.
@@ -47,9 +47,11 @@ type SortMode = "risk" | "total" | "oldest";
 export function AgingHeatmap({
   rows,
   cellTasks,
+  avatarById = {},
 }: {
   rows: AgingRow[];
   cellTasks: Record<string, Record<string, HeatmapCellTask[]>>;
+  avatarById?: Record<string, string | null>;
 }) {
   const [sortMode, setSortMode] = React.useState<SortMode>("risk");
 
@@ -158,6 +160,7 @@ export function AgingHeatmap({
                   maxTotal={maxTotal}
                   index={i}
                   employeeTasks={cellTasks[r.employeeId] ?? {}}
+                  avatarUrl={avatarById[r.employeeId] ?? null}
                 />
               ))}
             </div>
@@ -335,11 +338,13 @@ function Lane({
   maxTotal,
   index,
   employeeTasks,
+  avatarUrl,
 }: {
   row: AgingRow & { risk: number };
   maxTotal: number;
   index: number;
   employeeTasks: Record<string, HeatmapCellTask[]>;
+  avatarUrl?: string | null;
 }) {
   const router = useRouter();
   const lengthPct = (row.total / maxTotal) * 100;
@@ -372,7 +377,7 @@ function Lane({
     >
       {/* Employee — avatar + name */}
       <div className="flex items-center gap-3 min-w-0">
-        <EmployeeAvatar name={row.employeeName} size="md" />
+        <Avatar name={row.employeeName} avatarUrl={avatarUrl ?? null} size={40} />
         <span
           className="text-ink-strong truncate font-bold"
           style={{ fontSize: 17 }}

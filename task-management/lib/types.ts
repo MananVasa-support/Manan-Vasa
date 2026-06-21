@@ -150,6 +150,8 @@ export interface PunctualityPerson {
   late: number;
   /** onTime ÷ done, % (0 when none). */
   rate: number;
+  /** Late done tasks bucketed by days late (sums ≤ late). */
+  lateSpread: { d2_3: number; d4_7: number; d8_14: number; d15: number };
 }
 
 export interface Punctuality {

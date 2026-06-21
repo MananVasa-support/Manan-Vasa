@@ -25,6 +25,7 @@ const EMOJI: Record<NotificationKind, string> = {
   transferred: ":outbox_tray:",
   cancelled: ":wastebasket:",
   commented: ":speech_balloon:",
+  nudged: ":zap:",
   overdue_digest: ":warning:",
   // Weekly Goals — delivered by their own cron; present to satisfy the
   // exhaustive map but not sent via Slack.
@@ -52,6 +53,7 @@ const VERB: Record<NotificationKind, (actor: string, statusLabel?: string) => st
   transferred: (a) => `${a} transferred a task`,
   cancelled: (a) => `${a} cancelled a task`,
   commented: (a) => `${a} commented on your task`,
+  nudged: (a) => `${a} nudged you on a task`,
   overdue_digest: () => `You have overdue tasks`,
   // Weekly Goals — delivered by their own cron; not sent via Slack.
   weekly_goals_assigned: () => `Your priorities for the week`,

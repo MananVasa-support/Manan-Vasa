@@ -4,7 +4,7 @@ import type { Route } from "next";
 import { Trophy, Crown, Inbox } from "lucide-react";
 import type { TopPerformer } from "@/lib/types";
 import { useCountUp } from "@/lib/use-count-up";
-import { EmployeeAvatar } from "@/components/ui/employee-avatar";
+import { Avatar } from "@/components/ui/avatar";
 
 const PODIUM_THEMES = [
   // GOLD
@@ -51,8 +51,10 @@ const themeForRank = (rank: number) => PODIUM_THEMES[rank - 1] ?? NEUTRAL_THEME;
 
 export function TopPerformersSection({
   performers,
+  avatarById = {},
 }: {
   performers: TopPerformer[];
+  avatarById?: Record<string, string | null>;
 }) {
   const top3 = performers.slice(0, 3);
   const rest = performers.slice(3, 10);
@@ -94,7 +96,12 @@ export function TopPerformersSection({
               in this (possibly filtered) list. */}
           <div className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
             {top3.map((p, i) => (
-              <PodiumCard key={p.employeeId} performer={p} stagger={i} />
+              <PodiumCard
+                key={p.employeeId}
+                performer={p}
+                stagger={i}
+                avatarUrl={avatarById[p.employeeId] ?? null}
+              />
             ))}
           </div>
 
@@ -102,7 +109,11 @@ export function TopPerformersSection({
           {rest.length > 0 && (
             <ol className="mt-4 flex flex-col gap-1.5">
               {rest.map((p) => (
-                <LeaderRow key={p.employeeId} performer={p} />
+                <LeaderRow
+                  key={p.employeeId}
+                  performer={p}
+                  avatarUrl={avatarById[p.employeeId] ?? null}
+                />
               ))}
             </ol>
           )}
@@ -115,10 +126,12 @@ export function TopPerformersSection({
 function PodiumCard({
   performer,
   stagger,
+  avatarUrl,
 }: {
   performer: TopPerformer;
   /** Position in the rendered list — only used to stagger the count-up. */
   stagger: number;
+  avatarUrl?: string | null;
 }) {
   const theme = themeForRank(performer.rank);
   const animated = useCountUp(performer.doneCount, 900 + stagger * 120);
@@ -156,10 +169,10 @@ function PodiumCard({
       <div className="p-5 pt-6 flex flex-col items-center text-center gap-3">
         {/* Avatar with initials + numbered rank badge */}
         <span className="relative inline-block">
-          <EmployeeAvatar
+          <Avatar
             name={performer.employeeName}
-            size="lg"
-            background={theme.badge}
+            avatarUrl={avatarUrl ?? null}
+            size={56}
           />
           <span
             aria-hidden
@@ -210,7 +223,13 @@ function PodiumCard({
   );
 }
 
-function LeaderRow({ performer }: { performer: TopPerformer }) {
+function LeaderRow({
+  performer,
+  avatarUrl,
+}: {
+  performer: TopPerformer;
+  avatarUrl?: string | null;
+}) {
   const rank = performer.rank;
   return (
     <li>
@@ -234,7 +253,11 @@ function LeaderRow({ performer }: { performer: TopPerformer }) {
         >
           {rank}
         </span>
-        <EmployeeAvatar name={performer.employeeName} size="sm" />
+        <Avatar
+          name={performer.employeeName}
+          avatarUrl={avatarUrl ?? null}
+          size={32}
+        />
         <span
           className="flex-1 text-ink-strong font-bold truncate"
           style={{ fontSize: 16 }}

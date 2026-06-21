@@ -32,4 +32,16 @@ describe("computeDoneOnTime", () => {
     expect(r.original.undated).toBe(1);
     expect(r.original.dated).toBe(0);
   });
+  it("per-person lateSpread buckets days-late (2-3/4-7/8-14/15+)", () => {
+    const t = (completedAt: string, dueAt: string) =>
+      task({ completedAt, dueAt, originalDueAt: dueAt });
+    // late by 3 (d2_3), 5 (d4_7), 10 (d8_14), 20 (d15)
+    const r = computeDoneOnTime(
+      [t("2026-06-13","2026-06-10"), t("2026-06-15","2026-06-10"),
+       t("2026-06-20","2026-06-10"), t("2026-06-30","2026-06-10")],
+      names,
+    );
+    const p = r.revised.byPerson[0]!;
+    expect(p.lateSpread).toEqual({ d2_3: 1, d4_7: 1, d8_14: 1, d15: 1 });
+  });
 });

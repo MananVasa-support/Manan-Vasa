@@ -24,6 +24,7 @@ const TITLES: Record<NotificationKind, (actor: string) => string> = {
   transferred: (a) => `${a} transferred a task`,
   cancelled: (a) => `${a} cancelled a task`,
   commented: (a) => `${a} commented on your task`,
+  nudged: (a) => `⚡ ${a} nudged you`,
   overdue_digest: () => `You have overdue tasks`,
   // Weekly Goals — delivered by their own cron (email + in-app), not via push.
   weekly_goals_assigned: () => `Your priorities for the week`,

@@ -19,6 +19,7 @@ import {
   Bell,
   Smartphone,
   Target,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import type { InboxNotificationRow as NotificationRowData } from "@/lib/queries/notifications";
@@ -45,6 +46,7 @@ const KIND_META: Record<NotificationKind, { icon: LucideIcon; tone: string }> = 
   transferred: { icon: ArrowRightLeft, tone: "purple" },
   cancelled: { icon: Ban, tone: "red" },
   commented: { icon: MessageSquare, tone: "blue" },
+  nudged: { icon: Zap, tone: "amber" },
   overdue_digest: { icon: AlarmClock, tone: "amber" },
   // Weekly Goals reminder cron.
   weekly_goals_assigned: { icon: Target, tone: "blue" },

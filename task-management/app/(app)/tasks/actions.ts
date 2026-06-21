@@ -61,6 +61,7 @@ import {
 } from "@/lib/tasks/set-status";
 import { addTaskComment } from "@/lib/tasks/add-comment";
 import { createTasksCore } from "@/lib/tasks/create-task";
+import { nudgeTaskCore } from "@/lib/tasks/nudge";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1322,6 +1323,31 @@ export async function addComment(
 
   revalidatePath(`/tasks/${taskId}`);
   return { ok: true };
+}
+
+/**
+ * nudgeTask — on-demand "⚡ ping" to a task's doer.
+ *
+ * Gate (in nudgeTaskCore): admin OR the task's initiator OR the doer's
+ * direct manager. Soft rate-limited via the shared per-actor write
+ * limiter. On success a `"nudged"` in-app notification (+ web-push if the
+ * doer is subscribed) is dispatched through the existing notify() path.
+ *
+ * LOAD-NEUTRAL: read-only on the task + one recipient dispatch; no task
+ * mutation and nothing on the dashboard load path.
+ */
+export async function nudgeTask(
+  taskId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!isUuid(taskId)) return { ok: false, error: "Bad task id." };
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  return nudgeTaskCore(
+    { id: me.id, name: me.name, isAdmin: me.isAdmin },
+    taskId,
+  );
 }
 
 // ───────────────────────────── Tier-3 admin-only ─────────────────────────

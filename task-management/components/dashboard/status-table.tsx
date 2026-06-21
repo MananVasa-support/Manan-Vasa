@@ -12,7 +12,7 @@ import {
 import { Search, X, Users, ChevronRight } from "lucide-react";
 import type { EmployeeStatusRow, ViewMode } from "@/lib/types";
 import { CriticalBadge } from "@/components/ui/critical-badge";
-import { EmployeeAvatar } from "@/components/ui/employee-avatar";
+import { Avatar } from "@/components/ui/avatar";
 
 type Tone = "green" | "amber" | "red" | "rose";
 
@@ -33,16 +33,19 @@ function Pill({ value, tone }: { value: number; tone: Tone }) {
   );
 }
 
-function buildColumns(): ColumnDef<EmployeeStatusRow>[] {
+function buildColumns(
+  avatarById: Record<string, string | null>,
+): ColumnDef<EmployeeStatusRow>[] {
   return [
     {
       accessorKey: "employeeName",
       header: "Employee",
       cell: (info) => (
         <span className="inline-flex items-center gap-3">
-          <EmployeeAvatar
+          <Avatar
             name={info.row.original.employeeName}
-            size="sm"
+            avatarUrl={avatarById[info.row.original.employeeId] ?? null}
+            size={32}
           />
           <span
             className="text-ink-strong font-bold"
@@ -118,9 +121,11 @@ function deptTone(name: string): (typeof DEPT_TONES)[number] {
 export function StatusTable({
   rows,
   view,
+  avatarById = {},
 }: {
   rows: EmployeeStatusRow[];
   view: ViewMode;
+  avatarById?: Record<string, string | null>;
 }) {
   const router = useRouter();
   const [query, setQuery] = React.useState("");
@@ -153,7 +158,7 @@ export function StatusTable({
     });
   }, [rows, query, selectedDept]);
 
-  const columns = React.useMemo(() => buildColumns(), []);
+  const columns = React.useMemo(() => buildColumns(avatarById), [avatarById]);
 
   const table = useReactTable({
     data: filtered,

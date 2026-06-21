@@ -654,6 +654,9 @@ function renderNotificationTemplate(ctx: RenderContext): ReactElement | null {
     // The four other attendance kinds (late / late-waived / half-day /
     // late-deduction) are routed above the task guard and never reach here.
     case "attendance_device":
+    // Nudge — an on-demand ⚡ ping. Deliberately in-app + push only; we don't
+    // want a nudge to also spawn an email.
+    case "nudged":
       // overdue_digest belongs in `sendDigestEmail`; attendance_device is kept
       // in-app only. Skip the per-row email.
       return null;

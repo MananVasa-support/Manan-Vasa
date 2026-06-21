@@ -15,6 +15,7 @@ const NAMES: Record<NotificationKind, string> = {
   transferred: "vp_transferred",
   cancelled: "vp_cancelled",
   commented: "vp_commented",
+  nudged: "vp_nudged",
   overdue_digest: "vp_overdue_digest",
   // Weekly Goals — delivered by their own cron, never via the WhatsApp
   // dispatcher. Names are placeholders to satisfy the exhaustive map.
@@ -106,6 +107,7 @@ const VARS: Record<NotificationKind, (ctx: TemplateCtx) => Param[]> = {
     t(c.body ?? ""),
     t(c.shortId),
   ],
+  nudged: (c) => [t(c.actorName), t(c.taskSubject), t(c.shortId)],
   overdue_digest: (c) => [
     t(String(c.digestCount ?? 0)),
     t(c.digestPreview ?? ""),

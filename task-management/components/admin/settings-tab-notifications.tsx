@@ -20,6 +20,7 @@ const KIND_LABEL: Record<NotificationKind, string> = {
   transferred:    "Transferred",
   cancelled:      "Cancelled",
   commented:      "Comment posted",
+  nudged:         "Nudge",
   overdue_digest: "Daily overdue digest",
   // Weekly Goals reminder cron — sent directly, not via the matrix.
   weekly_goals_assigned:      "Weekly goals — Monday briefing",

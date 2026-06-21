@@ -6,10 +6,7 @@ import { CollapsibleVelocity } from "@/components/dashboard/collapsible-velocity
 import { StatusTable } from "@/components/dashboard/status-table";
 import { StatusDistributionChart } from "@/components/dashboard/status-distribution";
 import { TopPerformersSection } from "@/components/dashboard/top-performers";
-import { PunctualityCard } from "@/components/dashboard/punctuality-card";
-import { DoneAgingSection } from "@/components/dashboard/done-aging-section";
-import { NotApprovedSection } from "@/components/dashboard/not-approved-section";
-import { InitiatorSection } from "@/components/dashboard/initiator-section";
+import { ExecDashboard } from "@/components/dashboard/exec/exec-dashboard";
 import { AgingHeatmap } from "@/components/dashboard/aging-heatmap";
 import { WelcomeHero } from "@/components/dashboard/welcome-hero";
 import { MyDayCard } from "@/components/dashboard/my-day-card";
@@ -101,6 +98,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     value: e.id,
     label: e.name,
   }));
+
+  // Pure in-memory avatar map from the already-loaded roster (no new query).
+  const avatarById: Record<string, string | null> = Object.fromEntries(
+    allEmployees.map((e) => [e.id, e.avatarUrl ?? null]),
+  );
   const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
   // The mobile Today home replaces the dashboard on phones only when its
@@ -159,21 +161,19 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               )}
               <KpiStrip kpis={data.kpis} summary={data.wmsSummary} />
               {/* Delivery & quality dashboards — surfaced ABOVE doer-status /
-                  top-performers per founder (2026-06-21). */}
+                  top-performers per founder (2026-06-21). The V2 Executive
+                  Control Room replaces the four previously-stacked sections
+                  (Punctuality / Done-Aging / Not-Approved / Initiator). */}
               <section className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-12">
-                <PunctualityCard data={data.punctuality} isAdmin={Boolean(me?.isAdmin)} />
+                <ExecDashboard
+                  doneOnTime={data.doneOnTime}
+                  initiator={data.initiator}
+                  notApprovedAging={data.notApprovedAging}
+                  avatarById={avatarById}
+                  isAdmin={Boolean(me?.isAdmin)}
+                  meId={me?.id ?? null}
+                />
               </section>
-              <DoneAgingSection data={data.doneOnTime} isAdmin={Boolean(me?.isAdmin)} />
-              <NotApprovedSection
-                data={data.notApprovedAging}
-                isAdmin={Boolean(me?.isAdmin)}
-                meId={me?.id ?? null}
-              />
-              <InitiatorSection
-                data={data.initiator}
-                isAdmin={Boolean(me?.isAdmin)}
-                meId={me?.id ?? null}
-              />
               <div className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-12 grid grid-cols-2 max-lg:grid-cols-1 gap-6">
                 <StatusDistributionChart
                   data={data.statusDistribution}
@@ -181,10 +181,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                   tones={statusTones}
                   isAdmin={Boolean(me?.isAdmin)}
                 />
-                <TopPerformersSection performers={data.topPerformers} />
+                <TopPerformersSection performers={data.topPerformers} avatarById={avatarById} />
               </div>
-              <StatusTable rows={data.statusTable} view={filters.view} />
-              <AgingHeatmap rows={data.agingTable} cellTasks={data.agingHeatmapData.byCell} />
+              <StatusTable rows={data.statusTable} view={filters.view} avatarById={avatarById} />
+              <AgingHeatmap rows={data.agingTable} cellTasks={data.agingHeatmapData.byCell} avatarById={avatarById} />
               <CollapsibleVelocity data={data.velocity} />
             </div>
           </>

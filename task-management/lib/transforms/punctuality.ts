@@ -65,6 +65,9 @@ export function computePunctuality(
         onTime: v.onTime,
         late: v.late,
         rate: personDone > 0 ? Math.round((v.onTime / personDone) * 100) : 0,
+        // This legacy producer doesn't compute the late-aging spread; emit zeros
+        // so the shared PunctualityPerson type stays satisfied.
+        lateSpread: { d2_3: 0, d4_7: 0, d8_14: 0, d15: 0 },
       };
     })
     // Busiest first; ties broken by the WORSE on-time rate so slippage surfaces.
