@@ -72,7 +72,14 @@ export default async function RootLayout({
   // Profile v2 — stamp density + accent from the user's prefs. Theme is
   // intentionally light-only (no dark mode); the `theme` column on
   // employees is kept but unused.
-  const me = await getCurrentEmployee();
+  //
+  // DEFENSE-IN-DEPTH: this is the root layout — there is NO error boundary
+  // above it, so any throw here renders the whole-app "We hit a snag" screen.
+  // getCurrentEmployee already retries internally, but if it STILL fails (a real
+  // outage), we must not crash the entire app just to read display prefs. Fall
+  // back to defaults; the (app) layout's requireUser() handles auth/redirect and
+  // surfaces a friendly, chrome-preserving error if the DB is genuinely down.
+  const me = await getCurrentEmployee().catch(() => null);
   const density = me?.density ?? "cozy";
   // Map the user's accent onto the brand accent CSS variables the whole app
   // consumes (--color-altus-red*, --vp-cyan*). For the default red this
