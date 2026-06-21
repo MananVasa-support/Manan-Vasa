@@ -169,16 +169,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 />
               )}
               <KpiStrip kpis={data.kpis} summary={data.wmsSummary} />
-              <div className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-12 grid grid-cols-2 max-lg:grid-cols-1 gap-6">
-                <StatusDistributionChart
-                  data={data.statusDistribution}
-                  labels={statusLabels}
-                  tones={statusTones}
-                  isAdmin={Boolean(me?.isAdmin)}
-                />
-                <TopPerformersSection performers={data.topPerformers} />
-              </div>
-              <section className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-6">
+              {/* Delivery & quality dashboards — surfaced ABOVE doer-status /
+                  top-performers per founder (2026-06-21). */}
+              <section className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-12">
                 <PunctualityCard data={data.punctuality} isAdmin={Boolean(me?.isAdmin)} />
               </section>
               <DoneAgingSection data={data.doneOnTime} isAdmin={Boolean(me?.isAdmin)} />
@@ -192,6 +185,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 isAdmin={Boolean(me?.isAdmin)}
                 meId={me?.id ?? null}
               />
+              <div className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-12 grid grid-cols-2 max-lg:grid-cols-1 gap-6">
+                <StatusDistributionChart
+                  data={data.statusDistribution}
+                  labels={statusLabels}
+                  tones={statusTones}
+                  isAdmin={Boolean(me?.isAdmin)}
+                />
+                <TopPerformersSection performers={data.topPerformers} />
+              </div>
               <StatusTable rows={data.statusTable} view={filters.view} />
               <AgingHeatmap rows={data.agingTable} cellTasks={data.agingHeatmapData.byCell} />
               <CollapsibleVelocity data={data.velocity} />
