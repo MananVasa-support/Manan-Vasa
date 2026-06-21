@@ -249,21 +249,28 @@ export function StatusTable({
           style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
         >
           <table className="w-full min-w-[720px]">
-            <thead>
+            {/* Column labels pin below the sticky app header (96px) + sticky
+                filter bar (~64px) ≈ 160px so they stay visible while the long
+                employee list scrolls. z-20 sits above body rows; the first
+                cell keeps its left-0 freeze for horizontal scroll. */}
+            <thead className="sticky top-[160px] max-md:top-[132px] z-20">
               {table.getHeaderGroups().map((hg) => (
                 <tr key={hg.id} className="border-b border-hairline">
                   {hg.headers.map((h, i) => (
                     <th
                       key={h.id}
-                      className={`px-5 py-4 text-table-head whitespace-nowrap ${
+                      className={`px-5 py-4 text-table-head whitespace-nowrap bg-surface-card ${
                         i <= 1 ? "text-left" : "text-right"
-                      } ${i === 0 ? "sticky left-0 z-10 bg-surface-card" : ""}`}
+                      } ${i === 0 ? "sticky left-0 z-10" : ""}`}
+                      style={{
+                        boxShadow: "inset 0 -1px 0 var(--color-hairline)",
+                      }}
                     >
                       {flexRender(h.column.columnDef.header, h.getContext())}
                     </th>
                   ))}
                   {/* Chevron column header — silent, just claims width */}
-                  <th aria-hidden style={{ width: 36 }} />
+                  <th aria-hidden className="bg-surface-card" style={{ width: 36 }} />
                 </tr>
               ))}
             </thead>

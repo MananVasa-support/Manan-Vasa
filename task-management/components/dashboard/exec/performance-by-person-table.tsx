@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "motion/react";
-import { Users } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { Users, ChevronDown } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useReducedMotion } from "@/lib/motion-utils";
 import type { PunctualityPerson } from "@/lib/types";
@@ -59,6 +59,7 @@ export function PerformanceByPersonTable({
   resolveAvatar,
 }: PerformanceByPersonTableProps) {
   const reduce = useReducedMotion() ?? false;
+  const [showAll, setShowAll] = React.useState(false);
 
   // Privacy: admins all rows; non-admin only their own (null → none).
   const scoped = isAdmin ? people : people.filter((p) => p.employeeId === meId);
@@ -67,6 +68,12 @@ export function PerformanceByPersonTable({
     () => [...scoped].sort((a, b) => b.done - a.done),
     [scoped],
   );
+
+  // Cap the visible list to the top ~8 busiest so it stays digestible; the
+  // rest reveal behind an animated "Show all" expander (reduced-motion-gated).
+  const CAP = 8;
+  const overflow = rows.length - CAP;
+  const visible = showAll ? rows : rows.slice(0, CAP);
 
   return (
     <section
@@ -110,9 +117,9 @@ export function PerformanceByPersonTable({
                 letterSpacing: "-0.02em",
               }}
             >
-              Performance by person
+              Performance by Person
             </h2>
-            <p className="mt-1.5 text-[12.5px] font-semibold leading-none text-ink-subtle">
+            <p className="mt-1.5 text-[13px] font-semibold leading-none text-ink-subtle">
               On-time rate &amp; late spread · busiest first
             </p>
           </div>
@@ -127,7 +134,7 @@ export function PerformanceByPersonTable({
             {/* ── Desktop table ── */}
             <div className="mt-5 max-md:hidden">
               <div
-                className="grid items-center gap-3 px-3 pb-2 text-[10px] font-black uppercase tracking-[0.1em] text-ink-subtle"
+                className="grid items-center gap-3 px-3 pb-2.5 text-[12px] font-black uppercase tracking-[0.08em] text-ink-subtle"
                 style={{ gridTemplateColumns: COLS }}
               >
                 <span>Person</span>
@@ -140,8 +147,25 @@ export function PerformanceByPersonTable({
                 ))}
               </div>
               <ul className="flex flex-col gap-1.5">
-                {rows.map((p, i) => (
-                  <PersonTableRow
+                <AnimatePresence initial={false}>
+                  {visible.map((p, i) => (
+                    <PersonTableRow
+                      key={p.employeeId}
+                      person={p}
+                      avatarUrl={resolveAvatar(p.employeeId)}
+                      index={i}
+                      reduce={reduce}
+                    />
+                  ))}
+                </AnimatePresence>
+              </ul>
+            </div>
+
+            {/* ── Mobile cards ── */}
+            <ul className="mt-5 flex flex-col gap-2.5 md:hidden">
+              <AnimatePresence initial={false}>
+                {visible.map((p, i) => (
+                  <PersonCard
                     key={p.employeeId}
                     person={p}
                     avatarUrl={resolveAvatar(p.employeeId)}
@@ -149,21 +173,33 @@ export function PerformanceByPersonTable({
                     reduce={reduce}
                   />
                 ))}
-              </ul>
-            </div>
-
-            {/* ── Mobile cards ── */}
-            <ul className="mt-5 flex flex-col gap-2.5 md:hidden">
-              {rows.map((p, i) => (
-                <PersonCard
-                  key={p.employeeId}
-                  person={p}
-                  avatarUrl={resolveAvatar(p.employeeId)}
-                  index={i}
-                  reduce={reduce}
-                />
-              ))}
+              </AnimatePresence>
             </ul>
+
+            {/* Show-all expander — only when the list is capped. */}
+            {overflow > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAll((s) => !s)}
+                aria-expanded={showAll}
+                className="wg-sheen mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-[13.5px] font-black text-ink-strong transition-colors"
+                style={{
+                  background: "color-mix(in srgb, var(--color-altus-red) 6%, transparent)",
+                  border: "1px solid var(--color-hairline-strong)",
+                }}
+              >
+                {showAll ? "Show fewer" : `Show all (${rows.length})`}
+                <ChevronDown
+                  size={16}
+                  strokeWidth={2.6}
+                  className="transition-transform duration-300"
+                  style={{
+                    color: "var(--color-altus-red)",
+                    transform: showAll ? "rotate(180deg)" : "none",
+                  }}
+                />
+              </button>
+            )}
           </>
         )}
       </div>
@@ -171,7 +207,7 @@ export function PerformanceByPersonTable({
   );
 }
 
-const COLS = "minmax(0,1.6fr) minmax(120px,2fr) 56px 44px 44px 48px 44px";
+const COLS = "minmax(0,1.6fr) minmax(120px,2fr) 56px 48px 48px 52px 48px";
 
 function RateBar({
   rate,
@@ -209,7 +245,7 @@ function SpreadCell({ value, className }: { value: number; className?: string })
       className={`tabular-nums font-black ${className ?? ""}`}
       style={{
         fontFamily: "var(--font-display), system-ui, sans-serif",
-        fontSize: 14,
+        fontSize: 16,
         color: hot ? RED : "color-mix(in srgb, var(--color-ink-subtle) 60%, transparent)",
       }}
     >
@@ -235,9 +271,10 @@ function PersonTableRow({
       initial={reduce ? false : { opacity: 0, y: 6 }}
       whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
       animate={reduce ? { opacity: 1, y: 0 } : undefined}
+      exit={reduce ? undefined : { opacity: 0, y: -4 }}
       viewport={{ once: true, margin: "-40px" }}
       transition={{ delay: reduce ? 0 : index * 0.04, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="grid items-center gap-3 rounded-xl px-3 py-2.5"
+      className="grid items-center gap-3 rounded-xl px-3 py-3"
       style={{
         gridTemplateColumns: COLS,
         background: "color-mix(in srgb, var(--color-ink-strong) 2.5%, transparent)",
@@ -245,15 +282,15 @@ function PersonTableRow({
     >
       {/* Person */}
       <div className="flex min-w-0 items-center gap-2.5">
-        <Avatar name={person.employeeName} avatarUrl={avatarUrl} size={32} />
+        <Avatar name={person.employeeName} avatarUrl={avatarUrl} size={36} />
         <div className="min-w-0">
           <p
-            className="truncate text-[13.5px] font-bold text-ink-strong"
+            className="truncate text-[15.5px] font-bold text-ink-strong"
             title={person.employeeName}
           >
             {person.employeeName}
           </p>
-          <p className="text-[11px] font-semibold tabular-nums text-ink-subtle">
+          <p className="text-[12.5px] font-semibold tabular-nums text-ink-subtle">
             {person.done} done
           </p>
         </div>
@@ -263,7 +300,7 @@ function PersonTableRow({
       <div className="flex items-center gap-2.5">
         <RateBar rate={person.rate} reduce={reduce} delay={reduce ? 0 : index * 0.04 + 0.1} />
         <span
-          className="w-10 shrink-0 text-right text-[13px] font-black tabular-nums"
+          className="w-12 shrink-0 text-right text-[15.5px] font-black tabular-nums"
           style={{ color: rateColor(person.rate) }}
         >
           {person.rate}%
@@ -272,7 +309,7 @@ function PersonTableRow({
 
       {/* Late count */}
       <span
-        className="text-right text-[13px] font-black tabular-nums"
+        className="text-right text-[15.5px] font-black tabular-nums"
         style={{ color: person.late > 0 ? RED : "var(--color-ink-subtle)" }}
       >
         {person.late}
@@ -312,6 +349,7 @@ function PersonCard({
       initial={reduce ? false : { opacity: 0, y: 8 }}
       whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
       animate={reduce ? { opacity: 1, y: 0 } : undefined}
+      exit={reduce ? undefined : { opacity: 0, y: -4 }}
       viewport={{ once: true, margin: "-40px" }}
       transition={{ delay: reduce ? 0 : index * 0.045, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
       className="rounded-xl border p-3.5"
@@ -325,17 +363,17 @@ function PersonCard({
         <Avatar name={person.employeeName} avatarUrl={avatarUrl} size={36} />
         <div className="min-w-0 flex-1">
           <p
-            className="truncate text-[14px] font-bold text-ink-strong"
+            className="truncate text-[16px] font-bold text-ink-strong"
             title={person.employeeName}
           >
             {person.employeeName}
           </p>
-          <p className="text-[11.5px] font-semibold tabular-nums text-ink-subtle">
+          <p className="text-[13px] font-semibold tabular-nums text-ink-subtle">
             {person.done} done · {person.late} late
           </p>
         </div>
         <span
-          className="shrink-0 text-[18px] font-black tabular-nums leading-none"
+          className="shrink-0 text-[22px] font-black tabular-nums leading-none"
           style={{
             fontFamily: "var(--font-display), system-ui, sans-serif",
             color: rateColor(person.rate),
@@ -359,7 +397,7 @@ function PersonCard({
               background: "color-mix(in srgb, var(--color-ink-strong) 4%, transparent)",
             }}
           >
-            <p className="text-[9.5px] font-black uppercase tracking-[0.06em] text-ink-subtle">
+            <p className="text-[11px] font-black uppercase tracking-[0.06em] text-ink-subtle">
               {c.label}
             </p>
             <div className="mt-0.5">

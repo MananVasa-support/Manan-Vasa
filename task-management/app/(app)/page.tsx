@@ -9,7 +9,6 @@ import { TopPerformersSection } from "@/components/dashboard/top-performers";
 import { ExecDashboard } from "@/components/dashboard/exec/exec-dashboard";
 import { AgingHeatmap } from "@/components/dashboard/aging-heatmap";
 import { WelcomeHero } from "@/components/dashboard/welcome-hero";
-import { MyDayCard } from "@/components/dashboard/my-day-card";
 import { DashboardLoadError } from "@/components/dashboard/dashboard-load-error";
 import { listEmployees } from "@/lib/queries/employees";
 import { listDistinctSubjects } from "@/lib/queries/tasks";
@@ -113,7 +112,21 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   return (
     <>
       <DashboardHeader generatedAt={data.generatedAt} />
-      <div className={mobileToday ? "max-md:hidden" : undefined}>
+      {/* Sticky filter bar: the app header is `sticky top-0` and stays on
+          screen (96px tall desktop / 72px mobile), so the filter bar pins
+          just below it. A cream-glass surface + backdrop-blur lets dashboard
+          content scroll cleanly under it; z-40 sits under the z-50 header.
+          We only style the page's wrapper — the shared FilterBar is untouched. */}
+      <div
+        className={`sticky top-[96px] max-md:top-[72px] z-40 ${mobileToday ? "max-md:hidden" : ""}`}
+        style={{
+          background:
+            "linear-gradient(180deg, color-mix(in srgb, var(--color-surface-soft) 94%, transparent) 0%, color-mix(in srgb, var(--color-surface-soft) 86%, transparent) 100%)",
+          backdropFilter: "blur(14px) saturate(150%)",
+          WebkitBackdropFilter: "blur(14px) saturate(150%)",
+          borderBottom: "1px solid var(--color-hairline)",
+        }}
+      >
         <FilterBar
           employees={employeeOptions}
           subjects={subjects}
@@ -153,12 +166,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               </div>
             )}
             <div className={mobileToday ? "max-md:hidden" : undefined}>
-              {me && myDay && (
-                <MyDayCard
-                  firstName={me.name.split(" ")[0] ?? me.name}
-                  counts={myDay}
-                />
-              )}
               <KpiStrip kpis={data.kpis} summary={data.wmsSummary} />
               {/* Delivery & quality dashboards — surfaced ABOVE doer-status /
                   top-performers per founder (2026-06-21). The V2 Executive

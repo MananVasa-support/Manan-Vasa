@@ -209,17 +209,34 @@ function PersonRoster({
           Nothing sent back to you — you&apos;re all clear.
         </p>
       ) : (
-        <ul className="flex flex-col gap-2.5">
-          {people.map((p, i) => (
-            <PersonRow
-              key={p.employeeId}
-              person={p}
-              avatarUrl={resolveAvatar(p.employeeId)}
-              index={i}
-              reduce={reduce}
-            />
-          ))}
-        </ul>
+        // Bounded scroll area (~4 rows) so a long roster never stretches the
+        // dashboard. A soft fade-mask at the bottom edge hints "more below"
+        // only when the list actually overflows; the list scrolls internally.
+        <div
+          className="not-approved-roster -mx-1 max-h-[17.5rem] overflow-y-auto px-1"
+          style={
+            people.length > 4
+              ? {
+                  WebkitMaskImage:
+                    "linear-gradient(180deg, #000 calc(100% - 28px), transparent 100%)",
+                  maskImage:
+                    "linear-gradient(180deg, #000 calc(100% - 28px), transparent 100%)",
+                }
+              : undefined
+          }
+        >
+          <ul className="flex flex-col gap-2.5 pb-1.5">
+            {people.map((p, i) => (
+              <PersonRow
+                key={p.employeeId}
+                person={p}
+                avatarUrl={resolveAvatar(p.employeeId)}
+                index={i}
+                reduce={reduce}
+              />
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );
