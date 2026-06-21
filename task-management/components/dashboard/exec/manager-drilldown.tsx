@@ -35,7 +35,7 @@ import { PRIORITY_LABELS, type TaskPriority } from "@/db/enums";
 type Delivery = "on_time" | "late" | "aging";
 
 interface Props {
-  /** When non-null the slide-over is open and fetches this manager's card. */
+  /** When non-null the centered modal is open and fetches this manager's card. */
   managerId: string | null;
   windowDays: 3 | 7;
   onClose: () => void;
@@ -55,6 +55,54 @@ const DELIVERY_LABEL: Record<Delivery, string> = {
 
 function priorityLabel(p: string): string {
   return PRIORITY_LABELS[p as TaskPriority] ?? p;
+}
+
+/**
+ * Resolve a human-readable task row out of {title, client, subject, description}.
+ *
+ * Many legacy/imported tasks have a `title` that is just the company name
+ * (e.g. "Altus Corp"), which reads as noise in the list. So:
+ *  - eyebrow = "{client} · {subject}" with nulls/blank omitted; if client and
+ *    subject are equal we keep just one.
+ *  - heading = the title, UNLESS the title is empty or equals the client (the
+ *    bare-company case) — then fall back to the subject, then a trimmed
+ *    description snippet, then the title, and finally "Untitled task". This
+ *    guarantees a row is never just the bare company name.
+ */
+function taskLabel(t: {
+  title: string;
+  client: string | null;
+  subject: string | null;
+  description: string | null;
+}): { heading: string; eyebrow: string | null } {
+  const norm = (s: string | null | undefined) => (s ?? "").trim();
+  const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+  const title = norm(t.title);
+  const client = norm(t.client);
+  const subject = norm(t.subject);
+  const description = norm(t.description);
+
+  // Eyebrow: client · subject (omit blanks / collapse duplicates).
+  const eyebrowParts: string[] = [];
+  if (client) eyebrowParts.push(client);
+  if (subject && !(client && eq(subject, client))) eyebrowParts.push(subject);
+  const eyebrow = eyebrowParts.length > 0 ? eyebrowParts.join(" · ") : null;
+
+  // Heading: the title, unless it's empty or just the company name.
+  const titleIsBareCompany = !title || (client && eq(title, client));
+  let heading: string;
+  if (titleIsBareCompany) {
+    if (subject) heading = subject;
+    else if (description)
+      heading =
+        description.length > 90 ? `${description.slice(0, 90).trimEnd()}…` : description;
+    else heading = title || "Untitled task";
+  } else {
+    heading = title;
+  }
+
+  return { heading, eyebrow };
 }
 
 export function ManagerDrilldown({ managerId, windowDays, onClose }: Props) {
@@ -97,7 +145,7 @@ export function ManagerDrilldown({ managerId, windowDays, onClose }: Props) {
           className="fixed inset-0 z-[120]"
           style={{
             background:
-              "radial-gradient(120% 120% at 80% 0%, color-mix(in srgb, var(--color-altus-red-deep) 18%, transparent), color-mix(in srgb, var(--color-ink-strong) 55%, transparent))",
+              "radial-gradient(120% 120% at 50% 30%, color-mix(in srgb, var(--color-altus-red-deep) 16%, transparent), color-mix(in srgb, var(--color-ink-strong) 58%, transparent))",
             backdropFilter: "blur(3px)",
             animation: reduce ? "none" : "fadeUp 0.3s ease both",
           }}
@@ -105,15 +153,18 @@ export function ManagerDrilldown({ managerId, windowDays, onClose }: Props) {
         <Dialog.Content
           aria-describedby={undefined}
           onOpenAutoFocus={(e) => e.preventDefault()}
-          className="fixed z-[121] inset-y-0 right-0 w-full max-w-[760px] outline-none
-                     max-md:max-w-none max-md:inset-0"
+          className="exec-drilldown-content fixed z-[121] left-1/2 top-1/2 outline-none
+                     overflow-hidden rounded-section
+                     max-md:left-0 max-md:top-0 max-md:translate-x-0 max-md:translate-y-0
+                     max-md:h-full max-md:w-full max-md:max-h-none max-md:rounded-none"
           style={{
             // Warm brand-canvas: surface-card tinted with a faint Altus red so
             // it reads as the cream sheet without raw hex (top→bottom deepens).
             background:
               "linear-gradient(155deg, color-mix(in srgb, var(--color-altus-red) 4%, var(--color-surface-card)) 0%, color-mix(in srgb, var(--color-altus-red) 8%, var(--color-surface-card)) 100%)",
             boxShadow:
-              "-40px 0 120px color-mix(in srgb, var(--color-ink-strong) 32%, transparent), -1px 0 0 color-mix(in srgb, var(--color-surface-card) 40%, transparent) inset",
+              "0 40px 120px color-mix(in srgb, var(--color-ink-strong) 36%, transparent), 0 1px 0 color-mix(in srgb, var(--color-surface-card) 50%, transparent) inset",
+            border: "1px solid color-mix(in srgb, var(--color-altus-red) 12%, var(--color-hairline-strong))",
             animation: reduce
               ? "none"
               : "drilldownIn 0.42s cubic-bezier(0.16, 1, 0.3, 1) both",
@@ -142,11 +193,29 @@ export function ManagerDrilldown({ managerId, windowDays, onClose }: Props) {
             />
           </div>
 
-          {/* Keyframes scoped to this component. */}
+          {/* Sizing + keyframes scoped to this component. Centered modal:
+              transform handles both the centering and the entrance, so the
+              keyframe carries the -50%/-50% translate. */}
           <style>{`
+            .exec-drilldown-content {
+              width: min(880px, 94vw);
+              max-height: 88vh;
+              transform: translate(-50%, -50%);
+            }
             @keyframes drilldownIn {
-              from { transform: translateX(36px); opacity: 0; }
-              to   { transform: translateX(0);    opacity: 1; }
+              from { transform: translate(-50%, -50%) scale(0.96); opacity: 0; }
+              to   { transform: translate(-50%, -50%) scale(1);    opacity: 1; }
+            }
+            @media (max-width: 767px) {
+              .exec-drilldown-content {
+                width: 100%;
+                max-height: none;
+                transform: none;
+              }
+              @keyframes drilldownIn {
+                from { transform: translateY(2%); opacity: 0; }
+                to   { transform: translateY(0);  opacity: 1; }
+              }
             }
             @media (prefers-reduced-motion: reduce) {
               [data-drilldown-stagger] { animation: none !important; }
@@ -424,6 +493,9 @@ function TaskRow({ task }: { task: ManagerDrilldown["tasks"][number] }) {
   // Crosses the server-action boundary as a Date|string, so normalise to ISO.
   const expectedUpdatedAt = new Date(task.updatedAt).toISOString();
 
+  // Human-readable label — never just the bare company name.
+  const { heading, eyebrow } = taskLabel(task);
+
   return (
     <li
       className="group rounded-chip wg-sheen"
@@ -434,27 +506,46 @@ function TaskRow({ task }: { task: ManagerDrilldown["tasks"][number] }) {
         padding: "12px 14px",
       }}
     >
-      <div className="flex items-center gap-3 max-md:flex-col max-md:items-start">
-        {/* Title + assignee */}
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-col gap-2.5">
+        {/* ── Info: eyebrow (client · subject) + heading + assignee/badges ── */}
+        <div className="min-w-0">
+          {eyebrow && (
+            <p
+              className="truncate font-black uppercase tracking-[0.08em]"
+              style={{
+                fontSize: 10.5,
+                color: "var(--color-altus-red-deep)",
+              }}
+              title={eyebrow}
+            >
+              {eyebrow}
+            </p>
+          )}
           <p
             className="truncate font-bold"
-            style={{ fontSize: 14.5, color: "var(--color-ink-strong)" }}
-            title={task.title}
+            style={{
+              fontSize: 14.5,
+              color: "var(--color-ink-strong)",
+              marginTop: eyebrow ? 1 : 0,
+            }}
+            title={heading}
           >
-            {task.title}
+            {heading}
           </p>
-          <div className="mt-1 flex items-center gap-2">
-            <Avatar
-              name={task.doerName}
-              avatarUrl={task.doerAvatarUrl}
-              size={18}
-            />
-            <span
-              className="truncate"
-              style={{ fontSize: 12.5, color: "var(--color-ink-muted)" }}
-            >
-              {task.doerName}
+
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <Avatar
+                name={task.doerName}
+                avatarUrl={task.doerAvatarUrl}
+                size={18}
+              />
+              <span
+                className="truncate"
+                style={{ fontSize: 12.5, color: "var(--color-ink-muted)" }}
+              >
+                {task.doerName}
+              </span>
             </span>
             <span
               className="rounded-pill px-2 py-0.5 font-semibold shrink-0"
@@ -482,10 +573,10 @@ function TaskRow({ task }: { task: ManagerDrilldown["tasks"][number] }) {
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-1.5 shrink-0 max-md:flex-wrap">
+        {/* ── Compact action rail (info-first; buttons stay out of the way) ── */}
+        <div className="flex flex-wrap items-center gap-1.5">
           <ActionLink href={`/tasks/${task.id}` as Route} label="Review">
-            <ExternalLink size={13} strokeWidth={2.4} />
+            <ExternalLink size={12} strokeWidth={2.4} />
             Review
           </ActionLink>
 
@@ -503,7 +594,7 @@ function TaskRow({ task }: { task: ManagerDrilldown["tasks"][number] }) {
               )
             }
           >
-            <CheckCircle2 size={13} strokeWidth={2.4} />
+            <CheckCircle2 size={12} strokeWidth={2.4} />
             Approve
           </ActionButton>
 
@@ -515,7 +606,7 @@ function TaskRow({ task }: { task: ManagerDrilldown["tasks"][number] }) {
             // to deep-link into the task where the existing reassign flow lives.
             href={`/tasks/${task.id}?reassign=1` as Route}
           >
-            <UserCog size={13} strokeWidth={2.4} />
+            <UserCog size={12} strokeWidth={2.4} />
             Reassign
           </ActionButton>
 
@@ -533,7 +624,7 @@ function TaskRow({ task }: { task: ManagerDrilldown["tasks"][number] }) {
               )
             }
           >
-            <Flag size={13} strokeWidth={2.4} />
+            <Flag size={12} strokeWidth={2.4} />
             Follow-up
           </ActionButton>
 
@@ -545,7 +636,7 @@ function TaskRow({ task }: { task: ManagerDrilldown["tasks"][number] }) {
               run("nudge", () => nudgeTask(task.id), "Nudge sent.")
             }
           >
-            <Bell size={13} strokeWidth={2.4} />
+            <Bell size={12} strokeWidth={2.4} />
             Nudge
           </ActionButton>
         </div>
@@ -689,9 +780,9 @@ function ActionButton({
   children: React.ReactNode;
 }) {
   const base =
-    "inline-flex items-center gap-1 rounded-pill px-2.5 py-1.5 font-bold transition-colors";
+    "inline-flex items-center gap-1 rounded-pill px-2 py-1 font-bold transition-colors";
   const style: React.CSSProperties = {
-    fontSize: 12,
+    fontSize: 11.5,
     background: `color-mix(in srgb, var(--color-${tone}) 10%, transparent)`,
     color: `var(--color-${tone}-deep)`,
     border: `1px solid color-mix(in srgb, var(--color-${tone}) 26%, transparent)`,
@@ -738,9 +829,9 @@ function ActionLink({
     <Link
       href={href}
       aria-label={label}
-      className="inline-flex items-center gap-1 rounded-pill px-2.5 py-1.5 font-bold transition-colors"
+      className="inline-flex items-center gap-1 rounded-pill px-2 py-1 font-bold transition-colors"
       style={{
-        fontSize: 12,
+        fontSize: 11.5,
         background: "var(--color-surface-soft)",
         color: "var(--color-ink-soft)",
         border: "1px solid var(--color-hairline-strong)",

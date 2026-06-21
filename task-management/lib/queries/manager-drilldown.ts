@@ -34,6 +34,9 @@ export interface ManagerDrilldown {
   tasks: {
     id: string;
     title: string;
+    client: string | null;
+    subject: string | null;
+    description: string | null;
     doerId: string;
     doerName: string;
     doerAvatarUrl: string | null;
@@ -50,6 +53,9 @@ export interface ManagerDrilldown {
 type Row = {
   id: string;
   title: string;
+  client: string | null;
+  subject: string | null;
+  description: string | null;
   doerId: string;
   priority: string;
   status: string;
@@ -106,6 +112,9 @@ export async function loadManagerDrilldown(
       .select({
         id: tasks.id,
         title: tasks.title,
+        client: tasks.client,
+        subject: tasks.subject,
+        description: tasks.description,
         doerId: tasks.doerId,
         priority: tasks.priority,
         status: tasks.status,
@@ -246,6 +255,9 @@ export async function loadManagerDrilldown(
     return {
       id: t.id,
       title: t.title,
+      client: t.client,
+      subject: t.subject,
+      description: t.description,
       doerId: t.doerId,
       doerName: doer?.name ?? "Unknown",
       doerAvatarUrl: doer?.avatarUrl ?? null,

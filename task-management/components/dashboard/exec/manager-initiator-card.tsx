@@ -265,8 +265,9 @@ export function ManagerInitiatorCard({
             </p>
           </div>
 
-          {/* Attainment ring (Task 6 primitive) */}
-          <div className="shrink-0 text-center">
+          {/* Attainment ring (Task 6 primitive). Fixed footprint + a hair of
+              padding so the ≥100% glow halo is never clipped by the card. */}
+          <div className="shrink-0 px-1 pt-0.5 text-center">
             <AttainmentRing value={actual} max={target} size={120} />
             <p
               className="mt-1 text-[11px] font-bold tabular-nums"

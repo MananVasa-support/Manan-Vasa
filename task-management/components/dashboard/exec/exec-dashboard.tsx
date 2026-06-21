@@ -147,33 +147,29 @@ export function ExecDashboard({
           <WindowToggle value={windowKey} onChange={setWindowKey} />
         </motion.header>
 
-        {/* ── TOP region: gauge · manager cards rail · attention sidebar ── */}
-        <motion.div
-          {...rise(0.08)}
-          className="grid gap-6 max-md:gap-4"
-          style={{ gridTemplateColumns: "minmax(0,1fr)" }}
-        >
-          <div className="exec-top-grid grid gap-6 max-md:gap-4">
-            {/* LEFT — gauge */}
-            <OnTimeGauge data={doneOnTime} />
+        {/* ── SUMMARY row: on-time gauge + attention sidebar, side-by-side ── */}
+        <motion.div {...rise(0.08)} className="exec-summary-grid grid gap-6 max-md:gap-4">
+          {/* LEFT — gauge */}
+          <OnTimeGauge data={doneOnTime} />
 
-            {/* CENTER — horizontally-scrollable, snap-able manager rail */}
-            <ManagerRail
-              managers={managers}
-              resolveAvatar={resolveAvatar}
-              onOpenDrilldown={setOpenManagerId}
-              workingDays={board.workingDays}
-            />
-
-            {/* RIGHT — attention-required sidebar */}
-            <NotApprovedSidebar
-              data={notApprovedAging}
-              isAdmin={isAdmin}
-              meId={meId}
-              resolveAvatar={resolveAvatar}
-            />
-          </div>
+          {/* RIGHT — attention-required sidebar */}
+          <NotApprovedSidebar
+            data={notApprovedAging}
+            isAdmin={isAdmin}
+            meId={meId}
+            resolveAvatar={resolveAvatar}
+          />
         </motion.div>
+
+        {/* ── MANAGERS section: full-width, roomy initiation scorecards ── */}
+        <motion.section {...rise(0.12)} aria-label="Managers initiation scorecards">
+          <ManagerRail
+            managers={managers}
+            resolveAvatar={resolveAvatar}
+            onOpenDrilldown={setOpenManagerId}
+            workingDays={board.workingDays}
+          />
+        </motion.section>
 
         {/* ── Global empty state (only when truly nothing to show) ── */}
         {nothingAtAll ? (
@@ -193,14 +189,14 @@ export function ExecDashboard({
         )}
       </div>
 
-      {/* Top region: side-by-side on wide screens, stacks on mobile. */}
+      {/* Summary row: two equal panels side-by-side on wide screens, stacks on mobile. */}
       <style>{`
-        .exec-top-grid {
+        .exec-summary-grid {
           grid-template-columns: minmax(0, 1fr);
         }
-        @media (min-width: 1100px) {
-          .exec-top-grid {
-            grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.5fr) minmax(300px, 0.95fr);
+        @media (min-width: 1024px) {
+          .exec-summary-grid {
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
             align-items: start;
           }
         }
@@ -321,15 +317,39 @@ function ManagerRail({
 
   return (
     <section className="relative min-w-0" aria-label="Manager initiation scorecards">
-      <div className="mb-2.5 flex items-center justify-between gap-3 px-1">
-        <p className="text-[10.5px] font-black uppercase tracking-[0.12em] text-ink-subtle">
-          Managers · initiation scorecards
-          <span className="ml-2 font-bold tabular-nums text-ink-subtle/80">
-            {managers.length}
-          </span>
-        </p>
+      <div className="mb-3.5 flex items-end justify-between gap-3 px-1">
+        <div className="min-w-0">
+          <p
+            className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em]"
+            style={{ color: "var(--color-altus-red-deep)" }}
+          >
+            <Users size={12} strokeWidth={2.8} />
+            Managers · Initiation Scorecards
+            <span
+              className="ml-1 rounded-pill px-1.5 py-0.5 font-bold tabular-nums"
+              style={{
+                fontSize: 10,
+                background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)",
+                color: "var(--color-altus-red-deep)",
+              }}
+            >
+              {managers.length}
+            </span>
+          </p>
+          <h2
+            className="mt-1 leading-tight text-ink-strong"
+            style={{
+              fontFamily: "var(--font-serif), serif",
+              fontWeight: 700,
+              fontSize: 19,
+              letterSpacing: "-0.01em",
+            }}
+          >
+            Who is delegating, and how much
+          </h2>
+        </div>
         {managers.length > 1 && (
-          <div className="flex items-center gap-1.5 max-md:hidden">
+          <div className="flex shrink-0 items-center gap-1.5 max-md:hidden">
             <RailArrow dir={-1} onClick={() => nudge(-1)} />
             <RailArrow dir={1} onClick={() => nudge(1)} />
           </div>
@@ -347,8 +367,16 @@ function ManagerRail({
             className="shrink-0"
             style={{
               scrollSnapAlign: "start",
-              // Single card fills the rail; multiple cards become a snap rail.
-              width: managers.length === 1 ? "100%" : "min(420px, 86vw)",
+              // Roomy cards in the full-width section: a single card fills the
+              // row; two share it evenly; three-plus become a generous snap rail
+              // so the attainment ring + channel grid never get cramped.
+              width:
+                managers.length === 1
+                  ? "100%"
+                  : managers.length === 2
+                    ? "calc(50% - 0.5rem)"
+                    : "min(540px, 88vw)",
+              minWidth: managers.length === 1 ? undefined : "min(480px, 88vw)",
             }}
           >
             <ManagerInitiatorCard
