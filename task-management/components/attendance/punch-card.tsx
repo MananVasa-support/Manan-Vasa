@@ -2,102 +2,39 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Fingerprint, LogIn, LogOut, Loader2, ShieldCheck } from "lucide-react";
-import {
-  startRegistration,
-  startAuthentication,
-  browserSupportsWebAuthn,
-  platformAuthenticatorIsAvailable,
-} from "@simplewebauthn/browser";
+import { LogIn, LogOut, Loader2, Wifi } from "lucide-react";
 import { fireToast } from "@/lib/toast";
-import { isAuthenticatorAlreadyRegistered } from "@/lib/webauthn/errors";
-import {
-  punchAttendance,
-  startBiometricSetup,
-  startBiometricPunch,
-} from "@/app/(app)/attendance/actions";
-
-/** Marks (in this browser) that this device has a working passkey, so the punch
- *  flow goes straight to authenticate instead of attempting a re-enroll. */
-const ENROLL_KEY = "att_cred_enrolled";
-
-type BioProof = {
-  assertion?: Awaited<ReturnType<typeof startAuthentication>>;
-  registration?: Awaited<ReturnType<typeof startRegistration>>;
-  deviceLabel?: string;
-};
+import { punchAttendance } from "@/app/(app)/attendance/actions";
 
 /**
- * Punch card — live clock + fingerprint-gated check-in/out. Presence is enforced
- * by the office Wi-Fi IP gate (server-side, on the page + the punch action), so
- * there is NO location tracking here. The fingerprint stays as the anti-proxy
- * layer (you can't punch for someone else without their device + their biometric).
+ * Punch card — live clock + one-tap check-in/out. Presence is enforced entirely
+ * by the office Wi-Fi IP gate (server-side, on the page + the punch action).
+ * No location tracking, no biometric — a punch is just: on the office Wi-Fi → tap.
  */
 export function PunchCard({
   todayLabel,
   inLabel,
   outLabel,
   tz,
-  biometricExempt,
 }: {
   todayLabel: string;
   inLabel: string | null;
   outLabel: string | null;
   tz: string;
-  /** Admin-set: this employee's device has no biometric sensor → punch without it. */
-  biometricExempt: boolean;
 }) {
   const router = useRouter();
   const [note, setNote] = React.useState("");
   const [pending, startTransition] = React.useTransition();
-  const [bioSupported, setBioSupported] = React.useState<boolean | null>(null);
-
-  React.useEffect(() => {
-    let alive = true;
-    if (!browserSupportsWebAuthn()) {
-      setBioSupported(false);
-    } else {
-      platformAuthenticatorIsAvailable().then((ok) => alive && setBioSupported(ok));
-    }
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   function punch(kind: "in" | "out") {
     startTransition(async () => {
       try {
-        // Biometric: authenticate an enrolled device or enroll a new one, with a
-        // bidirectional fallback so a punch never dead-ends on the wrong branch.
-        let proof: BioProof = {};
-        if (bioSupported) {
-          const enrolledHere = localStorage.getItem(ENROLL_KEY) === "1";
-          proof = await acquireBioProof(enrolledHere);
-        } else if (!biometricExempt) {
-          fireToast({
-            message:
-              "This device has no fingerprint or Face ID. Ask an admin to mark you exempt to punch without it.",
-            type: "error",
-          });
-          return;
-        }
-
-        // Server enforces the office Wi-Fi IP gate + biometric, then writes the row.
         const res = await withNetworkRetry(() =>
-          punchAttendance({
-            kind,
-            note: note.trim() || undefined,
-            assertion: proof.assertion,
-            registration: proof.registration,
-            deviceLabel: proof.deviceLabel,
-          }),
+          punchAttendance({ kind, note: note.trim() || undefined }),
         );
         if (!res.ok) {
           fireToast({ message: res.error, type: "error" });
           return;
-        }
-        if (proof.assertion || proof.registration) {
-          localStorage.setItem(ENROLL_KEY, "1");
         }
         fireToast({
           message:
@@ -114,10 +51,7 @@ export function PunchCard({
   return (
     <section
       className="rounded-section bg-surface-card overflow-hidden"
-      style={{
-        border: "1px solid var(--color-hairline)",
-        boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
-      }}
+      style={{ border: "1px solid var(--color-hairline)", boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
     >
       {/* Clock face */}
       <div
@@ -134,17 +68,13 @@ export function PunchCard({
           {todayLabel}
         </p>
         <LiveClock tz={tz} />
-
-        <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
-          {bioSupported === false ? (
-            <Chip tone="slate" icon={<Fingerprint size={13} strokeWidth={2.4} />}>
-              {biometricExempt ? "Biometric exempt" : "No fingerprint / Face ID on this device"}
-            </Chip>
-          ) : (
-            <Chip tone="green" icon={<ShieldCheck size={13} strokeWidth={2.4} />}>
-              Fingerprint / Face ID
-            </Chip>
-          )}
+        <div className="mt-3 flex items-center justify-center">
+          <span
+            className="inline-flex items-center gap-1.5 rounded-pill px-3 h-8 text-[13px] font-bold"
+            style={{ background: "var(--color-green-bg)", color: "var(--color-green-deep)" }}
+          >
+            <Wifi size={13} strokeWidth={2.4} /> On office Wi-Fi
+          </span>
         </div>
       </div>
 
@@ -167,8 +97,8 @@ export function PunchCard({
         />
 
         <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-          <PunchButton kind="in" done={inLabel !== null} pending={pending} biometric={bioSupported !== false} onClick={() => punch("in")} />
-          <PunchButton kind="out" done={outLabel !== null} pending={pending} biometric={bioSupported !== false} onClick={() => punch("out")} />
+          <PunchButton kind="in" done={inLabel !== null} pending={pending} onClick={() => punch("in")} />
+          <PunchButton kind="out" done={outLabel !== null} pending={pending} onClick={() => punch("out")} />
         </div>
       </div>
     </section>
@@ -200,16 +130,14 @@ function PunchButton({
   kind,
   done,
   pending,
-  biometric,
   onClick,
 }: {
   kind: "in" | "out";
   done: boolean;
   pending: boolean;
-  biometric: boolean;
   onClick: () => void;
 }) {
-  const Icon = pending ? Loader2 : biometric ? Fingerprint : kind === "in" ? LogIn : LogOut;
+  const Icon = pending ? Loader2 : kind === "in" ? LogIn : LogOut;
   return (
     <button
       type="button"
@@ -226,18 +154,6 @@ function PunchButton({
   );
 }
 
-function Chip({ tone, icon, children }: { tone: "green" | "red" | "amber" | "slate"; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-pill px-3 h-8 text-[13px] font-bold"
-      style={{ background: `var(--color-${tone}-bg)`, color: `var(--color-${tone}-deep)` }}
-    >
-      {icon}
-      {children}
-    </span>
-  );
-}
-
 function Stat({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="rounded-xl px-4 py-3 text-center" style={{ background: "var(--color-surface-soft)" }}>
@@ -247,44 +163,6 @@ function Stat({ label, value }: { label: string; value: string | null }) {
       </div>
     </div>
   );
-}
-
-function guessDeviceLabel(): string {
-  const ua = navigator.userAgent;
-  if (/iPhone/.test(ua)) return "iPhone";
-  if (/iPad/.test(ua)) return "iPad";
-  if (/Android/.test(ua)) return "Android phone";
-  if (/Windows/.test(ua)) return "Windows PC";
-  if (/Mac/.test(ua)) return "Mac";
-  return "This device";
-}
-
-async function authenticatePunch(): Promise<BioProof | null> {
-  const opts = await startBiometricPunch();
-  if (!opts.ok) throw new Error(opts.error);
-  if (!opts.options) return null;
-  return { assertion: await startAuthentication({ optionsJSON: opts.options }) };
-}
-
-async function enrollPunch(): Promise<BioProof> {
-  const start = await startBiometricSetup();
-  if (!start.ok) throw new Error(start.error);
-  return { registration: await startRegistration({ optionsJSON: start.options }), deviceLabel: guessDeviceLabel() };
-}
-
-async function acquireBioProof(enrolledHere: boolean): Promise<BioProof> {
-  if (enrolledHere) {
-    return (await authenticatePunch()) ?? (await enrollPunch());
-  }
-  try {
-    return await enrollPunch();
-  } catch (err) {
-    if (isAuthenticatorAlreadyRegistered(err)) {
-      const proof = await authenticatePunch();
-      if (proof) return proof;
-    }
-    throw err;
-  }
 }
 
 function isNetworkError(err: unknown): boolean {
@@ -305,12 +183,7 @@ async function withNetworkRetry<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 function mapPunchError(err: unknown): string {
-  const e = err as (Error & { name?: string }) | undefined;
-  const msg = (e?.message ?? "").toLowerCase();
-  if (e?.name === "NotAllowedError") return "Biometric cancelled — tap to try again.";
-  if (msg.includes("credential manager") || e?.name === "UnknownError" || e?.name === "NotReadableError") {
-    return "Couldn't use your fingerprint / Face ID. Set up a screen lock + fingerprint on your phone (and update Google Play Services), or ask an admin to mark you exempt.";
-  }
+  const e = err as Error | undefined;
   if (isNetworkError(err)) return "Couldn't reach the server. Check your connection, reload, and try again.";
   return e?.message || "Punch failed. Please try again.";
 }

@@ -86,7 +86,6 @@ export default async function AttendancePage({ searchParams }: PageProps) {
             inLabel={todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : null}
             outLabel={todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null}
             tz={tz}
-            biometricExempt={me.attendanceBiometricExempt}
           />
         )}
 
