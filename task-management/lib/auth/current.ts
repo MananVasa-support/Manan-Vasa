@@ -7,35 +7,17 @@ import { db } from "@/lib/db";
 import { employees, type Employee } from "@/db/schema";
 import { readSession } from "@/lib/auth/session";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
-import { withRetry } from "@/lib/db/with-timeout";
 
 /**
  * Resolves the signed-in employee row, or null if not signed in.
  * Looks up by Firebase UID.  Used inside Server Components / Server Actions.
- *
- * This is the SINGLE most load-bearing query in the app: it runs in the ROOT
- * layout (app/layout.tsx) on every request — and there is NO error boundary
- * above the root layout, so a throw here renders the whole-app "We hit a snag"
- * screen (root app/error.tsx), wiping the chrome. A stale pooled connection
- * (e.g. right after a Supabase pooler restart) is exactly such a throw.
- *
- * So we RETRY on a fresh connection. Because this is React-cache()d, the retry
- * runs at most once per request and the healthy result is then reused by the
- * (app) layout's requireUser() and the page — fixing the root layout AND every
- * downstream auth check in one place, with no risk of caching a poisoned
- * (rejected) promise on a transient blip. A short first timeout (auth is a
- * sub-ms indexed lookup) catches a stale hit fast, then one retry with headroom.
  */
 export const getCurrentEmployee = cache(async (): Promise<Employee | null> => {
   const claims = await readSession();
   if (!claims) return null;
-  const row = await withRetry(
-    () =>
-      db.query.employees.findFirst({
-        where: eq(employees.firebaseUid, claims.uid),
-      }),
-    { attempts: 2, timeoutMs: [4000, 8000], label: "current-employee" },
-  );
+  const row = await db.query.employees.findFirst({
+    where: eq(employees.firebaseUid, claims.uid),
+  });
   return row ?? null;
 });
 
