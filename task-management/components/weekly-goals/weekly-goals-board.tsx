@@ -170,17 +170,27 @@ export function WeeklyGoalsBoard(props: Props) {
     const map = new Map<string, number>();
     for (const r of visible) {
       if (r.archived) continue;
+      // The 100-budget is PER WEEK: only goals PLANNED in the viewed week
+      // (weekStart === this week) count. Goals "visiting" this week because their
+      // target date lands here but were planned in another week belong to THAT
+      // week's budget — counting them here is what made the meter disagree with
+      // the (week-scoped) Balance action ("98/100" vs "already 100").
+      if (r.weekStart !== props.weekStart) continue;
       map.set(r.employeeId, (map.get(r.employeeId) ?? 0) + Math.max(0, r.weight));
     }
     return map;
-  }, [visible]);
+  }, [visible, props.weekStart]);
 
   const totalCount = visible.length;
   const activeVisible = React.useMemo(() => visible.filter((r) => !r.archived), [visible]);
   const overallScore = weeklyScore(activeVisible);
   const doneCount = activeVisible.filter((r) => effPct(r) >= 100).length;
   // Single-person view: this person's full active weight total toward 100.
-  const singleWeightTotal = showingAll ? 0 : weightTotal(activeVisible);
+  // Single-person view: only this week's planned goals count toward the budget
+  // (visiting goals due this week from other weeks don't consume this budget).
+  const singleWeightTotal = showingAll
+    ? 0
+    : weightTotal(activeVisible.filter((r) => r.weekStart === props.weekStart));
 
   // Distinct statuses present → the Status filter options (labelled via map).
   const statusOptions = React.useMemo(
@@ -457,8 +467,10 @@ export function WeeklyGoalsBoard(props: Props) {
         )
       ) : (
         <div className="flex flex-col gap-3.5">
-          {/* Single-person budget bar — live weight total toward 100. */}
-          {activeVisible.length > 0 && (
+          {/* Single-person budget bar — live weight total toward 100. Only when
+              there ARE goals planned in this week (singleWeightTotal>0); a view
+              showing only visiting/target-date goals has no week budget to show. */}
+          {singleWeightTotal > 0 && (
             <WeightBudgetBar
               total={singleWeightTotal}
               employeeId={props.scopeEmp}
@@ -524,9 +536,21 @@ export function WeeklyGoalsBoard(props: Props) {
 /* ------------------------------------------------------------------ */
 
 function WeightMeter({ total }: { total: number }) {
+  // No goals planned in this week → nothing to budget; don't show a misleading
+  // "0/100 under" meter (e.g. when every goal shown is a visiting/target-date one).
+  if (total <= 0) return null;
   const ok = total === WEIGHT_BUDGET;
+  const over = total > WEIGHT_BUDGET;
   const pct = Math.min(100, (total / WEIGHT_BUDGET) * 100);
-  const tone = ok ? "green" : "altus-red";
+  // Exactly 100 = green (balanced); OVER = brand-red (a real problem); UNDER =
+  // amber (just not allocated yet — NOT an alarm). This is the "98 shown in
+  // alarm-red looks over" fix.
+  const tone = ok ? "green" : over ? "altus-red" : "amber";
+  const textColor = ok
+    ? "var(--color-green-deep)"
+    : over
+      ? "var(--color-altus-red-deep)"
+      : "var(--color-amber-deep)";
   return (
     <span className="inline-flex items-center gap-2">
       <span
@@ -544,10 +568,10 @@ function WeightMeter({ total }: { total: number }) {
       </span>
       <span
         className="text-[12.5px] font-bold tabular-nums whitespace-nowrap"
-        style={{ color: ok ? "var(--color-green-deep)" : "var(--color-altus-red-deep)" }}
+        style={{ color: textColor }}
       >
         {total} / {WEIGHT_BUDGET}
-        {!ok && <span className="ml-1 font-semibold">· {total > WEIGHT_BUDGET ? "over" : "under"}</span>}
+        {!ok && <span className="ml-1 font-semibold">· {over ? "over" : "under"}</span>}
       </span>
     </span>
   );
@@ -718,8 +742,12 @@ function MemberHeader({
             <p className="text-[12.5px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
               {goalCount} {goalCount === 1 ? "goal" : "goals"}
             </p>
-            <span aria-hidden style={{ color: "var(--color-hairline-strong)" }}>·</span>
-            <WeightMeter total={weightTotal} />
+            {weightTotal > 0 && (
+              <>
+                <span aria-hidden style={{ color: "var(--color-hairline-strong)" }}>·</span>
+                <WeightMeter total={weightTotal} />
+              </>
+            )}
           </div>
         </div>
       </button>
