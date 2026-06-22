@@ -24,6 +24,10 @@ import type { BoardGoal, StatusDisplayMap } from "@/components/weekly-goals/type
 import { effectivePct } from "@/lib/weekly-goals/effective";
 import { AutoTextarea } from "@/components/weekly-goals/field-controls";
 
+/** Shared visible focus ring for keyboard users (brand-red on neutral surfaces). */
+const FOCUS_RING =
+  "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-soft)]";
+
 /**
  * Super-admin review expander for a weekly goal (design §6 / §5). Top half is the
  * read-only doer record (% Done, Explanation, Evidence). Bottom half is the
@@ -133,7 +137,7 @@ export function GoalReviewPanel({
                   "Status updated.",
                 )
               }
-              className="w-full rounded-md border border-hairline bg-white px-2.5 py-1.5 text-[14px] font-bold text-ink-strong outline-none focus:border-altus-red/50"
+              className={`w-full rounded-md border border-hairline bg-white px-2.5 py-1.5 text-[14px] font-bold text-ink-strong focus:border-altus-red/50 ${FOCUS_RING}`}
             >
               {ADMIN_TASK_STATUSES.map((s) => (
                 <option key={s} value={s}>
@@ -204,7 +208,7 @@ export function GoalReviewPanel({
               approved ? "Un-approved." : "Approved — Accept % locked.",
             )
           }
-          className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+          className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60 ${FOCUS_RING}`}
           style={{
             background: approved
               ? "linear-gradient(135deg, var(--color-slate), var(--color-slate-deep))"
@@ -224,7 +228,7 @@ export function GoalReviewPanel({
               goal.archived ? "Restored to the board." : "Archived.",
             )
           }
-          className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface-card px-4 py-2 text-[14px] font-bold text-ink-soft transition-colors hover:text-ink-strong disabled:opacity-60"
+          className={`inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface-card px-4 py-2 text-[14px] font-bold text-ink-soft transition-colors hover:text-ink-strong disabled:opacity-60 ${FOCUS_RING}`}
         >
           {goal.archived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
           {goal.archived ? "Restore" : "Archive"}
@@ -234,7 +238,7 @@ export function GoalReviewPanel({
           type="button"
           disabled={pending}
           onClick={onDelete}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold text-altus-red transition-colors hover:bg-red-50 disabled:opacity-60"
+          className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold text-altus-red transition-colors hover:bg-red-50 disabled:opacity-60 ${FOCUS_RING}`}
         >
           <Trash2 size={15} />
           Delete
@@ -284,7 +288,7 @@ function AcceptPctInput({
         placeholder={`${fallback} (from % Done)`}
         onChange={(e) => setV(e.target.value)}
         onBlur={commit}
-        className="w-32 rounded-md border border-hairline bg-white px-2.5 py-1.5 text-[14px] font-bold tabular-nums text-ink-strong outline-none focus:border-altus-red/50 disabled:bg-transparent"
+        className={`w-32 rounded-md border border-hairline bg-white px-2.5 py-1.5 text-[14px] font-bold tabular-nums text-ink-strong focus:border-altus-red/50 disabled:bg-transparent ${FOCUS_RING}`}
       />
       <span className="text-[13px] font-bold text-ink-muted">%</span>
     </div>

@@ -33,6 +33,10 @@ interface Props {
 const TOTAL = 100;
 const MIN_GOALS = 5;
 
+/** Shared visible focus ring for keyboard users (brand-red on neutral surfaces). */
+const FOCUS_RING =
+  "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-card)]";
+
 /**
  * Inline "+ Add goal" for the Weekly Goals board, rebuilt for the locked Phase-1
  * rules (WMS_OVERHAUL_MASTER_PLAN §6): every goal carries a WEIGHT — its share of
@@ -131,15 +135,15 @@ export function GoalQuickAdd(props: Props) {
           setOpen(true);
           requestAnimationFrame(() => clientRef.current?.focus());
         }}
-        className="wg-btn cursor-pointer group flex w-full items-center justify-center gap-2.5 rounded-section border border-dashed px-4 py-5 text-[15px] font-bold transition-colors"
-        style={{ borderColor: "rgba(27,20,14,0.22)", color: "#6F6457" }}
+        className={`cursor-pointer group flex w-full items-center justify-center gap-2.5 rounded-2xl border border-dashed px-4 py-5 text-[15px] font-bold transition-colors hover:bg-surface-soft ${FOCUS_RING}`}
+        style={{ borderColor: "var(--color-hairline-strong)", color: "var(--color-ink-soft)" }}
       >
-        <span className="inline-flex size-7 items-center justify-center rounded-full" style={{ background: "rgba(225,6,0,0.10)", color: "#E10600" }}>
+        <span className="inline-flex size-7 items-center justify-center rounded-full" style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red)" }}>
           <Plus size={16} strokeWidth={2.8} />
         </span>
         Add goal
         {short > 0 && (
-          <span className="text-[12.5px] font-semibold" style={{ color: "#9A938B" }}>
+          <span className="text-[12.5px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
             · {short} more to reach {MIN_GOALS}
           </span>
         )}
@@ -149,20 +153,24 @@ export function GoalQuickAdd(props: Props) {
 
   return (
     <div
-      className="rounded-section border bg-white p-5"
-      style={{ borderColor: "rgba(27,20,14,0.12)", boxShadow: "0 1px 3px rgba(27,20,14,0.05), 0 14px 36px -22px rgba(27,20,14,0.3)" }}
+      className="rounded-2xl border p-5"
+      style={{
+        background: "var(--color-surface-card)",
+        borderColor: "var(--color-hairline)",
+        boxShadow: "0 1px 3px rgba(15,23,42,0.05), 0 14px 36px -26px rgba(15,23,42,0.28)",
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
       }}
     >
       <div className="mb-3.5 flex items-center justify-between">
-        <span className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: "#A80400" }}>
+        <span className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--color-altus-red-deep)" }}>
           New goal · #{props.currentCount + 1}
         </span>
         <button
           type="button"
           onClick={() => { setOpen(false); reset(remaining); }}
-          className="text-[13px] font-bold text-ink-muted hover:text-ink-strong transition-colors cursor-pointer"
+          className={`rounded-full px-1.5 text-[13px] font-bold text-ink-muted hover:text-ink-strong transition-colors cursor-pointer ${FOCUS_RING}`}
         >
           Cancel
         </button>
@@ -185,16 +193,16 @@ export function GoalQuickAdd(props: Props) {
           value={targetDone}
           onChange={(e) => setTargetDone(e.target.value)}
           placeholder="What does done look like?"
-          className="w-full rounded-md border bg-white px-2.5 py-2 text-[15px] font-medium text-ink-strong outline-none focus:border-altus-red"
-          style={{ borderColor: "rgba(27,20,14,0.14)" }}
+          className={`w-full rounded-md border bg-white px-2.5 py-2 text-[15px] font-medium text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
+          style={{ borderColor: "var(--color-hairline-strong)" }}
         />
       </label>
 
       {/* ── Weight: the goal's share of the week, with a live allocation meter ── */}
-      <div className="mt-4 rounded-xl p-3.5" style={{ background: "rgba(27,20,14,0.025)", border: "1px solid rgba(27,20,14,0.08)" }}>
+      <div className="mt-4 rounded-xl p-3.5" style={{ background: "var(--color-surface-soft)", border: "1px solid var(--color-hairline)" }}>
         <div className="flex items-center justify-between gap-3">
           <span className="text-[12px] font-bold text-ink-soft">Weight · share of the week</span>
-          <span className="text-[12.5px] font-bold tabular-nums" style={{ color: over ? "#A80400" : "#6F6457" }}>
+          <span className="text-[12.5px] font-bold tabular-nums" style={{ color: over ? "var(--color-altus-red-deep)" : "var(--color-ink-soft)" }}>
             {over ? `over by ${projected - TOTAL}` : `${remaining - weight >= 0 ? remaining - weight : 0} left of ${TOTAL}`}
           </span>
         </div>
@@ -205,31 +213,31 @@ export function GoalQuickAdd(props: Props) {
             max={Math.max(weight, remaining, 1)}
             value={weight}
             onChange={(e) => setWeight(Number(e.target.value))}
-            className="flex-1 accent-[var(--color-altus-red)] cursor-pointer"
+            className={`flex-1 accent-[var(--color-altus-red)] cursor-pointer rounded-full ${FOCUS_RING}`}
             aria-label="Goal weight"
           />
-          <div className="inline-flex items-center rounded-lg border bg-white px-2 py-1" style={{ borderColor: "rgba(27,20,14,0.14)" }}>
+          <div className="inline-flex items-center rounded-lg border bg-white px-2 py-1" style={{ borderColor: "var(--color-hairline-strong)" }}>
             <input
               type="number"
               min={1}
               max={1000}
               value={weight}
               onChange={(e) => setWeight(Math.max(0, Math.min(1000, Math.round(Number(e.target.value) || 0))))}
-              className="w-12 bg-transparent text-right text-[15px] font-black tabular-nums text-ink-strong outline-none"
+              className={`w-12 bg-transparent text-right text-[15px] font-black tabular-nums text-ink-strong ${FOCUS_RING}`}
               aria-label="Goal weight value"
             />
             <span className="text-[13px] font-bold text-ink-subtle">wt</span>
           </div>
         </div>
         {/* allocation bar: already-used (ink) + this goal (red) toward 100 */}
-        <div className="mt-2.5 flex h-2.5 w-full overflow-hidden rounded-full" style={{ background: "rgba(27,20,14,0.08)" }}>
-          <span className="h-full" style={{ width: `${usedPct}%`, background: "rgba(27,20,14,0.32)" }} />
-          <span className="h-full transition-all" style={{ width: `${Math.max(0, addPct)}%`, background: over ? "#A80400" : "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))" }} />
+        <div className="mt-2.5 flex h-2.5 w-full overflow-hidden rounded-full" style={{ background: "var(--color-surface-track)" }}>
+          <span className="h-full" style={{ width: `${usedPct}%`, background: "var(--color-ink-subtle)" }} />
+          <span className="h-full transition-all" style={{ width: `${Math.max(0, addPct)}%`, background: over ? "var(--color-altus-red-deep)" : "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))" }} />
         </div>
       </div>
 
       {/* ── Incentive: Ad-hoc / One-time (manual ₹) · Routine (from catalog) ── */}
-      <div className="mt-4 rounded-xl p-3.5" style={{ background: "rgba(27,20,14,0.025)", border: "1px solid rgba(27,20,14,0.08)" }}>
+      <div className="mt-4 rounded-xl p-3.5" style={{ background: "var(--color-surface-soft)", border: "1px solid var(--color-hairline)" }}>
         <div className="flex items-center gap-2.5 flex-wrap">
           <span className="inline-flex items-center gap-1.5 text-[12px] font-bold text-ink-soft">
             <IndianRupee size={13} /> Incentive
@@ -243,8 +251,8 @@ export function GoalQuickAdd(props: Props) {
               if (v === "") setIncentiveAmount(0);
             }}
             aria-label="Incentive type"
-            className="rounded-md border bg-white px-2.5 py-1.5 text-[13.5px] font-bold text-ink-strong outline-none focus:border-altus-red cursor-pointer"
-            style={{ borderColor: "rgba(27,20,14,0.14)" }}
+            className={`rounded-md border bg-white px-2.5 py-1.5 text-[13.5px] font-bold text-ink-strong focus:border-altus-red cursor-pointer ${FOCUS_RING}`}
+            style={{ borderColor: "var(--color-hairline-strong)" }}
           >
             <option value="">No incentive</option>
             <option value="adhoc">Ad-hoc</option>
@@ -253,7 +261,7 @@ export function GoalQuickAdd(props: Props) {
           </select>
 
           {(incentiveType === "adhoc" || incentiveType === "onetime") && (
-            <div className="inline-flex items-center rounded-md border bg-white px-2 py-1" style={{ borderColor: "rgba(27,20,14,0.14)" }}>
+            <div className="inline-flex items-center rounded-md border bg-white px-2 py-1" style={{ borderColor: "var(--color-hairline-strong)" }}>
               <span className="text-[13px] font-bold text-ink-subtle">₹</span>
               <input
                 type="number"
@@ -262,7 +270,7 @@ export function GoalQuickAdd(props: Props) {
                 onChange={(e) => setIncentiveAmount(Math.max(0, Math.round(Number(e.target.value) || 0)))}
                 placeholder="amount"
                 aria-label="Incentive amount"
-                className="w-24 bg-transparent px-1 text-right text-[14px] font-black tabular-nums text-ink-strong outline-none"
+                className={`w-24 bg-transparent px-1 text-right text-[14px] font-black tabular-nums text-ink-strong ${FOCUS_RING}`}
               />
             </div>
           )}
@@ -272,8 +280,8 @@ export function GoalQuickAdd(props: Props) {
               value={incentiveCatalogId}
               onChange={(e) => setIncentiveCatalogId(e.target.value)}
               aria-label="Incentive from catalog"
-              className="rounded-md border bg-white px-2.5 py-1.5 text-[13.5px] font-medium text-ink-strong outline-none focus:border-altus-red cursor-pointer max-w-[260px]"
-              style={{ borderColor: "rgba(27,20,14,0.14)" }}
+              className={`rounded-md border bg-white px-2.5 py-1.5 text-[13.5px] font-medium text-ink-strong focus:border-altus-red cursor-pointer max-w-[260px] ${FOCUS_RING}`}
+              style={{ borderColor: "var(--color-hairline-strong)" }}
             >
               <option value="">Pick from catalog…</option>
               {props.catalog.map((c) => (
@@ -300,7 +308,7 @@ export function GoalQuickAdd(props: Props) {
           type="button"
           onClick={submit}
           disabled={saving || over}
-          className="wg-btn wg-sheen cursor-pointer ml-auto inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[14px] font-bold text-white hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
+          className={`wg-sheen cursor-pointer ml-auto inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[14px] font-bold text-white hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}
           style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
         >
           {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.8} />}

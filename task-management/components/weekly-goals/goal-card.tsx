@@ -12,22 +12,11 @@ import {
   CalendarClock,
   Gauge,
   IndianRupee,
-  Target,
   Loader2,
   Archive,
   ListPlus,
   SquareArrowOutUpRight,
 } from "lucide-react";
-
-/* Editorial tokens shared with the board (cream/warm-ink palette). */
-const EDITORIAL = {
-  surface: "#FFFFFF",
-  inkStrong: "#171411",
-  inkSoft: "#6B6560",
-  inkSubtle: "#9A938B",
-  hairline: "rgba(23,20,17,0.08)",
-} as const;
-const SERIF = "var(--font-editorial), Georgia, serif";
 import { fireToast } from "@/lib/toast";
 import {
   editWeeklyGoal,
@@ -36,7 +25,7 @@ import {
   createTaskFromGoal,
 } from "@/app/(app)/weekly-goals/actions";
 import type { BoardGoal, StatusDisplayMap } from "@/components/weekly-goals/types";
-import { effectivePct } from "@/lib/weekly-goals/effective";
+import { effectivePct, WEIGHT_BUDGET } from "@/lib/weekly-goals/effective";
 import { formatInr } from "@/lib/format";
 import { formatWeekShort } from "@/lib/weekly-goals/week";
 import {
@@ -48,6 +37,10 @@ import {
 import { GoalReviewPanel } from "@/components/weekly-goals/goal-review-panel";
 
 const PCT_PRESETS = [0, 25, 50, 75, 100];
+
+/** Shared visible focus ring for keyboard users (brand-red, app-neutral surfaces). */
+const FOCUS_RING =
+  "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-card)]";
 
 /** Phase 4 — friendly labels for the structured incentive type on the chip. */
 const INCENTIVE_TYPE_LABEL: Record<string, string> = {
@@ -70,11 +63,14 @@ interface Props {
   catalog: { id: string; name: string; amount: number }[];
   /** Opens the board's shared two-step delete-confirm dialog. */
   onRequestDelete: (goal: BoardGoal) => void;
+  /** This person's live active-weight total this week (budget context for the
+   *  inline Weight editor — warns when the week is off 100). Defaults to 0. */
+  employeeWeightTotal?: number;
   /** When true the card auto-expands its editor (deep link `?focus=<id>`). */
   autoFocus?: boolean;
 }
 
-export function GoalCard({
+function GoalCardImpl({
   goal,
   srNo,
   canEdit,
@@ -85,6 +81,7 @@ export function GoalCard({
   subjectOptions,
   catalog,
   onRequestDelete,
+  employeeWeightTotal = 0,
   autoFocus = false,
 }: Props) {
   const router = useRouter();
@@ -176,13 +173,14 @@ export function GoalCard({
   return (
     <div
       ref={cardRef}
-      className="relative overflow-hidden transition-shadow hover:shadow-[0_10px_30px_-16px_rgba(23,20,17,0.28)]"
+      className="wg-sheen relative overflow-hidden transition-shadow"
       style={{
-        background: EDITORIAL.surface,
-        border: `1px solid ${EDITORIAL.hairline}`,
+        background: "var(--color-surface-card)",
+        border: "1px solid var(--color-hairline)",
         borderRadius: 16,
-        boxShadow: "0 1px 2px rgba(23,20,17,0.04)",
-        opacity: goal.archived ? 0.72 : 1,
+        boxShadow:
+          "0 1px 2px rgba(15,23,42,0.04), 0 12px 32px -24px rgba(15,23,42,0.18)",
+        opacity: goal.archived ? 0.78 : 1,
       }}
     >
       {/* Altus-red accent rail */}
@@ -193,154 +191,199 @@ export function GoalCard({
       />
 
       <div className="p-5 pl-6">
-        {/* Header row: number badge + eyebrow/title + status ----------- */}
-        <div className="flex items-start gap-3">
-          <span
-            className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-[8px] text-[13px] font-black tabular-nums text-white"
-            style={{ background: EDITORIAL.inkStrong }}
-          >
-            {srNo}
-          </span>
-
-          <div className="min-w-0 flex-1">
-            {/* Client · Subject eyebrow */}
-            {!editing && (goal.client || goal.subject) && (
-              <p
-                className="text-[11px] font-black uppercase tracking-[0.09em]"
-                style={{ color: EDITORIAL.inkSubtle }}
-              >
-                {[goal.client, goal.subject].filter(Boolean).join(" · ")}
-              </p>
-            )}
-
-            {/* Goal title (read mode) — editorial serif */}
-            {!editing && (
-              <h3
-                className="mt-1 leading-snug"
-                style={{
-                  fontFamily: SERIF,
-                  fontWeight: 600,
-                  fontSize: 18,
-                  color: EDITORIAL.inkStrong,
-                  letterSpacing: "-0.005em",
-                }}
-              >
-                {title}
-              </h3>
-            )}
-          </div>
-
-          {/* Status pill */}
-          {!editing && status && (
-            <span
-              className="shrink-0 rounded-full px-2.5 py-1 text-[12px] font-bold"
-              style={{
-                background: `color-mix(in srgb, var(--color-${status.color}) 14%, transparent)`,
-                color: `var(--color-${status.color}-deep)`,
-                border: `1px solid color-mix(in srgb, var(--color-${status.color}) 36%, transparent)`,
-              }}
-            >
-              {status.label}
-            </span>
-          )}
-        </div>
-
-        {/* Chips row ---------------------------------------------------- */}
+        {/* ── READ-MODE ROW: index + identity · meta strip · progress · actions ── */}
         {!editing && (
-          <div className="mt-3 flex flex-wrap items-center gap-1.5 pl-10">
-            <Chip icon={<Gauge size={12} />} label={`Weight ${goal.weight}`} tone="red" />
-            {goal.targetDate && (
-              <Chip icon={<CalendarClock size={12} />} label={formatWeekShort(goal.targetDate)} />
-            )}
-            {goal.incentive && (
-              <Chip
-                icon={<IndianRupee size={12} />}
-                label={`${INCENTIVE_TYPE_LABEL[goal.incentiveType ?? ""] ?? "Incentive"}${
-                  goal.incentiveAmount > 0 ? ` · ${formatInr(goal.incentiveAmount)}` : ""
-                }`}
-                tone="green"
-              />
-            )}
-            {goal.carriedFromId && <Chip label="↪ carried" />}
-            {goal.archived && <Chip icon={<Archive size={12} />} label="Archived" tone="slate" />}
-          </div>
-        )}
-
-        {/* Notes (planning) -------------------------------------------- */}
-        {!editing && goal.notes && (
-          <p
-            className="mt-3 pl-10 text-[14px] leading-relaxed whitespace-pre-wrap"
-            style={{ color: EDITORIAL.inkSoft }}
-          >
-            {goal.notes}
-          </p>
-        )}
-
-        {/* Progress bar ------------------------------------------------ */}
-        {!editing && (
-          <div className="mt-4 pl-10">
-            <p
-              className="mb-1.5 text-[10.5px] font-black uppercase tracking-[0.1em]"
-              style={{ color: EDITORIAL.inkSubtle }}
-            >
-              Progress
-            </p>
-            <div className="flex items-center gap-3">
-              <div
-                className="h-2.5 flex-1 overflow-hidden rounded-full"
-                style={{ background: "rgba(23,20,17,0.07)" }}
+          <div className="flex items-start gap-4 max-md:flex-col">
+            {/* Left — index badge + eyebrow + title (the row's identity). */}
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+              <span
+                className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-[8px] text-[13px] font-black tabular-nums text-white"
+                style={{ background: "var(--color-ink-strong)" }}
               >
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${eff}%`,
-                    background: `linear-gradient(90deg, var(--color-${pctTone(eff)}), var(--color-${pctTone(eff)}-deep))`,
+                {srNo}
+              </span>
+              <div className="min-w-0 flex-1">
+                {(goal.client || goal.subject) && (
+                  <p
+                    className="text-[11px] font-black uppercase tracking-[0.09em]"
+                    style={{ color: "var(--color-ink-subtle)" }}
+                  >
+                    {[goal.client, goal.subject].filter(Boolean).join(" · ")}
+                  </p>
+                )}
+                <h3
+                  className="mt-1 text-[16px] font-bold leading-snug"
+                  style={{ color: "var(--color-ink-strong)", letterSpacing: "-0.005em" }}
+                >
+                  {title}
+                </h3>
+
+                {/* Secondary chips (incentive / carried / archived). */}
+                {(goal.incentive || goal.carriedFromId || goal.archived) && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {goal.incentive && (
+                      <Chip
+                        icon={<IndianRupee size={12} />}
+                        label={`${INCENTIVE_TYPE_LABEL[goal.incentiveType ?? ""] ?? "Incentive"}${
+                          goal.incentiveAmount > 0 ? ` · ${formatInr(goal.incentiveAmount)}` : ""
+                        }`}
+                        tone="green"
+                      />
+                    )}
+                    {goal.carriedFromId && <Chip label="↪ carried" />}
+                    {goal.archived && (
+                      <Chip icon={<Archive size={12} />} label="Archived" tone="slate" />
+                    )}
+                  </div>
+                )}
+
+                {/* Notes (planning) under the title — kept readable, no hover gate. */}
+                {goal.notes && (
+                  <p
+                    className="mt-2 text-[13.5px] leading-relaxed whitespace-pre-wrap"
+                    style={{ color: "var(--color-ink-soft)" }}
+                  >
+                    {goal.notes}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Middle — aligned meta strip: weight · target date · status. */}
+            <div className="flex shrink-0 items-center gap-4 max-md:flex-wrap max-md:gap-3">
+              <Meta label="Weight">
+                <span
+                  className="text-[15px] font-black tabular-nums"
+                  style={{ color: "var(--color-ink-strong)" }}
+                >
+                  {goal.weight}
+                  <span
+                    className="ml-0.5 text-[11px] font-bold"
+                    style={{ color: "var(--color-ink-subtle)" }}
+                  >
+                    /{WEIGHT_BUDGET}
+                  </span>
+                </span>
+              </Meta>
+
+              <Meta label="Target date">
+                <InlineDate
+                  value={goal.targetDate}
+                  canEdit={canEdit}
+                  onCommit={(v) => {
+                    if (v !== goal.targetDate) save({ id: goal.id, targetDate: v });
                   }}
                 />
-              </div>
-              <span
-                className="w-12 shrink-0 text-right text-[15px] font-black tabular-nums"
-                style={{ color: EDITORIAL.inkStrong }}
-              >
-                {eff}%
-              </span>
+              </Meta>
+
+              {status && (
+                <Meta label="Status">
+                  <span
+                    className="inline-flex shrink-0 rounded-full px-2.5 py-1 text-[12px] font-bold"
+                    style={{
+                      background: `color-mix(in srgb, var(--color-${status.color}) 14%, transparent)`,
+                      color: `var(--color-${status.color}-deep)`,
+                      border: `1px solid color-mix(in srgb, var(--color-${status.color}) 36%, transparent)`,
+                    }}
+                  >
+                    {status.label}
+                  </span>
+                </Meta>
+              )}
             </div>
-            {goal.acceptPct != null && goal.acceptPct !== goal.pctDone && (
-              <p className="mt-1 text-[12px] font-semibold" style={{ color: EDITORIAL.inkSubtle }}>
-                Doer reported {goal.pctDone}% · accepted {goal.acceptPct}%
+
+            {/* Right — progress (bar + %) + quick-% presets. */}
+            <div className="w-[210px] shrink-0 max-md:w-full">
+              <p
+                className="mb-1.5 text-[10.5px] font-black uppercase tracking-[0.1em]"
+                style={{ color: "var(--color-ink-subtle)" }}
+              >
+                Progress
               </p>
-            )}
-            {/* Quick % presets (owner / admin) — selected = solid dark pill. */}
-            {canEdit && (
-              <div className="mt-2.5 flex gap-1.5">
-                {PCT_PRESETS.map((p) => {
-                  const selected = eff === p;
-                  return (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => savePct(p)}
-                      disabled={pending}
-                      aria-pressed={selected}
-                      className="rounded-full px-3 py-1 text-[12px] font-bold transition-colors disabled:opacity-60"
-                      style={
-                        selected
-                          ? { background: EDITORIAL.inkStrong, color: "#fff", border: `1px solid ${EDITORIAL.inkStrong}` }
-                          : { background: "transparent", color: EDITORIAL.inkSoft, border: `1px solid ${EDITORIAL.hairline}` }
-                      }
-                    >
-                      {p}%
-                    </button>
-                  );
-                })}
+              <div className="flex items-center gap-3">
+                <div
+                  className="h-2.5 flex-1 overflow-hidden rounded-full"
+                  style={{ background: "var(--color-surface-track)" }}
+                >
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${eff}%`,
+                      background: `linear-gradient(90deg, var(--color-${pctTone(eff)}), var(--color-${pctTone(eff)}-deep))`,
+                    }}
+                  />
+                </div>
+                <span
+                  className="w-11 shrink-0 text-right text-[15px] font-black tabular-nums"
+                  style={{ fontFamily: "var(--font-display)", color: "var(--color-ink-strong)" }}
+                >
+                  {eff}%
+                </span>
               </div>
-            )}
+              {goal.acceptPct != null && goal.acceptPct !== goal.pctDone && (
+                <p
+                  className="mt-1 text-[12px] font-semibold"
+                  style={{ color: "var(--color-ink-subtle)" }}
+                >
+                  Doer reported {goal.pctDone}% · accepted {goal.acceptPct}%
+                </p>
+              )}
+              {/* Quick % presets (owner / admin) — selected = solid dark pill. */}
+              {canEdit && (
+                <div className="mt-2.5 flex gap-1.5">
+                  {PCT_PRESETS.map((p) => {
+                    const selected = eff === p;
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => savePct(p)}
+                        disabled={pending}
+                        aria-pressed={selected}
+                        className={`rounded-full px-2.5 py-1 text-[12px] font-bold transition-colors disabled:opacity-60 ${FOCUS_RING}`}
+                        style={
+                          selected
+                            ? {
+                                background: "var(--color-ink-strong)",
+                                color: "#fff",
+                                border: "1px solid var(--color-ink-strong)",
+                              }
+                            : {
+                                background: "transparent",
+                                color: "var(--color-ink-soft)",
+                                border: "1px solid var(--color-hairline-strong)",
+                              }
+                        }
+                      >
+                        {p}%
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Inline editor ----------------------------------------------- */}
+        {/* Inline editor (expands below within the same full-width card) ---- */}
         {editing && canEdit && (
-          <div className="mt-1 grid gap-3">
+          <div className="grid gap-3">
+            {/* Editor header: index + Done button keep the row anchored. */}
+            <div className="flex items-center gap-3">
+              <span
+                className="inline-flex size-7 shrink-0 items-center justify-center rounded-[8px] text-[13px] font-black tabular-nums text-white"
+                style={{ background: "var(--color-ink-strong)" }}
+              >
+                {srNo}
+              </span>
+              <span
+                className="text-[11px] font-black uppercase tracking-[0.1em]"
+                style={{ color: "var(--color-ink-subtle)" }}
+              >
+                Editing goal
+              </span>
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className="mb-1 block text-[12px] font-bold text-ink-soft">Client</span>
@@ -374,7 +417,11 @@ export function GoalCard({
             <div className="flex flex-wrap items-end gap-3">
               <label className="block">
                 <span className="mb-1 block text-[12px] font-bold text-ink-soft">Weight</span>
-                <WeightInput value={goal.weight} onCommit={(w) => save({ id: goal.id, weight: w })} />
+                <WeightInput
+                  value={goal.weight}
+                  employeeWeightTotal={employeeWeightTotal}
+                  onCommit={(w) => save({ id: goal.id, weight: w })}
+                />
               </label>
               <label className="block">
                 <span className="mb-1 block text-[12px] font-bold text-ink-soft">Target date</span>
@@ -385,13 +432,19 @@ export function GoalCard({
                     const v = e.target.value || null;
                     if (v !== goal.targetDate) save({ id: goal.id, targetDate: v });
                   }}
-                  className="rounded-md border border-hairline bg-white px-2.5 py-1.5 text-[14px] font-semibold text-ink-strong outline-none focus:border-altus-red/50"
+                  className={`rounded-md border border-hairline bg-white px-2.5 py-1.5 text-[14px] font-semibold text-ink-strong focus:border-altus-red/50 ${FOCUS_RING}`}
                 />
               </label>
             </div>
 
             {/* Incentive: Ad-hoc / One-time (manual ₹) · Routine (from catalog) */}
-            <div className="flex flex-wrap items-center gap-2.5 rounded-lg p-2.5" style={{ background: "rgba(27,20,14,0.025)", border: "1px solid rgba(27,20,14,0.07)" }}>
+            <div
+              className="flex flex-wrap items-center gap-2.5 rounded-lg p-2.5"
+              style={{
+                background: "var(--color-surface-soft)",
+                border: "1px solid var(--color-hairline)",
+              }}
+            >
               <span className="text-[12px] font-bold text-ink-soft">Incentive</span>
               <select
                 value={incType}
@@ -403,7 +456,7 @@ export function GoalCard({
                   else saveIncentive(v, goal.incentiveAmount || 0, null);
                 }}
                 aria-label="Incentive type"
-                className="rounded-md border border-hairline bg-white px-2.5 py-1.5 text-[13.5px] font-bold text-ink-strong outline-none focus:border-altus-red/50 cursor-pointer"
+                className={`cursor-pointer rounded-md border border-hairline bg-white px-2.5 py-1.5 text-[13.5px] font-bold text-ink-strong focus:border-altus-red/50 ${FOCUS_RING}`}
               >
                 <option value="">None</option>
                 <option value="adhoc">Ad-hoc</option>
@@ -420,7 +473,7 @@ export function GoalCard({
                     placeholder="amount"
                     aria-label="Incentive amount"
                     onBlur={(e) => saveIncentive(incType, Math.max(0, Math.round(Number(e.target.value) || 0)), null)}
-                    className="w-24 bg-transparent px-1 text-right text-[14px] font-black tabular-nums text-ink-strong outline-none"
+                    className={`w-24 bg-transparent px-1 text-right text-[14px] font-black tabular-nums text-ink-strong ${FOCUS_RING}`}
                   />
                 </div>
               )}
@@ -429,7 +482,7 @@ export function GoalCard({
                   defaultValue={goal.incentiveCatalogId ?? ""}
                   onChange={(e) => saveIncentive("routine", 0, e.target.value || null)}
                   aria-label="Incentive from catalog"
-                  className="rounded-md border border-hairline bg-white px-2.5 py-1.5 text-[13.5px] font-medium text-ink-strong outline-none focus:border-altus-red/50 cursor-pointer max-w-[240px]"
+                  className={`max-w-[240px] cursor-pointer rounded-md border border-hairline bg-white px-2.5 py-1.5 text-[13.5px] font-medium text-ink-strong focus:border-altus-red/50 ${FOCUS_RING}`}
                 >
                   <option value="">Pick from catalog…</option>
                   {catalog.map((c) => (
@@ -474,17 +527,19 @@ export function GoalCard({
 
         {/* Footer actions --------------------------------------------- */}
         <div
-          className="mt-4 flex flex-wrap items-center gap-1.5 pl-10 pt-3.5"
-          style={{ borderTop: `1px solid ${EDITORIAL.hairline}` }}
+          className="mt-4 flex flex-wrap items-center gap-1.5 pt-3.5"
+          style={{ borderTop: "1px solid var(--color-hairline)" }}
         >
-          {pending && <Loader2 size={14} className="animate-spin" style={{ color: EDITORIAL.inkSubtle }} />}
+          {pending && (
+            <Loader2 size={14} className="animate-spin" style={{ color: "var(--color-ink-subtle)" }} />
+          )}
 
           {canEdit && (
             <button
               type="button"
               onClick={() => setEditing((e) => !e)}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors hover:bg-black/[0.04]"
-              style={{ color: EDITORIAL.inkSoft }}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors hover:bg-black/[0.04] ${FOCUS_RING}`}
+              style={{ color: "var(--color-ink-soft)" }}
             >
               {editing ? <Check size={14} /> : <Pencil size={14} />}
               {editing ? "Done" : "Edit"}
@@ -497,8 +552,8 @@ export function GoalCard({
               onClick={duplicate}
               disabled={pending}
               title="Duplicate into this week"
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors hover:bg-black/[0.04] disabled:opacity-60"
-              style={{ color: EDITORIAL.inkSoft }}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors hover:bg-black/[0.04] disabled:opacity-60 ${FOCUS_RING}`}
+              style={{ color: "var(--color-ink-soft)" }}
             >
               <CopyPlus size={14} />
               Duplicate
@@ -510,8 +565,11 @@ export function GoalCard({
             <Link
               href={`/tasks/${goal.taskId}`}
               title="Open the linked task"
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors"
-              style={{ background: "rgba(184,137,59,0.12)", color: "#8A6420" }}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors ${FOCUS_RING}`}
+              style={{
+                background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)",
+                color: "var(--color-altus-red-deep)",
+              }}
             >
               <SquareArrowOutUpRight size={14} />
               {goal.taskNo ? `Task #${goal.taskNo}` : "View task"}
@@ -523,8 +581,8 @@ export function GoalCard({
                 onClick={addToTasks}
                 disabled={addingTask}
                 title="Create a tracked task for this goal (auto-priority Important)"
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors hover:bg-black/[0.04] disabled:opacity-60"
-                style={{ color: EDITORIAL.inkSoft }}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors hover:bg-black/[0.04] disabled:opacity-60 ${FOCUS_RING}`}
+                style={{ color: "var(--color-ink-soft)" }}
               >
                 {addingTask ? <Loader2 size={14} className="animate-spin" /> : <ListPlus size={14} />}
                 Add to Tasks
@@ -537,8 +595,8 @@ export function GoalCard({
               type="button"
               onClick={() => onRequestDelete(goal)}
               title="Delete goal"
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors hover:bg-red-50 hover:text-altus-red"
-              style={{ color: EDITORIAL.inkSubtle }}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors hover:bg-red-50 hover:text-altus-red ${FOCUS_RING}`}
+              style={{ color: "var(--color-ink-subtle)" }}
             >
               <Trash2 size={14} />
               Delete
@@ -551,8 +609,8 @@ export function GoalCard({
               type="button"
               onClick={() => setReviewOpen((o) => !o)}
               aria-expanded={reviewOpen}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
-              style={{ background: EDITORIAL.inkStrong }}
+              className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98] ${FOCUS_RING}`}
+              style={{ background: "var(--color-ink-strong)" }}
             >
               <ChevronRight
                 size={15}
@@ -574,6 +632,70 @@ export function GoalCard({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Memoised so a board-level search keystroke (which re-renders the board) does
+ * NOT re-render every heavy card — only cards whose props actually change. Pairs
+ * with the board's `useDeferredValue` to keep typing smooth on a full team.
+ */
+export const GoalCard = React.memo(GoalCardImpl);
+
+/** A labelled meta cell for the read-mode strip (label over value, aligned). */
+function Meta({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span
+        className="text-[10.5px] font-black uppercase tracking-[0.1em]"
+        style={{ color: "var(--color-ink-subtle)" }}
+      >
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Always-visible, keyboard-accessible inline target-date control. When the
+ * viewer can edit, it's a real native date input (Enter/Space open the picker,
+ * commits on change/blur); otherwise it renders the formatted read-only date.
+ */
+function InlineDate({
+  value,
+  canEdit,
+  onCommit,
+}: {
+  value: string | null;
+  canEdit: boolean;
+  onCommit: (v: string | null) => void;
+}) {
+  if (!canEdit) {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 text-[13.5px] font-bold tabular-nums"
+        style={{ color: value ? "var(--color-ink-strong)" : "var(--color-ink-subtle)" }}
+      >
+        <CalendarClock size={13} style={{ color: "var(--color-ink-subtle)" }} />
+        {value ? formatWeekShort(value) : "—"}
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1"
+      style={{ borderColor: "var(--color-hairline-strong)", background: "var(--color-surface-card)" }}
+    >
+      <CalendarClock size={13} style={{ color: "var(--color-ink-subtle)" }} aria-hidden />
+      <input
+        type="date"
+        defaultValue={value ?? ""}
+        aria-label="Target date"
+        onChange={(e) => onCommit(e.target.value || null)}
+        className={`bg-transparent text-[13.5px] font-bold tabular-nums text-ink-strong ${FOCUS_RING} rounded-sm`}
+      />
+    </span>
   );
 }
 
@@ -603,26 +725,49 @@ function Chip({
 
 function WeightInput({
   value,
+  employeeWeightTotal,
   onCommit,
 }: {
   value: number;
+  /** This person's full active-weight total this week (includes this goal). */
+  employeeWeightTotal: number;
   onCommit: (n: number) => void;
 }) {
   const [v, setV] = React.useState(String(value));
   React.useEffect(() => setV(String(value)), [value]);
+  // Budget-aware (mirrors goal-quick-add's meter): the week's weights should
+  // total 100. We DON'T hard-block editing — the board's "Balance to 100" button
+  // is the corrective tool — but we surface how much budget is left and warn when
+  // the person's projected total runs over. `othersTotal` excludes this goal.
+  const othersTotal = Math.max(0, employeeWeightTotal - value);
+  const thisWeight = Math.max(0, Number(v) || 0);
+  const projected = othersTotal + thisWeight;
+  const remaining = Math.max(0, WEIGHT_BUDGET - othersTotal - thisWeight);
+  const over = projected > WEIGHT_BUDGET;
   return (
-    <input
-      type="number"
-      min={1}
-      max={1000}
-      value={v}
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => {
-        const n = Math.max(1, Math.min(1000, Math.round(Number(v) || 100)));
-        if (n !== value) onCommit(n);
-        setV(String(n));
-      }}
-      className="w-24 rounded-md border border-hairline bg-white px-2.5 py-1.5 text-[14px] font-bold tabular-nums text-ink-strong outline-none focus:border-altus-red/50"
-    />
+    <div className="flex items-center gap-2">
+      <input
+        type="number"
+        min={1}
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={() => {
+          // Clamp only to a sane lower bound — never silently cap to the budget,
+          // so an over-allocated total stays visible until Balanced.
+          const n = Math.max(1, Math.round(Number(v) || value || 1));
+          if (n !== value) onCommit(n);
+          setV(String(n));
+        }}
+        className={`w-24 rounded-md border bg-white px-2.5 py-1.5 text-[14px] font-bold tabular-nums text-ink-strong focus:border-altus-red/50 ${FOCUS_RING}`}
+        style={{ borderColor: over ? "color-mix(in srgb, var(--color-altus-red) 50%, transparent)" : "var(--color-hairline)" }}
+      />
+      <span
+        className="text-[12px] font-semibold"
+        style={{ color: over ? "var(--color-altus-red-deep)" : "var(--color-ink-subtle)" }}
+      >
+        of {WEIGHT_BUDGET}
+        {over ? ` · over by ${projected - WEIGHT_BUDGET}` : remaining > 0 ? ` · ${remaining} left` : ""}
+      </span>
+    </div>
   );
 }

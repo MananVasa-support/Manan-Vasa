@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { goalScopeFor, canManageGoalFor } from "@/lib/weekly-goals/hierarchy";
+import { balanceWeightsToBudget, WEIGHT_BUDGET } from "@/lib/weekly-goals/effective";
 import { mondayOf, nextWeekStart, weekEnd } from "@/lib/weekly-goals/week";
 import { type TaskPriority } from "@/db/enums";
 import { createTasksCore } from "@/lib/tasks/create-task";
@@ -395,6 +396,66 @@ export async function carryOverWeeklyGoal(
     if (!row) return { ok: false, error: "Insert returned no row" };
     revalidateWeeklyGoals();
     return { ok: true, id: row.id };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+/**
+ * Re-balance a person's active goal weights for a week so they sum to EXACTLY
+ * 100 (the fixed weekly budget). Proportional largest-remainder rescale via
+ * balanceWeightsToBudget — the one-tap fix for a total that drifted past 100
+ * (e.g. 7 goals × 20 = 140 → ~14 each, one nudged to 16 to land on 100).
+ * Owner / admin / manager-of-that-person only. Archived goals are left untouched.
+ */
+export async function balanceWeeklyGoalWeights(
+  input: { employeeId: string; weekStart: string },
+): Promise<ActionResult<{ updated: number; budget: number }>> {
+  const me = await requireUser();
+  if (!input?.employeeId || typeof input.employeeId !== "string") {
+    return { ok: false, error: "Missing employee" };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(input.weekStart))) {
+    return { ok: false, error: "Invalid week" };
+  }
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  // Scope: admins → anyone; managers → downline; everyone else → only themselves.
+  const scope = await goalScopeFor(me);
+  if (!canManageGoalFor(scope, input.employeeId)) {
+    return { ok: false, error: "You can only balance goals for yourself or your team." };
+  }
+  const weekStart = mondayOf(input.weekStart);
+
+  const rows = await db
+    .select({ id: weeklyGoals.id, weight: weeklyGoals.weight })
+    .from(weeklyGoals)
+    .where(
+      and(
+        eq(weeklyGoals.employeeId, input.employeeId),
+        eq(weeklyGoals.weekStart, weekStart),
+        eq(weeklyGoals.archived, false),
+      ),
+    );
+  if (rows.length === 0) return { ok: true, updated: 0, budget: WEIGHT_BUDGET };
+
+  const balanced = balanceWeightsToBudget(rows);
+  try {
+    // Few goals per person (≈5–10) → a small sequential update loop is fine and
+    // keeps the SQL trivial; only the goals whose weight actually changes write.
+    let updated = 0;
+    for (const r of rows) {
+      const next = balanced.get(r.id);
+      if (next == null || next === r.weight) continue;
+      await db
+        .update(weeklyGoals)
+        .set({ weight: next, updatedById: me.id, updatedAt: new Date() })
+        .where(eq(weeklyGoals.id, r.id));
+      updated++;
+    }
+    revalidateWeeklyGoals();
+    return { ok: true, updated, budget: WEIGHT_BUDGET };
   } catch (err) {
     return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
   }

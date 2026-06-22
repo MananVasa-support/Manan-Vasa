@@ -58,3 +58,62 @@ export function weeklyScore(
   if (total === 0) return 0;
   return Math.round(weighted / total);
 }
+
+/**
+ * A person's weekly weight budget. Every active (non-archived) goal carries a
+ * WEIGHT = its share of the week, and the per-person total must land on exactly
+ * 100. The Add-goal form enforces this on creation; inline edits + imports could
+ * historically push the total past 100 (e.g. 7 goals × 20 = 140), which is the
+ * "weight is wrong / over 100" bug. `balanceWeightsToBudget` is the one-tap fix.
+ */
+export const WEIGHT_BUDGET = 100;
+
+/** Sum of weights over a set of goals (clamps negatives to 0). */
+export function weightTotal(goals: { weight: number }[]): number {
+  return goals.reduce((s, g) => s + Math.max(0, g.weight), 0);
+}
+
+/**
+ * Proportionally rescale a set of goal weights so they sum to EXACTLY `budget`
+ * (default 100), as positive integers. Uses the largest-remainder method so the
+ * rounded parts always add back up to the budget — never 99 or 101. Proportions
+ * are preserved (7×20 → 7×14 with one goal nudged to 16 to hit 100). When every
+ * weight is 0/equal it falls back to an even split. Pure: returns id → newWeight.
+ */
+export function balanceWeightsToBudget(
+  goals: { id: string; weight: number }[],
+  budget: number = WEIGHT_BUDGET,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  const n = goals.length;
+  if (n === 0) return out;
+
+  const total = weightTotal(goals);
+
+  // No signal to scale by → distribute the budget as evenly as possible.
+  if (total <= 0) {
+    const base = Math.floor(budget / n);
+    let rem = budget - base * n;
+    for (const g of goals) out.set(g.id, base + (rem-- > 0 ? 1 : 0));
+    return out;
+  }
+
+  // Exact proportional share, split into integer floor + fractional remainder.
+  const parts = goals.map((g) => {
+    const exact = (Math.max(0, g.weight) / total) * budget;
+    const base = Math.floor(exact);
+    return { id: g.id, base, frac: exact - base };
+  });
+  let assigned = parts.reduce((s, p) => s + p.base, 0);
+  let leftover = budget - assigned; // 0..n-1 units still to hand out
+
+  // Largest fractional remainders get the leftover units first.
+  const order = [...parts].sort((a, b) => b.frac - a.frac);
+  for (const p of parts) out.set(p.id, p.base);
+  for (const p of order) {
+    if (leftover <= 0) break;
+    out.set(p.id, (out.get(p.id) ?? 0) + 1);
+    leftover--;
+  }
+  return out;
+}
