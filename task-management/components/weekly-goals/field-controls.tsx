@@ -96,7 +96,13 @@ export function ComboInput({
           setHi(0);
         }}
         onFocus={() => setOpen(true)}
-        onBlur={() => commit(v)}
+        onBlur={() => {
+          // Tab / focus-out must close the suggestion list AND commit — otherwise
+          // the dropdown lingers over the next field (keyboard-flow bug). Option
+          // clicks use onMouseDown+preventDefault, so they fire before this blur.
+          commit(v);
+          setOpen(false);
+        }}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") {
             e.preventDefault();

@@ -210,7 +210,7 @@ export function WeeklyGoalsBoard(props: Props) {
     >
       <div className="relative mx-auto max-w-[1180px] px-10 max-md:px-4 pt-8 pb-24">
       {/* ── HEADER ──────────────────────────────────────────────────── */}
-      <section className="wg-rise mb-5 flex items-end justify-between gap-8 flex-wrap">
+      <section className="wg-rise mb-5 flex items-start justify-between gap-8 flex-wrap">
         <div className="min-w-0">
           <div
             className="text-[11px] font-bold uppercase tracking-[0.18em]"
@@ -236,7 +236,13 @@ export function WeeklyGoalsBoard(props: Props) {
             The handful of priorities each person commits to — weighted, scored, reviewed.
             Five is the floor; weights total {WEIGHT_BUDGET}.
           </p>
-          <div className="mt-4 flex items-center gap-2.5 flex-wrap">
+        </div>
+
+        {/* Right rail — primary actions pinned to the extreme top-right corner
+            (uses the header's right whitespace), with the weekly-score card
+            beneath them. Stacks full-width below the title on mobile. */}
+        <div className="flex flex-col items-end gap-3 shrink-0 max-md:w-full max-md:items-stretch">
+          <div className="flex items-center gap-2.5 flex-wrap justify-end max-md:justify-start">
             <Link
               href={"/weekly-goals?view=dashboard" as Route}
               className={`wg-sheen inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[14px] font-bold text-white cursor-pointer ${FOCUS_RING}`}
@@ -256,47 +262,47 @@ export function WeeklyGoalsBoard(props: Props) {
               isAdmin={props.me.isAdmin}
             />
           </div>
-        </div>
 
-        {/* Signature: the weekly-score ring. */}
-        {totalCount > 0 && (
-          <div
-            className="flex items-center gap-4 shrink-0 rounded-2xl border px-5 py-3.5"
-            style={{
-              background: "var(--color-surface-card)",
-              borderColor: "var(--color-hairline)",
-              boxShadow: "0 1px 3px rgba(15,23,42,0.05)",
-            }}
-          >
-            <ScoreRing
-              value={overallScore}
-              size={64}
-              label={`${overallScore}% ${showingAll ? "team " : ""}weekly score`}
-            />
-            <div>
-              <div
-                className="text-[10.5px] font-bold uppercase tracking-[0.12em]"
-                style={{ color: "var(--color-ink-subtle)" }}
-              >
-                {showingAll ? "Team" : "Weekly"} score
-              </div>
-              <div
-                className="tabular-nums leading-none"
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 800,
-                  fontSize: 30,
-                  color: "var(--color-ink-strong)",
-                }}
-              >
-                {overallScore}%
-              </div>
-              <div className="mt-1 text-[12px] font-semibold" style={{ color: "var(--color-ink-muted)" }}>
-                {doneCount}/{totalCount} done
+          {/* Signature: the weekly-score ring. */}
+          {totalCount > 0 && (
+            <div
+              className="flex items-center gap-4 rounded-2xl border px-5 py-3.5 max-md:w-full"
+              style={{
+                background: "var(--color-surface-card)",
+                borderColor: "var(--color-hairline)",
+                boxShadow: "0 1px 3px rgba(15,23,42,0.05)",
+              }}
+            >
+              <ScoreRing
+                value={overallScore}
+                size={64}
+                label={`${overallScore}% ${showingAll ? "team " : ""}weekly score`}
+              />
+              <div>
+                <div
+                  className="text-[10.5px] font-bold uppercase tracking-[0.12em]"
+                  style={{ color: "var(--color-ink-subtle)" }}
+                >
+                  {showingAll ? "Team" : "Weekly"} score
+                </div>
+                <div
+                  className="tabular-nums leading-none"
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontWeight: 800,
+                    fontSize: 30,
+                    color: "var(--color-ink-strong)",
+                  }}
+                >
+                  {overallScore}%
+                </div>
+                <div className="mt-1 text-[12px] font-semibold" style={{ color: "var(--color-ink-muted)" }}>
+                  {doneCount}/{totalCount} done
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </section>
 
       {/* ── Filter command bar ──────────────────────────────────────── */}
