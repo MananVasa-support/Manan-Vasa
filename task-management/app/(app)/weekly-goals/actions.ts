@@ -8,7 +8,6 @@ import { weeklyGoals, employees, tasks, incentiveCatalog } from "@/db/schema";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import {
   requireUser,
-  requireAdmin,
   requireSuperAdmin,
   requireWeeklyGoalsFilled,
 } from "@/lib/auth/current";
@@ -27,6 +26,8 @@ import {
   type EditWeeklyGoalInput,
   SetPctDoneSchema,
   type SetPctDoneInput,
+  SetWeeklyGoalStatusSchema,
+  type SetWeeklyGoalStatusInput,
   CarryOverSchema,
   type CarryOverInput,
   DeleteWeeklyGoalSchema,
@@ -125,6 +126,26 @@ async function loadWritableGoal(
 }
 
 /**
+ * Load a goal and require that the signed-in user is a MANAGER of it — i.e. the
+ * goal's owner is NOT themselves AND they have authority over that owner
+ * (`me.isAdmin`, or the owner is in their downline scope). A person is NEVER a
+ * manager of their own goal. This is the security gate for every planning-field
+ * mutation, duplicate, delete, balance + incentive write — owners are rejected.
+ */
+async function loadManageableGoal(
+  id: string,
+  me: { id: string; isAdmin: boolean },
+): Promise<LoadResult> {
+  const [row] = await db.select().from(weeklyGoals).where(eq(weeklyGoals.id, id)).limit(1);
+  if (!row) return { ok: false, error: "Goal not found" };
+  const scope = await goalScopeFor(me);
+  const isManager =
+    me.isAdmin || (row.employeeId !== me.id && scope.ids.includes(row.employeeId));
+  if (!isManager) return { ok: false, error: "Only a manager can change this goal" };
+  return { ok: true, row };
+}
+
+/**
  * Create one weekly-goal row. Non-admins can only file goals against
  * themselves; admins can file against anyone. The week is snapped to its
  * Monday defensively. Used by the fast-add row (one submit = one priority).
@@ -205,7 +226,9 @@ export async function editWeeklyGoal(
   }
   const { id, ...fields } = parsed.data;
 
-  const loaded = await loadWritableGoal(id, me);
+  // Planning fields are manager-only (#5): owners may never edit weight / target
+  // date / incentive / client / subject / goal text.
+  const loaded = await loadManageableGoal(id, me);
   if (!loaded.ok) return loaded;
 
   // Only write the keys actually provided so a partial edit doesn't clobber.
@@ -265,6 +288,39 @@ export async function setWeeklyGoalPct(
     await syncGoalToTask(parsed.data.id);
     revalidateWeeklyGoals();
     revalidatePath("/tasks");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+/**
+ * Set a goal's `status` — the OWNER (doer) or a manager may move it through the
+ * regular non-approval statuses (USER_TASK_STATUSES). The approval verdicts
+ * (approved / not_approved / …) stay manager-only via the super-admin review
+ * panel. Reuses the owner+manager `loadWritableGoal` permission gate.
+ */
+export async function setWeeklyGoalStatus(
+  input: SetWeeklyGoalStatusInput,
+): Promise<ActionResult> {
+  const me = await requireUser();
+  const parsed = SetWeeklyGoalStatusSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid status" };
+  }
+  const loaded = await loadWritableGoal(parsed.data.id, me);
+  if (!loaded.ok) return loaded;
+
+  try {
+    await db
+      .update(weeklyGoals)
+      .set({
+        status: parsed.data.status,
+        updatedById: me.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(weeklyGoals.id, parsed.data.id));
+    revalidateWeeklyGoals();
     return { ok: true };
   } catch (err) {
     return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
@@ -421,10 +477,13 @@ export async function balanceWeeklyGoalWeights(
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
-  // Scope: admins → anyone; managers → downline; everyone else → only themselves.
+  // #5 — balancing weights is a planning mutation → manager-only. Admins → anyone;
+  // managers → their downline (never themselves); owners are rejected.
   const scope = await goalScopeFor(me);
-  if (!canManageGoalFor(scope, input.employeeId)) {
-    return { ok: false, error: "You can only balance goals for yourself or your team." };
+  const isManager =
+    me.isAdmin || (input.employeeId !== me.id && scope.ids.includes(input.employeeId));
+  if (!isManager) {
+    return { ok: false, error: "Only a manager can change this goal" };
   }
   const weekStart = mondayOf(input.weekStart);
 
@@ -466,7 +525,8 @@ export async function deleteWeeklyGoal(input: { id: string }): Promise<ActionRes
   const parsed = DeleteWeeklyGoalSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid id" };
 
-  const loaded = await loadWritableGoal(parsed.data.id, me);
+  // #5 — deletion is manager-only; owners can't delete their own goal.
+  const loaded = await loadManageableGoal(parsed.data.id, me);
   if (!loaded.ok) return loaded;
 
   try {
@@ -750,14 +810,16 @@ export async function setWeeklyGoalIncentive(input: {
   incentive: boolean;
   amount: number;
 }): Promise<ActionResult> {
-  const me = await requireAdmin();
+  const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   if (!/^[0-9a-f-]{36}$/i.test(input.id)) return { ok: false, error: "Invalid id" };
   const amount = Math.max(0, Math.min(10_000_000, Math.round(Number(input.amount) || 0)));
 
-  const [goal] = await db.select().from(weeklyGoals).where(eq(weeklyGoals.id, input.id)).limit(1);
-  if (!goal) return { ok: false, error: "Goal not found" };
+  // #5 — incentive is a planning field → manager-only.
+  const loaded = await loadManageableGoal(input.id, me);
+  if (!loaded.ok) return loaded;
+  const goal = loaded.row;
 
   try {
     await db
@@ -932,7 +994,8 @@ export async function duplicateWeeklyGoal(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const loaded = await loadWritableGoal(parsed.data.id, me);
+  // #5 — duplicate is manager-only; owners can't duplicate their own goal.
+  const loaded = await loadManageableGoal(parsed.data.id, me);
   if (!loaded.ok) return loaded;
   const src = loaded.row;
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TASK_PRIORITIES, TASK_STATUSES } from "@/db/enums";
+import { TASK_PRIORITIES, TASK_STATUSES, USER_TASK_STATUSES } from "@/db/enums";
 
 const uuid = z.string().guid("Must be a UUID");
 // week_start is a plain calendar date (Monday). We validate the shape and let
@@ -86,6 +86,18 @@ export const SetPctDoneSchema = z.object({
   pctDone: pct,
 });
 export type SetPctDoneInput = z.input<typeof SetPctDoneSchema>;
+
+/**
+ * Set a goal's `status` to a doer-settable status (owner OR manager). Constrained
+ * to the regular non-approval statuses the doer may set (USER_TASK_STATUSES);
+ * the approval verdicts (approved / not_approved / …) stay manager-only via the
+ * super-admin review panel.
+ */
+export const SetWeeklyGoalStatusSchema = z.object({
+  id: uuid,
+  status: z.enum(USER_TASK_STATUSES),
+});
+export type SetWeeklyGoalStatusInput = z.input<typeof SetWeeklyGoalStatusSchema>;
 
 /** Carry one goal forward into a later week (defaults to the next week). */
 export const CarryOverSchema = z.object({

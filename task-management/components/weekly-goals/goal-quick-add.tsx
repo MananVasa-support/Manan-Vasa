@@ -51,6 +51,7 @@ export function GoalQuickAdd(props: Props) {
   const [client, setClient] = React.useState("");
   const [subject, setSubject] = React.useState("");
   const [targetDone, setTargetDone] = React.useState("");
+  const [targetDate, setTargetDate] = React.useState("");
   const [incentiveType, setIncentiveType] = React.useState<IncentiveType>("");
   const [incentiveAmount, setIncentiveAmount] = React.useState(0);
   const [incentiveCatalogId, setIncentiveCatalogId] = React.useState("");
@@ -74,6 +75,7 @@ export function GoalQuickAdd(props: Props) {
     setClient("");
     setSubject("");
     setTargetDone("");
+    setTargetDate("");
     setIncentiveType("");
     setIncentiveAmount(0);
     setIncentiveCatalogId("");
@@ -107,6 +109,7 @@ export function GoalQuickAdd(props: Props) {
       client: client.trim() || null,
       subject: subject.trim() || null,
       targetDone: targetDone.trim() || null,
+      targetDate: targetDate || null,
       weight,
       incentiveType: incentiveType || null,
       incentiveAmount: incentiveType === "routine" ? 0 : incentiveAmount,
@@ -187,16 +190,29 @@ export function GoalQuickAdd(props: Props) {
         </label>
       </div>
 
-      <label className="mt-3 block">
-        <span className="mb-1 block text-[12px] font-bold text-ink-soft">Goal</span>
-        <input
-          value={targetDone}
-          onChange={(e) => setTargetDone(e.target.value)}
-          placeholder="What does done look like?"
-          className={`w-full rounded-md border bg-white px-2.5 py-2 text-[15px] font-medium text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
-          style={{ borderColor: "var(--color-hairline-strong)" }}
-        />
-      </label>
+      <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+        <label className="block min-w-0">
+          <span className="mb-1 block text-[12px] font-bold text-ink-soft">Goal</span>
+          <input
+            value={targetDone}
+            onChange={(e) => setTargetDone(e.target.value)}
+            placeholder="What does done look like?"
+            className={`h-10 w-full rounded-md border bg-white px-2.5 text-[15px] font-medium text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
+            style={{ borderColor: "var(--color-hairline-strong)" }}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[12px] font-bold text-ink-soft">Target date</span>
+          <input
+            type="date"
+            value={targetDate}
+            onChange={(e) => setTargetDate(e.target.value)}
+            aria-label="Target date"
+            className={`h-10 rounded-md border bg-white px-2.5 text-[14px] font-semibold tabular-nums text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
+            style={{ borderColor: "var(--color-hairline-strong)" }}
+          />
+        </label>
+      </div>
 
       {/* ── Weight: the goal's share of the week, with a live allocation meter ── */}
       <div className="mt-4 rounded-xl p-3.5" style={{ background: "var(--color-surface-soft)", border: "1px solid var(--color-hairline)" }}>
@@ -213,7 +229,7 @@ export function GoalQuickAdd(props: Props) {
             max={Math.max(weight, remaining, 1)}
             value={weight}
             onChange={(e) => setWeight(Number(e.target.value))}
-            className={`flex-1 accent-[var(--color-altus-red)] cursor-pointer rounded-full ${FOCUS_RING}`}
+            className={`h-1.5 flex-1 accent-[var(--color-altus-red)] cursor-pointer rounded-full ${FOCUS_RING}`}
             aria-label="Goal weight"
           />
           <div className="inline-flex items-center rounded-lg border bg-white px-2 py-1" style={{ borderColor: "var(--color-hairline-strong)" }}>

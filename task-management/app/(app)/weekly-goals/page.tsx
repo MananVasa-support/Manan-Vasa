@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
@@ -21,6 +21,7 @@ import {
   nextWeekStart,
   prevWeekStart,
   formatWeekLabel,
+  weekEnd,
 } from "@/lib/weekly-goals/week";
 
 export const dynamic = "force-dynamic";
@@ -52,17 +53,26 @@ async function loadBoardGoals(opts: {
   // Scope precedence: a single employeeId (one-person view) > an employeeIds
   // set (a manager's team) > unscoped (admin "all team members").
   if (opts.employeeIds && opts.employeeIds.length === 0) return [];
+
+  // #3 — a goal belongs to the viewed week if its own `weekStart` IS that week
+  // (its planning home) OR its `targetDate` lands inside that week's
+  // Monday→Sunday window (so a goal due this week surfaces here even when it was
+  // planned in an earlier week). Additive: it still also shows in its original
+  // weekStart week. De-dup isn't needed — one row can only satisfy this once.
+  const weekCond = or(
+    eq(weeklyGoals.weekStart, opts.weekStart),
+    and(
+      gte(weeklyGoals.targetDate, opts.weekStart),
+      lte(weeklyGoals.targetDate, weekEnd(opts.weekStart)),
+    ),
+  );
+
+  // Combine the week condition (an OR) with the employee/scope condition via AND.
   const where = opts.employeeId
-    ? and(
-        eq(weeklyGoals.weekStart, opts.weekStart),
-        eq(weeklyGoals.employeeId, opts.employeeId),
-      )
+    ? and(weekCond, eq(weeklyGoals.employeeId, opts.employeeId))
     : opts.employeeIds
-      ? and(
-          eq(weeklyGoals.weekStart, opts.weekStart),
-          inArray(weeklyGoals.employeeId, opts.employeeIds),
-        )
-      : eq(weeklyGoals.weekStart, opts.weekStart);
+      ? and(weekCond, inArray(weeklyGoals.employeeId, opts.employeeIds))
+      : weekCond;
 
   return db
     .select({

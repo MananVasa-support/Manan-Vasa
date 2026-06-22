@@ -21,9 +21,14 @@ import { fireToast } from "@/lib/toast";
 import {
   editWeeklyGoal,
   setWeeklyGoalPct,
+  setWeeklyGoalStatus,
   duplicateWeeklyGoal,
   createTaskFromGoal,
 } from "@/app/(app)/weekly-goals/actions";
+import { USER_TASK_STATUSES, type TaskStatus } from "@/db/enums";
+
+/** The doer-settable status union (excludes the admin-only approval verdicts). */
+type UserTaskStatus = (typeof USER_TASK_STATUSES)[number];
 import type { BoardGoal, StatusDisplayMap } from "@/components/weekly-goals/types";
 import { effectivePct, WEIGHT_BUDGET } from "@/lib/weekly-goals/effective";
 import { formatInr } from "@/lib/format";
@@ -35,8 +40,6 @@ import {
   pctTone,
 } from "@/components/weekly-goals/field-controls";
 import { GoalReviewPanel } from "@/components/weekly-goals/goal-review-panel";
-
-const PCT_PRESETS = [0, 25, 50, 75, 100];
 
 /** Shared visible focus ring for keyboard users (brand-red, app-neutral surfaces). */
 const FOCUS_RING =
@@ -53,7 +56,11 @@ const INCENTIVE_TYPE_LABEL: Record<string, string> = {
 interface Props {
   goal: BoardGoal;
   srNo: number;
-  canEdit: boolean;
+  /** #5 — manager of THIS goal: full edit / duplicate / delete / planning fields.
+   *  A person is never a manager of their own goal. */
+  canManage: boolean;
+  /** #5 — may report on THIS goal: set progress % + status. Owner or manager. */
+  canReport: boolean;
   canReview: boolean;
   isAdmin: boolean;
   statusDisplay: StatusDisplayMap;
@@ -73,7 +80,8 @@ interface Props {
 function GoalCardImpl({
   goal,
   srNo,
-  canEdit,
+  canManage,
+  canReport,
   canReview,
   isAdmin,
   statusDisplay,
@@ -86,7 +94,7 @@ function GoalCardImpl({
 }: Props) {
   const router = useRouter();
   const [pending, start] = React.useTransition();
-  const [editing, setEditing] = React.useState(autoFocus && canEdit);
+  const [editing, setEditing] = React.useState(autoFocus && canManage);
   const [reviewOpen, setReviewOpen] = React.useState(autoFocus && canReview);
   const cardRef = React.useRef<HTMLDivElement>(null);
 
@@ -126,6 +134,13 @@ function GoalCardImpl({
   function savePct(pctDone: number) {
     start(async () => {
       const res = await setWeeklyGoalPct({ id: goal.id, pctDone });
+      if (!res.ok) fireToast({ message: res.error, type: "error" });
+      router.refresh();
+    });
+  }
+  function saveStatus(status: UserTaskStatus) {
+    start(async () => {
+      const res = await setWeeklyGoalStatus({ id: goal.id, status });
       if (!res.ok) fireToast({ message: res.error, type: "error" });
       router.refresh();
     });
@@ -269,27 +284,36 @@ function GoalCardImpl({
               <Meta label="Target date">
                 <InlineDate
                   value={goal.targetDate}
-                  canEdit={canEdit}
+                  canEdit={canManage}
                   onCommit={(v) => {
                     if (v !== goal.targetDate) save({ id: goal.id, targetDate: v });
                   }}
                 />
               </Meta>
 
-              {status && (
-                <Meta label="Status">
-                  <span
-                    className="inline-flex shrink-0 rounded-full px-2.5 py-1 text-[12px] font-bold"
-                    style={{
-                      background: `color-mix(in srgb, var(--color-${status.color}) 14%, transparent)`,
-                      color: `var(--color-${status.color}-deep)`,
-                      border: `1px solid color-mix(in srgb, var(--color-${status.color}) 36%, transparent)`,
-                    }}
-                  >
-                    {status.label}
-                  </span>
-                </Meta>
-              )}
+              <Meta label="Status">
+                {canReport ? (
+                  <StatusControl
+                    value={goal.status}
+                    statusDisplay={statusDisplay}
+                    disabled={pending}
+                    onCommit={saveStatus}
+                  />
+                ) : (
+                  status && (
+                    <span
+                      className="inline-flex shrink-0 rounded-full px-2.5 py-1 text-[12px] font-bold"
+                      style={{
+                        background: `color-mix(in srgb, var(--color-${status.color}) 14%, transparent)`,
+                        color: `var(--color-${status.color}-deep)`,
+                        border: `1px solid color-mix(in srgb, var(--color-${status.color}) 36%, transparent)`,
+                      }}
+                    >
+                      {status.label}
+                    </span>
+                  )
+                )}
+              </Meta>
             </div>
 
             {/* Right — progress (bar + %) + quick-% presets. */}
@@ -328,45 +352,21 @@ function GoalCardImpl({
                   Doer reported {goal.pctDone}% · accepted {goal.acceptPct}%
                 </p>
               )}
-              {/* Quick % presets (owner / admin) — selected = solid dark pill. */}
-              {canEdit && (
-                <div className="mt-2.5 flex gap-1.5">
-                  {PCT_PRESETS.map((p) => {
-                    const selected = eff === p;
-                    return (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => savePct(p)}
-                        disabled={pending}
-                        aria-pressed={selected}
-                        className={`rounded-full px-2.5 py-1 text-[12px] font-bold transition-colors disabled:opacity-60 ${FOCUS_RING}`}
-                        style={
-                          selected
-                            ? {
-                                background: "var(--color-ink-strong)",
-                                color: "#fff",
-                                border: "1px solid var(--color-ink-strong)",
-                              }
-                            : {
-                                background: "transparent",
-                                color: "var(--color-ink-soft)",
-                                border: "1px solid var(--color-hairline-strong)",
-                              }
-                        }
-                      >
-                        {p}%
-                      </button>
-                    );
-                  })}
-                </div>
+              {/* #6 — progress control (owner or manager): slider + editable
+                  number, debounced so dragging doesn't spam the server. */}
+              {canReport && (
+                <ProgressControl
+                  value={goal.pctDone}
+                  disabled={pending}
+                  onCommit={savePct}
+                />
               )}
             </div>
           </div>
         )}
 
         {/* Inline editor (expands below within the same full-width card) ---- */}
-        {editing && canEdit && (
+        {editing && canManage && (
           <div className="grid gap-3">
             {/* Editor header: index + Done button keep the row anchored. */}
             <div className="flex items-center gap-3">
@@ -534,7 +534,7 @@ function GoalCardImpl({
             <Loader2 size={14} className="animate-spin" style={{ color: "var(--color-ink-subtle)" }} />
           )}
 
-          {canEdit && (
+          {canManage && (
             <button
               type="button"
               onClick={() => setEditing((e) => !e)}
@@ -546,7 +546,7 @@ function GoalCardImpl({
             </button>
           )}
 
-          {canEdit && (
+          {canManage && (
             <button
               type="button"
               onClick={duplicate}
@@ -575,7 +575,7 @@ function GoalCardImpl({
               {goal.taskNo ? `Task #${goal.taskNo}` : "View task"}
             </Link>
           ) : (
-            canEdit && (
+            canManage && (
               <button
                 type="button"
                 onClick={addToTasks}
@@ -590,7 +590,7 @@ function GoalCardImpl({
             )
           )}
 
-          {canEdit && (
+          {canManage && (
             <button
               type="button"
               onClick={() => onRequestDelete(goal)}
@@ -641,6 +641,128 @@ function GoalCardImpl({
  * with the board's `useDeferredValue` to keep typing smooth on a full team.
  */
 export const GoalCard = React.memo(GoalCardImpl);
+
+/**
+ * #6 — progress control: a range slider + an editable number that mirror the
+ * same 0–100 value, both keyboard-accessible. The slider is debounced so a drag
+ * commits only on release (pointerup / change-end); the number commits on blur
+ * or Enter. Local state lets the slider/number feel instant while the server
+ * write happens on commit. Selected value drives the read-only bar above it.
+ */
+function ProgressControl({
+  value,
+  disabled,
+  onCommit,
+}: {
+  value: number;
+  disabled?: boolean;
+  onCommit: (pct: number) => void;
+}) {
+  const [v, setV] = React.useState(value);
+  // Re-sync if the server value changes underneath us (e.g. after a refresh).
+  React.useEffect(() => setV(value), [value]);
+
+  const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
+  function commit(n: number) {
+    const c = clamp(n);
+    setV(c);
+    if (c !== value) onCommit(c);
+  }
+
+  return (
+    <div className="mt-2.5 flex items-center gap-2.5">
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={v}
+        disabled={disabled}
+        aria-label="Progress percent"
+        onChange={(e) => setV(clamp(Number(e.target.value)))}
+        // Commit on drag-release (mouse) / change-end (keyboard arrows).
+        onMouseUp={() => commit(v)}
+        onTouchEnd={() => commit(v)}
+        onKeyUp={(e) => {
+          if (e.key.startsWith("Arrow") || e.key === "Home" || e.key === "End") commit(v);
+        }}
+        className={`h-1.5 flex-1 cursor-pointer rounded-full accent-[var(--color-altus-red)] disabled:opacity-60 ${FOCUS_RING}`}
+      />
+      <div
+        className="inline-flex items-center rounded-md border bg-white px-1.5 py-0.5"
+        style={{ borderColor: "var(--color-hairline-strong)" }}
+      >
+        <input
+          type="number"
+          min={0}
+          max={100}
+          value={v}
+          disabled={disabled}
+          aria-label="Progress percent value"
+          onChange={(e) => setV(clamp(Number(e.target.value) || 0))}
+          onBlur={() => commit(v)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit(v);
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          className={`w-9 bg-transparent text-right text-[13px] font-black tabular-nums text-ink-strong ${FOCUS_RING} rounded-sm`}
+        />
+        <span className="text-[11px] font-bold text-ink-subtle">%</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * #5/#6 — owner-or-manager status dropdown. Constrained to the doer-settable
+ * non-approval statuses (USER_TASK_STATUSES); the approval verdicts stay
+ * manager-only via the review panel. Keyboard-accessible native select.
+ */
+function StatusControl({
+  value,
+  statusDisplay,
+  disabled,
+  onCommit,
+}: {
+  value: TaskStatus;
+  statusDisplay: StatusDisplayMap;
+  disabled?: boolean;
+  onCommit: (status: UserTaskStatus) => void;
+}) {
+  const userStatuses = USER_TASK_STATUSES as readonly TaskStatus[];
+  // Always include the goal's current status as an option even if it's outside
+  // USER_TASK_STATUSES (e.g. an admin-set 'approved'), so the select shows truth.
+  // That out-of-list value is display-only — committing it back is blocked below.
+  const options = React.useMemo<TaskStatus[]>(() => {
+    const base = [...USER_TASK_STATUSES] as TaskStatus[];
+    return base.includes(value) ? base : [value, ...base];
+  }, [value]);
+  return (
+    <select
+      value={value}
+      disabled={disabled}
+      aria-label="Goal status"
+      onChange={(e) => {
+        const next = e.target.value as TaskStatus;
+        // Only commit doer-settable statuses (the action rejects the rest anyway).
+        if (next !== value && userStatuses.includes(next)) {
+          onCommit(next as UserTaskStatus);
+        }
+      }}
+      className={`cursor-pointer rounded-full border px-2.5 py-1 text-[12px] font-bold text-ink-strong focus:border-altus-red/50 disabled:opacity-60 ${FOCUS_RING}`}
+      style={{ borderColor: "var(--color-hairline-strong)", background: "var(--color-surface-card)" }}
+    >
+      {options.map((s) => (
+        <option key={s} value={s}>
+          {statusDisplay[s]?.label ?? s}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 /** A labelled meta cell for the read-mode strip (label over value, aligned). */
 function Meta({ label, children }: { label: string; children: React.ReactNode }) {

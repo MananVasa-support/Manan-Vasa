@@ -8,6 +8,7 @@ import type { Route } from "next";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   CalendarDays,
   BarChart3,
   Trash2,
@@ -64,14 +65,24 @@ interface Props {
 export function WeeklyGoalsBoard(props: Props) {
   const router = useRouter();
   const showingAll = props.scopeEmp === "all";
+  const meId = props.me.id;
 
-  // Whether the signed-in user may edit a given goal. Admins ("all") can edit
-  // anyone; managers can edit self + downline; everyone else only their own
-  // (self is always in manageableIds for non-admins, so owners keep edit).
-  const canEditGoal = React.useCallback(
+  // #5 — manager of a goal: admins manage anyone; a manager manages their
+  // downline but NEVER their own goal (a person is never a manager of their
+  // own goal). For a normal employee manageableIds === [their own id], so this
+  // is correctly FALSE for their own goal.
+  const canManage = React.useCallback(
     (employeeId: string) =>
-      props.manageableIds === "all" || props.manageableIds.includes(employeeId),
-    [props.manageableIds],
+      props.me.isAdmin ||
+      (props.manageableIds !== "all" &&
+        props.manageableIds.includes(employeeId) &&
+        employeeId !== meId),
+    [props.manageableIds, props.me.isAdmin, meId],
+  );
+  // #5 — may report (set progress % + status): the owner, or a manager.
+  const canReport = React.useCallback(
+    (employeeId: string) => employeeId === meId || canManage(employeeId),
+    [meId, canManage],
   );
 
   // Reviewer-only "show archived" toggle + the list filters / sort.
@@ -89,6 +100,14 @@ export function WeeklyGoalsBoard(props: Props) {
   const [deleteTarget, setDeleteTarget] = React.useState<BoardGoal | null>(null);
   // Stable callback so memoised cards don't re-render on every keystroke.
   const requestDelete = React.useCallback((g: BoardGoal) => setDeleteTarget(g), []);
+
+  // #2 — per-employee collapse state for the admin "all" grouped view. Keyed by
+  // employee id; absent/false = expanded (default). Local-only, not persisted.
+  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
+  const toggleCollapsed = React.useCallback(
+    (empId: string) => setCollapsed((c) => ({ ...c, [empId]: !c[empId] })),
+    [],
+  );
 
   function go(params: Record<string, string>) {
     const sp = new URLSearchParams();
@@ -315,9 +334,10 @@ export function WeeklyGoalsBoard(props: Props) {
           animationDelay: "60ms",
         }}
       >
-        {/* primary: search · status · progress · sort · team */}
+        {/* #1 — ONE compact wrap-friendly row: search · status · progress ·
+            sort · team · week-nav · this-week · archived · clear · count. */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="relative flex-1 min-w-[210px]">
+          <div className="relative flex-1 min-w-[200px]">
             <Search size={16} strokeWidth={2.4} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle pointer-events-none" />
             <input
               value={search}
@@ -332,11 +352,11 @@ export function WeeklyGoalsBoard(props: Props) {
               </button>
             )}
           </div>
-          <div className="w-[148px] max-md:flex-1">
+          <div className="w-[140px] max-md:flex-1">
             <Select value={statusFilter} onValueChange={setStatusFilter} ariaLabel="Filter by status"
               options={[{ value: "all", label: "All statuses" }, ...statusOptions]} />
           </div>
-          <div className="w-[150px] max-md:flex-1">
+          <div className="w-[144px] max-md:flex-1">
             <Select value={completion} onValueChange={setCompletion} ariaLabel="Filter by progress"
               options={[
                 { value: "all", label: "Any progress" },
@@ -345,7 +365,7 @@ export function WeeklyGoalsBoard(props: Props) {
                 { value: "done", label: "Done · 100%" },
               ]} />
           </div>
-          <div className="w-[172px] max-md:flex-1">
+          <div className="w-[166px] max-md:flex-1">
             <Select value={sort} onValueChange={setSort} ariaLabel="Sort goals"
               options={[
                 { value: "weight", label: "Sort · Weight" },
@@ -356,18 +376,16 @@ export function WeeklyGoalsBoard(props: Props) {
               ]} />
           </div>
           {props.canPickTeam && (
-            <div className="w-[196px] max-md:flex-1">
+            <div className="w-[190px] max-md:flex-1">
               <Select value={props.scopeEmp} onValueChange={(v) => go({ week: props.weekStart, emp: v })} searchable searchPlaceholder="Search people…" ariaLabel="Filter by team member"
                 options={[{ value: "all", label: !props.me.isAdmin ? "My team" : "All team members" }, ...props.employees.map((e) => ({ value: e.id, label: e.name }))]} />
             </div>
           )}
-        </div>
 
-        {/* secondary: week nav · this week · archived · clear · count */}
-        <div className="mt-2.5 flex items-center gap-2.5 flex-wrap border-t border-hairline pt-2.5">
+          {/* Week nav */}
           <div className="inline-flex items-center rounded-full border border-hairline overflow-hidden">
             <button type="button" aria-label="Previous week" onClick={() => go({ week: props.prevWeek, emp: props.scopeEmp })} className={`cursor-pointer px-2.5 py-1.5 hover:bg-surface-soft ${FOCUS_RING}`}><ChevronLeft size={17} /></button>
-            <span className="px-3 py-1.5 inline-flex items-center gap-2 font-bold text-ink-strong text-[14px] tabular-nums border-x border-hairline">
+            <span className="px-3 py-1.5 inline-flex items-center gap-2 font-bold text-ink-strong text-[13.5px] tabular-nums border-x border-hairline">
               <CalendarDays size={15} className="text-ink-muted" />{props.weekLabel}
             </span>
             <button type="button" aria-label="Next week" onClick={() => go({ week: props.nextWeek, emp: props.scopeEmp })} className={`cursor-pointer px-2.5 py-1.5 hover:bg-surface-soft ${FOCUS_RING}`}><ChevronRight size={17} /></button>
@@ -413,22 +431,29 @@ export function WeeklyGoalsBoard(props: Props) {
                   weightTotal={weightTotalByEmp.get(empId) ?? 0}
                   employeeId={empId}
                   weekStart={props.weekStart}
-                  canBalance={canEditGoal(empId)}
+                  canBalance={canManage(empId)}
+                  collapsed={!!collapsed[empId]}
+                  onToggle={() => toggleCollapsed(empId)}
                 />
-                <div className="flex flex-col gap-3.5">
-                  {g.rows.map((goal, i) => (
-                    <div key={goal.id} className="wg-rise" style={{ animationDelay: `${Math.min(i * 40, 280)}ms` }}>
-                      <GoalCard
-                        goal={goal}
-                        srNo={i + 1}
-                        canEdit={canEditGoal(goal.employeeId)}
-                        employeeWeightTotal={weightTotalByEmp.get(goal.employeeId) ?? 0}
-                        autoFocus={props.focusId === goal.id}
-                        {...sharedCardProps}
-                      />
-                    </div>
-                  ))}
-                </div>
+                {/* #2 — collapsible: this employee's cards hide when collapsed.
+                    reduced-motion-safe (a plain conditional, no height anim). */}
+                {!collapsed[empId] && (
+                  <div className="flex flex-col gap-3.5 wg-rise">
+                    {g.rows.map((goal, i) => (
+                      <div key={goal.id} className="wg-rise" style={{ animationDelay: `${Math.min(i * 40, 280)}ms` }}>
+                        <GoalCard
+                          goal={goal}
+                          srNo={i + 1}
+                          canManage={canManage(goal.employeeId)}
+                          canReport={canReport(goal.employeeId)}
+                          employeeWeightTotal={weightTotalByEmp.get(goal.employeeId) ?? 0}
+                          autoFocus={props.focusId === goal.id}
+                          {...sharedCardProps}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
             ))}
           </div>
@@ -441,7 +466,7 @@ export function WeeklyGoalsBoard(props: Props) {
               total={singleWeightTotal}
               employeeId={props.scopeEmp}
               weekStart={props.weekStart}
-              canBalance={!showingAll && (props.me.isAdmin || props.scopeEmp === props.me.id || props.manageableIds === "all" || (Array.isArray(props.manageableIds) && props.manageableIds.includes(props.scopeEmp)))}
+              canBalance={!showingAll && canManage(props.scopeEmp)}
             />
           )}
 
@@ -462,7 +487,8 @@ export function WeeklyGoalsBoard(props: Props) {
               <GoalCard
                 goal={goal}
                 srNo={i + 1}
-                canEdit={props.me.isAdmin || goal.employeeId === props.me.id}
+                canManage={canManage(goal.employeeId)}
+                canReport={canReport(goal.employeeId)}
                 employeeWeightTotal={singleWeightTotal}
                 autoFocus={props.focusId === goal.id}
                 {...sharedCardProps}
@@ -619,6 +645,8 @@ function MemberHeader({
   employeeId,
   weekStart,
   canBalance,
+  collapsed,
+  onToggle,
 }: {
   name: string;
   role: string | null;
@@ -628,6 +656,9 @@ function MemberHeader({
   employeeId: string;
   weekStart: string;
   canBalance: boolean;
+  /** #2 — whether this employee's cards are collapsed (chevron + aria-expanded). */
+  collapsed: boolean;
+  onToggle: () => void;
 }) {
   const ok = weightTotal === WEIGHT_BUDGET;
   return (
@@ -639,8 +670,25 @@ function MemberHeader({
         boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
       }}
     >
-      {/* Identity: avatar + name + role badge + subline */}
-      <div className="flex items-center gap-3 min-w-0">
+      {/* Identity: chevron toggle + avatar + name + role badge + subline. The
+          whole identity block is a real <button> that collapses/expands this
+          employee's cards (Enter/Space toggle; aria-expanded reflects state). */}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={!collapsed}
+        aria-label={`${collapsed ? "Expand" : "Collapse"} ${name}'s goals`}
+        className={`flex items-center gap-3 min-w-0 text-left cursor-pointer rounded-lg -m-1 p-1 hover:bg-surface-soft transition-colors ${FOCUS_RING}`}
+      >
+        <ChevronDown
+          size={20}
+          aria-hidden
+          className="shrink-0 transition-transform motion-reduce:transition-none"
+          style={{
+            color: "var(--color-ink-subtle)",
+            transform: collapsed ? "rotate(-90deg)" : "none",
+          }}
+        />
         <Avatar name={name} size={42} />
         <div className="min-w-0">
           <div className="flex items-center gap-2.5 flex-wrap">
@@ -674,12 +722,15 @@ function MemberHeader({
             </p>
             <span aria-hidden style={{ color: "var(--color-hairline-strong)" }}>·</span>
             <WeightMeter total={weightTotal} />
-            {canBalance && !ok && weightTotal > 0 && (
-              <BalanceButton employeeId={employeeId} weekStart={weekStart} />
-            )}
           </div>
         </div>
-      </div>
+      </button>
+
+      {/* Balance-to-100 — rendered OUTSIDE the toggle button (no nested
+          buttons). Stays in the header per spec. */}
+      {canBalance && !ok && weightTotal > 0 && (
+        <BalanceButton employeeId={employeeId} weekStart={weekStart} />
+      )}
 
       {/* Weekly score */}
       <div className="flex items-center gap-3 shrink-0">
