@@ -111,6 +111,9 @@ export function MultiSelect({
         )}
       </PopoverTrigger>
       <PopoverContent
+        // Don't restore focus to the trigger on close — it fights the browser's
+        // Tab so focus can't advance after committing a selection.
+        onCloseAutoFocus={(e) => e.preventDefault()}
         className="w-[286px] p-0 rounded-2xl border border-hairline overflow-hidden bg-surface-card data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-1"
         style={{ boxShadow: "0 24px 60px -18px rgba(15,23,42,0.30), 0 2px 8px -2px rgba(15,23,42,0.10)" }}
       >
