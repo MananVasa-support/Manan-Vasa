@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, lt, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { dailyChecklist, weeklyGoals } from "@/db/schema";
@@ -9,6 +9,9 @@ import { requireUser } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { todayYmd, type DailyItem } from "@/lib/queries/daily-checklist";
 import type { DailyChecklistItem } from "@/db/schema";
+
+/** Hard cap on checklist items per day (keeps one runaway day bounded). */
+const MAX_ITEMS_PER_DAY = 50;
 
 export type ActionResult<T = unknown> =
   | ({ ok: true } & T)
@@ -34,13 +37,22 @@ function toItem(r: DailyChecklistItem): DailyItem {
   };
 }
 
-/** Next position for today's list (append to the end). */
-async function nextPosition(employeeId: string, ymd: string): Promise<number> {
+/**
+ * Today's row count + the next append position, in one round-trip. Used both to
+ * enforce the per-day cap and to give a new row a non-colliding position.
+ */
+async function todayCountAndNextPosition(
+  employeeId: string,
+  ymd: string,
+): Promise<{ count: number; nextPosition: number }> {
   const [row] = await db
-    .select({ max: sql<number>`coalesce(max(${dailyChecklist.position}), 0)::int` })
+    .select({
+      count: sql<number>`count(*)::int`,
+      max: sql<number>`coalesce(max(${dailyChecklist.position}), 0)::int`,
+    })
     .from(dailyChecklist)
     .where(and(eq(dailyChecklist.employeeId, employeeId), eq(dailyChecklist.planDate, ymd)));
-  return (row?.max ?? 0) + 1;
+  return { count: row?.count ?? 0, nextPosition: (row?.max ?? 0) + 1 };
 }
 
 /** Pull a current-week Weekly Goal onto today's checklist (goal-related item). */
@@ -69,6 +81,10 @@ export async function pullGoalToToday(
 
   const ymd = todayYmd();
   try {
+    const { count, nextPosition } = await todayCountAndNextPosition(me.id, ymd);
+    if (count >= MAX_ITEMS_PER_DAY) {
+      return { ok: false, error: `You can plan at most ${MAX_ITEMS_PER_DAY} items a day.` };
+    }
     const rows = await db
       .insert(dailyChecklist)
       .values({
@@ -79,7 +95,7 @@ export async function pullGoalToToday(
         title: goal.targetDone?.trim() || goal.subject?.trim() || "Weekly goal",
         client: goal.client,
         subject: goal.subject,
-        position: await nextPosition(me.id, ymd),
+        position: nextPosition,
       })
       // Same goal can't be pulled twice into one day (unique index).
       .onConflictDoNothing({
@@ -110,6 +126,10 @@ export async function addStandaloneItem(
 
   const ymd = todayYmd();
   try {
+    const { count, nextPosition } = await todayCountAndNextPosition(me.id, ymd);
+    if (count >= MAX_ITEMS_PER_DAY) {
+      return { ok: false, error: `You can plan at most ${MAX_ITEMS_PER_DAY} items a day.` };
+    }
     const [row] = await db
       .insert(dailyChecklist)
       .values({
@@ -117,7 +137,7 @@ export async function addStandaloneItem(
         planDate: ymd,
         origin: "standalone",
         title,
-        position: await nextPosition(me.id, ymd),
+        position: nextPosition,
       })
       .returning();
     // No revalidatePath — see addStandaloneItem note: keeps the gate from
@@ -140,7 +160,7 @@ export async function closeItem(
   if (!UUID.safeParse(itemId).success) return { ok: false, error: "Invalid item." };
 
   try {
-    await db
+    const updated = await db
       .update(dailyChecklist)
       .set({
         done,
@@ -149,7 +169,9 @@ export async function closeItem(
         closedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, me.id)));
+      .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, me.id)))
+      .returning({ id: dailyChecklist.id });
+    if (updated.length === 0) return { ok: false, error: "That item isn't on your checklist." };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
@@ -165,9 +187,11 @@ export async function removeItem(itemId: string): Promise<ActionResult> {
   if (!UUID.safeParse(itemId).success) return { ok: false, error: "Invalid item." };
 
   try {
-    await db
+    const removed = await db
       .delete(dailyChecklist)
-      .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, me.id)));
+      .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, me.id)))
+      .returning({ id: dailyChecklist.id });
+    if (removed.length === 0) return { ok: false, error: "That item isn't on your checklist." };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
@@ -176,10 +200,13 @@ export async function removeItem(itemId: string): Promise<ActionResult> {
 }
 
 /**
- * Roll all unfinished items from earlier days onto today. Re-dates each open
- * item forward (preserving its first-seen date in `moved_from_date`) so it
- * travels until done. Done items keep their original day for the nightly
- * history. Returns how many were moved.
+ * Carry forward all unfinished checklist items from earlier days onto today.
+ * Re-dates each open item forward (preserving its first-seen date in
+ * `moved_from_date`) so it travels until done. Carried items get fresh,
+ * SEQUENTIAL positions appended after today's current max so they never collide
+ * with today's own positions. Done items keep their original day for the nightly
+ * history. Returns how many were carried. (Carry-forward = simply forwarding
+ * unfinished checklist items — it has no attendance meaning.)
  */
 export async function moveOverdueToToday(): Promise<
   ActionResult<{ moved: number; items: DailyItem[] }>
@@ -203,23 +230,51 @@ export async function moveOverdueToToday(): Promise<
           where t.employee_id = ${me.id} and t.plan_date = ${ymd} and t.goal_id = od.goal_id
         )
     `);
-    const moved = await db
-      .update(dailyChecklist)
-      .set({
-        planDate: ymd,
-        movedFromDate: sql`coalesce(${dailyChecklist.movedFromDate}, ${dailyChecklist.planDate})`,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(dailyChecklist.employeeId, me.id),
-          lt(dailyChecklist.planDate, ymd),
-          eq(dailyChecklist.done, false),
-        ),
+
+    // Append after today's current max position so carried items get a clean
+    // sequential run (1..n after the base) instead of inheriting their old
+    // — and possibly colliding — positions.
+    const { nextPosition: base } = await todayCountAndNextPosition(me.id, ymd);
+    const moved = (await db.execute(sql`
+      with carried as (
+        select id,
+               (${base} - 1) + row_number() over (
+                 order by plan_date asc, position asc, committed_at asc
+               ) as new_position
+        from ${dailyChecklist}
+        where employee_id = ${me.id}
+          and plan_date < ${ymd}
+          and done = false
       )
-      .returning();
+      update ${dailyChecklist} dc
+      set plan_date = ${ymd},
+          position = carried.new_position,
+          moved_from_date = coalesce(dc.moved_from_date, dc.plan_date),
+          updated_at = now()
+      from carried
+      where dc.id = carried.id
+      returning dc.id, dc.title, dc.client, dc.subject, dc.origin, dc.goal_id,
+                dc.status, dc.done, dc.done_note, dc.moved_from_date, dc.position
+    `)) as unknown as Array<{
+      id: string; title: string; client: string | null; subject: string | null;
+      origin: string; goal_id: string | null; status: string; done: boolean;
+      done_note: string | null; moved_from_date: string | null; position: number;
+    }>;
+    const items: DailyItem[] = moved.map((r) => ({
+      id: r.id,
+      title: r.title,
+      client: r.client,
+      subject: r.subject,
+      origin: r.origin === "goal_related" ? "goal_related" : "standalone",
+      goalId: r.goal_id,
+      status: r.status as DailyItem["status"],
+      done: r.done,
+      doneNote: r.done_note,
+      movedFromDate: r.moved_from_date,
+      position: r.position,
+    }));
     // No revalidatePath — keeps the gate stable mid-plan (see addStandaloneItem).
-    return { ok: true, moved: moved.length, items: moved.map(toItem) };
+    return { ok: true, moved: items.length, items };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

@@ -6,9 +6,13 @@ import { todayYmd } from "@/lib/queries/daily-checklist";
 
 /**
  * Mandatory daily-plan gate (WMS_OVERHAUL_MASTER_PLAN §5.3 + §6). A user must
- * commit at least MIN_DAILY_ITEMS items to today's checklist before entering the
- * app — the in-app replacement for the WhatsApp "what I'll do today" message.
- * The gate is open (passes) only once today's plan has ≥ MIN_DAILY_ITEMS rows.
+ * plan at least MIN_DAILY_ITEMS things they'll get done today before entering
+ * the app. The gate is open (passes) only once today's plan has ≥
+ * MIN_DAILY_ITEMS rows. This is a planning nudge — a simple daily checklist —
+ * NOT attendance.
+ *
+ * Single source of truth for the daily-plan minimum: imported by the gate UI,
+ * the page, and the server actions so every "5" agrees.
  */
 export const MIN_DAILY_ITEMS = 5;
 

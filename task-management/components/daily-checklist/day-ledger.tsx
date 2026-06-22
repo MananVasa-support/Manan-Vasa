@@ -23,10 +23,17 @@ import {
   removeItem,
   moveOverdueToToday,
 } from "@/app/(app)/daily-checklist/actions";
+import { MIN_DAILY_ITEMS } from "@/lib/daily-checklist/gate";
 import type { DailyItem, OverdueItem, PullableGoal } from "@/lib/queries/daily-checklist";
 
+/** Shared visible focus ring for keyboard users (brand-red on neutral surfaces). */
+const FOCUS_RING =
+  "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-soft)]";
+
 interface Props {
-  mode: "page" | "gate";
+  // Kept for the daily-checklist-view call shape; the gate is served by
+  // DailyPlanGate, so this surface is always the in-app page.
+  mode?: "page" | "gate";
   greetingName?: string;
   today: { weekday: string; date: string };
   items: DailyItem[];
@@ -34,18 +41,16 @@ interface Props {
   pullable: PullableGoal[];
 }
 
-export function DayLedger({ mode, greetingName, today, items: pItems, overdue: pOverdue, pullable: pPullable }: Props) {
+export function DayLedger({ today, items: pItems, overdue: pOverdue, pullable: pPullable }: Props) {
   const router = useRouter();
   // Per-action busy key — NOT useTransition. A transition kept `pending` true
   // through the whole (slow) server refresh, disabling every button so you
   // couldn't add a second item. `busyId` clears the moment the action returns;
   // the refresh runs in the background.
   const [busyId, setBusyId] = React.useState<string | null>(null);
-  const isGate = mode === "gate";
 
-  // Page mode is server-driven (refresh after each write). Gate mode builds the
-  // plan optimistically in local state so the gate doesn't drop after the first
-  // commit — the user assembles the whole day, then clicks "Start my day".
+  // Server-driven: the list updates optimistically from each action's returned
+  // row, then a background router.refresh() re-syncs from the server.
   const [items, setItems] = React.useState(pItems);
   const [overdue, setOverdue] = React.useState(pOverdue);
   const [pullable, setPullable] = React.useState(pPullable);
@@ -68,11 +73,11 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
         fireToast({ message: res.error, type: "error" });
         return;
       }
-      // Apply the result optimistically in BOTH modes so the list updates
-      // instantly; in page mode also refresh in the background to re-sync from
-      // the server. Neither blocks the buttons (busyId clears in `finally`).
+      // Apply the result optimistically so the list updates instantly, then
+      // refresh in the background to re-sync from the server. Neither blocks the
+      // buttons (busyId clears in `finally`).
       onOk(res);
-      if (!isGate) router.refresh();
+      router.refresh();
     } catch (e: unknown) {
       fireToast({ message: e instanceof Error ? e.message : "Something went wrong.", type: "error" });
     } finally {
@@ -106,18 +111,11 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
     act(it.id, () => removeItem(it.id), () => setItems((p) => p.filter((x) => x.id !== it.id)));
 
   return (
-    <div
-      className={
-        isGate
-          ? "h-dvh w-full flex flex-col overflow-hidden px-6 py-4 max-md:px-3 max-md:py-3"
-          : "w-full px-8 max-md:px-4 pt-6 pb-16"
-      }
-      style={isGate ? { background: "var(--color-canvas-base)" } : undefined}
-    >
-      <div className={isGate ? "w-full flex flex-col flex-1 min-h-0" : "w-full"}>
+    <div className="w-full px-8 max-md:px-4 pt-6 pb-16">
+      <div className="w-full">
         {/* ── Centered, compact header (no left-right gap) ── */}
         <header
-          className="wg-rise relative overflow-hidden rounded-2xl bg-surface-card border border-hairline px-5 py-3 mb-3 shrink-0 text-center"
+          className="wg-rise relative overflow-hidden rounded-2xl bg-surface-card border border-hairline px-5 py-3 mb-3 text-center"
           style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}
         >
           <span
@@ -126,18 +124,15 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
             style={{ background: "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
           />
           <div className="text-[11px] font-black uppercase tracking-[0.2em] text-altus-red">
-            {isGate ? `Plan before you start${greetingName ? ` · ${greetingName}` : ""}` : today.weekday}
+            {today.weekday}
           </div>
           <div className="mt-0.5 flex items-baseline justify-center gap-3 flex-wrap">
             <h1
-              className="text-ink-strong"
+              className="font-bold text-ink-strong"
               style={{
-                fontFamily: "var(--font-serif)",
-                fontStyle: "italic",
-                fontWeight: 600,
-                fontSize: "clamp(28px, 3vw, 38px)",
-                lineHeight: 1,
-                letterSpacing: "-0.02em",
+                fontSize: "clamp(26px, 3vw, 36px)",
+                lineHeight: 1.05,
+                letterSpacing: "-0.025em",
               }}
             >
               Today
@@ -170,11 +165,11 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
               type="button"
               onClick={onMoveOverdue}
               disabled={busyId === "overdue"}
-              className="wg-btn cursor-pointer inline-flex items-center gap-1.5 rounded-md py-2 px-3.5 text-[13px] font-bold text-white shrink-0 disabled:opacity-50"
+              className={`wg-btn cursor-pointer inline-flex items-center gap-1.5 rounded-md py-2 px-3.5 text-[13px] font-bold text-white shrink-0 disabled:opacity-50 ${FOCUS_RING}`}
               style={{ background: "linear-gradient(135deg, var(--color-amber), var(--color-amber-deep))" }}
             >
               {busyId === "overdue" ? <Loader2 size={14} className="animate-spin" /> : <CornerUpRight size={14} strokeWidth={2.6} />}
-              Move all to today
+              Carry forward to today
             </button>
           </div>
         )}
@@ -183,16 +178,16 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
         <DailyMin5 count={total} />
 
         {/* ── Two-column body: ledger (main) + intelligence sidebar ── */}
-        <div className={isGate ? "grid grid-cols-3 gap-4 max-lg:grid-cols-1 flex-1 min-h-0" : "grid grid-cols-3 gap-5 max-lg:grid-cols-1 items-start"}>
+        <div className="grid grid-cols-3 gap-5 max-lg:grid-cols-1 items-start">
           {/* MAIN — the commitments ledger */}
           <section
-            className="wg-rise lg:col-span-2 flex flex-col min-h-0 rounded-section bg-surface-card border border-hairline p-6 max-md:p-5"
+            className="wg-rise lg:col-span-2 min-w-0 rounded-section bg-surface-card border border-hairline p-6 max-md:p-5"
             style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)", animationDelay: "140ms" }}
           >
             <div className="mb-4 flex items-center justify-between gap-3 shrink-0">
               <h2
-                className="text-ink-strong"
-                style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontWeight: 600, fontSize: 30, letterSpacing: "-0.01em" }}
+                className="font-bold text-ink-strong"
+                style={{ fontSize: 24, letterSpacing: "-0.015em" }}
               >
                 Today&apos;s commitments
               </h2>
@@ -201,12 +196,12 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
                   className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-bold tabular-nums"
                   style={{ background: "color-mix(in srgb, var(--color-altus-red) 8%, transparent)", color: "var(--color-altus-red-deep)" }}
                 >
-                  {isGate ? `${total} committed` : `${doneCount}/${total} closed`}
+                  {doneCount}/{total} closed
                 </span>
               )}
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
+            <div>
             {items.length === 0 ? (
               <div className="py-12 text-center">
                 <div
@@ -217,7 +212,7 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
                 </div>
                 <p className="font-bold text-ink-strong" style={{ fontSize: 19 }}>Plan your day</p>
                 <p className="mx-auto mt-1.5 max-w-[40ch] font-medium text-ink-subtle" style={{ fontSize: 15.5, lineHeight: 1.5 }}>
-                  Pull from your weekly goals on the right, or add your own below. Five is the minimum.
+                  Pull from your weekly goals on the right, or add your own below. {MIN_DAILY_ITEMS} is the minimum.
                 </p>
               </div>
             ) : (
@@ -226,7 +221,6 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
                   <LedgerRow
                     key={it.id}
                     item={it}
-                    closeout={!isGate}
                     busy={busyId === it.id}
                     onToggle={(done) => onToggle(it, done)}
                     onNote={(note) => onNote(it, note)}
@@ -241,7 +235,7 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
           </section>
 
           {/* SIDEBAR — pull goals · at a glance · the ritual */}
-          <aside className={isGate ? "space-y-4 min-h-0 overflow-y-auto pr-0.5" : "space-y-5"}>
+          <aside className="space-y-5 min-w-0">
             {pullable.length > 0 && (
               <section
                 className="wg-rise rounded-section bg-surface-card border border-hairline p-5"
@@ -277,7 +271,8 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
                         type="button"
                         onClick={() => onPull(g)}
                         disabled={busyId === g.id}
-                        className="wg-btn cursor-pointer mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card py-1.5 px-3 text-[13px] font-semibold text-ink-strong hover:border-altus-red hover:text-altus-red disabled:opacity-50"
+                        aria-label={`Add "${g.targetDone || g.subject || "Weekly goal"}" to today`}
+                        className={`wg-btn cursor-pointer mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card py-1.5 px-3 text-[13px] font-semibold text-ink-strong hover:border-altus-red hover:text-altus-red disabled:opacity-50 ${FOCUS_RING}`}
                       >
                         {busyId === g.id ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} strokeWidth={2.4} />}
                         Move to today
@@ -292,26 +287,6 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
             <HowItWorks />
           </aside>
         </div>
-
-        {/* ── Gate footer ── */}
-        {isGate && (
-          <div className="mt-3 shrink-0 flex flex-col items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => router.refresh()}
-              disabled={total < 5}
-              className="wg-btn wg-sheen cursor-pointer inline-flex items-center gap-2 rounded-xl py-4 px-9 text-[17px] font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 14px 34px -10px rgba(225,6,0,0.65)" }}
-            >
-              Start my day <ArrowRight size={19} strokeWidth={2.6} />
-            </button>
-            <p className="font-semibold text-ink-subtle" style={{ fontSize: 14 }}>
-              {total >= 5
-                ? `${total} committed — you're ready. Add more once you're in.`
-                : `Commit ${5 - total} more to start your day (${total}/5).`}
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -319,7 +294,7 @@ export function DayLedger({ mode, greetingName, today, items: pItems, overdue: p
 
 /* ── mandatory-5 tracker (five pips, nudges until met) ── */
 function DailyMin5({ count }: { count: number }) {
-  const TARGET = 5;
+  const TARGET = MIN_DAILY_ITEMS;
   const met = count >= TARGET;
   const shortBy = Math.max(0, TARGET - count);
   return (
@@ -347,10 +322,10 @@ function DailyMin5({ count }: { count: number }) {
         </span>
         <div className="min-w-0">
           <div className="font-bold text-ink-strong" style={{ fontSize: 17 }}>
-            {met ? "Minimum met — you're set for the day" : `Commit ${shortBy} more to start your day`}
+            {met ? "Minimum met — you're set for the day" : `Plan ${shortBy} more to start your day`}
           </div>
           <div className="font-semibold text-ink-soft" style={{ fontSize: 14 }}>
-            At least 5 commitments are required each day · {count} of 5 added.
+            Plan at least {TARGET} things each day · {count} of {TARGET} added.
           </div>
         </div>
       </div>
@@ -429,8 +404,8 @@ function AtAGlance({ committed, done, pending, goalCount }: { committed: number;
 /* ── sidebar: the daily ritual (dark guidance panel) ── */
 function HowItWorks() {
   const steps = [
-    { n: "1", t: "Plan", d: "Commit at least 5 things you'll do today — pulled from goals or your own." },
-    { n: "2", t: "Do", d: "Work through them. This is the accountability list — not a WhatsApp message." },
+    { n: "1", t: "Plan", d: `Plan at least ${MIN_DAILY_ITEMS} things you'll get done today — pulled from goals or your own.` },
+    { n: "2", t: "Do", d: "Work through them — this is your checklist for the day." },
     { n: "3", t: "Close out", d: "Tonight, tick what's done and note what slipped." },
   ];
   return (
@@ -479,14 +454,12 @@ function HeroChip({ label, value, tone }: { label: string; value: number; tone?:
 /* ── one ledger row ── */
 function LedgerRow({
   item,
-  closeout,
   busy,
   onToggle,
   onNote,
   onRemove,
 }: {
   item: DailyItem;
-  closeout: boolean;
   busy: boolean;
   onToggle: (done: boolean) => void;
   onNote: (note: string) => void;
@@ -497,47 +470,35 @@ function LedgerRow({
 
   return (
     <li className="flex items-start gap-3 py-3 group">
-      {/* check / toggle — only when closing out (page), not while planning (gate) */}
-      {closeout ? (
-        <button
-          type="button"
-          onClick={() => onToggle(!item.done)}
-          disabled={busy}
-          aria-pressed={item.done}
-          aria-label={item.done ? "Mark not done" : "Mark done"}
-          className="mt-0.5 inline-flex size-[22px] shrink-0 items-center justify-center rounded-full border-2 transition-colors disabled:opacity-50"
-          style={
-            item.done
-              ? { background: "linear-gradient(135deg, var(--color-green), var(--color-green-deep))", borderColor: "transparent" }
-              : { borderColor: "var(--color-hairline-strong)" }
-          }
-        >
-          {busy ? (
-            <Loader2 size={12} className="animate-spin text-ink-subtle" />
-          ) : item.done ? (
-            <Check size={13} strokeWidth={3.2} className="text-white" />
-          ) : null}
-        </button>
-      ) : (
-        <span
-          aria-hidden
-          className="mt-0.5 inline-flex size-[22px] shrink-0 items-center justify-center rounded-full"
-          style={{ color: goal ? "var(--color-altus-red)" : "var(--color-ink-subtle)" }}
-        >
-          <Circle size={10} strokeWidth={0} fill="currentColor" />
-        </span>
-      )}
+      {/* check / toggle — tick what's done at close-out */}
+      <button
+        type="button"
+        onClick={() => onToggle(!item.done)}
+        disabled={busy}
+        aria-pressed={item.done}
+        aria-label={item.done ? "Mark not done" : "Mark done"}
+        className={`mt-0.5 inline-flex size-[22px] shrink-0 items-center justify-center rounded-full border-2 transition-colors disabled:opacity-50 ${FOCUS_RING}`}
+        style={
+          item.done
+            ? { background: "linear-gradient(135deg, var(--color-green), var(--color-green-deep))", borderColor: "transparent" }
+            : { borderColor: "var(--color-hairline-strong)" }
+        }
+      >
+        {busy ? (
+          <Loader2 size={12} className="animate-spin text-ink-subtle" />
+        ) : item.done ? (
+          <Check size={13} strokeWidth={3.2} className="text-white" />
+        ) : null}
+      </button>
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          {closeout && (
-            <span aria-hidden className="inline-flex shrink-0" title={goal ? "Goal related" : "Stand-alone"} style={{ color: goal ? "var(--color-altus-red)" : "var(--color-ink-subtle)" }}>
-              <Circle size={8} strokeWidth={0} fill="currentColor" />
-            </span>
-          )}
+        <div className="flex items-start gap-2 min-w-0">
+          <span aria-hidden className="inline-flex shrink-0 mt-1.5" title={goal ? "Goal related" : "Stand-alone"} style={{ color: goal ? "var(--color-altus-red)" : "var(--color-ink-subtle)" }}>
+            <Circle size={8} strokeWidth={0} fill="currentColor" />
+          </span>
           <span
-            className={`font-semibold ${item.done ? "text-ink-subtle line-through" : "text-ink-strong"}`}
-            style={{ fontSize: 16.5 }}
+            className={`min-w-0 font-semibold break-words ${item.done ? "text-ink-subtle line-through" : "text-ink-strong"}`}
+            style={{ fontSize: 16.5, overflowWrap: "anywhere" }}
           >
             {item.title}
           </span>
@@ -557,29 +518,27 @@ function LedgerRow({
             </span>
           )}
         </div>
-        {/* note (night close-out) — page only */}
-        {closeout && (
-          <input
-            type="text"
-            defaultValue={note}
-            onChange={(e) => setNote(e.target.value)}
-            onBlur={() => {
-              if ((note ?? "") !== (item.doneNote ?? "")) onNote(note);
-            }}
-            placeholder="Add a note on what happened…"
-            className="mt-1.5 w-full bg-transparent text-[13px] text-ink-soft placeholder:text-ink-subtle outline-none border-b border-transparent focus:border-hairline-strong py-0.5"
-          />
-        )}
+        {/* note (night close-out) */}
+        <input
+          type="text"
+          defaultValue={note}
+          onChange={(e) => setNote(e.target.value)}
+          onBlur={() => {
+            if ((note ?? "") !== (item.doneNote ?? "")) onNote(note);
+          }}
+          placeholder="Add a note on what happened…"
+          className={`mt-1.5 w-full bg-transparent text-[13px] text-ink-soft placeholder:text-ink-subtle border-b border-transparent focus:border-hairline-strong py-0.5 ${FOCUS_RING}`}
+        />
       </div>
 
       <button
         type="button"
         onClick={onRemove}
         disabled={busy}
-        aria-label="Remove item"
-        className="mt-0.5 shrink-0 text-ink-subtle hover:text-altus-red transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-30"
+        aria-label={`Remove "${item.title}"`}
+        className={`mt-0.5 shrink-0 rounded-md p-1 text-ink-subtle hover:text-altus-red transition-opacity opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 max-md:opacity-100 disabled:opacity-30 ${FOCUS_RING}`}
       >
-        <Trash2 size={15} strokeWidth={2.2} />
+        {busy ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} strokeWidth={2.2} />}
       </button>
     </li>
   );
@@ -598,14 +557,15 @@ function AddItem({ busy, onAdd }: { busy: boolean; onAdd: (fd: FormData) => void
       className="mt-4 shrink-0"
     >
       <div
-        className="flex items-center gap-2.5 rounded-2xl border-2 bg-white px-3 py-2 transition-colors focus-within:border-[var(--color-altus-red)]"
+        className="flex items-center gap-2.5 rounded-2xl border-2 bg-surface-card px-3 py-2 transition-colors focus-within:border-[var(--color-altus-red)]"
         style={{ borderColor: "var(--color-hairline-strong)", boxShadow: "0 1px 2px rgba(15,23,42,0.04)" }}
       >
         <span
-          className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl"
+          aria-hidden
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl"
           style={{ background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)", color: "var(--color-altus-red)" }}
         >
-          <Plus size={18} strokeWidth={2.6} />
+          <Plus size={19} strokeWidth={2.6} />
         </span>
         <input
           name="title"
@@ -613,21 +573,22 @@ function AddItem({ busy, onAdd }: { busy: boolean; onAdd: (fd: FormData) => void
           required
           maxLength={280}
           autoComplete="off"
-          placeholder="Add something you'll do today…"
-          className="flex-1 min-w-0 bg-transparent text-[16px] font-medium text-ink-strong placeholder:text-ink-subtle outline-none py-1.5"
+          aria-label="Add something you'll get done today"
+          placeholder="Add something you'll get done today…"
+          className={`flex-1 min-w-0 bg-transparent text-[16px] font-medium text-ink-strong placeholder:text-ink-subtle py-2 ${FOCUS_RING}`}
         />
         <button
           type="submit"
           disabled={busy}
-          className="wg-btn wg-sheen cursor-pointer inline-flex shrink-0 items-center gap-1.5 rounded-xl py-2 px-5 text-[14px] font-bold text-white disabled:opacity-50"
-          style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+          className={`wg-btn wg-sheen cursor-pointer inline-flex shrink-0 items-center gap-2 rounded-xl py-3 px-6 text-[15px] font-bold text-white disabled:opacity-50 ${FOCUS_RING}`}
+          style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 8px 20px -10px rgba(225,6,0,0.5)" }}
         >
-          {busy ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} strokeWidth={2.8} />}
+          {busy ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} strokeWidth={2.8} />}
           Add
         </button>
       </div>
       <p className="mt-2 text-[12.5px] font-medium text-ink-subtle">
-        Press Enter to add · aim for at least 5 to start your day.
+        Press Enter to add · plan at least {MIN_DAILY_ITEMS} to start your day.
       </p>
     </form>
   );
