@@ -15,7 +15,7 @@ import {
   removeItem,
   moveOverdueToToday,
 } from "@/app/(app)/daily-checklist/actions";
-import { MIN_DAILY_ITEMS } from "@/lib/daily-checklist/gate";
+import { MIN_DAILY_ITEMS } from "@/lib/daily-checklist/constants";
 import type { DailyItem, OverdueItem, PullableGoal } from "@/lib/queries/daily-checklist";
 
 /* ── Daily-plan gate — the surface users hit each morning. Plan at least five

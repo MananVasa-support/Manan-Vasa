@@ -23,7 +23,7 @@ import {
   removeItem,
   moveOverdueToToday,
 } from "@/app/(app)/daily-checklist/actions";
-import { MIN_DAILY_ITEMS } from "@/lib/daily-checklist/gate";
+import { MIN_DAILY_ITEMS } from "@/lib/daily-checklist/constants";
 import type { DailyItem, OverdueItem, PullableGoal } from "@/lib/queries/daily-checklist";
 
 /** Shared visible focus ring for keyboard users (brand-red on neutral surfaces). */
