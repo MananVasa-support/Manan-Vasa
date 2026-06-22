@@ -8,12 +8,12 @@ import { weeklyGoals, employees, tasks, incentiveCatalog } from "@/db/schema";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import {
   requireUser,
-  requireAdmin,
-  requireSuperAdmin,
   requireWeeklyGoalsFilled,
 } from "@/lib/auth/current";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { goalScopeFor, canManageGoalFor } from "@/lib/weekly-goals/hierarchy";
+import { balanceWeightsToBudget, WEIGHT_BUDGET } from "@/lib/weekly-goals/effective";
 import { mondayOf, nextWeekStart, weekEnd } from "@/lib/weekly-goals/week";
 import { type TaskPriority } from "@/db/enums";
 import { createTasksCore } from "@/lib/tasks/create-task";
@@ -26,6 +26,10 @@ import {
   type EditWeeklyGoalInput,
   SetPctDoneSchema,
   type SetPctDoneInput,
+  SetWeeklyGoalStatusSchema,
+  type SetWeeklyGoalStatusInput,
+  SetWeeklyGoalReportSchema,
+  type SetWeeklyGoalReportInput,
   CarryOverSchema,
   type CarryOverInput,
   DeleteWeeklyGoalSchema,
@@ -124,6 +128,32 @@ async function loadWritableGoal(
 }
 
 /**
+ * Load a goal and require that the signed-in user is a MANAGER of it — i.e. the
+ * goal's owner is NOT themselves AND they have authority over that owner
+ * (`me.isAdmin`, or the owner is in their downline scope). A person is NEVER a
+ * manager of their own goal. This is the security gate for every planning-field
+ * mutation, duplicate, delete, balance + incentive write — owners are rejected.
+ */
+async function loadManageableGoal(
+  id: string,
+  me: { id: string; isAdmin: boolean; email: string },
+): Promise<LoadResult> {
+  const [row] = await db.select().from(weeklyGoals).where(eq(weeklyGoals.id, id)).limit(1);
+  if (!row) return { ok: false, error: "Goal not found" };
+  // The single "manager tier" gate for EVERY privileged write (planning edits,
+  // delete, duplicate, incentive, balance, AND review/approve/archive): an admin
+  // or super-admin (org-wide), or the owner's manager (downline, never self). A
+  // person is NEVER a manager of their own goal, so doers are always rejected.
+  const scope = await goalScopeFor(me);
+  const isManager =
+    me.isAdmin ||
+    isSuperAdmin(me.email) ||
+    (row.employeeId !== me.id && scope.ids.includes(row.employeeId));
+  if (!isManager) return { ok: false, error: "Only a manager or admin can do that" };
+  return { ok: true, row };
+}
+
+/**
  * Create one weekly-goal row. Non-admins can only file goals against
  * themselves; admins can file against anyone. The week is snapped to its
  * Monday defensively. Used by the fast-add row (one submit = one priority).
@@ -204,7 +234,9 @@ export async function editWeeklyGoal(
   }
   const { id, ...fields } = parsed.data;
 
-  const loaded = await loadWritableGoal(id, me);
+  // Planning fields are manager-only (#5): owners may never edit weight / target
+  // date / incentive / client / subject / goal text.
+  const loaded = await loadManageableGoal(id, me);
   if (!loaded.ok) return loaded;
 
   // Only write the keys actually provided so a partial edit doesn't clobber.
@@ -264,6 +296,72 @@ export async function setWeeklyGoalPct(
     await syncGoalToTask(parsed.data.id);
     revalidateWeeklyGoals();
     revalidatePath("/tasks");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+/**
+ * Set a goal's `status` — the OWNER (doer) or a manager may move it through the
+ * regular non-approval statuses (USER_TASK_STATUSES). The approval verdicts
+ * (approved / not_approved / …) stay manager-only via the super-admin review
+ * panel. Reuses the owner+manager `loadWritableGoal` permission gate.
+ */
+export async function setWeeklyGoalStatus(
+  input: SetWeeklyGoalStatusInput,
+): Promise<ActionResult> {
+  const me = await requireUser();
+  const parsed = SetWeeklyGoalStatusSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid status" };
+  }
+  const loaded = await loadWritableGoal(parsed.data.id, me);
+  if (!loaded.ok) return loaded;
+
+  try {
+    await db
+      .update(weeklyGoals)
+      .set({
+        status: parsed.data.status,
+        updatedById: me.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(weeklyGoals.id, parsed.data.id));
+    revalidateWeeklyGoals();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+/**
+ * Owner progress REPORT — the doer (or a manager) records their narrative:
+ * `explanation` (what they did) + `linkUrl` (evidence the reviewer reads). These
+ * are the only content fields a normal employee may write on their own goal,
+ * besides % (setWeeklyGoalPct) and status (setWeeklyGoalStatus). Planning fields
+ * (weight / target date / incentive / client / subject / goal) stay manager-only
+ * via editWeeklyGoal. Owner-or-manager gate (loadWritableGoal).
+ */
+export async function setWeeklyGoalReport(
+  input: SetWeeklyGoalReportInput,
+): Promise<ActionResult> {
+  const me = await requireUser();
+  const parsed = SetWeeklyGoalReportSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { id, explanation, linkUrl } = parsed.data;
+  const loaded = await loadWritableGoal(id, me);
+  if (!loaded.ok) return loaded;
+
+  const patch: Record<string, unknown> = { updatedById: me.id, updatedAt: new Date() };
+  if (explanation !== undefined) patch.explanation = explanation;
+  if (linkUrl !== undefined) patch.linkUrl = linkUrl;
+
+  try {
+    await db.update(weeklyGoals).set(patch).where(eq(weeklyGoals.id, id));
+    revalidateWeeklyGoals();
     return { ok: true };
   } catch (err) {
     return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
@@ -400,12 +498,78 @@ export async function carryOverWeeklyGoal(
   }
 }
 
+/**
+ * Re-balance a person's active goal weights for a week so they sum to EXACTLY
+ * 100 (the fixed weekly budget). Proportional largest-remainder rescale via
+ * balanceWeightsToBudget — the one-tap fix for a total that drifted past 100
+ * (e.g. 7 goals × 20 = 140 → ~14 each, one nudged to 16 to land on 100).
+ * Owner / admin / manager-of-that-person only. Archived goals are left untouched.
+ */
+export async function balanceWeeklyGoalWeights(
+  input: { employeeId: string; weekStart: string },
+): Promise<ActionResult<{ updated: number; budget: number }>> {
+  const me = await requireUser();
+  if (!input?.employeeId || typeof input.employeeId !== "string") {
+    return { ok: false, error: "Missing employee" };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(input.weekStart))) {
+    return { ok: false, error: "Invalid week" };
+  }
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  // #5 — balancing weights is a planning mutation → manager-only. Admins → anyone;
+  // managers → their downline (never themselves); owners are rejected.
+  const scope = await goalScopeFor(me);
+  const isManager =
+    me.isAdmin ||
+    isSuperAdmin(me.email) ||
+    (input.employeeId !== me.id && scope.ids.includes(input.employeeId));
+  if (!isManager) {
+    return { ok: false, error: "Only a manager can change this goal" };
+  }
+  const weekStart = mondayOf(input.weekStart);
+
+  const rows = await db
+    .select({ id: weeklyGoals.id, weight: weeklyGoals.weight })
+    .from(weeklyGoals)
+    .where(
+      and(
+        eq(weeklyGoals.employeeId, input.employeeId),
+        eq(weeklyGoals.weekStart, weekStart),
+        eq(weeklyGoals.archived, false),
+      ),
+    );
+  if (rows.length === 0) return { ok: true, updated: 0, budget: WEIGHT_BUDGET };
+
+  const balanced = balanceWeightsToBudget(rows);
+  try {
+    // Few goals per person (≈5–10) → a small sequential update loop is fine and
+    // keeps the SQL trivial; only the goals whose weight actually changes write.
+    let updated = 0;
+    for (const r of rows) {
+      const next = balanced.get(r.id);
+      if (next == null || next === r.weight) continue;
+      await db
+        .update(weeklyGoals)
+        .set({ weight: next, updatedById: me.id, updatedAt: new Date() })
+        .where(eq(weeklyGoals.id, r.id));
+      updated++;
+    }
+    revalidateWeeklyGoals();
+    return { ok: true, updated, budget: WEIGHT_BUDGET };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
 export async function deleteWeeklyGoal(input: { id: string }): Promise<ActionResult> {
   const me = await requireUser();
   const parsed = DeleteWeeklyGoalSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid id" };
 
-  const loaded = await loadWritableGoal(parsed.data.id, me);
+  // #5 — deletion is manager-only; owners can't delete their own goal.
+  const loaded = await loadManageableGoal(parsed.data.id, me);
   if (!loaded.ok) return loaded;
 
   try {
@@ -689,14 +853,16 @@ export async function setWeeklyGoalIncentive(input: {
   incentive: boolean;
   amount: number;
 }): Promise<ActionResult> {
-  const me = await requireAdmin();
+  const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   if (!/^[0-9a-f-]{36}$/i.test(input.id)) return { ok: false, error: "Invalid id" };
   const amount = Math.max(0, Math.min(10_000_000, Math.round(Number(input.amount) || 0)));
 
-  const [goal] = await db.select().from(weeklyGoals).where(eq(weeklyGoals.id, input.id)).limit(1);
-  if (!goal) return { ok: false, error: "Goal not found" };
+  // #5 — incentive is a planning field → manager-only.
+  const loaded = await loadManageableGoal(input.id, me);
+  if (!loaded.ok) return loaded;
+  const goal = loaded.row;
 
   try {
     await db
@@ -732,7 +898,7 @@ export async function setWeeklyGoalIncentive(input: {
 export async function setWeeklyGoalReview(
   input: ReviewWeeklyGoalInput,
 ): Promise<ActionResult> {
-  const me = await requireSuperAdmin();
+  const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
@@ -742,8 +908,11 @@ export async function setWeeklyGoalReview(
   }
   const { id, status, acceptPct, reviewNotes } = parsed.data;
 
-  const [goal] = await db.select().from(weeklyGoals).where(eq(weeklyGoals.id, id)).limit(1);
-  if (!goal) return { ok: false, error: "Goal not found" };
+  // Review is the manager tier: admin / super-admin / the owner's manager. Doers
+  // are rejected here even though they can set their own % + status elsewhere.
+  const loaded = await loadManageableGoal(id, me);
+  if (!loaded.ok) return loaded;
+  const goal = loaded.row;
 
   // Accept % is locked once approved — reject the write rather than silently drop it.
   if (acceptPct !== undefined && goal.approvedAt) {
@@ -778,7 +947,7 @@ export async function setWeeklyGoalReview(
 export async function approveWeeklyGoal(
   input: ApproveWeeklyGoalInput,
 ): Promise<ActionResult> {
-  const me = await requireSuperAdmin();
+  const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
@@ -788,8 +957,10 @@ export async function approveWeeklyGoal(
   }
   const { id, approved } = parsed.data;
 
-  const [goal] = await db.select().from(weeklyGoals).where(eq(weeklyGoals.id, id)).limit(1);
-  if (!goal) return { ok: false, error: "Goal not found" };
+  // Approve is the manager tier (admin / super-admin / the owner's manager).
+  const loaded = await loadManageableGoal(id, me);
+  if (!loaded.ok) return loaded;
+  const goal = loaded.row;
 
   // (The 5-goal weekly minimum was removed per founder 2026-06-20 — that gate
   //  only belongs to the Daily Checklist, not Weekly Goals.)
@@ -829,7 +1000,7 @@ export async function approveWeeklyGoal(
 export async function archiveWeeklyGoal(
   input: ArchiveWeeklyGoalInput,
 ): Promise<ActionResult> {
-  const me = await requireSuperAdmin();
+  const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
@@ -839,8 +1010,9 @@ export async function archiveWeeklyGoal(
   }
   const { id, archived } = parsed.data;
 
-  const [goal] = await db.select().from(weeklyGoals).where(eq(weeklyGoals.id, id)).limit(1);
-  if (!goal) return { ok: false, error: "Goal not found" };
+  // Archive is the manager tier (admin / super-admin / the owner's manager).
+  const loaded = await loadManageableGoal(id, me);
+  if (!loaded.ok) return loaded;
 
   try {
     await db
@@ -871,7 +1043,8 @@ export async function duplicateWeeklyGoal(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const loaded = await loadWritableGoal(parsed.data.id, me);
+  // #5 — duplicate is manager-only; owners can't duplicate their own goal.
+  const loaded = await loadManageableGoal(parsed.data.id, me);
   if (!loaded.ok) return loaded;
   const src = loaded.row;
 

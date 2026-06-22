@@ -8,6 +8,7 @@ import type { Route } from "next";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   CalendarDays,
   BarChart3,
   Trash2,
@@ -15,40 +16,28 @@ import {
   Target,
   Search,
   X,
+  Scale,
 } from "lucide-react";
 import { Select } from "@/components/ui/select";
+import { Avatar } from "@/components/ui/avatar";
 import { WeeklyGoalsImport } from "@/components/weekly-goals/weekly-goals-import";
 import { GoalCard } from "@/components/weekly-goals/goal-card";
 import { GoalQuickAdd } from "@/components/weekly-goals/goal-quick-add";
 import { ScoreRing } from "@/components/weekly-goals/score-ring";
 import type { BoardGoal, StatusDisplayMap } from "@/components/weekly-goals/types";
-import { weeklyScore } from "@/lib/weekly-goals/effective";
-import { deleteWeeklyGoal } from "@/app/(app)/weekly-goals/actions";
+import { weeklyScore, weightTotal, WEIGHT_BUDGET } from "@/lib/weekly-goals/effective";
+import {
+  deleteWeeklyGoal,
+  balanceWeeklyGoalWeights,
+} from "@/app/(app)/weekly-goals/actions";
 import { fireToast } from "@/lib/toast";
 
-/* Editorial design tokens (scoped to this board — a warm cream canvas with
- * near-black warm ink; Altus red used only as the goal-card accent + score
- * ring). Kept local so the rest of the app's cooler palette is untouched. */
-const EDITORIAL = {
-  canvas: "#F6F3EC",
-  surface: "#FFFFFF",
-  inkStrong: "#171411",
-  inkSoft: "#6B6560",
-  inkSubtle: "#9A938B",
-  hairline: "rgba(23,20,17,0.08)",
-} as const;
-const SERIF = "var(--font-editorial), Georgia, serif";
-
-/** Up-to-two-letter initials for the avatar, from the member's display name. */
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
-}
+/** Shared visible focus ring for keyboard users (brand-red on neutral surfaces). */
+const FOCUS_RING =
+  "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-soft)]";
 
 interface Props {
-  me: { id: string; isAdmin: boolean; canReview: boolean };
+  me: { id: string; isAdmin: boolean };
   weekStart: string;
   weekLabel: string;
   isCurrentWeek: boolean;
@@ -76,25 +65,49 @@ interface Props {
 export function WeeklyGoalsBoard(props: Props) {
   const router = useRouter();
   const showingAll = props.scopeEmp === "all";
+  const meId = props.me.id;
 
-  // Whether the signed-in user may edit a given goal. Admins ("all") can edit
-  // anyone; managers can edit self + downline; everyone else only their own
-  // (self is always in manageableIds for non-admins, so owners keep edit).
-  const canEditGoal = React.useCallback(
+  // #5 — manager of a goal: admins manage anyone; a manager manages their
+  // downline but NEVER their own goal (a person is never a manager of their
+  // own goal). For a normal employee manageableIds === [their own id], so this
+  // is correctly FALSE for their own goal.
+  const canManage = React.useCallback(
     (employeeId: string) =>
-      props.manageableIds === "all" || props.manageableIds.includes(employeeId),
-    [props.manageableIds],
+      props.me.isAdmin ||
+      (props.manageableIds !== "all" &&
+        props.manageableIds.includes(employeeId) &&
+        employeeId !== meId),
+    [props.manageableIds, props.me.isAdmin, meId],
+  );
+  // #5 — may report (set progress % + status): the owner, or a manager.
+  const canReport = React.useCallback(
+    (employeeId: string) => employeeId === meId || canManage(employeeId),
+    [meId, canManage],
   );
 
   // Reviewer-only "show archived" toggle + the list filters / sort.
   const [showArchived, setShowArchived] = React.useState(false);
   const [search, setSearch] = React.useState("");
+  // Defer the search so a keystroke updates the controlled input instantly,
+  // while the (heavy) filter/sort/group derivation runs at a lower priority —
+  // this is the cure for "stuck while typing" with a full team's goals.
+  const deferredSearch = React.useDeferredValue(search);
   const [statusFilter, setStatusFilter] = React.useState("all");
   const [completion, setCompletion] = React.useState("all");
   const [sort, setSort] = React.useState("weight");
 
   // Shared two-step delete dialog state (one dialog for every card).
   const [deleteTarget, setDeleteTarget] = React.useState<BoardGoal | null>(null);
+  // Stable callback so memoised cards don't re-render on every keystroke.
+  const requestDelete = React.useCallback((g: BoardGoal) => setDeleteTarget(g), []);
+
+  // #2 — per-employee collapse state for the admin "all" grouped view. Keyed by
+  // employee id; absent/false = expanded (default). Local-only, not persisted.
+  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
+  const toggleCollapsed = React.useCallback(
+    (empId: string) => setCollapsed((c) => ({ ...c, [empId]: !c[empId] })),
+    [],
+  );
 
   function go(params: Record<string, string>) {
     const sp = new URLSearchParams();
@@ -115,7 +128,7 @@ export function WeeklyGoalsBoard(props: Props) {
   // `displayed` = what the LIST shows: `visible` narrowed by search / status /
   // completion, then sorted. Keeps the headline stats off the filtered set.
   const displayed = React.useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = deferredSearch.trim().toLowerCase();
     const rows = visible.filter((r) => {
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       if (completion !== "all") {
@@ -138,7 +151,7 @@ export function WeeklyGoalsBoard(props: Props) {
       recent: (a, b) => (b.pctUpdatedAt?.getTime() ?? 0) - (a.pctUpdatedAt?.getTime() ?? 0),
     };
     return [...rows].sort(cmp[sort] ?? cmp.weight);
-  }, [visible, search, statusFilter, completion, sort]);
+  }, [visible, deferredSearch, statusFilter, completion, sort]);
 
   // Group by employee for the admin "all" overview (off the displayed list).
   const grouped = React.useMemo(() => {
@@ -150,12 +163,24 @@ export function WeeklyGoalsBoard(props: Props) {
     return [...map.entries()];
   }, [displayed]);
 
+  // Per-person live weight total over their ACTIVE (non-archived) goals this
+  // week — drives both the budget meter and the budget-aware inline editor. Keyed
+  // off `visible` (the unfiltered set) so a search never distorts the budget.
+  const weightTotalByEmp = React.useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of visible) {
+      if (r.archived) continue;
+      map.set(r.employeeId, (map.get(r.employeeId) ?? 0) + Math.max(0, r.weight));
+    }
+    return map;
+  }, [visible]);
+
   const totalCount = visible.length;
   const activeVisible = React.useMemo(() => visible.filter((r) => !r.archived), [visible]);
   const overallScore = weeklyScore(activeVisible);
   const doneCount = activeVisible.filter((r) => effPct(r) >= 100).length;
-  const pendingCount = activeVisible.length - doneCount;
-  const weightTotal = activeVisible.reduce((s, r) => s + (r.weight || 0), 0);
+  // Single-person view: this person's full active weight total toward 100.
+  const singleWeightTotal = showingAll ? 0 : weightTotal(activeVisible);
 
   // Distinct statuses present → the Status filter options (labelled via map).
   const statusOptions = React.useMemo(
@@ -169,152 +194,165 @@ export function WeeklyGoalsBoard(props: Props) {
     (search.trim() ? 1 : 0) + (statusFilter !== "all" ? 1 : 0) + (completion !== "all" ? 1 : 0);
   const clearFilters = () => { setSearch(""); setStatusFilter("all"); setCompletion("all"); };
 
-  // Props shared by every card (the card-specific srNo / goal / canEdit /
-  // autoFocus are passed per-card at the render site).
-  const sharedCardProps = {
-    canReview: props.me.canReview,
-    isAdmin: props.me.isAdmin,
-    statusDisplay: props.statusDisplay,
-    clientOptions: props.clientOptions,
-    subjectOptions: props.subjectOptions,
-    catalog: props.catalog,
-    onRequestDelete: setDeleteTarget,
-  };
+  // Props shared by every card. Memoised so the object identity is stable across
+  // board re-renders (search keystrokes) — paired with React.memo on GoalCard,
+  // only cards whose own props change actually re-render.
+  const sharedCardProps = React.useMemo(
+    () => ({
+      isAdmin: props.me.isAdmin,
+      statusDisplay: props.statusDisplay,
+      clientOptions: props.clientOptions,
+      subjectOptions: props.subjectOptions,
+      catalog: props.catalog,
+      onRequestDelete: requestDelete,
+    }),
+    [
+      props.me.isAdmin,
+      props.statusDisplay,
+      props.clientOptions,
+      props.subjectOptions,
+      props.catalog,
+      requestDelete,
+    ],
+  );
 
   return (
     <main
       className="relative min-h-screen"
-      style={{ background: "linear-gradient(160deg, #F4EEE3 0%, #FBF7F0 62%)", color: EDITORIAL.inkStrong }}
+      style={{
+        background:
+          "linear-gradient(180deg, var(--color-surface-soft) 0%, color-mix(in srgb, var(--color-surface-track) 60%, var(--color-surface-soft)) 100%)",
+        color: "var(--color-ink-strong)",
+      }}
     >
-      {/* Day-Ledger ruled-paper texture — the shared brand motif. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.55]"
-        style={{
-          backgroundImage: "repeating-linear-gradient(rgba(27,20,14,0.055) 0 1px, transparent 1px 40px)",
-          maskImage: "linear-gradient(180deg, transparent, #000 7%, #000 93%, transparent)",
-        }}
-      />
-      <div className="relative mx-auto max-w-[1280px] px-12 max-md:px-4 pt-8 pb-24">
-      {/* ── HERO BAND ───────────────────────────────────────────────── */}
-      <section
-        className="wg-rise relative overflow-hidden rounded-3xl px-8 py-5 max-md:px-5 max-md:py-4 mb-4"
-        style={{
-          background:
-            "radial-gradient(130% 150% at 88% -10%, rgba(225,6,0,0.34) 0%, transparent 55%), linear-gradient(135deg, #1C1511 0%, #0E0B09 100%)",
-          boxShadow: "0 30px 60px -28px rgba(14,11,9,0.55)",
-        }}
-      >
-        {/* faint ruled texture */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.05]"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(90deg, #fff 0 1px, transparent 1px 76px)",
-          }}
-        />
-        <div className="relative flex items-center justify-between gap-8 flex-wrap">
-          <div className="min-w-0">
-            <div
-              className="text-[11px] font-black uppercase tracking-[0.22em]"
-              style={{ color: "rgba(251,191,36,0.92)" }}
-            >
-              Accountability · {props.weekLabel}
-            </div>
-            <h1
-              className="mt-1.5"
-              style={{
-                fontFamily: SERIF,
-                fontWeight: 800,
-                color: "#F7F4ED",
-                fontSize: "clamp(30px, 3.2vw, 46px)",
-                letterSpacing: "-0.025em",
-                lineHeight: 1,
-              }}
-            >
-              Weekly Goals
-            </h1>
-            <p
-              className="mt-1.5 max-w-[52ch] font-medium"
-              style={{ fontSize: 14, lineHeight: 1.45, color: "rgba(247,244,237,0.62)" }}
-            >
-              The handful of priorities each person commits to — weighted, scored, reviewed. Five is the floor.
-            </p>
-            <div className="mt-4 flex items-center gap-2.5 flex-wrap">
-              <Link
-                href={"/weekly-goals?view=dashboard" as Route}
-                className="wg-btn wg-sheen inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[14.5px] font-bold text-white cursor-pointer"
+      <div className="relative mx-auto max-w-[1180px] px-10 max-md:px-4 pt-8 pb-24">
+      {/* ── HEADER ──────────────────────────────────────────────────── */}
+      <section className="wg-rise mb-5 flex items-center justify-between gap-6 flex-wrap">
+        {/* Left — title + subtitle */}
+        <div className="min-w-0">
+          <div
+            className="text-[11px] font-bold uppercase tracking-[0.18em]"
+            style={{ color: "var(--color-ink-subtle)" }}
+          >
+            Accountability · {props.weekLabel}
+          </div>
+          <h1
+            className="mt-1.5 font-bold"
+            style={{
+              color: "var(--color-ink-strong)",
+              fontSize: "clamp(26px, 2.6vw, 38px)",
+              letterSpacing: "-0.025em",
+              lineHeight: 1.05,
+            }}
+          >
+            Weekly Goals
+          </h1>
+          <p
+            className="mt-1.5 max-w-[52ch] font-medium"
+            style={{ fontSize: 14, lineHeight: 1.45, color: "var(--color-ink-muted)" }}
+          >
+            The handful of priorities each person commits to — weighted, scored, reviewed.
+            Five is the floor; weights total {WEIGHT_BUDGET}.
+          </p>
+        </div>
+
+        {/* Middle — team/weekly-score card fills the gap between the title and the
+            actions (`justify-between` centres it). Hidden when there are no goals. */}
+        {totalCount > 0 && (
+          <div
+            className="flex items-center gap-4 rounded-2xl border px-5 py-3.5 shrink-0 max-md:w-full"
+            style={{
+              background: "var(--color-surface-card)",
+              borderColor: "var(--color-hairline)",
+              boxShadow: "0 1px 3px rgba(15,23,42,0.05)",
+            }}
+          >
+            <ScoreRing
+              value={overallScore}
+              size={64}
+              label={`${overallScore}% ${showingAll ? "team " : ""}weekly score`}
+            />
+            <div>
+              <div
+                className="text-[10.5px] font-bold uppercase tracking-[0.12em]"
+                style={{ color: "var(--color-ink-subtle)" }}
+              >
+                {showingAll ? "Team" : "Weekly"} score
+              </div>
+              <div
+                className="tabular-nums leading-none"
                 style={{
-                  background:
-                    "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-                  boxShadow: "0 10px 24px -8px rgba(225, 6, 0, 0.7)",
+                  fontFamily: "var(--font-display)",
+                  fontWeight: 800,
+                  fontSize: 30,
+                  color: "var(--color-ink-strong)",
                 }}
               >
-                <BarChart3 size={16} strokeWidth={2.4} />
-                Performance Dashboard
-              </Link>
-              <span className="[&_button]:!border-white/15 [&_button]:!bg-white/[0.06] [&_button]:!text-white/90">
-                <WeeklyGoalsImport
-                  employeeId={props.scopeEmp}
-                  weekStart={props.weekStart}
-                  weekLabel={props.weekLabel}
-                  isAdmin={props.me.isAdmin}
-                />
-              </span>
+                {overallScore}%
+              </div>
+              <div className="mt-1 text-[12px] font-semibold" style={{ color: "var(--color-ink-muted)" }}>
+                {doneCount}/{totalCount} done
+              </div>
             </div>
           </div>
+        )}
 
-          {/* Signature: the weekly-score ring (gold glow when it clears target) */}
-          {totalCount > 0 && (
-            <div className="flex flex-col items-center shrink-0">
-              <div
-                className={`inline-flex items-center justify-center rounded-full p-2 ${overallScore >= 60 ? "wg-ring-glow" : ""}`}
-                style={{ background: "rgba(255,255,255,0.05)", backdropFilter: "blur(6px)" }}
-              >
-                <ScoreRing
-                  value={overallScore}
-                  size={94}
-                  label={`${overallScore}% ${showingAll ? "team " : ""}weekly score`}
-                />
-              </div>
-              <span
-                className="mt-2 text-[10.5px] font-black uppercase tracking-[0.16em]"
-                style={{ color: "rgba(247,244,237,0.55)" }}
-              >
-                {showingAll ? "Team" : "Weekly"} score · {doneCount}/{totalCount} done
-              </span>
-            </div>
-          )}
+        {/* Right — primary actions */}
+        <div className="flex items-center gap-2.5 flex-wrap justify-end shrink-0 max-md:w-full max-md:justify-start">
+          <Link
+            href={"/weekly-goals?view=dashboard" as Route}
+            className={`wg-sheen inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[14px] font-bold text-white cursor-pointer ${FOCUS_RING}`}
+            style={{
+              background:
+                "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+              boxShadow: "0 10px 24px -12px rgba(225, 6, 0, 0.55)",
+            }}
+          >
+            <BarChart3 size={16} strokeWidth={2.4} />
+            Performance Dashboard
+          </Link>
+          <WeeklyGoalsImport
+            employeeId={props.scopeEmp}
+            weekStart={props.weekStart}
+            weekLabel={props.weekLabel}
+            isAdmin={props.me.isAdmin}
+          />
         </div>
       </section>
 
       {/* ── Filter command bar ──────────────────────────────────────── */}
       <div
-        className="wg-rise mb-5 rounded-2xl border border-hairline bg-surface-card p-3"
-        style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05), 0 18px 44px -30px rgba(27,20,14,0.28)", animationDelay: "60ms" }}
+        className="wg-rise mb-5 rounded-2xl border p-3"
+        style={{
+          background: "var(--color-surface-card)",
+          borderColor: "var(--color-hairline)",
+          boxShadow: "0 1px 3px rgba(15,23,42,0.05)",
+          animationDelay: "60ms",
+        }}
       >
-        {/* primary: search · status · progress · sort · team */}
+        {/* #1 — ONE compact wrap-friendly row: search · status · progress ·
+            sort · team · week-nav · this-week · archived · clear · count. */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="relative flex-1 min-w-[210px]">
+          <div className="relative flex-1 min-w-[200px]">
             <Search size={16} strokeWidth={2.4} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle pointer-events-none" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search goals, clients, subjects…"
-              className="w-full rounded-full border border-hairline bg-white pl-9 pr-9 py-2 text-[14px] font-medium text-ink-strong outline-none transition-colors focus:border-altus-red"
+              aria-label="Search goals"
+              className={`w-full rounded-full border border-hairline bg-surface-soft pl-9 pr-9 py-2 text-[14px] font-medium text-ink-strong transition-colors focus:border-altus-red ${FOCUS_RING}`}
             />
             {search && (
-              <button type="button" onClick={() => setSearch("")} aria-label="Clear search" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-subtle hover:text-ink-strong cursor-pointer">
+              <button type="button" onClick={() => setSearch("")} aria-label="Clear search" className={`absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full text-ink-subtle hover:text-ink-strong cursor-pointer ${FOCUS_RING}`}>
                 <X size={15} />
               </button>
             )}
           </div>
-          <div className="w-[148px] max-md:flex-1">
+          <div className="w-[140px] max-md:flex-1">
             <Select value={statusFilter} onValueChange={setStatusFilter} ariaLabel="Filter by status"
               options={[{ value: "all", label: "All statuses" }, ...statusOptions]} />
           </div>
-          <div className="w-[150px] max-md:flex-1">
+          <div className="w-[144px] max-md:flex-1">
             <Select value={completion} onValueChange={setCompletion} ariaLabel="Filter by progress"
               options={[
                 { value: "all", label: "Any progress" },
@@ -323,7 +361,7 @@ export function WeeklyGoalsBoard(props: Props) {
                 { value: "done", label: "Done · 100%" },
               ]} />
           </div>
-          <div className="w-[172px] max-md:flex-1">
+          <div className="w-[166px] max-md:flex-1">
             <Select value={sort} onValueChange={setSort} ariaLabel="Sort goals"
               options={[
                 { value: "weight", label: "Sort · Weight" },
@@ -334,27 +372,25 @@ export function WeeklyGoalsBoard(props: Props) {
               ]} />
           </div>
           {props.canPickTeam && (
-            <div className="w-[196px] max-md:flex-1">
+            <div className="w-[190px] max-md:flex-1">
               <Select value={props.scopeEmp} onValueChange={(v) => go({ week: props.weekStart, emp: v })} searchable searchPlaceholder="Search people…" ariaLabel="Filter by team member"
                 options={[{ value: "all", label: !props.me.isAdmin ? "My team" : "All team members" }, ...props.employees.map((e) => ({ value: e.id, label: e.name }))]} />
             </div>
           )}
-        </div>
 
-        {/* secondary: week nav · this week · archived · clear · count */}
-        <div className="mt-2.5 flex items-center gap-2.5 flex-wrap border-t border-hairline pt-2.5">
+          {/* Week nav */}
           <div className="inline-flex items-center rounded-full border border-hairline overflow-hidden">
-            <button type="button" aria-label="Previous week" onClick={() => go({ week: props.prevWeek, emp: props.scopeEmp })} className="wg-btn cursor-pointer px-2.5 py-1.5 hover:bg-black/[0.05]"><ChevronLeft size={17} /></button>
-            <span className="px-3 py-1.5 inline-flex items-center gap-2 font-bold text-ink-strong text-[14px] tabular-nums border-x border-hairline">
+            <button type="button" aria-label="Previous week" onClick={() => go({ week: props.prevWeek, emp: props.scopeEmp })} className={`cursor-pointer px-2.5 py-1.5 hover:bg-surface-soft ${FOCUS_RING}`}><ChevronLeft size={17} /></button>
+            <span className="px-3 py-1.5 inline-flex items-center gap-2 font-bold text-ink-strong text-[13.5px] tabular-nums border-x border-hairline">
               <CalendarDays size={15} className="text-ink-muted" />{props.weekLabel}
             </span>
-            <button type="button" aria-label="Next week" onClick={() => go({ week: props.nextWeek, emp: props.scopeEmp })} className="wg-btn cursor-pointer px-2.5 py-1.5 hover:bg-black/[0.05]"><ChevronRight size={17} /></button>
+            <button type="button" aria-label="Next week" onClick={() => go({ week: props.nextWeek, emp: props.scopeEmp })} className={`cursor-pointer px-2.5 py-1.5 hover:bg-surface-soft ${FOCUS_RING}`}><ChevronRight size={17} /></button>
           </div>
           {!props.isCurrentWeek && (
-            <button type="button" onClick={() => go({ week: props.thisWeek, emp: props.scopeEmp })} className="wg-btn cursor-pointer px-3.5 py-1.5 rounded-full border border-hairline font-bold text-[13px] text-ink-soft hover:text-ink-strong">This week</button>
+            <button type="button" onClick={() => go({ week: props.thisWeek, emp: props.scopeEmp })} className={`cursor-pointer px-3.5 py-1.5 rounded-full border border-hairline font-bold text-[13px] text-ink-soft hover:text-ink-strong ${FOCUS_RING}`}>This week</button>
           )}
-          {props.me.canReview && (
-            <button type="button" role="switch" aria-checked={showArchived} onClick={() => setShowArchived((v) => !v)} className="wg-btn cursor-pointer inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] font-bold transition-colors"
+          {props.canPickTeam && (
+            <button type="button" role="switch" aria-checked={showArchived} onClick={() => setShowArchived((v) => !v)} className={`cursor-pointer inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] font-bold transition-colors ${FOCUS_RING}`}
               style={showArchived ? { background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)", borderColor: "var(--color-altus-red)", color: "var(--color-altus-red-deep)" } : { borderColor: "var(--color-hairline)", color: "var(--color-ink-soft)" }}>
               <span aria-hidden className="inline-flex h-[16px] w-7 shrink-0 items-center rounded-full p-0.5 transition-colors" style={{ background: showArchived ? "var(--color-altus-red)" : "var(--color-hairline-strong)" }}>
                 <span className="size-[12px] rounded-full bg-white transition-transform" style={{ transform: showArchived ? "translateX(12px)" : "translateX(0)" }} />
@@ -364,7 +400,7 @@ export function WeeklyGoalsBoard(props: Props) {
           )}
           <div className="ml-auto flex items-center gap-2.5">
             {activeFilterCount > 0 && (
-              <button type="button" onClick={clearFilters} className="wg-btn cursor-pointer inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold text-altus-red hover:bg-altus-red/[0.06]">
+              <button type="button" onClick={clearFilters} className={`cursor-pointer inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold text-altus-red hover:bg-altus-red/[0.06] ${FOCUS_RING}`}>
                 <X size={14} strokeWidth={2.6} /> Clear {activeFilterCount}
               </button>
             )}
@@ -380,72 +416,92 @@ export function WeeklyGoalsBoard(props: Props) {
         grouped.length === 0 ? (
           <EmptyState />
         ) : (
-          <div>
-            {grouped.map(([empId, g], gi) => (
-              <section
-                key={empId}
-                className={gi > 0 ? "mt-12 pt-12" : ""}
-                style={gi > 0 ? { borderTop: `1px solid ${EDITORIAL.hairline}` } : undefined}
-              >
+          <div className="flex flex-col gap-10">
+            {grouped.map(([empId, g]) => (
+              <section key={empId}>
                 <MemberHeader
                   name={g.name}
                   role={props.roleById?.[empId] ?? null}
-                  goalCount={g.rows.length}
+                  goalCount={g.rows.filter((r) => !r.archived).length}
                   score={weeklyScore(g.rows.filter((r) => !r.archived))}
+                  weightTotal={weightTotalByEmp.get(empId) ?? 0}
+                  employeeId={empId}
+                  weekStart={props.weekStart}
+                  canBalance={canManage(empId)}
+                  collapsed={!!collapsed[empId]}
+                  onToggle={() => toggleCollapsed(empId)}
                 />
-                <div className="grid gap-4 xl:grid-cols-2">
-                  {g.rows.map((goal, i) => (
-                    <div key={goal.id} className="wg-rise" style={{ animationDelay: `${Math.min(i * 45, 360)}ms` }}>
-                      <GoalCard
-                        goal={goal}
-                        srNo={i + 1}
-                        canEdit={canEditGoal(goal.employeeId)}
-                        autoFocus={props.focusId === goal.id}
-                        {...sharedCardProps}
-                      />
-                    </div>
-                  ))}
-                </div>
+                {/* #2 — collapsible: this employee's cards hide when collapsed.
+                    reduced-motion-safe (a plain conditional, no height anim). */}
+                {!collapsed[empId] && (
+                  <div className="flex flex-col gap-3.5 wg-rise">
+                    {g.rows.map((goal, i) => (
+                      <div key={goal.id} className="wg-rise" style={{ animationDelay: `${Math.min(i * 40, 280)}ms` }}>
+                        <GoalCard
+                          goal={goal}
+                          srNo={i + 1}
+                          canManage={canManage(goal.employeeId)}
+                          canReport={canReport(goal.employeeId)}
+                          canReview={canManage(goal.employeeId)}
+                          employeeWeightTotal={weightTotalByEmp.get(goal.employeeId) ?? 0}
+                          autoFocus={props.focusId === goal.id}
+                          {...sharedCardProps}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
             ))}
           </div>
         )
       ) : (
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="flex flex-col gap-3.5">
+          {/* Single-person budget bar — live weight total toward 100. */}
+          {activeVisible.length > 0 && (
+            <WeightBudgetBar
+              total={singleWeightTotal}
+              employeeId={props.scopeEmp}
+              weekStart={props.weekStart}
+              canBalance={!showingAll && canManage(props.scopeEmp)}
+            />
+          )}
+
           {displayed.length === 0 && visible.length > 0 && (
-            <div className="xl:col-span-2 rounded-2xl border border-dashed border-hairline-strong bg-surface-card px-6 py-8 text-center">
+            <div className="rounded-2xl border border-dashed border-hairline-strong bg-surface-card px-6 py-8 text-center">
               <p className="text-[15px] font-bold text-ink-strong">No goals match these filters</p>
               <button
                 type="button"
                 onClick={clearFilters}
-                className="wg-btn mt-3 cursor-pointer inline-flex items-center gap-1.5 rounded-full bg-altus-red px-4 py-2 text-[13px] font-bold text-white"
+                className={`mt-3 cursor-pointer inline-flex items-center gap-1.5 rounded-full bg-altus-red px-4 py-2 text-[13px] font-bold text-white ${FOCUS_RING}`}
               >
                 <X size={14} strokeWidth={2.6} /> Clear filters
               </button>
             </div>
           )}
           {displayed.map((goal, i) => (
-            <div key={goal.id} className="wg-rise" style={{ animationDelay: `${Math.min(i * 45, 360)}ms` }}>
+            <div key={goal.id} className="wg-rise" style={{ animationDelay: `${Math.min(i * 40, 280)}ms` }}>
               <GoalCard
                 goal={goal}
                 srNo={i + 1}
-                canEdit={props.me.isAdmin || goal.employeeId === props.me.id}
+                canManage={canManage(goal.employeeId)}
+                canReport={canReport(goal.employeeId)}
+                canReview={canManage(goal.employeeId)}
+                employeeWeightTotal={singleWeightTotal}
                 autoFocus={props.focusId === goal.id}
                 {...sharedCardProps}
               />
             </div>
           ))}
-          <div className="xl:col-span-2">
-            <GoalQuickAdd
-              employeeId={props.scopeEmp}
-              weekStart={props.weekStart}
-              clientOptions={props.clientOptions}
-              subjectOptions={props.subjectOptions}
-              currentWeight={weightTotal}
-              currentCount={activeVisible.length}
-              catalog={props.catalog}
-            />
-          </div>
+          <GoalQuickAdd
+            employeeId={props.scopeEmp}
+            weekStart={props.weekStart}
+            clientOptions={props.clientOptions}
+            subjectOptions={props.subjectOptions}
+            currentWeight={singleWeightTotal}
+            currentCount={activeVisible.length}
+            catalog={props.catalog}
+          />
         </div>
       )}
 
@@ -464,57 +520,118 @@ export function WeeklyGoalsBoard(props: Props) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Premium stat card (gradient top strip + serif number)                */
+/* Weight-budget meter + Balance-to-100 control                         */
 /* ------------------------------------------------------------------ */
 
-function StatCard({
-  i,
-  label,
-  value,
-  hint,
-  tone,
-}: {
-  i: number;
-  label: string;
-  value: string;
-  hint?: string;
-  tone: "slate" | "red" | "green" | "amber";
-}) {
+function WeightMeter({ total }: { total: number }) {
+  const ok = total === WEIGHT_BUDGET;
+  const pct = Math.min(100, (total / WEIGHT_BUDGET) * 100);
+  const tone = ok ? "green" : "altus-red";
   return (
-    <div
-      className="wg-rise relative overflow-hidden rounded-2xl bg-white p-4"
-      style={{
-        border: `1px solid ${EDITORIAL.hairline}`,
-        boxShadow: "0 1px 3px rgba(15,23,42,0.05)",
-        animationDelay: `${120 + i * 70}ms`,
-      }}
-    >
+    <span className="inline-flex items-center gap-2">
       <span
         aria-hidden
-        className="absolute inset-x-0 top-0 h-[3px]"
-        style={{ background: `linear-gradient(90deg, var(--color-${tone}), var(--color-${tone}-deep))` }}
-      />
-      <div className="text-[11px] font-black uppercase tracking-[0.1em]" style={{ color: EDITORIAL.inkSubtle }}>
-        {label}
-      </div>
-      <div
-        className="mt-1.5 tabular-nums"
-        style={{ fontFamily: SERIF, fontWeight: 800, fontSize: 34, lineHeight: 1, color: EDITORIAL.inkStrong }}
+        className="inline-flex h-2 w-20 overflow-hidden rounded-full"
+        style={{ background: "var(--color-surface-track)" }}
       >
-        {value}
-      </div>
-      {hint && (
-        <div className="mt-1 text-[12px] font-bold" style={{ color: `var(--color-${tone}-deep)` }}>
-          {hint}
-        </div>
+        <span
+          className="h-full rounded-full transition-all"
+          style={{
+            width: `${pct}%`,
+            background: `linear-gradient(90deg, var(--color-${tone}), var(--color-${tone}-deep))`,
+          }}
+        />
+      </span>
+      <span
+        className="text-[12.5px] font-bold tabular-nums whitespace-nowrap"
+        style={{ color: ok ? "var(--color-green-deep)" : "var(--color-altus-red-deep)" }}
+      >
+        {total} / {WEIGHT_BUDGET}
+        {!ok && <span className="ml-1 font-semibold">· {total > WEIGHT_BUDGET ? "over" : "under"}</span>}
+      </span>
+    </span>
+  );
+}
+
+/** Shared Balance-to-100 button (calls the server action in a transition). */
+function BalanceButton({
+  employeeId,
+  weekStart,
+}: {
+  employeeId: string;
+  weekStart: string;
+}) {
+  const router = useRouter();
+  const [pending, start] = React.useTransition();
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      onClick={() =>
+        start(async () => {
+          const res = await balanceWeeklyGoalWeights({ employeeId, weekStart });
+          if (!res.ok) {
+            fireToast({ message: res.error, type: "error" });
+            return;
+          }
+          fireToast({
+            message: res.updated > 0 ? `Re-balanced ${res.updated} goal${res.updated === 1 ? "" : "s"} to ${res.budget}.` : `Already at ${res.budget}.`,
+            type: "success",
+          });
+          router.refresh();
+        })
+      }
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}
+      style={{
+        borderColor: "color-mix(in srgb, var(--color-altus-red) 36%, transparent)",
+        background: "color-mix(in srgb, var(--color-altus-red) 8%, transparent)",
+        color: "var(--color-altus-red-deep)",
+      }}
+    >
+      {pending ? <Loader2 size={13} className="animate-spin" /> : <Scale size={13} strokeWidth={2.4} />}
+      Balance to {WEIGHT_BUDGET}
+    </button>
+  );
+}
+
+/** Single-person header bar: live weight budget + Balance-to-100 when off. */
+function WeightBudgetBar({
+  total,
+  employeeId,
+  weekStart,
+  canBalance,
+}: {
+  total: number;
+  employeeId: string;
+  weekStart: string;
+  canBalance: boolean;
+}) {
+  const ok = total === WEIGHT_BUDGET;
+  return (
+    <div
+      className="wg-rise flex items-center gap-3 flex-wrap rounded-xl border px-4 py-2.5"
+      style={{
+        background: "var(--color-surface-card)",
+        borderColor: ok ? "var(--color-hairline)" : "color-mix(in srgb, var(--color-altus-red) 28%, var(--color-hairline))",
+        boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
+        animationDelay: "100ms",
+      }}
+    >
+      <span className="text-[11px] font-bold uppercase tracking-[0.1em]" style={{ color: "var(--color-ink-subtle)" }}>
+        Weight budget
+      </span>
+      <WeightMeter total={total} />
+      {canBalance && !ok && (
+        <span className="ml-auto">
+          <BalanceButton employeeId={employeeId} weekStart={weekStart} />
+        </span>
       )}
     </div>
   );
 }
 
-
 /* ------------------------------------------------------------------ */
-/* Per-member editorial section header                                  */
+/* Per-member section header (admin "all" view)                         */
 /* ------------------------------------------------------------------ */
 
 function MemberHeader({
@@ -522,33 +639,63 @@ function MemberHeader({
   role,
   goalCount,
   score,
+  weightTotal,
+  employeeId,
+  weekStart,
+  canBalance,
+  collapsed,
+  onToggle,
 }: {
   name: string;
   role: string | null;
   goalCount: number;
   score: number;
+  weightTotal: number;
+  employeeId: string;
+  weekStart: string;
+  canBalance: boolean;
+  /** #2 — whether this employee's cards are collapsed (chevron + aria-expanded). */
+  collapsed: boolean;
+  onToggle: () => void;
 }) {
+  const ok = weightTotal === WEIGHT_BUDGET;
   return (
-    <div className="mb-5 flex items-start justify-between gap-4 flex-wrap">
-      {/* Identity: avatar + serif name + role badge + subline */}
-      <div className="flex items-center gap-4 min-w-0">
-        <span
+    <div
+      className="mb-3.5 flex items-center justify-between gap-4 flex-wrap rounded-xl border px-4 py-3"
+      style={{
+        background: "var(--color-surface-card)",
+        borderColor: "var(--color-hairline)",
+        boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
+      }}
+    >
+      {/* Identity: chevron toggle + avatar + name + role badge + subline. The
+          whole identity block is a real <button> that collapses/expands this
+          employee's cards (Enter/Space toggle; aria-expanded reflects state). */}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={!collapsed}
+        aria-label={`${collapsed ? "Expand" : "Collapse"} ${name}'s goals`}
+        className={`flex items-center gap-3 min-w-0 text-left cursor-pointer rounded-lg -m-1 p-1 hover:bg-surface-soft transition-colors ${FOCUS_RING}`}
+      >
+        <ChevronDown
+          size={20}
           aria-hidden
-          className="inline-flex size-12 shrink-0 items-center justify-center rounded-full text-[16px] font-black tabular-nums text-white"
-          style={{ background: EDITORIAL.inkStrong }}
-        >
-          {initialsOf(name)}
-        </span>
+          className="shrink-0 transition-transform motion-reduce:transition-none"
+          style={{
+            color: "var(--color-ink-subtle)",
+            transform: collapsed ? "rotate(-90deg)" : "none",
+          }}
+        />
+        <Avatar name={name} size={42} />
         <div className="min-w-0">
           <div className="flex items-center gap-2.5 flex-wrap">
             <h2
-              className="truncate"
+              className="truncate font-bold"
               style={{
-                fontFamily: SERIF,
-                fontWeight: 600,
-                fontSize: 24,
+                fontSize: 18,
                 lineHeight: 1.1,
-                color: EDITORIAL.inkStrong,
+                color: "var(--color-ink-strong)",
                 letterSpacing: "-0.01em",
               }}
             >
@@ -556,94 +703,66 @@ function MemberHeader({
             </h2>
             {role && (
               <span
-                className="inline-flex items-center rounded-full px-2.5 py-1 text-[10.5px] font-black uppercase tracking-[0.08em]"
+                className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.06em]"
                 style={{
-                  background: EDITORIAL.canvas,
-                  color: EDITORIAL.inkSoft,
-                  border: `1px solid ${EDITORIAL.hairline}`,
+                  background: "var(--color-surface-soft)",
+                  color: "var(--color-ink-soft)",
+                  border: "1px solid var(--color-hairline)",
                 }}
               >
                 {role}
               </span>
             )}
           </div>
-          <p className="mt-1 text-[13.5px] font-semibold" style={{ color: EDITORIAL.inkSubtle }}>
-            {goalCount} {goalCount === 1 ? "goal" : "goals"} · committed Monday
-          </p>
+          <div className="mt-1 flex items-center gap-2.5 flex-wrap">
+            <p className="text-[12.5px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
+              {goalCount} {goalCount === 1 ? "goal" : "goals"}
+            </p>
+            <span aria-hidden style={{ color: "var(--color-hairline-strong)" }}>·</span>
+            <WeightMeter total={weightTotal} />
+          </div>
         </div>
-      </div>
+      </button>
 
-      {/* Weekly score ring (moves below the identity on narrow screens). */}
-      <div className="flex items-center gap-3">
+      {/* Balance-to-100 — rendered OUTSIDE the toggle button (no nested
+          buttons). Stays in the header per spec. */}
+      {canBalance && !ok && weightTotal > 0 && (
+        <BalanceButton employeeId={employeeId} weekStart={weekStart} />
+      )}
+
+      {/* Weekly score */}
+      <div className="flex items-center gap-3 shrink-0">
         <div className="text-right">
           <p
-            className="text-[10.5px] font-black uppercase tracking-[0.1em]"
-            style={{ color: EDITORIAL.inkSubtle }}
+            className="text-[10px] font-bold uppercase tracking-[0.1em]"
+            style={{ color: "var(--color-ink-subtle)" }}
           >
             Weekly Score
           </p>
           <p
             className="tabular-nums leading-none"
             style={{
-              fontFamily: SERIF,
-              fontWeight: 900,
-              fontSize: 34,
-              color: score >= 60 ? "var(--color-altus-red)" : EDITORIAL.inkStrong,
+              fontFamily: "var(--font-display)",
+              fontWeight: 800,
+              fontSize: 28,
+              color: score >= 60 ? "var(--color-green-deep)" : "var(--color-ink-strong)",
             }}
           >
             {score}%
           </p>
         </div>
-        <ScoreRing value={score} size={64} label={`${score}% weekly score for ${name}`} />
+        <ScoreRing value={score} size={52} label={`${score}% weekly score for ${name}`} />
       </div>
     </div>
-  );
-}
-
-function ScorePill({
-  label,
-  score,
-  compact = false,
-}: {
-  label: string;
-  score: number;
-  compact?: boolean;
-}) {
-  const tone = score >= 100 ? "green" : score >= 50 ? "amber" : score > 0 ? "orange" : "slate";
-  return (
-    <span
-      className={`inline-flex items-center gap-2 rounded-full ${compact ? "px-3 py-1" : "px-4 py-2"} font-bold`}
-      style={{
-        background: `color-mix(in srgb, var(--color-${tone}) 12%, transparent)`,
-        color: `var(--color-${tone}-deep)`,
-        border: `1px solid color-mix(in srgb, var(--color-${tone}) 30%, transparent)`,
-        fontSize: compact ? 13 : 14,
-      }}
-    >
-      <span className="font-semibold opacity-80">{label}</span>
-      <span className="tabular-nums font-black">{score}%</span>
-    </span>
   );
 }
 
 function EmptyState() {
   return (
     <div
-      className="wg-rise relative overflow-hidden bg-surface-card rounded-section border border-hairline px-8 py-14 text-center"
+      className="wg-rise relative overflow-hidden rounded-2xl border border-hairline bg-surface-card px-8 py-14 text-center"
       style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
     >
-      {/* faint concentric target rings behind the icon */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-1/2 top-12 -translate-x-1/2 opacity-[0.06]"
-        style={{
-          width: 260,
-          height: 260,
-          borderRadius: "50%",
-          background:
-            "radial-gradient(circle, transparent 38%, var(--color-altus-red) 39%, transparent 41%, transparent 58%, var(--color-altus-red) 59%, transparent 61%)",
-        }}
-      />
       <div className="relative">
         <span
           className="mx-auto mb-4 inline-flex size-16 items-center justify-center rounded-2xl"
@@ -654,18 +773,15 @@ function EmptyState() {
         >
           <Target size={30} strokeWidth={2.2} />
         </span>
-        <h3
-          className="text-ink-strong"
-          style={{ fontFamily: SERIF, fontStyle: "italic", fontWeight: 600, fontSize: 28, letterSpacing: "-0.01em" }}
-        >
+        <h3 className="font-bold text-ink-strong" style={{ fontSize: 22, letterSpacing: "-0.01em" }}>
           No weekly goals yet
         </h3>
         <p
           className="mx-auto mt-2 max-w-[44ch] font-medium"
-          style={{ fontSize: 15.5, lineHeight: 1.5, color: "var(--color-ink-soft)" }}
+          style={{ fontSize: 14.5, lineHeight: 1.5, color: "var(--color-ink-muted)" }}
         >
           Pick a team member from the toolbar above, then add their top priorities
-          for the week — five is the floor, weights total 100.
+          for the week — five is the floor, weights total {WEIGHT_BUDGET}.
         </p>
       </div>
     </div>
@@ -737,15 +853,7 @@ function DeleteGoalDialog({
               <Trash2 size={19} strokeWidth={2.2} />
             </span>
             <div className="min-w-0">
-              <Dialog.Title
-                className="text-ink-strong"
-                style={{
-                  fontFamily: "var(--font-serif)",
-                  fontStyle: "italic",
-                  fontSize: 22,
-                  letterSpacing: "-0.01em",
-                }}
-              >
+              <Dialog.Title className="font-bold text-ink-strong" style={{ fontSize: 19, letterSpacing: "-0.01em" }}>
                 Delete weekly goal?
               </Dialog.Title>
               <Dialog.Description className="text-[14px] text-ink-subtle mt-1" style={{ lineHeight: 1.5 }}>
@@ -775,14 +883,14 @@ function DeleteGoalDialog({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2.5 text-[14px] font-semibold text-ink-soft hover:text-ink-strong transition-colors"
+                  className={`rounded-pill px-4 py-2.5 text-[14px] font-semibold text-ink-soft hover:text-ink-strong transition-colors ${FOCUS_RING}`}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="rounded-pill px-5 py-2.5 text-[14px] font-bold text-white transition-all hover:-translate-y-px"
+                  className={`rounded-pill px-5 py-2.5 text-[14px] font-bold text-white transition-all hover:-translate-y-px ${FOCUS_RING}`}
                   style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
                 >
                   Continue
@@ -802,7 +910,7 @@ function DeleteGoalDialog({
                   if (e.key === "Enter" && confirmable && !pending) performDelete();
                 }}
                 placeholder={name}
-                className="w-full rounded-md border px-3.5 py-2.5 text-[15px] outline-none focus:border-altus-red mb-4"
+                className={`w-full rounded-md border px-3.5 py-2.5 text-[15px] focus:border-altus-red mb-4 ${FOCUS_RING}`}
                 style={{ borderColor: "var(--color-hairline-strong)" }}
               />
               <div className="flex justify-between gap-2">
@@ -810,7 +918,7 @@ function DeleteGoalDialog({
                   type="button"
                   onClick={() => setStep(1)}
                   disabled={pending}
-                  className="px-4 py-2.5 text-[14px] font-semibold text-ink-soft hover:text-ink-strong transition-colors disabled:opacity-50"
+                  className={`rounded-pill px-4 py-2.5 text-[14px] font-semibold text-ink-soft hover:text-ink-strong transition-colors disabled:opacity-50 ${FOCUS_RING}`}
                 >
                   ← Back
                 </button>
@@ -818,7 +926,7 @@ function DeleteGoalDialog({
                   type="button"
                   onClick={performDelete}
                   disabled={!confirmable || pending}
-                  className="inline-flex items-center gap-2 rounded-pill px-5 py-2.5 text-[14px] font-bold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:-translate-y-px"
+                  className={`inline-flex items-center gap-2 rounded-pill px-5 py-2.5 text-[14px] font-bold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:-translate-y-px ${FOCUS_RING}`}
                   style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
                 >
                   {pending && <Loader2 size={14} className="animate-spin" />}

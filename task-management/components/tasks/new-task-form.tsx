@@ -251,8 +251,10 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
       className="flex flex-col gap-5"
       noValidate
     >
-      {/* Client + Subject — paired top row (was two stretched full-width fields) */}
-      <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1 max-md:gap-3">
+      {/* Client + Subject — paired top row (was two stretched full-width fields).
+          items-start so each field keeps its own resting height (the comboboxes
+          don't stretch to match a taller row-mate). */}
+      <div className="grid grid-cols-2 gap-4 items-start max-md:grid-cols-1 max-md:gap-3">
         <Field id="nt-title" label="Client Name" required>
           <Controller
             control={control}
@@ -290,8 +292,9 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
           Date). The old 4-across row squeezed each field to ~170px: the
           multi-doer chips grew an inner scrollbox and the date input
           clipped its own value. Two columns give every field real room;
-          1-col under md. */}
-      <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1 max-md:gap-3">
+          1-col under md. items-start so the Doer field growing downward with
+          chips doesn't stretch its fixed-height row-mate (Initiator/Priority). */}
+      <div className="grid grid-cols-2 gap-4 items-start max-md:grid-cols-1 max-md:gap-3">
         <Field id="nt-initiator" label="Initiator" required>
           <Controller
             control={control}
@@ -304,6 +307,9 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
                 placeholder="Select an employee…"
                 searchPlaceholder="Search employees…"
                 searchable
+                // h-14 matches the .nt-input resting height (Doer / Due Date)
+                // so all four metadata fields look identical at rest.
+                className="h-14"
                 options={employees.map((emp) => ({ value: emp.id, label: emp.name }))}
               />
             )}
@@ -341,6 +347,8 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
                 id="nt-priority"
                 value={field.value}
                 onValueChange={field.onChange}
+                // Match .nt-input resting height (see Initiator above).
+                className="h-14"
                 options={TASK_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
               />
             )}
@@ -570,7 +578,10 @@ function DoerMultiSelect({
           // Grows with its chips — a capped, scrolling field reads as broken
           // (stray scrollbars) and hides who's already selected.
           className="nt-input flex items-center flex-wrap gap-1.5 cursor-text"
-          style={{ minHeight: 46, height: "auto" }}
+          // 56 = the .nt-input resting height (Initiator/Priority Selects set to
+          // h-14, Due Date is a real .nt-input). At rest all four metadata
+          // fields match; the field still grows with chips (height:auto).
+          style={{ minHeight: 56, height: "auto" }}
           onMouseDown={(e) => {
           const t = e.target as HTMLElement;
           if (t.closest("[data-chip-remove]") || t === inputRef.current) return;
@@ -643,6 +654,12 @@ function DoerMultiSelect({
         align="start"
         sideOffset={6}
         onOpenAutoFocus={(e) => e.preventDefault()}
+        // THE fix for the "Doer dropdown won't close / Tab won't advance" bug:
+        // Radix restores focus to the anchored input on close, which re-fires
+        // its onFocus → setOpen(true) (reopen loop) and blocks Tab. The Tab
+        // handler already commits + setOpen(false); preventing the focus
+        // restore lets the menu stay closed and focus move on to Priority.
+        onCloseAutoFocus={(e) => e.preventDefault()}
         onInteractOutside={(e) => {
           if (ref.current?.contains(e.target as Node)) e.preventDefault();
         }}

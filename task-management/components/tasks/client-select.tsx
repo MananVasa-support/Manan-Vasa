@@ -218,7 +218,14 @@ export function ClientSelect({
           ref={triggerRef}
           type="button"
           id={id}
-          onFocus={onFocus}
+          // Typing IS the primary action here: Tab onto the trigger should land
+          // the user ready to type. Open on focus so Radix moves focus into the
+          // search input; closing no longer restores focus to the trigger
+          // (onCloseAutoFocus prevented below), so this can't reopen-loop.
+          onFocus={() => {
+            onFocus?.();
+            setOpen(true);
+          }}
           onBlur={onBlur}
           aria-haspopup="listbox"
           className={(className ? className + " " : "") + "flex items-center justify-between gap-2 text-left cursor-pointer"}
@@ -258,6 +265,10 @@ export function ClientSelect({
       <PopoverContent
         align="start"
         sideOffset={6}
+        // Closing must not bounce focus back to the trigger: with open-on-focus
+        // that would reopen the menu in a loop, and it also blocks Tab from
+        // advancing after a pick. Radix autofocuses the search input on open.
+        onCloseAutoFocus={(e) => e.preventDefault()}
         className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[14rem] overflow-hidden"
       >
         <div className="p-2.5" style={{ borderBottom: "1px solid var(--color-hairline)" }}>

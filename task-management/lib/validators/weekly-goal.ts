@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TASK_PRIORITIES, TASK_STATUSES } from "@/db/enums";
+import { TASK_PRIORITIES, TASK_STATUSES, USER_TASK_STATUSES } from "@/db/enums";
 
 const uuid = z.string().guid("Must be a UUID");
 // week_start is a plain calendar date (Monday). We validate the shape and let
@@ -86,6 +86,36 @@ export const SetPctDoneSchema = z.object({
   pctDone: pct,
 });
 export type SetPctDoneInput = z.input<typeof SetPctDoneSchema>;
+
+/**
+ * Set a goal's `status` to a doer-settable status (owner OR manager). Constrained
+ * to the regular non-approval statuses the doer may set (USER_TASK_STATUSES);
+ * the approval verdicts (approved / not_approved / …) stay manager-only via the
+ * super-admin review panel.
+ */
+export const SetWeeklyGoalStatusSchema = z.object({
+  id: uuid,
+  status: z.enum(USER_TASK_STATUSES),
+});
+export type SetWeeklyGoalStatusInput = z.input<typeof SetWeeklyGoalStatusSchema>;
+
+/**
+ * Owner progress REPORT — the doer's narrative (`explanation`) + evidence
+ * (`linkUrl`). The only content a normal employee may write on their own goal
+ * besides % + status; planning fields stay manager-only. Owner-or-manager gated.
+ */
+export const SetWeeklyGoalReportSchema = z.object({
+  id: uuid,
+  explanation: z.string().trim().max(4000).nullable().optional(),
+  linkUrl: z
+    .string()
+    .trim()
+    .max(2000)
+    .url("Must be a valid URL")
+    .nullable()
+    .optional(),
+});
+export type SetWeeklyGoalReportInput = z.input<typeof SetWeeklyGoalReportSchema>;
 
 /** Carry one goal forward into a later week (defaults to the next week). */
 export const CarryOverSchema = z.object({
