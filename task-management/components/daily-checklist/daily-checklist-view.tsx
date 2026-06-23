@@ -4,7 +4,6 @@ import {
   listPullableGoals,
 } from "@/lib/queries/daily-checklist";
 import { TZ } from "@/lib/weekly-goals/week";
-import { withTimeout } from "@/lib/db/with-timeout";
 import { DayLedger } from "./day-ledger";
 import { DailyPlanGate } from "./daily-plan-gate";
 
@@ -30,18 +29,16 @@ export async function DailyChecklistView({
   let overdue: Awaited<ReturnType<typeof getOverdueItems>> = [];
   let pullable: Awaited<ReturnType<typeof listPullableGoals>> = [];
   try {
-    // Bounded so a hung query (stale pooled connection) can't freeze this view
-    // — which renders inline as the compulsory gate on every page. On timeout we
-    // throw → caught → render the empty (but usable) ledger instead of hanging.
-    [items, overdue, pullable] = await withTimeout(
-      Promise.all([
-        getTodayItems(employeeId),
-        getOverdueItems(employeeId),
-        listPullableGoals(employeeId),
-      ]),
-      12000,
-      "daily-checklist-view",
-    );
+    // Load directly. (A previous hard 12s timeout here turned a slow read into
+    // EMPTY lists — which silently broke the gate: weekly goals stopped pulling
+    // and the carry-forward button vanished. A slow read should just take a
+    // moment and return the real data.) On a genuine error we keep the empty
+    // (but still usable) defaults rather than throwing the inline gate.
+    [items, overdue, pullable] = await Promise.all([
+      getTodayItems(employeeId),
+      getOverdueItems(employeeId),
+      listPullableGoals(employeeId),
+    ]);
   } catch {
     // keep the empty defaults
   }

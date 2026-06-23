@@ -74,6 +74,9 @@ export function middleware(request: NextRequest) {
     // than instantly. Signing-key rotation is still picked up live.
     checkRevoked: false,
     handleValidToken: async (_tokens, headers) => {
+      // Expose the current path to Server Components (layouts can't read it).
+      // The (app) layout uses this to scope the WMS-only daily-loop gates.
+      headers.set("x-pathname", request.nextUrl.pathname);
       return NextResponse.next({ request: { headers } });
     },
     handleInvalidToken: async () => {

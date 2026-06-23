@@ -7,30 +7,24 @@ import { db } from "@/lib/db";
 import { employees, type Employee } from "@/db/schema";
 import { readSession } from "@/lib/auth/session";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
-import { withRetry } from "@/lib/db/with-timeout";
 
 /**
  * Resolves the signed-in employee row, or null if not signed in.
  * Looks up by Firebase UID.  Used inside Server Components / Server Actions.
  *
  * This is the single most-used query in the app — the root layout and every
- * authed request resolve it. It is React-`cache()`d, so the lookup (and the
- * `withRetry` below) runs at most ONCE per request and the healthy result is
- * reused everywhere. We wrap the DB read in `withRetry`: if the root layout's
- * connection is a stale pooled one, the first attempt times out and the second
- * lands on a fresh connection — this is what stops one dead connection in the
- * layout from throwing the whole-app "We hit a snag" boundary.
+ * authed request resolve it. It is React-`cache()`d, so the lookup runs at most
+ * ONCE per request and the healthy result is reused everywhere. We load it
+ * DIRECTLY (no timeout/retry wrapper): a slow read just takes a little longer
+ * and completes — wrapping it in a hard timeout turned slow-but-fine reads into
+ * thrown errors under load, which surfaced as "We hit a snag" / failed actions.
  */
 export const getCurrentEmployee = cache(async (): Promise<Employee | null> => {
   const claims = await readSession();
   if (!claims) return null;
-  const row = await withRetry(
-    () =>
-      db.query.employees.findFirst({
-        where: eq(employees.firebaseUid, claims.uid),
-      }),
-    { attempts: 2, timeoutMs: [4000, 8000], label: "current-employee" },
-  );
+  const row = await db.query.employees.findFirst({
+    where: eq(employees.firebaseUid, claims.uid),
+  });
   return row ?? null;
 });
 
