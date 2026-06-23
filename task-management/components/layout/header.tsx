@@ -43,9 +43,10 @@ export async function DashboardHeader({
           <NavHistoryButtons />
           <MobileMenuServer isAdmin={isAdmin} />
 
-          {/* LEFT: Altus Corp logo. The image is the brand mark — no
-              accompanying text wordmark, the logo already includes the name. */}
-          <a href="/" className="flex items-center shrink-0" aria-label="Altus Corp home">
+          {/* LEFT: Altus Corp logo — doubles as the HUB button (back to the
+              workspace switchboard). The image is the brand mark; the logo
+              already includes the name. */}
+          <a href="/hub" className="flex items-center shrink-0" aria-label="Altus Corp — workspaces hub">
             <img
               src="/logo.png"
               alt="Altus Corp"

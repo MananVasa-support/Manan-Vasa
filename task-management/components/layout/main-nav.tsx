@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -25,11 +24,7 @@ import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
 import { MainNavPill } from "./main-nav-pill";
 import { MainNavGroup } from "./main-nav-group";
-import {
-  WORKSPACE_LABEL,
-  workspaceForPath,
-  type WorkspaceId,
-} from "@/lib/workspaces";
+import { workspaceForPath, type WorkspaceId } from "@/lib/workspaces";
 
 interface Props {
   activeTasks: number;
@@ -191,7 +186,6 @@ export function MainNav({ activeTasks, isAdmin, variant, cookieWorkspace }: Prop
   if (variant === "drawer") {
     return (
       <nav aria-label="Primary" className="flex flex-col gap-1.5 w-full">
-        <WorkspaceSwitcher workspace={workspace} variant="drawer" />
         {topPills.map(renderPill)}
         {groups.map((group) => {
           const items = visible(group.items);
@@ -213,8 +207,6 @@ export function MainNav({ activeTasks, isAdmin, variant, cookieWorkspace }: Prop
       aria-label="Primary"
       className="flex items-center gap-1 2xl:gap-1.5 max-md:gap-1"
     >
-      <WorkspaceSwitcher workspace={workspace} />
-      <span aria-hidden className="nav-group-divider" />
       {topPills.map(renderPill)}
       {moreSections.length > 0 && (
         <>
@@ -228,52 +220,5 @@ export function MainNav({ activeTasks, isAdmin, variant, cookieWorkspace }: Prop
         </>
       )}
     </nav>
-  );
-}
-
-/**
- * The "which room am I in / take me back to the hub" control. Doubles as the
- * workspace label so the user always knows their context. Links to /hub (the
- * switchboard) — the one place to hop rooms. Inline-styled to avoid touching
- * the shared globals.css nav rules.
- */
-function WorkspaceSwitcher({
-  workspace,
-  variant,
-}: {
-  workspace: WorkspaceId;
-  variant?: "drawer";
-}) {
-  const label = WORKSPACE_LABEL[workspace];
-  return (
-    <Link
-      href="/hub"
-      title="Switch workspace"
-      aria-label={`${label} workspace — switch`}
-      className={
-        variant === "drawer"
-          ? "flex items-center gap-2 rounded-xl px-3 py-2.5 font-extrabold"
-          : "inline-flex items-center gap-1.5 rounded-full font-extrabold whitespace-nowrap"
-      }
-      style={
-        variant === "drawer"
-          ? {
-              border: "2px solid var(--color-ink-strong)",
-              color: "var(--color-ink-strong)",
-              fontSize: 14,
-            }
-          : {
-              padding: "6px 12px",
-              fontSize: 13,
-              letterSpacing: "0.01em",
-              color: "#fff",
-              background: "var(--color-ink-strong)",
-              border: "1.5px solid var(--color-ink-strong)",
-            }
-      }
-    >
-      <LayoutGrid size={15} strokeWidth={2.6} aria-hidden />
-      <span>{label}</span>
-    </Link>
   );
 }

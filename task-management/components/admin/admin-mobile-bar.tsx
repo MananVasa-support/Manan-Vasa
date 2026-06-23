@@ -18,6 +18,8 @@ import {
 interface Props {
   adminName: string;
   adminEmail: string;
+  /** Where "Back to app" returns — the workspace the admin came from. */
+  backHref: string;
 }
 
 /**
@@ -26,7 +28,7 @@ interface Props {
  * same nav as the desktop header, but flat with labelled category sections
  * (dropdowns don't belong in a vertical list).
  */
-export function AdminMobileBar({ adminName, adminEmail }: Props) {
+export function AdminMobileBar({ adminName, adminEmail, backHref }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -195,7 +197,7 @@ export function AdminMobileBar({ adminName, adminEmail }: Props) {
                 </div>
               </div>
               <Link
-                href={"/" as Route}
+                href={backHref as Route}
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-ink-soft hover:bg-black/5 transition-colors"
               >
                 <ArrowLeft size={16} strokeWidth={2.2} />

@@ -62,7 +62,9 @@ async function exchangeIdTokenForSession(idToken: string): Promise<void> {
 export function LoginFormGlass() {
   const router = useRouter();
   const params = useSearchParams();
-  const requestedNext = params.get("next") || "/hub";
+  // Always land on the Hub by default; a bare "/" next resolves to /hub too.
+  const rawNext = params.get("next");
+  const requestedNext = !rawNext || rawNext === "/" ? "/hub" : rawNext;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

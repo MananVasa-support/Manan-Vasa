@@ -61,7 +61,11 @@ async function exchangeIdTokenForSession(idToken: string): Promise<void> {
 export function LoginFormCanva() {
   const router = useRouter();
   const params = useSearchParams();
-  const requestedNext = params.get("next") || "/hub";
+  // Always land on the Hub by default. Treat a bare "/" next — what the
+  // middleware appends when you open the root domain — as "no preference" so it
+  // resolves to /hub too; real deep links (?next=/tasks) are still honored.
+  const rawNext = params.get("next");
+  const requestedNext = !rawNext || rawNext === "/" ? "/hub" : rawNext;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

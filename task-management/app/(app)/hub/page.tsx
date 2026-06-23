@@ -12,6 +12,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { canAccessWorkspace, type WorkspaceId } from "@/lib/workspaces";
 import { HubSignOut } from "@/components/hub/hub-signout";
 
 /**
@@ -29,6 +31,8 @@ import { HubSignOut } from "@/components/hub/hub-signout";
 type Card = {
   /** Mono index shown top-left ("01"…"06") — encodes launch order, not decor. */
   index: string;
+  /** Workspace id — drives the entry link and the access check. */
+  ws: WorkspaceId;
   label: string;
   desc: string;
   href: Route;
@@ -47,6 +51,7 @@ type Card = {
 const CARDS: Card[] = [
   {
     index: "01",
+    ws: "admin",
     label: "Admin",
     desc: "People, settings, payroll & the control room.",
     href: "/ws/admin" as Route,
@@ -55,6 +60,7 @@ const CARDS: Card[] = [
   },
   {
     index: "02",
+    ws: "wms",
     label: "WMS",
     desc: "The work dashboard — tasks, goals & the daily loop.",
     href: "/ws/wms" as Route,
@@ -63,6 +69,7 @@ const CARDS: Card[] = [
   },
   {
     index: "03",
+    ws: "employees",
     label: "Employees",
     desc: "Attendance, leave, salary & the team roster.",
     href: "/ws/employees" as Route,
@@ -71,6 +78,7 @@ const CARDS: Card[] = [
   },
   {
     index: "04",
+    ws: "sales",
     label: "Sales",
     desc: "Collections, references & breakthroughs — and more to come.",
     href: "/ws/sales" as Route,
@@ -79,6 +87,7 @@ const CARDS: Card[] = [
   },
   {
     index: "05",
+    ws: "marketing",
     label: "Marketing",
     desc: "The index today — campaigns & reach landing next.",
     href: "/ws/marketing" as Route,
@@ -87,6 +96,7 @@ const CARDS: Card[] = [
   },
   {
     index: "06",
+    ws: "training",
     label: "Training",
     desc: "Onboarding, courses & skills — being built now.",
     href: "/ws/training" as Route,
@@ -99,6 +109,14 @@ const CARDS: Card[] = [
 export default async function HubPage() {
   const me = await requireUser();
   const firstName = me.name.split(" ")[0] ?? me.name;
+
+  // Hide rooms the user can't enter (department-restricted, e.g. Sales). The
+  // /ws and (app)-layout guards enforce this server-side too — this just keeps
+  // a locked door off the switchboard.
+  const sa = isSuperAdmin(me.email);
+  const cards = CARDS.filter((c) =>
+    canAccessWorkspace(c.ws, { department: me.department, isSuperAdmin: sa }),
+  );
 
   return (
     <main className="hub-root">
@@ -135,7 +153,7 @@ export default async function HubPage() {
 
       {/* Switchboard */}
       <section className="hub-grid" aria-label="Workspaces">
-        {CARDS.map((c) => {
+        {cards.map((c) => {
           const inner = (
             <>
               <span className="hub-card-top">

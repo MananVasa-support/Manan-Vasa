@@ -12,6 +12,8 @@ interface Props {
   adminName: string;
   adminEmail: string;
   avatarUrl: string | null;
+  /** Where "Back to app" returns — the workspace the admin came from. */
+  backHref: string;
 }
 
 /**
@@ -20,7 +22,7 @@ interface Props {
  * flips the nav pills to ink-on-light, brand-red accents). Desktop only;
  * `AdminMobileBar` still owns the phone layout.
  */
-export function AdminHeader({ adminName, adminEmail, avatarUrl }: Props) {
+export function AdminHeader({ adminName, adminEmail, avatarUrl, backHref }: Props) {
   const router = useRouter();
 
   async function handleSignOut() {
@@ -89,7 +91,7 @@ export function AdminHeader({ adminName, adminEmail, avatarUrl }: Props) {
           {/* RIGHT: back-to-app · identity · sign out. */}
           <div className="flex items-center gap-2.5 2xl:gap-3 shrink-0">
             <Link
-              href={"/" as Route}
+              href={backHref as Route}
               className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-[13.5px] font-semibold border border-hairline bg-white/70 text-ink-strong hover:border-altus-red transition-colors"
             >
               <ArrowLeft size={15} strokeWidth={2.4} />

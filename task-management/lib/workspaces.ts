@@ -48,6 +48,28 @@ export const WORKSPACE_LANDING: Record<WorkspaceId, string> = {
 export const ACTIVE_WORKSPACE_COOKIE = "aw";
 
 /**
+ * Department-restricted rooms. A user may enter one of these ONLY if they're a
+ * super-admin or their department matches (case-insensitive). Rooms not listed
+ * are open to everyone. Match is against the employee's free-text `department`.
+ */
+export const WORKSPACE_DEPARTMENT: Partial<Record<WorkspaceId, string>> = {
+  sales: "Sales",
+};
+
+export function canAccessWorkspace(
+  ws: WorkspaceId,
+  user: { department?: string | null; isSuperAdmin: boolean },
+): boolean {
+  const required = WORKSPACE_DEPARTMENT[ws];
+  if (!required) return true; // open room
+  if (user.isSuperAdmin) return true;
+  // Contains-match (not strict equality) so real-world values like "Sales Team"
+  // or "Sales & Marketing" still grant access and we don't lock out the people
+  // who belong in the room over a label nuance.
+  return (user.department ?? "").trim().toLowerCase().includes(required.toLowerCase());
+}
+
+/**
  * The workspace that OWNS a path. Used to keep the scoped nav in sync with the
  * page you're actually on (path wins), and as the fallback when the `aw` cookie
  * is absent (cold direct-link / refresh).
