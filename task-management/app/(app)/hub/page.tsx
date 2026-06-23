@@ -13,7 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
-import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { accessFor } from "@/lib/auth/workspace-access";
 import { canAccessWorkspace, type WorkspaceId } from "@/lib/workspaces";
 import { HubSignOut } from "@/components/hub/hub-signout";
 
@@ -114,11 +114,7 @@ export default async function HubPage() {
   // Rooms the user can't enter (Sales = department-gated, Admin = admins only)
   // stay VISIBLE but locked + non-clickable, like a SOON card. Server-side the
   // /ws handler + the destination layouts enforce it too — this is just the door.
-  const access = {
-    department: me.department,
-    isAdmin: me.isAdmin,
-    isSuperAdmin: isSuperAdmin(me.email),
-  };
+  const access = accessFor(me);
 
   return (
     <main className="hub-root">

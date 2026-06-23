@@ -68,11 +68,22 @@ export function canAccessWorkspace(
   // Department-gated rooms (Sales).
   const required = WORKSPACE_DEPARTMENT[ws];
   if (!required) return true; // open room
-  // Contains-match (not strict equality) so real-world values like "Sales Team"
-  // or "Sales & Marketing" still grant access and we don't lock out the people
-  // who belong in the room over a label nuance.
-  return (user.department ?? "").trim().toLowerCase().includes(required.toLowerCase());
+  // WORD-match, not a raw substring: "Sales", "Sales Team", "Sales & Marketing"
+  // and "After-Sales Service" all grant access, but "Salesforce Admin" does NOT
+  // (substring `includes("sales")` wrongly over-granted those). Split on any
+  // non-letters and look for the exact word.
+  const words = (user.department ?? "").toLowerCase().split(/[^a-z]+/);
+  return words.includes(required.toLowerCase());
 }
+
+/**
+ * Rooms that are announced but not yet launched. The hub shows the card (as a
+ * SOON tile) but `/ws/<id>` refuses entry so the `aw` cookie is never set to a
+ * room with no nav.
+ */
+export const WORKSPACE_COMING_SOON: Partial<Record<WorkspaceId, boolean>> = {
+  training: true,
+};
 
 /**
  * The workspace that OWNS a path. Used to keep the scoped nav in sync with the

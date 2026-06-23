@@ -2,19 +2,21 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   ACTIVE_WORKSPACE_COOKIE,
   WORKSPACE_LANDING,
+  WORKSPACE_COMING_SOON,
   isWorkspaceId,
   canAccessWorkspace,
 } from "@/lib/workspaces";
 import { getCurrentEmployee } from "@/lib/auth/current";
-import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { accessFor } from "@/lib/auth/workspace-access";
 
 /**
  * Enter a workspace from the hub.
  *
  * Remembers the chosen room in the `aw` cookie (so the top nav can show ONLY
  * that workspace's modules), then redirects to the workspace's landing page.
- * Unknown ids — or a room the user isn't allowed into (department-restricted,
- * e.g. Sales) — bounce back to the hub. Auth is already enforced upstream by
+ * Bounces back to the hub for: an unknown id, a not-yet-launched room (so the
+ * cookie is never set to a nav-less room), or a room the user isn't allowed into
+ * (Sales = department-gated, Admin = admins only). Auth is enforced upstream by
  * the middleware.
  */
 export async function GET(
@@ -22,19 +24,12 @@ export async function GET(
   ctx: { params: Promise<{ id: string }> },
 ) {
   const { id } = await ctx.params;
-  if (!isWorkspaceId(id)) {
+  if (!isWorkspaceId(id) || WORKSPACE_COMING_SOON[id]) {
     return NextResponse.redirect(new URL("/hub", req.url));
   }
 
   const me = await getCurrentEmployee();
-  const allowed =
-    !!me &&
-    canAccessWorkspace(id, {
-      department: me.department,
-      isAdmin: me.isAdmin,
-      isSuperAdmin: isSuperAdmin(me.email),
-    });
-  if (!allowed) {
+  if (!me || !canAccessWorkspace(id, accessFor(me))) {
     return NextResponse.redirect(new URL("/hub", req.url));
   }
 

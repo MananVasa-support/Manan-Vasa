@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/current";
-import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { accessFor } from "@/lib/auth/workspace-access";
 import { hasUnfilledWeekGoals } from "@/lib/weekly-goals/gate";
 import { needsDailyPlan } from "@/lib/daily-checklist/gate";
 import { WeeklyGoalsFillView } from "@/components/weekly-goals/weekly-goals-fill-view";
@@ -25,21 +25,17 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // Workspace access control: department-restricted rooms (e.g. Sales) are
   // reachable only by super-admins or members of that department. Everyone else
   // is bounced to the hub before the page renders — covers deep links too.
-  if (
-    ws &&
-    !canAccessWorkspace(ws, {
-      department: me.department,
-      isAdmin: me.isAdmin,
-      isSuperAdmin: isSuperAdmin(me.email),
-    })
-  ) {
+  if (ws && !canAccessWorkspace(ws, accessFor(me))) {
     redirect("/hub");
   }
 
-  // The weekly-goals fill + daily-plan gates are WMS daily-loop rituals — they
-  // belong to the WMS workspace only. A user in Employees / Sales / Marketing
-  // (or on a shared surface like /inbox, /admin, the /hub launcher) is NOT gated.
-  if (ws === "wms") {
+  // The weekly-goals fill + daily-plan gates are the daily-loop ritual. Policy:
+  // "once before any workspace" — the ritual is required when entering ANY room
+  // (WMS/Employees/Sales/Marketing), but the hub launcher and shared surfaces
+  // (/inbox, /profile — workspaceForPath === null) are NEVER gated. Because both
+  // checks are day-scoped, once the ritual is done it returns false for the rest
+  // of the day, so the user is never interrupted again mid-room.
+  if (ws) {
     // Mandatory weekly-goals fill gate (design §11). Rendered INLINE (not a
     // redirect) so it can't 404 on a newly-added route. FAIL OPEN: a DB hiccup
     // must never take the app down — on error we simply don't gate this render;
@@ -53,7 +49,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     }
 
     // Mandatory DAILY-PLAN gate (WMS_OVERHAUL_MASTER_PLAN §5.3): commit today's
-    // plan before entering WMS. Same inline render + fail-open discipline.
+    // plan before entering the room. Same inline render + fail-open discipline.
     const mustPlan = await needsDailyPlan(me.id).catch(() => false);
     if (mustPlan) {
       return (

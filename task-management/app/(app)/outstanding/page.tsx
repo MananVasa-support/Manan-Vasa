@@ -17,7 +17,7 @@ import { OutstandingImportDialog } from "@/components/outstanding/import-dialog"
 import Link from "next/link";
 import type { Route } from "next";
 import { Settings2 } from "lucide-react";
-import { requireUser, getCurrentEmployee } from "@/lib/auth/current";
+import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { todayISO, rollingHorizon } from "@/lib/outstanding/horizon";
 import { parseOutstandingFilters } from "@/lib/outstanding/filters";
 import { loadOutstandingDashboard } from "@/lib/queries/outstanding";
@@ -44,9 +44,10 @@ const CYCLE_OPTIONS = OUTSTANDING_CYCLES.map((c) => ({
 
 export default async function OutstandingPage({ searchParams }: PageProps) {
   const sp = await searchParams;
-  await requireUser();
-  const me = await getCurrentEmployee();
-  const isAdmin = me?.isAdmin ?? false;
+  // Sales room — gate the data here too, not just in the (app) layout (which a
+  // route handler / direct hit can bypass). Bounces non-Sales users to /hub.
+  const me = await requireWorkspace("sales");
+  const isAdmin = me.isAdmin;
 
   const today = todayISO();
   const horizon = rollingHorizon(today);

@@ -6,6 +6,7 @@ import { authSessions } from "@/db/schema";
 import { getCurrentEmployee } from "@/lib/auth/current";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
 import { PROFILE_CACHE_TAGS } from "@/lib/cache-tags";
+import { ACTIVE_WORKSPACE_COOKIE } from "@/lib/workspaces";
 
 export const runtime = "nodejs";
 
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
     console.warn("[signout] session resolve failed (non-fatal):", err);
   }
 
-  return removeAuthCookies(req.headers, {
+  const res = removeAuthCookies(req.headers, {
     cookieName: "__session",
     cookieSerializeOptions: {
       path: "/",
@@ -64,4 +65,10 @@ export async function POST(req: Request) {
       maxAge: 0,
     },
   });
+
+  // Also clear the active-workspace cookie — on a shared/kiosk browser it would
+  // otherwise leak the previous user's room scope (aw=sales) to the next signer-
+  // in until they navigate to a room-owning route.
+  res.cookies.set(ACTIVE_WORKSPACE_COOKIE, "", { path: "/", maxAge: 0 });
+  return res;
 }

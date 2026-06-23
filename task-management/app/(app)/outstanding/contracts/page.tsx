@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { ContractList } from "@/components/outstanding/contract-list";
-import { requireAdmin } from "@/lib/auth/current";
+import { requireWorkspaceAdmin } from "@/lib/auth/workspace-access";
 import { listOutstandingContractsAdmin } from "@/lib/queries/outstanding";
 import {
   listOutstandingProducts,
@@ -16,7 +16,7 @@ import { listEmployeeOptions } from "@/lib/queries/employees";
 export const dynamic = "force-dynamic";
 
 export default async function ManageContractsPage() {
-  await requireAdmin();
+  await requireWorkspaceAdmin("sales");
 
   const [contracts, products, entities, modes, employees] = await Promise.all([
     listOutstandingContractsAdmin(),

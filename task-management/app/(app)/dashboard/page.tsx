@@ -9,6 +9,7 @@ import { TopPerformersSection } from "@/components/dashboard/top-performers";
 import { ExecDashboard } from "@/components/dashboard/exec/exec-dashboard";
 import { AgingHeatmap } from "@/components/dashboard/aging-heatmap";
 import { WelcomeHero } from "@/components/dashboard/welcome-hero";
+import { DashboardLoadError } from "@/components/dashboard/dashboard-load-error";
 import { listEmployees } from "@/lib/queries/employees";
 import { listDistinctSubjects } from "@/lib/queries/tasks";
 import { loadDashboardData } from "@/lib/queries/dashboard";
@@ -47,11 +48,22 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   // instead of the company dashboard. `?full=1` opts into the full dashboard.
   const showFullOnMobile = sp.full === "1";
 
-  // One fan-out, awaited directly. Auxiliary reads (My Day, today's tasks,
-  // subjects, my goals) degrade to null/empty on failure so they can never take
-  // down the page; the core rollups load normally.
-  const [allEmployees, data, statusDisplay, myDay, todayTasks, subjects, myGoals] =
-    await Promise.all([
+  // One fan-out, awaited directly (no timeout/retry — that layer was what turned
+  // slow-but-valid reads into failures). Auxiliary reads (My Day, today's tasks,
+  // subjects, my goals) degrade to null/empty so they can never take down the
+  // page. The three CORE reads aren't degradable, so on a genuine error we show
+  // a friendly in-place Retry panel instead of throwing to the global boundary.
+  let loaded: [
+    Awaited<ReturnType<typeof listEmployees>>,
+    Awaited<ReturnType<typeof loadDashboardData>>,
+    Awaited<ReturnType<typeof getStatusDisplayMap>>,
+    Awaited<ReturnType<typeof getMyDayCounts>> | null,
+    Awaited<ReturnType<typeof getMyTodayTasks>> | null,
+    string[],
+    Awaited<ReturnType<typeof listWeekGoalsAsTasks>>,
+  ];
+  try {
+    loaded = await Promise.all([
       listEmployees(),
       loadDashboardData(filters),
       getStatusDisplayMap(),
@@ -62,6 +74,20 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         ? listWeekGoalsAsTasks({ scope: { employeeIds: [me.id] } }).catch(() => [])
         : Promise.resolve([]),
     ]);
+  } catch (err) {
+    console.error("[dashboard] core load failed:", err);
+    return (
+      <>
+        <DashboardHeader generatedAt={new Date()} />
+        <main>
+          <DashboardLoadError />
+        </main>
+        <DashboardFooter />
+      </>
+    );
+  }
+  const [allEmployees, data, statusDisplay, myDay, todayTasks, subjects, myGoals] =
+    loaded;
 
   const statusLabels = Object.fromEntries(
     Object.entries(statusDisplay).map(([k, v]) => [k, v.label]),
