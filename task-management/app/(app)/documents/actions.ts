@@ -83,7 +83,7 @@ async function authorizeDocumentMutation(
  * matters more, layer a `file-type` check on top of this.
  */
 const DISALLOWED_EXTENSIONS =
-  /\.(exe|com|cmd|bat|msi|scr|pif|vbs|js|mjs|cjs|jar|sh|bash|app|dmg|ps1|psm1|reg|hta|cpl|gadget)$/i;
+  /\.(exe|com|cmd|bat|msi|scr|pif|vbs|js|mjs|cjs|jar|sh|bash|app|dmg|ps1|psm1|reg|hta|cpl|gadget|html?|xhtml|svgz?)$/i;
 const DISALLOWED_MIME_TYPES = new Set<string>([
   "application/x-msdownload",
   "application/x-msdos-program",
@@ -93,6 +93,11 @@ const DISALLOWED_MIME_TYPES = new Set<string>([
   "application/x-sh",
   "application/x-shellscript",
   "text/x-shellscript",
+  // Inline-renderable types — served from the signed-URL storage domain they
+  // would execute script (stored XSS). Block at upload so they never land.
+  "text/html",
+  "application/xhtml+xml",
+  "image/svg+xml",
 ]);
 
 function validateUploadShape(file: File): { ok: true } | { ok: false; error: string } {

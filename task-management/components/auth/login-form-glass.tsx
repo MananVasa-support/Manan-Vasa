@@ -74,6 +74,11 @@ export function LoginFormGlass() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    // Long-password DoS guard: reject before any auth work touches it.
+    if (password.length > 128) {
+      setError("That password is too long (max 128 characters).");
+      return;
+    }
     startTransition(async () => {
       try {
         const cred = await signInWithEmailAndPassword(
@@ -383,6 +388,8 @@ function GlassField({
         autoComplete={autoComplete}
         required={required}
         value={value}
+        // Cap input so a megabyte-long paste can't enter state (LPDoS).
+        maxLength={255}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}

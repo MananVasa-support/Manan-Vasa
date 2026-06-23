@@ -87,6 +87,10 @@ export function SetPasswordForm() {
       setError("Password must be at least 8 characters.");
       return;
     }
+    if (pw.length > 128) {
+      setError("Password is too long (max 128 characters).");
+      return;
+    }
     if (pw !== confirm) {
       setError("Passwords don't match yet.");
       return;

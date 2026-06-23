@@ -75,6 +75,11 @@ export function LoginFormCanva() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    // Long-password DoS guard: reject before any auth/hashing work touches it.
+    if (password.length > 128) {
+      setError("That password is too long (max 128 characters).");
+      return;
+    }
     startTransition(async () => {
       try {
         const cred = await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
@@ -264,6 +269,9 @@ function Field({
           required={required}
           value={value}
           placeholder={placeholder}
+          // Hard cap so a pasted megabyte-long password can't even enter state
+          // (long-password DoS). The submit handler enforces the real ≤128 rule.
+          maxLength={255}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}

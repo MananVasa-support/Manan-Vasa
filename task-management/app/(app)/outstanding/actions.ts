@@ -524,7 +524,7 @@ function safeAttachmentName(name: string): string {
 // in the documents server action — replicated here to keep the two upload
 // guards consistent. If documents.ts ever exports it, switch to an import.
 const DISALLOWED_ATTACHMENT_EXTENSIONS =
-  /\.(exe|com|cmd|bat|msi|scr|pif|vbs|js|mjs|cjs|jar|sh|bash|app|dmg|ps1|psm1|reg|hta|cpl|gadget)$/i;
+  /\.(exe|com|cmd|bat|msi|scr|pif|vbs|js|mjs|cjs|jar|sh|bash|app|dmg|ps1|psm1|reg|hta|cpl|gadget|html?|xhtml|svgz?)$/i;
 
 /** Upload a contract/collection attachment (any signed-in employee). */
 export async function uploadOutstandingAttachment(
