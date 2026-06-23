@@ -36,6 +36,27 @@ function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
+/**
+ * Redirect to /login while CLEARING the session cookie. A token that fails
+ * verification/refresh (e.g. its refresh token was revoked on sign-out) must be
+ * dropped here — otherwise the dead-but-decodable cookie keeps /login thinking
+ * the user is signed in, and /login ⟷ app bounce forever. Clearing it lets the
+ * loop self-heal: the next /login render sees no cookie and shows the form.
+ */
+function redirectClearingSession(url: URL): NextResponse {
+  const res = NextResponse.redirect(url);
+  res.cookies.set("__session", "", {
+    path: "/",
+    maxAge: 0,
+    httpOnly: true,
+    sameSite: "lax",
+    secure:
+      process.env.NODE_ENV === "production" &&
+      process.env.ALLOW_INSECURE_COOKIES !== "true",
+  });
+  return res;
+}
+
 export function middleware(request: NextRequest) {
   if (isPublic(request.nextUrl.pathname)) {
     return NextResponse.next();
@@ -89,13 +110,13 @@ export function middleware(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("next", request.nextUrl.pathname);
-      return NextResponse.redirect(url);
+      return redirectClearingSession(url);
     },
     handleError: async (error) => {
       console.error("auth middleware error", error);
       const url = request.nextUrl.clone();
       url.pathname = "/login";
-      return NextResponse.redirect(url);
+      return redirectClearingSession(url);
     },
   });
 }

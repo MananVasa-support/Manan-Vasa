@@ -27,13 +27,20 @@ function firstString(v: string | string[] | undefined): string | undefined {
 }
 
 export default async function LoginPage({ searchParams }: PageProps) {
-  const me = await getCurrentEmployee();
-  if (me && me.isActive) {
-    redirect("/" as Route);
-  }
-
   const sp = await searchParams;
   const reason = firstString(sp["reason"]);
+
+  // Only redirect a genuinely-signed-in user who arrived here CLEANLY. If the
+  // middleware bounced them (it appends ?next=) or the idle timeout sent them
+  // (?reason=idle), DON'T redirect back — that's the /login ⟷ app loop. Always
+  // show the form so a dead/half-valid session can be replaced by a fresh login.
+  const bounced = sp["next"] !== undefined || reason !== undefined;
+  if (!bounced) {
+    const me = await getCurrentEmployee();
+    if (me && me.isActive) {
+      redirect("/" as Route);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden" style={{ background: "#0c0807" }}>
