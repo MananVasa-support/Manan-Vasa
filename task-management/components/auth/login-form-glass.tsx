@@ -62,7 +62,7 @@ async function exchangeIdTokenForSession(idToken: string): Promise<void> {
 export function LoginFormGlass() {
   const router = useRouter();
   const params = useSearchParams();
-  const requestedNext = params.get("next") || "/";
+  const requestedNext = params.get("next") || "/hub";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

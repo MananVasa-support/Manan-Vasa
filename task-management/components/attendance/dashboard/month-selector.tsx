@@ -4,6 +4,10 @@ import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+/** Shared visible focus ring for keyboard users (brand-red on neutral surfaces). */
+const FOCUS_RING =
+  "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-card)]";
+
 const MONTH_LABELS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -45,7 +49,7 @@ export function AttendanceMonthSelector({
         type="button"
         aria-label="Previous month"
         onClick={() => go(year, month - 1)}
-        className="inline-flex items-center justify-center size-9 rounded-md border border-hairline bg-surface-card text-ink-soft hover:text-ink-strong hover:border-hairline-strong transition-colors"
+        className={`inline-flex items-center justify-center size-9 rounded-md border border-hairline bg-surface-card text-ink-soft hover:text-ink-strong hover:border-hairline-strong transition-colors ${FOCUS_RING}`}
       >
         <ChevronLeft size={16} strokeWidth={2.4} />
       </button>
@@ -54,7 +58,7 @@ export function AttendanceMonthSelector({
         value={month}
         aria-label="Month"
         onChange={(e) => go(year, Number(e.target.value))}
-        className="rounded-md border border-hairline bg-surface-card px-3 py-2 text-[14px] font-semibold text-ink-strong"
+        className={`rounded-md border border-hairline bg-surface-card px-3 py-2 text-[14px] font-semibold text-ink-strong ${FOCUS_RING}`}
       >
         {MONTH_LABELS.map((label, i) => (
           <option key={label} value={i + 1}>
@@ -67,7 +71,7 @@ export function AttendanceMonthSelector({
         value={year}
         aria-label="Year"
         onChange={(e) => go(Number(e.target.value), month)}
-        className="rounded-md border border-hairline bg-surface-card px-3 py-2 text-[14px] font-semibold text-ink-strong tabular-nums"
+        className={`rounded-md border border-hairline bg-surface-card px-3 py-2 text-[14px] font-semibold text-ink-strong tabular-nums ${FOCUS_RING}`}
       >
         {years.map((y) => (
           <option key={y} value={y}>
@@ -80,7 +84,7 @@ export function AttendanceMonthSelector({
         type="button"
         aria-label="Next month"
         onClick={() => go(year, month + 1)}
-        className="inline-flex items-center justify-center size-9 rounded-md border border-hairline bg-surface-card text-ink-soft hover:text-ink-strong hover:border-hairline-strong transition-colors"
+        className={`inline-flex items-center justify-center size-9 rounded-md border border-hairline bg-surface-card text-ink-soft hover:text-ink-strong hover:border-hairline-strong transition-colors ${FOCUS_RING}`}
       >
         <ChevronRight size={16} strokeWidth={2.4} />
       </button>

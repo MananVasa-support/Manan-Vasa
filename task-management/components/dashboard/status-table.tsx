@@ -245,9 +245,13 @@ export function StatusTable({
         </div>
       ) : (
         <div
-          className="bg-surface-card rounded-section border border-hairline overflow-x-auto"
+          className="bg-surface-card rounded-section border border-hairline"
           style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
         >
+          {/* NOTE: no `overflow-x-auto` here — an overflow ancestor would make
+              the <thead> stick to THIS box instead of the viewport (the header
+              floated mid-table). Without it, `thead sticky top-[160px]` pins
+              correctly under the app header + filter bar as the page scrolls. */}
           <table className="w-full min-w-[720px]">
             {/* Column labels pin below the sticky app header (96px) + sticky
                 filter bar (~64px) ≈ 160px so they stay visible while the long

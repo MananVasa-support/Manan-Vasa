@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { FilterBar } from "@/components/layout/filter-bar";
@@ -10,6 +11,7 @@ import { ExecDashboard } from "@/components/dashboard/exec/exec-dashboard";
 import { AgingHeatmap } from "@/components/dashboard/aging-heatmap";
 import { WelcomeHero } from "@/components/dashboard/welcome-hero";
 import { DashboardLoadError } from "@/components/dashboard/dashboard-load-error";
+import { DashboardBodySkeleton } from "@/components/dashboard/dashboard-body-skeleton";
 import { listEmployees } from "@/lib/queries/employees";
 import { listDistinctSubjects } from "@/lib/queries/tasks";
 import { loadDashboardData } from "@/lib/queries/dashboard";
@@ -20,7 +22,9 @@ import { getCurrentEmployee } from "@/lib/auth/current";
 import { listWeekGoalsAsTasks } from "@/lib/weekly-goals/as-task-row";
 import { WeeklyGoalTaskGroup } from "@/components/weekly-goals/weekly-goal-task-group";
 import { parseFilters } from "@/lib/filters";
-import { withTimeout } from "@/lib/db/with-timeout";
+import { withRetry } from "@/lib/db/with-timeout";
+import type { DashboardFilters } from "@/lib/types";
+import type { Employee } from "@/db/schema";
 import type { TaskStatus, StatusColorToken } from "@/db/enums";
 
 export const dynamic = "force-dynamic";
@@ -29,10 +33,20 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
+/**
+ * Dashboard. Streaming-first: the page resolves auth (fast, cached, retried)
+ * then renders the header SHELL immediately and streams the data-heavy body in
+ * via <Suspense>. The big fan-out (employees + dashboard rollups + charts +
+ * tables) lives in <DashboardBody>, so the page is NEVER fully blank — the
+ * header paints instantly and the skeleton fills the body until the data lands.
+ */
 export default async function DashboardPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const filters = parseFilters(sp);
 
+  // Auth at the top: fast, React-cache()d, and withRetry-self-healing so a stale
+  // pooled connection here doesn't sink the page. The result is reused by both
+  // the shell and the streamed body (same request → same cached value).
   const me = await getCurrentEmployee().catch(() => null);
 
   // Mobile home: phones open on "Today" (the user's overdue + due-today
@@ -40,6 +54,39 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   // opts back into the full dashboard on mobile; desktop is unaffected.
   const showFullOnMobile = sp.full === "1";
 
+  return (
+    <>
+      {/* Shell — paints instantly, before the fan-out resolves. generatedAt is
+          "now" here; the body re-renders the header context with the real data
+          timestamp once it streams in. */}
+      <DashboardHeader generatedAt={new Date()} />
+      <Suspense fallback={<DashboardBodySkeleton />}>
+        <DashboardBody
+          filters={filters}
+          me={me}
+          showFullOnMobile={showFullOnMobile}
+        />
+      </Suspense>
+      <DashboardFooter />
+    </>
+  );
+}
+
+/**
+ * The data-heavy half of the dashboard. Streamed inside <Suspense> so its
+ * (sometimes slow / retried) fan-out never blocks the header shell from
+ * painting. Preserves the exact fan-out, filter parsing, mobile-Today logic,
+ * and the <DashboardLoadError/> fallback from the original single-pass page.
+ */
+async function DashboardBody({
+  filters,
+  me,
+  showFullOnMobile,
+}: {
+  filters: DashboardFilters;
+  me: Employee | null;
+  showFullOnMobile: boolean;
+}) {
   // Resilience: the dashboard fires many queries against a remote DB. A
   // single transient timeout must NOT crash the whole page. My Day
   // degrades to hidden (.catch → null); a core-data failure renders a
@@ -53,8 +100,14 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   // My Day: this week's goals assigned to ME, pinned above today's tasks
   // (design §10). Display-only; never mixed into the dashboard task KPIs.
   let myGoals: Awaited<ReturnType<typeof listWeekGoalsAsTasks>>;
-  try {
-    [allEmployees, data, statusDisplay, myDay, todayTasks, subjects, myGoals] = await withTimeout(Promise.all([
+
+  // FACTORY (not a bare promise) so withRetry can re-invoke it on a stale
+  // pooled connection: the timed-out attempt stays reserved draining its dead
+  // socket while the retry builds a FRESH Promise.all that postgres-js checks
+  // out on a different, healthy connection. Each per-call .catch degrader is
+  // preserved so an auxiliary failure never takes down the whole dashboard.
+  const loadAll = () =>
+    Promise.all([
       listEmployees(),
       loadDashboardData(filters),
       getStatusDisplayMap(),
@@ -69,17 +122,21 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       me
         ? listWeekGoalsAsTasks({ scope: { employeeIds: [me.id] } }).catch(() => [])
         : Promise.resolve([]),
-    ]), 18000, "dashboard-load");
+    ]);
+
+  try {
+    [allEmployees, data, statusDisplay, myDay, todayTasks, subjects, myGoals] =
+      await withRetry(loadAll, {
+        attempts: 2,
+        timeoutMs: [6000, 12000],
+        label: "dashboard-load",
+      });
   } catch (err) {
     console.error("[dashboard] data load failed:", err);
     return (
-      <>
-        <DashboardHeader generatedAt={new Date()} />
-        <main>
-          <DashboardLoadError />
-        </main>
-        <DashboardFooter />
-      </>
+      <main>
+        <DashboardLoadError />
+      </main>
     );
   }
 
@@ -111,7 +168,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   return (
     <>
-      <DashboardHeader generatedAt={data.generatedAt} />
       {/* Sticky filter bar: the app header is `sticky top-0` and stays on
           screen (96px tall desktop / 72px mobile), so the filter bar pins
           just below it. A cream-glass surface + backdrop-blur lets dashboard
@@ -197,7 +253,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </>
         )}
       </main>
-      <DashboardFooter />
     </>
   );
 }

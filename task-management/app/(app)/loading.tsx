@@ -1,5 +1,5 @@
-import { Skeleton } from "@/components/ui/skeleton";
 import { PageBuffering } from "@/components/ui/spinner";
+import { DashboardBodySkeleton } from "@/components/dashboard/dashboard-body-skeleton";
 
 /**
  * Dashboard skeleton — sits behind `/` while the server component
@@ -14,21 +14,7 @@ export default function DashboardLoading() {
     <>
       <PageBuffering label="Loading…" />
       <div className="sticky top-0 z-40 h-[96px] max-md:h-[72px] border-b border-[color:var(--color-hairline,#e5e7eb)] bg-white/70 backdrop-blur" />
-
-      <main className="px-6 max-md:px-4 py-6 max-w-[1600px] mx-auto w-full">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 w-full rounded-xl" />
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-          <Skeleton className="h-72 w-full rounded-xl" />
-          <Skeleton className="h-72 w-full rounded-xl" />
-        </div>
-
-        <Skeleton className="h-64 w-full rounded-xl" />
-      </main>
+      <DashboardBodySkeleton />
     </>
   );
 }

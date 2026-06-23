@@ -1,5 +1,6 @@
 import "server-only";
 import { eq } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { orgSettings, type OrgSettings } from "@/db/schema";
 import { withTimeoutOr } from "@/lib/db/with-timeout";
@@ -44,12 +45,27 @@ const DEFAULTS: OrgSettings = {
   updatedById: null,
 };
 
+// Cross-user single-row read hit on EVERY authed page. There is no per-user or
+// filter dimension, so we can cache it process-wide with a short TTL and serve
+// almost every request from the data cache instead of the DB — directly cutting
+// cold fan-out round-trips on the dashboard load path. unstable_cache serialises
+// the result; OrgSettings has Date fields (`updatedAt`), but they are not read
+// by any caller on the hot path (only label/threshold/timezone scalars are), so
+// the Date→string round-trip is harmless here.
+const fetchOrgSettings = unstable_cache(
+  async (): Promise<OrgSettings[]> =>
+    db.select().from(orgSettings).where(eq(orgSettings.id, 1)).limit(1),
+  ["org-settings:v1"],
+  { revalidate: 60 },
+);
+
 export async function getOrgSettings(): Promise<OrgSettings> {
   // Read in the app layout on every authed page, so a hang here would freeze the
-  // whole app. Bound it and fall back to DEFAULTS on timeout/error (a stale
-  // pooled connection must never block rendering).
+  // whole app. Bound the (cached) read and fall back to DEFAULTS on timeout/error
+  // — a cache MISS still goes to the DB, so a stale pooled connection on that miss
+  // must never block rendering.
   const rows = await withTimeoutOr(
-    db.select().from(orgSettings).where(eq(orgSettings.id, 1)).limit(1),
+    fetchOrgSettings(),
     5000,
     [] as OrgSettings[],
     "org-settings",

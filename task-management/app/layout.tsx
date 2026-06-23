@@ -72,7 +72,12 @@ export default async function RootLayout({
   // Profile v2 — stamp density + accent from the user's prefs. Theme is
   // intentionally light-only (no dark mode); the `theme` column on
   // employees is kept but unused.
-  const me = await getCurrentEmployee();
+  // Defense in depth: there is NO error boundary above the root layout, so a
+  // genuine DB failure here would crash the entire app shell. `getCurrentEmployee`
+  // already self-heals a stale connection via withRetry; if it STILL throws we
+  // fall back to null → default prefs render instead of a hard crash. The (app)
+  // layout's requireUser still enforces auth/redirect downstream.
+  const me = await getCurrentEmployee().catch(() => null);
   const density = me?.density ?? "cozy";
   // Map the user's accent onto the brand accent CSS variables the whole app
   // consumes (--color-altus-red*, --vp-cyan*). For the default red this

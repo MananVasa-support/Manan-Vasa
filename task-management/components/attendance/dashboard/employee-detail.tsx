@@ -26,6 +26,10 @@ import {
   type LeaveKind,
   type PunchReason,
 } from "@/db/enums";
+
+/** Shared visible focus ring for keyboard users (brand-red on neutral surfaces). */
+const FOCUS_RING =
+  "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-card)]";
 import type { CompOffRow } from "@/lib/queries/comp-off";
 import type {
   DayRow,
@@ -193,22 +197,25 @@ export function EmployeeDetailDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/30 z-[90]" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[100] -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl rounded-xl bg-white border border-[#E2E8F0] p-6 shadow-lg max-h-[calc(100dvh-32px)] overflow-y-auto">
+        <Dialog.Overlay className="fixed inset-0 bg-black/40 z-[90] backdrop-blur-[1px]" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[100] -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl rounded-section bg-surface-card border border-hairline p-6 max-md:p-4 shadow-xl max-h-[calc(100dvh-32px)] overflow-y-auto">
           <div className="flex items-start justify-between gap-4 mb-4">
-            <div>
-              <Dialog.Title className="font-serif text-xl text-[#0F172A]">
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-ink-subtle font-bold">
+                Daily log · {monthLabel}
+              </div>
+              <Dialog.Title className="font-serif text-xl text-ink-strong mt-0.5 truncate">
                 {employeeName}
               </Dialog.Title>
-              <Dialog.Description className="text-[14px] text-[#64748B] mt-0.5">
-                Daily attendance · {monthLabel} · admin can edit / backfill any day
+              <Dialog.Description className="text-[13px] text-ink-subtle mt-0.5">
+                Admin can edit / backfill any day, mark leave, and manage comp-off.
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
               <button
                 type="button"
                 aria-label="Close"
-                className="size-9 inline-flex items-center justify-center rounded-full hover:bg-[#F1F5F9] text-[#64748B] hover:text-[#0F172A] transition-colors"
+                className={`size-9 inline-flex items-center justify-center rounded-full hover:bg-surface-track text-ink-subtle hover:text-ink-strong transition-colors shrink-0 ${FOCUS_RING}`}
               >
                 <X size={18} strokeWidth={2.2} />
               </button>
@@ -220,7 +227,14 @@ export function EmployeeDetailDialog({
               Loading daily log…
             </p>
           ) : error ? (
-            <div className="rounded-lg border border-[#FECACA] bg-[#FEF2F2] p-3 text-[14px] text-[#A80400]">
+            <div
+              className="rounded-lg border p-3 text-[14px] font-semibold"
+              style={{
+                borderColor: "color-mix(in srgb, var(--color-red) 30%, transparent)",
+                background: "var(--color-red-bg)",
+                color: "var(--color-red-deep)",
+              }}
+            >
               {error}
             </div>
           ) : data ? (
@@ -307,7 +321,7 @@ export function EmployeeDetailDialog({
                               <button
                                 type="button"
                                 onClick={() => setEditingDate(d.logDate)}
-                                className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-1.5 px-2.5 text-[12px] font-semibold text-ink-soft hover:text-ink-strong hover:border-hairline-strong transition-colors"
+                                className={`inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-1.5 px-2.5 text-[12px] font-semibold text-ink-soft hover:text-ink-strong hover:border-hairline-strong transition-colors ${FOCUS_RING}`}
                               >
                                 {d.inAt || d.outAt ? (
                                   <>
@@ -506,7 +520,7 @@ function EditRow({
             type="button"
             disabled={busy}
             onClick={save}
-            className="inline-flex items-center gap-1.5 rounded-md bg-altus-red py-1.5 px-3 text-[12px] font-bold text-white disabled:opacity-60 transition-opacity"
+            className={`inline-flex items-center gap-1.5 rounded-md bg-altus-red py-1.5 px-3 text-[12px] font-bold text-white disabled:opacity-60 transition-opacity ${FOCUS_RING}`}
           >
             <Check size={13} strokeWidth={2.6} /> Save
           </button>
@@ -514,7 +528,7 @@ function EditRow({
             type="button"
             disabled={busy}
             onClick={onCancel}
-            className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-1.5 px-3 text-[12px] font-semibold text-ink-soft hover:text-ink-strong transition-colors disabled:opacity-60"
+            className={`inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-1.5 px-3 text-[12px] font-semibold text-ink-soft hover:text-ink-strong transition-colors disabled:opacity-60 ${FOCUS_RING}`}
           >
             Cancel
           </button>
@@ -557,7 +571,7 @@ function ConvertButton({
       disabled={busy}
       onClick={run}
       title="Convert this worked holiday / weekly-off to a redeemable comp-off"
-      className="inline-flex items-center gap-1.5 rounded-md border py-1.5 px-2.5 text-[12px] font-semibold transition-colors disabled:opacity-60"
+      className={`inline-flex items-center gap-1.5 rounded-md border py-1.5 px-2.5 text-[12px] font-semibold transition-colors disabled:opacity-60 ${FOCUS_RING}`}
       style={{
         borderColor: "var(--color-teal)",
         color: "var(--color-teal-deep)",
@@ -739,7 +753,7 @@ function LeaveCompOffPanel({
             type="button"
             disabled={busy}
             onClick={markLeave}
-            className="mt-2.5 inline-flex items-center gap-1.5 rounded-md bg-altus-red py-1.5 px-3 text-[12px] font-bold text-white disabled:opacity-60 transition-opacity"
+            className={`mt-2.5 inline-flex items-center gap-1.5 rounded-md bg-altus-red py-1.5 px-3 text-[12px] font-bold text-white disabled:opacity-60 transition-opacity ${FOCUS_RING}`}
           >
             <Check size={13} strokeWidth={2.6} /> Mark leave
           </button>
@@ -785,7 +799,7 @@ function LeaveCompOffPanel({
                 type="button"
                 disabled={busy}
                 onClick={redeem}
-                className="mt-2.5 inline-flex items-center gap-1.5 rounded-md py-1.5 px-3 text-[12px] font-bold text-white disabled:opacity-60 transition-opacity"
+                className={`mt-2.5 inline-flex items-center gap-1.5 rounded-md py-1.5 px-3 text-[12px] font-bold text-white disabled:opacity-60 transition-opacity ${FOCUS_RING}`}
                 style={{ background: "var(--color-teal-deep)" }}
               >
                 <Gift size={13} strokeWidth={2.4} /> Redeem

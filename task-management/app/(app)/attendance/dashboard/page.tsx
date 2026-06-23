@@ -71,14 +71,14 @@ export default async function AttendanceDashboardPage({ searchParams }: PageProp
                 respond with an attachment Content-Disposition. */}
             <a
               href={`/attendance/export.xlsx?y=${year}&m=${month}`}
-              className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2.5 px-4 text-[14px] font-semibold text-ink-strong hover:border-hairline-strong transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2.5 px-4 text-[14px] font-semibold text-ink-strong hover:border-hairline-strong transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1"
             >
               <FileSpreadsheet size={15} strokeWidth={2.2} />
               Export Excel
             </a>
             <a
               href={`/attendance/export.pdf?y=${year}&m=${month}`}
-              className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2.5 px-4 text-[14px] font-semibold text-ink-strong hover:border-hairline-strong transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2.5 px-4 text-[14px] font-semibold text-ink-strong hover:border-hairline-strong transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1"
             >
               <FileText size={15} strokeWidth={2.2} />
               Export PDF

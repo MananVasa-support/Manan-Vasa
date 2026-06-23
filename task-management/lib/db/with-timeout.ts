@@ -61,3 +61,50 @@ export async function withTimeoutOr<T>(
     return fallback;
   }
 }
+
+/**
+ * Retry a DB unit-of-work under a per-attempt {@link withTimeout}, self-healing
+ * a stale pooled connection.
+ *
+ * Why a FACTORY and not a single promise: against the Supabase transaction
+ * pooler a warm instance can be handed a connection the pooler already bounced.
+ * A query on that dead socket never settles — `withTimeout` turns the hang into
+ * a rejection, but the underlying postgres-js Promise stays pinned to the SAME
+ * dead connection (it's still "draining" on the abandoned socket). Re-awaiting it
+ * would just hang again. So on retry we call `make()` AGAIN to build a FRESH
+ * query promise; postgres-js then checks out a DIFFERENT connection from the
+ * pool (the timed-out one is still reserved draining), which is healthy — the
+ * retry lands clean. This is the dead-pooled-connection self-heal.
+ *
+ * `timeoutMs` may be a single number (same budget every attempt) or a per-attempt
+ * array (e.g. `[6000, 12000]` — short first try, longer second). When the array
+ * is shorter than `attempts`, the last value is reused. Defaults: attempts=2.
+ * Throws the last error if every attempt fails (callers keep their own fallback).
+ */
+export async function withRetry<T>(
+  make: () => Promise<T> | PromiseLike<T>,
+  opts: { attempts?: number; timeoutMs: number | number[]; label?: string },
+): Promise<T> {
+  const attempts = Math.max(1, opts.attempts ?? 2);
+  const label = opts.label ?? "query";
+  const budgets = Array.isArray(opts.timeoutMs) ? opts.timeoutMs : [opts.timeoutMs];
+  // Always have a usable budget even if a caller passes an empty array.
+  const lastBudget = budgets[budgets.length - 1] ?? 8000;
+
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    const ms = budgets[Math.min(i, budgets.length - 1)] ?? lastBudget;
+    try {
+      // Fresh factory call each attempt → fresh promise → fresh connection.
+      return await withTimeout(make(), ms, label);
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) {
+        console.warn(
+          `[db-retry] ${label} attempt ${i + 1}/${attempts} failed (${(err as Error)?.message ?? err}); retrying on a fresh connection`,
+        );
+      }
+    }
+  }
+  throw lastErr;
+}
