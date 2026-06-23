@@ -70,7 +70,7 @@ export function SetPasswordForm() {
         // time the user clicks submit, the dashboard's RSC payload is already
         // warm in the Next client cache, so step 5 (router.replace) is
         // an instant transition instead of a fresh round-trip.
-        router.prefetch("/" as Route);
+        router.prefetch("/hub" as Route);
       })
       .catch((err) => {
         setStatus("error");
@@ -119,7 +119,7 @@ export function SetPasswordForm() {
           });
           if (!res.ok) throw new Error("session-exchange-failed");
           setStatus("done");
-          router.replace("/" as Route);
+          router.replace("/hub" as Route);
         } catch (signInErr) {
           // Password was set, but auto-sign-in failed — fall back to
           // sending the user to /login with their password ready.

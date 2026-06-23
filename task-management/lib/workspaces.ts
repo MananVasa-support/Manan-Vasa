@@ -36,7 +36,7 @@ export const WORKSPACE_LABEL: Record<WorkspaceId, string> = {
 
 /** Where each card drops you when you enter the workspace. */
 export const WORKSPACE_LANDING: Record<WorkspaceId, string> = {
-  wms: "/",
+  wms: "/dashboard",
   admin: "/admin",
   employees: "/attendance",
   sales: "/outstanding",
@@ -79,11 +79,12 @@ export function canAccessWorkspace(
  * whatever workspace you came in through (the cookie) instead of snapping.
  */
 export function workspaceForPath(pathname: string): WorkspaceId | null {
-  if (pathname === "/") return "wms";
+  // "/" is the hub launcher (redirects to /hub) — it belongs to no workspace.
   const p = pathname;
 
-  // WMS — the work loop
+  // WMS — the work loop (the dashboard now lives at /dashboard)
   if (
+    p.startsWith("/dashboard") ||
     p.startsWith("/tasks") ||
     p.startsWith("/projects") ||
     p.startsWith("/weekly-goals") ||

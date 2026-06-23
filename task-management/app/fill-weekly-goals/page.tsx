@@ -26,7 +26,7 @@ export default async function FillWeeklyGoalsPage() {
   const goals = await listUnfilledWeekGoals(me.id);
 
   if (goals.length === 0) {
-    redirect("/" as Route);
+    redirect("/dashboard" as Route);
   }
 
   const weekStart = currentWeekStart();

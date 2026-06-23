@@ -16,7 +16,7 @@ const DEFAULTS: OrgSettings = {
   companyName: "Altus Corp",
   logoUrl: null,
   digestHourIst: 9,
-  idleTimeoutMinutes: 10,
+  idleTimeoutMinutes: 15,
   workingDays: [1, 2, 3, 4, 5],
   timezone: "Asia/Kolkata",
   allowSelfRegister: false,

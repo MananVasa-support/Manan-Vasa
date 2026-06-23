@@ -74,6 +74,12 @@ export function middleware(request: NextRequest) {
     // than instantly. Signing-key rotation is still picked up live.
     checkRevoked: false,
     handleValidToken: async (_tokens, headers) => {
+      // The app root is the HUB. Send authed users hitting "/" straight to
+      // /hub (the WMS dashboard lives at /dashboard now) — before the (app)
+      // layout even runs.
+      if (request.nextUrl.pathname === "/") {
+        return NextResponse.redirect(new URL("/hub", request.url));
+      }
       // Expose the current path to Server Components (layouts can't read it).
       // The (app) layout uses this to scope the WMS-only daily-loop gates.
       headers.set("x-pathname", request.nextUrl.pathname);

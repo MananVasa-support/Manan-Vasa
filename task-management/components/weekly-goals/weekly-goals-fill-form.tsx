@@ -74,7 +74,7 @@ export function WeeklyGoalsFillForm({ goals, weekLabel, greetingName }: Props) {
         }
       }
       fireToast({ message: "Weekly goals filled — welcome back.", type: "success" });
-      router.replace("/" as Route);
+      router.replace("/dashboard" as Route);
       router.refresh();
     });
   }

@@ -73,7 +73,7 @@ interface WorkspaceNav {
 const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
   wms: {
     top: [
-      { href: "/" as Route, label: "Dashboard", Icon: LayoutDashboard, exact: true },
+      { href: "/dashboard" as Route, label: "Dashboard", Icon: LayoutDashboard, exact: true },
       { href: "/tasks/agenda" as Route, label: "My Day", Icon: CalendarDays },
       {
         href: "/tasks" as Route,

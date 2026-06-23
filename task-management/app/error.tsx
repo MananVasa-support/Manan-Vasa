@@ -67,7 +67,7 @@ export default function ErrorBoundary({
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
           <Link
-            href="/"
+            href="/dashboard"
             className="text-cta text-white px-6 py-3 rounded-chip inline-flex items-center gap-2"
             style={{
               background:
