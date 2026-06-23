@@ -19,6 +19,7 @@ import {
   FileText,
   ShieldCheck,
   Handshake,
+  GraduationCap,
   LayoutGrid,
 } from "lucide-react";
 import type { Route } from "next";
@@ -133,7 +134,10 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
     top: [{ href: "/admin" as Route, label: "Admin Panel", Icon: ShieldCheck }],
     groups: [],
   },
-  training: { top: [], groups: [] },
+  training: {
+    top: [{ href: "/training" as Route, label: "Training Centre", Icon: GraduationCap }],
+    groups: [],
+  },
 };
 
 export function MainNav({ activeTasks, isAdmin, variant, cookieWorkspace }: Props) {

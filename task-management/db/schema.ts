@@ -491,6 +491,170 @@ export const pgIntroductions = pgTable(
 export type PgIntroduction = typeof pgIntroductions.$inferSelect;
 export type PgLookupRow = typeof pgReferenceSources.$inferSelect;
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * TRAINING CENTRE — material library + test engine + induction + feedback CRM.
+ * Open to all employees (watch + take tests); managers/admins author + review.
+ * Lives in the Training workspace. Lookups soft-delete via is_active so removed
+ * options stay joinable on historical rows. Multi-employee/department links use
+ * uuid[] arrays (resolved to names in-app from the already-loaded roster).
+ * ────────────────────────────────────────────────────────────────────────── */
+
+export const tcSubjects = pgTable(
+  "tc_subjects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("tc_subjects_active_idx").on(t.isActive, t.sortOrder, t.name)],
+);
+
+export const tcServices = pgTable(
+  "tc_services",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("tc_services_active_idx").on(t.isActive, t.sortOrder, t.name)],
+);
+
+export const tcMaterials = pgTable(
+  "tc_materials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    addedOn: date("added_on").notNull().default(sql`CURRENT_DATE`),
+    subjectId: uuid("subject_id").references(() => tcSubjects.id, { onDelete: "set null" }),
+    los: text("los"), // List of Subjects — the grouping/classification
+    // Either an uploaded file (PDF / xls / short video) OR an external video URL.
+    filePath: text("file_path"),
+    fileName: text("file_name"),
+    fileType: text("file_type"), // video | pdf | xls
+    videoUrl: text("video_url"),
+    notes: text("notes"),
+    version: text("version"),
+    versionNotes: text("version_notes"),
+    createdByIds: uuid("created_by_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    assistedByIds: uuid("assisted_by_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    partOfInduction: boolean("part_of_induction").notNull().default(false),
+    inductionDeptIds: uuid("induction_dept_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("tc_materials_subject_idx").on(t.subjectId),
+    index("tc_materials_induction_idx").on(t.partOfInduction),
+    index("tc_materials_created_idx").on(t.createdAt),
+  ],
+);
+
+// Each material has up to two tests: kind 1 (pass ≥80%) and kind 2 (pass ≥75%).
+export const tcTests = pgTable(
+  "tc_tests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    materialId: uuid("material_id").notNull().references(() => tcMaterials.id, { onDelete: "cascade" }),
+    kind: integer("kind").notNull(), // 1 = primary (80%), 2 = harder (75%)
+    title: text("title"),
+    passMark: integer("pass_mark").notNull(), // percentage
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("tc_tests_material_kind_uq").on(t.materialId, t.kind)],
+);
+
+export const tcQuestions = pgTable(
+  "tc_questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    testId: uuid("test_id").notNull().references(() => tcTests.id, { onDelete: "cascade" }),
+    type: text("type").notNull(), // mcq | fill_blank
+    prompt: text("prompt").notNull(),
+    options: jsonb("options").$type<string[]>().notNull().default(sql`'[]'::jsonb`), // mcq choices
+    // mcq: indices of correct option(s); fill_blank: array of acceptable answers
+    correctAnswers: jsonb("correct_answers").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    marks: integer("marks").notNull().default(1),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("tc_questions_test_idx").on(t.testId, t.position)],
+);
+
+export const tcAttempts = pgTable(
+  "tc_attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    testId: uuid("test_id").notNull().references(() => tcTests.id, { onDelete: "cascade" }),
+    employeeId: uuid("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    score: integer("score").notNull(), // percentage 0-100
+    passed: boolean("passed").notNull(),
+    answers: jsonb("answers").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    takenAt: timestamp("taken_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("tc_attempts_emp_test_idx").on(t.employeeId, t.testId, t.takenAt)],
+);
+
+// One row per (employee, material) recording when they watched it.
+export const tcWatchProgress = pgTable(
+  "tc_watch_progress",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    materialId: uuid("material_id").notNull().references(() => tcMaterials.id, { onDelete: "cascade" }),
+    employeeId: uuid("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    watchedAt: timestamp("watched_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("tc_watch_material_emp_uq").on(t.materialId, t.employeeId)],
+);
+
+export const tcFeedback = pgTable(
+  "tc_feedback",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    feedbackDate: date("feedback_date").notNull().default(sql`CURRENT_DATE`),
+    // The person being rated — a staff member (FK) and/or a free-text name.
+    ratedEmployeeId: uuid("rated_employee_id").references(() => employees.id, { onDelete: "set null" }),
+    ratedName: text("rated_name"),
+    clientName: text("client_name"),
+    serviceId: uuid("service_id").references(() => tcServices.id, { onDelete: "set null" }),
+    type: text("type").notNull(), // consultant | trainer | in_call
+    rating: integer("rating"), // 1-5
+    q1: text("q1"),
+    q2: text("q2"),
+    voiceNotePath: text("voice_note_path"),
+    voiceTranscript: text("voice_transcript"),
+    picturePath: text("picture_path"),
+    escalate: boolean("escalate").notNull().default(false),
+    escalatedToId: uuid("escalated_to_id").references(() => employees.id, { onDelete: "set null" }),
+    resolution: boolean("resolution").notNull().default(false),
+    resolutionHow: text("resolution_how"),
+    signedOff: boolean("signed_off").notNull().default(false),
+    signedOffById: uuid("signed_off_by_id").references(() => employees.id, { onDelete: "set null" }),
+    signedOffAt: timestamp("signed_off_at", { withTimezone: true }),
+    archived: boolean("archived").notNull().default(false),
+    status: text("status").notNull().default("open"), // open|escalated|resolved|signed_off|archived
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("tc_feedback_status_idx").on(t.status),
+    index("tc_feedback_created_idx").on(t.createdAt),
+    index("tc_feedback_service_idx").on(t.serviceId),
+  ],
+);
+
+export type TcMaterial = typeof tcMaterials.$inferSelect;
+export type TcQuestion = typeof tcQuestions.$inferSelect;
+export type TcFeedback = typeof tcFeedback.$inferSelect;
+
 /**
  * Subjects — canonical list backing the "Subject" picker on the task forms.
  * Mirrors the `clients` pattern exactly: an admin/seed-managed list that the

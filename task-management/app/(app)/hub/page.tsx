@@ -99,11 +99,10 @@ const CARDS: Card[] = [
     index: "06",
     ws: "training",
     label: "Training",
-    desc: "Onboarding, courses & skills — being built now.",
+    desc: "Material library, tests, induction & feedback.",
     href: "/ws/training" as Route,
     Icon: GraduationCap,
     tone: "hub-purple",
-    soon: true,
   },
 ];
 

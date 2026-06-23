@@ -41,8 +41,7 @@ export const WORKSPACE_LANDING: Record<WorkspaceId, string> = {
   employees: "/attendance",
   sales: "/outstanding",
   marketing: "/index-hub",
-  // No live training surface yet — the card is SOON and never linked here.
-  training: "/",
+  training: "/training",
 };
 
 export const ACTIVE_WORKSPACE_COOKIE = "aw";
@@ -81,9 +80,7 @@ export function canAccessWorkspace(
  * SOON tile) but `/ws/<id>` refuses entry so the `aw` cookie is never set to a
  * room with no nav.
  */
-export const WORKSPACE_COMING_SOON: Partial<Record<WorkspaceId, boolean>> = {
-  training: true,
-};
+export const WORKSPACE_COMING_SOON: Partial<Record<WorkspaceId, boolean>> = {};
 
 /**
  * The workspace that OWNS a path. Used to keep the scoped nav in sync with the
@@ -133,6 +130,9 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
 
   // Marketing
   if (p.startsWith("/index-hub")) return "marketing";
+
+  // Training
+  if (p.startsWith("/training")) return "training";
 
   // Shared / unknown — keep the caller's current workspace.
   return null;
