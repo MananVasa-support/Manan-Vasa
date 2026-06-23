@@ -38,7 +38,7 @@ import {
   sendCredentialsEmail,
 } from "@/lib/email/resend";
 import { siteUrl } from "@/lib/site-url";
-import { DEFAULT_INVITE_PASSWORD } from "@/lib/auth/default-password";
+import { generateInvitePassword } from "@/lib/auth/default-password";
 
 /** Run an async function up to `tries` times with linear backoff. Throws
  *  the last error if all attempts fail. */
@@ -172,13 +172,15 @@ export async function inviteEmployee(input: InviteEmployeeInput): Promise<{
     return { ok: false, error: "An employee with this email already exists." };
   }
 
-  // 1. Create Firebase user
+  // 1. Create Firebase user with a fresh per-invite password (same value is
+  //    emailed below — no shared default credential).
   const auth = getFirebaseAdminAuth();
+  const invitePassword = generateInvitePassword();
   let fbUid: string;
   try {
     const fbUser = await auth.createUser({
       email: parsed.email,
-      password: DEFAULT_INVITE_PASSWORD,
+      password: invitePassword,
       emailVerified: true,
       disabled: false,
     });
@@ -285,7 +287,7 @@ export async function inviteEmployee(input: InviteEmployeeInput): Promise<{
       email:       parsed.email,
       inviteeName: parsed.name,
       inviterName: me.name,
-      password:    DEFAULT_INVITE_PASSWORD,
+      password:    invitePassword,
       loginUrl:    `${siteUrl()}/login`,
     });
     if (sendError) {
@@ -595,12 +597,18 @@ export async function resendInvite(employeeId: string): Promise<{ ok: boolean; e
   const emp = await db.query.employees.findFirst({ where: eq(employees.id, parsedId.data) });
   if (!emp) return { ok: false, error: "Employee not found" };
   if (emp.joinedAt !== null) return { ok: false, error: "Employee has already joined." };
+  if (!emp.firebaseUid) return { ok: false, error: "This employee has no Firebase account yet." };
   try {
+    // Per-invite passwords aren't stored, so to resend we mint a FRESH one and
+    // reset it on the Firebase user. Safe because this is gated on not-yet-
+    // joined (the invitee never signed in / set their own password).
+    const newPassword = generateInvitePassword();
+    await getFirebaseAdminAuth().updateUser(emp.firebaseUid, { password: newPassword });
     const { error } = await sendCredentialsEmail({
       email:       emp.email,
       inviteeName: emp.name,
       inviterName: me.name,
-      password:    DEFAULT_INVITE_PASSWORD,
+      password:    newPassword,
       loginUrl:    `${siteUrl()}/login`,
     });
     if (error) return { ok: false, error };
