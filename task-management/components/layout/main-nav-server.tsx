@@ -1,5 +1,7 @@
+import { cookies } from "next/headers";
 import { getNavCounts } from "@/lib/queries/nav-counts";
 import { getCurrentEmployee } from "@/lib/auth/current";
+import { ACTIVE_WORKSPACE_COOKIE, isWorkspaceId } from "@/lib/workspaces";
 import { MainNav } from "./main-nav";
 
 export async function MainNavServer({ variant }: { variant?: "drawer" } = {}) {
@@ -16,11 +18,19 @@ export async function MainNavServer({ variant }: { variant?: "drawer" } = {}) {
         }
       : undefined,
   );
+
+  // Which workspace the user entered via the hub (set by /ws/<id>). The client
+  // nav still lets the current path override this, so it only matters for shared
+  // surfaces (Inbox / Profile / Admin) that belong to no single room.
+  const awRaw = (await cookies()).get(ACTIVE_WORKSPACE_COOKIE)?.value;
+  const cookieWorkspace = isWorkspaceId(awRaw) ? awRaw : undefined;
+
   return (
     <MainNav
       activeTasks={activeTasks}
       isAdmin={Boolean(me?.isAdmin)}
       variant={variant}
+      cookieWorkspace={cookieWorkspace}
     />
   );
 }

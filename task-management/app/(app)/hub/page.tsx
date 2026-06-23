@@ -49,7 +49,7 @@ const CARDS: Card[] = [
     index: "01",
     label: "Admin",
     desc: "People, settings, payroll & the control room.",
-    href: "/hub/admin" as Route,
+    href: "/ws/admin" as Route,
     Icon: ShieldCheck,
     tone: "hub-red",
   },
@@ -57,7 +57,7 @@ const CARDS: Card[] = [
     index: "02",
     label: "WMS",
     desc: "The work dashboard — tasks, goals & the daily loop.",
-    href: "/hub/wms" as Route,
+    href: "/ws/wms" as Route,
     Icon: LayoutDashboard,
     tone: "hub-ink",
   },
@@ -65,7 +65,7 @@ const CARDS: Card[] = [
     index: "03",
     label: "Employees",
     desc: "Attendance, leave, salary & the team roster.",
-    href: "/hub/employees" as Route,
+    href: "/ws/employees" as Route,
     Icon: Users,
     tone: "hub-blue",
   },
@@ -73,7 +73,7 @@ const CARDS: Card[] = [
     index: "04",
     label: "Sales",
     desc: "Collections, references & breakthroughs — and more to come.",
-    href: "/hub/sales" as Route,
+    href: "/ws/sales" as Route,
     Icon: TrendingUp,
     tone: "hub-green",
   },
@@ -81,7 +81,7 @@ const CARDS: Card[] = [
     index: "05",
     label: "Marketing",
     desc: "The index today — campaigns & reach landing next.",
-    href: "/hub/marketing" as Route,
+    href: "/ws/marketing" as Route,
     Icon: Megaphone,
     tone: "hub-amber",
   },
@@ -89,7 +89,7 @@ const CARDS: Card[] = [
     index: "06",
     label: "Training",
     desc: "Onboarding, courses & skills — being built now.",
-    href: "/hub/training" as Route,
+    href: "/ws/training" as Route,
     Icon: GraduationCap,
     tone: "hub-purple",
     soon: true,
@@ -135,16 +135,10 @@ export default async function HubPage() {
 
       {/* Switchboard */}
       <section className="hub-grid" aria-label="Workspaces">
-        {CARDS.map((c) => (
-          <Link
-            key={c.label}
-            href={c.href}
-            className={`hub-card ${c.tone}`}
-            aria-label={
-              c.soon ? `${c.label} — coming soon` : `Open ${c.label}`
-            }
-          >
-            <span className="hub-card-top">
+        {CARDS.map((c) => {
+          const inner = (
+            <>
+              <span className="hub-card-top">
               <span className="hub-index">{c.index}</span>
               {c.soon ? (
                 <span className="hub-soon">SOON</span>
@@ -157,12 +151,34 @@ export default async function HubPage() {
               <c.Icon className="hub-icon" strokeWidth={2.2} />
             </span>
 
-            <span className="hub-card-foot">
-              <span className="hub-label">{c.label}</span>
-              <span className="hub-desc">{c.desc}</span>
-            </span>
-          </Link>
-        ))}
+              <span className="hub-card-foot">
+                <span className="hub-label">{c.label}</span>
+                <span className="hub-desc">{c.desc}</span>
+              </span>
+            </>
+          );
+
+          // SOON rooms are inert — a non-link card so it can't navigate anywhere.
+          return c.soon ? (
+            <div
+              key={c.label}
+              className={`hub-card hub-card-soon ${c.tone}`}
+              aria-label={`${c.label} — coming soon`}
+              aria-disabled="true"
+            >
+              {inner}
+            </div>
+          ) : (
+            <Link
+              key={c.label}
+              href={c.href}
+              className={`hub-card ${c.tone}`}
+              aria-label={`Open ${c.label}`}
+            >
+              {inner}
+            </Link>
+          );
+        })}
       </section>
     </main>
   );
@@ -182,14 +198,15 @@ function HubStyles() {
   return (
     <style>{`
       .hub-root {
-        min-height: 100dvh;
+        height: 100dvh;
+        overflow: hidden;
         background:
           radial-gradient(120% 120% at 0% 0%, #fdfaf3 0%, #f6f1e6 55%, #efe8d8 100%);
         color: var(--color-ink-strong);
-        padding: clamp(20px, 4vw, 44px);
+        padding: clamp(16px, 2.4vh, 30px) clamp(20px, 4vw, 44px);
         display: flex;
         flex-direction: column;
-        gap: clamp(28px, 4vw, 48px);
+        gap: clamp(12px, 2vh, 22px);
         font-family: var(--font-sans), system-ui, sans-serif;
       }
 
@@ -234,44 +251,45 @@ function HubStyles() {
         outline-offset: 3px;
       }
 
-      /* ---- hero ---- */
-      .hub-hero { max-width: 760px; }
+      /* ---- hero (compact — leaves the cards the rest of the screen) ---- */
+      .hub-hero { max-width: 900px; flex: 0 0 auto; }
       .hub-eyebrow {
         display: inline-block;
         font-family: var(--font-mono-display), ui-monospace, monospace;
-        font-size: 12px; font-weight: 700; letter-spacing: 0.26em;
+        font-size: 11px; font-weight: 700; letter-spacing: 0.24em;
         color: var(--color-altus-red);
         background: #fff;
         border: 2.5px solid var(--color-ink-strong);
-        padding: 5px 11px;
-        box-shadow: 4px 4px 0 var(--color-ink-strong);
+        padding: 4px 10px;
+        box-shadow: 3px 3px 0 var(--color-ink-strong);
       }
       .hub-title {
         font-family: var(--font-display, var(--font-serif), Georgia, serif);
-        margin: 18px 0 0;
-        font-size: clamp(40px, 7vw, 76px);
-        line-height: 0.95;
+        margin: 10px 0 0;
+        font-size: clamp(28px, 3.4vw, 46px);
+        line-height: 0.96;
         letter-spacing: -0.03em;
         font-weight: 800;
         text-transform: uppercase;
         color: var(--color-ink-strong);
       }
       .hub-sub {
-        margin: 14px 0 0;
-        font-size: clamp(15px, 1.5vw, 18px);
+        margin: 7px 0 0;
+        font-size: clamp(13px, 1.3vw, 16px);
         color: var(--color-ink-muted);
-        max-width: 48ch;
-        line-height: 1.5;
+        max-width: 52ch;
+        line-height: 1.45;
       }
 
-      /* ---- grid ---- */
+      /* ---- grid: fills the height left after header + hero ---- */
       .hub-grid {
+        flex: 1 1 auto;
+        min-height: 0;
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: clamp(16px, 2vw, 26px);
+        grid-template-rows: repeat(2, 1fr);
+        gap: clamp(12px, 1.6vw, 22px);
       }
-      @media (max-width: 1024px) { .hub-grid { grid-template-columns: repeat(2, 1fr); } }
-      @media (max-width: 640px)  { .hub-grid { grid-template-columns: 1fr; } }
 
       /* ---- card (the poster button) ---- */
       .hub-card {
@@ -279,22 +297,25 @@ function HubStyles() {
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        gap: 28px;
-        min-height: 248px;
-        padding: 24px;
+        gap: 10px;
+        min-height: 0;
+        padding: clamp(14px, 1.5vw, 22px);
         border: 3px solid var(--color-ink-strong);
         border-radius: 16px;
         text-decoration: none;
         overflow: hidden;
-        box-shadow: 8px 8px 0 var(--color-ink-strong);
+        box-shadow: 6px 6px 0 var(--color-ink-strong);
         transition: transform 130ms cubic-bezier(0.2,0.7,0.3,1),
                     box-shadow 130ms cubic-bezier(0.2,0.7,0.3,1);
       }
+      .hub-card-soon { cursor: default; }
       .hub-card:hover,
       .hub-card:focus-visible {
-        transform: translate(8px, 8px);
+        transform: translate(6px, 6px);
         box-shadow: 0 0 0 var(--color-ink-strong);
       }
+      /* SOON card is inert — no press. */
+      .hub-card-soon:hover { transform: none; box-shadow: 6px 6px 0 var(--color-ink-strong); }
       .hub-card:focus-visible {
         outline: 4px solid var(--color-ink-strong);
         outline-offset: 5px;
@@ -334,18 +355,32 @@ function HubStyles() {
       }
 
       .hub-icon-wrap { display: flex; }
-      .hub-icon { width: 54px; height: 54px; }
+      .hub-icon { width: clamp(34px, 3vw, 48px); height: clamp(34px, 3vw, 48px); }
 
-      .hub-card-foot { display: flex; flex-direction: column; gap: 6px; }
+      .hub-card-foot { display: flex; flex-direction: column; gap: 5px; }
       .hub-label {
         font-family: var(--font-display, var(--font-serif), Georgia, serif);
-        font-size: clamp(28px, 3vw, 34px);
+        font-size: clamp(22px, 2.4vw, 32px);
         font-weight: 800;
         line-height: 1;
         letter-spacing: -0.01em;
         text-transform: uppercase;
       }
-      .hub-desc { font-size: 14px; line-height: 1.45; opacity: 0.9; max-width: 28ch; }
+      .hub-desc {
+        font-size: clamp(12px, 1.05vw, 14px);
+        line-height: 1.4; opacity: 0.9; max-width: 30ch;
+      }
+
+      /* ---- narrow screens: one page is impractical with 6 cards → let it
+             scroll, and collapse to fewer columns. ---- */
+      @media (max-width: 1024px) {
+        .hub-root { height: auto; min-height: 100dvh; overflow: visible; }
+        .hub-grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: none; }
+        .hub-card { min-height: 200px; }
+      }
+      @media (max-width: 640px) {
+        .hub-grid { grid-template-columns: 1fr; }
+      }
 
       /* ---- tones: flat bold color blocks, on-brand tokens, AA text ---- */
       .hub-red   { background: var(--color-altus-red);  color: #fff; }
