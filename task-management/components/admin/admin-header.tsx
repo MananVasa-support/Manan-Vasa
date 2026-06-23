@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { ArrowLeft, LogOut } from "lucide-react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
@@ -23,8 +22,6 @@ interface Props {
  * `AdminMobileBar` still owns the phone layout.
  */
 export function AdminHeader({ adminName, adminEmail, avatarUrl, backHref }: Props) {
-  const router = useRouter();
-
   async function handleSignOut() {
     try {
       await signOut(getFirebaseAuth());
@@ -32,7 +29,8 @@ export function AdminHeader({ adminName, adminEmail, avatarUrl, backHref }: Prop
       // Continue — the server-side revoke below is what matters.
     }
     await fetch("/api/auth/signout", { method: "POST" });
-    router.replace("/login" as Route);
+    // HARD nav so the next user on this browser can't be served cached pages.
+    window.location.replace("/login");
   }
 
   const initials = adminName

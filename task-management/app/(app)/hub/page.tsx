@@ -9,6 +9,7 @@ import {
   Megaphone,
   GraduationCap,
   ArrowUpRight,
+  Lock,
   type LucideIcon,
 } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
@@ -110,13 +111,14 @@ export default async function HubPage() {
   const me = await requireUser();
   const firstName = me.name.split(" ")[0] ?? me.name;
 
-  // Hide rooms the user can't enter (department-restricted, e.g. Sales). The
-  // /ws and (app)-layout guards enforce this server-side too — this just keeps
-  // a locked door off the switchboard.
-  const sa = isSuperAdmin(me.email);
-  const cards = CARDS.filter((c) =>
-    canAccessWorkspace(c.ws, { department: me.department, isSuperAdmin: sa }),
-  );
+  // Rooms the user can't enter (Sales = department-gated, Admin = admins only)
+  // stay VISIBLE but locked + non-clickable, like a SOON card. Server-side the
+  // /ws handler + the destination layouts enforce it too — this is just the door.
+  const access = {
+    department: me.department,
+    isAdmin: me.isAdmin,
+    isSuperAdmin: isSuperAdmin(me.email),
+  };
 
   return (
     <main className="hub-root">
@@ -153,13 +155,21 @@ export default async function HubPage() {
 
       {/* Switchboard */}
       <section className="hub-grid" aria-label="Workspaces">
-        {cards.map((c) => {
+        {CARDS.map((c) => {
+          const locked = !c.soon && !canAccessWorkspace(c.ws, access);
+          // Inert = SOON (not built) OR locked (no access). Either way it
+          // renders as a non-link card so it can't navigate anywhere.
+          const inert = c.soon || locked;
           const inner = (
             <>
               <span className="hub-card-top">
               <span className="hub-index">{c.index}</span>
               {c.soon ? (
                 <span className="hub-soon">SOON</span>
+              ) : locked ? (
+                <span className="hub-soon hub-locked">
+                  <Lock size={12} strokeWidth={2.8} aria-hidden /> LOCKED
+                </span>
               ) : (
                 <ArrowUpRight className="hub-go" size={22} strokeWidth={2.8} aria-hidden />
               )}
@@ -176,12 +186,11 @@ export default async function HubPage() {
             </>
           );
 
-          // SOON rooms are inert — a non-link card so it can't navigate anywhere.
-          return c.soon ? (
+          return inert ? (
             <div
               key={c.label}
               className={`hub-card hub-card-soon ${c.tone}`}
-              aria-label={`${c.label} — coming soon`}
+              aria-label={locked ? `${c.label} — no access` : `${c.label} — coming soon`}
               aria-disabled="true"
             >
               {inner}
@@ -370,6 +379,10 @@ function HubStyles() {
         border: 2.5px solid currentColor;
         border-radius: 999px;
         background: rgba(0,0,0,0.16);
+      }
+      /* LOCKED badge — same chip as SOON, with the lock glyph inline. */
+      .hub-locked {
+        display: inline-flex; align-items: center; gap: 5px;
       }
 
       .hub-icon-wrap { display: flex; }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -60,7 +60,6 @@ async function exchangeIdTokenForSession(idToken: string): Promise<void> {
 }
 
 export function LoginFormGlass() {
-  const router = useRouter();
   const params = useSearchParams();
   // Always land on the Hub by default; a bare "/" next resolves to /hub too.
   const rawNext = params.get("next");
@@ -84,7 +83,10 @@ export function LoginFormGlass() {
         );
         const idToken = await cred.user.getIdToken();
         await exchangeIdTokenForSession(idToken);
-        router.replace(requestedNext as Route);
+        // HARD navigation (not router.replace): wipes Next's client Router
+        // Cache so this freshly-signed-in user never sees a PREVIOUS user's
+        // cached pages lingering in this browser tab.
+        window.location.replace(requestedNext);
       } catch (err: unknown) {
         const code = (err as { code?: string })?.code;
         if ((err as Error)?.message === "not-enrolled") {

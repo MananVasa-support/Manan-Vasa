@@ -29,6 +29,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     ws &&
     !canAccessWorkspace(ws, {
       department: me.department,
+      isAdmin: me.isAdmin,
       isSuperAdmin: isSuperAdmin(me.email),
     })
   ) {

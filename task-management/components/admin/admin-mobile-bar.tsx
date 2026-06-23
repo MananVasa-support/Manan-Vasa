@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
 import { signOut } from "firebase/auth";
@@ -30,7 +30,6 @@ interface Props {
  */
 export function AdminMobileBar({ adminName, adminEmail, backHref }: Props) {
   const pathname = usePathname();
-  const router = useRouter();
   const [open, setOpen] = React.useState(false);
 
   async function handleSignOut() {
@@ -40,7 +39,8 @@ export function AdminMobileBar({ adminName, adminEmail, backHref }: Props) {
       // proceed — server revoke is what matters
     }
     await fetch("/api/auth/signout", { method: "POST" });
-    router.replace("/login" as Route);
+    // HARD nav so the next user on this browser can't be served cached pages.
+    window.location.replace("/login");
   }
 
   const initials = adminName

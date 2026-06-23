@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -59,7 +59,6 @@ async function exchangeIdTokenForSession(idToken: string): Promise<void> {
 }
 
 export function LoginFormCanva() {
-  const router = useRouter();
   const params = useSearchParams();
   // Always land on the Hub by default. Treat a bare "/" next — what the
   // middleware appends when you open the root domain — as "no preference" so it
@@ -81,7 +80,10 @@ export function LoginFormCanva() {
         const cred = await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
         const idToken = await cred.user.getIdToken();
         await exchangeIdTokenForSession(idToken);
-        router.replace(requestedNext as Route);
+        // HARD navigation (not router.replace): wipes Next's client Router
+        // Cache so this freshly-signed-in user never sees a PREVIOUS user's
+        // cached pages (e.g. the admin panel) lingering in this browser tab.
+        window.location.replace(requestedNext);
       } catch (err: unknown) {
         const code = (err as { code?: string })?.code;
         if ((err as Error)?.message === "not-enrolled") {

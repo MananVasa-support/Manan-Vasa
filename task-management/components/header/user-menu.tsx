@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { signOut } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/client";
@@ -34,8 +33,6 @@ export function UserMenu({
   inboxUnread,
   archivedTasks,
 }: Props) {
-  const router = useRouter();
-
   async function handleSignOut() {
     try {
       await signOut(getFirebaseAuth());
@@ -43,7 +40,10 @@ export function UserMenu({
       // Continue regardless — the server-side revoke below is what matters
     }
     await fetch("/api/auth/signout", { method: "POST" });
-    router.replace("/login" as Route);
+    // HARD navigation (not router.replace): a soft nav keeps Next's client
+    // Router Cache, so the NEXT user signing in on this browser could be served
+    // THIS user's cached pages (e.g. the admin panel). A full load wipes it.
+    window.location.replace("/login");
   }
 
   const initials = name

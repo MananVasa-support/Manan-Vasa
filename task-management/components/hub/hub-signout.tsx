@@ -1,7 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import type { Route } from "next";
 import { signOut } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { LogOut } from "lucide-react";
@@ -17,8 +15,6 @@ import { LogOut } from "lucide-react";
  * focus ring; the press state shows on :focus-visible too.
  */
 export function HubSignOut() {
-  const router = useRouter();
-
   async function handleSignOut() {
     try {
       await signOut(getFirebaseAuth());
@@ -26,7 +22,8 @@ export function HubSignOut() {
       // Continue regardless — the server-side revoke below is what matters.
     }
     await fetch("/api/auth/signout", { method: "POST" });
-    router.replace("/login" as Route);
+    // HARD nav so the next user on this browser can't be served cached pages.
+    window.location.replace("/login");
   }
 
   return (

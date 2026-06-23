@@ -1,12 +1,10 @@
 "use client";
-import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { signOut } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { IdleTimer } from "@/components/auth/idle-timer";
 
 export function IdleTimerClient({ timeoutMinutes }: { timeoutMinutes: number }) {
-  const router = useRouter();
   // Stable callback so IdleTimer doesn't tear down listeners every render.
   const onTimeout = useCallback(async () => {
     // Full sign-out on idle — same as the manual exit. Clear the Firebase
@@ -24,7 +22,8 @@ export function IdleTimerClient({ timeoutMinutes }: { timeoutMinutes: number }) 
     } catch {
       // Best-effort; navigate regardless so middleware redirects.
     }
-    router.replace("/login?reason=idle");
-  }, [router]);
+    // HARD nav so the next user on this browser can't be served cached pages.
+    window.location.replace("/login?reason=idle");
+  }, []);
   return <IdleTimer timeoutMs={timeoutMinutes * 60_000} onTimeout={onTimeout} />;
 }

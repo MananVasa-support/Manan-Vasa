@@ -50,7 +50,8 @@ export const ACTIVE_WORKSPACE_COOKIE = "aw";
 /**
  * Department-restricted rooms. A user may enter one of these ONLY if they're a
  * super-admin or their department matches (case-insensitive). Rooms not listed
- * are open to everyone. Match is against the employee's free-text `department`.
+ * are open to everyone (unless role-gated below, e.g. Admin). Match is against
+ * the employee's free-text `department`.
  */
 export const WORKSPACE_DEPARTMENT: Partial<Record<WorkspaceId, string>> = {
   sales: "Sales",
@@ -58,11 +59,15 @@ export const WORKSPACE_DEPARTMENT: Partial<Record<WorkspaceId, string>> = {
 
 export function canAccessWorkspace(
   ws: WorkspaceId,
-  user: { department?: string | null; isSuperAdmin: boolean },
+  user: { department?: string | null; isAdmin: boolean; isSuperAdmin: boolean },
 ): boolean {
+  // Super-admins see every room.
+  if (user.isSuperAdmin) return true;
+  // The Admin room is role-gated: admins only (NOT doers).
+  if (ws === "admin") return user.isAdmin;
+  // Department-gated rooms (Sales).
   const required = WORKSPACE_DEPARTMENT[ws];
   if (!required) return true; // open room
-  if (user.isSuperAdmin) return true;
   // Contains-match (not strict equality) so real-world values like "Sales Team"
   // or "Sales & Marketing" still grant access and we don't lock out the people
   // who belong in the room over a label nuance.

@@ -31,6 +31,7 @@ export async function GET(
     !!me &&
     canAccessWorkspace(id, {
       department: me.department,
+      isAdmin: me.isAdmin,
       isSuperAdmin: isSuperAdmin(me.email),
     });
   if (!allowed) {
