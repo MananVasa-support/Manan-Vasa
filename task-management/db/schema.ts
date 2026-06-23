@@ -386,6 +386,111 @@ export const clients = pgTable(
   (t) => [index("clients_active_name_idx").on(t.isActive, t.name)],
 );
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * PEOPLE GIVES — a referral / introduction database ("who can introduce us to
+ * whom"). Lives in the Sales workspace. Four admin-managed lookup lists back
+ * the form's dropdowns; soft-deleted lookup rows (is_active=false) stay joinable
+ * so historical introductions never break. One introducer can appear on many
+ * introductions over time (free-text introducer fields, not an FK).
+ * ────────────────────────────────────────────────────────────────────────── */
+
+export const pgReferenceSources = pgTable(
+  "pg_reference_sources",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("pg_reference_sources_active_idx").on(t.isActive, t.sortOrder, t.name)],
+);
+
+export const pgDesignations = pgTable(
+  "pg_designations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("pg_designations_active_idx").on(t.isActive, t.sortOrder, t.name)],
+);
+
+export const pgBusinessCategories = pgTable(
+  "pg_business_categories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("pg_business_categories_active_idx").on(t.isActive, t.sortOrder, t.name)],
+);
+
+export const pgSalesPeople = pgTable(
+  "pg_sales_people",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("pg_sales_people_active_idx").on(t.isActive, t.sortOrder, t.name)],
+);
+
+export const pgIntroductions = pgTable(
+  "pg_introductions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // "Received On" — auto-populated on creation, read-only in the UI.
+    receivedOn: date("received_on").notNull().default(sql`CURRENT_DATE`),
+    referenceSourceId: uuid("reference_source_id").references(
+      () => pgReferenceSources.id,
+      { onDelete: "set null" },
+    ),
+    introducerFirstName: text("introducer_first_name").notNull(),
+    introducerLastName: text("introducer_last_name").notNull(),
+    introducerCell: text("introducer_cell"),
+    prospectCompany: text("prospect_company").notNull(),
+    prospectFirstName: text("prospect_first_name").notNull(),
+    prospectLastName: text("prospect_last_name").notNull(),
+    designationId: uuid("designation_id").references(() => pgDesignations.id, {
+      onDelete: "set null",
+    }),
+    businessCategoryId: uuid("business_category_id").references(
+      () => pgBusinessCategories.id,
+      { onDelete: "set null" },
+    ),
+    natureOfBusiness: text("nature_of_business").notNull(),
+    notes: text("notes"),
+    nextReminderDate: date("next_reminder_date"),
+    salesPersonId: uuid("sales_person_id").references(() => pgSalesPeople.id, {
+      onDelete: "set null",
+    }),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("pg_introductions_created_idx").on(t.createdAt),
+    index("pg_introductions_company_idx").on(t.prospectCompany),
+    index("pg_introductions_reminder_idx").on(t.nextReminderDate),
+  ],
+);
+
+export type PgIntroduction = typeof pgIntroductions.$inferSelect;
+export type PgLookupRow = typeof pgReferenceSources.$inferSelect;
+
 /**
  * Subjects — canonical list backing the "Subject" picker on the task forms.
  * Mirrors the `clients` pattern exactly: an admin/seed-managed list that the

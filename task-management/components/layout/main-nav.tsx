@@ -18,6 +18,7 @@ import {
   BookMarked,
   FileText,
   ShieldCheck,
+  Handshake,
   LayoutGrid,
 } from "lucide-react";
 import type { Route } from "next";
@@ -117,6 +118,7 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
   },
   sales: {
     top: [
+      { href: "/people-gives" as Route, label: "People Gives", Icon: Handshake },
       { href: "/outstanding" as Route, label: "Outstanding", Icon: IndianRupee },
       { href: "/participant-breakthrough" as Route, label: "Breakthrough", Icon: Sparkles },
       { href: "/record-reference" as Route, label: "References", Icon: BookMarked },

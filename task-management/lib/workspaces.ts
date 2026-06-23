@@ -125,7 +125,8 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
   if (
     p.startsWith("/outstanding") ||
     p.startsWith("/participant-breakthrough") ||
-    p.startsWith("/record-reference")
+    p.startsWith("/record-reference") ||
+    p.startsWith("/people-gives")
   ) {
     return "sales";
   }
