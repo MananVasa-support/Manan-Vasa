@@ -66,9 +66,14 @@ export async function POST(req: Request) {
     },
   });
 
-  // Also clear the active-workspace cookie — on a shared/kiosk browser it would
-  // otherwise leak the previous user's room scope (aw=sales) to the next signer-
-  // in until they navigate to a room-owning route.
-  res.cookies.set(ACTIVE_WORKSPACE_COOKIE, "", { path: "/", maxAge: 0 });
+  // Also clear the active-workspace cookie. IMPORTANT: append a raw Set-Cookie
+  // rather than calling `res.cookies.set(...)` — the latter re-serialized the
+  // response's cookie store and CLOBBERED removeAuthCookies' __session clearing,
+  // so sign-out left the session intact and /login bounced the user back to the
+  // app. An additive Set-Cookie header can't disturb the __session clear.
+  res.headers.append(
+    "Set-Cookie",
+    `${ACTIVE_WORKSPACE_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`,
+  );
   return res;
 }
