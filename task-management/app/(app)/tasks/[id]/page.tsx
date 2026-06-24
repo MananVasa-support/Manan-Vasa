@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { TaskDetailLoader } from "@/components/tasks/task-detail-loader";
-import { TaskDetailSkeleton } from "@/components/tasks/task-detail-skeleton";
+import { BufferingState } from "@/components/ui/spinner";
 import { requireUser } from "@/lib/auth/current";
 import { markTaskRead } from "@/app/(app)/tasks/read-actions";
 
@@ -37,7 +37,7 @@ export default async function TaskDetailPage({ params }: PageProps) {
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="w-full px-6 max-md:px-4 pt-8 pb-16">
-        <Suspense key={id} fallback={<TaskDetailSkeleton />}>
+        <Suspense key={id} fallback={<div className="flex min-h-[60vh] items-center justify-center"><BufferingState label="Loading task…" /></div>}>
           <TaskDetailLoader
             taskId={id}
             me={{

@@ -2,8 +2,6 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/current";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { getOrgSettings } from "@/lib/queries/org-settings";
-import { IdleTimerClient } from "@/components/auth/idle-timer-client";
 
 // Never cache the admin shell — it is per-user (name/email/avatar) and must be
 // resolved fresh on every request so one user's render can never be served to
@@ -17,10 +15,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   if (!me.isAdmin) {
     redirect("/hub");
   }
-  const settings = await getOrgSettings();
+  // Auto sign-out on idle was removed — sessions persist like a normal app.
   return (
     <>
-      <IdleTimerClient timeoutMinutes={settings.idleTimeoutMinutes} />
       <AdminShell
         adminName={me.name}
         adminEmail={me.email}

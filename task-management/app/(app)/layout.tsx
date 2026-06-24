@@ -7,8 +7,6 @@ import { hasUnfilledWeekGoals } from "@/lib/weekly-goals/gate";
 import { needsDailyPlan } from "@/lib/daily-checklist/gate";
 import { WeeklyGoalsFillView } from "@/components/weekly-goals/weekly-goals-fill-view";
 import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist-view";
-import { getOrgSettings } from "@/lib/queries/org-settings";
-import { IdleTimerClient } from "@/components/auth/idle-timer-client";
 import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
 import { workspaceForPath, canAccessWorkspace } from "@/lib/workspaces";
 
@@ -62,10 +60,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     }
   }
 
-  const settings = await getOrgSettings();
+  // Auto sign-out on idle was removed — sessions now persist like a normal app
+  // (Firebase keeps you signed in until you sign out or the cookie expires).
   return (
     <>
-      <IdleTimerClient timeoutMinutes={settings.idleTimeoutMinutes} />
       <KeyboardShortcuts />
       {children}
     </>

@@ -78,8 +78,11 @@ export function middleware(request: NextRequest) {
       // (LAN-only Windows install on http://<ip>:3000 without TLS).
       secure: process.env.NODE_ENV === "production" && process.env.ALLOW_INSECURE_COOKIES !== "true",
       sameSite: "lax" as const,
-      // No maxAge — session cookie. Browser clears on full close.
-      // Paired with browserSessionPersistence in lib/firebase/client.ts.
+      // Persistent cookie (14 days) so users stay signed in across browser
+      // restarts — the normal "remember me" behaviour. Paired with
+      // browserLocalPersistence in lib/firebase/client.ts + the session-mint
+      // route's matching maxAge. Refresh extends it on each authed request.
+      maxAge: 14 * 24 * 60 * 60,
     },
     serviceAccount: {
       projectId: process.env.FIREBASE_PROJECT_ID!,
