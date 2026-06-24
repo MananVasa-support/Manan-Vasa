@@ -9,8 +9,9 @@ const ymd = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Must be a yyyy-mm-dd date");
 
 const pct = z.coerce.number().int().min(0).max(100);
-// Weight ∈ [1, 1000]: a goal's share of the weekly weighted-completion score.
-const weight = z.coerce.number().int().min(1).max(1000);
+// Weight ∈ [1, 100]: a single goal's share of the 100-point week. The per-person
+// total is auto-balanced to exactly 100 on the server, so no goal may exceed 100.
+const weight = z.coerce.number().int().min(1).max(100);
 
 /** Shared editable fields for one Weekly Goal row. */
 const goalFields = {

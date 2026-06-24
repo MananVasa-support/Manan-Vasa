@@ -32,6 +32,7 @@ interface Props {
 
 const TOTAL = 100;
 const MIN_GOALS = 5;
+const MAX_GOALS = 10;
 
 /** Shared visible focus ring for keyboard users (brand-red on neutral surfaces). */
 const FOCUS_RING =
@@ -58,20 +59,20 @@ export function GoalQuickAdd(props: Props) {
   const [error, setError] = React.useState<string | null>(null);
   const clientRef = React.useRef<HTMLInputElement>(null);
 
-  const remaining = Math.max(0, TOTAL - props.currentWeight);
-  // Smart default: fill the gap to 100 (so 5 goals auto-balance to 20 each), or
-  // a sane 10 once the week is already full.
-  const [weight, setWeight] = React.useState<number>(remaining > 0 ? remaining : 10);
+  // Default a new goal to the current EVEN share, so simply accepting the default
+  // gives a clean equal split. The server re-balances every goal to total exactly
+  // 100 right after the add, so this number is only the goal's RELATIVE weight —
+  // bump it up to make a goal count for more than an even share.
+  const evenShare = Math.min(TOTAL, props.currentCount > 0 ? Math.round(TOTAL / props.currentCount) : TOTAL);
+  const [weight, setWeight] = React.useState<number>(evenShare);
 
   const canAdd = Boolean(props.employeeId) && props.employeeId !== "all";
+  const atMax = props.currentCount >= MAX_GOALS;
   if (!canAdd) return null;
 
-  const projected = props.currentWeight + weight;
-  const over = projected > TOTAL;
-  const usedPct = Math.min(100, (props.currentWeight / TOTAL) * 100);
-  const addPct = Math.min(100 - usedPct, (weight / TOTAL) * 100);
+  const sharePct = Math.min(100, (weight / TOTAL) * 100);
 
-  function reset(nextRemaining: number) {
+  function reset() {
     setClient("");
     setSubject("");
     setTargetDone("");
@@ -80,7 +81,7 @@ export function GoalQuickAdd(props: Props) {
     setIncentiveAmount(0);
     setIncentiveCatalogId("");
     setError(null);
-    setWeight(nextRemaining > 0 ? nextRemaining : 10);
+    setWeight(Math.min(TOTAL, props.currentCount > 0 ? Math.round(TOTAL / props.currentCount) : TOTAL));
   }
 
   // Routine amount is catalog-driven; Ad-hoc / One-time use the manual figure.
@@ -93,12 +94,8 @@ export function GoalQuickAdd(props: Props) {
       setError("Add a client, subject, or goal before saving.");
       return;
     }
-    if (over) {
-      setError(`Weight would total ${projected} — keep the week within ${TOTAL}.`);
-      return;
-    }
-    if (weight < 1) {
-      setError("Give the goal a weight of at least 1.");
+    if (weight < 1 || weight > TOTAL) {
+      setError(`Give the goal a weight between 1 and ${TOTAL}.`);
       return;
     }
     setError(null);
@@ -118,8 +115,8 @@ export function GoalQuickAdd(props: Props) {
       .then((res) => {
         setSaving(false);
         if (!res.ok) return setError(res.error);
-        // Re-balance the next default against the new total; refresh in bg.
-        reset(Math.max(0, remaining - weight));
+        // Weights are auto-balanced to 100 server-side; reset for the next add.
+        reset();
         clientRef.current?.focus();
         router.refresh();
       })
@@ -127,6 +124,17 @@ export function GoalQuickAdd(props: Props) {
         setSaving(false);
         setError(e instanceof Error ? e.message : "Couldn't save the goal. Try again.");
       });
+  }
+
+  if (atMax) {
+    return (
+      <div
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed px-4 py-5 text-[13.5px] font-bold"
+        style={{ borderColor: "var(--color-hairline-strong)", color: "var(--color-ink-subtle)", background: "var(--color-surface-soft)" }}
+      >
+        Weekly maximum reached · {MAX_GOALS}/{MAX_GOALS} goals
+      </div>
+    );
   }
 
   if (!open) {
@@ -145,9 +153,13 @@ export function GoalQuickAdd(props: Props) {
           <Plus size={16} strokeWidth={2.8} />
         </span>
         Add goal
-        {short > 0 && (
+        {short > 0 ? (
           <span className="text-[12.5px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
             · {short} more to reach {MIN_GOALS}
+          </span>
+        ) : (
+          <span className="text-[12.5px] font-semibold tabular-nums" style={{ color: "var(--color-ink-subtle)" }}>
+            · {props.currentCount}/{MAX_GOALS}
           </span>
         )}
       </button>
@@ -172,7 +184,7 @@ export function GoalQuickAdd(props: Props) {
         </span>
         <button
           type="button"
-          onClick={() => { setOpen(false); reset(remaining); }}
+          onClick={() => { setOpen(false); reset(); }}
           className={`rounded-full px-1.5 text-[13px] font-bold text-ink-muted hover:text-ink-strong transition-colors cursor-pointer ${FOCUS_RING}`}
         >
           Cancel
@@ -214,19 +226,19 @@ export function GoalQuickAdd(props: Props) {
         </label>
       </div>
 
-      {/* ── Weight: the goal's share of the week, with a live allocation meter ── */}
+      {/* ── Weight: the goal's relative importance; the week auto-balances to 100 ── */}
       <div className="mt-4 rounded-xl p-3.5" style={{ background: "var(--color-surface-soft)", border: "1px solid var(--color-hairline)" }}>
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[12px] font-bold text-ink-soft">Weight · share of the week</span>
-          <span className="text-[12.5px] font-bold tabular-nums" style={{ color: over ? "var(--color-altus-red-deep)" : "var(--color-ink-soft)" }}>
-            {over ? `over by ${projected - TOTAL}` : `${remaining - weight >= 0 ? remaining - weight : 0} left of ${TOTAL}`}
+          <span className="text-[12px] font-bold text-ink-soft">Weight · importance</span>
+          <span className="text-[12px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
+            auto-balances to total 100
           </span>
         </div>
         <div className="mt-2.5 flex items-center gap-3">
           <input
             type="range"
             min={1}
-            max={Math.max(weight, remaining, 1)}
+            max={TOTAL}
             value={weight}
             onChange={(e) => setWeight(Number(e.target.value))}
             className={`h-1.5 flex-1 accent-[var(--color-altus-red)] cursor-pointer rounded-full ${FOCUS_RING}`}
@@ -236,19 +248,18 @@ export function GoalQuickAdd(props: Props) {
             <input
               type="number"
               min={1}
-              max={1000}
+              max={TOTAL}
               value={weight}
-              onChange={(e) => setWeight(Math.max(0, Math.min(1000, Math.round(Number(e.target.value) || 0))))}
+              onChange={(e) => setWeight(Math.max(1, Math.min(TOTAL, Math.round(Number(e.target.value) || 0))))}
               className={`w-12 bg-transparent text-right text-[15px] font-black tabular-nums text-ink-strong ${FOCUS_RING}`}
               aria-label="Goal weight value"
             />
             <span className="text-[13px] font-bold text-ink-subtle">wt</span>
           </div>
         </div>
-        {/* allocation bar: already-used (ink) + this goal (red) toward 100 */}
+        {/* this goal's relative share of the week */}
         <div className="mt-2.5 flex h-2.5 w-full overflow-hidden rounded-full" style={{ background: "var(--color-surface-track)" }}>
-          <span className="h-full" style={{ width: `${usedPct}%`, background: "var(--color-ink-subtle)" }} />
-          <span className="h-full transition-all" style={{ width: `${Math.max(0, addPct)}%`, background: over ? "var(--color-altus-red-deep)" : "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))" }} />
+          <span className="h-full transition-all" style={{ width: `${sharePct}%`, background: "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))" }} />
         </div>
       </div>
 
@@ -323,7 +334,7 @@ export function GoalQuickAdd(props: Props) {
         <button
           type="button"
           onClick={submit}
-          disabled={saving || over}
+          disabled={saving}
           className={`wg-sheen cursor-pointer ml-auto inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[14px] font-bold text-white hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}
           style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
         >
@@ -334,7 +345,7 @@ export function GoalQuickAdd(props: Props) {
 
       {error && <p className="mt-2 text-[13px] font-semibold text-altus-red">{error}</p>}
       <p className="mt-2 text-[12px] font-semibold text-ink-muted">
-        ⌘/Ctrl + Enter to save · weights across the week should total {TOTAL}.
+        ⌘/Ctrl + Enter to save · weights auto-balance so your week always totals {TOTAL} · up to {MAX_GOALS} goals.
       </p>
     </div>
   );

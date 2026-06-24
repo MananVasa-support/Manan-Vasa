@@ -84,6 +84,12 @@ export function WeeklyGoalsBoard(props: Props) {
     (employeeId: string) => employeeId === meId || canManage(employeeId),
     [meId, canManage],
   );
+  // Balance-to-100 is a normalization (not arbitrary planning) → the OWNER may
+  // balance their own week, and managers/admins may balance anyone in scope.
+  const canBalance = React.useCallback(
+    (employeeId: string) => employeeId === meId || canManage(employeeId),
+    [meId, canManage],
+  );
 
   // Reviewer-only "show archived" toggle + the list filters / sort.
   const [showArchived, setShowArchived] = React.useState(false);
@@ -437,7 +443,7 @@ export function WeeklyGoalsBoard(props: Props) {
                   weightTotal={weightTotalByEmp.get(empId) ?? 0}
                   employeeId={empId}
                   weekStart={props.weekStart}
-                  canBalance={canManage(empId)}
+                  canBalance={canBalance(empId)}
                   collapsed={!!collapsed[empId]}
                   onToggle={() => toggleCollapsed(empId)}
                 />
@@ -475,7 +481,7 @@ export function WeeklyGoalsBoard(props: Props) {
               total={singleWeightTotal}
               employeeId={props.scopeEmp}
               weekStart={props.weekStart}
-              canBalance={!showingAll && canManage(props.scopeEmp)}
+              canBalance={!showingAll && canBalance(props.scopeEmp)}
             />
           )}
 

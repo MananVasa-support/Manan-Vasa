@@ -158,6 +158,58 @@ async function loadManageableGoal(
  * themselves; admins can file against anyone. The week is snapped to its
  * Monday defensively. Used by the fast-add row (one submit = one priority).
  */
+/** Hard ceiling on goals per person per week (Phase-1 rule). */
+const MAX_GOALS_PER_WEEK = 10;
+
+/**
+ * Re-balance one person's ACTIVE goals for a week so their weights total EXACTLY
+ * 100 (proportional to the weights already entered; even split when none). Silent
+ * + idempotent — only rows whose weight actually changes are written. This is the
+ * enforcement behind "weights must always total 100": it runs after every add and
+ * delete so a person's week is never off-budget.
+ */
+async function rebalanceWeekWeights(
+  employeeId: string,
+  weekStart: string,
+  actorId: string,
+): Promise<void> {
+  const rows = await db
+    .select({ id: weeklyGoals.id, weight: weeklyGoals.weight })
+    .from(weeklyGoals)
+    .where(
+      and(
+        eq(weeklyGoals.employeeId, employeeId),
+        eq(weeklyGoals.weekStart, weekStart),
+        eq(weeklyGoals.archived, false),
+      ),
+    );
+  if (rows.length === 0) return;
+  const balanced = balanceWeightsToBudget(rows);
+  for (const r of rows) {
+    const next = balanced.get(r.id);
+    if (next == null || next === r.weight) continue;
+    await db
+      .update(weeklyGoals)
+      .set({ weight: next, updatedById: actorId, updatedAt: new Date() })
+      .where(eq(weeklyGoals.id, r.id));
+  }
+}
+
+/** Count a person's active (non-archived) goals in a week. */
+async function activeGoalCount(employeeId: string, weekStart: string): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(weeklyGoals)
+    .where(
+      and(
+        eq(weeklyGoals.employeeId, employeeId),
+        eq(weeklyGoals.weekStart, weekStart),
+        eq(weeklyGoals.archived, false),
+      ),
+    );
+  return row?.n ?? 0;
+}
+
 export async function createWeeklyGoal(
   input: CreateWeeklyGoalInput,
 ): Promise<ActionResult<{ id: string }>> {
@@ -188,6 +240,11 @@ export async function createWeeklyGoal(
   const employeeId = data.employeeId;
   const weekStart = mondayOf(data.weekStart);
 
+  // Hard cap: no more than 10 goals per person per week.
+  if ((await activeGoalCount(employeeId, weekStart)) >= MAX_GOALS_PER_WEEK) {
+    return { ok: false, error: `That's the weekly maximum — up to ${MAX_GOALS_PER_WEEK} goals per week.` };
+  }
+
   try {
     const position = await nextPosition(employeeId, weekStart);
     const inc = await resolveIncentiveFields(data);
@@ -216,6 +273,8 @@ export async function createWeeklyGoal(
       })
       .returning({ id: weeklyGoals.id });
     if (!row) return { ok: false, error: "Insert returned no row" };
+    // Enforce the 100-point budget: re-balance the whole week after the add.
+    await rebalanceWeekWeights(employeeId, weekStart, me.id);
     revalidateWeeklyGoals();
     return { ok: true, id: row.id };
   } catch (err) {
@@ -518,15 +577,17 @@ export async function balanceWeeklyGoalWeights(
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
-  // #5 — balancing weights is a planning mutation → manager-only. Admins → anyone;
-  // managers → their downline (never themselves); owners are rejected.
+  // Balancing to 100 is a normalization, not arbitrary planning — so OWNERS may
+  // balance their OWN week (Sir's rule: a person's weights must total 100), and
+  // admins/super-admins/managers may balance anyone in scope.
   const scope = await goalScopeFor(me);
-  const isManager =
+  const allowed =
     me.isAdmin ||
     isSuperAdmin(me.email) ||
-    (input.employeeId !== me.id && scope.ids.includes(input.employeeId));
-  if (!isManager) {
-    return { ok: false, error: "Only a manager can change this goal" };
+    input.employeeId === me.id ||
+    scope.ids.includes(input.employeeId);
+  if (!allowed) {
+    return { ok: false, error: "You can only balance your own or your team's goals" };
   }
   const weekStart = mondayOf(input.weekStart);
 
@@ -574,6 +635,8 @@ export async function deleteWeeklyGoal(input: { id: string }): Promise<ActionRes
 
   try {
     await db.delete(weeklyGoals).where(eq(weeklyGoals.id, parsed.data.id));
+    // Re-balance the remaining goals so the week still totals exactly 100.
+    await rebalanceWeekWeights(loaded.row.employeeId, loaded.row.weekStart, me.id);
     revalidateWeeklyGoals();
     return { ok: true };
   } catch (err) {

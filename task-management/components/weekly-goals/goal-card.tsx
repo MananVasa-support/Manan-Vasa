@@ -918,12 +918,13 @@ function WeightInput({
       <input
         type="number"
         min={1}
+        max={WEIGHT_BUDGET}
         value={v}
         onChange={(e) => setV(e.target.value)}
         onBlur={() => {
-          // Clamp only to a sane lower bound — never silently cap to the budget,
-          // so an over-allocated total stays visible until Balanced.
-          const n = Math.max(1, Math.round(Number(v) || value || 1));
+          // Clamp to [1, 100] — a single goal can never exceed the 100-point week.
+          // The board's "Balance to 100" button corrects the total across goals.
+          const n = Math.max(1, Math.min(WEIGHT_BUDGET, Math.round(Number(v) || value || 1)));
           if (n !== value) onCommit(n);
           setV(String(n));
         }}
