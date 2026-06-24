@@ -21,6 +21,7 @@ import {
   Handshake,
   GraduationCap,
   LayoutGrid,
+  MessageSquareHeart,
 } from "lucide-react";
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
@@ -135,7 +136,17 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
     groups: [],
   },
   training: {
-    top: [{ href: "/training" as Route, label: "Training Centre", Icon: GraduationCap }],
+    top: [
+      {
+        href: "/training" as Route,
+        label: "Library",
+        Icon: GraduationCap,
+        not: ["/training/feedback", "/training/induction", "/training/dashboard"],
+      },
+      { href: "/training/induction" as Route, label: "Induction", Icon: ListChecks },
+      { href: "/training/feedback" as Route, label: "Feedback", Icon: MessageSquareHeart },
+      { href: "/training/dashboard" as Route, label: "Dashboard", Icon: LayoutDashboard },
+    ],
     groups: [],
   },
 };

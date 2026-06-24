@@ -281,3 +281,85 @@ export async function getTestForAuthoring(materialId: string, kind: number): Pro
     questions: qs.map((q) => ({ type: q.type, prompt: q.prompt, options: q.options ?? [], correctAnswers: q.correctAnswers ?? [], marks: q.marks })),
   };
 }
+
+/* ── Induction (slice 3) + dashboard (slice 5) ── */
+
+export interface InductionItem {
+  id: string;
+  subject: string | null;
+  los: string | null;
+  fileName: string | null;
+  fileType: string | null;
+  videoUrl: string | null;
+  watched: boolean;
+  test1Passed: boolean | null; // null = no test
+  test2Passed: boolean | null;
+  complete: boolean;
+}
+
+/** Induction material assigned to an employee — all induction-flagged material
+ *  tagged for their department — with watch + test status. */
+export async function getInductionForEmployee(employeeId: string, departmentId: string | null): Promise<InductionItem[]> {
+  if (!departmentId) return [];
+  const mats = await db
+    .select({ id: tcMaterials.id, subject: tcSubjects.name, los: tcMaterials.los, fileName: tcMaterials.fileName, fileType: tcMaterials.fileType, videoUrl: tcMaterials.videoUrl })
+    .from(tcMaterials)
+    .leftJoin(tcSubjects, eq(tcSubjects.id, tcMaterials.subjectId))
+    .where(and(eq(tcMaterials.partOfInduction, true), sql`${departmentId} = ANY(${tcMaterials.inductionDeptIds})`))
+    .orderBy(asc(tcMaterials.createdAt));
+
+  const out: InductionItem[] = [];
+  for (const m of mats) {
+    const [w] = await db.select({ n: sql<number>`count(*)::int` }).from(tcWatchProgress).where(and(eq(tcWatchProgress.materialId, m.id), eq(tcWatchProgress.employeeId, employeeId)));
+    const watched = (w?.n ?? 0) > 0;
+    const tests = await db.select({ id: tcTests.id, kind: tcTests.kind }).from(tcTests).where(eq(tcTests.materialId, m.id));
+    async function passed(testId: string): Promise<boolean> {
+      const [p] = await db.select({ n: sql<number>`count(*)::int` }).from(tcAttempts).where(and(eq(tcAttempts.testId, testId), eq(tcAttempts.employeeId, employeeId), eq(tcAttempts.passed, true)));
+      return (p?.n ?? 0) > 0;
+    }
+    const t1 = tests.find((t) => t.kind === 1);
+    const t2 = tests.find((t) => t.kind === 2);
+    const test1Passed = t1 ? await passed(t1.id) : null;
+    const test2Passed = t2 ? await passed(t2.id) : null;
+    const testsOk = (test1Passed ?? true) && (test2Passed ?? true);
+    out.push({ id: m.id, subject: m.subject, los: m.los, fileName: m.fileName, fileType: m.fileType, videoUrl: m.videoUrl, watched, test1Passed, test2Passed, complete: watched && testsOk });
+  }
+  return out;
+}
+
+export interface TrainingDashboardStats {
+  materials: number;
+  inductionMaterials: number;
+  employees: number;
+  watches: number;
+  attempts: number;
+  passRate: number | null;
+  failedTests: number;
+  bySubject: { subject: string; count: number }[];
+}
+
+export async function getTrainingDashboardStats(): Promise<TrainingDashboardStats> {
+  const [mat] = await db.select({ n: sql<number>`count(*)::int` }).from(tcMaterials);
+  const [ind] = await db.select({ n: sql<number>`count(*)::int` }).from(tcMaterials).where(eq(tcMaterials.partOfInduction, true));
+  const [emp] = await db.select({ n: sql<number>`count(*)::int` }).from(employees).where(eq(employees.isActive, true));
+  const [wat] = await db.select({ n: sql<number>`count(*)::int` }).from(tcWatchProgress);
+  const [att] = await db.select({ n: sql<number>`count(*)::int` }).from(tcAttempts);
+  const [passed] = await db.select({ n: sql<number>`count(*)::int` }).from(tcAttempts).where(eq(tcAttempts.passed, true));
+  const [failed] = await db.select({ n: sql<number>`count(*)::int` }).from(tcAttempts).where(eq(tcAttempts.passed, false));
+  const subj = await db
+    .select({ subject: tcSubjects.name, count: sql<number>`count(*)::int` })
+    .from(tcMaterials)
+    .leftJoin(tcSubjects, eq(tcSubjects.id, tcMaterials.subjectId))
+    .groupBy(tcSubjects.name);
+  const attempts = att?.n ?? 0;
+  return {
+    materials: mat?.n ?? 0,
+    inductionMaterials: ind?.n ?? 0,
+    employees: emp?.n ?? 0,
+    watches: wat?.n ?? 0,
+    attempts,
+    passRate: attempts > 0 ? Math.round(((passed?.n ?? 0) / attempts) * 100) : null,
+    failedTests: failed?.n ?? 0,
+    bySubject: subj.map((s) => ({ subject: s.subject ?? "Unsorted", count: s.count })).sort((a, b) => b.count - a.count),
+  };
+}
