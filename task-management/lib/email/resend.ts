@@ -667,6 +667,10 @@ function renderNotificationTemplate(ctx: RenderContext): ReactElement | null {
       // Weekly Goals emails are sent by the weekly-goals cron via their own
       // dedicated senders, never through the per-task dispatcher.
       return null;
+    default:
+      // Kinds without a dedicated email template (e.g. training_test_failed)
+      // are inbox-only — the in-app row still surfaces them.
+      return null;
   }
 }
 

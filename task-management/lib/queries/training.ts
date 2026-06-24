@@ -6,6 +6,9 @@ import {
   tcServices,
   tcMaterials,
   tcWatchProgress,
+  tcTests,
+  tcQuestions,
+  tcAttempts,
   employees,
   departments,
 } from "@/db/schema";
@@ -182,5 +185,99 @@ export async function getMaterial(
     partOfInduction: m.partOfInduction,
     inductionDeptIds: m.inductionDeptIds ?? [],
     watchedByMe: !!watch,
+  };
+}
+
+/* ── Test engine ── */
+
+export const TEST_PASS_MARK: Record<1 | 2, number> = { 1: 80, 2: 75 };
+
+export interface TcTestSummary {
+  kind: 1 | 2;
+  testId: string | null;
+  passMark: number;
+  questionCount: number;
+  latest: { score: number; passed: boolean; takenAt: string } | null;
+  attemptCount: number;
+}
+
+/** Both tests for a material with the viewer's latest attempt + counts. */
+export async function getMaterialTests(materialId: string, viewerId: string): Promise<TcTestSummary[]> {
+  const tests = await db
+    .select({ id: tcTests.id, kind: tcTests.kind, passMark: tcTests.passMark })
+    .from(tcTests)
+    .where(eq(tcTests.materialId, materialId));
+
+  const out: TcTestSummary[] = [];
+  for (const k of [1, 2] as const) {
+    const t = tests.find((x) => x.kind === k);
+    if (!t) {
+      out.push({ kind: k, testId: null, passMark: TEST_PASS_MARK[k], questionCount: 0, latest: null, attemptCount: 0 });
+      continue;
+    }
+    const [qc] = await db.select({ n: sql<number>`count(*)::int` }).from(tcQuestions).where(eq(tcQuestions.testId, t.id));
+    const attempts = await db
+      .select({ score: tcAttempts.score, passed: tcAttempts.passed, takenAt: tcAttempts.takenAt })
+      .from(tcAttempts)
+      .where(and(eq(tcAttempts.testId, t.id), eq(tcAttempts.employeeId, viewerId)))
+      .orderBy(desc(tcAttempts.takenAt));
+    out.push({
+      kind: k,
+      testId: t.id,
+      passMark: t.passMark,
+      questionCount: qc?.n ?? 0,
+      latest: attempts[0] ? { score: attempts[0].score, passed: attempts[0].passed, takenAt: attempts[0].takenAt.toISOString() } : null,
+      attemptCount: attempts.length,
+    });
+  }
+  return out;
+}
+
+export interface TakingQuestion {
+  id: string;
+  type: string;
+  prompt: string;
+  options: string[];
+  marks: number;
+}
+export interface TakingTest {
+  testId: string;
+  materialId: string;
+  kind: number;
+  passMark: number;
+  title: string | null;
+  questions: TakingQuestion[];
+}
+
+/** A test for an employee to take — correct answers stripped out. */
+export async function getTestForTaking(testId: string): Promise<TakingTest | null> {
+  const [t] = await db.select().from(tcTests).where(eq(tcTests.id, testId)).limit(1);
+  if (!t) return null;
+  const qs = await db.select().from(tcQuestions).where(eq(tcQuestions.testId, testId)).orderBy(asc(tcQuestions.position));
+  return {
+    testId: t.id,
+    materialId: t.materialId,
+    kind: t.kind,
+    passMark: t.passMark,
+    title: t.title,
+    questions: qs.map((q) => ({ id: q.id, type: q.type, prompt: q.prompt, options: q.options ?? [], marks: q.marks })),
+  };
+}
+
+export interface AuthoringQuestion {
+  type: string;
+  prompt: string;
+  options: string[];
+  correctAnswers: string[];
+  marks: number;
+}
+/** Existing questions for a material's test (with answers) — for authoring. */
+export async function getTestForAuthoring(materialId: string, kind: number): Promise<{ title: string | null; questions: AuthoringQuestion[] }> {
+  const [t] = await db.select().from(tcTests).where(and(eq(tcTests.materialId, materialId), eq(tcTests.kind, kind))).limit(1);
+  if (!t) return { title: null, questions: [] };
+  const qs = await db.select().from(tcQuestions).where(eq(tcQuestions.testId, t.id)).orderBy(asc(tcQuestions.position));
+  return {
+    title: t.title,
+    questions: qs.map((q) => ({ type: q.type, prompt: q.prompt, options: q.options ?? [], correctAnswers: q.correctAnswers ?? [], marks: q.marks })),
   };
 }

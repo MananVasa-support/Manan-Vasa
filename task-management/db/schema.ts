@@ -976,6 +976,8 @@ export const NOTIFICATION_KINDS = [
   "weekly_goals_assigned",
   "weekly_goals_fill_reminder",
   "weekly_goals_incomplete",
+  // Training Centre — a test failure pings the employee + their manager.
+  "training_test_failed",
 ] as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

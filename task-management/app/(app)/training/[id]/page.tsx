@@ -5,9 +5,11 @@ import { ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
-import { getMaterial, listDepartmentOptions } from "@/lib/queries/training";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { getMaterial, listDepartmentOptions, getMaterialTests, isManager } from "@/lib/queries/training";
 import { listEmployeeOptions } from "@/lib/queries/employees";
 import { MaterialViewer } from "@/components/training/material-viewer";
+import { MaterialTests } from "@/components/training/material-tests";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +20,15 @@ interface PageProps {
 export default async function MaterialPage({ params }: PageProps) {
   const { id } = await params;
   const me = await requireWorkspace("training");
-  const [material, employeeOptions, departmentOptions] = await Promise.all([
+  const [material, employeeOptions, departmentOptions, tests, manager] = await Promise.all([
     getMaterial(id, me.id),
     listEmployeeOptions(),
     listDepartmentOptions(),
+    getMaterialTests(id, me.id),
+    isManager(me.id),
   ]);
   if (!material) notFound();
+  const canManage = me.isAdmin || isSuperAdmin(me.email) || manager;
 
   const empById = Object.fromEntries(employeeOptions.map((e) => [e.id, e.name]));
   const deptById = Object.fromEntries(departmentOptions.map((d) => [d.value, d.label]));
@@ -47,6 +52,7 @@ export default async function MaterialPage({ params }: PageProps) {
           {material.subject && <p className="mt-1.5 font-semibold text-ink-muted" style={{ fontSize: 15 }}>{material.subject}{material.los ? ` · ${material.los}` : ""}</p>}
         </header>
         <MaterialViewer material={material} createdByNames={createdByNames} assistedByNames={assistedByNames} inductionDeptNames={inductionDeptNames} />
+        <MaterialTests materialId={material.id} tests={tests} canManage={canManage} />
       </main>
       <DashboardFooter />
     </>

@@ -58,6 +58,7 @@ const KIND_META: Record<NotificationKind, { icon: LucideIcon; tone: string }> = 
   attendance_half_day: { icon: AlarmClock, tone: "amber" },
   attendance_device: { icon: Smartphone, tone: "blue" },
   attendance_late_deduction: { icon: AlarmClock, tone: "rose" },
+  training_test_failed: { icon: XCircle, tone: "red" },
 };
 
 /**

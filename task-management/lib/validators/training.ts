@@ -57,3 +57,29 @@ export const DeleteTcLookupSchema = z.object({
   kind: z.enum(TC_LOOKUP_KINDS),
   id: z.string().uuid(),
 });
+
+/* ── Test engine ── */
+
+export const TestQuestionSchema = z.object({
+  type: z.enum(["mcq", "fill_blank"]),
+  prompt: z.string().trim().min(1, "Question text is required.").max(2000),
+  // mcq: the answer choices; fill_blank: empty
+  options: z.array(z.string().trim().max(500)).default([]),
+  // mcq: ["<correct option index>"]; fill_blank: acceptable answers
+  correctAnswers: z.array(z.string().trim().min(1).max(500)).min(1, "Mark the correct answer."),
+  marks: z.number().int().min(1).max(100).default(1),
+});
+export type TestQuestionInput = z.infer<typeof TestQuestionSchema>;
+
+export const SaveTestSchema = z.object({
+  materialId: z.string().uuid(),
+  kind: z.union([z.literal(1), z.literal(2)]),
+  title: optionalText(200),
+  questions: z.array(TestQuestionSchema).min(1, "Add at least one question."),
+});
+
+export const SubmitAttemptSchema = z.object({
+  testId: z.string().uuid(),
+  // questionId → answer (mcq: chosen option index as a string; fill: typed text)
+  answers: z.record(z.string(), z.string()),
+});

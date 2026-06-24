@@ -38,6 +38,7 @@ const EMOJI: Record<NotificationKind, string> = {
   attendance_half_day: ":clock5:",
   attendance_device: ":iphone:",
   attendance_late_deduction: ":heavy_minus_sign:",
+  training_test_failed: ":x:",
 };
 
 const VERB: Record<NotificationKind, (actor: string, statusLabel?: string) => string> = {
@@ -65,6 +66,7 @@ const VERB: Record<NotificationKind, (actor: string, statusLabel?: string) => st
   attendance_half_day: () => `Half day recorded`,
   attendance_device: () => `New device used for attendance`,
   attendance_late_deduction: () => `Late deduction applied`,
+  training_test_failed: () => `Training test not passed`,
 };
 
 export interface SlackCtx {

@@ -1,18 +1,29 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { sql, eq } from "drizzle-orm";
+import { sql, eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { tcMaterials, tcWatchProgress, type Employee } from "@/db/schema";
+import {
+  tcMaterials,
+  tcWatchProgress,
+  tcTests,
+  tcQuestions,
+  tcAttempts,
+  employees,
+  type Employee,
+} from "@/db/schema";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
-import { isManager, type TcLookupOption } from "@/lib/queries/training";
+import { isManager, TEST_PASS_MARK, type TcLookupOption } from "@/lib/queries/training";
+import { notify } from "@/lib/notifications/dispatch";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import {
   CreateMaterialSchema,
   UpdateMaterialSchema,
   AddTcLookupSchema,
   DeleteTcLookupSchema,
+  SaveTestSchema,
+  SubmitAttemptSchema,
   type TcLookupKind,
 } from "@/lib/validators/training";
 
@@ -167,6 +178,118 @@ export async function softDeleteTcLookup(kind: TcLookupKind, id: string): Promis
     await db.execute(sql`UPDATE ${ident} SET is_active = false, updated_at = now() WHERE id = ${parsed.data.id}`);
     revalidatePath(PATH);
     return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/* ── Test engine ── */
+
+function norm(s: string): string {
+  return (s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** Author (replace) a material's Test 1 (MCQ, 80%) or Test 2 (fill-blank, 75%). */
+export async function saveTest(input: unknown): Promise<Result<{ testId: string }>> {
+  const me = await requireTrainingManager();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = SaveTestSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+  const d = parsed.data;
+  const passMark = TEST_PASS_MARK[d.kind];
+  try {
+    // Upsert the test row (one per material+kind).
+    const [existing] = await db
+      .select({ id: tcTests.id })
+      .from(tcTests)
+      .where(and(eq(tcTests.materialId, d.materialId), eq(tcTests.kind, d.kind)))
+      .limit(1);
+
+    let testId: string;
+    if (existing) {
+      testId = existing.id;
+      await db.update(tcTests).set({ title: d.title, passMark, updatedAt: new Date() }).where(eq(tcTests.id, testId));
+      await db.delete(tcQuestions).where(eq(tcQuestions.testId, testId));
+    } else {
+      const [created] = await db
+        .insert(tcTests)
+        .values({ materialId: d.materialId, kind: d.kind, title: d.title, passMark })
+        .returning({ id: tcTests.id });
+      testId = created!.id;
+    }
+
+    if (d.questions.length > 0) {
+      await db.insert(tcQuestions).values(
+        d.questions.map((q, i) => ({
+          testId,
+          type: q.type,
+          prompt: q.prompt,
+          options: q.options,
+          correctAnswers: q.correctAnswers,
+          marks: q.marks,
+          position: i,
+        })),
+      );
+    }
+    revalidatePath(`/training/${d.materialId}`);
+    return { ok: true, testId };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Take a test: grade it, record the attempt, ping the manager + employee on fail. */
+export async function submitAttempt(input: unknown): Promise<Result<{ score: number; passed: boolean }>> {
+  const me = await requireWorkspace("training");
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = SubmitAttemptSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid submission." };
+  }
+  const { testId, answers } = parsed.data;
+
+  try {
+    const [test] = await db.select().from(tcTests).where(eq(tcTests.id, testId)).limit(1);
+    if (!test) return { ok: false, error: "Test not found." };
+    const questions = await db.select().from(tcQuestions).where(eq(tcQuestions.testId, testId));
+    if (questions.length === 0) return { ok: false, error: "This test has no questions yet." };
+
+    let total = 0;
+    let earned = 0;
+    for (const q of questions) {
+      total += q.marks;
+      const ans = answers[q.id];
+      if (ans == null) continue;
+      const correct = q.correctAnswers ?? [];
+      if (q.type === "mcq") {
+        if (String(ans) === String(correct[0])) earned += q.marks;
+      } else {
+        if (correct.some((c) => norm(c) === norm(ans))) earned += q.marks;
+      }
+    }
+    const score = total > 0 ? Math.round((earned / total) * 100) : 0;
+    const passed = score >= test.passMark;
+
+    await db.insert(tcAttempts).values({ testId, employeeId: me.id, score, passed, answers });
+    revalidatePath(`/training/${test.materialId}`);
+
+    if (!passed) {
+      const label = `Test ${test.kind}`;
+      const body = `Scored ${score}% on ${label} (pass mark ${test.passMark}%).`;
+      notify({ userId: me.id, kind: "training_test_failed", title: `You didn't pass ${label}`, body });
+      if (me.managerId) {
+        notify({ userId: me.managerId, kind: "training_test_failed", title: `${me.name} failed ${label}`, body: `${me.name} scored ${score}% on ${label} (pass ${test.passMark}%).` });
+      } else {
+        // Fall back to admins so a failure is never silently unseen.
+        const admins = await db.select({ id: employees.id }).from(employees).where(and(eq(employees.isAdmin, true), eq(employees.isActive, true)));
+        for (const a of admins) if (a.id !== me.id) notify({ userId: a.id, kind: "training_test_failed", title: `${me.name} failed ${label}`, body });
+      }
+    }
+    return { ok: true, score, passed };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
