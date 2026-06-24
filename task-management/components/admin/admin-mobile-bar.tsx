@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
 import { signOut } from "firebase/auth";
-import { Menu, X, ArrowLeft, LogOut } from "lucide-react";
+import { Menu, X, LayoutGrid, LogOut } from "lucide-react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import {
   ADMIN_TOP_LEVEL,
@@ -198,10 +198,11 @@ export function AdminMobileBar({ adminName, adminEmail, backHref }: Props) {
               </div>
               <Link
                 href={backHref as Route}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-ink-soft hover:bg-black/5 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 transition-colors"
+                style={{ color: "#000" }}
               >
-                <ArrowLeft size={16} strokeWidth={2.2} />
-                <span className="text-[14px] font-medium">Back to app</span>
+                <LayoutGrid size={16} strokeWidth={2.2} />
+                <span className="text-[14px] font-bold">Back to Hub</span>
               </Link>
               <button
                 type="button"

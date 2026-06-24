@@ -385,7 +385,7 @@ export function DailyPlanGate({
                     : "No weekly goals to pull."}
                 </p>
               ) : (
-                <ul className="space-y-2">
+                <ul className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
                   <AnimatePresence initial={false}>
                     {pullable.map((g) => {
                       const label = g.targetDone || g.subject || "Weekly goal";

@@ -1,3 +1,5 @@
+import { headers } from "next/headers";
+import { LayoutGrid } from "lucide-react";
 import { LiveIndicator } from "./live-indicator";
 import { MainNavServer } from "./main-nav-server";
 import { NavHistoryButtons } from "./nav-history-buttons";
@@ -7,6 +9,7 @@ import { NewTaskTrigger } from "@/components/header/new-task-trigger";
 import { AdminPill } from "@/components/header/admin-pill";
 import { GlobalSearch } from "@/components/header/global-search";
 import { getCurrentEmployee } from "@/lib/auth/current";
+import { workspaceForPath, WORKSPACE_LANDING } from "@/lib/workspaces";
 
 /**
  * Light glassy application header — single row, ~72px tall.
@@ -26,6 +29,13 @@ export async function DashboardHeader({
   const me = await getCurrentEmployee();
   const isAdmin = me?.isAdmin ?? false;
 
+  // The logo now returns to the CURRENT module's home (WMS→/dashboard,
+  // Training→/training, …) instead of the hub. The path is exposed by the auth
+  // middleware as `x-pathname`. Shared surfaces (no workspace) fall back to /hub.
+  const pathname = (await headers()).get("x-pathname") ?? "/";
+  const ws = workspaceForPath(pathname);
+  const moduleHome = ws ? WORKSPACE_LANDING[ws] : "/hub";
+
   return (
     <header className="sticky top-0 z-50 header-light">
       <div
@@ -43,16 +53,28 @@ export async function DashboardHeader({
           <NavHistoryButtons />
           <MobileMenuServer isAdmin={isAdmin} />
 
-          {/* LEFT: Altus Corp logo — doubles as the HUB button (back to the
-              workspace switchboard). The image is the brand mark; the logo
-              already includes the name. */}
-          <a href="/hub" className="flex items-center shrink-0" aria-label="Altus Corp — workspaces hub">
+          {/* LEFT: Altus Corp logo — returns to the CURRENT module's home page
+              (WMS→Dashboard, Training→Training, …), NOT the hub. The image is the
+              brand mark; the logo already includes the name. */}
+          <a href={moduleHome} className="flex items-center shrink-0" aria-label="Back to this module's home">
             <img
               src="/logo.png"
               alt="Altus Corp"
               className="h-16 w-auto max-md:h-14"
               style={{ display: "block" }}
             />
+          </a>
+
+          {/* Explicit "Back to Hub" — black, always visible, on every module so
+              there's a clear, consistent way back to the workspace switchboard. */}
+          <a
+            href="/hub"
+            aria-label="Back to Hub"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-hairline px-3 py-1.5 text-[13px] font-bold text-black transition-colors hover:bg-black/[0.05] max-md:px-2.5"
+            style={{ color: "#000" }}
+          >
+            <LayoutGrid size={15} strokeWidth={2.4} />
+            <span className="max-md:hidden">Back to Hub</span>
           </a>
 
           {/* CENTER: primary pill nav — visible on every desktop width (and

@@ -1,10 +1,4 @@
 import type { ReactNode } from "react";
-import { cookies } from "next/headers";
-import {
-  ACTIVE_WORKSPACE_COOKIE,
-  WORKSPACE_LANDING,
-  isWorkspaceId,
-} from "@/lib/workspaces";
 import { AdminHeader } from "./admin-header";
 import { AdminMobileBar } from "./admin-mobile-bar";
 
@@ -27,11 +21,9 @@ export async function AdminShell({
   adminEmail,
   avatarUrl,
 }: Props) {
-  // "Back to app" returns to whichever workspace the admin came in from (the
-  // `aw` cookie) — Marketing → /index-hub, Employees → /attendance, etc. —
-  // instead of always dropping them into WMS. Falls back to the hub.
-  const aw = (await cookies()).get(ACTIVE_WORKSPACE_COOKIE)?.value;
-  const backHref = isWorkspaceId(aw) ? WORKSPACE_LANDING[aw] : "/hub";
+  // Consistent with every other module: the back button returns to the Hub
+  // (the workspace switchboard). The logo still goes to the admin home (/admin).
+  const backHref = "/hub";
 
   return (
     <div className="min-h-screen flex flex-col">

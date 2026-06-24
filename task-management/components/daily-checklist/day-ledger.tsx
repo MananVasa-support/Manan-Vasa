@@ -245,7 +245,9 @@ export function DayLedger({ today, items: pItems, overdue: pOverdue, pullable: p
                 <p className="text-ink-subtle mb-3" style={{ fontSize: 13.5, lineHeight: 1.45 }}>
                   Commit a goal to today — it joins as a goal-related item.
                 </p>
-                <ul className="space-y-2">
+                {/* Capped + scrollable: a long goal list must NOT stretch the page
+                    tall (leaving the short ledger column with a big empty gap). */}
+                <ul className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
                   {pullable.map((g) => (
                     <li
                       key={g.id}

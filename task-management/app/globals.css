@@ -127,12 +127,13 @@ html[data-density="compact"] {
   --density-pad-y: 0.78;
   --density-line-height: 1.45;
 }
-/* Compact density: uniformly scale the whole UI down so it visibly "fits
-   more on screen" (the control's promise). `zoom` reflows correctly (unlike
-   transform) and scales the app's many fixed-px sizes that a font-size
-   change alone wouldn't touch. */
+/* Compact density tightens line-height (and padding via the --density-* vars).
+   It deliberately does NOT use `zoom` or `transform`: an ancestor zoom/transform
+   breaks Radix's portaled dropdowns & popovers — they mis-position and the click
+   that opened them reads as an "outside" click, so they close instantly (and
+   scroll height mis-computes). This was the system-wide "dropdowns close in a
+   sec / not scrollable" bug. Keep this rule zoom-free. */
 html[data-density="compact"] body {
-  zoom: 0.92;
   line-height: var(--density-line-height);
 }
 

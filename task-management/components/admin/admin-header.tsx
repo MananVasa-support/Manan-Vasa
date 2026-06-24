@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { signOut } from "firebase/auth";
-import { ArrowLeft, LogOut } from "lucide-react";
+import { LayoutGrid, LogOut } from "lucide-react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { AdminTopNav } from "./admin-top-nav";
 
@@ -90,10 +90,12 @@ export function AdminHeader({ adminName, adminEmail, avatarUrl, backHref }: Prop
           <div className="flex items-center gap-2.5 2xl:gap-3 shrink-0">
             <Link
               href={backHref as Route}
-              className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-[13.5px] font-semibold border border-hairline bg-white/70 text-ink-strong hover:border-altus-red transition-colors"
+              aria-label="Back to Hub"
+              className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-[13.5px] font-bold border border-hairline bg-white/70 transition-colors hover:bg-black/[0.05]"
+              style={{ color: "#000" }}
             >
-              <ArrowLeft size={15} strokeWidth={2.4} />
-              <span className="max-2xl:hidden">Back to app</span>
+              <LayoutGrid size={15} strokeWidth={2.4} />
+              <span className="max-2xl:hidden">Back to Hub</span>
             </Link>
 
             <span
