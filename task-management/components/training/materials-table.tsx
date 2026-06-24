@@ -28,7 +28,7 @@ export function MaterialsTable({
   const router = useRouter();
   const [q, setQ] = React.useState("");
   const [subject, setSubject] = React.useState("");
-  const [induction, setInduction] = React.useState("");
+  const [inductionOnly, setInductionOnly] = React.useState(false);
   const [sort, setSort] = React.useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "addedOn", dir: "desc" });
 
   const subjects = React.useMemo(() => {
@@ -41,8 +41,7 @@ export function MaterialsTable({
     const needle = q.trim().toLowerCase();
     let out = rows.filter((r) => {
       if (subject && r.subject !== subject) return false;
-      if (induction === "yes" && !r.partOfInduction) return false;
-      if (induction === "no" && r.partOfInduction) return false;
+      if (inductionOnly && !r.partOfInduction) return false;
       if (needle) {
         const hay = [r.subject, r.los, r.fileName, r.version].filter(Boolean).join(" ").toLowerCase();
         if (!hay.includes(needle)) return false;
@@ -56,12 +55,13 @@ export function MaterialsTable({
       return av.localeCompare(bv, undefined, { sensitivity: "base", numeric: true }) * dir;
     });
     return out;
-  }, [rows, q, subject, induction, sort]);
+  }, [rows, q, subject, inductionOnly, sort]);
 
   function toggleSort(key: SortKey) {
     setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
   }
-  const hasFilters = q || subject || induction;
+  const inductionCount = React.useMemo(() => rows.filter((r) => r.partOfInduction).length, [rows]);
+  const hasFilters = q || subject || inductionOnly;
 
   function creators(ids: string[]): string {
     const names = ids.map((id) => employeesById[id]).filter(Boolean) as string[];
@@ -73,21 +73,34 @@ export function MaterialsTable({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex min-w-[260px] flex-1 items-center gap-2 rounded-lg border border-hairline-strong bg-white px-3">
+        <div className="flex w-[300px] max-md:w-full items-center gap-2 rounded-lg border border-hairline-strong bg-white px-3">
           <Search size={17} strokeWidth={2.2} style={{ color: "var(--color-ink-subtle)" }} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search subject, LOS, file, version…" className="w-full bg-transparent py-2.5 outline-none text-[15px] font-medium text-ink-strong placeholder:text-ink-subtle placeholder:font-normal" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search materials…" className="w-full bg-transparent py-2.5 outline-none text-[15px] font-medium text-ink-strong placeholder:text-ink-subtle placeholder:font-normal" />
         </div>
         <select className={CHIP} value={subject} onChange={(e) => setSubject(e.target.value)} aria-label="Filter by subject">
           <option value="">All subjects</option>
           {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select className={CHIP} value={induction} onChange={(e) => setInduction(e.target.value)} aria-label="Filter induction">
-          <option value="">All material</option>
-          <option value="yes">Induction only</option>
-          <option value="no">Non-induction</option>
-        </select>
+        {/* Induction toggle pill — one tap to see only induction sessions. */}
+        <button
+          type="button"
+          onClick={() => setInductionOnly((v) => !v)}
+          aria-pressed={inductionOnly}
+          className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13.5px] font-bold transition-colors"
+          style={
+            inductionOnly
+              ? { background: "linear-gradient(135deg, var(--color-purple), var(--color-purple-deep))", color: "#fff", boxShadow: "0 6px 16px -8px rgba(124,58,237,0.6)" }
+              : { border: "1px solid var(--color-hairline-strong)", background: "#fff", color: "var(--color-ink-soft)" }
+          }
+        >
+          <GraduationCap size={15} strokeWidth={2.4} />
+          Induction
+          {inductionCount > 0 && (
+            <span className="tabular-nums" style={{ opacity: inductionOnly ? 0.9 : 0.6 }}>· {inductionCount}</span>
+          )}
+        </button>
         {hasFilters && (
-          <button type="button" onClick={() => { setQ(""); setSubject(""); setInduction(""); }} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
+          <button type="button" onClick={() => { setQ(""); setSubject(""); setInductionOnly(false); }} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
             <X size={15} strokeWidth={2.4} /> Clear
           </button>
         )}

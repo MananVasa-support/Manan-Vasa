@@ -69,16 +69,17 @@ export async function getTodayItems(
 }
 
 /**
- * Current-week active goals the employee has NOT yet pulled into today — the
- * "Pull from your Weekly Goals" list. Excludes archived goals and any goal
- * already on today's checklist.
+ * Active goals the employee has NOT yet pulled into today — the "Pull from your
+ * Weekly Goals" list. Prefers THIS week's goals; if the employee hasn't set any
+ * for the current week yet, it FALLS BACK to their most recent week with active
+ * goals so unfinished goals carry forward into today's plan (otherwise someone
+ * who set goals last week but not this week sees an empty pull list).
  */
-export async function listPullableGoals(
+async function pullableForWeek(
   employeeId: string,
-  now: Date = new Date(),
+  weekStart: string,
+  ymd: string,
 ): Promise<PullableGoal[]> {
-  const weekStart = currentWeekStart(now);
-  const ymd = todayYmd(now);
   return db
     .select({
       id: weeklyGoals.id,
@@ -102,6 +103,29 @@ export async function listPullableGoals(
       ),
     )
     .orderBy(asc(weeklyGoals.position), asc(weeklyGoals.createdAt));
+}
+
+export async function listPullableGoals(
+  employeeId: string,
+  now: Date = new Date(),
+): Promise<PullableGoal[]> {
+  const ymd = todayYmd(now);
+  const thisWeek = currentWeekStart(now);
+  const current = await pullableForWeek(employeeId, thisWeek, ymd);
+  if (current.length > 0) return current;
+
+  // No current-week goals → fall back to the most recent week the employee has
+  // active goals in (carry forward last week's unfinished goals).
+  const [recent] = await db
+    .select({ ws: weeklyGoals.weekStart })
+    .from(weeklyGoals)
+    .where(and(eq(weeklyGoals.employeeId, employeeId), eq(weeklyGoals.archived, false)))
+    .orderBy(desc(weeklyGoals.weekStart))
+    .limit(1);
+  if (recent && recent.ws !== thisWeek) {
+    return pullableForWeek(employeeId, recent.ws, ymd);
+  }
+  return current;
 }
 
 /**
