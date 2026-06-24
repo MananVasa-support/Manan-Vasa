@@ -52,6 +52,8 @@ export function ManagedSelect({
 
   const addInputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLUListElement>(null);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const listId = React.useId();
 
   React.useEffect(() => setOptions(seed), [seed]);
   React.useEffect(() => {
@@ -148,12 +150,20 @@ export function ManagedSelect({
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHi((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setHi(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setHi(filtered.length);
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (hi === filtered.length) startAdd();
       else if (filtered[hi]) choose(filtered[hi]);
     } else if (e.key === "Escape") {
+      e.preventDefault();
       setOpen(false);
+      triggerRef.current?.focus();
     }
   }
 
@@ -216,10 +226,13 @@ export function ManagedSelect({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
+          ref={triggerRef}
           type="button"
           id={id}
           onFocus={() => setOpen(true)}
           aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={listId}
           className={(className ? className + " " : "") + "flex items-center justify-between gap-2 text-left cursor-pointer"}
         >
           <span
@@ -256,6 +269,11 @@ export function ManagedSelect({
             <Search size={16} strokeWidth={2.2} style={{ color: "var(--color-ink-subtle)" }} />
             <input
               autoFocus
+              role="combobox"
+              aria-expanded={open}
+              aria-controls={listId}
+              aria-autocomplete="list"
+              aria-activedescendant={open ? (hi === filtered.length ? `${listId}-add` : `${listId}-opt-${hi}`) : undefined}
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -268,7 +286,7 @@ export function ManagedSelect({
             />
           </div>
         </div>
-        <ul ref={listRef} role="listbox" className="max-h-[300px] overflow-y-auto py-1.5">
+        <ul ref={listRef} id={listId} role="listbox" className="max-h-[300px] overflow-y-auto py-1.5">
           {value && (
             <li
               onClick={clearSelection}
@@ -290,6 +308,7 @@ export function ManagedSelect({
             return (
               <li
                 key={opt.id}
+                id={`${listId}-opt-${i}`}
                 role="option"
                 aria-selected={isSel}
                 onMouseEnter={() => setHi(i)}
@@ -316,6 +335,7 @@ export function ManagedSelect({
             );
           })}
           <li
+            id={`${listId}-add`}
             role="option"
             aria-selected={hi === filtered.length}
             onMouseEnter={() => setHi(filtered.length)}

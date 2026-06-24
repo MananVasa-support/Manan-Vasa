@@ -261,6 +261,10 @@ export function NewTaskDialog({ employees, clients, subjects, projectNodes, defa
         <Dialog.Content
           className="fixed left-1/2 top-1/2 z-[70] w-[min(900px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-section border border-hairline bg-surface-card shadow-xl overflow-hidden"
           style={{ maxHeight: "calc(100vh - 48px)" }}
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            requestAnimationFrame(() => document.getElementById("nt-title")?.focus());
+          }}
         >
           {/* Header — brand bar + title */}
           <div

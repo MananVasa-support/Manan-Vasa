@@ -54,6 +54,7 @@ export function ClientSelect({
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const searchRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLUListElement>(null);
+  const listId = React.useId();
 
   React.useEffect(() => setOptions(clients), [clients]);
   React.useEffect(() => {
@@ -142,12 +143,24 @@ export function ClientSelect({
       e.preventDefault();
       if (hi === filtered.length) startAdd();
       else if (filtered[hi]) choose(filtered[hi]);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setHi(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setHi(filtered.length); // the Add-new row
     } else if (e.key === "Tab") {
-      // Commit the highlighted client on Tab, then advance to the next field.
-      if (hi < filtered.length && filtered[hi]) {
+      // Forward Tab commits the highlighted client, then advances to the next
+      // field. Backward Tab (Shift+Tab) must NEVER silent-select — just close
+      // and let focus move back naturally.
+      if (!e.shiftKey && hi < filtered.length && filtered[hi]) {
         e.preventDefault();
         choose(filtered[hi]);
-        requestAnimationFrame(() => focusNextFrom(triggerRef.current, e.shiftKey ? -1 : 1));
+        requestAnimationFrame(() => focusNextFrom(triggerRef.current, 1));
       } else {
         setOpen(false);
       }
@@ -228,6 +241,8 @@ export function ClientSelect({
           }}
           onBlur={onBlur}
           aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={listId}
           className={(className ? className + " " : "") + "flex items-center justify-between gap-2 text-left cursor-pointer"}
         >
           <span
@@ -286,12 +301,17 @@ export function ClientSelect({
               }}
               onKeyDown={searchKeyDown}
               placeholder="Search clients…"
+              role="combobox"
+              aria-expanded={open}
+              aria-controls={listId}
+              aria-autocomplete="list"
+              aria-activedescendant={open ? `${listId}-opt-${hi}` : undefined}
               className="w-full bg-transparent outline-none py-2.5"
               style={{ fontSize: 15, fontWeight: 600, color: "var(--color-ink-strong)" }}
             />
           </div>
         </div>
-        <ul ref={listRef} role="listbox" className="max-h-[300px] overflow-y-auto py-1.5">
+        <ul ref={listRef} id={listId} role="listbox" className="max-h-[300px] overflow-y-auto py-1.5">
           {filtered.length === 0 && (
             <li className="px-4 py-3 text-[14px] font-semibold" style={{ color: "var(--color-ink-muted)" }}>
               No match for “{query}”.
@@ -303,6 +323,7 @@ export function ClientSelect({
             return (
               <li
                 key={name}
+                id={`${listId}-opt-${i}`}
                 role="option"
                 aria-selected={isSel}
                 onMouseEnter={() => setHi(i)}
@@ -318,6 +339,7 @@ export function ClientSelect({
             );
           })}
           <li
+            id={`${listId}-opt-${filtered.length}`}
             role="option"
             aria-selected={hi === filtered.length}
             onMouseEnter={() => setHi(filtered.length)}

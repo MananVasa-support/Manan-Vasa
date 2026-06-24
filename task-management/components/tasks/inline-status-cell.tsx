@@ -57,6 +57,53 @@ export function InlineStatusCell({
     ? ADMIN_TASK_STATUSES
     : USER_TASK_STATUSES;
 
+  // Keyboard roving-focus for the hand-rolled listbox: Radix gives no roving
+  // focus to arbitrary children, so we drive a single active option ourselves
+  // and focus the <ul> on open (mouse behaviour is untouched).
+  const listId = React.useId();
+  const listRef = React.useRef<HTMLUListElement>(null);
+  const [activeIndex, setActiveIndex] = React.useState(0);
+
+  // Seed the active option to the currently-shown status each time the menu
+  // opens, then move focus into the list so arrow keys work immediately.
+  React.useEffect(() => {
+    if (!open) return;
+    const sel = options.indexOf(shown);
+    setActiveIndex(sel >= 0 ? sel : 0);
+    // Focus after the portal mounts.
+    requestAnimationFrame(() => listRef.current?.focus());
+  }, [open, options, shown]);
+
+  // Keep the active option in view as it moves.
+  React.useEffect(() => {
+    if (!open) return;
+    (listRef.current?.children[activeIndex] as HTMLElement | undefined)?.scrollIntoView({
+      block: "nearest",
+    });
+  }, [activeIndex, open]);
+
+  function listKeyDown(e: React.KeyboardEvent) {
+    if (options.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => (i + 1) % options.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => (i - 1 + options.length) % options.length);
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setActiveIndex(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setActiveIndex(options.length - 1);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      const next = options[activeIndex];
+      if (next) void pick(next);
+    }
+    // Esc is handled by Radix (closes + returns focus to the trigger).
+  }
+
   // `||` (not `??`) so an empty/blank token also falls back to the
   // canonical per-status colour — guarantees every status renders coloured.
   const tone = tones[shown] || STATUS_TONES_FALLBACK[shown];
@@ -120,6 +167,9 @@ export function InlineStatusCell({
           type="button"
           onClick={(e) => e.stopPropagation()}
           disabled={pending}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={open ? listId : undefined}
           aria-label={`Status: ${labels[shown] ?? shown}. Click to change.`}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-[13px] font-bold tabular-nums transition-colors"
           style={{
@@ -154,13 +204,23 @@ export function InlineStatusCell({
             boxShadow: "0 16px 40px rgba(15, 23, 42, 0.18)",
           }}
         >
-          <ul role="listbox" aria-label="Set task status">
-            {options.map((s) => {
+          <ul
+            ref={listRef}
+            id={listId}
+            role="listbox"
+            aria-label="Set task status"
+            tabIndex={-1}
+            aria-activedescendant={`${listId}-opt-${activeIndex}`}
+            onKeyDown={listKeyDown}
+            className="outline-none"
+          >
+            {options.map((s, i) => {
               const sel = s === shown;
               const t = tones[s] || STATUS_TONES_FALLBACK[s];
               return (
                 <li
                   key={s}
+                  id={`${listId}-opt-${i}`}
                   role="option"
                   aria-selected={sel}
                   onClick={(e) => {
@@ -169,10 +229,15 @@ export function InlineStatusCell({
                   }}
                   className="flex items-center gap-2.5 px-3 py-2 text-[13.5px] cursor-pointer transition-colors"
                   style={{
-                    background: sel ? "var(--vp-cyan-tint)" : "transparent",
+                    background: sel
+                      ? "var(--vp-cyan-tint)"
+                      : i === activeIndex
+                        ? "var(--color-surface-soft)"
+                        : "transparent",
                     fontWeight: sel ? 700 : 500,
                   }}
                   onMouseEnter={(e) => {
+                    setActiveIndex(i);
                     if (!sel)
                       e.currentTarget.style.background =
                         "var(--color-surface-soft)";

@@ -13,6 +13,10 @@ const GO_TO: Record<string, string> = {
   m: "/tasks/agenda",
   p: "/projects",
   i: "/inbox",
+  w: "/weekly-goals",
+  c: "/daily-checklist",
+  k: "/tasks/kanban",
+  a: "/attendance",
 };
 
 const SEQUENCE_WINDOW_MS = 1500;
@@ -32,7 +36,8 @@ function isTypingTarget(el: EventTarget | null): boolean {
 /**
  * App-wide keyboard shortcuts. Mounted once in the (app) layout.
  *   ?            → toggle this help overlay
- *   G then D/T/M/P/I → navigate (Dashboard / Tasks / My Day / Projects / Inbox)
+ *   G then D/T/M/P/I/W/C/K/A → navigate (Dashboard / Tasks / My Day /
+ *     Projects / Inbox / Weekly Goals / Daily Checklist / Kanban / Attendance)
  * Coexists with the other context-owned shortcuts (⌘K palette, N new task,
  * J/K/Enter/F task-list nav) — those live with their components.
  */

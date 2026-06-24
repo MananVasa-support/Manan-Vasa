@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { format, formatDistanceToNow } from "date-fns";
@@ -622,21 +622,80 @@ function InteractiveStatusPill({
   const [pending, startTransition] = useTransition();
   const [shown, setShown] = useState<TaskStatus>(status);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const listId = useId();
+  const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => setShown(status), [status]);
-
-  useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false);
-    }
-    if (open) document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
 
   const t = STATUS_TONE[shown];
   const options: readonly TaskStatus[] = isAdmin
     ? ADMIN_TASK_STATUSES
     : USER_TASK_STATUSES;
+
+  // Outside-close covers mouse + touch + pen via pointerdown; a keydown Escape
+  // handler closes the menu and returns focus to the trigger (keyboard-only).
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: PointerEvent) {
+      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    }
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  // Seed the active option to the shown status on open and move focus into the
+  // list so arrow keys work immediately.
+  useEffect(() => {
+    if (!open) return;
+    const sel = options.indexOf(shown);
+    setActiveIndex(sel >= 0 ? sel : 0);
+    requestAnimationFrame(() => listRef.current?.focus());
+  }, [open, options, shown]);
+
+  // Keep the active option scrolled into view.
+  useEffect(() => {
+    if (!open) return;
+    (listRef.current?.children[activeIndex] as HTMLElement | undefined)?.scrollIntoView({
+      block: "nearest",
+    });
+  }, [activeIndex, open]);
+
+  function listKeyDown(e: React.KeyboardEvent) {
+    if (options.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => (i + 1) % options.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => (i - 1 + options.length) % options.length);
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setActiveIndex(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setActiveIndex(options.length - 1);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      const next = options[activeIndex];
+      if (next) pick(next);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    }
+  }
 
   function pick(next: TaskStatus) {
     setOpen(false);
@@ -719,11 +778,19 @@ function InteractiveStatusPill({
   return (
     <div ref={wrapperRef} className="relative inline-block">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => !pending && setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown" && !open && !pending) {
+            e.preventDefault();
+            setOpen(true);
+          }
+        }}
         disabled={pending}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={open ? listId : undefined}
         aria-label={`Status: ${labels?.[shown] ?? t.label}. Click to change.`}
         className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full"
         style={pillStyle}
@@ -732,21 +799,27 @@ function InteractiveStatusPill({
       </button>
       {open && (
         <ul
+          ref={listRef}
+          id={listId}
           role="listbox"
           aria-label="Set task status"
-          className="absolute left-0 mt-2 z-50 min-w-[220px] max-h-[320px] overflow-y-auto rounded-chip border bg-surface-card"
+          tabIndex={-1}
+          aria-activedescendant={`${listId}-opt-${activeIndex}`}
+          onKeyDown={listKeyDown}
+          className="absolute left-0 mt-2 z-50 min-w-[220px] max-h-[320px] overflow-y-auto rounded-chip border bg-surface-card outline-none"
           style={{
             borderColor: "var(--color-hairline-strong)",
             boxShadow: "0 16px 40px rgba(15, 23, 42, 0.18)",
           }}
         >
-          {options.map((s) => {
+          {options.map((s, i) => {
             const sel = s === shown;
             const tone = tones?.[s] || STATUS_TONES_FALLBACK[s];
             const label = labels?.[s] ?? STATUS_TONE[s]?.label ?? s;
             return (
               <li
                 key={s}
+                id={`${listId}-opt-${i}`}
                 role="option"
                 aria-selected={sel}
                 onClick={(e) => {
@@ -755,10 +828,15 @@ function InteractiveStatusPill({
                 }}
                 className="flex items-center gap-2.5 px-3 py-2.5 text-[14px] cursor-pointer transition-colors"
                 style={{
-                  background: sel ? "var(--color-surface-soft)" : "transparent",
+                  background: sel
+                    ? "var(--color-surface-soft)"
+                    : i === activeIndex
+                      ? "var(--color-surface-soft)"
+                      : "transparent",
                   fontWeight: sel ? 700 : 500,
                 }}
                 onMouseEnter={(e) => {
+                  setActiveIndex(i);
                   if (!sel)
                     e.currentTarget.style.background =
                       "var(--color-surface-soft)";

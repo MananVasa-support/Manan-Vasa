@@ -53,6 +53,8 @@ export function FeedbackForm({
 }) {
   const router = useRouter();
   const reduce = useReducedMotion();
+  const firstRef = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => { firstRef.current?.focus(); }, []);
   const [type, setType] = React.useState<FeedbackType>("consultant");
   const [serviceId, setServiceId] = React.useState<string | null>(null);
   const [ratedEmployeeId, setRatedEmployeeId] = React.useState<string | null>(null);
@@ -269,7 +271,7 @@ export function FeedbackForm({
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
           <div>
             <label className={LABEL}>{tpl.ratedLabel}</label>
-            <input className={FIELD} value={ratedName} maxLength={160} onChange={(e) => setRatedName(e.target.value)} placeholder="Type a name" />
+            <input ref={firstRef} autoFocus className={FIELD} value={ratedName} maxLength={160} onChange={(e) => setRatedName(e.target.value)} placeholder="Type a name" />
           </div>
           <div>
             <label className={LABEL}>Link to staff (optional)</label>

@@ -95,14 +95,17 @@ export function IntroductionForm({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (
-      !introFirst.trim() ||
-      !introLast.trim() ||
-      !company.trim() ||
-      !prospectFirst.trim() ||
-      !prospectLast.trim() ||
-      !nature.trim()
-    ) {
+    const firstInvalidId =
+      !introFirst.trim() ? "introFirst"
+      : !introLast.trim() ? "introLast"
+      : !company.trim() ? "company"
+      : !prospectFirst.trim() ? "pFirst"
+      : !prospectLast.trim() ? "pLast"
+      : !nature.trim() ? "nature"
+      : null;
+    if (firstInvalidId) {
+      // Keyboard-first: jump the caret to the first empty required field.
+      document.getElementById(firstInvalidId)?.focus();
       setError("Please fill every required field (marked *). Type “NA” if a value is genuinely unavailable.");
       return;
     }
@@ -161,7 +164,7 @@ export function IntroductionForm({
       <Section title="Introducer" hint="The person who can make the introduction.">
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
           <Field label="First name" required htmlFor="introFirst">
-            <input id="introFirst" className={FIELD} value={introFirst} maxLength={120} onChange={(e) => setIntroFirst(e.target.value)} placeholder="First name" />
+            <input id="introFirst" autoFocus className={FIELD} value={introFirst} maxLength={120} onChange={(e) => setIntroFirst(e.target.value)} placeholder="First name" />
           </Field>
           <Field label="Last name" required htmlFor="introLast">
             <input id="introLast" className={FIELD} value={introLast} maxLength={120} onChange={(e) => setIntroLast(e.target.value)} placeholder="Last name" />

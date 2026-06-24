@@ -48,6 +48,7 @@ export function ComboInput({
   const [v, setV] = React.useState(value);
   const [open, setOpen] = React.useState(false);
   const [hi, setHi] = React.useState(0);
+  const listId = React.useId();
   const wrapRef = React.useRef<HTMLDivElement>(null);
   const localRef = React.useRef<HTMLInputElement>(null);
   const ref = inputRef ?? localRef;
@@ -87,6 +88,11 @@ export function ComboInput({
       <input
         ref={ref}
         type="text"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={open && filtered.length > 0}
+        aria-controls={listId}
+        aria-activedescendant={open && filtered[hi] ? `${listId}-opt-${hi}` : undefined}
         value={v}
         disabled={disabled}
         placeholder={placeholder}
@@ -111,6 +117,12 @@ export function ComboInput({
           } else if (e.key === "ArrowUp") {
             e.preventDefault();
             setHi((h) => Math.max(h - 1, 0));
+          } else if (e.key === "Home") {
+            e.preventDefault();
+            setHi(0);
+          } else if (e.key === "End") {
+            e.preventDefault();
+            setHi(filtered.length - 1);
           } else if (e.key === "Enter") {
             if (open && filtered[hi]) {
               e.preventDefault();
@@ -127,6 +139,7 @@ export function ComboInput({
       />
       {open && !disabled && filtered.length > 0 && (
         <ul
+          id={listId}
           role="listbox"
           className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-md border bg-surface-card py-1"
           style={{
@@ -138,6 +151,7 @@ export function ComboInput({
           {filtered.map((opt, i) => (
             <li
               key={opt}
+              id={`${listId}-opt-${i}`}
               role="option"
               aria-selected={i === hi}
               onMouseDown={(e) => e.preventDefault()}

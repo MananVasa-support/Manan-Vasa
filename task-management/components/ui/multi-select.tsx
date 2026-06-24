@@ -40,18 +40,44 @@ export function MultiSelect({
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const labelMap = new Map(options.map((o) => [o.value, o.label]));
 
+  // cmdk auto-highlights the first item on every query change, so Tab must only
+  // commit when the user has deliberately arrow-navigated — otherwise Tabbing
+  // out silently commits the first filtered option. Reset whenever the popover
+  // (re)opens; set on ArrowUp/ArrowDown inside the Command.
+  const userNavigated = React.useRef(false);
+  React.useEffect(() => {
+    if (open) userNavigated.current = false;
+  }, [open]);
+
   // Tab commits the highlighted option and advances to the next field, instead
   // of just dismissing the menu (cmdk only commits on Enter / click).
   function onCommandKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      userNavigated.current = true;
+      return;
+    }
+    // Typing changes the query → cmdk re-auto-highlights, so navigation intent
+    // is no longer current. Reset (but don't treat Tab/Enter as typing).
+    if (e.key !== "Tab" && e.key !== "Enter") {
+      if (e.key === "Backspace" || e.key === "Delete" || e.key.length === 1) {
+        userNavigated.current = false;
+      }
+      return;
+    }
     if (e.key !== "Tab") return;
-    const active = e.currentTarget.querySelector<HTMLElement>(
-      '[cmdk-item][aria-selected="true"]',
-    );
-    if (!active) return;
-    e.preventDefault();
-    active.click();
+    if (userNavigated.current) {
+      const active = e.currentTarget.querySelector<HTMLElement>(
+        '[cmdk-item][aria-selected="true"]',
+      );
+      if (active) {
+        e.preventDefault();
+        active.click();
+        setOpen(false);
+        requestAnimationFrame(() => focusNextFrom(triggerRef.current, e.shiftKey ? -1 : 1));
+        return;
+      }
+    }
     setOpen(false);
-    requestAnimationFrame(() => focusNextFrom(triggerRef.current, e.shiftKey ? -1 : 1));
   }
 
   function toggle(value: string) {
@@ -71,43 +97,39 @@ export function MultiSelect({
             open,
           })
         ) : (
-        <button
-          ref={triggerRef}
-          type="button"
-          className={cn(
-            "inline-flex items-center gap-2 min-w-40 text-chip text-ink-strong bg-transparent outline-none text-left",
-            className,
-          )}
-        >
-          <span className="flex-1 truncate">
-            {selected.length === 0
-              ? placeholder
-              : selected.length === 1
-                ? labelMap.get(selected[0]!) ?? "1 selected"
-                : `${selected.length} selected`}
-          </span>
+        <div className="relative inline-flex">
+          <button
+            ref={triggerRef}
+            type="button"
+            className={cn(
+              "inline-flex items-center gap-2 min-w-40 text-chip text-ink-strong bg-transparent outline-none text-left",
+              selected.length > 0 && "pr-6",
+              className,
+            )}
+          >
+            <span className="flex-1 truncate">
+              {selected.length === 0
+                ? placeholder
+                : selected.length === 1
+                  ? labelMap.get(selected[0]!) ?? "1 selected"
+                  : `${selected.length} selected`}
+            </span>
+            <ChevronDown size={14} className="text-ink-subtle" />
+          </button>
           {selected.length > 0 && (
-            <span
-              role="button"
-              tabIndex={0}
+            <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onChange([]);
               }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.stopPropagation();
-                  onChange([]);
-                }
-              }}
-              className="text-ink-subtle hover:text-ink-strong cursor-pointer"
+              className="absolute right-5 top-1/2 -translate-y-1/2 text-ink-subtle hover:text-ink-strong cursor-pointer outline-none"
               aria-label="Clear selection"
             >
               <X size={14} />
-            </span>
+            </button>
           )}
-          <ChevronDown size={14} className="text-ink-subtle" />
-        </button>
+        </div>
         )}
       </PopoverTrigger>
       <PopoverContent

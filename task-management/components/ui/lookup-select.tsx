@@ -53,6 +53,8 @@ export function LookupSelect({
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const addInputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLUListElement>(null);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const listId = React.useId();
 
   React.useEffect(() => setOptions(seed), [seed]);
   React.useEffect(() => {
@@ -142,12 +144,20 @@ export function LookupSelect({
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHi((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setHi(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setHi(onAdd ? filtered.length : Math.max(filtered.length - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (hi === addRowIndex) startAdd();
       else if (filtered[hi]) choose(filtered[hi]);
     } else if (e.key === "Escape") {
+      e.preventDefault();
       setOpen(false);
+      triggerRef.current?.focus();
     }
   }
 
@@ -189,7 +199,7 @@ export function LookupSelect({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" onFocus={() => setOpen(true)} aria-haspopup="listbox" className={(className ? className + " " : "") + "flex items-center justify-between gap-2 text-left cursor-pointer"}>
+        <button ref={triggerRef} type="button" onFocus={() => setOpen(true)} aria-haspopup="listbox" aria-expanded={open} aria-controls={listId} className={(className ? className + " " : "") + "flex items-center justify-between gap-2 text-left cursor-pointer"}>
           <span style={{ color: selectedName ? "var(--color-ink-strong)" : "var(--color-ink-subtle)", fontWeight: selectedName ? 600 : 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {selectedName || placeholder || `Select ${label}…`}
           </span>
@@ -200,10 +210,10 @@ export function LookupSelect({
         <div className="p-2.5" style={{ borderBottom: "1px solid var(--color-hairline)" }}>
           <div className="flex items-center gap-2 rounded-lg px-3" style={{ background: "var(--color-surface-soft)", border: "1px solid var(--color-hairline)" }}>
             <Search size={16} strokeWidth={2.2} style={{ color: "var(--color-ink-subtle)" }} />
-            <input autoFocus value={query} onChange={(e) => { setQuery(e.target.value); setHi(0); }} onKeyDown={searchKeyDown} placeholder={`Search ${label}…`} className="w-full bg-transparent outline-none py-2.5" style={{ fontSize: 15, fontWeight: 600, color: "var(--color-ink-strong)" }} />
+            <input autoFocus role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={open ? (hi === addRowIndex ? `${listId}-add` : `${listId}-opt-${hi}`) : undefined} value={query} onChange={(e) => { setQuery(e.target.value); setHi(0); }} onKeyDown={searchKeyDown} placeholder={`Search ${label}…`} className="w-full bg-transparent outline-none py-2.5" style={{ fontSize: 15, fontWeight: 600, color: "var(--color-ink-strong)" }} />
           </div>
         </div>
-        <ul ref={listRef} role="listbox" className="max-h-[300px] overflow-y-auto py-1.5">
+        <ul ref={listRef} id={listId} role="listbox" className="max-h-[300px] overflow-y-auto py-1.5">
           {value && (
             <li onClick={() => { onChange(null); setOpen(false); }} className="mx-1.5 px-3 py-2 rounded-lg cursor-pointer text-[13.5px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
               Clear selection
@@ -217,7 +227,7 @@ export function LookupSelect({
             const isHi = i === hi;
             const isDeleting = deletingId === opt.id;
             return (
-              <li key={opt.id} role="option" aria-selected={isSel} onMouseEnter={() => setHi(i)} onClick={() => choose(opt)} className="group flex items-center justify-between gap-2 mx-1.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors" style={{ background: isHi ? "var(--color-surface-soft)" : "transparent" }}>
+              <li key={opt.id} id={`${listId}-opt-${i}`} role="option" aria-selected={isSel} onMouseEnter={() => setHi(i)} onClick={() => choose(opt)} className="group flex items-center justify-between gap-2 mx-1.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors" style={{ background: isHi ? "var(--color-surface-soft)" : "transparent" }}>
                 <span className="font-semibold truncate" style={{ fontSize: 15, color: "var(--color-ink-strong)" }}>{opt.name}</span>
                 <span className="flex items-center gap-1.5 shrink-0">
                   {isSel && <Check size={16} strokeWidth={2.6} style={{ color: "var(--color-altus-red)" }} />}
@@ -231,7 +241,7 @@ export function LookupSelect({
             );
           })}
           {onAdd && (
-            <li role="option" aria-selected={hi === addRowIndex} onMouseEnter={() => setHi(addRowIndex)} onClick={startAdd} className="flex items-center gap-2 mx-1.5 mt-1 px-3 py-2.5 rounded-lg cursor-pointer font-bold transition-colors" style={{ background: hi === addRowIndex ? "color-mix(in srgb, var(--color-altus-red) 8%, transparent)" : "transparent", color: "var(--color-altus-red-deep)", borderTop: "1px solid var(--color-hairline)", fontSize: 15 }}>
+            <li id={`${listId}-add`} role="option" aria-selected={hi === addRowIndex} onMouseEnter={() => setHi(addRowIndex)} onClick={startAdd} className="flex items-center gap-2 mx-1.5 mt-1 px-3 py-2.5 rounded-lg cursor-pointer font-bold transition-colors" style={{ background: hi === addRowIndex ? "color-mix(in srgb, var(--color-altus-red) 8%, transparent)" : "transparent", color: "var(--color-altus-red-deep)", borderTop: "1px solid var(--color-hairline)", fontSize: 15 }}>
               <Plus size={16} strokeWidth={2.6} />
               Add new {label}…
             </li>

@@ -43,6 +43,12 @@ export function MaterialForm({
   departmentOptions: { value: string; label: string }[];
 }) {
   const router = useRouter();
+  React.useEffect(() => {
+    // Keyboard-first: land the caret in the first typeable field on open. The
+    // Subject control is a LookupSelect (custom combobox) whose trigger would
+    // auto-open its popover on focus, so we focus the first native input (LOS).
+    document.getElementById("los")?.focus();
+  }, []);
   const [subjectId, setSubjectId] = React.useState<string | null>(null);
   const [los, setLos] = React.useState("");
   const [videoUrl, setVideoUrl] = React.useState("");

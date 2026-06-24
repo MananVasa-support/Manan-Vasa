@@ -4,10 +4,17 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
-import { AlertTriangle, CalendarCheck2, Clock, Hourglass, type LucideIcon } from "lucide-react";
+import { AlertTriangle, CalendarCheck2, CalendarRange, Clock, Hourglass, type LucideIcon } from "lucide-react";
 import { rescheduleTask } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
 import { LateBadge } from "@/components/ui/late-badge";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 
 /** Calendar-add days to a yyyy-mm-dd string (lexicographic == chronological). */
 function addDaysYmd(ymd: string, n: number): string {
@@ -31,6 +38,12 @@ interface DayCol {
   ymd: string;
   label: string;
   sub: string;
+}
+
+/** A keyboard-reschedule destination shown in the per-card menu. */
+interface RescheduleTarget {
+  ymd: string;
+  label: string;
 }
 
 interface Props {
@@ -114,6 +127,14 @@ export function AgendaBoard({ todayYmd, days, tasks, isAdmin }: Props) {
 
   const shownDays = days.slice(0, dayCount);
   const lastYmd = shownDays.length ? shownDays[shownDays.length - 1]!.ymd : "";
+
+  // Keyboard-accessible reschedule targets — the visible day columns. Threaded
+  // to each admin card's reschedule menu so a keyboard-only admin can move a
+  // task between days without HTML5 drag-and-drop.
+  const rescheduleTargets: RescheduleTarget[] = shownDays.map((d) => ({
+    ymd: d.ymd,
+    label: d.label === "Today" ? `Today (${d.sub})` : `${d.label} (${d.sub})`,
+  }));
 
   // Lists are small (a person's open tasks) — plain derivation each render
   // is cheap and sidesteps the manual-memo lint on the inline lastYmd dep.
@@ -246,6 +267,8 @@ export function AgendaBoard({ todayYmd, days, tasks, isAdmin }: Props) {
             sub={`${overdueItems.length} ${overdueItems.length === 1 ? "task" : "tasks"}`}
             tone="red"
             tasks={overdueItems}
+            onDropTask={moveTo}
+            rescheduleTargets={rescheduleTargets}
             canReschedule={isAdmin}
           />
         )}
@@ -261,11 +284,12 @@ export function AgendaBoard({ todayYmd, days, tasks, isAdmin }: Props) {
             onOver={() => setOverCol(d.ymd)}
             onLeave={() => setOverCol((c) => (c === d.ymd ? null : c))}
             onDropTask={moveTo}
+            rescheduleTargets={rescheduleTargets}
             canReschedule={isAdmin}
           />
         ))}
         {laterItems.length > 0 && (
-          <Column label="Not Due" sub={`${laterItems.length}`} tone="slate" tasks={laterItems} canReschedule={isAdmin} />
+          <Column label="Not Due" sub={`${laterItems.length}`} tone="slate" tasks={laterItems} onDropTask={moveTo} rescheduleTargets={rescheduleTargets} canReschedule={isAdmin} />
         )}
       </div>
     </div>
@@ -282,6 +306,7 @@ function Column({
   onOver,
   onLeave,
   onDropTask,
+  rescheduleTargets,
   canReschedule,
 }: {
   label: string;
@@ -293,6 +318,8 @@ function Column({
   onOver?: () => void;
   onLeave?: () => void;
   onDropTask?: (id: string, ymd: string) => void;
+  /** Day columns offered in each admin card's keyboard-reschedule menu. */
+  rescheduleTargets?: RescheduleTarget[];
   /** Admin-only: when false, cards aren't draggable and columns reject drops. */
   canReschedule: boolean;
 }) {
@@ -355,10 +382,45 @@ function Column({
                     }
                   : undefined
               }
-              className={`rounded-chip bg-white border border-hairline p-4 transition-shadow hover:shadow-md block ${
+              className={`relative rounded-chip bg-white border border-hairline p-4 transition-shadow hover:shadow-md block ${
                 canReschedule ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
               }`}
             >
+              {canReschedule && (rescheduleTargets?.length ?? 0) > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={`Reschedule "${t.description || t.title}" to another day`}
+                      // Stop the click from following the Link to the task page —
+                      // the button only opens the reschedule menu.
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      // Native drag of the parent Link would otherwise begin from
+                      // the button; keep the button a pure keyboard/click target.
+                      draggable={false}
+                      onDragStart={(e) => e.preventDefault()}
+                      className="absolute right-2 top-2 inline-flex size-8 items-center justify-center rounded-pill text-ink-subtle hover:bg-surface-soft hover:text-ink-strong outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-1"
+                    >
+                      <CalendarRange size={16} strokeWidth={2.3} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Reschedule to</DropdownMenuLabel>
+                    {rescheduleTargets?.map((target) => (
+                      <DropdownMenuItem
+                        key={target.ymd}
+                        disabled={target.ymd === t.dueYmd}
+                        onSelect={() => onDropTask?.(t.id, target.ymd)}
+                      >
+                        {target.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               <span
                 className="text-[16.5px] font-semibold text-ink-strong block"
                 style={{
@@ -367,6 +429,7 @@ function Column({
                   WebkitLineClamp: 4,
                   WebkitBoxOrient: "vertical",
                   overflow: "hidden",
+                  paddingRight: canReschedule ? 34 : undefined,
                 }}
               >
                 {t.description || t.title}
