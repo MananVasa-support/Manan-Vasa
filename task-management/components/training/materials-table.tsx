@@ -3,7 +3,9 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
-import { ArrowUpDown, ArrowUp, ArrowDown, Search, X, FileText, Film, Table2, GraduationCap, Check } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Search, X, FileText, Film, Table2, GraduationCap, Check, Archive, Trash2, RotateCcw, Loader2 } from "lucide-react";
+import { fireToast } from "@/lib/toast";
+import { archiveMaterial, deleteMaterial } from "@/app/(app)/training/actions";
 import type { TcMaterialRow } from "@/lib/queries/training";
 
 type SortKey = "addedOn" | "subject" | "los";
@@ -21,15 +23,42 @@ function fmtDate(iso: string | null): string {
 export function MaterialsTable({
   rows,
   employeesById,
+  canManage = false,
 }: {
   rows: TcMaterialRow[];
   employeesById: Record<string, string>;
+  canManage?: boolean;
 }) {
   const router = useRouter();
   const [q, setQ] = React.useState("");
   const [subject, setSubject] = React.useState("");
   const [inductionOnly, setInductionOnly] = React.useState(false);
+  const [showArchived, setShowArchived] = React.useState(false);
+  const [busyId, setBusyId] = React.useState<string | null>(null);
   const [sort, setSort] = React.useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "addedOn", dir: "desc" });
+
+  const archivedCount = React.useMemo(() => rows.filter((r) => r.archived).length, [rows]);
+
+  async function onArchive(e: React.MouseEvent, r: TcMaterialRow) {
+    e.stopPropagation();
+    setBusyId(r.id);
+    const res = await archiveMaterial(r.id, !r.archived);
+    setBusyId(null);
+    if (!res.ok) return fireToast({ message: res.error, type: "error" });
+    fireToast({ message: r.archived ? "Restored." : "Archived.", type: "success" });
+    router.refresh();
+  }
+  async function onDelete(e: React.MouseEvent, r: TcMaterialRow) {
+    e.stopPropagation();
+    const name = r.fileName || r.subject || "this material";
+    if (!confirm(`Delete ${name} permanently? Its tests, questions and all attempt/watch records are removed too. This can't be undone.`)) return;
+    setBusyId(r.id);
+    const res = await deleteMaterial(r.id);
+    setBusyId(null);
+    if (!res.ok) return fireToast({ message: res.error, type: "error" });
+    fireToast({ message: "Deleted.", type: "success" });
+    router.refresh();
+  }
 
   const subjects = React.useMemo(() => {
     const s = new Set<string>();
@@ -40,6 +69,7 @@ export function MaterialsTable({
   const filtered = React.useMemo(() => {
     const needle = q.trim().toLowerCase();
     let out = rows.filter((r) => {
+      if (r.archived && !showArchived) return false;
       if (subject && r.subject !== subject) return false;
       if (inductionOnly && !r.partOfInduction) return false;
       if (needle) {
@@ -55,12 +85,12 @@ export function MaterialsTable({
       return av.localeCompare(bv, undefined, { sensitivity: "base", numeric: true }) * dir;
     });
     return out;
-  }, [rows, q, subject, inductionOnly, sort]);
+  }, [rows, q, subject, inductionOnly, showArchived, sort]);
 
   function toggleSort(key: SortKey) {
     setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
   }
-  const inductionCount = React.useMemo(() => rows.filter((r) => r.partOfInduction).length, [rows]);
+  const inductionCount = React.useMemo(() => rows.filter((r) => r.partOfInduction && (showArchived || !r.archived)).length, [rows, showArchived]);
   const hasFilters = q || subject || inductionOnly;
 
   function creators(ids: string[]): string {
@@ -99,6 +129,22 @@ export function MaterialsTable({
             <span className="tabular-nums" style={{ opacity: inductionOnly ? 0.9 : 0.6 }}>· {inductionCount}</span>
           )}
         </button>
+        {canManage && archivedCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowArchived((v) => !v)}
+            aria-pressed={showArchived}
+            className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13.5px] font-bold transition-colors"
+            style={
+              showArchived
+                ? { background: "var(--color-ink-strong)", color: "#fff" }
+                : { border: "1px solid var(--color-hairline-strong)", background: "#fff", color: "var(--color-ink-soft)" }
+            }
+          >
+            <Archive size={15} strokeWidth={2.4} /> Archived
+            <span className="tabular-nums" style={{ opacity: showArchived ? 0.9 : 0.6 }}>· {archivedCount}</span>
+          </button>
+        )}
         {hasFilters && (
           <button type="button" onClick={() => { setQ(""); setSubject(""); setInductionOnly(false); }} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
             <X size={15} strokeWidth={2.4} /> Clear
@@ -122,16 +168,22 @@ export function MaterialsTable({
               <Th label="Created by" />
               <Th label="Induction" />
               <Th label="Watched" />
+              {canManage && <Th label="" />}
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={8} className="px-5 py-16 text-center text-[15px] font-semibold text-ink-muted">No materials match.</td></tr>
+              <tr><td colSpan={canManage ? 9 : 8} className="px-5 py-16 text-center text-[15px] font-semibold text-ink-muted">No materials match.</td></tr>
             ) : (
               filtered.map((r) => (
-                <tr key={r.id} onClick={() => router.push(`/training/${r.id}` as Route)} className="cursor-pointer transition-colors hover:bg-surface-soft" style={{ borderBottom: "1px solid var(--color-hairline)" }}>
+                <tr key={r.id} onClick={() => router.push(`/training/${r.id}` as Route)} className="cursor-pointer transition-colors hover:bg-surface-soft" style={{ borderBottom: "1px solid var(--color-hairline)", opacity: r.archived ? 0.6 : 1 }}>
                   <Td>{fmtDate(r.addedOn)}</Td>
-                  <Td>{r.subject ? <span className="font-semibold text-ink-strong">{r.subject}</span> : <Dim />}</Td>
+                  <Td>
+                    <span className="inline-flex items-center gap-2">
+                      {r.subject ? <span className="font-semibold text-ink-strong">{r.subject}</span> : <Dim />}
+                      {r.archived && <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: "var(--color-surface-track)", color: "var(--color-ink-subtle)" }}><Archive size={11} /> Archived</span>}
+                    </span>
+                  </Td>
                   <Td>{r.los || <Dim />}</Td>
                   <Td>
                     <span className="inline-flex items-center gap-2">
@@ -143,6 +195,18 @@ export function MaterialsTable({
                   <Td>{creators(r.createdByIds)}</Td>
                   <Td>{r.partOfInduction ? <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-bold" style={{ background: "color-mix(in srgb, var(--color-purple) 14%, transparent)", color: "var(--color-purple-deep)" }}><GraduationCap size={12} /> Induction</span> : <Dim />}</Td>
                   <Td>{r.watchedByMe ? <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-bold" style={{ background: "color-mix(in srgb, var(--color-green) 14%, transparent)", color: "var(--color-green-deep)" }}><Check size={12} strokeWidth={3} /> Watched</span> : <Dim />}</Td>
+                  {canManage && (
+                    <Td>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button type="button" onClick={(e) => onArchive(e, r)} disabled={busyId === r.id} title={r.archived ? "Restore" : "Archive"} aria-label={r.archived ? "Restore" : "Archive"} className="inline-flex size-8 items-center justify-center rounded-lg border border-hairline-strong bg-white text-ink-soft hover:border-ink-subtle disabled:opacity-50">
+                          {busyId === r.id ? <Loader2 size={14} className="animate-spin" /> : r.archived ? <RotateCcw size={14} /> : <Archive size={14} />}
+                        </button>
+                        <button type="button" onClick={(e) => onDelete(e, r)} disabled={busyId === r.id} title="Delete" aria-label="Delete" className="inline-flex size-8 items-center justify-center rounded-lg border border-hairline-strong bg-white text-ink-soft hover:border-altus-red hover:text-altus-red disabled:opacity-50">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </Td>
+                  )}
                 </tr>
               ))
             )}

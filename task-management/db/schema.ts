@@ -544,6 +544,7 @@ export const tcMaterials = pgTable(
     assistedByIds: uuid("assisted_by_ids").array().notNull().default(sql`'{}'::uuid[]`),
     partOfInduction: boolean("part_of_induction").notNull().default(false),
     inductionDeptIds: uuid("induction_dept_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    archived: boolean("archived").notNull().default(false),
     createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -551,6 +552,7 @@ export const tcMaterials = pgTable(
   (t) => [
     index("tc_materials_subject_idx").on(t.subjectId),
     index("tc_materials_induction_idx").on(t.partOfInduction),
+    index("tc_materials_archived_idx").on(t.archived),
     index("tc_materials_created_idx").on(t.createdAt),
   ],
 );

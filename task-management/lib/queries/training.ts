@@ -65,12 +65,17 @@ export interface TcMaterialRow {
   videoUrl: string | null;
   version: string | null;
   partOfInduction: boolean;
+  archived: boolean;
   createdByIds: string[];
   watchedByMe: boolean;
 }
 
-/** The material library, newest first, with the viewer's watched flag. */
-export async function listMaterials(viewerId: string): Promise<TcMaterialRow[]> {
+/** The material library, newest first, with the viewer's watched flag.
+ *  Archived materials are hidden unless `includeArchived` (managers only). */
+export async function listMaterials(
+  viewerId: string,
+  opts: { includeArchived?: boolean } = {},
+): Promise<TcMaterialRow[]> {
   const rows = await db
     .select({
       id: tcMaterials.id,
@@ -83,6 +88,7 @@ export async function listMaterials(viewerId: string): Promise<TcMaterialRow[]> 
       videoUrl: tcMaterials.videoUrl,
       version: tcMaterials.version,
       partOfInduction: tcMaterials.partOfInduction,
+      archived: tcMaterials.archived,
       createdByIds: tcMaterials.createdByIds,
       watchedAt: tcWatchProgress.watchedAt,
     })
@@ -95,6 +101,7 @@ export async function listMaterials(viewerId: string): Promise<TcMaterialRow[]> 
         eq(tcWatchProgress.employeeId, viewerId),
       ),
     )
+    .where(opts.includeArchived ? undefined : eq(tcMaterials.archived, false))
     .orderBy(desc(tcMaterials.createdAt));
 
   return rows.map((r) => ({
@@ -108,6 +115,7 @@ export async function listMaterials(viewerId: string): Promise<TcMaterialRow[]> 
     videoUrl: r.videoUrl,
     version: r.version,
     partOfInduction: r.partOfInduction,
+    archived: r.archived,
     createdByIds: r.createdByIds ?? [],
     watchedByMe: !!r.watchedAt,
   }));
@@ -130,6 +138,7 @@ export interface TcMaterialDetail {
   assistedByIds: string[];
   partOfInduction: boolean;
   inductionDeptIds: string[];
+  archived: boolean;
   watchedByMe: boolean;
 }
 
@@ -184,6 +193,7 @@ export async function getMaterial(
     assistedByIds: m.assistedByIds ?? [],
     partOfInduction: m.partOfInduction,
     inductionDeptIds: m.inductionDeptIds ?? [],
+    archived: m.archived,
     watchedByMe: !!watch,
   };
 }

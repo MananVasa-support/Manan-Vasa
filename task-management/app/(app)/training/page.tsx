@@ -13,12 +13,12 @@ export const dynamic = "force-dynamic";
 
 export default async function TrainingPage() {
   const me = await requireWorkspace("training");
-  const [rows, employeeOptions, manager] = await Promise.all([
-    listMaterials(me.id),
+  const manager = (await isManager(me.id)) || me.isAdmin || isSuperAdmin(me.email);
+  const [rows, employeeOptions] = await Promise.all([
+    listMaterials(me.id, { includeArchived: manager }),
     listEmployeeOptions(),
-    isManager(me.id),
   ]);
-  const canManage = me.isAdmin || isSuperAdmin(me.email) || manager;
+  const canManage = manager;
   const employeesById = Object.fromEntries(employeeOptions.map((e) => [e.id, e.name]));
 
   return (
@@ -44,7 +44,7 @@ export default async function TrainingPage() {
           )}
         </header>
 
-        <MaterialsTable rows={rows} employeesById={employeesById} />
+        <MaterialsTable rows={rows} employeesById={employeesById} canManage={canManage} />
       </main>
       <DashboardFooter />
     </>

@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, Download, ExternalLink, GraduationCap } from "lucide-react";
+import type { Route } from "next";
+import { Check, Loader2, Download, ExternalLink, GraduationCap, Archive, Trash2, RotateCcw } from "lucide-react";
 import { fireToast } from "@/lib/toast";
-import { markWatched } from "@/app/(app)/training/actions";
+import { markWatched, archiveMaterial, deleteMaterial } from "@/app/(app)/training/actions";
 import type { TcMaterialDetail } from "@/lib/queries/training";
 
 function embedUrl(url: string): string | null {
@@ -31,15 +32,39 @@ export function MaterialViewer({
   createdByNames,
   assistedByNames,
   inductionDeptNames,
+  canManage = false,
 }: {
   material: TcMaterialDetail;
   createdByNames: string[];
   assistedByNames: string[];
   inductionDeptNames: string[];
+  canManage?: boolean;
 }) {
   const router = useRouter();
   const [watched, setWatched] = React.useState(material.watchedByMe);
   const [marking, setMarking] = React.useState(false);
+  const [busy, setBusy] = React.useState<string | null>(null);
+
+  async function onArchive() {
+    setBusy("arch");
+    const res = await archiveMaterial(material.id, !material.archived);
+    setBusy(null);
+    if (!res.ok) return fireToast({ message: res.error, type: "error" });
+    fireToast({ message: material.archived ? "Restored." : "Archived.", type: "success" });
+    router.refresh();
+  }
+  async function onDelete() {
+    if (!confirm("Delete this material permanently? Its tests, questions and all attempt/watch records are removed too. This can't be undone.")) return;
+    setBusy("del");
+    const res = await deleteMaterial(material.id);
+    if (!res.ok) {
+      setBusy(null);
+      return fireToast({ message: res.error, type: "error" });
+    }
+    fireToast({ message: "Deleted.", type: "success" });
+    router.push("/training" as Route);
+    router.refresh();
+  }
 
   async function onMarkWatched() {
     if (watched || marking) return;
@@ -122,6 +147,22 @@ export function MaterialViewer({
           </Meta>
         )}
         <Meta label="Added on">{material.addedOn}</Meta>
+
+        {canManage && (
+          <div className="mt-1 flex gap-2 border-t border-hairline pt-4">
+            <button type="button" onClick={onArchive} disabled={busy !== null} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-hairline-strong bg-white py-2.5 text-[13.5px] font-bold text-ink-soft hover:border-ink-subtle disabled:opacity-50">
+              {busy === "arch" ? <Loader2 size={14} className="animate-spin" /> : material.archived ? <RotateCcw size={14} /> : <Archive size={14} />} {material.archived ? "Restore" : "Archive"}
+            </button>
+            <button type="button" onClick={onDelete} disabled={busy !== null} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-3.5 py-2.5 text-[13.5px] font-bold text-ink-soft hover:border-altus-red hover:text-altus-red disabled:opacity-50" aria-label="Delete material">
+              {busy === "del" ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            </button>
+          </div>
+        )}
+        {material.archived && (
+          <div className="rounded-lg px-3 py-2 text-[12.5px] font-bold" style={{ background: "var(--color-surface-track)", color: "var(--color-ink-subtle)" }}>
+            <span className="inline-flex items-center gap-1.5"><Archive size={13} /> Archived — hidden from learners.</span>
+          </div>
+        )}
       </aside>
     </div>
   );

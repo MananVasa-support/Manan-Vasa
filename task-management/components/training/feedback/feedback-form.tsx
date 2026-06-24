@@ -4,8 +4,9 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowLeft, Loader2, Send, Mic, Square, Upload, X, Image as ImageIcon, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Loader2, Send, Mic, Square, Upload, X, Image as ImageIcon, AlertTriangle, Sparkles } from "lucide-react";
 import { fireToast } from "@/lib/toast";
+import { blobToWavBase64 } from "@/lib/audio/to-wav";
 import { LookupSelect, type LookupOption } from "@/components/ui/lookup-select";
 import { StarRating } from "./star-rating";
 import { createFeedback, addFeedbackService, deleteFeedbackService } from "@/app/(app)/training/feedback/actions";
@@ -13,6 +14,23 @@ import { FEEDBACK_TYPES, FEEDBACK_TEMPLATES, fillTemplate, type FeedbackType } f
 
 const FIELD = "w-full rounded-lg border border-hairline-strong bg-white px-3.5 py-3 text-[15px] font-medium text-ink-strong outline-none transition-colors placeholder:font-normal placeholder:text-ink-subtle focus:border-[color:var(--color-altus-red)]";
 const LABEL = "mb-1.5 block text-[12px] font-bold uppercase tracking-[0.06em] text-ink-soft";
+
+function fmtTime(s: number): string {
+  const m = Math.floor(s / 60);
+  return `${m}:${(s % 60).toString().padStart(2, "0")}`;
+}
+
+/** Live recording waveform — 28 bars driven by the mic's frequency data. */
+function WaveBars({ levels }: { levels: number[] }) {
+  const bars = levels.length ? levels : Array.from({ length: 28 }, () => 0.06);
+  return (
+    <div className="flex h-9 flex-1 items-center justify-center gap-[3px]" aria-hidden>
+      {bars.map((v, i) => (
+        <span key={i} className="w-[3px] rounded-full" style={{ height: `${Math.max(8, v * 100)}%`, background: "linear-gradient(180deg, var(--color-altus-red), var(--color-altus-red-deep))", transition: "height 90ms linear" }} />
+      ))}
+    </div>
+  );
+}
 
 function Section({ title, hint, children, delay = 0 }: { title: string; hint?: string; children: React.ReactNode; delay?: number }) {
   return (
@@ -52,10 +70,24 @@ export function FeedbackForm({
   const [recording, setRecording] = React.useState(false);
   const [uploadingVoice, setUploadingVoice] = React.useState(false);
   const [uploadingPic, setUploadingPic] = React.useState(false);
+  const [levels, setLevels] = React.useState<number[]>([]);
+  const [elapsed, setElapsed] = React.useState(0);
+  const [summarizing, setSummarizing] = React.useState(false);
   const recRef = React.useRef<MediaRecorder | null>(null);
   const chunksRef = React.useRef<Blob[]>([]);
+  const voiceBlobRef = React.useRef<Blob | null>(null);
+  const audioCtxRef = React.useRef<AudioContext | null>(null);
+  const rafRef = React.useRef<number | null>(null);
+  const timerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const picInputRef = React.useRef<HTMLInputElement>(null);
   const voiceInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Tear down the live audio meter on unmount (refs only — no stale closures).
+  React.useEffect(() => () => {
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    if (timerRef.current != null) clearInterval(timerRef.current);
+    audioCtxRef.current?.close().catch(() => {});
+  }, []);
 
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -75,6 +107,16 @@ export function FeedbackForm({
     return { path: json.path, kind: json.kind };
   }
 
+  function teardownMeter() {
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    if (timerRef.current != null) clearInterval(timerRef.current);
+    timerRef.current = null;
+    audioCtxRef.current?.close().catch(() => {});
+    audioCtxRef.current = null;
+    setLevels([]);
+  }
+
   async function startRecording() {
     setError(null);
     try {
@@ -84,7 +126,9 @@ export function FeedbackForm({
       rec.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
       rec.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
+        teardownMeter();
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        voiceBlobRef.current = blob;
         setUploadingVoice(true);
         const up = await uploadFile(blob, "voice-note.webm");
         setUploadingVoice(false);
@@ -93,6 +137,36 @@ export function FeedbackForm({
       rec.start();
       recRef.current = rec;
       setRecording(true);
+      setElapsed(0);
+
+      // Live waveform from the mic stream (optional — skipped under reduced motion).
+      if (!reduce) {
+        try {
+          const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          const ctx = new AC();
+          audioCtxRef.current = ctx;
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 128;
+          analyser.smoothingTimeConstant = 0.7;
+          ctx.createMediaStreamSource(stream).connect(analyser);
+          const data = new Uint8Array(analyser.frequencyBinCount);
+          let frame = 0;
+          const loop = () => {
+            analyser.getByteFrequencyData(data);
+            if ((frame++ & 1) === 0) {
+              const N = 28;
+              const bars: number[] = [];
+              for (let i = 0; i < N; i++) bars.push(Math.min(1, (data[Math.floor((i / N) * 44) + 1] ?? 0) / 190));
+              setLevels(bars);
+            }
+            rafRef.current = requestAnimationFrame(loop);
+          };
+          rafRef.current = requestAnimationFrame(loop);
+        } catch {
+          /* meter is optional — recording still works */
+        }
+      }
+      timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
     } catch {
       setError("Couldn't access the microphone — you can upload an audio file instead.");
     }
@@ -104,11 +178,38 @@ export function FeedbackForm({
   async function onPickVoice(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
+    voiceBlobRef.current = f;
     setUploadingVoice(true);
     const up = await uploadFile(f, f.name);
     setUploadingVoice(false);
     if (up) setVoice({ path: up.path, url: URL.createObjectURL(f) });
     if (voiceInputRef.current) voiceInputRef.current.value = "";
+  }
+
+  /** AI transcribe + summarize the voice note. English stays English; Hindi → Hinglish. */
+  async function summarize() {
+    const blob = voiceBlobRef.current;
+    if (!blob) return setError("Record or upload a voice note first.");
+    setError(null);
+    setSummarizing(true);
+    try {
+      const { base64, mimeType } = await blobToWavBase64(blob);
+      const res = await fetch("/api/training/summarize-audio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audioBase64: base64, mimeType }),
+      });
+      const json = await res.json();
+      if (!json.ok) return setError(json.error || "Couldn't summarize the recording.");
+      const text = (json.summary?.trim() || json.transcript?.trim() || "") as string;
+      if (!text) return setError("Nothing could be transcribed — try a clearer recording.");
+      setVoiceTranscript((prev) => (prev.trim() ? prev.trim() + "\n\n" : "") + text);
+      fireToast({ message: "AI summary added to the transcript.", type: "success" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't process the audio.");
+    } finally {
+      setSummarizing(false);
+    }
   }
   async function onPickPic(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -212,23 +313,30 @@ export function FeedbackForm({
           <div>
             <label className={LABEL}>Voice note</label>
             <input ref={voiceInputRef} type="file" accept="audio/*" className="hidden" onChange={onPickVoice} />
-            {voice ? (
-              <div className="flex items-center gap-2 rounded-lg border border-hairline-strong bg-surface-soft px-3 py-2.5">
-                <audio controls src={voice.url} className="h-9 flex-1" />
-                <button type="button" onClick={() => setVoice(null)} aria-label="Remove" className="text-ink-subtle hover:text-altus-red"><X size={16} /></button>
+            {recording ? (
+              <div className="flex items-center gap-3 rounded-xl border px-3 py-2.5" style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 40%, transparent)", background: "color-mix(in srgb, var(--color-altus-red) 6%, transparent)" }}>
+                <span className="inline-flex items-center gap-1.5 text-[13px] font-bold tabular-nums" style={{ color: "var(--color-altus-red-deep)" }}>
+                  <span className={"size-2.5 rounded-full" + (reduce ? "" : " animate-pulse")} style={{ background: "var(--color-altus-red)" }} /> {fmtTime(elapsed)}
+                </span>
+                <WaveBars levels={levels} />
+                <button type="button" onClick={stopRecording} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-white" style={{ background: "var(--color-altus-red)" }}><Square size={14} /> Stop</button>
+              </div>
+            ) : voice ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 rounded-lg border border-hairline-strong bg-surface-soft px-3 py-2.5">
+                  <audio controls src={voice.url} className="h-9 flex-1" />
+                  <button type="button" onClick={() => { setVoice(null); voiceBlobRef.current = null; }} aria-label="Remove" className="text-ink-subtle hover:text-altus-red"><X size={16} /></button>
+                </div>
+                <button type="button" onClick={summarize} disabled={summarizing || !voiceBlobRef.current} className="inline-flex items-center justify-center gap-2 rounded-lg border py-2.5 text-[13.5px] font-bold transition-colors disabled:opacity-60" style={{ borderColor: "color-mix(in srgb, var(--color-purple) 40%, transparent)", color: "var(--color-purple-deep)", background: "color-mix(in srgb, var(--color-purple) 8%, transparent)" }}>
+                  {summarizing ? <><Loader2 size={15} className="animate-spin" /> Transcribing & summarizing…</> : <><Sparkles size={15} /> Summarize with AI · English / Hindi→Hinglish</>}
+                </button>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                {recording ? (
-                  <button type="button" onClick={stopRecording} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-[14px] font-bold text-white" style={{ background: "var(--color-altus-red)" }}>
-                    <span className="size-2.5 rounded-full bg-white animate-pulse" /> <Square size={15} /> Stop
-                  </button>
-                ) : (
-                  <button type="button" onClick={startRecording} disabled={uploadingVoice} className={FIELD + " flex flex-1 items-center justify-center gap-2 text-ink-soft"}>
-                    {uploadingVoice ? <Loader2 size={16} className="animate-spin" /> : <Mic size={16} />} Record
-                  </button>
-                )}
-                <button type="button" onClick={() => voiceInputRef.current?.click()} disabled={uploadingVoice || recording} className="inline-flex items-center justify-center rounded-lg border border-hairline-strong bg-white px-3 py-2.5 text-ink-soft" aria-label="Upload audio"><Upload size={16} /></button>
+                <button type="button" onClick={startRecording} disabled={uploadingVoice} className={FIELD + " flex flex-1 items-center justify-center gap-2 text-ink-soft"}>
+                  {uploadingVoice ? <Loader2 size={16} className="animate-spin" /> : <Mic size={16} />} Record
+                </button>
+                <button type="button" onClick={() => voiceInputRef.current?.click()} disabled={uploadingVoice} className="inline-flex items-center justify-center rounded-lg border border-hairline-strong bg-white px-3 py-2.5 text-ink-soft" aria-label="Upload audio"><Upload size={16} /></button>
               </div>
             )}
           </div>

@@ -3,8 +3,9 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
-import { Loader2, Check, AlertTriangle, ShieldCheck, Archive, Trash2, CornerUpRight } from "lucide-react";
+import { Loader2, Check, AlertTriangle, ShieldCheck, Archive, Trash2, CornerUpRight, Sparkles } from "lucide-react";
 import { fireToast } from "@/lib/toast";
+import { blobToWavBase64 } from "@/lib/audio/to-wav";
 import { StarRating } from "./star-rating";
 import { LookupSelect, type LookupOption } from "@/components/ui/lookup-select";
 import { escalateFeedback, resolveFeedback, signOffFeedback, archiveFeedback, deleteFeedback } from "@/app/(app)/training/feedback/actions";
@@ -28,6 +29,8 @@ export function FeedbackDetailView({ fb, canManage, employees }: { fb: FD; canMa
   const [escalateOpen, setEscalateOpen] = React.useState(false);
   const [how, setHow] = React.useState("");
   const [escTo, setEscTo] = React.useState<string | null>(null);
+  const [sumBusy, setSumBusy] = React.useState(false);
+  const [ai, setAi] = React.useState<{ summary: string; transcript: string } | null>(null);
 
   async function run(key: string, fn: () => Promise<{ ok: boolean; error?: string }>, okMsg: string) {
     setBusy(key);
@@ -36,6 +39,28 @@ export function FeedbackDetailView({ fb, canManage, employees }: { fb: FD; canMa
     if (!res.ok) return fireToast({ message: res.error || "Failed.", type: "error" });
     fireToast({ message: okMsg, type: "success" });
     router.refresh();
+  }
+
+  /** AI transcribe + summarize the saved voice note. English stays English; Hindi → Hinglish. */
+  async function summarizeVoice() {
+    if (!fb.voiceUrl) return;
+    setSumBusy(true);
+    try {
+      const blob = await (await fetch(fb.voiceUrl)).blob();
+      const { base64, mimeType } = await blobToWavBase64(blob);
+      const r = await fetch("/api/training/summarize-audio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audioBase64: base64, mimeType }),
+      });
+      const j = await r.json();
+      if (!j.ok) return fireToast({ message: j.error || "Couldn't summarize.", type: "error" });
+      setAi({ summary: (j.summary ?? "").trim(), transcript: (j.transcript ?? "").trim() });
+    } catch (err) {
+      fireToast({ message: err instanceof Error ? err.message : "Couldn't process the audio.", type: "error" });
+    } finally {
+      setSumBusy(false);
+    }
   }
 
   return (
@@ -53,7 +78,27 @@ export function FeedbackDetailView({ fb, canManage, employees }: { fb: FD; canMa
         {fb.q1 && <Row label={tpl?.q1 ?? "Q1"}>{fb.q1}</Row>}
         {fb.q2 && <Row label={tpl?.q2 ?? "Q2"}>{fb.q2}</Row>}
         {fb.voiceTranscript && <Row label="Transcript">{fb.voiceTranscript}</Row>}
-        {fb.voiceUrl && <div className="mt-3"><span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.06em] text-ink-subtle">Voice note</span><audio controls src={fb.voiceUrl} className="w-full" /></div>}
+        {fb.voiceUrl && (
+          <div className="mt-3">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.06em] text-ink-subtle">Voice note</span>
+            <audio controls src={fb.voiceUrl} className="w-full" />
+            <button type="button" onClick={summarizeVoice} disabled={sumBusy} className="mt-2 inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-[13px] font-bold transition-colors disabled:opacity-60" style={{ borderColor: "color-mix(in srgb, var(--color-purple) 40%, transparent)", color: "var(--color-purple-deep)", background: "color-mix(in srgb, var(--color-purple) 8%, transparent)" }}>
+              {sumBusy ? <><Loader2 size={14} className="animate-spin" /> Transcribing & summarizing…</> : <><Sparkles size={14} /> Summarize with AI · English / Hindi→Hinglish</>}
+            </button>
+            {ai && (
+              <div className="mt-2 rounded-xl border border-hairline bg-surface-soft p-3">
+                <div className="text-[11px] font-bold uppercase tracking-[0.06em]" style={{ color: "var(--color-purple-deep)" }}>AI summary</div>
+                <p className="mt-1 text-[14px] font-semibold text-ink-strong" style={{ overflowWrap: "anywhere" }}>{ai.summary || "—"}</p>
+                {ai.transcript && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-[12.5px] font-bold text-ink-soft">Full transcript</summary>
+                    <p className="mt-1 whitespace-pre-wrap text-[13.5px] font-medium text-ink-soft" style={{ overflowWrap: "anywhere" }}>{ai.transcript}</p>
+                  </details>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         {fb.pictureUrl && <div className="mt-3"><span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.06em] text-ink-subtle">Picture</span>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={fb.pictureUrl} alt="attachment" className="max-h-72 rounded-lg border border-hairline" /></div>}
       </section>
 

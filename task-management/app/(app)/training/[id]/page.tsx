@@ -51,7 +51,7 @@ export default async function MaterialPage({ params }: PageProps) {
           </h1>
           {material.subject && <p className="mt-1.5 font-semibold text-ink-muted" style={{ fontSize: 15 }}>{material.subject}{material.los ? ` · ${material.los}` : ""}</p>}
         </header>
-        <MaterialViewer material={material} createdByNames={createdByNames} assistedByNames={assistedByNames} inductionDeptNames={inductionDeptNames} />
+        <MaterialViewer material={material} createdByNames={createdByNames} assistedByNames={assistedByNames} inductionDeptNames={inductionDeptNames} canManage={canManage} />
         <MaterialTests materialId={material.id} tests={tests} canManage={canManage} />
       </main>
       <DashboardFooter />

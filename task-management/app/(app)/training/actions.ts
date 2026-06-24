@@ -116,6 +116,37 @@ export async function updateMaterial(input: unknown): Promise<Result<{ id: strin
   }
 }
 
+const UUID_RE = /^[0-9a-f-]{36}$/i;
+
+/** Archive / unarchive a material (managers + admins). Archived material drops
+ *  out of the learner library but stays recoverable. */
+export async function archiveMaterial(id: string, archived: boolean): Promise<Result> {
+  await requireTrainingManager();
+  if (!UUID_RE.test(id)) return { ok: false, error: "Invalid material." };
+  try {
+    await db.update(tcMaterials).set({ archived, updatedAt: new Date() }).where(eq(tcMaterials.id, id));
+    revalidatePath(PATH);
+    revalidatePath(`${PATH}/${id}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Permanently delete a material (managers + admins). Cascades to its tests,
+ *  questions, attempts and watch records via FK onDelete:cascade. */
+export async function deleteMaterial(id: string): Promise<Result> {
+  await requireTrainingManager();
+  if (!UUID_RE.test(id)) return { ok: false, error: "Invalid material." };
+  try {
+    await db.delete(tcMaterials).where(eq(tcMaterials.id, id));
+    revalidatePath(PATH);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 /** Record that the current employee watched a material (idempotent). */
 export async function markWatched(materialId: string): Promise<Result> {
   const me = await requireWorkspace("training");
