@@ -17,6 +17,7 @@ export const WORKSPACE_IDS = [
   "sales",
   "marketing",
   "training",
+  "accounts",
 ] as const;
 
 export type WorkspaceId = (typeof WORKSPACE_IDS)[number];
@@ -32,6 +33,7 @@ export const WORKSPACE_LABEL: Record<WorkspaceId, string> = {
   sales: "Sales",
   marketing: "Marketing",
   training: "Training",
+  accounts: "Accounts",
 };
 
 /** Where each card drops you when you enter the workspace. */
@@ -42,6 +44,7 @@ export const WORKSPACE_LANDING: Record<WorkspaceId, string> = {
   sales: "/outstanding",
   marketing: "/index-hub",
   training: "/training",
+  accounts: "/accounts",
 };
 
 export const ACTIVE_WORKSPACE_COOKIE = "aw";
@@ -64,6 +67,8 @@ export function canAccessWorkspace(
   if (user.isSuperAdmin) return true;
   // The Admin room is role-gated: admins only (NOT doers).
   if (ws === "admin") return user.isAdmin;
+  // Accounts is locked to super-admins (who already returned true above).
+  if (ws === "accounts") return false;
   // Department-gated rooms (Sales).
   const required = WORKSPACE_DEPARTMENT[ws];
   if (!required) return true; // open room
@@ -134,6 +139,9 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
 
   // Training
   if (p.startsWith("/training")) return "training";
+
+  // Accounts — admin/super-admin module with its own section nav.
+  if (p.startsWith("/accounts")) return "accounts";
 
   // Shared / unknown — keep the caller's current workspace.
   return null;

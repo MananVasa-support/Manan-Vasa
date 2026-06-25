@@ -150,6 +150,18 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
     ],
     groups: [],
   },
+  accounts: {
+    // The Accounts module owns its own bar — never the WMS pills. "Index" is the
+    // full section directory; the live sections sit beside it. New sections join
+    // here as they ship.
+    top: [
+      { href: "/accounts" as Route, label: "Index", Icon: LayoutGrid, exact: true },
+      { href: "/accounts/task-list" as Route, label: "Task List", Icon: ListChecks },
+      { href: "/accounts/weekly-checklist" as Route, label: "Weekly Checklist", Icon: CalendarCheck },
+      { href: "/accounts/ca-handover" as Route, label: "CA Handover", Icon: ShieldCheck },
+    ],
+    groups: [],
+  },
 };
 
 export function MainNav({ activeTasks, isAdmin, variant, cookieWorkspace }: Props) {
