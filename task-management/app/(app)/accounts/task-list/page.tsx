@@ -10,6 +10,7 @@ import {
   TaskListTable,
   ScreenshotsTable,
 } from "@/components/accounts/task-list/task-list-client";
+import { AccountsTaskImport } from "@/components/accounts/task-list/task-import";
 
 export const dynamic = "force-dynamic";
 
@@ -38,26 +39,31 @@ export default async function AccountsTaskListPage() {
           Back to Accounts index
         </Link>
 
-        <header className="mt-3 mb-8">
-          <span className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: "var(--color-altus-red-deep)" }}>
-            Accounts
-          </span>
-          <h1
-            className="text-ink-strong"
-            style={{
-              fontFamily: "var(--font-display), system-ui, sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(30px, 3.4vw, 44px)",
-              letterSpacing: "-0.025em",
-              lineHeight: 1.04,
-              marginTop: 6,
-            }}
-          >
-            Accounts Task List
-          </h1>
-          <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 15.5 }}>
-            The working task tracker — area, status, target vs actual dates, with a Screenshots-to-Post sub-table.
-          </p>
+        <header className="mt-3 mb-8 flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: "var(--color-altus-red-deep)" }}>
+              Accounts
+            </span>
+            <h1
+              className="text-ink-strong"
+              style={{
+                fontFamily: "var(--font-display), system-ui, sans-serif",
+                fontWeight: 900,
+                fontSize: "clamp(30px, 3.4vw, 44px)",
+                letterSpacing: "-0.025em",
+                lineHeight: 1.04,
+                marginTop: 6,
+              }}
+            >
+              Accounts Task List
+            </h1>
+            <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 15.5 }}>
+              The working task tracker — area, status, target vs actual dates, with a Screenshots-to-Post sub-table.
+            </p>
+          </div>
+          <div className="shrink-0 pt-1">
+            <AccountsTaskImport />
+          </div>
         </header>
 
         <div className="mb-5 flex items-center gap-2.5">
