@@ -2247,6 +2247,96 @@ export const accountsMonthlyChecks = pgTable(
 export type AccountsMonthlyItem = typeof accountsMonthlyItems.$inferSelect;
 export type AccountsMonthlyCheck = typeof accountsMonthlyChecks.$inferSelect;
 
+// Section 5 — Due Dates Checklist (mig 0082). Flat register of recurring bills
+// grouped by Area, with frequency, statement/due dates, ECS + payment tracking.
+export const accountsDueItems = pgTable(
+  "accounts_due_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    code: text("code"),
+    area: text("area"),
+    compliance: text("compliance").notNull(),
+    frequency: text("frequency"),
+    ecs: text("ecs"),
+    ecsFrom: text("ecs_from"),
+    statementPeriod: text("statement_period"),
+    statementDate: text("statement_date"),
+    dueDate: text("due_date"),
+    softCopyAutoEmail: text("soft_copy_auto_email"),
+    hardCopy: text("hard_copy"),
+    softCopy: text("soft_copy"),
+    tallyEntry: text("tally_entry"),
+    balanceTally: text("balance_tally"),
+    paidDate: text("paid_date"),
+    paidAmt: text("paid_amt"),
+    intFinChgs: text("int_fin_chgs"),
+    chgReversed: text("chg_reversed"),
+    notes: text("notes"),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("accounts_due_items_sort_idx").on(t.sortOrder),
+    index("accounts_due_items_area_idx").on(t.area),
+  ],
+);
+
+export type AccountsDueItem = typeof accountsDueItems.$inferSelect;
+
+// Section 4/12 — Credit Cards Master (mig 0083). FY-scoped card master + per-card
+// per-month tracking record (Apr→Mar). One FY-aware section serves 25-26 + 26-27.
+export const accountsCcCards = pgTable(
+  "accounts_cc_cards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fyStartYear: integer("fy_start_year").notNull(),
+    code: text("code"),
+    entityName: text("entity_name"),
+    cardName: text("card_name").notNull(),
+    ecs: text("ecs"),
+    ecsFrom: text("ecs_from"),
+    stmtPeriod: text("stmt_period"),
+    stmtStartDay: text("stmt_start_day"),
+    dueDay: text("due_day"),
+    softCopyAutoEmail: text("soft_copy_auto_email"),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accounts_cc_cards_fy_sort_idx").on(t.fyStartYear, t.sortOrder)],
+);
+
+export const accountsCcMonths = pgTable(
+  "accounts_cc_months",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    cardId: uuid("card_id")
+      .notNull()
+      .references(() => accountsCcCards.id, { onDelete: "cascade" }),
+    month: integer("month").notNull(),
+    hardCopy: text("hard_copy"),
+    googleDrive: text("google_drive"),
+    tallyEntry: text("tally_entry"),
+    balanceTally: text("balance_tally"),
+    ccPaidDate: text("cc_paid_date"),
+    ccPaidAmt: text("cc_paid_amt"),
+    intFinChgs: text("int_fin_chgs"),
+    chgReversed: text("chg_reversed"),
+    notes: text("notes"),
+    updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("accounts_cc_months_uq").on(t.cardId, t.month)],
+);
+
+export type AccountsCcCard = typeof accountsCcCards.$inferSelect;
+export type AccountsCcMonth = typeof accountsCcMonths.$inferSelect;
+
 export type AccountsTaskRow = typeof accountsTaskList.$inferSelect;
 export type AccountsScreenshot = typeof accountsScreenshots.$inferSelect;
 export type CaHandoverCredential = typeof caHandoverCredentials.$inferSelect;

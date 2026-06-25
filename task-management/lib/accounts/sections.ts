@@ -51,18 +51,16 @@ export const ACCOUNTS_SECTIONS: AccountsSection[] = [
   {
     slug: "cc-tracker",
     order: 4,
-    title: "CC Tracker",
-    blurb: "Credit-cards master (FY 2025-26) — statements, payments, tally, charges, per month.",
-    status: "stub",
-    columns: ["S. No", "Entity Name", "Card Name", "ECS", "ECS From?", "Stmt Period", "St Dt", "Due Dt", "Soft Copy Auto Email?", "Hard Copy", "Google Drive", "Tally Entry", "Balance Tally?", "CC Paid Date", "CC Paid Amt", "Int + Fin Chgs", "Chg Reversed?", "Notes"],
+    title: "Credit Cards Master",
+    blurb: "Per-card statement, payment, tally & charges tracking — pick a month of the financial year (Apr–Mar). Covers all FYs via the year navigator.",
+    status: "built",
   },
   {
     slug: "due-dates",
     order: 5,
     title: "Due Dates Checklist",
-    blurb: "Statutory and compliance due-dates checklist.",
-    status: "stub",
-    columns: ["S. No.", "Particulars", "Due Date", "Responsible", "Status", "Notes"],
+    blurb: "Recurring bills & statutory items by area — frequency, statement period, due date, ECS and payment status.",
+    status: "built",
   },
   {
     slug: "sip-tracker",
@@ -115,10 +113,10 @@ export const ACCOUNTS_SECTIONS: AccountsSection[] = [
   {
     slug: "cc-tracker-2026-27",
     order: 12,
-    title: "CC Tracker FY 2026-27",
-    blurb: "Credit-cards master for FY 2026-27 — same structure as the 25-26 CC tracker.",
-    status: "stub",
-    columns: ["S. No", "Entity Name", "Card Name", "ECS", "ECS From?", "Stmt Period", "St Dt", "Due Dt", "Soft Copy Auto Email?", "Hard Copy", "Google Drive", "Tally Entry", "Balance Tally?", "CC Paid Date", "CC Paid Amt", "Int + Fin Chgs", "Chg Reversed?", "Notes"],
+    title: "CC Master — FY 2026-27",
+    blurb: "Credit Cards Master for FY 2026-27 — opens the CC Master on the 2026-27 financial year.",
+    status: "link",
+    href: "/accounts/cc-tracker?fy=2026",
   },
   {
     slug: "shares-register",
