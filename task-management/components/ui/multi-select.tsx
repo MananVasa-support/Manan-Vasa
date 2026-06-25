@@ -90,32 +90,40 @@ export function MultiSelect({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        {renderTrigger ? (
-          renderTrigger({
+      {renderTrigger ? (
+        // Custom trigger (e.g. FilterPill) — a single forwardRef element.
+        <PopoverTrigger asChild>
+          {renderTrigger({
             selectedLabels: selected.map((v) => labelMap.get(v) ?? v),
             open,
-          })
-        ) : (
+          })}
+        </PopoverTrigger>
+      ) : (
+        // Default trigger: the positioning wrapper is a PLAIN div (NOT the Radix
+        // trigger). PopoverTrigger asChild wraps ONLY the single <button>, and
+        // the Clear (X) is a SIBLING button — so we never nest an interactive
+        // element inside the trigger button or hand Radix a non-button trigger.
         <div className="relative inline-flex">
-          <button
-            ref={triggerRef}
-            type="button"
-            className={cn(
-              "inline-flex items-center gap-2 min-w-40 text-chip text-ink-strong bg-transparent outline-none text-left",
-              selected.length > 0 && "pr-6",
-              className,
-            )}
-          >
-            <span className="flex-1 truncate">
-              {selected.length === 0
-                ? placeholder
-                : selected.length === 1
-                  ? labelMap.get(selected[0]!) ?? "1 selected"
-                  : `${selected.length} selected`}
-            </span>
-            <ChevronDown size={14} className="text-ink-subtle" />
-          </button>
+          <PopoverTrigger asChild>
+            <button
+              ref={triggerRef}
+              type="button"
+              className={cn(
+                "inline-flex items-center gap-2 min-w-40 text-chip text-ink-strong bg-transparent outline-none text-left",
+                selected.length > 0 && "pr-6",
+                className,
+              )}
+            >
+              <span className="flex-1 truncate">
+                {selected.length === 0
+                  ? placeholder
+                  : selected.length === 1
+                    ? labelMap.get(selected[0]!) ?? "1 selected"
+                    : `${selected.length} selected`}
+              </span>
+              <ChevronDown size={14} className="text-ink-subtle" />
+            </button>
+          </PopoverTrigger>
           {selected.length > 0 && (
             <button
               type="button"
@@ -130,8 +138,7 @@ export function MultiSelect({
             </button>
           )}
         </div>
-        )}
-      </PopoverTrigger>
+      )}
       <PopoverContent
         // Don't restore focus to the trigger on close — it fights the browser's
         // Tab so focus can't advance after committing a selection.
