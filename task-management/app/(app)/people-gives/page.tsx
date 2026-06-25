@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { Plus } from "lucide-react";
+import { Plus, Download } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
@@ -42,17 +42,26 @@ export default async function PeopleGivesPage() {
               Who can introduce us to whom — the referral network at a glance.
             </p>
           </div>
-          <Link
-            href={"/people-gives/new" as Route}
-            className="inline-flex items-center gap-2 rounded-xl py-3 px-5 text-[15px] font-bold text-white transition-transform active:scale-[0.99]"
-            style={{
-              background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-              boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)",
-            }}
-          >
-            <Plus size={17} strokeWidth={2.6} />
-            New introduction
-          </Link>
+          <div className="flex items-center gap-2.5">
+            <a
+              href="/people-gives/export"
+              className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-3 px-5 text-[15px] font-bold text-ink-strong transition-transform active:scale-[0.99] hover:border-[color:var(--color-altus-red)]"
+            >
+              <Download size={17} strokeWidth={2.6} />
+              Export CSV
+            </a>
+            <Link
+              href={"/people-gives/new" as Route}
+              className="inline-flex items-center gap-2 rounded-xl py-3 px-5 text-[15px] font-bold text-white transition-transform active:scale-[0.99]"
+              style={{
+                background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+                boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)",
+              }}
+            >
+              <Plus size={17} strokeWidth={2.6} />
+              New introduction
+            </Link>
+          </div>
         </header>
 
         <IntroductionsTable rows={rows} />

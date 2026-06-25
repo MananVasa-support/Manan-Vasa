@@ -9,6 +9,9 @@ import { WeeklyGoalsFillView } from "@/components/weekly-goals/weekly-goals-fill
 import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist-view";
 import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
 import { workspaceForPath, canAccessWorkspace } from "@/lib/workspaces";
+import { managerDailyTaskGate, managerWeeklyGoalGate, isWeeklyGoalGateDay } from "@/lib/manager-gates";
+import { ManagerDailyTaskGate } from "@/components/manager-gates/manager-daily-task-gate";
+import { ManagerWeeklyGoalGate } from "@/components/manager-gates/manager-weekly-goal-gate";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   // Load directly (no timeout wrapper). A slow read completes; wrapping auth in
@@ -57,6 +60,31 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           mode="gate"
         />
       );
+    }
+
+    // #11 — MANAGER gates: a manager must give each direct report their daily
+    // tasks (every day) and ensure 5 open goals each (Wed & Sat). EXEMPT the two
+    // "duty" routes (/tasks/new, /weekly-goals) so the gate's own Assign / Set-
+    // goals links work instead of trapping the manager. FAIL-OPEN everywhere — a
+    // non-manager's query returns satisfied=true (no reports), and any DB error
+    // (.catch → null) means we don't gate this render.
+    const onDutyRoute =
+      pathname.startsWith("/tasks/new") || pathname.startsWith("/weekly-goals");
+    // Kill-switch: set MANAGER_GATES_OFF=true in Vercel to instantly disable
+    // these hard gates org-wide without a redeploy (insurance for a lockout feature).
+    const gatesOff = process.env.MANAGER_GATES_OFF === "true";
+    if (!onDutyRoute && !gatesOff) {
+      const firstName = me.name.split(" ")[0] ?? me.name;
+      const dailyGate = await managerDailyTaskGate(me.id).catch(() => null);
+      if (dailyGate && !dailyGate.satisfied) {
+        return <ManagerDailyTaskGate greetingName={firstName} state={dailyGate} />;
+      }
+      if (isWeeklyGoalGateDay()) {
+        const weeklyGate = await managerWeeklyGoalGate(me.id).catch(() => null);
+        if (weeklyGate && !weeklyGate.satisfied) {
+          return <ManagerWeeklyGoalGate greetingName={firstName} state={weeklyGate} />;
+        }
+      }
     }
   }
 

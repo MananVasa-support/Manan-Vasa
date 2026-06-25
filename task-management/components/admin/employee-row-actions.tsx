@@ -51,6 +51,7 @@ type RowEmployee = {
   whatsappPhone: string | null;
   whatsappOptedIn: boolean;
   managerId: string | null;
+  dailyTaskQuota: number;
   attendanceBiometricExempt: boolean;
   weeklyOff: number;
   attOfficialStart: string | null;
@@ -271,6 +272,7 @@ export function EmployeeRowActions({
           whatsappPhone: employee.whatsappPhone,
           whatsappOptedIn: employee.whatsappOptedIn,
           managerId: employee.managerId,
+          dailyTaskQuota: employee.dailyTaskQuota,
           attendanceBiometricExempt: employee.attendanceBiometricExempt,
           weeklyOff: employee.weeklyOff,
           attOfficialStart: employee.attOfficialStart,

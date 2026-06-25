@@ -17,8 +17,7 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { localDateString } from "@/lib/format";
 import { getOrgSettings } from "@/lib/queries/org-settings";
-import { insertPunchRow } from "@/lib/attendance/record-punch";
-import { evaluateOfficeIp } from "@/lib/attendance/office-ip";
+import { insertPunchRow, resolvePunchGeofence } from "@/lib/attendance/record-punch";
 import {
   notifyOnInPunch,
   notifyOnDayFinalized,
@@ -39,18 +38,30 @@ const PunchSchema = z
   .object({
     kind: z.enum(["in", "out"]),
     note: z.string().trim().max(500).optional(),
+    location: z
+      .object({
+        lat: z.number().finite(),
+        lng: z.number().finite(),
+        accuracyM: z.number().finite().nonnegative(),
+      })
+      .optional(),
   })
   .strict();
 
 /**
  * Record today's check-in or check-out. "Today" is the calendar day in the
  * employee's own timezone. One punch per kind per day — a duplicate returns a
- * friendly error instead of silently rewriting the log. The ONLY gate is the
- * office Wi-Fi IP allowlist — no location, no biometric.
+ * friendly error instead of silently rewriting the log.
+ *
+ * The ONLY gate is the office geofence (location). When the admin has set
+ * office coordinates the punch must carry a GPS fix inside `attendanceRadiusM`;
+ * otherwise location is recorded but never rejected. No Wi-Fi/IP allowlist, no
+ * biometric on the web path — verifyMethod is "gps_only".
  */
 export async function punchAttendance(input: {
   kind: "in" | "out";
   note?: string;
+  location?: { lat: number; lng: number; accuracyM: number };
 }): Promise<ActionResult<{ date: string }>> {
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
@@ -60,31 +71,28 @@ export async function punchAttendance(input: {
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { kind, note } = parsed.data;
+  const { kind, note, location } = parsed.data;
 
   const settings = await getOrgSettings();
 
-  // ── The ONLY gate: office Wi-Fi IP ───────────────────────────────────
-  // The punch must come from the office network's public IP — a mock-GPS app on
-  // the phone cannot fake this (the IP is decided server-side from the request).
-  // When no allowlist is configured the gate is off (accepts from anywhere).
-  // No location tracking, no biometric — the IP gate is the whole control.
-  const ipGate = await evaluateOfficeIp(settings.officeIpAllowlist);
-  if (ipGate.configured && !ipGate.allowed) {
-    return {
-      ok: false,
-      error: "Attendance can only be marked on the office Wi-Fi. Connect to the office network and try again.",
-    };
-  }
+  // ── The ONLY gate: office geofence ───────────────────────────────────
+  // When office coordinates are configured the punch must carry a GPS fix
+  // inside the radius (with an accuracy guard — an imprecise fix asks for
+  // precise location). When no coordinates are set the punch is accepted from
+  // anywhere and location is still recorded. Shared verbatim with the mobile
+  // punch via resolvePunchGeofence so the rule never diverges.
+  const geo = resolvePunchGeofence(settings, location);
+  if (!geo.ok) return { ok: false, error: geo.error };
 
   const tz = me.timezone || "Asia/Kolkata";
   const today = localDateString(tz);
 
   // Insert via the shared core (today-only; one punch per kind per day).
+  // verifyMethod "gps_only": location-verified, no biometric on the web path.
   const inserted = await insertPunchRow(
     { id: me.id, timezone: tz },
-    { kind, note, location: undefined, distanceM: null },
-    { verifyMethod: "none", source: "self" },
+    { kind, note, location, distanceM: geo.distanceM },
+    { verifyMethod: "gps_only", source: "self" },
   );
   if (!inserted.ok) return inserted;
 

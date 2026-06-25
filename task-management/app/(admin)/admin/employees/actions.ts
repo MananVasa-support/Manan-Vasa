@@ -393,6 +393,11 @@ export async function editEmployee(
     patch.managerId = parsed.data.managerId;
   }
 
+  // #11 — per-employee daily task quota (how many tasks their manager must give).
+  if (parsed.data.dailyTaskQuota !== undefined) {
+    patch.dailyTaskQuota = parsed.data.dailyTaskQuota;
+  }
+
   // M4 — multi-channel fields.  WhatsApp phone is normalised to null
   // when empty/null; other flags are passed through verbatim.
   if (parsed.data.whatsappPhone !== undefined) {

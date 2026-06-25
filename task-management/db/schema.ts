@@ -144,6 +144,9 @@ export const employees = pgTable("employees", {
   managerId: uuid("manager_id").references((): AnyPgColumn => employees.id, {
     onDelete: "set null",
   }),
+  // #11 compulsory gates — how many tasks this person must RECEIVE from their
+  // manager each working day (admin-configurable per employee; default 3).
+  dailyTaskQuota: integer("daily_task_quota").notNull().default(3),
   // Salary module (migration 0062) — admin-managed roster FKs.
   designationId: uuid("designation_id").references(() => designations.id, {
     onDelete: "set null",

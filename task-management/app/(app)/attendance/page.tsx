@@ -1,4 +1,4 @@
-import { MapPin, ShieldCheck, Wifi } from "lucide-react";
+import { MapPin, ShieldCheck } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { PunchCard } from "@/components/attendance/punch-card";
@@ -15,7 +15,6 @@ import {
   type TeamAttendanceRow,
 } from "@/lib/queries/attendance";
 import { getOrgSettings } from "@/lib/queries/org-settings";
-import { evaluateOfficeIp } from "@/lib/attendance/office-ip";
 import { formatTimeInTz, localDateString } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -59,13 +58,11 @@ export default async function AttendancePage({ searchParams }: PageProps) {
 
   const todayRow = myDays.find((d) => d.date === today);
 
-  // Office Wi-Fi gate: when an allowlist is configured and the request isn't on
-  // it, show a calm "connect to office Wi-Fi" panel instead of the punch UI —
-  // for EVERYONE (admins too, matching the punch action). Admins still get the
-  // capture/manage card below, and the allowlist actions aren't IP-gated, so a
-  // blocked admin can still fix a bad entry from anywhere.
-  const ipGate = await evaluateOfficeIp(settings.officeIpAllowlist);
-  const wifiBlocked = ipGate.configured && !ipGate.allowed;
+  // Location-only geofence: the punch buttons stay disabled until the browser
+  // reports a GPS fix; when office coords are set the server rejects any fix
+  // outside the radius. When no coords are configured the fence is off (punch
+  // from anywhere) — the card still captures location but never blocks.
+  const geofenceEnabled = settings.officeLat != null && settings.officeLng != null;
 
   return (
     <>
@@ -74,20 +71,20 @@ export default async function AttendancePage({ searchParams }: PageProps) {
         <header className="mb-6">
           <h1 className="text-display-lg text-ink-strong">Attendance</h1>
           <p className="text-body-lg text-ink-subtle mt-1">
-            Punch in with your fingerprint on the office Wi-Fi. One check-in and one check-out per day.
+            Enable location and punch in from the office. One check-in and one check-out per day.
           </p>
         </header>
 
-        {wifiBlocked ? (
-          <OfficeWifiGate />
-        ) : (
-          <PunchCard
-            todayLabel={labelForDate(today)}
-            inLabel={todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : null}
-            outLabel={todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null}
-            tz={tz}
-          />
-        )}
+        <PunchCard
+          todayLabel={labelForDate(today)}
+          inLabel={todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : null}
+          outLabel={todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null}
+          tz={tz}
+          geofenceEnabled={geofenceEnabled}
+          officeLat={settings.officeLat}
+          officeLng={settings.officeLng}
+          radiusM={settings.attendanceRadiusM}
+        />
 
         <MyLog days={myDays} tz={tz} />
 
@@ -102,29 +99,6 @@ export default async function AttendancePage({ searchParams }: PageProps) {
       </main>
       <DashboardFooter />
     </>
-  );
-}
-
-/** Calm "you're not on office Wi-Fi" panel — shown instead of the punch UI when
- *  the office-IP gate is active and the request isn't on the office network. */
-function OfficeWifiGate() {
-  return (
-    <section
-      className="rounded-section bg-surface-card p-8 max-md:p-6 text-center"
-      style={{ border: "1px solid var(--color-hairline)", boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
-    >
-      <span
-        className="inline-flex size-14 items-center justify-center rounded-full mb-4"
-        style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red)" }}
-      >
-        <Wifi size={26} strokeWidth={2.2} />
-      </span>
-      <h2 className="text-display-2xs text-ink-strong">Connect to the office Wi-Fi</h2>
-      <p className="mt-2 text-[15px] text-ink-soft mx-auto max-w-[42ch]">
-        Attendance can only be marked from the office network. Join the office Wi-Fi
-        (not mobile data) and reopen this page — then you can punch in.
-      </p>
-    </section>
   );
 }
 

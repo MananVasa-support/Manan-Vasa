@@ -12,12 +12,12 @@ import type { TaskPriority } from "@/db/enums";
 export const dynamic = "force-dynamic";
 
 interface PageProps {
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string; doer?: string }>;
 }
 
 export default async function NewTaskPage({ searchParams }: PageProps) {
   const me = await requireUser();
-  const { from } = await searchParams;
+  const { from, doer } = await searchParams;
   const [all, clients, subjects, projectNodes] = await Promise.all([
     listEmployees(),
     listActiveClientNames(),
@@ -37,6 +37,10 @@ export default async function NewTaskPage({ searchParams }: PageProps) {
     notes?: string;
     projectNodeId?: string;
   } = { initiatorId: me.id };
+  // #11 gate "Assign" deep-link: prefill the doer (the report being assigned).
+  if (doer && options.some((o) => o.id === doer)) {
+    defaults.doerId = doer;
+  }
   if (from) {
     const src = await getTaskById(from);
     if (src) {

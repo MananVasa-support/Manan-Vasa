@@ -1,3 +1,6 @@
+import Link from "next/link";
+import type { Route } from "next";
+import { BarChart3, ArrowRight } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { FilterBar } from "@/components/layout/filter-bar";
@@ -169,6 +172,51 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             )}
             <div className={mobileToday ? "max-md:hidden" : undefined}>
               <KpiStrip kpis={data.kpis} summary={data.wmsSummary} />
+              {/* Task Analytics deep-dive — on-demand route (load-neutral),
+                  surfaced for admins + managers (anyone with a downline). */}
+              {(me?.isAdmin || allEmployees.some((e) => e.managerId === me?.id)) && (
+                <section className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-8">
+                  <Link
+                    href={"/dashboard/task-report" as Route}
+                    className="wg-rise group flex items-center justify-between gap-4 rounded-section px-6 py-5 max-md:px-4 max-md:py-4 transition-transform active:scale-[0.997]"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+                      boxShadow: "0 14px 30px -16px rgba(168,4,0,0.6)",
+                    }}
+                  >
+                    <span className="flex items-center gap-3.5 min-w-0">
+                      <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white">
+                        <BarChart3 size={22} strokeWidth={2.4} />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-[10.5px] font-black uppercase tracking-[0.16em] text-white/80">
+                          Task Analytics
+                        </span>
+                        <span
+                          className="block leading-tight text-white"
+                          style={{
+                            fontFamily: "var(--font-display), system-ui, sans-serif",
+                            fontWeight: 900,
+                            fontSize: 21,
+                            letterSpacing: "-0.02em",
+                          }}
+                        >
+                          Open the full Task Report
+                        </span>
+                        <span className="mt-0.5 block text-[12.5px] font-semibold text-white/85">
+                          Done-on-time spread · not-approved aging · initiator target-vs-actual
+                        </span>
+                      </span>
+                    </span>
+                    <ArrowRight
+                      size={22}
+                      strokeWidth={2.6}
+                      className="shrink-0 text-white transition-transform group-hover:translate-x-1"
+                    />
+                  </Link>
+                </section>
+              )}
               {/* Executive Control Room — surfaced above doer-status /
                   top-performers per founder (2026-06-21). */}
               <section className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-12">

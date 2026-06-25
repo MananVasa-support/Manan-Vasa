@@ -4,6 +4,7 @@ import type { Task, Employee } from "@/db/schema";
 // their defaults here means a future column drop or add is a one-line edit.
 function profileV2Defaults() {
   return {
+    dailyTaskQuota: 3,
     bio: null as string | null,
     tags: [] as string[],
     availability: "available" as const,

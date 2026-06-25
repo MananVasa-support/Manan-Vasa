@@ -34,6 +34,7 @@ export interface EditEmployeeDialogProps {
     whatsappPhone: string | null;
     whatsappOptedIn: boolean;
     managerId?: string | null;
+    dailyTaskQuota?: number;
     attendanceBiometricExempt: boolean;
     weeklyOff: number;
     attOfficialStart: string | null;
@@ -93,6 +94,7 @@ export function EditEmployeeDialog({
   const [primaryId, setPrimaryId] = useState<string | null>(initialPrimaryId);
   const [isAdmin, setIsAdmin]   = useState(employee.isAdmin);
   const [managerId, setManagerId] = useState<string | null>(employee.managerId ?? null);
+  const [dailyQuota, setDailyQuota] = useState<number>(employee.dailyTaskQuota ?? 3);
   const [waPhone, setWaPhone]   = useState(employee.whatsappPhone ?? "");
   const [waOptIn, setWaOptIn]   = useState(employee.whatsappOptedIn);
   const [weeklyOff, setWeeklyOff] = useState<number>(employee.weeklyOff);
@@ -159,6 +161,7 @@ export function EditEmployeeDialog({
       primaryDepartmentId?: string | null;
       isAdmin?: boolean;
       managerId?: string | null;
+      dailyTaskQuota?: number;
       whatsappPhone?: string | null;
       whatsappOptedIn?: boolean;
     } = {};
@@ -174,6 +177,7 @@ export function EditEmployeeDialog({
     }
     if (isAdmin !== employee.isAdmin) patch.isAdmin = isAdmin;
     if (managerId !== (employee.managerId ?? null)) patch.managerId = managerId;
+    if (dailyQuota !== (employee.dailyTaskQuota ?? 3)) patch.dailyTaskQuota = dailyQuota;
     if (trimmedWaPhone !== currentWaPhone) {
       patch.whatsappPhone = trimmedWaPhone === "" ? null : trimmedWaPhone;
     }
@@ -260,6 +264,16 @@ export function EditEmployeeDialog({
                     .filter((o) => o.value !== employee.id)
                     .map((o) => ({ value: o.value, label: o.label })),
                 ]}
+              />
+            </Field>
+            <Field label="Daily tasks their manager must give them (#11 gate)">
+              <input
+                type="number"
+                min={0}
+                max={50}
+                value={dailyQuota}
+                onChange={(e) => setDailyQuota(Math.max(0, Math.min(50, Math.round(Number(e.target.value) || 0))))}
+                className="w-full rounded-md border border-[#CBD5E1] px-3.5 py-2.5 text-[15px] tabular-nums"
               />
             </Field>
             <Field label="Departments (optional)">

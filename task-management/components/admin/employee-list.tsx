@@ -294,6 +294,7 @@ export function EmployeeList({
                         whatsappPhone: e.whatsappPhone,
                         whatsappOptedIn: e.whatsappOptedIn,
                         managerId: e.managerId,
+                        dailyTaskQuota: e.dailyTaskQuota,
                         attendanceBiometricExempt: e.attendanceBiometricExempt,
                         weeklyOff: e.weeklyOff,
                         attOfficialStart: e.attOfficialStart,
