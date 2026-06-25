@@ -38,9 +38,8 @@ export const ACCOUNTS_SECTIONS: AccountsSection[] = [
     slug: "weekly-checklist",
     order: 2,
     title: "Weekly Checklist",
-    blurb: "Recurring weekly compliance checklist with per-week completion.",
-    status: "stub",
-    columns: ["S. No.", "Weekly Checklist", "Deadline", "Category", "Responsible Person", "Accounts Notes", "Manan Sir Notes", "Link to File", "Frequency", "Wk1", "Wk2", "Wk3", "Wk4", "Wk5"],
+    blurb: "Recurring weekly compliance items — tick each week of the month (Wk1–Wk5) as Done / Pending / Need Help.",
+    status: "built",
   },
   {
     slug: "monthly-quarterly-annual",

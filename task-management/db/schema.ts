@@ -2150,6 +2150,53 @@ export const caHandoverReturns = pgTable("ca_handover_returns", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Section 2 — Weekly Checklist: recurring item definitions.
+export const accountsWeeklyItems = pgTable(
+  "accounts_weekly_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    code: text("code"),
+    title: text("title").notNull(),
+    deadline: text("deadline"),
+    category: text("category"),
+    responsiblePerson: text("responsible_person"),
+    accountsNotes: text("accounts_notes"),
+    mananNotes: text("manan_notes"),
+    fileLink: text("file_link"),
+    frequency: text("frequency"),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accounts_weekly_items_sort_idx").on(t.sortOrder)],
+);
+
+// Per item, per (year, month), per week-of-month completion status.
+export const accountsWeeklyChecks = pgTable(
+  "accounts_weekly_checks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => accountsWeeklyItems.id, { onDelete: "cascade" }),
+    periodYear: integer("period_year").notNull(),
+    periodMonth: integer("period_month").notNull(),
+    weekNo: integer("week_no").notNull(),
+    status: text("status").notNull(),
+    updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("accounts_weekly_checks_uq").on(t.itemId, t.periodYear, t.periodMonth, t.weekNo),
+    index("accounts_weekly_checks_period_idx").on(t.periodYear, t.periodMonth),
+  ],
+);
+
+export type AccountsWeeklyItem = typeof accountsWeeklyItems.$inferSelect;
+export type AccountsWeeklyCheck = typeof accountsWeeklyChecks.$inferSelect;
+
 export type AccountsTaskRow = typeof accountsTaskList.$inferSelect;
 export type AccountsScreenshot = typeof accountsScreenshots.$inferSelect;
 export type CaHandoverCredential = typeof caHandoverCredentials.$inferSelect;
