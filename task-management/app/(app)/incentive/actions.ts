@@ -4,11 +4,12 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { incentiveRequests } from "@/db/schema";
-import { INCENTIVE_TYPES } from "@/db/enums";
+import { employees, incentiveRequests } from "@/db/schema";
+import { INCENTIVE_TYPES, INCENTIVE_TYPE_LABELS } from "@/db/enums";
 import { requireAdmin, requireUser } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
-import { validateIncentiveDetails } from "@/lib/incentive-fields";
+import { incentiveDetailPairs, validateIncentiveDetails } from "@/lib/incentive-fields";
+import { sendIncentiveDecisionEmail } from "@/lib/email/resend";
 
 type ActionResult<T = unknown> =
   | ({ ok: true } & T)
@@ -101,6 +102,38 @@ export async function decideIncentiveRequest(input: {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return { ok: false, error: `DB: ${msg}` };
+  }
+
+  // Best-effort: email the employee the decision. A send failure (or a missing
+  // employee row) must never break the verdict — log and move on.
+  try {
+    const recipient = await db.query.employees.findFirst({
+      columns: { email: true, name: true, isActive: true },
+      where: eq(employees.id, existing.employeeId),
+    });
+    if (recipient?.email) {
+      // Surface the first couple of request details (skipping free-text notes)
+      // so the email has context without dumping the whole form.
+      const detailPairs = incentiveDetailPairs(existing.type, existing.details)
+        .filter(([label]) => label.toLowerCase() !== "notes")
+        .slice(0, 4);
+      const result = await sendIncentiveDecisionEmail({
+        recipient: { email: recipient.email, name: recipient.name },
+        typeLabel: INCENTIVE_TYPE_LABELS[existing.type],
+        verdict: parsed.data.verdict,
+        detailPairs,
+        note: parsed.data.note ?? null,
+        siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+      });
+      if (result.error) {
+        console.error(
+          `[incentive/decide] decision email failed for ${recipient.email}:`,
+          result.error,
+        );
+      }
+    }
+  } catch (err) {
+    console.error("[incentive/decide] decision email threw", err);
   }
 
   revalidatePath("/incentive");

@@ -2262,3 +2262,49 @@ export type FormConfig = typeof formConfigs.$inferSelect;
 export type NewFormConfig = typeof formConfigs.$inferInsert;
 export type ProductOption = typeof productOptions.$inferSelect;
 export type NewProductOption = typeof productOptions.$inferInsert;
+
+/**
+ * Overtime entries (migration 0077) — "Parvez overtime + dashboard in WMS".
+ * Any employee logs their own extra hours for a given work day; admins and the
+ * employee's manager (org-chart downline, see lib/weekly-goals/hierarchy.ts)
+ * can log on someone's behalf and approve/reject. Hours are stored as a decimal
+ * (numeric(5,2)) so quarter/half-hours are exact. Status flows
+ * pending → approved | rejected; `approvedBy/approvedAt/note` capture the verdict.
+ */
+export const overtimeEntries = pgTable(
+  "overtime_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    workDate: date("work_date").notNull(),
+    hours: numeric("hours", { precision: 5, scale: 2 }).notNull(),
+    reason: text("reason"),
+    status: text("status")
+      .$type<"pending" | "approved" | "rejected">()
+      .notNull()
+      .default("pending"),
+    approvedById: uuid("approved_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    note: text("note"),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("overtime_entries_employee_date_idx").on(t.employeeId, t.workDate),
+    index("overtime_entries_status_idx").on(t.status),
+  ],
+);
+
+export type OvertimeEntry = typeof overtimeEntries.$inferSelect;
+export type NewOvertimeEntry = typeof overtimeEntries.$inferInsert;

@@ -8,7 +8,7 @@ import { requireAdmin } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { computeSalary } from "@/lib/salary/compute";
 import { assembleMonthInputs } from "@/lib/salary/generate";
-import { getRun } from "@/lib/queries/salary";
+import { getRun, listRunsForMonth } from "@/lib/queries/salary";
 import { GenerateSalarySchema, RunEditSchema } from "@/lib/validators/salary";
 
 export type ActionResult<T = unknown> =
@@ -108,6 +108,92 @@ export async function generateSalary(input: unknown): Promise<ActionResult<{ gen
 
   revalidatePath(PATH);
   return { ok: true, generated };
+}
+
+/**
+ * BULK "Generate salary for all" — a convenience, non-destructive pass over
+ * every active salaried employee (annualCtc > 0) for `month`.
+ *
+ * Unlike `generateSalary` (which UPSERTS / regenerates every employee), this
+ * action SKIPS anyone who already has a run for the month, so it never
+ * clobbers an existing — possibly already-disbursed or hand-edited — run. It
+ * is best-effort per employee: a single employee's compute/insert failure is
+ * caught and counted as `failed`, the loop continues, and the action still
+ * succeeds with a created/skipped/failed summary. The first row that ERRORED
+ * (if any) is surfaced as `firstError` for diagnostics.
+ */
+export async function generateSalaryAll(
+  input: unknown,
+): Promise<
+  ActionResult<{ created: number; skipped: number; failed: number; firstError?: string }>
+> {
+  const me = await requireAdmin();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const parsed = GenerateSalarySchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { month } = parsed.data;
+
+  let rows;
+  let existing;
+  try {
+    [rows, existing] = await Promise.all([
+      assembleMonthInputs(month),
+      listRunsForMonth(month),
+    ]);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `DB: ${msg}` };
+  }
+
+  const alreadyRun = new Set(existing.map((r) => r.employeeId));
+
+  let created = 0;
+  let skipped = 0;
+  let failed = 0;
+  let firstError: string | undefined;
+
+  for (const row of rows) {
+    if (!row.hasProfile) continue; // no CTC → never materialize a ₹0 run
+    if (alreadyRun.has(row.employeeId)) {
+      skipped += 1;
+      continue;
+    }
+
+    try {
+      const b = computeSalary(row.input);
+      await db.insert(salaryRuns).values({
+        employeeId: row.employeeId,
+        month,
+        fy: row.fy,
+        annualCtc: row.annualCtc.toFixed(2),
+        daysInMonth: row.daysInMonth,
+        payableDays: b.payableDays.toFixed(2),
+        lateMarks: row.input.lateMarksInMonth,
+        lateDeductionDays: b.lateDeductionDays.toFixed(2),
+        gross: b.gross.toFixed(2),
+        pt: b.pt.toFixed(2),
+        tds: b.tds.toFixed(2),
+        advances: b.advances.toFixed(2),
+        pendingBalanceIn: b.pendingBalanceIn.toFixed(2),
+        netPayable: b.net.toFixed(2),
+        source: "generated",
+        generatedById: me.id,
+      });
+      created += 1;
+    } catch (err: unknown) {
+      // Best-effort: count the failure (e.g. a race created the row between our
+      // snapshot and insert → unique conflict) and keep going.
+      failed += 1;
+      if (!firstError) firstError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  revalidatePath(PATH);
+  return { ok: true, created, skipped, failed, firstError };
 }
 
 /**

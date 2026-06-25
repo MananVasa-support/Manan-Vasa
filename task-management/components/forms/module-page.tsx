@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { Download } from "lucide-react";
+import { Download, BarChart3 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { requireUser } from "@/lib/auth/current";
@@ -66,6 +66,15 @@ export async function ModulePage({ module, searchParams }: Props) {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {module === "reimbursement" && (
+              <Link
+                href={"/reimbursements/dashboard" as Route}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-surface-card px-3.5 py-2 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)]"
+              >
+                <BarChart3 size={15} strokeWidth={2.6} />
+                Dashboard
+              </Link>
+            )}
             {module === "reference" && (
               <a
                 href="/record-reference/export"

@@ -38,6 +38,21 @@ function yearBounds(year: number): { start: string; end: string } {
   return { start: `${year}-01-01`, end: `${year + 1}-01-01` };
 }
 
+/** Two-digit zero-pad. */
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n);
+}
+
+/** First-of-month YYYY-MM-DD for a (year, 1-based month). */
+function monthStart(year: number, month1: number): string {
+  return `${year}-${pad2(month1)}-01`;
+}
+
+/** A normalised key for matching ledger names to employee names. */
+function nameKey(name: string | null | undefined): string {
+  return (name ?? "").trim().toLowerCase();
+}
+
 // --- list queries ----------------------------------------------------------
 
 /** The incentive chart / catalog, active first then by sort order. */
@@ -276,3 +291,145 @@ export async function getIncentiveDashboard(year: number): Promise<IncentiveDash
     leaderboard,
   };
 }
+
+// --- monthly digest ---------------------------------------------------------
+
+/** One recent ledger line for the per-employee monthly digest. */
+export interface IncentiveDigestEntryRow {
+  label: string;
+  periodMonth: string | null;
+  approved: number;
+  paid: boolean;
+}
+
+/** A single recipient's incentive roll-up for a [start, end) period. */
+export interface IncentivePeriodSummary {
+  /** Normalised name key this summary is bucketed under. */
+  nameKey: string;
+  /** Display name (from the most recent matching ledger row). */
+  displayName: string;
+  approved: number;
+  paid: number;
+  unpaid: number;
+  entryCount: number;
+  /** Newest-first recent lines (capped). */
+  recent: IncentiveDigestEntryRow[];
+}
+
+const RECENT_LIMIT = 6;
+
+/**
+ * Per-EMPLOYEE incentive summaries for the [start, end) month window — used by
+ * the monthly-digest cron. Mirrors the dashboard aggregator (same EXCLUDED set,
+ * same permanent + project legs, derived unpaid) but:
+ *   - filters by an arbitrary period range instead of a calendar year, and
+ *   - keys rows by NORMALISED NAME (the ledger stores names, not always a FK),
+ *     so the cron can match each active employee to their rows by name.
+ *
+ * `start`/`end` are YYYY-MM-DD strings; the window is [start, end).
+ * The returned map is keyed by `nameKey` (lower-cased, trimmed name).
+ */
+export async function getIncentivePeriodSummaries(
+  start: string,
+  end: string,
+): Promise<Map<string, IncentivePeriodSummary>> {
+  const [entries, projects] = await Promise.all([
+    db
+      .select()
+      .from(incentiveEntries)
+      .where(
+        and(
+          gte(incentiveEntries.periodMonth, start),
+          lt(incentiveEntries.periodMonth, end),
+        ),
+      )
+      .orderBy(desc(incentiveEntries.periodMonth), desc(incentiveEntries.srcSrNo)),
+    db
+      .select()
+      .from(incentiveProjects)
+      .where(
+        and(
+          gte(incentiveProjects.periodMonth, start),
+          lt(incentiveProjects.periodMonth, end),
+        ),
+      )
+      .orderBy(desc(incentiveProjects.periodMonth), desc(incentiveProjects.srcSrNo)),
+  ]);
+
+  const byName = new Map<string, IncentivePeriodSummary>();
+
+  function bucket(name: string): IncentivePeriodSummary {
+    const key = nameKey(name);
+    let s = byName.get(key);
+    if (!s) {
+      s = {
+        nameKey: key,
+        displayName: name.trim(),
+        approved: 0,
+        paid: 0,
+        unpaid: 0,
+        entryCount: 0,
+        recent: [],
+      };
+      byName.set(key, s);
+    }
+    return s;
+  }
+
+  function addRecent(s: IncentivePeriodSummary, row: IncentiveDigestEntryRow): void {
+    if (s.recent.length < RECENT_LIMIT) s.recent.push(row);
+  }
+
+  // Permanent entries — already newest-first.
+  for (const e of entries) {
+    if (isExcluded(e.empName)) continue;
+    const approved = num(e.approvedAmt);
+    const paid = num(e.paidAmt);
+    if (approved === 0 && paid === 0) continue;
+
+    const s = bucket(e.empName);
+    s.approved += approved;
+    s.paid += paid;
+    s.unpaid += Math.max(0, approved - paid);
+    s.entryCount += 1;
+    addRecent(s, {
+      label: e.incentiveName.trim() || "Incentive",
+      periodMonth: e.periodMonth,
+      approved,
+      paid: approved > 0 && paid >= approved,
+    });
+  }
+
+  // Project incentives — supervisor + intern legs.
+  for (const pr of projects) {
+    const legs: Array<{ name: string | null; approved: number; paid: number }> = [
+      { name: pr.supervisorName, approved: num(pr.empApprovedAmt), paid: num(pr.empPaidAmt) },
+      { name: pr.internName, approved: num(pr.internApprovedAmt), paid: num(pr.internPaidAmt) },
+    ];
+    for (const leg of legs) {
+      if (!leg.name || isExcluded(leg.name) || leg.name.trim().toLowerCase() === "none") {
+        continue;
+      }
+      const approved = leg.approved;
+      const paid = leg.paid;
+      if (approved === 0 && paid === 0) continue;
+
+      const s = bucket(leg.name);
+      s.approved += approved;
+      s.paid += paid;
+      s.unpaid += Math.max(0, approved - paid);
+      s.entryCount += 1;
+      addRecent(s, {
+        label: pr.projectName?.trim() || "Project incentive",
+        periodMonth: pr.periodMonth,
+        approved,
+        paid: approved > 0 && paid >= approved,
+      });
+    }
+  }
+
+  return byName;
+}
+
+/** Re-export the month helpers the cron uses to compute the trailing window. */
+export { monthStart, nameKey };

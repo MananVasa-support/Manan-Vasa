@@ -29,6 +29,11 @@ import { AttendanceLateEmail } from "@/emails/notifications/attendance-late";
 import { AttendanceLateWaivedEmail } from "@/emails/notifications/attendance-late-waived";
 import { AttendanceHalfDayEmail } from "@/emails/notifications/attendance-half-day";
 import { AttendanceLateDeductionEmail } from "@/emails/notifications/attendance-late-deduction";
+import { IncentiveDecisionEmail } from "@/emails/notifications/IncentiveDecision";
+import {
+  IncentiveMonthlyDigestEmail,
+  type IncentiveDigestEntry,
+} from "@/emails/notifications/IncentiveMonthlyDigest";
 import type {
   NotificationMeta,
   OverdueDigestTask,
@@ -453,6 +458,85 @@ export async function sendWeeklyGoalsIncompleteEmail(args: {
         recipientName: args.recipient.name,
         weekLabel: args.weekLabel,
         unmarkedCount: args.unmarkedCount,
+        siteUrl: args.siteUrl ?? "",
+      }),
+      ...companyBcc(),
+    });
+    if (error) return { id: null, error: error.message };
+    return { id: data?.id ?? null, error: null };
+  } catch (err) {
+    return { id: null, error: errorMessage(err) };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Incentive — decision event + monthly digest                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Event email — sent when an admin approves/rejects an incentive REQUEST.
+ * Best-effort: never throws; returns `{ error }` so the caller can log.
+ * Silently no-ops (returns `{ id: null, error: null }`) when Resend is
+ * unconfigured, so dev environments don't fail the decide action.
+ */
+export async function sendIncentiveDecisionEmail(args: {
+  recipient: { email: string; name: string };
+  typeLabel: string;
+  verdict: "approved" | "rejected";
+  detailPairs: Array<[string, string]>;
+  note?: string | null;
+  siteUrl: string | undefined;
+}): Promise<EmailSendResult> {
+  try {
+    const resend = getResend();
+    if (!resend) return { id: null, error: null };
+    const { data, error } = await resend.emails.send({
+      from: FROM,
+      to: args.recipient.email,
+      subject: clampSubject(
+        `Your ${args.typeLabel} incentive request was ${args.verdict} — Altus Corp`,
+      ),
+      react: IncentiveDecisionEmail({
+        recipientName: args.recipient.name,
+        typeLabel: args.typeLabel,
+        verdict: args.verdict,
+        detailPairs: args.detailPairs,
+        note: args.note ?? null,
+        siteUrl: args.siteUrl ?? "",
+      }),
+      ...companyBcc(),
+    });
+    if (error) return { id: null, error: error.message };
+    return { id: data?.id ?? null, error: null };
+  } catch (err) {
+    return { id: null, error: errorMessage(err) };
+  }
+}
+
+/** Monthly digest — a recipient's incentive summary for the trailing period. */
+export async function sendIncentiveMonthlyDigestEmail(args: {
+  recipient: { email: string; name: string };
+  periodLabel: string;
+  approvedTotal: number;
+  paidTotal: number;
+  unpaidTotal: number;
+  recent: IncentiveDigestEntry[];
+  siteUrl: string | undefined;
+}): Promise<EmailSendResult> {
+  try {
+    const resend = getResend();
+    if (!resend) return { id: null, error: null };
+    const { data, error } = await resend.emails.send({
+      from: FROM,
+      to: args.recipient.email,
+      subject: clampSubject(`Your incentive summary for ${args.periodLabel} — Altus Corp`),
+      react: IncentiveMonthlyDigestEmail({
+        recipientName: args.recipient.name,
+        periodLabel: args.periodLabel,
+        approvedTotal: args.approvedTotal,
+        paidTotal: args.paidTotal,
+        unpaidTotal: args.unpaidTotal,
+        recent: args.recent,
         siteUrl: args.siteUrl ?? "",
       }),
       ...companyBcc(),
