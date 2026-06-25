@@ -8,12 +8,14 @@ import {
   TrendingUp,
   Megaphone,
   GraduationCap,
+  Calculator,
   ArrowUpRight,
   Lock,
   type LucideIcon,
 } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { accessFor } from "@/lib/auth/workspace-access";
+import { accountsAccess } from "@/lib/accounts/access";
 import { canAccessWorkspace, type WorkspaceId } from "@/lib/workspaces";
 import { HubSignOut } from "@/components/hub/hub-signout";
 
@@ -30,10 +32,14 @@ import { HubSignOut } from "@/components/hub/hub-signout";
  */
 
 type Card = {
-  /** Mono index shown top-left ("01"…"06") — encodes launch order, not decor. */
+  /** Mono index shown top-left ("01"…"07") — encodes launch order, not decor. */
   index: string;
-  /** Workspace id — drives the entry link and the access check. */
-  ws: WorkspaceId;
+  /**
+   * Workspace id — drives the entry link and the access check. Omitted for
+   * non-workspace cards (e.g. Accounts), whose lock state is computed
+   * separately and passed via `forcedLocked`.
+   */
+  ws?: WorkspaceId;
   label: string;
   desc: string;
   href: Route;
@@ -45,8 +51,14 @@ type Card = {
     | "hub-blue"
     | "hub-green"
     | "hub-amber"
-    | "hub-purple";
+    | "hub-purple"
+    | "hub-teal";
   soon?: boolean;
+  /**
+   * For non-workspace cards: explicit lock state (true = locked/inert). The
+   * card stays VISIBLE but non-clickable when locked, same as a gated room.
+   */
+  forcedLocked?: boolean;
 };
 
 const CARDS: Card[] = [
@@ -115,6 +127,22 @@ export default async function HubPage() {
   // /ws handler + the destination layouts enforce it too — this is just the door.
   const access = accessFor(me);
 
+  // Accounts is NOT a workspace — gate it with the module's own access check
+  // (admin OR manager-with-reports). Locked → visible but inert, like a room.
+  const accountsLocked = (await accountsAccess()) === null;
+  const cards: Card[] = [
+    ...CARDS,
+    {
+      index: "07",
+      label: "Accounts",
+      desc: "Totality, compliance, checklists & financial trackers.",
+      href: "/accounts" as Route,
+      Icon: Calculator,
+      tone: "hub-teal",
+      forcedLocked: accountsLocked,
+    },
+  ];
+
   return (
     <main className="hub-root">
       <HubStyles />
@@ -150,8 +178,10 @@ export default async function HubPage() {
 
       {/* Switchboard */}
       <section className="hub-grid" aria-label="Workspaces">
-        {CARDS.map((c) => {
-          const locked = !c.soon && !canAccessWorkspace(c.ws, access);
+        {cards.map((c) => {
+          const locked = !c.soon && (
+            c.ws ? !canAccessWorkspace(c.ws, access) : !!c.forcedLocked
+          );
           // Inert = SOON (not built) OR locked (no access). Either way it
           // renders as a non-link card so it can't navigate anywhere.
           const inert = c.soon || locked;
@@ -303,13 +333,15 @@ function HubStyles() {
         line-height: 1.45;
       }
 
-      /* ---- grid: fills the height left after header + hero ---- */
+      /* ---- grid: fills the height left after header + hero. With 7 cards we
+             run 3 rows of up-to-3 (last row holds the 7th); auto rows so it
+             scales without clipping. ---- */
       .hub-grid {
         flex: 1 1 auto;
         min-height: 0;
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        grid-template-rows: repeat(2, 1fr);
+        grid-auto-rows: 1fr;
         gap: clamp(12px, 1.6vw, 22px);
       }
 
@@ -415,6 +447,7 @@ function HubStyles() {
       .hub-green { background: var(--color-green-deep); color: #fff; }
       .hub-amber { background: var(--color-amber);      color: var(--color-ink-strong); }
       .hub-purple{ background: var(--color-purple-deep);color: #fff; }
+      .hub-teal  { background: var(--color-teal-deep);  color: #fff; }
       /* amber is light — keep its soon-tag legible on the fill */
       .hub-amber .hub-soon { background: rgba(15,23,42,0.12); }
 

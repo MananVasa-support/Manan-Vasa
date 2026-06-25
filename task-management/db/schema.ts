@@ -2046,6 +2046,116 @@ export const incentiveTargets = pgTable(
 export type IncentiveTarget = typeof incentiveTargets.$inferSelect;
 export type NewIncentiveTarget = typeof incentiveTargets.$inferInsert;
 
+/* ── Accounts Totality, Compliance, Checklist & Trackers (admin/manager module) ── */
+
+// Per-kind lookup for the module's searchable dropdowns (inline add + soft delete).
+export const accountsLookups = pgTable(
+  "accounts_lookups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: text("kind").notNull(),
+    value: text("value").notNull(),
+    active: boolean("active").notNull().default(true),
+    sortOrder: integer("sort_order"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accounts_lookups_kind_idx").on(t.kind)],
+);
+
+export const accountsTaskList = pgTable(
+  "accounts_task_list",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    srNo: integer("sr_no"),
+    area: text("area"),
+    taskDescription: text("task_description"),
+    status: text("status").notNull().default("Pending"),
+    links: text("links"),
+    targetDate: date("target_date"),
+    actualDate: date("actual_date"),
+    gear: text("gear"),
+    notes: text("notes"),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accounts_task_list_status_idx").on(t.status)],
+);
+
+export const accountsScreenshots = pgTable("accounts_screenshots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  srNo: integer("sr_no"),
+  projectName: text("project_name"),
+  projectDetails: text("project_details"),
+  frequency: text("frequency"),
+  targetDate: date("target_date"),
+  actualDate: date("actual_date"),
+  gear: text("gear"),
+  notes: text("notes"),
+  sortOrder: integer("sort_order"),
+  archived: boolean("archived").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// CA Handover credentials — password_enc is AES-256-GCM ciphertext (never plaintext).
+export const caHandoverCredentials = pgTable(
+  "ca_handover_credentials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    portalType: text("portal_type").notNull(),
+    entityName: text("entity_name").notNull(),
+    username: text("username"),
+    passwordEnc: text("password_enc"),
+    phone: text("phone"),
+    defaultEmail: text("default_email"),
+    websiteLink: text("website_link"),
+    emailUpdated: boolean("email_updated").notNull().default(false),
+    passwordReset: boolean("password_reset").notNull().default(false),
+    primaryPhoneUpdated: boolean("primary_phone_updated").notNull().default(false),
+    secondaryPhoneUpdated: boolean("secondary_phone_updated").notNull().default(false),
+    note: text("note"),
+    sortOrder: integer("sort_order"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ca_handover_credentials_portal_idx").on(t.portalType)],
+);
+
+export const caHandoverReturns = pgTable("ca_handover_returns", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  fy: text("fy").notNull(),
+  entityName: text("entity_name").notNull(),
+  itrV: text("itr_v"),
+  filedComputation: text("filed_computation"),
+  filedItrForm: text("filed_itr_form"),
+  balanceSheet: text("balance_sheet"),
+  pnl: text("pnl"),
+  taxAuditReport: text("tax_audit_report"),
+  selfAssessmentChallan: text("self_assessment_challan"),
+  form26as: text("form_26as"),
+  ais: text("ais"),
+  assessmentOrder: text("assessment_order"),
+  refundAsPerReturn: text("refund_as_per_return"),
+  refundReceived: text("refund_received"),
+  gstr1: text("gstr_1"),
+  gstr3b: text("gstr_3b"),
+  gstr2b: text("gstr_2b"),
+  gstWorkingExcel: text("gst_working_excel"),
+  gstr9: text("gstr_9"),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type AccountsTaskRow = typeof accountsTaskList.$inferSelect;
+export type AccountsScreenshot = typeof accountsScreenshots.$inferSelect;
+export type CaHandoverCredential = typeof caHandoverCredentials.$inferSelect;
+export type CaHandoverReturn = typeof caHandoverReturns.$inferSelect;
+export type AccountsLookup = typeof accountsLookups.$inferSelect;
+
 export type IncentiveCatalog = typeof incentiveCatalog.$inferSelect;
 export type NewIncentiveCatalog = typeof incentiveCatalog.$inferInsert;
 export type IncentiveEntry = typeof incentiveEntries.$inferSelect;
