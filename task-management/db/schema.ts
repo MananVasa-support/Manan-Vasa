@@ -2025,6 +2025,27 @@ export const incentiveProjects = pgTable(
   ],
 );
 
+// Incentive slice C — per-person monthly TARGET (for Target-vs-Actual). Keyed by
+// emp_name + period_month (the incentive ledger keys by name, not always a FK).
+export const incentiveTargets = pgTable(
+  "incentive_targets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    empName: text("emp_name").notNull(),
+    employeeId: uuid("employee_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    periodMonth: date("period_month").notNull(),
+    targetAmount: numeric("target_amount", { precision: 14, scale: 2 }).notNull().default("0"),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("incentive_targets_name_period_uq").on(t.empName, t.periodMonth)],
+);
+export type IncentiveTarget = typeof incentiveTargets.$inferSelect;
+export type NewIncentiveTarget = typeof incentiveTargets.$inferInsert;
+
 export type IncentiveCatalog = typeof incentiveCatalog.$inferSelect;
 export type NewIncentiveCatalog = typeof incentiveCatalog.$inferInsert;
 export type IncentiveEntry = typeof incentiveEntries.$inferSelect;

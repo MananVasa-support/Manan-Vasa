@@ -4,6 +4,7 @@ import { formatInr } from "@/lib/format";
 import type { IncentiveDashboard as DashboardData } from "@/lib/queries/incentives";
 import { IncentiveMonthlyChart } from "./incentive-monthly-chart";
 import { IncentiveNameChart } from "./incentive-name-chart";
+import { IncentiveDashboardDrilldown } from "./incentive-dashboard-drilldown";
 
 /* ─────────────────────────── small UI atoms ─────────────────────────── */
 
@@ -156,7 +157,7 @@ function MetricCard({
 
 /* ─────────────────────────── main view ─────────────────────────── */
 
-export function IncentiveDashboard({ data }: { data: DashboardData }) {
+export function IncentiveDashboard({ data, year }: { data: DashboardData; year: number }) {
   const { consolidated, permanent, project, perEmployee, perIncentiveName, monthly, leaderboard } =
     data;
 
@@ -180,6 +181,7 @@ export function IncentiveDashboard({ data }: { data: DashboardData }) {
   const podium = leaderboard.slice(0, 3);
 
   return (
+    <IncentiveDashboardDrilldown year={year}>
     <div className="space-y-7">
       {/* Consolidated YTD metric cards */}
       <div className="grid grid-cols-4 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
@@ -266,12 +268,14 @@ export function IncentiveDashboard({ data }: { data: DashboardData }) {
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline justify-between gap-3">
-                        <span
-                          className="truncate font-bold text-ink-strong"
+                        <button
+                          type="button"
+                          data-incentive-person={row.name}
+                          className="truncate font-bold text-ink-strong text-left hover:text-altus-red transition-colors"
                           style={{ fontSize: 15 }}
                         >
                           {row.name}
-                        </span>
+                        </button>
                         <span
                           className="tabular-nums font-bold text-ink-strong shrink-0"
                           style={{ fontSize: 15 }}
@@ -333,8 +337,14 @@ export function IncentiveDashboard({ data }: { data: DashboardData }) {
               <tbody>
                 {perEmployee.map((r) => (
                   <tr key={r.name} className="border-t" style={{ borderColor: "var(--color-hairline)" }}>
-                    <td className="py-2.5 font-semibold text-ink-soft" style={{ fontSize: 14 }}>
-                      {r.name}
+                    <td className="py-2.5" style={{ fontSize: 14 }}>
+                      <button
+                        type="button"
+                        data-incentive-person={r.name}
+                        className="font-semibold text-ink-soft text-left hover:text-altus-red transition-colors"
+                      >
+                        {r.name}
+                      </button>
                     </td>
                     <Td align="right">{formatInr(r.permanent)}</Td>
                     <Td align="right">{formatInr(r.project)}</Td>
@@ -447,6 +457,7 @@ export function IncentiveDashboard({ data }: { data: DashboardData }) {
         )}
       </Panel>
     </div>
+    </IncentiveDashboardDrilldown>
   );
 }
 

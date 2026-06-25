@@ -1,40 +1,55 @@
 "use client";
 
 import { useState } from "react";
-import { LayoutDashboard, ListChecks, IndianRupee } from "lucide-react";
-import type { IncentiveDashboard as DashboardData } from "@/lib/queries/incentives";
+import { LayoutDashboard, ListChecks, IndianRupee, Target, Table2 } from "lucide-react";
+import type {
+  IncentiveDashboard as DashboardData,
+  IncentiveTargetVsActual,
+  IncentiveEntryAdminRow,
+} from "@/lib/queries/incentives";
 import type { IncentiveRequestRow } from "@/lib/queries/incentive";
 import type { BillingSummary } from "@/lib/billing/sheet";
+import type { EmployeeOption } from "@/lib/queries/employees";
 import { IncentiveDashboard } from "./incentive-dashboard";
 import { BillingDashboard } from "./billing-dashboard";
 import { IncentiveFormDialog } from "./incentive-form-dialog";
 import { IncentiveList } from "./incentive-list";
+import { IncentiveTargets } from "./incentive-targets";
+import { IncentiveEntries } from "./incentive-entries";
 
-type TabKey = "dashboard" | "billing" | "requests";
-
-const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
-  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { key: "billing", label: "Billing", icon: IndianRupee },
-  { key: "requests", label: "Requests", icon: ListChecks },
-];
+type TabKey = "dashboard" | "targets" | "billing" | "requests" | "entries";
 
 export function IncentiveTabs({
   dashboard,
+  targetVsActual,
   billing,
   years,
   year,
   requests,
+  entries,
+  employees,
   isAdmin,
   pendingCount,
 }: {
   dashboard: DashboardData;
+  targetVsActual: IncentiveTargetVsActual;
   billing: BillingSummary & { error?: string };
   years: number[];
   year: number;
   requests: IncentiveRequestRow[];
+  entries: IncentiveEntryAdminRow[];
+  employees: EmployeeOption[];
   isAdmin: boolean;
   pendingCount: number;
 }) {
+  const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
+    { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "targets", label: "Targets", icon: Target },
+    { key: "billing", label: "Billing", icon: IndianRupee },
+    { key: "requests", label: "Requests", icon: ListChecks },
+    ...(isAdmin ? [{ key: "entries" as const, label: "Entries", icon: Table2 }] : []),
+  ];
+
   const [active, setActive] = useState<TabKey>("dashboard");
 
   function onYearChange(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -105,7 +120,7 @@ export function IncentiveTabs({
           })}
         </div>
 
-        {(active === "dashboard" || active === "billing") && (
+        {active !== "requests" && (
           <label className="flex items-center gap-2 pb-2.5">
             <span
               className="uppercase font-bold tracking-[0.06em] text-ink-subtle"
@@ -130,9 +145,13 @@ export function IncentiveTabs({
       </div>
 
       {active === "dashboard" ? (
-        <IncentiveDashboard data={dashboard} />
+        <IncentiveDashboard data={dashboard} year={year} />
+      ) : active === "targets" ? (
+        <IncentiveTargets data={targetVsActual} year={year} isAdmin={isAdmin} />
       ) : active === "billing" ? (
         <BillingDashboard data={billing} />
+      ) : active === "entries" && isAdmin ? (
+        <IncentiveEntries rows={entries} employees={employees} year={year} />
       ) : (
         <div className="space-y-6">
           <div className="flex justify-end">

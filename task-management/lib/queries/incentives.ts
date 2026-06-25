@@ -1,13 +1,15 @@
 import "server-only";
-import { and, asc, desc, gte, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lt, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   incentiveCatalog,
   incentiveEntries,
   incentiveProjects,
+  incentiveTargets,
   type IncentiveCatalog,
   type IncentiveEntry,
   type IncentiveProject,
+  type IncentiveTarget,
 } from "@/db/schema";
 
 /**
@@ -431,5 +433,302 @@ export async function getIncentivePeriodSummaries(
   return byName;
 }
 
+// --- target vs actual (slice C) --------------------------------------------
+
+export interface IncentiveTargetVsActualRow {
+  empName: string;
+  target: number;
+  /** Approved (earned) YTD — same basis as the dashboard's per-person `total`. */
+  actual: number;
+  /** actual / target × 100, or null when no target is set. */
+  attainmentPct: number | null;
+}
+
+export interface IncentiveTargetVsActual {
+  year: number;
+  rows: IncentiveTargetVsActualRow[];
+  totals: {
+    target: number;
+    actual: number;
+    attainmentPct: number | null;
+  };
+}
+
+/**
+ * Per-person TARGET (sum of incentive_targets rows in `year`) vs ACTUAL earned
+ * (the dashboard's approved per-person total for the same year). Same EXCLUDED
+ * set as the dashboard. Includes people who have a target but no earnings yet
+ * (and vice-versa). Sorted by actual desc, then target desc.
+ */
+export async function getIncentiveTargetVsActual(
+  year: number,
+): Promise<IncentiveTargetVsActual> {
+  const { start, end } = yearBounds(year);
+  const [dashboard, targets] = await Promise.all([
+    getIncentiveDashboard(year),
+    db
+      .select()
+      .from(incentiveTargets)
+      .where(
+        and(
+          gte(incentiveTargets.periodMonth, start),
+          lt(incentiveTargets.periodMonth, end),
+        ),
+      ),
+  ]);
+
+  // Bucket targets by display name (keyed case-insensitively, mirroring the
+  // ledger's name-based identity), summing across months.
+  const targetByKey = new Map<string, { name: string; target: number }>();
+  for (const t of targets) {
+    if (isExcluded(t.empName)) continue;
+    const key = nameKey(t.empName);
+    if (!key) continue;
+    const cur = targetByKey.get(key);
+    if (cur) cur.target += num(t.targetAmount);
+    else targetByKey.set(key, { name: t.empName.trim(), target: num(t.targetAmount) });
+  }
+
+  // Actual earned per person from the dashboard roll-up.
+  const actualByKey = new Map<string, { name: string; actual: number }>();
+  for (const p of dashboard.perEmployee) {
+    const key = nameKey(p.name);
+    if (!key) continue;
+    actualByKey.set(key, { name: p.name, actual: p.total });
+  }
+
+  const keys = new Set<string>([...targetByKey.keys(), ...actualByKey.keys()]);
+  const rows: IncentiveTargetVsActualRow[] = [];
+  for (const key of keys) {
+    const tgt = targetByKey.get(key);
+    const act = actualByKey.get(key);
+    const target = tgt?.target ?? 0;
+    const actual = act?.actual ?? 0;
+    rows.push({
+      empName: act?.name ?? tgt?.name ?? key,
+      target,
+      actual,
+      attainmentPct: target > 0 ? (actual / target) * 100 : null,
+    });
+  }
+
+  rows.sort((a, b) => b.actual - a.actual || b.target - a.target);
+
+  const totalTarget = rows.reduce((s, r) => s + r.target, 0);
+  const totalActual = rows.reduce((s, r) => s + r.actual, 0);
+
+  return {
+    year,
+    rows,
+    totals: {
+      target: totalTarget,
+      actual: totalActual,
+      attainmentPct: totalTarget > 0 ? (totalActual / totalTarget) * 100 : null,
+    },
+  };
+}
+
+// --- admin entries list (slice C) ------------------------------------------
+
+/** A flat, JSON-safe incentive-entry row for the admin Entries tab. Numeric
+ *  money columns are returned as numbers (the table stores them as strings). */
+export interface IncentiveEntryAdminRow {
+  id: string;
+  srcSrNo: number | null;
+  entryDate: string | null;
+  incentiveName: string;
+  periodMonth: string | null;
+  empName: string;
+  employeeId: string | null;
+  participantName: string | null;
+  prospectGroupName: string | null;
+  amount: number;
+  approved: boolean;
+  approvedAmt: number;
+  paid: boolean;
+  paidAmt: number;
+  paidDate: string | null;
+  note: string | null;
+}
+
+function toAdminRow(e: IncentiveEntry): IncentiveEntryAdminRow {
+  return {
+    id: e.id,
+    srcSrNo: e.srcSrNo,
+    entryDate: e.entryDate,
+    incentiveName: e.incentiveName,
+    periodMonth: e.periodMonth,
+    empName: e.empName,
+    employeeId: e.employeeId,
+    participantName: e.participantName,
+    prospectGroupName: e.prospectGroupName,
+    amount: num(e.amount),
+    approved: e.approved,
+    approvedAmt: num(e.approvedAmt),
+    paid: e.paid,
+    paidAmt: num(e.paidAmt),
+    paidDate: e.paidDate,
+    note: e.note,
+  };
+}
+
+/** Year-scoped incentive_entries for the admin Entries tab, newest period first. */
+export async function listIncentiveEntriesAdmin(
+  year: number,
+): Promise<IncentiveEntryAdminRow[]> {
+  const rows = await listIncentiveEntries({ year });
+  return rows.map(toAdminRow);
+}
+
+// --- drill-down (slice C) --------------------------------------------------
+
+export interface IncentivePersonProjectRow {
+  id: string;
+  projectName: string | null;
+  periodMonth: string | null;
+  /** "supervisor" or "intern" — which leg this person played on the project. */
+  role: "supervisor" | "intern";
+  approved: number;
+  paid: number;
+  approvedFlag: boolean;
+  paidFlag: boolean;
+}
+
+export interface IncentivePersonDetail {
+  empName: string;
+  year: number;
+  entries: IncentiveEntryAdminRow[];
+  projects: IncentivePersonProjectRow[];
+  totals: {
+    entriesApproved: number;
+    projectsApproved: number;
+    totalApproved: number;
+    totalPaid: number;
+    totalUnpaid: number;
+  };
+}
+
+/**
+ * One person's incentive detail for `year` — their permanent ledger entries
+ * (matched by emp_name, case-insensitive) plus every project leg they played
+ * (supervisor or intern). Money returned as numbers; unpaid is derived.
+ */
+export async function getIncentivePersonDetail(
+  empName: string,
+  year: number,
+): Promise<IncentivePersonDetail> {
+  const target = nameKey(empName);
+  const { start, end } = yearBounds(year);
+
+  const [entryRows, projectRows] = await Promise.all([
+    listIncentiveEntries({ year }),
+    db
+      .select()
+      .from(incentiveProjects)
+      .where(
+        and(
+          gte(incentiveProjects.periodMonth, start),
+          lt(incentiveProjects.periodMonth, end),
+        ),
+      )
+      .orderBy(desc(incentiveProjects.periodMonth), desc(incentiveProjects.srcSrNo)),
+  ]);
+
+  const entries = entryRows
+    .filter((e) => nameKey(e.empName) === target)
+    .map(toAdminRow);
+
+  const projects: IncentivePersonProjectRow[] = [];
+  for (const pr of projectRows) {
+    if (nameKey(pr.supervisorName) === target) {
+      projects.push({
+        id: `${pr.id}:sup`,
+        projectName: pr.projectName,
+        periodMonth: pr.periodMonth,
+        role: "supervisor",
+        approved: num(pr.empApprovedAmt),
+        paid: num(pr.empPaidAmt),
+        approvedFlag: pr.approved,
+        paidFlag: pr.paid,
+      });
+    }
+    if (nameKey(pr.internName) === target) {
+      projects.push({
+        id: `${pr.id}:int`,
+        projectName: pr.projectName,
+        periodMonth: pr.periodMonth,
+        role: "intern",
+        approved: num(pr.internApprovedAmt),
+        paid: num(pr.internPaidAmt),
+        approvedFlag: pr.approved,
+        paidFlag: pr.paid,
+      });
+    }
+  }
+
+  const entriesApproved = entries.reduce((s, e) => s + e.approvedAmt, 0);
+  const entriesPaid = entries.reduce((s, e) => s + e.paidAmt, 0);
+  const projectsApproved = projects.reduce((s, p) => s + p.approved, 0);
+  const projectsPaid = projects.reduce((s, p) => s + p.paid, 0);
+  const totalApproved = entriesApproved + projectsApproved;
+  const totalPaid = entriesPaid + projectsPaid;
+
+  return {
+    empName: empName.trim(),
+    year,
+    entries,
+    projects,
+    totals: {
+      entriesApproved,
+      projectsApproved,
+      totalApproved,
+      totalPaid,
+      totalUnpaid: Math.max(0, totalApproved - totalPaid),
+    },
+  };
+}
+
+/** Whether the given person-name belongs to the signed-in employee (used to
+ *  gate the non-admin drill-down to themselves only). True on a case-insensitive
+ *  name match, or if any of the employee's incentive rows (entry / project leg)
+ *  carry that exact name. */
+export async function isOwnIncentiveName(
+  empName: string,
+  employee: { id: string; name: string },
+): Promise<boolean> {
+  if (nameKey(empName) === nameKey(employee.name)) return true;
+
+  const target = nameKey(empName);
+  const [entryHit, projectHits] = await Promise.all([
+    db
+      .select({ empName: incentiveEntries.empName })
+      .from(incentiveEntries)
+      .where(eq(incentiveEntries.employeeId, employee.id)),
+    db
+      .select({
+        supervisorName: incentiveProjects.supervisorName,
+        internName: incentiveProjects.internName,
+      })
+      .from(incentiveProjects)
+      .where(
+        or(
+          eq(incentiveProjects.supervisorId, employee.id),
+          eq(incentiveProjects.internId, employee.id),
+        ),
+      ),
+  ]);
+
+  if (entryHit.some((r) => nameKey(r.empName) === target)) return true;
+  if (
+    projectHits.some(
+      (r) => nameKey(r.supervisorName) === target || nameKey(r.internName) === target,
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /** Re-export the month helpers the cron uses to compute the trailing window. */
 export { monthStart, nameKey };
+export type { IncentiveTarget };

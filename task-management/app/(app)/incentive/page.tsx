@@ -3,9 +3,14 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { IncentiveTabs } from "@/components/incentive/incentive-tabs";
 import { requireUser } from "@/lib/auth/current";
 import { listIncentiveRequests } from "@/lib/queries/incentive";
-import { getIncentiveDashboard } from "@/lib/queries/incentives";
+import {
+  getIncentiveDashboard,
+  getIncentiveTargetVsActual,
+  listIncentiveEntriesAdmin,
+} from "@/lib/queries/incentives";
 import { getBillingDashboard } from "@/lib/queries/billing";
 import { listIncentiveCatalog } from "@/lib/queries/incentive-catalog";
+import { listEmployeeOptions } from "@/lib/queries/employees";
 import { IncentiveCatalogDialog } from "@/components/incentive/incentive-catalog-dialog";
 
 export const dynamic = "force-dynamic";
@@ -29,12 +34,16 @@ export default async function IncentivePage({ searchParams }: PageProps) {
   );
   if (!years.includes(year)) years.unshift(year);
 
-  const [dashboard, billing, rows, catalog] = await Promise.all([
-    getIncentiveDashboard(year),
-    getBillingDashboard(year),
-    listIncentiveRequests({ employeeId: me.id, isAdmin: me.isAdmin }),
-    listIncentiveCatalog(),
-  ]);
+  const [dashboard, targetVsActual, billing, rows, catalog, entries, employees] =
+    await Promise.all([
+      getIncentiveDashboard(year),
+      getIncentiveTargetVsActual(year),
+      getBillingDashboard(year),
+      listIncentiveRequests({ employeeId: me.id, isAdmin: me.isAdmin }),
+      listIncentiveCatalog(),
+      me.isAdmin ? listIncentiveEntriesAdmin(year) : Promise.resolve([]),
+      me.isAdmin ? listEmployeeOptions() : Promise.resolve([]),
+    ]);
 
   const pendingCount = rows.filter((r) => r.status === "pending").length;
 
@@ -69,10 +78,13 @@ export default async function IncentivePage({ searchParams }: PageProps) {
 
         <IncentiveTabs
           dashboard={dashboard}
+          targetVsActual={targetVsActual}
           billing={billing}
           years={years}
           year={year}
           requests={rows}
+          entries={entries}
+          employees={employees}
           isAdmin={me.isAdmin}
           pendingCount={pendingCount}
         />
