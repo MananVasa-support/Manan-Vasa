@@ -160,87 +160,154 @@ export function DailyPlanGate({
 
   return (
     <main
-      className="relative min-h-screen w-full"
+      className="relative h-[100svh] w-full overflow-hidden max-lg:h-auto max-lg:min-h-screen max-lg:overflow-visible"
       style={{
         background:
           "linear-gradient(180deg, var(--color-surface-soft) 0%, color-mix(in srgb, var(--color-surface-track) 60%, var(--color-surface-soft)) 100%)",
         color: "var(--color-ink-strong)",
       }}
     >
-      <div className="mx-auto max-w-[1180px] px-8 max-md:px-4 pt-8 pb-20">
-        {/* ── Eyebrow + date ── */}
-        <div className="wg-rise flex items-center justify-between gap-4 flex-wrap">
-          <span
-            className="text-[11px] font-bold uppercase tracking-[0.2em]"
-            style={{ color: "var(--color-altus-red-deep)" }}
-          >
-            Plan your day{greetingName ? ` · ${greetingName}` : ""}
-          </span>
-          <span className="text-[12.5px] font-semibold tabular-nums" style={{ color: "var(--color-ink-subtle)" }}>
-            {today.weekday} · {today.date}
-          </span>
-        </div>
-        <div aria-hidden className="wg-rise mt-3 h-px w-full" style={{ background: "var(--color-hairline)" }} />
+      <div className="mx-auto flex h-full max-w-[1240px] flex-col px-8 max-md:px-4 py-5 max-lg:h-auto max-lg:pb-20">
+        {/* ── TOP ZONE: header (left) beside the weekly-goals pull-card (right) ── */}
+        <div className="shrink-0 grid grid-cols-[1fr_minmax(340px,440px)] gap-6 max-lg:grid-cols-1 items-start">
+          {/* ── LEFT: eyebrow + date + title + subtitle + carry-forward ── */}
+          <div className="min-w-0">
+            {/* ── Eyebrow + date ── */}
+            <div className="wg-rise flex items-center justify-between gap-4 flex-wrap">
+              <span
+                className="text-[11px] font-bold uppercase tracking-[0.2em]"
+                style={{ color: "var(--color-altus-red-deep)" }}
+              >
+                Plan your day{greetingName ? ` · ${greetingName}` : ""}
+              </span>
+              <span className="text-[12.5px] font-semibold tabular-nums" style={{ color: "var(--color-ink-subtle)" }}>
+                {today.weekday} · {today.date}
+              </span>
+            </div>
+            <div aria-hidden className="wg-rise mt-2.5 h-px w-full" style={{ background: "var(--color-hairline)" }} />
 
-        {/* ── Title + planning subtitle ── */}
-        <header className="wg-rise mt-6" style={{ animationDelay: "40ms" }}>
-          <h1
-            className="font-bold"
-            style={{
-              color: "var(--color-ink-strong)",
-              fontSize: "clamp(30px, 3.4vw, 46px)",
-              letterSpacing: "-0.025em",
-              lineHeight: 1.04,
-            }}
-          >
-            Plan what you&apos;ll get done today
-          </h1>
-          <p
-            className="mt-2.5 max-w-[58ch] font-medium"
-            style={{ fontSize: 15, lineHeight: 1.5, color: "var(--color-ink-muted)" }}
-          >
-            {met
-              ? "Your plan is set. Add more if you like, then start your day."
-              : `Commit at least ${MIN} things you'll get done today — pull from your weekly goals, or write your own — then start.`}
-          </p>
-        </header>
+            {/* ── Title + planning subtitle ── */}
+            <header className="wg-rise mt-4" style={{ animationDelay: "40ms" }}>
+              <h1
+                className="font-bold"
+                style={{
+                  color: "var(--color-ink-strong)",
+                  fontSize: "clamp(26px, 3vw, 40px)",
+                  letterSpacing: "-0.025em",
+                  lineHeight: 1.04,
+                }}
+              >
+                Plan what you&apos;ll get done today
+              </h1>
+              <p
+                className="mt-2 max-w-[58ch] font-medium"
+                style={{ fontSize: 15, lineHeight: 1.5, color: "var(--color-ink-muted)" }}
+              >
+                {met
+                  ? "Your plan is set. Add more if you like, then start your day."
+                  : `Commit at least ${MIN} things you'll get done today — pull from your weekly goals, or write your own — then start.`}
+              </p>
+            </header>
 
-        {/* ── Carry-forward (only if any unfinished items remain) ── */}
-        <AnimatePresence>
-          {overdue.length > 0 && (
-            <motion.button
-              type="button"
-              onClick={onMoveOverdue}
-              disabled={busyId === "overdue"}
-              initial={reduce ? false : { opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, height: 0 }}
-              className={`wg-btn mt-5 inline-flex items-center gap-2 self-start rounded-full px-4 py-2 text-[13.5px] font-bold cursor-pointer disabled:opacity-50 ${FOCUS_RING}`}
-              style={{
-                background: "color-mix(in srgb, var(--color-amber) 12%, transparent)",
-                color: "var(--color-amber-deep)",
-                border: "1px solid color-mix(in srgb, var(--color-amber) 36%, transparent)",
-              }}
-            >
-              {busyId === "overdue" ? (
-                <Loader2 size={15} className="animate-spin" />
-              ) : (
-                <CornerUpRight size={15} strokeWidth={2.6} />
+            {/* ── Carry-forward (only if any unfinished items remain) ── */}
+            <AnimatePresence>
+              {overdue.length > 0 && (
+                <motion.button
+                  type="button"
+                  onClick={onMoveOverdue}
+                  disabled={busyId === "overdue"}
+                  initial={reduce ? false : { opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className={`wg-btn mt-4 inline-flex items-center gap-2 self-start rounded-full px-4 py-2 text-[13.5px] font-bold cursor-pointer disabled:opacity-50 ${FOCUS_RING}`}
+                  style={{
+                    background: "color-mix(in srgb, var(--color-amber) 12%, transparent)",
+                    color: "var(--color-amber-deep)",
+                    border: "1px solid color-mix(in srgb, var(--color-amber) 36%, transparent)",
+                  }}
+                >
+                  {busyId === "overdue" ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <CornerUpRight size={15} strokeWidth={2.6} />
+                  )}
+                  Carry forward {overdue.length} unfinished item{overdue.length === 1 ? "" : "s"}
+                </motion.button>
               )}
-              Carry forward {overdue.length} unfinished item{overdue.length === 1 ? "" : "s"}
-            </motion.button>
-          )}
-        </AnimatePresence>
+            </AnimatePresence>
+          </div>
 
-        {/* ── Main grid: ledger (focal) + rail. Stacks on lg-down; nothing clips,
-            the PAGE scrolls (no nested fixed-height scrollboxes). ── */}
-        <div className="mt-6 grid grid-cols-[1.45fr_1fr] gap-8 max-lg:grid-cols-1 max-lg:gap-6 items-start">
+          {/* ── RIGHT (top zone): pull from weekly goals — fast fill ── */}
+          <section
+            className="wg-rise rounded-section bg-surface-card border border-hairline p-5 flex flex-col max-h-[260px] max-lg:max-h-none"
+            style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)", animationDelay: "160ms" }}
+          >
+            <div className="flex items-baseline justify-between gap-2 mb-1">
+              <h3 className="font-bold text-ink-strong" style={{ fontSize: 17 }}>From your weekly goals</h3>
+              <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-subtle">one tap</span>
+            </div>
+            <p className="mb-3 font-medium text-ink-subtle" style={{ fontSize: 13, lineHeight: 1.45 }}>
+              Commit a weekly goal straight to today.
+            </p>
+            {pullable.length === 0 ? (
+              <p className="font-medium py-6 text-center text-ink-subtle" style={{ fontSize: 13.5 }}>
+                {items.some((i) => i.origin === "goal_related")
+                  ? "All goals pulled in."
+                  : "No weekly goals to pull."}
+              </p>
+            ) : (
+              <ul className="space-y-2 min-h-0 flex-1 max-h-[360px] overflow-y-auto pr-1">
+                <AnimatePresence initial={false}>
+                  {pullable.map((g) => {
+                    const label = g.targetDone || g.subject || "Weekly goal";
+                    return (
+                      <motion.li
+                        key={g.id}
+                        layout={!reduce}
+                        initial={reduce ? false : { opacity: 0, x: 8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 12, transition: { duration: 0.18 } }}
+                        className="flex items-center gap-2.5 rounded-xl border border-hairline bg-surface-card px-3 py-2.5"
+                      >
+                        <Target size={15} strokeWidth={2.3} style={{ color: "var(--color-altus-red)" }} className="shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-ink-strong" style={{ fontSize: 14, overflowWrap: "anywhere" }}>
+                            {label}
+                          </div>
+                          {(g.client || g.subject) && (
+                            <div className="text-ink-subtle" style={{ fontSize: 12, overflowWrap: "anywhere" }}>
+                              {[g.client, g.subject].filter(Boolean).join(" · ")}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onPull(g)}
+                          disabled={busyId === g.id}
+                          aria-label={`Add "${label}" to today`}
+                          className={`wg-btn inline-flex size-9 shrink-0 items-center justify-center rounded-lg cursor-pointer disabled:opacity-50 ${FOCUS_RING}`}
+                          style={{ background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)", color: "var(--color-altus-red)" }}
+                        >
+                          {busyId === g.id ? <Loader2 size={15} className="animate-spin" /> : <Plus size={17} strokeWidth={2.8} />}
+                        </button>
+                      </motion.li>
+                    );
+                  })}
+                </AnimatePresence>
+              </ul>
+            )}
+          </section>
+        </div>
+
+        {/* ── MAIN ZONE: ledger (focal) + progress/start CTA. Fills remaining
+            viewport; the ledger list scrolls internally so the PAGE doesn't. ── */}
+        <div className="mt-6 flex-1 min-h-0 grid grid-cols-[1.5fr_1fr] gap-6 max-lg:grid-cols-1 max-lg:gap-6 max-lg:min-h-0 items-start">
           {/* ── LEFT: the ledger ── */}
           <section
-            className="wg-rise min-w-0 rounded-section bg-surface-card border border-hairline p-6 max-md:p-5"
+            className="wg-rise min-w-0 h-full max-lg:h-auto flex flex-col rounded-section bg-surface-card border border-hairline p-6 max-md:p-5"
             style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)", animationDelay: "80ms" }}
           >
-            <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+            <div className="shrink-0 mb-4 flex items-center justify-between gap-3 flex-wrap">
               <h2 className="font-bold text-ink-strong" style={{ fontSize: 20, letterSpacing: "-0.01em" }}>
                 Today&apos;s plan
               </h2>
@@ -255,8 +322,9 @@ export function DailyPlanGate({
               </span>
             </div>
 
-            {/* The ledger — at least MIN numbered lines; filled lines are commitments. */}
-            <ul>
+            {/* The ledger — at least MIN numbered lines; filled lines are commitments.
+                Scrolls internally (min-h-0 + overflow) so the PAGE never scrolls. */}
+            <ul className="min-h-0 flex-1 overflow-y-auto max-lg:overflow-visible pr-1">
               <AnimatePresence initial={false}>
                 {Array.from({ length: slotCount }).map((_, i) => {
                   const it = items[i];
@@ -276,7 +344,7 @@ export function DailyPlanGate({
 
             {/* command bar — the most obvious action on screen */}
             <form
-              className="mt-5"
+              className="shrink-0 mt-5"
               onSubmit={(e) => {
                 e.preventDefault();
                 addItem(inputRef.current?.value ?? "");
@@ -321,13 +389,11 @@ export function DailyPlanGate({
             </form>
           </section>
 
-          {/* ── RIGHT: progress + start CTA + pull-from-goals ── */}
-          <div className="min-w-0 flex flex-col gap-6">
-            {/* progress dial + start CTA */}
-            <section
-              className="wg-rise rounded-section bg-surface-card border border-hairline p-5"
-              style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)", animationDelay: "120ms" }}
-            >
+          {/* ── RIGHT: progress dial + start CTA ── */}
+          <section
+            className="wg-rise min-w-0 rounded-section bg-surface-card border border-hairline p-5"
+            style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)", animationDelay: "120ms" }}
+          >
               <div className="flex items-center gap-5 min-w-0">
                 <ProgressDial count={count} reduce={!!reduce} />
                 <div className="min-w-0">
@@ -364,69 +430,7 @@ export function DailyPlanGate({
                 {entering ? <Loader2 size={18} className="animate-spin" /> : null}
                 Start my day <ArrowRight size={18} strokeWidth={2.6} />
               </button>
-            </section>
-
-            {/* pull from weekly goals — fast fill */}
-            <section
-              className="wg-rise rounded-section bg-surface-card border border-hairline p-5"
-              style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)", animationDelay: "160ms" }}
-            >
-              <div className="flex items-baseline justify-between gap-2 mb-1">
-                <h3 className="font-bold text-ink-strong" style={{ fontSize: 17 }}>From your weekly goals</h3>
-                <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-subtle">one tap</span>
-              </div>
-              <p className="mb-3 font-medium text-ink-subtle" style={{ fontSize: 13, lineHeight: 1.45 }}>
-                Commit a weekly goal straight to today.
-              </p>
-              {pullable.length === 0 ? (
-                <p className="font-medium py-6 text-center text-ink-subtle" style={{ fontSize: 13.5 }}>
-                  {items.some((i) => i.origin === "goal_related")
-                    ? "All goals pulled in."
-                    : "No weekly goals to pull."}
-                </p>
-              ) : (
-                <ul className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
-                  <AnimatePresence initial={false}>
-                    {pullable.map((g) => {
-                      const label = g.targetDone || g.subject || "Weekly goal";
-                      return (
-                        <motion.li
-                          key={g.id}
-                          layout={!reduce}
-                          initial={reduce ? false : { opacity: 0, x: 8 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 12, transition: { duration: 0.18 } }}
-                          className="flex items-center gap-2.5 rounded-xl border border-hairline bg-surface-card px-3 py-2.5"
-                        >
-                          <Target size={15} strokeWidth={2.3} style={{ color: "var(--color-altus-red)" }} className="shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <div className="font-semibold text-ink-strong" style={{ fontSize: 14, overflowWrap: "anywhere" }}>
-                              {label}
-                            </div>
-                            {(g.client || g.subject) && (
-                              <div className="text-ink-subtle" style={{ fontSize: 12, overflowWrap: "anywhere" }}>
-                                {[g.client, g.subject].filter(Boolean).join(" · ")}
-                              </div>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => onPull(g)}
-                            disabled={busyId === g.id}
-                            aria-label={`Add "${label}" to today`}
-                            className={`wg-btn inline-flex size-9 shrink-0 items-center justify-center rounded-lg cursor-pointer disabled:opacity-50 ${FOCUS_RING}`}
-                            style={{ background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)", color: "var(--color-altus-red)" }}
-                          >
-                            {busyId === g.id ? <Loader2 size={15} className="animate-spin" /> : <Plus size={17} strokeWidth={2.8} />}
-                          </button>
-                        </motion.li>
-                      );
-                    })}
-                  </AnimatePresence>
-                </ul>
-              )}
-            </section>
-          </div>
+          </section>
         </div>
       </div>
     </main>

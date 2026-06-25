@@ -45,7 +45,7 @@ interface KpiSpec {
 // new ones (notApproved/notRead) are display-only — they don't map to the
 // existing status/priority filter dimensions.
 const KPI_SPECS: KpiSpec[] = [
-  { key: "notApproved", label: "NOT APPROVED", sublabel: "Declined or awaiting sign-off", tone: "rose"   },
+  { key: "notApproved", label: "NOT APPROVED", sublabel: "Declined / not approved", tone: "rose"   },
   { key: "done",        label: "DONE",         sublabel: "Done + Approved",               tone: "green"  },
   { key: "pending",     label: "PENDING",      sublabel: "Open work",                     tone: "amber"  },
   { key: "critical",    label: "CRITICAL",     sublabel: "Important & urgent",            tone: "red"    },
@@ -57,11 +57,10 @@ const KPI_SPECS: KpiSpec[] = [
  *  already-filtered rows so every count respects the page filters. */
 export function computeStatCounts(rows: TaskListRow[]): Record<KpiKey, number> {
   return {
+    // ONLY tasks whose status is "Not Approved" — not "done awaiting sign-off"
+    // or anything else (per Sir: this card must mean exactly Not-Approved).
     notApproved: rows.filter(
-      (r) =>
-        r.approvalStatus === "not_approved" ||
-        r.status === "not_approved" ||
-        (r.status === "done" && r.approvalStatus == null),
+      (r) => r.status === "not_approved" || r.approvalStatus === "not_approved",
     ).length,
     done: rows.filter((r) => DONE_STATUSES.has(r.status)).length,
     pending: rows.filter((r) => PENDING_STATUSES.has(r.status)).length,

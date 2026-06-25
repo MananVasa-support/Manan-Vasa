@@ -1,5 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db, tasks } from "@/lib/db";
+import { withRetry } from "@/lib/db/with-timeout";
 import { taskEvents } from "@/db/schema";
 import { TASK_STATUSES, type TaskStatus } from "@/db/enums";
 import { canTransitionTo, type ActorRole } from "@/lib/auth/status-transitions";
@@ -67,7 +68,13 @@ export async function applyTaskStatusChange(
   if (!TASK_STATUSES.includes(status))
     return { ok: false, error: "invalid", message: "Unknown status" };
 
-  const current = await db.query.tasks.findFirst({ where: eq(tasks.id, taskId) });
+  // Retry the read on a fresh connection — the first query of an action is the
+  // one most likely to grab a stale/dead pooled connection (the recurring
+  // "That didn't go through" signature). Reads are idempotent, so this is safe.
+  const current = await withRetry(
+    () => db.query.tasks.findFirst({ where: eq(tasks.id, taskId) }),
+    { attempts: 2, timeoutMs: [4000, 6000], label: "set-status:read" },
+  );
   if (!current) return { ok: false, error: "not-found" };
 
   const role: ActorRole = actor.isAdmin
@@ -118,25 +125,32 @@ export async function applyTaskStatusChange(
   });
   if (stale) return { ok: false, error: "stale" };
 
-  const trimmedNote = note?.trim() || undefined;
-  const statusDisplay = await getStatusDisplayMap();
-  const newStatusLabel = statusDisplay[status]?.label ?? status;
-  const label = taskLabel({ subject: current.subject, title: current.title });
-  await notifyManyForTask(taskId, {
-    actorId: actor.id,
-    kind: "status_changed",
-    title: `${actor.name} changed status on '${label}' to ${newStatusLabel}`,
-    body: JSON.stringify({
-      toStatus: status,
-      fromStatus: current.status,
-      ...(trimmedNote ? { note: trimmedNote } : {}),
-    }),
-    recipients: [current.createdById, current.initiatorId, current.doerId],
-  });
-
-  // Phase 2 — if this task was spun off a Weekly Goal, mirror the new status
-  // back onto that goal (% done + status). Best-effort; never blocks the change.
-  if (current.originGoalId) await syncTaskToGoal(taskId, status);
+  // The status change is now COMMITTED. Everything below is best-effort
+  // side-effects (notifications + goal mirror) — a transient DB/connection blip
+  // here must NEVER fail the action, or the user sees "That didn't go through"
+  // even though the status DID change (then a reload shows it saved). Wrap it.
+  try {
+    const trimmedNote = note?.trim() || undefined;
+    const statusDisplay = await getStatusDisplayMap();
+    const newStatusLabel = statusDisplay[status]?.label ?? status;
+    const label = taskLabel({ subject: current.subject, title: current.title });
+    await notifyManyForTask(taskId, {
+      actorId: actor.id,
+      kind: "status_changed",
+      title: `${actor.name} changed status on '${label}' to ${newStatusLabel}`,
+      body: JSON.stringify({
+        toStatus: status,
+        fromStatus: current.status,
+        ...(trimmedNote ? { note: trimmedNote } : {}),
+      }),
+      recipients: [current.createdById, current.initiatorId, current.doerId],
+    });
+    // Phase 2 — if this task was spun off a Weekly Goal, mirror the new status
+    // back onto that goal (% done + status).
+    if (current.originGoalId) await syncTaskToGoal(taskId, status);
+  } catch (err) {
+    console.warn("[set-status] post-commit side-effects failed (status already saved):", err);
+  }
 
   return { ok: true, updatedAt: now.toISOString() };
 }

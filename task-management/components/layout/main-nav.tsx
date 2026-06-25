@@ -16,7 +16,6 @@ import {
   Receipt,
   Sparkles,
   BookMarked,
-  FileText,
   ShieldCheck,
   Handshake,
   GraduationCap,
@@ -90,13 +89,8 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       { href: "/weekly-goals" as Route, label: "Weekly Goals", Icon: Target },
       { href: "/daily-checklist" as Route, label: "Daily Checklist", Icon: ListChecks },
     ],
-    groups: [
-      {
-        label: "More",
-        Icon: LayoutGrid,
-        items: [{ href: "/documents" as Route, label: "Documents", Icon: FileText }],
-      },
-    ],
+    // No "More" dropdown — Documents already lives in the profile/avatar menu.
+    groups: [],
   },
   employees: {
     top: [

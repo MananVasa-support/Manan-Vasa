@@ -473,23 +473,27 @@ function LedgerRow({
   return (
     <li className="flex items-start gap-3 py-3 group">
       {/* check / toggle — tick what's done at close-out */}
+      {/* Clear, high-contrast checkbox — a faint thin circle was invisible for
+          low-vision users. Square, larger, dark border when unchecked; solid
+          green with a white tick when done. */}
       <button
         type="button"
         onClick={() => onToggle(!item.done)}
         disabled={busy}
         aria-pressed={item.done}
+        title={item.done ? "Mark not done" : "Mark done"}
         aria-label={item.done ? "Mark not done" : "Mark done"}
-        className={`mt-0.5 inline-flex size-[22px] shrink-0 items-center justify-center rounded-full border-2 transition-colors disabled:opacity-50 ${FOCUS_RING}`}
+        className={`mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md border-2 transition-colors disabled:opacity-50 ${FOCUS_RING}`}
         style={
           item.done
-            ? { background: "linear-gradient(135deg, var(--color-green), var(--color-green-deep))", borderColor: "transparent" }
-            : { borderColor: "var(--color-hairline-strong)" }
+            ? { background: "linear-gradient(135deg, var(--color-green), var(--color-green-deep))", borderColor: "var(--color-green-deep)" }
+            : { borderColor: "var(--color-ink-soft)", background: "#fff" }
         }
       >
         {busy ? (
-          <Loader2 size={12} className="animate-spin text-ink-subtle" />
+          <Loader2 size={15} className="animate-spin text-ink-subtle" />
         ) : item.done ? (
-          <Check size={13} strokeWidth={3.2} className="text-white" />
+          <Check size={17} strokeWidth={3.4} className="text-white" />
         ) : null}
       </button>
 

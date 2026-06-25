@@ -25,7 +25,7 @@ interface Props {
 
 const HINT_STORAGE_KEY = "vp_seen_new_task_hint";
 
-export function NewTaskDialog({ employees, clients, subjects, projectNodes, defaultInitiatorId, isAdmin }: Props) {
+export function NewTaskDialog({ employees, clients, subjects, projectNodes, defaultInitiatorId }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -305,24 +305,22 @@ export function NewTaskDialog({ employees, clients, subjects, projectNodes, defa
             >
               Capture work, attach context, assign owners — all in one go.
             </Dialog.Description>
-            {/* Top-right actions — Import shortcut (admin) + Close. */}
+            {/* Top-right actions — Import shortcut (all users) + Close. */}
             <div className="absolute top-4 right-5 flex items-center gap-2.5">
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={goImport}
-                  title="Bulk-import tasks from CSV or Excel"
-                  className="inline-flex items-center gap-2 rounded-full px-4 h-10 text-[14px] font-semibold transition-colors hover:bg-surface-soft max-md:px-3"
-                  style={{
-                    border: "1px solid var(--color-hairline)",
-                    background: "#ffffff",
-                    color: "var(--color-ink-strong)",
-                  }}
-                >
-                  <Upload size={17} strokeWidth={2.2} style={{ color: "var(--color-altus-red)" }} />
-                  <span className="max-md:hidden">Import</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={goImport}
+                title="Bulk-import tasks from CSV or Excel"
+                className="inline-flex items-center gap-2 rounded-full px-4 h-10 text-[14px] font-semibold transition-colors hover:bg-surface-soft max-md:px-3"
+                style={{
+                  border: "1px solid var(--color-hairline)",
+                  background: "#ffffff",
+                  color: "var(--color-ink-strong)",
+                }}
+              >
+                <Upload size={17} strokeWidth={2.2} style={{ color: "var(--color-altus-red)" }} />
+                <span className="max-md:hidden">Import</span>
+              </button>
               <Dialog.Close asChild>
                 <button
                   type="button"
@@ -363,8 +361,8 @@ export function NewTaskDialog({ employees, clients, subjects, projectNodes, defa
       </Dialog.Portal>
     </Dialog.Root>
 
-    {/* Import popup (admin) — opens in place instead of navigating to a page. */}
-    {isAdmin && (
+    {/* Import popup (all users) — opens in place instead of navigating to a page. */}
+    {(
       <Dialog.Root open={importOpen} onOpenChange={setImportOpen}>
         <Dialog.Portal>
           <Dialog.Overlay

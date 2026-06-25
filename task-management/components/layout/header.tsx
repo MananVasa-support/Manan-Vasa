@@ -6,7 +6,6 @@ import { NavHistoryButtons } from "./nav-history-buttons";
 import { MobileMenuServer } from "./mobile-menu-server";
 import { UserMenuServer } from "@/components/header/user-menu-server";
 import { NewTaskTrigger } from "@/components/header/new-task-trigger";
-import { AdminPill } from "@/components/header/admin-pill";
 import { GlobalSearch } from "@/components/header/global-search";
 import { getCurrentEmployee } from "@/lib/auth/current";
 import { workspaceForPath, WORKSPACE_LANDING } from "@/lib/workspaces";
@@ -70,11 +69,11 @@ export async function DashboardHeader({
           <a
             href="/hub"
             aria-label="Back to Hub"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-hairline px-3 py-1.5 text-[13px] font-bold text-black transition-colors hover:bg-black/[0.05] max-md:px-2.5"
-            style={{ color: "#000" }}
+            className="inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-bold text-white transition-transform active:scale-[0.98] hover:brightness-125 max-md:px-3 max-md:py-2"
+            style={{ background: "#000", color: "#fff", boxShadow: "0 6px 16px -8px rgba(0,0,0,0.45)" }}
           >
-            <LayoutGrid size={15} strokeWidth={2.4} />
-            <span className="max-md:hidden">Back to Hub</span>
+            <LayoutGrid size={17} strokeWidth={2.4} />
+            <span>Back to Hub</span>
           </a>
 
           {/* CENTER: primary pill nav — visible on every desktop width (and
@@ -98,11 +97,6 @@ export async function DashboardHeader({
               <LiveIndicator />
             </span>
             <NewTaskTrigger />
-            {isAdmin && (
-              <span className="max-2xl:hidden">
-                <AdminPill />
-              </span>
-            )}
             <UserMenuServer />
           </div>
         </div>

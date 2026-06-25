@@ -31,19 +31,11 @@ export default async function TasksPage({ searchParams }: PageProps) {
   // the task table (design §10). Honours the shared client/subject/priority
   // filters. Display-only — never counted in the KPIs.
   //
-  // PRIVACY: weekly goals are private to their owner. A NON-ADMIN must never see
-  // other people's goals — even via ?emp=all (which collapses doerIds to []).
-  // So clamp non-admins to their own goal scope (self + downline, matching the
-  // Weekly Goals board's rule); only admins may widen to "all" (undefined).
-  let goalScope: string[] | undefined;
-  if (me.isAdmin) {
-    goalScope = filters.assigneeMode === "all" ? undefined : filters.doerIds;
-  } else {
-    const scope = await goalScopeFor(me);
-    goalScope = filters.doerIds.length
-      ? filters.doerIds.filter((id) => scope.ids.includes(id))
-      : scope.ids;
-  }
+  // The Tasks page surfaces ONLY the viewer's OWN weekly goals — never anyone
+  // else's, not even for admins. Showing every employee's goals here made the
+  // page run very long for admins; each person sees just their own goals (the
+  // full team view lives on the Weekly Goals board).
+  const goalScope: string[] = [me.id];
 
   const [allEmployees, rows, subjects, clients, statusDisplay, weeklyGoals] =
     await Promise.all([

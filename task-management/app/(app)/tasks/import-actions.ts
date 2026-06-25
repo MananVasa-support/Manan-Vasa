@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { db, tasks } from "@/lib/db";
 import { taskEvents, employees } from "@/db/schema";
-import { requireAdmin } from "@/lib/auth/current";
+import { requireUser } from "@/lib/auth/current";
 import { afterResponse } from "@/lib/after";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import { deriveShortId, nextShortIdCandidate } from "@/lib/import/short-id";
@@ -26,7 +26,7 @@ async function activeRoster(): Promise<RosterEntry[]> {
 /** Dry-run: parse + validate the uploaded file, resolve people, return a
  *  per-row preview. No DB writes. Admin-only. */
 export async function previewTaskImport(formData: FormData): Promise<ImportPreview> {
-  await requireAdmin();
+  await requireUser();
   const file = formData.get("file");
   if (!(file instanceof File)) {
     return { rows: [], totalRows: 0, validCount: 0, errorCount: 0, fatal: "No file uploaded." };
@@ -46,7 +46,7 @@ export interface CommitImportResult {
  *  valid row. Batched insert + deferred notifications so a large import stays
  *  fast and a notification failure can't abort it. Admin-only. */
 export async function commitTaskImport(formData: FormData): Promise<CommitImportResult> {
-  const me = await requireAdmin();
+  const me = await requireUser();
   const file = formData.get("file");
   if (!(file instanceof File)) {
     return { ok: false, created: 0, skipped: 0, error: "No file uploaded." };
