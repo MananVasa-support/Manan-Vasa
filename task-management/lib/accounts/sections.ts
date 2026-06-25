@@ -45,9 +45,8 @@ export const ACCOUNTS_SECTIONS: AccountsSection[] = [
     slug: "monthly-quarterly-annual",
     order: 3,
     title: "Quarter / Month / Annual Checklist",
-    blurb: "Monthly, quarterly and annual things to get done, tracked per month.",
-    status: "stub",
-    columns: ["S. No.", "Monthly Things to Get Done", "Responsible Person", "Deadline", "Type", "Accounts Notes", "Manan Sir Notes", "Link to File", "Frequency", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"],
+    blurb: "Monthly, quarterly and annual things to get done — tick each month of the financial year (Apr–Mar) as Done / Pending / Need Help.",
+    status: "built",
   },
   {
     slug: "cc-tracker",

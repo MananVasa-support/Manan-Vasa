@@ -2197,6 +2197,56 @@ export const accountsWeeklyChecks = pgTable(
 export type AccountsWeeklyItem = typeof accountsWeeklyItems.$inferSelect;
 export type AccountsWeeklyCheck = typeof accountsWeeklyChecks.$inferSelect;
 
+// Section 3 — Quarter / Month / Annual Checklist (mig 0081). Recurring
+// monthly/quarterly/annual items tracked per calendar month across a financial
+// year (Apr→Mar). Mirrors the Weekly Checklist; the completion grain is a month
+// within a FY rather than a week-of-month.
+export const accountsMonthlyItems = pgTable(
+  "accounts_monthly_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    code: text("code"),
+    title: text("title").notNull(),
+    responsiblePerson: text("responsible_person"),
+    deadline: text("deadline"),
+    type: text("type"),
+    accountsNotes: text("accounts_notes"),
+    mananNotes: text("manan_notes"),
+    fileLink: text("file_link"),
+    frequency: text("frequency"),
+    dueMonth: integer("due_month"),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accounts_monthly_items_sort_idx").on(t.sortOrder)],
+);
+
+// Per item, per (financial-year-start, calendar-month) completion status.
+export const accountsMonthlyChecks = pgTable(
+  "accounts_monthly_checks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => accountsMonthlyItems.id, { onDelete: "cascade" }),
+    fyStartYear: integer("fy_start_year").notNull(),
+    month: integer("month").notNull(),
+    status: text("status").notNull(),
+    updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("accounts_monthly_checks_uq").on(t.itemId, t.fyStartYear, t.month),
+    index("accounts_monthly_checks_fy_idx").on(t.fyStartYear),
+  ],
+);
+
+export type AccountsMonthlyItem = typeof accountsMonthlyItems.$inferSelect;
+export type AccountsMonthlyCheck = typeof accountsMonthlyChecks.$inferSelect;
+
 export type AccountsTaskRow = typeof accountsTaskList.$inferSelect;
 export type AccountsScreenshot = typeof accountsScreenshots.$inferSelect;
 export type CaHandoverCredential = typeof caHandoverCredentials.$inferSelect;

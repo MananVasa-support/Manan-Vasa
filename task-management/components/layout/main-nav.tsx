@@ -158,6 +158,7 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       { href: "/accounts" as Route, label: "Index", Icon: LayoutGrid, exact: true },
       { href: "/accounts/task-list" as Route, label: "Task List", Icon: ListChecks },
       { href: "/accounts/weekly-checklist" as Route, label: "Weekly Checklist", Icon: CalendarCheck },
+      { href: "/accounts/monthly-quarterly-annual" as Route, label: "Monthly Checklist", Icon: CalendarRange },
       { href: "/accounts/ca-handover" as Route, label: "CA Handover", Icon: ShieldCheck },
     ],
     groups: [],

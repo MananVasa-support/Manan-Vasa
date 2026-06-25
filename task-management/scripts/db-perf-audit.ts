@@ -67,7 +67,7 @@ async function main() {
     order by tablename, indexname;
   `);
   const byTable: Record<string, string[]> = {};
-  for (const r of idx as Array<{ table: string; indexname: string; indexdef: string }>) {
+  for (const r of idx as unknown as Array<{ table: string; indexname: string; indexdef: string }>) {
     (byTable[r.table] ??= []).push(
       `${r.indexname}: ${r.indexdef.replace(/^CREATE (UNIQUE )?INDEX \S+ ON \S+ USING /, "")}`,
     );
