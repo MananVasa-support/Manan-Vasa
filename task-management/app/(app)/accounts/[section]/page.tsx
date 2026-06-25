@@ -1,4 +1,5 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import type { Route } from "next";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { getAccountsSection } from "@/lib/accounts/sections";
@@ -10,7 +11,8 @@ export const dynamic = "force-dynamic";
  * Generic renderer for STUB accounts sections. Built sections (task-list,
  * ca-handover) have their own static routes which Next resolves before this
  * dynamic segment, so they never reach here — we 404 defensively if a built
- * slug (or an unknown one) lands here anyway.
+ * slug (or an unknown one) lands here anyway. `link` sections (e.g. Collection
+ * Master → /outstanding) bounce straight to their real home.
  */
 export default async function AccountsSectionPage({
   params,
@@ -19,7 +21,9 @@ export default async function AccountsSectionPage({
 }) {
   const { section: slug } = await params;
   const section = getAccountsSection(slug);
-  if (!section || section.status !== "stub") notFound();
+  if (!section) notFound();
+  if (section.status === "link" && section.href) redirect(section.href as Route);
+  if (section.status !== "stub") notFound();
 
   return (
     <>

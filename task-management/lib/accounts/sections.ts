@@ -11,7 +11,15 @@ export interface AccountsSection {
   order: number;
   title: string;
   blurb: string;
-  status: "built" | "stub";
+  /**
+   * `built` renders a real section under /accounts/<slug>; `stub` renders a
+   * ready-to-extend scaffold; `link` is a real, already-built feature that lives
+   * elsewhere in the app — the card (and the /accounts/<slug> route) sends the
+   * user straight to `href`.
+   */
+  status: "built" | "stub" | "link";
+  /** Destination for `status: "link"` sections (an in-app route). */
+  href?: string;
   /** CA Handover etc. — restricted to admins only within the module. */
   sensitive?: boolean;
   /** Source columns (from the master sheet) — drives the stub preview. */
@@ -70,9 +78,9 @@ export const ACCOUNTS_SECTIONS: AccountsSection[] = [
     slug: "collection-master",
     order: 7,
     title: "Collection Master",
-    blurb: "Income/collection tracker — receipts by person, source, mode, entity, GST/TDS.",
-    status: "stub",
-    columns: ["No", "Person Name", "Dt of Receipt", "Month", "Income Rs.", "Source", "Mode", "Entity", "GST", "TDS", "Bank Receipt", "UTRs", "Description"],
+    blurb: "Income & collections — this is the live Outstanding & Collections tracker (receipts by person, source, mode, entity, GST/TDS). Opens the full dashboard.",
+    status: "link",
+    href: "/outstanding",
   },
   {
     slug: "fno-income",

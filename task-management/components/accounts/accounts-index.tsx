@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { ArrowUpRight, Lock, CheckCircle2, Clock3 } from "lucide-react";
+import { ArrowUpRight, Lock, CheckCircle2, Clock3, ExternalLink } from "lucide-react";
 import type { AccountsSection } from "@/lib/accounts/sections";
 
 /**
@@ -14,10 +14,11 @@ export function AccountsIndex({ sections }: { sections: AccountsSection[] }) {
     <ol className="flex flex-col gap-3 list-none m-0 p-0">
       {sections.map((s, i) => {
         const built = s.status === "built";
+        const linked = s.status === "link";
         return (
           <li key={s.slug} className="wg-rise" style={{ animationDelay: `${Math.min(i * 35, 350)}ms` }}>
             <Link
-              href={`/accounts/${s.slug}` as Route}
+              href={(linked && s.href ? s.href : `/accounts/${s.slug}`) as Route}
               className="group flex items-center gap-5 rounded-section border border-hairline bg-surface-card px-6 py-5 max-md:px-4 max-md:py-4 transition-all hover:border-ink-soft"
               style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}
               aria-label={`Open ${s.title}`}
@@ -72,13 +73,19 @@ export function AccountsIndex({ sections }: { sections: AccountsSection[] }) {
               <span
                 className="shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11.5px] font-bold uppercase tracking-[0.08em]"
                 style={
-                  built
+                  built || linked
                     ? { color: "var(--color-green-deep)", background: "rgba(16,122,87,0.10)", border: "1px solid rgba(16,122,87,0.25)" }
                     : { color: "var(--color-ink-soft)", background: "var(--color-surface-soft)", border: "1px solid var(--color-hairline)" }
                 }
               >
-                {built ? <CheckCircle2 size={13} strokeWidth={2.6} aria-hidden /> : <Clock3 size={13} strokeWidth={2.6} aria-hidden />}
-                {built ? "Built" : "Coming"}
+                {linked ? (
+                  <ExternalLink size={13} strokeWidth={2.6} aria-hidden />
+                ) : built ? (
+                  <CheckCircle2 size={13} strokeWidth={2.6} aria-hidden />
+                ) : (
+                  <Clock3 size={13} strokeWidth={2.6} aria-hidden />
+                )}
+                {linked ? "Live" : built ? "Built" : "Coming"}
               </span>
 
               <ArrowUpRight
