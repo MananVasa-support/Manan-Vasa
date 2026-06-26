@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Roboto, Bricolage_Grotesque, JetBrains_Mono, Fraunces } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { AppToaster } from "@/components/ui/sonner-toaster";
 import { Providers } from "@/components/providers";
@@ -131,6 +132,11 @@ export default async function RootLayout({
             (no env vars needed); on Vercel it records real-user Core Web
             Vitals per route, accessible from the project dashboard. */}
         <SpeedInsights />
+        {/* Vercel Web Analytics — tracks page views and custom events.
+            Auto-no-ops outside Vercel (no env vars needed); on Vercel it
+            records visitor analytics per route, accessible from the project
+            dashboard. */}
+        <Analytics />
       </body>
     </html>
   );
