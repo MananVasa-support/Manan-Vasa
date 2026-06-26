@@ -2337,6 +2337,80 @@ export const accountsCcMonths = pgTable(
 export type AccountsCcCard = typeof accountsCcCards.$inferSelect;
 export type AccountsCcMonth = typeof accountsCcMonths.$inferSelect;
 
+// Section 6 — SIP Tracker (mig 0084). FY-scoped per-fund master + per-month
+// contribution amount (Apr→Mar); YTD computed client-side.
+export const accountsSipItems = pgTable(
+  "accounts_sip_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fyStartYear: integer("fy_start_year").notNull(),
+    code: text("code"),
+    entity: text("entity"),
+    fundName: text("fund_name").notNull(),
+    location: text("location"),
+    sipDate: text("sip_date"),
+    type: text("type"),
+    amount: numeric("amount", { precision: 14, scale: 2 }),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accounts_sip_items_fy_sort_idx").on(t.fyStartYear, t.sortOrder)],
+);
+
+export const accountsSipMonths = pgTable(
+  "accounts_sip_months",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    itemId: uuid("item_id").notNull().references(() => accountsSipItems.id, { onDelete: "cascade" }),
+    month: integer("month").notNull(),
+    amount: numeric("amount", { precision: 14, scale: 2 }),
+    updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("accounts_sip_months_uq").on(t.itemId, t.month)],
+);
+
+// Section 8 — FNO Income Master (mig 0084). FY-scoped per-agency master +
+// per-month Rs income (Apr→Mar); % return derived = amount / capital.
+export const accountsFnoItems = pgTable(
+  "accounts_fno_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fyStartYear: integer("fy_start_year").notNull(),
+    code: text("code"),
+    entity: text("entity"),
+    agency: text("agency").notNull(),
+    capital: numeric("capital", { precision: 16, scale: 2 }),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accounts_fno_items_fy_sort_idx").on(t.fyStartYear, t.sortOrder)],
+);
+
+export const accountsFnoMonths = pgTable(
+  "accounts_fno_months",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    itemId: uuid("item_id").notNull().references(() => accountsFnoItems.id, { onDelete: "cascade" }),
+    month: integer("month").notNull(),
+    amount: numeric("amount", { precision: 14, scale: 2 }),
+    updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("accounts_fno_months_uq").on(t.itemId, t.month)],
+);
+
+export type AccountsSipItem = typeof accountsSipItems.$inferSelect;
+export type AccountsSipMonth = typeof accountsSipMonths.$inferSelect;
+export type AccountsFnoItem = typeof accountsFnoItems.$inferSelect;
+export type AccountsFnoMonth = typeof accountsFnoMonths.$inferSelect;
+
 export type AccountsTaskRow = typeof accountsTaskList.$inferSelect;
 export type AccountsScreenshot = typeof accountsScreenshots.$inferSelect;
 export type CaHandoverCredential = typeof caHandoverCredentials.$inferSelect;

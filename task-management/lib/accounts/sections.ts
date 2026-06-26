@@ -66,9 +66,8 @@ export const ACCOUNTS_SECTIONS: AccountsSection[] = [
     slug: "sip-tracker",
     order: 6,
     title: "SIP Tracker",
-    blurb: "SIP / Loans checklist — entity, fund, SIP date, amount, paid per month.",
-    status: "stub",
-    columns: ["S. No.", "Entity", "Mutual Fund Name", "Location", "SIP Date", "Type", "Amount", "YTD Total", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"],
+    blurb: "Mutual-fund SIPs by entity — monthly contributions across the financial year (Apr–Mar) with a running YTD total.",
+    status: "built",
   },
   {
     slug: "collection-master",
@@ -82,9 +81,8 @@ export const ACCOUNTS_SECTIONS: AccountsSection[] = [
     slug: "fno-income",
     order: 8,
     title: "FNO Income Master",
-    blurb: "F&O income master — entity, agency, capital, YTD and monthly % returns.",
-    status: "stub",
-    columns: ["S. No.", "Entity", "Agency", "Capital", "YTD Rs.", "%", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"],
+    blurb: "F&O income by entity & agency — monthly Rs income across the financial year (Apr–Mar) with the % return on capital derived automatically.",
+    status: "built",
   },
   {
     slug: "bank-balance",
