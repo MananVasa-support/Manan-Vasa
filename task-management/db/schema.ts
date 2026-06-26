@@ -2467,6 +2467,57 @@ export type AccountsCashItem = typeof accountsCashItems.$inferSelect;
 export type AccountsCashMonth = typeof accountsCashMonths.$inferSelect;
 export type AccountsCashLimit = typeof accountsCashLimits.$inferSelect;
 
+// Section 9 — Bank Balance Tracker (mig 0086). Per-entity target + dated weekly
+// balance snapshots (dynamic week columns); difference computed live.
+export const accountsBankItems = pgTable(
+  "accounts_bank_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fyStartYear: integer("fy_start_year").notNull(),
+    code: text("code"),
+    entity: text("entity").notNull(),
+    targetBalance: numeric("target_balance", { precision: 16, scale: 2 }),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accounts_bank_items_fy_sort_idx").on(t.fyStartYear, t.sortOrder)],
+);
+
+export const accountsBankWeeks = pgTable(
+  "accounts_bank_weeks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fyStartYear: integer("fy_start_year").notNull(),
+    label: text("label").notNull(),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accounts_bank_weeks_fy_sort_idx").on(t.fyStartYear, t.sortOrder)],
+);
+
+export const accountsBankBalances = pgTable(
+  "accounts_bank_balances",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    itemId: uuid("item_id").notNull().references(() => accountsBankItems.id, { onDelete: "cascade" }),
+    weekId: uuid("week_id").notNull().references(() => accountsBankWeeks.id, { onDelete: "cascade" }),
+    balance: numeric("balance", { precision: 16, scale: 2 }),
+    updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("accounts_bank_balances_uq").on(t.itemId, t.weekId)],
+);
+
+export type AccountsBankItem = typeof accountsBankItems.$inferSelect;
+export type AccountsBankWeek = typeof accountsBankWeeks.$inferSelect;
+export type AccountsBankBalance = typeof accountsBankBalances.$inferSelect;
+
 export type AccountsTaskRow = typeof accountsTaskList.$inferSelect;
 export type AccountsScreenshot = typeof accountsScreenshots.$inferSelect;
 export type CaHandoverCredential = typeof caHandoverCredentials.$inferSelect;

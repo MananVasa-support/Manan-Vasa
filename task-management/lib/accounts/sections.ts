@@ -88,9 +88,8 @@ export const ACCOUNTS_SECTIONS: AccountsSection[] = [
     slug: "bank-balance",
     order: 9,
     title: "Bank Balance Tracker",
-    blurb: "Bank balances vs target balance, tracked per week with difference.",
-    status: "stub",
-    columns: ["S. No.", "Entity", "Target Balance", "Weekly balances…", "Difference"],
+    blurb: "Weekly closing balances per account vs the target balance — the latest snapshot shows who's short and by how much.",
+    status: "built",
   },
   {
     slug: "cash-withdrawal",
