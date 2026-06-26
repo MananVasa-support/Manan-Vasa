@@ -149,6 +149,36 @@ export async function updateTask(input: unknown): Promise<ActionResult> {
   }
 }
 
+/** Lightweight inline patch — change just status and/or gear from the table. */
+const QuickPatchSchema = z.object({
+  id: z.string().uuid(),
+  status: z.string().trim().min(1).max(120).optional(),
+  gear: z.string().max(120).nullable().optional(),
+});
+
+export async function quickPatchTask(input: unknown): Promise<ActionResult> {
+  const { me } = await requireAccountsAccess();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const parsed = QuickPatchSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input.");
+  const { id, status, gear } = parsed.data;
+
+  const set: Record<string, unknown> = { updatedAt: new Date() };
+  if (status !== undefined) set.status = status;
+  if (gear !== undefined) set.gear = gear === "" ? null : gear;
+  if (Object.keys(set).length === 1) return { ok: true }; // nothing but updatedAt
+
+  try {
+    await db.update(accountsTaskList).set(set).where(eq(accountsTaskList.id, id));
+    revalidatePath(PATH);
+    return { ok: true };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : String(err));
+  }
+}
+
 export async function deleteTask(id: string): Promise<ActionResult> {
   const { me } = await requireAccountsAccess();
   const limited = rateLimitOrError(me.id, "write");

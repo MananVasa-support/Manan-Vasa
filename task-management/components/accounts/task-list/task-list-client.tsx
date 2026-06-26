@@ -15,6 +15,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { LookupSelect, type LookupOption } from "@/components/ui/lookup-select";
+import { VoiceNoteButton } from "@/components/ui/voice-note-button";
 import { fireToast } from "@/lib/toast";
 import type {
   AccountsTaskRow,
@@ -25,6 +26,7 @@ import {
   createTask,
   updateTask,
   deleteTask,
+  quickPatchTask,
   createShot,
   updateShot,
   deleteShot,
@@ -71,20 +73,6 @@ function statusTone(status: string): { bg: string; fg: string; dot: string } {
   return { bg: "var(--color-surface-track, #eef2f7)", fg: "var(--color-ink-soft)", dot: "var(--color-ink-subtle)" };
 }
 
-function StatusChip({ status }: { status: string }) {
-  if (!status) return <Dim />;
-  const t = statusTone(status);
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] font-bold whitespace-nowrap"
-      style={{ background: t.bg, color: t.fg }}
-    >
-      <span className="inline-block size-[7px] rounded-full" style={{ background: t.dot }} />
-      {status}
-    </span>
-  );
-}
-
 function GearChip({ value }: { value: string | null }) {
   if (!value) return <Dim />;
   return (
@@ -99,6 +87,42 @@ function GearChip({ value }: { value: string | null }) {
 
 function Dim() {
   return <span style={{ color: "var(--color-ink-subtle)" }}>—</span>;
+}
+
+/** Inline, colored Status dropdown — change status straight from the table. */
+function InlineStatusSelect({ value, options, onChange, busy }: { value: string; options: string[]; onChange: (v: string) => void; busy: boolean }) {
+  const t = statusTone(value);
+  const opts = Array.from(new Set([...options, value].filter(Boolean)));
+  return (
+    <select
+      value={value}
+      disabled={busy}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label="Status"
+      className="cursor-pointer appearance-none rounded-full px-2.5 py-1 text-[12.5px] font-bold outline-none transition-colors focus:ring-2 focus:ring-[color:var(--color-altus-red)] disabled:opacity-60"
+      style={{ background: t.bg, color: t.fg, border: "1px solid transparent", minWidth: 116 }}
+    >
+      {opts.map((o) => (<option key={o} value={o}>{o}</option>))}
+    </select>
+  );
+}
+
+/** Inline Gear dropdown. */
+function InlineGearSelect({ value, options, onChange, busy }: { value: string | null; options: string[]; onChange: (v: string) => void; busy: boolean }) {
+  const opts = Array.from(new Set([...options, value ?? ""].filter(Boolean)));
+  return (
+    <select
+      value={value ?? ""}
+      disabled={busy}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label="Gear"
+      className="cursor-pointer appearance-none rounded-full px-2.5 py-1 text-[12.5px] font-bold text-ink-soft outline-none transition-colors focus:ring-2 focus:ring-[color:var(--color-altus-red)] disabled:opacity-60"
+      style={{ background: value ? "var(--color-surface-track, #eef2f7)" : "transparent", border: value ? "1px solid transparent" : "1px solid var(--color-hairline)", minWidth: 108 }}
+    >
+      <option value="">—</option>
+      {opts.map((o) => (<option key={o} value={o}>{o}</option>))}
+    </select>
+  );
 }
 
 function Links({ value }: { value: string | null }) {
@@ -332,7 +356,7 @@ function taskToDraft(r: AccountsTaskRow): TaskDraft {
 const TASK_COLS = 10;
 
 export function TaskListTable({
-  rows,
+  rows: rowsProp,
   statusOptions,
   gearOptions,
 }: {
@@ -340,6 +364,10 @@ export function TaskListTable({
   statusOptions: LookupOption[];
   gearOptions: LookupOption[];
 }) {
+  // Local copy so inline status/gear changes apply optimistically.
+  const [rows, setRows] = React.useState(rowsProp);
+  React.useEffect(() => setRows(rowsProp), [rowsProp]);
+
   const [q, setQ] = React.useState("");
   const [fStatus, setFStatus] = React.useState("");
   const [fGear, setFGear] = React.useState("");
@@ -354,6 +382,23 @@ export function TaskListTable({
   );
   const [busy, setBusy] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
+  const [cellBusy, setCellBusy] = React.useState<string | null>(null);
+
+  /** Optimistic inline patch of status/gear from the table. */
+  function patchRow(id: string, patch: { status?: string; gear?: string }) {
+    const prev = rows.find((r) => r.id === id);
+    if (!prev) return;
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    setCellBusy(id);
+    startTransition(async () => {
+      const res = await quickPatchTask({ id, ...patch });
+      setCellBusy(null);
+      if (!res.ok) {
+        setRows((rs) => rs.map((r) => (r.id === id ? prev : r)));
+        fireToast({ message: res.error, type: "error" });
+      }
+    });
+  }
 
   const statusValues = React.useMemo(
     () => Array.from(new Set([...statusOptions.map((o) => o.name), ...rows.map((r) => r.status)].filter(Boolean))),
@@ -582,11 +627,11 @@ export function TaskListTable({
                         <Dim />
                       )}
                     </Td>
-                    <Td><StatusChip status={r.status} /></Td>
+                    <Td><InlineStatusSelect value={r.status} options={statusValues} onChange={(v) => patchRow(r.id, { status: v })} busy={cellBusy === r.id} /></Td>
                     <Td><Links value={r.links} /></Td>
                     <Td className="whitespace-nowrap">{fmtDate(r.targetDate)}</Td>
                     <Td className="whitespace-nowrap">{fmtDate(r.actualDate)}</Td>
-                    <Td><GearChip value={r.gear} /></Td>
+                    <Td><InlineGearSelect value={r.gear} options={gearValues} onChange={(v) => patchRow(r.id, { gear: v })} busy={cellBusy === r.id} /></Td>
                     <Td>
                       {r.notes ? (
                         <span className="block max-w-[260px] truncate" title={r.notes}>{r.notes}</span>
@@ -671,7 +716,14 @@ function TaskEditRow({
         </div>
       </Td>
       <Td>
-        <textarea value={draft.notes} onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))} className={INPUT + " min-h-[64px] resize-y"} style={{ minWidth: 200 }} placeholder="Notes" aria-label="Notes" />
+        <div className="flex flex-col gap-1.5" style={{ minWidth: 220 }}>
+          <textarea value={draft.notes} onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))} className={INPUT + " min-h-[64px] resize-y"} placeholder="Notes — type or use the mic" aria-label="Notes" />
+          <VoiceNoteButton
+            label="Voice note → transcript"
+            onText={(text) => setDraft((d) => ({ ...d, notes: d.notes.trim() ? d.notes.trim() + "\n" + text : text }))}
+            className="self-start"
+          />
+        </div>
       </Td>
       <Td className="text-right">
         <SaveCancel onSave={onSave} onCancel={onCancel} busy={busy} />
