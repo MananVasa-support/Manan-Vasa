@@ -2518,6 +2518,70 @@ export type AccountsBankItem = typeof accountsBankItems.$inferSelect;
 export type AccountsBankWeek = typeof accountsBankWeeks.$inferSelect;
 export type AccountsBankBalance = typeof accountsBankBalances.$inferSelect;
 
+// Sections 11/13/15 — flat registers (mig 0087): Vasa Family interpersonal
+// balances, Shares register, Income-Tax master-folder links.
+export const accountsVasaBalances = pgTable(
+  "accounts_vasa_balances",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    party: text("party"),
+    direction: text("direction"),
+    counterparty: text("counterparty"),
+    amount: numeric("amount", { precision: 16, scale: 2 }),
+    asOn: text("as_on"),
+    notes: text("notes"),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accounts_vasa_sort_idx").on(t.sortOrder)],
+);
+
+export const accountsShares = pgTable(
+  "accounts_shares",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    code: text("code"),
+    entity: text("entity"),
+    company: text("company").notNull(),
+    folioDemat: text("folio_demat"),
+    qty: numeric("qty", { precision: 18, scale: 4 }),
+    rate: numeric("rate", { precision: 16, scale: 4 }),
+    value: numeric("value", { precision: 18, scale: 2 }),
+    txnDate: text("txn_date"),
+    notes: text("notes"),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accounts_shares_sort_idx").on(t.sortOrder)],
+);
+
+export const accountsItFolders = pgTable(
+  "accounts_it_folders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    entity: text("entity").notNull(),
+    fy: text("fy"),
+    folderLink: text("folder_link"),
+    notes: text("notes"),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accounts_it_folders_sort_idx").on(t.sortOrder)],
+);
+
+export type AccountsVasaBalance = typeof accountsVasaBalances.$inferSelect;
+export type AccountsShare = typeof accountsShares.$inferSelect;
+export type AccountsItFolder = typeof accountsItFolders.$inferSelect;
+
 export type AccountsTaskRow = typeof accountsTaskList.$inferSelect;
 export type AccountsScreenshot = typeof accountsScreenshots.$inferSelect;
 export type CaHandoverCredential = typeof caHandoverCredentials.$inferSelect;

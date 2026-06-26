@@ -102,9 +102,8 @@ export const ACCOUNTS_SECTIONS: AccountsSection[] = [
     slug: "vasa-family-interpersonal",
     order: 11,
     title: "Vasa Family Interpersonal Balance",
-    blurb: "Interpersonal reconciliation balances between family entities.",
-    status: "stub",
-    columns: ["Party", "Owes / Receives", "Counterparty", "Amount", "As on", "Notes"],
+    blurb: "Who owes / receives what between family entities, with the net position per party.",
+    status: "built",
   },
   {
     slug: "cc-tracker-2026-27",
@@ -117,10 +116,9 @@ export const ACCOUNTS_SECTIONS: AccountsSection[] = [
   {
     slug: "shares-register",
     order: 13,
-    title: "Shares Excel Register",
-    blurb: "Register of shareholdings / share transactions.",
-    status: "stub",
-    columns: ["S. No.", "Entity", "Company", "Folio / Demat", "Qty", "Rate", "Value", "Date", "Notes"],
+    title: "Shares Register",
+    blurb: "Register of shareholdings & share transactions per entity — quantity, rate, value, folio/demat.",
+    status: "built",
   },
   {
     slug: "ca-handover",
@@ -134,9 +132,8 @@ export const ACCOUNTS_SECTIONS: AccountsSection[] = [
     slug: "income-tax-master-folder",
     order: 15,
     title: "Last 3–5 Years Income Tax Master Folder",
-    blurb: "Master folder of income-tax records for the last 3–5 years, per entity.",
-    status: "stub",
-    columns: ["Entity", "FY", "Folder Link", "Notes"],
+    blurb: "Links to the income-tax record folders for the last 3–5 years, per entity.",
+    status: "built",
   },
 ];
 

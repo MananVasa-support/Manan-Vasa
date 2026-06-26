@@ -29,6 +29,9 @@ import {
   LineChart,
   Banknote,
   Landmark,
+  Users,
+  CandlestickChart,
+  FolderArchive,
 } from "lucide-react";
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
@@ -173,6 +176,9 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       { href: "/accounts/fno-income" as Route, label: "FNO Income", Icon: LineChart },
       { href: "/accounts/cash-withdrawal" as Route, label: "Cash Withdrawal", Icon: Banknote },
       { href: "/accounts/bank-balance" as Route, label: "Bank Balance", Icon: Landmark },
+      { href: "/accounts/vasa-family-interpersonal" as Route, label: "Vasa Family", Icon: Users },
+      { href: "/accounts/shares-register" as Route, label: "Shares", Icon: CandlestickChart },
+      { href: "/accounts/income-tax-master-folder" as Route, label: "IT Folder", Icon: FolderArchive },
       { href: "/accounts/ca-handover" as Route, label: "CA Handover", Icon: ShieldCheck },
     ],
     groups: [],
