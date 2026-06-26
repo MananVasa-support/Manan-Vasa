@@ -9,6 +9,7 @@ import {
   jsonb,
   integer,
   numeric,
+  smallint,
   primaryKey,
   time,
   date,
@@ -983,6 +984,9 @@ export const NOTIFICATION_KINDS = [
   "weekly_goals_incomplete",
   // Training Centre — a test failure pings the employee + their manager.
   "training_test_failed",
+  // Employees DCC — end-of-day "fill your KPIs" reminder. Text column, no DB
+  // change; sent directly by app/api/cron/dcc-reminder (bypasses the matrix).
+  "dcc_fill_reminder",
 ] as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
@@ -2633,6 +2637,64 @@ export const accountsLoanCells = pgTable(
 export type AccountsLoanItem = typeof accountsLoanItems.$inferSelect;
 export type AccountsLoanPeriod = typeof accountsLoanPeriods.$inferSelect;
 export type AccountsLoanCell = typeof accountsLoanCells.$inferSelect;
+
+// ── Employees DCC (Daily Compliance Checklist / KPI) — mig 0090 ──────────────
+export const dccKpiItems = pgTable(
+  "dcc_kpi_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerEmployeeId: uuid("owner_employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    section: text("section"),
+    code: text("code"),
+    title: text("title").notNull(),
+    frequency: text("frequency"),
+    weekdays: smallint("weekdays"),
+    targetNumber: numeric("target_number", { precision: 14, scale: 2 }),
+    unit: text("unit"),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("dcc_kpi_items_owner_idx").on(t.ownerEmployeeId, t.sortOrder)],
+);
+
+export const dccEntries = pgTable(
+  "dcc_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    itemId: uuid("item_id").notNull().references(() => dccKpiItems.id, { onDelete: "cascade" }),
+    entryDate: date("entry_date").notNull(),
+    status: text("status"),
+    valueNumber: numeric("value_number", { precision: 14, scale: 2 }),
+    note: text("note"),
+    filledById: uuid("filled_by_id").references(() => employees.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("dcc_entries_uq").on(t.itemId, t.entryDate),
+    index("dcc_entries_date_idx").on(t.entryDate),
+  ],
+);
+
+export const dccReviews = pgTable(
+  "dcc_reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerEmployeeId: uuid("owner_employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    reviewDate: date("review_date").notNull(),
+    reviewerId: uuid("reviewer_id").references(() => employees.id, { onDelete: "set null" }),
+    status: text("status"),
+    note: text("note"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("dcc_reviews_uq").on(t.ownerEmployeeId, t.reviewDate)],
+);
+
+export type DccKpiItem = typeof dccKpiItems.$inferSelect;
+export type DccEntry = typeof dccEntries.$inferSelect;
+export type DccReview = typeof dccReviews.$inferSelect;
 
 export type AccountsTaskRow = typeof accountsTaskList.$inferSelect;
 export type AccountsScreenshot = typeof accountsScreenshots.$inferSelect;

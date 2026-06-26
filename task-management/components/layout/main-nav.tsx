@@ -32,6 +32,7 @@ import {
   Users,
   CandlestickChart,
   FolderArchive,
+  Gauge,
 } from "lucide-react";
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
@@ -126,6 +127,7 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
         not: ["/overtime/dashboard"],
       },
       { href: "/reimbursements" as Route, label: "Reimbursements", Icon: Receipt },
+      { href: "/dcc" as Route, label: "DCC", Icon: Gauge },
     ],
     groups: [],
   },

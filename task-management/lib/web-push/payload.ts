@@ -37,6 +37,7 @@ const TITLES: Record<NotificationKind, (actor: string) => string> = {
   attendance_device: () => `New device used for attendance`,
   attendance_late_deduction: () => `Late deduction applied`,
   training_test_failed: () => `Training test not passed`,
+  dcc_fill_reminder: () => `Fill today's DCC KPIs`,
 };
 
 export interface PushCtx {

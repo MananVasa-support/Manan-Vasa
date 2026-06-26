@@ -59,6 +59,16 @@ const KIND_META: Record<NotificationKind, { icon: LucideIcon; tone: string }> = 
   attendance_device: { icon: Smartphone, tone: "blue" },
   attendance_late_deduction: { icon: AlarmClock, tone: "rose" },
   training_test_failed: { icon: XCircle, tone: "red" },
+  // Employees DCC end-of-day reminder.
+  dcc_fill_reminder: { icon: AlarmClock, tone: "amber" },
+};
+
+// Kinds that deep-link somewhere other than the related task / inbox.
+const KIND_HREF: Partial<Record<string, string>> = {
+  dcc_fill_reminder: "/dcc",
+  weekly_goals_assigned: "/weekly-goals",
+  weekly_goals_fill_reminder: "/weekly-goals",
+  weekly_goals_incomplete: "/weekly-goals",
 };
 
 /**
@@ -125,7 +135,7 @@ export function NotificationRow({ row, statusLabels, statusTones }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const unread = row.readAt === null;
-  const href = (row.taskId ? `/tasks/${row.taskId}` : "/inbox") as Route;
+  const href = (KIND_HREF[row.kind] ?? (row.taskId ? `/tasks/${row.taskId}` : "/inbox")) as Route;
   const when = formatDistanceToNow(row.createdAt, { addSuffix: true });
   const who = row.actorName ?? "System";
   const meta = parseBody(row.body);
