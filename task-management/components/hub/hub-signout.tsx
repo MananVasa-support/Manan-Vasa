@@ -27,8 +27,12 @@ export function HubSignOut() {
   }
 
   return (
-    <button type="button" onClick={handleSignOut} className="hub-chip">
-      <LogOut size={15} strokeWidth={2.6} aria-hidden />
+    <button
+      type="button"
+      onClick={handleSignOut}
+      className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14px] font-semibold text-ink-soft shadow-sm transition-colors hover:border-altus-red hover:text-altus-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-altus-red)]"
+    >
+      <LogOut size={16} strokeWidth={2.2} aria-hidden />
       Sign out
     </button>
   );
