@@ -57,16 +57,20 @@ export function VasaBalances({ rows, partyOptions }: { rows: VasaRow[]; partyOpt
     });
   }, [rows, q, fParty]);
 
-  // Net position per party: + when others owe them / they receive, − when they owe.
+  // Net position per party — DOUBLE-ENTRY: each "A Owes B ₹X" row moves A by −X
+  // and B by +X (and vice-versa for "Receives"), so the net reflects both what a
+  // party owes AND what others owe it. + = net receivable, − = net payable.
   const net = React.useMemo(() => {
     const m = new Map<string, number>();
+    const add = (k: string, v: number) => m.set(k, (m.get(k) ?? 0) + v);
     for (const r of rows) {
       const a = parseAmount(r.amount) ?? 0;
-      if (!r.party || !a) continue;
-      const signed = (r.direction ?? "").toLowerCase() === "receives" ? a : -a;
-      m.set(r.party, (m.get(r.party) ?? 0) + signed);
+      if (!a) continue;
+      const owes = (r.direction ?? "").toLowerCase() !== "receives"; // default = Owes
+      if (r.party) add(r.party, owes ? -a : a);
+      if (r.counterparty) add(r.counterparty, owes ? a : -a);
     }
-    return [...m.entries()].filter(([, v]) => v !== 0).sort((x, y) => y[1] - x[1]);
+    return [...m.entries()].filter(([, v]) => Math.round(v) !== 0).sort((x, y) => y[1] - x[1]);
   }, [rows]);
 
   const hasFilters = q || fParty;
