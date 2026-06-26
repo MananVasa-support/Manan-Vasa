@@ -27,6 +27,7 @@ import {
   ArrowLeft,
   PiggyBank,
   LineChart,
+  Banknote,
 } from "lucide-react";
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
@@ -169,6 +170,7 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       { href: "/accounts/due-dates" as Route, label: "Due Dates", Icon: CalendarClock },
       { href: "/accounts/sip-tracker" as Route, label: "SIP", Icon: PiggyBank },
       { href: "/accounts/fno-income" as Route, label: "FNO Income", Icon: LineChart },
+      { href: "/accounts/cash-withdrawal" as Route, label: "Cash Withdrawal", Icon: Banknote },
       { href: "/accounts/ca-handover" as Route, label: "CA Handover", Icon: ShieldCheck },
     ],
     groups: [],

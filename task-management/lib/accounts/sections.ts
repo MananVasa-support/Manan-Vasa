@@ -96,9 +96,8 @@ export const ACCOUNTS_SECTIONS: AccountsSection[] = [
     slug: "cash-withdrawal",
     order: 10,
     title: "Cash Withdrawal Tracker",
-    blurb: "Cash withdrawals — entity, cheque details, amount, per month.",
-    status: "stub",
-    columns: ["S. No.", "Entity", "Name on Cheque", "Cheque No", "Chq Date", "Amount", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"],
+    blurb: "Cheque withdrawals by entity across the financial year (Apr–Mar), with each entity's annual cap and remaining headroom.",
+    status: "built",
   },
   {
     slug: "vasa-family-interpersonal",

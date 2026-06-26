@@ -2411,6 +2411,62 @@ export type AccountsSipMonth = typeof accountsSipMonths.$inferSelect;
 export type AccountsFnoItem = typeof accountsFnoItems.$inferSelect;
 export type AccountsFnoMonth = typeof accountsFnoMonths.$inferSelect;
 
+// Section 10 — Cash Withdrawal Tracker (mig 0085). Per-cheque withdrawals grid
+// (FY Apr→Mar monthly amounts) + a per-entity annual cap (Total/Remaining derived).
+export const accountsCashItems = pgTable(
+  "accounts_cash_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fyStartYear: integer("fy_start_year").notNull(),
+    code: text("code"),
+    entity: text("entity"),
+    nameOnCheque: text("name_on_cheque"),
+    chequeNo: text("cheque_no"),
+    chqDate: text("chq_date"),
+    amount: numeric("amount", { precision: 14, scale: 2 }),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accounts_cash_items_fy_sort_idx").on(t.fyStartYear, t.sortOrder)],
+);
+
+export const accountsCashMonths = pgTable(
+  "accounts_cash_months",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    itemId: uuid("item_id").notNull().references(() => accountsCashItems.id, { onDelete: "cascade" }),
+    month: integer("month").notNull(),
+    amount: numeric("amount", { precision: 14, scale: 2 }),
+    updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("accounts_cash_months_uq").on(t.itemId, t.month)],
+);
+
+export const accountsCashLimits = pgTable(
+  "accounts_cash_limits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fyStartYear: integer("fy_start_year").notNull(),
+    code: text("code"),
+    entity: text("entity").notNull(),
+    maxAllowed: numeric("max_allowed", { precision: 14, scale: 2 }),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("accounts_cash_limits_fy_entity_uq").on(t.fyStartYear, t.entity)],
+);
+
+export type AccountsCashItem = typeof accountsCashItems.$inferSelect;
+export type AccountsCashMonth = typeof accountsCashMonths.$inferSelect;
+export type AccountsCashLimit = typeof accountsCashLimits.$inferSelect;
+
 export type AccountsTaskRow = typeof accountsTaskList.$inferSelect;
 export type AccountsScreenshot = typeof accountsScreenshots.$inferSelect;
 export type CaHandoverCredential = typeof caHandoverCredentials.$inferSelect;
