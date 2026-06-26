@@ -2582,6 +2582,58 @@ export type AccountsVasaBalance = typeof accountsVasaBalances.$inferSelect;
 export type AccountsShare = typeof accountsShares.$inferSelect;
 export type AccountsItFolder = typeof accountsItFolders.$inferSelect;
 
+// SIP Tracker → Loans sub-tables (mig 0088). Per-loan monthly EMI + loan-account
+// closing balance over dynamic month columns. FY-independent.
+export const accountsLoanItems = pgTable(
+  "accounts_loan_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    code: text("code"),
+    entity: text("entity"),
+    loanName: text("loan_name").notNull(),
+    location: text("location"),
+    emiDate: text("emi_date"),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accounts_loan_items_sort_idx").on(t.sortOrder)],
+);
+
+export const accountsLoanPeriods = pgTable(
+  "accounts_loan_periods",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    label: text("label").notNull(),
+    sortOrder: integer("sort_order"),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accounts_loan_periods_sort_idx").on(t.sortOrder)],
+);
+
+export const accountsLoanCells = pgTable(
+  "accounts_loan_cells",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    loanId: uuid("loan_id").notNull().references(() => accountsLoanItems.id, { onDelete: "cascade" }),
+    periodId: uuid("period_id").notNull().references(() => accountsLoanPeriods.id, { onDelete: "cascade" }),
+    emi: numeric("emi", { precision: 16, scale: 2 }),
+    closingBalance: numeric("closing_balance", { precision: 18, scale: 2 }),
+    updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("accounts_loan_cells_uq").on(t.loanId, t.periodId)],
+);
+
+export type AccountsLoanItem = typeof accountsLoanItems.$inferSelect;
+export type AccountsLoanPeriod = typeof accountsLoanPeriods.$inferSelect;
+export type AccountsLoanCell = typeof accountsLoanCells.$inferSelect;
+
 export type AccountsTaskRow = typeof accountsTaskList.$inferSelect;
 export type AccountsScreenshot = typeof accountsScreenshots.$inferSelect;
 export type CaHandoverCredential = typeof caHandoverCredentials.$inferSelect;

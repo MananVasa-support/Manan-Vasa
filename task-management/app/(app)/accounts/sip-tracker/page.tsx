@@ -5,8 +5,10 @@ import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { requireAccountsAccess } from "@/lib/accounts/access";
 import { listSipItems, listSipMonths } from "@/lib/queries/accounts-sip";
+import { listLoanItems, listLoanPeriods, listLoanCells } from "@/lib/queries/accounts-loans";
 import { listAccountsLookups } from "@/lib/accounts/lookups";
 import { SipTracker } from "@/components/accounts/sip-tracker/sip-client";
+import { LoansPanel } from "@/components/accounts/sip-tracker/loans-panel";
 import { fyMonthCols, fyLabel, fyStartYearFor } from "@/lib/accounts/cc";
 
 export const dynamic = "force-dynamic";
@@ -24,11 +26,15 @@ export default async function SipTrackerPage({ searchParams }: PageProps) {
   const rawFy = parseInt(String(sp.fy ?? ""), 10);
   const fyStartYear = Number.isFinite(rawFy) && rawFy >= 2000 && rawFy <= 2100 ? rawFy : curFy;
 
-  const [items, months, entityOptions, typeOptions] = await Promise.all([
+  const [items, months, entityOptions, typeOptions, loans, loanPeriods, loanCells, loanEntityOptions] = await Promise.all([
     listSipItems(fyStartYear),
     listSipMonths(fyStartYear),
     listAccountsLookups("sip_entity"),
     listAccountsLookups("sip_type"),
+    listLoanItems(),
+    listLoanPeriods(),
+    listLoanCells(),
+    listAccountsLookups("loan_entity"),
   ]);
 
   const cols = fyMonthCols(fyStartYear);
@@ -82,6 +88,8 @@ export default async function SipTrackerPage({ searchParams }: PageProps) {
           entityOptions={entityOptions}
           typeOptions={typeOptions}
         />
+
+        <LoansPanel loans={loans} periods={loanPeriods} cells={loanCells} entityOptions={loanEntityOptions} />
       </main>
       <DashboardFooter />
     </>
