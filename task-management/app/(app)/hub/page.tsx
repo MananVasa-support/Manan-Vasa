@@ -8,7 +8,7 @@ import {
   TrendingUp,
   Megaphone,
   GraduationCap,
-  ArrowUpRight,
+  ArrowRight,
   Lock,
   type LucideIcon,
 } from "lucide-react";
@@ -20,13 +20,14 @@ import { HubSignOut } from "@/components/hub/hub-signout";
 /**
  * THE FRONT DOOR — post-login Hub launcher.
  *
- * A neobrutalist "switchboard": six big poster cards, each a physical button
- * that presses into the page on hover/focus. Pure Server Component + CSS — no
- * client JS for the cards, no new queries beyond requireUser() (which the (app)
- * layout already resolved and cache()'d, so this is free). The only interactive
- * island is the small sign-out chip.
+ * Minimal-neobrutalist "switchboard": six poster cards on warm paper, each a
+ * physical button that presses into the page on hover/focus. The palette is
+ * deliberately restrained — paper + ink, with Altus red as the SINGLE accent
+ * (index, and the press state) — so it reads premium/editorial, not playful.
  *
- * Auth/gates are handled by the (app) layout — we do NOT re-check here.
+ * Pure Server Component + CSS — no client JS for the cards, no new queries
+ * beyond requireUser() (already resolved + cache()'d by the (app) layout). The
+ * only interactive island is the small sign-out chip.
  */
 
 type Card = {
@@ -38,8 +39,6 @@ type Card = {
   desc: string;
   href: Route;
   Icon: LucideIcon;
-  /** Card class → flat color block + on-fill text color (see globals-scoped CSS). */
-  tone: "hub-red" | "hub-ink" | "hub-blue" | "hub-green" | "hub-amber" | "hub-purple";
   soon?: boolean;
 };
 
@@ -51,7 +50,6 @@ const CARDS: Card[] = [
     desc: "People, settings, payroll & the control room.",
     href: "/ws/admin" as Route,
     Icon: ShieldCheck,
-    tone: "hub-red",
   },
   {
     index: "02",
@@ -60,7 +58,6 @@ const CARDS: Card[] = [
     desc: "The work dashboard — tasks, goals & the daily loop.",
     href: "/ws/wms" as Route,
     Icon: LayoutDashboard,
-    tone: "hub-ink",
   },
   {
     index: "03",
@@ -69,7 +66,6 @@ const CARDS: Card[] = [
     desc: "Attendance, leave, salary & the team roster.",
     href: "/ws/employees" as Route,
     Icon: Users,
-    tone: "hub-blue",
   },
   {
     index: "04",
@@ -78,7 +74,6 @@ const CARDS: Card[] = [
     desc: "Collections, references & breakthroughs — and more to come.",
     href: "/ws/sales" as Route,
     Icon: TrendingUp,
-    tone: "hub-green",
   },
   {
     index: "05",
@@ -87,7 +82,6 @@ const CARDS: Card[] = [
     desc: "The index today — campaigns & reach landing next.",
     href: "/ws/marketing" as Route,
     Icon: Megaphone,
-    tone: "hub-amber",
   },
   {
     index: "06",
@@ -96,7 +90,6 @@ const CARDS: Card[] = [
     desc: "Material library, tests, induction & feedback.",
     href: "/ws/training" as Route,
     Icon: GraduationCap,
-    tone: "hub-purple",
   },
 ];
 
@@ -155,21 +148,21 @@ export default async function HubPage() {
           const inner = (
             <>
               <span className="hub-card-top">
-              <span className="hub-index">{c.index}</span>
-              {c.soon ? (
-                <span className="hub-soon">SOON</span>
-              ) : locked ? (
-                <span className="hub-soon hub-locked">
-                  <Lock size={12} strokeWidth={2.8} aria-hidden /> LOCKED
-                </span>
-              ) : (
-                <ArrowUpRight className="hub-go" size={22} strokeWidth={2.8} aria-hidden />
-              )}
-            </span>
+                <span className="hub-index">{c.index}</span>
+                {c.soon ? (
+                  <span className="hub-soon">SOON</span>
+                ) : locked ? (
+                  <span className="hub-soon hub-locked">
+                    <Lock size={11} strokeWidth={2.8} aria-hidden /> LOCKED
+                  </span>
+                ) : (
+                  <ArrowRight className="hub-go" size={22} strokeWidth={2.6} aria-hidden />
+                )}
+              </span>
 
-            <span className="hub-icon-wrap" aria-hidden>
-              <c.Icon className="hub-icon" strokeWidth={2.2} />
-            </span>
+              <span className="hub-icon-wrap" aria-hidden>
+                <c.Icon className="hub-icon" strokeWidth={2} />
+              </span>
 
               <span className="hub-card-foot">
                 <span className="hub-label">{c.label}</span>
@@ -181,7 +174,7 @@ export default async function HubPage() {
           return inert ? (
             <div
               key={c.label}
-              className={`hub-card hub-card-soon ${c.tone}`}
+              className="hub-card hub-card-soon"
               aria-label={locked ? `${c.label} — no access` : `${c.label} — coming soon`}
               aria-disabled="true"
             >
@@ -191,7 +184,7 @@ export default async function HubPage() {
             <Link
               key={c.label}
               href={c.href}
-              className={`hub-card ${c.tone}`}
+              className="hub-card"
               aria-label={`Open ${c.label}`}
             >
               {inner}
@@ -204,14 +197,17 @@ export default async function HubPage() {
 }
 
 /**
- * Scoped neobrutalism. Inlined here (static, no client JS) so the showcase
+ * Scoped minimal-neobrutalism. Inlined here (static, no client JS) so the
  * styling travels with the route and never leaks into the rest of the app.
  *
- * Press model: the card sits lifted on a hard, blur-free offset shadow. On
- * hover OR :focus-visible it translates by the shadow offset and the shadow
- * collapses — the button physically presses into the page. Disabled under
- * prefers-reduced-motion (no transform), but the shadow/focus state still
- * reads so the affordance survives.
+ * Palette: warm paper canvas + cards, ink (near-black) borders/shadows/type,
+ * Altus red as the ONLY accent (index, and the pressed state). No per-card
+ * color fills — differentiation is the icon + label, not colour.
+ *
+ * Press model: each card sits lifted on a hard, blur-free ink offset shadow. On
+ * hover/:focus-visible it translates by the offset and the shadow collapses to a
+ * small red shadow with a red border — the button physically presses in and
+ * "comes alive" in brand red. Disabled under prefers-reduced-motion.
  */
 function HubStyles() {
   return (
@@ -258,12 +254,14 @@ function HubStyles() {
         font-size: 13.5px; font-weight: 800; letter-spacing: 0.01em;
         cursor: pointer;
         box-shadow: 4px 4px 0 var(--color-ink-strong);
-        transition: transform 120ms ease, box-shadow 120ms ease;
+        transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease, color 120ms ease;
       }
       .hub-chip:hover,
       .hub-chip:focus-visible {
         transform: translate(2px, 2px);
-        box-shadow: 2px 2px 0 var(--color-ink-strong);
+        box-shadow: 2px 2px 0 var(--color-altus-red);
+        border-color: var(--color-altus-red);
+        color: var(--color-altus-red);
       }
       .hub-chip:focus-visible {
         outline: 3px solid var(--color-altus-red);
@@ -311,44 +309,44 @@ function HubStyles() {
         gap: clamp(12px, 1.6vw, 22px);
       }
 
-      /* ---- card (the poster button) ---- */
+      /* ---- card (the poster button) — warm paper, ink frame, red on press ---- */
       .hub-card {
         position: relative;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        gap: 10px;
+        gap: 12px;
         min-height: 0;
-        padding: clamp(14px, 1.5vw, 22px);
+        padding: clamp(16px, 1.6vw, 24px);
+        background: #fcfaf4;
+        color: var(--color-ink-strong);
         border: 3px solid var(--color-ink-strong);
         border-radius: 16px;
         text-decoration: none;
-        overflow: hidden;
         box-shadow: 6px 6px 0 var(--color-ink-strong);
-        transition: transform 130ms cubic-bezier(0.2,0.7,0.3,1),
-                    box-shadow 130ms cubic-bezier(0.2,0.7,0.3,1);
+        transition: transform 140ms cubic-bezier(0.2,0.7,0.3,1),
+                    box-shadow 140ms cubic-bezier(0.2,0.7,0.3,1),
+                    border-color 140ms ease, background 140ms ease;
+        animation: hubRise 0.5s cubic-bezier(0.2,0.7,0.3,1) both;
       }
-      .hub-card-soon { cursor: default; }
+      /* staggered entrance */
+      .hub-grid > :nth-child(1) { animation-delay: 0.02s; }
+      .hub-grid > :nth-child(2) { animation-delay: 0.07s; }
+      .hub-grid > :nth-child(3) { animation-delay: 0.12s; }
+      .hub-grid > :nth-child(4) { animation-delay: 0.17s; }
+      .hub-grid > :nth-child(5) { animation-delay: 0.22s; }
+      .hub-grid > :nth-child(6) { animation-delay: 0.27s; }
+
       .hub-card:hover,
       .hub-card:focus-visible {
-        transform: translate(6px, 6px);
-        box-shadow: 0 0 0 var(--color-ink-strong);
+        transform: translate(5px, 5px);
+        box-shadow: 1px 1px 0 var(--color-altus-red);
+        border-color: var(--color-altus-red);
+        background: color-mix(in srgb, var(--color-altus-red) 4%, #fcfaf4);
       }
-      /* SOON card is inert — no press. */
-      .hub-card-soon:hover { transform: none; box-shadow: 6px 6px 0 var(--color-ink-strong); }
       .hub-card:focus-visible {
-        outline: 4px solid var(--color-ink-strong);
-        outline-offset: 5px;
-      }
-      /* subtle paper grain corner so the flat blocks feel printed, not digital */
-      .hub-card::after {
-        content: "";
-        position: absolute;
-        right: -40px; bottom: -40px;
-        width: 140px; height: 140px;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.10);
-        pointer-events: none;
+        outline: 3px solid var(--color-altus-red);
+        outline-offset: 4px;
       }
 
       .hub-card-top {
@@ -358,28 +356,27 @@ function HubStyles() {
       }
       .hub-index {
         font-family: var(--font-mono-display), ui-monospace, monospace;
-        font-size: 15px; font-weight: 700; letter-spacing: 0.12em;
-        opacity: 0.82;
+        font-size: 14px; font-weight: 800; letter-spacing: 0.14em;
+        color: var(--color-altus-red);
       }
-      .hub-go { opacity: 0.9; transition: transform 130ms ease; }
+      .hub-go {
+        color: var(--color-ink-strong);
+        opacity: 0.5;
+        transition: transform 140ms ease, color 140ms ease, opacity 140ms ease;
+      }
       .hub-card:hover .hub-go,
-      .hub-card:focus-visible .hub-go { transform: translate(3px, -3px); }
-
-      .hub-soon {
-        font-family: var(--font-mono-display), ui-monospace, monospace;
-        font-size: 12px; font-weight: 800; letter-spacing: 0.18em;
-        padding: 4px 9px;
-        border: 2.5px solid currentColor;
-        border-radius: 999px;
-        background: rgba(0,0,0,0.16);
-      }
-      /* LOCKED badge — same chip as SOON, with the lock glyph inline. */
-      .hub-locked {
-        display: inline-flex; align-items: center; gap: 5px;
+      .hub-card:focus-visible .hub-go {
+        transform: translateX(4px);
+        color: var(--color-altus-red);
+        opacity: 1;
       }
 
       .hub-icon-wrap { display: flex; }
-      .hub-icon { width: clamp(34px, 3vw, 48px); height: clamp(34px, 3vw, 48px); }
+      .hub-icon {
+        width: clamp(34px, 2.9vw, 46px);
+        height: clamp(34px, 2.9vw, 46px);
+        color: var(--color-ink-strong);
+      }
 
       .hub-card-foot { display: flex; flex-direction: column; gap: 5px; }
       .hub-label {
@@ -389,39 +386,67 @@ function HubStyles() {
         line-height: 1;
         letter-spacing: -0.01em;
         text-transform: uppercase;
+        color: var(--color-ink-strong);
       }
       .hub-desc {
         font-size: clamp(12px, 1.05vw, 14px);
-        line-height: 1.4; opacity: 0.9; max-width: 30ch;
+        line-height: 1.45;
+        color: var(--color-ink-muted);
+        max-width: 30ch;
       }
 
-      /* ---- narrow screens: one page is impractical with 6 cards → let it
-             scroll, and collapse to fewer columns. ---- */
+      /* ---- inert (locked / soon): muted paper, no press, no red accent ---- */
+      .hub-card-soon {
+        cursor: default;
+        background: #f6f2e9;
+        border-color: var(--color-hairline-strong);
+        box-shadow: 4px 4px 0 var(--color-hairline-strong);
+        color: var(--color-ink-muted);
+      }
+      .hub-card-soon:hover,
+      .hub-card-soon:focus-visible {
+        transform: none;
+        box-shadow: 4px 4px 0 var(--color-hairline-strong);
+        border-color: var(--color-hairline-strong);
+        background: #f6f2e9;
+      }
+      .hub-card-soon .hub-index { color: var(--color-ink-subtle); }
+      .hub-card-soon .hub-icon { color: var(--color-ink-soft); }
+      .hub-card-soon .hub-label { color: var(--color-ink-soft); }
+
+      .hub-soon {
+        font-family: var(--font-mono-display), ui-monospace, monospace;
+        font-size: 11px; font-weight: 800; letter-spacing: 0.16em;
+        padding: 3px 8px;
+        border: 2px solid var(--color-hairline-strong);
+        border-radius: 999px;
+        color: var(--color-ink-subtle);
+        background: transparent;
+      }
+      .hub-locked { display: inline-flex; align-items: center; gap: 5px; }
+
+      @keyframes hubRise {
+        from { opacity: 0; transform: translateY(12px); }
+        to   { opacity: 1; transform: none; }
+      }
+
+      /* ---- narrow screens: let it scroll, collapse columns ---- */
       @media (max-width: 1024px) {
         .hub-root { height: auto; min-height: 100dvh; overflow: visible; }
         .hub-grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: none; }
-        .hub-card { min-height: 200px; }
+        .hub-card { min-height: 196px; }
       }
       @media (max-width: 640px) {
         .hub-grid { grid-template-columns: 1fr; }
       }
 
-      /* ---- tones: flat bold color blocks, on-brand tokens, AA text ---- */
-      .hub-red   { background: var(--color-altus-red);  color: #fff; }
-      .hub-ink   { background: var(--color-ink-strong); color: #fff; }
-      .hub-blue  { background: var(--color-blue-deep);  color: #fff; }
-      .hub-green { background: var(--color-green-deep); color: #fff; }
-      .hub-amber { background: var(--color-amber);      color: var(--color-ink-strong); }
-      .hub-purple{ background: var(--color-purple-deep);color: #fff; }
-      /* amber is light — keep its soon-tag legible on the fill */
-      .hub-amber .hub-soon { background: rgba(15,23,42,0.12); }
-
       @media (prefers-reduced-motion: reduce) {
+        .hub-card { animation: none; }
         .hub-card, .hub-chip, .hub-go { transition: none; }
         .hub-card:hover, .hub-card:focus-visible { transform: none; }
         .hub-chip:hover, .hub-chip:focus-visible { transform: none; }
-        /* still collapse the shadow so the press reads as a state change */
-        .hub-card:hover, .hub-card:focus-visible { box-shadow: 2px 2px 0 var(--color-ink-strong); }
+        /* still snap to the red pressed state so the affordance reads */
+        .hub-card:hover, .hub-card:focus-visible { box-shadow: 2px 2px 0 var(--color-altus-red); }
         .hub-card:hover .hub-go, .hub-card:focus-visible .hub-go { transform: none; }
       }
     `}</style>
