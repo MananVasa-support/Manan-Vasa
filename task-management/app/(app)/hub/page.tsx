@@ -30,33 +30,17 @@ import { HubSignOut } from "@/components/hub/hub-signout";
  */
 
 type Card = {
-  /** Mono index shown top-left ("01"…"07") — encodes launch order, not decor. */
+  /** Mono index shown top-left ("01"…"06") — encodes launch order, not decor. */
   index: string;
-  /**
-   * Workspace id — drives the entry link and the access check. Omitted for
-   * non-workspace cards (e.g. Accounts), whose lock state is computed
-   * separately and passed via `forcedLocked`.
-   */
-  ws?: WorkspaceId;
+  /** Workspace id — drives the entry link and the access check. */
+  ws: WorkspaceId;
   label: string;
   desc: string;
   href: Route;
   Icon: LucideIcon;
   /** Card class → flat color block + on-fill text color (see globals-scoped CSS). */
-  tone:
-    | "hub-red"
-    | "hub-ink"
-    | "hub-blue"
-    | "hub-green"
-    | "hub-amber"
-    | "hub-purple"
-    | "hub-teal";
+  tone: "hub-red" | "hub-ink" | "hub-blue" | "hub-green" | "hub-amber" | "hub-purple";
   soon?: boolean;
-  /**
-   * For non-workspace cards: explicit lock state (true = locked/inert). The
-   * card stays VISIBLE but non-clickable when locked, same as a gated room.
-   */
-  forcedLocked?: boolean;
 };
 
 const CARDS: Card[] = [
@@ -125,9 +109,8 @@ export default async function HubPage() {
   // /ws handler + the destination layouts enforce it too — this is just the door.
   const access = accessFor(me);
 
-  // Accounts is no longer a hub room — it now lives as a section inside Admin
-  // (the "Accounts" pill in the admin header, super-admins only).
-  const cards: Card[] = CARDS;
+  // NOTE: Accounts is no longer a hub room — it now lives as a section inside
+  // Admin (the "Accounts" pill in the admin header, super-admins only).
 
   return (
     <main className="hub-root">
@@ -164,10 +147,8 @@ export default async function HubPage() {
 
       {/* Switchboard */}
       <section className="hub-grid" aria-label="Workspaces">
-        {cards.map((c) => {
-          const locked = !c.soon && (
-            c.ws ? !canAccessWorkspace(c.ws, access) : !!c.forcedLocked
-          );
+        {CARDS.map((c) => {
+          const locked = !c.soon && !canAccessWorkspace(c.ws, access);
           // Inert = SOON (not built) OR locked (no access). Either way it
           // renders as a non-link card so it can't navigate anywhere.
           const inert = c.soon || locked;
@@ -319,9 +300,8 @@ function HubStyles() {
         line-height: 1.45;
       }
 
-      /* ---- grid: fills the height left after header + hero. With 7 cards we
-             run 3 rows of up-to-3 (last row holds the 7th); auto rows so it
-             scales without clipping. ---- */
+      /* ---- grid: fills the height left after header + hero. Six cards run as
+             2 rows of 3; auto rows so it scales without clipping. ---- */
       .hub-grid {
         flex: 1 1 auto;
         min-height: 0;
@@ -433,7 +413,6 @@ function HubStyles() {
       .hub-green { background: var(--color-green-deep); color: #fff; }
       .hub-amber { background: var(--color-amber);      color: var(--color-ink-strong); }
       .hub-purple{ background: var(--color-purple-deep);color: #fff; }
-      .hub-teal  { background: var(--color-teal-deep);  color: #fff; }
       /* amber is light — keep its soon-tag legible on the fill */
       .hub-amber .hub-soon { background: rgba(15,23,42,0.12); }
 
