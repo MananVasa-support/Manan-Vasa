@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { signOut } from "firebase/auth";
-import { LayoutGrid, LogOut } from "lucide-react";
+import { LayoutGrid, LogOut, ShieldCheck, Calculator } from "lucide-react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { AdminTopNav } from "./admin-top-nav";
 
@@ -13,6 +13,8 @@ interface Props {
   avatarUrl: string | null;
   /** Where "Back to app" returns — the workspace the admin came from. */
   backHref: string;
+  /** Super-admins also get the "Accounts" section pill. */
+  canSeeAccounts: boolean;
 }
 
 /**
@@ -21,7 +23,7 @@ interface Props {
  * flips the nav pills to ink-on-light, brand-red accents). Desktop only;
  * `AdminMobileBar` still owns the phone layout.
  */
-export function AdminHeader({ adminName, adminEmail, avatarUrl, backHref }: Props) {
+export function AdminHeader({ adminName, adminEmail, avatarUrl, backHref, canSeeAccounts }: Props) {
   async function handleSignOut() {
     try {
       await signOut(getFirebaseAuth());
@@ -52,10 +54,10 @@ export function AdminHeader({ adminName, adminEmail, avatarUrl, backHref }: Prop
         }}
       >
         <div className="relative w-full h-[84px] px-6 2xl:px-8 flex items-center gap-4 2xl:gap-6">
-          {/* LEFT: logo + Admin badge → links to the admin overview. */}
+          {/* LEFT: logo → admin overview, then the section switcher. */}
           <Link
             href={"/admin" as Route}
-            className="flex items-center gap-2.5 shrink-0"
+            className="flex items-center shrink-0"
             aria-label="Admin overview"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -65,18 +67,30 @@ export function AdminHeader({ adminName, adminEmail, avatarUrl, backHref }: Prop
               className="h-12 w-auto"
               style={{ display: "block" }}
             />
+          </Link>
+
+          {/* Section switcher: Admin ⇄ Accounts. Accounts is super-admins only —
+              clicking it leaves the admin shell and enters the Accounts module. */}
+          <div className="flex items-center gap-1 rounded-full border border-hairline bg-white/60 p-1 shrink-0">
             <span
-              className="inline-flex items-center text-[10px] font-bold uppercase text-white px-2 py-0.5 rounded-full"
+              aria-current="page"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold text-white"
               style={{
-                background:
-                  "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+                background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
                 boxShadow: "0 2px 8px rgba(225, 6, 0, 0.35)",
-                letterSpacing: "0.08em",
               }}
             >
-              Admin
+              <ShieldCheck size={14} strokeWidth={2.6} /> Admin
             </span>
-          </Link>
+            {canSeeAccounts && (
+              <Link
+                href={"/accounts" as Route}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold text-ink-soft transition-colors hover:text-altus-red hover:bg-black/[0.04]"
+              >
+                <Calculator size={14} strokeWidth={2.6} /> Accounts
+              </Link>
+            )}
+          </div>
 
           {/* CENTER: grouped category nav. Scrolls from the left if it ever
               gets tight, so nothing is clipped (mirrors the main header). */}

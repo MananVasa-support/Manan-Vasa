@@ -7,6 +7,8 @@ type Props = {
   adminName: string;
   adminEmail: string;
   avatarUrl: string | null;
+  /** Super-admins also get the "Accounts" section pill in the admin header. */
+  canSeeAccounts: boolean;
 };
 
 /**
@@ -20,6 +22,7 @@ export async function AdminShell({
   adminName,
   adminEmail,
   avatarUrl,
+  canSeeAccounts,
 }: Props) {
   // Consistent with every other module: the back button returns to the Hub
   // (the workspace switchboard). The logo still goes to the admin home (/admin).
@@ -32,8 +35,9 @@ export async function AdminShell({
         adminEmail={adminEmail}
         avatarUrl={avatarUrl}
         backHref={backHref}
+        canSeeAccounts={canSeeAccounts}
       />
-      <AdminMobileBar adminName={adminName} adminEmail={adminEmail} backHref={backHref} />
+      <AdminMobileBar adminName={adminName} adminEmail={adminEmail} backHref={backHref} canSeeAccounts={canSeeAccounts} />
       <main className="flex-1 min-w-0 px-8 py-8 max-md:px-4 max-md:py-6">
         <div className="mx-auto max-w-[1400px]">{children}</div>
       </main>

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
 import { signOut } from "firebase/auth";
-import { Menu, X, LayoutGrid, LogOut } from "lucide-react";
+import { Menu, X, LayoutGrid, LogOut, Calculator } from "lucide-react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import {
   ADMIN_TOP_LEVEL,
@@ -20,6 +20,8 @@ interface Props {
   adminEmail: string;
   /** Where "Back to app" returns — the workspace the admin came from. */
   backHref: string;
+  /** Super-admins also get the "Accounts" link in the drawer. */
+  canSeeAccounts: boolean;
 }
 
 /**
@@ -28,7 +30,7 @@ interface Props {
  * same nav as the desktop header, but flat with labelled category sections
  * (dropdowns don't belong in a vertical list).
  */
-export function AdminMobileBar({ adminName, adminEmail, backHref }: Props) {
+export function AdminMobileBar({ adminName, adminEmail, backHref, canSeeAccounts }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
 
@@ -163,6 +165,15 @@ export function AdminMobileBar({ adminName, adminEmail, backHref }: Props) {
               {ADMIN_TOP_LEVEL.map((item) => (
                 <NavLink key={item.href} item={item} />
               ))}
+              {canSeeAccounts && (
+                <Link
+                  href={"/accounts" as Route}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-[15px] font-semibold text-ink-strong"
+                >
+                  <Calculator size={18} strokeWidth={2.2} style={{ color: "var(--color-ink-soft)" }} />
+                  <span>Accounts</span>
+                </Link>
+              )}
               {ADMIN_GROUPS.map((g) => (
                 <div key={g.label} className="mt-2 flex flex-col gap-1">
                   <div className="nav-drawer-section">{g.label}</div>

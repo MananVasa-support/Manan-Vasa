@@ -8,14 +8,12 @@ import {
   TrendingUp,
   Megaphone,
   GraduationCap,
-  Calculator,
   ArrowUpRight,
   Lock,
   type LucideIcon,
 } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { accessFor } from "@/lib/auth/workspace-access";
-import { accountsAccess } from "@/lib/accounts/access";
 import { canAccessWorkspace, type WorkspaceId } from "@/lib/workspaces";
 import { HubSignOut } from "@/components/hub/hub-signout";
 
@@ -127,21 +125,9 @@ export default async function HubPage() {
   // /ws handler + the destination layouts enforce it too — this is just the door.
   const access = accessFor(me);
 
-  // Accounts is NOT a workspace — gate it with the module's own access check
-  // (admin OR manager-with-reports). Locked → visible but inert, like a room.
-  const accountsLocked = (await accountsAccess()) === null;
-  const cards: Card[] = [
-    ...CARDS,
-    {
-      index: "07",
-      label: "Accounts",
-      desc: "Totality, compliance, checklists & financial trackers.",
-      href: "/accounts" as Route,
-      Icon: Calculator,
-      tone: "hub-teal",
-      forcedLocked: accountsLocked,
-    },
-  ];
+  // Accounts is no longer a hub room — it now lives as a section inside Admin
+  // (the "Accounts" pill in the admin header, super-admins only).
+  const cards: Card[] = CARDS;
 
   return (
     <main className="hub-root">

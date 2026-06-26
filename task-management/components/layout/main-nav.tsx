@@ -24,6 +24,7 @@ import {
   GraduationCap,
   LayoutGrid,
   MessageSquareHeart,
+  ArrowLeft,
 } from "lucide-react";
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
@@ -157,6 +158,7 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
     // full section directory; the live sections sit beside it. New sections join
     // here as they ship.
     top: [
+      { href: "/admin" as Route, label: "Back to Admin", Icon: ArrowLeft },
       { href: "/accounts" as Route, label: "Index", Icon: LayoutGrid, exact: true },
       { href: "/accounts/task-list" as Route, label: "Task List", Icon: ListChecks },
       { href: "/accounts/weekly-checklist" as Route, label: "Weekly Checklist", Icon: CalendarCheck },
