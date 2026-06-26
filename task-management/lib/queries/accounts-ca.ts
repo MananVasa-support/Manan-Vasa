@@ -1,6 +1,7 @@
 import "server-only";
 import { asc } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { withRetry } from "@/lib/db/with-timeout";
 import { caHandoverCredentials, caHandoverReturns } from "@/db/schema";
 
 /**
@@ -28,14 +29,21 @@ export type { CaPortalType, CaCredentialRow, CaCredentialGroup, CaReturnRow };
  * boundary — `passwordEnc` is collapsed to `hasPassword`.
  */
 export async function listCaCredentials(): Promise<CaCredentialGroup[]> {
-  const rows = await db
-    .select()
-    .from(caHandoverCredentials)
-    .orderBy(
-      asc(caHandoverCredentials.portalType),
-      asc(caHandoverCredentials.sortOrder),
-      asc(caHandoverCredentials.entityName),
-    );
+  // Resilient against a momentary pooler hiccup — retry on a fresh connection
+  // instead of hard-failing the page to the error boundary (matches the
+  // dashboard's withRetry pattern; the load path stays untouched otherwise).
+  const rows = await withRetry(
+    () =>
+      db
+        .select()
+        .from(caHandoverCredentials)
+        .orderBy(
+          asc(caHandoverCredentials.portalType),
+          asc(caHandoverCredentials.sortOrder),
+          asc(caHandoverCredentials.entityName),
+        ),
+    { attempts: 3, timeoutMs: [6000, 10000, 14000], label: "ca-credentials" },
+  );
 
   const scrubbed: CaCredentialRow[] = rows.map((r) => ({
     id: r.id,
@@ -77,10 +85,14 @@ export async function listCaCredentials(): Promise<CaCredentialGroup[]> {
 /** A returns-archive row — every column is a plain document link or note. */
 /** All returns rows, newest FY first then entity name. */
 export async function listCaReturns(): Promise<CaReturnRow[]> {
-  const rows = await db
-    .select()
-    .from(caHandoverReturns)
-    .orderBy(asc(caHandoverReturns.fy), asc(caHandoverReturns.entityName));
+  const rows = await withRetry(
+    () =>
+      db
+        .select()
+        .from(caHandoverReturns)
+        .orderBy(asc(caHandoverReturns.fy), asc(caHandoverReturns.entityName)),
+    { attempts: 3, timeoutMs: [6000, 10000, 14000], label: "ca-returns" },
+  );
 
   return rows
     .map(
