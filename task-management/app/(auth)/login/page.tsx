@@ -1,8 +1,5 @@
-import { redirect } from "next/navigation";
-import type { Route } from "next";
 import { LoginMosaic } from "@/components/auth/login-mosaic";
 import { LoginFormCanva } from "@/components/auth/login-form-canva";
-import { getCurrentEmployee } from "@/lib/auth/current";
 
 /**
  * /login — Canva-style "jump back in" treatment.
@@ -30,17 +27,10 @@ export default async function LoginPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const reason = firstString(sp["reason"]);
 
-  // Only redirect a genuinely-signed-in user who arrived here CLEANLY. If the
-  // middleware bounced them (it appends ?next=) or the idle timeout sent them
-  // (?reason=idle), DON'T redirect back — that's the /login ⟷ app loop. Always
-  // show the form so a dead/half-valid session can be replaced by a fresh login.
-  const bounced = sp["next"] !== undefined || reason !== undefined;
-  if (!bounced) {
-    const me = await getCurrentEmployee();
-    if (me && me.isActive) {
-      redirect("/" as Route);
-    }
-  }
+  // No DB work on this page — it renders the sign-in form for everyone, always
+  // fast and resilient even under load. Already-signed-in users hitting the root
+  // are sent to /hub by the middleware; a direct /login visit just shows the
+  // form (and a fresh sign-in cleanly replaces any stale session).
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden" style={{ background: "#0c0807" }}>
