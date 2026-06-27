@@ -136,7 +136,7 @@ export async function archiveTask(
   } catch (err) {
     return { ok: false, error: `Could not archive: ${(err as Error).message}` };
   }
-  afterResponse(() => reconcileTaskEvent(taskId)); // remove from the doer's calendar
+  await reconcileTaskEvent(taskId); // inline (reliable request context); never throws + records retry state for the daily backstop cron // remove from the doer's calendar
   revalidateTaskRoutes();
   return { ok: true };
 }
@@ -178,12 +178,12 @@ export async function deleteTask(
   }
 
   if (doomed?.googleEventId) {
-    afterResponse(() =>
-      removeTaskEvent({
-        googleEventId: doomed.googleEventId,
-        googleSyncedDoerId: doomed.googleSyncedDoerId,
-      }),
-    );
+    // Inline: the row is gone after this, so the daily cron can't catch a missed
+    // teardown — do it reliably in the request context. removeTaskEvent never throws.
+    await removeTaskEvent({
+      googleEventId: doomed.googleEventId,
+      googleSyncedDoerId: doomed.googleSyncedDoerId,
+    });
   }
   revalidateTaskRoutes();
   return { ok: true };
@@ -220,7 +220,7 @@ export async function unarchiveTask(
   } catch (err) {
     return { ok: false, error: `Could not restore: ${(err as Error).message}` };
   }
-  afterResponse(() => reconcileTaskEvent(taskId)); // re-add to the doer's calendar
+  await reconcileTaskEvent(taskId); // inline (reliable request context); never throws + records retry state for the daily backstop cron // re-add to the doer's calendar
   revalidateTaskRoutes();
   return { ok: true };
 }
@@ -391,7 +391,7 @@ export async function reassignDoer(
     return { ok: false, error: `Could not reassign: ${(err as Error).message}` };
   }
   // Move the event off the old doer's calendar and onto the new doer's.
-  afterResponse(() => reconcileTaskEvent(taskId));
+  await reconcileTaskEvent(taskId); // inline (reliable request context); never throws + records retry state for the daily backstop cron
   revalidateTaskRoutes();
   return { ok: true };
 }
@@ -1018,7 +1018,7 @@ export async function editTaskFields(
     });
   }
 
-  afterResponse(() => reconcileTaskEvent(taskId)); // push edits to the calendar event
+  await reconcileTaskEvent(taskId); // inline (reliable request context); never throws + records retry state for the daily backstop cron // push edits to the calendar event
   revalidateTaskRoutes();
   revalidatePath(`/tasks/${taskId}`);
   return { ok: true };
@@ -1288,7 +1288,7 @@ export async function reassignTask(
   }
 
   // Move the calendar event to the new doer's calendar.
-  afterResponse(() => reconcileTaskEvent(taskId));
+  await reconcileTaskEvent(taskId); // inline (reliable request context); never throws + records retry state for the daily backstop cron
   revalidateTaskRoutes();
   revalidatePath(`/tasks/${taskId}`);
   return { ok: true };
