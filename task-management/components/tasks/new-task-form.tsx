@@ -19,6 +19,7 @@ import { ScheduleSection, type ScheduleValue } from "./schedule-section";
 import { ClientSelect } from "./client-select";
 import { SubjectSelect } from "./subject-select";
 import { Select } from "@/components/ui/select";
+import { VoiceNoteButton } from "@/components/ui/voice-note-button";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 
 type EmployeeOption = { id: string; name: string };
@@ -89,6 +90,8 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
     control,
     handleSubmit,
     watch,
+    setValue,
+    getValues,
     formState: { errors },
   } = useForm<NewTaskFormValues>({
     resolver: zodResolver(NewTaskSchema),
@@ -307,9 +310,10 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
                 placeholder="Select an employee…"
                 searchPlaceholder="Search employees…"
                 searchable
-                // h-14 matches the .nt-input resting height (Doer / Due Date)
-                // so all four metadata fields look identical at rest.
-                className="h-14"
+                // Match the .nt-input look (gradient + shadow border) so the
+                // Initiator/Priority fields are visually identical to Client/Subject.
+                unstyled
+                className="nt-input"
                 options={employees.map((emp) => ({ value: emp.id, label: emp.name }))}
               />
             )}
@@ -347,8 +351,8 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
                 id="nt-priority"
                 value={field.value}
                 onValueChange={field.onChange}
-                // Match .nt-input resting height (see Initiator above).
-                className="h-14"
+                unstyled
+                className="nt-input"
                 options={TASK_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
               />
             )}
@@ -359,8 +363,22 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
         </Field>
       </div>
 
-      {/* Task Description · Initiator Notes — full-width textareas. */}
-      <Field id="nt-desc" label="Task Description" required>
+      {/* Task Description · Initiator Notes — full-width textareas, each with a
+          mic that records a voice note → Gemini transcript appended to the field. */}
+      <Field
+        id="nt-desc"
+        label="Task Description"
+        required
+        action={
+          <VoiceNoteButton
+            label="Dictate"
+            onText={(t) => {
+              const cur = getValues("description");
+              setValue("description", (cur ? cur.trimEnd() + " " : "") + t, { shouldValidate: true, shouldDirty: true });
+            }}
+          />
+        }
+      >
         <textarea
           id="nt-desc"
           rows={4}
@@ -371,7 +389,19 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
         />
       </Field>
 
-      <Field id="nt-notes" label="Initiator Notes">
+      <Field
+        id="nt-notes"
+        label="Initiator Notes"
+        action={
+          <VoiceNoteButton
+            label="Dictate"
+            onText={(t) => {
+              const cur = getValues("notes");
+              setValue("notes", (cur ? cur.trimEnd() + " " : "") + t, { shouldDirty: true });
+            }}
+          />
+        }
+      >
         <textarea
           id="nt-notes"
           rows={3}
@@ -406,6 +436,8 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
                 id="nt-project"
                 value={field.value ?? ""}
                 onValueChange={field.onChange}
+                unstyled
+                className="nt-input"
                 options={[
                   { value: "", label: "Not linked to a project" },
                   ...projectNodes.map((n) => ({ value: n.id, label: n.label })),
@@ -627,6 +659,7 @@ function DoerMultiSelect({
           aria-expanded={open}
           aria-autocomplete="list"
           onFocus={() => setOpen(true)}
+          onClick={() => setOpen(true)}
           onChange={(e) => {
             setQuery(e.target.value);
             setOpen(true);
@@ -698,7 +731,10 @@ function DoerMultiSelect({
                   // click doesn't blur-close the menu before the toggle lands.
                   onMouseDown={(e) => e.preventDefault()}
                   onMouseEnter={() => setHi(i)}
-                  onClick={() => commit(emp.id)}
+                  // A mouse pick selects the doer and CLOSES the menu (click the
+                  // field again to add another). Keyboard Enter still keeps it
+                  // open for rapid multi-add.
+                  onClick={() => { commit(emp.id, false); setOpen(false); }}
                   className="flex items-center gap-3 px-3.5 py-2.5 cursor-pointer transition-colors"
                   style={{
                     background: isSel
@@ -823,29 +859,35 @@ function Field({
   label,
   required,
   children,
+  action,
 }: {
   id: string;
   label: string;
   required?: boolean;
   children: React.ReactNode;
+  /** Optional control rendered on the right of the label row (e.g. a mic). */
+  action?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-2.5">
-      <label
-        htmlFor={id}
-        className="font-bold"
-        style={{
-          fontFamily: "var(--font-sans), system-ui, sans-serif",
-          fontSize: 15,
-          letterSpacing: "-0.005em",
-          color: "var(--color-ink-strong)",
-        }}
-      >
-        {label}
-        {required && (
-          <span style={{ color: "rgb(168, 4, 0)" }}> *</span>
-        )}
-      </label>
+      <div className="flex items-center justify-between gap-3">
+        <label
+          htmlFor={id}
+          className="font-bold"
+          style={{
+            fontFamily: "var(--font-sans), system-ui, sans-serif",
+            fontSize: 15,
+            letterSpacing: "-0.005em",
+            color: "var(--color-ink-strong)",
+          }}
+        >
+          {label}
+          {required && (
+            <span style={{ color: "rgb(168, 4, 0)" }}> *</span>
+          )}
+        </label>
+        {action}
+      </div>
       {children}
     </div>
   );

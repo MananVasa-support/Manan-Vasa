@@ -32,6 +32,9 @@ interface SelectProps {
   onBlur?: () => void;
   /** Extra classes on the trigger button. */
   className?: string;
+  /** Drop the default trigger look (border/bg/height) so `className` fully
+   *  drives it — used to match the `.nt-input` fields in the New Task form. */
+  unstyled?: boolean;
   /** Extra classes on the dropdown panel. */
   contentClassName?: string;
   ariaLabel?: string;
@@ -52,6 +55,7 @@ export function Select({
   searchable,
   searchPlaceholder = "Search…",
   disabled,
+  unstyled,
   id,
   onFocus,
   onBlur,
@@ -120,10 +124,14 @@ export function Select({
           aria-haspopup="listbox"
           aria-expanded={open}
           className={cn(
-            "flex w-full items-center gap-2 h-11 px-3.5 rounded-chip border border-hairline bg-surface-card text-[15px] text-left text-ink-strong outline-none transition-all",
-            "hover:border-hairline-strong focus:border-altus-red focus:ring-2 focus:ring-altus-red/25",
-            "data-[state=open]:border-altus-red data-[state=open]:ring-2 data-[state=open]:ring-altus-red/25",
-            "disabled:opacity-50 disabled:cursor-not-allowed",
+            unstyled
+              ? "flex w-full items-center justify-between gap-2 text-left outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+              : cn(
+                  "flex w-full items-center gap-2 h-11 px-3.5 rounded-chip border border-hairline bg-surface-card text-[15px] text-left text-ink-strong outline-none transition-all",
+                  "hover:border-hairline-strong focus:border-altus-red focus:ring-2 focus:ring-altus-red/25",
+                  "data-[state=open]:border-altus-red data-[state=open]:ring-2 data-[state=open]:ring-altus-red/25",
+                  "disabled:opacity-50 disabled:cursor-not-allowed",
+                ),
             className,
           )}
         >
@@ -161,7 +169,7 @@ export function Select({
             // focused input for arrow-key nav + Tab-to-commit + typeahead.
             <CommandInput className="sr-only" aria-label="Filter options" placeholder="" />
           )}
-          <CommandList className="max-h-64 overflow-auto">
+          <CommandList className="max-h-[22rem] overflow-auto">
             <CommandEmpty className="px-3 py-3 text-[15px] text-ink-subtle">
               No results.
             </CommandEmpty>

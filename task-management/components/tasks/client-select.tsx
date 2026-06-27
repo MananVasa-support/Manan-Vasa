@@ -235,9 +235,16 @@ export function ClientSelect({
           // the user ready to type. Open on focus so Radix moves focus into the
           // search input; closing no longer restores focus to the trigger
           // (onCloseAutoFocus prevented below), so this can't reopen-loop.
-          onFocus={() => {
-            onFocus?.();
-            setOpen(true);
+          // Open via the native click (Radix toggles the Popover) or keyboard
+          // (Down / Enter / Space). Do NOT open on focus — focus-open fights the
+          // click's toggle (mousedown focuses → opens, then click toggles closed),
+          // which made a mouse click open-and-instantly-collapse the menu.
+          onFocus={onFocus}
+          onKeyDown={(e) => {
+            if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !open) {
+              e.preventDefault();
+              setOpen(true);
+            }
           }}
           onBlur={onBlur}
           aria-haspopup="listbox"

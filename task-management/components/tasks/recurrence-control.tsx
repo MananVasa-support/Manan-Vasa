@@ -309,6 +309,10 @@ function CustomDialog({
               onValueChange={(v) => patch({ freq: v as Freq })}
               options={UNITS.map((u) => ({ value: u.value, label: u.label(draft.interval) }))}
               className="w-auto min-w-[8rem]"
+              // This Select lives INSIDE the nested Custom-recurrence dialog
+              // (z-[120]); its popover defaults to z-[100] and would render
+              // BEHIND the dialog (the "completely broken" unit dropdown). Lift it.
+              contentClassName="z-[130]"
             />
           </div>
 
@@ -352,6 +356,7 @@ function CustomDialog({
                   { value: "day", label: `Monthly on day ${anchor.getDate()}` },
                   { value: "weekday", label: `Monthly on the ${nthLabel(anchor)} ${wdFull(anchor)}` },
                 ]}
+                contentClassName="z-[130]"
               />
 
             </div>
