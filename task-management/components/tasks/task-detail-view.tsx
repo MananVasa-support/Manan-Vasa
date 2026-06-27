@@ -23,6 +23,7 @@ import {
   Pencil,
   Archive,
   ArchiveRestore,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -39,7 +40,7 @@ import {
   type TaskStatus,
   type StatusColorToken,
 } from "@/db/enums";
-import { setTaskStatus, archiveTask, unarchiveTask } from "@/app/(app)/tasks/actions";
+import { setTaskStatus, archiveTask, unarchiveTask, deleteTask } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
 import { STATUS_TONES_FALLBACK } from "@/lib/format";
 import { LateBadge } from "@/components/ui/late-badge";
@@ -550,7 +551,10 @@ export function TaskDetailView({
                   status; archiving (which hides it from the board) is an admin
                   power tool, same as permanent delete. */}
               {me?.isAdmin && (
-                <ArchiveToggle taskId={task.id} archived={task.archived} />
+                <>
+                  <ArchiveToggle taskId={task.id} archived={task.archived} />
+                  <DeleteTask taskId={task.id} taskTitle={task.title} />
+                </>
               )}
             </section>
 
@@ -939,6 +943,78 @@ function ArchiveToggle({ taskId, archived }: { taskId: string; archived: boolean
         )}
         {archived ? "Restore from archive" : "Archive task"}
       </button>
+    </div>
+  );
+}
+
+/**
+ * Permanent-delete control for the task detail right rail — admin-only.
+ * Two-step inline confirm (keyboard-friendly, no dialog dependency): the first
+ * click arms it ("Confirm delete" / Esc to cancel), the second performs the
+ * hard delete and routes back to the task list since the row is gone.
+ */
+function DeleteTask({ taskId, taskTitle }: { taskId: string; taskTitle: string }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [armed, setArmed] = useState(false);
+
+  function remove() {
+    startTransition(async () => {
+      const res = await deleteTask(taskId);
+      if (!res.ok) {
+        fireToast({ message: res.error || "Could not delete the task." });
+        setArmed(false);
+        return;
+      }
+      fireToast({ message: `Deleted “${taskTitle}”.` });
+      router.push("/tasks" as Route);
+      router.refresh();
+    });
+  }
+
+  if (!armed) {
+    return (
+      <div className="mt-2.5">
+        <button
+          type="button"
+          onClick={() => setArmed(true)}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-chip border border-altus-red/30 px-3.5 py-2.5 text-[14px] font-semibold text-altus-red transition-colors hover:bg-altus-red/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
+        >
+          <Trash2 size={15} strokeWidth={2.2} />
+          Delete task permanently
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2.5 rounded-chip border border-altus-red/30 bg-altus-red/6 p-2.5">
+      <p className="mb-2 text-[12.5px] font-medium leading-snug text-altus-red-deep">
+        This permanently deletes the task and its history. This can’t be undone.
+      </p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          autoFocus
+          onClick={remove}
+          disabled={pending}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setArmed(false);
+          }}
+          className="inline-flex flex-1 items-center justify-center gap-2 rounded-chip bg-altus-red px-3 py-2 text-[13.5px] font-semibold text-white transition-colors hover:bg-altus-red-deep disabled:opacity-60"
+        >
+          {pending ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} strokeWidth={2.2} />}
+          Confirm delete
+        </button>
+        <button
+          type="button"
+          onClick={() => setArmed(false)}
+          disabled={pending}
+          className="rounded-chip border border-hairline px-3 py-2 text-[13.5px] font-semibold text-ink-strong transition-colors hover:bg-surface-soft disabled:opacity-60"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }

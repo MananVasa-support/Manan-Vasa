@@ -18,6 +18,7 @@ import { taskFiltersToSearchString } from "@/lib/task-filters";
 import {
   PENDING_STATUSES as CANONICAL_PENDING_STATUSES,
   type TaskStatus,
+  type TaskPriority,
   type StatusColorToken,
 } from "@/db/enums";
 
@@ -106,34 +107,45 @@ export function TaskListPage({
   // KPIs stay tasks-only. So `counts` is computed from `rows` alone.
   const counts = computeStatCounts(rows);
 
-  // Build each card's destination by overriding the relevant filter dimension
-  // on top of the current filters — so date/employee/department scope carries
-  // over, and the other status/priority filter is cleared for a clean view.
-  function cardHref(key: "done" | "pending" | "critical" | "urgent"): Route {
-    const base = { ...filters };
-    let next: TaskListFilters;
-    if (key === "done") {
-      next = { ...base, statuses: ["done", "approved"], priorities: [] };
-    } else if (key === "pending") {
-      next = { ...base, statuses: [...CANONICAL_PENDING_STATUSES], priorities: [] };
-    } else if (key === "critical") {
-      next = { ...base, priorities: ["imp_urgent"], statuses: [] };
-    } else {
-      next = { ...base, priorities: ["not_imp_urgent"], statuses: [] };
-    }
-    const qs = taskFiltersToSearchString(next);
-    return (qs ? `${basePath}?${qs}` : basePath) as Route;
-  }
+  // Each filterable stat card maps to a set of statuses and/or priorities.
+  // Clicking a card TOGGLES its set into/out of the current filter (click on /
+  // click off — no reload needed), and the sets ACCUMULATE so several cards can
+  // be active together (e.g. Pending + Done, or Critical narrowing the rest).
+  // Date / employee / department scope always carries over. `notRead` is a
+  // derived "unread" metric with no URL filter dimension, so it stays
+  // display-only.
+  const CARD_FILTER: Partial<Record<KpiKey, { statuses?: TaskStatus[]; priorities?: TaskPriority[] }>> = {
+    notApproved: { statuses: ["not_approved"] },
+    done: { statuses: ["done", "approved"] },
+    pending: { statuses: [...CANONICAL_PENDING_STATUSES] },
+    critical: { priorities: ["imp_urgent"] },
+    urgent: { priorities: ["not_imp_urgent"] },
+  };
 
-  // Highlight a card when the list is already filtered to exactly its view.
-  function cardActive(key: "done" | "pending" | "critical" | "urgent"): boolean {
+  // Active when ALL of the card's statuses + priorities are currently selected.
+  function cardActive(key: KpiKey): boolean {
+    const cf = CARD_FILTER[key];
+    if (!cf) return false;
     const s = new Set(filters.statuses);
     const p = new Set(filters.priorities);
-    if (key === "done") return p.size === 0 && s.size === 2 && s.has("done") && s.has("approved");
-    if (key === "pending")
-      return p.size === 0 && s.size === PENDING_STATUSES.size && [...s].every((x) => PENDING_STATUSES.has(x));
-    if (key === "critical") return s.size === 0 && p.size === 1 && p.has("imp_urgent");
-    return s.size === 0 && p.size === 1 && p.has("not_imp_urgent");
+    const sts = cf.statuses ?? [];
+    const prs = cf.priorities ?? [];
+    if (sts.length + prs.length === 0) return false;
+    return sts.every((x) => s.has(x)) && prs.every((x) => p.has(x));
+  }
+
+  // Toggle the card's set in/out of the current filter; preserve everything else.
+  function cardHref(key: KpiKey): Route {
+    const cf = CARD_FILTER[key];
+    if (!cf) return basePath as Route;
+    const remove = cardActive(key);
+    const s = new Set(filters.statuses);
+    const p = new Set(filters.priorities);
+    for (const x of cf.statuses ?? []) remove ? s.delete(x) : s.add(x);
+    for (const x of cf.priorities ?? []) remove ? p.delete(x) : p.add(x);
+    const next: TaskListFilters = { ...filters, statuses: [...s], priorities: [...p] };
+    const qs = taskFiltersToSearchString(next);
+    return (qs ? `${basePath}?${qs}` : basePath) as Route;
   }
 
   return (
@@ -174,24 +186,25 @@ export function TaskListPage({
           font-black label, big count, sublabel. */}
       <div className="mb-3 grid grid-cols-6 gap-3 max-xl:grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1">
         {KPI_SPECS.map((spec) => {
-          // notApproved + notRead don't map to the status/priority filter
-          // dimensions, so they're display-only (not click-to-filter).
-          if (spec.key === "notApproved" || spec.key === "notRead") {
+          // notRead is a derived "unread" metric with no URL filter dimension →
+          // display-only. The rest toggle on/off and can be combined.
+          if (!CARD_FILTER[spec.key]) {
             return (
               <div key={spec.key} className="block rounded-section">
                 <StatCard spec={spec} value={counts[spec.key]} active={false} />
               </div>
             );
           }
-          const filterKey = spec.key;
+          const on = cardActive(spec.key);
           return (
             <Link
               key={spec.key}
-              href={cardHref(filterKey)}
-              aria-label={`View ${spec.label.toLowerCase()} tasks`}
+              href={cardHref(spec.key)}
+              aria-pressed={on}
+              aria-label={`${on ? "Remove" : "Add"} ${spec.label.toLowerCase()} filter`}
               className="block rounded-section focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
             >
-              <StatCard spec={spec} value={counts[spec.key]} active={cardActive(filterKey)} />
+              <StatCard spec={spec} value={counts[spec.key]} active={on} />
             </Link>
           );
         })}
