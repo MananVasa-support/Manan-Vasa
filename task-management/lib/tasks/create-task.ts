@@ -131,7 +131,17 @@ export async function createTasksCore(
       for (const intent of notifyIntents) await notify(intent);
     });
   }
-  for (const id of createdIds) afterResponse(() => reconcileTaskEvent(id));
+
+  // Calendar sync runs INLINE (in the reliable request context), not in
+  // after(): the post-response after() context was silently failing to create
+  // events in production (verified — same code works from the cron route
+  // handler). reconcileTaskEvent never throws and records its own retry state,
+  // so a slow/failed Google call simply leaves the task for the hourly cron to
+  // retry. Parallel + an 8s ceiling keeps multi-doer fan-out snappy.
+  await Promise.race([
+    Promise.allSettled(createdIds.map((id) => reconcileTaskEvent(id))),
+    new Promise((resolve) => setTimeout(resolve, 8000)),
+  ]);
 
   return { ok: true, id: createdIds[0]!, ids: createdIds };
 }
