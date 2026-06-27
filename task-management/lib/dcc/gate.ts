@@ -1,8 +1,8 @@
 import "server-only";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { attendanceLogs, dccEntries, dccReviews, employees, type Employee } from "@/db/schema";
-import { listOwnerItems, type DccItemRow, type DccEntryRow } from "@/lib/queries/dcc";
+import { attendanceLogs, dccEntries, dccKpiItems, dccReviews, employees, type Employee } from "@/db/schema";
+import { listOwnerItems, listItemsForOwners, type DccItemRow, type DccEntryRow } from "@/lib/queries/dcc";
 import { loadDccScope } from "@/lib/dcc/access";
 import { isDueOn } from "@/lib/dcc/util";
 import { localDateString } from "@/lib/format";
@@ -31,16 +31,6 @@ function addDaysYmd(ymd: string, delta: number): string {
 function ymdToDate(ymd: string): Date {
   const [y, m, d] = ymd.split("-").map(Number);
   return new Date(y!, (m ?? 1) - 1, d ?? 1);
-}
-
-/** Did the employee punch IN on this calendar day? (Indexed lookup.) */
-async function hadInPunch(employeeId: string, ymd: string): Promise<boolean> {
-  const [row] = await db
-    .select({ id: attendanceLogs.id })
-    .from(attendanceLogs)
-    .where(and(eq(attendanceLogs.employeeId, employeeId), eq(attendanceLogs.logDate, ymd), eq(attendanceLogs.kind, "in")))
-    .limit(1);
-  return Boolean(row);
 }
 
 /** Items DUE on `ymd` (by weekday mask) + that day's entries. */
@@ -76,14 +66,21 @@ export interface DccGateTarget {
  */
 export async function dccGateTarget(employeeId: string, now: Date = new Date()): Promise<DccGateTarget | null> {
   const today = localDateString(TZ, now);
-  for (let back = 1; back <= 7; back++) {
-    const ymd = addDaysYmd(today, -back);
-    if (!(await hadInPunch(employeeId, ymd))) continue; // absent / holiday / off → skip
-    const { due, entries } = await dueForDay(employeeId, ymd);
-    if (due.length === 0) return null; // present but nothing due → nothing to gate
-    return unfilledCount(due, entries) > 0 ? { date: ymd, items: due, entries } : null;
-  }
-  return null;
+  const candidates: string[] = []; // most-recent-first
+  for (let back = 1; back <= 7; back++) candidates.push(addDaysYmd(today, -back));
+
+  // ONE query for the whole 7-day window (no per-day round-trips).
+  const punches = (await db
+    .select({ logDate: attendanceLogs.logDate })
+    .from(attendanceLogs)
+    .where(and(eq(attendanceLogs.employeeId, employeeId), inArray(attendanceLogs.logDate, candidates), eq(attendanceLogs.kind, "in")))) as Array<{ logDate: string }>;
+  const present = new Set(punches.map((p) => p.logDate));
+  const target = candidates.find((d) => present.has(d)); // most recent present working day
+  if (!target) return null; // absent/holiday/off the whole window → nothing to gate
+
+  const { due, entries } = await dueForDay(employeeId, target);
+  if (due.length === 0) return null;
+  return unfilledCount(due, entries) > 0 ? { date: target, items: due, entries } : null;
 }
 
 /** Is `ymd`'s DCC fully filled for this employee? (Punch-out block.) */
@@ -120,33 +117,37 @@ export async function dccManagerReviewState(me: Employee, now: Date = new Date()
   const date = addDaysYmd(localDateString(TZ, now), -1);
   if (reportIds.length === 0) return { satisfied: true, date, reports: [] };
 
-  // Who was present yesterday (had an in-punch)?
-  const punched = (await db
-    .select({ employeeId: attendanceLogs.employeeId })
-    .from(attendanceLogs)
-    .where(and(inArray(attendanceLogs.employeeId, reportIds), eq(attendanceLogs.logDate, date), eq(attendanceLogs.kind, "in")))) as Array<{ employeeId: string }>;
-  const presentIds = [...new Set(punched.map((p) => p.employeeId))];
-  if (presentIds.length === 0) return { satisfied: true, date, reports: [] };
+  // Five BATCHED queries in parallel — NO per-report loop (was the N+1 that made
+  // the gate render take seconds for a super-admin and choke the pool).
+  const [punchRows, reviewRows, people, items, entryRows] = await Promise.all([
+    db.select({ employeeId: attendanceLogs.employeeId }).from(attendanceLogs).where(and(inArray(attendanceLogs.employeeId, reportIds), eq(attendanceLogs.logDate, date), eq(attendanceLogs.kind, "in"))) as Promise<Array<{ employeeId: string }>>,
+    db.select({ owner: dccReviews.ownerEmployeeId }).from(dccReviews).where(and(inArray(dccReviews.ownerEmployeeId, reportIds), eq(dccReviews.reviewDate, date))) as Promise<Array<{ owner: string }>>,
+    db.select({ id: employees.id, name: employees.name, avatarUrl: employees.avatarUrl }).from(employees).where(inArray(employees.id, reportIds)) as Promise<Array<{ id: string; name: string; avatarUrl: string | null }>>,
+    listItemsForOwners(reportIds),
+    db.select({ owner: dccKpiItems.ownerEmployeeId, itemId: dccEntries.itemId, status: dccEntries.status }).from(dccEntries).innerJoin(dccKpiItems, eq(dccEntries.itemId, dccKpiItems.id)).where(and(inArray(dccKpiItems.ownerEmployeeId, reportIds), eq(dccEntries.entryDate, date))) as Promise<Array<{ owner: string; itemId: string; status: string | null }>>,
+  ]);
 
-  const reviewed = new Set(
-    ((await db
-      .select({ owner: dccReviews.ownerEmployeeId })
-      .from(dccReviews)
-      .where(and(inArray(dccReviews.ownerEmployeeId, presentIds), eq(dccReviews.reviewDate, date)))) as Array<{ owner: string }>).map((r) => r.owner),
-  );
+  const presentIds = new Set(punchRows.map((p) => p.employeeId));
+  if (presentIds.size === 0) return { satisfied: true, date, reports: [] };
+  const reviewed = new Set(reviewRows.map((r) => r.owner));
 
-  // Names + yesterday compliance for the UI.
-  const people = (await db
-    .select({ id: employees.id, name: employees.name, avatarUrl: employees.avatarUrl })
-    .from(employees)
-    .where(inArray(employees.id, presentIds))) as Array<{ id: string; name: string; avatarUrl: string | null }>;
-
-  const reports: DccReviewReport[] = [];
-  for (const p of people) {
-    const { due, entries } = await dueForDay(p.id, date);
-    const done = entries.filter((e) => (e.status ?? "").toLowerCase() === "done").length;
-    reports.push({ id: p.id, name: p.name, avatarUrl: p.avatarUrl, date, due: due.length, done, reviewed: reviewed.has(p.id) });
+  const day = ymdToDate(date);
+  const itemsByOwner = new Map<string, typeof items>();
+  for (const it of items) { const l = itemsByOwner.get(it.ownerEmployeeId); if (l) l.push(it); else itemsByOwner.set(it.ownerEmployeeId, [it]); }
+  const doneByOwner = new Map<string, Set<string>>();
+  for (const e of entryRows) {
+    if ((e.status ?? "").toLowerCase() !== "done") continue;
+    const s = doneByOwner.get(e.owner); if (s) s.add(e.itemId); else doneByOwner.set(e.owner, new Set([e.itemId]));
   }
+
+  const reports: DccReviewReport[] = people
+    .filter((p) => presentIds.has(p.id))
+    .map((p) => {
+      const own = itemsByOwner.get(p.id) ?? [];
+      const due = own.filter((it) => isDueOn(it.weekdays, day));
+      const doneSet = doneByOwner.get(p.id) ?? new Set<string>();
+      return { id: p.id, name: p.name, avatarUrl: p.avatarUrl, date, due: due.length, done: due.filter((it) => doneSet.has(it.id)).length, reviewed: reviewed.has(p.id) };
+    });
   reports.sort((a, b) => a.name.localeCompare(b.name));
   return { satisfied: reports.every((r) => r.reviewed), date, reports };
 }

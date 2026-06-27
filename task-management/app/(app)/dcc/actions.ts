@@ -94,9 +94,9 @@ export async function createDccItem(input: unknown): Promise<ActionResult<{ id: 
   const parsed = ItemFields.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input.");
   const d = parsed.data;
-  const scope = await loadDccScope(me);
-  if (!canManageItemsFor(scope, d.ownerEmployeeId)) return fail("You can't add KPIs for this person.");
   try {
+    const scope = await loadDccScope(me);
+    if (!canManageItemsFor(scope, d.ownerEmployeeId)) return fail("You can't add KPIs for this person.");
     const maxRows = (await db
       .select({ next: sql<number>`COALESCE(MAX(${dccKpiItems.sortOrder}), 0) + 1` })
       .from(dccKpiItems)
@@ -168,9 +168,9 @@ export async function setDccReview(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input.");
   const { ownerEmployeeId, date, note, silent } = parsed.data;
   const status = parsed.data.status || null;
-  const scope = await loadDccScope(me);
-  if (!canReviewFor(scope, ownerEmployeeId)) return fail("You can only review your team.");
   try {
+    const scope = await loadDccScope(me);
+    if (!canReviewFor(scope, ownerEmployeeId)) return fail("You can only review your team.");
     if (!status && !note) {
       await db.delete(dccReviews).where(and(eq(dccReviews.ownerEmployeeId, ownerEmployeeId), eq(dccReviews.reviewDate, date)));
       if (!silent) revalidatePath(PATH);
@@ -200,9 +200,9 @@ export async function getDccReviewDetail(input: unknown): Promise<ActionResult<{
   const parsed = z.object({ ownerId: z.string().uuid(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u) }).safeParse(input);
   if (!parsed.success) return fail("Invalid input.");
   const { ownerId, date } = parsed.data;
-  const scope = await loadDccScope(me);
-  if (!canReviewFor(scope, ownerId)) return fail("Not allowed.");
   try {
+    const scope = await loadDccScope(me);
+    if (!canReviewFor(scope, ownerId)) return fail("Not allowed.");
     const [items, entries] = await Promise.all([listOwnerItems(ownerId), listOwnerEntries(ownerId, date)]);
     const [y, m, d] = date.split("-").map(Number);
     const day = new Date(y!, (m ?? 1) - 1, d ?? 1);
@@ -225,10 +225,10 @@ export async function approveAllDccReviews(input: unknown): Promise<ActionResult
   const parsed = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u) }).safeParse(input);
   if (!parsed.success) return fail("Invalid input.");
   const { date } = parsed.data;
-  const scope = await loadDccScope(me);
-  const reportIds = [...scope.visibleIds].filter((id) => id !== me.id && canReviewFor(scope, id));
-  if (reportIds.length === 0) return { ok: true };
   try {
+    const scope = await loadDccScope(me); // inside try: a transient pool hiccup here must NOT hit the error boundary
+    const reportIds = [...scope.visibleIds].filter((id) => id !== me.id && canReviewFor(scope, id));
+    if (reportIds.length === 0) return { ok: true };
     await db
       .insert(dccReviews)
       .values(reportIds.map((id) => ({ ownerEmployeeId: id, reviewDate: date, reviewerId: me.id, status: "approved" as const, note: null })))
@@ -247,9 +247,9 @@ export async function summarizeDccDay(input: unknown): Promise<ActionResult<{ su
   const parsed = z.object({ ownerId: z.string().uuid(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u) }).safeParse(input);
   if (!parsed.success) return fail("Invalid input.");
   const { ownerId, date } = parsed.data;
-  const scope = await loadDccScope(me);
-  if (!canViewFor(scope, ownerId)) return fail("Not allowed.");
   try {
+    const scope = await loadDccScope(me);
+    if (!canViewFor(scope, ownerId)) return fail("Not allowed.");
     const [items, entries] = await Promise.all([listOwnerItems(ownerId), listOwnerEntries(ownerId, date)]);
     const byItem = new Map(entries.filter((e) => e.entryDate === date).map((e) => [e.itemId, e]));
     const lines = items
