@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { dailyChecklist, weeklyGoals } from "@/db/schema";
+import { dailyChecklist, weeklyGoals, weeklyGoalActuals, tasks } from "@/db/schema";
 import { requireUser } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
-import { todayYmd, type DailyItem } from "@/lib/queries/daily-checklist";
+import { todayYmd, listOpenTasksForChecklist, type DailyItem } from "@/lib/queries/daily-checklist";
+import { MIN_DAILY_ITEMS } from "@/lib/daily-checklist/constants";
 import type { DailyChecklistItem } from "@/db/schema";
 
 /** Hard cap on checklist items per day (keeps one runaway day bounded). */
@@ -29,6 +30,7 @@ function toItem(r: DailyChecklistItem): DailyItem {
     subject: r.subject,
     origin: r.origin === "goal_related" ? "goal_related" : "standalone",
     goalId: r.goalId,
+    taskId: r.taskId,
     status: r.status,
     done: r.done,
     doneNote: r.doneNote,
@@ -107,6 +109,125 @@ export async function pullGoalToToday(
     // drop the gate the instant the 5th item lands — kicking the user in before
     // they click "Start my day". Page mode refreshes via router.refresh() itself.
     return { ok: true, item: rows[0] ? toItem(rows[0]) : null };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Pull one of the employee's open Tasks onto today's checklist. */
+export async function pullTaskToToday(
+  taskId: string,
+): Promise<ActionResult<{ item: DailyItem | null }>> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  if (!UUID.safeParse(taskId).success) return { ok: false, error: "Invalid task." };
+
+  const [task] = await db
+    .select({ id: tasks.id, doerId: tasks.doerId, title: tasks.title, client: tasks.client, subject: tasks.subject })
+    .from(tasks)
+    .where(eq(tasks.id, taskId))
+    .limit(1);
+  if (!task || task.doerId !== me.id) return { ok: false, error: "That task isn't yours." };
+
+  const ymd = todayYmd();
+  try {
+    // Don't pull the same task twice into one day.
+    const [dupe] = await db
+      .select({ id: dailyChecklist.id })
+      .from(dailyChecklist)
+      .where(and(eq(dailyChecklist.employeeId, me.id), eq(dailyChecklist.planDate, ymd), eq(dailyChecklist.taskId, taskId)))
+      .limit(1);
+    if (dupe) return { ok: true, item: null };
+
+    const { count, nextPosition } = await todayCountAndNextPosition(me.id, ymd);
+    if (count >= MAX_ITEMS_PER_DAY) return { ok: false, error: `You can plan at most ${MAX_ITEMS_PER_DAY} items a day.` };
+    const [row] = await db
+      .insert(dailyChecklist)
+      .values({
+        employeeId: me.id,
+        planDate: ymd,
+        taskId: task.id,
+        origin: "standalone",
+        title: task.title,
+        client: task.client,
+        subject: task.subject,
+        position: nextPosition,
+      })
+      .returning();
+    return { ok: true, item: row ? toItem(row) : null };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Log today's progress on a weekly goal (the daily actuals). Upserts the
+ *  per-day row and bumps the goal's cumulative %. */
+export async function upsertGoalActual(input: {
+  goalId: string;
+  pct?: number | null;
+  note?: string | null;
+}): Promise<ActionResult> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  if (!UUID.safeParse(input?.goalId ?? "").success) return { ok: false, error: "Invalid goal." };
+
+  const [goal] = await db
+    .select({ id: weeklyGoals.id, employeeId: weeklyGoals.employeeId })
+    .from(weeklyGoals)
+    .where(eq(weeklyGoals.id, input.goalId))
+    .limit(1);
+  if (!goal || goal.employeeId !== me.id) return { ok: false, error: "That goal isn't yours." };
+
+  const pct =
+    input.pct == null || Number.isNaN(Number(input.pct))
+      ? null
+      : Math.max(0, Math.min(100, Math.round(Number(input.pct))));
+  const note = (input.note ?? "").toString().trim().slice(0, 500) || null;
+  if (pct == null && !note) return { ok: false, error: "Add today's progress (a % or a note)." };
+
+  const ymd = todayYmd();
+  try {
+    await db
+      .insert(weeklyGoalActuals)
+      .values({ goalId: goal.id, employeeId: me.id, entryDate: ymd, pct, note, createdById: me.id })
+      .onConflictDoUpdate({
+        target: [weeklyGoalActuals.goalId, weeklyGoalActuals.entryDate],
+        set: { pct, note, updatedAt: new Date() },
+      });
+    // Bump the goal's cumulative % when a number was given (note-only logs the
+    // qualitative update without moving the bar).
+    if (pct != null) {
+      await db
+        .update(weeklyGoals)
+        .set({ pctDone: pct, pctUpdatedById: me.id, pctUpdatedAt: new Date(), updatedAt: new Date() })
+        .where(eq(weeklyGoals.id, goal.id));
+    }
+    return { ok: true };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Auto-fill today's plan to MIN_DAILY_ITEMS from the employee's open tasks
+ *  (newest first) — the quick path that keeps the old "last 5" behaviour. */
+export async function autoFillFive(): Promise<ActionResult<{ added: number }>> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const ymd = todayYmd();
+  try {
+    const { count } = await todayCountAndNextPosition(me.id, ymd);
+    const need = Math.max(0, MIN_DAILY_ITEMS - count);
+    if (need === 0) return { ok: true, added: 0 };
+    const open = await listOpenTasksForChecklist(me.id);
+    let added = 0;
+    for (const t of open.slice(0, need)) {
+      const res = await pullTaskToToday(t.id);
+      if (res.ok && res.item) added++;
+    }
+    return { ok: true, added };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
@@ -254,10 +375,10 @@ export async function moveOverdueToToday(): Promise<
       from carried
       where dc.id = carried.id
       returning dc.id, dc.title, dc.client, dc.subject, dc.origin, dc.goal_id,
-                dc.status, dc.done, dc.done_note, dc.moved_from_date, dc.position
+                dc.task_id, dc.status, dc.done, dc.done_note, dc.moved_from_date, dc.position
     `)) as unknown as Array<{
       id: string; title: string; client: string | null; subject: string | null;
-      origin: string; goal_id: string | null; status: string; done: boolean;
+      origin: string; goal_id: string | null; task_id: string | null; status: string; done: boolean;
       done_note: string | null; moved_from_date: string | null; position: number;
     }>;
     const items: DailyItem[] = moved.map((r) => ({
@@ -267,6 +388,7 @@ export async function moveOverdueToToday(): Promise<
       subject: r.subject,
       origin: r.origin === "goal_related" ? "goal_related" : "standalone",
       goalId: r.goal_id,
+      taskId: r.task_id,
       status: r.status as DailyItem["status"],
       done: r.done,
       doneNote: r.done_note,

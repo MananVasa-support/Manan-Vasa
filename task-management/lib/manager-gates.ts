@@ -114,3 +114,53 @@ export function isWeeklyGoalGateDay(now: Date = new Date()): boolean {
   const wd = new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "short" }).format(now);
   return wd === "Wed" || wd === "Sat";
 }
+
+/** True on Monday in IST — the day the manager weekly-goal attendance gate fires. */
+export function isMondayIST(now: Date = new Date()): boolean {
+  return new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "short" }).format(now) === "Mon";
+}
+
+export interface ReportGoalSet {
+  id: string;
+  name: string;
+  goals: number;
+  weightSum: number;
+  ok: boolean;
+}
+export interface MondayGoalState {
+  satisfied: boolean;
+  reports: ReportGoalSet[];
+}
+
+/**
+ * Monday attendance gate: has the manager set THIS week's goals for every active
+ * report, with each report's weights summing to exactly 100? On Monday,
+ * `currentWeekStart` is today's Monday — the week being planned — so goals the
+ * manager set over the prior weekend (week_start = this Monday) already count.
+ * A report with 0 goals (weightSum 0) or weights ≠ 100 fails. Read-only;
+ * callers fail-open.
+ */
+export async function managerMondayGoalState(managerId: string, now: Date = new Date()): Promise<MondayGoalState> {
+  const reports = await activeDirectReports(managerId);
+  if (reports.length === 0) return { satisfied: true, reports: [] };
+
+  const week = currentWeekStart(now);
+  const rows = await db
+    .select({
+      employeeId: weeklyGoals.employeeId,
+      n: sql<number>`count(*)::int`,
+      wsum: sql<number>`coalesce(sum(${weeklyGoals.weight}), 0)::int`,
+    })
+    .from(weeklyGoals)
+    .where(and(eq(weeklyGoals.weekStart, week), eq(weeklyGoals.archived, false)))
+    .groupBy(weeklyGoals.employeeId);
+  const byEmp = new Map(rows.map((r) => [r.employeeId, r]));
+
+  const out: ReportGoalSet[] = reports.map((r) => {
+    const x = byEmp.get(r.id);
+    const goals = x?.n ?? 0;
+    const weightSum = x?.wsum ?? 0;
+    return { id: r.id, name: r.name, goals, weightSum, ok: goals > 0 && weightSum === 100 };
+  });
+  return { satisfied: out.every((r) => r.ok), reports: out };
+}

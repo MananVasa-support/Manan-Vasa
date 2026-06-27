@@ -5,6 +5,10 @@ import { getOrgSettings } from "@/lib/queries/org-settings";
 import { resolvePunchGeofence, insertPunchRow } from "@/lib/attendance/record-punch";
 import { resolveMobileDevice } from "@/lib/attendance/mobile-devices";
 import { isDccFilledFor } from "@/lib/dcc/gate";
+import { needsDailyPlan } from "@/lib/daily-checklist/gate";
+import { needsGoalActuals } from "@/lib/weekly-goals/actuals";
+import { isManagerWithReports, isMondayIST, managerMondayGoalState } from "@/lib/manager-gates";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { localDateString } from "@/lib/format";
 import {
   notifyOnInPunch,
@@ -92,6 +96,41 @@ export async function POST(req: Request) {
     if (!dccDone) {
       return NextResponse.json(
         { ok: false, error: "Fill today's DCC before you clock out.", needsDcc: true },
+        { status: 409, headers: MOBILE_CORS },
+      );
+    }
+  }
+
+  // ── Clock-IN planning gate (employees only; fail-open; PUNCH_PLAN_GATE_OFF) ──
+  // Mirrors the web punch + layout "Plan Your Day" gate. Managers/admins/super-
+  // admins exempt. Returns needsPlan so the app can route the user to the plan.
+  if (body.kind === "in" && process.env.PUNCH_PLAN_GATE_OFF !== "true") {
+    const exempt =
+      isSuperAdmin(me.email) || me.isAdmin || (await isManagerWithReports(me.id).catch(() => true));
+    if (!exempt) {
+      const planned = !(await needsDailyPlan(me.id).catch(() => false));
+      const actuals = !(await needsGoalActuals(me.id).catch(() => false));
+      if (!planned || !actuals) {
+        return NextResponse.json(
+          { ok: false, error: "Plan your day (5 commitments + goal progress) before you clock in.", needsPlan: true },
+          { status: 409, headers: MOBILE_CORS },
+        );
+      }
+    }
+  }
+
+  // ── Manager Monday goal-set gate (fail-open; MANAGER_GATES_OFF; SA exempt) ──
+  if (
+    body.kind === "in" &&
+    process.env.MANAGER_GATES_OFF !== "true" &&
+    !isSuperAdmin(me.email) &&
+    isMondayIST()
+  ) {
+    const monday = await managerMondayGoalState(me.id).catch(() => ({ satisfied: true, reports: [] }));
+    if (!monday.satisfied) {
+      const shortNames = monday.reports.filter((r) => !r.ok).map((r) => r.name).join(", ");
+      return NextResponse.json(
+        { ok: false, error: `Set this week's goals (weights = 100) for ${shortNames} before you clock in.`, needsGoals: true },
         { status: 409, headers: MOBILE_CORS },
       );
     }

@@ -2857,6 +2857,31 @@ export const dailyChecklist = pgTable(
 export type DailyChecklistItem = typeof dailyChecklist.$inferSelect;
 export type NewDailyChecklistItem = typeof dailyChecklist.$inferInsert;
 
+// Weekly-goal DAILY actuals (migration 0093) — one progress entry per goal per
+// day, logged from the Daily Checklist "Plan Your Day" page. Builds the day-by-
+// day actual-vs-target trail across the week and feeds the clock-in planning
+// gate (an employee must log today's progress on each active goal). Distinct
+// from `weekly_goals.pct_done` (the single cumulative %).
+export const weeklyGoalActuals = pgTable(
+  "weekly_goal_actuals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    goalId: uuid("goal_id").notNull().references(() => weeklyGoals.id, { onDelete: "cascade" }),
+    employeeId: uuid("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    entryDate: date("entry_date").notNull(),
+    pct: integer("pct"),
+    note: text("note"),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("weekly_goal_actuals_uq").on(t.goalId, t.entryDate),
+    index("weekly_goal_actuals_emp_date_idx").on(t.employeeId, t.entryDate),
+  ],
+);
+export type WeeklyGoalActual = typeof weeklyGoalActuals.$inferSelect;
+
 // Index hub (migration 0067) — the Altus Corp Ecosystem Index brought into the
 // app as an admin-editable tab. `index_sections` are titled groups; each holds
 // any number of `index_links` (hyperlink buttons). Everyone views, admins edit.

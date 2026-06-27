@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, desc, eq, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dailyChecklist, weeklyGoals } from "@/db/schema";
+import { dailyChecklist, weeklyGoals, weeklyGoalActuals, tasks } from "@/db/schema";
 import type { TaskStatus } from "@/db/enums";
 import { istYmd } from "@/lib/weekly-goals/week";
 import { currentWeekStart } from "@/lib/weekly-goals/week";
@@ -18,6 +18,7 @@ export interface DailyItem {
   subject: string | null;
   origin: "goal_related" | "standalone";
   goalId: string | null;
+  taskId: string | null;
   status: TaskStatus;
   done: boolean;
   doneNote: string | null;
@@ -56,6 +57,7 @@ export async function getTodayItems(
       subject: dailyChecklist.subject,
       origin: dailyChecklist.origin,
       goalId: dailyChecklist.goalId,
+      taskId: dailyChecklist.taskId,
       status: dailyChecklist.status,
       done: dailyChecklist.done,
       doneNote: dailyChecklist.doneNote,
@@ -125,6 +127,129 @@ export async function listPullableGoals(
   if (recent && recent.ws !== thisWeek) {
     return pullableForWeek(employeeId, recent.ws, ymd);
   }
+  return current;
+}
+
+/**
+ * The employee's OPEN (not done/approved, not archived) tasks — the right-hand
+ * "Tasks" drag source on the Plan-Your-Day page. Excludes tasks already pulled
+ * into today's checklist. Newest first, capped.
+ */
+export interface OpenTaskOption {
+  id: string;
+  taskNo: number | null;
+  title: string;
+  client: string | null;
+  subject: string | null;
+  status: TaskStatus;
+}
+
+export async function listOpenTasksForChecklist(
+  employeeId: string,
+  now: Date = new Date(),
+): Promise<OpenTaskOption[]> {
+  const ymd = todayYmd(now);
+  const rows = await db
+    .select({
+      id: tasks.id,
+      taskNo: tasks.taskNo,
+      title: tasks.title,
+      client: tasks.client,
+      subject: tasks.subject,
+      status: tasks.status,
+    })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.doerId, employeeId),
+        eq(tasks.archived, false),
+        sql`${tasks.status} not in ('done','approved','cancelled')`,
+        sql`not exists (
+          select 1 from ${dailyChecklist} dc
+          where dc.task_id = ${tasks.id}
+            and dc.employee_id = ${employeeId}
+            and dc.plan_date = ${ymd}
+        )`,
+      ),
+    )
+    .orderBy(desc(tasks.createdAt))
+    .limit(50);
+  return rows as OpenTaskOption[];
+}
+
+/**
+ * All active current-week weekly goals with their target, cumulative %, today's
+ * logged actual, and whether they've been pulled into today's plan. Powers the
+ * right-hand "Weekly Goals" panel — which is BOTH a drag source AND where the
+ * employee logs today's progress (the daily actuals). Falls back to the most
+ * recent week with goals (same carry-forward rule as listPullableGoals).
+ */
+export interface PlannerGoal {
+  id: string;
+  client: string | null;
+  subject: string | null;
+  targetDone: string | null;
+  weight: number;
+  pctDone: number;
+  todayPct: number | null;
+  todayNote: string | null;
+  pulledToday: boolean;
+}
+
+async function plannerGoalsForWeek(employeeId: string, weekStart: string, ymd: string): Promise<PlannerGoal[]> {
+  const rows = await db
+    .select({
+      id: weeklyGoals.id,
+      client: weeklyGoals.client,
+      subject: weeklyGoals.subject,
+      targetDone: weeklyGoals.targetDone,
+      weight: weeklyGoals.weight,
+      pctDone: weeklyGoals.pctDone,
+      todayPct: weeklyGoalActuals.pct,
+      todayNote: weeklyGoalActuals.note,
+      pulled: sql<boolean>`exists (
+        select 1 from ${dailyChecklist} dc
+        where dc.goal_id = ${weeklyGoals.id} and dc.employee_id = ${employeeId} and dc.plan_date = ${ymd}
+      )`,
+    })
+    .from(weeklyGoals)
+    .leftJoin(
+      weeklyGoalActuals,
+      and(eq(weeklyGoalActuals.goalId, weeklyGoals.id), eq(weeklyGoalActuals.entryDate, ymd)),
+    )
+    .where(
+      and(
+        eq(weeklyGoals.employeeId, employeeId),
+        eq(weeklyGoals.weekStart, weekStart),
+        eq(weeklyGoals.archived, false),
+      ),
+    )
+    .orderBy(asc(weeklyGoals.position), asc(weeklyGoals.createdAt));
+  return rows.map((r) => ({
+    id: r.id,
+    client: r.client,
+    subject: r.subject,
+    targetDone: r.targetDone,
+    weight: r.weight,
+    pctDone: r.pctDone,
+    todayPct: r.todayPct,
+    todayNote: r.todayNote,
+    pulledToday: r.pulled,
+  }));
+}
+
+export async function listGoalsForPlanner(employeeId: string, now: Date = new Date()): Promise<PlannerGoal[]> {
+  const ymd = todayYmd(now);
+  const thisWeek = currentWeekStart(now);
+  const current = await plannerGoalsForWeek(employeeId, thisWeek, ymd);
+  if (current.length > 0) return current;
+  const [recent] = await db
+    .select({ ws: weeklyGoals.weekStart })
+    .from(weeklyGoals)
+    .where(and(eq(weeklyGoals.employeeId, employeeId), eq(weeklyGoals.archived, false)))
+    .orderBy(desc(weeklyGoals.weekStart))
+    .limit(1);
+  if (recent && recent.ws !== thisWeek) return plannerGoalsForWeek(employeeId, recent.ws, ymd);
   return current;
 }
 

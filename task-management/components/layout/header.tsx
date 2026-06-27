@@ -1,4 +1,3 @@
-import { headers } from "next/headers";
 import { LayoutGrid } from "lucide-react";
 import { LiveIndicator } from "./live-indicator";
 import { MainNavServer } from "./main-nav-server";
@@ -8,7 +7,6 @@ import { UserMenuServer } from "@/components/header/user-menu-server";
 import { NewTaskTrigger } from "@/components/header/new-task-trigger";
 import { GlobalSearch } from "@/components/header/global-search";
 import { getCurrentEmployee } from "@/lib/auth/current";
-import { workspaceForPath, WORKSPACE_LANDING } from "@/lib/workspaces";
 
 /**
  * Light glassy application header — single row, ~72px tall.
@@ -28,13 +26,6 @@ export async function DashboardHeader({
   const me = await getCurrentEmployee();
   const isAdmin = me?.isAdmin ?? false;
 
-  // The logo now returns to the CURRENT module's home (WMS→/dashboard,
-  // Training→/training, …) instead of the hub. The path is exposed by the auth
-  // middleware as `x-pathname`. Shared surfaces (no workspace) fall back to /hub.
-  const pathname = (await headers()).get("x-pathname") ?? "/";
-  const ws = workspaceForPath(pathname);
-  const moduleHome = ws ? WORKSPACE_LANDING[ws] : "/hub";
-
   return (
     <header className="sticky top-0 z-50 header-light">
       <div
@@ -52,10 +43,10 @@ export async function DashboardHeader({
           <NavHistoryButtons />
           <MobileMenuServer isAdmin={isAdmin} />
 
-          {/* LEFT: Altus Corp logo — returns to the CURRENT module's home page
-              (WMS→Dashboard, Training→Training, …), NOT the hub. The image is the
-              brand mark; the logo already includes the name. */}
-          <a href={moduleHome} className="flex items-center shrink-0" aria-label="Back to this module's home">
+          {/* LEFT: Altus Corp logo — always returns to the WMS home page
+              (/dashboard), from any workspace. The image is the brand mark; the
+              logo already includes the name. */}
+          <a href="/dashboard" className="flex items-center shrink-0" aria-label="Back to WMS home">
             <img
               src="/logo.png"
               alt="Altus Corp"

@@ -7,21 +7,59 @@ import {
   AnimatePresence,
   useReducedMotion,
 } from "motion/react";
-import { ArrowRight, Plus, Check, Target, X, CornerUpRight, Loader2 } from "lucide-react";
+import {
+  ArrowRight,
+  Plus,
+  Check,
+  Target,
+  X,
+  CornerUpRight,
+  Loader2,
+  ListChecks,
+  GripVertical,
+  Sparkles,
+  ChevronDown,
+} from "lucide-react";
+import {
+  DndContext,
+  DragOverlay,
+  MouseSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+  closestCorners,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import { fireToast } from "@/lib/toast";
 import {
   pullGoalToToday,
+  pullTaskToToday,
+  upsertGoalActual,
+  autoFillFive,
   addStandaloneItem,
   removeItem,
   moveOverdueToToday,
 } from "@/app/(app)/daily-checklist/actions";
 import { MIN_DAILY_ITEMS } from "@/lib/daily-checklist/constants";
-import type { DailyItem, OverdueItem, PullableGoal } from "@/lib/queries/daily-checklist";
+import type {
+  DailyItem,
+  OverdueItem,
+  PullableGoal,
+  OpenTaskOption,
+  PlannerGoal,
+} from "@/lib/queries/daily-checklist";
 
-/* ── Daily-plan gate — the surface users hit each morning. Plan at least five
- *    things you'll get done today, then start. Neutral-enterprise design on the
- *    app's tokens (matches the Weekly Goals board). This is a daily checklist,
- *    NOT attendance. Fail-open: the layout never blocks login on a DB hiccup. ── */
+/* ── Daily-plan gate — the "Plan Your Day" surface users hit each morning.
+ *    LEFT  = Today's 5 Commitments (focal, the drop target).
+ *    RIGHT = two stacked draggable panels (Weekly Goals + Tasks).
+ *    Drag a goal/task from the right onto the left to commit it; every right
+ *    row also has a "+ Add" button for keyboard/touch (drag is mouse-only).
+ *    Brand-tokens only; fail-open: the layout never blocks login on a DB hiccup
+ *    and the server gate is authoritative — worst case it re-shows. ── */
 
 const MIN = MIN_DAILY_ITEMS;
 
@@ -29,52 +67,77 @@ const MIN = MIN_DAILY_ITEMS;
 const FOCUS_RING =
   "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-soft)]";
 
+/** The single droppable id for the LEFT commitments column. */
+const DROP_ID = "today-commitments";
+
 interface Props {
   greetingName?: string;
   today: { weekday: string; date: string };
   items: DailyItem[];
   overdue: OverdueItem[];
+  /** Still a prop (kept for compatibility); plannerGoals is the live source. */
   pullable: PullableGoal[];
+  openTasks: OpenTaskOption[];
+  plannerGoals: PlannerGoal[];
 }
+
+type Res = { ok: true; [k: string]: unknown } | { ok: false; error: string };
+
+/** Drag payload — a goal or task being dragged from the right into the left. */
+type DragData =
+  | { kind: "goal"; id: string; label: string }
+  | { kind: "task"; id: string; label: string };
 
 export function DailyPlanGate({
   greetingName,
   today,
   items: pItems,
   overdue: pOverdue,
-  pullable: pPullable,
+  openTasks: pOpenTasks,
+  plannerGoals: pPlannerGoals,
 }: Props) {
   const router = useRouter();
   const reduce = useReducedMotion();
 
-  // Local state mirrors the server: every add/pull/remove updates it FROM the
-  // authoritative row the action returns (not a guess), so the count never
-  // diverges and "Start my day" can trust it. The layout re-checks the gate only
-  // when "Start my day" calls router.refresh().
+  // Local state mirrors the server: every add/pull/remove/log updates it from
+  // the authoritative row the action returns (not a guess). The layout re-checks
+  // the gate only when "Start my day" calls router.refresh().
   const [items, setItems] = React.useState(pItems);
-  const [pullable, setPullable] = React.useState(pPullable);
+  const [openTasks, setOpenTasks] = React.useState(pOpenTasks);
+  const [plannerGoals, setPlannerGoals] = React.useState(pPlannerGoals);
   const [overdue, setOverdue] = React.useState(pOverdue);
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [entering, setEntering] = React.useState(false);
-  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [active, setActive] = React.useState<DragData | null>(null);
 
-  // Count of committed items (the real number — required is MIN). One source of
-  // truth used by the dial, the "to go" line and the commit hint.
   const count = items.length;
   const met = count >= MIN;
   const remaining = Math.max(0, MIN - count);
-  const extra = Math.max(0, count - MIN);
-  // Slots: at least MIN; if the user commits more, the ledger grows with them.
   const slotCount = Math.max(MIN, count);
 
-  // Autofocus the commit input on FIRST mount only — never steal focus on a
-  // re-render (which would yank focus away mid-typing after each add).
-  React.useEffect(() => {
-    inputRef.current?.focus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Goals that BLOCK the day: open (cumulative < 100) AND no today's progress
+  // logged yet (neither a % nor a note).
+  const blockingGoals = React.useMemo(
+    () =>
+      plannerGoals.filter(
+        (g) => g.pctDone < 100 && g.todayPct == null && (g.todayNote ?? "").trim() === "",
+      ),
+    [plannerGoals],
+  );
+  const goalsToLog = blockingGoals.length;
 
-  type Res = { ok: true; [k: string]: unknown } | { ok: false; error: string };
+  // The gate's contract (the server gate is authoritative; this just drives the
+  // CTA enable + "what's missing" hint).
+  const ready = met && goalsToLog === 0;
+
+  const sensors = useSensors(
+    // Mouse: a 6px move starts a drag, so clicking the +Add button still works.
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    // Touch: long-press to drag, so normal scroll still works on the panels.
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
+    useSensor(KeyboardSensor),
+  );
+
   async function act(
     key: string,
     fn: () => Promise<Res>,
@@ -97,43 +160,94 @@ export function DailyPlanGate({
     }
   }
 
-  function addItem(title: string) {
+  // ── Pull a weekly goal into today's commitments. ──
+  const onPullGoal = (goalId: string) =>
+    act(
+      `goal:${goalId}`,
+      () => pullGoalToToday(goalId),
+      (r) => {
+        const item = (r as unknown as { item: DailyItem | null }).item;
+        // Mark it as pulled either way (real new row OR already-on-today no-op).
+        setPlannerGoals((p) => p.map((g) => (g.id === goalId ? { ...g, pulledToday: true } : g)));
+        if (item) setItems((p) => [...p, item]);
+      },
+      (error) => {
+        fireToast({ message: error, type: "error" });
+        // On failure pull fresh server data so the panels resync.
+        router.refresh();
+      },
+    );
+
+  // ── Pull an open task into today's commitments. ──
+  const onPullTask = (taskId: string) =>
+    act(
+      `task:${taskId}`,
+      () => pullTaskToToday(taskId),
+      (r) => {
+        const item = (r as unknown as { item: DailyItem | null }).item;
+        if (item) {
+          setItems((p) => [...p, item]);
+          setOpenTasks((p) => p.filter((t) => t.id !== taskId));
+        } else {
+          // Already on today's list — drop it from the panel, tell the user.
+          setOpenTasks((p) => p.filter((t) => t.id !== taskId));
+          fireToast({ message: "That task is already on today's list.", type: "info" });
+        }
+      },
+      (error) => {
+        fireToast({ message: error, type: "error" });
+        router.refresh();
+      },
+    );
+
+  // ── Log today's progress on a goal (% and/or a one-line note). ──
+  const onLogGoal = (goalId: string, pct: number | null, note: string) =>
+    act(
+      `log:${goalId}`,
+      () => upsertGoalActual({ goalId, pct, note: note || undefined }),
+      () => {
+        setPlannerGoals((p) =>
+          p.map((g) =>
+            g.id === goalId
+              ? {
+                  ...g,
+                  todayPct: pct,
+                  todayNote: note.trim() || null,
+                  pctDone: pct != null ? pct : g.pctDone,
+                }
+              : g,
+          ),
+        );
+        fireToast({ message: "Today's progress logged.", type: "success" });
+      },
+    );
+
+  const onAutoFill = () =>
+    act(
+      "autofill",
+      () => autoFillFive(),
+      () => {
+        // The action inserts rows server-side; pull fresh data so the ledger
+        // reflects exactly what landed (no guessing the count).
+        router.refresh();
+      },
+    );
+
+  const onAddStandalone = (title: string, clear: () => void) => {
     const t = title.trim();
     if (t.length < 2) return;
     const fd = new FormData();
     fd.set("title", t);
-    // Clear the input optimistically, but keep it focused for the next entry.
-    if (inputRef.current) inputRef.current.value = "";
-    inputRef.current?.focus();
+    clear();
     act(
       "add",
       () => addStandaloneItem(fd),
       (r) => {
-        // Append the AUTHORITATIVE row the server returned (not a guess) so the
-        // count reliably reflects the add without any manual reload.
         const item = (r as unknown as { item: DailyItem }).item;
         if (item) setItems((p) => [...p, item]);
-        inputRef.current?.focus();
       },
     );
-  }
-
-  const onPull = (g: PullableGoal) =>
-    act(
-      g.id,
-      () => pullGoalToToday(g.id),
-      (r) => {
-        const item = (r as unknown as { item: DailyItem | null }).item;
-        if (item) {
-          // Real new row → commit it and drop the pill.
-          setItems((p) => [...p, item]);
-          setPullable((p) => p.filter((x) => x.id !== g.id));
-        } else {
-          // No-op (already on today's list) — keep the pill, tell the user.
-          fireToast({ message: "That goal is already on today's list.", type: "info" });
-        }
-      },
-    );
+  };
 
   const onRemove = (it: DailyItem) =>
     act(it.id, () => removeItem(it.id), () => setItems((p) => p.filter((x) => x.id !== it.id)));
@@ -145,300 +259,396 @@ export function DailyPlanGate({
     });
 
   function startDay() {
-    // Trust the local count, which mirrors the server (rows returned from each
-    // add). The layout re-checks needsDailyPlan on refresh and drops the gate.
-    if (!met || entering) return;
+    // The server layout re-checks the gate on refresh and drops it. If the CTA
+    // logic is ever off, worst case the gate just re-shows — never hard-fail.
+    if (!ready || entering) return;
     setEntering(true);
     router.refresh();
-    // Fail-safe for a LOGIN-blocking gate: if the refresh doesn't drop the gate
-    // within a few seconds (a transient read still seeing <5, slow network),
-    // re-enable the button so the user can never be trapped on a spinner.
+    // Fail-safe: if the refresh doesn't drop the gate within a few seconds,
+    // re-enable so the user can never be trapped on a spinner.
     window.setTimeout(() => setEntering(false), 4000);
   }
 
-  const goId = "daily-plan-togo";
+  function onDragStart(e: DragStartEvent) {
+    setActive((e.active.data.current as DragData | undefined) ?? null);
+  }
+  function onDragEnd(e: DragEndEvent) {
+    const a = active;
+    setActive(null);
+    if (!a || !e.over || String(e.over.id) !== DROP_ID) return;
+    if (a.kind === "goal") onPullGoal(a.id);
+    else onPullTask(a.id);
+  }
+
+  const missingHint: string[] = [];
+  if (!met) missingHint.push(`Add ${remaining} more commitment${remaining === 1 ? "" : "s"}`);
+  if (goalsToLog > 0)
+    missingHint.push(`Log today's progress on ${goalsToLog} goal${goalsToLog === 1 ? "" : "s"}`);
 
   return (
-    <main
-      className="relative h-[100svh] w-full overflow-hidden max-lg:h-auto max-lg:min-h-screen max-lg:overflow-visible"
-      style={{
-        background:
-          "linear-gradient(180deg, var(--color-surface-soft) 0%, color-mix(in srgb, var(--color-surface-track) 60%, var(--color-surface-soft)) 100%)",
-        color: "var(--color-ink-strong)",
-      }}
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragCancel={() => setActive(null)}
     >
-      <div className="mx-auto flex h-full max-w-[1240px] flex-col px-8 max-md:px-4 py-5 max-lg:h-auto max-lg:pb-20">
-        {/* ── TOP ZONE: header (left) beside the weekly-goals pull-card (right) ── */}
-        <div className="shrink-0 grid grid-cols-[1fr_minmax(340px,440px)] gap-6 max-lg:grid-cols-1 items-start">
-          {/* ── LEFT: eyebrow + date + title + subtitle + carry-forward ── */}
-          <div className="min-w-0">
-            {/* ── Eyebrow + date ── */}
-            <div className="wg-rise flex items-center justify-between gap-4 flex-wrap">
+      <main
+        className="relative min-h-[100svh] w-full"
+        style={{
+          background:
+            "linear-gradient(180deg, var(--color-surface-soft) 0%, color-mix(in srgb, var(--color-surface-track) 60%, var(--color-surface-soft)) 100%)",
+          color: "var(--color-ink-strong)",
+        }}
+      >
+        <div className="mx-auto w-full max-w-[1280px] px-8 max-md:px-4 py-8 max-md:py-6">
+          {/* ── HERO ── */}
+          <header className="wg-rise">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
               <span
                 className="text-[11px] font-bold uppercase tracking-[0.2em]"
                 style={{ color: "var(--color-altus-red-deep)" }}
               >
-                Plan your day{greetingName ? ` · ${greetingName}` : ""}
+                Plan your day{greetingName ? ` — ${greetingName}` : ""}
               </span>
-              <span className="text-[12.5px] font-semibold tabular-nums" style={{ color: "var(--color-ink-subtle)" }}>
+              <span
+                className="text-[12.5px] font-semibold tabular-nums"
+                style={{ color: "var(--color-ink-subtle)" }}
+              >
                 {today.weekday} · {today.date}
               </span>
             </div>
-            <div aria-hidden className="wg-rise mt-2.5 h-px w-full" style={{ background: "var(--color-hairline)" }} />
-
-            {/* ── Title + planning subtitle ── */}
-            <header className="wg-rise mt-4" style={{ animationDelay: "40ms" }}>
-              <h1
-                className="font-bold"
-                style={{
-                  color: "var(--color-ink-strong)",
-                  fontSize: "clamp(26px, 3vw, 40px)",
-                  letterSpacing: "-0.025em",
-                  lineHeight: 1.04,
-                }}
-              >
-                Plan what you&apos;ll get done today
-              </h1>
-              <p
-                className="mt-2 max-w-[58ch] font-medium"
-                style={{ fontSize: 15, lineHeight: 1.5, color: "var(--color-ink-muted)" }}
-              >
-                {met
-                  ? "Your plan is set. Add more if you like, then start your day."
-                  : `Commit at least ${MIN} things you'll get done today — pull from your weekly goals, or write your own — then start.`}
-              </p>
-            </header>
-
-            {/* ── Carry-forward (only if any unfinished items remain) ── */}
-            <AnimatePresence>
-              {overdue.length > 0 && (
-                <motion.button
-                  type="button"
-                  onClick={onMoveOverdue}
-                  disabled={busyId === "overdue"}
-                  initial={reduce ? false : { opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className={`wg-btn mt-4 inline-flex items-center gap-2 self-start rounded-full px-4 py-2 text-[13.5px] font-bold cursor-pointer disabled:opacity-50 ${FOCUS_RING}`}
-                  style={{
-                    background: "color-mix(in srgb, var(--color-amber) 12%, transparent)",
-                    color: "var(--color-amber-deep)",
-                    border: "1px solid color-mix(in srgb, var(--color-amber) 36%, transparent)",
-                  }}
-                >
-                  {busyId === "overdue" ? (
-                    <Loader2 size={15} className="animate-spin" />
-                  ) : (
-                    <CornerUpRight size={15} strokeWidth={2.6} />
-                  )}
-                  Carry forward {overdue.length} unfinished item{overdue.length === 1 ? "" : "s"}
-                </motion.button>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* ── RIGHT (top zone): pull from weekly goals — fast fill ── */}
-          <section
-            className="wg-rise rounded-section bg-surface-card border border-hairline p-5 flex flex-col max-h-[260px] max-lg:max-h-none"
-            style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)", animationDelay: "160ms" }}
-          >
-            <div className="flex items-baseline justify-between gap-2 mb-1">
-              <h3 className="font-bold text-ink-strong" style={{ fontSize: 17 }}>From your weekly goals</h3>
-              <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-subtle">one tap</span>
-            </div>
-            <p className="mb-3 font-medium text-ink-subtle" style={{ fontSize: 13, lineHeight: 1.45 }}>
-              Commit a weekly goal straight to today.
-            </p>
-            {pullable.length === 0 ? (
-              <p className="font-medium py-6 text-center text-ink-subtle" style={{ fontSize: 13.5 }}>
-                {items.some((i) => i.origin === "goal_related")
-                  ? "All goals pulled in."
-                  : "No weekly goals to pull."}
-              </p>
-            ) : (
-              <ul className="space-y-2 min-h-0 flex-1 max-h-[360px] overflow-y-auto pr-1">
-                <AnimatePresence initial={false}>
-                  {pullable.map((g) => {
-                    const label = g.targetDone || g.subject || "Weekly goal";
-                    return (
-                      <motion.li
-                        key={g.id}
-                        layout={!reduce}
-                        initial={reduce ? false : { opacity: 0, x: 8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 12, transition: { duration: 0.18 } }}
-                        className="flex items-center gap-2.5 rounded-xl border border-hairline bg-surface-card px-3 py-2.5"
-                      >
-                        <Target size={15} strokeWidth={2.3} style={{ color: "var(--color-altus-red)" }} className="shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-ink-strong" style={{ fontSize: 14, overflowWrap: "anywhere" }}>
-                            {label}
-                          </div>
-                          {(g.client || g.subject) && (
-                            <div className="text-ink-subtle" style={{ fontSize: 12, overflowWrap: "anywhere" }}>
-                              {[g.client, g.subject].filter(Boolean).join(" · ")}
-                            </div>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => onPull(g)}
-                          disabled={busyId === g.id}
-                          aria-label={`Add "${label}" to today`}
-                          className={`wg-btn inline-flex size-9 shrink-0 items-center justify-center rounded-lg cursor-pointer disabled:opacity-50 ${FOCUS_RING}`}
-                          style={{ background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)", color: "var(--color-altus-red)" }}
-                        >
-                          {busyId === g.id ? <Loader2 size={15} className="animate-spin" /> : <Plus size={17} strokeWidth={2.8} />}
-                        </button>
-                      </motion.li>
-                    );
-                  })}
-                </AnimatePresence>
-              </ul>
-            )}
-          </section>
-        </div>
-
-        {/* ── MAIN ZONE: ledger (focal) + progress/start CTA. Fills remaining
-            viewport; the ledger list scrolls internally so the PAGE doesn't. ── */}
-        <div className="mt-6 flex-1 min-h-0 grid grid-cols-[1.5fr_1fr] gap-6 max-lg:grid-cols-1 max-lg:gap-6 max-lg:min-h-0 items-start">
-          {/* ── LEFT: the ledger ── */}
-          <section
-            className="wg-rise min-w-0 h-full max-lg:h-auto flex flex-col rounded-section bg-surface-card border border-hairline p-6 max-md:p-5"
-            style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)", animationDelay: "80ms" }}
-          >
-            <div className="shrink-0 mb-4 flex items-center justify-between gap-3 flex-wrap">
-              <h2 className="font-bold text-ink-strong" style={{ fontSize: 20, letterSpacing: "-0.01em" }}>
-                Today&apos;s plan
-              </h2>
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-bold tabular-nums"
-                style={{
-                  background: "color-mix(in srgb, var(--color-altus-red) 8%, transparent)",
-                  color: "var(--color-altus-red-deep)",
-                }}
-              >
-                {count} of {MIN} committed{extra > 0 ? ` · +${extra}` : ""}
-              </span>
-            </div>
-
-            {/* The ledger — at least MIN numbered lines; filled lines are commitments.
-                Scrolls internally (min-h-0 + overflow) so the PAGE never scrolls. */}
-            <ul className="min-h-0 flex-1 overflow-y-auto max-lg:overflow-visible pr-1">
-              <AnimatePresence initial={false}>
-                {Array.from({ length: slotCount }).map((_, i) => {
-                  const it = items[i];
-                  return (
-                    <LedgerLine
-                      key={it ? it.id : `slot-${i}`}
-                      index={i + 1}
-                      item={it}
-                      reduce={!!reduce}
-                      busy={it ? busyId === it.id : false}
-                      onRemove={it ? () => onRemove(it) : undefined}
-                    />
-                  );
-                })}
-              </AnimatePresence>
-            </ul>
-
-            {/* command bar — the most obvious action on screen */}
-            <form
-              className="shrink-0 mt-5"
-              onSubmit={(e) => {
-                e.preventDefault();
-                addItem(inputRef.current?.value ?? "");
+            <h1
+              className="mt-3 font-bold"
+              style={{
+                color: "var(--color-ink-strong)",
+                fontFamily: "var(--font-display)",
+                fontSize: "clamp(28px, 3.2vw, 44px)",
+                letterSpacing: "-0.025em",
+                lineHeight: 1.04,
               }}
             >
-              <div
-                className="flex items-center gap-2.5 rounded-2xl border-2 bg-surface-card px-3 py-2 transition-colors focus-within:border-[var(--color-altus-red)]"
-                style={{ borderColor: "var(--color-hairline-strong)", boxShadow: "0 1px 2px rgba(15,23,42,0.04)" }}
-              >
-                <span
-                  aria-hidden
-                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl"
-                  style={{ background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)", color: "var(--color-altus-red)" }}
-                >
-                  <Plus size={19} strokeWidth={2.6} />
-                </span>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  maxLength={280}
-                  autoComplete="off"
-                  aria-label="What you'll get done today"
-                  placeholder="Add something you'll get done today…"
-                  className={`flex-1 min-w-0 bg-transparent text-[16px] font-medium text-ink-strong outline-none placeholder:text-ink-subtle py-2 ${FOCUS_RING}`}
-                />
-                <button
-                  type="submit"
-                  disabled={busyId === "add"}
-                  className={`wg-btn wg-sheen inline-flex shrink-0 items-center gap-2 rounded-xl py-3 px-6 text-[15px] font-bold text-white cursor-pointer disabled:opacity-50 ${FOCUS_RING}`}
-                  style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 8px 20px -10px rgba(225,6,0,0.5)" }}
-                >
-                  {busyId === "add" ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} strokeWidth={2.8} />}
-                  Add
-                </button>
-              </div>
-              <p className="mt-2 text-[12.5px] font-medium text-ink-subtle">
-                Press Enter to add ·{" "}
-                {met
-                  ? "minimum met — add more if you like."
-                  : `${remaining} more to start your day.`}
-              </p>
-            </form>
-          </section>
+              Plan what you&apos;ll get done today
+            </h1>
+            <p
+              className="mt-2 max-w-[58ch] font-medium"
+              style={{ fontSize: 15, lineHeight: 1.5, color: "var(--color-ink-muted)" }}
+            >
+              Commit at least {MIN} things — pull from your weekly goals or tasks, or write your
+              own — log today&apos;s goal progress, then start.
+            </p>
+          </header>
 
-          {/* ── RIGHT: progress dial + start CTA ── */}
-          <section
-            className="wg-rise min-w-0 rounded-section bg-surface-card border border-hairline p-5"
-            style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)", animationDelay: "120ms" }}
-          >
-              <div className="flex items-center gap-5 min-w-0">
-                <ProgressDial count={count} reduce={!!reduce} />
-                <div className="min-w-0">
-                  <div
-                    className="font-bold text-ink-strong"
-                    style={{ fontSize: 21, lineHeight: 1.1, letterSpacing: "-0.01em" }}
-                  >
-                    {met ? "You're ready" : `${remaining} to go`}
-                  </div>
-                  <div id={goId} className="mt-1 font-semibold text-ink-subtle" style={{ fontSize: 13.5 }}>
-                    {count} of {MIN} committed{extra > 0 ? ` · +${extra} extra` : ""}
-                  </div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={startDay}
-                disabled={!met || entering}
-                aria-describedby={met ? undefined : goId}
-                className={`wg-btn ${met ? "wg-sheen" : ""} mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl py-4 px-6 text-[16px] font-bold cursor-pointer disabled:cursor-not-allowed ${FOCUS_RING}`}
-                style={
-                  met
-                    ? {
-                        background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-                        color: "#fff",
-                        boxShadow: "0 14px 34px -10px rgba(225,6,0,0.6)",
-                      }
-                    : {
-                        background: "var(--color-surface-track)",
-                        color: "var(--color-ink-subtle)",
-                      }
-                }
-              >
-                {entering ? <Loader2 size={18} className="animate-spin" /> : null}
-                Start my day <ArrowRight size={18} strokeWidth={2.6} />
-              </button>
-          </section>
+          {/* ── TWO COLUMNS — stack on mobile <768px ── */}
+          <div className="mt-7 grid grid-cols-[1.35fr_1fr] gap-7 max-md:grid-cols-1 max-md:gap-6 items-start">
+            {/* ════ LEFT: Today's 5 Commitments (focal + drop target) ════ */}
+            <CommitmentsColumn
+              items={items}
+              slotCount={slotCount}
+              count={count}
+              met={met}
+              remaining={remaining}
+              ready={ready}
+              entering={entering}
+              missingHint={missingHint}
+              overdue={overdue}
+              busyId={busyId}
+              reduce={!!reduce}
+              activeDrag={active}
+              onRemove={onRemove}
+              onAutoFill={onAutoFill}
+              onAddStandalone={onAddStandalone}
+              onMoveOverdue={onMoveOverdue}
+              onStartDay={startDay}
+            />
+
+            {/* ════ RIGHT: two stacked draggable panels ════ */}
+            <div className="flex flex-col gap-6 min-w-0">
+              <GoalsPanel
+                goals={plannerGoals}
+                busyId={busyId}
+                reduce={!!reduce}
+                onPull={onPullGoal}
+                onLog={onLogGoal}
+              />
+              <TasksPanel
+                tasks={openTasks}
+                busyId={busyId}
+                reduce={!!reduce}
+                onPull={onPullTask}
+              />
+            </div>
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+
+      {/* Floating drag preview. */}
+      <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.2,0.7,0.3,1)" }}>
+        {active ? (
+          <div
+            className="w-[280px] rotate-2 cursor-grabbing rounded-xl border bg-surface-card p-3 shadow-2xl"
+            style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 40%, transparent)" }}
+          >
+            <div className="flex items-center gap-2">
+              {active.kind === "goal" ? (
+                <Target size={15} strokeWidth={2.4} style={{ color: "var(--color-altus-red)" }} />
+              ) : (
+                <ListChecks size={15} strokeWidth={2.4} style={{ color: "var(--color-altus-red)" }} />
+              )}
+              <span
+                className="block font-semibold text-ink-strong"
+                style={{ fontSize: 14, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}
+              >
+                {active.label}
+              </span>
+            </div>
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
 
-/* ── one ledger line — a commitment (filled) or an empty numbered slot ── */
-function LedgerLine({
+/* ════════════════════════════════════════════════════════════════════════
+   LEFT — Today's commitments (the focus; the drop target)
+   ════════════════════════════════════════════════════════════════════════ */
+function CommitmentsColumn({
+  items,
+  slotCount,
+  count,
+  met,
+  remaining,
+  ready,
+  entering,
+  missingHint,
+  overdue,
+  busyId,
+  reduce,
+  activeDrag,
+  onRemove,
+  onAutoFill,
+  onAddStandalone,
+  onMoveOverdue,
+  onStartDay,
+}: {
+  items: DailyItem[];
+  slotCount: number;
+  count: number;
+  met: boolean;
+  remaining: number;
+  ready: boolean;
+  entering: boolean;
+  missingHint: string[];
+  overdue: OverdueItem[];
+  busyId: string | null;
+  reduce: boolean;
+  activeDrag: DragData | null;
+  onRemove: (it: DailyItem) => void;
+  onAutoFill: () => void;
+  onAddStandalone: (title: string, clear: () => void) => void;
+  onMoveOverdue: () => void;
+  onStartDay: () => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: DROP_ID });
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  // Active while a goal/task is mid-drag (highlight the whole column as a target).
+  const dragging = activeDrag != null;
+
+  return (
+    <section
+      ref={setNodeRef}
+      className="wg-rise min-w-0 rounded-section border p-6 max-md:p-5 transition-colors"
+      style={{
+        background: "var(--color-surface-card)",
+        borderColor: isOver
+          ? "var(--color-altus-red)"
+          : dragging
+            ? "color-mix(in srgb, var(--color-altus-red) 45%, var(--color-hairline))"
+            : "var(--color-hairline)",
+        boxShadow: isOver
+          ? "0 0 0 3px color-mix(in srgb, var(--color-altus-red) 14%, transparent), 0 1px 3px rgba(15,23,42,0.05)"
+          : "0 1px 3px rgba(15,23,42,0.05)",
+      }}
+    >
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+        <h2 className="font-bold text-ink-strong" style={{ fontSize: 20, letterSpacing: "-0.01em" }}>
+          Today&apos;s {MIN} Commitments
+        </h2>
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-bold tabular-nums"
+          style={{
+            background: met
+              ? "color-mix(in srgb, var(--color-green) 12%, transparent)"
+              : "color-mix(in srgb, var(--color-altus-red) 8%, transparent)",
+            color: met ? "var(--color-green-deep)" : "var(--color-altus-red-deep)",
+          }}
+        >
+          {count} of {MIN} committed
+        </span>
+      </div>
+
+      {/* Numbered slots — filled commitments + empty placeholders up to MIN. */}
+      <ul className="space-y-0">
+        <AnimatePresence initial={false}>
+          {Array.from({ length: slotCount }).map((_, i) => {
+            const it = items[i];
+            return (
+              <CommitmentLine
+                key={it ? it.id : `slot-${i}`}
+                index={i + 1}
+                item={it}
+                reduce={reduce}
+                busy={it ? busyId === it.id : false}
+                onRemove={it ? () => onRemove(it) : undefined}
+              />
+            );
+          })}
+        </AnimatePresence>
+      </ul>
+
+      {dragging && (
+        <p
+          className="mt-3 rounded-xl border border-dashed py-3 text-center text-[13px] font-bold"
+          style={{
+            borderColor: "color-mix(in srgb, var(--color-altus-red) 40%, transparent)",
+            color: "var(--color-altus-red-deep)",
+            background: "color-mix(in srgb, var(--color-altus-red) 5%, transparent)",
+          }}
+        >
+          Drop here to commit it to today
+        </p>
+      )}
+
+      {/* ── Auto-fill + type-your-own ── */}
+      <div className="mt-5 flex flex-wrap items-center gap-2.5">
+        <button
+          type="button"
+          onClick={onAutoFill}
+          disabled={busyId === "autofill" || met}
+          className={`wg-btn inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[13.5px] font-bold cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${FOCUS_RING}`}
+          style={{
+            background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)",
+            color: "var(--color-altus-red-deep)",
+            border: "1px solid color-mix(in srgb, var(--color-altus-red) 24%, transparent)",
+          }}
+        >
+          {busyId === "autofill" ? (
+            <Loader2 size={15} className="animate-spin" />
+          ) : (
+            <Sparkles size={15} strokeWidth={2.4} />
+          )}
+          Auto-fill {MIN}
+        </button>
+        {met && (
+          <span className="text-[12.5px] font-semibold text-ink-subtle">Minimum met.</span>
+        )}
+      </div>
+
+      <form
+        className="mt-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onAddStandalone(inputRef.current?.value ?? "", () => {
+            if (inputRef.current) inputRef.current.value = "";
+            inputRef.current?.focus();
+          });
+        }}
+      >
+        <div
+          className="flex items-center gap-2.5 rounded-2xl border-2 bg-surface-card px-3 py-2 transition-colors focus-within:border-[var(--color-altus-red)]"
+          style={{ borderColor: "var(--color-hairline-strong)", boxShadow: "0 1px 2px rgba(15,23,42,0.04)" }}
+        >
+          <span
+            aria-hidden
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl"
+            style={{ background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)", color: "var(--color-altus-red)" }}
+          >
+            <Plus size={18} strokeWidth={2.6} />
+          </span>
+          <input
+            ref={inputRef}
+            type="text"
+            maxLength={280}
+            autoComplete="off"
+            aria-label="Type your own commitment for today"
+            placeholder="Type your own…"
+            className={`flex-1 min-w-0 bg-transparent text-[15.5px] font-medium text-ink-strong outline-none placeholder:text-ink-subtle py-2 ${FOCUS_RING}`}
+          />
+          <button
+            type="submit"
+            disabled={busyId === "add"}
+            className={`wg-btn inline-flex shrink-0 items-center gap-1.5 rounded-xl py-2.5 px-5 text-[14px] font-bold text-white cursor-pointer disabled:opacity-50 ${FOCUS_RING}`}
+            style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 8px 20px -10px rgba(225,6,0,0.5)" }}
+          >
+            {busyId === "add" ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} strokeWidth={2.8} />}
+            Add
+          </button>
+        </div>
+      </form>
+
+      {/* ── Overdue carry-over strip ── */}
+      <AnimatePresence>
+        {overdue.length > 0 && (
+          <motion.button
+            type="button"
+            onClick={onMoveOverdue}
+            disabled={busyId === "overdue"}
+            initial={reduce ? false : { opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, height: 0 }}
+            className={`wg-btn mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-bold cursor-pointer disabled:opacity-50 ${FOCUS_RING}`}
+            style={{
+              background: "color-mix(in srgb, var(--color-amber) 12%, transparent)",
+              color: "var(--color-amber-deep)",
+              border: "1px solid color-mix(in srgb, var(--color-amber) 36%, transparent)",
+            }}
+          >
+            {busyId === "overdue" ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <CornerUpRight size={14} strokeWidth={2.6} />
+            )}
+            Roll over {overdue.length} unfinished item{overdue.length === 1 ? "" : "s"}
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* ── Start my day → ── */}
+      <div className="mt-6 border-t pt-5" style={{ borderColor: "var(--color-hairline)" }}>
+        <button
+          type="button"
+          onClick={onStartDay}
+          disabled={!ready || entering}
+          aria-describedby={ready ? undefined : "start-missing"}
+          className={`wg-btn ${ready ? "wg-sheen" : ""} inline-flex w-full items-center justify-center gap-2 rounded-xl py-4 px-6 text-[16px] font-bold cursor-pointer disabled:cursor-not-allowed ${FOCUS_RING}`}
+          style={
+            ready
+              ? {
+                  background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+                  color: "#fff",
+                  boxShadow: "0 14px 34px -10px rgba(225,6,0,0.6)",
+                }
+              : {
+                  background: "var(--color-surface-track)",
+                  color: "var(--color-ink-subtle)",
+                }
+          }
+        >
+          {entering ? <Loader2 size={18} className="animate-spin" /> : null}
+          Start my day <ArrowRight size={18} strokeWidth={2.6} />
+        </button>
+        {!ready && missingHint.length > 0 && (
+          <p id="start-missing" className="mt-2.5 text-center text-[13px] font-semibold text-ink-subtle">
+            {missingHint.join(" · ")}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ── one commitment line — filled commitment or empty numbered slot ── */
+function CommitmentLine({
   index,
   item,
   busy,
@@ -451,7 +661,17 @@ function LedgerLine({
   reduce: boolean;
   onRemove?: () => void;
 }) {
-  const goal = item?.origin === "goal_related";
+  // Origin badge: Goal (goalId) · Task (taskId) · Own (neither).
+  const originLabel = item
+    ? item.goalId
+      ? "Goal"
+      : item.taskId
+        ? "Task"
+        : "Own"
+    : null;
+  const isGoal = item?.goalId != null;
+  const isTask = item?.taskId != null;
+
   return (
     <motion.li
       layout={!reduce}
@@ -462,13 +682,13 @@ function LedgerLine({
       className="group flex items-center gap-4 py-3"
       style={{ borderBottom: "1px solid var(--color-hairline)" }}
     >
-      {/* index / committed check */}
+      {/* numbered slot / committed check */}
       <span
-        className="inline-flex size-7 shrink-0 items-center justify-center rounded-full tabular-nums text-[13px] font-bold"
+        className="inline-flex size-8 shrink-0 items-center justify-center rounded-full tabular-nums text-[14px] font-bold"
         style={
           item
             ? {
-                background: goal
+                background: isGoal
                   ? "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))"
                   : "linear-gradient(135deg, var(--color-green), var(--color-green-deep))",
                 color: "#fff",
@@ -482,7 +702,6 @@ function LedgerLine({
         {item ? <Check size={15} strokeWidth={3} /> : index}
       </span>
 
-      {/* text */}
       {item ? (
         <span className="flex-1 min-w-0">
           <span className="block font-semibold text-ink-strong break-words" style={{ fontSize: 16, overflowWrap: "anywhere" }}>
@@ -490,20 +709,25 @@ function LedgerLine({
           </span>
           <span
             className="text-[11px] font-bold uppercase tracking-[0.08em]"
-            style={{ color: goal ? "var(--color-altus-red)" : "var(--color-ink-subtle)" }}
+            style={{
+              color: isGoal
+                ? "var(--color-altus-red)"
+                : isTask
+                  ? "var(--color-green-deep)"
+                  : "var(--color-ink-subtle)",
+            }}
           >
-            {goal ? "Goal" : "Self"}
+            {originLabel}
             {item.client || item.subject ? ` · ${[item.client, item.subject].filter(Boolean).join(" · ")}` : ""}
           </span>
         </span>
       ) : (
         <span className="flex-1 min-w-0 font-medium text-ink-subtle" style={{ fontSize: 15 }}>
-          Add something you&apos;ll get done…
+          Drag a goal or task here, or type your own…
         </span>
       )}
 
-      {/* remove — reserved trailing slot. Revealed on hover AND keyboard focus
-          (focus-within), tappable on touch; never rendered on empty slots. */}
+      {/* remove ✕ — revealed on hover/focus, always tappable on touch */}
       <span className="shrink-0 inline-flex size-8 items-center justify-center">
         {item && onRemove && (
           <button
@@ -521,41 +745,390 @@ function LedgerLine({
   );
 }
 
-/* ── animated count / MIN completion arc ── */
-function ProgressDial({ count, reduce }: { count: number; reduce: boolean }) {
-  const size = 92;
-  const stroke = 9;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const pct = Math.min(1, count / MIN);
-  const met = count >= MIN;
+/* ════════════════════════════════════════════════════════════════════════
+   RIGHT — panel chrome shared by Weekly Goals + Tasks
+   ════════════════════════════════════════════════════════════════════════ */
+function Panel({
+  title,
+  hint,
+  delay,
+  children,
+}: {
+  title: string;
+  hint: string;
+  delay: number;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90" aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-surface-track)" strokeWidth={stroke} />
-        <motion.circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke={met ? "var(--color-green)" : "var(--color-altus-red)"}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={c}
-          initial={false}
-          animate={{ strokeDashoffset: c * (1 - pct) }}
-          transition={reduce ? { duration: 0.01 } : { type: "spring", stiffness: 120, damping: 22 }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span
-          className="tabular-nums leading-none"
-          style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 26, color: "var(--color-ink-strong)" }}
-        >
-          {count}
-        </span>
-        <span className="text-[11px] font-bold text-ink-subtle">of {MIN}</span>
+    <section
+      className="wg-rise rounded-section border border-hairline bg-surface-card p-5"
+      style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)", animationDelay: `${delay}ms` }}
+    >
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <h3 className="font-bold text-ink-strong" style={{ fontSize: 17 }}>
+          {title}
+        </h3>
+        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-subtle">{hint}</span>
       </div>
-    </div>
+      {children}
+    </section>
+  );
+}
+
+/** "Show more" toggle for the goals/tasks lists (first 3 + the rest). */
+function useShowMore<T>(rows: T[], initial = 3) {
+  const [open, setOpen] = React.useState(false);
+  const shown = open ? rows : rows.slice(0, initial);
+  const hidden = rows.length - shown.length;
+  return { shown, hidden, open, setOpen };
+}
+
+function ShowMoreButton({
+  hidden,
+  open,
+  onToggle,
+}: {
+  hidden: number;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  if (hidden <= 0 && !open) return null;
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`mt-2 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-bold text-ink-soft hover:text-ink-strong transition-colors ${FOCUS_RING}`}
+    >
+      <ChevronDown
+        size={14}
+        strokeWidth={2.6}
+        className="transition-transform"
+        style={{ transform: open ? "rotate(180deg)" : "none" }}
+      />
+      {open ? "Show less" : `Show ${hidden} more`}
+    </button>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   RIGHT — Weekly Goals panel (draggable rows + inline today's-progress form)
+   ════════════════════════════════════════════════════════════════════════ */
+function GoalsPanel({
+  goals,
+  busyId,
+  reduce,
+  onPull,
+  onLog,
+}: {
+  goals: PlannerGoal[];
+  busyId: string | null;
+  reduce: boolean;
+  onPull: (goalId: string) => void;
+  onLog: (goalId: string, pct: number | null, note: string) => void;
+}) {
+  const { shown, hidden, open, setOpen } = useShowMore(goals);
+
+  return (
+    <Panel title="Weekly Goals" hint="drag or log" delay={120}>
+      {goals.length === 0 ? (
+        <p className="font-medium py-6 text-center text-ink-subtle" style={{ fontSize: 13.5 }}>
+          No weekly goals this week.
+        </p>
+      ) : (
+        <ul className="space-y-2.5">
+          {shown.map((g) => (
+            <GoalRow
+              key={g.id}
+              g={g}
+              busyId={busyId}
+              reduce={reduce}
+              onPull={onPull}
+              onLog={onLog}
+            />
+          ))}
+          {(hidden > 0 || open) && (
+            <li>
+              <ShowMoreButton hidden={hidden} open={open} onToggle={() => setOpen((v) => !v)} />
+            </li>
+          )}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
+function GoalRow({
+  g,
+  busyId,
+  reduce,
+  onPull,
+  onLog,
+}: {
+  g: PlannerGoal;
+  busyId: string | null;
+  reduce: boolean;
+  onPull: (goalId: string) => void;
+  onLog: (goalId: string, pct: number | null, note: string) => void;
+}) {
+  const label = g.targetDone || g.subject || g.client || "Weekly goal";
+  const meta = [g.client, g.subject].filter(Boolean).join(" · ");
+  const open = g.pctDone < 100;
+  // BLOCKS the day: open goal with no today's progress logged yet.
+  const blocks = open && g.todayPct == null && (g.todayNote ?? "").trim() === "";
+  const logging = busyId === `log:${g.id}`;
+  const pulling = busyId === `goal:${g.id}`;
+
+  const { setNodeRef, attributes, listeners, isDragging } = useDraggable({
+    id: `goal:${g.id}`,
+    data: { kind: "goal", id: g.id, label } satisfies DragData,
+  });
+
+  const [pct, setPct] = React.useState<string>(g.todayPct != null ? String(g.todayPct) : "");
+  const [note, setNote] = React.useState<string>(g.todayNote ?? "");
+
+  return (
+    <motion.li
+      layout={!reduce}
+      className="rounded-xl border p-3"
+      style={{
+        background: "var(--color-surface-card)",
+        borderColor: blocks
+          ? "color-mix(in srgb, var(--color-altus-red) 55%, transparent)"
+          : "var(--color-hairline)",
+        opacity: isDragging ? 0.4 : 1,
+      }}
+    >
+      <div className="flex items-start gap-2.5">
+        {/* drag handle (mouse) */}
+        <button
+          type="button"
+          ref={setNodeRef}
+          {...attributes}
+          {...listeners}
+          aria-label={`Drag "${label}" to today`}
+          className="mt-0.5 shrink-0 cursor-grab active:cursor-grabbing text-ink-subtle hover:text-ink-strong touch-none"
+        >
+          <GripVertical size={16} strokeWidth={2.2} aria-hidden />
+        </button>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="font-semibold text-ink-strong" style={{ fontSize: 14, overflowWrap: "anywhere" }}>
+                {label}
+              </div>
+              {meta && (
+                <div className="text-ink-subtle" style={{ fontSize: 12, overflowWrap: "anywhere" }}>
+                  {meta}
+                </div>
+              )}
+            </div>
+            {/* +Add (keyboard/touch path) — or ✓ added */}
+            {g.pulledToday ? (
+              <span
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] font-bold"
+                style={{ background: "color-mix(in srgb, var(--color-green) 14%, transparent)", color: "var(--color-green-deep)" }}
+              >
+                <Check size={13} strokeWidth={3} /> Added
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onPull(g.id)}
+                disabled={pulling}
+                aria-label={`Add "${label}" to today`}
+                className={`wg-btn inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] font-bold cursor-pointer disabled:opacity-50 ${FOCUS_RING}`}
+                style={{ background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)", color: "var(--color-altus-red-deep)" }}
+              >
+                {pulling ? <Loader2 size={13} className="animate-spin" /> : <Plus size={14} strokeWidth={2.8} />}
+                Add
+              </button>
+            )}
+          </div>
+
+          {/* target + cumulative % bar */}
+          {g.targetDone && g.targetDone !== label && (
+            <div className="mt-1.5 text-ink-subtle" style={{ fontSize: 12 }}>
+              Target: {g.targetDone}
+            </div>
+          )}
+          <div className="mt-2 flex items-center gap-2">
+            <span
+              aria-hidden
+              className="block flex-1 rounded-full overflow-hidden"
+              style={{ height: 5, background: "var(--color-hairline)" }}
+            >
+              <span
+                className="block h-full rounded-full"
+                style={{
+                  width: `${Math.max(0, Math.min(100, g.pctDone))}%`,
+                  background: open ? "var(--color-altus-red)" : "var(--color-green)",
+                }}
+              />
+            </span>
+            <span className="tabular-nums font-bold" style={{ fontSize: 12, color: "var(--color-ink-muted)" }}>
+              {g.pctDone}%
+            </span>
+          </div>
+
+          {/* inline today's progress mini-form */}
+          <form
+            className="mt-2.5 flex items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const n = pct.trim() === "" ? null : Math.max(0, Math.min(100, Math.round(Number(pct))));
+              const num = n != null && !Number.isNaN(n) ? n : null;
+              if (num == null && note.trim() === "") {
+                fireToast({ message: "Add today's progress (a % or a note).", type: "error" });
+                return;
+              }
+              onLog(g.id, num, note.trim());
+            }}
+          >
+            <div
+              className="flex items-center gap-1 rounded-lg border px-2 py-1.5"
+              style={{ borderColor: blocks ? "color-mix(in srgb, var(--color-altus-red) 45%, transparent)" : "var(--color-hairline-strong)" }}
+            >
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={pct}
+                onChange={(e) => setPct(e.target.value)}
+                aria-label={`Today's progress % on "${label}"`}
+                placeholder="0"
+                className={`w-12 bg-transparent text-right text-[13px] font-bold tabular-nums text-ink-strong outline-none placeholder:text-ink-subtle ${FOCUS_RING}`}
+              />
+              <span className="text-[12px] font-bold text-ink-subtle">%</span>
+            </div>
+            <input
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={500}
+              aria-label={`Today's note on "${label}"`}
+              placeholder="note (optional)"
+              className={`min-w-0 flex-1 rounded-lg border bg-transparent px-2.5 py-1.5 text-[13px] font-medium text-ink-strong outline-none placeholder:text-ink-subtle ${FOCUS_RING}`}
+              style={{ borderColor: "var(--color-hairline-strong)" }}
+            />
+            <button
+              type="submit"
+              disabled={logging}
+              className={`wg-btn inline-flex shrink-0 items-center justify-center rounded-lg px-3 py-1.5 text-[12.5px] font-bold text-white cursor-pointer disabled:opacity-50 ${FOCUS_RING}`}
+              style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+            >
+              {logging ? <Loader2 size={13} className="animate-spin" /> : "Log"}
+            </button>
+          </form>
+          {blocks && (
+            <p className="mt-1.5 text-[11.5px] font-semibold" style={{ color: "var(--color-altus-red-deep)" }}>
+              Log today&apos;s progress to start your day.
+            </p>
+          )}
+        </div>
+      </div>
+    </motion.li>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   RIGHT — Tasks panel (draggable rows + +Add)
+   ════════════════════════════════════════════════════════════════════════ */
+function TasksPanel({
+  tasks,
+  busyId,
+  reduce,
+  onPull,
+}: {
+  tasks: OpenTaskOption[];
+  busyId: string | null;
+  reduce: boolean;
+  onPull: (taskId: string) => void;
+}) {
+  const { shown, hidden, open, setOpen } = useShowMore(tasks);
+
+  return (
+    <Panel title="Tasks" hint="drag or add" delay={180}>
+      {tasks.length === 0 ? (
+        <p className="font-medium py-6 text-center text-ink-subtle" style={{ fontSize: 13.5 }}>
+          No open tasks to pull.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {shown.map((t) => (
+            <TaskRow key={t.id} t={t} busyId={busyId} reduce={reduce} onPull={onPull} />
+          ))}
+          {(hidden > 0 || open) && (
+            <li>
+              <ShowMoreButton hidden={hidden} open={open} onToggle={() => setOpen((v) => !v)} />
+            </li>
+          )}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
+function TaskRow({
+  t,
+  busyId,
+  reduce,
+  onPull,
+}: {
+  t: OpenTaskOption;
+  busyId: string | null;
+  reduce: boolean;
+  onPull: (taskId: string) => void;
+}) {
+  const label = t.title;
+  const meta = [t.client, t.subject].filter(Boolean).join(" · ");
+  const pulling = busyId === `task:${t.id}`;
+
+  const { setNodeRef, attributes, listeners, isDragging } = useDraggable({
+    id: `task:${t.id}`,
+    data: { kind: "task", id: t.id, label } satisfies DragData,
+  });
+
+  return (
+    <motion.li
+      layout={!reduce}
+      className="flex items-center gap-2.5 rounded-xl border border-hairline p-3"
+      style={{ background: "var(--color-surface-card)", opacity: isDragging ? 0.4 : 1 }}
+    >
+      <button
+        type="button"
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+        aria-label={`Drag "${label}" to today`}
+        className="shrink-0 cursor-grab active:cursor-grabbing text-ink-subtle hover:text-ink-strong touch-none"
+      >
+        <GripVertical size={16} strokeWidth={2.2} aria-hidden />
+      </button>
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold text-ink-strong" style={{ fontSize: 14, overflowWrap: "anywhere" }}>
+          {t.taskNo != null && (
+            <span className="tabular-nums text-ink-subtle">#{t.taskNo} · </span>
+          )}
+          {label}
+        </div>
+        {meta && (
+          <div className="text-ink-subtle" style={{ fontSize: 12, overflowWrap: "anywhere" }}>
+            {meta}
+          </div>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => onPull(t.id)}
+        disabled={pulling}
+        aria-label={`Add "${label}" to today`}
+        className={`wg-btn inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] font-bold cursor-pointer disabled:opacity-50 ${FOCUS_RING}`}
+        style={{ background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)", color: "var(--color-altus-red-deep)" }}
+      >
+        {pulling ? <Loader2 size={13} className="animate-spin" /> : <Plus size={14} strokeWidth={2.8} />}
+        Add
+      </button>
+    </motion.li>
   );
 }

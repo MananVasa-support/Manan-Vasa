@@ -2,6 +2,8 @@ import {
   getTodayItems,
   getOverdueItems,
   listPullableGoals,
+  listOpenTasksForChecklist,
+  listGoalsForPlanner,
 } from "@/lib/queries/daily-checklist";
 import { TZ } from "@/lib/weekly-goals/week";
 import { DayLedger } from "./day-ledger";
@@ -28,16 +30,20 @@ export async function DailyChecklistView({
   let items: Awaited<ReturnType<typeof getTodayItems>> = [];
   let overdue: Awaited<ReturnType<typeof getOverdueItems>> = [];
   let pullable: Awaited<ReturnType<typeof listPullableGoals>> = [];
+  let openTasks: Awaited<ReturnType<typeof listOpenTasksForChecklist>> = [];
+  let plannerGoals: Awaited<ReturnType<typeof listGoalsForPlanner>> = [];
   try {
     // Load directly. (A previous hard 12s timeout here turned a slow read into
     // EMPTY lists — which silently broke the gate: weekly goals stopped pulling
     // and the carry-forward button vanished. A slow read should just take a
     // moment and return the real data.) On a genuine error we keep the empty
     // (but still usable) defaults rather than throwing the inline gate.
-    [items, overdue, pullable] = await Promise.all([
+    [items, overdue, pullable, openTasks, plannerGoals] = await Promise.all([
       getTodayItems(employeeId),
       getOverdueItems(employeeId),
       listPullableGoals(employeeId),
+      listOpenTasksForChecklist(employeeId),
+      listGoalsForPlanner(employeeId),
     ]);
   } catch {
     // keep the empty defaults
@@ -64,6 +70,8 @@ export async function DailyChecklistView({
         items={items}
         overdue={overdue}
         pullable={pullable}
+        openTasks={openTasks}
+        plannerGoals={plannerGoals}
       />
     );
   }

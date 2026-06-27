@@ -19,6 +19,9 @@ import { localDateString } from "@/lib/format";
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import { insertPunchRow, resolvePunchGeofence } from "@/lib/attendance/record-punch";
 import { isDccFilledFor } from "@/lib/dcc/gate";
+import { needsDailyPlan } from "@/lib/daily-checklist/gate";
+import { needsGoalActuals } from "@/lib/weekly-goals/actuals";
+import { isManagerWithReports, isMondayIST, managerMondayGoalState } from "@/lib/manager-gates";
 import {
   notifyOnInPunch,
   notifyOnDayFinalized,
@@ -95,6 +98,46 @@ export async function punchAttendance(input: {
     const dccDone = await isDccFilledFor(me.id, today).catch(() => true);
     if (!dccDone) {
       return { ok: false, error: "Fill today's DCC before you clock out — open the DCC page, then try again." };
+    }
+  }
+
+  // ── Clock-IN planning gate (employees only) ──────────────────────────
+  // An employee must "Plan Your Day" — commit ≥5 today AND log today's progress
+  // on each open weekly goal — before clocking IN. Managers, admins and super-
+  // admins are EXEMPT. FAIL-OPEN (any check error → allow the punch), honors
+  // PUNCH_PLAN_GATE_OFF. Mirrors the layout gate so the mobile punch can't skip it.
+  if (kind === "in" && process.env.PUNCH_PLAN_GATE_OFF !== "true") {
+    const exempt =
+      isSuperAdmin(me.email) || me.isAdmin || (await isManagerWithReports(me.id).catch(() => true));
+    if (!exempt) {
+      const planned = !(await needsDailyPlan(me.id).catch(() => false));
+      const actuals = !(await needsGoalActuals(me.id).catch(() => false));
+      if (!planned || !actuals) {
+        return {
+          ok: false,
+          error: "Plan your day first — commit your 5 and log today's goal progress on the Daily Checklist, then clock in.",
+        };
+      }
+    }
+  }
+
+  // ── Manager Monday goal-set gate ─────────────────────────────────────
+  // On Monday (IST) a manager can't clock IN until every active report has this
+  // week's goals set with weights summing to 100 (satisfied if set over the
+  // weekend). FAIL-OPEN, honors MANAGER_GATES_OFF, super-admins exempt.
+  if (
+    kind === "in" &&
+    process.env.MANAGER_GATES_OFF !== "true" &&
+    !isSuperAdmin(me.email) &&
+    isMondayIST()
+  ) {
+    const monday = await managerMondayGoalState(me.id).catch(() => ({ satisfied: true, reports: [] }));
+    if (!monday.satisfied) {
+      const short = monday.reports.filter((r) => !r.ok).map((r) => r.name).join(", ");
+      return {
+        ok: false,
+        error: `Set this week's goals (weights = 100) for ${short} before you clock in — open Weekly Goals.`,
+      };
     }
   }
 
