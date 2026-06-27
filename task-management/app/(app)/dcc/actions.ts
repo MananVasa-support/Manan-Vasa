@@ -34,6 +34,11 @@ const EntrySchema = z.object({
   status: optText,
   value: z.any().optional(),
   note: optText,
+  // The morning gate fills with silent:true so each keystroke does NOT
+  // revalidate /dcc — that auto-refresh re-runs the layout gate mid-fill and a
+  // single transient hiccup would fail-open and dismiss the gate early. The
+  // gate re-evaluates ONCE, when the user clicks Continue (router.refresh).
+  silent: z.boolean().optional(),
 });
 
 /** Upsert (or clear) one item's entry for a day. Owner-or-super only. */
@@ -43,7 +48,7 @@ export async function setDccEntry(input: unknown): Promise<ActionResult> {
   if (limited) return limited;
   const parsed = EntrySchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input.");
-  const { itemId, date } = parsed.data;
+  const { itemId, date, silent } = parsed.data;
   const status = parsed.data.status;
   const value = num(parsed.data.value);
   const note = parsed.data.note;
@@ -55,7 +60,7 @@ export async function setDccEntry(input: unknown): Promise<ActionResult> {
 
     if (!status && value === null && !note) {
       await db.delete(dccEntries).where(and(eq(dccEntries.itemId, itemId), eq(dccEntries.entryDate, date)));
-      revalidatePath(PATH);
+      if (!silent) revalidatePath(PATH);
       return { ok: true };
     }
     await db
@@ -65,7 +70,7 @@ export async function setDccEntry(input: unknown): Promise<ActionResult> {
         target: [dccEntries.itemId, dccEntries.entryDate],
         set: { status, valueNumber: value, note, filledById: me.id, updatedAt: new Date() },
       });
-    revalidatePath(PATH);
+    if (!silent) revalidatePath(PATH);
     return { ok: true };
   } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
 }
@@ -152,6 +157,7 @@ const ReviewSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
   status: z.enum(["approved", "needs_rework", ""]).nullable().optional(),
   note: optText,
+  silent: z.boolean().optional(), // gate reviews skip revalidate (see setDccEntry)
 });
 
 export async function setDccReview(input: unknown): Promise<ActionResult> {
@@ -160,21 +166,21 @@ export async function setDccReview(input: unknown): Promise<ActionResult> {
   if (limited) return limited;
   const parsed = ReviewSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input.");
-  const { ownerEmployeeId, date, note } = parsed.data;
+  const { ownerEmployeeId, date, note, silent } = parsed.data;
   const status = parsed.data.status || null;
   const scope = await loadDccScope(me);
   if (!canReviewFor(scope, ownerEmployeeId)) return fail("You can only review your team.");
   try {
     if (!status && !note) {
       await db.delete(dccReviews).where(and(eq(dccReviews.ownerEmployeeId, ownerEmployeeId), eq(dccReviews.reviewDate, date)));
-      revalidatePath(PATH);
+      if (!silent) revalidatePath(PATH);
       return { ok: true };
     }
     await db
       .insert(dccReviews)
       .values({ ownerEmployeeId, reviewDate: date, reviewerId: me.id, status, note })
       .onConflictDoUpdate({ target: [dccReviews.ownerEmployeeId, dccReviews.reviewDate], set: { reviewerId: me.id, status, note, updatedAt: new Date() } });
-    revalidatePath(PATH);
+    if (!silent) revalidatePath(PATH);
     return { ok: true };
   } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
 }
@@ -195,7 +201,8 @@ export async function approveAllDccReviews(input: unknown): Promise<ActionResult
       .insert(dccReviews)
       .values(reportIds.map((id) => ({ ownerEmployeeId: id, reviewDate: date, reviewerId: me.id, status: "approved" as const, note: null })))
       .onConflictDoNothing({ target: [dccReviews.ownerEmployeeId, dccReviews.reviewDate] });
-    revalidatePath(PATH);
+    // No revalidate: the gate advances only when the manager clicks Continue
+    // (router.refresh), so a mid-review re-render can't fail-open the gate.
     return { ok: true };
   } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
 }

@@ -23,7 +23,7 @@ function fmtLong(iso: string): string {
 
 export function DccGateView({ greetingName, date, items, entries }: Props) {
   const router = useRouter();
-  const [, startTransition] = React.useTransition();
+  const [isPending, startTransition] = React.useTransition();
   const [map, setMap] = React.useState<Record<string, { status: string | null; value: string | null; note: string | null }>>(() => {
     const m: Record<string, { status: string | null; value: string | null; note: string | null }> = {};
     for (const e of entries) m[cellKey(e.itemId, e.entryDate)] = { status: e.status, value: e.valueNumber, note: e.note };
@@ -54,7 +54,7 @@ export function DccGateView({ greetingName, date, items, entries }: Props) {
     setMap((m) => ({ ...m, [k]: next }));
     setBusy(k);
     startTransition(async () => {
-      const res = await setDccEntry({ itemId, date, status: next.status, value: next.value, note: next.note });
+      const res = await setDccEntry({ itemId, date, status: next.status, value: next.value, note: next.note, silent: true });
       setBusy((b) => (b === k ? null : b));
       if (!res.ok) {
         setMap((m) => ({ ...m, [k]: prev ?? { status: null, value: null, note: null } }));
@@ -115,10 +115,10 @@ export function DccGateView({ greetingName, date, items, entries }: Props) {
           <span className="text-[15px] font-bold text-ink-muted">{total - filled === 0 ? "All KPIs filled 🎉" : `${total - filled} left to fill`}</span>
           <button
             onClick={finish}
-            disabled={filled < total || done}
+            disabled={filled < total || done || isPending}
             className="inline-flex items-center gap-2 rounded-xl bg-altus-red px-6 py-3 text-[16px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            {done ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />} Continue to Hub
+            {done || isPending ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />} Continue to Hub
           </button>
         </div>
       </div>

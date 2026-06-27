@@ -17,7 +17,7 @@ function fmtLong(iso: string): string {
 
 export function DccManagerReviewGate({ greetingName, state }: { greetingName: string; state: DccManagerReviewState }) {
   const router = useRouter();
-  const [, startTransition] = React.useTransition();
+  const [isPending, startTransition] = React.useTransition();
   const [reviewed, setReviewed] = React.useState<Record<string, "approved" | "needs_rework">>(() => {
     const m: Record<string, "approved" | "needs_rework"> = {};
     for (const r of state.reports) if (r.reviewed) m[r.id] = "approved";
@@ -32,7 +32,7 @@ export function DccManagerReviewGate({ greetingName, state }: { greetingName: st
     setReviewed((m) => ({ ...m, [ownerId]: status }));
     setBusy(ownerId);
     startTransition(async () => {
-      const res = await setDccReview({ ownerEmployeeId: ownerId, date: state.date, status });
+      const res = await setDccReview({ ownerEmployeeId: ownerId, date: state.date, status, silent: true });
       setBusy((b) => (b === ownerId ? null : b));
       if (!res.ok) { setReviewed((m) => { const n = { ...m }; delete n[ownerId]; return n; }); fireToast({ message: res.error, type: "error" }); }
     });
@@ -94,8 +94,8 @@ export function DccManagerReviewGate({ greetingName, state }: { greetingName: st
       <div className="fixed inset-x-0 bottom-0 border-t border-hairline-strong bg-white/95 backdrop-blur px-6 py-4">
         <div className="mx-auto flex max-w-[860px] items-center justify-between gap-4">
           <span className="text-[15px] font-bold text-ink-muted">{remaining === 0 ? "All reviewed 🎉" : `${remaining} report${remaining === 1 ? "" : "s"} to review`}</span>
-          <button onClick={finish} disabled={remaining > 0} className="inline-flex items-center gap-2 rounded-xl bg-altus-red px-6 py-3 text-[16px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-40">
-            <CheckCircle2 size={18} /> Continue
+          <button onClick={finish} disabled={remaining > 0 || isPending} className="inline-flex items-center gap-2 rounded-xl bg-altus-red px-6 py-3 text-[16px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-40">
+            {isPending ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />} Continue
           </button>
         </div>
       </div>
