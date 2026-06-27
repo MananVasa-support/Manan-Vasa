@@ -817,6 +817,12 @@ export const tasks = pgTable(
     // reassign can move the event). Null when not synced.
     googleEventId: text("google_event_id"),
     googleSyncedDoerId: uuid("google_synced_doer_id"),
+    // Durable Google Calendar sync state (mig 0091) — drives the cron
+    // reconciliation loop + retries + observable last-error.
+    calendarAttempts: integer("calendar_attempts").notNull().default(0),
+    calendarNextAttemptAt: timestamp("calendar_next_attempt_at", { withTimezone: true }),
+    calendarLastSyncAt: timestamp("calendar_last_sync_at", { withTimezone: true }),
+    calendarLastError: text("calendar_last_error"),
     archived: boolean("archived").notNull().default(false),
     // M2.1 additions — provenance + approval (approved_* used in M2.2) + optimistic lock
     createdById: uuid("created_by_id").references(() => employees.id, {
