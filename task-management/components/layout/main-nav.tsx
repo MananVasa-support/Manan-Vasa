@@ -112,6 +112,7 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
         Icon: CalendarCheck,
         not: ["/attendance/dashboard"],
       },
+      { href: "/dcc" as Route, label: "DCC", Icon: Gauge },
       {
         href: "/attendance/dashboard" as Route,
         label: "Att Report",
@@ -127,7 +128,6 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
         not: ["/overtime/dashboard"],
       },
       { href: "/reimbursements" as Route, label: "Reimbursements", Icon: Receipt },
-      { href: "/dcc" as Route, label: "DCC", Icon: Gauge },
     ],
     groups: [],
   },

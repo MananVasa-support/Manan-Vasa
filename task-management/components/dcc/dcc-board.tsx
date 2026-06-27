@@ -28,7 +28,7 @@ interface Props {
 
 const cellKey = (itemId: string, date: string) => `${itemId}|${date}`;
 const INPUT =
-  "w-full rounded-lg border border-hairline-strong bg-white px-3 py-2 text-[14px] font-medium text-ink-strong outline-none transition-colors placeholder:text-ink-subtle placeholder:font-normal focus:border-[color:var(--color-altus-red)]";
+  "w-full rounded-lg border border-hairline-strong bg-white px-3.5 py-2.5 text-[15.5px] font-medium text-ink-strong outline-none transition-colors placeholder:text-ink-subtle placeholder:font-normal focus:border-[color:var(--color-altus-red)]";
 
 function dateToObj(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
@@ -157,12 +157,12 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
       {/* Top bar: person switcher + date nav + completion */}
       <div className="flex flex-wrap items-stretch gap-4">
         {people.length > 0 && (
-          <label className="flex items-center gap-2.5 rounded-2xl border border-hairline-strong bg-white px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <Avatar name={ownerName} size={30} />
+          <label className="flex items-center gap-2.5 rounded-2xl border border-hairline-strong bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <Avatar name={ownerName} size={34} />
             <select
               value={ownerId}
               onChange={(e) => router.push(`/dcc?emp=${e.target.value}` as Route)}
-              className="bg-transparent text-[15px] font-bold text-ink-strong outline-none"
+              className="bg-transparent text-[17px] font-bold text-ink-strong outline-none"
             >
               {people.map((p) => (
                 <option key={p.id} value={p.id}>{p.id === meId ? `${p.name} (me)` : p.name}</option>
@@ -171,24 +171,24 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
           </label>
         )}
 
-        <div className="flex items-center gap-1 rounded-2xl border border-hairline-strong bg-white px-2 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <button onClick={() => shiftDay(-1)} className="grid h-9 w-9 place-items-center rounded-xl text-ink-soft transition-colors hover:bg-[color:var(--color-surface-track,#eef2f7)]" aria-label="Previous day"><ChevronLeft size={18} /></button>
-          <div className="min-w-[150px] px-2 text-center">
-            <div className="text-[15px] font-extrabold text-ink-strong">{selectedDate === today ? "Today" : fmtLong(selectedDate)}</div>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">{selectedDate === today ? fmtLong(selectedDate) : ""}</div>
+        <div className="flex items-center gap-1 rounded-2xl border border-hairline-strong bg-white px-2.5 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <button onClick={() => shiftDay(-1)} className="grid h-10 w-10 place-items-center rounded-xl text-ink-soft transition-colors hover:bg-[color:var(--color-surface-track,#eef2f7)]" aria-label="Previous day"><ChevronLeft size={20} /></button>
+          <div className="min-w-[160px] px-2 text-center">
+            <div className="text-[17px] font-extrabold text-ink-strong">{selectedDate === today ? "Today" : fmtLong(selectedDate)}</div>
+            <div className="text-[12.5px] font-semibold uppercase tracking-wide text-ink-subtle">{selectedDate === today ? fmtLong(selectedDate) : ""}</div>
           </div>
-          <button onClick={() => shiftDay(1)} disabled={selectedDate >= today} className="grid h-9 w-9 place-items-center rounded-xl text-ink-soft transition-colors hover:bg-[color:var(--color-surface-track,#eef2f7)] disabled:opacity-30" aria-label="Next day"><ChevronRight size={18} /></button>
+          <button onClick={() => shiftDay(1)} disabled={selectedDate >= today} className="grid h-10 w-10 place-items-center rounded-xl text-ink-soft transition-colors hover:bg-[color:var(--color-surface-track,#eef2f7)] disabled:opacity-30" aria-label="Next day"><ChevronRight size={20} /></button>
           {selectedDate !== today && (
-            <button onClick={() => setSelectedDate(today)} className="ml-1 rounded-lg px-2.5 py-1.5 text-[13px] font-bold text-altus-red hover:underline">Today</button>
+            <button onClick={() => setSelectedDate(today)} className="ml-1 rounded-lg px-3 py-2 text-[14px] font-bold text-altus-red hover:underline">Today</button>
           )}
         </div>
 
         <CompletionPill pct={pct} done={dayStats.done} due={dayStats.due} />
 
-        <div className="flex items-center gap-2 rounded-2xl border border-hairline-strong bg-white px-4 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <Flame size={18} style={{ color: streak > 0 ? "var(--color-altus-red)" : "var(--color-ink-subtle)" }} />
-          <span className="text-[15px] font-extrabold text-ink-strong tabular-nums">{streak}</span>
-          <span className="text-[12px] font-semibold text-ink-subtle">day streak</span>
+        <div className="flex items-center gap-2.5 rounded-2xl border border-hairline-strong bg-white px-5 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <Flame size={20} style={{ color: streak > 0 ? "var(--color-altus-red)" : "var(--color-ink-subtle)" }} />
+          <span className="text-[19px] font-extrabold text-ink-strong tabular-nums">{streak}</span>
+          <span className="text-[14px] font-semibold text-ink-subtle">day streak</span>
         </div>
       </div>
 
@@ -200,8 +200,8 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
           const h = s.pct < 0 ? 8 : 8 + Math.round((s.pct / 100) * 26);
           return (
             <button key={s.iso} onClick={() => setSelectedDate(s.iso)} className="group flex flex-1 min-w-[20px] flex-col items-center gap-1" title={`${fmtLong(s.iso)} · ${s.pct < 0 ? "no items" : s.pct + "%"}`}>
-              <div className="w-full rounded-md transition-all" style={{ height: h, background: color, opacity: active ? 1 : 0.55, outline: active ? "2px solid var(--color-ink-strong)" : "none", outlineOffset: 2 }} />
-              <span className={`text-[9px] font-bold ${active ? "text-ink-strong" : "text-ink-subtle"}`}>{dateToObj(s.iso).getDate()}</span>
+              <div className="w-full rounded-md transition-all" style={{ height: h + 4, background: color, opacity: active ? 1 : 0.55, outline: active ? "2px solid var(--color-ink-strong)" : "none", outlineOffset: 2 }} />
+              <span className={`text-[11px] font-bold ${active ? "text-ink-strong" : "text-ink-subtle"}`}>{dateToObj(s.iso).getDate()}</span>
             </button>
           );
         })}
@@ -217,10 +217,10 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
         <p className="rounded-xl border border-hairline-strong bg-[color:var(--color-surface-track,#eef2f7)] px-4 py-2.5 text-[13px] font-semibold text-ink-muted">Viewing {ownerName}'s KPIs — read-only.</p>
       )}
 
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] font-bold text-ink-muted">{shownItems.length} {showAll ? "total" : "due"} {shownItems.length === 1 ? "KPI" : "KPIs"}</span>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowAll((v) => !v)} className="rounded-lg border border-hairline-strong bg-white px-3 py-1.5 text-[13px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <span className="text-[16px] font-bold text-ink-muted">{shownItems.length} {showAll ? "total" : "due"} {shownItems.length === 1 ? "KPI" : "KPIs"}</span>
+        <div className="flex items-center gap-2.5">
+          <button onClick={() => setShowAll((v) => !v)} className="rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red">
             {showAll ? "Due today only" : `Show all (${items.length})`}
           </button>
           {canManage && <ItemEditor ownerId={ownerId} mode="add" />}
@@ -229,16 +229,16 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
 
       <div className="flex flex-col gap-6">
         {groups.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-hairline-strong bg-white px-6 py-12 text-center">
-            <CheckCircle2 size={28} className="mx-auto text-ink-subtle" />
-            <p className="mt-2 text-[15px] font-bold text-ink-strong">Nothing due {selectedDate === today ? "today" : "this day"}.</p>
-            {canManage && <p className="mt-1 text-[13px] text-ink-muted">Add a KPI to get started.</p>}
+          <div className="rounded-2xl border border-dashed border-hairline-strong bg-white px-6 py-14 text-center">
+            <CheckCircle2 size={34} className="mx-auto text-ink-subtle" />
+            <p className="mt-3 text-[18px] font-bold text-ink-strong">Nothing due {selectedDate === today ? "today" : "this day"}.</p>
+            {canManage && <p className="mt-1 text-[15px] text-ink-muted">Add a KPI to get started.</p>}
           </div>
         )}
         {groups.map((g) => (
           <div key={g.section}>
-            <h3 className="mb-2 flex items-center gap-2 px-1 text-[12px] font-extrabold uppercase tracking-[0.14em] text-ink-muted">
-              <span className="inline-block h-2 w-2 rounded-full" style={{ background: "var(--color-altus-red)" }} />
+            <h3 className="mb-2.5 flex items-center gap-2.5 px-1 text-[14px] font-extrabold uppercase tracking-[0.12em] text-ink-muted">
+              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: "var(--color-altus-red)" }} />
               {g.section}
             </h3>
             <div className="overflow-hidden rounded-2xl border border-hairline-strong bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
@@ -266,14 +266,14 @@ function CompletionPill({ pct, done, due }: { pct: number; done: number; due: nu
   const color = pct >= 100 ? "var(--color-green)" : pct >= 60 ? "var(--color-amber,#f59e0b)" : "var(--color-altus-red)";
   const R = 16, C = 2 * Math.PI * R;
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-hairline-strong bg-white px-4 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-      <svg width={42} height={42} viewBox="0 0 42 42" className="-rotate-90">
+    <div className="flex items-center gap-3 rounded-2xl border border-hairline-strong bg-white px-5 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <svg width={48} height={48} viewBox="0 0 42 42" className="-rotate-90">
         <circle cx={21} cy={21} r={R} fill="none" stroke="var(--color-hairline-strong)" strokeWidth={5} />
         <circle cx={21} cy={21} r={R} fill="none" stroke={color} strokeWidth={5} strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C - (C * Math.min(pct, 100)) / 100} style={{ transition: "stroke-dashoffset .4s ease" }} />
       </svg>
       <div>
-        <div className="text-[17px] font-extrabold leading-none text-ink-strong tabular-nums" style={{ fontFamily: "var(--font-display), system-ui" }}>{pct}%</div>
-        <div className="mt-0.5 text-[11px] font-semibold text-ink-subtle">{done}/{due} done</div>
+        <div className="text-[22px] font-extrabold leading-none text-ink-strong tabular-nums" style={{ fontFamily: "var(--font-display), system-ui" }}>{pct}%</div>
+        <div className="mt-1 text-[13px] font-semibold text-ink-subtle">{done}/{due} done</div>
       </div>
     </div>
   );
@@ -293,14 +293,14 @@ function FillRow({ item, entry, busy, canFill, canManage, first, onCommit }: {
   const status = entry?.status ?? null;
 
   return (
-    <div className={`flex flex-col gap-2.5 px-4 py-3 ${first ? "" : "border-t border-hairline"} max-md:px-3`} style={{ background: status?.toLowerCase() === "done" ? "color-mix(in srgb, var(--color-green) 5%, transparent)" : undefined }}>
-      <div className="flex items-start gap-3 max-md:flex-col">
+    <div className={`flex flex-col gap-3 px-5 py-4 max-md:px-3.5 ${first ? "" : "border-t border-hairline"}`} style={{ background: status?.toLowerCase() === "done" ? "color-mix(in srgb, var(--color-green) 5%, transparent)" : undefined }}>
+      <div className="flex items-center gap-4 max-md:flex-col max-md:items-stretch">
         {/* Code + title */}
-        <div className="flex min-w-0 flex-1 items-start gap-2.5">
-          {item.code && <span className="mt-0.5 shrink-0 rounded-md bg-[color:var(--color-surface-track,#eef2f7)] px-1.5 py-0.5 text-[11px] font-extrabold text-ink-muted tabular-nums">{item.code}</span>}
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          {item.code && <span className="mt-0.5 shrink-0 rounded-lg bg-[color:var(--color-surface-track,#eef2f7)] px-2 py-1 text-[13.5px] font-extrabold text-ink-muted tabular-nums">{item.code}</span>}
           <div className="min-w-0">
-            <p className="text-[14.5px] font-semibold leading-snug text-ink-strong">{item.title}</p>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11.5px] font-semibold text-ink-subtle">
+            <p className="text-[17px] font-bold leading-snug text-ink-strong">{item.title}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[13.5px] font-semibold text-ink-subtle">
               {item.frequency && <span>{item.frequency}</span>}
               {!item.frequency && item.weekdays != null && <span>{maskLabel(item.weekdays)}</span>}
               {item.targetNumber != null && <span className="text-altus-red">target {item.targetNumber}{item.unit ? ` ${item.unit}` : ""}</span>}
@@ -309,8 +309,8 @@ function FillRow({ item, entry, busy, canFill, canManage, first, onCommit }: {
         </div>
 
         {/* Status segmented */}
-        <div className="flex shrink-0 items-center gap-1.5">
-          <div className="flex overflow-hidden rounded-lg border border-hairline-strong">
+        <div className="flex shrink-0 items-center gap-2 max-md:flex-wrap">
+          <div className="flex overflow-hidden rounded-xl border border-hairline-strong">
             {DCC_STATUSES.map((s) => {
               const on = (status ?? "").toLowerCase() === s.toLowerCase();
               const tone = dccStatusTone(s);
@@ -319,7 +319,7 @@ function FillRow({ item, entry, busy, canFill, canManage, first, onCommit }: {
                   key={s}
                   disabled={!canFill}
                   onClick={() => onCommit(item.id, { status: on ? null : s })}
-                  className="px-2.5 py-1.5 text-[12px] font-bold transition-colors disabled:cursor-default"
+                  className="px-3.5 py-2.5 text-[14.5px] font-bold transition-colors disabled:cursor-default"
                   style={on ? { background: tone.bg, color: tone.fg } : { color: "var(--color-ink-subtle)", background: "white" }}
                 >
                   {s}
@@ -334,19 +334,20 @@ function FillRow({ item, entry, busy, canFill, canManage, first, onCommit }: {
               disabled={!canFill}
               placeholder="#"
               onBlur={(e) => { const v = e.target.value.trim(); if ((v || null) !== (entry?.value ?? null)) onCommit(item.id, { value: v || null }); }}
-              className="w-16 rounded-lg border border-hairline-strong bg-white px-2 py-1.5 text-center text-[13px] font-bold text-ink-strong outline-none focus:border-[color:var(--color-altus-red)]"
+              className="w-[68px] rounded-xl border border-hairline-strong bg-white px-2.5 py-2.5 text-center text-[15px] font-bold text-ink-strong outline-none focus:border-[color:var(--color-altus-red)]"
             />
           )}
-          <button onClick={() => setNoteOpen((v) => !v)} className="grid h-8 w-8 place-items-center rounded-lg text-ink-subtle transition-colors hover:bg-[color:var(--color-surface-track,#eef2f7)]" title="Note" style={{ color: entry?.note ? "var(--color-altus-red)" : undefined }}>
-            <StickyNote size={15} />
+          <button onClick={() => setNoteOpen((v) => !v)} className="grid h-11 w-11 place-items-center rounded-xl border border-hairline-strong text-ink-subtle transition-colors hover:border-altus-red hover:text-altus-red" title="Add a note" aria-label="Add a note" style={entry?.note ? { color: "var(--color-altus-red)", borderColor: "var(--color-altus-red)" } : undefined}>
+            <StickyNote size={18} />
           </button>
-          {busy && <Loader2 size={14} className="animate-spin text-ink-subtle" />}
+          {busy && <Loader2 size={16} className="animate-spin text-ink-subtle" />}
           {canManage && <ItemEditor ownerId={item.ownerEmployeeId} mode="edit" item={item} compact />}
         </div>
       </div>
 
       {noteOpen && (
         <input
+          autoFocus
           defaultValue={entry?.note ?? ""}
           disabled={!canFill}
           placeholder="Add a note…"
@@ -376,15 +377,15 @@ function ReviewBar({ ownerId, date, canReview, review }: { ownerId: string; date
 
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-2xl border px-4 py-3" style={{ borderColor: "color-mix(in srgb, " + tone + " 40%, var(--color-hairline-strong))", background: "color-mix(in srgb, " + tone + " 6%, white)" }}>
-      <span className="text-[12px] font-extrabold uppercase tracking-wide" style={{ color: tone }}>Manager review</span>
+      <span className="text-[13.5px] font-extrabold uppercase tracking-wide" style={{ color: tone }}>Manager review</span>
       {canReview ? (
         <>
-          <button onClick={() => save(status === "approved" ? null : "approved")} className="rounded-lg px-3 py-1.5 text-[13px] font-bold transition-colors" style={status === "approved" ? { background: "var(--color-green)", color: "white" } : { background: "white", color: "var(--color-green-deep)", border: "1px solid var(--color-hairline-strong)" }}>✓ Approved</button>
-          <button onClick={() => save(status === "needs_rework" ? null : "needs_rework")} className="rounded-lg px-3 py-1.5 text-[13px] font-bold transition-colors" style={status === "needs_rework" ? { background: "var(--color-altus-red)", color: "white" } : { background: "white", color: "var(--color-altus-red-deep)", border: "1px solid var(--color-hairline-strong)" }}>Needs rework</button>
-          <input value={note} onChange={(e) => setNote(e.target.value)} onBlur={() => save(status)} placeholder="Review note…" className="flex-1 min-w-[160px] rounded-lg border border-hairline-strong bg-white px-3 py-1.5 text-[13px] font-medium text-ink-strong outline-none focus:border-[color:var(--color-altus-red)]" />
+          <button onClick={() => save(status === "approved" ? null : "approved")} className="rounded-xl px-4 py-2.5 text-[14.5px] font-bold transition-colors" style={status === "approved" ? { background: "var(--color-green)", color: "white" } : { background: "white", color: "var(--color-green-deep)", border: "1px solid var(--color-hairline-strong)" }}>✓ Approved</button>
+          <button onClick={() => save(status === "needs_rework" ? null : "needs_rework")} className="rounded-xl px-4 py-2.5 text-[14.5px] font-bold transition-colors" style={status === "needs_rework" ? { background: "var(--color-altus-red)", color: "white" } : { background: "white", color: "var(--color-altus-red-deep)", border: "1px solid var(--color-hairline-strong)" }}>Needs rework</button>
+          <input value={note} onChange={(e) => setNote(e.target.value)} onBlur={() => save(status)} placeholder="Review note…" className="flex-1 min-w-[180px] rounded-xl border border-hairline-strong bg-white px-3.5 py-2.5 text-[14.5px] font-medium text-ink-strong outline-none focus:border-[color:var(--color-altus-red)]" />
         </>
       ) : (
-        <span className="text-[13px] font-bold" style={{ color: tone }}>{status === "approved" ? "Approved" : status === "needs_rework" ? "Needs rework" : "Not yet reviewed"}{review?.note ? ` — ${review.note}` : ""}</span>
+        <span className="text-[14.5px] font-bold" style={{ color: tone }}>{status === "approved" ? "Approved" : status === "needs_rework" ? "Needs rework" : "Not yet reviewed"}{review?.note ? ` — ${review.note}` : ""}</span>
       )}
     </div>
   );
@@ -427,9 +428,9 @@ function ItemEditor({ ownerId, mode, item, compact }: { ownerId: string; mode: "
   return (
     <>
       {mode === "add" ? (
-        <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-altus-red px-3 py-1.5 text-[13px] font-bold text-white transition-opacity hover:opacity-90"><Plus size={15} /> Add KPI</button>
+        <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 rounded-xl bg-altus-red px-4 py-2.5 text-[14.5px] font-bold text-white transition-opacity hover:opacity-90"><Plus size={17} /> Add KPI</button>
       ) : (
-        <button onClick={() => setOpen(true)} className={`grid place-items-center rounded-lg text-ink-subtle transition-colors hover:bg-[color:var(--color-surface-track,#eef2f7)] ${compact ? "h-8 w-8" : "h-9 w-9"}`} title="Edit"><Pencil size={14} /></button>
+        <button onClick={() => setOpen(true)} className={`inline-flex items-center gap-1.5 rounded-xl border border-hairline-strong font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red ${compact ? "h-11 px-3 text-[14px]" : "h-9 w-9 justify-center"}`} title="Edit KPI" aria-label="Edit KPI"><Pencil size={16} />{compact && <span className="max-md:hidden">Edit</span>}</button>
       )}
       {open && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setOpen(false)}>
