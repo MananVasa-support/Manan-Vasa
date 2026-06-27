@@ -34,6 +34,10 @@ import { taskEvents, clients, subjects, employees } from "@/db/schema";
 import { CreateClientSchema } from "@/lib/validators/client";
 import { CreateSubjectSchema } from "@/lib/validators/subject";
 import { requireUser, requireWeeklyGoalsFilled } from "@/lib/auth/current";
+import { listEmployees } from "@/lib/queries/employees";
+import { listActiveClientNames } from "@/lib/queries/clients";
+import { listActiveSubjectNames } from "@/lib/queries/subjects";
+import { listProjectNodeOptions } from "@/lib/queries/projects";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import {
   canEditTaskFields,
@@ -1626,4 +1630,34 @@ export async function deleteComment(
 
   revalidatePath(`/tasks/${event.taskId}`);
   return { ok: true };
+}
+
+/**
+ * Options for the header "New Task" modal — employees + client/subject/project
+ * rosters. Loaded LAZILY (once, on first dialog open) instead of eagerly in the
+ * header Server Component on every render. This decouples the modal's data from
+ * the global `router.refresh()` cycle (the realtime LiveIndicator fires it on
+ * every org-wide task change), which was re-running these 4 queries constantly
+ * and handing the open modal fresh array identities that re-synced its
+ * dropdowns mid-edit — the root cause of the "New Task modal" instability.
+ */
+export async function loadNewTaskOptions(): Promise<{
+  employees: { id: string; name: string }[];
+  clients: string[];
+  subjects: string[];
+  projectNodes: { id: string; label: string }[];
+}> {
+  await requireUser();
+  const [all, clientNames, subjectNames, projectNodes] = await Promise.all([
+    listEmployees(),
+    listActiveClientNames(),
+    listActiveSubjectNames(),
+    listProjectNodeOptions(),
+  ]);
+  return {
+    employees: all.map((e) => ({ id: e.id, name: e.name })),
+    clients: clientNames,
+    subjects: subjectNames,
+    projectNodes,
+  };
 }

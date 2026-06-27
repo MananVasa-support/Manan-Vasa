@@ -5,31 +5,54 @@ import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import * as Dialog from "@radix-ui/react-dialog";
 import * as Tooltip from "@radix-ui/react-tooltip";
-import { Plus, X, Upload } from "lucide-react";
+import { Plus, X, Upload, Loader2 } from "lucide-react";
 import { NewTaskForm } from "./new-task-form";
 import { TaskImport } from "./task-import";
+import { loadNewTaskOptions } from "@/app/(app)/tasks/actions";
 
 interface Props {
-  employees: { id: string; name: string }[];
-  /** Client roster for the "Client Name" picker. */
-  clients: string[];
-  /** Subject roster for the "Subject" picker. */
-  subjects: string[];
-  /** Project tree nodes for the optional Project link. */
-  projectNodes?: { id: string; label: string }[];
   /** Optional defaults — usually pre-fill initiator = current user. */
   defaultInitiatorId?: string;
   /** Admins get the "Import" shortcut in the dialog header. */
   isAdmin?: boolean;
 }
 
+type Options = {
+  employees: { id: string; name: string }[];
+  clients: string[];
+  subjects: string[];
+  projectNodes: { id: string; label: string }[];
+};
+
 const HINT_STORAGE_KEY = "vp_seen_new_task_hint";
 
-export function NewTaskDialog({ employees, clients, subjects, projectNodes, defaultInitiatorId }: Props) {
+export function NewTaskDialog({ defaultInitiatorId }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [showHint, setShowHint] = useState(false);
+
+  // Lazily-loaded option rosters, held in STABLE client state. Fetched the
+  // first time the dialog opens (and refreshed in the background on later
+  // opens), so the modal's data never gets a new identity from the global
+  // `router.refresh()` cycle — the form is fully insulated from realtime
+  // re-renders, and the 4 roster queries no longer run on every page render.
+  const [opts, setOpts] = useState<Options | null>(null);
+  const [optsError, setOptsError] = useState<string | null>(null);
+
+  const ensureOptions = useCallback(() => {
+    setOptsError(null);
+    loadNewTaskOptions()
+      .then(setOpts)
+      .catch(() => setOptsError("Couldn't load the form. Close and reopen to retry."));
+  }, []);
+
+  // Load (and on later opens, refresh) the rosters when the dialog opens. The
+  // last-loaded `opts` stays visible while a refresh is in flight, so reopen is
+  // instant and the form never sees a churning identity.
+  useEffect(() => {
+    if (open) ensureOptions();
+  }, [open, ensureOptions]);
 
   // Open the Import popup instead of navigating to a page (the page round-trip
   // hit the remote DB and felt slow). Close New Task first so the two dialogs
@@ -348,14 +371,24 @@ export function NewTaskDialog({ employees, clients, subjects, projectNodes, defa
               overflowY: "auto",
             }}
           >
-            <NewTaskForm
-              employees={employees}
-              clients={clients}
-              subjects={subjects}
-              projectNodes={projectNodes}
-              onSuccess={onSuccess}
-              defaults={{ initiatorId: defaultInitiatorId }}
-            />
+            {opts ? (
+              <NewTaskForm
+                employees={opts.employees}
+                clients={opts.clients}
+                subjects={opts.subjects}
+                projectNodes={opts.projectNodes}
+                onSuccess={onSuccess}
+                defaults={{ initiatorId: defaultInitiatorId }}
+              />
+            ) : optsError ? (
+              <div className="grid place-items-center py-16 text-center">
+                <p className="text-[15px] font-semibold text-ink-muted">{optsError}</p>
+              </div>
+            ) : (
+              <div className="grid place-items-center py-20">
+                <Loader2 className="animate-spin" size={28} style={{ color: "var(--color-altus-red)" }} />
+              </div>
+            )}
           </div>
         </Dialog.Content>
       </Dialog.Portal>
