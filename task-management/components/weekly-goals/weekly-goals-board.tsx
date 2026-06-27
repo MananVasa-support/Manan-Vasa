@@ -91,6 +91,18 @@ export function WeeklyGoalsBoard(props: Props) {
     [meId, canManage],
   );
 
+  // Optimistic local copy of the week's goals. Inline edits (progress %, status,
+  // report text, planning fields) patch THIS in place instead of router.refresh()
+  // — that full-board server re-fetch on every slider release is what made the %
+  // slider buffer and, under pool pressure, stall the whole app. Re-syncs whenever
+  // the server sends fresh rows (navigation / add / delete / duplicate).
+  const [rows, setRows] = React.useState(props.rows);
+  React.useEffect(() => setRows(props.rows), [props.rows]);
+  const patchGoal = React.useCallback(
+    (id: string, patch: Partial<BoardGoal>) => setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r))),
+    [],
+  );
+
   // Reviewer-only "show archived" toggle + the list filters / sort.
   const [showArchived, setShowArchived] = React.useState(false);
   const [search, setSearch] = React.useState("");
@@ -127,8 +139,8 @@ export function WeeklyGoalsBoard(props: Props) {
   // `visible` = the week's goals minus archived — drives the headline score, the
   // min-5 tracker and the weight total. Filters/sort must NOT change those.
   const visible = React.useMemo(
-    () => props.rows.filter((r) => showArchived || !r.archived),
-    [props.rows, showArchived],
+    () => rows.filter((r) => showArchived || !r.archived),
+    [rows, showArchived],
   );
 
   // `displayed` = what the LIST shows: `visible` narrowed by search / status /
@@ -221,6 +233,7 @@ export function WeeklyGoalsBoard(props: Props) {
       subjectOptions: props.subjectOptions,
       catalog: props.catalog,
       onRequestDelete: requestDelete,
+      onPatch: patchGoal,
     }),
     [
       props.me.isAdmin,
@@ -229,6 +242,7 @@ export function WeeklyGoalsBoard(props: Props) {
       props.subjectOptions,
       props.catalog,
       requestDelete,
+      patchGoal,
     ],
   );
 

@@ -71,6 +71,10 @@ interface Props {
   catalog: { id: string; name: string; amount: number }[];
   /** Opens the board's shared two-step delete-confirm dialog. */
   onRequestDelete: (goal: BoardGoal) => void;
+  /** Optimistic patch into the board's local rows — used so inline edits
+   *  (% / status / report / planning) update instantly WITHOUT a full-board
+   *  router.refresh(). The server write still happens in the background. */
+  onPatch?: (id: string, patch: Partial<BoardGoal>) => void;
   /** This person's live active-weight total this week (budget context for the
    *  inline Weight editor — warns when the week is off 100). Defaults to 0. */
   employeeWeightTotal?: number;
@@ -90,6 +94,7 @@ function GoalCardImpl({
   subjectOptions,
   catalog,
   onRequestDelete,
+  onPatch,
   employeeWeightTotal = 0,
   autoFocus = false,
 }: Props) {
@@ -125,35 +130,40 @@ function GoalCardImpl({
     if (autoFocus) cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [autoFocus]);
 
+  // Inline edits are OPTIMISTIC: patch the board's local copy instantly, then
+  // write in the background. NO router.refresh() on success — that full-board
+  // re-fetch (per edit) was the buffer/stall. We only resync from the server if
+  // the write fails, so a rejected change snaps back to truth.
   function save(patch: Parameters<typeof editWeeklyGoal>[0]) {
+    const { id: _id, ...rest } = patch;
+    onPatch?.(goal.id, rest as Partial<BoardGoal>);
     start(async () => {
       const res = await editWeeklyGoal(patch);
-      if (!res.ok) fireToast({ message: res.error, type: "error" });
-      router.refresh();
+      if (!res.ok) { fireToast({ message: res.error, type: "error" }); router.refresh(); }
     });
   }
   function savePct(pctDone: number) {
+    onPatch?.(goal.id, { pctDone });
     start(async () => {
       const res = await setWeeklyGoalPct({ id: goal.id, pctDone });
-      if (!res.ok) fireToast({ message: res.error, type: "error" });
-      router.refresh();
+      if (!res.ok) { fireToast({ message: res.error, type: "error" }); router.refresh(); }
     });
   }
   function saveStatus(status: UserTaskStatus) {
+    onPatch?.(goal.id, { status: status as BoardGoal["status"] });
     start(async () => {
       const res = await setWeeklyGoalStatus({ id: goal.id, status });
-      if (!res.ok) fireToast({ message: res.error, type: "error" });
-      router.refresh();
+      if (!res.ok) { fireToast({ message: res.error, type: "error" }); router.refresh(); }
     });
   }
   // Owner progress REPORT — explanation + evidence (the doer's narrative the
   // reviewer reads). The only content fields a normal employee may write besides
   // % + status; planning fields stay manager-only.
   function saveReport(patch: { explanation?: string | null; linkUrl?: string | null }) {
+    onPatch?.(goal.id, patch);
     start(async () => {
       const res = await setWeeklyGoalReport({ id: goal.id, ...patch });
-      if (!res.ok) fireToast({ message: res.error, type: "error" });
-      router.refresh();
+      if (!res.ok) { fireToast({ message: res.error, type: "error" }); router.refresh(); }
     });
   }
   function duplicate() {
