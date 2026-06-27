@@ -30,7 +30,6 @@ import { GlobalSearch } from "@/components/header/global-search";
  */
 
 type Card = {
-  index: string;
   ws: WorkspaceId;
   label: string;
   desc: string;
@@ -41,58 +40,52 @@ type Card = {
 };
 
 const CARDS: Card[] = [
-  { index: "01", ws: "admin", label: "Admin", desc: "People, settings, payroll & the control room.", href: "/ws/admin" as Route, Icon: ShieldCheck, tile: "rgba(225,6,0,0.08)", fg: "var(--color-altus-red)" },
-  { index: "02", ws: "wms", label: "WMS", desc: "The work dashboard — tasks, goals & the daily loop.", href: "/ws/wms" as Route, Icon: LayoutGrid, tile: "#eef0fb", fg: "#4f46e5" },
-  { index: "03", ws: "employees", label: "Employees", desc: "Attendance, leave, salary & the team roster.", href: "/ws/employees" as Route, Icon: Users, tile: "#e7f5ec", fg: "#15803d" },
-  { index: "04", ws: "sales", label: "Sales", desc: "Collections, references & breakthroughs — and more.", href: "/ws/sales" as Route, Icon: TrendingUp, tile: "#f1ebfb", fg: "#7c3aed" },
-  { index: "05", ws: "marketing", label: "Marketing", desc: "The index today — campaigns & reach landing next.", href: "/ws/marketing" as Route, Icon: Megaphone, tile: "#fdf0e2", fg: "#ea7a17" },
-  { index: "06", ws: "training", label: "Training", desc: "Material library, tests, induction & feedback.", href: "/ws/training" as Route, Icon: GraduationCap, tile: "#e9f1fd", fg: "#2563eb" },
+  { ws: "admin", label: "Admin", desc: "People, settings, payroll & the control room.", href: "/ws/admin" as Route, Icon: ShieldCheck, tile: "rgba(225,6,0,0.08)", fg: "var(--color-altus-red)" },
+  { ws: "wms", label: "WMS", desc: "The work dashboard — tasks, goals & the daily loop.", href: "/ws/wms" as Route, Icon: LayoutGrid, tile: "#eef0fb", fg: "#4f46e5" },
+  { ws: "employees", label: "Employees", desc: "Attendance, leave, salary & the team roster.", href: "/ws/employees" as Route, Icon: Users, tile: "#e7f5ec", fg: "#15803d" },
+  { ws: "sales", label: "Sales", desc: "Collections, references & breakthroughs — and more.", href: "/ws/sales" as Route, Icon: TrendingUp, tile: "#f1ebfb", fg: "#7c3aed" },
+  { ws: "marketing", label: "Marketing", desc: "The index today — campaigns & reach landing next.", href: "/ws/marketing" as Route, Icon: Megaphone, tile: "#fdf0e2", fg: "#ea7a17" },
+  { ws: "training", label: "Training", desc: "Material library, tests, induction & feedback.", href: "/ws/training" as Route, Icon: GraduationCap, tile: "#e9f1fd", fg: "#2563eb" },
 ];
 
-const CARD_BASE = "group flex flex-col overflow-hidden rounded-2xl border border-hairline bg-white shadow-sm";
-const CARD_HOVER = "transition duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-hairline-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red focus-visible:ring-offset-2";
+const CARD_BASE = "wg-rise wg-sheen group flex flex-col items-center overflow-hidden rounded-3xl border border-hairline bg-white px-7 py-10 text-center shadow-sm max-md:py-8";
+const CARD_HOVER = "transition duration-200 hover:-translate-y-1.5 hover:shadow-xl hover:border-hairline-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red focus-visible:ring-offset-2";
 
-function WorkspaceCard({ c, locked }: { c: Card; locked: boolean }) {
+function WorkspaceCard({ c, locked, i }: { c: Card; locked: boolean; i: number }) {
   const Icon = c.Icon;
   const tileBg = locked ? "var(--color-surface-soft)" : c.tile;
   const iconColor = locked ? "var(--color-ink-subtle)" : c.fg;
+  const delay = { animationDelay: `${i * 70}ms` } as const;
 
   const content = (
     <>
-      <div className="flex flex-1 flex-col p-6 max-md:p-5">
-        <div className="flex items-start justify-between">
-          <span className="inline-flex size-[52px] items-center justify-center rounded-2xl" style={{ background: tileBg }}>
-            <Icon size={24} strokeWidth={2.1} style={{ color: iconColor }} />
-          </span>
-          <span className="text-[26px] font-bold tabular-nums text-ink-subtle/55">{c.index}</span>
-        </div>
-        <h3 className="mt-5 text-[21px] font-bold tracking-tight text-ink-strong">{c.label}</h3>
-        <p className="mt-1.5 text-[14.5px] leading-snug text-ink-muted">{c.desc}</p>
-      </div>
-      <div className="border-t border-hairline px-6 py-3.5 max-md:px-5">
-        {locked ? (
-          <span className="inline-flex items-center gap-1.5 text-[14px] font-bold text-ink-subtle">
-            <Lock size={14} strokeWidth={2.4} /> No access
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 text-[14px] font-bold" style={{ color: c.fg }}>
-            Enter workspace
-            <ArrowRight size={15} strokeWidth={2.6} className="transition-transform duration-200 group-hover:translate-x-1" />
-          </span>
-        )}
-      </div>
+      <span className="inline-flex size-[76px] items-center justify-center rounded-[22px] transition-transform duration-300 group-hover:scale-105" style={{ background: tileBg }}>
+        <Icon size={36} strokeWidth={2.1} style={{ color: iconColor }} />
+      </span>
+      <h3 className="mt-6 text-[28px] font-extrabold tracking-tight text-ink-strong">{c.label}</h3>
+      <p className="mt-2.5 max-w-[280px] text-[16px] leading-snug text-ink-muted">{c.desc}</p>
+      {locked ? (
+        <span className="mt-7 inline-flex items-center gap-1.5 text-[15px] font-bold text-ink-subtle">
+          <Lock size={15} strokeWidth={2.4} /> No access
+        </span>
+      ) : (
+        <span className="mt-7 inline-flex items-center gap-1.5 text-[15.5px] font-bold" style={{ color: c.fg }}>
+          Enter workspace
+          <ArrowRight size={16} strokeWidth={2.6} className="transition-transform duration-200 group-hover:translate-x-1" />
+        </span>
+      )}
     </>
   );
 
   if (locked) {
     return (
-      <div className={`${CARD_BASE} opacity-75`} aria-disabled="true">
+      <div className={`${CARD_BASE} opacity-75`} style={delay} aria-disabled="true">
         {content}
       </div>
     );
   }
   return (
-    <Link href={c.href} aria-label={`Open ${c.label}`} className={`${CARD_BASE} ${CARD_HOVER}`}>
+    <Link href={c.href} aria-label={`Open ${c.label}`} className={`${CARD_BASE} ${CARD_HOVER}`} style={delay}>
       {content}
     </Link>
   );
@@ -108,7 +101,7 @@ export default async function HubPage() {
       <div className="mx-auto w-full max-w-[1320px] px-8 py-9 max-md:px-5 max-md:py-6">
         {/* Header */}
         <header className="flex items-center justify-between gap-4">
-          <Image src="/logo.png" alt="Altus Corp" width={132} height={40} priority className="h-11 w-auto" />
+          <Image src="/logo.png" alt="Altus Corp" width={86} height={95} priority className="h-[72px] w-auto max-md:h-[60px]" />
           <div className="flex items-center gap-4">
             <span className="text-[15px] text-ink-soft max-sm:hidden">
               Hi, <strong className="font-bold text-ink-strong">{firstName}</strong>
@@ -117,21 +110,21 @@ export default async function HubPage() {
           </div>
         </header>
 
-        {/* Hero */}
-        <section className="mt-10 mb-8">
-          <span className="text-[12px] font-bold uppercase tracking-[0.2em]" style={{ color: "var(--color-altus-red)" }}>
+        {/* Hero — centered */}
+        <section className="mt-12 mb-10 flex flex-col items-center text-center">
+          <span className="text-[13px] font-bold uppercase tracking-[0.22em]" style={{ color: "var(--color-altus-red)" }}>
             Altus&nbsp;/&nbsp;Workspaces
           </span>
-          <h1 className="mt-2 font-extrabold tracking-tight text-ink-strong" style={{ fontSize: "clamp(34px, 4.4vw, 52px)", lineHeight: 1.04 }}>
+          <h1 className="mt-2.5 font-extrabold tracking-tight text-ink-strong" style={{ fontSize: "clamp(38px, 4.8vw, 58px)", lineHeight: 1.03 }}>
             Welcome back, {firstName}
           </h1>
-          <p className="mt-2.5 text-[16px] text-ink-muted">Choose your workspace to get started</p>
+          <p className="mt-3 text-[18px] text-ink-muted">Choose your workspace to get started</p>
         </section>
 
         {/* Workspace grid */}
-        <section className="grid grid-cols-3 gap-5 max-lg:grid-cols-2 max-sm:grid-cols-1" aria-label="Workspaces">
-          {CARDS.map((c) => (
-            <WorkspaceCard key={c.label} c={c} locked={!canAccessWorkspace(c.ws, access)} />
+        <section className="grid grid-cols-3 gap-6 max-lg:grid-cols-2 max-sm:grid-cols-1" aria-label="Workspaces">
+          {CARDS.map((c, i) => (
+            <WorkspaceCard key={c.label} c={c} locked={!canAccessWorkspace(c.ws, access)} i={i} />
           ))}
         </section>
 
