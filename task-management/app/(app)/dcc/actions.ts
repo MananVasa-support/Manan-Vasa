@@ -10,7 +10,7 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { loadDccScope, canManageItemsFor, canReviewFor, canViewFor } from "@/lib/dcc/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { parseAmount } from "@/lib/accounts/amounts";
-import { parseFrequencyToMask } from "@/lib/dcc/util";
+import { parseFrequencyToMask, isDueOn } from "@/lib/dcc/util";
 import { listOwnerItems, listOwnerEntries } from "@/lib/queries/dcc";
 import { generateText, GeminiNotConfiguredError } from "@/lib/ai/gemini";
 
@@ -182,6 +182,38 @@ export async function setDccReview(input: unknown): Promise<ActionResult> {
       .onConflictDoUpdate({ target: [dccReviews.ownerEmployeeId, dccReviews.reviewDate], set: { reviewerId: me.id, status, note, updatedAt: new Date() } });
     if (!silent) revalidatePath(PATH);
     return { ok: true };
+  } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
+}
+
+export interface DccReviewItem {
+  code: string | null;
+  title: string;
+  section: string | null;
+  status: string | null;
+  value: string | null;
+  note: string | null;
+}
+
+/** Fetch one report's DCC (items due that day + their responses) for review. */
+export async function getDccReviewDetail(input: unknown): Promise<ActionResult<{ items: DccReviewItem[] }>> {
+  const me = await requireUser();
+  const parsed = z.object({ ownerId: z.string().uuid(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u) }).safeParse(input);
+  if (!parsed.success) return fail("Invalid input.");
+  const { ownerId, date } = parsed.data;
+  const scope = await loadDccScope(me);
+  if (!canReviewFor(scope, ownerId)) return fail("Not allowed.");
+  try {
+    const [items, entries] = await Promise.all([listOwnerItems(ownerId), listOwnerEntries(ownerId, date)]);
+    const [y, m, d] = date.split("-").map(Number);
+    const day = new Date(y!, (m ?? 1) - 1, d ?? 1);
+    const byItem = new Map(entries.filter((e) => e.entryDate === date).map((e) => [e.itemId, e]));
+    const out: DccReviewItem[] = items
+      .filter((it) => isDueOn(it.weekdays, day))
+      .map((it) => {
+        const e = byItem.get(it.id);
+        return { code: it.code, title: it.title, section: it.section, status: e?.status ?? null, value: e?.valueNumber ?? null, note: e?.note ?? null };
+      });
+    return { ok: true, items: out };
   } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
 }
 

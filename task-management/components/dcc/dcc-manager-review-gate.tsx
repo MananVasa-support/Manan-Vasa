@@ -2,13 +2,12 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import type { Route } from "next";
-import { Users, Loader2, CheckCircle2, AlertTriangle, ExternalLink } from "lucide-react";
+import { Users, Loader2, CheckCircle2, AlertTriangle, Eye, X } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { Avatar } from "@/components/ui/avatar";
+import { dccStatusTone } from "@/lib/dcc/util";
 import type { DccManagerReviewState } from "@/lib/dcc/gate";
-import { setDccReview, approveAllDccReviews } from "@/app/(app)/dcc/actions";
+import { setDccReview, approveAllDccReviews, getDccReviewDetail, type DccReviewItem } from "@/app/(app)/dcc/actions";
 
 function fmtLong(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
@@ -25,8 +24,20 @@ export function DccManagerReviewGate({ greetingName, state }: { greetingName: st
   });
   const [busy, setBusy] = React.useState<string | null>(null);
   const [bulk, setBulk] = React.useState(false);
+  const [detail, setDetail] = React.useState<{ id: string; name: string } | null>(null);
+  const [detailItems, setDetailItems] = React.useState<DccReviewItem[] | null>(null);
 
   const remaining = state.reports.filter((r) => !reviewed[r.id]).length;
+
+  function openDetail(r: { id: string; name: string }) {
+    setDetail(r);
+    setDetailItems(null);
+    startTransition(async () => {
+      const res = await getDccReviewDetail({ ownerId: r.id, date: state.date });
+      if (!res.ok) { fireToast({ message: res.error, type: "error" }); setDetail(null); return; }
+      setDetailItems(res.items);
+    });
+  }
 
   function review(ownerId: string, status: "approved" | "needs_rework") {
     setReviewed((m) => ({ ...m, [ownerId]: status }));
@@ -81,7 +92,7 @@ export function DccManagerReviewGate({ greetingName, state }: { greetingName: st
                   <p className="truncate text-[16px] font-bold text-ink-strong">{r.name}</p>
                   <p className="text-[13px] font-semibold text-ink-subtle">{r.done}/{r.due} done {pct >= 0 ? `· ${pct}%` : ""}</p>
                 </div>
-                <Link href={`/dcc?emp=${r.id}` as Route} className="grid h-9 w-9 place-items-center rounded-lg text-ink-subtle transition-colors hover:bg-[color:var(--color-surface-track,#eef2f7)]" title="Open their DCC"><ExternalLink size={16} /></Link>
+                <button onClick={() => openDetail(r)} className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong px-3 py-2 text-[13.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red" title="View their DCC"><Eye size={15} /> View</button>
                 <button onClick={() => review(r.id, "approved")} className="rounded-xl px-4 py-2.5 text-[14.5px] font-bold transition-colors" style={v === "approved" ? { background: "var(--color-green)", color: "white" } : { background: "white", color: "var(--color-green-deep)", border: "1px solid var(--color-hairline-strong)" }}>✓ Approve</button>
                 <button onClick={() => review(r.id, "needs_rework")} className="rounded-xl px-4 py-2.5 text-[14.5px] font-bold transition-colors" style={v === "needs_rework" ? { background: "var(--color-altus-red)", color: "white" } : { background: "white", color: "var(--color-altus-red-deep)", border: "1px solid var(--color-hairline-strong)" }}>Needs rework</button>
                 {busy === r.id && <Loader2 size={16} className="animate-spin text-ink-subtle" />}
@@ -99,6 +110,50 @@ export function DccManagerReviewGate({ greetingName, state }: { greetingName: st
           </button>
         </div>
       </div>
+
+      {detail && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4" onClick={() => setDetail(null)}>
+          <div className="flex max-h-[88vh] w-full max-w-[680px] flex-col rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 border-b border-hairline-strong px-5 py-4">
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate text-[18px] font-extrabold text-ink-strong">{detail.name}'s DCC</h3>
+                <p className="text-[13px] font-semibold text-ink-subtle">{fmtLong(state.date)}</p>
+              </div>
+              <button onClick={() => setDetail(null)} className="grid h-9 w-9 place-items-center rounded-lg text-ink-subtle hover:bg-[color:var(--color-surface-track,#eef2f7)]"><X size={18} /></button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
+              {detailItems === null ? (
+                <div className="grid place-items-center py-14"><Loader2 size={24} className="animate-spin text-ink-subtle" /></div>
+              ) : detailItems.length === 0 ? (
+                <p className="py-12 text-center text-[15px] font-bold text-ink-muted">No KPIs were due that day.</p>
+              ) : (
+                <div className="flex flex-col">
+                  {detailItems.map((it, i) => {
+                    const tone = dccStatusTone(it.status);
+                    return (
+                      <div key={i} className={`flex items-start gap-3 py-3 ${i === 0 ? "" : "border-t border-hairline"}`}>
+                        {it.code && <span className="mt-0.5 shrink-0 rounded-md bg-[color:var(--color-surface-track,#eef2f7)] px-1.5 py-0.5 text-[12px] font-extrabold text-ink-muted tabular-nums">{it.code}</span>}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[15px] font-semibold leading-snug text-ink-strong">{it.title}</p>
+                          {it.note && <p className="mt-0.5 text-[13.5px] font-medium text-ink-muted">{it.note}</p>}
+                        </div>
+                        {it.value && <span className="mt-0.5 shrink-0 text-[14px] font-bold text-ink-strong tabular-nums">{it.value}</span>}
+                        <span className="mt-0.5 shrink-0 rounded-lg px-2.5 py-1 text-[12.5px] font-bold" style={{ background: tone.bg, color: tone.fg }}>{it.status ?? "—"}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 border-t border-hairline-strong px-5 py-4">
+              <button onClick={() => { review(detail.id, "needs_rework"); setDetail(null); }} className="rounded-xl border border-hairline-strong px-4 py-2.5 text-[14.5px] font-bold transition-colors hover:border-altus-red" style={{ color: "var(--color-altus-red-deep)" }}>Needs rework</button>
+              <button onClick={() => { review(detail.id, "approved"); setDetail(null); }} className="rounded-xl px-5 py-2.5 text-[14.5px] font-bold text-white transition-opacity hover:opacity-90" style={{ background: "var(--color-green)" }}>✓ Approve</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
