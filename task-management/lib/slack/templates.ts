@@ -40,6 +40,7 @@ const EMOJI: Record<NotificationKind, string> = {
   attendance_late_deduction: ":heavy_minus_sign:",
   training_test_failed: ":x:",
   dcc_fill_reminder: ":alarm_clock:",
+  ambassador_reminder: ":gem:",
 };
 
 const VERB: Record<NotificationKind, (actor: string, statusLabel?: string) => string> = {
@@ -69,6 +70,7 @@ const VERB: Record<NotificationKind, (actor: string, statusLabel?: string) => st
   attendance_late_deduction: () => `Late deduction applied`,
   training_test_failed: () => `Training test not passed`,
   dcc_fill_reminder: () => `Fill today's DCC KPIs`,
+  ambassador_reminder: () => `You have an ambassador to follow up`,
 };
 
 export interface SlackCtx {

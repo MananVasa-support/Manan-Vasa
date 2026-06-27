@@ -34,6 +34,7 @@ const KIND_LABEL: Record<NotificationKind, string> = {
   attendance_late_deduction: "Attendance: late deduction",
   training_test_failed: "Training: test failed",
   dcc_fill_reminder: "DCC — fill today's KPIs",
+  ambassador_reminder: "Ambassadors — follow-up reminder",
 };
 
 const CHANNEL_LABEL: Record<NotificationChannel, string> = {

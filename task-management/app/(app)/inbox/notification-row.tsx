@@ -61,11 +61,14 @@ const KIND_META: Record<NotificationKind, { icon: LucideIcon; tone: string }> = 
   training_test_failed: { icon: XCircle, tone: "red" },
   // Employees DCC end-of-day reminder.
   dcc_fill_reminder: { icon: AlarmClock, tone: "amber" },
+  // Ambassadors — partner follow-up / stalled referral nudge.
+  ambassador_reminder: { icon: AlarmClock, tone: "amber" },
 };
 
 // Kinds that deep-link somewhere other than the related task / inbox.
 const KIND_HREF: Partial<Record<string, string>> = {
   dcc_fill_reminder: "/dcc",
+  ambassador_reminder: "/ambassadors",
   weekly_goals_assigned: "/weekly-goals",
   weekly_goals_fill_reminder: "/weekly-goals",
   weekly_goals_incomplete: "/weekly-goals",

@@ -33,6 +33,7 @@ import {
   CandlestickChart,
   FolderArchive,
   Gauge,
+  Gem,
 } from "lucide-react";
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
@@ -133,6 +134,7 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
   },
   sales: {
     top: [
+      { href: "/ambassadors" as Route, label: "Ambassadors", Icon: Gem },
       { href: "/people-gives" as Route, label: "People Gives", Icon: Handshake },
       { href: "/outstanding" as Route, label: "Outstanding", Icon: IndianRupee },
       { href: "/participant-breakthrough" as Route, label: "Breakthrough", Icon: Sparkles },

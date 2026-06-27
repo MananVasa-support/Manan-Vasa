@@ -30,6 +30,7 @@ const NAMES: Record<NotificationKind, string> = {
   attendance_late_deduction: "vp_attendance_late_deduction",
   training_test_failed: "vp_training_test_failed",
   dcc_fill_reminder: "vp_dcc_fill_reminder",
+  ambassador_reminder: "vp_ambassador_reminder",
 };
 
 export function templateNameForKind(kind: NotificationKind): string {
@@ -127,6 +128,7 @@ const VARS: Record<NotificationKind, (ctx: TemplateCtx) => Param[]> = {
   attendance_late_deduction: (c) => [t(c.body ?? "")],
   training_test_failed: (c) => [t(c.body ?? "")],
   dcc_fill_reminder: (c) => [t(c.body ?? "")],
+  ambassador_reminder: (c) => [t(c.body ?? "")],
 };
 
 /**

@@ -26,6 +26,11 @@ import { parseFrequencyToMask } from "@/lib/dcc/util";
 
 const SHEET_ID = "1YjuNom1QX43O9X4GbQoF_fER0siolfR_V8czbextMtU";
 const COMMIT = process.argv.includes("--commit");
+// Optional safety filter: --only="<name substring>" writes ONLY matching people
+// (case-insensitive), leaving everyone else's KPIs/entries untouched. Used to
+// backfill a single person (e.g. a tab that was missing from the mapping)
+// without re-clearing the 20 others — which would wipe app-entered entries.
+const ONLY = (process.argv.find((a) => a.startsWith("--only="))?.split("=")[1] ?? "").toLowerCase();
 
 // tab title → canonical employee name (resolved aliases from the analysis).
 const PERSON_TABS: Array<{ tab: string; emp: string }> = [
@@ -48,6 +53,7 @@ const PERSON_TABS: Array<{ tab: string; emp: string }> = [
   { tab: "Atul-Intern", emp: "Atul Asthana" },
   { tab: "Pratham-Intern", emp: "Pratham Medhekar" },
   { tab: "Hetesh-Intern", emp: "Hetesh Vichare" },
+  { tab: "Rutvisha KPI", emp: "Rutvisha Mehta" },
   { tab: "Manan Sir KPI", emp: "Manan Vasa" },
 ];
 const REGISTER_TABS: Array<{ tab: string; emp: string; titleCol: number; freqCol: number }> = [
@@ -210,6 +216,7 @@ async function main() {
   let wroteItems = 0, wroteEntries = 0;
   for (const { emp, empId, items } of all) {
     if (!empId) { console.log(`skip ${emp} (no employee)`); continue; }
+    if (ONLY && !emp.toLowerCase().includes(ONLY)) { console.log(`skip ${emp} (--only=${ONLY})`); continue; }
     await db.transaction(async (tx) => {
       await tx.delete(dccKpiItems).where(eq(dccKpiItems.ownerEmployeeId, empId)); // cascades entries
       let sort = 0;

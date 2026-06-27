@@ -901,6 +901,9 @@ export const tasks = pgTable(
     // with weekly_goals.task_id's reference would create a circular type
     // (mirrors carriedFromId / recurrenceParentId, which are also FK-in-migration).
     originGoalId: uuid("origin_goal_id"),
+    // Backlink to the Ambassadors referral that spawned this follow-up task
+    // (mig 0092). FK-in-migration only (avoids a circular type with amb_referrals).
+    ambReferralId: uuid("amb_referral_id"),
   },
   (t) => [
     index("tasks_doer_created_idx").on(t.doerId, t.createdAt),
@@ -993,6 +996,10 @@ export const NOTIFICATION_KINDS = [
   // Employees DCC — end-of-day "fill your KPIs" reminder. Text column, no DB
   // change; sent directly by app/api/cron/dcc-reminder (bypasses the matrix).
   "dcc_fill_reminder",
+  // Ambassadors — a due partner reminder or a stalled referral nudge. Text
+  // column, no DB change; sent directly by app/api/cron/ambassador-reminders
+  // (bypasses the matrix), routed to /ambassadors.
+  "ambassador_reminder",
 ] as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
@@ -2991,3 +2998,180 @@ export const overtimeEntries = pgTable(
 
 export type OvertimeEntry = typeof overtimeEntries.$inferSelect;
 export type NewOvertimeEntry = typeof overtimeEntries.$inferInsert;
+
+// ── Ambassadors — Partner Relationship Intelligence (Sales) — mig 0092 ───────
+// External referral partners + their referral pipeline + commission ledger +
+// unified activity timeline + version-controlled documents. See
+// docs/superpowers/specs/2026-06-27-ambassadors-partner-intelligence-design.md
+export const ambProducts = pgTable(
+  "amb_products",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("amb_products_active_idx").on(t.isActive, t.sortOrder, t.name)],
+);
+
+export const ambAmbassadors = pgTable(
+  "amb_ambassadors",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    company: text("company"),
+    email: text("email"),
+    phone: text("phone"),
+    photoUrl: text("photo_url"),
+    ownerId: uuid("owner_id").references(() => employees.id, { onDelete: "set null" }),
+    status: text("status").notNull().default("active"), // active | paused | archived
+    tier: text("tier"), // elite | gold | silver (computed; manual override allowed)
+    partnerScore: numeric("partner_score", { precision: 6, scale: 2 }),
+    scoreUpdatedAt: timestamp("score_updated_at", { withTimezone: true }),
+    payoutType: text("payout_type").notNull().default("percent"), // percent | flat
+    payoutValue: numeric("payout_value", { precision: 14, scale: 2 }).notNull().default("0"),
+    payoutTermsNotes: text("payout_terms_notes"),
+    monthlyTarget: numeric("monthly_target", { precision: 14, scale: 2 }), // ₹ revenue target
+    monthlyTargetCount: integer("monthly_target_count"), // optional # referrals/month
+    joinedOn: date("joined_on"),
+    source: text("source"),
+    aiSummary: text("ai_summary"),
+    aiSummaryAt: timestamp("ai_summary_at", { withTimezone: true }),
+    archived: boolean("archived").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("amb_ambassadors_status_idx").on(t.archived, t.status),
+    index("amb_ambassadors_owner_idx").on(t.ownerId),
+  ],
+);
+
+export const ambAmbassadorProducts = pgTable(
+  "amb_ambassador_products",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ambassadorId: uuid("ambassador_id").notNull().references(() => ambAmbassadors.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").notNull().references(() => ambProducts.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("amb_ambassador_products_uq").on(t.ambassadorId, t.productId)],
+);
+
+export const ambReferrals = pgTable(
+  "amb_referrals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ambassadorId: uuid("ambassador_id").notNull().references(() => ambAmbassadors.id, { onDelete: "cascade" }),
+    prospectName: text("prospect_name").notNull(),
+    prospectCompany: text("prospect_company"),
+    prospectPhone: text("prospect_phone"),
+    prospectEmail: text("prospect_email"),
+    prospectNotes: text("prospect_notes"),
+    receivedOn: date("received_on").notNull().defaultNow(),
+    // received | assigned | qualified | meeting | proposal | negotiation |
+    // won | payment | commission_generated | commission_paid | lost
+    stage: text("stage").notNull().default("received"),
+    assignedToId: uuid("assigned_to_id").references(() => employees.id, { onDelete: "set null" }),
+    productId: uuid("product_id").references(() => ambProducts.id, { onDelete: "set null" }),
+    dealAmount: numeric("deal_amount", { precision: 14, scale: 2 }),
+    outcome: text("outcome").notNull().default("open"), // open | converted | lost
+    expectedClose: date("expected_close"),
+    wonAt: timestamp("won_at", { withTimezone: true }),
+    lostReason: text("lost_reason"),
+    commissionAmount: numeric("commission_amount", { precision: 14, scale: 2 }),
+    commissionBasis: text("commission_basis"), // snapshot e.g. "percent 10%" / "flat ₹5000"
+    commissionStatus: text("commission_status").notNull().default("pending"), // pending | generated | paid
+    clientId: uuid("client_id").references(() => clients.id, { onDelete: "set null" }),
+    pgIntroductionId: uuid("pg_introduction_id").references(() => pgIntroductions.id, { onDelete: "set null" }),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("amb_referrals_ambassador_idx").on(t.ambassadorId),
+    index("amb_referrals_stage_idx").on(t.stage),
+    index("amb_referrals_outcome_idx").on(t.outcome),
+    index("amb_referrals_commission_idx").on(t.commissionStatus),
+    index("amb_referrals_received_idx").on(t.receivedOn),
+  ],
+);
+
+export const ambPayouts = pgTable(
+  "amb_payouts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ambassadorId: uuid("ambassador_id").notNull().references(() => ambAmbassadors.id, { onDelete: "cascade" }),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    paidOn: date("paid_on").notNull().defaultNow(),
+    method: text("method"),
+    reference: text("reference"),
+    note: text("note"),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("amb_payouts_ambassador_idx").on(t.ambassadorId, t.paidOn)],
+);
+
+export const ambPayoutReferrals = pgTable(
+  "amb_payout_referrals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    payoutId: uuid("payout_id").notNull().references(() => ambPayouts.id, { onDelete: "cascade" }),
+    referralId: uuid("referral_id").notNull().references(() => ambReferrals.id, { onDelete: "cascade" }),
+    amountApplied: numeric("amount_applied", { precision: 14, scale: 2 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("amb_payout_referrals_uq").on(t.payoutId, t.referralId)],
+);
+
+export const ambActivities = pgTable(
+  "amb_activities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ambassadorId: uuid("ambassador_id").notNull().references(() => ambAmbassadors.id, { onDelete: "cascade" }),
+    referralId: uuid("referral_id").references(() => ambReferrals.id, { onDelete: "cascade" }),
+    // note | call | meeting | email | whatsapp | stage_change | commission | reminder | system
+    type: text("type").notNull(),
+    title: text("title"),
+    body: text("body"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    remindAt: timestamp("remind_at", { withTimezone: true }), // set ⇒ this row is a reminder
+    done: boolean("done").notNull().default(false),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("amb_activities_ambassador_idx").on(t.ambassadorId, t.occurredAt),
+    index("amb_activities_remind_idx").on(t.remindAt),
+  ],
+);
+
+export const ambDocuments = pgTable(
+  "amb_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ambassadorId: uuid("ambassador_id").notNull().references(() => ambAmbassadors.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    version: integer("version").notNull().default(1),
+    storageKey: text("storage_key").notNull(),
+    mime: text("mime"),
+    sizeBytes: bigint("size_bytes", { mode: "number" }),
+    supersedesId: uuid("supersedes_id").references((): AnyPgColumn => ambDocuments.id, { onDelete: "set null" }),
+    uploadedById: uuid("uploaded_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("amb_documents_ambassador_idx").on(t.ambassadorId, t.name, t.version)],
+);
+
+export type AmbProduct = typeof ambProducts.$inferSelect;
+export type AmbAmbassador = typeof ambAmbassadors.$inferSelect;
+export type AmbAmbassadorProduct = typeof ambAmbassadorProducts.$inferSelect;
+export type AmbReferral = typeof ambReferrals.$inferSelect;
+export type AmbPayout = typeof ambPayouts.$inferSelect;
+export type AmbPayoutReferral = typeof ambPayoutReferrals.$inferSelect;
+export type AmbActivity = typeof ambActivities.$inferSelect;
+export type AmbDocument = typeof ambDocuments.$inferSelect;

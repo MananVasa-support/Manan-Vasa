@@ -7,7 +7,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search, Loader2, CornerDownLeft, CheckSquare, Building2,
-  FolderKanban, User, IndianRupee, FileText,
+  FolderKanban, User, IndianRupee, FileText, Gem,
 } from "lucide-react";
 import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
@@ -17,7 +17,7 @@ import type { GlobalSearchResult } from "@/lib/queries/global-search";
 import { STATUS_LABELS_FALLBACK } from "@/lib/format";
 
 const EMPTY: GlobalSearchResult = {
-  tasks: [], clients: [], projects: [], people: [], outstanding: [], documents: [],
+  tasks: [], clients: [], projects: [], people: [], outstanding: [], documents: [], ambassadors: [],
 };
 
 /**
@@ -63,7 +63,8 @@ export function GlobalSearch({ trigger }: { trigger?: React.ReactNode } = {}) {
 
   const total =
     data.tasks.length + data.clients.length + data.projects.length +
-    data.people.length + data.outstanding.length + data.documents.length;
+    data.people.length + data.outstanding.length + data.documents.length +
+    data.ambassadors.length;
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -171,6 +172,18 @@ export function GlobalSearch({ trigger }: { trigger?: React.ReactNode } = {}) {
                     <Row key={`os-${o.id}`} value={`os-${o.id}`} icon={<IndianRupee size={15} />}
                       onSelect={() => go(`/outstanding/contracts`)}
                       title={o.clientName} sub={o.status} />
+                  ))}
+                </CommandGroup>
+              )}
+
+              {data.ambassadors.length > 0 && (
+                <CommandGroup heading="Ambassadors">
+                  {data.ambassadors.map((a) => (
+                    <Row key={`amb-${a.id}`} value={`amb-${a.id}`} icon={<Gem size={15} />}
+                      onSelect={() => go(`/ambassadors/${a.id}`)}
+                      title={a.name}
+                      badge={a.archived ? "Archived" : undefined}
+                      sub={a.company ?? undefined} />
                   ))}
                 </CommandGroup>
               )}
