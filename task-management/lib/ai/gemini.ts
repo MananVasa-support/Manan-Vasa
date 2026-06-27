@@ -119,3 +119,40 @@ export async function transcribeAndSummarize(base64: string, mimeType: string): 
     summary: (parsed.summary ?? "").trim(),
   };
 }
+
+/**
+ * Plain text generation — give a prompt, get back text. Used by the DCC
+ * "Summarize my day" button. Throws GeminiNotConfiguredError if the key is
+ * missing so callers can degrade gracefully.
+ */
+export async function generateText(prompt: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new GeminiNotConfiguredError();
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 30_000);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3 } }),
+      signal: ctrl.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err instanceof Error && err.name === "AbortError") throw new Error("The summary timed out.");
+    throw new Error("Couldn't reach the summary service.");
+  }
+  clearTimeout(timer);
+  if (!res.ok) {
+    if (res.status === 429) throw new Error("Summary rate limit hit — try again in a moment.");
+    throw new Error(`Summary service error (${res.status}).`);
+  }
+  const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+  const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+  if (!text.trim()) throw new Error("The summary came back empty.");
+  return text.trim();
+}

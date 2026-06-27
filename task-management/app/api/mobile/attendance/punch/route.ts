@@ -4,6 +4,8 @@ import { rateLimitOrError } from "@/lib/rate-limit";
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import { resolvePunchGeofence, insertPunchRow } from "@/lib/attendance/record-punch";
 import { resolveMobileDevice } from "@/lib/attendance/mobile-devices";
+import { isDccFilledFor } from "@/lib/dcc/gate";
+import { localDateString } from "@/lib/format";
 import {
   notifyOnInPunch,
   notifyOnDayFinalized,
@@ -82,6 +84,19 @@ export async function POST(req: Request) {
   }
 
   const tz = me.timezone || "Asia/Kolkata";
+
+  // ── DCC punch-out block (fail-open; honors DCC_GATE_OFF) ──
+  if (body.kind === "out" && process.env.DCC_GATE_OFF !== "true") {
+    const today = localDateString(tz);
+    const dccDone = await isDccFilledFor(me.id, today).catch(() => true);
+    if (!dccDone) {
+      return NextResponse.json(
+        { ok: false, error: "Fill today's DCC before you clock out.", needsDcc: true },
+        { status: 409, headers: MOBILE_CORS },
+      );
+    }
+  }
+
   const inserted = await insertPunchRow(
     { id: me.id, timezone: tz },
     { kind: body.kind, note: body.note, location, distanceM: geo.distanceM },

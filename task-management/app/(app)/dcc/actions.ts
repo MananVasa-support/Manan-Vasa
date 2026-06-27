@@ -7,10 +7,12 @@ import { db } from "@/lib/db";
 import { dccKpiItems, dccEntries, dccReviews } from "@/db/schema";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
-import { loadDccScope, canManageItemsFor, canReviewFor } from "@/lib/dcc/access";
+import { loadDccScope, canManageItemsFor, canReviewFor, canViewFor } from "@/lib/dcc/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { parseAmount } from "@/lib/accounts/amounts";
 import { parseFrequencyToMask } from "@/lib/dcc/util";
+import { listOwnerItems, listOwnerEntries } from "@/lib/queries/dcc";
+import { generateText, GeminiNotConfiguredError } from "@/lib/ai/gemini";
 
 const PATH = "/dcc";
 
@@ -175,4 +177,56 @@ export async function setDccReview(input: unknown): Promise<ActionResult> {
     revalidatePath(PATH);
     return { ok: true };
   } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
+}
+
+/** Approve every still-unreviewed report for a date (manager gate "Approve all"). */
+export async function approveAllDccReviews(input: unknown): Promise<ActionResult> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u) }).safeParse(input);
+  if (!parsed.success) return fail("Invalid input.");
+  const { date } = parsed.data;
+  const scope = await loadDccScope(me);
+  const reportIds = [...scope.visibleIds].filter((id) => id !== me.id && canReviewFor(scope, id));
+  if (reportIds.length === 0) return { ok: true };
+  try {
+    await db
+      .insert(dccReviews)
+      .values(reportIds.map((id) => ({ ownerEmployeeId: id, reviewDate: date, reviewerId: me.id, status: "approved" as const, note: null })))
+      .onConflictDoNothing({ target: [dccReviews.ownerEmployeeId, dccReviews.reviewDate] });
+    revalidatePath(PATH);
+    return { ok: true };
+  } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
+}
+
+/** AI "summarize my day" — gathers a person's entries for a date → Gemini. */
+export async function summarizeDccDay(input: unknown): Promise<ActionResult<{ summary: string }>> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = z.object({ ownerId: z.string().uuid(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u) }).safeParse(input);
+  if (!parsed.success) return fail("Invalid input.");
+  const { ownerId, date } = parsed.data;
+  const scope = await loadDccScope(me);
+  if (!canViewFor(scope, ownerId)) return fail("Not allowed.");
+  try {
+    const [items, entries] = await Promise.all([listOwnerItems(ownerId), listOwnerEntries(ownerId, date)]);
+    const byItem = new Map(entries.filter((e) => e.entryDate === date).map((e) => [e.itemId, e]));
+    const lines = items
+      .map((it) => {
+        const e = byItem.get(it.id);
+        if (!e || (!e.status && !e.valueNumber && !e.note)) return null;
+        return `- ${it.title}: ${e.status ?? "—"}${e.valueNumber ? ` (${e.valueNumber})` : ""}${e.note ? ` — ${e.note}` : ""}`;
+      })
+      .filter(Boolean)
+      .join("\n");
+    if (!lines) return fail("Nothing filled for this day yet.");
+    const prompt = `These are an employee's Daily Compliance KPI entries for ${date}. Write a concise 2-3 sentence summary of what they accomplished and what was missed or pending. Professional tone; keep any Hinglish as-is; do not invent anything.\n\n${lines}`;
+    const summary = await generateText(prompt);
+    return { ok: true, summary };
+  } catch (err) {
+    if (err instanceof GeminiNotConfiguredError) return fail("AI summary isn't set up yet (no GEMINI_API_KEY).");
+    return fail(err instanceof Error ? err.message : String(err));
+  }
 }

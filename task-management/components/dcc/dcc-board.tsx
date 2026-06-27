@@ -3,12 +3,13 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
-import { ChevronLeft, ChevronRight, Flame, CheckCircle2, Loader2, StickyNote, Plus, Pencil, Trash2, X, Check } from "lucide-react";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight, Flame, CheckCircle2, Loader2, StickyNote, Plus, Pencil, Trash2, X, Check, Trophy, Sparkles } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { Avatar } from "@/components/ui/avatar";
 import type { DccItemRow, DccEntryRow, DccPerson } from "@/lib/queries/dcc";
 import { DCC_STATUSES, dccStatusTone, isDueOn, isoDate, maskLabel } from "@/lib/dcc/util";
-import { setDccEntry, createDccItem, updateDccItem, deleteDccItem, setDccReview } from "@/app/(app)/dcc/actions";
+import { setDccEntry, createDccItem, updateDccItem, deleteDccItem, setDccReview, summarizeDccDay } from "@/app/(app)/dcc/actions";
 
 type ReviewRow = { ownerEmployeeId: string; reviewDate: string; status: string | null; note: string | null };
 
@@ -51,8 +52,21 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
     return m;
   });
   const [busy, setBusy] = React.useState<string | null>(null);
+  const [aiSummary, setAiSummary] = React.useState<string | null>(null);
+  const [aiBusy, setAiBusy] = React.useState(false);
 
   const selObj = dateToObj(selectedDate);
+
+  function summarize() {
+    setAiBusy(true);
+    setAiSummary(null);
+    startTransition(async () => {
+      const res = await summarizeDccDay({ ownerId, date: selectedDate });
+      setAiBusy(false);
+      if (!res.ok) { fireToast({ message: res.error, type: "error" }); return; }
+      setAiSummary(res.summary);
+    });
+  }
 
   // Items due on the selected date (plus any with an existing entry that day).
   const dueItems = React.useMemo(
@@ -220,12 +234,29 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <span className="text-[16px] font-bold text-ink-muted">{shownItems.length} {showAll ? "total" : "due"} {shownItems.length === 1 ? "KPI" : "KPIs"}</span>
         <div className="flex items-center gap-2.5">
+          <Link href={"/dcc/ranking" as Route} className="inline-flex items-center gap-1.5 rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red">
+            <Trophy size={16} style={{ color: "var(--color-amber,#f59e0b)" }} /> Ranking
+          </Link>
+          <button onClick={summarize} disabled={aiBusy} className="inline-flex items-center gap-1.5 rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red disabled:opacity-50">
+            {aiBusy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} style={{ color: "var(--color-altus-red)" }} />} Summarize my day
+          </button>
           <button onClick={() => setShowAll((v) => !v)} className="rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red">
             {showAll ? "Due today only" : `Show all (${items.length})`}
           </button>
           {canManage && <ItemEditor ownerId={ownerId} mode="add" />}
         </div>
       </div>
+
+      {aiSummary && (
+        <div className="flex items-start gap-3 rounded-2xl border border-hairline-strong bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]" style={{ background: "color-mix(in srgb, var(--color-altus-red) 4%, white)" }}>
+          <Sparkles size={18} style={{ color: "var(--color-altus-red)" }} className="mt-0.5 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[12.5px] font-extrabold uppercase tracking-wide text-ink-subtle">AI summary · {selectedDate === today ? "today" : selectedDate}</p>
+            <p className="mt-1 text-[15.5px] font-medium leading-relaxed text-ink-strong">{aiSummary}</p>
+          </div>
+          <button onClick={() => setAiSummary(null)} className="ml-auto shrink-0 text-ink-subtle hover:text-ink-strong" aria-label="Dismiss"><X size={16} /></button>
+        </div>
+      )}
 
       <div className="flex flex-col gap-6">
         {groups.length === 0 && (

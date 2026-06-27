@@ -18,6 +18,7 @@ import { rateLimitOrError } from "@/lib/rate-limit";
 import { localDateString } from "@/lib/format";
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import { insertPunchRow, resolvePunchGeofence } from "@/lib/attendance/record-punch";
+import { isDccFilledFor } from "@/lib/dcc/gate";
 import {
   notifyOnInPunch,
   notifyOnDayFinalized,
@@ -86,6 +87,16 @@ export async function punchAttendance(input: {
 
   const tz = me.timezone || "Asia/Kolkata";
   const today = localDateString(tz);
+
+  // ── DCC punch-out block ──────────────────────────────────────────────
+  // You can't clock OUT for the day until today's DCC is filled. FAIL-OPEN:
+  // a check error never traps a punch-out. Honors the DCC_GATE_OFF switch.
+  if (kind === "out" && process.env.DCC_GATE_OFF !== "true") {
+    const dccDone = await isDccFilledFor(me.id, today).catch(() => true);
+    if (!dccDone) {
+      return { ok: false, error: "Fill today's DCC before you clock out — open the DCC page, then try again." };
+    }
+  }
 
   // Insert via the shared core (today-only; one punch per kind per day).
   // verifyMethod "gps_only": location-verified, no biometric on the web path.

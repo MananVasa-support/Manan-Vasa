@@ -12,6 +12,9 @@ import { workspaceForPath, canAccessWorkspace } from "@/lib/workspaces";
 import { managerDailyTaskGate, managerWeeklyGoalGate, isWeeklyGoalGateDay } from "@/lib/manager-gates";
 import { ManagerDailyTaskGate } from "@/components/manager-gates/manager-daily-task-gate";
 import { ManagerWeeklyGoalGate } from "@/components/manager-gates/manager-weekly-goal-gate";
+import { dccGateTarget, dccManagerReviewState } from "@/lib/dcc/gate";
+import { DccGateView } from "@/components/dcc/dcc-gate-view";
+import { DccManagerReviewGate } from "@/components/dcc/dcc-manager-review-gate";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   // Load directly (no timeout wrapper). A slow read completes; wrapping auth in
@@ -84,6 +87,22 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         if (weeklyGate && !weeklyGate.satisfied) {
           return <ManagerWeeklyGoalGate greetingName={firstName} state={weeklyGate} />;
         }
+      }
+    }
+
+    // DCC compliance gate — the LAST link in the chain: every employee must fill
+    // the most recent present working day's DCC, and managers must then sign off
+    // their team's. Bypass-proof (server render), day-scoped, FAIL-OPEN, with a
+    // DCC_GATE_OFF kill-switch (mirrors MANAGER_GATES_OFF).
+    if (process.env.DCC_GATE_OFF !== "true") {
+      const firstName = me.name.split(" ")[0] ?? me.name;
+      const dccTarget = await dccGateTarget(me.id).catch(() => null);
+      if (dccTarget) {
+        return <DccGateView greetingName={firstName} date={dccTarget.date} items={dccTarget.items} entries={dccTarget.entries} />;
+      }
+      const dccReview = await dccManagerReviewState(me).catch(() => null);
+      if (dccReview && !dccReview.satisfied) {
+        return <DccManagerReviewGate greetingName={firstName} state={dccReview} />;
       }
     }
   }
