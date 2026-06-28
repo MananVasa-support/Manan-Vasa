@@ -54,11 +54,12 @@ export function AdminHeader({ adminName, adminEmail, avatarUrl, backHref, canSee
         }}
       >
         <div className="relative w-full h-[84px] px-6 2xl:px-8 flex items-center gap-4 2xl:gap-6">
-          {/* LEFT: logo → admin overview, then the section switcher. */}
+          {/* LEFT: logo → WMS dashboard (consistent across every module), then
+              the section switcher. "Back to Hub" stays on the right. */}
           <Link
-            href={"/admin" as Route}
+            href={"/dashboard" as Route}
             className="flex items-center shrink-0"
-            aria-label="Admin overview"
+            aria-label="Back to WMS home"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

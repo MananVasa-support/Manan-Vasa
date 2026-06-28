@@ -231,7 +231,9 @@ export function AdminMobileBar({ adminName, adminEmail, backHref, canSeeAccounts
         </Dialog.Portal>
       </Dialog.Root>
 
-      <div
+      <Link
+        href={"/dashboard" as Route}
+        aria-label="Back to WMS home"
         className="inline-flex items-center rounded-lg bg-white px-2 py-1"
         style={{ boxShadow: "0 1px 4px rgba(15, 23, 42, 0.10)" }}
       >
@@ -241,7 +243,7 @@ export function AdminMobileBar({ adminName, adminEmail, backHref, canSeeAccounts
           alt="Altus Corp"
           style={{ height: 26, width: "auto", display: "block" }}
         />
-      </div>
+      </Link>
       <div className="w-8" /> {/* spacer to balance the hamburger */}
     </div>
   );
