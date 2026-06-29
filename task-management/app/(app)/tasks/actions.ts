@@ -138,7 +138,10 @@ export async function archiveTask(
   } catch (err) {
     return { ok: false, error: `Could not archive: ${(err as Error).message}` };
   }
-  await reconcileTaskEvent(taskId); // inline (reliable request context); never throws + records retry state for the daily backstop cron // remove from the doer's calendar
+  // Deferred (persist-then-return): calendar teardown runs after the response.
+  // reconcileTaskEvent never throws + records retry state + the daily cron is a
+  // backstop, so deferring is safe and the archive returns instantly.
+  afterResponse(() => reconcileTaskEvent(taskId)); // remove from the doer's calendar
   revalidateTaskRoutes();
   return { ok: true };
 }
@@ -222,7 +225,8 @@ export async function unarchiveTask(
   } catch (err) {
     return { ok: false, error: `Could not restore: ${(err as Error).message}` };
   }
-  await reconcileTaskEvent(taskId); // inline (reliable request context); never throws + records retry state for the daily backstop cron // re-add to the doer's calendar
+  // Deferred (persist-then-return) — see archiveTask. Safe via retry state + cron.
+  afterResponse(() => reconcileTaskEvent(taskId)); // re-add to the doer's calendar
   revalidateTaskRoutes();
   return { ok: true };
 }
@@ -396,7 +400,8 @@ export async function reassignDoer(
     return { ok: false, error: `Could not reassign: ${(err as Error).message}` };
   }
   // Move the event off the old doer's calendar and onto the new doer's.
-  await reconcileTaskEvent(taskId); // inline (reliable request context); never throws + records retry state for the daily backstop cron
+  // Deferred (persist-then-return) — safe via retry state + daily cron.
+  afterResponse(() => reconcileTaskEvent(taskId));
   revalidateTaskRoutes();
   return { ok: true };
 }
@@ -1023,7 +1028,9 @@ export async function editTaskFields(
     });
   }
 
-  await reconcileTaskEvent(taskId); // inline (reliable request context); never throws + records retry state for the daily backstop cron // push edits to the calendar event
+  // Deferred (persist-then-return): push edits to the calendar event after the
+  // response. Safe via retry state + the daily cron backstop.
+  afterResponse(() => reconcileTaskEvent(taskId));
   revalidateTaskRoutes();
   revalidatePath(`/tasks/${taskId}`);
   return { ok: true };
@@ -1123,27 +1130,32 @@ export async function approveTask(
   // Fan-out: tell the doer the verdict.  Approve → "approved" kind,
   // decline → "declined" kind so the recipient's UI can colour each
   // distinctly and the email subject can differ.  Body is the note.
+  // DEFERRED (persist-then-return): the verdict is committed; the doer's
+  // notification fans out after the response so the approver isn't blocked on
+  // up to 4 external channels. Notifications carry their own retry table + cron.
   const label = taskLabel({ subject: current.subject, title: current.title });
   if (current.doerId !== me.id) {
-    if (parsed.decision === "approved") {
-      await notify({
-        userId: current.doerId,
-        kind: "approved",
-        title: `${me.name} approved '${label}'`,
-        body: parsed.note?.trim() || null,
-        taskId,
-        actorId: me.id,
-      });
-    } else {
-      await notify({
-        userId: current.doerId,
-        kind: "declined",
-        title: `${me.name} declined '${label}'`,
-        body: parsed.note?.trim() || null,
-        taskId,
-        actorId: me.id,
-      });
-    }
+    afterResponse(async () => {
+      if (parsed.decision === "approved") {
+        await notify({
+          userId: current.doerId,
+          kind: "approved",
+          title: `${me.name} approved '${label}'`,
+          body: parsed.note?.trim() || null,
+          taskId,
+          actorId: me.id,
+        });
+      } else {
+        await notify({
+          userId: current.doerId,
+          kind: "declined",
+          title: `${me.name} declined '${label}'`,
+          body: parsed.note?.trim() || null,
+          taskId,
+          actorId: me.id,
+        });
+      }
+    });
   }
 
   revalidateTaskRoutes();
@@ -1258,42 +1270,46 @@ export async function reassignTask(
 
   // Fan-out: new doer gets "to you"; old doer gets "away from you";
   // initiator (if distinct from both) gets a generic reassigned note.
+  // DEFERRED (persist-then-return): the reassign is committed; notifications +
+  // calendar move run after the response so the actor isn't blocked on external
+  // channels + a Google API call. All carry retry state + the daily cron.
   const label = taskLabel({ subject: current.subject, title: current.title });
-  if (parsed.newDoerId !== me.id) {
-    await notify({
-      userId: parsed.newDoerId,
-      kind: "reassigned",
-      title: `${me.name} reassigned '${label}' to you`,
-      taskId,
-      actorId: me.id,
-    });
-  }
-  if (current.doerId !== me.id && current.doerId !== parsed.newDoerId) {
-    await notify({
-      userId: current.doerId,
-      kind: "reassigned",
-      title: `${me.name} reassigned '${label}' away from you`,
-      taskId,
-      actorId: me.id,
-    });
-  }
-  // Loop in the initiator so they know who owns the task now.
-  const initiatorRecipients = dedupeRecipients(
-    [current.initiatorId],
-    me.id,
-  ).filter((id) => id !== parsed.newDoerId && id !== current.doerId);
-  for (const userId of initiatorRecipients) {
-    await notify({
-      userId,
-      kind: "reassigned",
-      title: `${me.name} reassigned '${label}'`,
-      taskId,
-      actorId: me.id,
-    });
-  }
-
-  // Move the calendar event to the new doer's calendar.
-  await reconcileTaskEvent(taskId); // inline (reliable request context); never throws + records retry state for the daily backstop cron
+  afterResponse(async () => {
+    if (parsed.newDoerId !== me.id) {
+      await notify({
+        userId: parsed.newDoerId,
+        kind: "reassigned",
+        title: `${me.name} reassigned '${label}' to you`,
+        taskId,
+        actorId: me.id,
+      });
+    }
+    if (current.doerId !== me.id && current.doerId !== parsed.newDoerId) {
+      await notify({
+        userId: current.doerId,
+        kind: "reassigned",
+        title: `${me.name} reassigned '${label}' away from you`,
+        taskId,
+        actorId: me.id,
+      });
+    }
+    // Loop in the initiator so they know who owns the task now.
+    const initiatorRecipients = dedupeRecipients(
+      [current.initiatorId],
+      me.id,
+    ).filter((id) => id !== parsed.newDoerId && id !== current.doerId);
+    for (const userId of initiatorRecipients) {
+      await notify({
+        userId,
+        kind: "reassigned",
+        title: `${me.name} reassigned '${label}'`,
+        taskId,
+        actorId: me.id,
+      });
+    }
+    // Move the calendar event to the new doer's calendar.
+    await reconcileTaskEvent(taskId);
+  });
   revalidateTaskRoutes();
   revalidatePath(`/tasks/${taskId}`);
   return { ok: true };
