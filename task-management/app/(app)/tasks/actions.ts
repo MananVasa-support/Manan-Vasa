@@ -3,6 +3,17 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { afterResponse } from "@/lib/after";
+import { emit, emitMany } from "@/lib/events/emit";
+import {
+  taskArchived,
+  taskRestored,
+  taskReassigned,
+  taskFieldUpdated,
+  taskApprovalDecided,
+  taskDeleted,
+  taskStatusChanged,
+} from "@/lib/events/task-events";
+import { nudgeRelay } from "@/lib/relay/nudge";
 import { db, tasks } from "@/lib/db";
 import { reconcileTaskEvent, removeTaskEvent } from "@/lib/google/sync";
 import { syncTaskToGoal } from "@/lib/weekly-goals/task-sync";
@@ -123,7 +134,7 @@ export async function archiveTask(
         .update(tasks)
         .set({ archived: true })
         .where(eq(tasks.id, taskId))
-        .returning({ id: tasks.id });
+        .returning({ id: tasks.id, doerId: tasks.doerId });
       if (updated.length === 0) return false;
       await tx.insert(taskEvents).values({
         taskId,
@@ -132,12 +143,14 @@ export async function archiveTask(
         fromValue: null,
         toValue: null,
       });
+      await emit(tx, taskArchived(taskId, { doerId: updated[0]!.doerId }, { actorId: me.id }));
       return true;
     });
     if (!found) return { ok: false, error: "Task not found — it may already be gone." };
   } catch (err) {
     return { ok: false, error: `Could not archive: ${(err as Error).message}` };
   }
+  nudgeRelay();
   // Deferred (persist-then-return): calendar teardown runs after the response.
   // reconcileTaskEvent never throws + records retry state + the daily cron is a
   // backstop, so deferring is safe and the archive returns instantly.
@@ -164,23 +177,31 @@ export async function deleteTask(
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
-  // Grab the calendar pointers before the row (and its columns) are gone.
+  // Grab the calendar pointers + doer before the row (and its columns) are gone.
   const doomed = await db.query.tasks.findFirst({
     where: eq(tasks.id, taskId),
-    columns: { googleEventId: true, googleSyncedDoerId: true },
+    columns: { googleEventId: true, googleSyncedDoerId: true, doerId: true },
   });
 
   try {
-    const deleted = await db
-      .delete(tasks)
-      .where(eq(tasks.id, taskId))
-      .returning({ id: tasks.id });
+    // Delete + emit in one txn (Law 2): the TaskDeleted event survives the row
+    // (the log has no FK on aggregate_id — events outlive aggregates, Law 3).
+    const deleted = await db.transaction(async (tx) => {
+      const d = await tx
+        .delete(tasks)
+        .where(eq(tasks.id, taskId))
+        .returning({ id: tasks.id });
+      if (d.length === 0) return d;
+      await emit(tx, taskDeleted(taskId, { doerId: doomed?.doerId ?? "" }, { actorId: me.id }));
+      return d;
+    });
     if (deleted.length === 0) {
       return { ok: false, error: "Task not found — it may already be deleted." };
     }
   } catch (err) {
     return { ok: false, error: `Could not delete: ${(err as Error).message}` };
   }
+  nudgeRelay();
 
   if (doomed?.googleEventId) {
     // Inline: the row is gone after this, so the daily cron can't catch a missed
@@ -210,7 +231,7 @@ export async function unarchiveTask(
         .update(tasks)
         .set({ archived: false })
         .where(eq(tasks.id, taskId))
-        .returning({ id: tasks.id });
+        .returning({ id: tasks.id, doerId: tasks.doerId });
       if (updated.length === 0) return false;
       await tx.insert(taskEvents).values({
         taskId,
@@ -219,12 +240,14 @@ export async function unarchiveTask(
         fromValue: null,
         toValue: null,
       });
+      await emit(tx, taskRestored(taskId, { doerId: updated[0]!.doerId }, { actorId: me.id }));
       return true;
     });
     if (!found) return { ok: false, error: "Task not found — it may already be gone." };
   } catch (err) {
     return { ok: false, error: `Could not restore: ${(err as Error).message}` };
   }
+  nudgeRelay();
   // Deferred (persist-then-return) — see archiveTask. Safe via retry state + cron.
   afterResponse(() => reconcileTaskEvent(taskId)); // re-add to the doer's calendar
   revalidateTaskRoutes();
@@ -393,12 +416,21 @@ export async function reassignDoer(
         fromValue: { doerId: current.doerId },
         toValue: { doerId },
       });
+      await emit(
+        tx,
+        taskReassigned(
+          taskId,
+          { fromDoerId: current.doerId, toDoerId: doerId, resetStatus: false },
+          { actorId: me.id },
+        ),
+      );
       return "ok" as const;
     });
     if (outcome === "not-found") return { ok: false, error: "Task not found." };
   } catch (err) {
     return { ok: false, error: `Could not reassign: ${(err as Error).message}` };
   }
+  nudgeRelay();
   // Move the event off the old doer's calendar and onto the new doer's.
   // Deferred (persist-then-return) — safe via retry state + daily cron.
   afterResponse(() => reconcileTaskEvent(taskId));
@@ -461,6 +493,7 @@ export async function bulkSetStatus(
   // Honour the transition matrix per task; silently skip rows this actor's
   // role can't move (reported back as `skipped`).
   const prevStatus = new Map(rows.map((r) => [r.id, r.status]));
+  const doerById = new Map(rows.map((r) => [r.id, r.doerId]));
   const allowed = rows
     .filter((r) => {
       const role: ActorRole = me.isAdmin
@@ -494,10 +527,25 @@ export async function bulkSetStatus(
           toValue: { status },
         })),
       );
+      await emitMany(
+        tx,
+        allowed.map((id) =>
+          taskStatusChanged(
+            id,
+            {
+              doerId: doerById.get(id) ?? "",
+              fromStatus: prevStatus.get(id) ?? "",
+              toStatus: status,
+            },
+            { actorId: me.id },
+          ),
+        ),
+      );
     });
   } catch (err) {
     return { ok: false, error: `Could not update: ${(err as Error).message}` };
   }
+  nudgeRelay();
   for (const id of allowed) afterResponse(() => reconcileTaskEvent(id));
   // Phase 2 — mirror status back onto any goal these tasks were spun off from.
   for (const id of allowed) afterResponse(() => syncTaskToGoal(id, status));
@@ -1028,6 +1076,31 @@ export async function editTaskFields(
     });
   }
 
+  // Phase B: mirror the field edits into the event log (best-effort — these
+  // FieldUpdated events aren't projection-critical, and updateTask isn't itself
+  // transactional, so they ride the same non-txn path as the audit rows above).
+  try {
+    const fieldEvents = Object.entries(diff).map(([field, value]) =>
+      taskFieldUpdated(
+        taskId,
+        { doerId: current.doerId, field, value: value instanceof Date ? value.toISOString() : value },
+        { actorId: me.id },
+      ),
+    );
+    if (revisedChange) {
+      fieldEvents.push(
+        taskFieldUpdated(
+          taskId,
+          { doerId: current.doerId, field: "revisedTargetDate", value: revisedChange.value.toISOString() },
+          { actorId: me.id },
+        ),
+      );
+    }
+    await emitMany(db, fieldEvents);
+  } catch (err) {
+    console.warn("[updateTask] event emit failed (non-fatal):", (err as Error)?.message ?? err);
+  }
+  nudgeRelay();
   // Deferred (persist-then-return): push edits to the calendar event after the
   // response. Safe via retry state + the daily cron backstop.
   afterResponse(() => reconcileTaskEvent(taskId));
@@ -1123,9 +1196,20 @@ export async function approveTask(
       toValue: { status: parsed.decision },
       note: parsed.note?.trim() || null,
     });
+    // Phase B (Law 2): the approval verdict is a domain fact the projection
+    // counts. Emit ApprovalDecided in the same txn as the row + audit.
+    await emit(
+      tx,
+      taskApprovalDecided(
+        taskId,
+        { doerId: current.doerId, decision: parsed.decision },
+        { actorId: me.id },
+      ),
+    );
     return false;
   });
   if (stale) return { ok: false, error: "stale" };
+  nudgeRelay();
 
   // Fan-out: tell the doer the verdict.  Approve → "approved" kind,
   // decline → "declined" kind so the recipient's UI can colour each
@@ -1255,6 +1339,14 @@ export async function reassignTask(
       fromValue: { doerId: current.doerId },
       toValue: { doerId: parsed.newDoerId, resetStatus: shouldReset },
     });
+    await emit(
+      tx,
+      taskReassigned(
+        taskId,
+        { fromDoerId: current.doerId, toDoerId: parsed.newDoerId, resetStatus: shouldReset },
+        { actorId: me.id },
+      ),
+    );
     if (shouldReset) {
       await tx.insert(taskEvents).values({
         taskId,
@@ -1263,10 +1355,19 @@ export async function reassignTask(
         fromValue: { status: current.status },
         toValue: { status: "dont_know" },
       });
+      await emit(
+        tx,
+        taskStatusChanged(
+          taskId,
+          { doerId: parsed.newDoerId, fromStatus: current.status, toStatus: "dont_know" },
+          { actorId: me.id },
+        ),
+      );
     }
     return false;
   });
   if (stale) return { ok: false, error: "stale" };
+  nudgeRelay();
 
   // Fan-out: new doer gets "to you"; old doer gets "away from you";
   // initiator (if distinct from both) gets a generic reassigned note.

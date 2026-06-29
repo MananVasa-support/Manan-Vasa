@@ -17,6 +17,7 @@ import {
   doublePrecision,
   real,
   bigint,
+  bigserial,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -3200,3 +3201,93 @@ export type AmbPayout = typeof ambPayouts.$inferSelect;
 export type AmbPayoutReferral = typeof ambPayoutReferrals.$inferSelect;
 export type AmbActivity = typeof ambActivities.$inferSelect;
 export type AmbDocument = typeof ambDocuments.$inferSelect;
+
+// ════════════════════════════════════════════════════════════════════════════
+// Phase B — the event spine (ARCHITECTURE.md). Migration 0094. All ADDITIVE.
+// These tables back lib/events, lib/relay, lib/projections, lib/commands. The
+// operational tables above remain the source of truth (Law 1); everything here
+// is derived/append-only and rebuildable.
+// ════════════════════════════════════════════════════════════════════════════
+
+/** Append-only immutable business event log = transactional outbox + log in one
+ *  (Laws 2,3). Written in the same txn as the operational row. NO foreign keys:
+ *  events outlive aggregates. `seq` is the global total order for cursors. */
+export const eventLog = pgTable(
+  "event_log",
+  {
+    seq: bigserial("seq", { mode: "number" }).primaryKey(),
+    eventId: uuid("event_id").notNull().defaultRandom(),
+    aggregateType: text("aggregate_type").notNull(),
+    aggregateId: uuid("aggregate_id").notNull(),
+    eventType: text("event_type").notNull(),
+    eventVersion: integer("event_version").notNull().default(1),
+    payload: jsonb("payload").notNull().default({}),
+    orgId: text("org_id"),
+    correlationId: uuid("correlation_id"),
+    causationId: uuid("causation_id"),
+    actorId: uuid("actor_id"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("event_log_aggregate_idx").on(t.aggregateType, t.aggregateId, t.seq),
+    index("event_log_type_idx").on(t.eventType, t.seq),
+    index("event_log_occurred_idx").on(t.occurredAt),
+    uniqueIndex("event_log_event_id_uidx").on(t.eventId),
+  ],
+);
+
+/** Per-consumer cursor for at-least-once delivery (Law 7). Reset to 0 to rebuild
+ *  a projection from the full history (Law 4). */
+export const eventConsumers = pgTable("event_consumers", {
+  consumer: text("consumer").primaryKey(),
+  lastSeq: bigint("last_seq", { mode: "number" }).notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Exactly-once external-effect ledger (Law 8). `dedupeKey` unique → a replayed
+ *  event derives the same key and is rejected, so replay fires no side-effects. */
+export const commandLog = pgTable(
+  "command_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    commandType: text("command_type").notNull(),
+    dedupeKey: text("dedupe_key").notNull(),
+    payload: jsonb("payload").notNull().default({}),
+    status: text("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    correlationId: uuid("correlation_id"),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("command_log_dedupe_uidx").on(t.dedupeKey),
+    index("command_log_pending_idx").on(t.status, t.nextAttemptAt),
+  ],
+);
+
+/** First projection (Laws 4,5,10): rebuildable daily task-activity rollup keyed
+ *  by (event-day, doer). Derived only from task events. */
+export const taskMetricsDaily = pgTable(
+  "task_metrics_daily",
+  {
+    day: date("day").notNull(),
+    doerId: uuid("doer_id").notNull(),
+    orgId: text("org_id"),
+    createdCount: integer("created_count").notNull().default(0),
+    doneCount: integer("done_count").notNull().default(0),
+    approvedCount: integer("approved_count").notNull().default(0),
+    notApprovedCount: integer("not_approved_count").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.day, t.doerId] }),
+    index("task_metrics_daily_day_idx").on(t.day),
+  ],
+);
+
+export type EventLogRow = typeof eventLog.$inferSelect;
+export type NewEventLogRow = typeof eventLog.$inferInsert;
+export type CommandLogRow = typeof commandLog.$inferSelect;
+export type TaskMetricsDailyRow = typeof taskMetricsDaily.$inferSelect;

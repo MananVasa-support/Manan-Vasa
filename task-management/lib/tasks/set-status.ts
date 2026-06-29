@@ -8,6 +8,9 @@ import { notifyManyForTask } from "@/lib/notifications/dispatch";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
 import { syncTaskToGoal } from "@/lib/weekly-goals/task-sync";
 import { afterResponse } from "@/lib/after";
+import { emit } from "@/lib/events/emit";
+import { taskStatusChanged } from "@/lib/events/task-events";
+import { nudgeRelay } from "@/lib/relay/nudge";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -122,6 +125,16 @@ export async function applyTaskStatusChange(
       toValue: { status },
       note: note?.trim() || null,
     });
+    // Phase B (Law 2): append the domain event IN THE SAME TRANSACTION as the
+    // row + audit, so the operational change and the event commit atomically.
+    await emit(
+      tx,
+      taskStatusChanged(
+        taskId,
+        { doerId: current.doerId, fromStatus: current.status, toStatus: status },
+        { actorId: actor.id },
+      ),
+    );
     return false;
   });
   if (stale) return { ok: false, error: "stale" };
@@ -132,6 +145,7 @@ export async function applyTaskStatusChange(
   // up to 3 recipients × 4 external channels (email/WhatsApp/Slack/push) before
   // the tick registers. Notifications carry their own retry table + cron, so a
   // dropped after() is recoverable. try/catch keeps a blip from surfacing.
+  nudgeRelay(); // low-latency projection update; cron is the durable backstop
   afterResponse(async () => {
     try {
       const trimmedNote = note?.trim() || undefined;
