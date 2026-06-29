@@ -3,7 +3,11 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
-import * as XLSX from "xlsx";
+// Type-only — erased at compile time. The ~400KB xlsx runtime is loaded
+// LAZILY (`await import("xlsx")`) only when the user actually picks a
+// spreadsheet, so it never weighs down the Outstanding route's initial
+// bundle (Operation Butter P3 — first code-split in the app).
+import type { WorkBook } from "xlsx";
 import {
   Upload,
   FileSpreadsheet,
@@ -29,7 +33,10 @@ const inr = (n: number) =>
 
 // Pull the Outstanding + Collection tabs out of a workbook as CSV text. For a
 // single-sheet file the lone sheet is treated as the Outstanding tab.
-function workbookToCsv(wb: XLSX.WorkBook): {
+function workbookToCsv(
+  XLSX: typeof import("xlsx"),
+  wb: WorkBook,
+): {
   outstandingCsv: string;
   collectionCsv: string;
 } {
@@ -92,9 +99,10 @@ export function OutstandingImportDialog() {
     const lower = file.name.toLowerCase();
     try {
       if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
+        const XLSX = await import("xlsx"); // lazy — only when an Excel file is picked
         const buf = await file.arrayBuffer();
         const wb = XLSX.read(buf, { type: "array" });
-        const { outstandingCsv, collectionCsv } = workbookToCsv(wb);
+        const { outstandingCsv, collectionCsv } = workbookToCsv(XLSX, wb);
         runPreview({ kind: "file", outstandingCsv, collectionCsv });
       } else {
         // CSV / txt — the file IS one tab (treated as Outstanding).
