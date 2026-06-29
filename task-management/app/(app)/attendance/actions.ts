@@ -15,6 +15,7 @@ import type { PunchReason } from "@/db/enums";
 import { requireUser, requireAdmin } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
+import { afterResponse } from "@/lib/after";
 import { localDateString } from "@/lib/format";
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import { insertPunchRow, resolvePunchGeofence } from "@/lib/attendance/record-punch";
@@ -153,12 +154,16 @@ export async function punchAttendance(input: {
   // ── Best-effort attendance notifications (Task A8) ───────────────────
   // The punch is committed above; a notify failure must never surface to the
   // user. On check-in we flag a late arrival; on check-out we recompute the
-  // finalized day and fire waived/half-day as appropriate.
+  // finalized day and fire waived/half-day as appropriate. DEFERRED to after
+  // the response (Operation Butter, persist-then-return): the punch returns the
+  // instant the row commits, so the load-sensitive clock-in path no longer
+  // blocks on the notification fan-out. Best-effort already, so a dropped
+  // after() is acceptable.
   if (kind === "in") {
     const inAt = clockInTz(new Date(), tz);
-    await notifyOnInPunch(me, today, inAt);
+    afterResponse(() => notifyOnInPunch(me, today, inAt));
   } else {
-    await notifyOnDayFinalized(me, today);
+    afterResponse(() => notifyOnDayFinalized(me, today));
   }
 
   revalidatePath("/attendance");
@@ -346,12 +351,16 @@ async function upsertPunchCore(
     reason,
   });
   // If this upsert finalized the day (both in + out now present), fire the
-  // same waived/half-day email an organic check-out would. Best-effort.
-  const target = await targetForNotify(employeeId);
-  if (target) {
-    await notifyOnDayFinalized(target, logDate);
-    await notifyAdminLateDeduction(target, logDate);
-  }
+  // same waived/half-day email an organic check-out would. Best-effort,
+  // DEFERRED off the response (persist-then-return) — the day-grade read +
+  // notify fan-out run after the admin's action returns.
+  afterResponse(async () => {
+    const target = await targetForNotify(employeeId);
+    if (target) {
+      await notifyOnDayFinalized(target, logDate);
+      await notifyAdminLateDeduction(target, logDate);
+    }
+  });
   revalidateAttendanceAdmin();
   return { ok: true };
 }
@@ -449,11 +458,14 @@ export async function adminEditDayTimes(
     outHHmm: outHHmm ?? null,
   });
   // Re-grade the (now edited) day and fire waived/half-day if it applies.
-  const target = await targetForNotify(employeeId);
-  if (target) {
-    await notifyOnDayFinalized(target, logDate);
-    await notifyAdminLateDeduction(target, logDate);
-  }
+  // Best-effort, DEFERRED off the response (persist-then-return).
+  afterResponse(async () => {
+    const target = await targetForNotify(employeeId);
+    if (target) {
+      await notifyOnDayFinalized(target, logDate);
+      await notifyAdminLateDeduction(target, logDate);
+    }
+  });
   revalidateAttendanceAdmin();
   return { ok: true };
 }
