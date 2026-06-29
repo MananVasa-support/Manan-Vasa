@@ -84,7 +84,10 @@ export async function loadDashboardData(
   const data = await unstable_cache(
     () => loadDashboardDataUncached(filters),
     keyParts,
-    { revalidate: 60, tags: [CACHE_TAGS.tasks] },
+    // Own tag (NOT `tasks`): task writes no longer bust this expensive org
+    // aggregate — it serves from the 60s TTL. Kills the per-write recompute
+    // storm under concurrency (Operation Butter P0 / ARCHITECTURE.md Law 10).
+    { revalidate: 60, tags: [CACHE_TAGS.dashboard] },
   )();
   return { ...data, generatedAt: new Date() };
 }

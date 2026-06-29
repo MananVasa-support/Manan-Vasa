@@ -621,7 +621,10 @@ export const listDistinctSubjects = unstable_cache(
       .sort();
   },
   ["list-distinct-subjects"],
-  { tags: [CACHE_TAGS.subjects, CACHE_TAGS.tasks], revalidate: 600 },
+  // Dropped `tasks` tag (Operation Butter P0): the distinct list only changes
+  // when a NEW subject appears — `subjects` tag + 600s TTL cover that. Keeping
+  // `tasks` re-armed a full DISTINCT scan on every task edit for no benefit.
+  { tags: [CACHE_TAGS.subjects], revalidate: 600 },
 );
 
 /** Distinct non-empty `client` values across all tasks, for the filter bar's
@@ -637,7 +640,8 @@ export const listDistinctClients = unstable_cache(
       .sort();
   },
   ["list-distinct-clients"],
-  { tags: [CACHE_TAGS.clients, CACHE_TAGS.tasks], revalidate: 600 },
+  // Dropped `tasks` tag (Operation Butter P0) — mirror of listDistinctSubjects.
+  { tags: [CACHE_TAGS.clients], revalidate: 600 },
 );
 
 export type TaskDetail = {

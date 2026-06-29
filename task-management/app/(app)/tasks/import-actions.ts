@@ -171,7 +171,8 @@ export async function commitTaskImport(formData: FormData): Promise<CommitImport
 
   revalidatePath("/tasks");
   revalidatePath("/archived");
-  revalidatePath("/");
+  // `revalidatePath("/")` removed (Operation Butter P0) — exec dashboard serves
+  // from its own `dashboard` tag (60s TTL), no per-write route bust needed.
   updateTag(CACHE_TAGS.tasks);
   updateTag(CACHE_TAGS.subjects);
 

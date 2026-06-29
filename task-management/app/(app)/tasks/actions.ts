@@ -95,7 +95,9 @@ function isUuid(v: string): boolean {
 function revalidateTaskRoutes(): void {
   revalidatePath("/tasks");
   revalidatePath("/archived");
-  revalidatePath("/"); // dashboard counts change too
+  // NOTE: `revalidatePath("/")` removed (Operation Butter P0). It force-busted
+  // the dashboard route on every task write; the exec dashboard now serves from
+  // its own `dashboard` tag (60s TTL) and doesn't need per-write invalidation.
   // Drop cached task aggregates (nav-count totals, distinct-subject list).
   // Subject cache is touched too because creating a task with a new free-text
   // subject expands the dropdown's distinct list. `updateTag` is the Next 16
