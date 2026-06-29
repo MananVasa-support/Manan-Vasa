@@ -240,7 +240,7 @@ export async function setTaskStatus(
   expectedUpdatedAt: string,
   note?: string,
 ): Promise<
-  | { ok: true }
+  | { ok: true; updatedAt: string }
   | {
       ok: false;
       error: "invalid" | "not-found" | "forbidden" | "stale";
@@ -264,7 +264,10 @@ export async function setTaskStatus(
 
   revalidateTaskRoutes();
   revalidatePath(`/tasks/${taskId}`);
-  return { ok: true };
+  // Surface the fresh optimistic-lock token so the client can make a follow-up
+  // change WITHOUT a round-trip refresh first (Operation Butter P1) — otherwise
+  // a rapid second flip ships the stale `updatedAt` and bounces with "stale".
+  return { ok: true, updatedAt: result.updatedAt };
 }
 
 export async function setTaskPriority(

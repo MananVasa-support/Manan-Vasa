@@ -50,6 +50,7 @@ import { ARCHIVE_COL, type ColId } from "@/lib/kanban-columns";
 import { setTaskStatus, archiveTask, unarchiveTask } from "@/app/(app)/tasks/actions";
 import { setBoardColumnOrder } from "@/app/(admin)/admin/settings/actions";
 import { fireToast } from "@/lib/toast";
+import { scheduleReconcile } from "@/lib/client/reconcile";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { LateBadge } from "@/components/ui/late-badge";
 import { WeeklyGoalBadge } from "@/components/weekly-goals/weekly-goal-badge";
@@ -148,10 +149,13 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
     if (!res.ok) {
       setItems(prev);
       fireToast({ message: res.error || "Couldn't archive the task." });
+      router.refresh();
     } else {
       fireToast({ message: "Archived." });
+      // Card already moved to Archived optimistically — reconcile counts/derived
+      // fields in one coalesced background refresh (Operation Butter P1).
+      scheduleReconcile(() => router.refresh());
     }
-    router.refresh();
   }
 
   async function restoreCard(taskId: string) {
@@ -165,10 +169,11 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
     if (!res.ok) {
       setItems(prev);
       fireToast({ message: res.error || "Couldn't restore the task." });
+      router.refresh();
     } else {
       fireToast({ message: "Restored." });
+      scheduleReconcile(() => router.refresh());
     }
-    router.refresh();
   }
 
   async function moveTo(taskId: string, status: TaskStatus) {
@@ -191,10 +196,18 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
                 ? "Task changed elsewhere — refreshing."
                 : "Couldn't update the task.",
       });
+      router.refresh();
     } else {
+      // Advance the moved card's lock token so a second drag of the SAME card
+      // doesn't ship a stale `updatedAt` (Operation Butter P1).
+      setItems((cur) =>
+        cur.map((t) => (t.id === taskId ? { ...t, updatedAt: new Date(res.updatedAt) } : t)),
+      );
       fireToast({ message: `Moved to ${labels[status]}.` });
+      // Card already moved columns optimistically — coalesce the server-derived
+      // reconcile (late badge, counts) into one background refresh.
+      scheduleReconcile(() => router.refresh());
     }
-    router.refresh();
   }
 
   function onDragStart(e: DragStartEvent) {

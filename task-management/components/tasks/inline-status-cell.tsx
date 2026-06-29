@@ -12,6 +12,7 @@ import {
 } from "@/db/enums";
 import { setTaskStatus } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
+import { scheduleReconcile } from "@/lib/client/reconcile";
 import { STATUS_TONES_FALLBACK } from "@/lib/format";
 
 interface Props {
@@ -50,6 +51,13 @@ export function InlineStatusCell({
   // server confirms; rolls back on error.
   const [shown, setShown] = React.useState<TaskStatus>(status);
   React.useEffect(() => setShown(status), [status]);
+  // Hold the optimistic-lock token CLIENT-SIDE so a rapid second flip uses the
+  // fresh `updatedAt` the server just returned — without waiting for a full
+  // refresh to re-prop it (Operation Butter P1). Re-syncs whenever the row's
+  // server `updatedAt` changes (e.g. a realtime reconcile or someone else's
+  // edit).
+  const [lockAt, setLockAt] = React.useState(updatedAt.toISOString());
+  React.useEffect(() => setLockAt(updatedAt.toISOString()), [updatedAt]);
 
   // Non-admins get the curated lifecycle list; admins see everything so
   // they can recover legacy rows or force a state.
@@ -115,11 +123,7 @@ export function InlineStatusCell({
     setShown(next);
     setPending(true);
     try {
-      const res = await setTaskStatus(
-        taskId,
-        next,
-        updatedAt.toISOString(),
-      );
+      const res = await setTaskStatus(taskId, next, lockAt);
       if (!res.ok) {
         setShown(prev);
         const msg =
@@ -129,10 +133,16 @@ export function InlineStatusCell({
               ? "This row was changed elsewhere — refreshing."
               : res.message ?? "Could not update status.";
         fireToast({ message: msg });
+        // Stale = our token is behind the row; pull the truth right away.
         if (res.error === "stale") router.refresh();
       } else {
+        // Advance the lock token so a follow-up flip needs no refresh first.
+        setLockAt(res.updatedAt);
         fireToast({ message: `Status set to ${labels[next]}.` });
-        router.refresh();
+        // The chip already flipped optimistically; reconcile server-derived
+        // fields (late badge, stat cards) in ONE coalesced background refresh
+        // instead of a full re-fetch on every click.
+        scheduleReconcile(() => router.refresh());
       }
     } finally {
       setPending(false);
