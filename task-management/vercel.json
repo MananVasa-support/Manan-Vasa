@@ -8,7 +8,7 @@
     { "path": "/api/cron/dcc-reminder",           "schedule": "0 14 * * *" },
     { "path": "/api/cron/calendar-sync",          "schedule": "20 3 * * *" },
     { "path": "/api/cron/ambassador-reminders",   "schedule": "0 4 * * *" },
-    { "path": "/api/cron/relay",                  "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/relay",                  "schedule": "0 3 * * *" },
     { "path": "/api/cron/weekly-goals?job=monday",     "schedule": "30 4 * * 1" },
     { "path": "/api/cron/weekly-goals?job=fill",       "schedule": "30 12 * * 6" },
     { "path": "/api/cron/weekly-goals?job=incomplete", "schedule": "15 4 * * 0" },

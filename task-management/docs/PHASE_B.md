@@ -14,7 +14,7 @@ fully-wired pilot**. All additive; nothing user-facing changed.
 | Relay — cursor per consumer, per-event txn (cursor advances WITH the effect → exactly-once), poison-tolerant | `lib/relay/relay.ts`, `consumers.ts`, `run.ts` | 4, 7 |
 | Projection — `task_metrics_daily` rollup, rebuildable, stable read interface | `lib/projections/task-metrics*.ts` | 4, 5, 10 |
 | Command channel — exactly-once `command_log` (unique `dedupe_key`) + worker | `lib/commands/dispatcher.ts`, `derive.ts`, `worker.ts` | 8 |
-| Relay cron (durable backstop) + after-commit nudge (low latency) | `app/api/cron/relay/route.ts`, `lib/relay/nudge.ts` | 7 |
+| Relay cron (DAILY backstop — Vercel rejects sub-daily on this plan) + after-commit nudge (real-time) | `app/api/cron/relay/route.ts`, `lib/relay/nudge.ts` | 7 |
 | Tasks engine wired to dual-write events in-txn | `lib/tasks/create-task.ts`, `set-status.ts`, `app/(app)/tasks/actions.ts` | 2 |
 | Backfill from history + rebuild + **shadow-verify** | `scripts/backfill-event-log.ts`, `rebuild-task-metrics.ts`, `verify-task-metrics.ts` | 4 |
 

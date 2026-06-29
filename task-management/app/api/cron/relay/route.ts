@@ -8,7 +8,13 @@ import { runRelay } from "@/lib/relay/run";
  * dropped, the cron catches the log up on its next tick, so no event is ever
  * lost (at-least-once, Law 7).
  *
- * Schedule it every minute in vercel.json. Auth mirrors the other crons:
+ * Scheduled DAILY in vercel.json (Vercel rejects sub-daily cron frequencies on
+ * this plan — every other cron here is daily too). Real-time freshness comes
+ * from the after-commit nudge (lib/relay/nudge.ts) on every mutation; this cron
+ * is the catch-up backstop. When an engine's READ is eventually cut over to a
+ * projection, run the relay more often via an external scheduler (the repo also
+ * deploys to Railway, which has no sub-daily restriction). Auth mirrors the
+ * other crons:
  *   Authorization: Bearer <CRON_SECRET>
  * Local:
  *   curl -X POST http://localhost:3000/api/cron/relay -H "Authorization: Bearer $CRON_SECRET"
