@@ -138,10 +138,13 @@ export async function createTasksCore(
   // handler). reconcileTaskEvent never throws and records its own retry state,
   // so a slow/failed Google call simply leaves the task for the hourly cron to
   // retry. Parallel + an 8s ceiling keeps multi-doer fan-out snappy.
-  await Promise.race([
-    Promise.allSettled(createdIds.map((id) => reconcileTaskEvent(id))),
-    new Promise((resolve) => setTimeout(resolve, 8000)),
-  ]);
+  // DEFERRED (Operation Butter: "persist, then return"). Previously this raced
+  // the Google Calendar fan-out inline with an 8s ceiling — task creation could
+  // block up to 8s. The silent-failure that once forced inline was the
+  // scheme-less source.url bug (fixed via siteUrl()); reconcileTaskEvent records
+  // its own retry state and is backstopped by the daily calendar-sync cron, so
+  // after() is now both safe and instant (mirrors the deferred notifications).
+  afterResponse(() => Promise.allSettled(createdIds.map((id) => reconcileTaskEvent(id))));
 
   return { ok: true, id: createdIds[0]!, ids: createdIds };
 }

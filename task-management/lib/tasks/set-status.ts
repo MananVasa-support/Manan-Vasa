@@ -7,6 +7,7 @@ import { canTransitionTo, type ActorRole } from "@/lib/auth/status-transitions";
 import { notifyManyForTask } from "@/lib/notifications/dispatch";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
 import { syncTaskToGoal } from "@/lib/weekly-goals/task-sync";
+import { afterResponse } from "@/lib/after";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -126,31 +127,35 @@ export async function applyTaskStatusChange(
   if (stale) return { ok: false, error: "stale" };
 
   // The status change is now COMMITTED. Everything below is best-effort
-  // side-effects (notifications + goal mirror) — a transient DB/connection blip
-  // here must NEVER fail the action, or the user sees "That didn't go through"
-  // even though the status DID change (then a reload shows it saved). Wrap it.
-  try {
-    const trimmedNote = note?.trim() || undefined;
-    const statusDisplay = await getStatusDisplayMap();
-    const newStatusLabel = statusDisplay[status]?.label ?? status;
-    const label = taskLabel({ subject: current.subject, title: current.title });
-    await notifyManyForTask(taskId, {
-      actorId: actor.id,
-      kind: "status_changed",
-      title: `${actor.name} changed status on '${label}' to ${newStatusLabel}`,
-      body: JSON.stringify({
-        toStatus: status,
-        fromStatus: current.status,
-        ...(trimmedNote ? { note: trimmedNote } : {}),
-      }),
-      recipients: [current.createdById, current.initiatorId, current.doerId],
-    });
-    // Phase 2 — if this task was spun off a Weekly Goal, mirror the new status
-    // back onto that goal (% done + status).
-    if (current.originGoalId) await syncTaskToGoal(taskId, status);
-  } catch (err) {
-    console.warn("[set-status] post-commit side-effects failed (status already saved):", err);
-  }
+  // side-effects (notifications + goal mirror) — DEFERRED to after the response
+  // (Operation Butter: "persist, then return"). The clicker no longer waits on
+  // up to 3 recipients × 4 external channels (email/WhatsApp/Slack/push) before
+  // the tick registers. Notifications carry their own retry table + cron, so a
+  // dropped after() is recoverable. try/catch keeps a blip from surfacing.
+  afterResponse(async () => {
+    try {
+      const trimmedNote = note?.trim() || undefined;
+      const statusDisplay = await getStatusDisplayMap();
+      const newStatusLabel = statusDisplay[status]?.label ?? status;
+      const label = taskLabel({ subject: current.subject, title: current.title });
+      await notifyManyForTask(taskId, {
+        actorId: actor.id,
+        kind: "status_changed",
+        title: `${actor.name} changed status on '${label}' to ${newStatusLabel}`,
+        body: JSON.stringify({
+          toStatus: status,
+          fromStatus: current.status,
+          ...(trimmedNote ? { note: trimmedNote } : {}),
+        }),
+        recipients: [current.createdById, current.initiatorId, current.doerId],
+      });
+      // Phase 2 — if this task was spun off a Weekly Goal, mirror the new status
+      // back onto that goal (% done + status).
+      if (current.originGoalId) await syncTaskToGoal(taskId, status);
+    } catch (err) {
+      console.warn("[set-status] post-commit side-effects failed (status already saved):", err);
+    }
+  });
 
   return { ok: true, updatedAt: now.toISOString() };
 }
