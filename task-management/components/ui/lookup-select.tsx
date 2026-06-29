@@ -227,8 +227,8 @@ export function LookupSelect({
             const isHi = i === hi;
             const isDeleting = deletingId === opt.id;
             return (
-              <li key={opt.id} id={`${listId}-opt-${i}`} role="option" aria-selected={isSel} onMouseEnter={() => setHi(i)} onClick={() => choose(opt)} className="group flex items-center justify-between gap-2 mx-1.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors" style={{ background: isHi ? "var(--color-surface-soft)" : "transparent" }}>
-                <span className="font-semibold truncate" style={{ fontSize: 15, color: "var(--color-ink-strong)" }}>{opt.name}</span>
+              <li key={opt.id} id={`${listId}-opt-${i}`} role="option" aria-selected={isSel} onMouseEnter={() => setHi(i)} onClick={() => choose(opt)} className="group flex items-center justify-between gap-2 mx-1.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors" style={{ background: isHi ? "color-mix(in srgb, var(--color-altus-red) 14%, transparent)" : isSel ? "color-mix(in srgb, var(--color-altus-red) 7%, transparent)" : "transparent", boxShadow: isHi ? "inset 3px 0 0 0 var(--color-altus-red)" : "none" }}>
+                <span className="truncate" style={{ fontSize: 15, fontWeight: isHi || isSel ? 700 : 600, color: isHi || isSel ? "var(--color-altus-red-deep)" : "var(--color-ink-strong)" }}>{opt.name}</span>
                 <span className="flex items-center gap-1.5 shrink-0">
                   {isSel && <Check size={16} strokeWidth={2.6} style={{ color: "var(--color-altus-red)" }} />}
                   {onDelete && (

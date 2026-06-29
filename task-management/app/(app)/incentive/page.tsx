@@ -11,6 +11,7 @@ import {
 import { getBillingDashboard } from "@/lib/queries/billing";
 import { listIncentiveCatalog } from "@/lib/queries/incentive-catalog";
 import { listEmployeeOptions } from "@/lib/queries/employees";
+import { withRetry } from "@/lib/db/with-timeout";
 import { IncentiveCatalogDialog } from "@/components/incentive/incentive-catalog-dialog";
 
 export const dynamic = "force-dynamic";
@@ -34,15 +35,26 @@ export default async function IncentivePage({ searchParams }: PageProps) {
   );
   if (!years.includes(year)) years.unshift(year);
 
+  // Each DB read is retried on a FRESH connection (withRetry) — the first query
+  // of a request is the one most likely to grab a stale pooled connection (the
+  // recurring "That didn't go through" signature), and this page has no cache to
+  // fall back on. Previously these ran bare in a Promise.all, so a single
+  // transient blip on ANY of them crashed the whole /incentive page to the error
+  // boundary. Reads are idempotent, so retry-on-fresh-connection is safe and is
+  // the same cure the exec dashboard uses. `getBillingDashboard` is already
+  // self-resilient (returns EMPTY on a Sheets hiccup) so it stays bare.
+  const r = <T,>(label: string, make: () => Promise<T>): Promise<T> =>
+    withRetry(make, { attempts: 2, timeoutMs: [6000, 9000], label });
+
   const [dashboard, targetVsActual, billing, rows, catalog, entries, employees] =
     await Promise.all([
-      getIncentiveDashboard(year),
-      getIncentiveTargetVsActual(year),
+      r("incentive:dashboard", () => getIncentiveDashboard(year)),
+      r("incentive:target-vs-actual", () => getIncentiveTargetVsActual(year)),
       getBillingDashboard(year),
-      listIncentiveRequests({ employeeId: me.id, isAdmin: me.isAdmin }),
-      listIncentiveCatalog(),
-      me.isAdmin ? listIncentiveEntriesAdmin(year) : Promise.resolve([]),
-      me.isAdmin ? listEmployeeOptions() : Promise.resolve([]),
+      r("incentive:requests", () => listIncentiveRequests({ employeeId: me.id, isAdmin: me.isAdmin })),
+      r("incentive:catalog", () => listIncentiveCatalog()),
+      me.isAdmin ? r("incentive:entries", () => listIncentiveEntriesAdmin(year)) : Promise.resolve([]),
+      me.isAdmin ? r("incentive:employees", () => listEmployeeOptions()) : Promise.resolve([]),
     ]);
 
   const pendingCount = rows.filter((r) => r.status === "pending").length;

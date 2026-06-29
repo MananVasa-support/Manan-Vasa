@@ -55,7 +55,11 @@ export const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "px-2.5 py-2 text-[15px] cursor-pointer rounded-pill aria-selected:bg-surface-soft",
+      // Active (keyboard/hover) highlight: a clearly-visible brand-red wash +
+      // red-deep, semibold text — was `bg-surface-soft` (#f8fafc, near-invisible),
+      // which made it impossible to tell which option was focused. Applies to
+      // every cmdk dropdown (Select, MultiSelect, ⌘K search).
+      "px-2.5 py-2 text-[15px] cursor-pointer rounded-pill transition-colors aria-selected:bg-[color-mix(in_srgb,var(--color-altus-red)_14%,transparent)] aria-selected:text-altus-red-deep aria-selected:font-semibold",
       className,
     )}
     {...props}

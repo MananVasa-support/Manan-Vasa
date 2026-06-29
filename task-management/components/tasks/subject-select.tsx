@@ -324,12 +324,26 @@ export function SubjectSelect({
                 onMouseEnter={() => setHi(i)}
                 onClick={() => choose(name)}
                 className="flex items-center justify-between gap-3 mx-1.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors"
-                style={{ background: isHi ? "var(--color-surface-soft)" : "transparent" }}
+                style={{
+                  background: isHi
+                    ? "color-mix(in srgb, var(--color-altus-red) 14%, transparent)"
+                    : isSel
+                      ? "color-mix(in srgb, var(--color-altus-red) 7%, transparent)"
+                      : "transparent",
+                  boxShadow: isHi ? "inset 3px 0 0 0 var(--color-altus-red)" : "none",
+                }}
               >
-                <span className="font-semibold truncate" style={{ fontSize: 15, color: "var(--color-ink-strong)" }}>
+                <span
+                  className="truncate"
+                  style={{
+                    fontSize: 15,
+                    fontWeight: isHi || isSel ? 700 : 600,
+                    color: isHi || isSel ? "var(--color-altus-red-deep)" : "var(--color-ink-strong)",
+                  }}
+                >
                   {name}
                 </span>
-                {isSel && <Check size={17} strokeWidth={2.6} style={{ color: "rgb(var(--vp-cyan-deep))" }} />}
+                {isSel && <Check size={17} strokeWidth={2.6} style={{ color: "var(--color-altus-red-deep)" }} />}
               </li>
             );
           })}
