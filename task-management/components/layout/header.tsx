@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { LayoutGrid } from "lucide-react";
 import { LiveIndicator } from "./live-indicator";
 import { MainNavServer } from "./main-nav-server";
@@ -7,6 +8,14 @@ import { UserMenuServer } from "@/components/header/user-menu-server";
 import { NewTaskTrigger } from "@/components/header/new-task-trigger";
 import { GlobalSearch } from "@/components/header/global-search";
 import { getCurrentEmployee } from "@/lib/auth/current";
+import { workspaceForPath } from "@/lib/workspaces";
+import { MODULE_THEME } from "@/lib/module-theme";
+
+/** "#rrggbb" → "r g b" (the triplet form the nav-pill CSS expects). */
+function hexTriplet(hex: string): string {
+  const h = hex.replace("#", "");
+  return `${parseInt(h.slice(0, 2), 16)} ${parseInt(h.slice(2, 4), 16)} ${parseInt(h.slice(4, 6), 16)}`;
+}
 
 /**
  * Light glassy application header — single row, ~72px tall.
@@ -26,8 +35,24 @@ export async function DashboardHeader({
   const me = await getCurrentEmployee();
   const isAdmin = me?.isAdmin ?? false;
 
+  // MODULE COLOUR (meeting 2026-06-29): tint the whole header — nav pills,
+  // active state, accents — to the CURRENT module's signature colour, so you
+  // always know which module you're in. The pills read `--vp-cyan*`, so
+  // overriding those three vars on the header re-tints everything with zero
+  // CSS-rule churn. WMS keeps the default Altus red (no override).
+  const pathname = (await headers()).get("x-pathname") ?? "/";
+  const ws = workspaceForPath(pathname);
+  const theme = ws && ws !== "wms" ? MODULE_THEME[ws] : null;
+  const moduleVars = theme
+    ? ({
+        "--vp-cyan": hexTriplet(theme.accent),
+        "--vp-cyan-deep": hexTriplet(theme.accentDeep),
+        "--vp-cyan-tint": `color-mix(in srgb, ${theme.accent} 12%, transparent)`,
+      } as React.CSSProperties)
+    : undefined;
+
   return (
-    <header className="sticky top-0 z-50 header-light">
+    <header className="sticky top-0 z-50 header-light" style={moduleVars}>
       <div
         className="relative"
         style={{

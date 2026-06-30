@@ -1,92 +1,110 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { Route } from "next";
-import {
-  ShieldCheck,
-  LayoutGrid,
-  Users,
-  TrendingUp,
-  Megaphone,
-  GraduationCap,
-  ArrowRight,
-  Lock,
-  Search,
-  Feather,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowRight, Lock, Search, Feather } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { accessFor } from "@/lib/auth/workspace-access";
-import { canAccessWorkspace, type WorkspaceId } from "@/lib/workspaces";
+import { canAccessWorkspace } from "@/lib/workspaces";
+import { MODULE_THEME, MODULE_ORDER, type ModuleTheme } from "@/lib/module-theme";
 import { HubSignOut } from "@/components/hub/hub-signout";
 import { GlobalSearch } from "@/components/header/global-search";
 
 /**
  * THE FRONT DOOR — post-login Hub launcher.
  *
- * Clean modern SaaS card grid: soft white cards with a tinted icon tile + a
- * per-card accent on the "Enter workspace" link, a personalised welcome, and a
- * global-search bar across the bottom. Server Component; the only interactive
- * islands are the sign-out button and the ⌘K search trigger.
+ * Each workspace is a full-bleed PHOTO card tinted in that module's signature
+ * colour (meeting 2026-06-29: colour-per-module so you always know where you
+ * are). The module name + tagline sit large over the image; the accent, photo
+ * and copy all come from the single MODULE_THEME source of truth. WMS has no
+ * photo (the founder is designing its logo) so it renders as a branded red
+ * gradient card. Server Component; the only interactive islands are sign-out
+ * and the ⌘K search trigger.
  */
 
-type Card = {
-  ws: WorkspaceId;
-  label: string;
-  desc: string;
-  href: Route;
-  Icon: LucideIcon;
-  tile: string;
-  fg: string;
-};
-
-const CARDS: Card[] = [
-  { ws: "admin", label: "Admin", desc: "People, settings, payroll & the control room.", href: "/ws/admin" as Route, Icon: ShieldCheck, tile: "rgba(225,6,0,0.08)", fg: "var(--color-altus-red)" },
-  { ws: "wms", label: "WMS", desc: "The work dashboard — tasks, goals & the daily loop.", href: "/ws/wms" as Route, Icon: LayoutGrid, tile: "#eef0fb", fg: "#4f46e5" },
-  { ws: "employees", label: "Employees", desc: "Attendance, leave, salary & the team roster.", href: "/ws/employees" as Route, Icon: Users, tile: "#e7f5ec", fg: "#15803d" },
-  { ws: "sales", label: "Sales", desc: "Collections, references & breakthroughs — and more.", href: "/ws/sales" as Route, Icon: TrendingUp, tile: "#f1ebfb", fg: "#7c3aed" },
-  { ws: "marketing", label: "Marketing", desc: "The index today — campaigns & reach landing next.", href: "/ws/marketing" as Route, Icon: Megaphone, tile: "#fdf0e2", fg: "#ea7a17" },
-  { ws: "training", label: "Training", desc: "Material library, tests, induction & feedback.", href: "/ws/training" as Route, Icon: GraduationCap, tile: "#e9f1fd", fg: "#2563eb" },
-];
-
-const CARD_BASE = "wg-rise wg-sheen group flex flex-col items-center overflow-hidden rounded-3xl border border-hairline bg-white px-7 py-10 text-center shadow-sm max-md:py-8";
-const CARD_HOVER = "transition duration-200 hover:-translate-y-1.5 hover:shadow-xl hover:border-hairline-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red focus-visible:ring-offset-2";
-
-function WorkspaceCard({ c, locked, i }: { c: Card; locked: boolean; i: number }) {
-  const Icon = c.Icon;
-  const tileBg = locked ? "var(--color-surface-soft)" : c.tile;
-  const iconColor = locked ? "var(--color-ink-subtle)" : c.fg;
+function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: number }) {
+  const Icon = m.Icon;
   const delay = { animationDelay: `${i * 70}ms` } as const;
 
-  const content = (
+  const inner = (
     <>
-      <span className="inline-flex size-[76px] items-center justify-center rounded-[22px] transition-transform duration-300 group-hover:scale-105" style={{ background: tileBg }}>
-        <Icon size={36} strokeWidth={2.1} style={{ color: iconColor }} />
-      </span>
-      <h3 className="mt-6 text-[28px] font-extrabold tracking-tight text-ink-strong">{c.label}</h3>
-      <p className="mt-2.5 max-w-[280px] text-[16px] leading-snug text-ink-muted">{c.desc}</p>
-      {locked ? (
-        <span className="mt-7 inline-flex items-center gap-1.5 text-[15px] font-bold text-ink-subtle">
-          <Lock size={15} strokeWidth={2.4} /> No access
-        </span>
+      {/* Background: photo (tinted) or a solid branded gradient (WMS). */}
+      {m.image ? (
+        <Image
+          src={m.image}
+          alt=""
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          className="object-cover transition-transform duration-[450ms] ease-out group-hover:scale-[1.06]"
+        />
       ) : (
-        <span className="mt-7 inline-flex items-center gap-1.5 text-[15.5px] font-bold" style={{ color: c.fg }}>
-          Enter workspace
-          <ArrowRight size={16} strokeWidth={2.6} className="transition-transform duration-200 group-hover:translate-x-1" />
-        </span>
+        <span
+          aria-hidden
+          className="absolute inset-0"
+          style={{ background: `linear-gradient(145deg, ${m.accent}, ${m.accentDeep})` }}
+        />
       )}
+
+      {/* Colour scrim — tints the whole card in the module colour and keeps the
+          name legible at the bottom. */}
+      <span
+        aria-hidden
+        className="absolute inset-0"
+        style={{
+          background: m.image
+            ? `linear-gradient(to top, ${m.accentDeep} 4%, color-mix(in srgb, ${m.accentDeep} 60%, transparent) 40%, color-mix(in srgb, ${m.accentDeep} 14%, transparent) 78%)`
+            : "linear-gradient(to top, rgba(0,0,0,0.34), transparent 70%)",
+        }}
+      />
+      {/* Top accent rule */}
+      <span aria-hidden className="absolute inset-x-0 top-0 h-1.5" style={{ background: m.accent }} />
+
+      {/* Content */}
+      <div className="absolute inset-0 flex flex-col justify-between p-6">
+        <span
+          className="inline-flex size-12 items-center justify-center rounded-2xl backdrop-blur-sm"
+          style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.35)" }}
+        >
+          <Icon size={24} strokeWidth={2.2} className="text-white" />
+        </span>
+        <div>
+          <h3 className="text-[30px] font-extrabold leading-none tracking-tight text-white drop-shadow-sm max-md:text-[26px]">
+            {m.label}
+          </h3>
+          <p className="mt-2 max-w-[300px] text-[15px] font-medium leading-snug text-white/90">
+            {m.tagline}
+          </p>
+          {locked ? (
+            <span className="mt-4 inline-flex items-center gap-1.5 rounded-pill bg-black/30 px-3 py-1.5 text-[13.5px] font-bold text-white/90 backdrop-blur-sm">
+              <Lock size={14} strokeWidth={2.5} /> No access
+            </span>
+          ) : (
+            <span className="mt-4 inline-flex items-center gap-1.5 rounded-pill bg-white px-3.5 py-1.5 text-[14px] font-bold" style={{ color: m.accentDeep }}>
+              Enter workspace
+              <ArrowRight size={15} strokeWidth={2.8} className="transition-transform duration-200 group-hover:translate-x-1" />
+            </span>
+          )}
+        </div>
+      </div>
     </>
   );
 
+  const base =
+    "wg-rise group relative block h-[270px] overflow-hidden rounded-3xl shadow-md max-md:h-[230px]";
+
   if (locked) {
     return (
-      <div className={`${CARD_BASE} opacity-75`} style={delay} aria-disabled="true">
-        {content}
+      <div className={`${base} grayscale`} style={delay} aria-disabled="true">
+        {inner}
       </div>
     );
   }
   return (
-    <Link href={c.href} aria-label={`Open ${c.label}`} className={`${CARD_BASE} ${CARD_HOVER}`} style={delay}>
-      {content}
+    <Link
+      href={m.href}
+      aria-label={`Open ${m.label}`}
+      className={`${base} transition duration-200 hover:-translate-y-1.5 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2`}
+      style={{ ...delay, "--tw-ring-color": m.accent } as React.CSSProperties}
+    >
+      {inner}
     </Link>
   );
 }
@@ -99,11 +117,18 @@ export default async function HubPage() {
   return (
     <main className="min-h-[100dvh] w-full" style={{ background: "linear-gradient(180deg, #f6f7f9 0%, #fbfbfc 38%, #ffffff 100%)" }}>
       <div className="mx-auto w-full max-w-[1320px] px-8 py-9 max-md:px-5 max-md:py-6">
-        {/* Header */}
+        {/* Header — BIG Altus logo + prominent sign-out */}
         <header className="flex items-center justify-between gap-4">
-          <Image src="/logo.png" alt="Altus Corp" width={86} height={95} priority className="h-[72px] w-auto max-md:h-[60px]" />
+          <Image
+            src="/logo.png"
+            alt="Altus Corp"
+            width={170}
+            height={188}
+            priority
+            className="h-[120px] w-auto max-md:h-[88px]"
+          />
           <div className="flex items-center gap-4">
-            <span className="text-[15px] text-ink-soft max-sm:hidden">
+            <span className="text-[16px] text-ink-soft max-sm:hidden">
               Hi, <strong className="font-bold text-ink-strong">{firstName}</strong>
             </span>
             <HubSignOut />
@@ -111,7 +136,7 @@ export default async function HubPage() {
         </header>
 
         {/* Hero — centered */}
-        <section className="mt-12 mb-10 flex flex-col items-center text-center">
+        <section className="mt-8 mb-9 flex flex-col items-center text-center">
           <span className="text-[13px] font-bold uppercase tracking-[0.22em]" style={{ color: "var(--color-altus-red)" }}>
             Altus&nbsp;/&nbsp;Workspaces
           </span>
@@ -123,8 +148,8 @@ export default async function HubPage() {
 
         {/* Workspace grid */}
         <section className="grid grid-cols-3 gap-6 max-lg:grid-cols-2 max-sm:grid-cols-1" aria-label="Workspaces">
-          {CARDS.map((c, i) => (
-            <WorkspaceCard key={c.label} c={c} locked={!canAccessWorkspace(c.ws, access)} i={i} />
+          {MODULE_ORDER.map((id, i) => (
+            <WorkspaceCard key={id} m={MODULE_THEME[id]} locked={!canAccessWorkspace(id, access)} i={i} />
           ))}
         </section>
 

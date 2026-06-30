@@ -27,13 +27,10 @@ export interface AccountsSection {
 }
 
 export const ACCOUNTS_SECTIONS: AccountsSection[] = [
-  {
-    slug: "task-list",
-    order: 1,
-    title: "Accounts Task List",
-    blurb: "Working task tracker — area, status, target/actual dates, with a Screenshots-to-Post sub-table.",
-    status: "built",
-  },
+  // NOTE: the "Accounts Task List" section was removed — its tasks were migrated
+  // into the WMS task list (Doer: Siddhesh Walve, Initiator: Manan Vasa,
+  // Subject: "Accounts") so accounts work lives in one place. See
+  // scripts/migrate-accounts-tasks.ts.
   {
     slug: "weekly-checklist",
     order: 2,

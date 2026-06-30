@@ -2,8 +2,14 @@ import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { ACCOUNTS_SECTIONS } from "@/lib/accounts/sections";
 import { AccountsIndex } from "@/components/accounts/accounts-index";
+import { MODULE_THEME } from "@/lib/module-theme";
 
 export const dynamic = "force-dynamic";
+
+// Admin / Accounts module identity — indigo (meeting 2026-06-29: a colour per
+// module so you always know where you are). The full bespoke indigo chrome
+// rolls across the sub-pages next; this establishes the accent on the front door.
+const ACCENT = MODULE_THEME.accounts.accentDeep;
 
 export default function AccountsIndexPage() {
   // The (app)/accounts layout has already gated access (admin/manager only).
@@ -16,10 +22,10 @@ export default function AccountsIndexPage() {
       <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
         <header className="mb-8 wg-rise">
           <span
-            className="text-[11px] font-bold uppercase tracking-[0.2em]"
-            style={{ color: "var(--color-altus-red-deep)" }}
+            className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em]"
+            style={{ color: "#ffffff", background: `linear-gradient(135deg, ${MODULE_THEME.accounts.accent}, ${ACCENT})` }}
           >
-            Accounts
+            Admin · Accounts
           </span>
           <h1
             className="text-ink-strong"

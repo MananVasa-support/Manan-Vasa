@@ -39,7 +39,10 @@ export const WORKSPACE_LABEL: Record<WorkspaceId, string> = {
 /** Where each card drops you when you enter the workspace. */
 export const WORKSPACE_LANDING: Record<WorkspaceId, string> = {
   wms: "/dashboard",
-  admin: "/admin",
+  // The Admin workspace now opens to Accounts (the day-to-day surface). The
+  // red-pill Admin control-room (/admin) is reachable only from the user-menu
+  // "Admin panel" link — it's no longer the Admin card's landing.
+  admin: "/accounts",
   employees: "/attendance",
   sales: "/outstanding",
   marketing: "/index-hub",
