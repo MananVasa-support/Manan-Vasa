@@ -103,3 +103,94 @@ export const CURRENT_VERSION: Record<TaskEventType, number> = {
   [TaskEventTypes.ApprovalDecided]: 1,
   [TaskEventTypes.Deleted]: 1,
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PMS / Employee Intelligence domains (mig 0095). Five employee-domain event
+// families folded by the employee_twin + employee_score_daily projections.
+// Payloads are flat + denormalised (every payload carries employeeId) so the
+// projection never reads the operational row. All v1.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const ATTENDANCE_AGGREGATE = "attendance" as const;
+export const AttendanceEventTypes = { Punched: "AttendancePunched" } as const;
+export interface AttendancePunchedV1 {
+  employeeId: string;
+  kind: "in" | "out";
+  /** true = late, false = on-time, null = ungradable (neither counter moves). */
+  late: boolean | null;
+  logDate?: string;
+  verifyMethod?: string | null;
+  source?: string;
+}
+
+export const GOAL_AGGREGATE = "goal" as const;
+export const GoalEventTypes = {
+  ProgressLogged: "GoalProgressLogged",
+  Reviewed: "GoalReviewed",
+} as const;
+export interface GoalProgressLoggedV1 {
+  employeeId: string;
+  pctDone: number | null;
+  weight: number | null;
+  filledOnTime: boolean;
+  goalId?: string;
+  entryDate?: string;
+  weekStart?: string;
+}
+export interface GoalReviewedV1 {
+  employeeId: string;
+  status: string;
+  acceptPct: number | null;
+}
+
+export const DCC_AGGREGATE = "dcc" as const;
+export const DccEventTypes = {
+  EntryFilled: "DccEntryFilled",
+  Reviewed: "DccReviewed",
+} as const;
+export interface DccEntryFilledV1 {
+  employeeId: string;
+  status: string; // "Done" | "Pending" | "Need Help" | ...
+  itemId?: string;
+  entryDate?: string;
+  valueNumber?: number | null;
+  targetNumber?: number | null;
+}
+export interface DccReviewedV1 {
+  employeeId: string;
+  satisfied: boolean;
+}
+
+export const TRAINING_AGGREGATE = "training" as const;
+export const TrainingEventTypes = {
+  TestAttempted: "TrainingTestAttempted",
+  MaterialWatched: "TrainingMaterialWatched",
+} as const;
+export interface TrainingTestAttemptedV1 {
+  employeeId: string;
+  passed: boolean;
+  score: number | null;
+  testId?: string;
+  takenAt?: string;
+}
+export interface TrainingMaterialWatchedV1 {
+  employeeId: string;
+  materialId?: string;
+}
+
+export const FEEDBACK_AGGREGATE = "feedback" as const;
+export const FeedbackEventTypes = {
+  Received: "FeedbackReceived",
+  Resolved: "FeedbackResolved",
+} as const;
+export interface FeedbackReceivedV1 {
+  /** May be null for free-text / client feedback — the projection skips those. */
+  employeeId: string | null;
+  rating: number | null;
+  feedbackId?: string;
+  type?: string | null;
+}
+export interface FeedbackResolvedV1 {
+  employeeId: string | null;
+  tatHours: number | null;
+}

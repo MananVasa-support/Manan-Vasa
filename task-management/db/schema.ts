@@ -3291,3 +3291,319 @@ export type EventLogRow = typeof eventLog.$inferSelect;
 export type NewEventLogRow = typeof eventLog.$inferInsert;
 export type CommandLogRow = typeof commandLog.$inferSelect;
 export type TaskMetricsDailyRow = typeof taskMetricsDaily.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────────
+// Revenue Department (migration 0095_revenue_department) — the agentic
+// sales/marketing platform foundation. All `rev_*` tables (+ ai_usage). ADDITIVE
+// only; nothing on the dashboard load path. Money columns are numeric(14,2)
+// rupees. Human-in-the-loop on every outward action (everything lands in
+// rev_drafts; nothing auto-sends).
+// ─────────────────────────────────────────────────────────────────────────
+
+/** The lead registry. AI-discovered/scored leads start in_review=true. */
+export const revLeads = pgTable(
+  "rev_leads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    company: text("company"),
+    contactEmail: text("contact_email"),
+    contactPhone: text("contact_phone"),
+    source: text("source"),
+    status: text("status").notNull().default("new"),
+    ownerId: uuid("owner_id").references((): AnyPgColumn => employees.id, {
+      onDelete: "set null",
+    }),
+    score: numeric("score", { precision: 6, scale: 2 }),
+    scoreReasons: jsonb("score_reasons").notNull().default([]),
+    enrichedJson: jsonb("enriched_json").notNull().default({}),
+    referralId: uuid("referral_id"),
+    inReview: boolean("in_review").notNull().default(true),
+    createdBy: uuid("created_by").references((): AnyPgColumn => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("rev_leads_status_idx").on(t.status),
+    index("rev_leads_owner_idx").on(t.ownerId),
+    index("rev_leads_review_idx").on(t.inReview),
+    index("rev_leads_email_idx").on(t.contactEmail),
+    index("rev_leads_created_idx").on(t.createdAt),
+  ],
+);
+
+/** Per-lead unified timeline (notes, stage changes, agent runs, drafts). */
+export const revLeadEvents = pgTable(
+  "rev_lead_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => revLeads.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    payload: jsonb("payload").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("rev_lead_events_lead_idx").on(t.leadId, t.createdAt)],
+);
+
+/** Events/webinars/outreach campaigns. */
+export const revCampaigns = pgTable(
+  "rev_campaigns",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    type: text("type").notNull().default("outreach"),
+    hostId: uuid("host_id").references((): AnyPgColumn => employees.id, {
+      onDelete: "set null",
+    }),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    status: text("status").notNull().default("planned"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("rev_campaigns_status_idx").on(t.status, t.scheduledAt)],
+);
+
+/** One row per agent invocation (run-as-user RBAC + audit spine). */
+export const revAgentRuns = pgTable(
+  "rev_agent_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agentSlug: text("agent_slug").notNull(),
+    userId: uuid("user_id").references((): AnyPgColumn => employees.id, {
+      onDelete: "set null",
+    }),
+    surface: text("surface"),
+    status: text("status").notNull().default("running"),
+    inputJson: jsonb("input_json").notNull().default({}),
+    outputSummary: text("output_summary"),
+    tokenUsage: integer("token_usage").notNull().default(0),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("rev_agent_runs_slug_idx").on(t.agentSlug, t.startedAt),
+    index("rev_agent_runs_user_idx").on(t.userId, t.startedAt),
+  ],
+);
+
+/** One row per tool call inside a run (audit everything). */
+export const revAgentAudit = pgTable(
+  "rev_agent_audit",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => revAgentRuns.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references((): AnyPgColumn => employees.id, {
+      onDelete: "set null",
+    }),
+    tool: text("tool").notNull(),
+    argsJson: jsonb("args_json").notNull().default({}),
+    resultSummary: text("result_summary"),
+    status: text("status").notNull().default("ok"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("rev_agent_audit_run_idx").on(t.runId, t.createdAt)],
+);
+
+/** The APPROVALS QUEUE. Every outward action is a DRAFT here; nothing auto-sends. */
+export const revDrafts = pgTable(
+  "rev_drafts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: text("kind").notNull(),
+    leadId: uuid("lead_id").references(() => revLeads.id, { onDelete: "set null" }),
+    agentSlug: text("agent_slug"),
+    createdByRun: uuid("created_by_run").references(() => revAgentRuns.id, {
+      onDelete: "set null",
+    }),
+    channel: text("channel"),
+    subject: text("subject"),
+    body: text("body"),
+    status: text("status").notNull().default("pending"),
+    suppressionStatus: text("suppression_status").notNull().default("clear"),
+    approvedBy: uuid("approved_by").references((): AnyPgColumn => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("rev_drafts_status_idx").on(t.status, t.createdAt),
+    index("rev_drafts_lead_idx").on(t.leadId),
+  ],
+);
+
+/** Per-call AI cost metering (cost guardrails). cost_estimate in rupees. */
+export const aiUsage = pgTable(
+  "ai_usage",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").references((): AnyPgColumn => employees.id, {
+      onDelete: "set null",
+    }),
+    feature: text("feature").notNull(),
+    model: text("model").notNull(),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    costEstimate: numeric("cost_estimate", { precision: 14, scale: 2 }).notNull().default("0"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("ai_usage_user_idx").on(t.userId, t.createdAt),
+    index("ai_usage_feature_idx").on(t.feature, t.createdAt),
+  ],
+);
+
+/** The DPDP / opt-out gate. A contact present here MUST NOT be drafted to. */
+export const revSuppression = pgTable(
+  "rev_suppression",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contactEmail: text("contact_email"),
+    contactPhone: text("contact_phone"),
+    reason: text("reason").notNull().default("opt_out"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("rev_suppression_email_idx").on(t.contactEmail),
+    index("rev_suppression_phone_idx").on(t.contactPhone),
+  ],
+);
+
+export type RevLead = typeof revLeads.$inferSelect;
+export type NewRevLead = typeof revLeads.$inferInsert;
+export type RevDraft = typeof revDrafts.$inferSelect;
+export type RevAgentRun = typeof revAgentRuns.$inferSelect;
+
+// ════════════════════════════════════════════════════════════════════════════
+// PMS / Employee Intelligence — mig 0095 (Layer 2). Derived, rebuildable
+// projections (employee_twin, employee_score_daily — NO FK, replayable) +
+// human-decision tables (config/review/recognition/promotion). See
+// docs/ALTUS_AI_OPERATING_SYSTEM.md + docs/PMS_BUILD.md.
+// ════════════════════════════════════════════════════════════════════════════
+
+const twinCounters = {
+  orgId: text("org_id"),
+  presenceDays: integer("presence_days").notNull().default(0),
+  lateCount: integer("late_count").notNull().default(0),
+  punctualDays: integer("punctual_days").notNull().default(0),
+  goalEffSumWeighted: numeric("goal_eff_sum_weighted", { precision: 14, scale: 2 }).notNull().default("0"),
+  goalWeightSum: numeric("goal_weight_sum", { precision: 14, scale: 2 }).notNull().default("0"),
+  goalsCompleted: integer("goals_completed").notNull().default(0),
+  goalsFilledOnTime: integer("goals_filled_on_time").notNull().default(0),
+  goalProgressEvents: integer("goal_progress_events").notNull().default(0),
+  dccDueCount: integer("dcc_due_count").notNull().default(0),
+  dccDoneCount: integer("dcc_done_count").notNull().default(0),
+  testsPassed: integer("tests_passed").notNull().default(0),
+  testsAttempted: integer("tests_attempted").notNull().default(0),
+  materialsWatched: integer("materials_watched").notNull().default(0),
+  feedbackCount: integer("feedback_count").notNull().default(0),
+  feedbackRatingSum: numeric("feedback_rating_sum", { precision: 14, scale: 2 }).notNull().default("0"),
+  feedbackResolved: integer("feedback_resolved").notNull().default(0),
+  feedbackTatSum: numeric("feedback_tat_sum", { precision: 14, scale: 2 }).notNull().default("0"),
+} as const;
+
+export const employeeTwin = pgTable("employee_twin", {
+  employeeId: uuid("employee_id").primaryKey(),
+  ...twinCounters,
+  lastEventAt: timestamp("last_event_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const employeeScoreDaily = pgTable(
+  "employee_score_daily",
+  {
+    day: date("day").notNull(),
+    employeeId: uuid("employee_id").notNull(),
+    ...twinCounters,
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.day, t.employeeId] }),
+    index("employee_score_daily_emp_idx").on(t.employeeId),
+    index("employee_score_daily_day_idx").on(t.day),
+  ],
+);
+
+export const pmsScoreConfig = pgTable("pms_score_config", {
+  id: text("id").primaryKey().default("default"),
+  weights: jsonb("weights").notNull().default({}),
+  thresholds: jsonb("thresholds").notNull().default({}),
+  formula: jsonb("formula").notNull().default({}),
+  updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const pmsReview = pgTable(
+  "pms_review",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    period: text("period").notNull(),
+    reviewerId: uuid("reviewer_id").references(() => employees.id, { onDelete: "set null" }),
+    rating: smallint("rating"),
+    status: text("status").notNull().default("draft"),
+    strengths: text("strengths"),
+    improvements: text("improvements"),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("pms_review_employee_period_uidx").on(t.employeeId, t.period),
+    index("pms_review_employee_idx").on(t.employeeId),
+  ],
+);
+
+export const pmsRecognition = pgTable(
+  "pms_recognition",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    period: text("period").notNull(),
+    kind: text("kind").notNull(),
+    reason: text("reason"),
+    scoreSnapshot: numeric("score_snapshot", { precision: 6, scale: 2 }),
+    status: text("status").notNull().default("suggested"),
+    releasedById: uuid("released_by_id").references(() => employees.id, { onDelete: "set null" }),
+    releasedAt: timestamp("released_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("pms_recognition_employee_idx").on(t.employeeId),
+    index("pms_recognition_period_idx").on(t.period),
+  ],
+);
+
+export const pmsPromotionSignal = pgTable(
+  "pms_promotion_signal",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    scoreSnapshot: numeric("score_snapshot", { precision: 6, scale: 2 }),
+    eligibleSince: timestamp("eligible_since", { withTimezone: true }),
+    rationale: text("rationale"),
+    status: text("status").notNull().default("flagged"),
+    decidedById: uuid("decided_by_id").references(() => employees.id, { onDelete: "set null" }),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("pms_promotion_signal_employee_status_uidx").on(t.employeeId, t.status),
+    index("pms_promotion_signal_employee_idx").on(t.employeeId),
+  ],
+);
+
+export type EmployeeTwin = typeof employeeTwin.$inferSelect;
+export type EmployeeScoreDailyRow = typeof employeeScoreDaily.$inferSelect;
+export type PmsScoreConfigRow = typeof pmsScoreConfig.$inferSelect;
+export type PmsReview = typeof pmsReview.$inferSelect;
+export type PmsRecognition = typeof pmsRecognition.$inferSelect;
+export type PmsPromotionSignal = typeof pmsPromotionSignal.$inferSelect;

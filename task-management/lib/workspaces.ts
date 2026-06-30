@@ -127,7 +127,8 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
     p.startsWith("/overtime") ||
     p.startsWith("/reimbursements") ||
     p.startsWith("/leave") ||
-    p.startsWith("/dcc")
+    p.startsWith("/dcc") ||
+    p.startsWith("/pms")
   ) {
     return "employees";
   }

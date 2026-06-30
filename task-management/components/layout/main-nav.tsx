@@ -106,6 +106,7 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
   },
   employees: {
     top: [
+      { href: "/pms" as Route, label: "Performance", Icon: Target, not: ["/pms/config"] },
       {
         href: "/attendance" as Route,
         label: "Attendance",
