@@ -29,7 +29,7 @@ export async function GET(
   }
 
   const me = await getCurrentEmployee();
-  if (!me || !canAccessWorkspace(id, accessFor(me))) {
+  if (!me || !canAccessWorkspace(id, await accessFor(me))) {
     return NextResponse.redirect(new URL("/hub", req.url));
   }
 

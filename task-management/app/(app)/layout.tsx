@@ -30,7 +30,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // Workspace access control: department-restricted rooms (e.g. Sales) are
   // reachable only by super-admins or members of that department. Everyone else
   // is bounced to the hub before the page renders — covers deep links too.
-  if (ws && !canAccessWorkspace(ws, accessFor(me))) {
+  if (ws && !canAccessWorkspace(ws, await accessFor(me))) {
     redirect("/hub");
   }
 

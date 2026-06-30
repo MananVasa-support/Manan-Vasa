@@ -53,7 +53,7 @@ export async function GET(request: Request): Promise<Response> {
   } catch {
     return new Response("Forbidden", { status: 403 });
   }
-  if (!canAccessWorkspace("sales", accessFor(me))) {
+  if (!canAccessWorkspace("sales", await accessFor(me))) {
     return new Response("Forbidden", { status: 403 });
   }
 

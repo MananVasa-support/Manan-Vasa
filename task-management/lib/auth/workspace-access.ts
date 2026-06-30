@@ -3,16 +3,26 @@ import { redirect } from "next/navigation";
 import type { Employee } from "@/db/schema";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { employeeDepartmentNames } from "@/lib/queries/departments";
 import { canAccessWorkspace, type WorkspaceId } from "@/lib/workspaces";
 
 /**
  * The inputs `canAccessWorkspace` needs, derived from an employee row. Single
- * source of truth — replaces the object that was hand-built in the (app) layout,
- * the hub, and the /ws route.
+ * source of truth — used by the (app) layout, the hub, the /ws route and the
+ * data-layer guards.
+ *
+ * Reads the employee's STRUCTURED department membership (employee_departments)
+ * so department-gated rooms (Sales) honour the real org structure, not just the
+ * legacy single free-text `department` field — a person assigned to Sales as one
+ * of several departments now gets in. The free-text value is kept too for
+ * back-compat. One small indexed lookup; called on the workspace-entry path,
+ * not the heavy dashboard path.
  */
-export function accessFor(me: Employee) {
+export async function accessFor(me: Employee) {
+  const structured = await employeeDepartmentNames(me.id).catch(() => [] as string[]);
+  const departments = me.department ? [...structured, me.department] : structured;
   return {
-    department: me.department,
+    departments,
     isAdmin: me.isAdmin,
     isSuperAdmin: isSuperAdmin(me.email),
   };
@@ -27,7 +37,7 @@ export function accessFor(me: Employee) {
  */
 export async function requireWorkspace(ws: WorkspaceId): Promise<Employee> {
   const me = await requireUser();
-  if (!canAccessWorkspace(ws, accessFor(me))) {
+  if (!canAccessWorkspace(ws, await accessFor(me))) {
     redirect("/hub");
   }
   return me;

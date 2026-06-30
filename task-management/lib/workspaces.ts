@@ -64,7 +64,7 @@ export const WORKSPACE_DEPARTMENT: Partial<Record<WorkspaceId, string>> = {
 
 export function canAccessWorkspace(
   ws: WorkspaceId,
-  user: { department?: string | null; isAdmin: boolean; isSuperAdmin: boolean },
+  user: { departments: string[]; isAdmin: boolean; isSuperAdmin: boolean },
 ): boolean {
   // Super-admins see every room.
   if (user.isSuperAdmin) return true;
@@ -75,12 +75,16 @@ export function canAccessWorkspace(
   // Department-gated rooms (Sales).
   const required = WORKSPACE_DEPARTMENT[ws];
   if (!required) return true; // open room
-  // WORD-match, not a raw substring: "Sales", "Sales Team", "Sales & Marketing"
-  // and "After-Sales Service" all grant access, but "Salesforce Admin" does NOT
-  // (substring `includes("sales")` wrongly over-granted those). Split on any
-  // non-letters and look for the exact word.
-  const words = (user.department ?? "").toLowerCase().split(/[^a-z]+/);
-  return words.includes(required.toLowerCase());
+  // `departments` carries EVERY department the user belongs to (structured
+  // employee_departments membership + the legacy free-text field). WORD-match
+  // against each: "Sales", "Sales Team", "Sales & Marketing" grant access, but
+  // "Salesforce Admin" does NOT. A multi-department person (e.g. Sales +
+  // Consulting + Founder Office) gets in via their Sales membership — which the
+  // single free-text column could never represent.
+  const req = required.toLowerCase();
+  return user.departments.some((d) =>
+    (d ?? "").toLowerCase().split(/[^a-z]+/).includes(req),
+  );
 }
 
 /**

@@ -103,7 +103,7 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
 export default async function HubPage() {
   const me = await requireUser();
   const firstName = me.name.split(" ")[0] ?? me.name;
-  const access = accessFor(me);
+  const access = await accessFor(me);
 
   return (
     <main className="min-h-[100dvh] w-full" style={{ background: "linear-gradient(180deg, #f6f7f9 0%, #fbfbfc 38%, #ffffff 100%)" }}>

@@ -35,7 +35,7 @@ export async function GET(request: Request): Promise<Response> {
     return new Response("Forbidden", { status: 403 });
   }
   // Sales room — enforce access at the route (the layout gate never runs here).
-  if (!canAccessWorkspace("sales", accessFor(me))) {
+  if (!canAccessWorkspace("sales", await accessFor(me))) {
     return new Response("Forbidden", { status: 403 });
   }
 
