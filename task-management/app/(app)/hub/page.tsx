@@ -11,13 +11,12 @@ import { GlobalSearch } from "@/components/header/global-search";
 /**
  * THE FRONT DOOR — post-login Hub launcher.
  *
- * Each workspace is a full-bleed PHOTO card tinted in that module's signature
- * colour (meeting 2026-06-29: colour-per-module so you always know where you
- * are). The module name + tagline sit large over the image; the accent, photo
- * and copy all come from the single MODULE_THEME source of truth. WMS has no
- * photo (the founder is designing its logo) so it renders as a branded red
- * gradient card. Server Component; the only interactive islands are sign-out
- * and the ⌘K search trigger.
+ * Each workspace is a SOLID module-colour card with that module's cut-out
+ * artwork (background removed) sitting on the right, fully visible — NO colour
+ * scrim over the image. Text lives on the left so it never overlaps the art.
+ * Colour, image and copy come from the single MODULE_THEME source of truth.
+ * WMS has no art (the founder is designing its logo) → its icon stands in.
+ * Server Component; the only interactive islands are sign-out + ⌘K search.
  */
 
 function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: number }) {
@@ -26,54 +25,45 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
 
   const inner = (
     <>
-      {/* Background: photo (tinted) or a solid branded gradient (WMS). */}
-      {m.image ? (
-        <Image
+      {/* The module's cut-out artwork — fully visible (object-contain) on the
+          colour, anchored bottom-right. No scrim, no blur. */}
+      {m.image && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
           src={m.image}
           alt=""
-          fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          className="object-cover transition-transform duration-[450ms] ease-out group-hover:scale-[1.06]"
-        />
-      ) : (
-        <span
           aria-hidden
-          className="absolute inset-0"
-          style={{ background: `linear-gradient(145deg, ${m.accent}, ${m.accentDeep})` }}
+          className="pointer-events-none absolute bottom-0 right-0 h-[82%] w-auto max-w-[50%] object-contain object-bottom transition-transform duration-300 group-hover:scale-[1.04]"
+          style={{ filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.18))" }}
+        />
+      )}
+      {/* WMS (no art) → a large translucent icon as its mark. */}
+      {!m.image && (
+        <Icon
+          size={150}
+          strokeWidth={1.6}
+          aria-hidden
+          className="pointer-events-none absolute -bottom-3 -right-3 text-white/20"
         />
       )}
 
-      {/* Colour scrim — tints the whole card in the module colour and keeps the
-          name legible at the bottom. */}
-      <span
-        aria-hidden
-        className="absolute inset-0"
-        style={{
-          background: m.image
-            ? `linear-gradient(to top, ${m.accentDeep} 4%, color-mix(in srgb, ${m.accentDeep} 60%, transparent) 40%, color-mix(in srgb, ${m.accentDeep} 14%, transparent) 78%)`
-            : "linear-gradient(to top, rgba(0,0,0,0.34), transparent 70%)",
-        }}
-      />
-      {/* Top accent rule */}
-      <span aria-hidden className="absolute inset-x-0 top-0 h-1.5" style={{ background: m.accent }} />
-
-      {/* Content */}
-      <div className="absolute inset-0 flex flex-col justify-between p-6">
+      {/* Content — left column, constrained so it never sits under the art. */}
+      <div className="relative z-10 flex h-full flex-col justify-between p-6">
         <span
-          className="inline-flex size-12 items-center justify-center rounded-2xl backdrop-blur-sm"
-          style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.35)" }}
+          className="inline-flex size-12 items-center justify-center rounded-2xl"
+          style={{ background: "rgba(255,255,255,0.20)", border: "1px solid rgba(255,255,255,0.35)" }}
         >
           <Icon size={24} strokeWidth={2.2} className="text-white" />
         </span>
-        <div>
-          <h3 className="text-[30px] font-extrabold leading-none tracking-tight text-white drop-shadow-sm max-md:text-[26px]">
+        <div className="max-w-[58%]">
+          <h3 className="text-[30px] font-extrabold leading-none tracking-tight text-white max-md:text-[26px]">
             {m.label}
           </h3>
-          <p className="mt-2 max-w-[300px] text-[15px] font-medium leading-snug text-white/90">
+          <p className="mt-2 text-[14.5px] font-medium leading-snug text-white/90">
             {m.tagline}
           </p>
           {locked ? (
-            <span className="mt-4 inline-flex items-center gap-1.5 rounded-pill bg-black/30 px-3 py-1.5 text-[13.5px] font-bold text-white/90 backdrop-blur-sm">
+            <span className="mt-4 inline-flex items-center gap-1.5 rounded-pill bg-black/25 px-3 py-1.5 text-[13.5px] font-bold text-white/90">
               <Lock size={14} strokeWidth={2.5} /> No access
             </span>
           ) : (
@@ -89,10 +79,11 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
 
   const base =
     "wg-rise group relative block h-[270px] overflow-hidden rounded-3xl shadow-md max-md:h-[230px]";
+  const bg = { background: `linear-gradient(145deg, ${m.accent}, ${m.accentDeep})` };
 
   if (locked) {
     return (
-      <div className={`${base} grayscale`} style={delay} aria-disabled="true">
+      <div className={`${base} grayscale`} style={{ ...bg, ...delay }} aria-disabled="true">
         {inner}
       </div>
     );
@@ -102,7 +93,7 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
       href={m.href}
       aria-label={`Open ${m.label}`}
       className={`${base} transition duration-200 hover:-translate-y-1.5 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2`}
-      style={{ ...delay, "--tw-ring-color": m.accent } as React.CSSProperties}
+      style={{ ...bg, ...delay, "--tw-ring-color": m.accent } as React.CSSProperties}
     >
       {inner}
     </Link>

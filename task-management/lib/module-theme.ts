@@ -54,7 +54,7 @@ export const MODULE_THEME: Record<WorkspaceId, ModuleTheme> = {
     Icon: ShieldCheck,
     accent: "#4f46e5",
     accentDeep: "#3730a3",
-    image: "/hub/admin.jpg",
+    image: "/hub/admin.png",
   },
   employees: {
     id: "employees",
@@ -64,7 +64,7 @@ export const MODULE_THEME: Record<WorkspaceId, ModuleTheme> = {
     Icon: Users,
     accent: "#16a34a",
     accentDeep: "#15803d",
-    image: "/hub/employees.jpg",
+    image: "/hub/employees.png",
   },
   sales: {
     id: "sales",
@@ -74,7 +74,7 @@ export const MODULE_THEME: Record<WorkspaceId, ModuleTheme> = {
     Icon: TrendingUp,
     accent: "#7c3aed",
     accentDeep: "#5b21b6",
-    image: "/hub/sales.jpg",
+    image: "/hub/sales.png",
   },
   marketing: {
     id: "marketing",
@@ -84,7 +84,7 @@ export const MODULE_THEME: Record<WorkspaceId, ModuleTheme> = {
     Icon: Megaphone,
     accent: "#ea7a17",
     accentDeep: "#c2620f",
-    image: "/hub/marketing.jpg",
+    image: "/hub/marketing.png",
   },
   training: {
     id: "training",
@@ -94,7 +94,7 @@ export const MODULE_THEME: Record<WorkspaceId, ModuleTheme> = {
     Icon: GraduationCap,
     accent: "#2563eb",
     accentDeep: "#1d4ed8",
-    image: "/hub/training.jpg",
+    image: "/hub/training.png",
   },
   // Accounts is no longer a top-level hub card — it now lives INSIDE the Admin
   // module (which opens to it). It inherits Admin's indigo identity so the two
