@@ -199,7 +199,7 @@ export function LookupSelect({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button ref={triggerRef} type="button" onFocus={() => setOpen(true)} aria-haspopup="listbox" aria-expanded={open} aria-controls={listId} className={(className ? className + " " : "") + "flex items-center justify-between gap-2 text-left cursor-pointer"}>
+        <button ref={triggerRef} type="button" onKeyDown={(e) => { if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !open) { e.preventDefault(); setOpen(true); } }} aria-haspopup="listbox" aria-expanded={open} aria-controls={listId} className={(className ? className + " " : "") + "flex items-center justify-between gap-2 text-left cursor-pointer"}>
           <span style={{ color: selectedName ? "var(--color-ink-strong)" : "var(--color-ink-subtle)", fontWeight: selectedName ? 600 : 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {selectedName || placeholder || `Select ${label}…`}
           </span>

@@ -229,7 +229,17 @@ export function ManagedSelect({
           ref={triggerRef}
           type="button"
           id={id}
-          onFocus={() => setOpen(true)}
+          // Open via the native click (Radix toggles) or keyboard (↓/↑). Do NOT
+          // open on focus — focus-open fights the click's toggle (mousedown
+          // focuses → opens, then click toggles closed), which made a click
+          // open-and-instantly-collapse the menu. Radix autofocuses the search
+          // input on open; onCloseAutoFocus is prevented below so no reopen loop.
+          onKeyDown={(e) => {
+            if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !open) {
+              e.preventDefault();
+              setOpen(true);
+            }
+          }}
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-controls={listId}
