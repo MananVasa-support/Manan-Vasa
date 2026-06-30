@@ -1047,6 +1047,34 @@ html[data-density="compact"] body {
     0 10px 24px rgba(225, 6, 0, 0.38),
     0 0 0 4px rgba(225, 6, 0, 0.16);
 }
+
+/* ── NON-WMS MODULES (.nav-themed) — a deliberately DIFFERENT nav so a module
+   never reads as WMS (meeting 2026-06-29: every module its own style). Flat,
+   squared, OUTLINE tabs in the module colour (vs WMS's glossy filled pills);
+   active = solid module fill. The module colour comes from the per-module
+   --vp-cyan* override the header sets. */
+.header-light.nav-themed .nav-pill {
+  background: transparent;
+  border: 1.5px solid color-mix(in srgb, rgb(var(--vp-cyan)) 32%, transparent);
+  color: rgb(var(--vp-cyan-deep));
+  border-radius: 11px;
+  font-weight: 700;
+}
+.header-light.nav-themed .nav-pill:hover {
+  background: var(--vp-cyan-tint);
+  border-color: rgb(var(--vp-cyan));
+  color: rgb(var(--vp-cyan-deep));
+  transform: none;
+  box-shadow: none;
+}
+.header-light.nav-themed .nav-pill-active,
+.header-light.nav-themed .nav-pill-active:hover {
+  background: rgb(var(--vp-cyan));
+  color: #ffffff;
+  border-color: transparent;
+  border-radius: 11px;
+  box-shadow: 0 6px 16px -6px rgb(var(--vp-cyan));
+}
 .header-light .nav-pill-count {
   background: rgba(225, 6, 0, 0.18);
   color: rgb(var(--vp-cyan-deep));

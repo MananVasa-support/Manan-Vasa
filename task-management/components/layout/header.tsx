@@ -51,8 +51,13 @@ export async function DashboardHeader({
       } as React.CSSProperties)
     : undefined;
 
+  const ModuleIcon = theme?.Icon;
+
   return (
-    <header className="sticky top-0 z-50 header-light" style={moduleVars}>
+    <header
+      className={`sticky top-0 z-50 header-light${theme ? " nav-themed" : ""}`}
+      style={moduleVars}
+    >
       <div
         className="relative"
         style={{
@@ -91,6 +96,21 @@ export async function DashboardHeader({
             <LayoutGrid size={17} strokeWidth={2.4} />
             <span>Back to Hub</span>
           </a>
+
+          {/* MODULE IDENTITY — a bold, module-coloured badge shown on EVERY page
+              of a non-WMS module, so you always know exactly where you are. */}
+          {theme && ModuleIcon && (
+            <span
+              className="inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-[14px] font-extrabold uppercase tracking-[0.04em] text-white max-md:px-3 max-md:py-1.5 max-md:text-[12.5px]"
+              style={{
+                background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentDeep})`,
+                boxShadow: `0 6px 16px -8px ${theme.accentDeep}`,
+              }}
+            >
+              <ModuleIcon size={16} strokeWidth={2.6} aria-hidden />
+              {theme.label}
+            </span>
+          )}
 
           {/* CENTER: primary pill nav — visible on every desktop width (and
               under zoom). It stays centred while it fits; when space gets tight

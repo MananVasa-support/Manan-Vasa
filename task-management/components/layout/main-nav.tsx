@@ -24,7 +24,6 @@ import {
   GraduationCap,
   LayoutGrid,
   MessageSquareHeart,
-  ArrowLeft,
   PiggyBank,
   LineChart,
   Banknote,
@@ -169,9 +168,9 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
     // full section directory; the live sections sit beside it. New sections join
     // here as they ship.
     top: [
-      { href: "/admin" as Route, label: "Back to Admin", Icon: ArrowLeft },
+      // "Back to Admin" removed — the Admin control-room is reached only via the
+      // profile menu. "Task List" removed — migrated into the WMS task list.
       { href: "/accounts" as Route, label: "Index", Icon: LayoutGrid, exact: true },
-      { href: "/accounts/task-list" as Route, label: "Task List", Icon: ListChecks },
       { href: "/accounts/weekly-checklist" as Route, label: "Weekly Checklist", Icon: CalendarCheck },
       { href: "/accounts/monthly-quarterly-annual" as Route, label: "Monthly Checklist", Icon: CalendarRange },
       { href: "/accounts/cc-tracker" as Route, label: "CC Master", Icon: CreditCard },
