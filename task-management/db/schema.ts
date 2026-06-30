@@ -3607,3 +3607,202 @@ export type PmsScoreConfigRow = typeof pmsScoreConfig.$inferSelect;
 export type PmsReview = typeof pmsReview.$inferSelect;
 export type PmsRecognition = typeof pmsRecognition.$inferSelect;
 export type PmsPromotionSignal = typeof pmsPromotionSignal.$inferSelect;
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Migration 0096 — Training engine + PMS rating model v2 (see
+ * db/migrations/0096_pms_training_v2.sql and docs/PMS_FULL_SPEC.md).
+ * ────────────────────────────────────────────────────────────────────────── */
+
+// The Training Calendar — one scheduled (or completed) training session.
+export const tcSessions = pgTable(
+  "tc_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    subjectId: uuid("subject_id").references(() => tcSubjects.id, { onDelete: "set null" }),
+    topic: text("topic").notNull(),
+    los: text("los"), // learning-outcome statements
+    criticality: smallint("criticality").notNull().default(3), // 1..5 ★
+    trainerId: uuid("trainer_id").references(() => employees.id, { onDelete: "set null" }),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
+    durationMin: integer("duration_min").notNull().default(60), // ≤90 enforced in app
+    mode: text("mode").notNull().default("in_person"), // in_person | online
+    location: text("location"),
+    meetingUrl: text("meeting_url"),
+    videoPath: text("video_path"),
+    pptPath: text("ppt_path"),
+    status: text("status").notNull().default("scheduled"), // scheduled | done | cancelled
+    inManual: boolean("in_manual").notNull().default(false), // ★ in the training manual
+    materialId: uuid("material_id").references(() => tcMaterials.id, { onDelete: "set null" }),
+    recordingRequested: boolean("recording_requested").notNull().default(false),
+    notes: text("notes"),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("tc_sessions_scheduled_idx").on(t.scheduledAt),
+    index("tc_sessions_trainer_idx").on(t.trainerId),
+    index("tc_sessions_status_idx").on(t.status),
+  ],
+);
+
+export const tcSessionAttendees = pgTable(
+  "tc_session_attendees",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sessionId: uuid("session_id").notNull().references(() => tcSessions.id, { onDelete: "cascade" }),
+    employeeId: uuid("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("invited"), // invited | attended | left_halfway | absent
+    attendedMin: integer("attended_min"), // trainer-editable actual minutes
+    markedById: uuid("marked_by_id").references(() => employees.id, { onDelete: "set null" }),
+    markedAt: timestamp("marked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("tc_session_attendees_session_emp_uq").on(t.sessionId, t.employeeId),
+    index("tc_session_attendees_emp_idx").on(t.employeeId),
+    index("tc_session_attendees_session_idx").on(t.sessionId),
+  ],
+);
+
+// An attendee's feedback on a session (the trainer-feedback loop).
+export const tcSessionFeedback = pgTable(
+  "tc_session_feedback",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sessionId: uuid("session_id").notNull().references(() => tcSessions.id, { onDelete: "cascade" }),
+    employeeId: uuid("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    content: smallint("content"), // 1..5
+    depth: smallint("depth"),
+    understanding: smallint("understanding"),
+    applicability: smallint("applicability"),
+    learned: text("learned"), // "What did you learn"
+    improve: text("improve"), // "What can be improved"
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("tc_session_feedback_session_emp_uq").on(t.sessionId, t.employeeId)],
+);
+
+// Post-training assessment ("Manan's Assessment"): <pass% ⇒ fail ⇒ redo (waivable).
+export const tcAssessments = pgTable(
+  "tc_assessments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sessionId: uuid("session_id").references(() => tcSessions.id, { onDelete: "cascade" }),
+    employeeId: uuid("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    score: smallint("score"), // actual % 0..100
+    target: smallint("target"), // target %
+    passed: boolean("passed"),
+    waived: boolean("waived").notNull().default(false),
+    waivedById: uuid("waived_by_id").references(() => employees.id, { onDelete: "set null" }),
+    redoOfId: uuid("redo_of_id"),
+    assessedById: uuid("assessed_by_id").references(() => employees.id, { onDelete: "set null" }),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("tc_assessments_emp_idx").on(t.employeeId),
+    index("tc_assessments_session_idx").on(t.sessionId),
+  ],
+);
+
+export const tcSelfLearning = pgTable(
+  "tc_self_learning",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    learnDate: date("learn_date").notNull(),
+    kind: text("kind").notNull().default("book"), // book | video | youtube | other
+    title: text("title").notNull(),
+    sourceUrl: text("source_url"),
+    minutes: integer("minutes").notNull().default(0),
+    evidencePath: text("evidence_path"),
+    evidenceUrl: text("evidence_url"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("tc_self_learning_emp_idx").on(t.employeeId, t.learnDate)],
+);
+
+// The weekly 10-min Share + its peer feedback.
+export const tcShares = pgTable(
+  "tc_shares",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    weekStart: date("week_start").notNull(), // Monday (IST)
+    topic: text("topic").notNull(),
+    minutes: integer("minutes").notNull().default(10),
+    videoPath: text("video_path"),
+    videoUrl: text("video_url"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("tc_shares_emp_week_uq").on(t.employeeId, t.weekStart)],
+);
+
+export const tcShareFeedback = pgTable(
+  "tc_share_feedback",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    shareId: uuid("share_id").notNull().references(() => tcShares.id, { onDelete: "cascade" }),
+    raterId: uuid("rater_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    rating: smallint("rating"), // 1..5
+    comment: text("comment"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("tc_share_feedback_share_rater_uq").on(t.shareId, t.raterId)],
+);
+
+// The monthly Attitude/Behaviour/Skill 360 review (manager/subordinate/peer/self).
+export const pmsMonthlyReview = pgTable(
+  "pms_monthly_review",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    subjectId: uuid("subject_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    reviewerId: uuid("reviewer_id").references(() => employees.id, { onDelete: "set null" }),
+    relation: text("relation").notNull().default("manager"), // manager | subordinate | peer | self
+    period: text("period").notNull(), // 'YYYY-MM'
+    attitude: smallint("attitude"), // 3..5
+    behaviour: smallint("behaviour"), // 3..5
+    skill: smallint("skill"), // 3..5
+    changeTags: jsonb("change_tags").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    explanation: text("explanation"),
+    scope: text("scope").notNull().default("internal"), // internal | external
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("pms_monthly_review_subj_rev_rel_period_uq").on(t.subjectId, t.reviewerId, t.relation, t.period),
+    index("pms_monthly_review_subject_idx").on(t.subjectId, t.period),
+    index("pms_monthly_review_reviewer_idx").on(t.reviewerId),
+  ],
+);
+
+export const pmsPersonalGoal = pgTable(
+  "pms_personal_goal",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    period: text("period").notNull(), // 'YYYY-MM' or 'YYYY'
+    title: text("title").notNull(),
+    detail: text("detail"),
+    status: text("status").notNull().default("active"), // active | done | dropped
+    position: smallint("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("pms_personal_goal_emp_idx").on(t.employeeId, t.period)],
+);
+
+export type TcSession = typeof tcSessions.$inferSelect;
+export type TcSessionAttendee = typeof tcSessionAttendees.$inferSelect;
+export type TcSessionFeedback = typeof tcSessionFeedback.$inferSelect;
+export type TcAssessment = typeof tcAssessments.$inferSelect;
+export type TcSelfLearning = typeof tcSelfLearning.$inferSelect;
+export type TcShare = typeof tcShares.$inferSelect;
+export type TcShareFeedback = typeof tcShareFeedback.$inferSelect;
+export type PmsMonthlyReview = typeof pmsMonthlyReview.$inferSelect;
+export type PmsPersonalGoal = typeof pmsPersonalGoal.$inferSelect;

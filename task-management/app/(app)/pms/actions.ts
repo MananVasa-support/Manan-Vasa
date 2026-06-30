@@ -13,14 +13,18 @@ type ActionResult = { ok: true } | { ok: false; error: string };
 const num = z.coerce.number().finite();
 const SaveSchema = z.object({
   weights: z.object({
-    attendance: num, goals: num, dcc: num, tasks: num, training: num, feedback: num,
+    kpi: num, skillUpgrade: num, compliance: num, attitude: num, teamwork: num,
   }),
   thresholds: z.object({
-    promotionScore: num, recognitionScore: num, lateGraceDays: num, onTimeRateFloor: num, minTenureDays: num,
+    promotionScore: num, recognitionScore: num, minTenureDays: num,
+    trainGiveHoursPerMonth: num, trainAttendHoursPerMonth: num, selfLearnHoursPerMonth: num,
+    shareMinPerWeek: num, assessmentPassPct: num, noScheduleAlertDays: num,
+    noAttendPromptDays: num, maxSessionMinutes: num, lateGraceDays: num, onTimeRateFloor: num,
   }),
   formula: z.object({
-    punctualityCoeff: num, goalAchievementCoeff: num, dccComplianceCoeff: num,
-    taskOnTimeCoeff: num, testPassCoeff: num, feedbackCoeff: num,
+    kpiWeeklyWeight: num, kpiIncentiveWeight: num, skillAttendWeight: num, skillGiveWeight: num,
+    skillSelfLearnWeight: num, skillShareWeight: num, compDccWeight: num, compChecklistWeight: num,
+    ratingFloor: num, ratingCeil: num,
   }),
 });
 

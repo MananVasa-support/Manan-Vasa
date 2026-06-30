@@ -17,12 +17,11 @@ const ACCENT = MODULE_THEME.employees.accent; // green
 const ACCENT_DEEP = MODULE_THEME.employees.accentDeep;
 
 const PILLARS = [
-  ["attendance", "Attendance"],
-  ["goals", "Goals"],
-  ["dcc", "DCC"],
-  ["tasks", "Tasks"],
-  ["training", "Training"],
-  ["feedback", "Feedback"],
+  ["kpi", "KPI"],
+  ["skillUpgrade", "Skill"],
+  ["compliance", "Comply"],
+  ["attitude", "Attitude"],
+  ["teamwork", "Team"],
 ] as const;
 
 /** Score band → colour (green ≥80 / amber ≥60 / red). */
@@ -82,9 +81,10 @@ export default async function PmsPage() {
             >
               Performance Intelligence
             </h1>
-            <p className="mt-2 font-medium text-ink-muted" style={{ fontSize: 15.5, maxWidth: "64ch" }}>
-              A live, derived score per person — attendance, goals, DCC, tasks, training & feedback,
-              folded from the activity log. {admin ? "Every weight is yours to set." : "Your manager and admins set the weights."}
+            <p className="mt-2 font-medium text-ink-muted" style={{ fontSize: 15.5, maxWidth: "66ch" }}>
+              A live rating out of 100 per person across five pillars — KPI (50), Skill Upgrade (20),
+              Compliance (10), Attitude (10) and Team Work (10).
+              {" "}{admin ? "Every weight is yours to set." : "Your manager and admins set the weights."}
               {eligible > 0 && ` ${eligible} flagged for a promotion review.`}
             </p>
           </div>
@@ -105,9 +105,10 @@ export default async function PmsPage() {
             const score = rs?.score.score ?? 0;
             const b = band(score);
             return (
-              <div
+              <Link
                 key={p.id}
-                className="wg-rise rounded-2xl border border-hairline bg-surface-card p-5 shadow-sm"
+                href={`/pms/${p.id}` as Route}
+                className="wg-rise block rounded-2xl border border-hairline bg-surface-card p-5 shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md"
                 style={{ animationDelay: `${i * 35}ms` }}
               >
                 <div className="flex items-center gap-4">
@@ -129,7 +130,7 @@ export default async function PmsPage() {
                   </div>
                 </div>
                 {/* Pillar breakdown */}
-                <div className="mt-4 grid grid-cols-6 gap-2">
+                <div className="mt-4 grid grid-cols-5 gap-2">
                   {PILLARS.map(([key, label]) => {
                     const pillar = rs?.score.breakdown[key];
                     const pct = pillar && pillar.rate != null ? Math.round(pillar.rate * 100) : null;
@@ -144,7 +145,7 @@ export default async function PmsPage() {
                     );
                   })}
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>

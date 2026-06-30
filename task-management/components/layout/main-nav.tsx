@@ -33,6 +33,9 @@ import {
   FolderArchive,
   Gauge,
   Gem,
+  Share2,
+  Star,
+  Medal,
 } from "lucide-react";
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
@@ -106,7 +109,9 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
   },
   employees: {
     top: [
-      { href: "/pms" as Route, label: "Performance", Icon: Target, not: ["/pms/config"] },
+      { href: "/pms" as Route, label: "Performance", Icon: Target, not: ["/pms/config", "/pms/review", "/pms/signals"] },
+      { href: "/pms/review" as Route, label: "360 Review", Icon: Star },
+      { href: "/pms/signals" as Route, label: "Signals", Icon: Medal, adminOnly: true },
       {
         href: "/attendance" as Route,
         label: "Attendance",
@@ -156,13 +161,27 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
         href: "/training" as Route,
         label: "Library",
         Icon: GraduationCap,
-        not: ["/training/feedback", "/training/induction", "/training/dashboard"],
+        not: [
+          "/training/feedback", "/training/induction", "/training/dashboard",
+          "/training/calendar", "/training/self-learning", "/training/share", "/training/obligations",
+        ],
       },
-      { href: "/training/induction" as Route, label: "Induction", Icon: ListChecks },
-      { href: "/training/feedback" as Route, label: "Feedback", Icon: MessageSquareHeart },
-      { href: "/training/dashboard" as Route, label: "Dashboard", Icon: LayoutDashboard },
+      { href: "/training/calendar" as Route, label: "Calendar", Icon: CalendarClock },
+      { href: "/training/self-learning" as Route, label: "Self-Learning", Icon: BookMarked },
+      { href: "/training/share" as Route, label: "Share", Icon: Share2 },
+      { href: "/training/obligations" as Route, label: "Obligations", Icon: Gauge },
     ],
-    groups: [],
+    groups: [
+      {
+        label: "More",
+        Icon: LayoutGrid,
+        items: [
+          { href: "/training/induction" as Route, label: "Induction", Icon: ListChecks },
+          { href: "/training/feedback" as Route, label: "Feedback", Icon: MessageSquareHeart },
+          { href: "/training/dashboard" as Route, label: "Dashboard", Icon: LayoutDashboard },
+        ],
+      },
+    ],
   },
   accounts: {
     // The Accounts module owns its own bar — never the WMS pills. "Index" is the

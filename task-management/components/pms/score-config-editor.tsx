@@ -12,20 +12,31 @@ const ACCENT = MODULE_THEME.employees.accent;
 const ACCENT_DEEP = MODULE_THEME.employees.accentDeep;
 
 const WEIGHTS: [keyof PmsScoreConfig["weights"], string][] = [
-  ["attendance", "Attendance"], ["goals", "Goals"], ["dcc", "DCC compliance"],
-  ["tasks", "Task delivery"], ["training", "Training"], ["feedback", "Feedback"],
+  ["kpi", "KPI (weekly + incentive)"], ["skillUpgrade", "Skill upgrade (training)"],
+  ["compliance", "Compliance (DCC + checklist)"], ["attitude", "Attitude & mindset"],
+  ["teamwork", "Team work (peers)"],
 ];
 const THRESHOLDS: [keyof PmsScoreConfig["thresholds"], string, string][] = [
   ["promotionScore", "Promotion score", "Score ≥ this flags a promotion review"],
   ["recognitionScore", "Recognition score", "Score ≥ this suggests recognition"],
   ["minTenureDays", "Min tenure (days)", "Days employed before promotion-eligible"],
+  ["trainGiveHoursPerMonth", "Give hrs / mo", "Hours managers must train others"],
+  ["trainAttendHoursPerMonth", "Attend hrs / mo", "Hours everyone must attend training"],
+  ["selfLearnHoursPerMonth", "Self-learn hrs / mo", "Hours of self-learning required"],
+  ["shareMinPerWeek", "Share mins / wk", "Weekly Share minutes (compulsory)"],
+  ["assessmentPassPct", "Assessment pass %", "Below this = fail → redo (waivable)"],
+  ["noScheduleAlertDays", "No-schedule alert (days)", "Alert if no training scheduled in N days"],
+  ["noAttendPromptDays", "No-attend prompt (days)", "Prompt to pick a training after N days"],
+  ["maxSessionMinutes", "Max session (mins)", "No single session longer than this"],
   ["lateGraceDays", "Late grace (days)", "Allowed late arrivals before it counts"],
   ["onTimeRateFloor", "On-time floor (0–1)", "Min punctual share for full credit"],
 ];
 const FORMULA: [keyof PmsScoreConfig["formula"], string][] = [
-  ["punctualityCoeff", "Punctuality"], ["goalAchievementCoeff", "Goal achievement"],
-  ["dccComplianceCoeff", "DCC compliance"], ["taskOnTimeCoeff", "Task on-time"],
-  ["testPassCoeff", "Test pass"], ["feedbackCoeff", "Feedback"],
+  ["kpiWeeklyWeight", "KPI · weekly goals"], ["kpiIncentiveWeight", "KPI · incentive"],
+  ["skillAttendWeight", "Skill · attended"], ["skillGiveWeight", "Skill · given"],
+  ["skillSelfLearnWeight", "Skill · self-learn"], ["skillShareWeight", "Skill · share"],
+  ["compDccWeight", "Compliance · DCC"], ["compChecklistWeight", "Compliance · checklist"],
+  ["ratingFloor", "Rating floor (1–5)"], ["ratingCeil", "Rating ceiling (1–5)"],
 ];
 
 export function ScoreConfigEditor({ initial }: { initial: PmsScoreConfig }) {

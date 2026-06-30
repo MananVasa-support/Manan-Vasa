@@ -1,75 +1,81 @@
 /**
- * PMS Layer 2 — the PURE Score engine (mig 0095).
+ * PMS Layer 2 — the PURE Score engine (v2 model, mig 0096).
  *
- * computeScore() turns an employee's Twin (+ a small task-metric window + tenure)
- * into a 0–100 performance score. It is a PURE function of its inputs and the
- * config: EVERY weight, threshold, and coefficient comes from the PmsScoreConfig
- * argument. No weight or threshold literal appears in this file — change the
- * pms_score_config row and the score changes with no deploy.
+ * computeScore() turns an employee's gathered signals into a 0–100 performance
+ * score over the FIVE pillars from leadership's notes (docs/PMS_FULL_SPEC.md):
  *
- * Method: each pillar is normalised to a 0..1 rate, scaled by its formula
- * coefficient, then weighted by cfg.weights and divided by the sum of the
- * weights of the pillars that had data. A pillar with no activity is EXCLUDED
- * from the denominator (so a new hire isn't punished for an empty pillar) rather
- * than scored 0. The result is ×100, clamped to [0,100], rounded.
+ *   KPI 50          = Weekly-Goals achievement % + Incentive target-vs-actual %
+ *   Skill-Upgrade 20 = Training attended + given (managers) + self-learning + Share
+ *   Compliance 10   = DCC compliance % + Daily-Checklist completion %
+ *   Attitude 10     = monthly manager review (attitude/behaviour/skill, 1..5)
+ *   Team-Work 10    = peer + subordinate review (juniors/colleagues, 1..5)
+ *
+ * PURE function of its inputs and the config: EVERY weight, threshold and
+ * coefficient comes from PmsScoreConfig — no literal appears here. Each pillar is
+ * a weighted blend of its sub-signals; a sub-signal with no data is EXCLUDED from
+ * that pillar's blend, and a pillar with no data is excluded from the overall
+ * score (so a new hire isn't punished for empty pillars). Result ×100, clamped.
  */
 import type { PmsScoreConfig } from "./config";
-
-/** numeric columns read back from Postgres as strings — coerce safely. */
-function num(v: number | string | null | undefined): number {
-  if (v === null || v === undefined) return 0;
-  const x = typeof v === "string" ? Number(v) : v;
-  return Number.isFinite(x) ? x : 0;
-}
 
 function clamp01(x: number): number {
   if (!Number.isFinite(x)) return 0;
   return x < 0 ? 0 : x > 1 ? 1 : x;
 }
 
-/** The Twin counters the score reads (subset of employee_twin). */
-export interface ScoreTwinInput {
-  presenceDays: number | string;
-  lateCount: number | string;
-  punctualDays: number | string;
-  goalEffSumWeighted: number | string;
-  goalWeightSum: number | string;
-  dccDueCount: number | string;
-  dccDoneCount: number | string;
-  testsPassed: number | string;
-  testsAttempted: number | string;
-  feedbackCount: number | string;
-  feedbackRatingSum: number | string;
+/** Weighted mean over the sub-signals that HAVE data (null = excluded). Returns
+ *  null when no sub-signal has data or all weights are 0. */
+function blend(parts: { rate: number | null; weight: number }[]): number | null {
+  let sum = 0;
+  let wt = 0;
+  for (const p of parts) {
+    if (p.rate === null || p.weight <= 0) continue;
+    sum += p.rate * p.weight;
+    wt += p.weight;
+  }
+  return wt > 0 ? sum / wt : null;
 }
 
-/** A small task-on-time window (from task_metrics_daily) — done+approved over
- *  the total terminal outcomes. */
-export interface ScoreTaskInput {
-  doneCount: number;
-  approvedCount: number;
-  notApprovedCount: number;
-}
-
+/** All signals the score reads, gathered by the read layer (twin + operational). */
 export interface ScoreInput {
-  twin: ScoreTwinInput;
-  taskMetrics: ScoreTaskInput;
+  // ── KPI ──
+  weeklyGoalPct: number | null; // 0..100 weighted effective % (COALESCE(accept,pct))
+  incentiveAttainmentPct: number | null; // 0..100 actual/target (null = no target set)
+  // ── Skill-Upgrade (this period) ──
+  isManager: boolean;
+  trainGivenHours: number;
+  trainAttendedHours: number;
+  selfLearnHours: number;
+  sharesDone: number;
+  weeksInPeriod: number; // expected shares = one per week
+  periodFraction: number; // 0..1 of the month elapsed (pro-rates monthly obligations)
+  // ── Compliance ──
+  dccDueCount: number;
+  dccDoneCount: number;
+  checklistDueCount: number;
+  checklistDoneCount: number;
+  // ── Attitude (manager monthly review, mean of attitude/behaviour/skill, 1..5) ──
+  attitudeRating: number | null;
+  // ── Team-Work (peer + subordinate review mean, 1..5) ──
+  teamworkRating: number | null;
   tenureDays: number;
 }
 
 export interface PillarScore {
-  /** 0..1 rate before weighting (null = no data → excluded from the score). */
+  /** 0..1 rate (null = no data → excluded from the score). */
   rate: number | null;
-  /** the weight applied (from cfg.weights). */
+  /** weight applied (from cfg.weights). */
   weight: number;
+  /** per-sub-signal detail for the UI (0..1 or null). */
+  detail?: Record<string, number | null>;
 }
 
 export interface ScoreBreakdown {
-  attendance: PillarScore;
-  goals: PillarScore;
-  dcc: PillarScore;
-  tasks: PillarScore;
-  training: PillarScore;
-  feedback: PillarScore;
+  kpi: PillarScore;
+  skillUpgrade: PillarScore;
+  compliance: PillarScore;
+  attitude: PillarScore;
+  teamwork: PillarScore;
 }
 
 export interface ScoreResult {
@@ -77,59 +83,80 @@ export interface ScoreResult {
   breakdown: ScoreBreakdown;
 }
 
+/** Normalise a 1..5 review rating to 0..1 via the configured floor/ceil. */
+function ratingRate(rating: number | null, cfg: PmsScoreConfig): number | null {
+  if (rating === null || !Number.isFinite(rating)) return null;
+  const { ratingFloor, ratingCeil } = cfg.formula;
+  const span = ratingCeil - ratingFloor;
+  return span > 0 ? clamp01((rating - ratingFloor) / span) : null;
+}
+
+/** ratio against a (pro-rated) target; null when the target is 0. */
+function vsTarget(actual: number, target: number): number | null {
+  return target > 0 ? clamp01(actual / target) : null;
+}
+
 /** Compute the 0–100 score. PURE; reads ALL policy from `cfg`. */
 export function computeScore(input: ScoreInput, cfg: PmsScoreConfig): ScoreResult {
-  const { twin, taskMetrics } = input;
-  const { weights, formula } = cfg;
+  const { weights, formula, thresholds } = cfg;
+  const pf = clamp01(input.periodFraction) || 1; // never zero-divide; default full period
 
-  // ── Attendance: punctual share of present days, scaled by its coefficient. ──
-  const presence = num(twin.presenceDays);
-  const punctual = num(twin.punctualDays);
-  const attendanceRate =
-    presence > 0 ? clamp01((punctual / presence) * formula.punctualityCoeff) : null;
+  // ── KPI: weekly-goals % + incentive attainment % ──
+  const kpiWeekly = input.weeklyGoalPct === null ? null : clamp01(input.weeklyGoalPct / 100);
+  const kpiIncentive =
+    input.incentiveAttainmentPct === null ? null : clamp01(input.incentiveAttainmentPct / 100);
+  const kpiRate = blend([
+    { rate: kpiWeekly, weight: formula.kpiWeeklyWeight },
+    { rate: kpiIncentive, weight: formula.kpiIncentiveWeight },
+  ]);
 
-  // ── Goals: weight-aware effective % (honours manager acceptPct via the
-  //    weighted eff-sum), divided by 100 to a 0..1 rate. ──
-  const goalWeightSum = num(twin.goalWeightSum);
-  const goalEff = num(twin.goalEffSumWeighted);
-  const goalRate =
-    goalWeightSum > 0
-      ? clamp01((goalEff / goalWeightSum / 100) * formula.goalAchievementCoeff)
-      : null;
+  // ── Skill-Upgrade: attended / given(managers) / self-learn / weekly share ──
+  const attendRate = vsTarget(input.trainAttendedHours, thresholds.trainAttendHoursPerMonth * pf);
+  const giveRate = input.isManager
+    ? vsTarget(input.trainGivenHours, thresholds.trainGiveHoursPerMonth * pf)
+    : null; // non-managers: no give obligation → excluded
+  const selfRate = vsTarget(input.selfLearnHours, thresholds.selfLearnHoursPerMonth * pf);
+  const shareRate = vsTarget(input.sharesDone, input.weeksInPeriod * pf);
+  const skillRate = blend([
+    { rate: attendRate, weight: formula.skillAttendWeight },
+    { rate: giveRate, weight: formula.skillGiveWeight },
+    { rate: selfRate, weight: formula.skillSelfLearnWeight },
+    { rate: shareRate, weight: formula.skillShareWeight },
+  ]);
 
-  // ── DCC: done share of due KPIs. ──
-  const dccDue = num(twin.dccDueCount);
-  const dccDone = num(twin.dccDoneCount);
-  const dccRate = dccDue > 0 ? clamp01((dccDone / dccDue) * formula.dccComplianceCoeff) : null;
+  // ── Compliance: DCC + Daily Checklist ──
+  const dccRate = vsTarget(input.dccDoneCount, input.dccDueCount);
+  const checklistRate = vsTarget(input.checklistDoneCount, input.checklistDueCount);
+  const complianceRate = blend([
+    { rate: dccRate, weight: formula.compDccWeight },
+    { rate: checklistRate, weight: formula.compChecklistWeight },
+  ]);
 
-  // ── Tasks: done+approved share of terminal outcomes, from task_metrics. ──
-  const terminal =
-    taskMetrics.doneCount + taskMetrics.approvedCount + taskMetrics.notApprovedCount;
-  const taskGood = taskMetrics.doneCount + taskMetrics.approvedCount;
-  const taskRate = terminal > 0 ? clamp01((taskGood / terminal) * formula.taskOnTimeCoeff) : null;
-
-  // ── Training: pass share of attempts. ──
-  const attempts = num(twin.testsAttempted);
-  const passed = num(twin.testsPassed);
-  const trainingRate = attempts > 0 ? clamp01((passed / attempts) * formula.testPassCoeff) : null;
-
-  // ── Feedback: mean rating mapped 1..5 → 0..1, scaled by its coefficient. ──
-  const fbCount = num(twin.feedbackCount);
-  const fbSum = num(twin.feedbackRatingSum);
-  const feedbackRate =
-    fbCount > 0 ? clamp01(((fbSum / fbCount - 1) / 4) * formula.feedbackCoeff) : null;
+  // ── Attitude + Team-Work: review ratings ──
+  const attitudeRate = ratingRate(input.attitudeRating, cfg);
+  const teamworkRate = ratingRate(input.teamworkRating, cfg);
 
   const breakdown: ScoreBreakdown = {
-    attendance: { rate: attendanceRate, weight: weights.attendance },
-    goals: { rate: goalRate, weight: weights.goals },
-    dcc: { rate: dccRate, weight: weights.dcc },
-    tasks: { rate: taskRate, weight: weights.tasks },
-    training: { rate: trainingRate, weight: weights.training },
-    feedback: { rate: feedbackRate, weight: weights.feedback },
+    kpi: {
+      rate: kpiRate,
+      weight: weights.kpi,
+      detail: { weekly: kpiWeekly, incentive: kpiIncentive },
+    },
+    skillUpgrade: {
+      rate: skillRate,
+      weight: weights.skillUpgrade,
+      detail: { attended: attendRate, given: giveRate, selfLearn: selfRate, share: shareRate },
+    },
+    compliance: {
+      rate: complianceRate,
+      weight: weights.compliance,
+      detail: { dcc: dccRate, checklist: checklistRate },
+    },
+    attitude: { rate: attitudeRate, weight: weights.attitude },
+    teamwork: { rate: teamworkRate, weight: weights.teamwork },
   };
 
-  // Weighted mean over pillars that HAVE data (null pillars excluded from both
-  // numerator and denominator), ×100.
+  // Weighted mean over pillars that HAVE data, ×100.
   let weightedSum = 0;
   let weightTotal = 0;
   for (const pillar of Object.values(breakdown)) {
