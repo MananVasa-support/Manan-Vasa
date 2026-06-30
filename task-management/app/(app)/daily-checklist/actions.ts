@@ -8,6 +8,7 @@ import { dailyChecklist, weeklyGoals, weeklyGoalActuals, tasks } from "@/db/sche
 import { requireUser } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { todayYmd, listOpenTasksForChecklist, type DailyItem } from "@/lib/queries/daily-checklist";
+import { currentWeekStart } from "@/lib/weekly-goals/week";
 import { MIN_DAILY_ITEMS } from "@/lib/daily-checklist/constants";
 import type { DailyChecklistItem } from "@/db/schema";
 
@@ -205,6 +206,58 @@ export async function upsertGoalActual(input: {
         .where(eq(weeklyGoals.id, goal.id));
     }
     return { ok: true };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * One-tap "log all at current %" — records today's progress on EVERY open
+ * current-week goal that hasn't been logged yet, each at its OWN current % (so
+ * the bar doesn't move; it just records "still at X% today"). This clears the
+ * clock-in goal gate in a single action for people with many goals, without
+ * pretending progress was made. Idempotent (skips goals already logged today).
+ */
+export async function logAllGoalActuals(): Promise<
+  ActionResult<{ logged: { goalId: string; pct: number }[] }>
+> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const ymd = todayYmd();
+  const week = currentWeekStart();
+  try {
+    const open = await db
+      .select({ id: weeklyGoals.id, pctDone: weeklyGoals.pctDone })
+      .from(weeklyGoals)
+      .leftJoin(
+        weeklyGoalActuals,
+        and(eq(weeklyGoalActuals.goalId, weeklyGoals.id), eq(weeklyGoalActuals.entryDate, ymd)),
+      )
+      .where(
+        and(
+          eq(weeklyGoals.employeeId, me.id),
+          eq(weeklyGoals.weekStart, week),
+          eq(weeklyGoals.archived, false),
+          sql`${weeklyGoals.pctDone} < 100`,
+          sql`${weeklyGoalActuals.id} is null`,
+        ),
+      );
+    if (open.length === 0) return { ok: true, logged: [] };
+    await db
+      .insert(weeklyGoalActuals)
+      .values(
+        open.map((g) => ({
+          goalId: g.id,
+          employeeId: me.id,
+          entryDate: ymd,
+          pct: g.pctDone,
+          note: null,
+          createdById: me.id,
+        })),
+      )
+      .onConflictDoNothing({ target: [weeklyGoalActuals.goalId, weeklyGoalActuals.entryDate] });
+    return { ok: true, logged: open.map((g) => ({ goalId: g.id, pct: g.pctDone })) };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

@@ -39,6 +39,7 @@ import {
   pullGoalToToday,
   pullTaskToToday,
   upsertGoalActual,
+  logAllGoalActuals,
   autoFillFive,
   addStandaloneItem,
   removeItem,
@@ -222,6 +223,27 @@ export function DailyPlanGate({
       },
     );
 
+  // ── One-tap: log EVERY still-unlogged open goal at its current %. ──
+  const onLogAll = () =>
+    act(
+      "logall",
+      () => logAllGoalActuals(),
+      (r) => {
+        const logged = (r as unknown as { logged: { goalId: string; pct: number }[] }).logged ?? [];
+        const byId = new Map(logged.map((l) => [l.goalId, l.pct]));
+        setPlannerGoals((p) =>
+          p.map((g) => (byId.has(g.id) ? { ...g, todayPct: byId.get(g.id)! } : g)),
+        );
+        fireToast({
+          message:
+            logged.length > 0
+              ? `Logged ${logged.length} goal${logged.length === 1 ? "" : "s"} at current progress.`
+              : "All goals already logged.",
+          type: "success",
+        });
+      },
+    );
+
   const onAutoFill = () =>
     act(
       "autofill",
@@ -370,6 +392,8 @@ export function DailyPlanGate({
                 reduce={!!reduce}
                 onPull={onPullGoal}
                 onLog={onLogGoal}
+                blockingCount={goalsToLog}
+                onLogAll={onLogAll}
               />
               <TasksPanel
                 tasks={openTasks}
@@ -819,14 +843,19 @@ function GoalsPanel({
   reduce,
   onPull,
   onLog,
+  blockingCount,
+  onLogAll,
 }: {
   goals: PlannerGoal[];
   busyId: string | null;
   reduce: boolean;
   onPull: (goalId: string) => void;
   onLog: (goalId: string, pct: number | null, note: string) => void;
+  blockingCount: number;
+  onLogAll: () => void;
 }) {
   const { shown, hidden, open, setOpen } = useShowMore(goals);
+  const loggingAll = busyId === "logall";
 
   return (
     <Panel title="Weekly Goals" hint="drag or log" delay={120}>
@@ -835,6 +864,26 @@ function GoalsPanel({
           No weekly goals this week.
         </p>
       ) : (
+        <>
+          {/* One-tap clear for the goal gate when several are still unlogged —
+              records each at its CURRENT %, so it never fakes progress. */}
+          {blockingCount > 0 && (
+            <button
+              type="button"
+              onClick={onLogAll}
+              disabled={loggingAll}
+              className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 px-3 py-2.5 text-[14px] font-bold transition-colors disabled:opacity-60"
+              style={{
+                borderColor: "color-mix(in srgb, var(--color-altus-red) 35%, transparent)",
+                background: "color-mix(in srgb, var(--color-altus-red) 8%, transparent)",
+                color: "var(--color-altus-red-deep)",
+              }}
+            >
+              {loggingAll
+                ? "Logging…"
+                : `Log all ${blockingCount} at current % — clears the gate`}
+            </button>
+          )}
         <ul className="space-y-2.5">
           {shown.map((g) => (
             <GoalRow
@@ -852,6 +901,7 @@ function GoalsPanel({
             </li>
           )}
         </ul>
+        </>
       )}
     </Panel>
   );

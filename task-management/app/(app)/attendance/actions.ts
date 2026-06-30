@@ -21,7 +21,7 @@ import { getOrgSettings } from "@/lib/queries/org-settings";
 import { insertPunchRow, resolvePunchGeofence } from "@/lib/attendance/record-punch";
 import { isDccFilledFor } from "@/lib/dcc/gate";
 import { needsDailyPlan } from "@/lib/daily-checklist/gate";
-import { needsGoalActuals } from "@/lib/weekly-goals/actuals";
+import { needsGoalActuals, unloggedGoalLabels } from "@/lib/weekly-goals/actuals";
 import { isManagerWithReports, isMondayIST, managerMondayGoalState } from "@/lib/manager-gates";
 import {
   notifyOnInPunch,
@@ -114,10 +114,20 @@ export async function punchAttendance(input: {
       const planned = !(await needsDailyPlan(me.id).catch(() => false));
       const actuals = !(await needsGoalActuals(me.id).catch(() => false));
       if (!planned || !actuals) {
-        return {
-          ok: false,
-          error: "Plan your day first — commit your 5 and log today's goal progress on the Daily Checklist, then clock in.",
-        };
+        // Make the block SPECIFIC: when goals are the blocker, name the exact
+        // ones still unlogged + point at the one-tap "Log all" fix, so a person
+        // with many goals isn't left guessing what's missing.
+        let error =
+          "Plan your day first — commit your 5 and log today's goal progress on the Daily Checklist, then clock in.";
+        if (planned && !actuals) {
+          const names = await unloggedGoalLabels(me.id).catch(() => [] as string[]);
+          if (names.length > 0) {
+            const shown = names.slice(0, 4).join(", ");
+            const more = names.length > 4 ? ` +${names.length - 4} more` : "";
+            error = `Log today's progress on ${names.length} weekly goal${names.length === 1 ? "" : "s"} before clocking in: ${shown}${more}. Tip: use “Log all at current %” on the Daily Checklist.`;
+          }
+        }
+        return { ok: false, error };
       }
     }
   }
