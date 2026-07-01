@@ -177,46 +177,57 @@ export function PunchCard({
     });
   }
 
+  // Presence state → the headline shown under the clock.
+  const checkedIn = inLabel !== null;
+  const checkedOut = outLabel !== null;
+  const status = checkedOut
+    ? { label: "Day complete", sub: `In ${inLabel} · Out ${outLabel}`, tone: "#64748b", dot: "#94a3b8" }
+    : checkedIn
+      ? { label: "You're checked in", sub: `Since ${inLabel} — have a great day`, tone: "#16a34a", dot: "#22c55e" }
+      : { label: "Ready to check in", sub: "One tap when you reach the office", tone: "var(--color-altus-red)", dot: "var(--color-altus-red)" };
+
   return (
     <section
-      className="rounded-section bg-surface-card overflow-hidden"
-      style={{ border: "1px solid var(--color-hairline)", boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
+      className="wg-rise relative overflow-hidden rounded-[26px]"
+      style={{
+        background: "linear-gradient(160deg, #14100E 0%, #1C1512 46%, #0E0B0A 100%)",
+        boxShadow: "0 30px 70px -30px rgba(20,16,14,0.75), 0 2px 6px rgba(0,0,0,0.25)",
+      }}
     >
-      {/* Clock face */}
-      <div
-        className="px-6 pt-6 pb-5 max-md:px-4 text-center"
-        style={{
-          background:
-            "linear-gradient(180deg, color-mix(in srgb, var(--color-altus-red) 4%, var(--color-surface-card)) 0%, var(--color-surface-card) 100%)",
-        }}
-      >
-        <p
-          className="uppercase text-ink-subtle"
-          style={{ fontFamily: "var(--font-mono-display)", fontSize: 12.5, letterSpacing: "0.12em" }}
-        >
+      {/* ambient brand-red glow */}
+      <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 h-64 w-64 rounded-full" style={{ background: "radial-gradient(circle, rgba(225,6,0,0.30), transparent 70%)", filter: "blur(8px)" }} />
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)" }} />
+
+      {/* ── Clock face (dark hero) ── */}
+      <div className="relative px-7 pt-8 pb-6 max-md:px-5 text-center">
+        <p className="uppercase" style={{ color: "rgba(247,244,237,0.55)", fontFamily: "var(--font-mono-display), var(--font-display)", fontSize: 12, letterSpacing: "0.2em" }}>
           {todayLabel}
         </p>
         <LiveClock tz={tz} />
-        <div className="mt-3 flex items-center justify-center">
-          <LocationPill loc={loc} distanceM={distanceM} withinFence={withinFence} radiusM={radiusM} />
+        <div className="mt-3.5 flex flex-col items-center gap-2.5">
+          <span className="inline-flex items-center gap-2 text-[15.5px] font-bold" style={{ color: "#F7F4ED" }}>
+            <span aria-hidden className="relative inline-flex size-2.5">
+              <span className="absolute inline-flex h-full w-full rounded-full opacity-70 animate-ping" style={{ background: status.dot }} />
+              <span className="relative inline-flex size-2.5 rounded-full" style={{ background: status.dot }} />
+            </span>
+            {status.label}
+          </span>
+          <span className="text-[12.5px]" style={{ color: "rgba(247,244,237,0.62)" }}>{status.sub}</span>
+          <div className="mt-1"><LocationPill loc={loc} distanceM={distanceM} withinFence={withinFence} radiusM={radiusM} dark /></div>
         </div>
       </div>
 
-      <div className="px-6 pb-6 max-md:px-4">
-        {/* Location enablement / recovery */}
-        <LocationPanel
-          loc={loc}
-          geofenceEnabled={geofenceEnabled}
-          onEnable={requestLocation}
-        />
+      {/* ── Body (light sheet) ── */}
+      <div className="relative rounded-t-[26px] px-7 pt-6 pb-7 max-md:px-5" style={{ background: "var(--color-surface-card)", boxShadow: "0 -1px 0 rgba(0,0,0,0.04)" }}>
+        <LocationPanel loc={loc} geofenceEnabled={geofenceEnabled} onEnable={requestLocation} />
 
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <Stat label="Checked in" value={inLabel} />
-          <Stat label="Checked out" value={outLabel} />
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <Stat label="Checked in" value={inLabel} kind="in" />
+          <Stat label="Checked out" value={outLabel} kind="out" />
         </div>
 
-        <label htmlFor="punch-note" className="block text-[13.5px] font-semibold text-ink-soft mb-1.5">
-          Note / reason <span className="font-normal text-ink-subtle">(optional)</span>
+        <label htmlFor="punch-note" className="block text-[13px] font-bold uppercase tracking-wide text-ink-subtle mb-1.5">
+          Note / reason <span className="font-medium normal-case text-ink-subtle">(optional)</span>
         </label>
         <input
           id="punch-note"
@@ -224,29 +235,15 @@ export function PunchCard({
           onChange={(e) => setNote(e.target.value)}
           maxLength={500}
           placeholder="e.g. client visit in the morning"
-          className="w-full rounded-md border border-[#CBD5E1] px-3.5 py-2.5 text-[15px] bg-white mb-4"
+          className="w-full rounded-xl border-2 border-hairline-strong px-3.5 py-2.5 text-[15px] bg-white mb-5 outline-none transition-colors focus:border-[var(--color-altus-red)]"
         />
 
         <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-          <PunchButton
-            kind="in"
-            done={inLabel !== null}
-            pending={pending}
-            disabled={!locationReady}
-            onClick={() => punch("in")}
-          />
-          <PunchButton
-            kind="out"
-            done={outLabel !== null}
-            pending={pending}
-            disabled={!locationReady}
-            onClick={() => punch("out")}
-          />
+          <PunchButton kind="in" done={checkedIn} pending={pending} disabled={!locationReady} onClick={() => punch("in")} />
+          <PunchButton kind="out" done={checkedOut} pending={pending} disabled={!locationReady} onClick={() => punch("out")} />
         </div>
         {geofenceEnabled && !locationReady && (
-          <p className="mt-3 text-center text-[13px] text-ink-subtle">
-            Enable location above to check in or out.
-          </p>
+          <p className="mt-3 text-center text-[13px] text-ink-subtle">Enable location above to check in or out.</p>
         )}
       </div>
     </section>
@@ -256,31 +253,35 @@ export function PunchCard({
 const DENIED_MSG =
   "Location is blocked for this site. Tap the lock/location icon in your browser's address bar, set Location to Allow, then tap Try again.";
 
-/** Compact status pill in the clock face. */
+/** Compact status pill in the clock face. `dark` = sitting on the dark hero. */
 function LocationPill({
   loc,
   distanceM,
   withinFence,
   radiusM,
+  dark,
 }: {
   loc: LocState;
   distanceM: number | null;
   withinFence: boolean | null;
   radiusM: number;
+  dark?: boolean;
 }) {
+  const base = "inline-flex items-center gap-1.5 rounded-pill px-3 h-8 text-[12.5px] font-bold backdrop-blur";
   if (loc.phase === "granted") {
     const ok = withinFence !== false;
     const dist = distanceM != null ? `${Math.round(distanceM)}m from office` : "Location ready";
     return (
       <span
-        className="inline-flex items-center gap-1.5 rounded-pill px-3 h-8 text-[13px] font-bold"
+        className={base}
         style={
           ok
-            ? { background: "var(--color-green-bg)", color: "var(--color-green-deep)" }
-            : {
-                background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)",
-                color: "var(--color-altus-red)",
-              }
+            ? dark
+              ? { background: "rgba(34,197,94,0.16)", color: "#86efac", boxShadow: "inset 0 0 0 1px rgba(134,239,172,0.28)" }
+              : { background: "var(--color-green-bg)", color: "var(--color-green-deep)" }
+            : dark
+              ? { background: "rgba(225,6,0,0.20)", color: "#fca5a5", boxShadow: "inset 0 0 0 1px rgba(252,165,165,0.3)" }
+              : { background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red)" }
         }
       >
         <MapPin size={13} strokeWidth={2.4} /> {dist}
@@ -290,19 +291,13 @@ function LocationPill({
   }
   if (loc.phase === "locating") {
     return (
-      <span
-        className="inline-flex items-center gap-1.5 rounded-pill px-3 h-8 text-[13px] font-bold"
-        style={{ background: "var(--color-surface-soft)", color: "var(--color-ink-soft)" }}
-      >
+      <span className={base} style={dark ? { background: "rgba(255,255,255,0.1)", color: "rgba(247,244,237,0.8)" } : { background: "var(--color-surface-soft)", color: "var(--color-ink-soft)" }}>
         <Loader2 size={13} strokeWidth={2.4} className="animate-spin" /> Locating…
       </span>
     );
   }
   return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-pill px-3 h-8 text-[13px] font-bold"
-      style={{ background: "var(--color-surface-soft)", color: "var(--color-ink-subtle)" }}
-    >
+    <span className={base} style={dark ? { background: "rgba(255,255,255,0.08)", color: "rgba(247,244,237,0.6)" } : { background: "var(--color-surface-soft)", color: "var(--color-ink-subtle)" }}>
       <MapPinOff size={13} strokeWidth={2.4} /> Location off
     </span>
   );
@@ -425,8 +420,16 @@ function LiveClock({ tz }: { tz: string }) {
     : "--:--:--";
   return (
     <p
-      className="text-ink-strong tabular-nums mt-1"
-      style={{ fontFamily: "var(--font-display)", fontSize: 52, fontWeight: 650, lineHeight: 1.1, letterSpacing: "-0.02em" }}
+      className="tabular-nums mt-1.5"
+      style={{
+        fontFamily: "var(--font-display), system-ui, sans-serif",
+        fontSize: 62,
+        fontWeight: 800,
+        lineHeight: 1.05,
+        letterSpacing: "-0.03em",
+        color: "#FBFAF7",
+        textShadow: "0 2px 24px rgba(225,6,0,0.25)",
+      }}
       aria-label="Current time"
     >
       {text}
@@ -447,28 +450,50 @@ function PunchButton({
   disabled?: boolean;
   onClick: () => void;
 }) {
-  const Icon = pending ? Loader2 : kind === "in" ? LogIn : LogOut;
+  const Icon = pending ? Loader2 : done ? CheckCircle2 : kind === "in" ? LogIn : LogOut;
+  const isDisabled = pending || done || disabled;
   return (
     <button
       type="button"
-      disabled={pending || done || disabled}
+      disabled={isDisabled}
       onClick={onClick}
-      className="inline-flex h-14 items-center justify-center gap-2.5 rounded-xl text-[16px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-40"
+      className={`wg-btn ${isDisabled ? "" : "wg-sheen"} group relative inline-flex h-[60px] items-center justify-center gap-2.5 overflow-hidden rounded-2xl text-[16.5px] font-black text-white disabled:cursor-not-allowed`}
       style={{
-        background: kind === "in" ? "linear-gradient(135deg, #16A34A, #15803D)" : "linear-gradient(135deg, #E10600, #A80400)",
+        background: done
+          ? "linear-gradient(135deg, #334155, #1e293b)"
+          : kind === "in"
+            ? "linear-gradient(135deg, #16A34A, #15803D)"
+            : "linear-gradient(135deg, #E10600, #A80400)",
+        boxShadow: done
+          ? "none"
+          : kind === "in"
+            ? "0 14px 30px -12px rgba(22,163,74,0.6)"
+            : "0 14px 30px -12px rgba(225,6,0,0.6)",
+        opacity: isDisabled && !done ? 0.4 : 1,
       }}
     >
-      <Icon size={20} strokeWidth={2.3} className={pending ? "animate-spin" : undefined} />
+      <Icon size={21} strokeWidth={2.5} className={pending ? "animate-spin" : "transition-transform group-enabled:group-hover:scale-110"} />
       {done ? (kind === "in" ? "Checked in" : "Checked out") : kind === "in" ? "Check in" : "Check out"}
     </button>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string | null }) {
+function Stat({ label, value, kind }: { label: string; value: string | null; kind: "in" | "out" }) {
+  const has = value != null;
+  const accent = kind === "in" ? "#16a34a" : "var(--color-altus-red)";
+  const Icon = kind === "in" ? LogIn : LogOut;
   return (
-    <div className="rounded-xl px-4 py-3 text-center" style={{ background: "var(--color-surface-soft)" }}>
-      <div className="text-[12px] font-semibold uppercase tracking-wide text-ink-subtle">{label}</div>
-      <div className="mt-1 tabular-nums font-bold" style={{ fontSize: 22, color: value ? "var(--color-ink-strong)" : "var(--color-ink-subtle)" }}>
+    <div
+      className="rounded-2xl px-4 py-3.5 text-center transition-colors"
+      style={{
+        background: has ? `color-mix(in srgb, ${accent} 7%, var(--color-surface-card))` : "var(--color-surface-soft)",
+        boxShadow: has ? `inset 0 0 0 1px color-mix(in srgb, ${accent} 22%, transparent)` : "inset 0 0 0 1px var(--color-hairline)",
+      }}
+    >
+      <div className="flex items-center justify-center gap-1.5 text-[11.5px] font-bold uppercase tracking-wide" style={{ color: has ? accent : "var(--color-ink-subtle)" }}>
+        <Icon size={12} strokeWidth={2.6} /> {label}
+      </div>
+      <div className="mt-1 tabular-nums font-black" style={{ fontSize: 24, color: has ? "var(--color-ink-strong)" : "var(--color-ink-subtle)" }}>
         {value ?? "—"}
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { MapPin, ShieldCheck } from "lucide-react";
+import { MapPin, ShieldCheck, CalendarCheck, CalendarDays, LogIn, LogOut } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { PunchCard } from "@/components/attendance/punch-card";
@@ -57,6 +57,9 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   ]);
 
   const todayRow = myDays.find((d) => d.date === today);
+  const presentDays = myDays.filter((d) => d.in).length;
+  const lastOut = myDays.find((d) => d.out)?.out ?? null;
+  const firstName = me.name.split(" ")[0] ?? me.name;
 
   // Location-only geofence: the punch buttons stay disabled until the browser
   // reports a GPS fix; when office coords are set the server rejects any fix
@@ -67,12 +70,28 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[860px] px-8 max-md:px-4 pt-8 pb-16">
-        <header className="mb-6">
-          <h1 className="text-display-lg text-ink-strong">Attendance</h1>
-          <p className="text-body-lg text-ink-subtle mt-1">
-            Enable location and punch in from the office. One check-in and one check-out per day.
+      <main className="mx-auto max-w-[880px] px-8 max-md:px-4 pt-8 pb-16">
+        <header className="mb-6 wg-rise">
+          <span
+            className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
+            style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
+          >
+            <CalendarCheck size={13} strokeWidth={2.6} /> Employees · Attendance
+          </span>
+          <h1
+            className="mt-3 text-ink-strong"
+            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(30px,3.6vw,46px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
+          >
+            Good to see you, {firstName}
+          </h1>
+          <p className="mt-1.5 text-[15.5px] font-medium text-ink-muted">
+            Enable location and punch in from the office — one check-in and one check-out per day.
           </p>
+          <div className="mt-4 grid grid-cols-3 gap-3 max-sm:grid-cols-1">
+            <HeroStat icon={<CalendarDays size={16} />} label="Present · 14 days" value={String(presentDays)} accent="#16a34a" />
+            <HeroStat icon={<LogIn size={16} />} label="Today · check-in" value={todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : "—"} accent="var(--color-altus-red)" />
+            <HeroStat icon={<LogOut size={16} />} label="Last check-out" value={lastOut ? formatTimeInTz(lastOut.at, tz) : "—"} accent="#334155" />
+          </div>
         </header>
 
         <PunchCard
@@ -143,53 +162,85 @@ function PunchTime({ punch, tz }: { punch: PunchDetail | null; tz: string }) {
   );
 }
 
+function HeroStat({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string; accent: string }) {
+  return (
+    <div
+      className="rounded-2xl bg-surface-card px-4 py-3"
+      style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline), 0 1px 3px rgba(15,23,42,0.04)" }}
+    >
+      <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-subtle">
+        <span style={{ color: accent }}>{icon}</span> {label}
+      </div>
+      <div className="mt-0.5 tabular-nums font-black text-ink-strong" style={{ fontSize: 22 }}>{value}</div>
+    </div>
+  );
+}
+
 function MyLog({ days, tz }: { days: DayPunches[]; tz: string }) {
   return (
     <section
-      className="mt-6 rounded-section bg-surface-card p-6 max-md:p-4"
-      style={{
-        border: "1px solid var(--color-hairline)",
-        boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
-      }}
+      className="wg-rise mt-6 rounded-[22px] bg-surface-card p-6 max-md:p-4"
+      style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline), 0 6px 24px -18px rgba(15,23,42,0.25)", animationDelay: "80ms" }}
     >
-      <h2 className="text-display-2xs text-ink-strong mb-4">My last 14 days</h2>
+      <div className="mb-4 flex items-center gap-2.5">
+        <span className="inline-grid size-9 place-items-center rounded-xl" style={{ background: "color-mix(in srgb, #16a34a 10%, transparent)", color: "#15803d" }}>
+          <CalendarDays size={18} strokeWidth={2.3} />
+        </span>
+        <h2 className="text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 21, letterSpacing: "-0.02em" }}>
+          My last 14 days
+        </h2>
+      </div>
       {days.length === 0 ? (
-        <p className="text-[15px] text-ink-subtle">No punches yet — your log starts with today&apos;s first check-in.</p>
+        <p className="py-8 text-center text-[15px] text-ink-subtle">No punches yet — your log starts with today&apos;s first check-in.</p>
       ) : (
-        <table className="w-full text-[14px]">
-          <thead>
-            <tr className="text-left text-[12px] uppercase tracking-wide text-ink-subtle">
-              <th className="py-2 pr-3 font-semibold">Date</th>
-              <th className="py-2 pr-3 font-semibold">In</th>
-              <th className="py-2 pr-3 font-semibold">Out</th>
-              <th className="py-2 font-semibold max-md:hidden">Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {days.map((d) => (
-              <tr
+        <ul className="space-y-1.5">
+          {days.map((d, i) => {
+            const note = [d.in?.note, d.out?.note].filter(Boolean).join(" · ");
+            return (
+              <li
                 key={d.date}
-                className="border-t"
-                style={{ borderColor: "var(--color-hairline)" }}
+                className="wg-rise flex items-center gap-4 rounded-xl px-3.5 py-2.5 transition-colors hover:bg-surface-soft max-sm:flex-wrap"
+                style={{ animationDelay: `${Math.min(i, 8) * 25}ms` }}
               >
-                <td className="py-2.5 pr-3 text-ink-strong whitespace-nowrap">
-                  {labelForDate(d.date)}
-                </td>
-                <td className="py-2.5 pr-3 tabular-nums text-ink-soft">
-                  <PunchTime punch={d.in} tz={tz} />
-                </td>
-                <td className="py-2.5 pr-3 tabular-nums text-ink-soft">
-                  <PunchTime punch={d.out} tz={tz} />
-                </td>
-                <td className="py-2.5 text-ink-subtle max-md:hidden">
-                  {[d.in?.note, d.out?.note].filter(Boolean).join(" · ") || ""}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                <div className="w-[128px] shrink-0 text-[14px] font-bold text-ink-strong">{labelForDate(d.date)}</div>
+                <div className="flex flex-1 items-center gap-2 flex-wrap">
+                  <PunchChip kind="in" punch={d.in} tz={tz} />
+                  <PunchChip kind="out" punch={d.out} tz={tz} />
+                </div>
+                {note && <div className="text-[12.5px] text-ink-subtle max-w-[30ch] truncate max-sm:w-full" title={note}>{note}</div>}
+              </li>
+            );
+          })}
+        </ul>
       )}
     </section>
+  );
+}
+
+/** A premium in/out chip with time + verification badge. */
+function PunchChip({ kind, punch, tz }: { kind: "in" | "out"; punch: PunchDetail | null; tz: string }) {
+  const Icon = kind === "in" ? LogIn : LogOut;
+  const accent = kind === "in" ? "#16a34a" : "var(--color-altus-red)";
+  if (!punch) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[12.5px] font-semibold text-ink-subtle" style={{ background: "var(--color-surface-soft)" }}>
+        <Icon size={12} strokeWidth={2.4} /> {kind === "in" ? "In" : "Out"} —
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[12.5px] font-bold tabular-nums"
+      style={{ background: `color-mix(in srgb, ${accent} 9%, transparent)`, color: accent }}
+    >
+      <Icon size={12} strokeWidth={2.6} />
+      {formatTimeInTz(punch.at, tz)}
+      {punch.verifyMethod === "biometric" ? (
+        <ShieldCheck size={12} strokeWidth={2.6} style={{ color: "var(--color-green-deep)" }} />
+      ) : punch.verifyMethod === "gps_only" ? (
+        <MapPin size={12} strokeWidth={2.6} style={{ color: "var(--color-blue-deep)" }} />
+      ) : null}
+    </span>
   );
 }
 
