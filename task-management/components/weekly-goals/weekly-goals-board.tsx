@@ -24,6 +24,8 @@ import { WeeklyGoalsImport } from "@/components/weekly-goals/weekly-goals-import
 import { GoalCard } from "@/components/weekly-goals/goal-card";
 import { GoalQuickAdd } from "@/components/weekly-goals/goal-quick-add";
 import { ScoreRing } from "@/components/weekly-goals/score-ring";
+import { BoardQuickChips, type QuickChip } from "@/components/weekly-goals/board-quick-chips";
+import { BoardPersonNav, type PersonNavItem } from "@/components/weekly-goals/board-person-nav";
 import type { BoardGoal, StatusDisplayMap } from "@/components/weekly-goals/types";
 import { weeklyScore, weightTotal, WEIGHT_BUDGET } from "@/lib/weekly-goals/effective";
 import {
@@ -154,6 +156,7 @@ export function WeeklyGoalsBoard(props: Props) {
         if (completion === "behind" && p >= 50) return false;
         if (completion === "ontrack" && (p < 50 || p >= 100)) return false;
         if (completion === "done" && p < 100) return false;
+        if (completion === "unfilled" && p > 0) return false;
       }
       if (q) {
         const hay = `${r.client ?? ""} ${r.subject ?? ""} ${r.targetDone ?? ""} ${r.employeeName}`.toLowerCase();
@@ -181,6 +184,29 @@ export function WeeklyGoalsBoard(props: Props) {
     return [...map.entries()];
   }, [displayed]);
 
+  // Directory rows for the jump-to-person rail — built off the FULL visible set
+  // (not the filtered `grouped`) so someone never "disappears" from the rail just
+  // because the current search/chip hides their cards; each row carries their
+  // week score, active-goal count and how many goals are still behind (alert dot).
+  const personNav = React.useMemo<PersonNavItem[]>(() => {
+    const map = new Map<string, { name: string; rows: BoardGoal[] }>();
+    for (const r of visible) {
+      if (r.archived) continue;
+      if (!map.has(r.employeeId)) map.set(r.employeeId, { name: r.employeeName, rows: [] });
+      map.get(r.employeeId)!.rows.push(r);
+    }
+    return [...map.entries()]
+      .map(([id, g]) => ({
+        id,
+        name: g.name,
+        role: props.roleById?.[id] ?? null,
+        goalCount: g.rows.length,
+        score: weeklyScore(g.rows),
+        behindCount: g.rows.filter((r) => effPct(r) < 50).length,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [visible, props.roleById]);
+
   // Per-person live weight total over their ACTIVE (non-archived) goals this
   // week — drives both the budget meter and the budget-aware inline editor. Keyed
   // off `visible` (the unfiltered set) so a search never distorts the budget.
@@ -198,6 +224,67 @@ export function WeeklyGoalsBoard(props: Props) {
     }
     return map;
   }, [visible, props.weekStart]);
+
+  // Quick-filter chip counts — computed off `visible` (unfiltered, minus the
+  // status/search narrowing) so a chip always shows the TRUE size of its bucket,
+  // and its own selection doesn't shrink its own number. "unfilled" = %===0.
+  const chipCounts = React.useMemo<Record<QuickChip, number>>(() => {
+    const base = visible.filter((r) => statusFilter === "all" || r.status === statusFilter);
+    const c: Record<QuickChip, number> = { all: base.length, behind: 0, ontrack: 0, done: 0, unfilled: 0 };
+    for (const r of base) {
+      const p = effPct(r);
+      if (p < 50) c.behind++;
+      if (p >= 50 && p < 100) c.ontrack++;
+      if (p >= 100) c.done++;
+      if (p <= 0) c.unfilled++;
+    }
+    return c;
+  }, [visible, statusFilter]);
+  const quickChip: QuickChip = completion as QuickChip;
+
+  // ── Person "jump to" nav (admin/manager whole-team view) ───────────────
+  // Section refs by employee id so the rail can scroll to a person; expanding a
+  // collapsed section on jump so their goals are visible on arrival.
+  const sectionRefs = React.useRef<Map<string, HTMLElement>>(new Map());
+  const registerSection = React.useCallback((empId: string, el: HTMLElement | null) => {
+    if (el) sectionRefs.current.set(empId, el);
+    else sectionRefs.current.delete(empId);
+  }, []);
+  const [activePerson, setActivePerson] = React.useState<string | null>(null);
+  const jumpToPerson = React.useCallback((empId: string) => {
+    setCollapsed((c) => (c[empId] ? { ...c, [empId]: false } : c));
+    setActivePerson(empId);
+    // Wait a frame in case we just expanded the section (its height changed).
+    requestAnimationFrame(() => {
+      const el = sectionRefs.current.get(empId);
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Move keyboard focus to the section's header toggle for keyboard users.
+      requestAnimationFrame(() => {
+        el?.querySelector<HTMLButtonElement>("[data-person-toggle]")?.focus({ preventScroll: true });
+      });
+    });
+  }, []);
+
+  // Highlight the rail row for whichever person section is nearest the top of the
+  // viewport as the manager scrolls. Re-observes whenever the visible sections
+  // change (filter/search/add/delete). Guarded for SSR / no-IO environments.
+  React.useEffect(() => {
+    if (!showingAll || typeof IntersectionObserver === "undefined") return;
+    const els = [...sectionRefs.current.values()];
+    if (els.length === 0) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const top = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        const id = top?.target.getAttribute("data-person-id");
+        if (id) setActivePerson(id);
+      },
+      { rootMargin: "-8% 0px -70% 0px", threshold: 0 },
+    );
+    for (const el of els) io.observe(el);
+    return () => io.disconnect();
+  }, [showingAll, grouped]);
 
   const totalCount = visible.length;
   const activeVisible = React.useMemo(() => visible.filter((r) => !r.archived), [visible]);
@@ -255,7 +342,7 @@ export function WeeklyGoalsBoard(props: Props) {
         color: "var(--color-ink-strong)",
       }}
     >
-      <div className="relative mx-auto max-w-[1180px] px-10 max-md:px-4 pt-8 pb-24">
+      <div className={`relative mx-auto px-10 max-md:px-4 pt-8 pb-24 ${showingAll ? "max-w-[1360px]" : "max-w-[1180px]"}`}>
       {/* ── HEADER ──────────────────────────────────────────────────── */}
       <section className="wg-rise mb-5 flex items-center justify-between gap-6 flex-wrap">
         {/* Left — title + subtitle */}
@@ -393,6 +480,7 @@ export function WeeklyGoalsBoard(props: Props) {
                 { value: "behind", label: "Behind · <50%" },
                 { value: "ontrack", label: "On track" },
                 { value: "done", label: "Done · 100%" },
+                { value: "unfilled", label: "Unfilled · 0%" },
               ]} />
           </div>
           <div className="w-[166px] max-md:flex-1">
@@ -443,50 +531,91 @@ export function WeeklyGoalsBoard(props: Props) {
             </span>
           </div>
         </div>
+
+        {/* Quick-filter chips — one tap to the buckets managers scan for. Drives
+            the same `completion` state as the Progress dropdown (single source). */}
+        {totalCount > 0 && (
+          <div className="mt-3 pt-3 border-t border-hairline">
+            <BoardQuickChips
+              value={quickChip}
+              counts={chipCounts}
+              onSelect={(v) => setCompletion(v)}
+            />
+          </div>
+        )}
       </div>
 
       {/* Body --------------------------------------------------------- */}
       {showingAll ? (
-        grouped.length === 0 ? (
+        personNav.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="flex flex-col gap-10">
-            {grouped.map(([empId, g]) => (
-              <section key={empId}>
-                <MemberHeader
-                  name={g.name}
-                  role={props.roleById?.[empId] ?? null}
-                  goalCount={g.rows.filter((r) => !r.archived).length}
-                  score={weeklyScore(g.rows.filter((r) => !r.archived))}
-                  weightTotal={weightTotalByEmp.get(empId) ?? 0}
-                  employeeId={empId}
-                  weekStart={props.weekStart}
-                  canBalance={canBalance(empId)}
-                  collapsed={!!collapsed[empId]}
-                  onToggle={() => toggleCollapsed(empId)}
-                />
-                {/* #2 — collapsible: this employee's cards hide when collapsed.
-                    reduced-motion-safe (a plain conditional, no height anim). */}
-                {!collapsed[empId] && (
-                  <div className="flex flex-col gap-3.5 wg-rise">
-                    {g.rows.map((goal, i) => (
-                      <div key={goal.id} className="wg-rise" style={{ animationDelay: `${Math.min(i * 40, 280)}ms` }}>
-                        <GoalCard
-                          goal={goal}
-                          srNo={i + 1}
-                          canManage={canManage(goal.employeeId)}
-                          canReport={canReport(goal.employeeId)}
-                          canReview={canManage(goal.employeeId)}
-                          employeeWeightTotal={weightTotalByEmp.get(goal.employeeId) ?? 0}
-                          autoFocus={props.focusId === goal.id}
-                          {...sharedCardProps}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-            ))}
+          <div className="flex items-start gap-6">
+            {/* Left rail — searchable "jump to person" directory (sticky). */}
+            <BoardPersonNav people={personNav} activeId={activePerson} onJump={jumpToPerson} />
+
+            {/* Right — the grouped goal sections. */}
+            <div className="min-w-0 flex-1">
+              {grouped.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-hairline-strong bg-surface-card px-6 py-10 text-center">
+                  <p className="text-[15px] font-bold text-ink-strong">No goals match these filters</p>
+                  <p className="mt-1 text-[13.5px] font-medium text-ink-muted">
+                    The team is still here — use the list on the left to find anyone.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className={`mt-3 cursor-pointer inline-flex items-center gap-1.5 rounded-full bg-altus-red px-4 py-2 text-[13px] font-bold text-white ${FOCUS_RING}`}
+                  >
+                    <X size={14} strokeWidth={2.6} /> Clear filters
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-8">
+                  {grouped.map(([empId, g]) => (
+                    <section
+                      key={empId}
+                      data-person-id={empId}
+                      ref={(el) => registerSection(empId, el)}
+                      className="scroll-mt-4"
+                    >
+                      <MemberHeader
+                        name={g.name}
+                        role={props.roleById?.[empId] ?? null}
+                        goalCount={g.rows.filter((r) => !r.archived).length}
+                        score={weeklyScore(g.rows.filter((r) => !r.archived))}
+                        weightTotal={weightTotalByEmp.get(empId) ?? 0}
+                        employeeId={empId}
+                        weekStart={props.weekStart}
+                        canBalance={canBalance(empId)}
+                        collapsed={!!collapsed[empId]}
+                        onToggle={() => toggleCollapsed(empId)}
+                      />
+                      {/* #2 — collapsible: this employee's cards hide when collapsed.
+                          reduced-motion-safe (a plain conditional, no height anim). */}
+                      {!collapsed[empId] && (
+                        <div className="flex flex-col gap-3.5 wg-rise">
+                          {g.rows.map((goal, i) => (
+                            <div key={goal.id} className="wg-rise" style={{ animationDelay: `${Math.min(i * 40, 280)}ms` }}>
+                              <GoalCard
+                                goal={goal}
+                                srNo={i + 1}
+                                canManage={canManage(goal.employeeId)}
+                                canReport={canReport(goal.employeeId)}
+                                canReview={canManage(goal.employeeId)}
+                                employeeWeightTotal={weightTotalByEmp.get(goal.employeeId) ?? 0}
+                                autoFocus={props.focusId === goal.id}
+                                {...sharedCardProps}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )
       ) : (
@@ -709,11 +838,13 @@ function MemberHeader({
   const ok = weightTotal === WEIGHT_BUDGET;
   return (
     <div
-      className="mb-3.5 flex items-center justify-between gap-4 flex-wrap rounded-xl border px-4 py-3"
+      className="mb-3.5 flex items-center justify-between gap-4 flex-wrap rounded-xl border px-4 py-3 sticky top-2 z-20"
       style={{
-        background: "var(--color-surface-card)",
+        background: "color-mix(in srgb, var(--color-surface-card) 88%, transparent)",
+        backdropFilter: "blur(10px) saturate(1.4)",
+        WebkitBackdropFilter: "blur(10px) saturate(1.4)",
         borderColor: "var(--color-hairline)",
-        boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
+        boxShadow: "0 1px 3px rgba(15,23,42,0.05), 0 8px 24px -18px rgba(15,23,42,0.22)",
       }}
     >
       {/* Identity: chevron toggle + avatar + name + role badge + subline. The
@@ -721,6 +852,7 @@ function MemberHeader({
           employee's cards (Enter/Space toggle; aria-expanded reflects state). */}
       <button
         type="button"
+        data-person-toggle
         onClick={onToggle}
         aria-expanded={!collapsed}
         aria-label={`${collapsed ? "Expand" : "Collapse"} ${name}'s goals`}

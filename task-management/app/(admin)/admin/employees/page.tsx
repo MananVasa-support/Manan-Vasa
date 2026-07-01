@@ -1,5 +1,5 @@
 import { desc } from "drizzle-orm";
-import { Download } from "lucide-react";
+import { Download, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { employees } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/current";
@@ -8,6 +8,7 @@ import {
   listActiveDepartments,
   getEmployeeDepartmentMap,
 } from "@/lib/queries/departments";
+import { AdminSection } from "@/components/admin/ui/section-shell";
 import { EmployeeList } from "@/components/admin/employee-list";
 import { InviteEmployeeDialog } from "@/components/admin/invite-employee-dialog";
 import type { EmployeeDepartmentMembership } from "@/components/admin/edit-employee-dialog";
@@ -34,34 +35,22 @@ export default async function EmployeesPage() {
   const canManageAdmins = isSuperAdmin(me.email);
 
   return (
-    <div>
-      <header className="mb-8 flex items-start justify-between gap-6 flex-wrap">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-ink-subtle font-bold">
-            Admin · Employees
-          </div>
-          <h1
-            className="mt-1 text-ink-strong"
-            style={{
-              fontFamily: "var(--font-serif)",
-              fontStyle: "italic",
-              fontWeight: 500,
-              fontSize: 44,
-              lineHeight: 1.05,
-              letterSpacing: "-0.02em",
-            }}
-          >
-            The team
-          </h1>
-          <p className="text-body-lg text-ink-subtle mt-2 max-w-2xl tabular-nums">
-            {all.length} total · {activeCount} active · {invitedCount} pending invite
-          </p>
-        </div>
-        <div className="flex items-center gap-2.5 mt-1">
+    <AdminSection
+      eyebrow="Admin · Employees"
+      title="The team"
+      subtitle={`${all.length} total · ${activeCount} active · ${invitedCount} pending invite`}
+      icon={Users}
+      stats={[
+        { label: "Total", value: all.length },
+        { label: "Active", value: activeCount, tone: "green" },
+        { label: "Pending invite", value: invitedCount, tone: "amber" },
+      ]}
+      actions={
+        <>
           <a
             href="/admin/employees/export"
             download
-            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink-soft hover:text-ink-strong transition-colors px-3.5 py-2 rounded-chip border border-hairline bg-surface-card"
+            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink-soft hover:text-ink-strong transition-colors px-3.5 py-2 rounded-pill border border-hairline bg-surface-card wg-btn"
             style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)" }}
             title="Download current view as CSV"
             aria-label="Export CSV"
@@ -73,8 +62,9 @@ export default async function EmployeesPage() {
             departmentOptions={departmentOptions}
             canManageAdmins={canManageAdmins}
           />
-        </div>
-      </header>
+        </>
+      }
+    >
       <EmployeeList
         employees={all}
         membershipsByEmployee={membershipsByEmployee}
@@ -83,6 +73,6 @@ export default async function EmployeesPage() {
         departmentOptions={departmentOptions}
         managerOptions={managerOptions}
       />
-    </div>
+    </AdminSection>
   );
 }

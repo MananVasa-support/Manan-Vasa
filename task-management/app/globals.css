@@ -2299,6 +2299,197 @@ select.nt-input {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
+   ADMIN premium kit — shared glass surfaces for the 16 admin section pages.
+   Owned by the admin-ui-kit slice. Brand-red identity, frosted glass, layered
+   depth, hairline borders. GPU/opacity-only motion, reduced-motion safe.
+   Consumed by: components/admin/ui/{section-shell,data-table,stat-pill}.tsx
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Glassy gradient header band that crowns every admin section page. A frosted
+   translucent surface with a soft brand-red wash top-left, a cool lavender
+   bias top-right (echoing the app body gradient), a hairline bottom border,
+   and a big ambient drop shadow so it floats above the page canvas. */
+@utility admin-section-band {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: var(--radius-section);
+  background:
+    radial-gradient(ellipse 70% 130% at 0% 0%, rgba(225, 6, 0, 0.10), transparent 62%),
+    radial-gradient(ellipse 60% 130% at 100% 0%, rgba(168, 139, 250, 0.08), transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86) 0%, rgba(255, 255, 255, 0.70) 100%);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid var(--color-hairline);
+  border-bottom: 1px solid var(--color-hairline-strong);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 1px 3px rgba(15, 23, 42, 0.05),
+    0 20px 48px -26px rgba(15, 23, 42, 0.20),
+    0 6px 18px -10px rgba(225, 6, 0, 0.10);
+}
+/* A hairline accent seam sitting on the band's very top edge, brand-red
+   fading out — the "this section is Altus admin" tell. */
+@utility admin-section-band {
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      var(--color-altus-red) 0%,
+      var(--color-altus-red-deep) 22%,
+      color-mix(in srgb, var(--color-altus-red) 20%, transparent) 55%,
+      transparent 85%
+    );
+    pointer-events: none;
+    z-index: 3;
+  }
+}
+
+/* The square icon tile shown beside the section title — brand-red gradient
+   chip with a glossy top highlight + tone-tinted shadow. */
+@utility admin-section-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #F4554D 0%, var(--color-altus-red) 48%, var(--color-altus-red-deep) 100%);
+  border: 1px solid rgba(168, 4, 0, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
+    0 8px 20px -8px rgba(225, 6, 0, 0.55),
+    0 2px 4px rgba(168, 4, 0, 0.25);
+}
+
+/* Stat pill — a compact frosted metric chip used in the band's stat row.
+   Neutral by default; the tone modifiers repaint value + dot. */
+@utility admin-stat-pill {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.60);
+  border: 1px solid var(--color-hairline);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 1px 2px rgba(15, 23, 42, 0.04);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform 200ms cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 200ms ease, border-color 200ms ease;
+}
+@utility admin-stat-pill {
+  &:hover {
+    transform: translateY(-1px);
+    border-color: var(--color-hairline-strong);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      0 8px 18px -10px rgba(15, 23, 42, 0.20);
+  }
+}
+
+/* Frosted card that wraps the DataTable (toolbar + table live inside). */
+@utility admin-panel {
+  border-radius: var(--radius-section);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid var(--color-hairline);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 1px 3px rgba(15, 23, 42, 0.05),
+    0 18px 44px -28px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+}
+
+/* The DataTable's frosted, sticky toolbar (search + filters + count). */
+@utility admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.5));
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+/* Search input inside the toolbar. */
+@utility admin-search {
+  width: 100%;
+  padding: 11px 12px 11px 40px;
+  border-radius: var(--radius-chip);
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-hairline);
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
+  font-size: 15px;
+  color: var(--color-ink-strong);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+@utility admin-search {
+  &::placeholder { color: var(--color-ink-subtle); }
+  &:hover { border-color: var(--color-hairline-strong); }
+  &:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--color-altus-red) 55%, transparent);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03), 0 0 0 4px rgba(225, 6, 0, 0.08);
+  }
+}
+
+/* Filter <select> in the toolbar. */
+@utility admin-filter-select {
+  appearance: none;
+  padding: 9px 34px 9px 12px;
+  border-radius: var(--radius-chip);
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-hairline);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+@utility admin-filter-select {
+  &:hover { border-color: var(--color-hairline-strong); }
+  &:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--color-altus-red) 55%, transparent);
+    box-shadow: 0 0 0 4px rgba(225, 6, 0, 0.08);
+  }
+}
+
+/* Sortable column-header button inside the DataTable head. */
+@utility admin-th-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 160ms ease;
+}
+@utility admin-th-btn {
+  &:hover { color: var(--color-ink-strong); }
+}
+
+/* Table row hover — a soft brand-tinted wash, no zebra. */
+@utility admin-row {
+  transition: background 140ms ease;
+}
+@utility admin-row {
+  &:hover { background: color-mix(in srgb, var(--color-altus-red) 4%, transparent); }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
    Day-Ledger paper — the shared brand canvas across the accountability suite
    (gate, board, fill, dashboard). Warm-paper gradient + faint ruled lines, both
    as BACKGROUNDS so they always sit behind content (never overlap text).

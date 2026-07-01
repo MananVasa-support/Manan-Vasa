@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { DataTable } from "@/components/admin/ui/data-table";
 
 interface Props {
   clients: ClientWithCount[];
@@ -22,74 +23,99 @@ export function ClientList({ clients }: Props) {
   const [editing, setEditing] = useState<ClientWithCount | null>(null);
   const [deleting, setDeleting] = useState<ClientWithCount | null>(null);
 
-  if (clients.length === 0) {
-    return (
-      <div
-        className="rounded-section border border-dashed border-hairline-strong bg-surface-card px-6 py-14 text-center"
-        style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
-      >
-        <p
-          className="font-serif text-ink-strong"
-          style={{ fontStyle: "italic", fontSize: 22, letterSpacing: "-0.015em" }}
-        >
-          No clients yet
-        </p>
-        <p className="text-[14px] text-ink-subtle mt-2 max-w-sm mx-auto" style={{ lineHeight: 1.5 }}>
-          Create your first one with the button above. It then shows up in the
-          Client Name picker on every task.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <>
-      <div
-        className="overflow-hidden rounded-section border border-hairline bg-surface-card"
-        style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
-      >
-        <table className="w-full text-[15px]">
-          <thead>
-            <tr
-              className="text-left text-[12px] uppercase tracking-[0.08em] text-ink-subtle font-bold border-b border-hairline"
-              style={{ background: "var(--color-surface-soft)" }}
+      <DataTable<ClientWithCount>
+        rows={clients}
+        getRowKey={(c) => c.id}
+        searchText={(c) => c.name}
+        searchPlaceholder="Search clients by name"
+        initialSort={{ key: "name", dir: "asc" }}
+        filters={[
+          {
+            label: "Status",
+            options: [
+              { value: "active", label: "Active" },
+              { value: "inactive", label: "Inactive" },
+            ],
+            match: (c, v) => (v === "active" ? c.isActive : !c.isActive),
+          },
+        ]}
+        columns={[
+          {
+            key: "name",
+            label: "Name",
+            sortValue: (c) => c.name,
+            render: (c) => (
+              <span className="font-medium text-ink-strong">{c.name}</span>
+            ),
+          },
+          {
+            key: "sortOrder",
+            label: "Sort",
+            align: "right",
+            className: "tabular-nums",
+            sortValue: (c) => c.sortOrder,
+            render: (c) => (
+              <span className="tabular-nums text-ink-soft">{c.sortOrder}</span>
+            ),
+          },
+          {
+            key: "taskCount",
+            label: "Tasks",
+            align: "right",
+            className: "tabular-nums",
+            sortValue: (c) => c.taskCount,
+            render: (c) => (
+              <span className="tabular-nums text-ink-soft">{c.taskCount}</span>
+            ),
+          },
+          {
+            key: "status",
+            label: "Status",
+            sortValue: (c) => (c.isActive ? 0 : 1),
+            render: (c) => <StatusChip active={c.isActive} />,
+          },
+        ]}
+        rowActions={(c) => (
+          <ClientRowActions
+            client={c}
+            onEdit={() => setEditing(c)}
+            onDelete={() => setDeleting(c)}
+          />
+        )}
+        emptyState={
+          <>
+            <p
+              className="text-ink-strong"
+              style={{
+                fontFamily: "var(--font-serif), system-ui, sans-serif",
+                fontStyle: "italic",
+                fontSize: 22,
+                letterSpacing: "-0.015em",
+              }}
             >
-              <th className="px-5 py-4">Name</th>
-              <th className="px-5 py-4 tabular-nums">Sort</th>
-              <th className="px-5 py-4 tabular-nums">Tasks</th>
-              <th className="px-5 py-4">Status</th>
-              <th className="px-5 py-4 text-right">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {clients.map((c, i) => (
-              <ClientRow
-                key={c.id}
-                client={c}
-                rowIndex={i}
-                onEdit={() => setEditing(c)}
-                onDelete={() => setDeleting(c)}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
+              No clients yet
+            </p>
+            <p className="mt-2 max-w-sm mx-auto text-[14px] text-ink-subtle" style={{ lineHeight: 1.5 }}>
+              Create your first one with the button above. It then shows up in the
+              Client Name picker on every task.
+            </p>
+          </>
+        }
+      />
       <EditClientDialog client={editing} onClose={() => setEditing(null)} />
       <DeleteClientDialog client={deleting} onClose={() => setDeleting(null)} />
     </>
   );
 }
 
-function ClientRow({
+function ClientRowActions({
   client,
-  rowIndex,
   onEdit,
   onDelete,
 }: {
   client: ClientWithCount;
-  rowIndex: number;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -111,67 +137,58 @@ function ClientRow({
   }
 
   return (
-    <tr
-      className="border-b border-hairline last:border-b-0 transition-colors hover:bg-surface-soft"
-      style={{ background: rowIndex % 2 === 1 ? "rgba(15, 23, 42, 0.012)" : undefined }}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Client actions"
+          disabled={pending}
+          className="inline-flex items-center justify-center size-9 rounded-lg border border-hairline text-ink-soft hover:border-hairline-strong hover:text-ink-strong transition-colors disabled:opacity-50 data-[state=open]:border-altus-red data-[state=open]:text-altus-red"
+        >
+          <MoreHorizontal size={18} strokeWidth={2.2} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem onSelect={onEdit}>
+          <Pencil size={15} strokeWidth={2.2} />
+          Edit
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={(e) => {
+            e.preventDefault();
+            toggleActive();
+          }}
+        >
+          <Power size={15} strokeWidth={2.2} />
+          {client.isActive ? "Deactivate" : "Reactivate"}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem danger onSelect={onDelete}>
+          <Trash2 size={15} strokeWidth={2.2} />
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function StatusChip({ active }: { active: boolean }) {
+  return active ? (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold"
+      style={{ background: "var(--color-green-bg)", color: "var(--color-green-deep)" }}
     >
-      <td className="px-5 py-4 text-ink-strong font-medium">{client.name}</td>
-      <td className="px-5 py-4 tabular-nums text-ink-soft">{client.sortOrder}</td>
-      <td className="px-5 py-4 tabular-nums text-ink-soft">{client.taskCount}</td>
-      <td className="px-5 py-4">
-        {client.isActive ? (
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold"
-            style={{ background: "var(--color-green-bg)", color: "var(--color-green-deep)" }}
-          >
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--color-green)" }} />
-            Active
-          </span>
-        ) : (
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold"
-            style={{ background: "rgba(15, 23, 42, 0.05)", color: "var(--color-ink-subtle)" }}
-          >
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--color-ink-subtle)" }} />
-            Inactive
-          </span>
-        )}
-      </td>
-      <td className="px-5 py-4 text-right">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label="Client actions"
-              disabled={pending}
-              className="inline-flex items-center justify-center size-9 rounded-lg border border-hairline text-ink-soft hover:border-hairline-strong hover:text-ink-strong transition-colors disabled:opacity-50 data-[state=open]:border-altus-red data-[state=open]:text-altus-red"
-            >
-              <MoreHorizontal size={18} strokeWidth={2.2} />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onSelect={onEdit}>
-              <Pencil size={15} strokeWidth={2.2} />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault();
-                toggleActive();
-              }}
-            >
-              <Power size={15} strokeWidth={2.2} />
-              {client.isActive ? "Deactivate" : "Reactivate"}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem danger onSelect={onDelete}>
-              <Trash2 size={15} strokeWidth={2.2} />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </td>
-    </tr>
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--color-green)" }} />
+      Active
+    </span>
+  ) : (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold"
+      style={{ background: "rgba(15, 23, 42, 0.05)", color: "var(--color-ink-subtle)" }}
+    >
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--color-ink-subtle)" }} />
+      Inactive
+    </span>
   );
 }
 
