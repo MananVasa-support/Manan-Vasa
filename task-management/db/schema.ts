@@ -3797,6 +3797,51 @@ export const pmsPersonalGoal = pgTable(
   (t) => [index("pms_personal_goal_emp_idx").on(t.employeeId, t.period)],
 );
 
+// Migration 0099 — the authoritative monthly salary sheet, imported as-is.
+export const salaryBreakup = pgTable(
+  "salary_breakup",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    srNo: integer("sr_no"),
+    fy: text("fy"),
+    month: date("month").notNull(),
+    employeeName: text("employee_name").notNull(),
+    employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "set null" }),
+    designation: text("designation"),
+    companyName: text("company_name"),
+    present: numeric("present", { precision: 6, scale: 2 }).default("0"),
+    holiday: numeric("holiday", { precision: 6, scale: 2 }).default("0"),
+    weeklyOff: numeric("weekly_off", { precision: 6, scale: 2 }).default("0"),
+    pohFull: numeric("poh_full", { precision: 6, scale: 2 }).default("0"),
+    pohHalf: numeric("poh_half", { precision: 6, scale: 2 }).default("0"),
+    halfDay: numeric("half_day", { precision: 6, scale: 2 }).default("0"),
+    absent: numeric("absent", { precision: 6, scale: 2 }).default("0"),
+    daysInMonth: numeric("days_in_month", { precision: 6, scale: 2 }).default("0"),
+    totalDaysWorked: numeric("total_days_worked", { precision: 6, scale: 2 }).default("0"),
+    setOff: numeric("set_off", { precision: 6, scale: 2 }),
+    cf: numeric("cf", { precision: 6, scale: 2 }),
+    finalWorkingDays: numeric("final_working_days", { precision: 6, scale: 2 }).default("0"),
+    annualCtc: numeric("annual_ctc", { precision: 14, scale: 2 }).default("0"),
+    monthlyCtc: numeric("monthly_ctc", { precision: 14, scale: 2 }).default("0"),
+    payableAfterLeave: numeric("payable_after_leave", { precision: 14, scale: 2 }).default("0"),
+    pt: numeric("pt", { precision: 14, scale: 2 }).default("0"),
+    payableAfterPt: numeric("payable_after_pt", { precision: 14, scale: 2 }).default("0"),
+    advance: numeric("advance", { precision: 14, scale: 2 }).default("0"),
+    previousPending: numeric("previous_pending", { precision: 14, scale: 2 }).default("0"),
+    finalPayment: numeric("final_payment", { precision: 14, scale: 2 }).default("0"),
+    salaryGiven: numeric("salary_given", { precision: 14, scale: 2 }),
+    remarks: text("remarks"),
+    mananRemarks: text("manan_remarks"),
+    importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("salary_breakup_emp_month_uidx").on(t.employeeName, t.month),
+    index("salary_breakup_month_idx").on(t.month),
+    index("salary_breakup_emp_idx").on(t.employeeId),
+  ],
+);
+export type SalaryBreakup = typeof salaryBreakup.$inferSelect;
+
 // Migration 0098 — manager review of a team member's daily checklist (per day).
 export const dailyChecklistReviews = pgTable(
   "daily_checklist_reviews",
