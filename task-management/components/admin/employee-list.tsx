@@ -238,8 +238,6 @@ export function EmployeeList({
               <th className="px-5 py-4">Email</th>
               <th className="px-5 py-4">Role</th>
               <th className="px-5 py-4">Department</th>
-              <th className="px-5 py-4">Admin</th>
-              <th className="px-5 py-4">Status</th>
               <th className="px-5 py-4 w-12 text-right">
                 <span className="sr-only">Actions</span>
               </th>
@@ -273,12 +271,6 @@ export function EmployeeList({
                     <DepartmentCell
                       memberships={membershipsByEmployee[e.id] ?? []}
                     />
-                  </td>
-                  <td className="px-5 py-4">
-                    <AdminCell isAdmin={e.isAdmin} />
-                  </td>
-                  <td className="px-5 py-4">
-                    <StatusPill isActive={e.isActive} joinedAt={e.joinedAt} />
                   </td>
                   <td className="px-5 py-4 text-right">
                     <EmployeeRowActions
