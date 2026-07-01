@@ -8,7 +8,7 @@ import { UserMenuServer } from "@/components/header/user-menu-server";
 import { NewTaskTrigger } from "@/components/header/new-task-trigger";
 import { GlobalSearch } from "@/components/header/global-search";
 import { getCurrentEmployee } from "@/lib/auth/current";
-import { workspaceForPath } from "@/lib/workspaces";
+import { workspaceForPath, WORKSPACE_LANDING } from "@/lib/workspaces";
 import { MODULE_THEME } from "@/lib/module-theme";
 
 /** "#rrggbb" → "r g b" (the triplet form the nav-pill CSS expects). */
@@ -73,10 +73,10 @@ export async function DashboardHeader({
           <NavHistoryButtons />
           <MobileMenuServer isAdmin={isAdmin} />
 
-          {/* LEFT: Altus Corp logo — always returns to the WMS home page
-              (/dashboard), from any workspace. The image is the brand mark; the
-              logo already includes the name. */}
-          <a href="/dashboard" className="flex items-center shrink-0" aria-label="Back to WMS home">
+          {/* LEFT: Altus Corp logo — returns to the CURRENT module's landing page
+              (e.g. Training logo → /training, Employees → /attendance); WMS and
+              shared surfaces fall back to /dashboard. */}
+          <a href={ws ? WORKSPACE_LANDING[ws] : "/dashboard"} className="flex items-center shrink-0" aria-label="Go to this module's home">
             <img
               src="/logo.png"
               alt="Altus Corp"

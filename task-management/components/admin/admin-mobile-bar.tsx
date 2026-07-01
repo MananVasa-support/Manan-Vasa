@@ -165,15 +165,6 @@ export function AdminMobileBar({ adminName, adminEmail, backHref, canSeeAccounts
               {ADMIN_TOP_LEVEL.map((item) => (
                 <NavLink key={item.href} item={item} />
               ))}
-              {canSeeAccounts && (
-                <Link
-                  href={"/accounts" as Route}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-[15px] font-semibold text-ink-strong"
-                >
-                  <Calculator size={18} strokeWidth={2.2} style={{ color: "var(--color-ink-soft)" }} />
-                  <span>Accounts</span>
-                </Link>
-              )}
               {ADMIN_GROUPS.map((g) => (
                 <div key={g.label} className="mt-2 flex flex-col gap-1">
                   <div className="nav-drawer-section">{g.label}</div>

@@ -107,7 +107,6 @@ export async function teamPerformance(
   const week = currentWeekStart(now);
   const { startToday, startTomorrow } = dayBounds(ymd);
   const { monthStart, monthEnd, monthStartInstant } = monthBounds(ymd);
-  const eff = effectiveDueAtSql();
   const num = (v: unknown) => Number(v ?? 0);
 
   const [goalRows, taskRows, attRows, planRows, dccRows, trainRows] = await Promise.all([
@@ -134,11 +133,11 @@ export async function teamPerformance(
           .select({
             id: tasks.doerId,
             pending: sql<number>`coalesce(sum(case when ${tasks.status} not in ('done','approved','cancelled') then 1 else 0 end),0)::int`,
-            overdue: sql<number>`coalesce(sum(case when ${tasks.status} not in ('done','approved','cancelled') and ${eff} < ${startToday} then 1 else 0 end),0)::int`,
-            assignedToday: sql<number>`coalesce(sum(case when ${tasks.status} not in ('done','approved','cancelled') and ${effectiveDueAtSql()} < ${startTomorrow} then 1 else 0 end),0)::int`,
+            overdue: sql<number>`coalesce(sum(case when ${tasks.status} not in ('done','approved','cancelled') and ${effectiveDueAtSql()} < ${startToday.toISOString()}::timestamptz then 1 else 0 end),0)::int`,
+            assignedToday: sql<number>`coalesce(sum(case when ${tasks.status} not in ('done','approved','cancelled') and ${effectiveDueAtSql()} < ${startTomorrow.toISOString()}::timestamptz then 1 else 0 end),0)::int`,
             needHelp: sql<number>`coalesce(sum(case when ${tasks.status} = 'need_info' then 1 else 0 end),0)::int`,
             blocked: sql<number>`coalesce(sum(case when ${tasks.status} = 'on_hold' then 1 else 0 end),0)::int`,
-            doneToday: sql<number>`coalesce(sum(case when ${tasks.status} in ('done','approved') and ${tasks.completedAt} >= ${startToday} then 1 else 0 end),0)::int`,
+            doneToday: sql<number>`coalesce(sum(case when ${tasks.status} in ('done','approved') and ${tasks.completedAt} >= ${startToday.toISOString()}::timestamptz then 1 else 0 end),0)::int`,
           })
           .from(tasks)
           .where(and(inArray(tasks.doerId, ids), eq(tasks.archived, false)))

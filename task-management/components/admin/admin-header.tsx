@@ -83,14 +83,6 @@ export function AdminHeader({ adminName, adminEmail, avatarUrl, backHref, canSee
             >
               <ShieldCheck size={14} strokeWidth={2.6} /> Admin
             </span>
-            {canSeeAccounts && (
-              <Link
-                href={"/accounts" as Route}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold text-ink-soft transition-colors hover:text-altus-red hover:bg-black/[0.04]"
-              >
-                <Calculator size={14} strokeWidth={2.6} /> Accounts
-              </Link>
-            )}
           </div>
 
           {/* CENTER: grouped category nav. Scrolls from the left if it ever

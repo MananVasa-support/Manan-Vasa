@@ -92,7 +92,7 @@ export async function assignedTasksForToday(
         eq(tasks.doerId, employeeId),
         eq(tasks.archived, false),
         sql`${tasks.status} not in ('done','approved','cancelled')`,
-        sql`${effectiveDueAtSql()} < ${cutoff}`,
+        sql`${effectiveDueAtSql()} < ${cutoff.toISOString()}::timestamptz`,
       ),
     )
     .orderBy(asc(effectiveDueAtSql()), asc(tasks.createdAt));
@@ -182,7 +182,7 @@ export async function hasPlannedWork(
         eq(tasks.doerId, employeeId),
         eq(tasks.archived, false),
         sql`${tasks.status} not in ('done','approved','cancelled')`,
-        sql`${effectiveDueAtSql()} < ${cutoff}`,
+        sql`${effectiveDueAtSql()} < ${cutoff.toISOString()}::timestamptz`,
       ),
     );
   if ((assigned?.n ?? 0) > 0) return true;
