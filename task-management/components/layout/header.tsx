@@ -97,18 +97,34 @@ export async function DashboardHeader({
             <span>Back to Hub</span>
           </a>
 
-          {/* MODULE IDENTITY — a bold, module-coloured badge shown on EVERY page
-              of a non-WMS module, so you always know exactly where you are. */}
+          {/* MODULE IDENTITY — a BIG, animated, module-coloured wordmark shown on
+              EVERY page of a non-WMS module, so you always know exactly where you
+              are. Gradient-filled text with a sweeping sheen + entrance pop. */}
           {theme && ModuleIcon && (
-            <span
-              className="inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-[14px] font-extrabold uppercase tracking-[0.04em] text-white max-md:px-3 max-md:py-1.5 max-md:text-[12.5px]"
-              style={{
-                background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentDeep})`,
-                boxShadow: `0 6px 16px -8px ${theme.accentDeep}`,
-              }}
-            >
-              <ModuleIcon size={16} strokeWidth={2.6} aria-hidden />
-              {theme.label}
+            <span className="module-wordmark inline-flex shrink-0 items-center gap-2.5 max-md:gap-2" aria-label={theme.label}>
+              <span
+                className="module-wordmark-icon inline-grid place-items-center rounded-2xl text-white max-md:rounded-xl"
+                style={{
+                  background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentDeep})`,
+                  boxShadow: `0 8px 20px -8px ${theme.accentDeep}`,
+                  width: 44,
+                  height: 44,
+                }}
+              >
+                <ModuleIcon size={22} strokeWidth={2.6} aria-hidden />
+              </span>
+              <span
+                className="module-wordmark-text leading-none"
+                style={
+                  {
+                    "--mw-a": theme.accent,
+                    "--mw-b": theme.accentDeep,
+                    fontSize: "clamp(20px, 2vw, 28px)",
+                  } as React.CSSProperties
+                }
+              >
+                {theme.label}
+              </span>
             </span>
           )}
 
@@ -128,11 +144,12 @@ export async function DashboardHeader({
               the search collapses to an icon there too, so the nav always has
               room and nothing ever overlaps. */}
           <div className="flex items-center gap-2.5 2xl:gap-3 shrink-0 max-xl:ml-auto max-md:gap-1.5">
-            <GlobalSearch />
+            <GlobalSearch workspace={ws} />
             <span className="max-2xl:hidden">
               <LiveIndicator />
             </span>
-            <NewTaskTrigger />
+            {/* New Task is a WMS-only action — hidden in every other module. */}
+            {ws === "wms" && <NewTaskTrigger />}
             <UserMenuServer />
           </div>
         </div>

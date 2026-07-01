@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/command";
 import { globalSearchAction } from "@/app/(app)/search/actions";
 import type { GlobalSearchResult } from "@/lib/queries/global-search";
+import type { WorkspaceId } from "@/lib/workspaces";
 import { STATUS_LABELS_FALLBACK } from "@/lib/format";
 
 const EMPTY: GlobalSearchResult = {
@@ -21,25 +22,57 @@ const EMPTY: GlobalSearchResult = {
 };
 
 /**
+ * Which result categories each workspace surfaces. Search is SCOPED to the module
+ * you're in — e.g. searching from Training never shows WMS tasks. Workspaces not
+ * listed (null = shared surfaces like Inbox) search everything.
+ */
+const WORKSPACE_SCOPE: Partial<Record<WorkspaceId, (keyof GlobalSearchResult)[]>> = {
+  wms: ["tasks", "clients", "projects", "people", "documents"],
+  sales: ["clients", "people", "outstanding", "ambassadors"],
+  employees: ["people"],
+  marketing: ["people"],
+  training: ["people"],
+  admin: ["clients", "people"],
+  accounts: ["clients", "people"],
+};
+
+/** Empty out any category not allowed in the current workspace. */
+function scopeResult(data: GlobalSearchResult, ws: WorkspaceId | null | undefined): GlobalSearchResult {
+  const allow = ws ? WORKSPACE_SCOPE[ws] : undefined;
+  if (!allow) return data; // shared / unknown → search everything
+  const keep = new Set(allow);
+  const out = { ...EMPTY };
+  for (const k of Object.keys(out) as (keyof GlobalSearchResult)[]) {
+    out[k] = keep.has(k) ? (data[k] as never) : ([] as never);
+  }
+  return out;
+}
+
+/**
  * App-wide global search. ⌘/Ctrl+K command palette (cmdk + Radix Dialog) that
  * queries every entity (tasks, clients, projects, people, receivables,
  * documents) via a single GIN-indexed server action, grouped + ranked with
  * archived/inactive below active. Debounced + TanStack-Query-cached.
  */
-export function GlobalSearch({ trigger }: { trigger?: React.ReactNode } = {}) {
+export function GlobalSearch({
+  trigger,
+  workspace,
+}: { trigger?: React.ReactNode; workspace?: WorkspaceId | null } = {}) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const debounced = useDebounced(query, 180);
   const q = debounced.trim();
 
-  const { data = EMPTY, isFetching } = useQuery({
+  const { data: raw = EMPTY, isFetching } = useQuery({
     queryKey: ["global-search", q],
     queryFn: () => globalSearchAction(q),
     enabled: open && q.length >= 2,
     staleTime: 30_000,
     placeholderData: (prev) => prev,
   });
+  // Scope results to the current module (e.g. Training never shows WMS tasks).
+  const data = React.useMemo(() => scopeResult(raw, workspace), [raw, workspace]);
 
   React.useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -73,16 +106,10 @@ export function GlobalSearch({ trigger }: { trigger?: React.ReactNode } = {}) {
           <button
             type="button"
             aria-label="Search"
-            className="inline-flex items-center gap-2 rounded-pill border border-hairline bg-surface-soft px-3 h-10 text-ink-subtle transition-colors hover:bg-surface-card hover:border-hairline-strong max-md:h-9 max-md:px-2.5"
+            title="Search (⌘K)"
+            className="inline-grid place-items-center rounded-xl border border-hairline bg-surface-soft h-10 w-10 text-ink-subtle transition-colors hover:bg-surface-card hover:border-hairline-strong max-md:h-9 max-md:w-9"
           >
-            <Search size={16} strokeWidth={2.2} className="shrink-0" />
-            <span className="text-[14px] font-medium max-2xl:hidden">Search everything…</span>
-            <kbd
-              className="ml-2 hidden 2xl:inline-flex items-center gap-0.5 rounded border border-hairline bg-surface-card px-1.5 py-0.5 text-[11px] font-bold text-ink-subtle"
-              aria-hidden
-            >
-              ⌘K
-            </kbd>
+            <Search size={18} strokeWidth={2.3} className="shrink-0" />
           </button>
         )}
       </Dialog.Trigger>

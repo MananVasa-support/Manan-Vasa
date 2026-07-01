@@ -6,6 +6,7 @@ import { db, employees } from "@/lib/db";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { getDownlineIds } from "@/lib/weekly-goals/hierarchy";
+import { withRetry } from "@/lib/db/with-timeout";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
@@ -39,20 +40,29 @@ export default async function TrainingObligationsPage() {
   const admin = me.isAdmin || isSuperAdmin(me.email);
 
   // Access model: admin/super → all active; manager → downline + self; else → self.
+  const RETRY = { attempts: 3, timeoutMs: [6000, 10000, 14000] as number[] };
   let people: Person[];
   if (admin) {
-    people = await db
-      .select({ id: employees.id, name: employees.name, avatarUrl: employees.avatarUrl, department: employees.department })
-      .from(employees)
-      .where(eq(employees.isActive, true))
-      .orderBy(asc(employees.name));
+    people = await withRetry(
+      () =>
+        db
+          .select({ id: employees.id, name: employees.name, avatarUrl: employees.avatarUrl, department: employees.department })
+          .from(employees)
+          .where(eq(employees.isActive, true))
+          .orderBy(asc(employees.name)),
+      { ...RETRY, label: "obl-roster-admin" },
+    );
   } else {
     const downline = await getDownlineIds(me.id);
     const ids = Array.from(new Set([me.id, ...downline]));
-    const rows = await db
-      .select({ id: employees.id, name: employees.name, avatarUrl: employees.avatarUrl, department: employees.department })
-      .from(employees)
-      .where(and(eq(employees.isActive, true)));
+    const rows = await withRetry(
+      () =>
+        db
+          .select({ id: employees.id, name: employees.name, avatarUrl: employees.avatarUrl, department: employees.department })
+          .from(employees)
+          .where(and(eq(employees.isActive, true))),
+      { ...RETRY, label: "obl-roster" },
+    );
     const allow = new Set(ids);
     people = rows.filter((r) => allow.has(r.id)).sort((a, b) => a.name.localeCompare(b.name));
   }

@@ -2257,12 +2257,45 @@ select.nt-input {
   50%      { box-shadow: 0 0 0 5px rgba(225, 6, 0, 0.12); }
 }
 
+/* MODULE WORDMARK — the BIG animated module name in the header. Gradient-filled
+   text (per-module colours via --mw-a / --mw-b) with a sweeping light sheen, plus
+   an entrance pop on the icon tile. Replaces the old flat module pill. */
+.module-wordmark { animation: fadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.module-wordmark-icon { animation: mwPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.module-wordmark-text {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  background-image: linear-gradient(
+    100deg,
+    var(--mw-a) 0%, var(--mw-b) 30%, #ffffff 48%, var(--mw-b) 66%, var(--mw-a) 100%
+  );
+  background-size: 240% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: mwSheen 5s linear infinite;
+}
+@keyframes mwSheen {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -40% 0; }
+}
+@keyframes mwPop {
+  0%   { transform: scale(0.6) rotate(-8deg); opacity: 0; }
+  60%  { transform: scale(1.1); }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .wg-rise { animation: none !important; }
   .wg-btn { transition: none !important; }
   .wg-btn:hover, .wg-btn:active { transform: none !important; }
   .wg-sheen:hover::after { animation: none !important; }
   .wg-ring-glow, .wg-pip-pop, .wg-nudge { animation: none !important; }
+  .module-wordmark, .module-wordmark-icon { animation: none !important; }
+  .module-wordmark-text { animation: none !important; background-position: 0 0 !important; }
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
