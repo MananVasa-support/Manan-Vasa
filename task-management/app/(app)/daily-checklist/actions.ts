@@ -10,6 +10,7 @@ import { rateLimitOrError } from "@/lib/rate-limit";
 import { todayYmd, listOpenTasksForChecklist, type DailyItem } from "@/lib/queries/daily-checklist";
 import { currentWeekStart } from "@/lib/weekly-goals/week";
 import { MIN_DAILY_ITEMS } from "@/lib/daily-checklist/constants";
+import { applyTaskStatusChange } from "@/lib/tasks/set-status";
 import type { DailyChecklistItem } from "@/db/schema";
 
 /** Hard cap on checklist items per day (keeps one runaway day bounded). */
@@ -22,22 +23,65 @@ export type ActionResult<T = unknown> =
 const PATH = "/daily-checklist";
 const UUID = z.string().uuid();
 
-/** Map a DB row → the client-facing DailyItem shape. */
+/** Map a DB row → the client-facing DailyItem shape (personal rows only). */
 function toItem(r: DailyChecklistItem): DailyItem {
   return {
     id: r.id,
+    source: "personal",
     title: r.title,
     client: r.client,
     subject: r.subject,
     origin: r.origin === "goal_related" ? "goal_related" : "standalone",
     goalId: r.goalId,
     taskId: r.taskId,
+    taskNo: null,
+    dueAt: null,
     status: r.status,
     done: r.done,
     doneNote: r.doneNote,
     movedFromDate: r.movedFromDate,
     position: r.position,
   };
+}
+
+/**
+ * Check off (or reopen) a manager-ASSIGNED task straight from the Daily Checklist.
+ * One record, one owner: this writes to the TASK itself via the shared status-
+ * change core (same permission matrix + audit + notifications as the task list),
+ * so completion instantly flows to the manager's dashboard. No checklist copy.
+ */
+export async function setAssignedTaskDone(
+  taskId: string,
+  done: boolean,
+): Promise<ActionResult> {
+  if (!UUID.safeParse(taskId).success) return { ok: false, error: "Invalid task id." };
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const [t] = await db
+    .select({ doerId: tasks.doerId, updatedAt: tasks.updatedAt, status: tasks.status })
+    .from(tasks)
+    .where(eq(tasks.id, taskId))
+    .limit(1);
+  if (!t) return { ok: false, error: "Task not found." };
+  if (t.doerId !== me.id && !me.isAdmin) {
+    return { ok: false, error: "Only the assignee can update this task." };
+  }
+  const target: (typeof t)["status"] = done ? "done" : "not_started";
+  const res = await applyTaskStatusChange(
+    { id: me.id, name: me.name, isAdmin: me.isAdmin },
+    taskId,
+    target,
+    t.updatedAt.toISOString(),
+  );
+  if (!res.ok) {
+    return { ok: false, error: res.message ?? "Could not update the task." };
+  }
+  revalidatePath(PATH);
+  revalidatePath("/tasks");
+  revalidatePath(`/tasks/${taskId}`);
+  return { ok: true };
 }
 
 /**
@@ -436,12 +480,15 @@ export async function moveOverdueToToday(): Promise<
     }>;
     const items: DailyItem[] = moved.map((r) => ({
       id: r.id,
+      source: "personal",
       title: r.title,
       client: r.client,
       subject: r.subject,
       origin: r.origin === "goal_related" ? "goal_related" : "standalone",
       goalId: r.goal_id,
       taskId: r.task_id,
+      taskNo: null,
+      dueAt: null,
       status: r.status as DailyItem["status"],
       done: r.done,
       doneNote: r.done_note,

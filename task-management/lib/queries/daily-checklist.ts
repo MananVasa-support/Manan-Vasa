@@ -1,24 +1,45 @@
 import "server-only";
-import { and, asc, desc, eq, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dailyChecklist, weeklyGoals, weeklyGoalActuals, tasks } from "@/db/schema";
 import type { TaskStatus } from "@/db/enums";
 import { istYmd } from "@/lib/weekly-goals/week";
 import { currentWeekStart } from "@/lib/weekly-goals/week";
+import { effectiveDueAtSql } from "@/lib/tasks/effective-due";
 
 /** Today's plan_date in IST (the team's clock). */
 export function todayYmd(now: Date = new Date()): string {
   return istYmd(now);
 }
 
+/**
+ * The UTC instant of IST-tomorrow-midnight for a given `YYYY-MM-DD` (IST) day.
+ * A task is "for today" when its effective due date is strictly BEFORE this
+ * instant — i.e. due today or overdue. (IST 00:00 = 18:30 UTC the day before.)
+ */
+function startOfTomorrowIstInstant(ymd: string): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + 1) - 5.5 * 3_600_000);
+}
+
+/**
+ * A single line in the Daily Checklist. `source` is the ONE source of truth:
+ *  - "assigned"  — a manager-assigned Task (live from the `tasks` table, NEVER
+ *                  copied). id === the task id; completion writes back to the task.
+ *  - "personal"  — the employee's own row in `daily_checklist` (ad-hoc item or a
+ *                  pulled Weekly Goal). id === the daily_checklist row id.
+ */
 export interface DailyItem {
   id: string;
+  source: "assigned" | "personal";
   title: string;
   client: string | null;
   subject: string | null;
   origin: "goal_related" | "standalone";
   goalId: string | null;
   taskId: string | null;
+  taskNo: number | null;
+  dueAt: Date | null;
   status: TaskStatus;
   done: boolean;
   doneNote: string | null;
@@ -44,11 +65,60 @@ export interface OverdueItem {
   planDate: string;
 }
 
-/** Today's committed checklist for an employee, in display order. */
-export async function getTodayItems(
+/**
+ * The manager-ASSIGNED tasks that make up an employee's day — read LIVE from the
+ * `tasks` table (one record, one owner; never copied into the checklist). These
+ * are the doer's open tasks whose effective due date is today or overdue. When a
+ * manager assigns nothing, this is empty (the assigned section simply hides).
+ */
+export async function assignedTasksForToday(
   employeeId: string,
   ymd: string = todayYmd(),
 ): Promise<DailyItem[]> {
+  const cutoff = startOfTomorrowIstInstant(ymd);
+  const rows = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      client: tasks.client,
+      subject: tasks.subject,
+      taskNo: tasks.taskNo,
+      status: tasks.status,
+      dueAt: effectiveDueAtSql(),
+    })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.doerId, employeeId),
+        eq(tasks.archived, false),
+        sql`${tasks.status} not in ('done','approved','cancelled')`,
+        sql`${effectiveDueAtSql()} < ${cutoff}`,
+      ),
+    )
+    .orderBy(asc(effectiveDueAtSql()), asc(tasks.createdAt));
+  return rows.map((r, i) => ({
+    id: r.id,
+    source: "assigned" as const,
+    title: r.title,
+    client: r.client,
+    subject: r.subject,
+    origin: "standalone" as const,
+    goalId: null,
+    taskId: r.id,
+    taskNo: r.taskNo,
+    dueAt: r.dueAt,
+    status: r.status,
+    done: r.status === "done" || r.status === "approved",
+    doneNote: null,
+    movedFromDate: null,
+    position: i,
+  }));
+}
+
+/** The employee's OWN checklist rows (ad-hoc items + pulled goals). Legacy rows
+ *  that merely copied a task (task_id set) are excluded — the live assigned view
+ *  is now the single source of truth for task work, so copies never double up. */
+async function personalItems(employeeId: string, ymd: string): Promise<DailyItem[]> {
   const rows = await db
     .select({
       id: dailyChecklist.id,
@@ -65,9 +135,62 @@ export async function getTodayItems(
       position: dailyChecklist.position,
     })
     .from(dailyChecklist)
-    .where(and(eq(dailyChecklist.employeeId, employeeId), eq(dailyChecklist.planDate, ymd)))
+    .where(
+      and(
+        eq(dailyChecklist.employeeId, employeeId),
+        eq(dailyChecklist.planDate, ymd),
+        isNull(dailyChecklist.taskId),
+      ),
+    )
     .orderBy(asc(dailyChecklist.position), asc(dailyChecklist.committedAt));
-  return rows as DailyItem[];
+  return rows.map((r) => ({
+    ...r,
+    origin: r.origin as "goal_related" | "standalone",
+    source: "personal" as const,
+    taskNo: null,
+    dueAt: null,
+  }));
+}
+
+/**
+ * Today's full checklist for an employee = manager-assigned tasks (live) FOLLOWED
+ * BY the employee's personal items. The single merged surface the day view reads.
+ */
+export async function getTodayItems(
+  employeeId: string,
+  ymd: string = todayYmd(),
+): Promise<DailyItem[]> {
+  const [assigned, personal] = await Promise.all([
+    assignedTasksForToday(employeeId, ymd),
+    personalItems(employeeId, ymd),
+  ]);
+  return [...assigned, ...personal];
+}
+
+/** True when the employee has ANY planned work today — an assigned task OR a
+ *  personal item. This is what the attendance gate now checks (plan EXISTS). */
+export async function hasPlannedWork(
+  employeeId: string,
+  ymd: string = todayYmd(),
+): Promise<boolean> {
+  const cutoff = startOfTomorrowIstInstant(ymd);
+  const [assigned] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.doerId, employeeId),
+        eq(tasks.archived, false),
+        sql`${tasks.status} not in ('done','approved','cancelled')`,
+        sql`${effectiveDueAtSql()} < ${cutoff}`,
+      ),
+    );
+  if ((assigned?.n ?? 0) > 0) return true;
+  const [personal] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(dailyChecklist)
+    .where(and(eq(dailyChecklist.employeeId, employeeId), eq(dailyChecklist.planDate, ymd)));
+  return (personal?.n ?? 0) > 0;
 }
 
 /**

@@ -112,9 +112,11 @@ export function DailyPlanGate({
   const [active, setActive] = React.useState<DragData | null>(null);
 
   const count = items.length;
-  const met = count >= MIN;
-  const remaining = Math.max(0, MIN - count);
-  const slotCount = Math.max(MIN, count);
+  // The day is "planned" once at least ONE item exists (assigned task OR personal
+  // item) — matches the new attendance gate. No more mandatory 5.
+  const met = count >= 1;
+  const remaining = met ? 0 : 1;
+  const slotCount = Math.max(3, count);
 
   // Goals that BLOCK the day: open (cumulative < 100) AND no today's progress
   // logged yet (neither a % nor a note).
@@ -303,7 +305,7 @@ export function DailyPlanGate({
   }
 
   const missingHint: string[] = [];
-  if (!met) missingHint.push(`Add ${remaining} more commitment${remaining === 1 ? "" : "s"}`);
+  if (!met) missingHint.push("Add at least one item (or get a task assigned)");
   if (goalsToLog > 0)
     missingHint.push(`Log today's progress on ${goalsToLog} goal${goalsToLog === 1 ? "" : "s"}`);
 
@@ -356,8 +358,8 @@ export function DailyPlanGate({
               className="mt-2 max-w-[58ch] font-medium"
               style={{ fontSize: 15, lineHeight: 1.5, color: "var(--color-ink-muted)" }}
             >
-              Commit at least {MIN} things — pull from your weekly goals or tasks, or write your
-              own — log today&apos;s goal progress, then start.
+              Tasks your manager assigned appear automatically. Add any personal items or pull from
+              your weekly goals, log today&apos;s goal progress, then start.
             </p>
           </header>
 
@@ -395,12 +397,8 @@ export function DailyPlanGate({
                 blockingCount={goalsToLog}
                 onLogAll={onLogAll}
               />
-              <TasksPanel
-                tasks={openTasks}
-                busyId={busyId}
-                reduce={!!reduce}
-                onPull={onPullTask}
-              />
+              {/* Assigned tasks now flow into the day automatically — the manual
+                  "Tasks" pull panel (which copied tasks) has been retired. */}
             </div>
           </div>
         </div>
@@ -496,7 +494,7 @@ function CommitmentsColumn({
     >
       <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
         <h2 className="font-bold text-ink-strong" style={{ fontSize: 20, letterSpacing: "-0.01em" }}>
-          Today&apos;s {MIN} Commitments
+          Today&apos;s plan
         </h2>
         <span
           className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-bold tabular-nums"
@@ -507,7 +505,7 @@ function CommitmentsColumn({
             color: met ? "var(--color-green-deep)" : "var(--color-altus-red-deep)",
           }}
         >
-          {count} of {MIN} committed
+          {count === 0 ? "Nothing planned yet" : `${count} planned`}
         </span>
       </div>
 
@@ -523,7 +521,7 @@ function CommitmentsColumn({
                 item={it}
                 reduce={reduce}
                 busy={it ? busyId === it.id : false}
-                onRemove={it ? () => onRemove(it) : undefined}
+                onRemove={it && it.source !== "assigned" ? () => onRemove(it) : undefined}
               />
             );
           })}
@@ -543,30 +541,11 @@ function CommitmentsColumn({
         </p>
       )}
 
-      {/* ── Auto-fill + type-your-own ── */}
-      <div className="mt-5 flex flex-wrap items-center gap-2.5">
-        <button
-          type="button"
-          onClick={onAutoFill}
-          disabled={busyId === "autofill" || met}
-          className={`wg-btn inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[13.5px] font-bold cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${FOCUS_RING}`}
-          style={{
-            background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)",
-            color: "var(--color-altus-red-deep)",
-            border: "1px solid color-mix(in srgb, var(--color-altus-red) 24%, transparent)",
-          }}
-        >
-          {busyId === "autofill" ? (
-            <Loader2 size={15} className="animate-spin" />
-          ) : (
-            <Sparkles size={15} strokeWidth={2.4} />
-          )}
-          Auto-fill {MIN}
-        </button>
-        {met && (
-          <span className="text-[12.5px] font-semibold text-ink-subtle">Minimum met.</span>
-        )}
-      </div>
+      {met && (
+        <p className="mt-4 text-[12.5px] font-semibold text-ink-subtle">
+          Your day is planned — add more below any time.
+        </p>
+      )}
 
       <form
         className="mt-3"
