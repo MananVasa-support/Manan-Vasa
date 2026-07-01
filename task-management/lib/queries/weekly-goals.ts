@@ -142,6 +142,7 @@ export interface EmployeeRanking {
 export async function employeeRankings(
   period: PerformerPeriod,
   now: Date = new Date(),
+  employeeId?: string,
 ): Promise<EmployeeRanking[]> {
   const start = periodStart(period, now);
   const rows = await db
@@ -155,7 +156,13 @@ export async function employeeRankings(
     })
     .from(weeklyGoals)
     .innerJoin(employees, eq(weeklyGoals.employeeId, employees.id))
-    .where(and(gte(weeklyGoals.weekStart, start), eq(weeklyGoals.archived, false)))
+    .where(
+      and(
+        gte(weeklyGoals.weekStart, start),
+        eq(weeklyGoals.archived, false),
+        ...(employeeId ? [eq(weeklyGoals.employeeId, employeeId)] : []),
+      ),
+    )
     .groupBy(weeklyGoals.employeeId, employees.name)
     .orderBy(
       desc(weeklyScoreSql),
@@ -422,6 +429,7 @@ const FILL_GRACE_DAYS = 1;
 export async function weeklyGoalLeaderboard(
   window: PerformerPeriod,
   now: Date = new Date(),
+  employeeId?: string,
 ): Promise<WeeklyGoalLeaderboardRow[]> {
   const start = periodStart(window, now);
 
@@ -448,7 +456,13 @@ export async function weeklyGoalLeaderboard(
       incentiveEarned: sql<number>`coalesce(sum(${weeklyGoals.incentiveAmount}) filter (where ${weeklyGoals.incentive} = true and ${effectivePctSql} >= 100), 0)::int`,
     })
     .from(weeklyGoals)
-    .where(and(gte(weeklyGoals.weekStart, start), eq(weeklyGoals.archived, false)))
+    .where(
+      and(
+        gte(weeklyGoals.weekStart, start),
+        eq(weeklyGoals.archived, false),
+        ...(employeeId ? [eq(weeklyGoals.employeeId, employeeId)] : []),
+      ),
+    )
     .groupBy(weeklyGoals.employeeId, weeklyGoals.weekStart);
 
   const emps = await db

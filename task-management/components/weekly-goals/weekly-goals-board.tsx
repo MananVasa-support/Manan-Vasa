@@ -330,7 +330,11 @@ export function WeeklyGoalsBoard(props: Props) {
         {/* Right — primary actions */}
         <div className="flex items-center gap-2.5 flex-wrap justify-end shrink-0 max-md:w-full max-md:justify-start">
           <Link
-            href={"/weekly-goals?view=dashboard" as Route}
+            href={
+              (props.scopeEmp && props.scopeEmp !== "all"
+                ? `/weekly-goals?view=dashboard&emp=${props.scopeEmp}`
+                : "/weekly-goals?view=dashboard") as Route
+            }
             className={`wg-sheen inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[14px] font-bold text-white cursor-pointer ${FOCUS_RING}`}
             style={{
               background:

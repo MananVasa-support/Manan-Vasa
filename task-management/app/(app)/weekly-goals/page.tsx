@@ -127,7 +127,7 @@ export default async function WeeklyGoalsPage({ searchParams }: PageProps) {
   // than a separate /weekly-goals/dashboard route — Vercel's build for this
   // project doesn't register newly added routes, so the dedicated route 404'd.
   if (pick(sp.view) === "dashboard") {
-    return <WeeklyGoalsDashboardView />;
+    return <WeeklyGoalsDashboardView employeeId={pick(sp.emp)} />;
   }
 
   const me = await requireUser();

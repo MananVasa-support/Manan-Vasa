@@ -12,6 +12,9 @@ import {
   LogOut,
   ArrowRight,
   CircleSlash,
+  ShieldCheck,
+  PauseCircle,
+  GraduationCap,
 } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { DashboardHeader } from "@/components/layout/header";
@@ -32,6 +35,7 @@ function timeLabel(d: Date | null): string {
 /** A member's live working state, derived from attendance + plan + tasks. */
 function statusOf(p: TeamMemberPerf): { label: string; color: string; bg: string } {
   if (p.needHelp > 0) return { label: "Needs help", color: "#b45309", bg: "color-mix(in srgb, var(--color-amber) 16%, transparent)" };
+  if (p.blockedTasks > 0) return { label: "Blocked", color: "#b45309", bg: "color-mix(in srgb, var(--color-amber) 14%, transparent)" };
   if (p.lastInAt && !p.lastOutAt) return { label: "Working", color: "#15803d", bg: "color-mix(in srgb, var(--color-green) 15%, transparent)" };
   if (p.lastOutAt) return { label: "Clocked out", color: "#475569", bg: "var(--color-surface-soft)" };
   if (!p.plannedToday) return { label: "No plan", color: "#dc2626", bg: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)" };
@@ -123,11 +127,14 @@ export default async function TeamPerformancePage() {
 
                   <div className="mt-4 grid grid-cols-3 gap-2.5 max-sm:grid-cols-2">
                     <Metric icon={<Target size={14} />} label="Goals" value={`${p?.goalsDone ?? 0}/${p?.goalsCount ?? 0}`} />
-                    <Metric icon={<ClipboardList size={14} />} label="Assigned today" value={p?.assignedToday ?? 0} />
+                    <Metric icon={<ClipboardList size={14} />} label="Assigned / workload" value={p?.assignedToday ?? 0} />
                     <Metric icon={<CheckCircle2 size={14} />} label="Done today" value={p?.doneToday ?? 0} tone="green" />
                     <Metric icon={<Clock3 size={14} />} label="Pending" value={p?.pendingTasks ?? 0} />
                     <Metric icon={<AlertTriangle size={14} />} label="Overdue" value={p?.overdueTasks ?? 0} tone={(p?.overdueTasks ?? 0) > 0 ? "red" : undefined} />
+                    <Metric icon={<PauseCircle size={14} />} label="Blocked" value={p?.blockedTasks ?? 0} tone={(p?.blockedTasks ?? 0) > 0 ? "amber" : undefined} />
                     <Metric icon={<LifeBuoy size={14} />} label="Need help" value={p?.needHelp ?? 0} tone={(p?.needHelp ?? 0) > 0 ? "amber" : undefined} />
+                    <Metric icon={<ShieldCheck size={14} />} label="DCC" value={p?.dccCompliancePct == null ? "—" : `${p.dccCompliancePct}%`} tone={p?.dccCompliancePct != null && p.dccCompliancePct < 80 ? "red" : undefined} />
+                    <Metric icon={<GraduationCap size={14} />} label="Training (mo)" value={`${p?.trainingHoursMonth ?? 0}h`} />
                   </div>
 
                   <div className="mt-3.5 flex items-center gap-4 text-[12.5px] text-ink-subtle">

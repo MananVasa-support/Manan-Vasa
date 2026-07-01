@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import {
   db,
   employees,
@@ -7,6 +7,10 @@ import {
   weeklyGoals,
   attendanceLogs,
   dailyChecklist,
+  dccEntries,
+  dccKpiItems,
+  tcSessions,
+  tcSessionAttendees,
 } from "@/lib/db";
 import { withRetry } from "@/lib/db/with-timeout";
 import { effectiveDueAtSql } from "@/lib/tasks/effective-due";
@@ -60,10 +64,25 @@ export interface TeamMemberPerf {
   overdueTasks: number; // open assigned tasks past effective due
   pendingTasks: number; // all open assigned tasks
   needHelp: number; // open tasks flagged need_info
+  blockedTasks: number; // open tasks on hold
   doneToday: number; // tasks completed today
   plannedToday: boolean; // has any planned work today (assigned or personal)
+  dccCompliancePct: number | null; // DCC done/due this month (null = nothing due)
+  trainingHoursMonth: number; // training attended this month (hours)
   lastInAt: Date | null;
   lastOutAt: Date | null;
+}
+
+/** IST month bounds for a day. */
+function monthBounds(ymd: string): { monthStart: string; monthEnd: string; monthStartInstant: Date } {
+  const [y, m] = ymd.split("-").map(Number);
+  const yy = y ?? 1970;
+  const mm = (m ?? 1) - 1;
+  const monthStart = `${yy}-${String(mm + 1).padStart(2, "0")}-01`;
+  const next = mm === 11 ? { y: yy + 1, m: 0 } : { y: yy, m: mm + 1 };
+  const monthEnd = `${next.y}-${String(next.m + 1).padStart(2, "0")}-01`;
+  const monthStartInstant = new Date(Date.UTC(yy, mm, 1) - 5.5 * 3_600_000);
+  return { monthStart, monthEnd, monthStartInstant };
 }
 
 /** IST day-boundary instants for the given day (UTC instants). */
@@ -87,10 +106,11 @@ export async function teamPerformance(
   const ymd = istYmd(now);
   const week = currentWeekStart(now);
   const { startToday, startTomorrow } = dayBounds(ymd);
+  const { monthStart, monthEnd, monthStartInstant } = monthBounds(ymd);
   const eff = effectiveDueAtSql();
   const num = (v: unknown) => Number(v ?? 0);
 
-  const [goalRows, taskRows, attRows, planRows] = await Promise.all([
+  const [goalRows, taskRows, attRows, planRows, dccRows, trainRows] = await Promise.all([
     // Weekly goals THIS week — weight-aware effective %
     withRetry(
       () =>
@@ -117,6 +137,7 @@ export async function teamPerformance(
             overdue: sql<number>`coalesce(sum(case when ${tasks.status} not in ('done','approved','cancelled') and ${eff} < ${startToday} then 1 else 0 end),0)::int`,
             assignedToday: sql<number>`coalesce(sum(case when ${tasks.status} not in ('done','approved','cancelled') and ${effectiveDueAtSql()} < ${startTomorrow} then 1 else 0 end),0)::int`,
             needHelp: sql<number>`coalesce(sum(case when ${tasks.status} = 'need_info' then 1 else 0 end),0)::int`,
+            blocked: sql<number>`coalesce(sum(case when ${tasks.status} = 'on_hold' then 1 else 0 end),0)::int`,
             doneToday: sql<number>`coalesce(sum(case when ${tasks.status} in ('done','approved') and ${tasks.completedAt} >= ${startToday} then 1 else 0 end),0)::int`,
           })
           .from(tasks)
@@ -148,20 +169,60 @@ export async function teamPerformance(
           .groupBy(dailyChecklist.employeeId),
       { ...RETRY, label: "team-plan" },
     ),
+    // DCC compliance this month — done / due (excluding NA), by KPI owner
+    withRetry(
+      () =>
+        db
+          .select({
+            id: dccKpiItems.ownerEmployeeId,
+            due: sql<number>`coalesce(sum(case when ${dccEntries.status} <> 'NA' then 1 else 0 end),0)::int`,
+            done: sql<number>`coalesce(sum(case when ${dccEntries.status} = 'Done' then 1 else 0 end),0)::int`,
+          })
+          .from(dccEntries)
+          .innerJoin(dccKpiItems, eq(dccEntries.itemId, dccKpiItems.id))
+          .where(and(inArray(dccKpiItems.ownerEmployeeId, ids), gte(dccEntries.entryDate, monthStart), lt(dccEntries.entryDate, monthEnd)))
+          .groupBy(dccKpiItems.ownerEmployeeId),
+      { ...RETRY, label: "team-dcc" },
+    ),
+    // Training attended this month (minutes) — attended or left-halfway of done sessions
+    withRetry(
+      () =>
+        db
+          .select({
+            id: tcSessionAttendees.employeeId,
+            m: sql<number>`coalesce(sum(coalesce(${tcSessionAttendees.attendedMin}, ${tcSessions.durationMin})),0)`,
+          })
+          .from(tcSessionAttendees)
+          .innerJoin(tcSessions, eq(tcSessionAttendees.sessionId, tcSessions.id))
+          .where(
+            and(
+              inArray(tcSessionAttendees.employeeId, ids),
+              inArray(tcSessionAttendees.status, ["attended", "left_halfway"]),
+              eq(tcSessions.status, "done"),
+              gte(tcSessions.scheduledAt, monthStartInstant),
+            ),
+          )
+          .groupBy(tcSessionAttendees.employeeId),
+      { ...RETRY, label: "team-training" },
+    ),
   ]);
 
   const goalById = new Map(goalRows.map((r) => [r.id, r]));
   const taskById = new Map(taskRows.filter((r) => r.id).map((r) => [r.id as string, r]));
   const attById = new Map(attRows.map((r) => [r.id, r]));
   const planById = new Map(planRows.map((r) => [r.id, num(r.n)]));
+  const dccById = new Map(dccRows.filter((r) => r.id).map((r) => [r.id as string, r]));
+  const trainById = new Map(trainRows.map((r) => [r.id, num(r.m)]));
 
   for (const id of ids) {
     const g = goalById.get(id);
     const t = taskById.get(id);
     const a = attById.get(id);
+    const d = dccById.get(id);
     const wSum = num(g?.wSum);
     const assignedToday = num(t?.assignedToday);
     const personal = planById.get(id) ?? 0;
+    const dccDue = num(d?.due);
     out.set(id, {
       employeeId: id,
       goalsCount: num(g?.n),
@@ -171,8 +232,11 @@ export async function teamPerformance(
       overdueTasks: num(t?.overdue),
       pendingTasks: num(t?.pending),
       needHelp: num(t?.needHelp),
+      blockedTasks: num(t?.blocked),
       doneToday: num(t?.doneToday),
       plannedToday: assignedToday > 0 || personal > 0,
+      dccCompliancePct: dccDue > 0 ? Math.round((num(d?.done) / dccDue) * 100) : null,
+      trainingHoursMonth: Math.round((trainById.get(id) ?? 0) / 6) / 10, // minutes → hours, 1dp
       lastInAt: a?.lastIn ? new Date(a.lastIn) : null,
       lastOutAt: a?.lastOut ? new Date(a.lastOut) : null,
     });

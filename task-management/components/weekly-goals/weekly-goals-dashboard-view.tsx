@@ -1,10 +1,14 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, User, X } from "lucide-react";
+import { eq } from "drizzle-orm";
+import { db, employees } from "@/lib/db";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { WeeklyGoalsDashboard } from "@/components/weekly-goals/weekly-goals-dashboard";
 import { requireUser } from "@/lib/auth/current";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { goalScopeFor } from "@/lib/weekly-goals/hierarchy";
 import {
   employeeRankings,
   performerOf,
@@ -32,9 +36,26 @@ function quarterStartDate(now: Date): Date {
   return new Date(`${year}-${mm}-01T00:00:00Z`);
 }
 
-export async function WeeklyGoalsDashboardView() {
+export async function WeeklyGoalsDashboardView({ employeeId }: { employeeId?: string } = {}) {
   const me = await requireUser();
   const now = new Date();
+
+  // Resolve who this dashboard is scoped to. Admin/super may drill into anyone;
+  // a manager only into their downline (or self); an individual contributor only
+  // ever sees themselves. `emp` (when set) filters EVERY query to that person, so
+  // selecting an employee shows ONLY their data — not the same org leaderboard.
+  const isAdminLike = me.isAdmin || isSuperAdmin(me.email);
+  const scope = isAdminLike ? null : await goalScopeFor(me);
+  const isManager = scope ? scope.ids.length > 1 : true;
+  let emp: string | undefined;
+  if (isAdminLike) emp = employeeId || undefined;
+  else if (isManager) emp = employeeId && scope!.ids.includes(employeeId) ? employeeId : undefined;
+  else emp = me.id;
+
+  const empName = emp
+    ? (await db.select({ name: employees.name }).from(employees).where(eq(employees.id, emp)).limit(1))[0]?.name ?? null
+    : null;
+  const scoped = emp != null;
 
   const [
     trend,
@@ -50,24 +71,24 @@ export async function WeeklyGoalsDashboardView() {
     leaderQuarter,
     leaderYear,
   ] = await Promise.all([
-    weekWiseTrend({ weeks: 8, employeeId: me.isAdmin ? undefined : me.id }),
-    employeeRankings("week"),
-    employeeRankings("month"),
-    employeeRankings("year"),
+    weekWiseTrend({ weeks: 8, employeeId: emp ?? (isAdminLike ? undefined : me.id) }),
+    employeeRankings("week", now, emp),
+    employeeRankings("month", now, emp),
+    employeeRankings("year", now, emp),
     performerOf("week"),
     performerOf("month"),
     performerOf("year"),
     globalStarOf("month"),
-    weeklyGoalLeaderboard("week", now),
-    weeklyGoalLeaderboard("month", now),
-    weeklyGoalLeaderboard("month", quarterStartDate(now)),
-    weeklyGoalLeaderboard("year", now),
+    weeklyGoalLeaderboard("week", now, emp),
+    weeklyGoalLeaderboard("month", now, emp),
+    weeklyGoalLeaderboard("month", quarterStartDate(now), emp),
+    weeklyGoalLeaderboard("year", now, emp),
   ]);
 
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <div className="mx-auto max-w-[1280px] px-8 max-md:px-4 pt-6">
+      <div className="mx-auto max-w-[1280px] px-8 max-md:px-4 pt-6 flex items-center gap-3 flex-wrap">
         <Link
           href={"/weekly-goals" as Route}
           className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface-card px-3.5 py-1.5 text-[13.5px] font-bold text-ink-soft transition-colors hover:text-ink-strong"
@@ -75,10 +96,22 @@ export async function WeeklyGoalsDashboardView() {
           <ArrowLeft size={15} strokeWidth={2.4} />
           Back to goals
         </Link>
+        {scoped && (
+          <span
+            className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13.5px] font-bold text-white"
+            style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+          >
+            <User size={14} strokeWidth={2.6} />
+            Viewing {empName ?? "one person"}
+            <Link href={"/weekly-goals?view=dashboard" as Route} aria-label="Clear employee filter" className="ml-1 inline-flex items-center rounded-full bg-white/25 p-0.5 hover:bg-white/40">
+              <X size={13} strokeWidth={3} />
+            </Link>
+          </span>
+        )}
       </div>
       <WeeklyGoalsDashboard
         trend={trend}
-        trendScope={me.isAdmin ? "Team" : "Your"}
+        trendScope={scoped ? (empName ?? "Their") : me.isAdmin ? "Team" : "Your"}
         rankings={{ week: weekRanks, month: monthRanks, year: yearRanks }}
         performers={{ week: performerWeek, month: performerMonth, year: performerYear }}
         starOfMonth={starMonth}
