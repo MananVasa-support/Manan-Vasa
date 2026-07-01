@@ -90,3 +90,18 @@ docs/2026-05-13-timeline-and-training-plan.md
 
 # Reference repos kept locally for prompt/design lookups — never committed
 ai-refs/
+
+# Local-only MIS data dumps (PII — incentive amounts + employee names)
+.mis-sheet*.json
+Altus Eco System MIS.xlsx
+
+# Stray local data/docs/archives (never source — keep out of the repo)
+*.zip
+*.xlsx
+*.docx
+~$*
+ALTUS_APP_KNOWLEDGE_BASE.md
+Doc1.docx
+
+# local salary reconcile exports (never ship)
+_reconcile/

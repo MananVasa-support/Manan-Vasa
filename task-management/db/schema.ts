@@ -3797,6 +3797,26 @@ export const pmsPersonalGoal = pgTable(
   (t) => [index("pms_personal_goal_emp_idx").on(t.employeeId, t.period)],
 );
 
+// Migration 0098 — manager review of a team member's daily checklist (per day).
+export const dailyChecklistReviews = pgTable(
+  "daily_checklist_reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    planDate: date("plan_date").notNull(),
+    reviewerId: uuid("reviewer_id").references(() => employees.id, { onDelete: "set null" }),
+    status: text("status").notNull().default("reviewed"), // reviewed | approved | needs_rework
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("dcr_employee_date_uidx").on(t.employeeId, t.planDate),
+    index("dcr_employee_date_idx").on(t.employeeId, t.planDate),
+  ],
+);
+export type DailyChecklistReview = typeof dailyChecklistReviews.$inferSelect;
+
 export type TcSession = typeof tcSessions.$inferSelect;
 export type TcSessionAttendee = typeof tcSessionAttendees.$inferSelect;
 export type TcSessionFeedback = typeof tcSessionFeedback.$inferSelect;

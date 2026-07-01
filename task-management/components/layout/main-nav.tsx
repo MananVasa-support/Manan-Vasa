@@ -101,7 +101,8 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       },
       { href: "/tasks/kanban" as Route, label: "Kanban", Icon: SquareKanban, adminOnly: true },
       { href: "/projects" as Route, label: "Projects", Icon: FolderKanban },
-      { href: "/weekly-goals" as Route, label: "Weekly Goals", Icon: Target },
+      { href: "/weekly-goals" as Route, label: "Weekly Goals", Icon: Target, not: ["/weekly-goals/team"] },
+      { href: "/weekly-goals/team" as Route, label: "Team", Icon: Users },
       { href: "/daily-checklist" as Route, label: "Daily Checklist", Icon: ListChecks },
     ],
     // No "More" dropdown — Documents already lives in the profile/avatar menu.
