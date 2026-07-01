@@ -32,7 +32,12 @@ export default async function SalaryPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const months = await salaryBreakupMonths();
   const raw = typeof sp.month === "string" ? sp.month : undefined;
-  const month = raw && MONTH_RE.test(raw) ? raw : months[0] ?? "";
+  // Default to the last COMPLETE month — not the current in-progress month (which
+  // only has a day or two logged, so it would show tiny pro-rated pay). `months`
+  // is newest-first; the first one before this IST month is the last full one.
+  const nowYm = new Date(Date.now() + 5.5 * 3_600_000).toISOString().slice(0, 7);
+  const defaultMonth = months.find((m) => m < nowYm) ?? months[0] ?? "";
+  const month = raw && MONTH_RE.test(raw) ? raw : defaultMonth;
   const rows = month ? await listSalaryBreakup(month) : [];
 
   const totalPayable = rows.reduce((s, r) => s + Number(r.payableAfterPt ?? 0), 0);
