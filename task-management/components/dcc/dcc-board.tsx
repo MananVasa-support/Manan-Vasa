@@ -4,7 +4,10 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Flame, CheckCircle2, Loader2, StickyNote, Plus, Pencil, Trash2, X, Check, Trophy, Sparkles } from "lucide-react";
+import {
+  ChevronLeft, ChevronRight, Flame, CheckCircle2, Loader2, StickyNote, Plus, Pencil,
+  Trash2, X, Check, Trophy, Sparkles, ListChecks, PenLine, ShieldCheck, CalendarDays,
+} from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { Avatar } from "@/components/ui/avatar";
 import type { DccItemRow, DccEntryRow, DccPerson } from "@/lib/queries/dcc";
@@ -27,9 +30,23 @@ interface Props {
   today: string;
 }
 
+const GREEN = "#16a34a";
+const GREEN_DEEP = "#15803d";
+const AMBER = "var(--color-amber, #f59e0b)";
+const RED = "var(--color-altus-red)";
+
 const cellKey = (itemId: string, date: string) => `${itemId}|${date}`;
 const INPUT =
-  "w-full rounded-lg border border-hairline-strong bg-white px-3.5 py-2.5 text-[15.5px] font-medium text-ink-strong outline-none transition-colors placeholder:text-ink-subtle placeholder:font-normal focus:border-[color:var(--color-altus-red)]";
+  "w-full rounded-lg border border-hairline-strong bg-white px-3.5 py-2.5 text-[15.5px] font-medium text-ink-strong outline-none transition-colors placeholder:text-ink-subtle placeholder:font-normal focus:border-[#16a34a]";
+const CARD_SHADOW = "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -20px rgba(15,23,42,0.35)";
+const PANEL_SHADOW = "inset 0 0 0 1px var(--color-hairline), 0 6px 24px -18px rgba(15,23,42,0.25)";
+
+/** Green ≥80 · amber ≥60 · red below — matches the punctuality card. */
+function rateColor(pct: number): string {
+  if (pct >= 80) return GREEN;
+  if (pct >= 60) return AMBER;
+  return RED;
+}
 
 function dateToObj(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
@@ -166,17 +183,59 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
     });
   }
 
+  const filledPct = dayStats.due ? Math.round((dayStats.filled / dayStats.due) * 100) : 0;
+
   return (
     <section className="flex flex-col gap-5">
-      {/* Top bar: person switcher + date nav + completion */}
-      <div className="flex flex-wrap items-stretch gap-4">
+      {/* ── KPI stat cards ── */}
+      <div className="grid grid-cols-4 gap-3.5 max-lg:grid-cols-2">
+        <div className="wg-rise wg-btn flex items-center gap-4 rounded-2xl bg-surface-card px-4.5 py-4 max-md:px-4" style={{ boxShadow: CARD_SHADOW }}>
+          <ProgressRing pct={pct} size={62} stroke={6} color={rateColor(pct)} />
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-subtle">{selectedDate === today ? "Today's compliance" : "Day compliance"}</p>
+            <p className="mt-1 tabular-nums text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: "-0.02em", lineHeight: 1 }}>
+              {pct}%
+            </p>
+            <p className="mt-1 text-[12px] font-medium text-ink-subtle">{dayStats.done}/{dayStats.due} done</p>
+          </div>
+        </div>
+        <StatCard
+          icon={<PenLine size={17} strokeWidth={2.4} />}
+          accent={GREEN}
+          label="Filled"
+          value={`${dayStats.filled}/${dayStats.due}`}
+          caption={dayStats.due ? `${filledPct}% of due entries` : "nothing due"}
+          progress={dayStats.due ? dayStats.filled / dayStats.due : null}
+          delay={60}
+        />
+        <StatCard
+          icon={<Flame size={17} strokeWidth={2.4} />}
+          accent={streak > 0 ? RED : "#334155"}
+          label="Streak"
+          value={`${streak}`}
+          caption={streak === 1 ? "day fully filled" : "days fully filled"}
+          delay={120}
+        />
+        <StatCard
+          icon={<ListChecks size={17} strokeWidth={2.4} />}
+          accent={GREEN_DEEP}
+          label="KPIs"
+          value={`${dueItems.length}`}
+          caption={`due ${selectedDate === today ? "today" : "this day"} · ${items.length} total`}
+          delay={180}
+        />
+      </div>
+
+      {/* ── Toolbar: person switcher · date nav · actions ── */}
+      <div className="wg-rise flex flex-wrap items-center gap-3 rounded-[22px] bg-surface-card px-4 py-3 max-md:px-3" style={{ boxShadow: PANEL_SHADOW, animationDelay: "80ms" }}>
         {people.length > 0 && (
-          <label className="flex items-center gap-2.5 rounded-2xl border border-hairline-strong bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <label className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 transition-colors hover:bg-surface-soft">
             <Avatar name={ownerName} size={34} />
             <select
               value={ownerId}
               onChange={(e) => router.push(`/dcc?emp=${e.target.value}` as Route)}
-              className="bg-transparent text-[17px] font-bold text-ink-strong outline-none"
+              className="bg-transparent text-[16px] font-bold text-ink-strong outline-none"
+              aria-label="Choose whose board to view"
             >
               {people.map((p) => (
                 <option key={p.id} value={p.id}>{p.id === meId ? `${p.name} (me)` : p.name}</option>
@@ -185,94 +244,110 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
           </label>
         )}
 
-        <div className="flex items-center gap-1 rounded-2xl border border-hairline-strong bg-white px-2.5 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <button onClick={() => shiftDay(-1)} className="grid h-10 w-10 place-items-center rounded-xl text-ink-soft transition-colors hover:bg-[color:var(--color-surface-track,#eef2f7)]" aria-label="Previous day"><ChevronLeft size={20} /></button>
-          <div className="min-w-[160px] px-2 text-center">
-            <div className="text-[17px] font-extrabold text-ink-strong">{selectedDate === today ? "Today" : fmtLong(selectedDate)}</div>
-            <div className="text-[12.5px] font-semibold uppercase tracking-wide text-ink-subtle">{selectedDate === today ? fmtLong(selectedDate) : ""}</div>
+        <div className="flex items-center gap-1 rounded-xl px-1 py-0.5" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>
+          <button onClick={() => shiftDay(-1)} className="grid h-10 w-10 place-items-center rounded-lg text-ink-soft transition-colors hover:bg-surface-soft" aria-label="Previous day"><ChevronLeft size={20} /></button>
+          <div className="min-w-[150px] px-2 text-center">
+            <div className="text-[16px] font-extrabold leading-tight text-ink-strong">{selectedDate === today ? "Today" : fmtLong(selectedDate)}</div>
+            {selectedDate === today && <div className="text-[11.5px] font-semibold uppercase tracking-wide text-ink-subtle">{fmtLong(selectedDate)}</div>}
           </div>
-          <button onClick={() => shiftDay(1)} disabled={selectedDate >= today} className="grid h-10 w-10 place-items-center rounded-xl text-ink-soft transition-colors hover:bg-[color:var(--color-surface-track,#eef2f7)] disabled:opacity-30" aria-label="Next day"><ChevronRight size={20} /></button>
-          {selectedDate !== today && (
-            <button onClick={() => setSelectedDate(today)} className="ml-1 rounded-lg px-3 py-2 text-[14px] font-bold text-altus-red hover:underline">Today</button>
-          )}
+          <button onClick={() => shiftDay(1)} disabled={selectedDate >= today} className="grid h-10 w-10 place-items-center rounded-lg text-ink-soft transition-colors hover:bg-surface-soft disabled:opacity-30" aria-label="Next day"><ChevronRight size={20} /></button>
         </div>
+        {selectedDate !== today && (
+          <button onClick={() => setSelectedDate(today)} className="rounded-lg px-2.5 py-2 text-[14px] font-bold transition-colors hover:underline" style={{ color: GREEN_DEEP }}>Back to today</button>
+        )}
 
-        <CompletionPill pct={pct} done={dayStats.done} due={dayStats.due} />
-
-        <div className="flex items-center gap-2.5 rounded-2xl border border-hairline-strong bg-white px-5 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <Flame size={20} style={{ color: streak > 0 ? "var(--color-altus-red)" : "var(--color-ink-subtle)" }} />
-          <span className="text-[19px] font-extrabold text-ink-strong tabular-nums">{streak}</span>
-          <span className="text-[14px] font-semibold text-ink-subtle">day streak</span>
-        </div>
-      </div>
-
-      {/* 21-day strip */}
-      <div className="flex items-end gap-1 overflow-x-auto rounded-2xl border border-hairline-strong bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        {strip.map((s) => {
-          const active = s.iso === selectedDate;
-          const color = s.pct < 0 ? "var(--color-hairline-strong)" : s.pct >= 100 ? "var(--color-green)" : s.pct >= 50 ? "var(--color-amber,#f59e0b)" : "var(--color-altus-red)";
-          const h = s.pct < 0 ? 8 : 8 + Math.round((s.pct / 100) * 26);
-          return (
-            <button key={s.iso} onClick={() => setSelectedDate(s.iso)} className="group flex flex-1 min-w-[20px] flex-col items-center gap-1" title={`${fmtLong(s.iso)} · ${s.pct < 0 ? "no items" : s.pct + "%"}`}>
-              <div className="w-full rounded-md transition-all" style={{ height: h + 4, background: color, opacity: active ? 1 : 0.55, outline: active ? "2px solid var(--color-ink-strong)" : "none", outlineOffset: 2 }} />
-              <span className={`text-[11px] font-bold ${active ? "text-ink-strong" : "text-ink-subtle"}`}>{dateToObj(s.iso).getDate()}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Review banner */}
-      {(canReview || review) && (
-        <ReviewBar ownerId={ownerId} date={selectedDate} canReview={canReview} review={review} />
-      )}
-
-      {/* Items */}
-      {!canFill && ownerId !== meId && (
-        <p className="rounded-xl border border-hairline-strong bg-[color:var(--color-surface-track,#eef2f7)] px-4 py-2.5 text-[13px] font-semibold text-ink-muted">Viewing {ownerName}'s KPIs — read-only.</p>
-      )}
-
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <span className="text-[16px] font-bold text-ink-muted">{shownItems.length} {showAll ? "total" : "due"} {shownItems.length === 1 ? "KPI" : "KPIs"}</span>
-        <div className="flex items-center gap-2.5">
-          <Link href={"/dcc/ranking" as Route} className="inline-flex items-center gap-1.5 rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red">
-            <Trophy size={16} style={{ color: "var(--color-amber,#f59e0b)" }} /> Ranking
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Link href={"/dcc/ranking" as Route} className="wg-btn inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:text-[#15803d]" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>
+            <Trophy size={16} style={{ color: AMBER }} /> Ranking
           </Link>
-          <button onClick={summarize} disabled={aiBusy} className="inline-flex items-center gap-1.5 rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red disabled:opacity-50">
-            {aiBusy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} style={{ color: "var(--color-altus-red)" }} />} Summarize my day
+          <button onClick={summarize} disabled={aiBusy} className="wg-btn inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:text-[#15803d] disabled:opacity-50" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>
+            {aiBusy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} style={{ color: RED }} />} Summarize my day
           </button>
-          <button onClick={() => setShowAll((v) => !v)} className="rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red">
+          <button onClick={() => setShowAll((v) => !v)} className="wg-btn rounded-xl bg-white px-3.5 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:text-[#15803d]" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>
             {showAll ? "Due today only" : `Show all (${items.length})`}
           </button>
           {canManage && <ItemEditor ownerId={ownerId} mode="add" />}
         </div>
       </div>
 
+      {/* ── 21-day trend ── */}
+      <div className="wg-rise rounded-[22px] bg-surface-card px-5 py-4 max-md:px-4" style={{ boxShadow: PANEL_SHADOW, animationDelay: "120ms" }}>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="inline-grid size-8 place-items-center rounded-[10px]" style={{ background: "color-mix(in srgb, #16a34a 10%, transparent)", color: GREEN_DEEP }}>
+              <CalendarDays size={16} strokeWidth={2.4} />
+            </span>
+            <span className="text-[13px] font-black tracking-tight text-ink-strong">Last 21 days</span>
+          </div>
+          <div className="flex items-center gap-3 text-[11px] font-bold text-ink-subtle max-md:hidden">
+            <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: GREEN }} /> ≥80%</span>
+            <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: AMBER }} /> ≥60%</span>
+            <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: RED }} /> below</span>
+          </div>
+        </div>
+        <div className="flex items-end gap-1 overflow-x-auto">
+          {strip.map((s) => {
+            const active = s.iso === selectedDate;
+            const color = s.pct < 0 ? "var(--color-hairline-strong)" : rateColor(s.pct);
+            const h = s.pct < 0 ? 8 : 8 + Math.round((s.pct / 100) * 26);
+            return (
+              <button key={s.iso} onClick={() => setSelectedDate(s.iso)} className="group flex flex-1 min-w-[20px] flex-col items-center gap-1" title={`${fmtLong(s.iso)} · ${s.pct < 0 ? "no items" : s.pct + "%"}`} aria-label={`${fmtLong(s.iso)} — ${s.pct < 0 ? "no items due" : `${s.pct}% done`}`}>
+                <div className="w-full rounded-md transition-all group-hover:opacity-90" style={{ height: h + 4, background: color, opacity: active ? 1 : 0.55, outline: active ? "2px solid var(--color-ink-strong)" : "none", outlineOffset: 2 }} />
+                <span className={`text-[11px] font-bold ${active ? "text-ink-strong" : "text-ink-subtle"}`}>{dateToObj(s.iso).getDate()}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Manager review ── */}
+      {(canReview || review) && (
+        <ReviewBar ownerId={ownerId} date={selectedDate} canReview={canReview} review={review} />
+      )}
+
+      {!canFill && ownerId !== meId && (
+        <p className="rounded-xl bg-surface-soft px-4 py-2.5 text-[13px] font-semibold text-ink-muted" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>
+          Viewing {ownerName}&apos;s KPIs — read-only.
+        </p>
+      )}
+
       {aiSummary && (
-        <div className="flex items-start gap-3 rounded-2xl border border-hairline-strong bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]" style={{ background: "color-mix(in srgb, var(--color-altus-red) 4%, white)" }}>
-          <Sparkles size={18} style={{ color: "var(--color-altus-red)" }} className="mt-0.5 shrink-0" />
+        <div className="wg-rise flex items-start gap-3 rounded-[22px] px-5 py-4" style={{ boxShadow: PANEL_SHADOW, background: "linear-gradient(135deg, color-mix(in srgb, var(--color-altus-red) 5%, white), white 60%)" }}>
+          <Sparkles size={18} style={{ color: RED }} className="mt-0.5 shrink-0" />
           <div className="min-w-0">
-            <p className="text-[12.5px] font-extrabold uppercase tracking-wide text-ink-subtle">AI summary · {selectedDate === today ? "today" : selectedDate}</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-ink-subtle">AI summary · {selectedDate === today ? "today" : selectedDate}</p>
             <p className="mt-1 text-[15.5px] font-medium leading-relaxed text-ink-strong">{aiSummary}</p>
           </div>
-          <button onClick={() => setAiSummary(null)} className="ml-auto shrink-0 text-ink-subtle hover:text-ink-strong" aria-label="Dismiss"><X size={16} /></button>
+          <button onClick={() => setAiSummary(null)} className="ml-auto shrink-0 text-ink-subtle transition-colors hover:text-ink-strong" aria-label="Dismiss summary"><X size={16} /></button>
         </div>
       )}
 
+      {/* ── Fill surface ── */}
+      <div className="flex items-center justify-between gap-3 px-1">
+        <span className="text-[14px] font-bold text-ink-muted">
+          {shownItems.length} {showAll ? "total" : "due"} {shownItems.length === 1 ? "KPI" : "KPIs"}
+          {shownItems.length > 0 && <span className="font-semibold text-ink-subtle"> · {selectedDate === today ? "today" : fmtLong(selectedDate)}</span>}
+        </span>
+      </div>
+
       <div className="flex flex-col gap-6">
         {groups.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-hairline-strong bg-white px-6 py-14 text-center">
-            <CheckCircle2 size={34} className="mx-auto text-ink-subtle" />
-            <p className="mt-3 text-[18px] font-bold text-ink-strong">Nothing due {selectedDate === today ? "today" : "this day"}.</p>
-            {canManage && <p className="mt-1 text-[15px] text-ink-muted">Add a KPI to get started.</p>}
+          <div className="wg-rise rounded-[22px] bg-surface-card px-6 py-16 text-center" style={{ boxShadow: PANEL_SHADOW }}>
+            <span className="mx-auto inline-grid size-14 place-items-center rounded-full" style={{ background: "color-mix(in srgb, #16a34a 10%, transparent)", color: GREEN }}>
+              <CheckCircle2 size={30} strokeWidth={2.2} />
+            </span>
+            <p className="mt-4 text-[19px] font-black tracking-tight text-ink-strong">Nothing due {selectedDate === today ? "today" : "this day"}.</p>
+            {canManage && <p className="mt-1 text-[15px] font-medium text-ink-muted">Add a KPI to get started.</p>}
           </div>
         )}
-        {groups.map((g) => (
-          <div key={g.section}>
-            <h3 className="mb-2.5 flex items-center gap-2.5 px-1 text-[14px] font-extrabold uppercase tracking-[0.12em] text-ink-muted">
-              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: "var(--color-altus-red)" }} />
+        {groups.map((g, gi) => (
+          <div key={g.section} className="wg-rise" style={{ animationDelay: `${Math.min(gi, 6) * 60}ms` }}>
+            <h3 className="mb-2.5 flex items-center gap-2.5 px-1 text-[12.5px] font-black uppercase tracking-[0.14em] text-ink-muted">
+              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }} />
               {g.section}
+              <span className="font-bold normal-case tracking-normal text-ink-subtle">{g.rows.length}</span>
             </h3>
-            <div className="overflow-hidden rounded-2xl border border-hairline-strong bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+            <div className="overflow-hidden rounded-[22px] bg-surface-card" style={{ boxShadow: PANEL_SHADOW }}>
               {g.rows.map((it, i) => (
                 <FillRow
                   key={it.id}
@@ -293,22 +368,53 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
   );
 }
 
-function CompletionPill({ pct, done, due }: { pct: number; done: number; due: number }) {
-  const color = pct >= 100 ? "var(--color-green)" : pct >= 60 ? "var(--color-amber,#f59e0b)" : "var(--color-altus-red)";
-  const R = 16, C = 2 * Math.PI * R;
+/* ─────────────────────────── Stat primitives ─────────────────────────── */
+
+function StatCard({ icon, accent, label, value, caption, progress, delay }: {
+  icon: React.ReactNode;
+  accent: string;
+  label: string;
+  value: string;
+  caption: string;
+  progress?: number | null;
+  delay: number;
+}) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-hairline-strong bg-white px-5 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-      <svg width={48} height={48} viewBox="0 0 42 42" className="-rotate-90">
-        <circle cx={21} cy={21} r={R} fill="none" stroke="var(--color-hairline-strong)" strokeWidth={5} />
-        <circle cx={21} cy={21} r={R} fill="none" stroke={color} strokeWidth={5} strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C - (C * Math.min(pct, 100)) / 100} style={{ transition: "stroke-dashoffset .4s ease" }} />
-      </svg>
-      <div>
-        <div className="text-[22px] font-extrabold leading-none text-ink-strong tabular-nums" style={{ fontFamily: "var(--font-display), system-ui" }}>{pct}%</div>
-        <div className="mt-1 text-[13px] font-semibold text-ink-subtle">{done}/{due} done</div>
+    <div className="wg-rise wg-btn rounded-2xl bg-surface-card px-4.5 py-4 max-md:px-4" style={{ boxShadow: CARD_SHADOW, animationDelay: `${delay}ms` }}>
+      <div className="flex items-center gap-2">
+        <span className="inline-grid size-8 shrink-0 place-items-center rounded-[10px]" style={{ background: `color-mix(in srgb, ${accent} 10%, transparent)`, color: accent }}>
+          {icon}
+        </span>
+        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-subtle">{label}</span>
       </div>
+      <div className="mt-2 tabular-nums text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: "-0.02em", lineHeight: 1 }}>
+        {value}
+      </div>
+      <div className="mt-1 text-[12px] font-medium text-ink-subtle">{caption}</div>
+      {progress != null && (
+        <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full" style={{ background: "var(--color-surface-soft)" }} role="presentation">
+          <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${Math.round(Math.max(0, Math.min(progress, 1)) * 100)}%`, background: `linear-gradient(90deg, color-mix(in srgb, ${accent} 70%, white), ${accent})` }} />
+        </div>
+      )}
     </div>
   );
 }
+
+function ProgressRing({ pct, size, stroke, color }: { pct: number; size: number; stroke: number; color: string }) {
+  const R = (42 - stroke) / 2 - 1;
+  const C = 2 * Math.PI * R;
+  return (
+    <div className="relative grid shrink-0 place-items-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox="0 0 42 42" className="-rotate-90">
+        <circle cx={21} cy={21} r={R} fill="none" stroke="var(--color-surface-soft, #eef2f7)" strokeWidth={stroke} />
+        <circle cx={21} cy={21} r={R} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C - (C * Math.min(pct, 100)) / 100} style={{ transition: "stroke-dashoffset .5s cubic-bezier(0.22,1,0.36,1)" }} />
+      </svg>
+      <span className="absolute tabular-nums text-[13px] font-black text-ink-strong">{pct}</span>
+    </div>
+  );
+}
+
+/* ────────────────────────────── Fill row ─────────────────────────────── */
 
 function FillRow({ item, entry, busy, canFill, canManage, first, onCommit }: {
   item: DccItemRow;
@@ -322,26 +428,31 @@ function FillRow({ item, entry, busy, canFill, canManage, first, onCommit }: {
   const [noteOpen, setNoteOpen] = React.useState(Boolean(entry?.note));
   const hasNumber = item.targetNumber != null || item.unit != null;
   const status = entry?.status ?? null;
+  const isDone = status?.toLowerCase() === "done";
 
   return (
-    <div className={`flex flex-col gap-3 px-5 py-4 max-md:px-3.5 ${first ? "" : "border-t border-hairline"}`} style={{ background: status?.toLowerCase() === "done" ? "color-mix(in srgb, var(--color-green) 5%, transparent)" : undefined }}>
+    <div
+      className={`relative flex flex-col gap-3 px-5 py-4 transition-colors max-md:px-3.5 ${first ? "" : "border-t border-hairline"}`}
+      style={{ background: isDone ? "color-mix(in srgb, #16a34a 5%, transparent)" : undefined }}
+    >
+      {isDone && <span aria-hidden className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full" style={{ background: `linear-gradient(180deg, ${GREEN}, color-mix(in srgb, ${GREEN} 45%, transparent))` }} />}
       <div className="flex items-center gap-4 max-md:flex-col max-md:items-stretch">
         {/* Code + title */}
         <div className="flex min-w-0 flex-1 items-start gap-3">
-          {item.code && <span className="mt-0.5 shrink-0 rounded-lg bg-[color:var(--color-surface-track,#eef2f7)] px-2 py-1 text-[13.5px] font-extrabold text-ink-muted tabular-nums">{item.code}</span>}
+          {item.code && <span className="mt-0.5 shrink-0 rounded-lg px-2 py-1 text-[13px] font-extrabold tabular-nums text-ink-muted" style={{ background: "var(--color-surface-soft, #eef2f7)", boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>{item.code}</span>}
           <div className="min-w-0">
-            <p className="text-[17px] font-bold leading-snug text-ink-strong">{item.title}</p>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[13.5px] font-semibold text-ink-subtle">
+            <p className="text-[16.5px] font-bold leading-snug text-ink-strong">{item.title}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[13px] font-semibold text-ink-subtle">
               {item.frequency && <span>{item.frequency}</span>}
               {!item.frequency && item.weekdays != null && <span>{maskLabel(item.weekdays)}</span>}
-              {item.targetNumber != null && <span className="text-altus-red">target {item.targetNumber}{item.unit ? ` ${item.unit}` : ""}</span>}
+              {item.targetNumber != null && <span style={{ color: GREEN_DEEP }}>target {item.targetNumber}{item.unit ? ` ${item.unit}` : ""}</span>}
             </div>
           </div>
         </div>
 
         {/* Status segmented */}
         <div className="flex shrink-0 items-center gap-2 max-md:flex-wrap">
-          <div className="flex overflow-hidden rounded-xl border border-hairline-strong">
+          <div className="flex overflow-hidden rounded-xl" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>
             {DCC_STATUSES.map((s) => {
               const on = (status ?? "").toLowerCase() === s.toLowerCase();
               const tone = dccStatusTone(s);
@@ -350,8 +461,9 @@ function FillRow({ item, entry, busy, canFill, canManage, first, onCommit }: {
                   key={s}
                   disabled={!canFill}
                   onClick={() => onCommit(item.id, { status: on ? null : s })}
-                  className="px-3.5 py-2.5 text-[14.5px] font-bold transition-colors disabled:cursor-default"
+                  className="px-3.5 py-2.5 text-[14px] font-bold transition-colors disabled:cursor-default"
                   style={on ? { background: tone.bg, color: tone.fg } : { color: "var(--color-ink-subtle)", background: "white" }}
+                  aria-pressed={on}
                 >
                   {s}
                 </button>
@@ -365,10 +477,17 @@ function FillRow({ item, entry, busy, canFill, canManage, first, onCommit }: {
               disabled={!canFill}
               placeholder="#"
               onBlur={(e) => { const v = e.target.value.trim(); if ((v || null) !== (entry?.value ?? null)) onCommit(item.id, { value: v || null }); }}
-              className="w-[68px] rounded-xl border border-hairline-strong bg-white px-2.5 py-2.5 text-center text-[15px] font-bold text-ink-strong outline-none focus:border-[color:var(--color-altus-red)]"
+              className="w-[68px] rounded-xl border border-hairline-strong bg-white px-2.5 py-2.5 text-center text-[15px] font-bold text-ink-strong outline-none transition-colors focus:border-[#16a34a]"
+              aria-label={`Value for ${item.title}`}
             />
           )}
-          <button onClick={() => setNoteOpen((v) => !v)} className="grid h-11 w-11 place-items-center rounded-xl border border-hairline-strong text-ink-subtle transition-colors hover:border-altus-red hover:text-altus-red" title="Add a note" aria-label="Add a note" style={entry?.note ? { color: "var(--color-altus-red)", borderColor: "var(--color-altus-red)" } : undefined}>
+          <button
+            onClick={() => setNoteOpen((v) => !v)}
+            className="grid h-11 w-11 place-items-center rounded-xl border border-hairline-strong text-ink-subtle transition-colors hover:border-[#16a34a] hover:text-[#15803d]"
+            title="Add a note"
+            aria-label="Add a note"
+            style={entry?.note ? { color: GREEN_DEEP, borderColor: GREEN } : undefined}
+          >
             <StickyNote size={18} />
           </button>
           {busy && <Loader2 size={16} className="animate-spin text-ink-subtle" />}
@@ -390,6 +509,8 @@ function FillRow({ item, entry, busy, canFill, canManage, first, onCommit }: {
   );
 }
 
+/* ──────────────────────────── Manager review ─────────────────────────── */
+
 function ReviewBar({ ownerId, date, canReview, review }: { ownerId: string; date: string; canReview: boolean; review?: ReviewRow }) {
   const [, startTransition] = React.useTransition();
   const [status, setStatus] = React.useState(review?.status ?? null);
@@ -404,25 +525,30 @@ function ReviewBar({ ownerId, date, canReview, review }: { ownerId: string; date
       if (!res.ok) fireToast({ message: res.error, type: "error" });
     });
   }
-  const tone = status === "approved" ? "var(--color-green)" : status === "needs_rework" ? "var(--color-altus-red)" : "var(--color-ink-subtle)";
+  const tone = status === "approved" ? GREEN : status === "needs_rework" ? RED : "var(--color-ink-subtle)";
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl border px-4 py-3" style={{ borderColor: "color-mix(in srgb, " + tone + " 40%, var(--color-hairline-strong))", background: "color-mix(in srgb, " + tone + " 6%, white)" }}>
-      <span className="text-[13.5px] font-extrabold uppercase tracking-wide" style={{ color: tone }}>Manager review</span>
+    <div
+      className="wg-rise flex flex-wrap items-center gap-3 rounded-[22px] px-5 py-3.5 max-md:px-4"
+      style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${tone} 35%, var(--color-hairline)), 0 6px 24px -18px rgba(15,23,42,0.25)`, background: `color-mix(in srgb, ${tone} 5%, white)` }}
+    >
+      <span className="inline-flex items-center gap-1.5 text-[12.5px] font-black uppercase tracking-[0.12em]" style={{ color: status === "approved" ? GREEN_DEEP : tone }}>
+        <ShieldCheck size={15} strokeWidth={2.5} /> Manager review
+      </span>
       {canReview ? (
         <>
-          <button onClick={() => save(status === "approved" ? null : "approved")} className="rounded-xl px-4 py-2.5 text-[14.5px] font-bold transition-colors" style={status === "approved" ? { background: "var(--color-green)", color: "white" } : { background: "white", color: "var(--color-green-deep)", border: "1px solid var(--color-hairline-strong)" }}>✓ Approved</button>
-          <button onClick={() => save(status === "needs_rework" ? null : "needs_rework")} className="rounded-xl px-4 py-2.5 text-[14.5px] font-bold transition-colors" style={status === "needs_rework" ? { background: "var(--color-altus-red)", color: "white" } : { background: "white", color: "var(--color-altus-red-deep)", border: "1px solid var(--color-hairline-strong)" }}>Needs rework</button>
-          <input value={note} onChange={(e) => setNote(e.target.value)} onBlur={() => save(status)} placeholder="Review note…" className="flex-1 min-w-[180px] rounded-xl border border-hairline-strong bg-white px-3.5 py-2.5 text-[14.5px] font-medium text-ink-strong outline-none focus:border-[color:var(--color-altus-red)]" />
+          <button onClick={() => save(status === "approved" ? null : "approved")} className="wg-btn rounded-xl px-4 py-2.5 text-[14px] font-bold transition-colors" style={status === "approved" ? { background: GREEN, color: "white" } : { background: "white", color: GREEN_DEEP, boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }} aria-pressed={status === "approved"}>✓ Approved</button>
+          <button onClick={() => save(status === "needs_rework" ? null : "needs_rework")} className="wg-btn rounded-xl px-4 py-2.5 text-[14px] font-bold transition-colors" style={status === "needs_rework" ? { background: "var(--color-altus-red)", color: "white" } : { background: "white", color: "var(--color-altus-red-deep)", boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }} aria-pressed={status === "needs_rework"}>Needs rework</button>
+          <input value={note} onChange={(e) => setNote(e.target.value)} onBlur={() => save(status)} placeholder="Review note…" className="flex-1 min-w-[180px] rounded-xl border border-hairline-strong bg-white px-3.5 py-2.5 text-[14.5px] font-medium text-ink-strong outline-none transition-colors focus:border-[#16a34a]" aria-label="Review note" />
         </>
       ) : (
-        <span className="text-[14.5px] font-bold" style={{ color: tone }}>{status === "approved" ? "Approved" : status === "needs_rework" ? "Needs rework" : "Not yet reviewed"}{review?.note ? ` — ${review.note}` : ""}</span>
+        <span className="text-[14.5px] font-bold" style={{ color: status === "approved" ? GREEN_DEEP : tone }}>{status === "approved" ? "Approved" : status === "needs_rework" ? "Needs rework" : "Not yet reviewed"}{review?.note ? ` — ${review.note}` : ""}</span>
       )}
     </div>
   );
 }
 
-// ── Inline KPI item add/edit ──────────────────────────────────────────────────
+/* ── Inline KPI item add/edit ─────────────────────────────────────────── */
 function ItemEditor({ ownerId, mode, item, compact }: { ownerId: string; mode: "add" | "edit"; item?: DccItemRow; compact?: boolean }) {
   const [open, setOpen] = React.useState(false);
   const [, startTransition] = React.useTransition();
@@ -459,16 +585,16 @@ function ItemEditor({ ownerId, mode, item, compact }: { ownerId: string; mode: "
   return (
     <>
       {mode === "add" ? (
-        <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 rounded-xl bg-altus-red px-4 py-2.5 text-[14.5px] font-bold text-white transition-opacity hover:opacity-90"><Plus size={17} /> Add KPI</button>
+        <button onClick={() => setOpen(true)} className="wg-btn wg-sheen inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-[14px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`, boxShadow: "0 8px 20px -12px rgba(21,128,61,0.6)" }}><Plus size={17} /> Add KPI</button>
       ) : (
-        <button onClick={() => setOpen(true)} className={`inline-flex items-center gap-1.5 rounded-xl border border-hairline-strong font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red ${compact ? "h-11 px-3 text-[14px]" : "h-9 w-9 justify-center"}`} title="Edit KPI" aria-label="Edit KPI"><Pencil size={16} />{compact && <span className="max-md:hidden">Edit</span>}</button>
+        <button onClick={() => setOpen(true)} className={`inline-flex items-center gap-1.5 rounded-xl border border-hairline-strong font-bold text-ink-soft transition-colors hover:border-[#16a34a] hover:text-[#15803d] ${compact ? "h-11 px-3 text-[14px]" : "h-9 w-9 justify-center"}`} title="Edit KPI" aria-label="Edit KPI"><Pencil size={16} />{compact && <span className="max-md:hidden">Edit</span>}</button>
       )}
       {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setOpen(false)}>
-          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-[2px]" onClick={() => setOpen(false)}>
+          <div className="wg-rise w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={mode === "add" ? "New KPI" : "Edit KPI"}>
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-[17px] font-extrabold text-ink-strong">{mode === "add" ? "New KPI" : "Edit KPI"}</h3>
-              <button onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-lg text-ink-subtle hover:bg-[color:var(--color-surface-track,#eef2f7)]"><X size={18} /></button>
+              <h3 className="text-[18px] font-black tracking-tight text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif" }}>{mode === "add" ? "New KPI" : "Edit KPI"}</h3>
+              <button onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-lg text-ink-subtle transition-colors hover:bg-surface-soft" aria-label="Close"><X size={18} /></button>
             </div>
             <div className="flex flex-col gap-2.5">
               <input autoFocus value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="KPI title *" className={INPUT} />
@@ -484,9 +610,9 @@ function ItemEditor({ ownerId, mode, item, compact }: { ownerId: string; mode: "
             </div>
             <div className="mt-4 flex items-center justify-between">
               {mode === "edit" ? (
-                <button onClick={remove} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-bold text-altus-red hover:bg-[color:color-mix(in_srgb,var(--color-altus-red)_8%,transparent)]"><Trash2 size={14} /> Delete</button>
+                <button onClick={remove} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-bold text-altus-red transition-colors hover:bg-[color:color-mix(in_srgb,var(--color-altus-red)_8%,transparent)]"><Trash2 size={14} /> Delete</button>
               ) : <span />}
-              <button onClick={submit} className="inline-flex items-center gap-1.5 rounded-lg bg-altus-red px-4 py-2 text-[14px] font-bold text-white transition-opacity hover:opacity-90"><Check size={15} /> Save</button>
+              <button onClick={submit} className="wg-btn inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[14px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}><Check size={15} /> Save</button>
             </div>
           </div>
         </div>
