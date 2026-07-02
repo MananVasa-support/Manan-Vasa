@@ -54,5 +54,9 @@ export async function getServiceAccountToken(scopes: string[]): Promise<string> 
 
 export const GOOGLE_SCOPES = {
   sheets: "https://www.googleapis.com/auth/spreadsheets",
+  // Least-privilege READ scope — pure mirrors/syncs that never write a sheet
+  // should mint their token with this so a compromised call-path still cannot
+  // modify any sheet shared with the service account.
+  sheetsReadonly: "https://www.googleapis.com/auth/spreadsheets.readonly",
   drive: "https://www.googleapis.com/auth/drive",
 } as const;

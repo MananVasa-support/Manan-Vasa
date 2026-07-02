@@ -3871,3 +3871,122 @@ export type TcShare = typeof tcShares.$inferSelect;
 export type TcShareFeedback = typeof tcShareFeedback.$inferSelect;
 export type PmsMonthlyReview = typeof pmsMonthlyReview.$inferSelect;
 export type PmsPersonalGoal = typeof pmsPersonalGoal.$inferSelect;
+
+// Migration 0100 — per-run audit trail for external-data sync jobs (live
+// salary-sheet mirror, historic attendance backfill). Counts + names ONLY,
+// never row contents (salary figures are PII).
+export const syncRuns = pgTable(
+  "sync_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    job: text("job")
+      .$type<"salary_breakup" | "attendance_backfill" | "attendance_sheet" | "paid_leave">()
+      .notNull(),
+    trigger: text("trigger").$type<"cron" | "admin" | "script">().notNull(),
+    actorId: uuid("actor_id").references(() => employees.id, { onDelete: "set null" }),
+    dryRun: boolean("dry_run").notNull().default(false),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    status: text("status").$type<"running" | "ok" | "error">().notNull().default("running"),
+    rowsRead: integer("rows_read").notNull().default(0),
+    rowsWritten: integer("rows_written").notNull().default(0),
+    rowsSkipped: integer("rows_skipped").notNull().default(0),
+    unmatchedNames: text("unmatched_names").array().notNull().default(sql`'{}'::text[]`),
+    error: text("error"),
+  },
+  (t) => [index("sync_runs_job_started_idx").on(t.job, t.startedAt)],
+);
+export type SyncRun = typeof syncRuns.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Migration 0101 — "Attendance log" Google Sheet import (read-side mirror of
+// the HR sheet's two authoritative tabs; see lib/attendance-log/*). Additive
+// and provenance-preserving: never touches attendance_logs / leave tables.
+// Upsert key is always the sheet's employee_name; employee_id is a nullable
+// best-effort match (unmatched names surface in sync_runs.unmatched_names).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** One row per (employee_name, month): the "Attendance Sheet" tab summary. */
+export const attendanceSheetMonth = pgTable(
+  "attendance_sheet_month",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fy: text("fy"),
+    /** Month bucket, always 'YYYY-MM-01' (parsed from "Mon-YYYY" by name). */
+    month: date("month").notNull(),
+    employeeName: text("employee_name").notNull(),
+    employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "set null" }),
+    designation: text("designation"),
+    companyName: text("company_name"),
+    present: numeric("present", { precision: 6, scale: 2 }).notNull().default("0"),
+    holiday: numeric("holiday", { precision: 6, scale: 2 }).notNull().default("0"),
+    weeklyOff: numeric("weekly_off", { precision: 6, scale: 2 }).notNull().default("0"),
+    pohFull: numeric("poh_full", { precision: 6, scale: 2 }).notNull().default("0"),
+    pohHalf: numeric("poh_half", { precision: 6, scale: 2 }).notNull().default("0"),
+    halfDay: numeric("half_day", { precision: 6, scale: 2 }).notNull().default("0"),
+    absent: numeric("absent", { precision: 6, scale: 2 }).notNull().default("0"),
+    daysInMonth: numeric("days_in_month", { precision: 6, scale: 2 }).notNull().default("0"),
+    totalDaysWorked: numeric("total_days_worked", { precision: 6, scale: 2 }).notNull().default("0"),
+    remark: text("remark"),
+    importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("attsm_emp_month_uidx").on(t.employeeName, t.month),
+    index("attsm_month_idx").on(t.month),
+    index("attsm_employee_idx").on(t.employeeId),
+  ],
+);
+export type AttendanceSheetMonth = typeof attendanceSheetMonth.$inferSelect;
+
+/**
+ * One row per (employee_name, month, day 1..31): the raw day STATUS CODE from
+ * the sheet ("P" | "A" | "W/O" | "H" | "H-P" | "H-H/D" | "H/D" | "-"), stored
+ * verbatim. Per-day truth layer — NO synthetic punch times, independent of
+ * attendance_logs.
+ */
+export const attendanceSheetDay = pgTable(
+  "attendance_sheet_day",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeName: text("employee_name").notNull(),
+    employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "set null" }),
+    month: date("month").notNull(),
+    day: smallint("day").notNull(),
+    statusCode: text("status_code").notNull(),
+    /** Derived month+day; NULL when day > real length of that month. */
+    date: date("date"),
+    source: text("source").notNull().default("attendance_log_sheet"),
+    importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("attsd_emp_month_day_uidx").on(t.employeeName, t.month, t.day),
+    index("attsd_employee_date_idx").on(t.employeeId, t.date),
+    index("attsd_month_idx").on(t.month),
+  ],
+);
+export type AttendanceSheetDay = typeof attendanceSheetDay.$inferSelect;
+
+/**
+ * One row per (employee_name, period) from the employee-blocked
+ * "PAID LEAVE CALCULATION" tab: DOJ + each leave cycle's entitlement.
+ */
+export const paidLeaveCycle = pgTable(
+  "paid_leave_cycle",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeName: text("employee_name").notNull(),
+    employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "set null" }),
+    doj: date("doj"),
+    /** The cycle label exactly as written, e.g. "Mar 2019 – Aug 2019". */
+    period: text("period").notNull(),
+    status: text("status"),
+    leaves: numeric("leaves", { precision: 6, scale: 2 }),
+    remarks: text("remarks"),
+    importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("plc_emp_period_uidx").on(t.employeeName, t.period),
+    index("plc_employee_idx").on(t.employeeId),
+  ],
+);
+export type PaidLeaveCycle = typeof paidLeaveCycle.$inferSelect;

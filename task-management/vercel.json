@@ -12,6 +12,7 @@
     { "path": "/api/cron/weekly-goals?job=monday",     "schedule": "30 4 * * 1" },
     { "path": "/api/cron/weekly-goals?job=fill",       "schedule": "30 12 * * 6" },
     { "path": "/api/cron/weekly-goals?job=incomplete", "schedule": "15 4 * * 0" },
-    { "path": "/api/cron/weekly-goals?job=incomplete", "schedule": "15 4 * * 1" }
+    { "path": "/api/cron/weekly-goals?job=incomplete", "schedule": "15 4 * * 1" },
+    { "path": "/api/cron/attendance-log-sync",         "schedule": "30 21 * * 0" }
   ]
 }

@@ -3,6 +3,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   ListTodo,
+  ClipboardList,
   CalendarDays,
   FolderKanban,
   SquareKanban,
@@ -117,13 +118,19 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
         href: "/attendance" as Route,
         label: "Attendance",
         Icon: CalendarCheck,
-        not: ["/attendance/dashboard"],
+        not: ["/attendance/dashboard", "/attendance/hr-record"],
       },
       { href: "/dcc" as Route, label: "DCC", Icon: Gauge },
       {
         href: "/attendance/dashboard" as Route,
         label: "Att Report",
         Icon: CalendarRange,
+        adminOnly: true,
+      },
+      {
+        href: "/attendance/hr-record" as Route,
+        label: "HR Record",
+        Icon: ClipboardList,
         adminOnly: true,
       },
       { href: "/salary" as Route, label: "Salary", Icon: IndianRupee, adminOnly: true },
