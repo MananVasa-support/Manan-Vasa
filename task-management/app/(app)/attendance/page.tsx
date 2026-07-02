@@ -185,7 +185,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[920px] px-8 max-md:px-4 pt-8 pb-16">
+      <main className="mx-auto max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
         {/* ── Page header ── */}
         <header className="mb-6 wg-rise">
           <span
@@ -211,62 +211,69 @@ export default async function AttendancePage({ searchParams }: PageProps) {
           </p>
         </header>
 
-        {/* ── Hero punch card ── */}
-        <PunchCard
-          todayLabel={labelForDate(today)}
-          inLabel={todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : null}
-          outLabel={todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null}
-          tz={tz}
-          geofenceEnabled={geofenceEnabled}
-          officeLat={settings.officeLat}
-          officeLng={settings.officeLng}
-          radiusM={settings.attendanceRadiusM}
-          lastPunchLabel={lastPunchLabel}
-        />
+        {/* ── Full-width working grid: punch hero left · stats + timeline right ── */}
+        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
+          {/* LEFT — punch hero (clock + dial + map + note) */}
+          <div className="lg:col-span-7">
+            <PunchCard
+              todayLabel={labelForDate(today)}
+              inLabel={todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : null}
+              outLabel={todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null}
+              tz={tz}
+              geofenceEnabled={geofenceEnabled}
+              officeLat={settings.officeLat}
+              officeLng={settings.officeLng}
+              radiusM={settings.attendanceRadiusM}
+              lastPunchLabel={lastPunchLabel}
+            />
+          </div>
 
-        {/* ── Stat cards (derived from the loaded 14 days) ── */}
-        <section className="mt-5 grid grid-cols-4 gap-3.5 max-md:grid-cols-2">
-          <StatCard
-            icon={<Timer size={17} strokeWidth={2.4} />}
-            accent="var(--color-altus-red)"
-            label="This week"
-            value={weekMs > 0 ? fmtDur(weekMs) : "—"}
-            caption="hours worked"
-            progress={weekMs > 0 ? Math.min(weekMs / WEEK_REF_MS, 1) : null}
-            delay={0}
-          />
-          <StatCard
-            icon={<CalendarDays size={17} strokeWidth={2.4} />}
-            accent="#16a34a"
-            label="Present"
-            value={`${presentDays}`}
-            caption="of last 14 days"
-            progress={presentDays / 14}
-            delay={60}
-          />
-          <StatCard
-            icon={<LogIn size={17} strokeWidth={2.4} />}
-            accent="#15803d"
-            label="Avg check-in"
-            value={avgInMin != null ? fmtMinutes(avgInMin) : "—"}
-            caption={avgInMin != null ? `across ${inMinutes.length} day${inMinutes.length === 1 ? "" : "s"}` : "no check-ins yet"}
-            delay={120}
-          />
-          <StatCard
-            icon={<Clock3 size={17} strokeWidth={2.4} />}
-            accent="#334155"
-            label="Avg day"
-            value={avgDayMs != null ? fmtDur(avgDayMs) : "—"}
-            caption={avgDayMs != null ? `${completeMs.length} full day${completeMs.length === 1 ? "" : "s"}` : "no full days yet"}
-            delay={180}
-          />
-        </section>
+          {/* RIGHT — derived stats + the 14-day timeline */}
+          <div className="flex flex-col gap-5 lg:col-span-5">
+            <section className="grid grid-cols-2 gap-3.5">
+              <StatCard
+                icon={<Timer size={17} strokeWidth={2.4} />}
+                accent="var(--color-altus-red)"
+                label="This week"
+                value={weekMs > 0 ? fmtDur(weekMs) : "—"}
+                caption="hours worked"
+                progress={weekMs > 0 ? Math.min(weekMs / WEEK_REF_MS, 1) : null}
+                delay={0}
+              />
+              <StatCard
+                icon={<CalendarDays size={17} strokeWidth={2.4} />}
+                accent="#16a34a"
+                label="Present"
+                value={`${presentDays}`}
+                caption="of last 14 days"
+                progress={presentDays / 14}
+                delay={60}
+              />
+              <StatCard
+                icon={<LogIn size={17} strokeWidth={2.4} />}
+                accent="#15803d"
+                label="Avg check-in"
+                value={avgInMin != null ? fmtMinutes(avgInMin) : "—"}
+                caption={avgInMin != null ? `across ${inMinutes.length} day${inMinutes.length === 1 ? "" : "s"}` : "no check-ins yet"}
+                delay={120}
+              />
+              <StatCard
+                icon={<Clock3 size={17} strokeWidth={2.4} />}
+                accent="#334155"
+                label="Avg day"
+                value={avgDayMs != null ? fmtDur(avgDayMs) : "—"}
+                caption={avgDayMs != null ? `${completeMs.length} full day${completeMs.length === 1 ? "" : "s"}` : "no full days yet"}
+                delay={180}
+              />
+            </section>
 
-        <MyTimeline days={myDays} tz={tz} today={today} />
+            <MyTimeline days={myDays} tz={tz} today={today} />
+          </div>
+        </div>
 
         {rosterRows && (
           <section
-            className="wg-rise mt-6 rounded-[22px] bg-surface-card p-6 max-md:p-4"
+            className="wg-rise mt-5 rounded-[22px] bg-surface-card p-6 max-md:p-4"
             style={{
               boxShadow:
                 "inset 0 0 0 1px var(--color-hairline), 0 6px 24px -18px rgba(15,23,42,0.25)",
@@ -278,8 +285,8 @@ export default async function AttendancePage({ searchParams }: PageProps) {
                 <span
                   className="inline-grid size-9 place-items-center rounded-xl"
                   style={{
-                    background: "color-mix(in srgb, var(--color-altus-red) 9%, transparent)",
-                    color: "var(--color-altus-red)",
+                    background: "color-mix(in srgb, #16a34a 10%, transparent)",
+                    color: "#15803d",
                   }}
                 >
                   <Users size={18} strokeWidth={2.3} />
@@ -466,7 +473,7 @@ function VerifyBadge({
 function MyTimeline({ days, tz, today }: { days: DayPunches[]; tz: string; today: string }) {
   return (
     <section
-      className="wg-rise mt-6 rounded-[22px] bg-surface-card p-6 max-md:p-4"
+      className="wg-rise rounded-[22px] bg-surface-card p-5 max-md:p-4"
       style={{
         boxShadow:
           "inset 0 0 0 1px var(--color-hairline), 0 6px 24px -18px rgba(15,23,42,0.25)",
@@ -540,7 +547,7 @@ function TimelineRow({
 
   return (
     <li
-      className="wg-rise relative flex items-center gap-4 rounded-xl py-2.5 pl-5 pr-3.5 transition-colors hover:bg-surface-soft max-sm:flex-wrap max-sm:gap-x-3"
+      className="wg-rise relative flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl py-2.5 pl-5 pr-3.5 transition-colors hover:bg-surface-soft"
       style={{ animationDelay: `${Math.min(index, 8) * 25}ms` }}
     >
       {/* status stripe */}

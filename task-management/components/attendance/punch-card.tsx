@@ -26,6 +26,10 @@ type LocState =
   | { phase: "denied"; message: string }
   | { phase: "error"; message: string };
 
+/** Module identity: Employees = green. */
+const GREEN = "#16a34a";
+const GREEN_DEEP = "#15803d";
+
 /** Haversine metres — mirrors lib/geo so the card can show live distance feedback. */
 function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6_371_000;
@@ -190,8 +194,8 @@ export function PunchCard({
     mode === "done"
       ? { label: "Day complete", sub: `In ${inLabel} · Out ${outLabel}`, dot: "#94a3b8" }
       : mode === "out"
-        ? { label: `Checked in · since ${inLabel}`, sub: "Tap the dial when you're heading out", dot: "#22c55e" }
-        : { label: "Ready to check in", sub: "One tap when you reach the office", dot: "var(--color-altus-red)" };
+        ? { label: `Checked in · since ${inLabel}`, sub: "Tap the dial when you're heading out", dot: "var(--color-green)" }
+        : { label: "Ready to check in", sub: "One tap when you reach the office", dot: GREEN };
 
   const discDisabled = pending || mode === "done" || !locationReady;
 
@@ -199,39 +203,40 @@ export function PunchCard({
     <section
       className="wg-rise relative overflow-hidden rounded-[28px]"
       style={{
-        background: "linear-gradient(160deg, #14100E 0%, #1C1512 46%, #0E0B0A 100%)",
-        boxShadow: "0 30px 70px -30px rgba(20,16,14,0.75), 0 2px 6px rgba(0,0,0,0.25)",
+        background:
+          "linear-gradient(168deg, #ffffff 0%, var(--color-surface-card) 42%, #f2faf5 78%, #ecf8f1 100%)",
+        boxShadow:
+          "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.9), 0 30px 70px -34px rgba(21,128,61,0.30), 0 8px 28px -20px rgba(15,23,42,0.18)",
       }}
     >
-      {/* ambient glows — red brand wash, green when the day is running */}
+      {/* ambient washes — green module identity; a warm leaving-tint once on the clock */}
       <div
         aria-hidden
         className="pointer-events-none absolute -top-28 -right-20 h-72 w-72 rounded-full"
         style={{
           background:
             mode === "out"
-              ? "radial-gradient(circle, rgba(34,197,94,0.22), transparent 70%)"
-              : "radial-gradient(circle, rgba(225,6,0,0.30), transparent 70%)",
+              ? "radial-gradient(circle, rgba(225,6,0,0.09), transparent 70%)"
+              : "radial-gradient(circle, rgba(34,197,94,0.16), transparent 70%)",
           filter: "blur(10px)",
         }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(225,6,0,0.10), transparent 70%)", filter: "blur(12px)" }}
+        style={{ background: "radial-gradient(circle, rgba(22,163,74,0.10), transparent 70%)", filter: "blur(12px)" }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 h-px"
-        style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)" }}
+        style={{ background: `linear-gradient(90deg, transparent, color-mix(in srgb, ${GREEN} 40%, transparent), transparent)` }}
       />
 
-      {/* ── Dark hero: clock + punch disc ── */}
-      <div className="relative px-7 pt-9 pb-9 max-md:px-5 text-center">
+      {/* ── Light hero: clock + punch disc ── */}
+      <div className="relative px-7 pt-8 pb-7 max-md:px-5 text-center">
         <p
-          className="uppercase"
+          className="uppercase text-ink-subtle"
           style={{
-            color: "rgba(247,244,237,0.55)",
             fontFamily: "var(--font-mono-display), var(--font-display)",
             fontSize: 12,
             letterSpacing: "0.2em",
@@ -243,10 +248,10 @@ export function PunchCard({
         <LiveClock tz={tz} />
 
         <div className="mt-3 flex justify-center">
-          <LocationPill loc={loc} distanceM={distanceM} withinFence={withinFence} radiusM={radiusM} dark />
+          <LocationPill loc={loc} distanceM={distanceM} withinFence={withinFence} radiusM={radiusM} />
         </div>
 
-        <div className="mt-7 flex justify-center">
+        <div className="mt-6 flex justify-center">
           <PunchDisc
             mode={mode}
             pending={pending}
@@ -255,8 +260,8 @@ export function PunchCard({
           />
         </div>
 
-        <div className="mt-6 flex flex-col items-center gap-1.5">
-          <span className="inline-flex items-center gap-2 text-[15.5px] font-bold" style={{ color: "#F7F4ED" }}>
+        <div className="mt-5 flex flex-col items-center gap-1.5">
+          <span className="inline-flex items-center gap-2 text-[15.5px] font-bold text-ink-strong">
             <span aria-hidden className="relative inline-flex size-2.5">
               <span
                 className="absolute inline-flex h-full w-full rounded-full opacity-70 animate-ping motion-reduce:hidden"
@@ -266,26 +271,28 @@ export function PunchCard({
             </span>
             {status.label}
           </span>
-          <span className="text-[12.5px]" style={{ color: "rgba(247,244,237,0.62)" }}>
-            {status.sub}
-          </span>
+          <span className="text-[12.5px] font-medium text-ink-muted">{status.sub}</span>
           {lastPunchLabel && (
-            <span
-              className="mt-1 inline-flex items-center gap-1.5 text-[12px] tabular-nums"
-              style={{ color: "rgba(247,244,237,0.45)" }}
-            >
+            <span className="mt-1 inline-flex items-center gap-1.5 text-[12px] tabular-nums text-ink-subtle">
               <History size={12} strokeWidth={2.2} aria-hidden /> Last punch: {lastPunchLabel}
             </span>
           )}
         </div>
       </div>
 
-      {/* ── Light sheet: location, today, note ── */}
-      <div
-        className="relative rounded-t-[26px] px-7 pt-6 pb-7 max-md:px-5"
-        style={{ background: "var(--color-surface-card)", boxShadow: "0 -1px 0 rgba(0,0,0,0.04)" }}
-      >
-        <LocationPanel loc={loc} geofenceEnabled={geofenceEnabled} onEnable={requestLocation} />
+      {/* ── Map · today's punches · note ── */}
+      <div className="relative px-7 pb-7 max-md:px-5">
+        <div
+          aria-hidden
+          className="mb-5 h-px w-full"
+          style={{ background: "linear-gradient(90deg, transparent, var(--color-hairline-strong), transparent)" }}
+        />
+
+        {coords ? (
+          <MapPanel coords={coords} distanceM={distanceM} withinFence={withinFence} radiusM={radiusM} />
+        ) : (
+          <LocationPanel loc={loc} geofenceEnabled={geofenceEnabled} onEnable={requestLocation} />
+        )}
 
         <div className="grid grid-cols-2 gap-3 mb-5">
           <Stat label="Checked in" value={inLabel} kind="in" />
@@ -304,7 +311,7 @@ export function PunchCard({
           onChange={(e) => setNote(e.target.value)}
           maxLength={500}
           placeholder="e.g. client visit in the morning"
-          className="w-full rounded-xl border-2 border-hairline-strong px-3.5 py-2.5 text-[15px] bg-white outline-none transition-colors focus:border-[var(--color-altus-red)]"
+          className="w-full rounded-xl border-2 border-hairline-strong px-3.5 py-2.5 text-[15px] bg-white outline-none transition-colors focus:border-[#16a34a]"
         />
 
         {geofenceEnabled && !locationReady && (
@@ -334,26 +341,109 @@ export function PunchCard({
 const DENIED_MSG =
   "Location is blocked for this site. Tap the lock/location icon in your browser's address bar, set Location to Allow, then tap Try again.";
 
+/* ────────────────────────────── Live map ────────────────────────────── */
+
+/**
+ * Free, keyless OpenStreetMap embed of the user's current GPS fix.
+ * Purely presentational — coords come from the same fix the punch uses.
+ */
+function MapPanel({
+  coords,
+  distanceM,
+  withinFence,
+  radiusM,
+}: {
+  coords: Coords;
+  distanceM: number | null;
+  withinFence: boolean | null;
+  radiusM: number;
+}) {
+  const { lat, lng } = coords;
+  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.004}%2C${lat - 0.0025}%2C${lng + 0.004}%2C${lat + 0.0025}&layer=mapnik&marker=${lat}%2C${lng}`;
+
+  const pill =
+    distanceM != null
+      ? withinFence
+        ? { text: `${Math.round(distanceM)}m from office`, color: GREEN_DEEP, bg: "rgba(236,253,245,0.92)", ring: "rgba(22,163,74,0.35)" }
+        : { text: `${Math.round(distanceM)}m from office · outside ${radiusM}m`, color: "var(--color-altus-red)", bg: "rgba(255,255,255,0.92)", ring: "rgba(225,6,0,0.30)" }
+      : { text: "Location captured", color: GREEN_DEEP, bg: "rgba(236,253,245,0.92)", ring: "rgba(22,163,74,0.35)" };
+
+  return (
+    <div
+      className="mb-5 overflow-hidden rounded-2xl bg-surface-card"
+      style={{
+        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${GREEN} 30%, var(--color-hairline)), 0 12px 32px -24px rgba(21,128,61,0.5)`,
+      }}
+    >
+      <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+        <span className="inline-flex items-center gap-1.5 text-[12.5px] font-bold uppercase tracking-[0.1em] text-ink-subtle">
+          <MapPin size={13} strokeWidth={2.6} style={{ color: GREEN }} aria-hidden /> Your location
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold tabular-nums text-ink-subtle">
+          <span aria-hidden className="relative inline-flex size-1.5">
+            <span
+              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-70 motion-reduce:hidden"
+              style={{ background: GREEN }}
+            />
+            <span className="relative inline-flex size-1.5 rounded-full" style={{ background: GREEN }} />
+          </span>
+          Live GPS · ±{Math.round(coords.accuracyM)}m
+        </span>
+      </div>
+      <div className="relative">
+        <iframe
+          src={src}
+          title="Map of your current location"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          className="block h-[240px] w-full border-0 max-md:h-[220px]"
+          style={{ filter: "saturate(0.92)" }}
+        />
+        {/* soft inner ring over the map edge */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${GREEN} 22%, transparent), inset 0 1px 0 rgba(255,255,255,0.4)` }}
+        />
+        <span
+          className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12.5px] font-bold tabular-nums backdrop-blur-sm"
+          style={{ background: pill.bg, color: pill.color, boxShadow: `inset 0 0 0 1px ${pill.ring}, 0 4px 14px -6px rgba(15,23,42,0.35)` }}
+        >
+          <MapPin size={12} strokeWidth={2.6} aria-hidden /> {pill.text}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /* ───────────────────────────── Punch disc ───────────────────────────── */
 
 type DiscMode = "in" | "out" | "done";
 
-const DISC_STYLE: Record<DiscMode, { bg: string; glow: string; label: string; sub: string }> = {
+const DISC_STYLE: Record<DiscMode, { bg: string; glow: string; halo: string; ring: string; label: string; sub: string }> = {
+  // Check IN = green (module identity + "go").
   in: {
-    bg: "linear-gradient(150deg, #FF2A22 0%, #E10600 45%, #A80400 100%)",
-    glow: "0 26px 60px -18px rgba(225,6,0,0.65), inset 0 2px 0 rgba(255,255,255,0.28), inset 0 -10px 24px rgba(0,0,0,0.28)",
+    bg: "linear-gradient(150deg, #2BC964 0%, #16A34A 45%, #15803D 100%)",
+    glow: "0 26px 60px -18px rgba(22,163,74,0.55), inset 0 2px 0 rgba(255,255,255,0.30), inset 0 -10px 24px rgba(0,0,0,0.22)",
+    halo: "0 0 44px 4px rgba(22,163,74,0.30)",
+    ring: "rgba(22,163,74,0.35)",
     label: "Check in",
     sub: "Tap to punch",
   },
+  // Check OUT = red (leaving).
   out: {
-    bg: "linear-gradient(150deg, #2BC964 0%, #16A34A 45%, #15803D 100%)",
-    glow: "0 26px 60px -18px rgba(22,163,74,0.6), inset 0 2px 0 rgba(255,255,255,0.28), inset 0 -10px 24px rgba(0,0,0,0.28)",
+    bg: "linear-gradient(150deg, #FF2A22 0%, #E10600 45%, #A80400 100%)",
+    glow: "0 26px 60px -18px rgba(225,6,0,0.5), inset 0 2px 0 rgba(255,255,255,0.28), inset 0 -10px 24px rgba(0,0,0,0.24)",
+    halo: "0 0 44px 4px rgba(225,6,0,0.28)",
+    ring: "rgba(225,6,0,0.30)",
     label: "Check out",
     sub: "Tap to punch",
   },
   done: {
-    bg: "linear-gradient(150deg, #475569 0%, #334155 45%, #1e293b 100%)",
-    glow: "inset 0 2px 0 rgba(255,255,255,0.16), inset 0 -10px 24px rgba(0,0,0,0.3)",
+    bg: "linear-gradient(150deg, #64748b 0%, #475569 50%, #334155 100%)",
+    glow: "0 18px 44px -20px rgba(51,65,85,0.5), inset 0 2px 0 rgba(255,255,255,0.2), inset 0 -10px 24px rgba(0,0,0,0.22)",
+    halo: "none",
+    ring: "rgba(51,65,85,0.30)",
     label: "Day complete",
     sub: "See you tomorrow",
   },
@@ -380,28 +470,23 @@ function PunchDisc({
 
   return (
     <div className="relative flex size-[224px] items-center justify-center max-sm:size-[192px]">
-      {/* concentric rings */}
+      {/* concentric rings on the light surface */}
       <span
         aria-hidden
         className="absolute inset-0 rounded-full"
-        style={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.10)" }}
+        style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${s.ring} 55%, transparent)` }}
       />
       <span
         aria-hidden
         className="absolute inset-[9px] rounded-full"
-        style={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)" }}
+        style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${s.ring} 30%, transparent)` }}
       />
       {/* slow breathing halo while the dial is armed */}
       {active && (
         <span
           aria-hidden
           className="absolute inset-[12px] rounded-full animate-pulse motion-reduce:animate-none"
-          style={{
-            boxShadow:
-              mode === "out"
-                ? "0 0 44px 4px rgba(34,197,94,0.38)"
-                : "0 0 44px 4px rgba(225,6,0,0.38)",
-          }}
+          style={{ boxShadow: s.halo }}
         />
       )}
 
@@ -410,13 +495,14 @@ function PunchDisc({
         onClick={onClick}
         disabled={disabled}
         aria-label={mode === "done" ? "Day complete" : s.label}
-        className={`relative size-[188px] max-sm:size-[156px] rounded-full ${active ? "wg-sheen" : ""} group flex flex-col items-center justify-center gap-1.5 overflow-hidden text-white outline-none transition-transform duration-200 focus-visible:ring-4 focus-visible:ring-white/40 ${
+        className={`relative size-[188px] max-sm:size-[156px] rounded-full ${active ? "wg-sheen" : ""} group flex flex-col items-center justify-center gap-1.5 overflow-hidden text-white outline-none transition-transform duration-200 focus-visible:ring-4 ${
           active ? "hover:scale-[1.03] active:scale-[0.98]" : "cursor-not-allowed"
         } motion-reduce:transition-none motion-reduce:hover:scale-100`}
         style={{
           background: s.bg,
           boxShadow: s.glow,
           opacity: disabled && mode !== "done" ? 0.45 : 1,
+          ["--tw-ring-color" as string]: s.ring,
         }}
       >
         <Icon
@@ -437,7 +523,7 @@ function PunchDisc({
           {pending ? "Punching…" : s.label}
         </span>
         {!pending && (
-          <span className="text-[11.5px] font-semibold uppercase tracking-[0.14em]" style={{ opacity: 0.75 }}>
+          <span className="text-[11.5px] font-semibold uppercase tracking-[0.14em]" style={{ opacity: 0.8 }}>
             {s.sub}
           </span>
         )}
@@ -448,19 +534,17 @@ function PunchDisc({
 
 /* ───────────────────────── Location UI (unchanged logic) ───────────────────────── */
 
-/** Compact status pill in the clock face. `dark` = sitting on the dark hero. */
+/** Compact status pill in the clock face. */
 function LocationPill({
   loc,
   distanceM,
   withinFence,
   radiusM,
-  dark,
 }: {
   loc: LocState;
   distanceM: number | null;
   withinFence: boolean | null;
   radiusM: number;
-  dark?: boolean;
 }) {
   const base = "inline-flex items-center gap-1.5 rounded-pill px-3 h-8 text-[12.5px] font-bold backdrop-blur";
   if (loc.phase === "granted") {
@@ -471,12 +555,16 @@ function LocationPill({
         className={base}
         style={
           ok
-            ? dark
-              ? { background: "rgba(34,197,94,0.16)", color: "#86efac", boxShadow: "inset 0 0 0 1px rgba(134,239,172,0.28)" }
-              : { background: "var(--color-green-bg)", color: "var(--color-green-deep)" }
-            : dark
-              ? { background: "rgba(225,6,0,0.20)", color: "#fca5a5", boxShadow: "inset 0 0 0 1px rgba(252,165,165,0.3)" }
-              : { background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red)" }
+            ? {
+                background: "var(--color-green-bg)",
+                color: "var(--color-green-deep)",
+                boxShadow: "inset 0 0 0 1px rgba(22,163,74,0.22)",
+              }
+            : {
+                background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)",
+                color: "var(--color-altus-red)",
+                boxShadow: "inset 0 0 0 1px rgba(225,6,0,0.2)",
+              }
         }
       >
         <MapPin size={13} strokeWidth={2.4} /> {dist}
@@ -486,25 +574,20 @@ function LocationPill({
   }
   if (loc.phase === "locating") {
     return (
-      <span
-        className={base}
-        style={dark ? { background: "rgba(255,255,255,0.1)", color: "rgba(247,244,237,0.8)" } : { background: "var(--color-surface-soft)", color: "var(--color-ink-soft)" }}
-      >
+      <span className={base} style={{ background: "var(--color-surface-soft)", color: "var(--color-ink-soft)" }}>
         <Loader2 size={13} strokeWidth={2.4} className="animate-spin" /> Locating…
       </span>
     );
   }
   return (
-    <span
-      className={base}
-      style={dark ? { background: "rgba(255,255,255,0.08)", color: "rgba(247,244,237,0.6)" } : { background: "var(--color-surface-soft)", color: "var(--color-ink-subtle)" }}
-    >
+    <span className={base} style={{ background: "var(--color-surface-soft)", color: "var(--color-ink-subtle)" }}>
       <MapPinOff size={13} strokeWidth={2.4} /> Location off
     </span>
   );
 }
 
-/** The Enable / Try-again / instructions block in the light sheet. */
+/** The Enable / Try-again / instructions block — shown until we have a GPS fix
+ *  (once a fix arrives the live map takes this slot). */
 function LocationPanel({
   loc,
   geofenceEnabled,
@@ -514,7 +597,7 @@ function LocationPanel({
   geofenceEnabled: boolean;
   onEnable: () => void;
 }) {
-  // Location ready — show a calm confirmation only when a fence is active.
+  // Location ready — the MapPanel replaces this block entirely.
   if (loc.phase === "granted") {
     if (!geofenceEnabled) return null;
     return (
@@ -534,7 +617,7 @@ function LocationPanel({
 
   return (
     <div
-      className="mb-4 rounded-xl p-4"
+      className="mb-5 rounded-2xl p-4"
       style={{
         background: isDenied || isError
           ? "color-mix(in srgb, var(--color-altus-red) 6%, var(--color-surface-card))"
@@ -551,7 +634,7 @@ function LocationPanel({
                   background: "color-mix(in srgb, var(--color-altus-red) 12%, transparent)",
                   color: "var(--color-altus-red)",
                 }
-              : { background: "color-mix(in srgb, var(--color-altus-red) 8%, transparent)", color: "var(--color-altus-red)" }
+              : { background: `color-mix(in srgb, ${GREEN} 10%, transparent)`, color: GREEN_DEEP }
           }
         >
           {isDenied || isError ? (
@@ -576,8 +659,8 @@ function LocationPanel({
               : isError
                 ? loc.message
                 : geofenceEnabled
-                  ? "Attendance is verified by your location. Tap Enable location and allow access when your browser asks."
-                  : "Sharing your location stamps the punch with where you checked in."}
+                  ? "Attendance is verified by your location. Tap Enable location and allow access when your browser asks — your live map appears right here."
+                  : "Sharing your location stamps the punch with where you checked in — and shows your live map here."}
           </p>
           <button
             type="button"
@@ -585,8 +668,8 @@ function LocationPanel({
             disabled={locating}
             className="mt-3 inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-[14px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-50"
             style={{
-              background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-              boxShadow: "0 6px 16px -8px rgba(225, 6, 0, 0.55)",
+              background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,
+              boxShadow: "0 6px 16px -8px rgba(22, 163, 74, 0.55)",
             }}
           >
             {locating ? (
@@ -624,12 +707,12 @@ function LiveClock({ tz }: { tz: string }) {
       className="tabular-nums mt-1.5"
       style={{
         fontFamily: "var(--font-display), system-ui, sans-serif",
-        fontSize: "clamp(54px, 9vw, 78px)",
+        fontSize: "clamp(54px, 6.5vw, 78px)",
         fontWeight: 800,
         lineHeight: 1.05,
         letterSpacing: "-0.03em",
-        color: "#FBFAF7",
-        textShadow: "0 2px 24px rgba(225,6,0,0.25)",
+        color: "var(--color-ink-strong)",
+        textShadow: "0 2px 24px rgba(22,163,74,0.16)",
       }}
       aria-label="Current time"
     >
@@ -640,7 +723,7 @@ function LiveClock({ tz }: { tz: string }) {
 
 function Stat({ label, value, kind }: { label: string; value: string | null; kind: "in" | "out" }) {
   const has = value != null;
-  const accent = kind === "in" ? "#16a34a" : "var(--color-altus-red)";
+  const accent = kind === "in" ? GREEN : "var(--color-altus-red)";
   const Icon = kind === "in" ? LogIn : LogOut;
   return (
     <div
