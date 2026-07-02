@@ -7,9 +7,14 @@ import { listActiveSubjectNames } from "@/lib/queries/subjects";
 import { listProjectNodeOptions } from "@/lib/queries/projects";
 import { getTaskById } from "@/lib/queries/tasks";
 import { requireUser } from "@/lib/auth/current";
+import { withRetry } from "@/lib/db/with-timeout";
 import type { TaskPriority } from "@/db/enums";
 
 export const dynamic = "force-dynamic";
+
+// Retry the roster loads on a fresh pooled connection so a single stale socket
+// never crashes the create page.
+const RETRY = { attempts: 3, timeoutMs: [6000, 10000, 14000] as number[] };
 
 interface PageProps {
   searchParams: Promise<{ from?: string; doer?: string }>;
@@ -19,10 +24,10 @@ export default async function NewTaskPage({ searchParams }: PageProps) {
   const me = await requireUser();
   const { from, doer } = await searchParams;
   const [all, clients, subjects, projectNodes] = await Promise.all([
-    listEmployees(),
-    listActiveClientNames(),
-    listActiveSubjectNames(),
-    listProjectNodeOptions(),
+    withRetry(() => listEmployees(), { ...RETRY, label: "nt-employees" }),
+    withRetry(() => listActiveClientNames(), { ...RETRY, label: "nt-clients" }),
+    withRetry(() => listActiveSubjectNames(), { ...RETRY, label: "nt-subjects" }),
+    withRetry(() => listProjectNodeOptions(), { ...RETRY, label: "nt-projects" }),
   ]);
   const options = all.map((e) => ({ id: e.id, name: e.name }));
 
@@ -42,7 +47,7 @@ export default async function NewTaskPage({ searchParams }: PageProps) {
     defaults.doerId = doer;
   }
   if (from) {
-    const src = await getTaskById(from);
+    const src = await withRetry(() => getTaskById(from), { ...RETRY, label: "nt-from" });
     if (src) {
       defaults = {
         initiatorId: src.initiatorId,
