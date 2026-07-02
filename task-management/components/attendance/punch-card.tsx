@@ -11,6 +11,8 @@ import {
   LocateFixed,
   CheckCircle2,
   AlertTriangle,
+  Fingerprint,
+  History,
 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { punchAttendance } from "@/app/(app)/attendance/actions";
@@ -38,9 +40,9 @@ function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number):
 
 /**
  * Punch card — live clock + one-tap check-in/out. Presence is enforced entirely
- * by the office geofence (location): the buttons stay disabled until the browser
- * reports a GPS fix, and the server rejects any fix outside the radius. No Wi-Fi
- * gate, no biometric — a punch is just: enable location → tap.
+ * by the office geofence (location): the punch disc stays disabled until the
+ * browser reports a GPS fix, and the server rejects any fix outside the radius.
+ * No Wi-Fi gate, no biometric — a punch is just: enable location → tap.
  */
 export function PunchCard({
   todayLabel,
@@ -51,6 +53,7 @@ export function PunchCard({
   officeLat,
   officeLng,
   radiusM,
+  lastPunchLabel,
 }: {
   todayLabel: string;
   inLabel: string | null;
@@ -61,6 +64,8 @@ export function PunchCard({
   officeLat: number | null;
   officeLng: number | null;
   radiusM: number;
+  /** Most recent punch across the loaded window, pre-formatted server-side. */
+  lastPunchLabel?: string | null;
 }) {
   const router = useRouter();
   const [note, setNote] = React.useState("");
@@ -68,7 +73,7 @@ export function PunchCard({
   const [loc, setLoc] = React.useState<LocState>({ phase: "idle" });
 
   // On mount, read the permission state so we can show the right CTA upfront.
-  // When already granted we auto-fetch a fix so the buttons are ready to tap.
+  // When already granted we auto-fetch a fix so the disc is ready to tap.
   React.useEffect(() => {
     let cancelled = false;
     if (!("geolocation" in navigator)) {
@@ -177,48 +182,109 @@ export function PunchCard({
     });
   }
 
-  // Presence state → the headline shown under the clock.
+  // Presence state → the disc mode + the headline under it.
   const checkedIn = inLabel !== null;
   const checkedOut = outLabel !== null;
-  const status = checkedOut
-    ? { label: "Day complete", sub: `In ${inLabel} · Out ${outLabel}`, tone: "#64748b", dot: "#94a3b8" }
-    : checkedIn
-      ? { label: "You're checked in", sub: `Since ${inLabel} — have a great day`, tone: "#16a34a", dot: "#22c55e" }
-      : { label: "Ready to check in", sub: "One tap when you reach the office", tone: "var(--color-altus-red)", dot: "var(--color-altus-red)" };
+  const mode: DiscMode = checkedIn && checkedOut ? "done" : checkedIn ? "out" : "in";
+  const status =
+    mode === "done"
+      ? { label: "Day complete", sub: `In ${inLabel} · Out ${outLabel}`, dot: "#94a3b8" }
+      : mode === "out"
+        ? { label: `Checked in · since ${inLabel}`, sub: "Tap the dial when you're heading out", dot: "#22c55e" }
+        : { label: "Ready to check in", sub: "One tap when you reach the office", dot: "var(--color-altus-red)" };
+
+  const discDisabled = pending || mode === "done" || !locationReady;
 
   return (
     <section
-      className="wg-rise relative overflow-hidden rounded-[26px]"
+      className="wg-rise relative overflow-hidden rounded-[28px]"
       style={{
         background: "linear-gradient(160deg, #14100E 0%, #1C1512 46%, #0E0B0A 100%)",
         boxShadow: "0 30px 70px -30px rgba(20,16,14,0.75), 0 2px 6px rgba(0,0,0,0.25)",
       }}
     >
-      {/* ambient brand-red glow */}
-      <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 h-64 w-64 rounded-full" style={{ background: "radial-gradient(circle, rgba(225,6,0,0.30), transparent 70%)", filter: "blur(8px)" }} />
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)" }} />
+      {/* ambient glows — red brand wash, green when the day is running */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-28 -right-20 h-72 w-72 rounded-full"
+        style={{
+          background:
+            mode === "out"
+              ? "radial-gradient(circle, rgba(34,197,94,0.22), transparent 70%)"
+              : "radial-gradient(circle, rgba(225,6,0,0.30), transparent 70%)",
+          filter: "blur(10px)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full"
+        style={{ background: "radial-gradient(circle, rgba(225,6,0,0.10), transparent 70%)", filter: "blur(12px)" }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)" }}
+      />
 
-      {/* ── Clock face (dark hero) ── */}
-      <div className="relative px-7 pt-8 pb-6 max-md:px-5 text-center">
-        <p className="uppercase" style={{ color: "rgba(247,244,237,0.55)", fontFamily: "var(--font-mono-display), var(--font-display)", fontSize: 12, letterSpacing: "0.2em" }}>
+      {/* ── Dark hero: clock + punch disc ── */}
+      <div className="relative px-7 pt-9 pb-9 max-md:px-5 text-center">
+        <p
+          className="uppercase"
+          style={{
+            color: "rgba(247,244,237,0.55)",
+            fontFamily: "var(--font-mono-display), var(--font-display)",
+            fontSize: 12,
+            letterSpacing: "0.2em",
+          }}
+        >
           {todayLabel}
         </p>
+
         <LiveClock tz={tz} />
-        <div className="mt-3.5 flex flex-col items-center gap-2.5">
+
+        <div className="mt-3 flex justify-center">
+          <LocationPill loc={loc} distanceM={distanceM} withinFence={withinFence} radiusM={radiusM} dark />
+        </div>
+
+        <div className="mt-7 flex justify-center">
+          <PunchDisc
+            mode={mode}
+            pending={pending}
+            disabled={discDisabled}
+            onClick={() => punch(mode === "out" ? "out" : "in")}
+          />
+        </div>
+
+        <div className="mt-6 flex flex-col items-center gap-1.5">
           <span className="inline-flex items-center gap-2 text-[15.5px] font-bold" style={{ color: "#F7F4ED" }}>
             <span aria-hidden className="relative inline-flex size-2.5">
-              <span className="absolute inline-flex h-full w-full rounded-full opacity-70 animate-ping" style={{ background: status.dot }} />
+              <span
+                className="absolute inline-flex h-full w-full rounded-full opacity-70 animate-ping motion-reduce:hidden"
+                style={{ background: status.dot }}
+              />
               <span className="relative inline-flex size-2.5 rounded-full" style={{ background: status.dot }} />
             </span>
             {status.label}
           </span>
-          <span className="text-[12.5px]" style={{ color: "rgba(247,244,237,0.62)" }}>{status.sub}</span>
-          <div className="mt-1"><LocationPill loc={loc} distanceM={distanceM} withinFence={withinFence} radiusM={radiusM} dark /></div>
+          <span className="text-[12.5px]" style={{ color: "rgba(247,244,237,0.62)" }}>
+            {status.sub}
+          </span>
+          {lastPunchLabel && (
+            <span
+              className="mt-1 inline-flex items-center gap-1.5 text-[12px] tabular-nums"
+              style={{ color: "rgba(247,244,237,0.45)" }}
+            >
+              <History size={12} strokeWidth={2.2} aria-hidden /> Last punch: {lastPunchLabel}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* ── Body (light sheet) ── */}
-      <div className="relative rounded-t-[26px] px-7 pt-6 pb-7 max-md:px-5" style={{ background: "var(--color-surface-card)", boxShadow: "0 -1px 0 rgba(0,0,0,0.04)" }}>
+      {/* ── Light sheet: location, today, note ── */}
+      <div
+        className="relative rounded-t-[26px] px-7 pt-6 pb-7 max-md:px-5"
+        style={{ background: "var(--color-surface-card)", boxShadow: "0 -1px 0 rgba(0,0,0,0.04)" }}
+      >
         <LocationPanel loc={loc} geofenceEnabled={geofenceEnabled} onEnable={requestLocation} />
 
         <div className="grid grid-cols-2 gap-3 mb-5">
@@ -226,7 +292,10 @@ export function PunchCard({
           <Stat label="Checked out" value={outLabel} kind="out" />
         </div>
 
-        <label htmlFor="punch-note" className="block text-[13px] font-bold uppercase tracking-wide text-ink-subtle mb-1.5">
+        <label
+          htmlFor="punch-note"
+          className="block text-[13px] font-bold uppercase tracking-wide text-ink-subtle mb-1.5"
+        >
           Note / reason <span className="font-medium normal-case text-ink-subtle">(optional)</span>
         </label>
         <input
@@ -235,15 +304,27 @@ export function PunchCard({
           onChange={(e) => setNote(e.target.value)}
           maxLength={500}
           placeholder="e.g. client visit in the morning"
-          className="w-full rounded-xl border-2 border-hairline-strong px-3.5 py-2.5 text-[15px] bg-white mb-5 outline-none transition-colors focus:border-[var(--color-altus-red)]"
+          className="w-full rounded-xl border-2 border-hairline-strong px-3.5 py-2.5 text-[15px] bg-white outline-none transition-colors focus:border-[var(--color-altus-red)]"
         />
 
-        <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-          <PunchButton kind="in" done={checkedIn} pending={pending} disabled={!locationReady} onClick={() => punch("in")} />
-          <PunchButton kind="out" done={checkedOut} pending={pending} disabled={!locationReady} onClick={() => punch("out")} />
-        </div>
         {geofenceEnabled && !locationReady && (
-          <p className="mt-3 text-center text-[13px] text-ink-subtle">Enable location above to check in or out.</p>
+          <p className="mt-4 text-center text-[13px] text-ink-subtle">
+            Enable location above — the dial unlocks the moment we have a fix.
+          </p>
+        )}
+        {!checkedIn && !checkedOut && (
+          <p className="mt-4 text-center text-[13px] text-ink-subtle">
+            Leaving without a morning check-in?{" "}
+            <button
+              type="button"
+              onClick={() => punch("out")}
+              disabled={pending || !locationReady}
+              className="font-bold underline underline-offset-2 transition-colors disabled:opacity-50"
+              style={{ color: "var(--color-altus-red)" }}
+            >
+              Check out instead
+            </button>
+          </p>
         )}
       </div>
     </section>
@@ -252,6 +333,120 @@ export function PunchCard({
 
 const DENIED_MSG =
   "Location is blocked for this site. Tap the lock/location icon in your browser's address bar, set Location to Allow, then tap Try again.";
+
+/* ───────────────────────────── Punch disc ───────────────────────────── */
+
+type DiscMode = "in" | "out" | "done";
+
+const DISC_STYLE: Record<DiscMode, { bg: string; glow: string; label: string; sub: string }> = {
+  in: {
+    bg: "linear-gradient(150deg, #FF2A22 0%, #E10600 45%, #A80400 100%)",
+    glow: "0 26px 60px -18px rgba(225,6,0,0.65), inset 0 2px 0 rgba(255,255,255,0.28), inset 0 -10px 24px rgba(0,0,0,0.28)",
+    label: "Check in",
+    sub: "Tap to punch",
+  },
+  out: {
+    bg: "linear-gradient(150deg, #2BC964 0%, #16A34A 45%, #15803D 100%)",
+    glow: "0 26px 60px -18px rgba(22,163,74,0.6), inset 0 2px 0 rgba(255,255,255,0.28), inset 0 -10px 24px rgba(0,0,0,0.28)",
+    label: "Check out",
+    sub: "Tap to punch",
+  },
+  done: {
+    bg: "linear-gradient(150deg, #475569 0%, #334155 45%, #1e293b 100%)",
+    glow: "inset 0 2px 0 rgba(255,255,255,0.16), inset 0 -10px 24px rgba(0,0,0,0.3)",
+    label: "Day complete",
+    sub: "See you tomorrow",
+  },
+};
+
+/**
+ * The big circular clock-in control. Purely presentational — the tap calls the
+ * same punch("in"/"out") flow the old buttons used.
+ */
+function PunchDisc({
+  mode,
+  pending,
+  disabled,
+  onClick,
+}: {
+  mode: DiscMode;
+  pending: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const s = DISC_STYLE[mode];
+  const Icon = pending ? Loader2 : mode === "done" ? CheckCircle2 : mode === "out" ? LogOut : Fingerprint;
+  const active = !disabled && mode !== "done";
+
+  return (
+    <div className="relative flex size-[224px] items-center justify-center max-sm:size-[192px]">
+      {/* concentric rings */}
+      <span
+        aria-hidden
+        className="absolute inset-0 rounded-full"
+        style={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.10)" }}
+      />
+      <span
+        aria-hidden
+        className="absolute inset-[9px] rounded-full"
+        style={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)" }}
+      />
+      {/* slow breathing halo while the dial is armed */}
+      {active && (
+        <span
+          aria-hidden
+          className="absolute inset-[12px] rounded-full animate-pulse motion-reduce:animate-none"
+          style={{
+            boxShadow:
+              mode === "out"
+                ? "0 0 44px 4px rgba(34,197,94,0.38)"
+                : "0 0 44px 4px rgba(225,6,0,0.38)",
+          }}
+        />
+      )}
+
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={mode === "done" ? "Day complete" : s.label}
+        className={`relative size-[188px] max-sm:size-[156px] rounded-full ${active ? "wg-sheen" : ""} group flex flex-col items-center justify-center gap-1.5 overflow-hidden text-white outline-none transition-transform duration-200 focus-visible:ring-4 focus-visible:ring-white/40 ${
+          active ? "hover:scale-[1.03] active:scale-[0.98]" : "cursor-not-allowed"
+        } motion-reduce:transition-none motion-reduce:hover:scale-100`}
+        style={{
+          background: s.bg,
+          boxShadow: s.glow,
+          opacity: disabled && mode !== "done" ? 0.45 : 1,
+        }}
+      >
+        <Icon
+          size={mode === "done" ? 38 : 42}
+          strokeWidth={2.1}
+          className={pending ? "animate-spin" : ""}
+          aria-hidden
+        />
+        <span
+          style={{
+            fontFamily: "var(--font-display), system-ui, sans-serif",
+            fontWeight: 900,
+            fontSize: 19,
+            letterSpacing: "-0.01em",
+            lineHeight: 1.1,
+          }}
+        >
+          {pending ? "Punching…" : s.label}
+        </span>
+        {!pending && (
+          <span className="text-[11.5px] font-semibold uppercase tracking-[0.14em]" style={{ opacity: 0.75 }}>
+            {s.sub}
+          </span>
+        )}
+      </button>
+    </div>
+  );
+}
+
+/* ───────────────────────── Location UI (unchanged logic) ───────────────────────── */
 
 /** Compact status pill in the clock face. `dark` = sitting on the dark hero. */
 function LocationPill({
@@ -291,19 +486,25 @@ function LocationPill({
   }
   if (loc.phase === "locating") {
     return (
-      <span className={base} style={dark ? { background: "rgba(255,255,255,0.1)", color: "rgba(247,244,237,0.8)" } : { background: "var(--color-surface-soft)", color: "var(--color-ink-soft)" }}>
+      <span
+        className={base}
+        style={dark ? { background: "rgba(255,255,255,0.1)", color: "rgba(247,244,237,0.8)" } : { background: "var(--color-surface-soft)", color: "var(--color-ink-soft)" }}
+      >
         <Loader2 size={13} strokeWidth={2.4} className="animate-spin" /> Locating…
       </span>
     );
   }
   return (
-    <span className={base} style={dark ? { background: "rgba(255,255,255,0.08)", color: "rgba(247,244,237,0.6)" } : { background: "var(--color-surface-soft)", color: "var(--color-ink-subtle)" }}>
+    <span
+      className={base}
+      style={dark ? { background: "rgba(255,255,255,0.08)", color: "rgba(247,244,237,0.6)" } : { background: "var(--color-surface-soft)", color: "var(--color-ink-subtle)" }}
+    >
       <MapPinOff size={13} strokeWidth={2.4} /> Location off
     </span>
   );
 }
 
-/** The Enable / Try-again / instructions block above the buttons. */
+/** The Enable / Try-again / instructions block in the light sheet. */
 function LocationPanel({
   loc,
   geofenceEnabled,
@@ -423,7 +624,7 @@ function LiveClock({ tz }: { tz: string }) {
       className="tabular-nums mt-1.5"
       style={{
         fontFamily: "var(--font-display), system-ui, sans-serif",
-        fontSize: 62,
+        fontSize: "clamp(54px, 9vw, 78px)",
         fontWeight: 800,
         lineHeight: 1.05,
         letterSpacing: "-0.03em",
@@ -434,47 +635,6 @@ function LiveClock({ tz }: { tz: string }) {
     >
       {text}
     </p>
-  );
-}
-
-function PunchButton({
-  kind,
-  done,
-  pending,
-  disabled,
-  onClick,
-}: {
-  kind: "in" | "out";
-  done: boolean;
-  pending: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  const Icon = pending ? Loader2 : done ? CheckCircle2 : kind === "in" ? LogIn : LogOut;
-  const isDisabled = pending || done || disabled;
-  return (
-    <button
-      type="button"
-      disabled={isDisabled}
-      onClick={onClick}
-      className={`wg-btn ${isDisabled ? "" : "wg-sheen"} group relative inline-flex h-[60px] items-center justify-center gap-2.5 overflow-hidden rounded-2xl text-[16.5px] font-black text-white disabled:cursor-not-allowed`}
-      style={{
-        background: done
-          ? "linear-gradient(135deg, #334155, #1e293b)"
-          : kind === "in"
-            ? "linear-gradient(135deg, #16A34A, #15803D)"
-            : "linear-gradient(135deg, #E10600, #A80400)",
-        boxShadow: done
-          ? "none"
-          : kind === "in"
-            ? "0 14px 30px -12px rgba(22,163,74,0.6)"
-            : "0 14px 30px -12px rgba(225,6,0,0.6)",
-        opacity: isDisabled && !done ? 0.4 : 1,
-      }}
-    >
-      <Icon size={21} strokeWidth={2.5} className={pending ? "animate-spin" : "transition-transform group-enabled:group-hover:scale-110"} />
-      {done ? (kind === "in" ? "Checked in" : "Checked out") : kind === "in" ? "Check in" : "Check out"}
-    </button>
   );
 }
 

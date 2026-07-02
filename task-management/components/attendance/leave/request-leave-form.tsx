@@ -2,9 +2,26 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { AlertCircle, CalendarPlus, Send } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { LEAVE_KINDS, LEAVE_KIND_LABELS, type LeaveKind } from "@/db/enums";
 import { requestLeave } from "@/app/(app)/attendance/leave/actions";
+
+/** Inclusive calendar-day count between two YYYY-MM-DD strings (UTC-safe). */
+function inclusiveDays(start: string, end: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end))
+    return null;
+  const [sy, sm, sd] = start.split("-").map(Number);
+  const [ey, em, ed] = end.split("-").map(Number);
+  const s = Date.UTC(sy!, sm! - 1, sd!);
+  const e = Date.UTC(ey!, em! - 1, ed!);
+  if (e < s) return null;
+  return Math.round((e - s) / 86_400_000) + 1;
+}
+
+const INPUT_CLASS =
+  "w-full rounded-xl px-3.5 py-2.5 text-[15px] text-ink-strong bg-surface-card outline-none transition-shadow focus-visible:shadow-[inset_0_0_0_2px_rgba(225,6,0,0.45)]";
+const INPUT_RING = { boxShadow: "inset 0 0 0 1px var(--color-hairline-strong, #CBD5E1)" };
 
 export function RequestLeaveForm({ today }: { today: string }) {
   const router = useRouter();
@@ -14,6 +31,8 @@ export function RequestLeaveForm({ today }: { today: string }) {
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const days = inclusiveDays(startDate, endDate);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,41 +60,70 @@ export function RequestLeaveForm({ today }: { today: string }) {
 
   return (
     <section
-      className="rounded-section bg-surface-card p-6 max-md:p-5"
+      className="rounded-[22px] bg-surface-card p-6 max-md:p-5"
       style={{
-        border: "1px solid var(--color-hairline)",
-        boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
+        boxShadow:
+          "inset 0 0 0 1px var(--color-hairline), 0 6px 24px -18px rgba(15,23,42,0.25)",
       }}
+      aria-labelledby="request-leave-heading"
     >
-      <h2 className="text-[18px] font-semibold text-ink-strong mb-1">
-        Request leave
-      </h2>
-      <p className="text-[14px] text-ink-subtle mb-5" style={{ lineHeight: 1.5 }}>
+      <div className="mb-1 flex items-center gap-2.5">
+        <span
+          className="inline-grid size-9 place-items-center rounded-xl"
+          style={{
+            background: "color-mix(in srgb, #E10600 9%, transparent)",
+            color: "#A80400",
+          }}
+        >
+          <CalendarPlus size={18} strokeWidth={2.3} />
+        </span>
+        <h2
+          id="request-leave-heading"
+          className="text-ink-strong"
+          style={{
+            fontFamily: "var(--font-display), system-ui, sans-serif",
+            fontWeight: 900,
+            fontSize: 21,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Request leave
+        </h2>
+      </div>
+      <p className="mb-5 text-[13.5px] text-ink-subtle" style={{ lineHeight: 1.55 }}>
         Calendar days are counted inclusively. Weekly-offs and holidays inside
         the range aren&apos;t auto-excluded — an admin can adjust if needed.
       </p>
+
       <form onSubmit={onSubmit} className="space-y-4">
         <Field label="Type">
-          <div className="flex gap-2 flex-wrap">
+          <div
+            className="grid grid-cols-2 gap-1 rounded-xl p-1"
+            style={{
+              background: "var(--color-surface-soft)",
+              boxShadow: "inset 0 0 0 1px var(--color-hairline)",
+            }}
+            role="group"
+            aria-label="Leave type"
+          >
             {LEAVE_KINDS.map((k) => {
               const active = kind === k;
               return (
                 <button
                   key={k}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => setKind(k)}
-                  className="rounded-md px-4 py-2.5 text-[14px] font-semibold transition-colors"
+                  className="wg-btn rounded-lg px-4 py-2.5 text-[14px] font-bold transition-colors"
                   style={
                     active
                       ? {
-                          background: "linear-gradient(135deg, #E10600, #A80400)",
+                          background:
+                            "linear-gradient(135deg, #E10600, #A80400)",
                           color: "#fff",
+                          boxShadow: "0 2px 8px -3px rgba(225,6,0,0.5)",
                         }
-                      : {
-                          background: "var(--color-surface-soft)",
-                          color: "var(--color-ink-soft)",
-                          border: "1px solid var(--color-hairline)",
-                        }
+                      : { background: "transparent", color: "var(--color-ink-soft)" }
                   }
                 >
                   {LEAVE_KIND_LABELS[k]}
@@ -85,9 +133,10 @@ export function RequestLeaveForm({ today }: { today: string }) {
           </div>
         </Field>
 
-        <div className="grid grid-cols-2 max-md:grid-cols-1 gap-4">
-          <Field label="Start date">
+        <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+          <Field label="Start date" htmlFor="leave-start">
             <input
+              id="leave-start"
               required
               type="date"
               value={startDate}
@@ -95,48 +144,73 @@ export function RequestLeaveForm({ today }: { today: string }) {
                 setStartDate(e.target.value);
                 if (endDate < e.target.value) setEndDate(e.target.value);
               }}
-              className="w-full rounded-md border border-[#CBD5E1] px-3.5 py-2.5 text-[15px] tabular-nums"
+              className={`${INPUT_CLASS} tabular-nums`}
+              style={INPUT_RING}
             />
           </Field>
-          <Field label="End date">
+          <Field label="End date" htmlFor="leave-end">
             <input
+              id="leave-end"
               required
               type="date"
               value={endDate}
               min={startDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full rounded-md border border-[#CBD5E1] px-3.5 py-2.5 text-[15px] tabular-nums"
+              className={`${INPUT_CLASS} tabular-nums`}
+              style={INPUT_RING}
             />
           </Field>
         </div>
 
-        <Field label="Reason" hint="Optional">
+        <Field label="Reason" hint="Optional" htmlFor="leave-reason">
           <textarea
+            id="leave-reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             maxLength={1000}
             rows={2}
             placeholder="e.g. Family function"
-            className="w-full rounded-md border border-[#CBD5E1] px-3.5 py-2.5 text-[15px]"
+            className={`${INPUT_CLASS} resize-y`}
+            style={INPUT_RING}
           />
         </Field>
 
         {error && (
           <div
             role="alert"
-            className="rounded-md border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-[14px] text-[#A80400]"
+            className="flex items-start gap-2 rounded-xl px-3.5 py-2.5 text-[14px] font-medium"
+            style={{
+              background: "rgba(225,6,0,0.06)",
+              color: "#A80400",
+              boxShadow: "inset 0 0 0 1px rgba(225,6,0,0.25)",
+            }}
           >
+            <AlertCircle size={16} strokeWidth={2.4} className="mt-0.5 shrink-0" />
             {error}
           </div>
         )}
 
-        <div className="flex justify-end pt-1">
+        <div className="flex items-center justify-between gap-3 pt-1 flex-wrap">
+          <span
+            className="rounded-pill px-3 py-1.5 text-[13px] font-bold tabular-nums text-ink-soft"
+            style={{
+              background: "var(--color-surface-soft)",
+              boxShadow: "inset 0 0 0 1px var(--color-hairline)",
+            }}
+            aria-live="polite"
+          >
+            {days == null ? "—" : `${days} calendar day${days === 1 ? "" : "s"}`}
+          </span>
           <button
             type="submit"
             disabled={pending}
-            className="rounded-md py-2.5 px-6 text-[14px] font-semibold text-white disabled:opacity-50"
-            style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}
+            className="wg-btn inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-[14px] font-bold text-white disabled:opacity-50"
+            style={{
+              background: "linear-gradient(135deg, #E10600, #A80400)",
+              boxShadow: "0 4px 14px -6px rgba(225,6,0,0.55)",
+            }}
           >
+            <Send size={15} strokeWidth={2.4} />
             {pending ? "Submitting…" : "Submit request"}
           </button>
         </div>
@@ -148,18 +222,23 @@ export function RequestLeaveForm({ today }: { today: string }) {
 function Field({
   label,
   hint,
+  htmlFor,
   children,
 }: {
   label: string;
   hint?: string;
+  htmlFor?: string;
   children: React.ReactNode;
 }) {
   return (
     <div>
-      <label className="block text-[14px] font-semibold text-[#0F172A] mb-1.5">
+      <label
+        htmlFor={htmlFor}
+        className="mb-1.5 block text-[13px] font-bold uppercase tracking-[0.08em] text-ink-soft"
+      >
         {label}
         {hint && (
-          <span className="ml-2 text-[12px] font-normal text-ink-subtle">
+          <span className="ml-2 text-[11px] font-semibold normal-case tracking-normal text-ink-subtle">
             {hint}
           </span>
         )}

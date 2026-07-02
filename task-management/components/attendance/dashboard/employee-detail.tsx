@@ -17,6 +17,7 @@ import {
 } from "@/app/(app)/attendance/actions";
 import { adminMarkLeave } from "@/app/(app)/attendance/leave/actions";
 import { fireToast } from "@/lib/toast";
+import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import {
   ATTENDANCE_CODE_LABELS,
   LEAVE_KINDS,
@@ -197,19 +198,52 @@ export function EmployeeDetailDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/40 z-[90] backdrop-blur-[1px]" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[100] -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl rounded-section bg-surface-card border border-hairline p-6 max-md:p-4 shadow-xl max-h-[calc(100dvh-32px)] overflow-y-auto">
+        <Dialog.Overlay className="fixed inset-0 bg-black/45 z-[90] backdrop-blur-[3px]" />
+        <Dialog.Content
+          className="fixed left-1/2 top-1/2 z-[100] -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl rounded-section bg-surface-card border border-hairline p-6 max-md:p-4 max-h-[calc(100dvh-32px)] overflow-y-auto"
+          style={{
+            boxShadow:
+              "0 1px 3px rgba(15,23,42,0.08), 0 32px 80px -24px rgba(15,23,42,0.45), 0 12px 28px -16px rgba(225,6,0,0.12)",
+          }}
+        >
+          {/* Brand seam across the dialog's top edge. */}
+          <span
+            aria-hidden
+            className="absolute top-0 left-0 right-0 h-[2px] rounded-t-section"
+            style={{
+              background:
+                "linear-gradient(90deg, var(--color-altus-red) 0%, var(--color-altus-red-deep) 30%, color-mix(in srgb, var(--color-altus-red) 18%, transparent) 70%, transparent 100%)",
+            }}
+          />
           <div className="flex items-start justify-between gap-4 mb-4">
-            <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-[0.14em] text-ink-subtle font-bold">
-                Daily log · {monthLabel}
+            <div className="flex items-center gap-3.5 min-w-0">
+              <EmployeeAvatar name={employeeName} size="lg" className="shrink-0 max-md:hidden" />
+              <div className="min-w-0">
+                <div
+                  className="uppercase font-bold text-ink-subtle"
+                  style={{
+                    fontFamily: "var(--font-mono-display), ui-monospace, monospace",
+                    fontSize: 10.5,
+                    letterSpacing: "0.16em",
+                  }}
+                >
+                  Daily log · {monthLabel}
+                </div>
+                <Dialog.Title
+                  className="text-ink-strong mt-0.5 truncate"
+                  style={{
+                    fontFamily: "var(--font-display), system-ui, sans-serif",
+                    fontWeight: 800,
+                    fontSize: 22,
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  {employeeName}
+                </Dialog.Title>
+                <Dialog.Description className="text-[13px] font-medium text-ink-subtle mt-0.5">
+                  Admin can edit / backfill any day, mark leave, and manage comp-off.
+                </Dialog.Description>
               </div>
-              <Dialog.Title className="font-serif text-xl text-ink-strong mt-0.5 truncate">
-                {employeeName}
-              </Dialog.Title>
-              <Dialog.Description className="text-[13px] text-ink-subtle mt-0.5">
-                Admin can edit / backfill any day, mark leave, and manage comp-off.
-              </Dialog.Description>
             </div>
             <Dialog.Close asChild>
               <button
