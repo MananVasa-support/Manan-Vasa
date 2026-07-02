@@ -64,10 +64,10 @@ function RequestCard({ row, isAdmin }: { row: IncentiveRequestRow; isAdmin: bool
 
   return (
     <li
-      className="rounded-section bg-surface-card p-5 max-md:p-4"
+      className="wg-rise rounded-[18px] bg-surface-card p-5 max-md:p-4"
       style={{
-        border: "1px solid var(--color-hairline)",
-        boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
+        boxShadow:
+          "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.7), 0 8px 24px -20px rgba(15,23,42,0.35)",
       }}
     >
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -97,8 +97,12 @@ function RequestCard({ row, isAdmin }: { row: IncentiveRequestRow; isAdmin: bool
                 type="button"
                 disabled={pending}
                 onClick={() => decide("approved")}
-                className="rounded-md px-3.5 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
-                style={{ background: "linear-gradient(135deg, #16A34A, #15803D)" }}
+                className="wg-btn wg-sheen cursor-pointer rounded-full px-4 py-2 text-[13px] font-bold text-white disabled:opacity-50"
+                style={{
+                  background: "linear-gradient(135deg, #16A34A, #15803D)",
+                  boxShadow:
+                    "0 8px 20px -10px rgba(21,128,61,0.7), inset 0 1px 0 rgba(255,255,255,0.25)",
+                }}
               >
                 Approve
               </button>
@@ -106,11 +110,11 @@ function RequestCard({ row, isAdmin }: { row: IncentiveRequestRow; isAdmin: bool
                 type="button"
                 disabled={pending}
                 onClick={() => decide("rejected")}
-                className="rounded-md px-3.5 py-2 text-[13px] font-semibold disabled:opacity-50"
+                className="wg-btn cursor-pointer rounded-full px-4 py-2 text-[13px] font-bold disabled:opacity-50"
                 style={{
                   background: "rgba(225,6,0,0.08)",
                   color: "#A80400",
-                  border: "1px solid rgba(225,6,0,0.25)",
+                  boxShadow: "inset 0 0 0 1px rgba(225,6,0,0.25)",
                 }}
               >
                 Reject

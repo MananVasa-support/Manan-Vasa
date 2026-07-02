@@ -74,7 +74,11 @@ export function IncentiveCatalogDialog({ rows, isAdmin }: { rows: CatalogRow[]; 
       <Dialog.Trigger asChild>
         <button
           type="button"
-          className="wg-btn cursor-pointer inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[14.5px] font-bold border border-hairline bg-surface-card text-ink-strong hover:border-hairline-strong"
+          className="wg-btn cursor-pointer inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13.5px] font-bold bg-surface-card text-ink-strong"
+          style={{
+            boxShadow:
+              "inset 0 0 0 1px var(--color-hairline-strong), 0 6px 16px -12px rgba(15,23,42,0.35)",
+          }}
         >
           <BookOpen size={16} strokeWidth={2.4} />
           Incentive table
@@ -101,7 +105,11 @@ export function IncentiveCatalogDialog({ rows, isAdmin }: { rows: CatalogRow[]; 
                   type="button"
                   onClick={() => setEditing(blank())}
                   className="wg-btn wg-sheen cursor-pointer inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13.5px] font-bold text-white"
-                  style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+                  style={{
+                    background: "linear-gradient(135deg, #16a34a, #15803d)",
+                    boxShadow:
+                      "0 8px 20px -10px rgba(21,128,61,0.7), inset 0 1px 0 rgba(255,255,255,0.25)",
+                  }}
                 >
                   <Plus size={15} strokeWidth={2.6} /> Add incentive
                 </button>
@@ -229,7 +237,11 @@ function CatalogEditor({
             onClick={onSave}
             disabled={saving}
             className="wg-btn cursor-pointer inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[13.5px] font-bold text-white disabled:opacity-60"
-            style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+            style={{
+              background: "linear-gradient(135deg, #16a34a, #15803d)",
+              boxShadow:
+                "0 8px 20px -10px rgba(21,128,61,0.7), inset 0 1px 0 rgba(255,255,255,0.25)",
+            }}
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} strokeWidth={2.6} />}
             {draft.id ? "Save changes" : "Add incentive"}

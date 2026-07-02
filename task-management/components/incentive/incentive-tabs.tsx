@@ -19,11 +19,13 @@ import { IncentiveEntries } from "./incentive-entries";
 
 type TabKey = "dashboard" | "targets" | "billing" | "requests" | "entries";
 
+const GREEN = "#16a34a";
+const GREEN_DEEP = "#15803d";
+
 export function IncentiveTabs({
   dashboard,
   targetVsActual,
   billing,
-  years,
   year,
   requests,
   entries,
@@ -34,7 +36,6 @@ export function IncentiveTabs({
   dashboard: DashboardData;
   targetVsActual: IncentiveTargetVsActual;
   billing: BillingSummary & { error?: string };
-  years: number[];
   year: number;
   requests: IncentiveRequestRow[];
   entries: IncentiveEntryAdminRow[];
@@ -52,96 +53,66 @@ export function IncentiveTabs({
 
   const [active, setActive] = useState<TabKey>("dashboard");
 
-  function onYearChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const next = e.target.value;
-    const url = new URL(window.location.href);
-    url.searchParams.set("year", next);
-    window.location.assign(url.toString());
-  }
-
   return (
     <div>
-      {/* Tab strip + (dashboard-only) year selector */}
-      <div className="flex items-end justify-between gap-3 flex-wrap border-b border-hairline-strong mb-7">
-        <div role="tablist" aria-label="Incentive views" className="flex gap-1">
-          {TABS.map((t) => {
-            const isActive = t.key === active;
-            const Icon = t.icon;
-            return (
-              <button
-                key={t.key}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => setActive(t.key)}
-                className="relative inline-flex items-center gap-2 px-5 py-3 transition-colors"
-                style={{
-                  fontSize: 16,
-                  fontWeight: isActive ? 700 : 500,
-                  color: isActive ? "var(--color-ink-strong)" : "var(--color-ink-subtle)",
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                <Icon size={16} strokeWidth={2.2} />
-                {t.label}
-                {t.key === "requests" && pendingCount > 0 && (
-                  <span
-                    className="inline-flex items-center justify-center rounded-full font-bold tabular-nums"
-                    style={{
-                      minWidth: 20,
-                      height: 20,
-                      padding: "0 6px",
-                      fontSize: 11,
-                      color: "#fff",
-                      background: "var(--color-altus-red)",
-                    }}
-                  >
-                    {pendingCount}
-                  </span>
-                )}
-                {isActive && (
-                  <span
-                    aria-hidden
-                    style={{
-                      position: "absolute",
-                      bottom: -1,
-                      left: 12,
-                      right: 12,
-                      height: 3,
-                      background: "var(--color-altus-red)",
-                      borderRadius: 3,
-                    }}
-                  />
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {active !== "requests" && (
-          <label className="flex items-center gap-2 pb-2.5">
-            <span
-              className="uppercase font-bold tracking-[0.06em] text-ink-subtle"
-              style={{ fontSize: 11 }}
+      {/* Segmented tab strip — glass rail, green active pill */}
+      <div
+        role="tablist"
+        aria-label="Incentive views"
+        className="wg-rise mb-7 inline-flex max-w-full flex-wrap items-center gap-1 rounded-2xl p-1.5"
+        style={{
+          background: "rgba(255,255,255,0.72)",
+          backdropFilter: "blur(10px) saturate(140%)",
+          boxShadow:
+            "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.8), 0 10px 26px -22px rgba(15,23,42,0.35)",
+          animationDelay: "80ms",
+        }}
+      >
+        {TABS.map((t) => {
+          const isActive = t.key === active;
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setActive(t.key)}
+              className="wg-btn relative inline-flex cursor-pointer items-center gap-2 rounded-xl px-4.5 py-2.5 transition-colors max-md:px-3.5"
+              style={{
+                fontSize: 14.5,
+                fontWeight: isActive ? 800 : 600,
+                color: isActive ? "#fff" : "var(--color-ink-soft)",
+                background: isActive
+                  ? `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`
+                  : "transparent",
+                border: "none",
+                boxShadow: isActive
+                  ? `0 8px 20px -10px color-mix(in srgb, ${GREEN_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`
+                  : "none",
+              }}
             >
-              Year
-            </span>
-            <select
-              value={year}
-              onChange={onYearChange}
-              className="rounded-md border border-hairline-strong bg-surface-card font-semibold text-ink-strong"
-              style={{ fontSize: 14, padding: "6px 10px" }}
-            >
-              {years.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+              <Icon size={16} strokeWidth={2.3} />
+              {t.label}
+              {t.key === "requests" && pendingCount > 0 && (
+                <span
+                  className="inline-flex items-center justify-center rounded-full font-bold tabular-nums"
+                  style={{
+                    minWidth: 20,
+                    height: 20,
+                    padding: "0 6px",
+                    fontSize: 11,
+                    color: "#fff",
+                    background: isActive ? "rgba(255,255,255,0.25)" : "var(--color-altus-red)",
+                    boxShadow: isActive ? "inset 0 0 0 1px rgba(255,255,255,0.35)" : "none",
+                  }}
+                >
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {active === "dashboard" ? (

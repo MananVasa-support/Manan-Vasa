@@ -5,11 +5,11 @@ import type { IncentiveNameRow } from "@/lib/queries/incentives";
 
 // A small ordered palette of existing design tokens — one per incentive name.
 const PALETTE = [
-  "var(--color-altus-red)",
+  "#16a34a",
   "var(--color-blue)",
   "var(--color-purple)",
   "var(--color-amber)",
-  "var(--color-green)",
+  "#15803d",
   "var(--color-orange)",
   "var(--color-rose)",
 ];

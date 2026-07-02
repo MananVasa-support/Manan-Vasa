@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Plus, Pencil, Trash2, Loader2, Check } from "lucide-react";
 import { Select } from "@/components/ui/select";
+import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { formatInr } from "@/lib/format";
 import type { IncentiveEntryAdminRow } from "@/lib/queries/incentives";
 import type { EmployeeOption } from "@/lib/queries/employees";
@@ -57,8 +58,13 @@ export function IncentiveEntries({
           <button
             type="button"
             onClick={() => setMode({ kind: "create" })}
-            className="inline-flex items-center gap-2 rounded-pill px-4 h-10 font-bold text-white"
-            style={{ fontSize: 13.5, background: "linear-gradient(135deg, #E10600, #A80400)" }}
+            className="wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-4 h-10 font-bold text-white"
+            style={{
+              fontSize: 13.5,
+              background: "linear-gradient(135deg, #16a34a, #15803d)",
+              boxShadow:
+                "0 8px 20px -10px rgba(21,128,61,0.7), inset 0 1px 0 rgba(255,255,255,0.25)",
+            }}
           >
             <Plus size={16} strokeWidth={2.6} />
             Add entry
@@ -67,8 +73,11 @@ export function IncentiveEntries({
       </div>
 
       <section
-        className="rounded-section bg-surface-card border border-hairline overflow-hidden"
-        style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
+        className="wg-rise rounded-[22px] bg-surface-card overflow-hidden"
+        style={{
+          boxShadow:
+            "inset 0 0 0 1px var(--color-hairline), 0 6px 24px -18px rgba(15,23,42,0.25)",
+        }}
       >
         {rows.length === 0 ? (
           <p className="font-semibold text-ink-subtle p-7" style={{ fontSize: 14 }}>
@@ -90,9 +99,16 @@ export function IncentiveEntries({
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id} className="border-t" style={{ borderColor: "var(--color-hairline)" }}>
-                    <td className="px-3.5 py-2.5 font-bold text-ink-strong whitespace-nowrap" style={{ fontSize: 13.5 }}>
-                      {r.empName}
+                  <tr
+                    key={r.id}
+                    className="border-t transition-colors hover:bg-[color-mix(in_srgb,#16a34a_3%,transparent)]"
+                    style={{ borderColor: "var(--color-hairline)" }}
+                  >
+                    <td className="px-3.5 py-2.5 whitespace-nowrap" style={{ fontSize: 13.5 }}>
+                      <span className="flex items-center gap-2.5">
+                        <EmployeeAvatar name={r.empName} size="sm" />
+                        <span className="font-bold text-ink-strong">{r.empName}</span>
+                      </span>
                     </td>
                     <td className="px-3.5 py-2.5 font-semibold text-ink-soft whitespace-nowrap" style={{ fontSize: 13.5 }}>
                       {r.incentiveName}
@@ -312,8 +328,13 @@ function EntryDialog({
               <button
                 type="submit"
                 disabled={pending}
-                className="inline-flex items-center gap-2 rounded-chip px-5 py-2.5 font-bold text-white disabled:opacity-50"
-                style={{ fontSize: 14, background: "linear-gradient(135deg, #E10600, #A80400)" }}
+                className="wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 font-bold text-white disabled:opacity-50"
+                style={{
+                  fontSize: 14,
+                  background: "linear-gradient(135deg, #16a34a, #15803d)",
+                  boxShadow:
+                    "0 10px 24px -12px rgba(21,128,61,0.7), inset 0 1px 0 rgba(255,255,255,0.25)",
+                }}
               >
                 {pending ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.6} />}
                 {pending ? "Saving…" : editing ? "Save changes" : "Create entry"}

@@ -92,7 +92,7 @@ export function IncentiveMonthlyChart({ rows }: { rows: IncentiveMonthRow[] }) {
           <Bar
             dataKey="permanent"
             name="Permanent"
-            fill="var(--color-altus-red)"
+            fill="#16a34a"
             radius={[4, 4, 0, 0]}
             maxBarSize={42}
             animationDuration={600}
