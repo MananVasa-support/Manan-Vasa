@@ -65,8 +65,10 @@ export const getIntegrationHealth = cache(
       ...slackStats,
     });
 
-    const waToken = process.env.WHATSAPP_ACCESS_TOKEN;
-    const waPhoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    // Must match the names the actual client + webhook read (lib/whatsapp/client.ts)
+    // — otherwise the health card lies about whether WhatsApp is configured.
+    const waToken = process.env.META_WHATSAPP_ACCESS_TOKEN;
+    const waPhoneId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;
     const waStats = await deliveryStats("whatsapp");
     out.push({
       channel: "whatsapp",
