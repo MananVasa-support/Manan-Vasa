@@ -1,11 +1,18 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { Wallet } from "lucide-react";
+import {
+  Banknote,
+  FileSpreadsheet,
+  HandCoins,
+  Landmark,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { requireAdmin } from "@/lib/auth/current";
 import { salaryBreakupMonths, listSalaryBreakup } from "@/lib/queries/salary-breakup";
-import type { SalaryBreakup } from "@/db/schema";
+import { SalaryBreakupTable, type SalaryRow } from "@/components/salary/salary-breakup-table";
 
 export const dynamic = "force-dynamic";
 
@@ -13,15 +20,17 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-const MONTH_RE = /^\d{4}-\d{2}$/;
-const inr = (v: string | number | null) =>
-  v == null ? "—" : `₹${Math.round(Number(v)).toLocaleString("en-IN")}`;
-const dec = (v: string | number | null) => (v == null || v === "" ? "—" : String(Number(v)));
+/* Employees-module identity — matches the Attendance page. */
+const GREEN = "#16a34a";
+const GREEN_DEEP = "#15803d";
 
-function monthLabel(ym: string): string {
+const MONTH_RE = /^\d{4}-\d{2}$/;
+const inr = (v: number) => `₹${Math.round(v).toLocaleString("en-IN")}`;
+
+function monthLabel(ym: string, style: "long" | "short" = "long"): string {
   const [y, m] = ym.split("-").map(Number);
   return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, 1)).toLocaleDateString("en-GB", {
-    month: "long",
+    month: style,
     year: "numeric",
     timeZone: "UTC",
   });
@@ -40,84 +49,197 @@ export default async function SalaryPage({ searchParams }: PageProps) {
   const month = raw && MONTH_RE.test(raw) ? raw : defaultMonth;
   const rows = month ? await listSalaryBreakup(month) : [];
 
-  const totalPayable = rows.reduce((s, r) => s + Number(r.payableAfterPt ?? 0), 0);
-  const totalFinal = rows.reduce((s, r) => s + Number(r.finalPayment ?? 0), 0);
+  // ── KPI fold over the loaded rows (no extra queries) ──
+  const sum = (pick: (r: (typeof rows)[number]) => string | null) =>
+    rows.reduce((s, r) => s + Number(pick(r) ?? 0), 0);
+  const totalPayable = sum((r) => r.payableAfterPt);
+  const totalFinal = sum((r) => r.finalPayment);
+  const totalAdvance = sum((r) => r.advance);
+  const totalPt = sum((r) => r.pt);
+
+  // Plain serializable rows for the client table.
+  const tableRows: SalaryRow[] = rows.map((r, i) => ({
+    id: r.id,
+    srNo: r.srNo ?? i + 1,
+    employeeName: r.employeeName,
+    designation: r.designation,
+    companyName: r.companyName,
+    present: r.present,
+    absent: r.absent,
+    halfDay: r.halfDay,
+    weeklyOff: r.weeklyOff,
+    totalDaysWorked: r.totalDaysWorked,
+    finalWorkingDays: r.finalWorkingDays,
+    monthlyCtc: r.monthlyCtc,
+    payableAfterLeave: r.payableAfterLeave,
+    pt: r.pt,
+    payableAfterPt: r.payableAfterPt,
+    advance: r.advance,
+    previousPending: r.previousPending,
+    finalPayment: r.finalPayment,
+    remarks: r.remarks,
+    mananRemarks: r.mananRemarks,
+  }));
 
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[1700px] px-8 max-md:px-4 pt-8 pb-16">
-        <header className="mb-5 flex items-end justify-between gap-4 flex-wrap">
-          <div>
-            <span className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}>
-              <Wallet size={13} strokeWidth={2.6} /> Employees · Salary
-            </span>
-            <h1 className="mt-3 text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(26px,3.2vw,40px)", letterSpacing: "-0.025em" }}>
-              Salary breakup — {month ? monthLabel(month) : "no data"}
-            </h1>
-            <p className="mt-1.5 text-[14px] font-medium text-ink-muted" style={{ maxWidth: "76ch" }}>
-              Straight from the salary sheet (imported as-is). The attendance figures here are the sheet&apos;s own —
-              the app&apos;s attendance does not change these numbers.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {months.map((m) => (
-              <Link
-                key={m}
-                href={`/salary?month=${m}` as Route}
-                className="rounded-lg border-2 px-3 py-1.5 text-[13px] font-bold transition-colors"
-                style={m === month ? { borderColor: "var(--color-altus-red)", color: "var(--color-altus-red-deep)", background: "color-mix(in srgb, var(--color-altus-red) 8%, transparent)" } : { borderColor: "var(--color-hairline-strong)", color: "var(--color-ink-soft)" }}
+      <main className="mx-auto max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
+        {/* ── Glass hero: eyebrow · month title · month selector ── */}
+        <header
+          className="wg-rise relative mb-5 overflow-hidden rounded-[26px] px-7 py-6 max-md:px-4 max-md:py-5"
+          style={{
+            background: [
+              `radial-gradient(120% 190% at 100% 0%, color-mix(in srgb, ${GREEN} 9%, transparent), transparent 55%)`,
+              `radial-gradient(80% 160% at 0% 100%, color-mix(in srgb, ${GREEN} 5%, transparent), transparent 52%)`,
+              "rgba(255, 255, 255, 0.72)",
+            ].join(", "),
+            backdropFilter: "blur(14px) saturate(140%)",
+            boxShadow:
+              "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.85), 0 18px 44px -28px rgba(15,23,42,0.22)",
+          }}
+        >
+          <div className="flex items-end justify-between gap-6 flex-wrap">
+            <div className="min-w-0">
+              <span
+                className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
+                style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}
               >
-                {monthLabel(m)}
-              </Link>
-            ))}
+                <Wallet size={13} strokeWidth={2.6} /> Employees · Salary
+              </span>
+              <h1
+                className="mt-3 text-ink-strong"
+                style={{
+                  fontFamily: "var(--font-display), system-ui, sans-serif",
+                  fontWeight: 900,
+                  fontSize: "clamp(30px,3.6vw,46px)",
+                  letterSpacing: "-0.03em",
+                  lineHeight: 1.02,
+                }}
+              >
+                {month ? `${monthLabel(month)} payroll` : "Salary breakup"}
+              </h1>
+              <p className="mt-1.5 max-w-[76ch] text-[15px] font-medium text-ink-muted">
+                Straight from the salary sheet (imported as-is). The attendance figures here are
+                the sheet&apos;s own — the app&apos;s attendance does not change these numbers.
+              </p>
+            </div>
+
+            {months.length > 0 && (
+              <nav aria-label="Salary month" className="flex max-w-[520px] flex-wrap items-center justify-end gap-2 max-md:justify-start">
+                {months.map((m) => {
+                  const active = m === month;
+                  return (
+                    <Link
+                      key={m}
+                      href={`/salary?month=${m}` as Route}
+                      aria-current={active ? "page" : undefined}
+                      className="wg-btn rounded-pill px-3.5 py-1.5 text-[13px] font-bold whitespace-nowrap"
+                      style={
+                        active
+                          ? {
+                              background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,
+                              color: "#fff",
+                              boxShadow: `0 8px 20px -10px color-mix(in srgb, ${GREEN_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
+                            }
+                          : {
+                              background: "var(--color-surface-card)",
+                              color: "var(--color-ink-soft)",
+                              boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)",
+                            }
+                      }
+                    >
+                      {monthLabel(m, "short")}
+                    </Link>
+                  );
+                })}
+              </nav>
+            )}
           </div>
         </header>
 
-        <section className="mb-4 grid grid-cols-3 gap-4 max-md:grid-cols-1">
-          <Stat label="Employees" value={String(rows.length)} />
-          <Stat label="Total payable (after PT)" value={inr(totalPayable)} />
-          <Stat label="Total final payment" value={inr(totalFinal)} />
+        {/* ── KPI strip (folded over the loaded rows — zero extra queries) ── */}
+        <section
+          aria-label="Payroll totals"
+          className="mb-5 grid grid-cols-5 gap-3.5 max-xl:grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1"
+        >
+          <KpiCard
+            icon={<Users size={17} strokeWidth={2.4} />}
+            accent="#334155"
+            label="Headcount"
+            value={String(rows.length)}
+            caption="on this month's sheet"
+            delay={0}
+          />
+          <KpiCard
+            icon={<Banknote size={17} strokeWidth={2.4} />}
+            accent={GREEN}
+            label="Payable after PT"
+            value={inr(totalPayable)}
+            caption="gross payable this month"
+            delay={50}
+          />
+          <KpiCard
+            icon={<FileSpreadsheet size={17} strokeWidth={2.4} />}
+            accent={GREEN_DEEP}
+            label="Final payment"
+            value={inr(totalFinal)}
+            caption="after advances & dues"
+            delay={100}
+          />
+          <KpiCard
+            icon={<HandCoins size={17} strokeWidth={2.4} />}
+            accent="var(--color-altus-red)"
+            label="Advances"
+            value={inr(totalAdvance)}
+            caption="recovered this month"
+            delay={150}
+          />
+          <KpiCard
+            icon={<Landmark size={17} strokeWidth={2.4} />}
+            accent="var(--color-altus-red)"
+            label="Professional tax"
+            value={inr(totalPt)}
+            caption="statutory deduction"
+            delay={200}
+          />
         </section>
 
+        {/* ── The breakup ledger ── */}
         {rows.length === 0 ? (
-          <p className="py-12 text-center text-ink-muted">No salary rows for this month.</p>
+          <section
+            className="wg-rise admin-panel px-6 py-16 text-center"
+            style={{ animationDelay: "140ms" }}
+          >
+            <span
+              className="mx-auto mb-4 inline-grid size-12 place-items-center rounded-2xl"
+              style={{
+                background: `color-mix(in srgb, ${GREEN} 10%, transparent)`,
+                color: GREEN_DEEP,
+              }}
+              aria-hidden
+            >
+              <FileSpreadsheet size={22} strokeWidth={2.2} />
+            </span>
+            <p
+              className="text-ink-strong"
+              style={{
+                fontFamily: "var(--font-serif), system-ui, sans-serif",
+                fontStyle: "italic",
+                fontSize: 22,
+                letterSpacing: "-0.015em",
+              }}
+            >
+              No salary rows for this month
+            </p>
+            <p className="mt-2 text-[14px] text-ink-subtle">
+              {months.length > 0
+                ? "Pick another month above, or import the sheet for this one."
+                : "Import the salary sheet to see the monthly breakup here."}
+            </p>
+          </section>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-hairline bg-surface-card shadow-sm">
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr className="text-left" style={{ background: "var(--color-surface-soft)" }}>
-                  {["#", "Employee", "Designation", "Company", "Present", "Absent", "Half", "W-off", "Worked", "Final days", "Monthly CTC", "After leave", "PT", "After PT", "Advance", "Prev pending", "Final payment", "Remarks"].map((h) => (
-                    <th key={h} className="whitespace-nowrap px-3 py-2.5 font-bold uppercase tracking-wide text-ink-subtle text-[11px]">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r: SalaryBreakup, i) => (
-                  <tr key={r.id} className="border-t border-hairline hover:bg-surface-soft/60">
-                    <td className="px-3 py-2 tabular-nums text-ink-subtle">{r.srNo ?? i + 1}</td>
-                    <td className="px-3 py-2 font-bold text-ink-strong whitespace-nowrap">{r.employeeName}</td>
-                    <td className="px-3 py-2 text-ink-soft whitespace-nowrap">{r.designation ?? "—"}</td>
-                    <td className="px-3 py-2 text-ink-soft whitespace-nowrap">{r.companyName ?? "—"}</td>
-                    <td className="px-3 py-2 tabular-nums">{dec(r.present)}</td>
-                    <td className="px-3 py-2 tabular-nums" style={{ color: Number(r.absent) > 0 ? "#dc2626" : undefined }}>{dec(r.absent)}</td>
-                    <td className="px-3 py-2 tabular-nums">{dec(r.halfDay)}</td>
-                    <td className="px-3 py-2 tabular-nums">{dec(r.weeklyOff)}</td>
-                    <td className="px-3 py-2 tabular-nums font-semibold">{dec(r.totalDaysWorked)}</td>
-                    <td className="px-3 py-2 tabular-nums font-semibold">{dec(r.finalWorkingDays)}</td>
-                    <td className="px-3 py-2 tabular-nums">{inr(r.monthlyCtc)}</td>
-                    <td className="px-3 py-2 tabular-nums">{inr(r.payableAfterLeave)}</td>
-                    <td className="px-3 py-2 tabular-nums text-ink-subtle">{inr(r.pt)}</td>
-                    <td className="px-3 py-2 tabular-nums font-semibold">{inr(r.payableAfterPt)}</td>
-                    <td className="px-3 py-2 tabular-nums">{inr(r.advance)}</td>
-                    <td className="px-3 py-2 tabular-nums">{inr(r.previousPending)}</td>
-                    <td className="px-3 py-2 tabular-nums font-black text-ink-strong">{inr(r.finalPayment)}</td>
-                    <td className="px-3 py-2 text-ink-subtle max-w-[220px] truncate" title={[r.remarks, r.mananRemarks].filter(Boolean).join(" · ")}>{[r.remarks, r.mananRemarks].filter(Boolean).join(" · ") || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <SalaryBreakupTable rows={tableRows} />
         )}
       </main>
       <DashboardFooter />
@@ -125,11 +247,59 @@ export default async function SalaryPage({ searchParams }: PageProps) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+/* ── KPI card — same construction as the Attendance stat cards ── */
+
+function KpiCard({
+  icon,
+  accent,
+  label,
+  value,
+  caption,
+  delay,
+}: {
+  icon: React.ReactNode;
+  accent: string;
+  label: string;
+  value: string;
+  caption: string;
+  delay: number;
+}) {
   return (
-    <div className="rounded-2xl border border-hairline bg-surface-card p-5 shadow-sm">
-      <div className="text-[12px] font-semibold uppercase tracking-wide text-ink-subtle">{label}</div>
-      <div className="mt-1 tabular-nums font-black text-ink-strong" style={{ fontSize: 26 }}>{value}</div>
+    <div
+      className="wg-rise wg-btn rounded-2xl bg-surface-card px-4.5 py-4 max-md:px-4"
+      style={{
+        boxShadow:
+          "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -20px rgba(15,23,42,0.35)",
+        animationDelay: `${delay}ms`,
+      }}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className="inline-grid size-8 shrink-0 place-items-center rounded-[10px]"
+          style={{
+            background: `color-mix(in srgb, ${accent} 10%, transparent)`,
+            color: accent,
+          }}
+        >
+          {icon}
+        </span>
+        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-subtle">
+          {label}
+        </span>
+      </div>
+      <div
+        className="mt-2 tabular-nums text-ink-strong"
+        style={{
+          fontFamily: "var(--font-display), system-ui, sans-serif",
+          fontWeight: 900,
+          fontSize: "clamp(20px, 1.6vw, 25px)",
+          letterSpacing: "-0.02em",
+          lineHeight: 1,
+        }}
+      >
+        {value}
+      </div>
+      <div className="mt-1 text-[12px] font-medium text-ink-subtle">{caption}</div>
     </div>
   );
 }
