@@ -9,6 +9,7 @@ import { Providers } from "@/components/providers";
 import { DisplayScaleProvider } from "@/components/layout/display-scale-provider";
 import { RegisterSW } from "@/components/pwa/register-sw";
 import { RouteProgress } from "@/components/layout/route-progress";
+import { SingleWindowGuard } from "@/components/system/single-window-guard";
 import { getCurrentEmployee } from "@/lib/auth/current";
 import { accentVars, resolveAccent } from "@/lib/appearance";
 
@@ -125,6 +126,9 @@ export default async function RootLayout({
         <NuqsAdapter>
           <Providers>{children}</Providers>
         </NuqsAdapter>
+        {/* Single-window lock (WhatsApp-Web style) — the WMS runs in one window
+            at a time for a signed-in user. Public/login pages pass enabled=false. */}
+        <SingleWindowGuard enabled={!!me} />
         <AppToaster />
         <RegisterSW />
         {/* Phase 0.3 — Vercel Speed Insights. Auto-no-ops outside Vercel
