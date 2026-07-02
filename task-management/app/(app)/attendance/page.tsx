@@ -29,9 +29,15 @@ import {
   type PunchDetail,
 } from "@/lib/queries/attendance";
 import { getOrgSettings } from "@/lib/queries/org-settings";
+import { withRetry } from "@/lib/db/with-timeout";
 import { formatTimeInTz, localDateString } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+
+// The attendance page load must never crash — a stale pooled connection here
+// stops the user reaching the check-in/out button. Retry each read on a fresh
+// connection.
+const RETRY = { attempts: 3, timeoutMs: [6000, 10000, 14000] as number[] };
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -117,9 +123,11 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   const teamDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : today;
 
   const [myDays, team, settings] = await Promise.all([
-    listMyAttendance(me.id, since),
-    me.isAdmin ? listTeamAttendanceForDate(teamDate) : Promise.resolve(null),
-    getOrgSettings(),
+    withRetry(() => listMyAttendance(me.id, since), { ...RETRY, label: "att-mydays" }),
+    me.isAdmin
+      ? withRetry(() => listTeamAttendanceForDate(teamDate), { ...RETRY, label: "att-team" })
+      : Promise.resolve(null),
+    withRetry(() => getOrgSettings(), { ...RETRY, label: "att-settings" }),
   ]);
 
   const todayRow = myDays.find((d) => d.date === today);
