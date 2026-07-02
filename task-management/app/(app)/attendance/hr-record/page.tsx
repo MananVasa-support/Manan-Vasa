@@ -123,7 +123,7 @@ export default async function HrRecordPage({ searchParams }: PageProps) {
           {employee && summary && (
             <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-hairline pt-4">
               <EmployeeAvatar
-                name={summary.employeeName || employee.name}
+                name={employee.name}
                 size="lg"
                 background="linear-gradient(135deg, #16a34a, #14532d)"
               />
@@ -138,7 +138,7 @@ export default async function HrRecordPage({ searchParams }: PageProps) {
                     lineHeight: 1.1,
                   }}
                 >
-                  {summary.employeeName || employee.name}
+                  {employee.name}
                 </div>
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-semibold text-ink-muted">
                   {summary.designation && (
