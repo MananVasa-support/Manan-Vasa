@@ -34,13 +34,22 @@ export function PillarBar({
   const pct = rate == null ? null : Math.round(Math.max(0, Math.min(1, rate)) * 100);
   const visible = (subSignals ?? []).filter((s) => s !== undefined);
   return (
-    <div className="rounded-xl border border-hairline bg-surface-soft/40 p-4">
+    <div
+      className="rounded-2xl bg-surface-card p-5"
+      style={{
+        boxShadow:
+          "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -20px rgba(15,23,42,0.35)",
+      }}
+    >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           {icon && (
             <span
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white"
-              style={{ background: `linear-gradient(135deg, ${accent}, ${accentDeep})` }}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white"
+              style={{
+                background: `linear-gradient(135deg, ${accent}, ${accentDeep})`,
+                boxShadow: `0 6px 14px -8px color-mix(in srgb, ${accentDeep} 70%, transparent)`,
+              }}
             >
               {icon}
             </span>
@@ -54,8 +63,14 @@ export function PillarBar({
         </div>
         <div className="shrink-0 text-right">
           <div
-            className="tabular-nums font-black leading-none"
-            style={{ fontSize: 26, color: pct == null ? "var(--color-ink-subtle)" : accentDeep }}
+            className="tabular-nums leading-none"
+            style={{
+              fontFamily: "var(--font-display), system-ui, sans-serif",
+              fontWeight: 900,
+              fontSize: 27,
+              letterSpacing: "-0.02em",
+              color: pct == null ? "var(--color-ink-subtle)" : accentDeep,
+            }}
           >
             {pct == null ? "—" : pct}
           </div>
@@ -66,13 +81,18 @@ export function PillarBar({
       </div>
 
       {/* Headline bar */}
-      <div className="mt-3 relative h-2.5 overflow-hidden rounded-pill bg-surface-soft">
+      <div
+        className="mt-3 relative h-2.5 overflow-hidden rounded-pill bg-surface-soft"
+        style={{ boxShadow: "inset 0 1px 2px rgba(15,23,42,0.06)" }}
+      >
         <div
           className="absolute inset-y-0 left-0 rounded-pill"
           style={{
             width: `${pct ?? 0}%`,
             background:
-              pct == null ? "var(--color-hairline-strong)" : `linear-gradient(90deg, ${accent}, ${accentDeep})`,
+              pct == null
+                ? "var(--color-hairline-strong)"
+                : `linear-gradient(90deg, color-mix(in srgb, ${accent} 75%, #fff), ${accentDeep})`,
           }}
         />
       </div>

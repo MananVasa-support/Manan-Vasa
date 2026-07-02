@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Save } from "lucide-react";
+import { Save, Scale, SlidersHorizontal, Spline, Loader2 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { saveScoreConfig } from "@/app/(app)/pms/actions";
 import type { PmsScoreConfig } from "@/lib/pms/engines/config";
@@ -11,11 +11,21 @@ import { MODULE_THEME } from "@/lib/module-theme";
 const ACCENT = MODULE_THEME.employees.accent;
 const ACCENT_DEEP = MODULE_THEME.employees.accentDeep;
 
+const CARD_SHADOW =
+  "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -20px rgba(15,23,42,0.35)";
+
 const WEIGHTS: [keyof PmsScoreConfig["weights"], string][] = [
   ["kpi", "KPI (weekly + incentive)"], ["skillUpgrade", "Skill upgrade (training)"],
   ["compliance", "Compliance (DCC + checklist)"], ["attitude", "Attitude & mindset"],
   ["teamwork", "Team work (peers)"],
 ];
+const WEIGHT_SHORT: Record<keyof PmsScoreConfig["weights"], string> = {
+  kpi: "KPI",
+  skillUpgrade: "Skill",
+  compliance: "Comply",
+  attitude: "Attitude",
+  teamwork: "Team",
+};
 const THRESHOLDS: [keyof PmsScoreConfig["thresholds"], string, string][] = [
   ["promotionScore", "Promotion score", "Score ≥ this flags a promotion review"],
   ["recognitionScore", "Recognition score", "Score ≥ this suggests recognition"],
@@ -61,17 +71,74 @@ export function ScoreConfigEditor({ initial }: { initial: PmsScoreConfig }) {
     "w-full rounded-lg border border-hairline-strong bg-white px-3 py-2 text-[15px] text-ink-strong outline-none focus:border-2 tabular-nums";
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-6">
       {/* Weights */}
-      <section className="rounded-2xl border border-hairline bg-surface-card p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[17px] font-bold text-ink-strong">Pillar weights</h2>
-          <span className="text-[13px] font-semibold tabular-nums" style={{ color: weightTotal > 0 ? ACCENT_DEEP : "var(--color-ink-subtle)" }}>
+      <section className="wg-rise rounded-2xl bg-surface-card p-6 max-md:p-4" style={{ boxShadow: CARD_SHADOW }}>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <span
+              className="inline-grid size-9 shrink-0 place-items-center rounded-xl text-white"
+              style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+            >
+              <Scale size={17} strokeWidth={2.4} />
+            </span>
+            <h2
+              className="text-[19px] text-ink-strong"
+              style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, letterSpacing: "-0.01em" }}
+            >
+              Pillar weights
+            </h2>
+          </div>
+          <span
+            className="rounded-pill px-2.5 py-1 text-[12.5px] font-bold tabular-nums"
+            style={{
+              background: `color-mix(in srgb, ${weightTotal > 0 ? ACCENT : "#64748b"} 9%, transparent)`,
+              color: weightTotal > 0 ? ACCENT_DEEP : "var(--color-ink-subtle)",
+            }}
+          >
             total {weightTotal} · relative (normalised)
           </span>
         </div>
-        <p className="mt-1 text-[13.5px] text-ink-muted">How much each pillar counts toward the score. Relative — a pillar with no data is excluded, not zeroed.</p>
-        <div className="mt-4 grid grid-cols-3 gap-4 max-md:grid-cols-2">
+        <p className="mt-2 text-[13.5px] text-ink-muted">How much each pillar counts toward the score. Relative — a pillar with no data is excluded, not zeroed.</p>
+
+        {/* Live weight-share bar — folds over the inputs, zero queries */}
+        {weightTotal > 0 && (
+          <div className="mt-4" aria-hidden>
+            <div className="flex h-3 w-full overflow-hidden rounded-pill" style={{ background: "var(--color-surface-soft)" }}>
+              {WEIGHTS.map(([k], i) => {
+                const share = (Number(weights[k]) || 0) / weightTotal;
+                if (share <= 0) return null;
+                return (
+                  <span
+                    key={k}
+                    className="h-full transition-all duration-300"
+                    style={{
+                      width: `${share * 100}%`,
+                      background: `color-mix(in srgb, ${ACCENT} ${100 - i * 16}%, #fff)`,
+                    }}
+                    title={`${WEIGHT_SHORT[k]} ${(share * 100).toFixed(0)}%`}
+                  />
+                );
+              })}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+              {WEIGHTS.map(([k], i) => {
+                const share = weightTotal > 0 ? (Number(weights[k]) || 0) / weightTotal : 0;
+                return (
+                  <span key={k} className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-subtle">
+                    <span
+                      className="inline-block size-2.5 rounded-[4px]"
+                      style={{ background: `color-mix(in srgb, ${ACCENT} ${100 - i * 16}%, #fff)` }}
+                    />
+                    {WEIGHT_SHORT[k]} <span className="tabular-nums">{(share * 100).toFixed(0)}%</span>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 grid grid-cols-5 gap-4 max-lg:grid-cols-3 max-md:grid-cols-2">
           {WEIGHTS.map(([k, label]) => (
             <label key={k} className="block">
               <span className="mb-1 block text-[13px] font-bold text-ink-strong">{label}</span>
@@ -84,10 +151,26 @@ export function ScoreConfigEditor({ initial }: { initial: PmsScoreConfig }) {
       </section>
 
       {/* Thresholds */}
-      <section className="rounded-2xl border border-hairline bg-surface-card p-5">
-        <h2 className="text-[17px] font-bold text-ink-strong">Thresholds</h2>
-        <p className="mt-1 text-[13.5px] text-ink-muted">The gates for the human-released promotion + recognition signals. Nothing is auto-actioned.</p>
-        <div className="mt-4 grid grid-cols-3 gap-4 max-md:grid-cols-2">
+      <section
+        className="wg-rise rounded-2xl bg-surface-card p-6 max-md:p-4"
+        style={{ boxShadow: CARD_SHADOW, animationDelay: "50ms" }}
+      >
+        <div className="flex items-center gap-2.5">
+          <span
+            className="inline-grid size-9 shrink-0 place-items-center rounded-xl text-white"
+            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+          >
+            <SlidersHorizontal size={17} strokeWidth={2.4} />
+          </span>
+          <h2
+            className="text-[19px] text-ink-strong"
+            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, letterSpacing: "-0.01em" }}
+          >
+            Thresholds
+          </h2>
+        </div>
+        <p className="mt-2 text-[13.5px] text-ink-muted">The gates for the human-released promotion + recognition signals. Nothing is auto-actioned.</p>
+        <div className="mt-4 grid grid-cols-4 gap-4 max-lg:grid-cols-3 max-md:grid-cols-2">
           {THRESHOLDS.map(([k, label, hint]) => (
             <label key={k} className="block">
               <span className="mb-1 block text-[13px] font-bold text-ink-strong">{label}</span>
@@ -101,10 +184,26 @@ export function ScoreConfigEditor({ initial }: { initial: PmsScoreConfig }) {
       </section>
 
       {/* Formula coefficients */}
-      <section className="rounded-2xl border border-hairline bg-surface-card p-5">
-        <h2 className="text-[17px] font-bold text-ink-strong">Pillar curves</h2>
-        <p className="mt-1 text-[13.5px] text-ink-muted">A multiplier on each pillar&apos;s raw rate (1.0 = as-is). Tune how steep each pillar rewards.</p>
-        <div className="mt-4 grid grid-cols-3 gap-4 max-md:grid-cols-2">
+      <section
+        className="wg-rise rounded-2xl bg-surface-card p-6 max-md:p-4"
+        style={{ boxShadow: CARD_SHADOW, animationDelay: "100ms" }}
+      >
+        <div className="flex items-center gap-2.5">
+          <span
+            className="inline-grid size-9 shrink-0 place-items-center rounded-xl text-white"
+            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+          >
+            <Spline size={17} strokeWidth={2.4} />
+          </span>
+          <h2
+            className="text-[19px] text-ink-strong"
+            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, letterSpacing: "-0.01em" }}
+          >
+            Pillar curves
+          </h2>
+        </div>
+        <p className="mt-2 text-[13.5px] text-ink-muted">A multiplier on each pillar&apos;s raw rate (1.0 = as-is). Tune how steep each pillar rewards.</p>
+        <div className="mt-4 grid grid-cols-5 gap-4 max-lg:grid-cols-3 max-md:grid-cols-2">
           {FORMULA.map(([k, label]) => (
             <label key={k} className="block">
               <span className="mb-1 block text-[13px] font-bold text-ink-strong">{label}</span>
@@ -118,9 +217,13 @@ export function ScoreConfigEditor({ initial }: { initial: PmsScoreConfig }) {
 
       <div className="flex justify-end">
         <button type="button" onClick={save} disabled={pending}
-          className="inline-flex items-center gap-2 rounded-pill px-6 py-3 text-[15px] font-bold text-white shadow-sm transition-transform enabled:hover:-translate-y-0.5 disabled:opacity-50"
-          style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}>
-          <Save size={17} strokeWidth={2.4} /> {pending ? "Saving…" : "Save scoring policy"}
+          className="wg-btn wg-sheen inline-flex items-center gap-2 rounded-pill px-6 py-3 text-[15px] font-bold text-white transition-transform enabled:hover:-translate-y-0.5 disabled:opacity-50"
+          style={{
+            background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
+            boxShadow: `0 10px 24px -12px color-mix(in srgb, ${ACCENT_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
+          }}>
+          {pending ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} strokeWidth={2.4} />}
+          {pending ? "Saving…" : "Save scoring policy"}
         </button>
       </div>
     </div>

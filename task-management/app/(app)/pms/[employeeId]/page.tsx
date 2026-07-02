@@ -39,6 +39,9 @@ export const dynamic = "force-dynamic";
 const ACCENT = MODULE_THEME.employees.accent; // green
 const ACCENT_DEEP = MODULE_THEME.employees.accentDeep;
 
+const CARD_SHADOW =
+  "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -20px rgba(15,23,42,0.35)";
+
 /** Score band → colour (green ≥80 / amber ≥60 / red) — same logic as /pms. */
 function band(score: number): { color: string; label: string } {
   if (score >= 80) return { color: "#16a34a", label: "Strong" };
@@ -153,8 +156,8 @@ export default async function PmsDetailPage({
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
-        {/* Back + header */}
+      <main className="mx-auto w-full max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
+        {/* Back link */}
         <div className="mb-5 wg-rise">
           <Link
             href={"/pms" as Route}
@@ -164,57 +167,98 @@ export default async function PmsDetailPage({
           </Link>
         </div>
 
-        <header className="mb-7 flex items-start justify-between gap-5 flex-wrap wg-rise" style={{ animationDelay: "35ms" }}>
-          <div className="flex items-center gap-4 min-w-0">
-            <EmployeeAvatar name={person.name} size="lg" />
-            <div className="min-w-0">
-              <span
-                className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
-                style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
-              >
-                <Target size={13} strokeWidth={2.6} /> Employees · Performance
-              </span>
-              <h1
-                className="mt-2 text-ink-strong"
-                style={{
-                  fontFamily: "var(--font-display), system-ui, sans-serif",
-                  fontWeight: 900,
-                  fontSize: "clamp(28px,3.4vw,44px)",
-                  letterSpacing: "-0.025em",
-                  lineHeight: 1.04,
-                }}
-              >
-                {person.name}
-              </h1>
-              <p className="mt-1 text-[14px] font-medium text-ink-muted">
-                {person.department || "No department"} · {scoreResult.tenureDays}d tenure
-              </p>
+        {/* ── Glass hero: identity + big score ring ── */}
+        <header
+          className="wg-rise relative mb-5 overflow-hidden rounded-[26px] px-7 py-6 max-md:px-4 max-md:py-5"
+          style={{
+            animationDelay: "35ms",
+            background: [
+              `radial-gradient(120% 190% at 100% 0%, color-mix(in srgb, ${b.color} 9%, transparent), transparent 55%)`,
+              `radial-gradient(80% 160% at 0% 100%, color-mix(in srgb, ${ACCENT} 5%, transparent), transparent 52%)`,
+              "rgba(255, 255, 255, 0.72)",
+            ].join(", "),
+            backdropFilter: "blur(14px) saturate(140%)",
+            boxShadow:
+              "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.85), 0 18px 44px -28px rgba(15,23,42,0.22)",
+          }}
+        >
+          <div className="flex items-center justify-between gap-6 flex-wrap">
+            <div className="flex items-center gap-5 min-w-0 max-md:gap-4">
+              <EmployeeAvatar name={person.name} size="lg" />
+              <div className="min-w-0">
+                <span
+                  className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
+                  style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+                >
+                  <Target size={13} strokeWidth={2.6} /> Employees · Performance
+                </span>
+                <h1
+                  className="mt-2 text-ink-strong"
+                  style={{
+                    fontFamily: "var(--font-display), system-ui, sans-serif",
+                    fontWeight: 900,
+                    fontSize: "clamp(28px,3.4vw,44px)",
+                    letterSpacing: "-0.03em",
+                    lineHeight: 1.02,
+                  }}
+                >
+                  {person.name}
+                </h1>
+                <p className="mt-1 text-[14.5px] font-medium text-ink-muted">
+                  {person.department || "No department"} · {scoreResult.tenureDays}d tenure
+                </p>
+                {scoreResult.promotion.eligible && (
+                  <span
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[11.5px] font-bold text-white"
+                    style={{
+                      background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
+                      boxShadow: `0 6px 16px -8px color-mix(in srgb, ${ACCENT_DEEP} 70%, transparent)`,
+                    }}
+                  >
+                    <TrendingUp size={12} strokeWidth={2.8} /> Promotion-eligible
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Big score ring */}
-          <div className="flex items-center gap-4">
-            <div className="relative h-[128px] w-[128px] shrink-0">
-              <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-                <circle cx="60" cy="60" r="52" fill="none" stroke="var(--color-surface-soft)" strokeWidth="12" />
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="52"
-                  fill="none"
-                  stroke={b.color}
-                  strokeWidth="12"
-                  strokeLinecap="round"
-                  strokeDasharray={`${dash} ${circumference}`}
-                />
-              </svg>
-              <div className="absolute inset-0 grid place-items-center">
-                <div className="text-center">
-                  <div className="tabular-nums font-black leading-none" style={{ fontSize: 38, color: b.color }}>
-                    {score}
-                  </div>
-                  <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: b.color }}>
-                    {b.label}
+            {/* Big score ring */}
+            <div className="flex items-center gap-4">
+              <div
+                className="relative h-[136px] w-[136px] shrink-0"
+                role="img"
+                aria-label={`Performance score ${score} out of 100 — ${b.label}`}
+              >
+                <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
+                  <circle cx="60" cy="60" r="52" fill="none" stroke="var(--color-surface-soft)" strokeWidth="12" />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="52"
+                    fill="none"
+                    stroke={b.color}
+                    strokeWidth="12"
+                    strokeLinecap="round"
+                    strokeDasharray={`${dash} ${circumference}`}
+                    style={{ filter: `drop-shadow(0 3px 6px color-mix(in srgb, ${b.color} 35%, transparent))` }}
+                  />
+                </svg>
+                <div className="absolute inset-0 grid place-items-center">
+                  <div className="text-center">
+                    <div
+                      className="tabular-nums leading-none"
+                      style={{
+                        fontFamily: "var(--font-display), system-ui, sans-serif",
+                        fontWeight: 900,
+                        fontSize: 40,
+                        letterSpacing: "-0.02em",
+                        color: b.color,
+                      }}
+                    >
+                      {score}
+                    </div>
+                    <div className="mt-0.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: b.color }}>
+                      {b.label}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -224,15 +268,15 @@ export default async function PmsDetailPage({
 
         {/* Promotion banner */}
         <div
-          className="mb-6 flex items-start gap-3 rounded-2xl border p-4 wg-rise"
+          className="mb-6 flex items-start gap-3 rounded-2xl p-4 wg-rise"
           style={{
             animationDelay: "70ms",
-            borderColor: scoreResult.promotion.eligible
-              ? `color-mix(in srgb, ${ACCENT} 45%, transparent)`
-              : "var(--color-hairline)",
             background: scoreResult.promotion.eligible
-              ? `color-mix(in srgb, ${ACCENT} 7%, transparent)`
+              ? `linear-gradient(135deg, color-mix(in srgb, ${ACCENT} 8%, #fff), color-mix(in srgb, ${ACCENT} 4%, #fff))`
               : "var(--color-surface-card)",
+            boxShadow: scoreResult.promotion.eligible
+              ? `inset 0 0 0 1px color-mix(in srgb, ${ACCENT} 35%, transparent), 0 10px 28px -20px color-mix(in srgb, ${ACCENT_DEEP} 60%, transparent)`
+              : CARD_SHADOW,
           }}
         >
           <span
@@ -280,13 +324,16 @@ export default async function PmsDetailPage({
 
         <div className="grid grid-cols-3 gap-6 max-xl:grid-cols-1">
           {/* Monthly reviews */}
-          <section className="col-span-2 wg-rise" style={{ animationDelay: "140ms" }}>
+          <section className="col-span-2 max-xl:col-span-1 wg-rise" style={{ animationDelay: "140ms" }}>
             <h2 className="mb-3 text-[13px] font-bold uppercase tracking-[0.16em] text-ink-subtle">
               Monthly 360 reviews
             </h2>
             <div className="space-y-4">
               {totalReviews === 0 && (
-                <div className="rounded-2xl border border-hairline bg-surface-card p-6 text-center text-[14px] text-ink-muted shadow-sm">
+                <div
+                  className="rounded-2xl bg-surface-card p-8 text-center text-[14px] text-ink-muted"
+                  style={{ boxShadow: CARD_SHADOW }}
+                >
                   No monthly reviews recorded yet.
                 </div>
               )}
@@ -294,10 +341,17 @@ export default async function PmsDetailPage({
                 const list = reviews[rel];
                 if (list.length === 0) return null;
                 return (
-                  <div key={rel} className="rounded-2xl border border-hairline bg-surface-card p-5 shadow-sm">
+                  <div
+                    key={rel}
+                    className="rounded-2xl bg-surface-card p-5"
+                    style={{ boxShadow: CARD_SHADOW }}
+                  >
                     <div className="mb-3 flex items-center justify-between gap-2">
                       <span className="text-[15px] font-bold text-ink-strong">{RELATION_LABEL[rel]}</span>
-                      <span className="text-[12px] font-semibold text-ink-subtle">
+                      <span
+                        className="rounded-pill px-2.5 py-0.5 text-[12px] font-bold tabular-nums"
+                        style={{ background: `color-mix(in srgb, ${ACCENT} 9%, transparent)`, color: ACCENT_DEEP }}
+                      >
                         {list.length} {list.length === 1 ? "entry" : "entries"}
                       </span>
                     </div>
@@ -319,7 +373,7 @@ export default async function PmsDetailPage({
               <h2 className="mb-3 text-[13px] font-bold uppercase tracking-[0.16em] text-ink-subtle">
                 Personal goals
               </h2>
-              <div className="rounded-2xl border border-hairline bg-surface-card p-5 shadow-sm">
+              <div className="rounded-2xl bg-surface-card p-5" style={{ boxShadow: CARD_SHADOW }}>
                 {goals.length === 0 ? (
                   <p className="text-[14px] text-ink-muted">No personal goals captured yet.</p>
                 ) : (
@@ -361,7 +415,7 @@ export default async function PmsDetailPage({
               <h2 className="mb-3 text-[13px] font-bold uppercase tracking-[0.16em] text-ink-subtle">
                 Signals
               </h2>
-              <div className="rounded-2xl border border-hairline bg-surface-card p-5 shadow-sm">
+              <div className="rounded-2xl bg-surface-card p-5" style={{ boxShadow: CARD_SHADOW }}>
                 {signals.recognition.length === 0 && signals.promotion.length === 0 ? (
                   <p className="text-[14px] text-ink-muted">No recognition or promotion signals yet.</p>
                 ) : (
@@ -436,7 +490,13 @@ function ReviewRow({ review }: { review: DetailReview }) {
     { label: "Skill", value: review.skill },
   ];
   return (
-    <div className="rounded-xl border border-hairline bg-surface-soft/40 p-4">
+    <div
+      className="rounded-xl p-4"
+      style={{
+        background: "color-mix(in srgb, var(--color-surface-soft) 40%, transparent)",
+        boxShadow: "inset 0 0 0 1px var(--color-hairline)",
+      }}
+    >
       <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <Sparkles size={14} strokeWidth={2.4} style={{ color: ACCENT_DEEP }} />
@@ -468,7 +528,7 @@ function ReviewRow({ review }: { review: DetailReview }) {
           {review.changeTags.map((tag) => (
             <span
               key={tag}
-              className="rounded-pill border border-hairline px-2 py-0.5 text-[11.5px] font-semibold text-ink-muted"
+              className="rounded-pill border border-hairline bg-white/60 px-2 py-0.5 text-[11.5px] font-semibold text-ink-muted"
             >
               {tag}
             </span>

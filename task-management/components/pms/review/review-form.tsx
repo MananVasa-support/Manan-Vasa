@@ -320,8 +320,11 @@ export function ReviewForm({
               type="button"
               onClick={submit}
               disabled={pending || !complete}
-              className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-[14.5px] font-bold text-white transition-opacity disabled:opacity-50"
-              style={{ background: `linear-gradient(135deg, ${accent}, ${accentDeep})` }}
+              className="wg-btn wg-sheen inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-[14.5px] font-bold text-white transition-opacity disabled:opacity-50"
+              style={{
+                background: `linear-gradient(135deg, ${accent}, ${accentDeep})`,
+                boxShadow: `0 8px 18px -10px color-mix(in srgb, ${accentDeep} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
+              }}
             >
               {pending ? <Loader2 size={17} className="animate-spin" /> : <Check size={17} strokeWidth={2.6} />}
               {selected.done ? "Update review" : "Save review"}

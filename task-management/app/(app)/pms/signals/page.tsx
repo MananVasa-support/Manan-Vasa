@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import type { Route } from "next";
+import type { ReactNode } from "react";
 import { Sparkles, TrendingUp, Award, Target, IndianRupee } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
@@ -23,6 +24,9 @@ export const dynamic = "force-dynamic";
 
 const ACCENT = MODULE_THEME.employees.accent; // green
 const ACCENT_DEEP = MODULE_THEME.employees.accentDeep;
+
+const CARD_SHADOW =
+  "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -20px rgba(15,23,42,0.35)";
 
 /** Current IST month as 'YYYY-MM' — for the recognition form default + period labels. */
 function currentPeriod(): string {
@@ -81,34 +85,97 @@ export default async function PmsSignalsPage() {
 
   const openRecognitions = recognitions.filter((r) => r.status === "suggested").length;
   const flaggedPromotions = promotions.filter((p) => p.status === "flagged").length;
+  const releasedCount = recognitions.filter((r) => r.status === "released").length;
+  const attainment = tva.totals.attainmentPct;
 
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
-        <header className="mb-7 flex items-end justify-between gap-4 flex-wrap wg-rise">
-          <div>
-            <span
-              className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
-              style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
-            >
-              <Sparkles size={13} strokeWidth={2.6} /> Employees · Performance · Release
-            </span>
-            <h1
-              className="mt-3 text-ink-strong"
-              style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(28px,3.4vw,44px)", letterSpacing: "-0.025em", lineHeight: 1.04 }}
-            >
-              Recognition &amp; promotions
-            </h1>
-            <p className="mt-2 font-medium text-ink-muted" style={{ fontSize: 15.5, maxWidth: "70ch" }}>
-              The score engine only <em>suggests</em> recognition and <em>flags</em> promotions — nothing is
-              automatic. You decide and release every consequence here.
-              {(openRecognitions > 0 || flaggedPromotions > 0) &&
-                ` ${openRecognitions} recognition${openRecognitions === 1 ? "" : "s"} and ${flaggedPromotions} promotion${flaggedPromotions === 1 ? "" : "s"} awaiting your call.`}
-            </p>
+      <main className="mx-auto w-full max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
+        {/* ── Glass hero ── */}
+        <header
+          className="wg-rise relative mb-5 overflow-hidden rounded-[26px] px-7 py-6 max-md:px-4 max-md:py-5"
+          style={{
+            background: [
+              `radial-gradient(120% 190% at 100% 0%, color-mix(in srgb, ${ACCENT} 9%, transparent), transparent 55%)`,
+              `radial-gradient(80% 160% at 0% 100%, color-mix(in srgb, ${ACCENT} 5%, transparent), transparent 52%)`,
+              "rgba(255, 255, 255, 0.72)",
+            ].join(", "),
+            backdropFilter: "blur(14px) saturate(140%)",
+            boxShadow:
+              "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.85), 0 18px 44px -28px rgba(15,23,42,0.22)",
+          }}
+        >
+          <div className="flex items-end justify-between gap-6 flex-wrap">
+            <div className="min-w-0">
+              <span
+                className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
+                style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+              >
+                <Sparkles size={13} strokeWidth={2.6} /> Employees · Performance · Release
+              </span>
+              <h1
+                className="mt-3 text-ink-strong"
+                style={{
+                  fontFamily: "var(--font-display), system-ui, sans-serif",
+                  fontWeight: 900,
+                  fontSize: "clamp(28px,3.4vw,44px)",
+                  letterSpacing: "-0.03em",
+                  lineHeight: 1.02,
+                }}
+              >
+                Recognition &amp; promotions
+              </h1>
+              <p className="mt-1.5 max-w-[76ch] text-[15px] font-medium text-ink-muted">
+                The score engine only <em>suggests</em> recognition and <em>flags</em> promotions — nothing is
+                automatic. You decide and release every consequence here.
+                {(openRecognitions > 0 || flaggedPromotions > 0) &&
+                  ` ${openRecognitions} recognition${openRecognitions === 1 ? "" : "s"} and ${flaggedPromotions} promotion${flaggedPromotions === 1 ? "" : "s"} awaiting your call.`}
+              </p>
+            </div>
+            <CreateRecognitionForm people={people} defaultPeriod={period} />
           </div>
-          <CreateRecognitionForm people={people} defaultPeriod={period} />
         </header>
+
+        {/* ── KPI strip (folded over the loaded rows — zero extra queries) ── */}
+        <section
+          aria-label="Signal totals"
+          className="mb-6 grid grid-cols-4 gap-3.5 max-lg:grid-cols-2 max-sm:grid-cols-1"
+        >
+          <KpiCard
+            icon={<Award size={17} strokeWidth={2.4} />}
+            accent={openRecognitions > 0 ? "#d97706" : ACCENT}
+            label="Recognitions awaiting"
+            value={String(openRecognitions)}
+            caption={`${releasedCount} released so far`}
+            delay={0}
+          />
+          <KpiCard
+            icon={<TrendingUp size={17} strokeWidth={2.4} />}
+            accent={flaggedPromotions > 0 ? "#d97706" : ACCENT_DEEP}
+            label="Promotions flagged"
+            value={String(flaggedPromotions)}
+            caption={`${promotions.length} ${promotions.length === 1 ? "signal" : "signals"} in total`}
+            delay={50}
+          />
+          <KpiCard
+            icon={<IndianRupee size={17} strokeWidth={2.4} />}
+            accent="#334155"
+            label={`Incentive target ${tva.year}`}
+            value={rupee(tva.totals.target)}
+            caption={`actual ${rupee(tva.totals.actual)}`}
+            delay={100}
+          />
+          <KpiCard
+            icon={<Target size={17} strokeWidth={2.4} />}
+            accent={attainment == null ? "#334155" : attainment >= 100 ? ACCENT : attainment >= 70 ? "#d97706" : "#dc2626"}
+            label="Attainment"
+            value={attainment != null ? `${Math.round(attainment)}%` : "—"}
+            caption="approved-earned vs target, YTD"
+            progress={attainment != null ? Math.min(1, attainment / 100) : null}
+            delay={150}
+          />
+        </section>
 
         {/* Two columns: recognition (left) + promotion signals (right) */}
         <div className="grid grid-cols-2 gap-5 max-lg:grid-cols-1">
@@ -121,7 +188,9 @@ export default async function PmsSignalsPage() {
               </span>
             </h2>
             {recognitions.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-hairline bg-surface-card p-8 text-center text-[14px] text-ink-muted">
+              <div
+                className="rounded-2xl border border-dashed border-hairline bg-surface-card p-8 text-center text-[14px] text-ink-muted"
+              >
                 No recognition suggested yet. As scores cross the recognition threshold, suggestions
                 appear here for you to release.
               </div>
@@ -132,8 +201,8 @@ export default async function PmsSignalsPage() {
                   return (
                     <article
                       key={r.id}
-                      className="wg-rise rounded-2xl border border-hairline bg-surface-card p-5 shadow-sm"
-                      style={{ animationDelay: `${i * 35}ms` }}
+                      className="wg-rise rounded-2xl bg-surface-card p-5"
+                      style={{ animationDelay: `${Math.min(i, 10) * 35}ms`, boxShadow: CARD_SHADOW }}
                     >
                       <div className="flex items-start gap-4">
                         <EmployeeAvatar name={r.employeeName} size="lg" />
@@ -190,7 +259,9 @@ export default async function PmsSignalsPage() {
               <span className="text-[13px] font-semibold text-ink-subtle">{flaggedPromotions} flagged</span>
             </h2>
             {promotions.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-hairline bg-surface-card p-8 text-center text-[14px] text-ink-muted">
+              <div
+                className="rounded-2xl border border-dashed border-hairline bg-surface-card p-8 text-center text-[14px] text-ink-muted"
+              >
                 No promotion signals. When someone crosses the promotion threshold with enough tenure,
                 they are flagged here for your review.
               </div>
@@ -201,8 +272,8 @@ export default async function PmsSignalsPage() {
                   return (
                     <article
                       key={p.id}
-                      className="wg-rise rounded-2xl border border-hairline bg-surface-card p-5 shadow-sm"
-                      style={{ animationDelay: `${i * 35}ms` }}
+                      className="wg-rise rounded-2xl bg-surface-card p-5"
+                      style={{ animationDelay: `${Math.min(i, 10) * 35}ms`, boxShadow: CARD_SHADOW }}
                     >
                       <div className="flex items-start gap-4">
                         <EmployeeAvatar name={p.employeeName} size="lg" />
@@ -214,7 +285,16 @@ export default async function PmsSignalsPage() {
                           <div className="mt-0.5 text-[13px] text-ink-subtle">{p.department || "—"}</div>
                           <div className="mt-2 flex items-center gap-3">
                             {p.scoreSnapshot != null && (
-                              <span className="tabular-nums font-black leading-none" style={{ fontSize: 26, color: ACCENT }}>
+                              <span
+                                className="tabular-nums leading-none"
+                                style={{
+                                  fontFamily: "var(--font-display), system-ui, sans-serif",
+                                  fontWeight: 900,
+                                  fontSize: 27,
+                                  letterSpacing: "-0.02em",
+                                  color: ACCENT,
+                                }}
+                              >
                                 {Math.round(p.scoreSnapshot)}
                               </span>
                             )}
@@ -268,7 +348,10 @@ export default async function PmsSignalsPage() {
               {tva.totals.attainmentPct != null && (
                 <span
                   className="inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-[12.5px] font-bold tabular-nums text-white"
-                  style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+                  style={{
+                    background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
+                    boxShadow: `0 6px 16px -8px color-mix(in srgb, ${ACCENT_DEEP} 70%, transparent)`,
+                  }}
                 >
                   {Math.round(tva.totals.attainmentPct)}% attained
                 </span>
@@ -285,14 +368,14 @@ export default async function PmsSignalsPage() {
               No incentive targets or earnings recorded for {tva.year} yet.
             </div>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-hairline bg-surface-card shadow-sm">
+            <div className="overflow-hidden rounded-2xl bg-surface-card" style={{ boxShadow: CARD_SHADOW }}>
               <table className="w-full border-collapse text-[14px]">
                 <thead>
                   <tr className="border-b border-hairline bg-surface-soft text-left">
-                    <th className="px-4 py-3 font-bold text-ink-subtle">Person</th>
-                    <th className="px-4 py-3 text-right font-bold text-ink-subtle">Target</th>
-                    <th className="px-4 py-3 text-right font-bold text-ink-subtle">Actual</th>
-                    <th className="px-4 py-3 font-bold text-ink-subtle" style={{ minWidth: 180 }}>
+                    <th className="px-4 py-3 text-[11.5px] font-bold uppercase tracking-[0.12em] text-ink-subtle">Person</th>
+                    <th className="px-4 py-3 text-right text-[11.5px] font-bold uppercase tracking-[0.12em] text-ink-subtle">Target</th>
+                    <th className="px-4 py-3 text-right text-[11.5px] font-bold uppercase tracking-[0.12em] text-ink-subtle">Actual</th>
+                    <th className="px-4 py-3 text-[11.5px] font-bold uppercase tracking-[0.12em] text-ink-subtle" style={{ minWidth: 180 }}>
                       Attainment
                     </th>
                   </tr>
@@ -302,7 +385,10 @@ export default async function PmsSignalsPage() {
                     const pct = row.attainmentPct;
                     const barColor = pct == null ? "var(--color-hairline-strong)" : pct >= 100 ? ACCENT : pct >= 70 ? "#d97706" : "#dc2626";
                     return (
-                      <tr key={row.empName} className="border-b border-hairline last:border-b-0">
+                      <tr
+                        key={row.empName}
+                        className="border-b border-hairline transition-colors last:border-b-0 hover:bg-surface-soft/50"
+                      >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
                             <EmployeeAvatar name={row.empName} size="sm" />
@@ -323,7 +409,10 @@ export default async function PmsSignalsPage() {
                               <div className="h-2 flex-1 overflow-hidden rounded-pill bg-surface-soft" style={{ minWidth: 90 }}>
                                 <div
                                   className="h-full rounded-pill"
-                                  style={{ width: `${Math.min(100, Math.round(pct))}%`, background: barColor }}
+                                  style={{
+                                    width: `${Math.min(100, Math.round(pct))}%`,
+                                    background: `linear-gradient(90deg, color-mix(in srgb, ${barColor} 75%, #fff), ${barColor})`,
+                                  }}
                                 />
                               </div>
                               <span className="w-12 shrink-0 text-right tabular-nums text-[13.5px] font-bold" style={{ color: barColor }}>
@@ -357,5 +446,73 @@ export default async function PmsSignalsPage() {
       </main>
       <DashboardFooter />
     </>
+  );
+}
+
+/* ── KPI card — same construction as the Attendance / Salary / Overtime stat cards ── */
+
+function KpiCard({
+  icon,
+  accent,
+  label,
+  value,
+  caption,
+  progress,
+  delay,
+}: {
+  icon: ReactNode;
+  accent: string;
+  label: string;
+  value: string;
+  caption: string;
+  /** 0–1 fill for the thin bar; omit/null to hide it. */
+  progress?: number | null;
+  delay: number;
+}) {
+  return (
+    <div
+      className="wg-rise wg-btn rounded-2xl bg-surface-card px-4.5 py-4 max-md:px-4"
+      style={{ boxShadow: CARD_SHADOW, animationDelay: `${delay}ms` }}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className="inline-grid size-8 shrink-0 place-items-center rounded-[10px]"
+          style={{ background: `color-mix(in srgb, ${accent} 10%, transparent)`, color: accent }}
+        >
+          {icon}
+        </span>
+        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-subtle">
+          {label}
+        </span>
+      </div>
+      <div
+        className="mt-2 tabular-nums text-ink-strong"
+        style={{
+          fontFamily: "var(--font-display), system-ui, sans-serif",
+          fontWeight: 900,
+          fontSize: "clamp(21px, 1.7vw, 27px)",
+          letterSpacing: "-0.02em",
+          lineHeight: 1,
+        }}
+      >
+        {value}
+      </div>
+      <div className="mt-1 text-[12px] font-medium text-ink-subtle">{caption}</div>
+      {progress != null && (
+        <div
+          className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full"
+          style={{ background: "var(--color-hairline)" }}
+          aria-hidden
+        >
+          <span
+            className="block h-full rounded-full"
+            style={{
+              width: `${Math.max(2, progress * 100)}%`,
+              background: `linear-gradient(90deg, color-mix(in srgb, ${accent} 75%, #fff), ${accent})`,
+            }}
+          />
+        </div>
+      )}
+    </div>
   );
 }

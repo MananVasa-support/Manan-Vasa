@@ -59,8 +59,11 @@ export function PromotionActions({ id, employeeName }: { id: string; employeeNam
         type="button"
         disabled={pending}
         onClick={() => run("action")}
-        className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13.5px] font-bold text-white transition-opacity disabled:opacity-60"
-        style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+        className="wg-btn wg-sheen inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13.5px] font-bold text-white transition-opacity disabled:opacity-60"
+        style={{
+          background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
+          boxShadow: `0 8px 18px -10px color-mix(in srgb, ${ACCENT_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
+        }}
       >
         {busy === "action" ? <Loader2 size={15} className="animate-spin" /> : <TrendingUp size={15} strokeWidth={2.8} />}
         Action promotion

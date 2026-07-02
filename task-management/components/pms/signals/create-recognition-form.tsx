@@ -85,8 +85,11 @@ export function CreateRecognitionForm({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-xl border-2 px-4 py-2.5 text-[14px] font-bold transition-colors"
-        style={{ borderColor: `color-mix(in srgb, ${ACCENT} 40%, transparent)`, color: ACCENT_DEEP }}
+        className="wg-btn wg-sheen inline-flex items-center gap-2 rounded-pill px-5 py-2.5 text-[14px] font-bold text-white whitespace-nowrap"
+        style={{
+          background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
+          boxShadow: `0 10px 24px -12px color-mix(in srgb, ${ACCENT_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
+        }}
       >
         <Plus size={16} strokeWidth={2.6} /> Add recognition
       </button>
@@ -95,8 +98,12 @@ export function CreateRecognitionForm({
 
   return (
     <div
-      className="wg-rise rounded-2xl border border-hairline bg-surface-card p-5 shadow-sm"
-      style={{ ["--ring" as string]: ACCENT }}
+      className="wg-rise w-full max-w-[560px] rounded-2xl bg-surface-card p-5"
+      style={{
+        ["--ring" as string]: ACCENT,
+        boxShadow:
+          "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -20px rgba(15,23,42,0.35)",
+      }}
       onKeyDown={(e) => {
         if (e.key === "Escape") {
           e.preventDefault();
@@ -184,8 +191,11 @@ export function CreateRecognitionForm({
           type="button"
           disabled={pending}
           onClick={submit}
-          className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[14px] font-bold text-white transition-opacity disabled:opacity-60"
-          style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+          className="wg-btn wg-sheen inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[14px] font-bold text-white transition-opacity disabled:opacity-60"
+          style={{
+            background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
+            boxShadow: `0 8px 18px -10px color-mix(in srgb, ${ACCENT_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
+          }}
         >
           {pending ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} strokeWidth={2.6} />}
           Add as suggested
