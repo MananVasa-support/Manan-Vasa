@@ -12,6 +12,7 @@ import { rateLimitOrError } from "@/lib/rate-limit";
 import { parseAmount } from "@/lib/accounts/amounts";
 import { parseFrequency, scheduledDueOn } from "@/lib/dcc/util";
 import { listOwnerItems, listOwnerEntries } from "@/lib/queries/dcc";
+import { writeDccEntry, writeParticipantEntries } from "@/lib/dcc/write";
 import { generateText, GeminiNotConfiguredError } from "@/lib/ai/gemini";
 
 const PATH = "/dcc";
@@ -57,31 +58,8 @@ export async function setDccEntry(input: unknown): Promise<ActionResult> {
   const subjectId = parsed.data.subjectId ?? null;
 
   try {
-    const [item] = await db.select({ owner: dccKpiItems.ownerEmployeeId }).from(dccKpiItems).where(eq(dccKpiItems.id, itemId)).limit(1);
-    if (!item) return fail("KPI not found.");
-    if (!(isSuperAdmin(me.email) || item.owner === me.id)) return fail("You can only fill your own KPIs.");
-
-    // Target exactly this (item, date, subject) slot. subjectId null = the
-    // simple-KPI row; a uuid = one participant's row.
-    const subjectCond = subjectId
-      ? eq(dccEntries.subjectId, subjectId)
-      : sql`${dccEntries.subjectId} IS NULL`;
-
-    if (!status && value === null && !note) {
-      await db.delete(dccEntries).where(and(eq(dccEntries.itemId, itemId), eq(dccEntries.entryDate, date), subjectCond));
-      if (!silent) revalidatePath(PATH);
-      return { ok: true };
-    }
-    // Upsert on the COALESCE-sentinel expression index (Drizzle can't express it,
-    // so raw). subject_id NULL collapses to the zero-uuid bucket → one row per
-    // (item, date) for simple KPIs, exactly as before.
-    await db.execute(sql`
-      INSERT INTO dcc_entries (item_id, entry_date, status, value_number, note, filled_by_id, subject_id)
-      VALUES (${itemId}, ${date}, ${status}, ${value}, ${note}, ${me.id}, ${subjectId})
-      ON CONFLICT (item_id, entry_date, COALESCE(subject_id, '00000000-0000-0000-0000-000000000000'::uuid))
-      DO UPDATE SET status = EXCLUDED.status, value_number = EXCLUDED.value_number,
-                    note = EXCLUDED.note, filled_by_id = EXCLUDED.filled_by_id, updated_at = now()
-    `);
+    const res = await writeDccEntry({ id: me.id, email: me.email }, { itemId, date, status, value, note, subjectId });
+    if (!res.ok) return res;
     if (!silent) revalidatePath(PATH);
     return { ok: true };
   } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
@@ -104,24 +82,8 @@ export async function setParticipantEntries(input: unknown): Promise<ActionResul
   const { itemId, date } = parsed.data;
   const status = parsed.data.status;
   try {
-    const [item] = await db.select({ owner: dccKpiItems.ownerEmployeeId }).from(dccKpiItems).where(eq(dccKpiItems.id, itemId)).limit(1);
-    if (!item) return fail("KPI not found.");
-    if (!(isSuperAdmin(me.email) || item.owner === me.id)) return fail("You can only fill your own KPIs.");
-    const subs = (await db.execute(sql`
-      SELECT subject_id FROM dcc_item_subjects WHERE item_id = ${itemId} AND archived = false
-    `)) as unknown as Array<{ subject_id: string }>;
-    for (const { subject_id } of subs) {
-      if (!status) {
-        await db.delete(dccEntries).where(and(eq(dccEntries.itemId, itemId), eq(dccEntries.entryDate, date), eq(dccEntries.subjectId, subject_id)));
-      } else {
-        await db.execute(sql`
-          INSERT INTO dcc_entries (item_id, entry_date, status, filled_by_id, subject_id)
-          VALUES (${itemId}, ${date}, ${status}, ${me.id}, ${subject_id})
-          ON CONFLICT (item_id, entry_date, COALESCE(subject_id, '00000000-0000-0000-0000-000000000000'::uuid))
-          DO UPDATE SET status = EXCLUDED.status, filled_by_id = EXCLUDED.filled_by_id, updated_at = now()
-        `);
-      }
-    }
+    const res = await writeParticipantEntries({ id: me.id, email: me.email }, { itemId, date, status });
+    if (!res.ok) return res;
     revalidatePath(PATH);
     return { ok: true };
   } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
