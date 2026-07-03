@@ -6,14 +6,17 @@
 export const DCC_STATUSES = ["Done", "Not done", "NA", "Pending"] as const;
 export type DccStatus = (typeof DCC_STATUSES)[number];
 
+// Matches both the abbreviation AND the full weekday name, so "Every Friday",
+// "Thursdays", "Wednesday" etc. schedule correctly (previously only "Fri"/"Thu"
+// abbreviations parsed — "Every Friday" fell through to null = due every day).
 const DAY_TOKENS: Array<[RegExp, number]> = [
-  [/\bmon\b/i, 0],
-  [/\btue\b/i, 1],
-  [/\bwed\b/i, 2],
-  [/\b(thu|thr|thur|thurs)\b/i, 3],
-  [/\bfri\b/i, 4],
-  [/\bsat\b/i, 5],
-  [/\bsun\b/i, 6],
+  [/\bmon(day)?s?\b/i, 0],
+  [/\btue(s|sday)?s?\b/i, 1],
+  [/\bwed(nesday)?s?\b/i, 2],
+  [/\b(thu(rsday|rs|r)?|thr)s?\b/i, 3],
+  [/\bfri(day)?s?\b/i, 4],
+  [/\bsat(urday)?s?\b/i, 5],
+  [/\bsun(day)?s?\b/i, 6],
 ];
 
 /** Parse a sheet frequency string ("Daily", "Wed & Sat", "Every Sat") → weekday
