@@ -3990,3 +3990,25 @@ export const paidLeaveCycle = pgTable(
   ],
 );
 export type PaidLeaveCycle = typeof paidLeaveCycle.$inferSelect;
+
+// ── Device push tokens (native-mobile FCM) ──────────────────────────────────
+// One row per FCM registration token. A token is globally unique and belongs to
+// whichever employee last registered it (re-login on a shared phone reassigns).
+export const devicePushTokens = pgTable(
+  "device_push_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    token: text("token").notNull(),
+    platform: text("platform").notNull().default("android"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("device_push_tokens_token_uq").on(t.token),
+    index("device_push_tokens_employee_idx").on(t.employeeId),
+  ],
+);
+export type DevicePushToken = typeof devicePushTokens.$inferSelect;

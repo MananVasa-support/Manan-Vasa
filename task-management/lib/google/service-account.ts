@@ -59,4 +59,6 @@ export const GOOGLE_SCOPES = {
   // modify any sheet shared with the service account.
   sheetsReadonly: "https://www.googleapis.com/auth/spreadsheets.readonly",
   drive: "https://www.googleapis.com/auth/drive",
+  // Firebase Cloud Messaging (FCM HTTP v1) — send native-mobile push.
+  messaging: "https://www.googleapis.com/auth/firebase.messaging",
 } as const;
