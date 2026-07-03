@@ -6,7 +6,7 @@ import type { Route } from "next";
 import { Flame, Trophy, ChevronRight, AlertTriangle } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import type { DccPerson, DccItemRow, DccEntryRow } from "@/lib/queries/dcc";
-import { isDueOn, isoDate } from "@/lib/dcc/util";
+import { scheduledDueOn, isoDate } from "@/lib/dcc/util";
 
 type ItemLite = Pick<DccItemRow, "id" | "ownerEmployeeId" | "weekdays" | "targetNumber">;
 type EntryLite = DccEntryRow & { ownerEmployeeId: string };
@@ -48,7 +48,7 @@ export function DccDashboard({ meId, people, items, entries, reviews, today }: P
     return people.map((p) => {
       const own = itemsByOwner.get(p.id) ?? [];
       // today
-      const dueToday = own.filter((it) => isDueOn(it.weekdays, dObj(today)));
+      const dueToday = own.filter((it) => scheduledDueOn(it, dObj(today)));
       let doneToday = 0, filledToday = 0;
       for (const it of dueToday) {
         const e = entryMap.get(key(it.id, today));
@@ -59,7 +59,7 @@ export function DccDashboard({ meId, people, items, entries, reviews, today }: P
       let due7 = 0, done7 = 0;
       for (const iso of last7) {
         for (const it of own) {
-          if (!isDueOn(it.weekdays, dObj(iso))) continue;
+          if (!scheduledDueOn(it, dObj(iso))) continue;
           due7++;
           if ((entryMap.get(key(it.id, iso))?.status ?? "").toLowerCase() === "done") done7++;
         }
@@ -69,7 +69,7 @@ export function DccDashboard({ meId, people, items, entries, reviews, today }: P
       const sd = dObj(today);
       for (let i = 0; i < 30; i++) {
         const iso = isoDate(sd);
-        const due = own.filter((it) => isDueOn(it.weekdays, sd));
+        const due = own.filter((it) => scheduledDueOn(it, sd));
         if (due.length > 0) {
           const allFilled = due.every((it) => { const e = entryMap.get(key(it.id, iso)); return e && (e.status || e.valueNumber || e.note); });
           if (!allFilled) break;

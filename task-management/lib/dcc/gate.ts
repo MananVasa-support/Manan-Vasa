@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { attendanceLogs, dccEntries, dccKpiItems, dccReviews, employees, type Employee } from "@/db/schema";
 import { listOwnerItems, listItemsForOwners, type DccItemRow, type DccEntryRow } from "@/lib/queries/dcc";
 import { loadDccScope } from "@/lib/dcc/access";
-import { isDueOn } from "@/lib/dcc/util";
+import { scheduledDueOn } from "@/lib/dcc/util";
 import { localDateString } from "@/lib/format";
 
 const TZ = "Asia/Kolkata"; // org timezone — attendance log_date is stored in IST
@@ -37,7 +37,7 @@ function ymdToDate(ymd: string): Date {
 async function dueForDay(employeeId: string, ymd: string): Promise<{ due: DccItemRow[]; entries: DccEntryRow[] }> {
   const items = await listOwnerItems(employeeId);
   const day = ymdToDate(ymd);
-  const due = items.filter((it) => isDueOn(it.weekdays, day));
+  const due = items.filter((it) => scheduledDueOn(it, day));
   if (due.length === 0) return { due: [], entries: [] };
   const ids = due.map((i) => i.id);
   const entries = (await db
@@ -144,7 +144,7 @@ export async function dccManagerReviewState(me: Employee, now: Date = new Date()
     .filter((p) => presentIds.has(p.id))
     .map((p) => {
       const own = itemsByOwner.get(p.id) ?? [];
-      const due = own.filter((it) => isDueOn(it.weekdays, day));
+      const due = own.filter((it) => scheduledDueOn(it, day));
       const doneSet = doneByOwner.get(p.id) ?? new Set<string>();
       return { id: p.id, name: p.name, avatarUrl: p.avatarUrl, date, due: due.length, done: due.filter((it) => doneSet.has(it.id)).length, reviewed: reviewed.has(p.id) };
     });

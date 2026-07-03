@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { employees, dccKpiItems, dccEntries, notifications } from "@/db/schema";
-import { isDueOn, isoDate } from "@/lib/dcc/util";
+import { scheduledDueOn, isoDate } from "@/lib/dcc/util";
 
 /**
  * Employees DCC end-of-day reminder. Runs ~19:30 IST (14:00 UTC). For every
@@ -41,7 +41,7 @@ async function run(request: Request): Promise<NextResponse> {
   // Per owner: count due-today vs filled-today.
   const due = new Map<string, { total: number; done: number }>();
   for (const it of items) {
-    if (!isDueOn(it.weekdays, ist)) continue;
+    if (!scheduledDueOn(it, ist)) continue;
     const rec = due.get(it.owner) ?? { total: 0, done: 0 };
     rec.total++;
     if (filled.has(it.id)) rec.done++;

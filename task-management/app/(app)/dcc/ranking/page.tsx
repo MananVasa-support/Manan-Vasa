@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { employees } from "@/db/schema";
 import { requireUser } from "@/lib/auth/current";
 import { listItemsForOwners, listEntriesForOwners } from "@/lib/queries/dcc";
-import { isDueOn, isoDate } from "@/lib/dcc/util";
+import { scheduledDueOn, isoDate } from "@/lib/dcc/util";
 import { DccRanking, type RankRow } from "@/components/dcc/dcc-ranking";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +56,7 @@ export default async function DccRankingPage() {
       for (const iso of days) {
         const d = dObj(iso);
         for (const it of own) {
-          if (!isDueOn(it.weekdays, d)) continue;
+          if (!scheduledDueOn(it, d)) continue;
           due++;
           if (doneSet.has(`${it.id}|${iso}`)) done++;
         }
@@ -67,7 +67,7 @@ export default async function DccRankingPage() {
       const sd = dObj(today);
       for (let i = 0; i < 60; i++) {
         const iso = isoDate(sd);
-        const dueItems = own.filter((it) => isDueOn(it.weekdays, sd));
+        const dueItems = own.filter((it) => scheduledDueOn(it, sd));
         if (dueItems.length > 0) {
           if (!dueItems.every((it) => filledSet.has(`${it.id}|${iso}`))) break;
           streak++;

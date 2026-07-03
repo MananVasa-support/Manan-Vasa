@@ -105,7 +105,6 @@ export function parseFrequency(raw: string | null | undefined): ParsedFrequency 
 
 /** A DCC item, minimally, for the slot model. */
 export interface SlotItem {
-  id: string;
   weekdays: number | null;
   scheduleKind?: string | null;
   isParticipantList?: boolean | null;

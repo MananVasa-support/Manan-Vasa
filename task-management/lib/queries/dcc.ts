@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, eq, gte, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { withRetry } from "@/lib/db/with-timeout";
-import { dccKpiItems, dccEntries, dccReviews, employees } from "@/db/schema";
+import { dccKpiItems, dccEntries, dccReviews, dccClients, dccSubjects, dccItemSubjects, employees } from "@/db/schema";
 
 export interface DccItemRow {
   id: string;
@@ -12,6 +12,11 @@ export interface DccItemRow {
   title: string;
   frequency: string | null;
   weekdays: number | null;
+  scheduleKind: string | null;
+  isParticipantList: boolean | null;
+  clientId: string | null;
+  templateCode: string | null;
+  needsReview: boolean | null;
   targetNumber: string | null;
   unit: string | null;
   sortOrder: number | null;
@@ -23,6 +28,30 @@ export interface DccEntryRow {
   status: string | null;
   valueNumber: string | null;
   note: string | null;
+  subjectId: string | null;
+}
+
+export interface DccClientRow {
+  id: string;
+  ownerEmployeeId: string;
+  section: string;
+  name: string;
+  sortOrder: number;
+}
+export interface DccSubjectRow {
+  id: string;
+  ownerEmployeeId: string;
+  name: string;
+  kind: string | null;
+  sortOrder: number;
+}
+export interface DccItemSubjectRow {
+  id: string;
+  itemId: string;
+  subjectId: string;
+  scheduleKind: string | null;
+  weekdays: number | null;
+  sortOrder: number;
 }
 
 export interface DccPerson {
@@ -45,6 +74,11 @@ export async function listOwnerItems(ownerId: string): Promise<DccItemRow[]> {
           title: dccKpiItems.title,
           frequency: dccKpiItems.frequency,
           weekdays: dccKpiItems.weekdays,
+          scheduleKind: dccKpiItems.scheduleKind,
+          isParticipantList: dccKpiItems.isParticipantList,
+          clientId: dccKpiItems.clientId,
+          templateCode: dccKpiItems.templateCode,
+          needsReview: dccKpiItems.needsReview,
           targetNumber: dccKpiItems.targetNumber,
           unit: dccKpiItems.unit,
           sortOrder: dccKpiItems.sortOrder,
@@ -67,6 +101,7 @@ export async function listOwnerEntries(ownerId: string, fromDate: string): Promi
           status: dccEntries.status,
           valueNumber: dccEntries.valueNumber,
           note: dccEntries.note,
+          subjectId: dccEntries.subjectId,
         })
         .from(dccEntries)
         .innerJoin(dccKpiItems, eq(dccEntries.itemId, dccKpiItems.id))
@@ -90,7 +125,7 @@ export async function listDccPeople(visibleIds: string[]): Promise<DccPerson[]> 
 }
 
 /** All items (id/owner/weekdays/target) for a set of owners — roster aggregation. */
-export async function listItemsForOwners(ownerIds: string[]): Promise<Pick<DccItemRow, "id" | "ownerEmployeeId" | "weekdays" | "targetNumber">[]> {
+export async function listItemsForOwners(ownerIds: string[]): Promise<Pick<DccItemRow, "id" | "ownerEmployeeId" | "weekdays" | "scheduleKind" | "isParticipantList" | "targetNumber">[]> {
   if (ownerIds.length === 0) return [];
   return withRetry(
     () =>
@@ -99,6 +134,8 @@ export async function listItemsForOwners(ownerIds: string[]): Promise<Pick<DccIt
           id: dccKpiItems.id,
           ownerEmployeeId: dccKpiItems.ownerEmployeeId,
           weekdays: dccKpiItems.weekdays,
+          scheduleKind: dccKpiItems.scheduleKind,
+          isParticipantList: dccKpiItems.isParticipantList,
           targetNumber: dccKpiItems.targetNumber,
         })
         .from(dccKpiItems)
@@ -120,6 +157,7 @@ export async function listEntriesForOwners(ownerIds: string[], fromDate: string)
           status: dccEntries.status,
           valueNumber: dccEntries.valueNumber,
           note: dccEntries.note,
+          subjectId: dccEntries.subjectId,
         })
         .from(dccEntries)
         .innerJoin(dccKpiItems, eq(dccEntries.itemId, dccKpiItems.id))
@@ -143,5 +181,66 @@ export async function listReviewsForOwners(ownerIds: string[], fromDate: string)
         .from(dccReviews)
         .where(and(inArray(dccReviews.ownerEmployeeId, ownerIds), gte(dccReviews.reviewDate, fromDate))),
     { attempts: 3, timeoutMs: [6000, 10000, 14000], label: "dcc-reviews" },
+  );
+}
+
+// ── DCC v2 roster-axis loaders ───────────────────────────────────────────────
+
+/** Client instances (Lawrence & Mayo, Soul Storii…) for a person's sections. */
+export async function listOwnerClients(ownerId: string): Promise<DccClientRow[]> {
+  return withRetry(
+    () =>
+      db
+        .select({
+          id: dccClients.id,
+          ownerEmployeeId: dccClients.ownerEmployeeId,
+          section: dccClients.section,
+          name: dccClients.name,
+          sortOrder: dccClients.sortOrder,
+        })
+        .from(dccClients)
+        .where(and(eq(dccClients.ownerEmployeeId, ownerId), eq(dccClients.archived, false)))
+        .orderBy(asc(dccClients.section), asc(dccClients.sortOrder)),
+    { attempts: 3, timeoutMs: [6000, 10000, 14000], label: "dcc-clients" },
+  );
+}
+
+/** Participant roster (external people) for a person. */
+export async function listOwnerSubjects(ownerId: string): Promise<DccSubjectRow[]> {
+  return withRetry(
+    () =>
+      db
+        .select({
+          id: dccSubjects.id,
+          ownerEmployeeId: dccSubjects.ownerEmployeeId,
+          name: dccSubjects.name,
+          kind: dccSubjects.kind,
+          sortOrder: dccSubjects.sortOrder,
+        })
+        .from(dccSubjects)
+        .where(and(eq(dccSubjects.ownerEmployeeId, ownerId), eq(dccSubjects.archived, false)))
+        .orderBy(asc(dccSubjects.sortOrder), asc(dccSubjects.name)),
+    { attempts: 3, timeoutMs: [6000, 10000, 14000], label: "dcc-subjects" },
+  );
+}
+
+/** Item→subject links (with per-subject overrides) for the given participant items. */
+export async function listItemSubjectsForItems(itemIds: string[]): Promise<DccItemSubjectRow[]> {
+  if (itemIds.length === 0) return [];
+  return withRetry(
+    () =>
+      db
+        .select({
+          id: dccItemSubjects.id,
+          itemId: dccItemSubjects.itemId,
+          subjectId: dccItemSubjects.subjectId,
+          scheduleKind: dccItemSubjects.scheduleKind,
+          weekdays: dccItemSubjects.weekdays,
+          sortOrder: dccItemSubjects.sortOrder,
+        })
+        .from(dccItemSubjects)
+        .where(and(inArray(dccItemSubjects.itemId, itemIds), eq(dccItemSubjects.archived, false)))
+        .orderBy(asc(dccItemSubjects.sortOrder)),
+    { attempts: 3, timeoutMs: [6000, 10000, 14000], label: "dcc-item-subjects" },
   );
 }

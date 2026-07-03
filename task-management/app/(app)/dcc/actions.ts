@@ -10,7 +10,7 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { loadDccScope, canManageItemsFor, canReviewFor, canViewFor } from "@/lib/dcc/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { parseAmount } from "@/lib/accounts/amounts";
-import { parseFrequency, isDueOn } from "@/lib/dcc/util";
+import { parseFrequency, scheduledDueOn } from "@/lib/dcc/util";
 import { listOwnerItems, listOwnerEntries } from "@/lib/queries/dcc";
 import { generateText, GeminiNotConfiguredError } from "@/lib/ai/gemini";
 
@@ -264,7 +264,7 @@ export async function getDccReviewDetail(input: unknown): Promise<ActionResult<{
     const day = new Date(y!, (m ?? 1) - 1, d ?? 1);
     const byItem = new Map(entries.filter((e) => e.entryDate === date).map((e) => [e.itemId, e]));
     const out: DccReviewItem[] = items
-      .filter((it) => isDueOn(it.weekdays, day))
+      .filter((it) => scheduledDueOn(it, day))
       .map((it) => {
         const e = byItem.get(it.id);
         return { code: it.code, title: it.title, section: it.section, status: e?.status ?? null, value: e?.valueNumber ?? null, note: e?.note ?? null };
