@@ -10,7 +10,7 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { loadDccScope, canManageItemsFor, canReviewFor, canViewFor } from "@/lib/dcc/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { parseAmount } from "@/lib/accounts/amounts";
-import { parseFrequencyToMask, isDueOn } from "@/lib/dcc/util";
+import { parseFrequency, isDueOn } from "@/lib/dcc/util";
 import { listOwnerItems, listOwnerEntries } from "@/lib/queries/dcc";
 import { generateText, GeminiNotConfiguredError } from "@/lib/ai/gemini";
 
@@ -34,6 +34,8 @@ const EntrySchema = z.object({
   status: optText,
   value: z.any().optional(),
   note: optText,
+  // DCC v2 — participant axis. null/absent for a normal KPI fill.
+  subjectId: z.string().uuid().nullable().optional(),
   // The morning gate fills with silent:true so each keystroke does NOT
   // revalidate /dcc — that auto-refresh re-runs the layout gate mid-fill and a
   // single transient hiccup would fail-open and dismiss the gate early. The
@@ -52,25 +54,75 @@ export async function setDccEntry(input: unknown): Promise<ActionResult> {
   const status = parsed.data.status;
   const value = num(parsed.data.value);
   const note = parsed.data.note;
+  const subjectId = parsed.data.subjectId ?? null;
 
   try {
     const [item] = await db.select({ owner: dccKpiItems.ownerEmployeeId }).from(dccKpiItems).where(eq(dccKpiItems.id, itemId)).limit(1);
     if (!item) return fail("KPI not found.");
     if (!(isSuperAdmin(me.email) || item.owner === me.id)) return fail("You can only fill your own KPIs.");
 
+    // Target exactly this (item, date, subject) slot. subjectId null = the
+    // simple-KPI row; a uuid = one participant's row.
+    const subjectCond = subjectId
+      ? eq(dccEntries.subjectId, subjectId)
+      : sql`${dccEntries.subjectId} IS NULL`;
+
     if (!status && value === null && !note) {
-      await db.delete(dccEntries).where(and(eq(dccEntries.itemId, itemId), eq(dccEntries.entryDate, date)));
+      await db.delete(dccEntries).where(and(eq(dccEntries.itemId, itemId), eq(dccEntries.entryDate, date), subjectCond));
       if (!silent) revalidatePath(PATH);
       return { ok: true };
     }
-    await db
-      .insert(dccEntries)
-      .values({ itemId, entryDate: date, status, valueNumber: value, note, filledById: me.id })
-      .onConflictDoUpdate({
-        target: [dccEntries.itemId, dccEntries.entryDate],
-        set: { status, valueNumber: value, note, filledById: me.id, updatedAt: new Date() },
-      });
+    // Upsert on the COALESCE-sentinel expression index (Drizzle can't express it,
+    // so raw). subject_id NULL collapses to the zero-uuid bucket → one row per
+    // (item, date) for simple KPIs, exactly as before.
+    await db.execute(sql`
+      INSERT INTO dcc_entries (item_id, entry_date, status, value_number, note, filled_by_id, subject_id)
+      VALUES (${itemId}, ${date}, ${status}, ${value}, ${note}, ${me.id}, ${subjectId})
+      ON CONFLICT (item_id, entry_date, COALESCE(subject_id, '00000000-0000-0000-0000-000000000000'::uuid))
+      DO UPDATE SET status = EXCLUDED.status, value_number = EXCLUDED.value_number,
+                    note = EXCLUDED.note, filled_by_id = EXCLUDED.filled_by_id, updated_at = now()
+    `);
     if (!silent) revalidatePath(PATH);
+    return { ok: true };
+  } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
+}
+
+/** Bulk-fill every active participant of a participant-list KPI for a day
+ *  (the board's [All Done] / [All NA]). status null clears them. */
+export async function setParticipantEntries(input: unknown): Promise<ActionResult> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = z
+    .object({
+      itemId: z.string().uuid(),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u, "Bad date."),
+      status: optText,
+    })
+    .safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input.");
+  const { itemId, date } = parsed.data;
+  const status = parsed.data.status;
+  try {
+    const [item] = await db.select({ owner: dccKpiItems.ownerEmployeeId }).from(dccKpiItems).where(eq(dccKpiItems.id, itemId)).limit(1);
+    if (!item) return fail("KPI not found.");
+    if (!(isSuperAdmin(me.email) || item.owner === me.id)) return fail("You can only fill your own KPIs.");
+    const subs = (await db.execute(sql`
+      SELECT subject_id FROM dcc_item_subjects WHERE item_id = ${itemId} AND archived = false
+    `)) as unknown as Array<{ subject_id: string }>;
+    for (const { subject_id } of subs) {
+      if (!status) {
+        await db.delete(dccEntries).where(and(eq(dccEntries.itemId, itemId), eq(dccEntries.entryDate, date), eq(dccEntries.subjectId, subject_id)));
+      } else {
+        await db.execute(sql`
+          INSERT INTO dcc_entries (item_id, entry_date, status, filled_by_id, subject_id)
+          VALUES (${itemId}, ${date}, ${status}, ${me.id}, ${subject_id})
+          ON CONFLICT (item_id, entry_date, COALESCE(subject_id, '00000000-0000-0000-0000-000000000000'::uuid))
+          DO UPDATE SET status = EXCLUDED.status, filled_by_id = EXCLUDED.filled_by_id, updated_at = now()
+        `);
+      }
+    }
+    revalidatePath(PATH);
     return { ok: true };
   } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
 }
@@ -101,11 +153,13 @@ export async function createDccItem(input: unknown): Promise<ActionResult<{ id: 
       .select({ next: sql<number>`COALESCE(MAX(${dccKpiItems.sortOrder}), 0) + 1` })
       .from(dccKpiItems)
       .where(eq(dccKpiItems.ownerEmployeeId, d.ownerEmployeeId))) as Array<{ next: number }>;
+    const pf = parseFrequency(d.frequency);
     const [row] = await db
       .insert(dccKpiItems)
       .values({
         ownerEmployeeId: d.ownerEmployeeId, section: d.section, code: d.code, title: d.title,
-        frequency: d.frequency, weekdays: parseFrequencyToMask(d.frequency), targetNumber: num(d.targetNumber),
+        frequency: d.frequency, weekdays: pf.weekdays, scheduleKind: pf.scheduleKind, needsReview: pf.needsReview,
+        targetNumber: num(d.targetNumber),
         unit: d.unit, sortOrder: maxRows[0]?.next ?? 1, createdById: me.id,
       })
       .returning({ id: dccKpiItems.id });
@@ -126,9 +180,11 @@ export async function updateDccItem(input: unknown): Promise<ActionResult> {
     if (!item) return fail("KPI not found.");
     const scope = await loadDccScope(me);
     if (!canManageItemsFor(scope, item.owner)) return fail("Not allowed.");
+    const pf = parseFrequency(d.frequency);
     await db.update(dccKpiItems).set({
       section: d.section, code: d.code, title: d.title, frequency: d.frequency,
-      weekdays: parseFrequencyToMask(d.frequency), targetNumber: num(d.targetNumber), unit: d.unit, updatedAt: new Date(),
+      weekdays: pf.weekdays, scheduleKind: pf.scheduleKind, needsReview: pf.needsReview,
+      targetNumber: num(d.targetNumber), unit: d.unit, updatedAt: new Date(),
     }).where(eq(dccKpiItems.id, id));
     revalidatePath(PATH);
     return { ok: true };

@@ -2653,6 +2653,43 @@ export type AccountsLoanPeriod = typeof accountsLoanPeriods.$inferSelect;
 export type AccountsLoanCell = typeof accountsLoanCells.$inferSelect;
 
 // ── Employees DCC (Daily Compliance Checklist / KPI) — mig 0090 ──────────────
+// DCC v2 — client instancing (one section repeated per client, e.g. B = Lawrence
+// & Mayo, B-2 = Soul Storii). Defined before dcc_kpi_items so its client_id ref
+// is a plain backward reference.
+export const dccClients = pgTable(
+  "dcc_clients",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerEmployeeId: uuid("owner_employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    section: text("section").notNull(),
+    name: text("name").notNull(),
+    clientRef: uuid("client_ref"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    archived: boolean("archived").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("dcc_clients_owner_idx").on(t.ownerEmployeeId, t.section, t.sortOrder)],
+  // owner+section+lower(name) uniqueness is an expression index → migration SQL only.
+);
+
+// DCC v2 — participant roster (external people tracked by a participant-list KPI,
+// e.g. Nikunj/Parimal under D11). NOT employees. Deduped by (owner, lower(name)).
+export const dccSubjects = pgTable(
+  "dcc_subjects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerEmployeeId: uuid("owner_employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    kind: text("kind"),
+    externalRef: uuid("external_ref"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    archived: boolean("archived").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("dcc_subjects_owner_idx").on(t.ownerEmployeeId, t.sortOrder)],
+  // owner+lower(name) uniqueness is an expression index → migration SQL only.
+);
+
 export const dccKpiItems = pgTable(
   "dcc_kpi_items",
   {
@@ -2663,6 +2700,12 @@ export const dccKpiItems = pgTable(
     title: text("title").notNull(),
     frequency: text("frequency"),
     weekdays: smallint("weekdays"),
+    // DCC v2 additive:
+    scheduleKind: text("schedule_kind").notNull().default("scheduled"),
+    isParticipantList: boolean("is_participant_list").notNull().default(false),
+    clientId: uuid("client_id").references(() => dccClients.id, { onDelete: "cascade" }),
+    templateCode: text("template_code"),
+    needsReview: boolean("needs_review").notNull().default(false),
     targetNumber: numeric("target_number", { precision: 14, scale: 2 }),
     unit: text("unit"),
     sortOrder: integer("sort_order"),
@@ -2671,7 +2714,10 @@ export const dccKpiItems = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("dcc_kpi_items_owner_idx").on(t.ownerEmployeeId, t.sortOrder)],
+  (t) => [
+    index("dcc_kpi_items_owner_idx").on(t.ownerEmployeeId, t.sortOrder),
+    index("dcc_kpi_items_client_idx").on(t.clientId),
+  ],
 );
 
 export const dccEntries = pgTable(
@@ -2684,11 +2730,35 @@ export const dccEntries = pgTable(
     valueNumber: numeric("value_number", { precision: 14, scale: 2 }),
     note: text("note"),
     filledById: uuid("filled_by_id").references(() => employees.id, { onDelete: "set null" }),
+    // DCC v2 — participant axis. NULL for every simple/normal KPI (all history).
+    subjectId: uuid("subject_id").references(() => dccSubjects.id, { onDelete: "cascade" }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("dcc_entries_uq").on(t.itemId, t.entryDate),
+    // dcc_entries_uq is an EXPRESSION unique index
+    //   (item_id, entry_date, COALESCE(subject_id, ZERO_UUID))
+    // managed in migration 0103 (Drizzle can't express COALESCE). Not declared here.
     index("dcc_entries_date_idx").on(t.entryDate),
+    index("dcc_entries_subject_idx").on(t.subjectId),
+  ],
+);
+
+// DCC v2 — which subjects a participant-list KPI tracks, with optional per-subject
+// schedule overrides (e.g. Rutvisha's Prashant = Wed & Sat).
+export const dccItemSubjects = pgTable(
+  "dcc_item_subjects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    itemId: uuid("item_id").notNull().references(() => dccKpiItems.id, { onDelete: "cascade" }),
+    subjectId: uuid("subject_id").notNull().references(() => dccSubjects.id, { onDelete: "cascade" }),
+    scheduleKind: text("schedule_kind"),
+    weekdays: smallint("weekdays"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    archived: boolean("archived").notNull().default(false),
+  },
+  (t) => [
+    uniqueIndex("dcc_item_subjects_uq").on(t.itemId, t.subjectId),
+    index("dcc_item_subjects_item_idx").on(t.itemId, t.sortOrder),
   ],
 );
 
@@ -2709,6 +2779,9 @@ export const dccReviews = pgTable(
 export type DccKpiItem = typeof dccKpiItems.$inferSelect;
 export type DccEntry = typeof dccEntries.$inferSelect;
 export type DccReview = typeof dccReviews.$inferSelect;
+export type DccClient = typeof dccClients.$inferSelect;
+export type DccSubject = typeof dccSubjects.$inferSelect;
+export type DccItemSubject = typeof dccItemSubjects.$inferSelect;
 
 export type AccountsTaskRow = typeof accountsTaskList.$inferSelect;
 export type AccountsScreenshot = typeof accountsScreenshots.$inferSelect;
