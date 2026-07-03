@@ -1,64 +1,43 @@
 #!/usr/bin/env tsx
 /**
- * Import the "Daily Compliance - Altus Corp" Google Sheet into the native DCC
- * tables (migration 0090). The app is the source of truth after this runs once.
+ * Import the DCC KPI sheets into the native DCC tables — DCC v2 (roster-axis).
+ * Handles the nested structure: sections, client-instanced sections (B =
+ * Lawrence & Mayo / B-2 = Soul Storii), participant-list KPIs ("… Participant -
+ * Wkly Target vs Actual …" followed by per-participant name rows), and the
+ * schedule kinds from parseFrequency().
  *
- *   DRY RUN (no writes, prints a per-person summary):
- *     pnpm tsx --env-file=.env.local scripts/import-dcc.ts
- *   COMMIT (clears & re-imports every mapped person — idempotent):
- *     pnpm tsx --env-file=.env.local scripts/import-dcc.ts --commit
+ *   DRY RUN (no writes — prints the parsed nested structure):
+ *     pnpm tsx --env-file=.env.local scripts/import-dcc.ts --only=ruchita
+ *   COMMIT (UPSERT by natural key — preserves history; --only-scoped):
+ *     pnpm tsx --env-file=.env.local scripts/import-dcc.ts --commit --only=ruchita
  *
- * Each KPI tab is one person. Two layout families (per the structural analysis):
- *   ALPHANUM — item code in col0 is "A1".."B8"; section header rows = bare "A".
- *   NUMERIC  — item code in col0 is a plain integer that resets per section;
- *              real code = <sectionLetter><integer>.
- * Both are handled generically: we locate the date-header row (the row with the
- * most date-like cells), the "Frequency" column, then walk item rows, tracking
- * the current section letter/title and any client sub-label. EA (a role, no
- * employee) is skipped; Dattaram is a project register (no date grid) →
- * items-only. This touches the LIVE DB — only the owner runs it.
+ * COMMIT is upsert-not-delete: items keyed (owner, code|title, client_id) UPDATE
+ * in place so their entries survive; genuinely-new items INSERT; items present
+ * before but absent now are archived (never hard-deleted). --only is REQUIRED
+ * for --commit (never re-import everyone at once).
  */
 import { db } from "@/lib/db";
-import { employees, dccKpiItems, dccEntries } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { employees, dccKpiItems, dccEntries, dccClients, dccSubjects, dccItemSubjects } from "@/db/schema";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 import { readSheetValues } from "@/lib/google/read-sheet";
-import { parseFrequencyToMask } from "@/lib/dcc/util";
+import { parseFrequency, normFreq } from "@/lib/dcc/util";
 
 const SHEET_ID = "1YjuNom1QX43O9X4GbQoF_fER0siolfR_V8czbextMtU";
 const COMMIT = process.argv.includes("--commit");
-// Optional safety filter: --only="<name substring>" writes ONLY matching people
-// (case-insensitive), leaving everyone else's KPIs/entries untouched. Used to
-// backfill a single person (e.g. a tab that was missing from the mapping)
-// without re-clearing the 20 others — which would wipe app-entered entries.
-const ONLY = (process.argv.find((a) => a.startsWith("--only="))?.split("=")[1] ?? "").toLowerCase();
+const ONLY = (process.argv.find((a) => a.startsWith("--only=") || a.startsWith("--person="))?.split("=")[1] ?? "").toLowerCase();
 
-// tab title → canonical employee name (resolved aliases from the analysis).
 const PERSON_TABS: Array<{ tab: string; emp: string }> = [
   { tab: "Ruchita KPI", emp: "Ruchita Ambre" },
-  { tab: "Mishtie-Intern", emp: "Mishtie Kanani" },
-  { tab: "Pukhraj-Intern", emp: "Pukhraj Suthar" },
-  { tab: "Jeevan KPI", emp: "Jeevan Bharambe" },
-  { tab: "Prakash KPI", emp: "Prakash Kumawat" },
-  { tab: "Danyal KPI", emp: "Danyal Sayyed" },
-  { tab: "Siddhi-Intern", emp: "Siddhi Lakade" },
-  { tab: "Proveeka-Intern", emp: "Proveeka Makwana" },
-  { tab: "Pratik-Intern", emp: "Pratik Patil" },
   { tab: "Rohan KPI", emp: "Rohan Choudhary" },
-  { tab: "Kripsha-Intern", emp: "Kripsha Joshi" },
-  { tab: "Shreya Shukla-Intern", emp: "Shreya Shukla" },
-  { tab: "Shreya Randhe-Intern", emp: "Shreya Randhe" },
-  { tab: "Krish-Intern", emp: "Krish Maheshwari" },
-  { tab: "Hardik-Intern", emp: "Hardik Bhutada" },
-  { tab: "Suresh-Intern", emp: "Suresh Yadav" },
-  { tab: "Atul-Intern", emp: "Atul Asthana" },
-  { tab: "Pratham-Intern", emp: "Pratham Medhekar" },
-  { tab: "Hetesh-Intern", emp: "Hetesh Vichare" },
+  { tab: "Jeevan KPI", emp: "Jeevan Bharambe" },
   { tab: "Rutvisha KPI", emp: "Rutvisha Mehta" },
-  { tab: "Manan Sir KPI", emp: "Manan Vasa" },
 ];
-const REGISTER_TABS: Array<{ tab: string; emp: string; titleCol: number; freqCol: number }> = [
-  { tab: "Dattaram", emp: "Dattaram Kap", titleCol: 2, freqCol: 3 },
-];
+
+// Sections whose blocks repeat per client (a code-less name row captions each).
+const clientSections: Record<string, Set<string>> = {
+  "ruchita ambre": new Set(["B"]),
+  "rutvisha mehta": new Set(["B"]),
+};
 
 const MONTHS: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
 const DATE_RE = /^(\d{1,2})(?:st|nd|rd|th)?[-\s]([A-Za-z]{3,9})[-\s'.]*(\d{2,4})$/;
@@ -72,19 +51,36 @@ function parseDate(cell: string): string | null {
   let year = Number(m[3]);
   if (year < 100) year += 2000;
   if (day < 1 || day > 31) return null;
-  const iso = `${year}-${String(mon + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  return iso;
+  return `${year}-${String(mon + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-interface ParsedItem { section: string | null; code: string | null; title: string; frequency: string | null; weekdays: number | null; entries: Array<{ date: string; status: string | null; value: string | null; note: string | null }>; }
+const isParticipantTitle = (t: string) => /participant\s*[-–]\s*wkly\s*target/i.test(t);
+const sectionFamily = (col0: string) => col0.replace(/-\d+$/, "");
+const subjectKind = (parentTitle: string): string | null =>
+  /\bBSU\b/i.test(parentTitle) ? "BSU" : /\bPS\b/i.test(parentTitle) ? "PS" : null;
 
-/** Classify one date-cell value → {status,value,note} or null to skip. */
+interface ParsedSubject { name: string; kind: string | null; overrideFreq: string | null; entries: Array<{ date: string; status: string | null; value: string | null; note: string | null }>; }
+interface ParsedItem {
+  section: string | null;
+  code: string;
+  title: string;
+  frequency: string | null;
+  weekdays: number | null;
+  scheduleKind: string;
+  needsReview: boolean;
+  isParticipantList: boolean;
+  clientName: string | null;
+  entries: Array<{ date: string; status: string | null; value: string | null; note: string | null }>;
+  subjects: ParsedSubject[];
+}
+interface ParsedClient { section: string; name: string; }
+interface PersonParse { items: ParsedItem[]; clients: ParsedClient[]; }
+
 function classify(raw: string): { status: string | null; value: string | null; note: string | null } | null {
   const s = raw.trim();
   if (!s || s === "-" || s === "\\" || s === ".") return null;
   const l = s.toLowerCase();
   const leadNum = /^(\d+(?:\.\d+)?)/.exec(s);
-
   if (/^(na|n\/a|not applicable|not required|not any|no any|none|not working)$/.test(l)) return { status: "NA", value: null, note: null };
   if (/(on leave|leave taken)/.test(l)) return { status: "NA", value: null, note: "On leave" };
   if (l === "holiday") return { status: "NA", value: null, note: "Holiday" };
@@ -92,88 +88,131 @@ function classify(raw: string): { status: string | null; value: string | null; n
   if (l === "no" || l === "false") return { status: "Not done", value: null, note: null };
   if (/not done|not taken/.test(l)) return { status: "Not done", value: null, note: null };
   if (/\bdone\b/.test(l)) return { status: "Done", value: leadNum ? leadNum[1]! : null, note: s.length > 6 ? s : null };
-  // pure number → count KPI
   if (/^\d+(\.\d+)?$/.test(s)) { const n = Number(s); return { status: n > 0 ? "Done" : "Not done", value: s, note: null }; }
-  // anything else → free-text note
   return { status: null, value: null, note: s };
 }
 
-function parsePersonTab(tab: string, grid: string[][]): ParsedItem[] {
-  // 1) locate date-header row = row with the most date-like cells.
+function parsePersonTab(emp: string, grid: string[][]): PersonParse {
+  const clientSecs = clientSections[emp.toLowerCase()] ?? new Set<string>();
+
   let dateRow = -1, best = 0;
   for (let r = 0; r < Math.min(grid.length, 8); r++) {
     let c = 0;
     for (const cell of grid[r] ?? []) if (parseDate(cell ?? "")) c++;
     if (c > best) { best = c; dateRow = r; }
   }
-  // 2) freqCol = column whose header (rows 0..dateRow+1) equals "Frequency".
   let freqCol = -1;
   for (let r = 0; r <= dateRow + 1 && r < grid.length; r++) {
     const row = grid[r] ?? [];
     for (let c = 0; c < row.length; c++) if ((row[c] ?? "").trim().toLowerCase() === "frequency") { freqCol = c; break; }
     if (freqCol >= 0) break;
   }
-
   let dateCols = new Map<number, string>();
   const rebuildDates = (row: string[]) => { const m = new Map<number, string>(); for (let c = 0; c < row.length; c++) { const iso = parseDate(row[c] ?? ""); if (iso) m.set(c, iso); } if (m.size >= 3) dateCols = m; };
   if (dateRow >= 0) rebuildDates(grid[dateRow] ?? []);
 
   const items: ParsedItem[] = [];
-  let sectionLetter = "", sectionTitle = "";
+  const clients: ParsedClient[] = [];
+  let sectionLetter = "", sectionTitle = "", currentClient: string | null = null, prevCodeless = "";
+  let currentParticipant: ParsedItem | null = null;
+  let synth = 0;
+
+  const applyFreqToItem = (it: ParsedItem, freq: string) => {
+    it.frequency = freq;
+    const pf = parseFrequency(freq);
+    it.scheduleKind = pf.scheduleKind; it.weekdays = pf.weekdays; it.needsReview = pf.needsReview;
+  };
 
   for (let r = 0; r < grid.length; r++) {
     const row = grid[r] ?? [];
     const col0 = (row[0] ?? "").trim();
-    const title = (row[1] ?? "").trim();
+    const title = normFreq(row[1] ?? "");
+    const freq = freqCol >= 0 ? (row[freqCol] ?? "").trim() : "";
 
-    // date-header row (incl. repeated client sub-blocks)
+    const mkItem = (theCode: string): ParsedItem => {
+      const pf = parseFrequency(freq);
+      const isP = isParticipantTitle(title);
+      const it: ParsedItem = {
+        section: sectionTitle || null, code: theCode, title, frequency: freq || null,
+        weekdays: pf.weekdays, scheduleKind: pf.scheduleKind, needsReview: pf.needsReview,
+        isParticipantList: isP, clientName: currentClient, entries: [], subjects: [],
+      };
+      for (const [c, iso] of dateCols) { const v = classify(row[c] ?? ""); if (v) it.entries.push({ date: iso, ...v }); }
+      items.push(it);
+      return it;
+    };
+
     let dcount = 0; for (const cell of row) if (parseDate(cell ?? "")) dcount++;
-    if (dcount >= 3) { rebuildDates(row); continue; }
+    if (dcount >= 3) {
+      rebuildDates(row); currentParticipant = null;
+      // a client caption can ride on a repeated date-header row (Ruchita:
+      // "Lawrence & Mayo" / "Soul Storii" sit on the client block's date row).
+      if (col0 === "" && title && !parseDate(title) && !isParticipantTitle(title)) prevCodeless = title;
+      continue;
+    }
 
-    // section header: bare single letter in col0
-    if (/^[A-Z]$/.test(col0)) { sectionLetter = col0; sectionTitle = title || (row[2] ?? "").trim() || col0; continue; }
+    // section header — bare letter, optionally "-N" instance (B-2)
+    if (/^[A-Z](-\d+)?$/.test(col0)) {
+      const fam = sectionFamily(col0);
+      // A participant-list KPI can be expressed AS a section header, with the
+      // participant title in col1 and the roster in the code-less rows beneath
+      // (Ruchita's E/F/G/H). Treat it as one participant KPI, not a plain section.
+      if (isParticipantTitle(title)) {
+        sectionLetter = fam; sectionTitle = title; currentClient = null;
+        currentParticipant = mkItem(col0);
+        prevCodeless = "";
+        continue;
+      }
+      sectionLetter = fam; sectionTitle = title || col0; currentParticipant = null;
+      if (clientSecs.has(fam) && prevCodeless) { currentClient = prevCodeless; clients.push({ section: fam, name: prevCodeless }); }
+      else if (!clientSecs.has(fam)) currentClient = null;
+      prevCodeless = "";
+      continue;
+    }
 
-    if (!title) continue; // blank / weekday / spacer row
+    if (!title) continue;
 
-    // build code — a real KPI item ALWAYS has one (A1.. for ALPHANUM, <letter><n> for NUMERIC)
     let code: string | null = null;
     if (/^[A-Z]\d+$/.test(col0)) { code = col0; sectionLetter = col0[0]!; }
     else if (/^\d+$/.test(col0)) { code = (sectionLetter || "") + col0; }
 
-    if (!code) {
-      // codeless titled row = a section caption / sub-title with no letter (e.g.
-      // "Weekly KPI", "CORE DELIVERABLES…", or a client sub-block "Lawrence & Mayo").
-      // Adopt it as the current section name; never import it as an item.
-      if (!/^frequency$/i.test(title)) sectionTitle = title;
+    if (code) { const it = mkItem(code); currentParticipant = it.isParticipantList ? it : null; prevCodeless = ""; continue; }
+
+    // code-less titled row
+    if (isParticipantTitle(title)) {
+      // a participant KPI whose code cell is blank (e.g. Rutvisha D10) — synthesize
+      currentParticipant = mkItem(`${sectionLetter || "D"}p${++synth}`);
+      prevCodeless = "";
       continue;
     }
-
-    const freq = freqCol >= 0 ? (row[freqCol] ?? "").trim() : "";
-    const entries: ParsedItem["entries"] = [];
-    for (const [c, iso] of dateCols) { const v = classify(row[c] ?? ""); if (v) entries.push({ date: iso, ...v }); }
-
-    items.push({
-      section: sectionTitle || null,
-      code,
-      title,
-      frequency: freq || null,
-      weekdays: parseFrequencyToMask(freq),
-      entries,
-    });
+    if (currentParticipant) {
+      // a participant name row under the current participant KPI — capture its
+      // per-date Done/NA cells so the roster's history survives the import.
+      const nm = normFreq(title);
+      const subEntries: ParsedSubject["entries"] = [];
+      for (const [c, iso] of dateCols) { const v = classify(row[c] ?? ""); if (v) subEntries.push({ date: iso, ...v }); }
+      currentParticipant.subjects.push({ name: nm, kind: subjectKind(currentParticipant.title), overrideFreq: freq || null, entries: subEntries });
+      if (freq && !currentParticipant.frequency) applyFreqToItem(currentParticipant, freq);
+      prevCodeless = "";
+      continue;
+    }
+    // otherwise a section caption / sub-title (or a client caption to be confirmed)
+    if (!/^frequency$/i.test(title)) { sectionTitle = title; prevCodeless = title; }
   }
-  return items;
+  return { items, clients };
 }
 
-function parseRegisterTab(cfg: { titleCol: number; freqCol: number }, grid: string[][]): ParsedItem[] {
-  const items: ParsedItem[] = [];
-  for (let r = 1; r < grid.length; r++) {
-    const row = grid[r] ?? [];
-    const title = (row[cfg.titleCol] ?? "").trim();
-    if (!title || title.toLowerCase() === "tasks") continue;
-    const freq = (row[cfg.freqCol] ?? "").trim();
-    items.push({ section: "Tasks", code: null, title, frequency: freq || null, weekdays: parseFrequencyToMask(freq), entries: [] });
-  }
-  return items;
+function summarize(p: PersonParse): string {
+  const simple = p.items.filter((i) => !i.isParticipantList && i.scheduleKind === "scheduled").length;
+  const weekly = p.items.filter((i) => i.scheduleKind === "weekly").length;
+  const monthly = p.items.filter((i) => i.scheduleKind === "monthly").length;
+  const adhoc = p.items.filter((i) => i.scheduleKind === "adhoc" || i.scheduleKind === "event").length;
+  const part = p.items.filter((i) => i.isParticipantList);
+  const withClient = p.items.filter((i) => i.clientName).length;
+  const subs = part.reduce((a, i) => a + i.subjects.length, 0);
+  const aggEntries = p.items.reduce((a, i) => a + i.entries.length, 0);
+  const subEntries = part.reduce((a, i) => a + i.subjects.reduce((b, s) => b + s.entries.length, 0), 0);
+  return `items ${p.items.length} (scheduled ${simple}, weekly ${weekly}, monthly ${monthly}, adhoc/event ${adhoc}) · clients ${p.clients.length} (${p.clients.map((c) => c.name).join(", ") || "—"}) · client-items ${withClient} · participant-KPIs ${part.length} (${subs} subjects) · entries ${aggEntries}+${subEntries}sub`;
 }
 
 async function main() {
@@ -181,64 +220,142 @@ async function main() {
   const byName = new Map(emps.map((e) => [e.name.trim().toLowerCase(), e.id]));
   const resolve = (name: string) => byName.get(name.trim().toLowerCase()) ?? null;
 
-  let totalItems = 0, totalEntries = 0, matched = 0;
-  console.log(`\nDCC import — ${COMMIT ? "COMMIT" : "DRY RUN"}\n${"=".repeat(60)}`);
-
-  const all: Array<{ emp: string; empId: string | null; items: ParsedItem[] }> = [];
+  console.log(`\nDCC v2 import — ${COMMIT ? "COMMIT" : "DRY RUN"}${ONLY ? ` (only: ${ONLY})` : ""}\n${"=".repeat(70)}`);
 
   for (const { tab, emp } of PERSON_TABS) {
+    if (ONLY && !emp.toLowerCase().includes(ONLY) && !tab.toLowerCase().includes(ONLY)) continue;
     let grid: string[][];
     try { grid = await readSheetValues(SHEET_ID, `'${tab}'!A1:GZ`); }
     catch (e) { console.log(`✗ ${tab}: read failed — ${e instanceof Error ? e.message : e}`); continue; }
-    const items = parsePersonTab(tab, grid);
+    const parse = parsePersonTab(emp, grid);
     const empId = resolve(emp);
-    all.push({ emp, empId, items });
-    const ec = items.reduce((a, i) => a + i.entries.length, 0);
-    totalItems += items.length; totalEntries += ec; if (empId) matched++;
-    const sample = items.slice(0, 2).map((i) => `${i.code ?? "—"} ${i.title.slice(0, 32)} [${i.frequency ?? "?"}→${i.weekdays ?? "any"}]`).join(" | ");
-    console.log(`${empId ? "✓" : "✗ NO EMP"} ${tab.padEnd(22)} → ${emp.padEnd(18)} ${String(items.length).padStart(3)} items, ${String(ec).padStart(4)} entries  ${sample}`);
+    console.log(`\n${empId ? "✓" : "✗ NO EMP"} ${emp} (${tab})`);
+    console.log(`   ${summarize(parse)}`);
+    for (const it of parse.items.filter((i) => i.isParticipantList)) {
+      console.log(`   ▸ [${it.code}] ${it.title.slice(0, 44)}  → ${it.subjects.length} subjects: ${it.subjects.map((s) => s.name).slice(0, 6).join(", ")}${it.subjects.length > 6 ? "…" : ""}`);
+    }
+    for (const c of parse.clients) console.log(`   ◈ client: ${c.name} (section ${c.section})`);
+    const flags = parse.items.filter((i) => i.needsReview);
+    if (flags.length) console.log(`   ⚑ needsReview (${flags.length}): ${flags.map((i) => `${i.code}"${i.title.slice(0, 22)}"`).slice(0, 8).join(", ")}`);
+
+    if (COMMIT && empId && ONLY) {
+      await commitPerson(empId, parse);
+      console.log(`   ✔ committed`);
+    }
   }
-  for (const cfg of REGISTER_TABS) {
-    let grid: string[][];
-    try { grid = await readSheetValues(SHEET_ID, `'${cfg.tab}'!A1:Z`); }
-    catch (e) { console.log(`✗ ${cfg.tab}: read failed — ${e}`); continue; }
-    const items = parseRegisterTab(cfg, grid);
-    const empId = resolve(cfg.emp);
-    all.push({ emp: cfg.emp, empId, items });
-    totalItems += items.length; if (empId) matched++;
-    console.log(`${empId ? "✓" : "✗ NO EMP"} ${cfg.tab.padEnd(22)} → ${cfg.emp.padEnd(18)} ${String(items.length).padStart(3)} items (register, no entries)`);
-  }
+  if (COMMIT && !ONLY) console.log(`\n⚠ --commit requires --only=<person> (never re-import everyone at once).`);
+  console.log(`\n${COMMIT ? "Done." : "Dry run only — no writes. Add --commit --only=<person> to write."}\n`);
+}
 
-  console.log(`${"=".repeat(60)}\nTabs matched: ${matched}/${all.length} · items ${totalItems} · entries ${totalEntries}`);
+async function commitPerson(empId: string, parse: PersonParse) {
+  const ZERO = "00000000-0000-0000-0000-000000000000";
+  await db.transaction(async (tx) => {
+    // 1. clients upsert (owner, section, lower(name))
+    const clientIdByName = new Map<string, string>();
+    for (const c of parse.clients) {
+      const rows = (await tx.execute(sql`
+        INSERT INTO dcc_clients (owner_employee_id, section, name)
+        VALUES (${empId}, ${c.section}, ${c.name})
+        ON CONFLICT (owner_employee_id, section, lower(name)) DO UPDATE SET name = EXCLUDED.name
+        RETURNING id
+      `)) as unknown as Array<{ id: string }>;
+      clientIdByName.set(c.name.toLowerCase(), rows[0]!.id);
+    }
 
-  if (!COMMIT) { console.log("\nDry run only. Re-run with --commit to write.\n"); return; }
-
-  let wroteItems = 0, wroteEntries = 0;
-  for (const { emp, empId, items } of all) {
-    if (!empId) { console.log(`skip ${emp} (no employee)`); continue; }
-    if (ONLY && !emp.toLowerCase().includes(ONLY)) { console.log(`skip ${emp} (--only=${ONLY})`); continue; }
-    await db.transaction(async (tx) => {
-      await tx.delete(dccKpiItems).where(eq(dccKpiItems.ownerEmployeeId, empId)); // cascades entries
-      let sort = 0;
-      for (const it of items) {
-        const [row] = await tx.insert(dccKpiItems).values({
-          ownerEmployeeId: empId, section: it.section, code: it.code, title: it.title,
-          frequency: it.frequency, weekdays: it.weekdays, sortOrder: sort++, createdById: empId,
-        }).returning({ id: dccKpiItems.id });
-        wroteItems++;
-        if (it.entries.length) {
-          // de-dup by date (keep last) to satisfy the (item,date) unique index
-          const byDate = new Map(it.entries.map((e) => [e.date, e]));
-          await tx.insert(dccEntries).values([...byDate.values()].map((e) => ({
-            itemId: row!.id, entryDate: e.date, status: e.status, valueNumber: e.value, note: e.note, filledById: empId,
-          })));
-          wroteEntries += byDate.size;
+    const seen = new Set<string>();
+    let sort = 0;
+    for (const it of parse.items) {
+      const clientId = it.clientName ? clientIdByName.get(it.clientName.toLowerCase()) ?? null : null;
+      // Natural key: participant KPIs by (owner, section, title) [codes can be
+      // synthesized/blank]; others by (owner, code, client_id) with client-history
+      // re-anchor from the old free-text section = client name.
+      let existing: string | null = null;
+      if (it.isParticipantList) {
+        const [e] = (await tx.execute(sql`
+          SELECT id FROM dcc_kpi_items WHERE owner_employee_id=${empId} AND is_participant_list=true AND title=${it.title} LIMIT 1
+        `)) as unknown as Array<{ id: string }>;
+        existing = e?.id ?? null;
+      } else {
+        const [e] = (await tx.execute(sql`
+          SELECT id FROM dcc_kpi_items WHERE owner_employee_id=${empId} AND code=${it.code}
+            AND COALESCE(client_id, ${ZERO}::uuid) = COALESCE(${clientId}::uuid, ${ZERO}::uuid) LIMIT 1
+        `)) as unknown as Array<{ id: string }>;
+        existing = e?.id ?? null;
+        if (!existing && clientId && it.clientName) {
+          // re-anchor: old importer stored the client name in the free-text section
+          const [old] = (await tx.execute(sql`
+            SELECT id FROM dcc_kpi_items WHERE owner_employee_id=${empId} AND code=${it.code}
+              AND client_id IS NULL AND lower(section)=${it.clientName.toLowerCase()} LIMIT 1
+          `)) as unknown as Array<{ id: string }>;
+          existing = old?.id ?? null;
         }
       }
-    });
-    console.log(`✓ wrote ${emp}`);
-  }
-  console.log(`\nDONE — ${wroteItems} items, ${wroteEntries} entries written.\n`);
+
+      let itemId: string;
+      if (existing) {
+        await tx.update(dccKpiItems).set({
+          section: it.section, code: it.code, title: it.title, frequency: it.frequency, weekdays: it.weekdays,
+          scheduleKind: it.scheduleKind, needsReview: it.needsReview, isParticipantList: it.isParticipantList,
+          clientId, templateCode: clientId ? it.code : null, sortOrder: sort++, archived: false, updatedAt: new Date(),
+        }).where(eq(dccKpiItems.id, existing));
+        itemId = existing;
+      } else {
+        const [row] = await tx.insert(dccKpiItems).values({
+          ownerEmployeeId: empId, section: it.section, code: it.code, title: it.title, frequency: it.frequency,
+          weekdays: it.weekdays, scheduleKind: it.scheduleKind, needsReview: it.needsReview,
+          isParticipantList: it.isParticipantList, clientId, templateCode: clientId ? it.code : null,
+          sortOrder: sort++, createdById: empId,
+        }).returning({ id: dccKpiItems.id });
+        itemId = row!.id;
+      }
+      seen.add(itemId);
+
+      // 2. subjects + links (participant KPIs)
+      for (const s of it.subjects) {
+        const srows = (await tx.execute(sql`
+          INSERT INTO dcc_subjects (owner_employee_id, name, kind)
+          VALUES (${empId}, ${s.name}, ${s.kind})
+          ON CONFLICT (owner_employee_id, lower(name)) DO UPDATE SET name = EXCLUDED.name
+          RETURNING id
+        `)) as unknown as Array<{ id: string }>;
+        const subjId = srows[0]!.id;
+        const ov = s.overrideFreq ? parseFrequency(s.overrideFreq) : null;
+        await tx.execute(sql`
+          INSERT INTO dcc_item_subjects (item_id, subject_id, schedule_kind, weekdays)
+          VALUES (${itemId}, ${subjId}, ${ov?.scheduleKind ?? null}, ${ov?.weekdays ?? null})
+          ON CONFLICT (item_id, subject_id) DO UPDATE SET archived = false
+        `);
+        const subjByDate = new Map(s.entries.map((e) => [e.date, e]));
+        for (const e of subjByDate.values()) {
+          await tx.execute(sql`
+            INSERT INTO dcc_entries (item_id, entry_date, status, value_number, note, filled_by_id, subject_id)
+            VALUES (${itemId}, ${e.date}, ${e.status}, ${e.value}, ${e.note}, ${empId}, ${subjId})
+            ON CONFLICT (item_id, entry_date, COALESCE(subject_id, ${ZERO}::uuid))
+            DO UPDATE SET status=EXCLUDED.status, value_number=EXCLUDED.value_number, note=EXCLUDED.note, updated_at=now()
+          `);
+        }
+      }
+
+      // 3. entries from the sheet grid (aggregate, subject_id NULL) — upsert
+      const byDate = new Map(it.entries.map((e) => [e.date, e]));
+      for (const e of byDate.values()) {
+        await tx.execute(sql`
+          INSERT INTO dcc_entries (item_id, entry_date, status, value_number, note, filled_by_id, subject_id)
+          VALUES (${itemId}, ${e.date}, ${e.status}, ${e.value}, ${e.note}, ${empId}, NULL)
+          ON CONFLICT (item_id, entry_date, COALESCE(subject_id, ${ZERO}::uuid))
+          DO UPDATE SET status=EXCLUDED.status, value_number=EXCLUDED.value_number, note=EXCLUDED.note, updated_at=now()
+        `);
+      }
+    }
+
+    // 4. archive items present before but absent now (never hard-delete)
+    const present = [...seen];
+    if (present.length) {
+      await tx.update(dccKpiItems)
+        .set({ archived: true, updatedAt: new Date() })
+        .where(and(eq(dccKpiItems.ownerEmployeeId, empId), eq(dccKpiItems.archived, false), notInArray(dccKpiItems.id, present)));
+    }
+  });
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
