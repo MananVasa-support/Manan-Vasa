@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import Link from "next/link";
@@ -551,6 +552,12 @@ function ReviewBar({ ownerId, date, canReview, review }: { ownerId: string; date
 /* ── Inline KPI item add/edit ─────────────────────────────────────────── */
 function ItemEditor({ ownerId, mode, item, compact }: { ownerId: string; mode: "add" | "edit"; item?: DccItemRow; compact?: boolean }) {
   const [open, setOpen] = React.useState(false);
+  // Portal target — the dialog must render on document.body so an ancestor with
+  // a transform/filter + overflow-hidden can't turn it into the fixed-overlay's
+  // containing block and clip it (that made the backdrop miss the viewport and
+  // the KPI fields show the page bleeding through). Mount-guarded for SSR.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
   const [, startTransition] = React.useTransition();
   const [form, setForm] = React.useState({
     section: item?.section ?? "", code: item?.code ?? "", title: item?.title ?? "",
@@ -589,9 +596,9 @@ function ItemEditor({ ownerId, mode, item, compact }: { ownerId: string; mode: "
       ) : (
         <button onClick={() => setOpen(true)} className={`inline-flex items-center gap-1.5 rounded-xl border border-hairline-strong font-bold text-ink-soft transition-colors hover:border-[#16a34a] hover:text-[#15803d] ${compact ? "h-11 px-3 text-[14px]" : "h-9 w-9 justify-center"}`} title="Edit KPI" aria-label="Edit KPI"><Pencil size={16} />{compact && <span className="max-md:hidden">Edit</span>}</button>
       )}
-      {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-[2px]" onClick={() => setOpen(false)}>
-          <div className="wg-rise w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={mode === "add" ? "New KPI" : "Edit KPI"}>
+      {open && mounted && createPortal(
+        <div className="fixed inset-0 z-[100] grid place-items-center bg-black/40 p-4 backdrop-blur-[2px]" onClick={() => setOpen(false)}>
+          <div className="wg-rise max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={mode === "add" ? "New KPI" : "Edit KPI"}>
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-[18px] font-black tracking-tight text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif" }}>{mode === "add" ? "New KPI" : "Edit KPI"}</h3>
               <button onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-lg text-ink-subtle transition-colors hover:bg-surface-soft" aria-label="Close"><X size={18} /></button>
@@ -615,7 +622,8 @@ function ItemEditor({ ownerId, mode, item, compact }: { ownerId: string; mode: "
               <button onClick={submit} className="wg-btn inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[14px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}><Check size={15} /> Save</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
