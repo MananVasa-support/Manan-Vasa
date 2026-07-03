@@ -6,14 +6,14 @@ import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import Link from "next/link";
 import {
-  ChevronLeft, ChevronRight, Flame, CheckCircle2, Loader2, StickyNote, Plus, Pencil,
-  Trash2, X, Check, Trophy, Sparkles, ListChecks, PenLine, ShieldCheck, CalendarDays,
+  ChevronLeft, ChevronRight, ChevronDown, Flame, CheckCircle2, Loader2, StickyNote, Plus, Pencil,
+  Trash2, X, Check, Trophy, Sparkles, ListChecks, PenLine, ShieldCheck, CalendarDays, Users, CalendarClock,
 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { Avatar } from "@/components/ui/avatar";
-import type { DccItemRow, DccEntryRow, DccPerson } from "@/lib/queries/dcc";
-import { DCC_STATUSES, dccStatusTone, isDueOn, isoDate, maskLabel } from "@/lib/dcc/util";
-import { setDccEntry, createDccItem, updateDccItem, deleteDccItem, setDccReview, summarizeDccDay } from "@/app/(app)/dcc/actions";
+import type { DccItemRow, DccEntryRow, DccPerson, DccClientRow, DccSubjectRow, DccItemSubjectRow } from "@/lib/queries/dcc";
+import { DCC_STATUSES, dccStatusTone, scheduledDueOn, slotKey, isoDate, maskLabel } from "@/lib/dcc/util";
+import { setDccEntry, setParticipantEntries, createDccItem, updateDccItem, deleteDccItem, setDccReview, summarizeDccDay } from "@/app/(app)/dcc/actions";
 
 type ReviewRow = { ownerEmployeeId: string; reviewDate: string; status: string | null; note: string | null };
 
@@ -28,6 +28,9 @@ interface Props {
   items: DccItemRow[];
   entries: DccEntryRow[];
   reviews: ReviewRow[];
+  clients?: DccClientRow[];
+  subjects?: DccSubjectRow[];
+  itemSubjects?: DccItemSubjectRow[];
   today: string;
 }
 
@@ -57,16 +60,20 @@ function fmtLong(iso: string): string {
   return dateToObj(iso).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
 }
 
-export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canManage, people, items, entries, reviews, today }: Props) {
+export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canManage, people, items, entries, reviews, clients = [], subjects = [], itemSubjects = [], today }: Props) {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = React.useState(today);
   const [showAll, setShowAll] = React.useState(false);
   const [, startTransition] = React.useTransition();
 
-  // Live optimistic entry map: key=itemId|date → {status,value,note}
+  // Live optimistic entry map. Simple KPIs are keyed cellKey(item,date); a
+  // participant fill is keyed slotKey(item,subject,date) — the two never collide.
   const [map, setMap] = React.useState<Record<string, { status: string | null; value: string | null; note: string | null }>>(() => {
     const m: Record<string, { status: string | null; value: string | null; note: string | null }> = {};
-    for (const e of entries) m[cellKey(e.itemId, e.entryDate)] = { status: e.status, value: e.valueNumber, note: e.note };
+    for (const e of entries) {
+      const k = e.subjectId ? slotKey(e.itemId, e.subjectId, e.entryDate) : cellKey(e.itemId, e.entryDate);
+      m[k] = { status: e.status, value: e.valueNumber, note: e.note };
+    }
     return m;
   });
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -90,24 +97,47 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
   const dueItems = React.useMemo(
     () =>
       items.filter((it) => {
-        if (isDueOn(it.weekdays, selObj)) return true;
+        if (scheduledDueOn(it, selObj)) return true;
         return Boolean(map[cellKey(it.id, selectedDate)]);
       }),
     [items, selObj, map, selectedDate],
   );
   const shownItems = showAll ? items : dueItems;
 
-  // Group by section, preserving order.
+  const clientById = React.useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
+
+  // Daily section render: scheduled, non-participant items, grouped by
+  // (section, client-instance). A client-instanced section (B = Lawrence & Mayo,
+  // B-2 = Soul Storii) becomes one group per client with the client name shown.
   const groups = React.useMemo(() => {
+    const daily = shownItems.filter((it) => (it.scheduleKind ?? "scheduled") === "scheduled" && !it.isParticipantList);
     const order: string[] = [];
-    const by = new Map<string, DccItemRow[]>();
-    for (const it of shownItems) {
-      const key = it.section || "—";
-      if (!by.has(key)) { by.set(key, []); order.push(key); }
-      by.get(key)!.push(it);
+    const by = new Map<string, { section: string; clientName: string | null; rows: DccItemRow[] }>();
+    for (const it of daily) {
+      const sec = it.section || "—";
+      const key = `${sec}∷${it.clientId ?? ""}`;
+      if (!by.has(key)) { by.set(key, { section: sec, clientName: it.clientId ? clientById.get(it.clientId)?.name ?? null : null, rows: [] }); order.push(key); }
+      by.get(key)!.rows.push(it);
     }
-    return order.map((k) => ({ section: k, rows: by.get(k)! }));
-  }, [shownItems]);
+    return order.map((k) => ({ key: k, ...by.get(k)! }));
+  }, [shownItems, clientById]);
+
+  // Participant-list KPIs + the period/adhoc trays (never in the daily count).
+  const participantItems = React.useMemo(() => items.filter((it) => it.isParticipantList), [items]);
+  const weeklyItems = React.useMemo(() => items.filter((it) => it.scheduleKind === "weekly" && !it.isParticipantList), [items]);
+  const monthlyItems = React.useMemo(() => items.filter((it) => it.scheduleKind === "monthly" && !it.isParticipantList), [items]);
+  const otherItems = React.useMemo(() => items.filter((it) => (it.scheduleKind === "adhoc" || it.scheduleKind === "event") && !it.isParticipantList), [items]);
+  const subjectById = React.useMemo(() => new Map(subjects.map((s) => [s.id, s])), [subjects]);
+  const subjectsForItem = React.useMemo(() => {
+    const m = new Map<string, DccSubjectRow[]>();
+    for (const link of itemSubjects) {
+      const s = subjectById.get(link.subjectId);
+      if (!s) continue;
+      if (!m.has(link.itemId)) m.set(link.itemId, []);
+      m.get(link.itemId)!.push(s);
+    }
+    return m;
+  }, [itemSubjects, subjectById]);
 
   // Completion for selected day = Done / due.
   const dayStats = React.useMemo(() => {
@@ -127,7 +157,7 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
     const d = dateToObj(today);
     for (let i = 0; i < 60; i++) {
       const iso = isoDate(d);
-      const due = items.filter((it) => isDueOn(it.weekdays, d));
+      const due = items.filter((it) => scheduledDueOn(it, d));
       if (due.length > 0) {
         const allFilled = due.every((it) => {
           const e = map[cellKey(it.id, iso)];
@@ -148,7 +178,7 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
     d.setDate(d.getDate() - 20);
     for (let i = 0; i < 21; i++) {
       const iso = isoDate(d);
-      const due = items.filter((it) => isDueOn(it.weekdays, d));
+      const due = items.filter((it) => scheduledDueOn(it, d));
       let done = 0;
       for (const it of due) if ((map[cellKey(it.id, iso)]?.status ?? "").toLowerCase() === "done") done++;
       out.push({ iso, due: due.length, pct: due.length ? Math.round((done / due.length) * 100) : -1 });
@@ -181,6 +211,37 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
         setMap((m) => ({ ...m, [k]: prev ?? { status: null, value: null, note: null } }));
         fireToast({ message: res.error, type: "error" });
       }
+    });
+  }
+
+  // Fill one participant's slot for a participant-list KPI.
+  function commitSubject(itemId: string, subjectId: string, status: string | null) {
+    if (!canFill) return;
+    const k = slotKey(itemId, subjectId, selectedDate);
+    const prev = map[k];
+    setMap((m) => ({ ...m, [k]: { status, value: null, note: null } }));
+    setBusy(k);
+    startTransition(async () => {
+      const res = await setDccEntry({ itemId, date: selectedDate, status, subjectId });
+      setBusy((b) => (b === k ? null : b));
+      if (!res.ok) {
+        setMap((m) => ({ ...m, [k]: prev ?? { status: null, value: null, note: null } }));
+        fireToast({ message: res.error, type: "error" });
+      }
+    });
+  }
+  // [All Done] / [All NA] across every participant of a KPI.
+  function bulkParticipants(itemId: string, status: string | null) {
+    if (!canFill) return;
+    const subs = subjectsForItem.get(itemId) ?? [];
+    setMap((m) => {
+      const nm = { ...m };
+      for (const s of subs) nm[slotKey(itemId, s.id, selectedDate)] = { status, value: null, note: null };
+      return nm;
+    });
+    startTransition(async () => {
+      const res = await setParticipantEntries({ itemId, date: selectedDate, status });
+      if (!res.ok) fireToast({ message: res.error, type: "error" });
     });
   }
 
@@ -332,7 +393,7 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
       </div>
 
       <div className="flex flex-col gap-6">
-        {groups.length === 0 && (
+        {groups.length === 0 && participantItems.length === 0 && weeklyItems.length === 0 && monthlyItems.length === 0 && otherItems.length === 0 && (
           <div className="wg-rise rounded-[22px] bg-surface-card px-6 py-16 text-center" style={{ boxShadow: PANEL_SHADOW }}>
             <span className="mx-auto inline-grid size-14 place-items-center rounded-full" style={{ background: "color-mix(in srgb, #16a34a 10%, transparent)", color: GREEN }}>
               <CheckCircle2 size={30} strokeWidth={2.2} />
@@ -342,10 +403,11 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
           </div>
         )}
         {groups.map((g, gi) => (
-          <div key={g.section} className="wg-rise" style={{ animationDelay: `${Math.min(gi, 6) * 60}ms` }}>
+          <div key={g.key} className="wg-rise" style={{ animationDelay: `${Math.min(gi, 6) * 60}ms` }}>
             <h3 className="mb-2.5 flex items-center gap-2.5 px-1 text-[12.5px] font-black uppercase tracking-[0.14em] text-ink-muted">
               <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }} />
               {g.section}
+              {g.clientName && <span className="rounded-md px-2 py-0.5 text-[11.5px] font-bold normal-case tracking-normal" style={{ background: "color-mix(in srgb, #16a34a 12%, transparent)", color: GREEN_DEEP }}>{g.clientName}</span>}
               <span className="font-bold normal-case tracking-normal text-ink-subtle">{g.rows.length}</span>
             </h3>
             <div className="overflow-hidden rounded-[22px] bg-surface-card" style={{ boxShadow: PANEL_SHADOW }}>
@@ -364,8 +426,122 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
             </div>
           </div>
         ))}
+
+        {/* Participant-list KPIs — one expandable card each, own compliance meter. */}
+        {participantItems.map((it) => (
+          <ParticipantCard
+            key={it.id}
+            item={it}
+            subjects={subjectsForItem.get(it.id) ?? []}
+            statusFor={(subjectId) => map[slotKey(it.id, subjectId, selectedDate)]?.status ?? null}
+            busyFor={(subjectId) => busy === slotKey(it.id, subjectId, selectedDate)}
+            canFill={canFill}
+            onCommit={commitSubject}
+            onBulk={bulkParticipants}
+          />
+        ))}
+
+        {/* Period + adhoc trays — never in the daily count, never block a punch. */}
+        <Tray title="This week" icon={<CalendarClock size={15} strokeWidth={2.4} />} items={weeklyItems} map={map} selectedDate={selectedDate} busy={busy} canFill={canFill} canManage={canManage} onCommit={commit} />
+        <Tray title="This month" icon={<CalendarDays size={15} strokeWidth={2.4} />} items={monthlyItems} map={map} selectedDate={selectedDate} busy={busy} canFill={canFill} canManage={canManage} onCommit={commit} />
+        <Tray title="When it happens" icon={<Sparkles size={15} strokeWidth={2.4} />} items={otherItems} map={map} selectedDate={selectedDate} busy={busy} canFill={canFill} canManage={canManage} onCommit={commit} />
       </div>
     </section>
+  );
+}
+
+/* ──────────────────────── Participant-list card ──────────────────────── */
+
+function ParticipantCard({ item, subjects, statusFor, busyFor, canFill, onCommit, onBulk }: {
+  item: DccItemRow;
+  subjects: DccSubjectRow[];
+  statusFor: (subjectId: string) => string | null;
+  busyFor: (subjectId: string) => boolean;
+  canFill: boolean;
+  onCommit: (itemId: string, subjectId: string, status: string | null) => void;
+  onBulk: (itemId: string, status: string | null) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const doneN = subjects.filter((s) => (statusFor(s.id) ?? "").toLowerCase() === "done").length;
+  const addressed = subjects.filter((s) => statusFor(s.id) != null).length;
+  return (
+    <div className="wg-rise overflow-hidden rounded-[22px] bg-surface-card" style={{ boxShadow: PANEL_SHADOW }}>
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-3 px-5 py-4 text-left max-md:px-3.5">
+        <span className="inline-grid size-9 shrink-0 place-items-center rounded-xl" style={{ background: "color-mix(in srgb, #4338ca 10%, transparent)", color: "#4338ca" }}><Users size={18} strokeWidth={2.3} /></span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            {item.code && <span className="shrink-0 rounded-md px-1.5 py-0.5 text-[12px] font-extrabold tabular-nums text-ink-muted" style={{ background: "var(--color-surface-soft, #eef2f7)" }}>{item.code}</span>}
+            <p className="truncate text-[16px] font-bold text-ink-strong">{item.title}</p>
+          </div>
+          <p className="mt-0.5 text-[12.5px] font-semibold text-ink-subtle">{subjects.length} participant{subjects.length === 1 ? "" : "s"} · {doneN} done · {addressed} addressed{item.frequency ? ` · ${item.frequency}` : ""}</p>
+        </div>
+        <span className="text-ink-subtle transition-transform" style={{ transform: open ? "rotate(180deg)" : undefined }}><ChevronDown size={18} /></span>
+      </button>
+      {open && (
+        <div className="border-t border-hairline">
+          {canFill && (
+            <div className="flex items-center gap-2 px-5 py-2.5 max-md:px-3.5">
+              <button onClick={() => onBulk(item.id, "Done")} className="rounded-lg px-3 py-1.5 text-[13px] font-bold" style={{ background: "color-mix(in srgb, #16a34a 14%, transparent)", color: GREEN_DEEP }}>All Done</button>
+              <button onClick={() => onBulk(item.id, "NA")} className="rounded-lg px-3 py-1.5 text-[13px] font-bold text-ink-subtle" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>All NA</button>
+              <button onClick={() => onBulk(item.id, null)} className="rounded-lg px-3 py-1.5 text-[13px] font-bold text-ink-subtle" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>Clear</button>
+            </div>
+          )}
+          {subjects.length === 0 && <p className="px-5 py-4 text-[14px] text-ink-subtle max-md:px-3.5">No participants linked yet.</p>}
+          {subjects.map((s, i) => {
+            const st = statusFor(s.id);
+            return (
+              <div key={s.id} className={`flex items-center gap-3 px-5 py-2.5 max-md:px-3.5 ${i === 0 ? "" : "border-t border-hairline"}`}>
+                <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink-strong">{s.name}{s.kind ? <span className="ml-1.5 text-[11.5px] font-bold text-ink-subtle">{s.kind}</span> : null}</span>
+                <div className="flex shrink-0 overflow-hidden rounded-lg" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>
+                  {["Done", "NA"].map((opt) => {
+                    const on = (st ?? "").toLowerCase() === opt.toLowerCase();
+                    const tone = dccStatusTone(opt);
+                    return (
+                      <button key={opt} disabled={!canFill || busyFor(s.id)} onClick={() => onCommit(item.id, s.id, on ? null : opt)} className="px-3 py-1.5 text-[13px] font-bold disabled:opacity-60" style={on ? { background: tone.bg, color: tone.fg } : { color: "var(--color-ink-subtle)", background: "white" }} aria-pressed={on}>{opt}</button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ──────────────────────────────── Tray ───────────────────────────────── */
+
+function Tray({ title, icon, items, map, selectedDate, busy, canFill, canManage, onCommit }: {
+  title: string;
+  icon: React.ReactNode;
+  items: DccItemRow[];
+  map: Record<string, { status: string | null; value: string | null; note: string | null }>;
+  selectedDate: string;
+  busy: string | null;
+  canFill: boolean;
+  canManage: boolean;
+  onCommit: (itemId: string, patch: { status?: string | null; value?: string | null; note?: string | null }) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  if (items.length === 0) return null;
+  const doneN = items.filter((it) => (map[cellKey(it.id, selectedDate)]?.status ?? "").toLowerCase() === "done").length;
+  return (
+    <div className="wg-rise overflow-hidden rounded-[22px] bg-surface-card" style={{ boxShadow: PANEL_SHADOW }}>
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2.5 px-5 py-3.5 text-left max-md:px-3.5">
+        <span className="inline-grid size-8 shrink-0 place-items-center rounded-lg" style={{ background: "var(--color-surface-soft, #eef2f7)", color: "var(--color-ink-subtle)" }}>{icon}</span>
+        <span className="text-[13px] font-black uppercase tracking-[0.12em] text-ink-muted">{title}</span>
+        <span className="text-[12.5px] font-semibold text-ink-subtle">{doneN}/{items.length} done</span>
+        <span className="ml-auto text-ink-subtle transition-transform" style={{ transform: open ? "rotate(180deg)" : undefined }}><ChevronDown size={18} /></span>
+      </button>
+      {open && (
+        <div className="border-t border-hairline">
+          {items.map((it, i) => (
+            <FillRow key={it.id} item={it} entry={map[cellKey(it.id, selectedDate)]} busy={busy === cellKey(it.id, selectedDate)} canFill={canFill} canManage={canManage} first={i === 0} onCommit={onCommit} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

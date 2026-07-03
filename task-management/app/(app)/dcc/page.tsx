@@ -5,7 +5,7 @@ import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { requireUser } from "@/lib/auth/current";
 import { loadDccScope, canFillFor, canReviewFor, canManageItemsFor } from "@/lib/dcc/access";
-import { listOwnerItems, listOwnerEntries, listDccPeople, listReviewsForOwners } from "@/lib/queries/dcc";
+import { listOwnerItems, listOwnerEntries, listDccPeople, listReviewsForOwners, listOwnerClients, listOwnerSubjects, listItemSubjectsForItems } from "@/lib/queries/dcc";
 import { isoDate } from "@/lib/dcc/util";
 import { DccBoard } from "@/components/dcc/dcc-board";
 
@@ -30,12 +30,15 @@ export default async function DccPage({ searchParams }: PageProps) {
   from.setDate(from.getDate() - 48); // ~7 weeks window for streaks/history
   const fromISO = isoDate(from);
 
-  const [items, entries, people, reviews] = await Promise.all([
+  const [items, entries, people, reviews, clients, subjects] = await Promise.all([
     listOwnerItems(ownerId),
     listOwnerEntries(ownerId, fromISO),
     scope.isManager ? listDccPeople([...scope.visibleIds]) : Promise.resolve([]),
     canReviewFor(scope, ownerId) ? listReviewsForOwners([ownerId], fromISO) : Promise.resolve([]),
+    listOwnerClients(ownerId),
+    listOwnerSubjects(ownerId),
   ]);
+  const itemSubjects = await listItemSubjectsForItems(items.filter((i) => i.isParticipantList).map((i) => i.id));
 
   const owner = people.find((p) => p.id === ownerId) ?? { id: me.id, name: me.name, avatarUrl: me.avatarUrl, department: me.department };
 
@@ -92,6 +95,9 @@ export default async function DccPage({ searchParams }: PageProps) {
           items={items}
           entries={entries}
           reviews={reviews}
+          clients={clients}
+          subjects={subjects}
+          itemSubjects={itemSubjects}
           today={today}
         />
       </main>
