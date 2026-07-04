@@ -437,6 +437,9 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
           <ParticipantCard
             key={it.id}
             item={it}
+            ownerId={ownerId}
+            allItems={items}
+            canManage={canManage}
             subjects={subjectsForItem.get(it.id) ?? []}
             statusFor={(subjectId) => map[slotKey(it.id, subjectId, selectedDate)]?.status ?? null}
             busyFor={(subjectId) => busy === slotKey(it.id, subjectId, selectedDate)}
@@ -457,8 +460,11 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
 
 /* ──────────────────────── Participant-list card ──────────────────────── */
 
-function ParticipantCard({ item, subjects, statusFor, busyFor, canFill, onCommit, onBulk }: {
+function ParticipantCard({ item, ownerId, allItems, canManage, subjects, statusFor, busyFor, canFill, onCommit, onBulk }: {
   item: DccItemRow;
+  ownerId: string;
+  allItems: DccItemRow[];
+  canManage: boolean;
   subjects: DccSubjectRow[];
   statusFor: (subjectId: string) => string | null;
   busyFor: (subjectId: string) => boolean;
@@ -469,19 +475,23 @@ function ParticipantCard({ item, subjects, statusFor, busyFor, canFill, onCommit
   const [open, setOpen] = React.useState(false);
   const doneN = subjects.filter((s) => (statusFor(s.id) ?? "").toLowerCase() === "done").length;
   const addressed = subjects.filter((s) => statusFor(s.id) != null).length;
+  const freqLabel = item.frequency || maskLabel(item.weekdays);
   return (
     <div className="wg-rise overflow-hidden rounded-[22px] bg-surface-card" style={{ boxShadow: PANEL_SHADOW }}>
-      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-3 px-5 py-4 text-left max-md:px-3.5">
-        <span className="inline-grid size-9 shrink-0 place-items-center rounded-xl" style={{ background: "color-mix(in srgb, #4338ca 10%, transparent)", color: "#4338ca" }}><Users size={18} strokeWidth={2.3} /></span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            {item.code && <span className="shrink-0 rounded-md px-1.5 py-0.5 text-[12px] font-extrabold tabular-nums text-ink-muted" style={{ background: "var(--color-surface-soft, #eef2f7)" }}>{item.code}</span>}
-            <p className="truncate text-[16px] font-bold text-ink-strong">{item.title}</p>
+      <div className="flex w-full items-center gap-3 px-5 py-4 max-md:px-3.5">
+        <button onClick={() => setOpen((v) => !v)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+          <span className="inline-grid size-9 shrink-0 place-items-center rounded-xl" style={{ background: "color-mix(in srgb, #4338ca 10%, transparent)", color: "#4338ca" }}><Users size={18} strokeWidth={2.3} /></span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              {item.code && <span className="shrink-0 rounded-md px-1.5 py-0.5 text-[12px] font-extrabold tabular-nums text-ink-muted" style={{ background: "var(--color-surface-soft, #eef2f7)" }}>{item.code}</span>}
+              <p className="truncate text-[16px] font-bold text-ink-strong">{item.title}</p>
+            </div>
+            <p className="mt-0.5 text-[12.5px] font-semibold text-ink-subtle">{subjects.length} participant{subjects.length === 1 ? "" : "s"} · {doneN} done · {addressed} addressed{freqLabel ? ` · ${freqLabel}` : ""}</p>
           </div>
-          <p className="mt-0.5 text-[12.5px] font-semibold text-ink-subtle">{subjects.length} participant{subjects.length === 1 ? "" : "s"} · {doneN} done · {addressed} addressed{item.frequency ? ` · ${item.frequency}` : ""}</p>
-        </div>
-        <span className="text-ink-subtle transition-transform" style={{ transform: open ? "rotate(180deg)" : undefined }}><ChevronDown size={18} /></span>
-      </button>
+        </button>
+        {canManage && <ItemEditor ownerId={ownerId} mode="edit" item={item} allItems={allItems} compact />}
+        <button onClick={() => setOpen((v) => !v)} className="shrink-0 text-ink-subtle transition-transform" style={{ transform: open ? "rotate(180deg)" : undefined }} aria-label={open ? "Collapse" : "Expand"}><ChevronDown size={18} /></button>
+      </div>
       {open && (
         <div className="border-t border-hairline">
           {canFill && (
