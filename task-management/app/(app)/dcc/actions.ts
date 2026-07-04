@@ -98,6 +98,8 @@ const ItemFields = z.object({
   frequency: optText,
   targetNumber: z.any(),
   unit: optText,
+  isParticipantList: z.boolean().optional(),
+  clientId: z.string().uuid().nullable().optional(),
 });
 const UpdateItem = ItemFields.omit({ ownerEmployeeId: true }).extend({ id: z.string().uuid() });
 
@@ -121,7 +123,7 @@ export async function createDccItem(input: unknown): Promise<ActionResult<{ id: 
       .values({
         ownerEmployeeId: d.ownerEmployeeId, section: d.section, code: d.code, title: d.title,
         frequency: d.frequency, weekdays: pf.weekdays, scheduleKind: pf.scheduleKind, needsReview: pf.needsReview,
-        targetNumber: num(d.targetNumber),
+        targetNumber: num(d.targetNumber), isParticipantList: d.isParticipantList ?? false, clientId: d.clientId ?? null,
         unit: d.unit, sortOrder: maxRows[0]?.next ?? 1, createdById: me.id,
       })
       .returning({ id: dccKpiItems.id });
@@ -146,7 +148,10 @@ export async function updateDccItem(input: unknown): Promise<ActionResult> {
     await db.update(dccKpiItems).set({
       section: d.section, code: d.code, title: d.title, frequency: d.frequency,
       weekdays: pf.weekdays, scheduleKind: pf.scheduleKind, needsReview: pf.needsReview,
-      targetNumber: num(d.targetNumber), unit: d.unit, updatedAt: new Date(),
+      targetNumber: num(d.targetNumber), unit: d.unit,
+      ...(d.isParticipantList !== undefined ? { isParticipantList: d.isParticipantList } : {}),
+      ...(d.clientId !== undefined ? { clientId: d.clientId } : {}),
+      updatedAt: new Date(),
     }).where(eq(dccKpiItems.id, id));
     revalidatePath(PATH);
     return { ok: true };
@@ -164,6 +169,121 @@ export async function deleteDccItem(id: string): Promise<ActionResult> {
     const scope = await loadDccScope(me);
     if (!canManageItemsFor(scope, item.owner)) return fail("Not allowed.");
     await db.update(dccKpiItems).set({ archived: true, updatedAt: new Date() }).where(eq(dccKpiItems.id, id));
+    revalidatePath(PATH);
+    return { ok: true };
+  } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
+}
+
+// ── Participant roster + clients (fully in-app; no importer needed) ──────────
+
+/** Resolve the owner of a KPI item and confirm the caller can manage it. */
+async function guardItem(me: Parameters<typeof loadDccScope>[0], itemId: string): Promise<{ ok: true; owner: string } | { ok: false; error: string }> {
+  const [item] = await db.select({ owner: dccKpiItems.ownerEmployeeId }).from(dccKpiItems).where(eq(dccKpiItems.id, itemId)).limit(1);
+  if (!item) return fail("KPI not found.") as { ok: false; error: string };
+  const scope = await loadDccScope(me);
+  if (!canManageItemsFor(scope, item.owner)) return fail("Not allowed.") as { ok: false; error: string };
+  return { ok: true, owner: item.owner };
+}
+
+/** Add a participant to a participant-list KPI — creates the person if new, links them. */
+export async function addParticipant(input: unknown): Promise<ActionResult> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = z.object({ itemId: z.string().uuid(), name: z.string().trim().min(1).max(200), kind: optText }).safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input.");
+  const { itemId, name, kind } = parsed.data;
+  try {
+    const g = await guardItem(me, itemId);
+    if (!g.ok) return g;
+    const srows = (await db.execute(sql`
+      INSERT INTO dcc_subjects (owner_employee_id, name, kind)
+      VALUES (${g.owner}, ${name}, ${kind})
+      ON CONFLICT (owner_employee_id, lower(name)) DO UPDATE SET name = EXCLUDED.name, kind = COALESCE(EXCLUDED.kind, dcc_subjects.kind)
+      RETURNING id
+    `)) as unknown as Array<{ id: string }>;
+    await db.execute(sql`
+      INSERT INTO dcc_item_subjects (item_id, subject_id)
+      VALUES (${itemId}, ${srows[0]!.id})
+      ON CONFLICT (item_id, subject_id) DO UPDATE SET archived = false
+    `);
+    revalidatePath(PATH);
+    return { ok: true };
+  } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
+}
+
+/** Remove a participant from a KPI (unlinks; keeps their history). */
+export async function removeParticipant(input: unknown): Promise<ActionResult> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = z.object({ itemId: z.string().uuid(), subjectId: z.string().uuid() }).safeParse(input);
+  if (!parsed.success) return fail("Invalid input.");
+  const { itemId, subjectId } = parsed.data;
+  try {
+    const g = await guardItem(me, itemId);
+    if (!g.ok) return g;
+    await db.execute(sql`UPDATE dcc_item_subjects SET archived = true WHERE item_id = ${itemId} AND subject_id = ${subjectId}`);
+    revalidatePath(PATH);
+    return { ok: true };
+  } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
+}
+
+/** Rename a participant (person) across all their KPIs. */
+export async function renameParticipant(input: unknown): Promise<ActionResult> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = z.object({ subjectId: z.string().uuid(), name: z.string().trim().min(1).max(200), kind: optText }).safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input.");
+  const { subjectId, name, kind } = parsed.data;
+  try {
+    const rows = (await db.execute(sql`SELECT owner_employee_id AS owner FROM dcc_subjects WHERE id = ${subjectId}`)) as unknown as Array<{ owner: string }>;
+    if (!rows[0]) return fail("Participant not found.");
+    const scope = await loadDccScope(me);
+    if (!canManageItemsFor(scope, rows[0].owner)) return fail("Not allowed.");
+    await db.execute(sql`UPDATE dcc_subjects SET name = ${name}, kind = COALESCE(${kind}, kind), updated_at = now() WHERE id = ${subjectId}`);
+    revalidatePath(PATH);
+    return { ok: true };
+  } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
+}
+
+/** Create a client instance for a section (e.g. B = Lawrence & Mayo). */
+export async function createDccClient(input: unknown): Promise<ActionResult<{ id: string }>> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = z.object({ ownerEmployeeId: z.string().uuid(), section: z.string().trim().min(1).max(100), name: z.string().trim().min(1).max(200) }).safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input.");
+  const { ownerEmployeeId, section, name } = parsed.data;
+  try {
+    const scope = await loadDccScope(me);
+    if (!canManageItemsFor(scope, ownerEmployeeId)) return fail("Not allowed.");
+    const rows = (await db.execute(sql`
+      INSERT INTO dcc_clients (owner_employee_id, section, name)
+      VALUES (${ownerEmployeeId}, ${section}, ${name})
+      ON CONFLICT (owner_employee_id, section, lower(name)) DO UPDATE SET name = EXCLUDED.name, archived = false
+      RETURNING id
+    `)) as unknown as Array<{ id: string }>;
+    revalidatePath(PATH);
+    return { ok: true, id: rows[0]!.id };
+  } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }
+}
+
+/** Rename a client, or archive it (its KPIs keep their client_id but the client hides). */
+export async function updateDccClient(input: unknown): Promise<ActionResult> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = z.object({ id: z.string().uuid(), name: optText, archived: z.boolean().optional() }).safeParse(input);
+  if (!parsed.success) return fail("Invalid input.");
+  const { id, name, archived } = parsed.data;
+  try {
+    const rows = (await db.execute(sql`SELECT owner_employee_id AS owner FROM dcc_clients WHERE id = ${id}`)) as unknown as Array<{ owner: string }>;
+    if (!rows[0]) return fail("Client not found.");
+    const scope = await loadDccScope(me);
+    if (!canManageItemsFor(scope, rows[0].owner)) return fail("Not allowed.");
+    await db.execute(sql`UPDATE dcc_clients SET name = COALESCE(${name}, name), archived = COALESCE(${archived ?? null}, archived), updated_at = now() WHERE id = ${id}`);
     revalidatePath(PATH);
     return { ok: true };
   } catch (err) { return fail(err instanceof Error ? err.message : String(err)); }

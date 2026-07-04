@@ -12,8 +12,8 @@ import {
 import { fireToast } from "@/lib/toast";
 import { Avatar } from "@/components/ui/avatar";
 import type { DccItemRow, DccEntryRow, DccPerson, DccClientRow, DccSubjectRow, DccItemSubjectRow } from "@/lib/queries/dcc";
-import { DCC_STATUSES, dccStatusTone, scheduledDueOn, slotKey, isoDate, maskLabel } from "@/lib/dcc/util";
-import { setDccEntry, setParticipantEntries, createDccItem, updateDccItem, deleteDccItem, setDccReview, summarizeDccDay } from "@/app/(app)/dcc/actions";
+import { DCC_STATUSES, dccStatusTone, scheduledDueOn, slotKey, isoDate, maskLabel, isDueOn } from "@/lib/dcc/util";
+import { setDccEntry, setParticipantEntries, createDccItem, updateDccItem, deleteDccItem, setDccReview, summarizeDccDay, addParticipant, removeParticipant, renameParticipant } from "@/app/(app)/dcc/actions";
 
 type ReviewRow = { ownerEmployeeId: string; reviewDate: string; status: string | null; note: string | null };
 
@@ -328,7 +328,7 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
           <button onClick={() => setShowAll((v) => !v)} className="wg-btn rounded-xl bg-white px-3.5 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:text-[#15803d]" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>
             {showAll ? "Due today only" : `Show all (${items.length})`}
           </button>
-          {canManage && <ItemEditor ownerId={ownerId} mode="add" allItems={items} />}
+          {canManage && <ItemEditor ownerId={ownerId} mode="add" allItems={items} clients={clients} />}
         </div>
       </div>
 
@@ -411,7 +411,7 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
               <span className="font-bold normal-case tracking-normal text-ink-subtle">{g.rows.length}</span>
               {canManage && (
                 <span className="ml-auto normal-case tracking-normal">
-                  <ItemEditor ownerId={ownerId} mode="add" allItems={items} presetSection={g.section} sectionButton />
+                  <ItemEditor ownerId={ownerId} mode="add" allItems={items} presetSection={g.section} clients={clients} sectionButton />
                 </span>
               )}
             </h3>
@@ -426,6 +426,7 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
                   canManage={canManage}
                   first={i === 0}
                   onCommit={commit}
+                  clients={clients}
                 />
               ))}
             </div>
@@ -433,12 +434,13 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
         ))}
 
         {/* Participant-list KPIs — one expandable card each, own compliance meter. */}
-        {participantItems.map((it) => (
+        {participantItems.filter((it) => isDueOn(it.weekdays, selObj)).map((it) => (
           <ParticipantCard
             key={it.id}
             item={it}
             ownerId={ownerId}
             allItems={items}
+            clients={clients}
             canManage={canManage}
             subjects={subjectsForItem.get(it.id) ?? []}
             statusFor={(subjectId) => map[slotKey(it.id, subjectId, selectedDate)]?.status ?? null}
@@ -460,10 +462,11 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
 
 /* ──────────────────────── Participant-list card ──────────────────────── */
 
-function ParticipantCard({ item, ownerId, allItems, canManage, subjects, statusFor, busyFor, canFill, onCommit, onBulk }: {
+function ParticipantCard({ item, ownerId, allItems, clients, canManage, subjects, statusFor, busyFor, canFill, onCommit, onBulk }: {
   item: DccItemRow;
   ownerId: string;
   allItems: DccItemRow[];
+  clients: DccClientRow[];
   canManage: boolean;
   subjects: DccSubjectRow[];
   statusFor: (subjectId: string) => string | null;
@@ -473,9 +476,34 @@ function ParticipantCard({ item, ownerId, allItems, canManage, subjects, statusF
   onBulk: (itemId: string, status: string | null) => void;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [newName, setNewName] = React.useState("");
+  const [rosterBusy, startRoster] = React.useTransition();
+  const rosterRouter = useRouter();
   const doneN = subjects.filter((s) => (statusFor(s.id) ?? "").toLowerCase() === "done").length;
   const addressed = subjects.filter((s) => statusFor(s.id) != null).length;
   const freqLabel = item.frequency || maskLabel(item.weekdays);
+
+  const runRoster = (fn: () => Promise<{ ok: boolean; error?: string }>, done?: () => void) => {
+    startRoster(async () => {
+      const res = await fn();
+      if (!res.ok) { fireToast({ message: res.error ?? "Couldn't save.", type: "error" }); return; }
+      done?.(); rosterRouter.refresh();
+    });
+  };
+  const addPerson = () => {
+    const name = newName.trim();
+    if (!name) return;
+    runRoster(() => addParticipant({ itemId: item.id, name }), () => setNewName(""));
+  };
+  const renamePerson = (subjectId: string, current: string) => {
+    const name = typeof window !== "undefined" ? window.prompt("Rename participant", current) : null;
+    if (!name || !name.trim() || name.trim() === current) return;
+    runRoster(() => renameParticipant({ subjectId, name: name.trim() }));
+  };
+  const removePerson = (subjectId: string, name: string) => {
+    if (typeof window !== "undefined" && !window.confirm(`Remove ${name} from this KPI? Their history is kept.`)) return;
+    runRoster(() => removeParticipant({ itemId: item.id, subjectId }));
+  };
   return (
     <div className="wg-rise overflow-hidden rounded-[22px] bg-surface-card" style={{ boxShadow: PANEL_SHADOW }}>
       <div className="flex w-full items-center gap-3 px-5 py-4 max-md:px-3.5">
@@ -489,7 +517,7 @@ function ParticipantCard({ item, ownerId, allItems, canManage, subjects, statusF
             <p className="mt-0.5 text-[12.5px] font-semibold text-ink-subtle">{subjects.length} participant{subjects.length === 1 ? "" : "s"} · {doneN} done · {addressed} addressed{freqLabel ? ` · ${freqLabel}` : ""}</p>
           </div>
         </button>
-        {canManage && <ItemEditor ownerId={ownerId} mode="edit" item={item} allItems={allItems} compact />}
+        {canManage && <ItemEditor ownerId={ownerId} mode="edit" item={item} allItems={allItems} clients={clients} compact />}
         <button onClick={() => setOpen((v) => !v)} className="shrink-0 text-ink-subtle transition-transform" style={{ transform: open ? "rotate(180deg)" : undefined }} aria-label={open ? "Collapse" : "Expand"}><ChevronDown size={18} /></button>
       </div>
       {open && (
@@ -516,9 +544,21 @@ function ParticipantCard({ item, ownerId, allItems, canManage, subjects, statusF
                     );
                   })}
                 </div>
+                {canManage && (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button onClick={() => renamePerson(s.id, s.name)} disabled={rosterBusy} className="grid size-7 place-items-center rounded-md text-ink-subtle transition-colors hover:text-[#15803d] disabled:opacity-50" title="Rename" aria-label="Rename participant"><Pencil size={13} /></button>
+                    <button onClick={() => removePerson(s.id, s.name)} disabled={rosterBusy} className="grid size-7 place-items-center rounded-md text-ink-subtle transition-colors hover:text-altus-red disabled:opacity-50" title="Remove" aria-label="Remove participant"><Trash2 size={13} /></button>
+                  </div>
+                )}
               </div>
             );
           })}
+          {canManage && (
+            <div className="flex items-center gap-2 border-t border-hairline px-5 py-2.5 max-md:px-3.5">
+              <input value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addPerson(); }} placeholder="Add participant…" className="min-w-0 flex-1 rounded-lg border border-hairline-strong bg-white px-3 py-2 text-[14px] text-ink-strong outline-none focus:border-[#16a34a]" />
+              <button onClick={addPerson} disabled={rosterBusy || !newName.trim()} className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-[13px] font-bold text-white disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}><Plus size={14} /> Add</button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -608,7 +648,7 @@ function ProgressRing({ pct, size, stroke, color }: { pct: number; size: number;
 
 /* ────────────────────────────── Fill row ─────────────────────────────── */
 
-function FillRow({ item, entry, busy, canFill, canManage, first, onCommit }: {
+function FillRow({ item, entry, busy, canFill, canManage, first, onCommit, clients }: {
   item: DccItemRow;
   entry?: { status: string | null; value: string | null; note: string | null };
   busy: boolean;
@@ -616,6 +656,7 @@ function FillRow({ item, entry, busy, canFill, canManage, first, onCommit }: {
   canManage: boolean;
   first: boolean;
   onCommit: (itemId: string, patch: { status?: string | null; value?: string | null; note?: string | null }) => void;
+  clients?: DccClientRow[];
 }) {
   const [noteOpen, setNoteOpen] = React.useState(Boolean(entry?.note));
   const hasNumber = item.targetNumber != null || item.unit != null;
@@ -683,7 +724,7 @@ function FillRow({ item, entry, busy, canFill, canManage, first, onCommit }: {
             <StickyNote size={18} />
           </button>
           {busy && <Loader2 size={16} className="animate-spin text-ink-subtle" />}
-          {canManage && <ItemEditor ownerId={item.ownerEmployeeId} mode="edit" item={item} compact />}
+          {canManage && <ItemEditor ownerId={item.ownerEmployeeId} mode="edit" item={item} clients={clients} compact />}
         </div>
       </div>
 
@@ -741,7 +782,7 @@ function ReviewBar({ ownerId, date, canReview, review }: { ownerId: string; date
 }
 
 /* ── Inline KPI item add/edit ─────────────────────────────────────────── */
-function ItemEditor({ ownerId, mode, item, compact, allItems, presetSection, sectionButton }: { ownerId: string; mode: "add" | "edit"; item?: DccItemRow; compact?: boolean; allItems?: DccItemRow[]; presetSection?: string; sectionButton?: boolean }) {
+function ItemEditor({ ownerId, mode, item, compact, allItems, presetSection, sectionButton, clients }: { ownerId: string; mode: "add" | "edit"; item?: DccItemRow; compact?: boolean; allItems?: DccItemRow[]; presetSection?: string; sectionButton?: boolean; clients?: DccClientRow[] }) {
   const [open, setOpen] = React.useState(false);
   // Portal target — the dialog must render on document.body so an ancestor with
   // a transform/filter + overflow-hidden can't turn it into the fixed-overlay's
@@ -753,6 +794,7 @@ function ItemEditor({ ownerId, mode, item, compact, allItems, presetSection, sec
   const blank = React.useMemo(() => ({
     section: item?.section ?? presetSection ?? "", code: item?.code ?? "", title: item?.title ?? "",
     frequency: item?.frequency ?? "", targetNumber: item?.targetNumber ?? "", unit: item?.unit ?? "",
+    isParticipantList: item?.isParticipantList ?? false, clientId: item?.clientId ?? "",
   }), [item, presetSection]);
   const [form, setForm] = React.useState(blank);
   const [codeTouched, setCodeTouched] = React.useState(false);
@@ -796,7 +838,7 @@ function ItemEditor({ ownerId, mode, item, compact, allItems, presetSection, sec
   function submit() {
     if (!form.title.trim()) { fireToast({ message: "A title is required.", type: "error" }); return; }
     startTransition(async () => {
-      const payload = { section: form.section || null, code: form.code || null, title: form.title, frequency: form.frequency || null, targetNumber: form.targetNumber || null, unit: form.unit || null };
+      const payload = { section: form.section || null, code: form.code || null, title: form.title, frequency: form.frequency || null, targetNumber: form.targetNumber || null, unit: form.unit || null, isParticipantList: form.isParticipantList, clientId: form.clientId || null };
       const res = mode === "add"
         ? await createDccItem({ ownerEmployeeId: ownerId, ...payload })
         : await updateDccItem({ id: item!.id, ...payload });
@@ -847,6 +889,16 @@ function ItemEditor({ ownerId, mode, item, compact, allItems, presetSection, sec
                 <input value={form.targetNumber} onChange={(e) => setForm((f) => ({ ...f, targetNumber: e.target.value }))} placeholder="Target number" className={INPUT} />
                 <input value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))} placeholder="Unit (count, calls…)" className={INPUT} />
               </div>
+              {clients && clients.length > 0 && (
+                <select value={form.clientId} onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))} className={INPUT}>
+                  <option value="">No client</option>
+                  {clients.map((c) => <option key={c.id} value={c.id}>{c.section} · {c.name}</option>)}
+                </select>
+              )}
+              <label className="flex cursor-pointer items-center gap-2.5 rounded-xl px-1 py-1 text-[14px] font-semibold text-ink-soft">
+                <input type="checkbox" checked={form.isParticipantList} onChange={(e) => setForm((f) => ({ ...f, isParticipantList: e.target.checked }))} className="size-4 accent-[#16a34a]" />
+                Participant-list KPI (tracks a roster of people)
+              </label>
             </div>
             <div className="mt-4 flex items-center justify-between">
               {mode === "edit" ? (
