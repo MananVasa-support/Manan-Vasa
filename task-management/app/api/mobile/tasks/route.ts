@@ -114,8 +114,8 @@ export async function GET(req: Request) {
     const ap = PENDING.has(a.status);
     const bp = PENDING.has(b.status);
     if (ap !== bp) return ap ? -1 : 1;
-    if (ap) return a.dueAt.getTime() - b.dueAt.getTime();
-    return (b.completedAt ?? b.updatedAt).getTime() - (a.completedAt ?? a.updatedAt).getTime();
+    if (ap) return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
+    return new Date(b.completedAt ?? b.updatedAt).getTime() - new Date(a.completedAt ?? a.updatedAt).getTime();
   });
 
   const statusDisplay = await getStatusDisplayMap();
@@ -131,9 +131,9 @@ export async function GET(req: Request) {
         client: t.client,
         status: t.status,
         priority: t.priority,
-        dueAt: t.dueAt.toISOString(),
-        updatedAt: t.updatedAt.toISOString(),
-        completedAt: t.completedAt ? t.completedAt.toISOString() : null,
+        dueAt: new Date(t.dueAt).toISOString(),
+        updatedAt: new Date(t.updatedAt).toISOString(),
+        completedAt: t.completedAt ? new Date(t.completedAt).toISOString() : null,
         allowedTransitions: nextStatusesFor(t.status, role),
       })),
     },

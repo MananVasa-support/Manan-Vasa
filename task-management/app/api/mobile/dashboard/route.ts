@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { and, count, eq, inArray, lt } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 import { db, tasks } from "@/lib/db";
 import { PENDING_STATUSES } from "@/db/enums";
 import { effectiveDueAtSql } from "@/lib/tasks/effective-due";
 import { authenticateMobileRequest, MOBILE_CORS } from "@/lib/auth/mobile";
 import { listMyAttendance } from "@/lib/queries/attendance";
+import { countUnfilledWeekGoals } from "@/lib/weekly-goals/gate";
 import { localDateString, formatTimeInTz } from "@/lib/format";
 
 export const runtime = "nodejs";
@@ -30,6 +31,10 @@ export async function GET(req: Request) {
   const days = await listMyAttendance(me.id, today);
   const todayRow = days.find((d) => d.date === today);
 
+  // Weekly-goals fill gate (design §11) — surfaced so the Today screen can show
+  // the gate banner / block before the user works.
+  const unfilledGoals = await countUnfilledWeekGoals(me.id);
+
   const mine = and(eq(tasks.doerId, me.id), eq(tasks.archived, false));
   const pendingStatuses = [...PENDING_STATUSES];
   const [pending, overdue] = await Promise.all([
@@ -37,7 +42,7 @@ export async function GET(req: Request) {
     db
       .select({ n: count() })
       .from(tasks)
-      .where(and(mine, inArray(tasks.status, pendingStatuses), lt(effectiveDueAtSql(), new Date()))),
+      .where(and(mine, inArray(tasks.status, pendingStatuses), sql`${effectiveDueAtSql()} < now()`)),
   ]);
 
   return NextResponse.json(
@@ -51,6 +56,10 @@ export async function GET(req: Request) {
       tasks: {
         pending: pending[0]?.n ?? 0,
         overdue: overdue[0]?.n ?? 0,
+      },
+      weeklyGoalsGate: {
+        required: unfilledGoals > 0,
+        unfilledCount: unfilledGoals,
       },
     },
     { headers: MOBILE_CORS },
