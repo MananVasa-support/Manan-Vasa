@@ -328,7 +328,7 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
           <button onClick={() => setShowAll((v) => !v)} className="wg-btn rounded-xl bg-white px-3.5 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:text-[#15803d]" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>
             {showAll ? "Due today only" : `Show all (${items.length})`}
           </button>
-          {canManage && <ItemEditor ownerId={ownerId} mode="add" />}
+          {canManage && <ItemEditor ownerId={ownerId} mode="add" allItems={items} />}
         </div>
       </div>
 
@@ -409,6 +409,11 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
               {g.section}
               {g.clientName && <span className="rounded-md px-2 py-0.5 text-[11.5px] font-bold normal-case tracking-normal" style={{ background: "color-mix(in srgb, #16a34a 12%, transparent)", color: GREEN_DEEP }}>{g.clientName}</span>}
               <span className="font-bold normal-case tracking-normal text-ink-subtle">{g.rows.length}</span>
+              {canManage && (
+                <span className="ml-auto normal-case tracking-normal">
+                  <ItemEditor ownerId={ownerId} mode="add" allItems={items} presetSection={g.section} sectionButton />
+                </span>
+              )}
             </h3>
             <div className="overflow-hidden rounded-[22px] bg-surface-card" style={{ boxShadow: PANEL_SHADOW }}>
               {g.rows.map((it, i) => (
@@ -726,7 +731,7 @@ function ReviewBar({ ownerId, date, canReview, review }: { ownerId: string; date
 }
 
 /* ── Inline KPI item add/edit ─────────────────────────────────────────── */
-function ItemEditor({ ownerId, mode, item, compact }: { ownerId: string; mode: "add" | "edit"; item?: DccItemRow; compact?: boolean }) {
+function ItemEditor({ ownerId, mode, item, compact, allItems, presetSection, sectionButton }: { ownerId: string; mode: "add" | "edit"; item?: DccItemRow; compact?: boolean; allItems?: DccItemRow[]; presetSection?: string; sectionButton?: boolean }) {
   const [open, setOpen] = React.useState(false);
   // Portal target — the dialog must render on document.body so an ancestor with
   // a transform/filter + overflow-hidden can't turn it into the fixed-overlay's
@@ -735,11 +740,48 @@ function ItemEditor({ ownerId, mode, item, compact }: { ownerId: string; mode: "
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   const [, startTransition] = React.useTransition();
-  const [form, setForm] = React.useState({
-    section: item?.section ?? "", code: item?.code ?? "", title: item?.title ?? "",
+  const blank = React.useMemo(() => ({
+    section: item?.section ?? presetSection ?? "", code: item?.code ?? "", title: item?.title ?? "",
     frequency: item?.frequency ?? "", targetNumber: item?.targetNumber ?? "", unit: item?.unit ?? "",
-  });
+  }), [item, presetSection]);
+  const [form, setForm] = React.useState(blank);
+  const [codeTouched, setCodeTouched] = React.useState(false);
   const router = useRouter();
+
+  // Distinct existing sections for the dropdown (kept in first-seen order).
+  const sections = React.useMemo(() => {
+    const seen: string[] = [];
+    for (const it of allItems ?? []) { const s = (it.section ?? "").trim(); if (s && !seen.includes(s)) seen.push(s); }
+    return seen;
+  }, [allItems]);
+
+  // Auto-suggest the next code for a section: take the letter prefix its items
+  // already use and increment the highest number (A6 → A7). Blank if none.
+  const suggestCode = React.useCallback((section: string): string => {
+    const rows = (allItems ?? []).filter((it) => (it.section ?? "").trim() === section.trim() && it.code);
+    let letter = "", max = 0;
+    for (const it of rows) {
+      const m = /^([A-Za-z]+)(\d+)$/.exec((it.code ?? "").trim());
+      if (!m) continue;
+      if (!letter) letter = m[1]!.toUpperCase();
+      if (m[1]!.toUpperCase() === letter) max = Math.max(max, Number(m[2]));
+    }
+    return letter ? `${letter}${max + 1}` : "";
+  }, [allItems]);
+
+  // Reset the form every time the dialog OPENS — otherwise the last-typed values
+  // linger and "New KPI" shows a stale/previous KPI. Edit re-syncs from the item.
+  React.useEffect(() => {
+    if (!open) return;
+    const base = { ...blank };
+    if (mode === "add" && base.section && !base.code) base.code = suggestCode(base.section);
+    setForm(base);
+    setCodeTouched(false);
+  }, [open, blank, mode, suggestCode]);
+
+  function pickSection(section: string) {
+    setForm((f) => ({ ...f, section, code: mode === "add" && !codeTouched ? suggestCode(section) : f.code }));
+  }
 
   function submit() {
     if (!form.title.trim()) { fireToast({ message: "A title is required.", type: "error" }); return; }
@@ -767,7 +809,9 @@ function ItemEditor({ ownerId, mode, item, compact }: { ownerId: string; mode: "
 
   return (
     <>
-      {mode === "add" ? (
+      {mode === "add" && sectionButton ? (
+        <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:text-[#15803d]" title="Add a KPI to this section"><Plus size={14} /> Add</button>
+      ) : mode === "add" ? (
         <button onClick={() => setOpen(true)} className="wg-btn wg-sheen inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-[14px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`, boxShadow: "0 8px 20px -12px rgba(21,128,61,0.6)" }}><Plus size={17} /> Add KPI</button>
       ) : (
         <button onClick={() => setOpen(true)} className={`inline-flex items-center gap-1.5 rounded-xl border border-hairline-strong font-bold text-ink-soft transition-colors hover:border-[#16a34a] hover:text-[#15803d] ${compact ? "h-11 px-3 text-[14px]" : "h-9 w-9 justify-center"}`} title="Edit KPI" aria-label="Edit KPI"><Pencil size={16} />{compact && <span className="max-md:hidden">Edit</span>}</button>
@@ -782,9 +826,12 @@ function ItemEditor({ ownerId, mode, item, compact }: { ownerId: string; mode: "
             <div className="flex flex-col gap-2.5">
               <input autoFocus value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="KPI title *" className={INPUT} />
               <div className="grid grid-cols-2 gap-2.5">
-                <input value={form.section} onChange={(e) => setForm((f) => ({ ...f, section: e.target.value }))} placeholder="Section" className={INPUT} />
-                <input value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} placeholder="Code (A1)" className={INPUT} />
+                <input value={form.section} list="dcc-section-list" onChange={(e) => pickSection(e.target.value)} placeholder="Section" className={INPUT} />
+                <input value={form.code} onChange={(e) => { setCodeTouched(true); setForm((f) => ({ ...f, code: e.target.value })); }} placeholder="Code (auto)" className={INPUT} />
               </div>
+              {sections.length > 0 && (
+                <datalist id="dcc-section-list">{sections.map((s) => <option key={s} value={s} />)}</datalist>
+              )}
               <input value={form.frequency} onChange={(e) => setForm((f) => ({ ...f, frequency: e.target.value }))} placeholder="Frequency (Daily, Wed & Sat, Every Sat…)" className={INPUT} />
               <div className="grid grid-cols-2 gap-2.5">
                 <input value={form.targetNumber} onChange={(e) => setForm((f) => ({ ...f, targetNumber: e.target.value }))} placeholder="Target number" className={INPUT} />
