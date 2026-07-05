@@ -45,6 +45,32 @@ export async function GET(req: Request) {
       .where(and(mine, inArray(tasks.status, pendingStatuses), sql`${effectiveDueAtSql()} < now()`)),
   ]);
 
+  // Admin gets the org-wide KPI strip (mirrors the web kpi-strip.tsx status
+  // buckets). Non-admins get just their own pending/overdue.
+  let adminStats: {
+    total: number; needInfo: number; notApproved: number; done: number; pending: number; notStarted: number;
+  } | null = null;
+  if (me.isAdmin) {
+    const org = eq(tasks.archived, false);
+    const cnt = (extra: ReturnType<typeof inArray>) => db.select({ n: count() }).from(tasks).where(and(org, extra));
+    const [total, needInfo, notApproved, done, pend, notStarted] = await Promise.all([
+      db.select({ n: count() }).from(tasks).where(org),
+      cnt(inArray(tasks.status, ["need_info", "need_help"])),
+      cnt(inArray(tasks.status, ["not_approved"])),
+      cnt(inArray(tasks.status, ["done", "approved"])),
+      cnt(inArray(tasks.status, ["initiated", "follow_up", "follow_up_1", "follow_up_2", "follow_up_3"])),
+      cnt(inArray(tasks.status, ["not_started"])),
+    ]);
+    adminStats = {
+      total: total[0]?.n ?? 0,
+      needInfo: needInfo[0]?.n ?? 0,
+      notApproved: notApproved[0]?.n ?? 0,
+      done: done[0]?.n ?? 0,
+      pending: pend[0]?.n ?? 0,
+      notStarted: notStarted[0]?.n ?? 0,
+    };
+  }
+
   return NextResponse.json(
     {
       greetingName: me.name.split(" ")[0],
@@ -57,6 +83,7 @@ export async function GET(req: Request) {
         pending: pending[0]?.n ?? 0,
         overdue: overdue[0]?.n ?? 0,
       },
+      adminStats,
       weeklyGoalsGate: {
         required: unfilledGoals > 0,
         unfilledCount: unfilledGoals,
