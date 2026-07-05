@@ -96,6 +96,7 @@ export async function GET(req: Request) {
       id: tasks.id,
       taskNo: tasks.taskNo,
       title: tasks.title,
+      description: tasks.description,
       subject: tasks.subject,
       client: tasks.client,
       status: tasks.status,
@@ -126,7 +127,10 @@ export async function GET(req: Request) {
       tasks: rows.map((t) => ({
         id: t.id,
         taskNo: t.taskNo,
-        title: t.title,
+        // The display name = description-or-title, exactly like the web task
+        // list (task-table.tsx getDisplayTitle). `title` in the DB is often just
+        // the client; the full task text lives in `description`.
+        title: (t.description?.trim() || t.title),
         subject: t.subject,
         client: t.client,
         status: t.status,
