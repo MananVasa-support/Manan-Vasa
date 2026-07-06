@@ -169,6 +169,23 @@ export async function getTodayItems(
 
 /** True when the employee has ANY planned work today — an assigned task OR a
  *  personal item. This is what the attendance gate now checks (plan EXISTS). */
+/**
+ * How many items the employee has COMMITTED to today's checklist (personal
+ * `daily_checklist` rows for `ymd`). This is the strict planning signal — it does
+ * NOT count merely-assigned tasks. Drives the compulsory login checklist gate,
+ * which requires ≥ MIN_DAILY_ITEMS before the app opens.
+ */
+export async function countPlannedItems(
+  employeeId: string,
+  ymd: string = todayYmd(),
+): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(dailyChecklist)
+    .where(and(eq(dailyChecklist.employeeId, employeeId), eq(dailyChecklist.planDate, ymd)));
+  return row?.n ?? 0;
+}
+
 export async function hasPlannedWork(
   employeeId: string,
   ymd: string = todayYmd(),

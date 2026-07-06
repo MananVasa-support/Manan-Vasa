@@ -6,7 +6,7 @@ import { accessFor } from "@/lib/auth/workspace-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { gateSkipActive } from "@/lib/auth/gate-skip";
 import { SkipGateButton } from "@/components/layout/skip-gate-button";
-import { needsDailyPlan } from "@/lib/daily-checklist/gate";
+import { needsDailyChecklistPlan } from "@/lib/daily-checklist/gate";
 import { needsGoalActuals } from "@/lib/weekly-goals/actuals";
 import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist-view";
 import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
@@ -61,12 +61,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     const isManager = await isManagerWithReports(me.id).catch(() => false);
     const planExempt = me.isAdmin || canSkip || isManager;
 
-    // EMPLOYEE gate — "Plan Your Day": commit ≥5 today AND log today's progress
-    // on each open weekly goal, before entering the room. (Replaces the old
-    // Mon/Thu weekly-goals fill gate — goal progress is now filled DAILY here.)
+    // EMPLOYEE gate — "Plan Your Day": commit ≥5 items to TODAY'S checklist AND
+    // log today's progress on each open weekly goal, before entering. STRICT:
+    // uses needsDailyChecklistPlan (≥5 committed items) — merely having assigned
+    // tasks no longer auto-passes this gate (that was the bypass bug).
     if (!planExempt) {
       const mustPlan =
-        (await needsDailyPlan(me.id).catch(() => false)) ||
+        (await needsDailyChecklistPlan(me.id).catch(() => false)) ||
         (await needsGoalActuals(me.id).catch(() => false));
       if (mustPlan) {
         return gate(<DailyChecklistView employeeId={me.id} greetingName={firstName} mode="gate" />);
