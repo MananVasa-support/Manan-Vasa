@@ -122,6 +122,7 @@ function GoalCardImpl({
 
   const eff = effectivePct(goal);
   const status = statusDisplay[goal.status];
+  const goalComplete = eff >= 100 || goal.status === "approved" || goal.status === "done";
 
   React.useEffect(() => {
     if (autoFocus) cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -211,114 +212,124 @@ function GoalCardImpl({
         opacity: goal.archived ? 0.82 : 1,
       }}
     >
-      <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ background: "var(--color-altus-red)" }} />
+      {/* Status-toned left rail: green when the goal is complete, brand-red otherwise. */}
+      <span
+        aria-hidden
+        className="absolute inset-y-0 left-0 w-1.5"
+        style={{ background: goalComplete ? "var(--color-green)" : "var(--color-altus-red)" }}
+      />
 
       <div className="p-5 pl-6">
-        {/* ── READ ROW: identity · meta · progress ── */}
-        <div className="flex items-start gap-5 max-md:flex-col">
-          {/* Left — badge + eyebrow + title + chips + notes */}
-          <div className="flex min-w-0 flex-1 items-start gap-3">
+        {/* ── HEADER: index + client·subject eyebrow · status (top-right) ── */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
             <span
-              className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-[8px] text-[13px] font-black tabular-nums text-white"
-              style={{ background: "var(--color-ink-strong)" }}
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-[10px] text-[14px] font-black tabular-nums text-white"
+              style={{ background: "linear-gradient(140deg, #2b2320, var(--color-ink-strong))", fontFamily: "var(--font-display)" }}
             >
               {srNo}
             </span>
-            <div className="min-w-0 flex-1">
-              {(goal.client || goal.subject) && (
-                <p className="text-[11px] font-black uppercase tracking-[0.09em]" style={{ color: "var(--color-ink-subtle)" }}>
-                  {[goal.client, goal.subject].filter(Boolean).join(" · ")}
-                </p>
-              )}
-              <h3 className="mt-1 text-[17px] font-bold leading-snug" style={{ color: "var(--color-ink-strong)", letterSpacing: "-0.005em" }}>
-                {title}
-              </h3>
-
-              {(goal.incentive || goal.carriedFromId || goal.archived) && (
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  {goal.incentive && (
-                    <Chip
-                      icon={<IndianRupee size={12} />}
-                      label={`${INCENTIVE_TYPE_LABEL[goal.incentiveType ?? ""] ?? "Incentive"}${goal.incentiveAmount > 0 ? ` · ${formatInr(goal.incentiveAmount)}` : ""}`}
-                      tone="green"
-                    />
-                  )}
-                  {goal.carriedFromId && <Chip label="↪ carried" />}
-                  {goal.archived && <Chip icon={<Archive size={12} />} label="Archived" tone="slate" />}
-                </div>
-              )}
-
-              {goal.notes && (
-                <p className="mt-2 text-[13.5px] leading-relaxed whitespace-pre-wrap" style={{ color: "var(--color-ink-soft)" }}>
-                  {goal.notes}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Middle — meta strip: weight · target · status */}
-          <div className="flex shrink-0 items-start gap-5 max-md:flex-wrap max-md:gap-4">
-            <Meta label="Weight">
-              <span className="text-[15px] font-black tabular-nums" style={{ color: "var(--color-ink-strong)" }}>
-                {goal.weight}
-                <span className="ml-0.5 text-[11px] font-bold" style={{ color: "var(--color-ink-subtle)" }}>/{WEIGHT_BUDGET}</span>
-              </span>
-            </Meta>
-
-            <Meta label="Target date">
-              <InlineDate
-                value={goal.targetDate}
-                canEdit={canManage}
-                onCommit={(v) => { if (v !== goal.targetDate) save({ id: goal.id, targetDate: v }); }}
-              />
-            </Meta>
-
-            <Meta label="Status">
-              {canReport ? (
-                <StatusControl value={goal.status} statusDisplay={statusDisplay} disabled={pending} onCommit={saveStatus} />
-              ) : (
-                status && (
-                  <span
-                    className="inline-flex shrink-0 rounded-full px-2.5 py-1 text-[12px] font-bold"
-                    style={{
-                      background: `color-mix(in srgb, var(--color-${status.color}) 14%, transparent)`,
-                      color: `var(--color-${status.color}-deep)`,
-                      border: `1px solid color-mix(in srgb, var(--color-${status.color}) 36%, transparent)`,
-                    }}
-                  >
-                    {status.label}
-                  </span>
-                )
-              )}
-            </Meta>
-          </div>
-
-          {/* Right — the ONE progress control */}
-          <div className="w-[240px] shrink-0 max-md:w-full">
-            <p className="mb-1.5 text-[10.5px] font-black uppercase tracking-[0.1em]" style={{ color: "var(--color-ink-subtle)" }}>
-              Progress
-            </p>
-            {canReport ? (
-              <ProgressControl value={goal.pctDone} disabled={pending} onCommit={savePct} />
-            ) : (
-              <div className="flex items-center gap-3">
-                <div className="h-2.5 flex-1 overflow-hidden rounded-full" style={{ background: "var(--color-surface-track)" }}>
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{ width: `${eff}%`, background: `linear-gradient(90deg, var(--color-${pctTone(eff)}), var(--color-${pctTone(eff)}-deep))` }}
-                  />
-                </div>
-                <span className="w-11 shrink-0 text-right text-[15px] font-black tabular-nums" style={{ fontFamily: "var(--font-display)", color: "var(--color-ink-strong)" }}>
-                  {eff}%
-                </span>
-              </div>
-            )}
-            {goal.acceptPct != null && goal.acceptPct !== goal.pctDone && (
-              <p className="mt-1.5 text-[12px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
-                Reported {goal.pctDone}% · accepted {goal.acceptPct}%
+            {(goal.client || goal.subject) && (
+              <p className="truncate text-[11px] font-black uppercase tracking-[0.1em]" style={{ color: "var(--color-ink-subtle)" }}>
+                {[goal.client, goal.subject].filter(Boolean).join(" · ")}
               </p>
             )}
           </div>
+          <div className="shrink-0">
+            {canReport ? (
+              <StatusControl value={goal.status} statusDisplay={statusDisplay} disabled={pending} onCommit={saveStatus} />
+            ) : status ? (
+              <span
+                className="inline-flex rounded-full px-3 py-1 text-[12px] font-bold"
+                style={{
+                  background: `color-mix(in srgb, var(--color-${status.color}) 14%, transparent)`,
+                  color: `var(--color-${status.color}-deep)`,
+                  border: `1px solid color-mix(in srgb, var(--color-${status.color}) 36%, transparent)`,
+                }}
+              >
+                {status.label}
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        {/* ── TITLE — editorial serif ── */}
+        <h3
+          className="mt-2.5 text-[19px] font-bold leading-snug"
+          style={{ color: "var(--color-ink-strong)", letterSpacing: "-0.01em", fontFamily: "var(--font-serif)" }}
+        >
+          {title}
+        </h3>
+
+        {/* ── CHIPS: weight · target date · incentive/carried/archived ── */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-bold"
+            style={{ background: "var(--color-surface-soft)", border: "1px solid var(--color-hairline-strong)", color: "var(--color-ink-soft)" }}
+          >
+            <span className="text-[10px] font-black uppercase tracking-[0.08em]" style={{ color: "var(--color-ink-subtle)" }}>Wt</span>
+            <b className="tabular-nums" style={{ color: "var(--color-ink-strong)" }}>{goal.weight}</b>
+            <span style={{ color: "var(--color-ink-subtle)" }}>/{WEIGHT_BUDGET}</span>
+          </span>
+
+          <span
+            className="inline-flex items-center rounded-full px-1 py-0.5"
+            style={{ background: "var(--color-surface-soft)", border: "1px solid var(--color-hairline-strong)" }}
+          >
+            <InlineDate
+              value={goal.targetDate}
+              canEdit={canManage}
+              onCommit={(v) => { if (v !== goal.targetDate) save({ id: goal.id, targetDate: v }); }}
+            />
+          </span>
+
+          {goal.incentive && (
+            <Chip
+              icon={<IndianRupee size={12} />}
+              label={`${INCENTIVE_TYPE_LABEL[goal.incentiveType ?? ""] ?? "Incentive"}${goal.incentiveAmount > 0 ? ` · ${formatInr(goal.incentiveAmount)}` : ""}`}
+              tone="green"
+            />
+          )}
+          {goal.carriedFromId && <Chip label="↪ carried" />}
+          {goal.archived && <Chip icon={<Archive size={12} />} label="Archived" tone="slate" />}
+        </div>
+
+        {goal.notes && (
+          <p className="mt-2.5 text-[13.5px] leading-relaxed whitespace-pre-wrap" style={{ color: "var(--color-ink-soft)" }}>
+            {goal.notes}
+          </p>
+        )}
+
+        {/* ── PROGRESS — the hero: big display %, bold gradient bar, one control ── */}
+        <div
+          className="mt-4 rounded-2xl p-4"
+          style={{ background: "var(--color-surface-soft)", border: "1px solid var(--color-hairline)" }}
+        >
+          <div className="flex items-end justify-between gap-3">
+            <span className="text-[10.5px] font-black uppercase tracking-[0.14em]" style={{ color: "var(--color-ink-subtle)" }}>Progress</span>
+            <span
+              className="text-[26px] font-black leading-none tabular-nums"
+              style={{ fontFamily: "var(--font-display)", color: `var(--color-${pctTone(eff)}-deep)` }}
+            >
+              {eff}%
+            </span>
+          </div>
+          <div className="mt-2 h-3 overflow-hidden rounded-full" style={{ background: "var(--color-surface-track)" }}>
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${eff}%`, background: `linear-gradient(90deg, var(--color-${pctTone(eff)}), var(--color-${pctTone(eff)}-deep))` }}
+            />
+          </div>
+          {canReport && (
+            <div className="mt-3">
+              <ProgressControl value={goal.pctDone} disabled={pending} onCommit={savePct} />
+            </div>
+          )}
+          {goal.acceptPct != null && goal.acceptPct !== goal.pctDone && (
+            <p className="mt-2 text-[12px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
+              Reported {goal.pctDone}% · accepted {goal.acceptPct}%
+            </p>
+          )}
         </div>
 
         {/* Owner REPORT (owner, not manager) — the narrative the reviewer reads. */}
