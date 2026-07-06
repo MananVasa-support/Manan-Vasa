@@ -1,0 +1,40 @@
+# Vercel Web Analytics Installation
+
+Successfully installed and configured Vercel Web Analytics for the task-management Next.js project.
+
+## Changes Made
+
+### 1. Installed @vercel/analytics Package
+- Used pnpm (the project's package manager) to install `@vercel/analytics@2.0.1`
+- Package added to dependencies in `package.json`
+- Lock file `pnpm-lock.yaml` updated with new dependencies
+
+### 2. Integrated Analytics Component
+- Modified `app/layout.tsx` to import and render the Analytics component
+- Added import: `import { Analytics } from "@vercel/analytics/next";`
+- Placed `<Analytics />` component in the root layout's body, right after `<SpeedInsights />`
+- Follows the official Next.js App Router integration pattern from Vercel documentation
+
+### 3. Implementation Details
+- The Analytics component is placed in the root layout to track all pages across the application
+- Auto-no-ops outside Vercel environments (no environment variables required)
+- When deployed to Vercel, it will automatically record visitor analytics per route
+- Consistent with the existing SpeedInsights integration pattern already in the project
+- Added descriptive comment explaining the Analytics functionality
+
+## Files Modified
+- `task-management/app/layout.tsx` - Added Analytics import and component
+- `task-management/package.json` - Added @vercel/analytics dependency
+- `task-management/pnpm-lock.yaml` - Updated with new package dependencies
+
+## Verification
+- ✅ TypeScript compilation passes with no errors
+- ✅ ESLint passes with no errors on modified files
+- ✅ Integration follows official Vercel documentation (fetched 2026-06-26)
+- ✅ Follows existing code patterns (matches SpeedInsights integration)
+- ✅ Dependencies installed and lock file updated
+
+## Notes
+- The Analytics component will only collect data when the app is deployed to Vercel
+- No additional configuration needed; analytics will be accessible from the Vercel project dashboard
+- The implementation is framework-specific for Next.js App Router as per the documentation
