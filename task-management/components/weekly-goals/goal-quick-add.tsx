@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Loader2, Check, IndianRupee } from "lucide-react";
 import { createWeeklyGoal } from "@/app/(app)/weekly-goals/actions";
 import { ComboInput } from "@/components/weekly-goals/field-controls";
+import { WeeklyGoalDrawer } from "@/components/weekly-goals/goal-drawer";
 import { formatInr } from "@/lib/format";
 
 /** One incentive-catalog row, as surfaced to the goal-entry Routine picker. */
@@ -137,9 +138,11 @@ export function GoalQuickAdd(props: Props) {
     );
   }
 
-  if (!open) {
-    const short = Math.max(0, MIN_GOALS - props.currentCount);
-    return (
+  const short = Math.max(0, MIN_GOALS - props.currentCount);
+
+  return (
+    <>
+      {/* The dashed "Add goal" tile on the board — opens the composer drawer. */}
       <button
         type="button"
         onClick={() => {
@@ -163,35 +166,43 @@ export function GoalQuickAdd(props: Props) {
           </span>
         )}
       </button>
-    );
-  }
 
-  return (
-    <div
-      className="rounded-2xl border p-5"
-      style={{
-        background: "var(--color-surface-card)",
-        borderColor: "var(--color-hairline)",
-        boxShadow: "0 1px 3px rgba(15,23,42,0.05), 0 14px 36px -26px rgba(15,23,42,0.28)",
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
-      }}
-    >
-      <div className="mb-3.5 flex items-center justify-between">
-        <span className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--color-altus-red-deep)" }}>
-          New goal · #{props.currentCount + 1}
-        </span>
-        <button
-          type="button"
-          onClick={() => { setOpen(false); reset(); }}
-          className={`rounded-full px-1.5 text-[13px] font-bold text-ink-muted hover:text-ink-strong transition-colors cursor-pointer ${FOCUS_RING}`}
+      <WeeklyGoalDrawer
+        open={open}
+        onClose={() => { setOpen(false); reset(); }}
+        eyebrow={`New goal · #${props.currentCount + 1}`}
+        title="Add a weekly goal"
+        footer={
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[12px] font-medium" style={{ color: "var(--color-ink-subtle)" }}>
+              ⌘/Ctrl + Enter · auto-balances to {TOTAL}
+            </span>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={saving}
+              className={`wg-btn inline-flex items-center gap-1.5 rounded-full px-6 py-2.5 text-[14px] font-bold text-white disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}
+              style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+            >
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.8} />}
+              Add goal
+            </button>
+          </div>
+        }
+      >
+        <div
+          className="grid gap-5"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
+          }}
         >
-          Cancel
-        </button>
-      </div>
+          {error && (
+            <p className="rounded-lg px-3 py-2 text-[13px] font-semibold text-altus-red" style={{ background: "color-mix(in srgb, var(--color-altus-red) 8%, transparent)" }}>
+              {error}
+            </p>
+          )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="mb-1 block text-[12px] font-bold text-ink-soft">Client</span>
           <ComboInput value={client} options={props.clientOptions} onChange={setClient} inputRef={clientRef} placeholder="Client" />
@@ -330,23 +341,8 @@ export function GoalQuickAdd(props: Props) {
         )}
       </div>
 
-      <div className="mt-3.5 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={submit}
-          disabled={saving}
-          className={`wg-sheen cursor-pointer ml-auto inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[14px] font-bold text-white hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}
-          style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
-        >
-          {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.8} />}
-          Add goal
-        </button>
-      </div>
-
-      {error && <p className="mt-2 text-[13px] font-semibold text-altus-red">{error}</p>}
-      <p className="mt-2 text-[12px] font-semibold text-ink-muted">
-        ⌘/Ctrl + Enter to save · weights auto-balance so your week always totals {TOTAL} · up to {MAX_GOALS} goals.
-      </p>
-    </div>
+        </div>
+      </WeeklyGoalDrawer>
+    </>
   );
 }

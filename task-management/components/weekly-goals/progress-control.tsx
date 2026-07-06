@@ -41,7 +41,7 @@ export function ProgressControl({
   return (
     <div className="grid gap-2.5">
       {!compact && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="grid grid-cols-5 gap-1">
           {PRESETS.map((p) => {
             const active = v === p;
             return (
@@ -51,7 +51,7 @@ export function ProgressControl({
                 disabled={disabled}
                 onClick={() => commit(p)}
                 aria-pressed={active}
-                className={`min-w-[44px] rounded-full px-3 py-1.5 text-[13px] font-black tabular-nums transition-colors disabled:opacity-60 ${FOCUS_RING}`}
+                className={`rounded-md py-1.5 text-center text-[12.5px] font-black tabular-nums transition-colors disabled:opacity-60 ${FOCUS_RING}`}
                 style={
                   active
                     ? { background: "var(--color-altus-red)", color: "#fff", border: "1px solid var(--color-altus-red)" }
