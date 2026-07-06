@@ -594,9 +594,16 @@ export function WeeklyGoalsBoard(props: Props) {
                       {/* #2 — collapsible: this employee's cards hide when collapsed.
                           reduced-motion-safe (a plain conditional, no height anim). */}
                       {!collapsed[empId] && (
-                        <div className="flex flex-col gap-3.5 wg-rise">
+                        <div
+                          className="overflow-hidden rounded-2xl wg-rise"
+                          style={{
+                            background: "var(--color-surface-card)",
+                            border: "1px solid var(--color-hairline)",
+                            boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 14px 34px -26px rgba(15,23,42,0.16)",
+                          }}
+                        >
                           {g.rows.map((goal, i) => (
-                            <div key={goal.id} className="wg-rise" style={{ animationDelay: `${Math.min(i * 40, 280)}ms` }}>
+                            <div key={goal.id} style={{ borderTop: i > 0 ? "1px solid var(--color-hairline)" : undefined }}>
                               <GoalCard
                                 goal={goal}
                                 srNo={i + 1}
@@ -644,20 +651,31 @@ export function WeeklyGoalsBoard(props: Props) {
               </button>
             </div>
           )}
-          {displayed.map((goal, i) => (
-            <div key={goal.id} className="wg-rise" style={{ animationDelay: `${Math.min(i * 40, 280)}ms` }}>
-              <GoalCard
-                goal={goal}
-                srNo={i + 1}
-                canManage={canManage(goal.employeeId)}
-                canReport={canReport(goal.employeeId)}
-                canReview={canManage(goal.employeeId)}
-                employeeWeightTotal={singleWeightTotal}
-                autoFocus={props.focusId === goal.id}
-                {...sharedCardProps}
-              />
+          {displayed.length > 0 && (
+            <div
+              className="overflow-hidden rounded-2xl wg-rise"
+              style={{
+                background: "var(--color-surface-card)",
+                border: "1px solid var(--color-hairline)",
+                boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 14px 34px -26px rgba(15,23,42,0.16)",
+              }}
+            >
+              {displayed.map((goal, i) => (
+                <div key={goal.id} style={{ borderTop: i > 0 ? "1px solid var(--color-hairline)" : undefined }}>
+                  <GoalCard
+                    goal={goal}
+                    srNo={i + 1}
+                    canManage={canManage(goal.employeeId)}
+                    canReport={canReport(goal.employeeId)}
+                    canReview={canManage(goal.employeeId)}
+                    employeeWeightTotal={singleWeightTotal}
+                    autoFocus={props.focusId === goal.id}
+                    {...sharedCardProps}
+                  />
+                </div>
+              ))}
             </div>
-          ))}
+          )}
           <GoalQuickAdd
             employeeId={props.scopeEmp}
             weekStart={props.weekStart}
