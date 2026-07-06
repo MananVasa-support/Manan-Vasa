@@ -723,8 +723,12 @@ function WeightMeter({ total }: { total: number }) {
         className="text-[12.5px] font-bold tabular-nums whitespace-nowrap"
         style={{ color: textColor }}
       >
-        {total} / {WEIGHT_BUDGET}
-        {!ok && <span className="ml-1 font-semibold">· {over ? "over" : "under"}</span>}
+        {total} of {WEIGHT_BUDGET} planned
+        {over ? (
+          <span className="ml-1 font-semibold">· {total - WEIGHT_BUDGET} over</span>
+        ) : !ok ? (
+          <span className="ml-1 font-semibold">· {WEIGHT_BUDGET - total} left</span>
+        ) : null}
       </span>
     </span>
   );

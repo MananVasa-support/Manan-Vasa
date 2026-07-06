@@ -2206,6 +2206,20 @@ select.nt-input {
 /* Staggered entrance for cards/sections. Pair with inline animation-delay. */
 .wg-rise { animation: fadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* Weekly Goals drawer (Edit / Review) — slide from the right, fade the backdrop.
+   On phones the panel becomes a bottom sheet, so it rises instead. */
+@keyframes wgFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wgDrawerIn { from { transform: translateX(28px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes wgDrawerInUp { from { transform: translateY(32px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.wg-fade-in { animation: wgFadeIn 0.2s ease both; }
+.wg-drawer-in { animation: wgDrawerIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (max-width: 767px) {
+  .wg-drawer-in { animation: wgDrawerInUp 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wg-fade-in, .wg-drawer-in { animation: none !important; }
+}
+
 /* Polished button: lift on hover, settle on press. */
 .wg-btn {
   transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
