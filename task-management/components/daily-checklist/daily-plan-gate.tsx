@@ -1002,7 +1002,7 @@ function GoalRow({
 
           {/* inline today's progress mini-form */}
           <form
-            className="mt-2.5 flex items-center gap-2"
+            className="mt-2.5 grid gap-2"
             onSubmit={(e) => {
               e.preventDefault();
               const n = pct.trim() === "" ? null : Math.max(0, Math.min(100, Math.round(Number(pct))));
@@ -1014,40 +1014,64 @@ function GoalRow({
               onLog(g.id, num, note.trim());
             }}
           >
-            <div
-              className="flex items-center gap-1 rounded-lg border px-2 py-1.5"
-              style={{ borderColor: blocks ? "color-mix(in srgb, var(--color-altus-red) 45%, transparent)" : "var(--color-hairline-strong)" }}
-            >
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={pct}
-                onChange={(e) => setPct(e.target.value)}
-                aria-label={`Today's progress % on "${label}"`}
-                placeholder="0"
-                className={`w-12 bg-transparent text-right text-[13px] font-bold tabular-nums text-ink-strong outline-none placeholder:text-ink-subtle ${FOCUS_RING}`}
-              />
-              <span className="text-[12px] font-bold text-ink-subtle">%</span>
+            {/* One-tap % presets — same quick control as the board's cards. */}
+            <div className="grid grid-cols-5 gap-1">
+              {[0, 25, 50, 75, 100].map((p) => {
+                const active = pct !== "" && Math.round(Number(pct)) === p;
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPct(String(p))}
+                    aria-pressed={active}
+                    className={`rounded-md py-1 text-center text-[12px] font-black tabular-nums transition-colors ${FOCUS_RING}`}
+                    style={
+                      active
+                        ? { background: "var(--color-altus-red)", color: "#fff", border: "1px solid var(--color-altus-red)" }
+                        : { background: "var(--color-surface-soft)", color: "var(--color-ink-soft)", border: "1px solid var(--color-hairline-strong)" }
+                    }
+                  >
+                    {p}
+                  </button>
+                );
+              })}
             </div>
-            <input
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              maxLength={500}
-              aria-label={`Today's note on "${label}"`}
-              placeholder="note (optional)"
-              className={`min-w-0 flex-1 rounded-lg border bg-transparent px-2.5 py-1.5 text-[13px] font-medium text-ink-strong outline-none placeholder:text-ink-subtle ${FOCUS_RING}`}
-              style={{ borderColor: "var(--color-hairline-strong)" }}
-            />
-            <button
-              type="submit"
-              disabled={logging}
-              className={`wg-btn inline-flex shrink-0 items-center justify-center rounded-lg px-3 py-1.5 text-[12.5px] font-bold text-white cursor-pointer disabled:opacity-50 ${FOCUS_RING}`}
-              style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
-            >
-              {logging ? <Loader2 size={13} className="animate-spin" /> : "Log"}
-            </button>
+            <div className="flex items-center gap-2">
+              <div
+                className="flex items-center gap-1 rounded-lg border px-2 py-1.5"
+                style={{ borderColor: blocks ? "color-mix(in srgb, var(--color-altus-red) 45%, transparent)" : "var(--color-hairline-strong)" }}
+              >
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={pct}
+                  onChange={(e) => setPct(e.target.value)}
+                  aria-label={`Today's progress % on "${label}"`}
+                  placeholder="0"
+                  className={`w-12 bg-transparent text-right text-[13px] font-bold tabular-nums text-ink-strong outline-none placeholder:text-ink-subtle ${FOCUS_RING}`}
+                />
+                <span className="text-[12px] font-bold text-ink-subtle">%</span>
+              </div>
+              <input
+                type="text"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={500}
+                aria-label={`Today's note on "${label}"`}
+                placeholder="note (optional)"
+                className={`min-w-0 flex-1 rounded-lg border bg-transparent px-2.5 py-1.5 text-[13px] font-medium text-ink-strong outline-none placeholder:text-ink-subtle ${FOCUS_RING}`}
+                style={{ borderColor: "var(--color-hairline-strong)" }}
+              />
+              <button
+                type="submit"
+                disabled={logging}
+                className={`wg-btn inline-flex shrink-0 items-center justify-center rounded-lg px-3 py-1.5 text-[12.5px] font-bold text-white cursor-pointer disabled:opacity-50 ${FOCUS_RING}`}
+                style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+              >
+                {logging ? <Loader2 size={13} className="animate-spin" /> : "Log"}
+              </button>
+            </div>
           </form>
           {blocks && (
             <p className="mt-1.5 text-[11.5px] font-semibold" style={{ color: "var(--color-altus-red-deep)" }}>

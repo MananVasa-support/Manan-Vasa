@@ -170,7 +170,7 @@ export function WeeklyGoalsFillForm({ goals, weekLabel, greetingName }: Props) {
                   % Done
                 </label>
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="grid grid-cols-5 gap-1">
                     {PCT_PRESETS.map((p) => {
                       const active = draft.pctDone === p;
                       return (
@@ -179,7 +179,7 @@ export function WeeklyGoalsFillForm({ goals, weekLabel, greetingName }: Props) {
                           type="button"
                           disabled={pending}
                           onClick={() => patch(g.id, { pctDone: p })}
-                          className="wg-btn cursor-pointer rounded-full border px-3.5 py-1.5 text-[14px] font-bold tabular-nums disabled:opacity-50"
+                          className="wg-btn cursor-pointer rounded-md border py-1.5 text-center text-[13px] font-bold tabular-nums disabled:opacity-50"
                           style={
                             active
                               ? {
