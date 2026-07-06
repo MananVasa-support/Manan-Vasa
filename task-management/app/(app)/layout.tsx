@@ -34,20 +34,27 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect("/hub");
   }
 
-  // The daily ritual gate chain. Policy: "once before any workspace" — required
-  // when entering ANY room (WMS/Employees/Sales/…), but the hub launcher and
-  // shared surfaces (workspaceForPath === null) are NEVER gated. All checks are
-  // day-scoped + FAIL-OPEN, so a finished ritual / DB hiccup never traps anyone.
+  // The daily ritual gate chain. Policy: a COMPULSORY post-login wall — the daily
+  // rituals (plan-your-day / DCC / manager duties) must be done before ANY app
+  // surface opens, INCLUDING the hub launcher. There is no ungated landing spot:
+  // you cannot slip past by going to /hub or any other route. All checks are
+  // day-scoped + FAIL-OPEN, so a finished ritual / DB hiccup never traps anyone,
+  // and each has a kill-switch (DCC_GATE_OFF / MANAGER_GATES_OFF).
+  //
+  // The gate view takes over full-screen and its ritual is filled inline (no
+  // navigation), so gating every route is safe — the manager duty routes
+  // (/tasks/new, /weekly-goals) stay reachable via the `onDutyRoute` exemption.
   //
   // Super-admins (Manan, Hetesh) get a floating "Skip for today" button on every
   // gate; once clicked, `gateSkipActive` returns true and the whole chain is
-  // bypassed for the rest of the day.
+  // bypassed for the rest of the day. Skip is super-admin ONLY (server-verified),
+  // so employees + managers can never bypass.
   const canSkip = isSuperAdmin(me.email);
   const skipToday = await gateSkipActive(me).catch(() => false);
   // Wrap a gate render with the floating skip button for super-admins.
   const gate = (node: ReactNode) => (canSkip ? <>{node}<SkipGateButton /></> : node);
 
-  if (ws && !skipToday) {
+  if (!skipToday) {
     const firstName = me.name.split(" ")[0] ?? me.name;
     // Managers (have direct reports), admins and super-admins are EXEMPT from the
     // EMPLOYEE planning gate — their loop is give-tasks → DCC, not plan-your-day.

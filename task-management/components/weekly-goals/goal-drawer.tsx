@@ -62,25 +62,30 @@ export function WeeklyGoalDrawer({
   if (!mounted || !open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[120] flex justify-end max-md:items-end" role="dialog" aria-modal="true" aria-label={title}>
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center p-4 max-md:items-end max-md:p-0"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
       {/* Backdrop */}
       <button
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 cursor-default bg-[rgba(15,23,42,0.42)] backdrop-blur-[2px] wg-fade-in"
+        className="absolute inset-0 cursor-default bg-[rgba(15,23,42,0.44)] backdrop-blur-[2px] wg-fade-in"
       />
 
-      {/* Panel */}
+      {/* Centered modal panel (bottom sheet on phones) */}
       <div
         ref={panelRef}
-        className="relative flex h-full w-full max-w-[560px] flex-col wg-drawer-in max-md:h-auto max-md:max-h-[92vh] max-md:max-w-none max-md:rounded-t-2xl"
+        className="relative flex max-h-[90vh] w-full max-w-[600px] flex-col overflow-hidden rounded-2xl wg-modal-in max-md:max-h-[92vh] max-md:max-w-none max-md:rounded-b-none max-md:rounded-t-2xl"
         style={{
           background: "var(--color-surface-card)",
-          boxShadow: "-24px 0 60px -30px rgba(15,23,42,0.5)",
-          borderLeft: "1px solid var(--color-hairline)",
+          boxShadow: "0 32px 90px -24px rgba(15,23,42,0.55)",
+          border: "1px solid var(--color-hairline)",
         }}
       >
-        <span aria-hidden className="absolute inset-y-0 left-0 w-1 max-md:hidden" style={{ background: accent }} />
+        <span aria-hidden className="absolute inset-x-0 top-0 h-1" style={{ background: accent }} />
 
         {/* Header */}
         <div
