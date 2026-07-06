@@ -8,6 +8,12 @@ import { listShares } from "@/lib/queries/accounts-shares";
 import { listItFolders } from "@/lib/queries/accounts-it";
 import { listSipItems } from "@/lib/queries/accounts-sip";
 import { listBankItems } from "@/lib/queries/accounts-bank";
+import { listFnoItems } from "@/lib/queries/accounts-fno";
+import { listCashItems } from "@/lib/queries/accounts-cash";
+import { listWeeklyItems } from "@/lib/queries/accounts-weekly";
+import { listMonthlyItems } from "@/lib/queries/accounts-monthly";
+import { listCcCards } from "@/lib/queries/accounts-cc";
+import { listCaCredentials } from "@/lib/queries/accounts-ca";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -113,6 +119,102 @@ async function build(slug: string): Promise<Section | null> {
           link: null,
           fields: fields(kv("Code", r.code)),
         })),
+      };
+    }
+    case "fno-income": {
+      const rows = await listFnoItems(currentFy());
+      return {
+        title,
+        subtitle,
+        stats: [{ label: "Agencies", value: String(rows.length) }],
+        rows: rows.map((r) => ({
+          title: r.agency || r.code || "F&O",
+          subtitle: r.entity ?? null,
+          link: null,
+          fields: fields(kv("Capital", r.capital ? `₹${r.capital}` : null), kv("Code", r.code)),
+        })),
+      };
+    }
+    case "cash-withdrawal": {
+      const rows = await listCashItems(currentFy());
+      return {
+        title,
+        subtitle,
+        stats: [{ label: "Cheques", value: String(rows.length) }],
+        rows: rows.map((r) => ({
+          title: r.nameOnCheque || r.entity || "Cheque",
+          subtitle: r.amount ? `₹${r.amount}` : null,
+          link: null,
+          fields: fields(kv("Entity", r.entity), kv("Cheque no", r.chequeNo), kv("Date", r.chqDate)),
+        })),
+      };
+    }
+    case "weekly-checklist": {
+      const rows = await listWeeklyItems();
+      return {
+        title,
+        subtitle,
+        stats: [{ label: "Items", value: String(rows.length) }],
+        rows: rows.map((r) => ({
+          title: r.title || r.code || "Item",
+          subtitle: r.category ?? null,
+          link: r.fileLink && r.fileLink.trim() ? r.fileLink.trim() : null,
+          fields: fields(kv("Deadline", r.deadline), kv("Responsible", r.responsiblePerson), kv("Frequency", r.frequency), kv("Notes", r.accountsNotes)),
+        })),
+      };
+    }
+    case "monthly-quarterly-annual": {
+      const rows = await listMonthlyItems();
+      return {
+        title,
+        subtitle,
+        stats: [{ label: "Items", value: String(rows.length) }],
+        rows: rows.map((r) => ({
+          title: r.title || r.code || "Item",
+          subtitle: r.type ?? null,
+          link: r.fileLink && r.fileLink.trim() ? r.fileLink.trim() : null,
+          fields: fields(kv("Deadline", r.deadline), kv("Responsible", r.responsiblePerson), kv("Frequency", r.frequency), kv("Notes", r.accountsNotes)),
+        })),
+      };
+    }
+    case "cc-tracker": {
+      const rows = await listCcCards(currentFy());
+      return {
+        title,
+        subtitle,
+        stats: [{ label: "Cards", value: String(rows.length) }],
+        rows: rows.map((r) => ({
+          title: r.cardName || r.code || "Card",
+          subtitle: r.entityName ?? null,
+          link: null,
+          fields: fields(kv("ECS", r.ecs), kv("Stmt period", r.stmtPeriod), kv("Due day", r.dueDay), kv("Code", r.code)),
+        })),
+      };
+    }
+    case "ca-handover": {
+      const groups = await listCaCredentials();
+      const total = groups.reduce((n, g) => n + g.rows.length, 0);
+      return {
+        title,
+        subtitle,
+        stats: [
+          { label: "Credentials", value: String(total) },
+          { label: "Portals", value: String(groups.length) },
+        ],
+        rows: groups.flatMap((g) =>
+          g.rows.map((r) => ({
+            title: r.entityName || r.username || "Credential",
+            subtitle: g.label,
+            link: r.websiteLink && r.websiteLink.trim() ? r.websiteLink.trim() : null,
+            fields: fields(
+              kv("Username", r.username),
+              { label: "Password", value: r.hasPassword ? "•••••• — reveal on web" : "—" },
+              kv("Email", r.defaultEmail),
+              kv("Phone", r.phone),
+              kv("Notes", r.note),
+            ),
+          })),
+        ),
       };
     }
     default:
