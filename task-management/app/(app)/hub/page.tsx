@@ -8,6 +8,11 @@ import { MODULE_THEME, MODULE_ORDER, type ModuleTheme } from "@/lib/module-theme
 import { HubSignOut } from "@/components/hub/hub-signout";
 import { GlobalSearch } from "@/components/header/global-search";
 
+// The hub is the post-login landing and MUST run the (app) layout's daily-ritual
+// gate on every request — never a cached/prerendered copy that would let someone
+// past the wall. Force dynamic so the gate is always evaluated per-user.
+export const dynamic = "force-dynamic";
+
 /**
  * THE FRONT DOOR — post-login Hub launcher.
  *
