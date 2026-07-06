@@ -7,6 +7,18 @@ import { canAccessWorkspace } from "@/lib/workspaces";
 import { MODULE_THEME, MODULE_ORDER, type ModuleTheme } from "@/lib/module-theme";
 import { HubSignOut } from "@/components/hub/hub-signout";
 import { GlobalSearch } from "@/components/header/global-search";
+import type { ReactNode } from "react";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { gateSkipActive } from "@/lib/auth/gate-skip";
+import { isManagerWithReports, managerDailyTaskGate } from "@/lib/manager-gates";
+import { needsDailyChecklistPlan } from "@/lib/daily-checklist/gate";
+import { needsGoalActuals } from "@/lib/weekly-goals/actuals";
+import { dccGateTarget, dccManagerReviewState } from "@/lib/dcc/gate";
+import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist-view";
+import { ManagerDailyTaskGate } from "@/components/manager-gates/manager-daily-task-gate";
+import { DccGateView } from "@/components/dcc/dcc-gate-view";
+import { DccManagerReviewGate } from "@/components/dcc/dcc-manager-review-gate";
+import { SkipGateButton } from "@/components/layout/skip-gate-button";
 
 // The hub is the post-login landing and MUST run the (app) layout's daily-ritual
 // gate on every request — never a cached/prerendered copy that would let someone
@@ -108,6 +120,39 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
 export default async function HubPage() {
   const me = await requireUser();
   const firstName = me.name.split(" ")[0] ?? me.name;
+
+  // COMPULSORY DAILY WALL — enforced HERE on the hub (the post-login landing) in
+  // addition to the (app) layout, because the layout's gate return wasn't
+  // reliably taking effect for the /hub route on prod. Same policy: fail-open,
+  // day-scoped, super-admin-skippable, kill-switchable (DCC_GATE_OFF /
+  // MANAGER_GATES_OFF). Employees must commit ≥5 checklist items + log goal
+  // progress; managers get their task-give gate; everyone fills DCC.
+  {
+    const canSkip = isSuperAdmin(me.email);
+    const skipToday = await gateSkipActive(me).catch(() => false);
+    if (!skipToday) {
+      const wrap = (node: ReactNode) => (canSkip ? <>{node}<SkipGateButton /></> : node);
+      const isManager = await isManagerWithReports(me.id).catch(() => false);
+      const planExempt = me.isAdmin || canSkip || isManager;
+      if (!planExempt) {
+        const mustPlan =
+          (await needsDailyChecklistPlan(me.id).catch(() => false)) ||
+          (await needsGoalActuals(me.id).catch(() => false));
+        if (mustPlan) return wrap(<DailyChecklistView employeeId={me.id} greetingName={firstName} mode="gate" />);
+      }
+      if (process.env.MANAGER_GATES_OFF !== "true") {
+        const dailyGate = await managerDailyTaskGate(me.id).catch(() => null);
+        if (dailyGate && !dailyGate.satisfied) return wrap(<ManagerDailyTaskGate greetingName={firstName} state={dailyGate} />);
+      }
+      if (process.env.DCC_GATE_OFF !== "true") {
+        const dccTarget = await dccGateTarget(me.id).catch(() => null);
+        if (dccTarget) return wrap(<DccGateView greetingName={firstName} date={dccTarget.date} items={dccTarget.items} entries={dccTarget.entries} />);
+        const dccReview = await dccManagerReviewState(me).catch(() => null);
+        if (dccReview && !dccReview.satisfied) return wrap(<DccManagerReviewGate greetingName={firstName} state={dccReview} />);
+      }
+    }
+  }
+
   const access = await accessFor(me);
 
   return (
