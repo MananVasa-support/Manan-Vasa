@@ -214,14 +214,11 @@ export async function createWeeklyGoal(
   input: CreateWeeklyGoalInput,
 ): Promise<ActionResult<{ id: string }>> {
   const me = await requireUser();
-  // Defense-in-depth fill gate (design §11): can't plan new goals while the
-  // current week's assigned goals are still un-filled. Filling itself goes via
-  // setWeeklyGoalPct/editWeeklyGoal, which are intentionally NOT gated.
-  try {
-    await requireWeeklyGoalsFilled(me);
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Fill your weekly goals to continue" };
-  }
+  // NOTE: the old "fill your existing goals before you can add new ones" gate was
+  // removed here — it blocked managers from planning team goals (and anyone from
+  // adding a goal) whenever they had an unfilled goal of their own. Daily filling
+  // is now enforced by the compulsory post-login gate instead, so this
+  // create-time block was redundant and only got in the way.
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 

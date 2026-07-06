@@ -148,6 +148,23 @@ export function TaskRowActions({ row, employees, me }: Props) {
     });
   }
 
+  // Row actions are a MANAGEMENT surface. Admins get the full power menu; a
+  // task's initiator/reviewer keeps their permission-checked Approve/Reassign
+  // links. A plain DOER (no admin, no rights over this task) gets NOTHING — the
+  // ⋯ trigger is hidden entirely.
+  const permInput = {
+    employee: { id: me.id, isAdmin: me.isAdmin },
+    task: {
+      createdById: row.createdById,
+      initiatorId: row.initiatorId,
+      doerId: row.doerId,
+      status: row.status,
+    },
+  };
+  const showApproveLink = canApprove({ ...permInput, isDoersManager: false });
+  const showReassignLink = canReassign(permInput);
+  if (!me.isAdmin && !showApproveLink && !showReassignLink) return null;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -181,90 +198,86 @@ export function TaskRowActions({ row, employees, me }: Props) {
           </>
         )}
 
-        {STATUS_ACTIONS.map((s) => (
-          <DropdownMenuItem
-            key={s.value}
-            disabled={row.status === s.value}
-            onClick={() =>
-              withTransition(`Status set to ${s.label.replace("Mark ", "")}.`, () =>
-                setTaskStatus(row.id, s.value, row.updatedAt.toISOString()),
-              )
-            }
-          >
-            {s.label}
-          </DropdownMenuItem>
-        ))}
-
-        <DropdownMenuSeparator />
-
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>Change Priority</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            <DropdownMenuLabel>Eisenhower priority</DropdownMenuLabel>
-            {TASK_PRIORITIES.map((p) => (
+        {/* Power actions — set any status (incl. approval verdicts), change
+            priority, reassign to anyone. ADMIN-ONLY; never shown to doers. */}
+        {me.isAdmin && (
+          <>
+            {STATUS_ACTIONS.map((s) => (
               <DropdownMenuItem
-                key={p}
-                disabled={row.priority === p}
-                danger={p === "imp_urgent"}
+                key={s.value}
+                disabled={row.status === s.value}
                 onClick={() =>
-                  withTransition(`Priority set to ${PRIORITY_LABELS[p]}.`, () =>
-                    setTaskPriority(row.id, p as TaskPriority),
+                  withTransition(`Status set to ${s.label.replace("Mark ", "")}.`, () =>
+                    setTaskStatus(row.id, s.value, row.updatedAt.toISOString()),
                   )
                 }
               >
-                {PRIORITY_LABELS[p]}
+                {s.label}
               </DropdownMenuItem>
             ))}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
 
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>Reassign Doer</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
-            <DropdownMenuLabel>Employees</DropdownMenuLabel>
-            {employees.map((e) => (
-              <DropdownMenuItem
-                key={e.id}
-                disabled={e.id === row.doerId}
-                onClick={() =>
-                  withTransition(`Doer reassigned to ${e.name}.`, () =>
-                    reassignDoer(row.id, e.id),
-                  )
-                }
-              >
-                {e.name}
+            <DropdownMenuSeparator />
+
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Change Priority</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuLabel>Eisenhower priority</DropdownMenuLabel>
+                {TASK_PRIORITIES.map((p) => (
+                  <DropdownMenuItem
+                    key={p}
+                    disabled={row.priority === p}
+                    danger={p === "imp_urgent"}
+                    onClick={() =>
+                      withTransition(`Priority set to ${PRIORITY_LABELS[p]}.`, () =>
+                        setTaskPriority(row.id, p as TaskPriority),
+                      )
+                    }
+                  >
+                    {PRIORITY_LABELS[p]}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Reassign Doer</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+                <DropdownMenuLabel>Employees</DropdownMenuLabel>
+                {employees.map((e) => (
+                  <DropdownMenuItem
+                    key={e.id}
+                    disabled={e.id === row.doerId}
+                    onClick={() =>
+                      withTransition(`Doer reassigned to ${e.name}.`, () =>
+                        reassignDoer(row.id, e.id),
+                      )
+                    }
+                  >
+                    {e.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </>
+        )}
+
+        {/* Permission-checked links for a task's initiator/reviewer (non-admins
+            who legitimately own this task). A plain doer has neither. */}
+        {(showApproveLink || showReassignLink) && (
+          <>
+            <DropdownMenuSeparator />
+            {showApproveLink && (
+              <DropdownMenuItem asChild>
+                <Link href={`/tasks/${row.id}#approve` as Route}>Approve / Decline…</Link>
               </DropdownMenuItem>
-            ))}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-
-        {(() => {
-          const permInput = {
-            employee: { id: me.id, isAdmin: me.isAdmin },
-            task: {
-              createdById: row.createdById,
-              initiatorId: row.initiatorId,
-              doerId: row.doerId,
-              status: row.status,
-            },
-          };
-          const items: Array<{ label: string; href: string }> = [];
-          if (canApprove({ ...permInput, isDoersManager: false }))
-            items.push({ label: "Approve / Decline…", href: `/tasks/${row.id}#approve` });
-          if (canReassign(permInput))
-            items.push({ label: "Reassign…", href: `/tasks/${row.id}#reassign` });
-          if (items.length === 0) return null;
-          return (
-            <>
-              <DropdownMenuSeparator />
-              {items.map((it) => (
-                <DropdownMenuItem key={it.label} asChild>
-                  <Link href={it.href as Route}>{it.label}</Link>
-                </DropdownMenuItem>
-              ))}
-            </>
-          );
-        })()}
+            )}
+            {showReassignLink && (
+              <DropdownMenuItem asChild>
+                <Link href={`/tasks/${row.id}#reassign` as Route}>Reassign…</Link>
+              </DropdownMenuItem>
+            )}
+          </>
+        )}
 
         {/* Permanent delete — destructive, so admin-only + confirmed. Lives
             at the very bottom, highlighted red. */}
