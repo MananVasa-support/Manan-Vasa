@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticateMobileRequest, MOBILE_CORS } from "@/lib/auth/mobile";
 import { needsDailyChecklistPlan, MIN_DAILY_ITEMS } from "@/lib/daily-checklist/gate";
-import { needsGoalActuals } from "@/lib/weekly-goals/gate";
+import { needsGoalActuals } from "@/lib/weekly-goals/actuals";
 import { isManagerWithReports } from "@/lib/manager-gates";
 import { dccGateTarget } from "@/lib/dcc/gate";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
