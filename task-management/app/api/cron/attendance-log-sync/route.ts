@@ -10,11 +10,10 @@ import { runPaidLeaveSync } from "@/lib/attendance-log/paid-leave-sync";
  * (engines: lib/attendance-log/attendance-sync.ts + paid-leave-sync.ts —
  * idempotent, audit-logged in sync_runs, never touch attendance_logs/leave).
  *
- * NOT YET SCHEDULED: add to vercel.json after the first reviewed run,
- * off-peak per the DB load-path rule, e.g.
- *   { "path": "/api/cron/attendance-log-sync", "schedule": "30 21 * * *" }  // 03:00 IST
- * Until then this route is inert and, like every cron, unreachable without
- * the CRON_SECRET bearer. Kill switch: ATT_LOG_SYNC_OFF=true (both engines).
+ * SCHEDULED in vercel.json weekly, off-peak per the DB load-path rule:
+ *   { "path": "/api/cron/attendance-log-sync", "schedule": "30 21 * * 0" }  // Sun 03:00 IST
+ * Like every cron it is unreachable without the CRON_SECRET bearer.
+ * Kill switch: ATT_LOG_SYNC_OFF=true (both engines).
  *
  * Auth: `Authorization: Bearer <CRON_SECRET>` (Vercel Cron sets this
  * automatically).

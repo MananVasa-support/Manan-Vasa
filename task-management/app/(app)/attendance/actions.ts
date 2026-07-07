@@ -18,6 +18,7 @@ import { rateLimitOrError } from "@/lib/rate-limit";
 import { afterResponse } from "@/lib/after";
 import { localDateString } from "@/lib/format";
 import { getOrgSettings } from "@/lib/queries/org-settings";
+import { withRetry } from "@/lib/db/with-timeout";
 import { insertPunchRow, resolvePunchGeofence } from "@/lib/attendance/record-punch";
 import { isDccFilledFor } from "@/lib/dcc/gate";
 import { needsDailyPlan } from "@/lib/daily-checklist/gate";
@@ -78,7 +79,14 @@ export async function punchAttendance(input: {
   }
   const { kind, note, location } = parsed.data;
 
-  const settings = await getOrgSettings();
+  // Self-heal a stale pooled connection on the geofence read (see withRetry):
+  // this sits on the daily-critical punch path, so a bounced connection must
+  // not hang the submit. getOrgSettings is a cached read on the warm path.
+  const settings = await withRetry(() => getOrgSettings(), {
+    attempts: 3,
+    timeoutMs: [6000, 10000, 14000],
+    label: "punch-org-settings",
+  });
 
   // ── The ONLY gate: office geofence ───────────────────────────────────
   // When office coordinates are configured the punch must carry a GPS fix
@@ -272,7 +280,6 @@ async function targetForNotify(employeeId: string): Promise<{
 
 function revalidateAttendanceAdmin(): void {
   revalidatePath("/attendance/dashboard");
-  revalidatePath("/attendance/manage");
 }
 
 /**

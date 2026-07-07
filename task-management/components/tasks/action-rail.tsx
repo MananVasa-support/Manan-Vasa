@@ -192,9 +192,15 @@ export function ActionRail({
 
   return (
     <div className="px-4 py-4">
-      <h2
-        className="px-1 mb-3 text-[12px] uppercase tracking-[0.12em] text-ink-subtle font-bold"
-      >
+      <h2 className="px-1 mb-3 flex items-center gap-2 text-[11.5px] uppercase tracking-[0.14em] text-ink-subtle font-bold">
+        <span
+          aria-hidden
+          className="inline-block h-[3px] w-4 rounded-full"
+          style={{
+            background:
+              "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))",
+          }}
+        />
         Admin & Process Actions
       </h2>
       <RoleBanner role={myRole} adminOverride={adminOverride} />

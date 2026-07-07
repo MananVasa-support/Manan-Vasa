@@ -211,9 +211,13 @@ export function FilterBar({
     <div
       className="sticky top-[96px] max-md:top-[72px] z-40 border-b border-hairline"
       style={{
-        backgroundColor: "rgba(250, 251, 252, 0.82)",
+        // Frosted glass band with a whisper of the module's brand red washed
+        // in from the left — reads as part of the module chrome, not a page.
+        background:
+          "radial-gradient(560px 90px at 6% 0%, color-mix(in srgb, var(--color-altus-red) 4%, transparent), transparent 70%), linear-gradient(180deg, rgba(255,255,255,0.86), rgba(250,251,252,0.80))",
         backdropFilter: "blur(20px) saturate(150%)",
         WebkitBackdropFilter: "blur(20px) saturate(150%)",
+        boxShadow: "0 10px 26px -22px rgba(15, 23, 42, 0.20)",
       }}
     >
       <div className="mx-auto max-w-[1600px] px-12 py-2.5 max-md:px-4 flex flex-col gap-2">
@@ -372,9 +376,10 @@ export function FilterBar({
             {activePills.map((p) => (
               <span
                 key={p.key}
-                className="inline-flex items-center gap-1.5 rounded-full pl-2.5 pr-1.5 py-1 text-[13px] font-medium shrink-0"
+                className="inline-flex items-center gap-1.5 rounded-full pl-2.5 pr-1.5 py-1 text-[13px] font-semibold shrink-0"
                 style={{
-                  background: `color-mix(in srgb, ${p.color} 12%, transparent)`,
+                  background: `color-mix(in srgb, ${p.color} 11%, transparent)`,
+                  border: `1px solid color-mix(in srgb, ${p.color} 24%, transparent)`,
                   color: "var(--color-ink-strong)",
                 }}
               >

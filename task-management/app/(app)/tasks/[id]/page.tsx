@@ -36,7 +36,16 @@ export default async function TaskDetailPage({ params }: PageProps) {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-6 max-md:px-4 pt-8 pb-16">
+      <main className="relative mx-auto w-full max-w-[1280px] px-6 max-md:px-4 pt-8 pb-20">
+        {/* Ambient canvas wash — pure CSS, zero-cost depth behind the record. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[420px]"
+          style={{
+            background:
+              "radial-gradient(ellipse 44% 70% at 88% 0%, color-mix(in srgb, var(--color-altus-red) 5%, transparent), transparent 68%), radial-gradient(ellipse 36% 60% at 8% 4%, rgba(15, 23, 42, 0.03), transparent 62%)",
+          }}
+        />
         <Suspense key={id} fallback={<div className="flex min-h-[60vh] items-center justify-center"><BufferingState label="Loading task…" /></div>}>
           <TaskDetailLoader
             taskId={id}

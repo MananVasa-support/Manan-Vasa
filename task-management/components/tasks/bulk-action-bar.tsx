@@ -93,14 +93,41 @@ export function BulkActionBar({
 
   return (
     <div
-      className="sticky top-[150px] z-30 mb-3 flex items-center gap-2 flex-wrap rounded-section border border-hairline bg-surface-card px-4 py-2.5 max-md:top-[120px]"
-      style={{ boxShadow: "0 6px 20px -8px rgba(15,23,42,0.18)" }}
+      className="wg-rise sticky top-[150px] z-30 mb-3 flex items-center gap-2 flex-wrap overflow-hidden rounded-section border px-4 py-2.5 max-md:top-[120px]"
+      style={{
+        borderColor: "color-mix(in srgb, var(--color-altus-red) 22%, var(--color-hairline-strong))",
+        background:
+          "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(250,251,252,0.86))",
+        backdropFilter: "blur(16px) saturate(150%)",
+        WebkitBackdropFilter: "blur(16px) saturate(150%)",
+        boxShadow:
+          "0 12px 32px -12px rgba(225, 6, 0, 0.18), 0 6px 20px -8px rgba(15,23,42,0.16)",
+      }}
       role="region"
       aria-label="Bulk actions"
     >
+      {/* Brand accent rail — marks the bar as a live, armed control strip. */}
+      <span
+        aria-hidden
+        className="absolute inset-y-0 left-0 w-[3px]"
+        style={{
+          background:
+            "linear-gradient(180deg, var(--color-altus-red), var(--color-altus-red-deep))",
+        }}
+      />
       <span className="inline-flex items-center gap-2 text-[14px] font-bold text-ink-strong">
         {pending && <Loader2 size={14} className="animate-spin text-altus-red" />}
-        {count} selected
+        <span
+          className="inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-full text-white tabular-nums text-[12.5px] font-black"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+            boxShadow: "0 3px 8px -3px rgba(225, 6, 0, 0.5)",
+          }}
+        >
+          {count}
+        </span>
+        selected
       </span>
 
       <span className="mx-1 h-5 w-px bg-hairline" aria-hidden />
@@ -248,7 +275,8 @@ export function BulkActionBar({
                 run("Deleted", () => bulkDelete(selectedIds));
               }
             }}
-            className="inline-flex items-center gap-1.5 rounded-pill border border-hairline-strong px-3 py-1.5 text-[13px] font-bold text-altus-red hover:bg-altus-red/8 transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[13px] font-bold text-altus-red bg-surface-card shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:bg-altus-red/8 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
+            style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 35%, transparent)" }}
           >
             <Trash2 size={14} strokeWidth={2.2} />
             Delete
@@ -269,4 +297,4 @@ export function BulkActionBar({
 }
 
 const chipBtn =
-  "inline-flex items-center gap-1.5 rounded-pill border border-hairline-strong px-3 py-1.5 text-[13px] font-bold text-ink-soft hover:border-altus-red hover:text-altus-red transition-colors disabled:opacity-50";
+  "inline-flex items-center gap-1.5 rounded-pill border border-hairline-strong bg-surface-card px-3 py-1.5 text-[13px] font-bold text-ink-soft shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:border-altus-red hover:text-altus-red hover:bg-altus-red/[0.04] transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40";

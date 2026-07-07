@@ -57,17 +57,31 @@ export default async function AgendaPage({ searchParams }: PageProps) {
 
   // Agenda-card shape derived from the same filtered rows the List view uses,
   // so both views always agree. The board buckets these by IST due-day.
+  // (taskNo/client/status/priority/doer ride along from the SAME rows — zero
+  // extra queries — so the agenda cards can show full context.)
   const agendaTasks: AgendaTask[] = rows.map((r) => ({
     id: r.id,
+    taskNo: r.taskNo,
     title: r.title,
     subject: r.subject,
+    client: r.client,
     description: r.description,
+    status: r.status,
+    priority: r.priority,
+    doerName: r.doerName,
     dueYmd: istYmd(r.dueAt),
     late: isDoneLate({ status: r.status, completedAt: r.completedAt, dueAt: r.dueAt }),
   }));
 
   const now = new Date();
   const todayYmd = istYmd(now);
+  const todayLabel = now.toLocaleDateString("en-US", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: TZ,
+  });
   const days = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
     const ymd = istYmd(d);
@@ -105,6 +119,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
       <MyDayWorkspace
         firstName={me.name.split(" ")[0] ?? me.name}
         isAdmin={me.isAdmin}
+        todayLabel={todayLabel}
         todayYmd={todayYmd}
         days={days}
         agendaTasks={agendaTasks}

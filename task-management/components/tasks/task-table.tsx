@@ -642,8 +642,19 @@ export function TaskTable({
     <div ref={listTopRef} className="scroll-mt-6">
       {/* Toolbar — one line: Group-by ▾ · Search · pager (1 … N · Next · Last)
           · Rows/page · page readout · Columns. Everything pagination-related
-          lives up here so the table gets the vertical space below. */}
-      <div className="mb-3 flex items-center gap-3 flex-wrap">
+          lives up here so the table gets the vertical space below. A quiet
+          glass strip so the controls read as one instrument panel. */}
+      <div
+        className="wg-rise mb-3 flex items-center gap-3 flex-wrap rounded-section border border-hairline px-3.5 py-2.5 max-md:px-3"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(255,255,255,0.82), rgba(250,251,252,0.72))",
+          backdropFilter: "blur(14px) saturate(140%)",
+          WebkitBackdropFilter: "blur(14px) saturate(140%)",
+          boxShadow:
+            "0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 26px -20px rgba(15, 23, 42, 0.18)",
+        }}
+      >
         <div className="flex items-center gap-3 flex-wrap min-w-0">
           <GroupByControl value={groupBy} onChange={setGroupBy} />
           <div className="w-full sm:w-[340px] md:w-[400px] min-w-[200px]">
@@ -681,8 +692,12 @@ export function TaskTable({
       <div
         // Cap the table to the viewport and scroll it internally so the
         // sticky header row below stays frozen while you page through rows.
-        className="bg-surface-card rounded-section border border-hairline overflow-auto max-h-[calc(100vh-260px)] max-md:hidden"
-        style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
+        className="wg-rise bg-surface-card rounded-section border border-hairline overflow-auto max-h-[calc(100vh-260px)] max-md:hidden"
+        style={{
+          animationDelay: "60ms",
+          boxShadow:
+            "0 1px 2px rgba(15, 23, 42, 0.04), 0 16px 40px -24px rgba(15, 23, 42, 0.20)",
+        }}
       >
       <table className="min-w-full">
         <thead>
@@ -707,14 +722,18 @@ export function TaskTable({
                     }
                     className={`sticky top-0 px-5 py-4 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : "z-20"}`}
                     style={{
-                      // Highlighted header bar — a tinted strip with darker
-                      // label text that sets the column row apart from the
-                      // white body rows below.
-                      background: "var(--color-surface-track)",
+                      // Crisp glass header strip — a near-opaque frosted
+                      // gradient (blur catches the rows scrolling beneath)
+                      // with a hairline seat drawn as an inset shadow so it
+                      // stays put while the header is stuck.
+                      background:
+                        "linear-gradient(180deg, rgba(255,255,255,0.94), rgba(244,246,249,0.90))",
+                      backdropFilter: "blur(10px) saturate(140%)",
+                      WebkitBackdropFilter: "blur(10px) saturate(140%)",
                       color: "var(--color-ink-soft)",
-                      ...(isActions
-                        ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" }
-                        : {}),
+                      boxShadow: isActions
+                        ? "inset 0 -1px 0 var(--color-hairline-strong), -10px 0 14px -10px rgba(15,23,42,0.14)"
+                        : "inset 0 -1px 0 var(--color-hairline-strong)",
                     }}
                   >
                     {canSort ? (
@@ -774,12 +793,24 @@ export function TaskTable({
           return (
             <React.Fragment key={row.id}>
               {showHeader && (
-                <tr className="bg-surface-subtle/60">
+                <tr>
                   <td
                     colSpan={visibleCols}
                     className="px-5 py-2.5 max-md:px-3 border-b border-hairline"
+                    style={{
+                      background:
+                        "linear-gradient(90deg, color-mix(in srgb, var(--color-altus-red) 4.5%, var(--color-surface-soft)), var(--color-surface-soft) 40%)",
+                    }}
                   >
-                    <span className="inline-flex items-center gap-2">
+                    <span className="inline-flex items-center gap-2.5">
+                      <span
+                        aria-hidden
+                        className="inline-block h-4 w-[3px] rounded-full"
+                        style={{
+                          background:
+                            "linear-gradient(180deg, var(--color-altus-red), var(--color-altus-red-deep))",
+                        }}
+                      />
                       <span
                         className="font-black tracking-[-0.01em] text-ink-strong"
                         style={{
@@ -943,9 +974,18 @@ function CompactPager({
             aria-current={p - 1 === pageIndex ? "page" : undefined}
             className={`inline-flex items-center justify-center min-w-9 h-9 px-2.5 rounded-lg text-[13.5px] font-bold tabular-nums border transition-all ${
               p - 1 === pageIndex
-                ? "bg-altus-red text-white border-altus-red"
+                ? "text-white border-transparent"
                 : "bg-surface-card text-ink-strong border-hairline hover:border-altus-red hover:text-altus-red"
             }`}
+            style={
+              p - 1 === pageIndex
+                ? {
+                    background:
+                      "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+                    boxShadow: "0 4px 12px -4px rgba(225, 6, 0, 0.5)",
+                  }
+                : undefined
+            }
           >
             {p}
           </button>
@@ -1001,7 +1041,7 @@ function SearchBox({
           onChange={(e) => onChange(e.target.value)}
           placeholder="Search by task no. (#1042), title, subject, client, doer…"
           aria-label="Search tasks"
-          className="w-full h-11 pl-10 pr-9 rounded-pill border border-hairline bg-surface-card text-[15px] text-ink-strong placeholder:text-ink-subtle outline-none transition-all focus:border-altus-red focus:ring-2 focus:ring-altus-red/25"
+          className="w-full h-10 pl-10 pr-9 rounded-pill border border-hairline bg-surface-card text-[15px] text-ink-strong placeholder:text-ink-subtle shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] outline-none transition-all focus:border-altus-red focus:ring-2 focus:ring-altus-red/25"
         />
         {value && (
           <button
@@ -1338,12 +1378,30 @@ function TaskCard({
       status: row.status,
     },
   });
+  // Same at-risk accent stripe the desktop rows get, so overdue work is
+  // impossible to miss on the phone card view too.
+  const cardUrgency = taskUrgency(row.dueAt, row.status);
+  const cardAccent =
+    cardUrgency.level === "overdue"
+      ? "inset 3px 0 0 0 var(--color-red)"
+      : cardUrgency.level === "today"
+        ? "inset 3px 0 0 0 var(--color-orange)"
+        : null;
   return (
     <div
-      className={`bg-surface-card rounded-section border p-4 transition-colors ${
+      className={`bg-surface-card rounded-section border p-4 transition-all ${
         selected ? "border-altus-red" : "border-hairline"
       }`}
-      style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
+      style={{
+        boxShadow: [
+          cardAccent,
+          selected
+            ? "0 0 0 3px color-mix(in srgb, var(--color-altus-red) 14%, transparent), 0 10px 24px -16px rgba(225,6,0,0.35)"
+            : "0 1px 2px rgba(15,23,42,0.04), 0 10px 24px -18px rgba(15,23,42,0.16)",
+        ]
+          .filter(Boolean)
+          .join(", "),
+      }}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2.5 min-w-0">

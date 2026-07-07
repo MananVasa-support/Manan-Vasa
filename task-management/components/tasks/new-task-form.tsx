@@ -241,6 +241,19 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
     setTags((prev) => prev.filter((_, i) => i !== idx));
   }
 
+  // Keyboard-first: land the cursor on the first field (Client Name) the
+  // moment the form mounts. The New Task dialog already does this via
+  // Radix's onOpenAutoFocus; this covers the /tasks/new page route. Skipped
+  // if the user has already focused something (never steal focus).
+  React.useEffect(() => {
+    const t = window.setTimeout(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      document.getElementById("nt-title")?.focus();
+    }, 60);
+    return () => window.clearTimeout(t);
+  }, []);
+
   return (
     <form
       onSubmit={submit}
@@ -251,9 +264,25 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
           void submit();
         }
       }}
-      className="flex flex-col gap-5"
+      className="ntx-form flex flex-col gap-7"
       noValidate
     >
+      {/* Scoped brand override — WMS is Altus RED: re-tint the shared
+          .nt-input focus ring (cyan in globals.css, which other modules
+          still use) to brand red within this form only. Style-only. */}
+      <style>{`
+        .ntx-form .nt-input:focus,
+        .ntx-form .nt-input:focus-visible,
+        .ntx-form .nt-input:focus-within {
+          border-color: color-mix(in srgb, var(--color-altus-red) 55%, #ffffff);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.95),
+            0 0 0 3px color-mix(in srgb, var(--color-altus-red) 13%, transparent),
+            0 4px 10px -4px rgba(15, 23, 42, 0.12);
+        }
+      `}</style>
+
+      <SectionHeading step="01" title="Basics" hint="Who this is for" />
       {/* Client + Subject — paired top row (was two stretched full-width fields).
           items-start so each field keeps its own resting height (the comboboxes
           don't stretch to match a taller row-mate). */}
@@ -291,6 +320,7 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
         </Field>
       </div>
 
+      <SectionHeading step="02" title="Assignment" hint="Owners, priority & deadline" />
       {/* Metadata — two balanced rows (Initiator · Doer / Priority · Due
           Date). The old 4-across row squeezed each field to ~170px: the
           multi-doer chips grew an inner scrollbox and the date input
@@ -363,6 +393,7 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
         </Field>
       </div>
 
+      <SectionHeading step="03" title="Details" hint="The work itself" />
       {/* Task Description · Initiator Notes — full-width textareas, each with a
           mic that records a voice note → Gemini transcript appended to the field. */}
       <Field
@@ -412,6 +443,7 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
         />
       </Field>
 
+      <SectionHeading step="04" title="Organize" hint="Optional — tags, project & schedule" />
       {/* Tags — free-form chips. Type a tag, hit Enter or comma to commit.
           Stored as text[] on the task; each chip is searchable later. */}
       <Field id="nt-tags" label={`Tags${tagsCount > 0 ? ` · ${tagsCount}` : ""}`}>
@@ -452,6 +484,7 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
           only; not synced to any actual calendar API. */}
       <ScheduleSection value={schedule} onChange={setSchedule} />
 
+      <SectionHeading step="05" title="Attachments" hint="Optional — media & reference links" />
       {/* Media + Links — side by side on desktop */}
       <div className="grid grid-cols-2 gap-5 max-md:grid-cols-1">
         <MediaSection
@@ -478,37 +511,100 @@ export function NewTaskForm({ employees, clients, subjects, projectNodes = [], o
       )}
 
       <div
-        className="flex items-center justify-end gap-3 pt-2"
+        className="flex items-center justify-between gap-4 pt-5 max-md:flex-col max-md:items-stretch"
         style={{ borderTop: "1px solid var(--color-hairline)" }}
       >
+        <span className="text-[13.5px] text-ink-subtle max-md:text-center">
+          <kbd
+            className="mx-0.5 inline-flex items-center rounded-md px-1.5 py-0.5 font-mono text-[11.5px] font-bold"
+            style={{
+              background: "rgba(15, 23, 42, 0.06)",
+              color: "var(--color-ink-soft)",
+              boxShadow: "inset 0 -1px 0 rgba(15, 23, 42, 0.12)",
+            }}
+          >
+            Ctrl
+          </kbd>
+          +
+          <kbd
+            className="mx-0.5 inline-flex items-center rounded-md px-1.5 py-0.5 font-mono text-[11.5px] font-bold"
+            style={{
+              background: "rgba(15, 23, 42, 0.06)",
+              color: "var(--color-ink-soft)",
+              boxShadow: "inset 0 -1px 0 rgba(15, 23, 42, 0.12)",
+            }}
+          >
+            ↵
+          </kbd>{" "}
+          creates from anywhere in the form
+        </span>
         <button
           type="submit"
           disabled={pending}
-          className="text-cta text-white px-8 py-4 rounded-chip transition-transform disabled:opacity-50"
+          className="wg-btn wg-sheen text-cta text-white px-9 py-4 rounded-chip disabled:opacity-50 max-md:w-full"
           style={{
             background:
-              "linear-gradient(135deg, rgb(225, 6, 0), rgb(168, 4, 0))",
-            boxShadow: "0 6px 16px rgba(225, 6, 0, 0.34)",
+              "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+            boxShadow:
+              "0 8px 20px -6px rgba(225, 6, 0, 0.45), inset 0 1px 0 rgba(255,255,255,0.2)",
             fontWeight: 800,
             fontSize: 18,
             letterSpacing: "0.005em",
-          }}
-          onMouseEnter={(e) => {
-            if (pending) return;
-            e.currentTarget.style.transform = "translateY(-1px)";
-            e.currentTarget.style.boxShadow =
-              "0 10px 24px rgba(225, 6, 0, 0.45)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow =
-              "0 6px 16px rgba(225, 6, 0, 0.34)";
           }}
         >
           {pending ? "Creating…" : "Create Task"}
         </button>
       </div>
     </form>
+  );
+}
+
+/**
+ * Numbered section heading — pure presentation. Mono step chip in brand
+ * red, display-weight title, right-aligned hint. Groups the long form into
+ * scannable strata without nesting card-in-card chrome.
+ */
+function SectionHeading({
+  step,
+  title,
+  hint,
+}: {
+  step: string;
+  title: string;
+  hint?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 border-b border-hairline pb-2.5">
+      <span
+        aria-hidden
+        className="inline-flex size-6 items-center justify-center rounded-md font-mono text-[11px] font-bold tabular-nums"
+        style={{
+          background:
+            "color-mix(in srgb, var(--color-altus-red) 8%, #ffffff)",
+          color: "var(--color-altus-red-deep)",
+          border:
+            "1px solid color-mix(in srgb, var(--color-altus-red) 20%, transparent)",
+        }}
+      >
+        {step}
+      </span>
+      <span
+        className="text-ink-strong uppercase"
+        style={{
+          fontFamily: "var(--font-display), system-ui, sans-serif",
+          fontWeight: 900,
+          fontSize: 15,
+          letterSpacing: "0.08em",
+        }}
+      >
+        {title}
+      </span>
+      {hint && (
+        <span className="ml-auto text-[13px] text-ink-subtle max-md:hidden">
+          {hint}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -629,8 +725,8 @@ function DoerMultiSelect({
               key={id}
               className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1"
               style={{
-                background: "var(--vp-cyan-tint)",
-                color: "rgb(var(--vp-cyan-deep))",
+                background: "color-mix(in srgb, var(--color-altus-red) 7%, #ffffff)",
+                color: "var(--color-altus-red-deep)",
                 fontSize: 14,
                 fontWeight: 700,
               }}
@@ -738,7 +834,7 @@ function DoerMultiSelect({
                   className="flex items-center gap-3 px-3.5 py-2.5 cursor-pointer transition-colors"
                   style={{
                     background: isSel
-                      ? "var(--vp-cyan-tint)"
+                      ? "color-mix(in srgb, var(--color-altus-red) 7%, #ffffff)"
                       : isHi
                         ? "var(--color-surface-soft)"
                         : "transparent",
@@ -758,7 +854,7 @@ function DoerMultiSelect({
                     <Check
                       size={18}
                       strokeWidth={2.6}
-                      style={{ color: "rgb(var(--vp-cyan-deep))" }}
+                      style={{ color: "var(--color-altus-red-deep)" }}
                     />
                   )}
                 </li>
@@ -802,8 +898,8 @@ function TagsInput({
           key={`${t}-${i}`}
           className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1"
           style={{
-            background: "var(--vp-cyan-tint)",
-            color: "rgb(var(--vp-cyan-deep))",
+            background: "color-mix(in srgb, var(--color-altus-red) 7%, #ffffff)",
+            color: "var(--color-altus-red-deep)",
             fontSize: 14,
             fontWeight: 700,
           }}
@@ -919,7 +1015,7 @@ function MediaSection({
           style={{
             fontFamily: "var(--font-display), system-ui, sans-serif",
             fontSize: 17,
-            color: "rgb(var(--vp-cyan-deep))",
+            color: "var(--color-altus-red-deep)",
           }}
         >
           <ImagePlus size={22} strokeWidth={2.2} />
@@ -964,7 +1060,7 @@ function MediaSection({
         style={{
           padding: 4,
           borderRadius: 12,
-          background: dragOver ? "var(--vp-cyan-tint)" : "transparent",
+          background: dragOver ? "color-mix(in srgb, var(--color-altus-red) 7%, #ffffff)" : "transparent",
           transition: "background 180ms ease",
         }}
       >
@@ -1016,9 +1112,10 @@ function EmptySlot({ onClick }: { onClick: () => void }) {
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.background =
-          "linear-gradient(135deg, var(--vp-cyan-tint) 0%, #e0f2fe 100%)";
-        e.currentTarget.style.borderColor = "rgb(var(--vp-cyan))";
-        e.currentTarget.style.color = "rgb(var(--vp-cyan-deep))";
+          "linear-gradient(135deg, color-mix(in srgb, var(--color-altus-red) 7%, #ffffff) 0%, #fff1f0 100%)";
+        e.currentTarget.style.borderColor =
+          "color-mix(in srgb, var(--color-altus-red) 55%, #ffffff)";
+        e.currentTarget.style.color = "var(--color-altus-red-deep)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background =
@@ -1051,7 +1148,8 @@ function FilledSlot({
     <div
       className="relative aspect-square rounded-chip overflow-hidden group"
       style={{
-        border: "1.5px solid rgb(var(--vp-cyan))",
+        border:
+          "1.5px solid color-mix(in srgb, var(--color-altus-red) 55%, #ffffff)",
         background: "#ffffff",
       }}
     >
@@ -1107,7 +1205,7 @@ function LinksSection({
           style={{
             fontFamily: "var(--font-display), system-ui, sans-serif",
             fontSize: 17,
-            color: "rgb(var(--vp-cyan-deep))",
+            color: "var(--color-altus-red-deep)",
           }}
         >
           <Link2 size={22} strokeWidth={2.2} />
@@ -1189,7 +1287,7 @@ function LinksSection({
               <Link2
                 size={16}
                 strokeWidth={2.2}
-                style={{ color: "rgb(var(--vp-cyan-deep))" }}
+                style={{ color: "var(--color-altus-red-deep)" }}
               />
               <a
                 href={url}

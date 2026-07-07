@@ -105,30 +105,65 @@ export default async function KanbanPage({ searchParams }: PageProps) {
             gutters), clean white surface; status colour lives in the columns. */}
         <section
           className="relative overflow-hidden rounded-section border border-hairline p-5 max-md:p-4"
-          style={{ background: "var(--color-surface-card)" }}
+          style={{
+            background:
+              "linear-gradient(150deg, #ffffff 0%, #ffffff 60%, #fff7f6 100%)",
+            boxShadow:
+              "0 1px 2px rgba(15,23,42,0.04), 0 24px 56px -40px rgba(225,6,0,0.20)",
+          }}
         >
-          <header className="relative mb-6 flex items-end justify-between gap-4 flex-wrap">
+          {/* Brand strip + soft red wash — WMS red identity, light craft. */}
+          <span
+            aria-hidden
+            className="absolute inset-x-0 top-0"
+            style={{
+              height: 3,
+              background:
+                "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep) 55%, transparent)",
+            }}
+          />
+          <span
+            aria-hidden
+            className="absolute -right-32 -top-40 size-[360px] rounded-full"
+            style={{
+              background:
+                "radial-gradient(circle, color-mix(in srgb, var(--color-altus-red) 8%, transparent), transparent 70%)",
+            }}
+          />
+          <header className="wg-rise relative mb-6 flex items-end justify-between gap-4 flex-wrap">
             <div>
-              <h1
-                className="text-ink-strong"
+              <p
+                className="uppercase font-black"
                 style={{
-                  fontFamily: "var(--font-serif)",
-                  fontStyle: "italic",
-                  fontWeight: 500,
-                  fontSize: 40,
-                  letterSpacing: "-0.02em",
+                  fontFamily: "var(--font-display), system-ui, sans-serif",
+                  fontSize: 13,
+                  letterSpacing: "0.14em",
+                  color: "var(--color-altus-red-deep)",
+                }}
+              >
+                WMS · Board
+              </p>
+              <h1
+                className="mt-1.5 text-ink-strong"
+                style={{
+                  fontFamily: "var(--font-display), system-ui, sans-serif",
+                  fontWeight: 900,
+                  fontSize: "clamp(34px, 3.6vw, 46px)",
+                  letterSpacing: "-0.025em",
+                  lineHeight: 1,
                 }}
               >
                 Kanban
               </h1>
-              <p className="mt-1.5 text-ink-soft" style={{ fontSize: 15.5 }}>
+              <p className="mt-2.5 text-ink-soft" style={{ fontSize: 15.5 }}>
                 Drag a task between columns to change its status.
                 {me.isAdmin ? " Drag a column header to reorder the board." : ""}
               </p>
             </div>
             <Link
               href={"/tasks" as Route}
-              className="text-[14px] font-semibold text-ink-soft hover:text-ink-strong transition-colors"
+              className="wg-btn inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-4 h-10 text-[14px] font-bold text-ink-soft hover:text-ink-strong hover:border-hairline-strong transition-colors"
+              style={{ boxShadow: "0 1px 2px rgba(15,23,42,0.04)" }}
             >
               List View →
             </Link>

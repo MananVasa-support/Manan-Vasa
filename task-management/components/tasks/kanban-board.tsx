@@ -269,8 +269,20 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
         <div>
           {/* Running total — filtering lives in the top filter bar now. */}
           <div className="mb-5 flex items-center gap-2.5 flex-wrap">
-            <span className="text-[15px] font-semibold text-ink-soft">
-              <span className="text-ink-strong font-bold tabular-nums">{activeCount}</span>{" "}
+            <span
+              className="inline-flex items-center gap-2 rounded-pill px-3.5 py-1.5 text-[14.5px] font-bold"
+              style={{
+                color: "var(--color-altus-red-deep)",
+                background: "color-mix(in srgb, var(--color-altus-red) 7%, white)",
+                border: "1px solid color-mix(in srgb, var(--color-altus-red) 22%, transparent)",
+              }}
+            >
+              <span
+                className="tabular-nums"
+                style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 16 }}
+              >
+                {activeCount}
+              </span>
               {activeCount === 1 ? "task" : "tasks"} on the board
             </span>
           </div>
@@ -309,14 +321,24 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
                     isCardOver={isCardOver}
                   >
                     {isArchive && colTasks.length === 0 && (
-                      <p className="px-2 py-6 text-center text-[14px] font-semibold leading-relaxed text-ink-subtle">
-                        Drag a card here to archive it.
-                      </p>
+                      <div
+                        className="rounded-chip px-3 py-6 text-center"
+                        style={{ border: "1.5px dashed var(--color-hairline-strong)" }}
+                      >
+                        <p className="text-[14px] font-semibold leading-relaxed text-ink-subtle">
+                          Drag a card here to archive it.
+                        </p>
+                      </div>
                     )}
                     {!isArchive && colTasks.length === 0 && colGoals.length === 0 && (
-                      <p className="px-2 py-6 text-center text-[13.5px] text-ink-subtle">
-                        Nothing here.
-                      </p>
+                      <div
+                        className="rounded-chip px-3 py-6 text-center"
+                        style={{ border: "1.5px dashed var(--color-hairline-strong)" }}
+                      >
+                        <p className="text-[13.5px] font-semibold text-ink-subtle">
+                          Nothing here — drop a card to move it.
+                        </p>
+                      </div>
                     )}
                     {/* Pinned weekly-goal cards at the top of the column —
                         badged, distinct accent, link out to the workspace. */}
@@ -354,7 +376,20 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
         {/* Floating drag preview. */}
         <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.2,0.7,0.3,1)" }}>
           {activeCard ? (
-            <div className="w-[300px] rotate-2 cursor-grabbing rounded-chip border border-altus-red/40 bg-white p-3.5 shadow-2xl">
+            <div
+              className="relative w-[300px] rotate-2 cursor-grabbing rounded-chip border border-altus-red/40 bg-white p-3.5 pl-4 shadow-2xl"
+              style={{
+                boxShadow:
+                  "0 24px 60px -16px rgba(15,23,42,0.35), 0 8px 20px -8px rgba(225,6,0,0.25)",
+              }}
+            >
+              <span
+                aria-hidden
+                className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full"
+                style={{
+                  background: `linear-gradient(180deg, var(--color-${tones[activeCard.status] ?? "slate"}), var(--color-${tones[activeCard.status] ?? "slate"}-deep))`,
+                }}
+              />
               <span
                 className="block text-[15.5px] font-semibold text-ink-strong leading-snug"
                 style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}
@@ -414,32 +449,40 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className="flex-shrink-0 w-[320px] max-sm:w-[85vw] max-sm:snap-center rounded-section p-3.5 transition-colors"
+      className="relative flex-[1_0_320px] max-w-[460px] max-sm:flex-[0_0_85vw] max-sm:max-w-none max-sm:snap-center rounded-section p-3.5 transition-colors"
       style={{
         transform: CSS.Translate.toString(transform),
         transition,
         background: isCardOver ? accentBgLight : "var(--color-surface-soft)",
         border: `1px solid ${isCardOver ? accent : "var(--color-hairline)"}`,
         opacity: isDragging ? 0.5 : 1,
-        boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -18px rgba(15,23,42,0.20)",
+        boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 12px 28px -22px rgba(15,23,42,0.22)",
         touchAction: "manipulation",
       }}
     >
+      {/* Status accent strip along the column top. */}
+      <span
+        aria-hidden
+        className="absolute inset-x-0 top-0 z-30 pointer-events-none"
+        style={{
+          height: 3,
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
+          background: `linear-gradient(90deg, ${accent}, ${accentDeep})`,
+        }}
+      />
       {/* Column header — sticky; the grip is the admin reorder handle. */}
       <div
-        className="sticky top-0 z-20 flex items-center justify-between -mx-3.5 -mt-3.5 mb-3 px-3.5 pt-3.5 pb-2.5"
+        className="sticky top-0 z-20 flex items-center justify-between gap-2 -mx-3.5 -mt-3.5 mb-3 px-3.5 pt-4 pb-2.5"
         style={{
-          background: "var(--color-surface-soft)",
+          background: "inherit",
           backdropFilter: "blur(10px)",
           WebkitBackdropFilter: "blur(10px)",
           borderTopLeftRadius: 16,
           borderTopRightRadius: 16,
         }}
       >
-        <span
-          className="inline-flex items-center gap-2 text-[15.5px] font-bold min-w-0"
-          style={{ color: accentDeep }}
-        >
+        <span className="inline-flex items-center gap-2 min-w-0" style={{ color: accentDeep }}>
           {isAdmin && (
             <button
               type="button"
@@ -452,13 +495,31 @@ function KanbanColumn({
             </button>
           )}
           {isArchive ? (
-            <Archive size={17} strokeWidth={2.4} style={{ color: accent }} />
+            <Archive size={16} strokeWidth={2.4} className="shrink-0" style={{ color: accent }} />
           ) : (
-            <span className="h-3 w-3 rounded-full" style={{ background: accent }} />
+            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: accent }} />
           )}
-          {label}
+          <span
+            className="font-black truncate"
+            style={{
+              fontFamily: "var(--font-display), system-ui, sans-serif",
+              fontSize: 15.5,
+              letterSpacing: "-0.005em",
+            }}
+          >
+            {label}
+          </span>
         </span>
-        <span className="text-[14px] font-bold tabular-nums text-ink-subtle">{count}</span>
+        <span
+          className="rounded-pill px-2.5 py-0.5 text-[13px] font-black tabular-nums shrink-0"
+          style={{
+            color: accentDeep,
+            background: `color-mix(in srgb, ${accent} 13%, white)`,
+            border: `1px solid color-mix(in srgb, ${accent} 28%, transparent)`,
+          }}
+        >
+          {count}
+        </span>
       </div>
 
       <div className="flex flex-col gap-2 min-h-[40px]">{children}</div>
@@ -483,6 +544,13 @@ function KanbanCard({
     data: { type: "card" },
   });
 
+  const statusTone = tones[t.status] ?? "slate";
+  // Effective due already (revised ?? original) from the query; an open task
+  // past it reads as overdue on the due chip.
+  const overdue =
+    !t.archived && !t.completedAt && t.status !== "done" && t.dueAt.getTime() < Date.now();
+  const meta = [t.client?.trim(), t.subject?.trim()].filter((p): p is string => !!p);
+
   return (
     <div
       ref={setNodeRef}
@@ -493,13 +561,26 @@ function KanbanCard({
     >
       <Tooltip.Root delayDuration={220}>
         <Tooltip.Trigger asChild>
-          <div className="group rounded-chip bg-white border border-hairline p-3.5 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:border-altus-red/40">
+          <div
+            className="group relative rounded-chip bg-white border border-hairline p-3.5 pl-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:border-altus-red/40"
+            style={{ boxShadow: "0 1px 2px rgba(15,23,42,0.04)" }}
+          >
+            {/* Status accent stripe. */}
+            <span
+              aria-hidden
+              className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full"
+              style={{
+                background: t.archived
+                  ? "#94a3b8"
+                  : `linear-gradient(180deg, var(--color-${statusTone}), var(--color-${statusTone}-deep))`,
+              }}
+            />
             <div className="flex items-start justify-between gap-2">
               <Link
                 href={`/tasks/${t.id}/focus` as Route}
                 draggable={false}
                 onClick={(e) => e.stopPropagation()}
-                className="text-[15.5px] font-semibold text-ink-strong leading-snug hover:underline"
+                className="text-[15.5px] font-semibold text-ink-strong leading-snug hover:underline group-hover:text-altus-red-deep transition-colors"
                 style={{
                   display: "-webkit-box",
                   WebkitLineClamp: 3,
@@ -513,23 +594,77 @@ function KanbanCard({
                 <Loader2 size={14} className="animate-spin text-ink-subtle shrink-0 mt-0.5" />
               )}
             </div>
-            <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+
+            {/* Badge row — task no · priority · due (red when overdue) · late. */}
+            <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
               {t.taskNo != null && (
-                <span className="text-[12.5px] font-bold tabular-nums text-ink-subtle">
+                <span
+                  className="rounded-md px-1.5 py-0.5 text-[12px] font-black tabular-nums text-ink-subtle"
+                  style={{
+                    background: "var(--color-surface-soft)",
+                    border: "1px solid var(--color-hairline)",
+                  }}
+                >
                   #{t.taskNo}
                 </span>
               )}
-              {t.subject && (
-                <span className="text-[13px] font-semibold text-ink-subtle">
-                  {t.taskNo != null ? "· " : ""}
-                  {t.subject}
-                </span>
-              )}
-              {t.doerName && <span className="text-[13px] text-ink-subtle">· {t.doerName}</span>}
+              <span
+                className="inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-[12px] font-bold whitespace-nowrap"
+                style={{
+                  color: `var(--color-${PRIORITY_TONE[t.priority] ?? "slate"}-deep)`,
+                  background: `color-mix(in srgb, var(--color-${PRIORITY_TONE[t.priority] ?? "slate"}) 12%, white)`,
+                  border: `1px solid color-mix(in srgb, var(--color-${PRIORITY_TONE[t.priority] ?? "slate"}) 26%, transparent)`,
+                }}
+              >
+                <Flag size={11} strokeWidth={2.6} />
+                {PRIORITY_LABELS[t.priority]}
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-[12px] font-bold tabular-nums whitespace-nowrap ${
+                  overdue ? "" : "text-ink-subtle"
+                }`}
+                style={
+                  overdue
+                    ? {
+                        color: "var(--color-red-deep)",
+                        background: "color-mix(in srgb, var(--color-red) 10%, white)",
+                        border: "1px solid color-mix(in srgb, var(--color-red) 28%, transparent)",
+                      }
+                    : {
+                        background: "var(--color-surface-soft)",
+                        border: "1px solid var(--color-hairline)",
+                      }
+                }
+                title={overdue ? "Past its due date" : "Due date"}
+              >
+                <CalendarDays size={11} strokeWidth={2.4} />
+                {format(t.dueAt, "MMM d")}
+                {overdue ? " · overdue" : ""}
+              </span>
               {isDoneLate({ status: t.status, completedAt: t.completedAt, dueAt: t.dueAt }) && (
                 <LateBadge />
               )}
             </div>
+
+            {/* Footer — client · subject + doer chip. */}
+            {(meta.length > 0 || t.doerName) && (
+              <div className="mt-2.5 flex items-center justify-between gap-2">
+                <span className="truncate text-[12.5px] font-semibold text-ink-subtle">
+                  {meta.join(" · ")}
+                </span>
+                {t.doerName && (
+                  <span
+                    className="inline-flex items-center gap-1.5 min-w-0 shrink-0"
+                    title={t.doerName}
+                  >
+                    <EmployeeAvatar name={t.doerName} size="sm" />
+                    <span className="max-w-[110px] truncate text-[12.5px] font-semibold text-ink-subtle">
+                      {t.doerName.split(" ")[0]}
+                    </span>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </Tooltip.Trigger>
         <Tooltip.Portal>
@@ -560,12 +695,11 @@ function KanbanGoalCard({ g }: { g: VirtualTaskRow }) {
   return (
     <Link
       href={g.href as Route}
-      className="group block rounded-chip p-3.5 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+      className="group block rounded-chip p-3.5 pl-[15px] transition-colors duration-200 hover:bg-surface-soft"
       style={{
-        background:
-          "linear-gradient(180deg, color-mix(in srgb, var(--color-altus-red) 6%, white), white)",
-        border:
-          "1px solid color-mix(in srgb, var(--color-altus-red) 32%, transparent)",
+        background: "var(--color-surface-card)",
+        boxShadow: "inset 0 0 0 1px var(--color-hairline)",
+        borderLeft: "3px solid var(--color-altus-red)",
       }}
     >
       <div className="flex items-center justify-between gap-2">

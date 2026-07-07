@@ -155,13 +155,18 @@ export function InlineStatusCell({
     return (
       <span
         aria-label={`Status: ${labels[shown] ?? shown}`}
-        className="inline-flex items-center px-3 py-1.5 rounded-pill text-[13px] font-bold tabular-nums"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-[13px] font-bold tabular-nums"
         style={{
           background: `color-mix(in srgb, var(--color-${tone}) 12%, transparent)`,
           color: `var(--color-${tone}-deep)`,
           border: `1px solid color-mix(in srgb, var(--color-${tone}) 30%, transparent)`,
         }}
       >
+        <span
+          aria-hidden
+          className="inline-block size-1.5 rounded-full shrink-0"
+          style={{ background: `var(--color-${tone})` }}
+        />
         {labels[shown] ?? shown}
       </span>
     );
@@ -181,15 +186,21 @@ export function InlineStatusCell({
           aria-expanded={open}
           aria-controls={open ? listId : undefined}
           aria-label={`Status: ${labels[shown] ?? shown}. Click to change.`}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-[13px] font-bold tabular-nums transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-[13px] font-bold tabular-nums transition-all hover:brightness-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
           style={{
             background: `color-mix(in srgb, var(--color-${tone}) 12%, transparent)`,
             color: `var(--color-${tone}-deep)`,
             cursor: pending ? "wait" : "pointer",
             opacity: pending ? 0.7 : 1,
             border: `1px solid color-mix(in srgb, var(--color-${tone}) 30%, transparent)`,
+            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.5), 0 1px 2px color-mix(in srgb, var(--color-${tone}) 12%, transparent)`,
           }}
         >
+          <span
+            aria-hidden
+            className="inline-block size-1.5 rounded-full shrink-0"
+            style={{ background: `var(--color-${tone})` }}
+          />
           {labels[shown] ?? shown}
           {pending ? (
             <Loader2
@@ -240,7 +251,7 @@ export function InlineStatusCell({
                   className="flex items-center gap-2.5 px-3 py-2 text-[13.5px] cursor-pointer transition-colors"
                   style={{
                     background: sel
-                      ? "var(--vp-cyan-tint)"
+                      ? "color-mix(in srgb, var(--color-altus-red) 7%, transparent)"
                       : i === activeIndex
                         ? "var(--color-surface-soft)"
                         : "transparent",
@@ -277,7 +288,7 @@ export function InlineStatusCell({
                     <Check
                       size={14}
                       strokeWidth={2.6}
-                      style={{ color: "rgb(var(--vp-cyan-deep))" }}
+                      style={{ color: "var(--color-altus-red)" }}
                     />
                   )}
                 </li>

@@ -285,78 +285,59 @@ export function TaskDetailView({
 
   return (
     <div className="relative">
-      {/* Plain background (sir's changes #11) — the decorative "constellation"
-          dots/lines on the left edge were removed; a faint radial wash stays
-          for a touch of depth without distracting from the content. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(ellipse 38% 60% at 92% 10%, rgba(225, 6, 0, 0.04), transparent 65%)",
-        }}
-      />
-
-      {/* TOP HEADER STRIP — back/forward affordance, status, priority pill
-          on the left; Focus / Duplicate / Edit Task on the right.  Sits
-          above the two-column grid so the task body below feels like the
-          subject of the page, not a panel-within-a-panel. */}
+      {/* GLASS RECORD HEADER — command row (nav · task-no · status ·
+          priority · Focus/Duplicate/Edit) above the hero document
+          (headline, client, attribution, notes). Full-width so the task
+          reads as THE record of the page, Linear-style. Hidden while
+          editing — the edit card takes over the left column below. */}
       {!editing && (
-        <TopHeaderStrip
-          task={task}
-          tone={tone}
-          statusLabels={statusLabels}
-          statusTones={statusTones}
-          canEdit={canEdit}
-          canChangeStatus={canCommentOnTask}
-          isAdmin={me?.isAdmin ?? false}
-          onStartEdit={() => setEditing(true)}
-        />
+        <section
+          className="wg-rise relative mb-8 overflow-hidden rounded-section border border-hairline max-md:mb-5"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.82) 100%)",
+            backdropFilter: "blur(14px)",
+            WebkitBackdropFilter: "blur(14px)",
+            boxShadow:
+              "0 1px 2px rgba(15, 23, 42, 0.04), 0 20px 50px -28px rgba(15, 23, 42, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9)",
+          }}
+        >
+          {/* Brand accent — hairline red strip + soft aurora wash. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-[3px]"
+            style={{
+              background:
+                "linear-gradient(90deg, var(--color-altus-red) 0%, var(--color-altus-red-deep) 42%, transparent 100%)",
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(ellipse 42% 90% at 96% 0%, color-mix(in srgb, var(--color-altus-red) 5%, transparent), transparent 70%)",
+            }}
+          />
+          <div className="relative px-8 pt-6 pb-7 max-md:px-5 max-md:pt-5 max-md:pb-6">
+            <TopHeaderStrip
+              task={task}
+              tone={tone}
+              statusLabels={statusLabels}
+              statusTones={statusTones}
+              canEdit={canEdit}
+              canChangeStatus={canCommentOnTask}
+              isAdmin={me?.isAdmin ?? false}
+              onStartEdit={() => setEditing(true)}
+            />
+            <TaskDetail task={task} />
+          </div>
+        </section>
       )}
 
       <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-10 max-lg:grid-cols-1 max-lg:gap-6 max-md:grid-cols-1 max-md:gap-5">
-        {/* LEFT COLUMN — editorial document */}
+        {/* LEFT COLUMN — discussion & history (read) / edit form (edit) */}
         <div className="min-w-0">
-          {/* Recurrence badge — small inline indicator for materialized
-              children (with click-through to the template) AND for
-              rule-holders themselves. Hidden for non-recurring tasks. */}
-          {!editing && (task.recurrenceParentId || task.recurrenceRule) && (
-            <div className="mb-3">
-              {task.recurrenceParentId ? (
-                <Link
-                  href={`/tasks/${task.recurrenceParentId}` as Route}
-                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold transition-colors"
-                  style={{
-                    background: "var(--color-purple-bg)",
-                    color: "var(--color-purple-deep)",
-                  }}
-                  title="Materialized from a recurring template"
-                >
-                  <Repeat size={12} strokeWidth={2.4} />
-                  Recurring · from template
-                  {task.recurrenceOccurrenceDate && (
-                    <span className="font-mono opacity-75">
-                      · {task.recurrenceOccurrenceDate}
-                    </span>
-                  )}
-                </Link>
-              ) : (
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold"
-                  style={{
-                    background: "var(--color-purple-bg)",
-                    color: "var(--color-purple-deep)",
-                  }}
-                  title="Daily cron materialises one child instance per occurrence"
-                >
-                  <Repeat size={12} strokeWidth={2.4} />
-                  Recurring template
-                </span>
-              )}
-            </div>
-          )}
-
-
           <AnimatePresence mode="wait" initial={false}>
             {editing ? (
               <motion.div
@@ -368,23 +349,41 @@ export function TaskDetailView({
                   duration: 0.28,
                   ease: [0.2, 0.7, 0.3, 1],
                 }}
-                className="rounded-section border border-hairline bg-surface-card p-6"
-                style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
+                className="rounded-section border border-hairline bg-surface-card p-6 relative overflow-hidden"
+                style={{
+                  boxShadow:
+                    "0 1px 3px rgba(15, 23, 42, 0.04), 0 16px 40px -24px rgba(15, 23, 42, 0.12)",
+                }}
               >
+                <div
+                  aria-hidden
+                  className="absolute inset-x-0 top-0 h-[3px]"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, var(--color-altus-red) 0%, var(--color-altus-red-deep) 42%, transparent 100%)",
+                  }}
+                />
                 <div className="flex items-center justify-between mb-5">
                   <h1
                     className="text-ink-strong"
                     style={{
-                      fontFamily: "var(--font-serif)",
-                      fontStyle: "italic",
-                      fontWeight: 500,
-                      fontSize: 32,
+                      fontFamily: "var(--font-display), system-ui, sans-serif",
+                      fontWeight: 900,
+                      fontSize: 30,
                       letterSpacing: "-0.02em",
+                      lineHeight: 1.05,
                     }}
                   >
                     Edit Task
                   </h1>
-                  <span className="text-[12.5px] text-ink-subtle uppercase tracking-[0.1em] font-bold">
+                  <span
+                    className="text-[11.5px] uppercase tracking-[0.14em] font-bold px-2.5 py-1 rounded-full"
+                    style={{
+                      background:
+                        "color-mix(in srgb, var(--color-altus-red) 8%, #ffffff)",
+                      color: "var(--color-altus-red-deep)",
+                    }}
+                  >
                     Editing
                   </span>
                 </div>
@@ -439,32 +438,10 @@ export function TaskDetailView({
                 }}
                 className="flex flex-col gap-5"
               >
-                {/* TASK BODY CARD — the editorial document container.
-                    Subtle elevation lifts it off the canvas without
-                    looking heavy. */}
-                <section
-                  className="rounded-section bg-surface-card border border-hairline px-8 py-7 max-md:px-5 max-md:py-6 relative overflow-hidden"
-                  style={{
-                    boxShadow:
-                      "0 1px 3px rgba(15, 23, 42, 0.04), 0 12px 32px -16px rgba(15, 23, 42, 0.08)",
-                  }}
-                >
-                  {/* Top red accent strip — ties the card to the brand */}
-                  <div
-                    aria-hidden
-                    className="absolute inset-x-0 top-0 h-[3px]"
-                    style={{
-                      background:
-                        "linear-gradient(90deg, var(--color-altus-red) 0%, var(--color-altus-red-deep) 40%, transparent 100%)",
-                      opacity: 0.85,
-                    }}
-                  />
-                  <TaskDetail task={task} />
-                </section>
-
                 {/* ACTIVITY & COMMENTS CARD — composer at the top,
-                    timeline below.  Stays on the left so the right rail
-                    is purely metadata + actions. */}
+                    timeline below. The task document itself lives in the
+                    glass header above; the left column is the
+                    conversation + history. */}
                 <ActivityCard
                   taskId={task.id}
                   me={composerMe}
@@ -490,12 +467,26 @@ export function TaskDetailView({
             {/* (1) Status picker — its own compact card, sits at the
                 top so the eye lands on it first. */}
             <section
-              className="rounded-section border border-hairline bg-surface-card px-5 py-4 relative"
+              className="wg-rise rounded-section border border-hairline bg-surface-card px-5 py-5 relative"
               style={{
                 boxShadow:
-                  "0 1px 3px rgba(15, 23, 42, 0.04), 0 8px 24px -16px rgba(15, 23, 42, 0.08)",
+                  "0 1px 3px rgba(15, 23, 42, 0.04), 0 16px 36px -24px rgba(15, 23, 42, 0.14), inset 0 1px 0 rgba(255,255,255,0.9)",
               }}
             >
+              {/* NOTE: no overflow-hidden here — the status dropdown must
+                  escape the card. The wash clips itself via border-radius. */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  borderRadius: "inherit",
+                  background:
+                    "radial-gradient(ellipse 70% 45% at 100% 0%, color-mix(in srgb, var(--color-altus-red) 4%, transparent), transparent 70%)",
+                }}
+              />
+              <span className="relative block mb-3 text-[11.5px] uppercase tracking-[0.14em] text-ink-subtle font-bold">
+                Status & Details
+              </span>
               <InteractiveStatusPill
                 taskId={task.id}
                 status={task.status}
@@ -561,8 +552,12 @@ export function TaskDetailView({
             {/* (2) Action rail */}
             {anyAction && (
               <section
-                className="rounded-section border border-hairline bg-surface-card"
-                style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
+                className="wg-rise rounded-section border border-hairline bg-surface-card"
+                style={{
+                  boxShadow:
+                    "0 1px 3px rgba(15, 23, 42, 0.04), 0 16px 36px -24px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255,255,255,0.9)",
+                  animationDelay: "80ms",
+                }}
               >
                 <ActionRail
                   taskId={task.id}
@@ -1047,15 +1042,16 @@ function TopHeaderStrip({
     PRIORITY_LABEL_SHORT[task.priority] ?? task.priority;
 
   return (
-    <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
-      {/* LEFT — back/forward + status pill + priority chip */}
-      <div className="flex items-center gap-3 min-w-0">
+    <div className="mb-7 flex items-center justify-between gap-4 flex-wrap max-md:mb-5">
+      {/* LEFT — back/forward + task-no + status + late + priority + recurrence */}
+      <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={() => router.back()}
             aria-label="Back"
-            className="size-9 inline-flex items-center justify-center rounded-full border border-hairline bg-white/80 hover:bg-white hover:border-hairline-strong transition-all text-ink-soft"
+            className="size-9 inline-flex items-center justify-center rounded-full border border-hairline bg-white/85 hover:bg-white hover:border-hairline-strong hover:-translate-x-px transition-all text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/35"
+            style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)" }}
           >
             <ChevronLeft size={16} strokeWidth={2.4} />
           </button>
@@ -1063,11 +1059,28 @@ function TopHeaderStrip({
             type="button"
             onClick={() => router.forward()}
             aria-label="Forward"
-            className="size-9 inline-flex items-center justify-center rounded-full border border-hairline bg-white/80 hover:bg-white hover:border-hairline-strong transition-all text-ink-soft"
+            className="size-9 inline-flex items-center justify-center rounded-full border border-hairline bg-white/85 hover:bg-white hover:border-hairline-strong hover:translate-x-px transition-all text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/35"
+            style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)" }}
           >
             <ChevronRight size={16} strokeWidth={2.4} />
           </button>
         </div>
+
+        {task.taskNo != null && (
+          <span
+            className="inline-flex items-center px-3 py-1.5 rounded-full font-mono text-[13px] font-bold tabular-nums border"
+            style={{
+              background:
+                "color-mix(in srgb, var(--color-altus-red) 6%, #ffffff)",
+              color: "var(--color-altus-red-deep)",
+              borderColor:
+                "color-mix(in srgb, var(--color-altus-red) 22%, transparent)",
+            }}
+            title="Task No."
+          >
+            #{task.taskNo}
+          </span>
+        )}
 
         <span
           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[12.5px] font-bold border"
@@ -1086,7 +1099,7 @@ function TopHeaderStrip({
               boxShadow: `0 0 6px rgba(${tone.rgb}, 0.6)`,
             }}
           />
-          STATUS: {statusLabel}
+          {statusLabel}
         </span>
 
         {isDoneLate({
@@ -1101,7 +1114,7 @@ function TopHeaderStrip({
         <span
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-bold uppercase tracking-[0.06em] border text-ink-muted"
           style={{
-            background: "var(--color-surface-card)",
+            background: "rgba(255, 255, 255, 0.75)",
             borderColor: "var(--color-hairline)",
           }}
           title="Priority"
@@ -1109,20 +1122,61 @@ function TopHeaderStrip({
           <Tag size={11} strokeWidth={2.6} />
           {priorityLabel}
         </span>
+
+        {/* Recurrence badge — materialized children link back to their
+            template; rule-holders show a static badge. Hidden otherwise. */}
+        {(task.recurrenceParentId || task.recurrenceRule) &&
+          (task.recurrenceParentId ? (
+            <Link
+              href={`/tasks/${task.recurrenceParentId}` as Route}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold border transition-colors hover:brightness-95"
+              style={{
+                background: "var(--color-purple-bg)",
+                color: "var(--color-purple-deep)",
+                borderColor:
+                  "color-mix(in srgb, var(--color-purple) 25%, transparent)",
+              }}
+              title="Materialized from a recurring template"
+            >
+              <Repeat size={12} strokeWidth={2.4} />
+              Recurring · from template
+              {task.recurrenceOccurrenceDate && (
+                <span className="font-mono opacity-75">
+                  · {task.recurrenceOccurrenceDate}
+                </span>
+              )}
+            </Link>
+          ) : (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold border"
+              style={{
+                background: "var(--color-purple-bg)",
+                color: "var(--color-purple-deep)",
+                borderColor:
+                  "color-mix(in srgb, var(--color-purple) 25%, transparent)",
+              }}
+              title="Daily cron materialises one child instance per occurrence"
+            >
+              <Repeat size={12} strokeWidth={2.4} />
+              Recurring template
+            </span>
+          ))}
       </div>
 
       {/* RIGHT — action buttons */}
       <div className="flex items-center gap-2 shrink-0">
         <Link
           href={`/tasks/${task.id}/focus` as Route}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold text-ink-soft border border-hairline bg-white/80 hover:bg-white hover:border-hairline-strong transition-all"
+          className="wg-btn inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold text-ink-soft border border-hairline bg-white/85 hover:bg-white hover:border-hairline-strong transition-all"
+          style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)" }}
         >
           <Maximize2 size={14} strokeWidth={2.4} />
           Focus
         </Link>
         <Link
           href={`/tasks/new?from=${task.id}` as Route}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold text-ink-soft border border-hairline bg-white/80 hover:bg-white hover:border-hairline-strong transition-all"
+          className="wg-btn inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold text-ink-soft border border-hairline bg-white/85 hover:bg-white hover:border-hairline-strong transition-all"
+          style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)" }}
         >
           <Copy size={14} strokeWidth={2.4} />
           Duplicate
@@ -1131,16 +1185,17 @@ function TopHeaderStrip({
           <button
             type="button"
             onClick={onStartEdit}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold text-white transition-all hover:-translate-y-px"
+            className="wg-btn wg-sheen inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-bold text-white transition-all"
             style={{
               background:
                 "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
               boxShadow:
                 "0 6px 18px -8px rgba(225, 6, 0, 0.55), inset 0 1px 0 rgba(255,255,255,0.18)",
+              letterSpacing: "0.01em",
             }}
           >
             <Pencil size={14} strokeWidth={2.6} />
-            Edit Task →
+            Edit Task
           </button>
         )}
       </div>
@@ -1171,24 +1226,35 @@ function ActivityCard({
   if (!canCommentOnTask && events.length === 0) return null;
   return (
     <section
-      className="rounded-section bg-surface-card border border-hairline px-8 py-7 max-md:px-5 max-md:py-6"
+      className="wg-rise rounded-section bg-surface-card border border-hairline px-8 py-7 max-md:px-5 max-md:py-6"
       style={{
         boxShadow:
-          "0 1px 3px rgba(15, 23, 42, 0.04), 0 12px 32px -16px rgba(15, 23, 42, 0.08)",
+          "0 1px 3px rgba(15, 23, 42, 0.04), 0 16px 40px -24px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255,255,255,0.9)",
+        animationDelay: "60ms",
       }}
     >
-      <h2
-        className="text-ink-strong mb-5"
-        style={{
-          fontFamily: "var(--font-serif)",
-          fontStyle: "italic",
-          fontSize: 22,
-          letterSpacing: "-0.01em",
-          lineHeight: 1.1,
-        }}
-      >
-        Activity & Comments
-      </h2>
+      <div className="mb-5 flex items-baseline gap-3">
+        <h2
+          className="text-ink-strong"
+          style={{
+            fontFamily: "var(--font-display), system-ui, sans-serif",
+            fontWeight: 900,
+            fontSize: 21,
+            letterSpacing: "-0.015em",
+            lineHeight: 1.05,
+          }}
+        >
+          Activity & Comments
+        </h2>
+        <span
+          aria-hidden
+          className="h-[3px] w-9 rounded-full translate-y-[-3px]"
+          style={{
+            background:
+              "linear-gradient(90deg, var(--color-altus-red), transparent)",
+          }}
+        />
+      </div>
       {canCommentOnTask && (
         <div className="mb-5">
           <CommentInput taskId={taskId} me={me} />

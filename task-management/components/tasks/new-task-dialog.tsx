@@ -221,7 +221,7 @@ export function NewTaskDialog({ defaultInitiatorId }: Props) {
               padding: "10px 12px",
               borderRadius: 12,
               background:
-                "linear-gradient(135deg, #ffffff 0%, #F0FBFF 100%)",
+                "linear-gradient(135deg, #ffffff 0%, #FFF6F5 100%)",
               color: "#0F172A",
               boxShadow:
                 "0 18px 36px -10px rgba(225, 6, 0, 0.38), 0 4px 12px rgba(15, 23, 42, 0.10)",
@@ -243,7 +243,7 @@ export function NewTaskDialog({ defaultInitiatorId }: Props) {
                 width: 12,
                 height: 12,
                 background:
-                  "linear-gradient(135deg, #ffffff 0%, #F0FBFF 100%)",
+                  "linear-gradient(135deg, #ffffff 0%, #FFF6F5 100%)",
                 borderTop: "1px solid rgba(225, 6, 0, 0.22)",
                 borderLeft: "1px solid rgba(225, 6, 0, 0.22)",
                 transform: "rotate(45deg)",
@@ -295,7 +295,7 @@ export function NewTaskDialog({ defaultInitiatorId }: Props) {
             style={{
               borderBottom: "1px solid var(--color-hairline)",
               background:
-                "linear-gradient(135deg, #ffffff 0%, #F0FBFF 100%)",
+                "linear-gradient(135deg, #ffffff 0%, #FFF6F5 100%)",
             }}
           >
             <span

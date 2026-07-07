@@ -1,15 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import {
-  LayoutGrid,
-  CheckCircle2,
-  Loader,
-  Flame,
-  AlarmClock,
-  XCircle,
-  EyeOff,
-  type LucideIcon,
-} from "lucide-react";
+import { LayoutGrid } from "lucide-react";
 import { TaskTable } from "./task-table";
 import { WeeklyGoalTaskGroup } from "@/components/weekly-goals/weekly-goal-task-group";
 import type { VirtualTaskRow } from "@/lib/weekly-goals/as-task-row";
@@ -149,49 +140,58 @@ export function TaskListPage({
   }
 
   return (
-    <main className="mx-auto max-w-[1600px] px-12 max-md:px-4 pt-4 max-md:pt-3 pb-16">
-      <header className="mb-3 flex items-center justify-between gap-4 flex-wrap">
+    <main className="relative mx-auto max-w-[1600px] px-12 max-md:px-4 pt-5 max-md:pt-3 pb-16">
+      <header className="wg-rise relative mb-3.5 flex items-end justify-between gap-4 flex-wrap">
         <div>
+          <p
+            className="mb-1 uppercase font-bold"
+            style={{ fontSize: 11, letterSpacing: "0.14em", color: "var(--color-ink-subtle)" }}
+          >
+            WMS · Task Management
+          </p>
           <h1
             className="text-ink-strong"
             style={{
               fontFamily: "var(--font-display), system-ui, sans-serif",
               fontWeight: 900,
-              fontSize: "clamp(26px, 2.5vw, 34px)",
-              letterSpacing: "-0.025em",
+              fontSize: "clamp(26px, 2.4vw, 34px)",
+              letterSpacing: "-0.028em",
               lineHeight: 1,
             }}
           >
             {title}
           </h1>
+          <p
+            className="mt-1.5 font-medium tabular-nums"
+            style={{ fontSize: 13, color: "var(--color-ink-subtle)" }}
+          >
+            {rows.length === 1 ? "1 task" : `${rows.length} tasks`} in the current view
+          </p>
         </div>
         {me.isAdmin && (
           <Link
             href={"/tasks/kanban" as Route}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[14.5px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[14px] font-bold transition-colors hover:bg-surface-soft"
             style={{
-              background:
-                "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-              boxShadow: "0 6px 18px -6px rgba(225, 6, 0, 0.55)",
+              color: "var(--color-altus-red-deep)",
+              boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)",
             }}
           >
-            <LayoutGrid size={16} strokeWidth={2.4} />
+            <LayoutGrid size={15} strokeWidth={2.4} />
             Kanban View
           </Link>
         )}
       </header>
 
-      {/* KPI summary — 4 stat cards in the same visual language as the
-          main dashboard tiles. Each card has a top channel-color bar,
-          font-black label, big count, sublabel. */}
-      <div className="mb-3 grid grid-cols-6 gap-3 max-xl:grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1">
-        {KPI_SPECS.map((spec) => {
-          // notRead is a derived "unread" metric with no URL filter dimension →
-          // display-only. The rest toggle on/off and can be combined.
+      {/* KPI summary — a LIGHT inline strip of stat chips (flat, mostly white,
+          tiny tone dot). Clickable ones toggle the matching status/priority
+          filter; `notRead` is display-only. */}
+      <div className="relative mb-3.5 flex flex-wrap gap-2">
+        {KPI_SPECS.map((spec, i) => {
           if (!CARD_FILTER[spec.key]) {
             return (
-              <div key={spec.key} className="block rounded-section">
-                <StatCard spec={spec} value={counts[spec.key]} active={false} />
+              <div key={spec.key} className="wg-rise" style={{ animationDelay: `${i * 30}ms` }}>
+                <StatChip spec={spec} value={counts[spec.key]} active={false} />
               </div>
             );
           }
@@ -202,9 +202,10 @@ export function TaskListPage({
               href={cardHref(spec.key)}
               aria-pressed={on}
               aria-label={`${on ? "Remove" : "Add"} ${spec.label.toLowerCase()} filter`}
-              className="block rounded-section focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
+              className="wg-rise block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
+              style={{ animationDelay: `${i * 30}ms` }}
             >
-              <StatCard spec={spec} value={counts[spec.key]} active={on} />
+              <StatChip spec={spec} value={counts[spec.key]} active={on} />
             </Link>
           );
         })}
@@ -221,17 +222,46 @@ export function TaskListPage({
 
       {rows.length === 0 ? (
         <div
-          className="bg-surface-card rounded-section border border-hairline p-10 text-center"
-          style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
+          className="wg-rise relative overflow-hidden bg-surface-card rounded-section border border-hairline p-14 max-md:p-10 text-center"
+          style={{
+            boxShadow:
+              "0 1px 2px rgba(15, 23, 42, 0.04), 0 14px 32px -20px rgba(15, 23, 42, 0.14)",
+          }}
         >
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-24"
+            style={{
+              background:
+                "radial-gradient(420px 110px at 50% 0%, color-mix(in srgb, var(--color-altus-red) 5%, transparent), transparent 72%)",
+            }}
+          />
+          <span
+            aria-hidden
+            className="relative mx-auto mb-4 inline-flex size-14 items-center justify-center rounded-2xl"
+            style={{
+              background:
+                "color-mix(in srgb, var(--color-altus-red) 9%, transparent)",
+              color: "var(--color-altus-red)",
+              boxShadow:
+                "inset 0 0 0 1px color-mix(in srgb, var(--color-altus-red) 18%, transparent)",
+            }}
+          >
+            <LayoutGrid size={24} strokeWidth={2.2} />
+          </span>
           <p
-            className="font-bold"
-            style={{ fontSize: 20, color: "var(--color-ink-strong)" }}
+            className="relative font-black"
+            style={{
+              fontFamily: "var(--font-display), system-ui, sans-serif",
+              fontSize: 21,
+              letterSpacing: "-0.015em",
+              color: "var(--color-ink-strong)",
+            }}
           >
             No tasks match the current filter.
           </p>
           <p
-            className="mt-2 font-semibold"
+            className="relative mt-2 font-semibold"
             style={{ fontSize: 15, color: "var(--color-ink-muted)" }}
           >
             Try widening your date range or clearing assignee filters.
@@ -252,16 +282,9 @@ export function TaskListPage({
   );
 }
 
-const KPI_ICONS: Record<KpiKey, LucideIcon> = {
-  notApproved: XCircle,
-  done: CheckCircle2,
-  pending: Loader,
-  critical: Flame,
-  urgent: AlarmClock,
-  notRead: EyeOff,
-};
-
-function StatCard({
+/** A light, flat stat chip: [tone dot] BIG-number Label. No shadows, no washes,
+ *  no icon tiles — restraint is what reads "light". Active = subtly tinted. */
+function StatChip({
   spec,
   value,
   active,
@@ -270,65 +293,41 @@ function StatCard({
   value: number;
   active: boolean;
 }) {
-  const Icon = KPI_ICONS[spec.key];
   return (
     <div
-      className="group relative bg-surface-card rounded-section overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
+      title={spec.sublabel}
+      className="group inline-flex items-center gap-2.5 rounded-xl transition-colors"
       style={{
-        border: active
-          ? `1.5px solid var(--color-${spec.tone}-deep)`
-          : "1px solid var(--color-hairline)",
+        padding: "8px 13px",
+        background: active
+          ? `color-mix(in srgb, var(--color-${spec.tone}) 8%, var(--color-surface-card))`
+          : "var(--color-surface-card)",
         boxShadow: active
-          ? `0 0 0 3px color-mix(in srgb, var(--color-${spec.tone}) 16%, transparent)`
-          : "0 1px 3px rgba(15, 23, 42, 0.04)",
-        padding: "10px 14px 10px",
+          ? `inset 0 0 0 1.5px var(--color-${spec.tone}-deep)`
+          : "inset 0 0 0 1px var(--color-hairline)",
       }}
     >
       <span
         aria-hidden
-        className="absolute inset-x-0 top-0"
-        style={{
-          height: 4,
-          background: `linear-gradient(90deg, var(--color-${spec.tone}), var(--color-${spec.tone}-deep))`,
-        }}
+        className="inline-block size-2 rounded-full shrink-0"
+        style={{ background: `var(--color-${spec.tone})` }}
       />
-      {/* Tinted icon chip — adds colour + visual anchor without hurting
-          the white card's readability. */}
       <span
-        aria-hidden
-        className="absolute right-2.5 top-2.5 inline-flex size-7 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-110"
-        style={{
-          background: `color-mix(in srgb, var(--color-${spec.tone}) 14%, transparent)`,
-          color: `var(--color-${spec.tone}-deep)`,
-        }}
-      >
-        <Icon size={15} strokeWidth={2.3} />
-      </span>
-      <span
-        className="uppercase font-black tracking-[0.08em] leading-none"
-        style={{
-          fontFamily: "var(--font-display), system-ui, sans-serif",
-          fontSize: 11.5,
-          color: `var(--color-${spec.tone}-deep)`,
-        }}
-      >
-        {spec.label}
-      </span>
-      <span
-        className="block mt-1 leading-[0.85] tracking-[-0.035em] tabular-nums text-ink-strong"
+        className="tabular-nums leading-none text-ink-strong"
         style={{
           fontFamily: "var(--font-display), system-ui, sans-serif",
           fontWeight: 900,
-          fontSize: "clamp(25px, 1.9vw, 33px)",
+          fontSize: 20,
+          letterSpacing: "-0.02em",
         }}
       >
         {value}
       </span>
       <span
-        className="block mt-1 font-bold leading-tight"
-        style={{ fontSize: 11.5, color: "var(--color-ink-soft)" }}
+        className="font-semibold leading-none"
+        style={{ fontSize: 12.5, color: active ? `var(--color-${spec.tone}-deep)` : "var(--color-ink-soft)" }}
       >
-        {spec.sublabel}
+        {spec.label.charAt(0) + spec.label.slice(1).toLowerCase()}
       </span>
     </div>
   );
