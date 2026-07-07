@@ -6,6 +6,10 @@ import { formatInr } from "@/lib/format";
 import { loadDccScope } from "@/lib/dcc/access";
 import { listDccPeople, listItemsForOwners, listEntriesForOwners } from "@/lib/queries/dcc";
 import { scheduledDueOn, isoDate } from "@/lib/dcc/util";
+import { scoreForMany } from "@/lib/queries/pms";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { db, employees } from "@/lib/db";
+import { and, asc, eq } from "drizzle-orm";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -96,6 +100,50 @@ async function dccDashboard(meId: string, me: Parameters<typeof loadDccScope>[0]
 }
 
 /**
+ * PMS roster leaderboard — mirrors the web PmsPage: admin/super → all active,
+ * else → downline + self; scored via scoreForMany, ranked by score. Stats fold
+ * over the loaded scores (avg · strong 80+ · promotion-ready), zero extra query.
+ */
+async function pmsDashboard(me: { id: string; email: string; isAdmin: boolean }): Promise<Dash> {
+  const admin = me.isAdmin || isSuperAdmin(me.email);
+  let people: { id: string; name: string }[];
+  if (admin) {
+    people = await db.select({ id: employees.id, name: employees.name }).from(employees)
+      .where(eq(employees.isActive, true)).orderBy(asc(employees.name));
+  } else {
+    const reports = await db.select({ id: employees.id, name: employees.name }).from(employees)
+      .where(and(eq(employees.managerId, me.id), eq(employees.isActive, true))).orderBy(asc(employees.name));
+    const self = await db.select({ id: employees.id, name: employees.name }).from(employees).where(eq(employees.id, me.id));
+    const seen = new Set<string>();
+    people = [...self, ...reports].filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
+  }
+
+  const scores = await scoreForMany(people.map((p) => p.id));
+  const byId = new Map(scores.map((s) => [s.employeeId, s]));
+  const sorted = [...people].sort((a, b) => (byId.get(b.id)?.score.score ?? 0) - (byId.get(a.id)?.score.score ?? 0));
+  const vals = sorted.map((p) => byId.get(p.id)?.score.score ?? 0);
+  const avg = vals.length ? Math.round(vals.reduce((s, v) => s + v, 0) / vals.length) : 0;
+  const strong = vals.filter((s) => s >= 80).length;
+  const eligible = sorted.filter((p) => byId.get(p.id)?.promotion.eligible).length;
+  const bandLabel = (s: number) => (s >= 80 ? "Strong" : s >= 60 ? "On track" : "Needs focus");
+
+  return {
+    title: admin ? "Performance" : "Team Performance",
+    periodLabel: `${sorted.length} ${sorted.length === 1 ? "person" : "people"} · avg ${avg}`,
+    stats: [
+      { label: "Avg score", value: String(avg) },
+      { label: "Strong 80+", value: String(strong) },
+      { label: "Promo-ready", value: String(eligible) },
+    ],
+    people: sorted.map((p) => {
+      const s = byId.get(p.id)?.score.score ?? 0;
+      const promo = byId.get(p.id)?.promotion.eligible;
+      return { name: p.name, primary: String(s), secondary: `${bandLabel(s)}${promo ? " · promo-ready" : ""}` };
+    }),
+  };
+}
+
+/**
  * GET /api/mobile/team-dashboard/[type] — a normalized admin team dashboard
  * (overtime · reimbursements). Reuses the web dashboard queries so the two never
  * diverge; scope (admins → all, else → own/team) is enforced inside those
@@ -140,6 +188,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ type: string }>
     };
   } else if (type === "dcc") {
     dash = await dccDashboard(me.id, me);
+  } else if (type === "pms") {
+    dash = await pmsDashboard(me);
   } else {
     return NextResponse.json({ error: "unknown-dashboard" }, { status: 404, headers: MOBILE_CORS });
   }

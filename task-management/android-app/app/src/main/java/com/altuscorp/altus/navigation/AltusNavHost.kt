@@ -293,6 +293,7 @@ private fun androidx.navigation.NavGraphBuilder.hubGraph(navController: NavHostC
                             "ot-dashboard" -> navController.navigate(TeamDashboardRoute("overtime"))
                             "reimb-dashboard" -> navController.navigate(TeamDashboardRoute("reimbursements"))
                             "dcc-dashboard" -> navController.navigate(TeamDashboardRoute("dcc"))
+                            "pms-dashboard" -> navController.navigate(TeamDashboardRoute("pms"))
                             "incentive" -> navController.navigate(IncentiveRoute)
                             "reimbursements" -> navController.navigate(ReimbursementsRoute)
                             "overtime" -> navController.navigate(OvertimeRoute)

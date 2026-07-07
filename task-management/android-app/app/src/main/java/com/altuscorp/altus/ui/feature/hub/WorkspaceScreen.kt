@@ -324,6 +324,11 @@ private fun modulesFor(workspace: HubWorkspace): ImmutableList<WorkspaceModule> 
             target = WorkspaceModule.TARGET_PERFORMANCE,
         ),
         WorkspaceModule(
+            title = "Performance Dashboard",
+            subtitle = "Manager: team PMS leaderboard, avg score & promo-ready.",
+            target = "pms-dashboard",
+        ),
+        WorkspaceModule(
             title = "HR record",
             subtitle = "Your HR attendance-log record — months, day codes & paid leave.",
             target = WorkspaceModule.TARGET_HR_RECORD,
