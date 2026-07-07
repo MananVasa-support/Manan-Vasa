@@ -149,10 +149,16 @@ data object AccountsRoute
 @Serializable
 data object AccountsDueDatesRoute
 
-/** Admin · Accounts → a normalized register section (Vasa · Shares · IT · SIP ·
- *  Bank). [slug] is the section slug. */
+/** A normalized record section rendered by the shared section screen. Default
+ *  [api] "accounts" hits the Accounts registers (Vasa · Shares · IT · SIP ·
+ *  Bank); [api] "section" hits the cross-module endpoint (training, etc.).
+ *  [eyebrow] labels the header band ("ADMIN · ACCOUNTS", "TRAINING", …). */
 @Serializable
-data class AccountsSectionRoute(val slug: String)
+data class AccountsSectionRoute(
+    val slug: String,
+    val api: String = "accounts",
+    val eyebrow: String = "ADMIN · ACCOUNTS",
+)
 
 /** Employees · Att Report — the admin org-wide monthly attendance summary.
  *  Reached from the Employees WorkspaceScreen module list; lives in the Hub graph. */

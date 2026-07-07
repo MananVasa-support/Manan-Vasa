@@ -290,18 +290,9 @@ private fun LoadedDetail(
                 )
             }
 
-            val description = detail.description?.takeIf { it.isNotBlank() }
-            if (description != null) {
-                item(key = "description", contentType = "description") {
-                    DescriptionBlock(
-                        text = description,
-                        modifier = Modifier.padding(
-                            horizontal = AltusDimens.screenGutter,
-                            vertical = AltusDimens.space1,
-                        ),
-                    )
-                }
-            }
+            // The task description is now the hero headline in the header
+            // (mirrors web sir's changes #11), so it is no longer repeated
+            // here as a separate body block.
 
             // The rail pins above the fold; the thread scrolls beneath it.
             if (hasRail) {
@@ -414,11 +405,40 @@ private fun DetailHeader(
         )
         Spacer(Modifier.height(AltusDimens.space1))
 
+        // HERO = the task itself (its description = the work to do), NOT the
+        // client name. The form writes the client into both `title` and
+        // `client`, so we surface the description first and give the client its
+        // own labelled field below — exactly like the web task detail (sir's
+        // changes #11). Short headlines get the big display size; long/multi-
+        // line descriptions drop to a comfortable reading size so a paragraph
+        // never shouts.
+        val clientName = detail.client?.trim()?.takeIf { it.isNotEmpty() }
+            ?: detail.title.trim().takeIf { it.isNotEmpty() }
+        val headline = detail.description?.trim()?.takeIf { it.isNotEmpty() }
+            ?: detail.subject?.trim()?.takeIf { it.isNotEmpty() }
+            ?: clientName
+            ?: "Untitled task"
+        val headlineShort = headline.length <= 96 && !headline.contains('\n')
         Text(
-            text = detail.title,
-            style = AltusType.title1,
+            text = headline,
+            style = if (headlineShort) AltusType.title1 else AltusType.title2,
             color = MaterialTheme.colorScheme.onSurface,
         )
+
+        if (clientName != null && clientName != headline) {
+            Spacer(Modifier.height(AltusDimens.space3))
+            Text(
+                text = "CLIENT",
+                style = AltusType.caption,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(AltusDimens.space1))
+            Text(
+                text = clientName,
+                style = AltusType.bodyStrong,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
         Spacer(Modifier.height(AltusDimens.space3))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -475,28 +495,6 @@ private fun PriorityDot(priority: String) {
             .semantics { contentDescription = "Priority: $priority" }
             .background(color, CircleShape),
     )
-}
-
-// ─── Description ────────────────────────────────────────────────────────────────
-
-@Composable
-private fun DescriptionBlock(
-    text: String,
-    modifier: Modifier = Modifier,
-) {
-    AltusCard(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = "DESCRIPTION",
-            style = AltusType.caption,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(AltusDimens.space2))
-        Text(
-            text = text,
-            style = AltusType.body,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-    }
 }
 
 // ─── Composer ───────────────────────────────────────────────────────────────────

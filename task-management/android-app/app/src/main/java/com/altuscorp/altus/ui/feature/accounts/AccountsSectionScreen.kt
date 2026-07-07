@@ -96,7 +96,7 @@ private fun SectionList(state: AccountsSectionUiState) {
     ) {
         item(key = "head", contentType = "head") {
             AltusCard(modifier = Modifier.padding(horizontal = AltusDimens.screenGutter).fillMaxWidth(), accentKeyline = tokens.workspaces.accounts.base) {
-                Text("ADMIN · ACCOUNTS", style = AltusType.caption, color = tokens.workspaces.accounts.base, maxLines = 1)
+                Text(state.eyebrow, style = AltusType.caption, color = tokens.workspaces.accounts.base, maxLines = 1)
                 Spacer(Modifier.height(AltusDimens.space2))
                 Text(state.title, style = AltusType.heading, color = MaterialTheme.colorScheme.onSurface)
                 if (state.subtitle.isNotBlank()) {

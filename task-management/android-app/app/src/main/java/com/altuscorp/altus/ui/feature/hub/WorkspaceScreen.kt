@@ -243,6 +243,11 @@ private fun modulesFor(workspace: HubWorkspace): ImmutableList<WorkspaceModule> 
             subtitle = "Material library, tests & your induction path.",
             target = "training",
         ),
+        WorkspaceModule(
+            title = "Training Calendar",
+            subtitle = "Upcoming & past sessions — trainer, mode & attendance.",
+            target = "training-calendar",
+        ),
     )
     HubWorkspace.Accounts -> persistentListOf(
         WorkspaceModule(

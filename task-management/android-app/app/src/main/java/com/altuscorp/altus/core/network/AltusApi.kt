@@ -189,6 +189,10 @@ interface AltusApi {
     @GET("api/mobile/accounts/section/{slug}")
     suspend fun accountsSection(@Path("slug") slug: String): AccountsSectionDetailDto
 
+    /** A normalized cross-module record section (training, etc.). Same shape. */
+    @GET("api/mobile/section/{slug}")
+    suspend fun moduleSection(@Path("slug") slug: String): AccountsSectionDetailDto
+
     // ── Outstanding (Sales workspace) ────────────────────────────────────────
 
     /** The Sales receivables dashboard: totals, buckets, roll-ups + ledgers. */

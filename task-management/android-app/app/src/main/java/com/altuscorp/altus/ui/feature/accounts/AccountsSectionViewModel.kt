@@ -26,6 +26,7 @@ data class AccountsSectionUiState(
     val isLoading: Boolean = true,
     val loadFailed: Boolean = false,
     val notOnMobile: Boolean = false,
+    val eyebrow: String = "ADMIN · ACCOUNTS",
     val title: String = "Section",
     val subtitle: String = "",
     val stats: ImmutableList<AccountsFieldDto> = persistentListOf(),
@@ -44,9 +45,10 @@ class AccountsSectionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
-    private val slug: String = savedStateHandle.toRoute<AccountsSectionRoute>().slug
+    private val route = savedStateHandle.toRoute<AccountsSectionRoute>()
+    private val slug: String = route.slug
 
-    private val _uiState = MutableStateFlow(AccountsSectionUiState())
+    private val _uiState = MutableStateFlow(AccountsSectionUiState(eyebrow = route.eyebrow))
     val uiState: StateFlow<AccountsSectionUiState> = _uiState.asStateFlow()
 
     init {
@@ -62,9 +64,10 @@ class AccountsSectionViewModel @Inject constructor(
     private fun load() {
         _uiState.value = _uiState.value.copy(isLoading = !_uiState.value.hasContent, loadFailed = false, notOnMobile = false)
         viewModelScope.launch {
-            when (val res = repository.section(slug)) {
+            when (val res = repository.section(slug, route.api)) {
                 is ApiResult.Success -> _uiState.value = AccountsSectionUiState(
                     isLoading = false,
+                    eyebrow = route.eyebrow,
                     title = res.data.title.ifBlank { "Section" },
                     subtitle = res.data.subtitle,
                     stats = res.data.stats.toImmutableList(),

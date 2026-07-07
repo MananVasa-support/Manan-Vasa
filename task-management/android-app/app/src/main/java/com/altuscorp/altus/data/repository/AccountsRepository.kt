@@ -32,8 +32,9 @@ interface AccountsRepository {
     /** Fetch the Due Dates section, upsert the snapshot, return it fresh. */
     suspend fun refreshDueDates(): ApiResult<AccountsDueDto>
 
-    /** A normalized register section (Vasa · Shares · IT · SIP · Bank). Direct-fetch. */
-    suspend fun section(slug: String): ApiResult<AccountsSectionDetailDto>
+    /** A normalized register section. [api] "accounts" → Accounts registers;
+     *  "section" → the cross-module endpoint (training, etc.). Direct-fetch. */
+    suspend fun section(slug: String, api: String = "accounts"): ApiResult<AccountsSectionDetailDto>
 }
 
 class AccountsRepositoryImpl @Inject constructor(
@@ -65,6 +66,6 @@ class AccountsRepositoryImpl @Inject constructor(
         return result
     }
 
-    override suspend fun section(slug: String): ApiResult<AccountsSectionDetailDto> =
-        safeApiCall { api.accountsSection(slug) }
+    override suspend fun section(slug: String, api: String): ApiResult<AccountsSectionDetailDto> =
+        safeApiCall { if (api == "section") this.api.moduleSection(slug) else this.api.accountsSection(slug) }
 }
