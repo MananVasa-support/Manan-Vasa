@@ -4,7 +4,7 @@ import { ArrowLeft, CreditCard, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { requireAccountsAccess } from "@/lib/accounts/access";
-import { listCcCards, listCcMonths } from "@/lib/queries/accounts-cc";
+import { listCcCards, listCcMonths, listArchivedCcCards } from "@/lib/queries/accounts-cc";
 import { listAccountsLookups } from "@/lib/accounts/lookups";
 import { CcMaster } from "@/components/accounts/cc-master/cc-client";
 import { fyMonthCols, fyLabel, fyStartYearFor } from "@/lib/accounts/cc";
@@ -32,10 +32,12 @@ export default async function CcMasterPage({ searchParams }: PageProps) {
   const validMonth = Number.isFinite(rawM) && rawM >= 1 && rawM <= 12;
   const month = validMonth ? rawM : isCurrentFy ? curMonth : 4; // default current month, else April
 
-  const [cards, months, entityOptions] = await Promise.all([
+  const [cards, months, entityOptions, archivedCards, prevFyCount] = await Promise.all([
     listCcCards(fyStartYear),
     listCcMonths(fyStartYear),
     listAccountsLookups("cc_entity"),
+    listArchivedCcCards(fyStartYear),
+    listCcCards(fyStartYear - 1).then((r) => r.length),
   ]);
 
   const prevHref = `/accounts/cc-tracker?fy=${fyStartYear - 1}&m=${month}` as Route;
@@ -118,6 +120,8 @@ export default async function CcMasterPage({ searchParams }: PageProps) {
           cards={cards}
           months={months}
           entityOptions={entityOptions}
+          archivedCards={archivedCards}
+          prevFyCount={prevFyCount}
         />
       </main>
       <DashboardFooter />

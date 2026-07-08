@@ -31,24 +31,35 @@ export interface CcMonthRow {
   notes: string | null;
 }
 
+const ccCardCols = {
+  id: accountsCcCards.id,
+  code: accountsCcCards.code,
+  entityName: accountsCcCards.entityName,
+  cardName: accountsCcCards.cardName,
+  ecs: accountsCcCards.ecs,
+  ecsFrom: accountsCcCards.ecsFrom,
+  stmtPeriod: accountsCcCards.stmtPeriod,
+  stmtStartDay: accountsCcCards.stmtStartDay,
+  dueDay: accountsCcCards.dueDay,
+  softCopyAutoEmail: accountsCcCards.softCopyAutoEmail,
+  sortOrder: accountsCcCards.sortOrder,
+} as const;
+
 /** Non-archived cards for one financial year, ordered by sort then code. */
 export async function listCcCards(fyStartYear: number): Promise<CcCardRow[]> {
   return db
-    .select({
-      id: accountsCcCards.id,
-      code: accountsCcCards.code,
-      entityName: accountsCcCards.entityName,
-      cardName: accountsCcCards.cardName,
-      ecs: accountsCcCards.ecs,
-      ecsFrom: accountsCcCards.ecsFrom,
-      stmtPeriod: accountsCcCards.stmtPeriod,
-      stmtStartDay: accountsCcCards.stmtStartDay,
-      dueDay: accountsCcCards.dueDay,
-      softCopyAutoEmail: accountsCcCards.softCopyAutoEmail,
-      sortOrder: accountsCcCards.sortOrder,
-    })
+    .select(ccCardCols)
     .from(accountsCcCards)
     .where(and(eq(accountsCcCards.fyStartYear, fyStartYear), eq(accountsCcCards.archived, false)))
+    .orderBy(asc(accountsCcCards.sortOrder), asc(accountsCcCards.code));
+}
+
+/** Archived (soft-deleted) cards for one financial year — for the Restore view. */
+export async function listArchivedCcCards(fyStartYear: number): Promise<CcCardRow[]> {
+  return db
+    .select(ccCardCols)
+    .from(accountsCcCards)
+    .where(and(eq(accountsCcCards.fyStartYear, fyStartYear), eq(accountsCcCards.archived, true)))
     .orderBy(asc(accountsCcCards.sortOrder), asc(accountsCcCards.code));
 }
 

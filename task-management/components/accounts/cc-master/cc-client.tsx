@@ -1,13 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Search, X, Pencil, Trash2, Check, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, Search, X, Pencil, Trash2, Check, Loader2, Download, CalendarRange, ArrowUp, ArrowDown, RotateCcw, Archive, ChevronDown, ChevronRight, CalendarClock } from "lucide-react";
 import { LookupSelect, type LookupOption } from "@/components/ui/lookup-select";
 import { fireToast } from "@/lib/toast";
 import { addAccountsLookup, softDeleteAccountsLookup } from "@/lib/accounts/lookups";
 import type { CcCardRow, CcMonthRow } from "@/lib/queries/accounts-cc";
-import { CC_YESNO, CC_TALLY, CC_BALANCE, ccMonthKey, ccTone, MONTH_LABELS } from "@/lib/accounts/cc";
-import { createCcCard, updateCcCard, deleteCcCard, saveCcMonth } from "@/app/(app)/accounts/cc-tracker/actions";
+import { CC_YESNO, CC_TALLY, CC_BALANCE, ccMonthKey, ccTone, MONTH_LABELS, fyMonthCols, fyLabel } from "@/lib/accounts/cc";
+import { createCcCard, updateCcCard, deleteCcCard, saveCcMonth, carryForwardCcCards, restoreCcCard, moveCcCard } from "@/app/(app)/accounts/cc-tracker/actions";
 
 const INPUT =
   "w-full rounded-lg border border-hairline-strong bg-white px-3 py-2.5 text-[14.5px] font-medium text-ink-strong outline-none transition-colors placeholder:text-ink-subtle placeholder:font-normal focus:border-[color:var(--color-altus-red)]";
@@ -92,10 +93,12 @@ function toCardDraft(r: CcCardRow): CardDraft {
 }
 
 export function CcMaster({
-  fyStartYear, month, cards, months, entityOptions,
+  fyStartYear, month, cards, months, entityOptions, archivedCards = [], prevFyCount = 0,
 }: {
   fyStartYear: number; month: number; cards: CcCardRow[]; months: CcMonthRow[]; entityOptions: LookupOption[];
+  archivedCards?: CcCardRow[]; prevFyCount?: number;
 }) {
+  const router = useRouter();
   // Month records for the *selected* month, keyed by cardId.
   const [recs, setRecs] = React.useState<Record<string, MonthRec>>({});
   React.useEffect(() => {
@@ -111,7 +114,47 @@ export function CcMaster({
   const [draft, setDraft] = React.useState<CardDraft>(emptyCard);
   const [busy, setBusy] = React.useState(false);
   const [rowBusy, setRowBusy] = React.useState<string | null>(null);
+  const [yearCard, setYearCard] = React.useState<CcCardRow | null>(null);
+  const [showArchived, setShowArchived] = React.useState(false);
   const [, startTransition] = React.useTransition();
+
+  // All month records for the card whose full-year view is open.
+  const yearMonths = React.useMemo(
+    () => (yearCard ? months.filter((m) => m.cardId === yearCard.id) : []),
+    [months, yearCard],
+  );
+
+  function carryForward() {
+    setBusy(true);
+    startTransition(async () => {
+      const res = await carryForwardCcCards({ fromFy: fyStartYear - 1, toFy: fyStartYear });
+      setBusy(false);
+      if (!res.ok) { fireToast({ message: res.error, type: "error" }); return; }
+      fireToast({ message: res.copied ? `Carried forward ${res.copied} card${res.copied === 1 ? "" : "s"}${res.skipped ? ` · ${res.skipped} already here` : ""}.` : "All cards were already here.", type: res.copied ? "success" : "info" });
+      router.refresh();
+    });
+  }
+
+  function restore(id: string) {
+    setBusy(true);
+    startTransition(async () => {
+      const res = await restoreCcCard(id);
+      setBusy(false);
+      if (!res.ok) { fireToast({ message: res.error, type: "error" }); return; }
+      fireToast({ message: "Card restored.", type: "success" });
+      router.refresh();
+    });
+  }
+
+  function move(id: string, direction: "up" | "down") {
+    setRowBusy(id);
+    startTransition(async () => {
+      const res = await moveCcCard({ id, direction });
+      setRowBusy(null);
+      if (!res.ok) { fireToast({ message: res.error, type: "error" }); return; }
+      router.refresh();
+    });
+  }
 
   const entities = React.useMemo(
     () => Array.from(new Set([...entityOptions.map((o) => o.name), ...cards.map((c) => c.entityName ?? "")].filter(Boolean))),
@@ -200,9 +243,19 @@ export function CcMaster({
           </button>
         )}
         <span className="text-[13px] font-bold text-ink-soft">Editing: <span className="text-altus-red">{MONTH_LABELS[month - 1]}</span></span>
-        <button type="button" onClick={startAdd} className="ml-auto inline-flex items-center gap-2 rounded-xl py-2.5 px-4 text-[14.5px] font-bold text-white transition-transform active:scale-[0.99]" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 10px 26px -12px rgba(225,6,0,0.6)" }}>
-          <Plus size={16} strokeWidth={2.6} /> Add card
-        </button>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {cards.length === 0 && prevFyCount > 0 && (
+            <button type="button" onClick={carryForward} disabled={busy} title={`Copy all ${prevFyCount} cards from ${fyLabel(fyStartYear - 1)}`} className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2.5 px-4 text-[14px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red disabled:opacity-50">
+              {busy ? <Loader2 size={15} className="animate-spin" /> : <CalendarClock size={15} strokeWidth={2.4} />} Start from {fyLabel(fyStartYear - 1)}
+            </button>
+          )}
+          <a href={`/accounts/cc-tracker/export.xlsx?fy=${fyStartYear}`} className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2.5 px-4 text-[14px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red" title="Download this year as an Excel file">
+            <Download size={15} strokeWidth={2.4} /> Export
+          </a>
+          <button type="button" onClick={startAdd} className="inline-flex items-center gap-2 rounded-xl py-2.5 px-4 text-[14.5px] font-bold text-white transition-transform active:scale-[0.99]" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 10px 26px -12px rgba(225,6,0,0.6)" }}>
+            <Plus size={16} strokeWidth={2.6} /> Add card
+          </button>
+        </div>
       </div>
 
       <div className="text-[13px] font-semibold text-ink-subtle">
@@ -242,15 +295,16 @@ export function CcMaster({
                 return (
                   <tr key={c.id} className="group transition-colors hover:bg-surface-soft" style={{ borderBottom: "1px solid var(--color-hairline)" }}>
                     <Td>
-                      <div className="min-w-[200px] max-w-[280px]">
+                      <button type="button" onClick={() => setYearCard(c)} title="View all 12 months" className="group/name min-w-[200px] max-w-[280px] text-left">
                         <div className="flex items-center gap-2">
                           {c.code && <span className="text-[11px] font-bold text-ink-subtle">#{c.code}</span>}
-                          <span className="font-bold text-ink-strong">{c.cardName}</span>
+                          <span className="font-bold text-ink-strong group-hover/name:text-altus-red transition-colors">{c.cardName}</span>
+                          <CalendarRange size={13} className="text-ink-subtle opacity-0 group-hover/name:opacity-100 transition-opacity" />
                         </div>
                         <div className="mt-0.5 text-[12px] font-semibold text-ink-subtle">
                           {[c.entityName, c.ecs && `ECS: ${c.ecs}`, c.stmtPeriod, c.dueDay && `Due ${c.dueDay}`].filter(Boolean).join(" · ")}
                         </div>
-                      </div>
+                      </button>
                     </Td>
                     <CellTd><CellSelect value={rec.hardCopy} options={CC_YESNO} busy={rb} onChange={(v) => setField(c.id, "hardCopy", v, true)} /></CellTd>
                     <CellTd><CellSelect value={rec.googleDrive} options={CC_YESNO} busy={rb} onChange={(v) => setField(c.id, "googleDrive", v, true)} /></CellTd>
@@ -261,7 +315,7 @@ export function CcMaster({
                     <CellTd><CellText value={rec.intFinChgs} busy={rb} placeholder="0" onChange={(v) => setField(c.id, "intFinChgs", v, false)} onCommit={(v) => setField(c.id, "intFinChgs", v, true)} /></CellTd>
                     <CellTd><CellSelect value={rec.chgReversed} options={CC_YESNO} busy={rb} onChange={(v) => setField(c.id, "chgReversed", v, true)} /></CellTd>
                     <CellTd><CellText value={rec.notes} busy={rb} placeholder="notes" wide onChange={(v) => setField(c.id, "notes", v, false)} onCommit={(v) => setField(c.id, "notes", v, true)} /></CellTd>
-                    <Td className="text-right"><RowActions onEdit={() => startEdit(c)} onDelete={() => removeCard(c.id)} busy={busy} /></Td>
+                    <Td className="text-right"><RowActions onEdit={() => startEdit(c)} onDelete={() => removeCard(c.id)} onMoveUp={() => move(c.id, "up")} onMoveDown={() => move(c.id, "down")} canReorder={!hasFilters} isFirst={cards[0]?.id === c.id} isLast={cards[cards.length - 1]?.id === c.id} busy={busy || rb} /></Td>
                   </tr>
                 );
               })
@@ -269,7 +323,137 @@ export function CcMaster({
           </tbody>
         </table>
       </div>
+
+      {/* Archived (soft-deleted) cards — visible + restorable so nothing is ever lost. */}
+      {archivedCards.length > 0 && (
+        <div className="rounded-section border border-hairline bg-surface-card">
+          <button type="button" onClick={() => setShowArchived((s) => !s)} className="flex w-full items-center gap-2 px-4 py-3 text-left">
+            {showArchived ? <ChevronDown size={16} className="text-ink-subtle" /> : <ChevronRight size={16} className="text-ink-subtle" />}
+            <Archive size={15} className="text-ink-subtle" strokeWidth={2.2} />
+            <span className="text-[13.5px] font-bold text-ink-soft">Archived cards</span>
+            <span className="rounded-full bg-surface-soft px-2 py-0.5 text-[11.5px] font-bold text-ink-subtle">{archivedCards.length}</span>
+          </button>
+          {showArchived && (
+            <div className="border-t border-hairline">
+              {archivedCards.map((c) => (
+                <div key={c.id} className="flex items-center gap-3 border-b border-hairline px-4 py-2.5 last:border-b-0">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[14px] font-bold text-ink-soft">{c.code ? `#${c.code} · ` : ""}{c.cardName}</span>
+                    <span className="ml-2 text-[12px] font-semibold text-ink-subtle">{[c.entityName, c.stmtPeriod].filter(Boolean).join(" · ")}</span>
+                  </div>
+                  <button type="button" onClick={() => restore(c.id)} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-3 py-1.5 text-[13px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-green)] hover:text-[color:var(--color-green-deep)] disabled:opacity-50">
+                    <RotateCcw size={14} strokeWidth={2.4} /> Restore
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {yearCard && (
+        <CardYearDrawer
+          card={yearCard}
+          fyStartYear={fyStartYear}
+          monthRows={yearMonths}
+          onClose={() => setYearCard(null)}
+        />
+      )}
     </section>
+  );
+}
+
+/**
+ * Full-year view for one card — all 12 FY months (Apr→Mar) as rows, each with
+ * the 9 tracked fields, editable inline (autosaves per field). Restores the
+ * spreadsheet's whole-row-at-a-glance feel without leaving the app.
+ */
+function CardYearDrawer({ card, fyStartYear, monthRows, onClose }: {
+  card: CcCardRow; fyStartYear: number; monthRows: CcMonthRow[]; onClose: () => void;
+}) {
+  const cols = React.useMemo(() => fyMonthCols(fyStartYear), [fyStartYear]);
+  const [recs, setRecs] = React.useState<Record<number, MonthRec>>(() => {
+    const m: Record<number, MonthRec> = {};
+    for (const r of monthRows) m[r.month] = recFrom(r);
+    return m;
+  });
+  const [rowBusy, setRowBusy] = React.useState<number | null>(null);
+  const [, startTransition] = React.useTransition();
+
+  const onCloseRef = React.useRef(onClose);
+  React.useEffect(() => { onCloseRef.current = onClose; });
+  React.useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); onCloseRef.current(); } };
+    document.addEventListener("keydown", onKey, true);
+    return () => { document.body.style.overflow = prev; document.removeEventListener("keydown", onKey, true); };
+  }, []);
+
+  function commit(monthNum: number, next: MonthRec) {
+    setRowBusy(monthNum);
+    startTransition(async () => {
+      const res = await saveCcMonth({ cardId: card.id, month: monthNum, ...next });
+      setRowBusy(null);
+      if (!res.ok) fireToast({ message: res.error, type: "error" });
+    });
+  }
+  function setField(monthNum: number, field: keyof MonthRec, value: string, persist: boolean) {
+    setRecs((prev) => {
+      const cur = prev[monthNum] ?? emptyRec();
+      const next = { ...cur, [field]: value };
+      if (persist) commit(monthNum, next);
+      return { ...prev, [monthNum]: next };
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 max-md:items-end max-md:p-0" role="dialog" aria-modal="true" aria-label={`${card.cardName} — full year`}>
+      <button aria-label="Close" onClick={onClose} className="absolute inset-0 cursor-default bg-[rgba(15,23,42,0.44)] backdrop-blur-[2px]" />
+      <div className="relative flex max-h-[92vh] w-full max-w-[1100px] flex-col overflow-hidden rounded-2xl bg-surface-card max-md:max-w-none max-md:rounded-b-none" style={{ border: "1px solid var(--color-hairline)", boxShadow: "0 32px 90px -24px rgba(15,23,42,0.55)" }}>
+        <span aria-hidden className="absolute inset-x-0 top-0 h-1" style={{ background: "var(--color-altus-red)" }} />
+        <div className="flex shrink-0 items-center gap-3 px-6 py-4" style={{ borderBottom: "1px solid var(--color-hairline)" }}>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-black uppercase tracking-[0.12em] text-altus-red">{fyLabel(fyStartYear)} · Full year</p>
+            <h2 className="truncate text-[18px] font-black tracking-[-0.01em] text-ink-strong">{card.code ? `#${card.code} · ` : ""}{card.cardName}</h2>
+            <p className="text-[12.5px] font-semibold text-ink-subtle">{[card.entityName, card.ecs && `ECS: ${card.ecs}`, card.stmtPeriod, card.dueDay && `Due ${card.dueDay}`].filter(Boolean).join(" · ")}</p>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-surface-soft hover:text-ink-strong">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto">
+          <table className="w-full border-collapse text-left" style={{ minWidth: 980 }}>
+            <thead className="sticky top-0 z-10">
+              <tr>
+                <Th>Month</Th><Th>Hard copy</Th><Th>G-Drive</Th><Th>Tally</Th><Th>Balance</Th>
+                <Th>Paid date</Th><Th>Paid amt</Th><Th>Int+Fin</Th><Th>Chg rev?</Th><Th>Notes</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {cols.map((col) => {
+                const rec = recs[col.month] ?? emptyRec();
+                const rb = rowBusy === col.month;
+                return (
+                  <tr key={col.month} className="hover:bg-surface-soft" style={{ borderBottom: "1px solid var(--color-hairline)" }}>
+                    <Td><span className="font-bold text-ink-strong whitespace-nowrap">{col.label} &apos;{String(col.calYear % 100).padStart(2, "0")}</span></Td>
+                    <CellTd><CellSelect value={rec.hardCopy} options={CC_YESNO} busy={rb} onChange={(v) => setField(col.month, "hardCopy", v, true)} /></CellTd>
+                    <CellTd><CellSelect value={rec.googleDrive} options={CC_YESNO} busy={rb} onChange={(v) => setField(col.month, "googleDrive", v, true)} /></CellTd>
+                    <CellTd><CellSelect value={rec.tallyEntry} options={CC_TALLY} busy={rb} onChange={(v) => setField(col.month, "tallyEntry", v, true)} /></CellTd>
+                    <CellTd><CellSelect value={rec.balanceTally} options={CC_BALANCE} busy={rb} onChange={(v) => setField(col.month, "balanceTally", v, true)} /></CellTd>
+                    <CellTd><CellText value={rec.ccPaidDate} busy={rb} placeholder="date" onChange={(v) => setField(col.month, "ccPaidDate", v, false)} onCommit={(v) => setField(col.month, "ccPaidDate", v, true)} /></CellTd>
+                    <CellTd><CellText value={rec.ccPaidAmt} busy={rb} placeholder="₹" onChange={(v) => setField(col.month, "ccPaidAmt", v, false)} onCommit={(v) => setField(col.month, "ccPaidAmt", v, true)} /></CellTd>
+                    <CellTd><CellText value={rec.intFinChgs} busy={rb} placeholder="0" onChange={(v) => setField(col.month, "intFinChgs", v, false)} onCommit={(v) => setField(col.month, "intFinChgs", v, true)} /></CellTd>
+                    <CellTd><CellSelect value={rec.chgReversed} options={CC_YESNO} busy={rb} onChange={(v) => setField(col.month, "chgReversed", v, true)} /></CellTd>
+                    <CellTd><CellText value={rec.notes} busy={rb} placeholder="notes" wide onChange={(v) => setField(col.month, "notes", v, false)} onCommit={(v) => setField(col.month, "notes", v, true)} /></CellTd>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -300,11 +484,24 @@ function CellTd({ children }: { children: React.ReactNode }) {
   return <td className="px-1.5 py-2 align-middle">{children}</td>;
 }
 
-function RowActions({ onEdit, onDelete, busy }: { onEdit: () => void; onDelete: () => void; busy: boolean }) {
+function RowActions({ onEdit, onDelete, onMoveUp, onMoveDown, canReorder, isFirst, isLast, busy }: {
+  onEdit: () => void; onDelete: () => void; onMoveUp: () => void; onMoveDown: () => void;
+  canReorder: boolean; isFirst: boolean; isLast: boolean; busy: boolean;
+}) {
   const [confirming, setConfirming] = React.useState(false);
   React.useEffect(() => { if (!confirming) return; const t = setTimeout(() => setConfirming(false), 3500); return () => clearTimeout(t); }, [confirming]);
   return (
     <div className="flex items-center justify-end gap-1">
+      {canReorder && (
+        <div className="flex flex-col opacity-0 transition-opacity group-hover:opacity-100">
+          <button type="button" onClick={onMoveUp} disabled={busy || isFirst} aria-label="Move up" className="inline-flex size-4 items-center justify-center text-ink-subtle transition-colors hover:text-altus-red disabled:opacity-25">
+            <ArrowUp size={13} strokeWidth={2.6} />
+          </button>
+          <button type="button" onClick={onMoveDown} disabled={busy || isLast} aria-label="Move down" className="inline-flex size-4 items-center justify-center text-ink-subtle transition-colors hover:text-altus-red disabled:opacity-25">
+            <ArrowDown size={13} strokeWidth={2.6} />
+          </button>
+        </div>
+      )}
       <button type="button" onClick={onEdit} disabled={busy} aria-label="Edit card" className="inline-flex size-8 items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-surface-soft hover:text-ink-strong disabled:opacity-50">
         <Pencil size={15} strokeWidth={2.2} />
       </button>
