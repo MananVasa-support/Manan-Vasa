@@ -288,8 +288,8 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
           </div>
 
           <div
-            className="kanban-scroll flex items-stretch gap-4 overflow-x-auto overflow-y-auto pb-3 max-sm:snap-x max-sm:snap-mandatory"
-            style={{ maxHeight: "calc(100dvh - 290px)", minHeight: 460 }}
+            className="kanban-scroll flex items-stretch gap-4 overflow-x-auto overflow-y-hidden pb-3 max-sm:snap-x max-sm:snap-mandatory"
+            style={{ height: "calc(100dvh - 290px)", minHeight: 460 }}
           >
             <SortableContext items={columns} strategy={horizontalListSortingStrategy}>
               {columns.map((col) => {
@@ -449,7 +449,7 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className="relative flex-[1_0_320px] max-w-[460px] max-sm:flex-[0_0_85vw] max-sm:max-w-none max-sm:snap-center rounded-section p-3.5 transition-colors"
+      className="relative flex flex-col overflow-hidden flex-[1_0_320px] max-w-[460px] max-sm:flex-[0_0_85vw] max-sm:max-w-none max-sm:snap-center rounded-section p-3.5 transition-colors"
       style={{
         transform: CSS.Translate.toString(transform),
         transition,
@@ -471,13 +471,13 @@ function KanbanColumn({
           background: `linear-gradient(90deg, ${accent}, ${accentDeep})`,
         }}
       />
-      {/* Column header — sticky; the grip is the admin reorder handle. */}
+      {/* Column header — a fixed (non-scrolling) top block so the status is
+          FROZEN and always visible; only the cards list below scrolls. The grip
+          is the admin reorder handle. */}
       <div
-        className="sticky top-0 z-20 flex items-center justify-between gap-2 -mx-3.5 -mt-3.5 mb-3 px-3.5 pt-4 pb-2.5"
+        className="shrink-0 z-20 flex items-center justify-between gap-2 -mx-3.5 -mt-3.5 mb-3 px-3.5 pt-4 pb-2.5"
         style={{
           background: "inherit",
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
           borderTopLeftRadius: 16,
           borderTopRightRadius: 16,
         }}
@@ -522,7 +522,8 @@ function KanbanColumn({
         </span>
       </div>
 
-      <div className="flex flex-col gap-2 min-h-[40px]">{children}</div>
+      {/* Only this cards list scrolls — the header above stays frozen. */}
+      <div className="kanban-scroll flex-1 min-h-[40px] overflow-y-auto overflow-x-hidden flex flex-col gap-2 -mr-2 pr-2">{children}</div>
     </div>
   );
 }
