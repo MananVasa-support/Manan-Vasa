@@ -62,29 +62,46 @@ export const WORKSPACE_DEPARTMENT: Partial<Record<WorkspaceId, string>> = {
   sales: "Sales",
 };
 
+/**
+ * WORD-match a required department against every membership the user has, so
+ * "Sales", "Sales Team", "Sales & Marketing" all grant a room that requires
+ * "Sales" — but "Salesforce Admin" does NOT. `departments` carries EVERY
+ * department the user belongs to (structured employee_departments membership +
+ * the legacy free-text field), so a multi-department person gets in via any one
+ * of their memberships.
+ */
+export function matchesDepartment(departments: string[], required: string): boolean {
+  const req = required.toLowerCase();
+  return departments.some((d) =>
+    (d ?? "").toLowerCase().split(/[^a-z]+/).includes(req),
+  );
+}
+
+/**
+ * Members of this department may enter the Accounts module (which the hub's
+ * Admin card opens, landing on `/accounts`) — the accounts team, without being
+ * super-admins. The CA Handover credential vault stays super-admin-only and is
+ * guarded separately (`canViewCaHandover`).
+ */
+export const ACCOUNTS_DEPARTMENT = "Accounts";
+
 export function canAccessWorkspace(
   ws: WorkspaceId,
   user: { departments: string[]; isAdmin: boolean; isSuperAdmin: boolean },
 ): boolean {
   // Super-admins see every room.
   if (user.isSuperAdmin) return true;
-  // The Admin room is role-gated: admins only (NOT doers).
-  if (ws === "admin") return user.isAdmin;
-  // Accounts is locked to super-admins (who already returned true above).
-  if (ws === "accounts") return false;
+  const isAccountsRole = matchesDepartment(user.departments, ACCOUNTS_DEPARTMENT);
+  // The Admin card opens the Accounts module (/accounts). Admins OR the Accounts
+  // department may enter it. (The /admin control-room is a separate route group
+  // with its own isAdmin-only guard, so this does not expose it.)
+  if (ws === "admin") return user.isAdmin || isAccountsRole;
+  // The Accounts room itself — the Accounts department (super-admins passed above).
+  if (ws === "accounts") return isAccountsRole;
   // Department-gated rooms (Sales).
   const required = WORKSPACE_DEPARTMENT[ws];
   if (!required) return true; // open room
-  // `departments` carries EVERY department the user belongs to (structured
-  // employee_departments membership + the legacy free-text field). WORD-match
-  // against each: "Sales", "Sales Team", "Sales & Marketing" grant access, but
-  // "Salesforce Admin" does NOT. A multi-department person (e.g. Sales +
-  // Consulting + Founder Office) gets in via their Sales membership — which the
-  // single free-text column could never represent.
-  const req = required.toLowerCase();
-  return user.departments.some((d) =>
-    (d ?? "").toLowerCase().split(/[^a-z]+/).includes(req),
-  );
+  return matchesDepartment(user.departments, required);
 }
 
 /**
