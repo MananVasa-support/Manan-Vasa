@@ -20,6 +20,11 @@ import {
 import { parseV3Config, activeBand, type PmsV3Config } from "@/lib/pms/v3/config";
 import { computeGrade, kpiPoints, type GradeResult } from "@/lib/pms/v3/grade-band";
 import { blendFactor, perceptionGap, type RaterScores } from "@/lib/pms/v3/blend";
+import {
+  computePmsTotal,
+  type ConstitutionParaInput,
+  type PmsTotalResult,
+} from "@/lib/pms/v3/total";
 import { getIncentivePaidByPerson } from "@/lib/queries/incentives";
 import { getMonthlyCtcByPerson } from "@/lib/pms/v3/ctc";
 
@@ -300,6 +305,146 @@ export async function getConstitutionView(
     adminScore: admin.get(p.id) ?? null,
     selfScore: self.get(p.id) ?? null,
   }));
+}
+
+// ── Overall monthly TOTAL (the capstone /100 rollup) ─────────────────────────
+
+export interface MonthlyTotalRow {
+  employeeId: string;
+  name: string;
+  isManager: boolean;
+  total: PmsTotalResult;
+}
+
+/**
+ * The overall monthly PMS total for MANY people in a bounded number of queries
+ * (config + managers + grades + one batched read each of subjective, constitution
+ * paras, constitution scores, X-Factor). Assembles the pure `computePmsTotal`
+ * inputs per person: incentive grade, EFFECTIVE KPI attainment %, blended
+ * subjective finals (perception model), the constitution para admin/self scores,
+ * and the summed X-Factor points. Single source of truth for both the roster and
+ * the per-person score page (which calls this with a one-element list).
+ */
+export async function getMonthlyTotalsForMonth(
+  people: { id: string; name: string }[],
+  month: string,
+): Promise<MonthlyTotalRow[]> {
+  if (people.length === 0) return [];
+  const ids = people.map((p) => p.id);
+  const cfg = await getV3Config();
+
+  const [grades, isMgrSet, subjRows, paras, constRows, xfRows] = await Promise.all([
+    getGradeBandsForMonth(people, month),
+    managerIds(ids),
+    withRetry(
+      () =>
+        db
+          .select()
+          .from(pmsSubjectiveScore)
+          .where(and(inArray(pmsSubjectiveScore.subjectId, ids), eq(pmsSubjectiveScore.period, month))),
+      { ...RETRY, label: "pms-v3-totals-subjective" },
+    ),
+    withRetry(
+      () =>
+        db
+          .select()
+          .from(pmsConstitutionPara)
+          .where(eq(pmsConstitutionPara.active, true))
+          .orderBy(asc(pmsConstitutionPara.position)),
+      { ...RETRY, label: "pms-v3-totals-const-paras" },
+    ),
+    withRetry(
+      () =>
+        db
+          .select()
+          .from(pmsConstitutionScore)
+          .where(and(inArray(pmsConstitutionScore.subjectId, ids), eq(pmsConstitutionScore.period, month))),
+      { ...RETRY, label: "pms-v3-totals-const-scores" },
+    ),
+    withRetry(
+      () =>
+        db
+          .select()
+          .from(pmsXfactor)
+          .where(and(inArray(pmsXfactor.subjectId, ids), eq(pmsXfactor.period, month))),
+      { ...RETRY, label: "pms-v3-totals-xfactor" },
+    ),
+  ]);
+
+  const gradeById = new Map(grades.map((g) => [g.employeeId, g.grade]));
+
+  // subject → factorKey → { self, manager, manan } points
+  const subjBy = new Map<string, Map<string, RaterScores>>();
+  for (const r of subjRows) {
+    const byFactor = subjBy.get(r.subjectId) ?? new Map<string, RaterScores>();
+    const slot = byFactor.get(r.factorKey) ?? { self: null, manager: null, manan: null };
+    if (r.raterRole === "self") slot.self = r.points ?? null;
+    else if (r.raterRole === "manager") slot.manager = r.points ?? null;
+    else if (r.raterRole === "manan") slot.manan = r.points ?? null;
+    byFactor.set(r.factorKey, slot);
+    subjBy.set(r.subjectId, byFactor);
+  }
+
+  // subject → paraId → { admin, self } points
+  const constBy = new Map<string, Map<string, { admin: number | null; self: number | null }>>();
+  for (const s of constRows) {
+    const byPara = constBy.get(s.subjectId) ?? new Map<string, { admin: number | null; self: number | null }>();
+    const slot = byPara.get(s.paraId) ?? { admin: null, self: null };
+    if (s.raterRole === "admin") slot.admin = s.points ?? null;
+    else if (s.raterRole === "self") slot.self = s.points ?? null;
+    byPara.set(s.paraId, slot);
+    constBy.set(s.subjectId, byPara);
+  }
+
+  // subject → summed X-Factor points
+  const xfBy = new Map<string, number>();
+  for (const x of xfRows) {
+    xfBy.set(x.subjectId, (xfBy.get(x.subjectId) ?? 0) + Number(x.points ?? 0));
+  }
+
+  const subjectiveKeys = cfg.factors.filter((f) => f.kind === "subjective").map((f) => f.key);
+
+  return people.map((p) => {
+    const isManager = isMgrSet.has(p.id);
+    const byFactor = subjBy.get(p.id) ?? new Map<string, RaterScores>();
+
+    // Blended subjective finals (perception model).
+    const subjectiveFinals: Record<string, number | null> = {};
+    for (const key of subjectiveKeys) {
+      const scores = byFactor.get(key) ?? { self: null, manager: null, manan: null };
+      subjectiveFinals[key] = blendFactor(scores, isManager, cfg).final;
+    }
+
+    // KPI effective attainment %: Manan's if present, else the manager's.
+    const kpiSlot = byFactor.get("kpi");
+    const kpiEffectivePct = kpiSlot ? (kpiSlot.manan ?? kpiSlot.manager) : null;
+
+    // Constitution para inputs (admin + self per para).
+    const byPara = constBy.get(p.id);
+    const constitution: ConstitutionParaInput[] = paras.map((para) => {
+      const slot = byPara?.get(para.id);
+      return {
+        isHeading: para.isHeading,
+        weight: Number(para.weight ?? 0),
+        adminScore: slot?.admin ?? null,
+        selfScore: slot?.self ?? null,
+      };
+    });
+
+    const total = computePmsTotal(
+      {
+        grade: gradeById.get(p.id) ?? null,
+        kpiEffectivePct,
+        constitution,
+        subjectiveFinals,
+        xFactorPoints: xfBy.get(p.id) ?? 0,
+      },
+      cfg,
+      isManager,
+    );
+
+    return { employeeId: p.id, name: p.name, isManager, total };
+  });
 }
 
 /** Whether the Constitution has been seeded yet (0 rows ⇒ show the seed prompt). */

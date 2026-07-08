@@ -12,10 +12,11 @@ import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { MODULE_THEME } from "@/lib/module-theme";
 import { requirePmsV3 } from "@/lib/pms/v3/flag";
 import { canActAsManan } from "@/lib/pms/v3/roles";
-import { getMonthlyScoreView, getGradeBandsForMonth, getXFactors } from "@/lib/queries/pms-v3";
+import { getMonthlyScoreView, getGradeBandsForMonth, getXFactors, getMonthlyTotalsForMonth } from "@/lib/queries/pms-v3";
 import { MonthlyScoringPanel } from "@/components/pms/v3/monthly-scoring-panel";
 import { XFactorPanel } from "@/components/pms/v3/xfactor-panel";
 import { GradeBandBadge } from "@/components/pms/v3/grade-band-badge";
+import { TotalSummary } from "@/components/pms/v3/total-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -63,12 +64,14 @@ export default async function PmsV3ScorePage({
   const editableRole =
     employeeId === me.id ? "self" : manan ? "manan" : isTheirManager ? "manager" : null;
 
-  const [view, grades, xfactors] = await Promise.all([
+  const [view, grades, xfactors, totals] = await Promise.all([
     getMonthlyScoreView(employeeId, period, { canSeeJustifications: manan }),
     getGradeBandsForMonth([{ id: subject.id, name: subject.name }], period),
     manan ? getXFactors(employeeId, period) : Promise.resolve([]),
+    getMonthlyTotalsForMonth([{ id: subject.id, name: subject.name }], period),
   ]);
   const grade = grades[0];
+  const total = totals[0];
 
   return (
     <>
@@ -105,6 +108,18 @@ export default async function PmsV3ScorePage({
             </div>
           )}
         </header>
+
+        {total && (
+          <div className="mb-6">
+            <TotalSummary
+              total={total.total}
+              isManager={total.isManager}
+              xFactorMax={view.config.xFactorMaxPoints}
+              accent={ACCENT}
+              accentDeep={ACCENT_DEEP}
+            />
+          </div>
+        )}
 
         <MonthlyScoringPanel
           view={view}

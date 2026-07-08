@@ -10,8 +10,9 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { MODULE_THEME } from "@/lib/module-theme";
 import { requirePmsV3 } from "@/lib/pms/v3/flag";
-import { getGradeBandsForMonth, getV3Config } from "@/lib/queries/pms-v3";
+import { getGradeBandsForMonth, getV3Config, getMonthlyTotalsForMonth } from "@/lib/queries/pms-v3";
 import { GradeBandBadge } from "@/components/pms/v3/grade-band-badge";
+import { TotalBadge } from "@/components/pms/v3/total-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -55,11 +56,13 @@ export default async function PmsV3Page() {
     people = [...self, ...reports].filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
   }
 
-  const [grades, cfg] = await Promise.all([
+  const [grades, cfg, totals] = await Promise.all([
     getGradeBandsForMonth(people.map((p) => ({ id: p.id, name: p.name })), period),
     getV3Config(),
+    getMonthlyTotalsForMonth(people.map((p) => ({ id: p.id, name: p.name })), period),
   ]);
   const gradeById = new Map(grades.map((g) => [g.employeeId, g]));
+  const totalById = new Map(totals.map((t) => [t.employeeId, t]));
 
   return (
     <>
@@ -119,6 +122,7 @@ export default async function PmsV3Page() {
         <div className="grid grid-cols-2 gap-3.5 max-lg:grid-cols-1">
           {people.map((p, i) => {
             const g = gradeById.get(p.id);
+            const t = totalById.get(p.id);
             return (
               <Link
                 key={p.id}
@@ -131,7 +135,10 @@ export default async function PmsV3Page() {
                   <span className="block truncate text-[16px] font-bold text-ink-strong">{p.name}</span>
                   <span className="text-[13px] text-ink-subtle">{p.department || "—"}</span>
                 </div>
-                {g && <GradeBandBadge grade={g.grade} />}
+                <div className="flex flex-col items-end gap-1.5">
+                  {t && <TotalBadge total={t.total} accent={ACCENT} accentDeep={ACCENT_DEEP} />}
+                  {g && <GradeBandBadge grade={g.grade} size="sm" />}
+                </div>
               </Link>
             );
           })}
