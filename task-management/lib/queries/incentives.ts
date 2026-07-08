@@ -50,6 +50,14 @@ function monthStart(year: number, month1: number): string {
   return `${year}-${pad2(month1)}-01`;
 }
 
+/** First-of-NEXT-month YYYY-MM-DD for a "YYYY-MM" key (exclusive upper bound). */
+function monthEndExclusive(month: string): string {
+  const [y, m] = month.split("-").map(Number) as [number, number];
+  const ny = m === 12 ? y + 1 : y;
+  const nm = m === 12 ? 1 : m + 1;
+  return `${ny}-${pad2(nm)}-01`;
+}
+
 /** A normalised key for matching ledger names to employee names. */
 function nameKey(name: string | null | undefined): string {
   return (name ?? "").trim().toLowerCase();
@@ -106,6 +114,10 @@ export async function listIncentiveProjects(
 export interface IncentiveTotals {
   /** Approved-amount basis (what was earned/owed). */
   approved: number;
+  /** Booked = client made a PARTIAL payment (WS-4 Phase B). Zero for legacy rows. */
+  booked: number;
+  /** Accrued = client paid in FULL (backfilled from approved). Earnings basis. */
+  accrued: number;
   paid: number;
   unpaid: number;
 }
@@ -166,7 +178,7 @@ export async function getIncentiveDashboard(year: number): Promise<IncentiveDash
     listIncentiveProjects({ year }),
   ]);
 
-  const zero = (): IncentiveTotals => ({ approved: 0, paid: 0, unpaid: 0 });
+  const zero = (): IncentiveTotals => ({ approved: 0, booked: 0, accrued: 0, paid: 0, unpaid: 0 });
   const permanent = zero();
   const project = zero();
 
@@ -199,6 +211,8 @@ export async function getIncentiveDashboard(year: number): Promise<IncentiveDash
     const unpaid = Math.max(0, approved - paid);
 
     permanent.approved += approved;
+    permanent.booked += num(e.bookedAmt);
+    permanent.accrued += num(e.accruedAmt);
     permanent.paid += paid;
     permanent.unpaid += unpaid;
 
@@ -230,15 +244,19 @@ export async function getIncentiveDashboard(year: number): Promise<IncentiveDash
 
   // Project incentives — supervisor (emp share) + intern (intern share) legs.
   for (const pr of projects) {
-    const legs: Array<{ name: string | null; approved: number; paid: number }> = [
+    const legs: Array<{ name: string | null; approved: number; booked: number; accrued: number; paid: number }> = [
       {
         name: pr.supervisorName,
         approved: num(pr.empApprovedAmt),
+        booked: num(pr.empBookedAmt),
+        accrued: num(pr.empAccruedAmt),
         paid: num(pr.empPaidAmt),
       },
       {
         name: pr.internName,
         approved: num(pr.internApprovedAmt),
+        booked: num(pr.internBookedAmt),
+        accrued: num(pr.internAccruedAmt),
         paid: num(pr.internPaidAmt),
       },
     ];
@@ -252,6 +270,8 @@ export async function getIncentiveDashboard(year: number): Promise<IncentiveDash
       if (approved === 0 && paid === 0) continue;
 
       project.approved += approved;
+      project.booked += leg.booked;
+      project.accrued += leg.accrued;
       project.paid += paid;
       project.unpaid += unpaid;
 
@@ -273,6 +293,8 @@ export async function getIncentiveDashboard(year: number): Promise<IncentiveDash
 
   const consolidated: IncentiveTotals = {
     approved: permanent.approved + project.approved,
+    booked: permanent.booked + project.booked,
+    accrued: permanent.accrued + project.accrued,
     paid: permanent.paid + project.paid,
     unpaid: permanent.unpaid + project.unpaid,
   };
@@ -292,6 +314,61 @@ export async function getIncentiveDashboard(year: number): Promise<IncentiveDash
     monthly,
     leaderboard,
   };
+}
+
+// --- shared-key contract: incentive PAID by person (WS-4 owns) --------------
+
+/**
+ * CANONICAL incentive-PAID producer — the single source PMS (grade bands) and
+ * Salary (combined earnings doc) both READ. Sums money actually PAID OUT to each
+ * person for the "YYYY-MM" `month`: permanent `paid_amt` + project paid legs
+ * (Permanent + Ad-hoc combined once ad-hoc lands), excluding operational actors.
+ * PAID only — never booked/accrued/approved.
+ *
+ * Returns a Map keyed BOTH by normalised name AND by employeeId (when known),
+ * each pointing at that person's FULL paid total, so a caller can look up by
+ * whichever identity it holds. Salary's / attendance's paid-lookups must ALIAS
+ * this function, not re-implement it, so the number never drifts.
+ */
+export async function getIncentivePaidByPerson(month: string): Promise<Map<string, number>> {
+  const start = `${month}-01`;
+  const end = monthEndExclusive(month);
+  const [entries, projects] = await Promise.all([
+    db
+      .select()
+      .from(incentiveEntries)
+      .where(and(gte(incentiveEntries.periodMonth, start), lt(incentiveEntries.periodMonth, end))),
+    db
+      .select()
+      .from(incentiveProjects)
+      .where(and(gte(incentiveProjects.periodMonth, start), lt(incentiveProjects.periodMonth, end))),
+  ]);
+
+  // Accumulate per normalised name, remembering the first employeeId we see.
+  const byName = new Map<string, { id: string | null; paid: number }>();
+  const bump = (name: string | null | undefined, id: string | null | undefined, paid: number) => {
+    if (!name || paid === 0 || isExcluded(name) || name.trim().toLowerCase() === "none") return;
+    const key = nameKey(name);
+    if (!key) return;
+    const cur = byName.get(key) ?? { id: null, paid: 0 };
+    cur.paid += paid;
+    if (id && !cur.id) cur.id = id;
+    byName.set(key, cur);
+  };
+
+  for (const e of entries) bump(e.empName, e.employeeId, num(e.paidAmt));
+  for (const pr of projects) {
+    bump(pr.supervisorName, pr.supervisorId, num(pr.empPaidAmt));
+    bump(pr.internName, pr.internId, num(pr.internPaidAmt));
+  }
+
+  // Emit both keys → the same full total, so lookup by name OR id works.
+  const out = new Map<string, number>();
+  for (const [key, v] of byName) {
+    out.set(key, v.paid);
+    if (v.id) out.set(v.id, v.paid);
+  }
+  return out;
 }
 
 // --- monthly digest ---------------------------------------------------------
