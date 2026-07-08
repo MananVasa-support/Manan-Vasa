@@ -13,6 +13,11 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { requireAdmin } from "@/lib/auth/current";
 import { salaryBreakupMonths, listSalaryBreakup } from "@/lib/queries/salary-breakup";
 import { SalaryBreakupTable, type SalaryRow } from "@/components/salary/salary-breakup-table";
+import {
+  StatementDownloads,
+  type StatementEmployee,
+} from "@/components/salary/statement-downloads";
+import { fyForMonth } from "@/lib/salary/period";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +61,26 @@ export default async function SalaryPage({ searchParams }: PageProps) {
   const totalFinal = sum((r) => r.finalPayment);
   const totalAdvance = sum((r) => r.advance);
   const totalPt = sum((r) => r.pt);
+
+  // WS-5/WS-6 — linked employees for the statement/earnings document downloads
+  // (behind SALARY_STATEMENTS). Only rows with a resolved employeeId can be
+  // used (attendance + incentive lookups key on it); dedupe by id.
+  const statementsOn = process.env.SALARY_STATEMENTS !== "false";
+  const statementEmployees: StatementEmployee[] = [];
+  if (statementsOn) {
+    const seen = new Set<string>();
+    for (const r of rows) {
+      if (r.employeeId && !seen.has(r.employeeId)) {
+        seen.add(r.employeeId);
+        statementEmployees.push({ id: r.employeeId, name: r.employeeName });
+      }
+    }
+  }
+  const fyStartYear = (() => {
+    const [my, mm] = (month || "").split("-").map(Number);
+    if (!my || !mm) return new Date().getFullYear();
+    return mm >= 4 ? my : my - 1;
+  })();
 
   // Plain serializable rows for the client table.
   const tableRows: SalaryRow[] = rows.map((r, i) => ({
@@ -123,15 +148,23 @@ export default async function SalaryPage({ searchParams }: PageProps) {
                 Straight from the salary sheet (imported as-is). The attendance figures here are
                 the sheet&apos;s own — the app&apos;s attendance does not change these numbers.
               </p>
-              {process.env.SALARY_DOCS_UI !== "false" && (
-                <Link
-                  href={"/salary/documents" as Route}
-                  className="mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-bold"
-                  style={{ color: GREEN_DEEP }}
-                >
-                  Exit documents &amp; signatory letters →
-                </Link>
-              )}
+              <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5">
+                {process.env.SALARY_DOCS_UI !== "false" && (
+                  <Link href={"/salary/documents" as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: GREEN_DEEP }}>
+                    Exit documents &amp; signatory letters →
+                  </Link>
+                )}
+                {process.env.SALARY_ANALYTICS !== "false" && (
+                  <Link href={`/salary/analytics${month ? `?month=${month}` : ""}` as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: GREEN_DEEP }}>
+                    Attendance analytics →
+                  </Link>
+                )}
+                {process.env.INCENTIVE_PAYOUT === "true" && (
+                  <Link href={"/salary/incentive-payout" as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: GREEN_DEEP }}>
+                    Pay incentives with salary →
+                  </Link>
+                )}
+              </div>
             </div>
 
             {months.length > 0 && (
@@ -213,6 +246,17 @@ export default async function SalaryPage({ searchParams }: PageProps) {
             delay={200}
           />
         </section>
+
+        {/* ── Statement & earnings document downloads (behind SALARY_STATEMENTS) ── */}
+        {statementsOn && month && statementEmployees.length > 0 && (
+          <StatementDownloads
+            employees={statementEmployees}
+            month={month}
+            monthLabel={monthLabel(month, "short")}
+            fy={fyForMonth(month)}
+            fyStartYear={fyStartYear}
+          />
+        )}
 
         {/* ── The breakup ledger ── */}
         {rows.length === 0 ? (
