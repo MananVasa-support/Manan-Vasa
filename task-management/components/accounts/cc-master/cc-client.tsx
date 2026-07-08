@@ -249,7 +249,7 @@ export function CcMaster({
               {busy ? <Loader2 size={15} className="animate-spin" /> : <CalendarClock size={15} strokeWidth={2.4} />} Start from {fyLabel(fyStartYear - 1)}
             </button>
           )}
-          <a href={`/accounts/cc-tracker/export.xlsx?fy=${fyStartYear}`} className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2.5 px-4 text-[14px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red" title="Download this year as an Excel file">
+          <a href={`/accounts/cc-tracker/export?fy=${fyStartYear}`} className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2.5 px-4 text-[14px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red" title="Download this year as an Excel file">
             <Download size={15} strokeWidth={2.4} /> Export
           </a>
           <button type="button" onClick={startAdd} className="inline-flex items-center gap-2 rounded-xl py-2.5 px-4 text-[14.5px] font-bold text-white transition-transform active:scale-[0.99]" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 10px 26px -12px rgba(225,6,0,0.6)" }}>
