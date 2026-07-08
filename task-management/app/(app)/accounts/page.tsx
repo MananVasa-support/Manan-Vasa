@@ -3,6 +3,7 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { ACCOUNTS_SECTIONS } from "@/lib/accounts/sections";
 import { AccountsIndex } from "@/components/accounts/accounts-index";
 import { MODULE_THEME } from "@/lib/module-theme";
+import { requireAccountsAccess } from "@/lib/accounts/access";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +12,11 @@ export const dynamic = "force-dynamic";
 // rolls across the sub-pages next; this establishes the accent on the front door.
 const ACCENT = MODULE_THEME.accounts.accentDeep;
 
-export default function AccountsIndexPage() {
-  // The (app)/accounts layout has already gated access (admin/manager only).
+export default async function AccountsIndexPage() {
+  // Guard IN THE PAGE — super-admins or the Accounts department only. The (app)
+  // layout gate alone isn't reliable on prod (a Next.js layout-redirect quirk),
+  // so every accounts surface must assert access itself.
+  await requireAccountsAccess();
   const sections = [...ACCOUNTS_SECTIONS].sort((a, b) => a.order - b.order);
   const built = sections.filter((s) => s.status === "built").length;
 
