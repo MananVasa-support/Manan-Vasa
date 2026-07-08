@@ -2056,6 +2056,35 @@ export const incentiveProjects = pgTable(
   ],
 );
 
+// WS-4 Phase B3 — generic N-way team split (migration 0107). A participant
+// attaches to an entry XOR a project and carries that person's own share.
+export const incentiveParticipants = pgTable(
+  "incentive_participants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    entryId: uuid("entry_id").references(() => incentiveEntries.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => incentiveProjects.id, { onDelete: "cascade" }),
+    periodMonth: date("period_month"),
+    empName: text("emp_name").notNull(),
+    employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "set null" }),
+    bookedAmt: numeric("booked_amt", { precision: 14, scale: 2 }).notNull().default("0"),
+    accruedAmt: numeric("accrued_amt", { precision: 14, scale: 2 }).notNull().default("0"),
+    paidAmt: numeric("paid_amt", { precision: 14, scale: 2 }).notNull().default("0"),
+    paidDate: date("paid_date"),
+    payoutRunId: uuid("payout_run_id").references(() => salaryRuns.id, { onDelete: "set null" }),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("incentive_participants_entry_idx").on(t.entryId),
+    index("incentive_participants_project_idx").on(t.projectId),
+    index("incentive_participants_employee_idx").on(t.employeeId),
+    index("incentive_participants_period_idx").on(t.periodMonth),
+  ],
+);
+export type IncentiveParticipant = typeof incentiveParticipants.$inferSelect;
+
 // Incentive slice C — per-person monthly TARGET (for Target-vs-Actual). Keyed by
 // emp_name + period_month (the incentive ledger keys by name, not always a FK).
 export const incentiveTargets = pgTable(

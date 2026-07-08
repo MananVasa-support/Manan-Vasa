@@ -4,10 +4,12 @@ import { db } from "@/lib/db";
 import {
   incentiveCatalog,
   incentiveEntries,
+  incentiveParticipants,
   incentiveProjects,
   incentiveTargets,
   type IncentiveCatalog,
   type IncentiveEntry,
+  type IncentiveParticipant,
   type IncentiveProject,
   type IncentiveTarget,
 } from "@/db/schema";
@@ -333,7 +335,7 @@ export async function getIncentiveDashboard(year: number): Promise<IncentiveDash
 export async function getIncentivePaidByPerson(month: string): Promise<Map<string, number>> {
   const start = `${month}-01`;
   const end = monthEndExclusive(month);
-  const [entries, projects] = await Promise.all([
+  const [entries, projects, participants] = await Promise.all([
     db
       .select()
       .from(incentiveEntries)
@@ -342,7 +344,27 @@ export async function getIncentivePaidByPerson(month: string): Promise<Map<strin
       .select()
       .from(incentiveProjects)
       .where(and(gte(incentiveProjects.periodMonth, start), lt(incentiveProjects.periodMonth, end))),
+    db
+      .select()
+      .from(incentiveParticipants)
+      .where(and(gte(incentiveParticipants.periodMonth, start), lt(incentiveParticipants.periodMonth, end))),
   ]);
+
+  // Group participant rows by their parent (entry XOR project). When a parent
+  // has participants, they REPLACE its own leg amounts (no double-count).
+  const partByEntry = new Map<string, IncentiveParticipant[]>();
+  const partByProject = new Map<string, IncentiveParticipant[]>();
+  for (const p of participants) {
+    if (p.entryId) {
+      const arr = partByEntry.get(p.entryId) ?? [];
+      arr.push(p);
+      partByEntry.set(p.entryId, arr);
+    } else if (p.projectId) {
+      const arr = partByProject.get(p.projectId) ?? [];
+      arr.push(p);
+      partByProject.set(p.projectId, arr);
+    }
+  }
 
   // Accumulate per normalised name, remembering the first employeeId we see.
   const byName = new Map<string, { id: string | null; paid: number }>();
@@ -356,10 +378,19 @@ export async function getIncentivePaidByPerson(month: string): Promise<Map<strin
     byName.set(key, cur);
   };
 
-  for (const e of entries) bump(e.empName, e.employeeId, num(e.paidAmt));
+  for (const e of entries) {
+    const parts = partByEntry.get(e.id);
+    if (parts && parts.length) for (const p of parts) bump(p.empName, p.employeeId, num(p.paidAmt));
+    else bump(e.empName, e.employeeId, num(e.paidAmt));
+  }
   for (const pr of projects) {
-    bump(pr.supervisorName, pr.supervisorId, num(pr.empPaidAmt));
-    bump(pr.internName, pr.internId, num(pr.internPaidAmt));
+    const parts = partByProject.get(pr.id);
+    if (parts && parts.length) {
+      for (const p of parts) bump(p.empName, p.employeeId, num(p.paidAmt));
+    } else {
+      bump(pr.supervisorName, pr.supervisorId, num(pr.empPaidAmt));
+      bump(pr.internName, pr.internId, num(pr.internPaidAmt));
+    }
   }
 
   // Emit both keys → the same full total, so lookup by name OR id works.
