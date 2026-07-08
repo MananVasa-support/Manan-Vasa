@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowRight, Lock } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { accessFor } from "@/lib/auth/workspace-access";
-import { canAccessWorkspace } from "@/lib/workspaces";
+import { canAccessWorkspace, type WorkspaceId } from "@/lib/workspaces";
 import { MODULE_THEME, MODULE_ORDER, type ModuleTheme } from "@/lib/module-theme";
 import { HubSignOut } from "@/components/hub/hub-signout";
 import { GlobalSearch } from "@/components/header/global-search";
@@ -36,8 +36,26 @@ export const dynamic = "force-dynamic";
  * Server Component; the only interactive islands are sign-out + ⌘K search.
  */
 
+/**
+ * HUB-ONLY pastel palette. Scoped to the front-door cards so each module's own
+ * strong identity colour (MODULE_THEME) stays intact everywhere inside it.
+ * Order maps to MODULE_ORDER: WMS→Red, Admin→Blue, Employees→Green,
+ * Sales→Yellow, Marketing→Orange, Training→Grey. `ink` is the deep tone used
+ * for text/icons/button so it stays readable on the light pastel fill.
+ */
+const HUB_PASTEL: Record<WorkspaceId, { from: string; to: string; ink: string; inkSoft: string }> = {
+  wms:       { from: "#FEE2E2", to: "#FECACA", ink: "#B91C1C", inkSoft: "#DC2626" }, // red
+  admin:     { from: "#DBEAFE", to: "#BFDBFE", ink: "#1D4ED8", inkSoft: "#2563EB" }, // blue
+  employees: { from: "#DCFCE7", to: "#BBF7D0", ink: "#15803D", inkSoft: "#16A34A" }, // green
+  sales:     { from: "#FEF9C3", to: "#FEF08A", ink: "#A16207", inkSoft: "#CA8A04" }, // yellow
+  marketing: { from: "#FFEDD5", to: "#FED7AA", ink: "#C2410C", inkSoft: "#EA580C" }, // orange
+  training:  { from: "#F1F5F9", to: "#E2E8F0", ink: "#334155", inkSoft: "#475569" }, // grey
+  accounts:  { from: "#DBEAFE", to: "#BFDBFE", ink: "#1D4ED8", inkSoft: "#2563EB" }, // (not shown on hub)
+};
+
 function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: number }) {
   const Icon = m.Icon;
+  const p = HUB_PASTEL[m.id];
   const delay = { animationDelay: `${i * 70}ms` } as const;
 
   const inner = (
@@ -60,7 +78,8 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
           size={150}
           strokeWidth={1.6}
           aria-hidden
-          className="pointer-events-none absolute -bottom-3 -right-3 text-white/20"
+          className="pointer-events-none absolute -bottom-3 -right-3"
+          style={{ color: p.ink, opacity: 0.16 }}
         />
       )}
 
@@ -68,23 +87,23 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
       <div className="relative z-10 flex h-full flex-col justify-between p-6">
         <span
           className="inline-flex size-12 items-center justify-center rounded-2xl"
-          style={{ background: "rgba(255,255,255,0.20)", border: "1px solid rgba(255,255,255,0.35)" }}
+          style={{ background: "rgba(255,255,255,0.72)", border: `1px solid ${p.ink}33` }}
         >
-          <Icon size={24} strokeWidth={2.2} className="text-white" />
+          <Icon size={24} strokeWidth={2.2} style={{ color: p.ink }} />
         </span>
         <div className="max-w-[58%]">
-          <h3 className="text-[30px] font-extrabold leading-none tracking-tight text-white max-md:text-[26px]">
+          <h3 className="text-[30px] font-extrabold leading-none tracking-tight max-md:text-[26px]" style={{ color: p.ink }}>
             {m.label}
           </h3>
-          <p className="mt-2 text-[14.5px] font-medium leading-snug text-white/90">
+          <p className="mt-2 text-[14.5px] font-medium leading-snug" style={{ color: p.inkSoft }}>
             {m.tagline}
           </p>
           {locked ? (
-            <span className="mt-4 inline-flex items-center gap-1.5 rounded-pill bg-black/25 px-3 py-1.5 text-[13.5px] font-bold text-white/90">
+            <span className="mt-4 inline-flex items-center gap-1.5 rounded-pill bg-black/10 px-3 py-1.5 text-[13.5px] font-bold" style={{ color: p.ink }}>
               <Lock size={14} strokeWidth={2.5} /> No access
             </span>
           ) : (
-            <span className="mt-4 inline-flex items-center gap-1.5 rounded-pill bg-white px-3.5 py-1.5 text-[14px] font-bold" style={{ color: m.accentDeep }}>
+            <span className="mt-4 inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[14px] font-bold text-white" style={{ background: p.ink }}>
               Enter workspace
               <ArrowRight size={15} strokeWidth={2.8} className="transition-transform duration-200 group-hover:translate-x-1" />
             </span>
@@ -96,7 +115,7 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
 
   const base =
     "wg-rise group relative block h-full min-h-[190px] overflow-hidden rounded-3xl shadow-md max-lg:h-[230px]";
-  const bg = { background: `linear-gradient(145deg, ${m.accent}, ${m.accentDeep})` };
+  const bg = { background: `linear-gradient(145deg, ${p.from}, ${p.to})` };
 
   if (locked) {
     return (
@@ -110,7 +129,7 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
       href={m.href}
       aria-label={`Open ${m.label}`}
       className={`${base} transition duration-200 hover:-translate-y-1.5 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2`}
-      style={{ ...bg, ...delay, "--tw-ring-color": m.accent } as React.CSSProperties}
+      style={{ ...bg, ...delay, "--tw-ring-color": p.ink } as React.CSSProperties}
     >
       {inner}
     </Link>
