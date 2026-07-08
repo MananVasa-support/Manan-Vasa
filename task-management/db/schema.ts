@@ -4085,3 +4085,54 @@ export const devicePushTokens = pgTable(
   ],
 );
 export type DevicePushToken = typeof devicePushTokens.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEGA-OVERHAUL — Phase A foundations (migrations 0105 / 0109 / 0121).
+// Config singletons + approval-token spine. All additive & inert on landing;
+// consumed by later phases behind kill-switches. See
+// ALTUS-MEGA-CHANGES-MASTER-PROMPT.md and ALTUS-MEGA-IMPLEMENTATION-PLAN.md.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Migration 0105 — incentive config singleton (id='default'). */
+export const incentiveConfig = pgTable("incentive_config", {
+  id: text("id").primaryKey().default("default"),
+  pmsBasis: text("pms_basis").notNull().default("paid"),
+  excludedNames: jsonb("excluded_names").notNull().default(["Manan Vasa", "Dattaram Kap", "Parvez Khan"]),
+  attainGreenPct: numeric("attain_green_pct", { precision: 6, scale: 2 }).notNull().default("100"),
+  attainAmberPct: numeric("attain_amber_pct", { precision: 6, scale: 2 }).notNull().default("60"),
+  updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type IncentiveConfig = typeof incentiveConfig.$inferSelect;
+
+/** Migration 0109 — salary config singleton (id='default'). */
+export const salaryConfig = pgTable("salary_config", {
+  id: text("id").primaryKey().default("default"),
+  divisorPolicy: text("divisor_policy").notNull().default("actual"),
+  fixedDivisor: integer("fixed_divisor").notNull().default(31),
+  freeTrainingDays: integer("free_training_days").notNull().default(7),
+  defaultPt: numeric("default_pt", { precision: 14, scale: 2 }).notNull().default("200"),
+  salaryDayOfMonth: integer("salary_day_of_month").notNull().default(10),
+  joinerLeaveAccrual: jsonb("joiner_leave_accrual").notNull().default([3, 4, 3, 4, 3, 4]),
+  updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type SalaryConfig = typeof salaryConfig.$inferSelect;
+
+/** Migration 0121 — generic signed single-use approval tokens (store hash only). */
+export const approvalTokens = pgTable(
+  "approval_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tokenHash: text("token_hash").notNull().unique(),
+    kind: text("kind").notNull(),
+    targetId: text("target_id").notNull(),
+    action: text("action").notNull(),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("approval_tokens_kind_target_idx").on(t.kind, t.targetId)],
+);
+export type ApprovalToken = typeof approvalTokens.$inferSelect;
