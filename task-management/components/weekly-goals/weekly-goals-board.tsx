@@ -594,29 +594,45 @@ export function WeeklyGoalsBoard(props: Props) {
                       {/* #2 — collapsible: this employee's cards hide when collapsed.
                           reduced-motion-safe (a plain conditional, no height anim). */}
                       {!collapsed[empId] && (
-                        <div
-                          className="overflow-hidden rounded-2xl wg-rise"
-                          style={{
-                            background: "var(--color-surface-card)",
-                            border: "1px solid var(--color-hairline)",
-                            boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 14px 34px -26px rgba(15,23,42,0.16)",
-                          }}
-                        >
-                          {g.rows.map((goal, i) => (
-                            <div key={goal.id} style={{ borderTop: i > 0 ? "1px solid var(--color-hairline)" : undefined }}>
-                              <GoalCard
-                                goal={goal}
-                                srNo={i + 1}
-                                canManage={canManage(goal.employeeId)}
-                                canReport={canReport(goal.employeeId)}
-                                canReview={canManage(goal.employeeId)}
-                                employeeWeightTotal={weightTotalByEmp.get(goal.employeeId) ?? 0}
-                                autoFocus={props.focusId === goal.id}
-                                {...sharedCardProps}
-                              />
-                            </div>
-                          ))}
-                        </div>
+                        <>
+                          <div
+                            className="overflow-hidden rounded-2xl wg-rise"
+                            style={{
+                              background: "var(--color-surface-card)",
+                              border: "1px solid var(--color-hairline)",
+                              boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 14px 34px -26px rgba(15,23,42,0.16)",
+                            }}
+                          >
+                            {g.rows.map((goal, i) => (
+                              <div key={goal.id} style={{ borderTop: i > 0 ? "1px solid var(--color-hairline)" : undefined }}>
+                                <GoalCard
+                                  goal={goal}
+                                  srNo={i + 1}
+                                  canManage={canManage(goal.employeeId)}
+                                  canReport={canReport(goal.employeeId)}
+                                  canReview={canManage(goal.employeeId)}
+                                  employeeWeightTotal={weightTotalByEmp.get(goal.employeeId) ?? 0}
+                                  autoFocus={props.focusId === goal.id}
+                                  {...sharedCardProps}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          {/* Per-person add tile — so an admin/manager can add a goal
+                              for anyone (or themselves) straight from the team
+                              overview, instead of first drilling into one person. */}
+                          <div className="mt-3">
+                            <GoalQuickAdd
+                              employeeId={empId}
+                              weekStart={props.weekStart}
+                              clientOptions={props.clientOptions}
+                              subjectOptions={props.subjectOptions}
+                              currentWeight={weightTotalByEmp.get(empId) ?? 0}
+                              currentCount={g.rows.filter((r) => !r.archived).length}
+                              catalog={props.catalog}
+                            />
+                          </div>
+                        </>
                       )}
                     </section>
                   ))}
