@@ -1982,6 +1982,13 @@ export const incentiveEntries = pgTable(
     paid: boolean("paid").notNull().default(false),
     paidAmt: numeric("paid_amt", { precision: 14, scale: 2 }).notNull().default("0"),
     paidDate: date("paid_date"),
+    // WS-4 Phase B1 — 3-status split (migration 0106). booked = partial client
+    // payment; accrued = full client payment (backfilled from approved_amt).
+    bookedAmt: numeric("booked_amt", { precision: 14, scale: 2 }).notNull().default("0"),
+    accruedAmt: numeric("accrued_amt", { precision: 14, scale: 2 }).notNull().default("0"),
+    clientStatus: text("client_status"),
+    payoutRunId: uuid("payout_run_id").references(() => salaryRuns.id, { onDelete: "set null" }),
+    paidById: uuid("paid_by_id").references(() => employees.id, { onDelete: "set null" }),
     note: text("note"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -2031,6 +2038,12 @@ export const incentiveProjects = pgTable(
       .notNull()
       .default("0"),
     paidDate: date("paid_date"),
+    // WS-4 Phase B1 — 3-status split per leg (migration 0106).
+    empBookedAmt: numeric("emp_booked_amt", { precision: 14, scale: 2 }).notNull().default("0"),
+    empAccruedAmt: numeric("emp_accrued_amt", { precision: 14, scale: 2 }).notNull().default("0"),
+    internBookedAmt: numeric("intern_booked_amt", { precision: 14, scale: 2 }).notNull().default("0"),
+    internAccruedAmt: numeric("intern_accrued_amt", { precision: 14, scale: 2 }).notNull().default("0"),
+    payoutRunId: uuid("payout_run_id").references(() => salaryRuns.id, { onDelete: "set null" }),
     initiatorNotes: text("initiator_notes"),
     note: text("note"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
