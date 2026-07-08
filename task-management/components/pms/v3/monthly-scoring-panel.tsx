@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, Lock, TriangleAlert } from "lucide-react";
+import { Check, Gauge, Loader2, Lock, TriangleAlert } from "lucide-react";
 import { fireToast } from "@/lib/toast";
-import { saveSubjectiveScore } from "@/app/(app)/pms/v3/actions";
+import { saveSubjectiveScore, saveKpiAttainment } from "@/app/(app)/pms/v3/actions";
 import type { MonthlyScoreView } from "@/lib/queries/pms-v3";
 import type { FactorDef } from "@/lib/pms/v3/config";
 
@@ -78,6 +78,178 @@ function LaneChip({ role, points, accent }: { role: string; points: number | nul
       >
         {points == null ? "—" : points}
       </span>
+    </div>
+  );
+}
+
+/** Read-only lane chip showing one rater's attainment PERCENTAGE (0–100). */
+function PctLaneChip({ role, pct, accent }: { role: string; pct: number | null; accent: string }) {
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle">{role}</span>
+      <span
+        className="grid h-8 min-w-[3rem] place-items-center rounded-lg px-2 text-[14px] font-black tabular-nums"
+        style={{
+          background: pct == null ? "var(--color-surface-soft)" : `color-mix(in srgb, ${accent} 12%, transparent)`,
+          color: pct == null ? "var(--color-ink-subtle)" : accent,
+        }}
+      >
+        {pct == null ? "—" : `${pct}%`}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * KPI pillar — a MANUAL monthly attainment % (0–100), deliberately DISTINCT from
+ * the 0–10 subjective sliders (a % number field, not pips). Editable by the
+ * subject's manager (`editableRole==="manager"`) and by Manan (`"manan"`); the
+ * subject cannot edit it. Manan's value is the authority (overrides the manager);
+ * points = clamp(pct)/100 × kpi weight block.
+ */
+function KpiCard({
+  kpi,
+  editableRole,
+  subjectId,
+  period,
+  accent,
+  accentDeep,
+  onSaved,
+}: {
+  kpi: MonthlyScoreView["kpi"];
+  editableRole: Role | null;
+  subjectId: string;
+  period: string;
+  accent: string;
+  accentDeep: string;
+  onSaved: () => void;
+}) {
+  // Only manager / Manan lanes may edit KPI; self is read-only here.
+  const kpiRole: "manager" | "manan" | null =
+    editableRole === "manager" ? "manager" : editableRole === "manan" ? "manan" : null;
+  const mine = kpiRole === "manager" ? kpi.managerPct : kpiRole === "manan" ? kpi.mananPct : null;
+  const [pct, setPct] = React.useState<number | null>(mine);
+  const [pending, start] = React.useTransition();
+
+  function submit() {
+    if (!kpiRole) return;
+    if (pct == null || pct < 0 || pct > 100) {
+      fireToast({ message: "Enter a KPI attainment % between 0 and 100.", type: "error" });
+      return;
+    }
+    start(async () => {
+      const res = await saveKpiAttainment({ subjectId, period, raterRole: kpiRole, attainmentPct: pct });
+      if (res.ok) {
+        fireToast({ message: "KPI attainment saved.", type: "success" });
+        onSaved();
+      } else {
+        fireToast({ message: res.error, type: "error" });
+      }
+    });
+  }
+
+  const bothEntered = kpi.managerPct != null && kpi.mananPct != null;
+  const divergence = bothEntered ? Math.abs((kpi.mananPct as number) - (kpi.managerPct as number)) : null;
+
+  return (
+    <div
+      className="rounded-2xl border bg-surface-card p-4"
+      style={{ borderColor: `color-mix(in srgb, ${accentDeep} 45%, var(--color-hairline))` }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 text-[15px] font-bold text-ink-strong">
+              <Gauge size={16} strokeWidth={2.4} style={{ color: accentDeep }} /> KPI attainment %
+            </span>
+            {kpi.blockWeight != null && (
+              <span
+                className="rounded-pill px-2 py-0.5 text-[11px] font-bold"
+                style={{ background: `color-mix(in srgb, ${accent} 12%, transparent)`, color: accentDeep }}
+              >
+                weight {kpi.blockWeight}
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-[12.5px] text-ink-muted">
+            Manual monthly attainment (0–100%). Manan&apos;s entry is the authority; a junior&apos;s
+            manager may set it otherwise.
+          </p>
+        </div>
+        {divergence != null && divergence >= 15 && (
+          <span
+            className="inline-flex shrink-0 items-center gap-1 rounded-pill px-2 py-0.5 text-[11px] font-bold"
+            style={{ background: "color-mix(in srgb, #d97706 14%, transparent)", color: "#b45309" }}
+            title="Large gap between the manager's and Manan's attainment %"
+          >
+            <TriangleAlert size={11} strokeWidth={2.6} /> gap {divergence}%
+          </span>
+        )}
+      </div>
+
+      {/* Perception (manager vs Manan) + effective + points */}
+      <div className="mt-3 flex items-center gap-4">
+        <PctLaneChip role="Manager" pct={kpi.managerPct} accent={accent} />
+        <PctLaneChip role="Manan" pct={kpi.mananPct} accent={accentDeep} />
+        <div className="ml-auto flex flex-col items-end">
+          <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-ink-subtle">
+            Points{kpi.effectivePct != null ? ` · ${kpi.effectivePct}% used` : ""}
+          </span>
+          <span className="text-[16px] font-black tabular-nums" style={{ color: accentDeep }}>
+            {kpi.points == null ? "—" : kpi.points.toFixed(1)}
+          </span>
+        </div>
+      </div>
+
+      {kpi.blockWeight == null && (
+        <p className="mt-2 text-[11.5px] text-ink-subtle">
+          Weighted KPI points are withheld until the non-manager band is chosen in Score settings.
+        </p>
+      )}
+
+      {/* Editable % field (manager / Manan only) */}
+      {kpiRole && (
+        <div className="mt-4 rounded-xl border border-hairline bg-surface-soft p-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-[12px] font-bold uppercase tracking-[0.1em]" style={{ color: accentDeep }}>
+              Your {kpiRole} KPI attainment
+            </span>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={pct ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setPct(v === "" ? null : Math.max(0, Math.min(100, Math.round(Number(v)))));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.preventDefault(); submit(); }
+                  }}
+                  aria-label="KPI attainment percent"
+                  className="h-9 w-24 rounded-lg border border-hairline bg-white pl-3 pr-7 text-[15px] font-bold tabular-nums text-ink-strong outline-none focus:border-transparent focus:ring-2"
+                  style={{ ["--tw-ring-color" as string]: `color-mix(in srgb, ${accent} 45%, transparent)` }}
+                />
+                <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[13px] font-bold text-ink-subtle">%</span>
+              </div>
+              <button
+                type="button"
+                onClick={submit}
+                disabled={pending}
+                className="wg-btn inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13.5px] font-bold text-white disabled:opacity-50"
+                style={{ background: `linear-gradient(135deg, ${accent}, ${accentDeep})` }}
+              >
+                {pending ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.6} />}
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -312,6 +484,16 @@ export function MonthlyScoringPanel({
           withheld until the canonical band is chosen in Score settings.
         </div>
       )}
+
+      <KpiCard
+        kpi={view.kpi}
+        editableRole={editableRole}
+        subjectId={view.subjectId}
+        period={view.period}
+        accent={accent}
+        accentDeep={accentDeep}
+        onSaved={() => router.refresh()}
+      />
 
       {view.factors.map((factor) => {
         const def = defByKey.get(factor.factorKey);

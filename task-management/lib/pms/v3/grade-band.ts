@@ -49,3 +49,17 @@ export function incentivePoints(band: GradeBand | null, weightBlock: number): nu
   if (!band || !Number.isFinite(weightBlock)) return 0;
   return weightBlock * (band.blockFraction ?? 0);
 }
+
+/**
+ * KPI points (Sir, 2026-07-09): KPI is a MANUAL monthly attainment % (0–100)
+ * entered by the manager (per junior) / Manan (everyone) — NOT auto-derived.
+ *   kpiPoints = clamp(pct,0,100) / 100 × kpi weight block.
+ * A null attainment (nobody entered it) or a null block (non-manager band still
+ * pending Sir's ruling) earns 0 here — never inflate a missing number. The read
+ * layer decides whether to surface 0 vs "—" (withheld) in the view.
+ */
+export function kpiPoints(pct: number | null, weightBlock: number | null): number {
+  if (pct == null || weightBlock == null || !Number.isFinite(weightBlock)) return 0;
+  const clamped = Math.max(0, Math.min(100, pct));
+  return (clamped / 100) * weightBlock;
+}

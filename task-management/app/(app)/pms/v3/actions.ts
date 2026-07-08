@@ -119,6 +119,66 @@ export async function saveSubjectiveScore(input: unknown): Promise<ActionResult>
   return { ok: true };
 }
 
+// ── KPI attainment (manual %) ────────────────────────────────────────────────
+
+const KpiSchema = z.object({
+  subjectId: z.string().uuid(),
+  period: PERIOD,
+  raterRole: z.enum(["manager", "manan"]),
+  // Manual monthly attainment % (0–100). Stored in points (smallint holds 0–100).
+  attainmentPct: z.coerce.number().int().min(0).max(100),
+});
+
+/**
+ * Persist the MANUAL KPI attainment % (Sir, 2026-07-09) into pms_subjective_score
+ * as factorKey="kpi", `points` = the 0–100 attainment. A manager may set it only
+ * for their own reports; Manan may set it for anyone (his value is the authority).
+ * The read layer (getMonthlyScoreView.kpi) converts it to weighted points.
+ */
+export async function saveKpiAttainment(input: unknown): Promise<ActionResult> {
+  const g = await guard();
+  if ("error" in g) return { ok: false, error: g.error };
+  const { me } = g;
+
+  const parsed = KpiSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid" };
+  const d = parsed.data;
+
+  if (d.raterRole === "manager" && !(await isManagerOf(me.id, d.subjectId))) {
+    return { ok: false, error: "Only the person's manager can set their KPI attainment." };
+  }
+  if (d.raterRole === "manan" && !canActAsManan(me.email)) {
+    return { ok: false, error: "Only Manan can set the Manan KPI attainment." };
+  }
+
+  try {
+    await db
+      .insert(pmsSubjectiveScore)
+      .values({
+        subjectId: d.subjectId,
+        period: d.period,
+        raterRole: d.raterRole,
+        raterId: me.id,
+        factorKey: "kpi",
+        points: d.attainmentPct,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [
+          pmsSubjectiveScore.subjectId,
+          pmsSubjectiveScore.period,
+          pmsSubjectiveScore.raterRole,
+          pmsSubjectiveScore.factorKey,
+        ],
+        set: { points: d.attainmentPct, raterId: me.id, updatedAt: new Date() },
+      });
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+  revalidatePath(`/pms/v3/score/${d.subjectId}`);
+  return { ok: true };
+}
+
 // ── X-Factor (Manan-only) ────────────────────────────────────────────────────
 
 const XFactorSchema = z

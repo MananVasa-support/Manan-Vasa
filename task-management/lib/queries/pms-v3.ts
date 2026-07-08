@@ -18,10 +18,9 @@ import {
   pmsXfactor,
 } from "@/lib/pms/v3/schema";
 import { parseV3Config, activeBand, type PmsV3Config } from "@/lib/pms/v3/config";
-import { computeGrade, type GradeResult } from "@/lib/pms/v3/grade-band";
+import { computeGrade, kpiPoints, type GradeResult } from "@/lib/pms/v3/grade-band";
 import { blendFactor, perceptionGap, type RaterScores } from "@/lib/pms/v3/blend";
 import { getIncentivePaidByPerson } from "@/lib/queries/incentives";
-// TODO(salary): swap this shim for the salary agent's canonical export once present.
 import { getMonthlyCtcByPerson } from "@/lib/pms/v3/ctc";
 
 const RETRY = { attempts: 3, timeoutMs: [6000, 10000, 14000] as number[] };
@@ -102,6 +101,28 @@ export interface FactorScoreView {
   gap: ReturnType<typeof perceptionGap>;
 }
 
+/**
+ * KPI = a MANUAL monthly attainment % (0–100), NOT auto-derived (Sir, 2026-07-09).
+ * The manager enters it per junior; Manan enters it for everyone. Stored in
+ * pms_subjective_score with factorKey="kpi", raterRole "manager" | "manan", and
+ * `points` holding the 0–100 attainment (smallint). Manan is the authority: the
+ * EFFECTIVE attainment is Manan's value if present, else the manager's. Points =
+ * clamp(pct)/100 × kpi weight block; withheld (null) while the non-manager band
+ * is pending Sir's ruling.
+ */
+export interface KpiView {
+  /** kpi weight block from the active band (null while non-manager band pending). */
+  blockWeight: number | null;
+  /** Attainment % entered by the manager (junior's manager). */
+  managerPct: number | null;
+  /** Attainment % entered by Manan (authority / override). */
+  mananPct: number | null;
+  /** The attainment used for points: Manan's if present, else the manager's. */
+  effectivePct: number | null;
+  /** Weighted points earned, or null when withheld (no attainment / band pending). */
+  points: number | null;
+}
+
 export interface MonthlyScoreView {
   subjectId: string;
   period: string;
@@ -109,6 +130,8 @@ export interface MonthlyScoreView {
   /** null when the non-manager band is still pending Sir's ruling. */
   band: Record<string, number> | null;
   factors: FactorScoreView[];
+  /** KPI pillar (manual attainment % → weighted points). */
+  kpi: KpiView;
   canSeeJustifications: boolean;
   config: PmsV3Config;
 }
@@ -150,6 +173,25 @@ export async function getMonthlyScoreView(
     byFactor.set(r.factorKey, slot);
   }
 
+  // ── KPI (objective, MANUAL attainment %) ────────────────────────────────────
+  // Stored as pms_subjective_score rows with factorKey="kpi": `points` holds the
+  // 0–100 attainment, raterRole "manager" | "manan". Manan overrides the manager.
+  const kpiSlot = byFactor.get("kpi") ?? {};
+  const kpiManagerPct = kpiSlot.manager?.points ?? null;
+  const kpiMananPct = kpiSlot.manan?.points ?? null;
+  const kpiEffectivePct = kpiMananPct ?? kpiManagerPct;
+  const kpiBlockWeight = band?.["kpi"] ?? null;
+  const kpi: KpiView = {
+    blockWeight: kpiBlockWeight,
+    managerPct: kpiManagerPct,
+    mananPct: kpiMananPct,
+    effectivePct: kpiEffectivePct,
+    points:
+      kpiEffectivePct != null && kpiBlockWeight != null
+        ? kpiPoints(kpiEffectivePct, kpiBlockWeight)
+        : null,
+  };
+
   const subjectiveFactors = cfg.factors.filter((f) => f.kind === "subjective");
 
   const factors: FactorScoreView[] = subjectiveFactors.map((f) => {
@@ -181,6 +223,7 @@ export async function getMonthlyScoreView(
     isManager,
     band,
     factors,
+    kpi,
     canSeeJustifications: opts.canSeeJustifications,
     config: cfg,
   };
