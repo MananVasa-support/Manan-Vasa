@@ -4178,3 +4178,53 @@ export const approvalTokens = pgTable(
   (t) => [index("approval_tokens_kind_target_idx").on(t.kind, t.targetId)],
 );
 export type ApprovalToken = typeof approvalTokens.$inferSelect;
+
+/** Migration 0108 — incentive payout audit spine (WS-4 Phase B4). */
+export const incentivePayoutEvents = pgTable(
+  "incentive_payout_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "set null" }),
+    empName: text("emp_name"),
+    source: text("source").notNull(), // 'entry' | 'project' | 'participant'
+    sourceId: uuid("source_id"),
+    salaryRunId: uuid("salary_run_id").references(() => salaryRuns.id, { onDelete: "set null" }),
+    periodMonth: date("period_month"),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull().default("0"),
+    paidDate: date("paid_date"),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("incentive_payout_events_employee_idx").on(t.employeeId),
+    index("incentive_payout_events_run_idx").on(t.salaryRunId),
+    index("incentive_payout_events_period_idx").on(t.periodMonth),
+  ],
+);
+export type IncentivePayoutEvent = typeof incentivePayoutEvents.$inferSelect;
+
+/** Migration 0115 — salary/incentive partial-payment ledger (WS-3 B4/C6). */
+export const salaryPayments = pgTable(
+  "salary_payments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "set null" }),
+    salaryRunId: uuid("salary_run_id").references(() => salaryRuns.id, { onDelete: "set null" }),
+    month: text("month"),
+    kind: text("kind").notNull().default("salary"), // 'salary' | 'incentive'
+    incentiveEntryId: uuid("incentive_entry_id").references(() => incentiveEntries.id, { onDelete: "set null" }),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull().default("0"),
+    paidDate: date("paid_date"),
+    method: text("method"),
+    note: text("note"),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("salary_payments_run_idx").on(t.salaryRunId),
+    index("salary_payments_employee_idx").on(t.employeeId),
+    index("salary_payments_month_idx").on(t.month),
+  ],
+);
+export type SalaryPayment = typeof salaryPayments.$inferSelect;
