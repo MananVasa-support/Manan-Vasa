@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { Award, TrendingUp, CheckCircle2, Hourglass, Gauge } from "lucide-react";
@@ -14,6 +15,9 @@ import {
 import { getBillingDashboard } from "@/lib/queries/billing";
 import { listIncentiveCatalog } from "@/lib/queries/incentive-catalog";
 import { listEmployeeOptions } from "@/lib/queries/employees";
+import { getIncentiveStatusReport, listIncentiveEntriesStatus } from "@/lib/queries/incentive-status";
+import { incentiveStatusUiEnabled } from "@/lib/incentive/status-flag";
+import { IncentiveStatusTab } from "@/components/incentive/incentive-status-tab";
 import { withRetry } from "@/lib/db/with-timeout";
 import { formatInr } from "@/lib/format";
 import { IncentiveCatalogDialog } from "@/components/incentive/incentive-catalog-dialog";
@@ -63,6 +67,29 @@ export default async function IncentivePage({ searchParams }: PageProps) {
       me.isAdmin ? r("incentive:entries", () => listIncentiveEntriesAdmin(year)) : Promise.resolve([]),
       me.isAdmin ? r("incentive:employees", () => listEmployeeOptions()) : Promise.resolve([]),
     ]);
+
+  // WS-6 — incentive 3-status (Booked/Accrued/Paid) tab: admin-only + flag-gated
+  // (INCENTIVE_STATUS_UI, default on). Only fetched when shown, so non-admins pay
+  // no query cost.
+  const showStatus = me.isAdmin && incentiveStatusUiEnabled();
+  let statusTab: ReactNode = null;
+  if (showStatus) {
+    const istNow = new Date(Date.now() + 5.5 * 3_600_000);
+    const refMonth = `${istNow.getUTCFullYear()}-${String(istNow.getUTCMonth() + 1).padStart(2, "0")}`;
+    const [statusReport, statusEntries] = await Promise.all([
+      r("incentive:status-report", () => getIncentiveStatusReport(refMonth)),
+      r("incentive:status-entries", () => listIncentiveEntriesStatus(year)),
+    ]);
+    statusTab = (
+      <IncentiveStatusTab
+        report={statusReport}
+        entries={statusEntries}
+        employees={employees}
+        year={year}
+        isAdmin={me.isAdmin}
+      />
+    );
+  }
 
   const pendingCount = rows.filter((r) => r.status === "pending").length;
 
@@ -215,6 +242,8 @@ export default async function IncentivePage({ searchParams }: PageProps) {
           employees={employees}
           isAdmin={me.isAdmin}
           pendingCount={pendingCount}
+          showStatus={showStatus}
+          statusTab={statusTab}
         />
       </main>
       <DashboardFooter />

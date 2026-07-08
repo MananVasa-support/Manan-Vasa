@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { LayoutDashboard, ListChecks, IndianRupee, Target, Table2 } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { LayoutDashboard, ListChecks, IndianRupee, Target, Table2, Layers } from "lucide-react";
 import type {
   IncentiveDashboard as DashboardData,
   IncentiveTargetVsActual,
@@ -17,7 +17,7 @@ import { IncentiveList } from "./incentive-list";
 import { IncentiveTargets } from "./incentive-targets";
 import { IncentiveEntries } from "./incentive-entries";
 
-type TabKey = "dashboard" | "targets" | "billing" | "requests" | "entries";
+type TabKey = "dashboard" | "targets" | "billing" | "requests" | "entries" | "status";
 
 const GREEN = "#16a34a";
 const GREEN_DEEP = "#15803d";
@@ -32,6 +32,8 @@ export function IncentiveTabs({
   employees,
   isAdmin,
   pendingCount,
+  showStatus,
+  statusTab,
 }: {
   dashboard: DashboardData;
   targetVsActual: IncentiveTargetVsActual;
@@ -42,6 +44,8 @@ export function IncentiveTabs({
   employees: EmployeeOption[];
   isAdmin: boolean;
   pendingCount: number;
+  showStatus?: boolean;
+  statusTab?: ReactNode;
 }) {
   const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -49,6 +53,7 @@ export function IncentiveTabs({
     { key: "billing", label: "Billing", icon: IndianRupee },
     { key: "requests", label: "Requests", icon: ListChecks },
     ...(isAdmin ? [{ key: "entries" as const, label: "Entries", icon: Table2 }] : []),
+    ...(showStatus ? [{ key: "status" as const, label: "Status", icon: Layers }] : []),
   ];
 
   const [active, setActive] = useState<TabKey>("dashboard");
@@ -123,6 +128,8 @@ export function IncentiveTabs({
         <BillingDashboard data={billing} />
       ) : active === "entries" && isAdmin ? (
         <IncentiveEntries rows={entries} employees={employees} year={year} />
+      ) : active === "status" && showStatus ? (
+        statusTab
       ) : (
         <div className="space-y-6">
           <div className="flex justify-end">
