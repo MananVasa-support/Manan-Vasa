@@ -34,21 +34,32 @@ export function WeeklyGoalDrawer({
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
 
-  // Lock body scroll + auto-focus the first field + Esc-to-close while open.
+  // Keep the latest onClose in a ref so the open-effect below never lists it as a
+  // dependency. Parents often pass a fresh inline onClose on every render (and
+  // the drawer's controlled fields re-render the parent on every keystroke); if
+  // the effect depended on onClose it would re-run mid-typing and yank focus back
+  // to the first field. This way the effect runs exactly once per open.
+  const onCloseRef = React.useRef(onClose);
+  React.useEffect(() => { onCloseRef.current = onClose; });
+
+  // Lock body scroll + auto-focus the first FIELD + Esc-to-close while open.
   React.useEffect(() => {
     if (!open) return;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const t = window.setTimeout(() => {
-      const el = panelRef.current?.querySelector<HTMLElement>(
-        "input, textarea, select, button, [tabindex]:not([tabindex='-1'])",
-      );
+      // Prefer a real form field so focus never lands on the ✕/close button
+      // (which precedes the body in DOM order). Fall back to any focusable.
+      const panel = panelRef.current;
+      const el =
+        panel?.querySelector<HTMLElement>("input:not([type='hidden']), textarea, select") ??
+        panel?.querySelector<HTMLElement>("button, [tabindex]:not([tabindex='-1'])");
       el?.focus();
     }, 60);
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
       }
     }
     document.addEventListener("keydown", onKey, true);
@@ -57,7 +68,10 @@ export function WeeklyGoalDrawer({
       window.clearTimeout(t);
       document.removeEventListener("keydown", onKey, true);
     };
-  }, [open, onClose]);
+    // onClose is intentionally read via onCloseRef (see above) so this effect
+    // runs once per open, not on every keystroke re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   if (!mounted || !open) return null;
 
