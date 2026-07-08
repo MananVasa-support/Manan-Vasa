@@ -4,7 +4,7 @@ import { ArrowLeft, Users } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { requireAccountsAccess } from "@/lib/accounts/access";
-import { listVasaBalances } from "@/lib/queries/accounts-vasa";
+import { listVasaCells, listVasaSnapshots } from "@/lib/queries/accounts-vasa";
 import { listAccountsLookups } from "@/lib/accounts/lookups";
 import { VasaBalances } from "@/components/accounts/vasa-family/vasa-client";
 
@@ -12,8 +12,9 @@ export const dynamic = "force-dynamic";
 
 export default async function VasaFamilyPage() {
   await requireAccountsAccess();
-  const [rows, partyOptions] = await Promise.all([
-    listVasaBalances(),
+  const [cells, snapshots, partyOptions] = await Promise.all([
+    listVasaCells(),
+    listVasaSnapshots(),
     listAccountsLookups("vasa_party"),
   ]);
 
@@ -38,7 +39,7 @@ export default async function VasaFamilyPage() {
             </p>
           </div>
         </header>
-        <VasaBalances rows={rows} partyOptions={partyOptions} />
+        <VasaBalances cells={cells} snapshots={snapshots} partyOptions={partyOptions} />
       </main>
       <DashboardFooter />
     </>
