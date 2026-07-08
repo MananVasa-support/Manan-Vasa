@@ -33,9 +33,11 @@ const TZ = "Asia/Kolkata";
 export const CONFIRM_KIND = "attendance_week_confirm" as const;
 export const CONFIRM_ACTION = "confirm" as const;
 
-/** Kill-switch reader. DEFAULT OFF — must equal the string "true" to activate. */
+/** Default ON (Sir 2026-07-09 — reveal the confirmation queue). Confirmations are
+ *  an audit sign-off; they do NOT change pay (that's SALARY_V2, off) or mark
+ *  anyone absent (that's DCC_ABSENT, off). Killable in prod via MONDAY_CONFIRM_UI=false. */
 export function mondayConfirmUiEnabled(): boolean {
-  return process.env.MONDAY_CONFIRM_UI === "true";
+  return process.env.MONDAY_CONFIRM_UI !== "false";
 }
 
 // ── date helpers (IST, pure YYYY-MM-DD math) ─────────────────────────────────

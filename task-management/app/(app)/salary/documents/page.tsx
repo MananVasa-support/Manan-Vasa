@@ -20,8 +20,9 @@ const GREEN_DEEP = "#15803d";
 const SEED_ENTITIES = ["Altus Corp", "MJV HUF", "JSV HUF", "Unleashed"];
 
 export default async function SalaryDocumentsPage() {
-  // DARK behind the SALARY_DOCS_UI kill-switch until Sir verifies.
-  if (process.env.SALARY_DOCS_UI !== "true") notFound();
+  // Default ON (Sir 2026-07-09 — reveal exit-doc/signatory screens). Killable via
+  // SALARY_DOCS_UI=false. Documents are generated on demand; no payroll math here.
+  if (process.env.SALARY_DOCS_UI === "false") notFound();
   await requireAdmin();
 
   const profiles = await listSalaryProfiles();

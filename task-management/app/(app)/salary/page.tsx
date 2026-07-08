@@ -123,6 +123,15 @@ export default async function SalaryPage({ searchParams }: PageProps) {
                 Straight from the salary sheet (imported as-is). The attendance figures here are
                 the sheet&apos;s own — the app&apos;s attendance does not change these numbers.
               </p>
+              {process.env.SALARY_DOCS_UI !== "false" && (
+                <Link
+                  href={"/salary/documents" as Route}
+                  className="mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-bold"
+                  style={{ color: GREEN_DEEP }}
+                >
+                  Exit documents &amp; signatory letters →
+                </Link>
+              )}
             </div>
 
             {months.length > 0 && (

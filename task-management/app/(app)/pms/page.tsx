@@ -138,6 +138,15 @@ export default async function PmsPage() {
               >
                 <ClipboardCheck size={16} strokeWidth={2.4} /> Monthly review
               </Link>
+              {process.env.PMS_V3 !== "false" && (
+                <Link
+                  href={"/pms/v3" as Route}
+                  className="wg-btn inline-flex items-center gap-2 rounded-pill border-2 bg-white/70 px-4 py-2.5 text-[14px] font-bold whitespace-nowrap transition-colors"
+                  style={{ borderColor: `color-mix(in srgb, ${ACCENT} 40%, transparent)`, color: ACCENT_DEEP }}
+                >
+                  <Sparkles size={16} strokeWidth={2.4} /> New scoring (v3)
+                </Link>
+              )}
               {admin && (
                 <>
                   <Link

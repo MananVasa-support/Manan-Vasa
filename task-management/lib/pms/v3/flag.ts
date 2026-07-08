@@ -15,9 +15,11 @@
 import { redirect } from "next/navigation";
 import type { Route } from "next";
 
-/** True only when the v3 rebuild is explicitly enabled. Default: OFF. */
+/** Default ON (Sir 2026-07-09 — reveal the v3 scoring surface). v3 is a NEW
+ *  parallel system (new tables, empty) — it does NOT overwrite the live v2 score.
+ *  Still killable in prod via PMS_V3=false. */
 export function isPmsV3Enabled(): boolean {
-  return process.env.PMS_V3 === "true";
+  return process.env.PMS_V3 !== "false";
 }
 
 /**

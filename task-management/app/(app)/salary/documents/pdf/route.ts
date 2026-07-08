@@ -27,7 +27,7 @@ function str(v: unknown): string | null {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  if (process.env.SALARY_DOCS_UI !== "true") {
+  if (process.env.SALARY_DOCS_UI === "false") { // default ON, killable via =false
     return new Response("Not found", { status: 404 });
   }
 

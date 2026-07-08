@@ -217,6 +217,14 @@ export default async function AttendancePage({ searchParams }: PageProps) {
           <p className="mt-1.5 text-[15.5px] font-medium text-ink-muted">
             Enable location and punch in from the office — one check-in and one check-out per day.
           </p>
+          {process.env.MONDAY_CONFIRM_UI !== "false" && (
+            <a
+              href="/attendance/confirmations"
+              className="mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-bold text-[#15803d]"
+            >
+              <CalendarCheck size={15} strokeWidth={2.4} /> Monday attendance confirmations →
+            </a>
+          )}
         </header>
 
         {/* ── Full-width working grid: punch hero left · stats + timeline right ── */}

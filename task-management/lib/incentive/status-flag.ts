@@ -13,7 +13,10 @@ import "server-only";
  * stale client somehow posts.
  */
 export function incentiveStatusUiEnabled(): boolean {
-  return process.env.INCENTIVE_STATUS_UI === "true";
+  // Default ON (Sir 2026-07-09 — reveal the visible screens). Still killable in
+  // prod by setting INCENTIVE_STATUS_UI=false. The actual employee PAYOUT
+  // (money leaving the account) is a separate flow behind DISPATCH_V2 (off).
+  return process.env.INCENTIVE_STATUS_UI !== "false";
 }
 
 /** The env var name, exported so callers/log lines never hard-code the string. */
