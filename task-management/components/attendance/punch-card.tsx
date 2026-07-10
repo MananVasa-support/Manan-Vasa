@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   Fingerprint,
   History,
+  Mic,
+  Square,
 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { punchAttendance } from "@/app/(app)/attendance/actions";
@@ -75,6 +77,35 @@ export function PunchCard({
   const [note, setNote] = React.useState("");
   const [pending, startTransition] = React.useTransition();
   const [loc, setLoc] = React.useState<LocState>({ phase: "idle" });
+
+  // ── Voice dictation (Web Speech API) — appends the transcript into the note.
+  const [listening, setListening] = React.useState(false);
+  const recRef = React.useRef<any>(null);
+  const voiceSupported = React.useMemo(
+    () => typeof window !== "undefined" && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition),
+    [],
+  );
+  function toggleVoice() {
+    if (listening) {
+      recRef.current?.stop();
+      return;
+    }
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.lang = "en-IN";
+    rec.interimResults = false;
+    rec.continuous = false;
+    rec.onresult = (e: any) => {
+      const text = Array.from(e.results).map((r: any) => r[0].transcript).join(" ").trim();
+      if (text) setNote((prev) => (prev ? `${prev} ${text}` : text).slice(0, 500));
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    recRef.current = rec;
+    setListening(true);
+    try { rec.start(); } catch { setListening(false); }
+  }
 
   // On mount, read the permission state so we can show the right CTA upfront.
   // When already granted we auto-fetch a fix so the disc is ready to tap.
@@ -299,40 +330,37 @@ export function PunchCard({
           <Stat label="Checked out" value={outLabel} kind="out" />
         </div>
 
-        <label
-          htmlFor="punch-note"
-          className="block text-[13px] font-bold uppercase tracking-wide text-ink-subtle mb-1.5"
-        >
-          Note / reason <span className="font-medium normal-case text-ink-subtle">(optional)</span>
-        </label>
-        <input
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <label htmlFor="punch-note" className="block text-[13px] font-bold uppercase tracking-wide text-ink-subtle">
+            Note / reason <span className="font-medium normal-case text-ink-subtle">(optional)</span>
+          </label>
+          {voiceSupported && (
+            <button
+              type="button"
+              onClick={toggleVoice}
+              title={listening ? "Stop recording" : "Dictate your note"}
+              className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[12px] font-bold transition"
+              style={
+                listening
+                  ? { background: "var(--color-altus-red)", color: "#fff", boxShadow: "0 0 0 4px color-mix(in srgb, var(--color-altus-red) 20%, transparent)" }
+                  : { background: "color-mix(in srgb, #16a34a 10%, transparent)", color: "#15803d" }
+              }
+            >
+              {listening ? <Square size={12} strokeWidth={2.6} className="animate-pulse" /> : <Mic size={13} strokeWidth={2.4} />}
+              {listening ? "Recording…" : "Voice"}
+            </button>
+          )}
+        </div>
+        <textarea
           id="punch-note"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           maxLength={500}
-          placeholder="e.g. client visit in the morning"
-          className="w-full rounded-xl border-2 border-hairline-strong px-3.5 py-2.5 text-[15px] bg-white outline-none transition-colors focus:border-[#16a34a]"
+          rows={3}
+          placeholder="e.g. client visit in the morning — or tap Voice to dictate"
+          className="w-full resize-y rounded-xl px-3.5 py-3 text-[15px] font-medium text-ink-strong bg-white outline-none transition-colors focus:border-[#16a34a]"
+          style={{ border: "2px solid var(--color-hairline-strong)", boxShadow: "inset 0 1px 3px rgba(15,23,42,0.05)" }}
         />
-
-        {geofenceEnabled && !locationReady && (
-          <p className="mt-4 text-center text-[13px] text-ink-subtle">
-            Enable location above — the dial unlocks the moment we have a fix.
-          </p>
-        )}
-        {!checkedIn && !checkedOut && (
-          <p className="mt-4 text-center text-[13px] text-ink-subtle">
-            Leaving without a morning check-in?{" "}
-            <button
-              type="button"
-              onClick={() => punch("out")}
-              disabled={pending || !locationReady}
-              className="font-bold underline underline-offset-2 transition-colors disabled:opacity-50"
-              style={{ color: "var(--color-altus-red)" }}
-            >
-              Check out instead
-            </button>
-          </p>
-        )}
       </div>
     </section>
   );
@@ -469,7 +497,7 @@ function PunchDisc({
   const active = !disabled && mode !== "done";
 
   return (
-    <div className="relative flex size-[224px] items-center justify-center max-sm:size-[192px]">
+    <div className="relative flex size-[184px] items-center justify-center max-sm:size-[164px]">
       {/* concentric rings on the light surface */}
       <span
         aria-hidden
@@ -495,7 +523,7 @@ function PunchDisc({
         onClick={onClick}
         disabled={disabled}
         aria-label={mode === "done" ? "Day complete" : s.label}
-        className={`relative size-[188px] max-sm:size-[156px] rounded-full ${active ? "wg-sheen" : ""} group flex flex-col items-center justify-center gap-1.5 overflow-hidden text-white outline-none transition-transform duration-200 focus-visible:ring-4 ${
+        className={`relative size-[152px] max-sm:size-[134px] rounded-full ${active ? "wg-sheen" : ""} group flex flex-col items-center justify-center gap-1.5 overflow-hidden text-white outline-none transition-transform duration-200 focus-visible:ring-4 ${
           active ? "hover:scale-[1.03] active:scale-[0.98]" : "cursor-not-allowed"
         } motion-reduce:transition-none motion-reduce:hover:scale-100`}
         style={{
@@ -615,79 +643,41 @@ function LocationPanel({
   const isError = loc.phase === "error";
   const locating = loc.phase === "locating";
 
+  const bad = isDenied || isError;
   return (
     <div
-      className="mb-5 rounded-2xl p-4"
+      className="mb-5 flex items-center gap-3 rounded-2xl px-4 py-3 flex-wrap"
       style={{
-        background: isDenied || isError
+        background: bad
           ? "color-mix(in srgb, var(--color-altus-red) 6%, var(--color-surface-card))"
           : "var(--color-surface-soft)",
         border: "1px solid var(--color-hairline)",
       }}
     >
-      <div className="flex items-start gap-3">
-        <span
-          className="inline-flex size-9 shrink-0 items-center justify-center rounded-full"
-          style={
-            isDenied || isError
-              ? {
-                  background: "color-mix(in srgb, var(--color-altus-red) 12%, transparent)",
-                  color: "var(--color-altus-red)",
-                }
-              : { background: `color-mix(in srgb, ${GREEN} 10%, transparent)`, color: GREEN_DEEP }
-          }
-        >
-          {isDenied || isError ? (
-            <AlertTriangle size={18} strokeWidth={2.2} />
-          ) : (
-            <LocateFixed size={18} strokeWidth={2.2} />
-          )}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[14.5px] font-semibold text-ink-strong">
-            {isDenied
-              ? "Location is blocked"
-              : isError
-                ? "Couldn't get your location"
-                : geofenceEnabled
-                  ? "Enable location to punch"
-                  : "Enable location (optional)"}
-          </p>
-          <p className="mt-1 text-[13px] text-ink-soft" style={{ lineHeight: 1.5 }}>
-            {isDenied
-              ? loc.message
-              : isError
-                ? loc.message
-                : geofenceEnabled
-                  ? "Attendance is verified by your location. Tap Enable location and allow access when your browser asks — your live map appears right here."
-                  : "Sharing your location stamps the punch with where you checked in — and shows your live map here."}
-          </p>
-          <button
-            type="button"
-            onClick={onEnable}
-            disabled={locating}
-            className="mt-3 inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-[14px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-50"
-            style={{
-              background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,
-              boxShadow: "0 6px 16px -8px rgba(22, 163, 74, 0.55)",
-            }}
-          >
-            {locating ? (
-              <>
-                <Loader2 size={16} strokeWidth={2.4} className="animate-spin" /> Locating…
-              </>
-            ) : isDenied || isError ? (
-              <>
-                <LocateFixed size={16} strokeWidth={2.4} /> Try again
-              </>
-            ) : (
-              <>
-                <LocateFixed size={16} strokeWidth={2.4} /> Enable location
-              </>
-            )}
-          </button>
-        </div>
-      </div>
+      <span
+        className="inline-flex size-8 shrink-0 items-center justify-center rounded-full"
+        style={bad
+          ? { background: "color-mix(in srgb, var(--color-altus-red) 12%, transparent)", color: "var(--color-altus-red)" }
+          : { background: `color-mix(in srgb, ${GREEN} 10%, transparent)`, color: GREEN_DEEP }}
+      >
+        {bad ? <AlertTriangle size={16} strokeWidth={2.3} /> : <MapPinOff size={16} strokeWidth={2.3} />}
+      </span>
+      <span className="min-w-0 flex-1 text-[14px] font-bold text-ink-strong">
+        {isDenied ? "Location blocked" : isError ? "Location unavailable" : "Location off"}
+      </span>
+      <button
+        type="button"
+        onClick={onEnable}
+        disabled={locating}
+        className="shrink-0 inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3.5 text-[13.5px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-50"
+        style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`, boxShadow: "0 6px 16px -8px rgba(22, 163, 74, 0.55)" }}
+      >
+        {locating ? (
+          <><Loader2 size={15} strokeWidth={2.4} className="animate-spin" /> Locating…</>
+        ) : (
+          <><LocateFixed size={15} strokeWidth={2.4} /> {bad ? "Try again" : "Enable location"}</>
+        )}
+      </button>
     </div>
   );
 }

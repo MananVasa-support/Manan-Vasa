@@ -10,6 +10,7 @@ import {
   MoveRight,
   Activity,
   Users,
+  ClipboardList,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
@@ -195,34 +196,34 @@ export default async function AttendancePage({ searchParams }: PageProps) {
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
         {/* ── Page header ── */}
-        <header className="mb-6 wg-rise">
-          <span
-            className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
-            style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
-          >
-            <CalendarCheck size={13} strokeWidth={2.6} /> Employees · Attendance
-          </span>
-          <h1
-            className="mt-3 text-ink-strong"
-            style={{
-              fontFamily: "var(--font-display), system-ui, sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(30px,3.6vw,46px)",
-              letterSpacing: "-0.03em",
-              lineHeight: 1.02,
-            }}
-          >
-            Good to see you, {firstName}
-          </h1>
-          <p className="mt-1.5 text-[15.5px] font-medium text-ink-muted">
-            Enable location and punch in from the office — one check-in and one check-out per day.
-          </p>
-          {process.env.MONDAY_CONFIRM_UI !== "false" && (
-            <a
-              href="/attendance/confirmations"
-              className="mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-bold text-[#15803d]"
+        <header className="mb-6 wg-rise flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0">
+            <span
+              className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
+              style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
             >
-              <CalendarCheck size={15} strokeWidth={2.4} /> Monday attendance confirmations →
+              <CalendarCheck size={13} strokeWidth={2.6} /> Employees · Attendance
+            </span>
+            <h1
+              className="mt-3 text-ink-strong"
+              style={{
+                fontFamily: "var(--font-display), system-ui, sans-serif",
+                fontWeight: 900,
+                fontSize: "clamp(30px,3.6vw,46px)",
+                letterSpacing: "-0.03em",
+                lineHeight: 1.02,
+              }}
+            >
+              Good to see you, {firstName}
+            </h1>
+          </div>
+          {me.isAdmin && (
+            <a
+              href="/attendance/dashboard"
+              className="wg-btn shrink-0 inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[13.5px] font-bold text-white"
+              style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 8px 20px -10px color-mix(in srgb, #15803d 70%, transparent)" }}
+            >
+              <ClipboardList size={15} strokeWidth={2.4} /> Att Report
             </a>
           )}
         </header>
@@ -368,54 +369,48 @@ function StatCard({
   progress?: number | null;
   delay: number;
 }) {
+  const pct = progress != null ? Math.round(Math.max(0, Math.min(progress, 1)) * 100) : null;
   return (
     <div
-      className="wg-rise wg-btn rounded-2xl bg-surface-card px-4.5 py-4 max-md:px-4"
+      className="wg-rise group relative overflow-hidden rounded-[18px] bg-surface-card p-4"
       style={{
         boxShadow:
-          "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -20px rgba(15,23,42,0.35)",
+          "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.8), 0 14px 34px -24px rgba(15,23,42,0.4)",
         animationDelay: `${delay}ms`,
       }}
     >
-      <div className="flex items-center gap-2">
+      {/* accent aurora wash */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full opacity-60 transition-opacity duration-300 group-hover:opacity-100"
+        style={{ background: `radial-gradient(circle, color-mix(in srgb, ${accent} 22%, transparent), transparent 68%)` }}
+      />
+      <div className="relative flex items-start justify-between gap-2">
         <span
-          className="inline-grid size-8 shrink-0 place-items-center rounded-[10px]"
-          style={{
-            background: `color-mix(in srgb, ${accent} 10%, transparent)`,
-            color: accent,
-          }}
+          className="inline-grid size-10 shrink-0 place-items-center rounded-[13px] text-white"
+          style={{ background: `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 62%, black))`, boxShadow: `0 8px 18px -10px ${accent}` }}
         >
           {icon}
         </span>
-        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-subtle">
-          {label}
-        </span>
+        {pct != null && (
+          <span className="tabular-nums rounded-full px-2 py-0.5 text-[11px] font-black" style={{ background: `color-mix(in srgb, ${accent} 12%, transparent)`, color: accent }}>
+            {pct}%
+          </span>
+        )}
       </div>
+      <div className="relative mt-3 text-[10.5px] font-black uppercase tracking-[0.14em] text-ink-subtle">{label}</div>
       <div
-        className="mt-2 tabular-nums text-ink-strong"
-        style={{
-          fontFamily: "var(--font-display), system-ui, sans-serif",
-          fontWeight: 900,
-          fontSize: 26,
-          letterSpacing: "-0.02em",
-          lineHeight: 1,
-        }}
+        className="relative mt-0.5 tabular-nums text-ink-strong"
+        style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.03em", lineHeight: 1 }}
       >
         {value}
       </div>
-      <div className="mt-1 text-[12px] font-medium text-ink-subtle">{caption}</div>
+      <div className="relative mt-1 text-[12px] font-semibold text-ink-subtle">{caption}</div>
       {progress != null && (
-        <div
-          className="mt-2.5 h-1 w-full overflow-hidden rounded-full"
-          style={{ background: "var(--color-surface-soft)" }}
-          role="presentation"
-        >
+        <div className="relative mt-3 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--color-surface-track)" }} role="presentation">
           <div
             className="h-full rounded-full transition-[width] duration-700"
-            style={{
-              width: `${Math.round(Math.max(0, Math.min(progress, 1)) * 100)}%`,
-              background: `linear-gradient(90deg, color-mix(in srgb, ${accent} 70%, white), ${accent})`,
-            }}
+            style={{ width: `${pct}%`, background: `linear-gradient(90deg, color-mix(in srgb, ${accent} 65%, white), ${accent})` }}
           />
         </div>
       )}

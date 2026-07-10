@@ -123,12 +123,6 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       },
       { href: "/dcc" as Route, label: "DCC", Icon: Gauge },
       {
-        href: "/attendance/dashboard" as Route,
-        label: "Att Report",
-        Icon: CalendarRange,
-        adminOnly: true,
-      },
-      {
         href: "/attendance/hr-record" as Route,
         label: "HR Record",
         Icon: ClipboardList,
