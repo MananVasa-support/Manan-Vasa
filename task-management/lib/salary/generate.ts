@@ -7,7 +7,18 @@ import {
   sumAdvances,
   lastDisbursedRemainder,
 } from "@/lib/queries/salary";
+import { getMonthDashboard } from "@/lib/queries/attendance-status";
+import { localDateString } from "@/lib/format";
 import { isPtExempt } from "@/lib/salary/pt-policy";
+
+/**
+ * Attendance-source cutover. Months on/after this use the app's own PUNCH
+ * attendance (attendance_logs → the grader), integrating the sheet-imported
+ * history (synthetic 10:30/19:30 punches through 2026-07-10) with real punches
+ * from 2026-07-11 onward. Earlier months keep computing from the frozen,
+ * already-paid HR sheet mirror — never re-derived, so historical pay is stable.
+ */
+export const SALARY_PUNCH_CUTOVER = "2026-07";
 
 export interface MonthInputRow {
   employeeId: string;
@@ -26,22 +37,31 @@ export interface MonthInputRow {
 export async function assembleMonthInputs(month: string): Promise<MonthInputRow[]> {
   const dim = daysInMonth(month);
   const fy = fyForMonth(month);
+  const usePunch = month >= SALARY_PUNCH_CUTOVER;
 
-  // Attendance now comes from the SYNCED HR "Attendance log" sheet
-  // (attendance_sheet_month), not the punch dashboard: `totalDaysWorked` is the
-  // payable-days base, verified to match the salary sheet's working days for
-  // every settled month. The per-day divisor is the calendar days-in-month
-  // (empirically the sheet's own divisor). Late-mark deductions are a punch-flow
-  // concept and do not apply — the sheet's totalDaysWorked is already final.
-  const [payableMap, profiles] = await Promise.all([
-    getAttendanceSheetPayableMap(month),
-    listSalaryProfiles(),
-  ]);
+  // Resolve payableDays (+ late marks) per employee from the ACTIVE source:
+  //  • month ≥ cutover → the app punch grader (attendance_logs): integrated
+  //    live attendance, late-mark deductions apply.
+  //  • earlier → the frozen HR sheet mirror (totalDaysWorked), no late marks;
+  //    the per-day divisor is calendar days-in-month either way.
+  const profiles = await listSalaryProfiles();
+  let payableFor: (id: string) => { payableDays: number; late: number };
+  if (usePunch) {
+    const [y, m] = month.split("-").map(Number) as [number, number];
+    const dash = await getMonthDashboard(y, m, localDateString("Asia/Kolkata"));
+    const byId = new Map(dash.map((r) => [r.employeeId, r.summary]));
+    payableFor = (id) => ({
+      payableDays: byId.get(id)?.payableDays ?? 0,
+      late: byId.get(id)?.late ?? 0,
+    });
+  } else {
+    const sheet = await getAttendanceSheetPayableMap(month);
+    payableFor = (id) => ({ payableDays: sheet.get(id)?.totalDaysWorked ?? 0, late: 0 });
+  }
 
   const rows: MonthInputRow[] = [];
   for (const p of profiles) {
-    const att = payableMap.get(p.employeeId);
-    const payableDays = att?.totalDaysWorked ?? 0;
+    const { payableDays, late } = payableFor(p.employeeId);
     const ptExempt = isPtExempt({
       employeeId: p.employeeId,
       designationName: p.designationName,
@@ -64,7 +84,7 @@ export async function assembleMonthInputs(month: string): Promise<MonthInputRow[
         daysInMonth: dim,
         ptExempt,
         tdsMonthly: p.tdsMonthly,
-        lateMarksInMonth: 0,
+        lateMarksInMonth: usePunch ? late : 0,
         advances,
         pendingBalanceIn,
       },
