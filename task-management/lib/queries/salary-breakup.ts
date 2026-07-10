@@ -1,8 +1,10 @@
 import "server-only";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
-import { db, salaryBreakup } from "@/lib/db";
+import { db, salaryBreakup, employees } from "@/lib/db";
 import { withRetry } from "@/lib/db/with-timeout";
 import type { SalaryBreakup } from "@/db/schema";
+
+const normName = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
 
 const RETRY = { attempts: 3, timeoutMs: [6000, 10000, 14000] as number[] };
 
@@ -20,17 +22,41 @@ export async function salaryBreakupMonths(): Promise<string[]> {
   return rows.map((r) => r.ym);
 }
 
-/** Every salary-breakup row for a month ('YYYY-MM'), in sheet order. */
+/**
+ * Salary-breakup rows for a month ('YYYY-MM'), in sheet order, CLEANED for
+ * display/analytics:
+ *  - fired staff are hidden — a row whose linked employee is inactive
+ *    (is_active = false) is dropped (mark an ex-employee inactive to remove
+ *    them everywhere; unmatched rows, employee_id null, are always kept so a
+ *    real person with name-drift never disappears);
+ *  - duplicates are collapsed — the sheet can carry the same person twice under
+ *    spelling variants (e.g. "Yug verma" / "Yug  verma"); we keep ONE row per
+ *    person, keyed by employee_id (falling back to the normalized name for
+ *    unmatched rows), keeping the lowest sr_no (the primary sheet entry).
+ */
 export async function listSalaryBreakup(ym: string): Promise<SalaryBreakup[]> {
-  return withRetry(
+  const rows = await withRetry(
     () =>
       db
-        .select()
+        .select({ row: salaryBreakup, isActive: employees.isActive })
         .from(salaryBreakup)
+        .leftJoin(employees, eq(employees.id, salaryBreakup.employeeId))
         .where(eq(salaryBreakup.month, `${ym}-01`))
         .orderBy(asc(salaryBreakup.srNo), asc(salaryBreakup.employeeName)),
     { ...RETRY, label: "salary-breakup-list" },
   );
+
+  const seen = new Set<string>();
+  const out: SalaryBreakup[] = [];
+  for (const r of rows) {
+    // Hide fired: matched to an employee who is no longer active.
+    if (r.row.employeeId && r.isActive === false) continue;
+    const key = r.row.employeeId ?? `name:${normName(r.row.employeeName)}`;
+    if (seen.has(key)) continue; // first (lowest sr_no) wins
+    seen.add(key);
+    out.push(r.row);
+  }
+  return out;
 }
 
 /** One employee's breakup rows (their own payslip history), newest month first. */
