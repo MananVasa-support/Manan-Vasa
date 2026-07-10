@@ -15,6 +15,7 @@ import { HrRecordSelectors } from "@/components/attendance/hr-record/hr-selector
 import { HrKpiStrip } from "@/components/attendance/hr-record/hr-kpi-strip";
 import { HrDayGrid } from "@/components/attendance/hr-record/hr-day-grid";
 import { HrPaidLeaveCard } from "@/components/attendance/hr-record/hr-paid-leave-card";
+import { AttendanceSyncButton } from "@/components/attendance/hr-record/attendance-sync-button";
 import { hrMonthLabel } from "@/components/attendance/hr-record/hr-codes";
 
 export const dynamic = "force-dynamic";
@@ -71,19 +72,22 @@ export default async function HrRecordPage({ searchParams }: PageProps) {
       <main className="mx-auto max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
         {/* ── Glass hero ── */}
         <header className="wg-rise mb-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
-              style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
-            >
-              <Archive size={13} strokeWidth={2.6} /> Employees · Attendance · HR Record
-            </span>
-            <span
-              className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-ink-muted"
-              style={{ background: "var(--color-surface-soft)" }}
-            >
-              <LockKeyhole size={12} strokeWidth={2.6} /> Read-only
-            </span>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
+                style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
+              >
+                <Archive size={13} strokeWidth={2.6} /> Employees · Attendance · HR Record
+              </span>
+              <span
+                className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-ink-muted"
+                style={{ background: "var(--color-surface-soft)" }}
+              >
+                <LockKeyhole size={12} strokeWidth={2.6} /> Read-only
+              </span>
+            </div>
+            <AttendanceSyncButton />
           </div>
           <h1
             className="mt-3 text-ink-strong"
