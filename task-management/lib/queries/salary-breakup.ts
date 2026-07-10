@@ -15,6 +15,9 @@ const EXCLUDED_SHEET_NAMES = new Set<string>([
   "satish sonawane", // covers the "Satish  Sonawane" double-space variant too
   "kiran",
   "sanket thorat",
+  "anand singh",
+  "dhanshree shigvan",
+  "himanshu lad", // exact match — keeps the separate "Himanshu Patil"
 ]);
 
 const RETRY = { attempts: 3, timeoutMs: [6000, 10000, 14000] as number[] };
