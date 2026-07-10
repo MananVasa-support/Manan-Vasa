@@ -105,3 +105,6 @@ Doc1.docx
 
 # local salary reconcile exports (never ship)
 _reconcile/
+
+# local screenshot/PDF verification artifacts
+.shots/

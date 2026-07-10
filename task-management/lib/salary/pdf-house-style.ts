@@ -31,9 +31,11 @@ const LOGO_PATH = path.join(process.cwd(), "public", "logo.png");
 const MARK_PATH = path.join(process.cwd(), "public", "logo-mark.png");
 export const SIG_DIR = path.join(process.cwd(), "public", "signatures");
 
-/** ₹ with Indian grouping, no decimals. */
+/** Rupees with Indian grouping, no decimals. Uses the "Rs " prefix rather than
+ *  the ₹ glyph: pdfkit's built-in Helvetica has no rupee glyph (it renders as
+ *  "¹"), so every salary PDF must spell it "Rs" to stay readable. */
 export const inr = (n: number): string =>
-  "₹" + Math.round(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+  "Rs " + Math.round(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
 /** "dd MMMM yyyy" for a YYYY-MM-DD ISO date, or "" / the raw string on failure. */
 export function fmtDate(iso?: string | null): string {

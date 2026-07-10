@@ -77,7 +77,7 @@ export async function GET(request: Request): Promise<Response> {
       .fillColor("#64748b")
       .font("Helvetica")
       .fontSize(8)
-      .text(`${rows.length} employees · figures in ₹ · generated for internal use`, left, 50);
+      .text(`${rows.length} employees · figures in Rupees · generated for internal use`, left, 50);
   };
 
   const drawColHeader = (y: number): number => {
