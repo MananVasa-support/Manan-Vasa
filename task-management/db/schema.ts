@@ -4228,3 +4228,43 @@ export const salaryPayments = pgTable(
   ],
 );
 export type SalaryPayment = typeof salaryPayments.$inferSelect;
+
+// ════════════════════════════════════════════════════════════════════════════
+// Employee Dossier (migration 0125) — the per-person HR document vault.
+// One row per uploaded file; the file itself lives in the Supabase `documents`
+// bucket (storagePath). Categorised by docType. Access gated in app code
+// (each employee sees their own; admins see everyone's). Archived, never
+// hard-deleted, so a mis-file is recoverable.
+// ════════════════════════════════════════════════════════════════════════════
+export const employeeDocuments = pgTable(
+  "employee_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    /** appointment | probation_end | ctc_breakup | increment | confidentiality_1
+     *  | confidentiality_2 | onboarding | other */
+    docType: text("doc_type").notNull(),
+    title: text("title").notNull(),
+    /** Letter/increment date — sorts a series (e.g. increment history). */
+    effectiveDate: date("effective_date"),
+    storagePath: text("storage_path").notNull(),
+    fileName: text("file_name").notNull(),
+    mimeType: text("mime_type"),
+    sizeBytes: bigint("size_bytes", { mode: "number" }),
+    notes: text("notes"),
+    archived: boolean("archived").notNull().default(false),
+    uploadedById: uuid("uploaded_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("empdoc_employee_idx").on(t.employeeId, t.docType),
+    index("empdoc_type_idx").on(t.docType),
+    index("empdoc_archived_idx").on(t.archived),
+  ],
+);
+export type EmployeeDocument = typeof employeeDocuments.$inferSelect;

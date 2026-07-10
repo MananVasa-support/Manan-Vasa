@@ -37,6 +37,7 @@ import {
   Share2,
   Star,
   Medal,
+  FolderLock,
 } from "lucide-react";
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
@@ -142,6 +143,7 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
         not: ["/overtime/dashboard"],
       },
       { href: "/reimbursements" as Route, label: "Reimbursements", Icon: Receipt },
+      { href: "/dossier" as Route, label: "Dossier", Icon: FolderLock },
     ],
     groups: [],
   },
