@@ -13,6 +13,7 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { requireAdmin } from "@/lib/auth/current";
 import { salaryBreakupMonths, listSalaryBreakup } from "@/lib/queries/salary-breakup";
 import { SalaryBreakupTable, type SalaryRow } from "@/components/salary/salary-breakup-table";
+import { SalarySyncButton } from "@/components/salary/salary-sync-button";
 import {
   StatementDownloads,
   type StatementEmployee,
@@ -167,7 +168,9 @@ export default async function SalaryPage({ searchParams }: PageProps) {
               </div>
             </div>
 
-            {months.length > 0 && (
+            <div className="flex flex-col items-end gap-2.5 max-md:items-start">
+              <SalarySyncButton />
+              {months.length > 0 && (
               <nav aria-label="Salary month" className="flex max-w-[520px] flex-wrap items-center justify-end gap-2 max-md:justify-start">
                 {months.map((m) => {
                   const active = m === month;
@@ -196,7 +199,8 @@ export default async function SalaryPage({ searchParams }: PageProps) {
                   );
                 })}
               </nav>
-            )}
+              )}
+            </div>
           </div>
         </header>
 

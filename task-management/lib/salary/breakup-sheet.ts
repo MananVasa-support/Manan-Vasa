@@ -28,8 +28,16 @@
 //    row index 3 there), adjust SALARY_SHEET_DATA_START_ROW too.
 // The sync engine refuses to run (clean no-op) until both env vars are set.
 // ═══════════════════════════════════════════════════════════════════════════
-export const SALARY_SHEET_ID = process.env.SALARY_SHEET_ID ?? "";
-export const SALARY_SHEET_RANGE = process.env.SALARY_SHEET_RANGE ?? "";
+// Live "Altus Corp Salary Payment" sheet (shared with FIREBASE_CLIENT_EMAIL,
+// 2026-07-09). Tab "Salary Breakup" (gid=0) — 29-col layout above; data starts
+// at row 4 (index 3: the "Go to Attendance" row, the header row, the "Auto"
+// row precede it). Baked as defaults (the id is public, in the URL) so the
+// in-app "Sync from sheet" button works without a Vercel env change; still
+// overridable via the same env vars.
+export const SALARY_SHEET_ID =
+  process.env.SALARY_SHEET_ID ?? "13dHs7Klp4_Eb3JUvhzTYEgQsmX-rLFfR2ZwZK9hcgrU";
+export const SALARY_SHEET_RANGE =
+  process.env.SALARY_SHEET_RANGE ?? "'Salary Breakup'!A1:AC4000";
 export const SALARY_SHEET_DATA_START_ROW = Number(
   process.env.SALARY_SHEET_DATA_START_ROW ?? "3",
 );
