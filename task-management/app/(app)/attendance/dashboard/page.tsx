@@ -6,6 +6,7 @@ import { getMonthDashboard } from "@/lib/queries/attendance-status";
 import { localDateString } from "@/lib/format";
 import { AttendanceDashboardTable } from "@/components/attendance/dashboard/dashboard-table";
 import { AttendanceMonthSelector } from "@/components/attendance/dashboard/month-selector";
+import { GenerateSalaryButton } from "@/components/attendance/dashboard/generate-salary-button";
 
 export const dynamic = "force-dynamic";
 
@@ -120,17 +121,7 @@ export default async function AttendanceDashboardPage({ searchParams }: PageProp
                   <FileText size={15} strokeWidth={2.2} />
                   Export PDF
                 </a>
-                <button
-                  type="button"
-                  disabled
-                  title="Coming in Phase 2"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-white/60 py-2 px-4 text-[13.5px] font-bold text-ink-subtle opacity-60 cursor-not-allowed"
-                >
-                  Generate Salary
-                  <span className="text-[10px] uppercase tracking-wide font-bold">
-                    Phase 2
-                  </span>
-                </button>
+                <GenerateSalaryButton year={year} month={month} label={monthTitle} />
               </div>
             </div>
           </div>
