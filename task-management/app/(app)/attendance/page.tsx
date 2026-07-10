@@ -15,6 +15,7 @@ import {
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { PunchCard } from "@/components/attendance/punch-card";
+import { RemoteCheckInTrigger } from "@/components/attendance/remote-checkin-trigger";
 import { TeamDatePicker } from "@/components/attendance/team-date-picker";
 import {
   AttTeamRoster,
@@ -243,6 +244,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
               radiusM={settings.attendanceRadiusM}
               lastPunchLabel={lastPunchLabel}
             />
+            <RemoteCheckInTrigger hasCheckedIn={!!todayRow?.in} hasCheckedOut={!!todayRow?.out} />
           </div>
 
           {/* RIGHT — derived stats + the 14-day timeline */}

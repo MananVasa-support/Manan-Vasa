@@ -35,6 +35,8 @@ import {
   AdminEditDayTimes,
   AdminDeletePunch,
 } from "@/lib/validators/attendance";
+import { getSupabaseAdmin, DOCUMENTS_BUCKET } from "@/lib/supabase/admin";
+import { withTimeout } from "@/lib/db/with-timeout";
 
 type ActionResult<T = unknown> =
   | ({ ok: true } & T)
@@ -544,4 +546,80 @@ async function auditPunch(
   } catch (err) {
     console.error("[attendance] admin punch audit write failed", err);
   }
+}
+
+/**
+ * WFH / on-site remote check-in. For staff working from home or in the field:
+ * captures location + a required reason + a required photo + a work-mode tag,
+ * and logs it as a normal punch (auto-counted present; admins review it on the
+ * report via the work_mode badge + evidence photo). No geofence — that's the
+ * point. One punch per kind per day, same as the office flow.
+ */
+const REMOTE_MODES = ["wfh", "client_site", "field", "other"] as const;
+export async function punchRemote(form: FormData): Promise<ActionResult<{ date: string }>> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const kind = String(form.get("kind") ?? "");
+  if (kind !== "in" && kind !== "out") return { ok: false, error: "Invalid check-in type." };
+
+  const workMode = String(form.get("workMode") ?? "");
+  if (!REMOTE_MODES.includes(workMode as (typeof REMOTE_MODES)[number])) {
+    return { ok: false, error: "Pick where you're working from." };
+  }
+
+  const reason = String(form.get("reason") ?? "").trim();
+  if (!reason) return { ok: false, error: "A reason / note is required." };
+
+  const lat = Number(form.get("lat"));
+  const lng = Number(form.get("lng"));
+  const acc = Number(form.get("accuracyM"));
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return { ok: false, error: "Location is required — tap Enable location." };
+  }
+
+  const photo = form.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) return { ok: false, error: "A photo is required." };
+  if (photo.size > 15 * 1024 * 1024) return { ok: false, error: "Photo exceeds 15 MB." };
+  if (!photo.type.startsWith("image/")) return { ok: false, error: "Evidence must be a photo." };
+
+  const tz = me.timezone || "Asia/Kolkata";
+  const today = localDateString(tz);
+  const safe = photo.name.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80) || "photo.jpg";
+  const path = `attendance/remote/${me.id}/${today}-${kind}-${crypto.randomUUID()}/${safe}`;
+
+  const admin = getSupabaseAdmin();
+  const buf = Buffer.from(await photo.arrayBuffer());
+  const { error: upErr } = await admin.storage
+    .from(DOCUMENTS_BUCKET)
+    .upload(path, buf, { contentType: photo.type || "image/jpeg", upsert: false });
+  if (upErr) return { ok: false, error: `Photo upload failed: ${upErr.message}` };
+
+  const values = {
+    employeeId: me.id,
+    logDate: today,
+    kind: kind as "in" | "out",
+    note: reason.slice(0, 500),
+    lat,
+    lng,
+    accuracyM: Number.isFinite(acc) ? acc : null,
+    distanceM: null,
+    verifyMethod: "gps_only" as const,
+    source: "self" as const,
+    reason: (workMode === "wfh" ? "wfh" : "client_visit") as PunchReason,
+    workMode,
+    evidencePath: path,
+  };
+  const dupError = kind === "in" ? "You already checked in today." : "You already checked out today.";
+  try {
+    await withTimeout(db.insert(attendanceLogs).values(values), 12000, "remote-punch-insert");
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await admin.storage.from(DOCUMENTS_BUCKET).remove([path]).catch(() => {});
+    if (msg.includes("attendance_logs_employee_day_kind_uq")) return { ok: false, error: dupError };
+    return { ok: false, error: `Could not save: ${msg.slice(0, 200)}` };
+  }
+  revalidatePath("/attendance");
+  return { ok: true, date: today };
 }

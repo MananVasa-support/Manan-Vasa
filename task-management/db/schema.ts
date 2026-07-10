@@ -1315,6 +1315,10 @@ export const attendanceLogs = pgTable(
     // punches carry a `recordedById`; `reason` is one of PUNCH_REASONS.
     source: text("source").$type<"self" | "admin">().notNull().default("self"),
     reason: text("reason"),
+    /** WFH/on-site attendance (migration 0127): work mode + photo evidence.
+     *  Office geofenced punches leave these null. */
+    workMode: text("work_mode"), // office | wfh | client_site | field | other
+    evidencePath: text("evidence_path"),
     recordedById: uuid("recorded_by_id").references(() => employees.id, {
       onDelete: "set null",
     }),
