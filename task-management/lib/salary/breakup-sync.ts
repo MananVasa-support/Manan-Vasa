@@ -107,10 +107,21 @@ export async function runSalaryBreakupSync(opts: {
       return { row: r, empId };
     });
 
+    // De-duplicate by the upsert key (employee_name, month): the sheet can carry
+    // more than one row for the same person+month, and a single batch upsert
+    // cannot touch the same conflict key twice ("ON CONFLICT DO UPDATE command
+    // cannot affect row a second time"). Keep the LAST occurrence — a later
+    // sheet row is the corrected/final one.
+    const byKey = new Map<string, { row: SalaryBreakupSheetRow; empId: string | null }>();
+    for (const item of resolved) {
+      byKey.set(`${normName(item.row.employeeName)}|${item.row.month}`, item);
+    }
+    const deduplicated = [...byKey.values()];
+
     // 4) ONE transaction: chunked idempotent upserts on (employee_name, month).
     await db.transaction(async (tx) => {
-      for (let i = 0; i < resolved.length; i += UPSERT_CHUNK) {
-        const chunk = resolved.slice(i, i + UPSERT_CHUNK);
+      for (let i = 0; i < deduplicated.length; i += UPSERT_CHUNK) {
+        const chunk = deduplicated.slice(i, i + UPSERT_CHUNK);
         await tx
           .insert(salaryBreakup)
           .values(chunk.map(({ row, empId }) => toInsertValues(row, empId)))
@@ -155,7 +166,7 @@ export async function runSalaryBreakupSync(opts: {
     const summary: SalarySyncSummary = {
       runId,
       rowsRead: rows.length,
-      rowsUpserted: resolved.length,
+      rowsUpserted: deduplicated.length,
       rowsSkipped: skipped,
       unmatchedNames: [...unmatched].sort(),
       monthsTouched,
