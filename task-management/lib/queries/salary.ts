@@ -1,7 +1,8 @@
 import "server-only";
-import { and, asc, desc, eq, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
+  attendanceSheetMonth,
   designations,
   employees,
   payingEntities,
@@ -71,6 +72,60 @@ export async function listSalaryProfiles(): Promise<SalaryProfileRow[]> {
     ptExempt: r.ptExempt ?? false,
     probationEnd: toISODate(r.probationEnd),
   }));
+}
+
+export interface AttendancePayableRow {
+  employeeId: string;
+  /** Σ payable days from the HR sheet ("Total No Days") — the proration base. */
+  totalDaysWorked: number;
+  daysInMonth: number;
+  present: number;
+  absent: number;
+  designation: string | null;
+}
+
+/**
+ * Synced HR-sheet attendance for a YYYY-MM month, indexed by employeeId (matched
+ * rows only). `totalDaysWorked` is the authoritative payable-days figure salary
+ * prorates on — verified to match the salary sheet's working days exactly for
+ * every settled month. This is the WMS attendance source for computed salary
+ * (populated by lib/attendance-log/attendance-sync from the "Attendance log"
+ * Google Sheet), replacing the punch-flow dashboard.
+ */
+export async function getAttendanceSheetPayableMap(
+  month: string,
+): Promise<Map<string, AttendancePayableRow>> {
+  const bucket = `${month}-01`;
+  const rows = await db
+    .select({
+      employeeId: attendanceSheetMonth.employeeId,
+      totalDaysWorked: attendanceSheetMonth.totalDaysWorked,
+      daysInMonth: attendanceSheetMonth.daysInMonth,
+      present: attendanceSheetMonth.present,
+      absent: attendanceSheetMonth.absent,
+      designation: attendanceSheetMonth.designation,
+    })
+    .from(attendanceSheetMonth)
+    .where(
+      and(
+        eq(attendanceSheetMonth.month, bucket),
+        isNotNull(attendanceSheetMonth.employeeId),
+      ),
+    );
+
+  const map = new Map<string, AttendancePayableRow>();
+  for (const r of rows) {
+    if (!r.employeeId) continue;
+    map.set(r.employeeId, {
+      employeeId: r.employeeId,
+      totalDaysWorked: Number(r.totalDaysWorked ?? 0),
+      daysInMonth: Number(r.daysInMonth ?? 0),
+      present: Number(r.present ?? 0),
+      absent: Number(r.absent ?? 0),
+      designation: r.designation ?? null,
+    });
+  }
+  return map;
 }
 
 export interface ProfileRow {

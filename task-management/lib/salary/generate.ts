@@ -3,11 +3,11 @@ import type { SalaryInput } from "@/lib/salary/compute";
 import { daysInMonth, fyForMonth } from "@/lib/salary/period";
 import {
   listSalaryProfiles,
+  getAttendanceSheetPayableMap,
   sumAdvances,
   lastDisbursedRemainder,
 } from "@/lib/queries/salary";
-import { getMonthDashboard } from "@/lib/queries/attendance-status";
-import { localDateString } from "@/lib/format";
+import { isPtExempt } from "@/lib/salary/pt-policy";
 
 export interface MonthInputRow {
   employeeId: string;
@@ -24,23 +24,28 @@ export interface MonthInputRow {
  *  attendance summary + each employee's profile + advances + carry-forward.
  *  DB reads only — no writes. */
 export async function assembleMonthInputs(month: string): Promise<MonthInputRow[]> {
-  const [y, m] = month.split("-").map(Number) as [number, number];
-  const refTodayISO = localDateString("Asia/Kolkata");
   const dim = daysInMonth(month);
   const fy = fyForMonth(month);
 
-  const [dashboard, profiles] = await Promise.all([
-    getMonthDashboard(y, m, refTodayISO),
+  // Attendance now comes from the SYNCED HR "Attendance log" sheet
+  // (attendance_sheet_month), not the punch dashboard: `totalDaysWorked` is the
+  // payable-days base, verified to match the salary sheet's working days for
+  // every settled month. The per-day divisor is the calendar days-in-month
+  // (empirically the sheet's own divisor). Late-mark deductions are a punch-flow
+  // concept and do not apply — the sheet's totalDaysWorked is already final.
+  const [payableMap, profiles] = await Promise.all([
+    getAttendanceSheetPayableMap(month),
     listSalaryProfiles(),
   ]);
-  // index attendance summary by employeeId
-  const summaryByEmp = new Map(dashboard.map((r) => [r.employeeId, r.summary]));
 
   const rows: MonthInputRow[] = [];
   for (const p of profiles) {
-    const summary = summaryByEmp.get(p.employeeId);
-    const payableDays = summary?.payableDays ?? 0;
-    const lateMarks = summary?.late ?? 0;
+    const att = payableMap.get(p.employeeId);
+    const payableDays = att?.totalDaysWorked ?? 0;
+    const ptExempt = isPtExempt({
+      employeeId: p.employeeId,
+      designationName: p.designationName,
+    });
     const [advances, pendingBalanceIn] = await Promise.all([
       sumAdvances(p.employeeId, month),
       lastDisbursedRemainder(p.employeeId, month),
@@ -57,9 +62,9 @@ export async function assembleMonthInputs(month: string): Promise<MonthInputRow[
         annualCtc: p.annualCtc,
         payableDays,
         daysInMonth: dim,
-        ptExempt: p.ptExempt,
+        ptExempt,
         tdsMonthly: p.tdsMonthly,
-        lateMarksInMonth: lateMarks,
+        lateMarksInMonth: 0,
         advances,
         pendingBalanceIn,
       },
