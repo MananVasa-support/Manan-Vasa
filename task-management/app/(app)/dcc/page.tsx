@@ -67,9 +67,11 @@ export default async function DccPage({ searchParams }: PageProps) {
             >
               Daily Compliance
             </h1>
-            <p className="mt-1.5 text-[15.5px] font-medium text-ink-muted">
-              {ownerId === me.id ? "Your KPIs — fill them at the end of each day." : `${owner.name}'s KPIs`}
-            </p>
+            {ownerId !== me.id && (
+              <p className="mt-1.5 text-[15.5px] font-medium text-ink-muted">
+                {owner.name}&apos;s KPIs
+              </p>
+            )}
           </div>
 
           {scope.isManager && (
