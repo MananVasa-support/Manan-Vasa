@@ -14,6 +14,8 @@ import { requireAdmin } from "@/lib/auth/current";
 import { salaryBreakupMonths, listSalaryBreakup } from "@/lib/queries/salary-breakup";
 import { SalaryBreakupTable, type SalaryRow } from "@/components/salary/salary-breakup-table";
 import { SalarySyncButton } from "@/components/salary/salary-sync-button";
+import { SalaryMonthPicker } from "@/components/salary/salary-month-picker";
+import { SalaryExportButtons } from "@/components/salary/salary-export-buttons";
 import {
   StatementDownloads,
   type StatementEmployee,
@@ -170,38 +172,13 @@ export default async function SalaryPage({ searchParams }: PageProps) {
 
             <div className="flex flex-col items-end gap-2.5 max-md:items-start">
               <SalarySyncButton />
-              {months.length > 0 && (
-              <nav aria-label="Salary month" className="flex max-w-[520px] flex-wrap items-center justify-end gap-2 max-md:justify-start">
-                {months.map((m) => {
-                  const active = m === month;
-                  return (
-                    <Link
-                      key={m}
-                      href={`/salary?month=${m}` as Route}
-                      aria-current={active ? "page" : undefined}
-                      className="wg-btn rounded-pill px-3.5 py-1.5 text-[13px] font-bold whitespace-nowrap"
-                      style={
-                        active
-                          ? {
-                              background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,
-                              color: "#fff",
-                              boxShadow: `0 8px 20px -10px color-mix(in srgb, ${GREEN_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
-                            }
-                          : {
-                              background: "var(--color-surface-card)",
-                              color: "var(--color-ink-soft)",
-                              boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)",
-                            }
-                      }
-                    >
-                      {monthLabel(m, "short")}
-                    </Link>
-                  );
-                })}
-              </nav>
-              )}
+              <SalaryExportButtons month={month} />
             </div>
           </div>
+
+          {months.length > 0 && (
+            <SalaryMonthPicker months={months} selected={month ?? ""} />
+          )}
         </header>
 
         {/* ── KPI strip (folded over the loaded rows — zero extra queries) ── */}

@@ -15,6 +15,7 @@ const ROUTES = [
   { path: `/dossier`, name: "dossier-by-employee" },
   { path: `/dossier?tab=type`, name: "dossier-by-type" },
   { path: `/dossier?emp=${EMP}`, name: "dossier-employee" },
+  { path: `/dossier/onboarding?emp=${EMP}`, name: "dossier-onboarding" },
 ];
 
 function adminAuth() {

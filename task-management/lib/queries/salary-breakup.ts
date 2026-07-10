@@ -6,6 +6,17 @@ import type { SalaryBreakup } from "@/db/schema";
 
 const normName = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
 
+/**
+ * Ex-staff who appear in the salary sheet under names that never matched an
+ * employee record (so the is_active filter can't hide them). Sir asked to drop
+ * them from payroll — matched on the normalized sheet name.
+ */
+const EXCLUDED_SHEET_NAMES = new Set<string>([
+  "satish sonawane", // covers the "Satish  Sonawane" double-space variant too
+  "kiran",
+  "sanket thorat",
+]);
+
 const RETRY = { attempts: 3, timeoutMs: [6000, 10000, 14000] as number[] };
 
 /** Distinct salary months present in the imported sheet, newest first ('YYYY-MM'). */
@@ -49,6 +60,8 @@ export async function listSalaryBreakup(ym: string): Promise<SalaryBreakup[]> {
   const seen = new Set<string>();
   const out: SalaryBreakup[] = [];
   for (const r of rows) {
+    // Drop explicitly-excluded ex-staff (unmatched sheet names Sir removed).
+    if (EXCLUDED_SHEET_NAMES.has(normName(r.row.employeeName))) continue;
     // Hide fired: matched to an employee who is no longer active.
     if (r.row.employeeId && r.isActive === false) continue;
     const key = r.row.employeeId ?? `name:${normName(r.row.employeeName)}`;
