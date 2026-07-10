@@ -72,32 +72,43 @@ export async function submitOnboarding(form: FormData): Promise<Result<{ status:
 
   for (const key of ONB_FILE_KEYS) {
     const file = form.get(key);
-    if (!(file instanceof File) || file.size === 0) continue;
-    if (file.size > MAX_BYTES) return { ok: false, error: `“${key}” exceeds 25 MB.` };
-    if (DISALLOWED_EXTENSIONS.test(file.name) || (file.type && DISALLOWED_MIME.has(file.type))) {
-      return { ok: false, error: "That file type is not allowed." };
+    // (a) an uploaded file wins
+    if (file instanceof File && file.size > 0) {
+      if (file.size > MAX_BYTES) return { ok: false, error: `“${key}” exceeds 25 MB.` };
+      if (DISALLOWED_EXTENSIONS.test(file.name) || (file.type && DISALLOWED_MIME.has(file.type))) {
+        return { ok: false, error: "That file type is not allowed." };
+      }
+      const path = `dossier/onboarding/${employeeId}/${key}-${crypto.randomUUID()}/${safeName(file.name)}`;
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const { error: upErr } = await admin.storage.from(DOCUMENTS_BUCKET).upload(path, buffer, {
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
+      if (upErr) {
+        if (uploadedPaths.length) await admin.storage.from(DOCUMENTS_BUCKET).remove(uploadedPaths).catch(() => {});
+        return { ok: false, error: `Upload failed (${key}): ${upErr.message}` };
+      }
+      uploadedPaths.push(path);
+      files[key] = { path, fileName: file.name.slice(0, 200), mime: file.type || null, size: file.size };
+      continue;
     }
-    const path = `dossier/onboarding/${employeeId}/${key}-${crypto.randomUUID()}/${safeName(file.name)}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const { error: upErr } = await admin.storage.from(DOCUMENTS_BUCKET).upload(path, buffer, {
-      contentType: file.type || "application/octet-stream",
-      upsert: false,
-    });
-    if (upErr) {
-      // roll back any files uploaded so far this call
-      if (uploadedPaths.length) await admin.storage.from(DOCUMENTS_BUCKET).remove(uploadedPaths).catch(() => {});
-      return { ok: false, error: `Upload failed (${key}): ${upErr.message}` };
+    // (b) else a pasted Drive / URL link
+    const link = String(form.get(`${key}__link`) ?? "").trim();
+    if (link) {
+      if (!/^https?:\/\//i.test(link)) return { ok: false, error: `“${key}” link must start with http(s)://` };
+      files[key] = { link: link.slice(0, 1000), fileName: link.slice(0, 200) };
     }
-    uploadedPaths.push(path);
-    files[key] = { path, fileName: file.name.slice(0, 200), mime: file.type || null, size: file.size };
   }
 
-  // 4) required file guard (submit only) — the selfie is mandatory per spec
+  // 4) required-attachment guard (submit only) — a file OR a link satisfies it
   if (status === "submitted") {
     for (const f of ONB_ALL_FIELDS) {
-      if (f.type === "file" && f.required && !files[f.key]) {
-        if (uploadedPaths.length) await admin.storage.from(DOCUMENTS_BUCKET).remove(uploadedPaths).catch(() => {});
-        return { ok: false, error: `“${f.label}” is required.` };
+      if (f.type === "file" && f.required) {
+        const ref = files[f.key];
+        if (!ref || (!ref.path && !ref.link)) {
+          if (uploadedPaths.length) await admin.storage.from(DOCUMENTS_BUCKET).remove(uploadedPaths).catch(() => {});
+          return { ok: false, error: `“${f.label}” is required (attach a file or paste a link).` };
+        }
       }
     }
   }

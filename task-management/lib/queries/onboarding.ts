@@ -13,6 +13,8 @@ export interface OnboardingFileView {
   mime: string | null;
   size: number | null;
   signedUrl: string | null;
+  /** true when this attachment is an external link (Drive/URL), not an upload. */
+  isLink: boolean;
 }
 
 export interface OnboardingView {
@@ -47,7 +49,7 @@ export async function getOnboarding(employeeId: string): Promise<OnboardingView 
 
   const sub = row.sub;
   const rawFiles = (sub?.files as Record<string, OnboardingFileRef> | null) ?? {};
-  const paths = Object.values(rawFiles).map((f) => f.path).filter(Boolean);
+  const paths = Object.values(rawFiles).map((f) => f.path).filter((p): p is string => !!p);
 
   const signed = new Map<string, string>();
   if (paths.length) {
@@ -61,7 +63,14 @@ export async function getOnboarding(employeeId: string): Promise<OnboardingView 
 
   const files: Record<string, OnboardingFileView> = {};
   for (const [key, f] of Object.entries(rawFiles)) {
-    files[key] = { fileName: f.fileName, mime: f.mime, size: f.size, signedUrl: signed.get(f.path) ?? null };
+    const isLink = !!f.link && !f.path;
+    files[key] = {
+      fileName: f.fileName ?? f.link ?? "",
+      mime: f.mime ?? null,
+      size: f.size ?? null,
+      signedUrl: f.path ? signed.get(f.path) ?? null : f.link ?? null,
+      isLink,
+    };
   }
 
   return {
