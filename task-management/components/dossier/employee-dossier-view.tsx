@@ -111,6 +111,17 @@ export function EmployeeDossierView({
                 )}
               </div>
 
+              {/* onboarding form CTA — the structured fillable form lives here */}
+              {meta.key === "onboarding" && (
+                <Link
+                  href={`/dossier/onboarding?emp=${data.employee.id}` as Route}
+                  className="mt-3 inline-flex w-fit items-center gap-2 rounded-pill px-3.5 py-2 text-[12.5px] font-bold text-white"
+                  style={{ background: `linear-gradient(135deg, ${meta.accent}, color-mix(in srgb, ${meta.accent} 70%, black))` }}
+                >
+                  <ClipboardList size={14} strokeWidth={2.4} /> Open onboarding form
+                </Link>
+              )}
+
               {/* docs */}
               <div className="mt-3 flex flex-col gap-2">
                 {docs.length === 0 ? (

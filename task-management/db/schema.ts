@@ -4268,3 +4268,26 @@ export const employeeDocuments = pgTable(
   ],
 );
 export type EmployeeDocument = typeof employeeDocuments.$inferSelect;
+
+/** Onboarding form (migration 0126) — one structured submission per employee.
+ *  Text/select answers in `fields`; file attachments in `files` (storage keys
+ *  in the documents bucket). One row per employee (unique), upserted. */
+export const onboardingSubmissions = pgTable(
+  "onboarding_submissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    fields: jsonb("fields").notNull().default({}),
+    files: jsonb("files").notNull().default({}),
+    status: text("status").notNull().default("submitted"), // draft | submitted
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("onb_employee_uidx").on(t.employeeId)],
+);
+export type OnboardingSubmission = typeof onboardingSubmissions.$inferSelect;
