@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import {
   Banknote,
+  Building2,
   FileSpreadsheet,
   HandCoins,
   Landmark,
@@ -66,6 +67,30 @@ export default async function SalaryPage({ searchParams }: PageProps) {
   const totalFinal = sum((r) => r.finalPayment);
   const totalAdvance = sum((r) => r.advance);
   const totalPt = sum((r) => r.pt);
+
+  // ── Company-wise fold — so Sir knows how much to disburse FROM each entity's
+  // account. Grouped by the sheet's "Company" (paying-from) field, sorted by the
+  // final payment (biggest payer first). Zero extra queries. ──
+  const byCompany = (() => {
+    const map = new Map<
+      string,
+      { name: string; count: number; payable: number; final: number; advance: number; pt: number }
+    >();
+    for (const r of rows) {
+      const name = r.companyName?.trim() || "Unassigned";
+      const e =
+        map.get(name) ?? { name, count: 0, payable: 0, final: 0, advance: 0, pt: 0 };
+      e.count += 1;
+      e.payable += Number(r.payableAfterPt ?? 0);
+      e.final += Number(r.finalPayment ?? 0);
+      e.advance += Number(r.advance ?? 0);
+      e.pt += Number(r.pt ?? 0);
+      map.set(name, e);
+    }
+    return [...map.values()].sort((a, b) => b.final - a.final);
+  })();
+  // Distinct accent per company card (cycled) so entities read apart at a glance.
+  const COMPANY_ACCENTS = ["#16a34a", "#2563eb", "#c2410c", "#7c3aed", "#0891b2", "#b91c1c", "#a16207"];
 
   // WS-5/WS-6 — linked employees for the statement/earnings document downloads
   // (behind SALARY_STATEMENTS). Only rows with a resolved employeeId can be
@@ -231,6 +256,36 @@ export default async function SalaryPage({ searchParams }: PageProps) {
           />
         </section>
 
+        {/* ── By company — per-entity disbursement breakdown ── */}
+        {byCompany.length > 1 && (
+          <section aria-label="Company-wise payroll breakdown" className="mb-5">
+            <div className="mb-2.5 flex items-center gap-2">
+              <Building2 size={15} strokeWidth={2.6} style={{ color: GREEN_DEEP }} />
+              <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-ink-subtle">
+                By company · paying from
+              </h2>
+              <span className="text-[12px] font-medium text-ink-subtle">
+                {byCompany.length} entities
+              </span>
+            </div>
+            <div className="grid grid-cols-4 gap-3.5 max-xl:grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1">
+              {byCompany.map((c, i) => (
+                <CompanyCard
+                  key={c.name}
+                  name={c.name}
+                  count={c.count}
+                  payable={c.payable}
+                  final={c.final}
+                  advance={c.advance}
+                  pt={c.pt}
+                  accent={COMPANY_ACCENTS[i % COMPANY_ACCENTS.length]!}
+                  delay={i * 45}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* ── Statement & earnings document downloads (behind SALARY_STATEMENTS) ── */}
         {statementsOn && month && statementEmployees.length > 0 && (
           <StatementDownloads
@@ -337,6 +392,95 @@ function KpiCard({
         {value}
       </div>
       <div className="mt-1 text-[12px] font-medium text-ink-subtle">{caption}</div>
+    </div>
+  );
+}
+
+/* ── Company card — per-entity disbursement summary (final payment is the headline
+ * figure Sir pays from that company; payable/advances/PT sit below). ── */
+
+function CompanyCard({
+  name,
+  count,
+  payable,
+  final,
+  advance,
+  pt,
+  accent,
+  delay,
+}: {
+  name: string;
+  count: number;
+  payable: number;
+  final: number;
+  advance: number;
+  pt: number;
+  accent: string;
+  delay: number;
+}) {
+  return (
+    <div
+      className="wg-rise wg-btn rounded-2xl bg-surface-card px-4.5 py-4 max-md:px-4"
+      style={{
+        boxShadow: `inset 0 0 0 1px var(--color-hairline), inset 0 2px 0 ${accent}, inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -20px rgba(15,23,42,0.35)`,
+        animationDelay: `${delay}ms`,
+      }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span
+            className="inline-grid size-8 shrink-0 place-items-center rounded-[10px]"
+            style={{ background: `color-mix(in srgb, ${accent} 12%, transparent)`, color: accent }}
+          >
+            <Building2 size={16} strokeWidth={2.4} />
+          </span>
+          <span className="truncate text-[13.5px] font-bold text-ink-strong" title={name}>
+            {name}
+          </span>
+        </div>
+        <span
+          className="shrink-0 rounded-pill px-2 py-0.5 text-[11px] font-bold tabular-nums"
+          style={{ background: `color-mix(in srgb, ${accent} 12%, transparent)`, color: accent }}
+        >
+          {count} {count === 1 ? "person" : "people"}
+        </span>
+      </div>
+
+      <div
+        className="mt-3 tabular-nums"
+        style={{
+          fontFamily: "var(--font-display), system-ui, sans-serif",
+          fontWeight: 900,
+          fontSize: "clamp(20px, 1.6vw, 25px)",
+          letterSpacing: "-0.02em",
+          lineHeight: 1,
+          color: GREEN_DEEP,
+        }}
+      >
+        {inr(final)}
+      </div>
+      <div className="mt-1 text-[11.5px] font-medium text-ink-subtle">final payment to disburse</div>
+
+      <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-hairline pt-3">
+        <MiniStat label="Payable" value={inr(payable)} />
+        <MiniStat label="Advances" value={inr(advance)} tone={advance > 0 ? "red" : "plain"} />
+        <MiniStat label="PT" value={inr(pt)} tone={pt > 0 ? "red" : "plain"} />
+      </dl>
+    </div>
+  );
+}
+
+function MiniStat({ label, value, tone = "plain" }: { label: string; value: string; tone?: "plain" | "red" }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[10px] font-bold uppercase tracking-[0.08em] text-ink-subtle">{label}</dt>
+      <dd
+        className="mt-0.5 truncate tabular-nums text-[13px] font-bold"
+        style={{ color: tone === "red" ? "var(--color-altus-red)" : "var(--color-ink-strong)" }}
+        title={value}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
