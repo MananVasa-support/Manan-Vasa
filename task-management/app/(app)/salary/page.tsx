@@ -11,6 +11,7 @@ import {
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { requireAdmin } from "@/lib/auth/current";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { salaryBreakupMonths, listSalaryBreakup } from "@/lib/queries/salary-breakup";
 import { SalaryBreakupTable, type SalaryRow } from "@/components/salary/salary-breakup-table";
 import { SalarySyncButton } from "@/components/salary/salary-sync-button";
@@ -45,7 +46,8 @@ function monthLabel(ym: string, style: "long" | "short" = "long"): string {
 }
 
 export default async function SalaryPage({ searchParams }: PageProps) {
-  await requireAdmin();
+  const me = await requireAdmin();
+  const canMarkPaid = isSuperAdmin(me.email);
   const sp = await searchParams;
   const months = await salaryBreakupMonths();
   const raw = typeof sp.month === "string" ? sp.month : undefined;
@@ -107,6 +109,7 @@ export default async function SalaryPage({ searchParams }: PageProps) {
     finalPayment: r.finalPayment,
     remarks: r.remarks,
     mananRemarks: r.mananRemarks,
+    paid: r.paid,
   }));
 
   return (
@@ -273,7 +276,7 @@ export default async function SalaryPage({ searchParams }: PageProps) {
             </p>
           </section>
         ) : (
-          <SalaryBreakupTable rows={tableRows} />
+          <SalaryBreakupTable rows={tableRows} canMarkPaid={canMarkPaid} />
         )}
       </main>
       <DashboardFooter />

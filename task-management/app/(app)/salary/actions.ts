@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { salaryRuns } from "@/db/schema";
+import { salaryRuns, salaryBreakup } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/current";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { computeSalary } from "@/lib/salary/compute";
 import { assembleMonthInputs } from "@/lib/salary/generate";
@@ -290,6 +291,31 @@ export async function setDisbursed(
     return { ok: false, error: `DB: ${msg}` };
   }
 
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
+/**
+ * Toggle the salary "Paid" mark for one salary_breakup row. SUPER-ADMINS ONLY
+ * (Manan/Hetesh) — tracks whether that employee's salary for the month has been
+ * disbursed. Stored on salary_breakup.paid (survives sheet re-syncs).
+ */
+export async function setSalaryPaid(id: string, paid: boolean): Promise<ActionResult> {
+  const me = await requireAdmin();
+  if (!isSuperAdmin(me.email)) {
+    return { ok: false, error: "Only super-admins can mark salary as paid." };
+  }
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  if (!UUID_RE.test(id)) return { ok: false, error: "Invalid row." };
+  try {
+    await db
+      .update(salaryBreakup)
+      .set({ paid, paidAt: paid ? new Date() : null, paidById: paid ? me.id : null })
+      .where(eq(salaryBreakup.id, id));
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
   revalidatePath(PATH);
   return { ok: true };
 }

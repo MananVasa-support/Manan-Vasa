@@ -1,8 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Building2, ChevronsUpDown, Search } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowDown, ArrowUp, Building2, ChevronsUpDown, Search, Check, Loader2 } from "lucide-react";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
+import { fireToast } from "@/lib/toast";
+import { setSalaryPaid } from "@/app/(app)/salary/actions";
 
 /* Employees-module identity — matches the Attendance page. */
 const GREEN = "#16a34a";
@@ -30,6 +33,7 @@ export interface SalaryRow {
   finalPayment: string | null;
   remarks: string | null;
   mananRemarks: string | null;
+  paid: boolean;
 }
 
 const inr = (v: string | null) =>
@@ -255,27 +259,70 @@ const COLUMNS: Col[] = [
       );
     },
   },
+  // Super-admin-only "Paid" toggle (filtered out of visibleCols when !canMarkPaid).
+  {
+    key: "paid",
+    label: "Paid",
+    align: "left",
+    groupStart: true,
+    minWidth: 120,
+    render: (r) => <PaidToggle row={r} />,
+  },
 ];
 
-/* Two-tier header groups over the columns above (Employee is its own sticky cell). */
-const GROUPS: { label: string; span: number }[] = [
-  { label: "", span: 1 }, // Company
-  { label: "Attendance — days", span: 6 },
-  { label: "Pay", span: 4 },
-  { label: "Adjustments", span: 2 },
-  { label: "Payout", span: 1 },
-  { label: "", span: 1 }, // Remarks
-];
+/* Super-admin salary "Paid" toggle — optimistic; server action is super-admin-gated. */
+function PaidToggle({ row }: { row: SalaryRow }) {
+  const router = useRouter();
+  const [paid, setPaid] = useState(row.paid);
+  const [busy, setBusy] = useState(false);
+  async function toggle() {
+    if (busy) return;
+    const next = !paid;
+    setPaid(next);
+    setBusy(true);
+    const res = await setSalaryPaid(row.id, next);
+    setBusy(false);
+    if (!res.ok) {
+      setPaid(!next);
+      fireToast({ message: res.error, type: "error" });
+      return;
+    }
+    router.refresh();
+  }
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={busy}
+      title={paid ? "Paid — tap to unmark" : "Mark as paid"}
+      className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12px] font-bold transition disabled:opacity-60"
+      style={
+        paid
+          ? { background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`, color: "#fff", boxShadow: `0 4px 12px -6px ${GREEN_DEEP}` }
+          : { background: "var(--color-surface-soft)", color: "var(--color-ink-muted)", boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }
+      }
+    >
+      {busy ? <Loader2 size={12} className="animate-spin" /> : paid ? <Check size={12} strokeWidth={3} /> : null}
+      {paid ? "Paid" : "Mark paid"}
+    </button>
+  );
+}
+
+/* Header groups are computed inside the component (visibleGroups) so the
+ * conditional Remarks + super-admin Paid groups append correctly. */
 
 /* Sticky-header surfaces (solid enough to cover scrolled rows). */
 const HEAD_BG = "rgba(248, 250, 252, 0.94)";
 const GROUP_ROW_H = 30;
+/* Fixed width of the frozen EMPLOYEE column → the left offset the frozen
+ * COMPANY column pins to. Both stay put on horizontal scroll. */
+const EMP_W = 280;
 
 type SortState = { key: string; dir: "asc" | "desc" } | null;
 
 /* ── The table ─────────────────────────────────────────────────────────── */
 
-export function SalaryBreakupTable({ rows }: { rows: SalaryRow[] }) {
+export function SalaryBreakupTable({ rows, canMarkPaid = false }: { rows: SalaryRow[]; canMarkPaid?: boolean }) {
   const [query, setQuery] = useState("");
   const [company, setCompany] = useState("__all");
   const [sort, setSort] = useState<SortState>(null);
@@ -346,8 +393,21 @@ export function SalaryBreakupTable({ rows }: { rows: SalaryRow[] }) {
   );
 
   const anyRemark = rows.some((r) => r.remarks || r.mananRemarks);
-  const visibleCols = anyRemark ? COLUMNS : COLUMNS.filter((c) => c.key !== "remarks");
-  const visibleGroups = anyRemark ? GROUPS : GROUPS.slice(0, -1);
+  // Columns: drop "remarks" when none exist, drop the super-admin "paid" toggle
+  // when the viewer can't mark paid. Groups rebuilt to match (the trailing
+  // Remarks + Paid groups are single-span, so they append conditionally).
+  const visibleCols = COLUMNS.filter(
+    (c) => (c.key !== "remarks" || anyRemark) && (c.key !== "paid" || canMarkPaid),
+  );
+  const visibleGroups: { label: string; span: number }[] = [
+    { label: "", span: 1 }, // Company
+    { label: "Attendance — days", span: 6 },
+    { label: "Pay", span: 4 },
+    { label: "Adjustments", span: 2 },
+    { label: "Payout", span: 1 },
+    ...(anyRemark ? [{ label: "", span: 1 }] : []),
+    ...(canMarkPaid ? [{ label: "", span: 1 }] : []),
+  ];
 
   return (
     <section
@@ -420,7 +480,9 @@ export function SalaryBreakupTable({ rows }: { rows: SalaryRow[] }) {
                 style={{
                   background: HEAD_BG,
                   boxShadow: "inset -1px -1px 0 var(--color-hairline-strong)",
-                  minWidth: 230,
+                  width: EMP_W,
+                  minWidth: EMP_W,
+                  maxWidth: EMP_W,
                 }}
                 aria-sort={sort?.key === "employee" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
               >
@@ -431,12 +493,15 @@ export function SalaryBreakupTable({ rows }: { rows: SalaryRow[] }) {
                   key={`${g.label}-${i}`}
                   colSpan={g.span}
                   scope="colgroup"
-                  className="sticky top-0 z-20 whitespace-nowrap px-3 text-center text-[10px] font-bold uppercase tracking-[0.16em] backdrop-blur"
+                  className={`sticky top-0 whitespace-nowrap px-3 text-center text-[10px] font-bold uppercase tracking-[0.16em] backdrop-blur ${i === 0 ? "z-30" : "z-20"}`}
                   style={{
                     background: HEAD_BG,
                     height: GROUP_ROW_H,
                     color: g.label ? GREEN_DEEP : "transparent",
-                    boxShadow: `inset ${i > 0 ? "1px" : "0"} -1px 0 var(--color-hairline)`,
+                    boxShadow: i === 0
+                      ? "inset -1px -1px 0 var(--color-hairline-strong)"
+                      : `inset ${i > 0 ? "1px" : "0"} -1px 0 var(--color-hairline)`,
+                    ...(i === 0 ? { left: EMP_W } : {}),
                   }}
                 >
                   {g.label || " "}
@@ -449,15 +514,18 @@ export function SalaryBreakupTable({ rows }: { rows: SalaryRow[] }) {
                 <th
                   key={c.key}
                   scope="col"
-                  className={`sticky z-20 whitespace-nowrap px-3 py-2.5 text-[11px] font-bold uppercase tracking-[0.07em] text-ink-subtle backdrop-blur ${c.align === "right" ? "text-right" : "text-left"}`}
+                  className={`sticky whitespace-nowrap px-3 py-2.5 text-[11px] font-bold uppercase tracking-[0.07em] text-ink-subtle backdrop-blur ${c.key === "company" ? "z-30" : "z-20"} ${c.align === "right" ? "text-right" : "text-left"}`}
                   style={{
                     top: GROUP_ROW_H,
                     background:
                       c.key === "final"
                         ? `linear-gradient(180deg, color-mix(in srgb, ${GREEN} 9%, ${HEAD_BG}), color-mix(in srgb, ${GREEN} 6%, ${HEAD_BG}))`
                         : HEAD_BG,
-                    boxShadow: `inset ${c.groupStart ? "1px" : "0"} -1px 0 var(--color-hairline-strong)`,
+                    boxShadow: c.key === "company"
+                      ? "inset -1px -1px 0 var(--color-hairline-strong)"
+                      : `inset ${c.groupStart ? "1px" : "0"} -1px 0 var(--color-hairline-strong)`,
                     minWidth: c.minWidth,
+                    ...(c.key === "company" ? { left: EMP_W } : {}),
                   }}
                   aria-sort={
                     sort?.key === c.key
@@ -536,13 +604,21 @@ export function SalaryBreakupTable({ rows }: { rows: SalaryRow[] }) {
                   {visibleCols.map((c) => (
                     <td
                       key={c.key}
-                      className={`whitespace-nowrap px-3 py-2.5 ${c.align === "right" ? "text-right" : "text-left"}`}
+                      className={`whitespace-nowrap px-3 py-2.5 ${c.key === "company" ? "sticky z-10 group-hover:bg-[color-mix(in_srgb,#16a34a_4%,var(--color-surface-card))]" : ""} ${c.align === "right" ? "text-right" : "text-left"}`}
                       style={{
-                        boxShadow: c.groupStart ? "inset 1px 0 0 var(--color-hairline)" : undefined,
+                        boxShadow:
+                          c.key === "company"
+                            ? "inset -1px 0 0 var(--color-hairline-strong)"
+                            : c.groupStart
+                              ? "inset 1px 0 0 var(--color-hairline)"
+                              : undefined,
                         background:
-                          c.key === "final"
-                            ? `color-mix(in srgb, ${GREEN} 5%, transparent)`
-                            : undefined,
+                          c.key === "company"
+                            ? "var(--color-surface-card)"
+                            : c.key === "final"
+                              ? `color-mix(in srgb, ${GREEN} 5%, transparent)`
+                              : undefined,
+                        ...(c.key === "company" ? { left: EMP_W } : {}),
                       }}
                     >
                       {c.render(r)}
@@ -574,13 +650,16 @@ export function SalaryBreakupTable({ rows }: { rows: SalaryRow[] }) {
                 {visibleCols.map((c) => (
                   <td
                     key={c.key}
-                    className={`sticky bottom-0 z-20 whitespace-nowrap px-3 py-3 backdrop-blur ${c.align === "right" ? "text-right" : "text-left"}`}
+                    className={`sticky bottom-0 whitespace-nowrap px-3 py-3 backdrop-blur ${c.key === "company" ? "z-30" : "z-20"} ${c.align === "right" ? "text-right" : "text-left"}`}
                     style={{
                       background:
                         c.key === "final"
                           ? `color-mix(in srgb, ${GREEN} 9%, ${HEAD_BG})`
                           : HEAD_BG,
-                      boxShadow: `inset ${c.groupStart ? "1px" : "0"} 1px 0 var(--color-hairline-strong)`,
+                      boxShadow: c.key === "company"
+                        ? "inset -1px 1px 0 var(--color-hairline-strong)"
+                        : `inset ${c.groupStart ? "1px" : "0"} 1px 0 var(--color-hairline-strong)`,
+                      ...(c.key === "company" ? { left: EMP_W } : {}),
                     }}
                   >
                     {c.total ? c.total(filtered) : null}

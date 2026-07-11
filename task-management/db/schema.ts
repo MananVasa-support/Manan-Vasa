@@ -3951,6 +3951,11 @@ export const salaryBreakup = pgTable(
     salaryGiven: numeric("salary_given", { precision: 14, scale: 2 }),
     remarks: text("remarks"),
     mananRemarks: text("manan_remarks"),
+    // Salary "Paid" mark (migration 0128) — super-admin toggle; NOT touched by
+    // the sheet sync, so it survives re-syncs.
+    paid: boolean("paid").notNull().default(false),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    paidById: uuid("paid_by_id").references(() => employees.id, { onDelete: "set null" }),
     importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
