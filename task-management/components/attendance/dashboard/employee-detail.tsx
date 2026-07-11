@@ -9,6 +9,7 @@ import {
   fetchCompOff,
   convertToCompOff,
   redeemCompOff,
+  deleteCompOff,
 } from "@/app/(app)/attendance/dashboard/actions";
 import {
   adminEditDayTimes,
@@ -200,7 +201,7 @@ export function EmployeeDetailDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/45 z-[90] backdrop-blur-[3px]" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 z-[100] -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl rounded-section bg-surface-card border border-hairline p-6 max-md:p-4 max-h-[calc(100dvh-32px)] overflow-y-auto"
+          className="fixed left-1/2 top-1/2 z-[100] -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-6xl rounded-section bg-surface-card border border-hairline p-6 max-md:p-4 max-h-[calc(100dvh-32px)] overflow-y-auto"
           style={{
             boxShadow:
               "0 1px 3px rgba(15,23,42,0.08), 0 32px 80px -24px rgba(15,23,42,0.45), 0 12px 28px -16px rgba(225,6,0,0.12)",
@@ -720,6 +721,25 @@ function LeaveCompOffPanel({
     }
   }
 
+  async function removeCredit(id: string) {
+    if (!window.confirm("Remove this comp-off credit? If it was redeemed, that day off is undone.")) return;
+    setBusy(true);
+    try {
+      const res = await deleteCompOff({ creditId: id });
+      if (res.ok) {
+        fireToast({ message: "Comp-off removed." });
+        await loadCredits();
+        await onDone();
+      } else {
+        fireToast({ message: res.error ?? "Could not remove.", type: "error" });
+      }
+    } catch (e) {
+      fireToast({ message: (e as Error).message ?? "Could not remove.", type: "error" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const fieldCls =
     "rounded-md border border-hairline bg-surface-card px-2 py-1.5 text-[13px] font-semibold text-ink-strong disabled:opacity-60";
   const labelCls =
@@ -841,6 +861,36 @@ function LeaveCompOffPanel({
             </>
           )}
         </div>
+
+        {/* Manage / remove comp-off credits */}
+        {credits.length > 0 && (
+          <div>
+            <p className="text-[13px] font-bold text-ink-strong mb-2">Comp-off credits</p>
+            <div className="flex flex-col gap-1.5">
+              {credits.map((c) => (
+                <div key={c.id} className="flex items-center gap-2 rounded-md border border-hairline px-2.5 py-1.5">
+                  <span className="text-[12.5px] font-bold text-ink-strong tabular-nums">Earned {c.earnedDate}</span>
+                  <span
+                    className="rounded-full px-1.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide"
+                    style={c.status === "redeemed"
+                      ? { background: "var(--color-surface-soft)", color: "var(--color-ink-muted)" }
+                      : { background: "var(--color-teal-bg)", color: "var(--color-teal-deep)" }}
+                  >
+                    {c.status === "redeemed" ? `Redeemed ${c.redeemedDate ?? ""}` : "Open"}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => removeCredit(c.id)}
+                    className={`ml-auto inline-flex items-center gap-1 rounded-md py-1 px-2 text-[11.5px] font-bold text-[color:var(--color-altus-red)] hover:bg-[color:color-mix(in_srgb,var(--color-altus-red)_8%,transparent)] disabled:opacity-50 transition-colors ${FOCUS_RING}`}
+                  >
+                    <Trash2 size={12} strokeWidth={2.4} /> Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -12,7 +12,7 @@ export function RemoteCheckInTrigger({ hasCheckedIn, hasCheckedOut }: { hasCheck
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="wg-btn mt-4 flex w-full items-center gap-3 rounded-2xl bg-surface-card px-5 py-3.5 text-left transition hover:-translate-y-px"
+        className="wg-btn flex w-full items-center gap-3 rounded-2xl bg-surface-card px-5 py-3.5 text-left transition hover:-translate-y-px"
         style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline), 0 8px 24px -18px rgba(15,23,42,0.3)" }}
       >
         <span className="inline-grid size-10 shrink-0 place-items-center rounded-xl text-white" style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}>

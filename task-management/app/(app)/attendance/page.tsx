@@ -244,7 +244,6 @@ export default async function AttendancePage({ searchParams }: PageProps) {
               radiusM={settings.attendanceRadiusM}
               lastPunchLabel={lastPunchLabel}
             />
-            <RemoteCheckInTrigger hasCheckedIn={!!todayRow?.in} hasCheckedOut={!!todayRow?.out} />
           </div>
 
           {/* RIGHT — derived stats + the 14-day timeline */}
@@ -287,6 +286,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
             </section>
 
             <MyTimeline days={myDays} tz={tz} today={today} />
+            <RemoteCheckInTrigger hasCheckedIn={!!todayRow?.in} hasCheckedOut={!!todayRow?.out} />
           </div>
         </div>
 

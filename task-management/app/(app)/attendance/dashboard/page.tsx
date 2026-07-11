@@ -70,7 +70,7 @@ export default async function AttendanceDashboardPage({ searchParams }: PageProp
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[1400px] px-12 max-md:px-4 pt-8 pb-16">
+      <main className="mx-auto max-w-[1800px] px-8 max-md:px-4 pt-8 pb-16">
         {/* ── Glass hero band — month headline, nav, exports, summary ──── */}
         <section className="admin-section-band wg-rise mb-6 px-8 py-7 max-md:px-5 max-md:py-5">
           <div className="relative flex items-start justify-between gap-6 flex-wrap">
