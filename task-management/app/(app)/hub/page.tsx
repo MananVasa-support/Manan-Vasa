@@ -150,8 +150,10 @@ export default async function HubPage() {
     const skipToday = await gateSkipActive(me).catch(() => false);
     if (!skipToday) {
       const wrap = (node: ReactNode) => (canSkip ? <>{node}<SkipGateButton /></> : node);
+      // Only managers exempt (they have the manager gate below); admins +
+      // super-admins now see the plan gate too. Keep in lock-step with layout.tsx.
       const isManager = await isManagerWithReports(me.id).catch(() => false);
-      const planExempt = me.isAdmin || canSkip || isManager;
+      const planExempt = isManager;
       if (!planExempt) {
         // ≥ MIN_DAILY_ITEMS — MUST match the client gate + the (app) layout
         // wall (all read MIN_DAILY_ITEMS), or "Start my day" buffers forever.

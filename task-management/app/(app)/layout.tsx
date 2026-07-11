@@ -56,10 +56,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   if (!skipToday) {
     const firstName = me.name.split(" ")[0] ?? me.name;
-    // Managers (have direct reports), admins and super-admins are EXEMPT from the
-    // EMPLOYEE planning gate — their loop is give-tasks → DCC, not plan-your-day.
+    // Only MANAGERS (have direct reports) are exempt from the plan gate — their
+    // loop is give-tasks → DCC (the manager gate below). EVERYONE else, INCLUDING
+    // admins + super-admins (Sir's call: he must see it too), plans their day.
+    // Super-admins still get the floating "Skip for today" button as an escape.
     const isManager = await isManagerWithReports(me.id).catch(() => false);
-    const planExempt = me.isAdmin || canSkip || isManager;
+    const planExempt = isManager;
 
     // EMPLOYEE gate — "Plan Your Day": commit ≥ MIN_DAILY_ITEMS (3) items to
     // TODAY'S checklist. Weekly-goal logging is NO LONGER part of the gate
