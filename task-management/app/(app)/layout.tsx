@@ -6,10 +6,11 @@ import { accessFor } from "@/lib/auth/workspace-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { gateSkipActive } from "@/lib/auth/gate-skip";
 import { SkipGateButton } from "@/components/layout/skip-gate-button";
-import { needsDailyChecklistPlan } from "@/lib/daily-checklist/gate";
+import { needsDailyPlan } from "@/lib/daily-checklist/gate";
 import { needsGoalActuals } from "@/lib/weekly-goals/actuals";
 import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist-view";
 import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
+import { IdleTimerClient } from "@/components/auth/idle-timer-client";
 import { workspaceForPath, canAccessWorkspace } from "@/lib/workspaces";
 import { managerDailyTaskGate, isManagerWithReports } from "@/lib/manager-gates";
 import { ManagerDailyTaskGate } from "@/components/manager-gates/manager-daily-task-gate";
@@ -61,13 +62,16 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     const isManager = await isManagerWithReports(me.id).catch(() => false);
     const planExempt = me.isAdmin || canSkip || isManager;
 
-    // EMPLOYEE gate — "Plan Your Day": commit ≥5 items to TODAY'S checklist AND
-    // log today's progress on each open weekly goal, before entering. STRICT:
-    // uses needsDailyChecklistPlan (≥5 committed items) — merely having assigned
-    // tasks no longer auto-passes this gate (that was the bypass bug).
+    // EMPLOYEE gate — "Plan Your Day": commit at least ONE item to TODAY'S
+    // checklist AND log today's progress on each open weekly goal, before
+    // entering. CRITICAL: this threshold MUST match the client gate's own
+    // enable rule (`met = count >= 1` in daily-plan-gate.tsx) — a mismatch
+    // (server wanted ≥5, client enabled at ≥1) made "Start my day" buffer
+    // forever: the button lit up, router.refresh() re-ran the server wall,
+    // which re-blocked, re-rendering the same gate. Keep them in lock-step.
     if (!planExempt) {
       const mustPlan =
-        (await needsDailyChecklistPlan(me.id).catch(() => false)) ||
+        (await needsDailyPlan(me.id).catch(() => false)) ||
         (await needsGoalActuals(me.id).catch(() => false));
       if (mustPlan) {
         return gate(<DailyChecklistView employeeId={me.id} greetingName={firstName} mode="gate" />);
@@ -102,11 +106,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     }
   }
 
-  // Auto sign-out on idle was removed — sessions now persist like a normal app
-  // (Firebase keeps you signed in until you sign out or the cookie expires).
+  // Auto sign-out after 15 minutes of inactivity → back to the login screen
+  // (Sir's policy). On timeout IdleTimerClient revokes the Firebase + DB session
+  // and hard-navigates to /login?reason=idle, so the next day starts fresh:
+  // login → daily-checklist + weekly-goals gate → hub.
   return (
     <>
       <KeyboardShortcuts />
+      <IdleTimerClient timeoutMinutes={15} />
       {children}
     </>
   );

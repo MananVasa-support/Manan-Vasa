@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { gateSkipActive } from "@/lib/auth/gate-skip";
 import { isManagerWithReports, managerDailyTaskGate } from "@/lib/manager-gates";
-import { needsDailyChecklistPlan } from "@/lib/daily-checklist/gate";
+import { needsDailyPlan } from "@/lib/daily-checklist/gate";
 import { needsGoalActuals } from "@/lib/weekly-goals/actuals";
 import { dccGateTarget, dccManagerReviewState } from "@/lib/dcc/gate";
 import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist-view";
@@ -154,8 +154,11 @@ export default async function HubPage() {
       const isManager = await isManagerWithReports(me.id).catch(() => false);
       const planExempt = me.isAdmin || canSkip || isManager;
       if (!planExempt) {
+        // ≥1-item threshold — MUST match the client gate (daily-plan-gate.tsx
+        // `met = count >= 1`) and the (app) layout wall, or "Start my day"
+        // buffers forever on a client/server mismatch.
         const mustPlan =
-          (await needsDailyChecklistPlan(me.id).catch(() => false)) ||
+          (await needsDailyPlan(me.id).catch(() => false)) ||
           (await needsGoalActuals(me.id).catch(() => false));
         if (mustPlan) return wrap(<DailyChecklistView employeeId={me.id} greetingName={firstName} mode="gate" />);
       }
