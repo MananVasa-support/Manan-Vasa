@@ -3956,6 +3956,12 @@ export const salaryBreakup = pgTable(
     paid: boolean("paid").notNull().default(false),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     paidById: uuid("paid_by_id").references(() => employees.id, { onDelete: "set null" }),
+    // Editable super-admin note (migration 0129) — shown in the Remarks column.
+    // NOT touched by the sheet sync, so it survives re-syncs (unlike remarks /
+    // manan_remarks, which the sync overwrites from the sheet).
+    adminNote: text("admin_note"),
+    adminNoteAt: timestamp("admin_note_at", { withTimezone: true }),
+    adminNoteById: uuid("admin_note_by_id").references(() => employees.id, { onDelete: "set null" }),
     importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

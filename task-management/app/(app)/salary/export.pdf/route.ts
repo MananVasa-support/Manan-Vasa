@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/auth/current";
+import { isFinanceViewer } from "@/lib/auth/finance-access";
 import { listSalaryBreakup } from "@/lib/queries/salary-breakup";
 import { toPayrollRows } from "@/lib/salary/payroll-rows";
 import { renderPayrollPdf } from "@/lib/salary/payroll-pdf";
@@ -27,7 +28,7 @@ export async function GET(request: Request): Promise<Response> {
   } catch {
     return new Response("Forbidden", { status: 403 });
   }
-  if (!me.isAdmin) return new Response("Forbidden", { status: 403 });
+  if (!(await isFinanceViewer(me))) return new Response("Forbidden", { status: 403 });
 
   const url = new URL(request.url);
   const raw = url.searchParams.get("month");

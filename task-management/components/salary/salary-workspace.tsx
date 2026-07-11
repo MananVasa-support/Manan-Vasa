@@ -28,9 +28,11 @@ const inr = (v: number) => `₹${Math.round(v).toLocaleString("en-IN")}`;
 export function SalaryWorkspace({
   rows,
   canMarkPaid = false,
+  canEditNote = false,
 }: {
   rows: SalaryRow[];
   canMarkPaid?: boolean;
+  canEditNote?: boolean;
 }) {
   const [company, setCompany] = useState<string>(ALL);
 
@@ -145,7 +147,7 @@ export function SalaryWorkspace({
         />
       </section>
 
-      <SalaryBreakupTable rows={shown} canMarkPaid={canMarkPaid} hideCompanyFilter />
+      <SalaryBreakupTable rows={shown} canMarkPaid={canMarkPaid} canEditNote={canEditNote} hideCompanyFilter />
     </>
   );
 }

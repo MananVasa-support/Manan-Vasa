@@ -1,7 +1,8 @@
 import { CalendarCheck2, FileSpreadsheet, FileText } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
-import { requireAdmin } from "@/lib/auth/current";
+import { requireFinanceAccess } from "@/lib/auth/finance-access";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { getMonthDashboard } from "@/lib/queries/attendance-status";
 import { localDateString } from "@/lib/format";
 import { AttendanceDashboardTable } from "@/components/attendance/dashboard/dashboard-table";
@@ -40,7 +41,10 @@ function resolveMonth(
 
 export default async function AttendanceDashboardPage({ searchParams }: PageProps) {
   const sp = await searchParams;
-  await requireAdmin();
+  // Report is open to admins + the Accounts department; salary generation stays
+  // admin/super-admin only (the button is hidden for accounts-only viewers).
+  const me = await requireFinanceAccess();
+  const canManage = me.isAdmin || isSuperAdmin(me.email);
 
   const todayISO = localDateString(DEFAULT_TZ);
   const { year, month } = resolveMonth(sp, todayISO);
@@ -121,7 +125,7 @@ export default async function AttendanceDashboardPage({ searchParams }: PageProp
                   <FileText size={15} strokeWidth={2.2} />
                   Export PDF
                 </a>
-                <GenerateSalaryButton year={year} month={month} label={monthTitle} />
+                {canManage && <GenerateSalaryButton year={year} month={month} label={monthTitle} />}
               </div>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
-import { requireAdmin } from "@/lib/auth/current";
+import { requireUser } from "@/lib/auth/current";
+import { isFinanceViewer } from "@/lib/auth/finance-access";
 import { localDateString } from "@/lib/format";
 import {
   getMonthDashboard,
@@ -39,11 +40,13 @@ function resolveYM(url: URL): { year: number; month: number } {
 }
 
 export async function GET(request: Request): Promise<Response> {
+  let me;
   try {
-    await requireAdmin();
+    me = await requireUser();
   } catch {
     return new Response("Forbidden", { status: 403 });
   }
+  if (!(await isFinanceViewer(me))) return new Response("Forbidden", { status: 403 });
 
   const url = new URL(request.url);
   const { year, month } = resolveYM(url);

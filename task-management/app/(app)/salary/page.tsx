@@ -3,7 +3,7 @@ import type { Route } from "next";
 import { FileSpreadsheet, Wallet } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
-import { requireAdmin } from "@/lib/auth/current";
+import { requireFinanceAccess } from "@/lib/auth/finance-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { salaryBreakupMonths, listSalaryBreakup } from "@/lib/queries/salary-breakup";
 import { type SalaryRow } from "@/components/salary/salary-breakup-table";
@@ -39,7 +39,7 @@ function monthLabel(ym: string, style: "long" | "short" = "long"): string {
 }
 
 export default async function SalaryPage({ searchParams }: PageProps) {
-  const me = await requireAdmin();
+  const me = await requireFinanceAccess();
   const canMarkPaid = isSuperAdmin(me.email);
   const sp = await searchParams;
   const months = await salaryBreakupMonths();
@@ -95,6 +95,7 @@ export default async function SalaryPage({ searchParams }: PageProps) {
     remarks: r.remarks,
     mananRemarks: r.mananRemarks,
     paid: r.paid,
+    adminNote: r.adminNote,
   }));
 
   return (
@@ -205,7 +206,7 @@ export default async function SalaryPage({ searchParams }: PageProps) {
           </section>
         ) : (
           <>
-            <SalaryWorkspace rows={tableRows} canMarkPaid={canMarkPaid} />
+            <SalaryWorkspace rows={tableRows} canMarkPaid={canMarkPaid} canEditNote={canMarkPaid} />
 
             {/* ── Statement & earnings document downloads (behind SALARY_STATEMENTS) ── */}
             {statementsOn && month && statementEmployees.length > 0 && (

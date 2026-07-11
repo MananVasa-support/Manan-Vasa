@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Building2, ChevronsUpDown, Search, Check, Loader2 } from "lucide-react";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { fireToast } from "@/lib/toast";
-import { setSalaryPaid } from "@/app/(app)/salary/actions";
+import { setSalaryPaid, setSalaryNote } from "@/app/(app)/salary/actions";
 
 /* Employees-module identity — matches the Attendance page. */
 const GREEN = "#16a34a";
@@ -34,6 +34,7 @@ export interface SalaryRow {
   remarks: string | null;
   mananRemarks: string | null;
   paid: boolean;
+  adminNote: string | null;
 }
 
 const inr = (v: string | null) =>
@@ -242,31 +243,27 @@ const COLUMNS: Col[] = [
     ),
     total: (rows) => <MoneyTotal rows={rows} pick={(r) => r.finalPayment} tone="final" />,
   },
-  {
-    key: "remarks",
-    label: "Remarks",
-    align: "left",
-    groupStart: true,
-    minWidth: 160,
-    render: (r) => {
-      const text = [r.remarks, r.mananRemarks].filter(Boolean).join(" · ");
-      return text ? (
-        <span className="block max-w-[240px] truncate text-[12.5px] text-ink-subtle" title={text}>
-          {text}
-        </span>
-      ) : (
-        <span className="text-ink-subtle">—</span>
-      );
-    },
-  },
   // Super-admin-only "Paid" toggle (filtered out of visibleCols when !canMarkPaid).
+  // Sortable → paid rows group together. Unpaid sorts before paid ascending.
   {
     key: "paid",
     label: "Paid",
     align: "left",
     groupStart: true,
     minWidth: 120,
+    sortValue: (r) => (r.paid ? 1 : 0),
     render: (r) => <PaidToggle row={r} />,
+  },
+  // Editable super-admin NOTE (admin_note) — pinned to the extreme end. Shows the
+  // note (not the imported joining-date remarks). Rendered by the component so it
+  // can read the canEditNote flag; placeholder cell here is replaced in the body.
+  {
+    key: "remarks",
+    label: "Remarks",
+    align: "left",
+    groupStart: true,
+    minWidth: 220,
+    render: () => null,
   },
 ];
 
@@ -308,6 +305,65 @@ function PaidToggle({ row }: { row: SalaryRow }) {
   );
 }
 
+/* Editable "Remarks" note — super-admins type an inline note (admin_note);
+ * everyone else sees it read-only. Optimistic; saves on blur / Enter, reverts on
+ * Escape or error. Shows the note, never the imported joining-date remarks. */
+function RemarkCell({ row, editable }: { row: SalaryRow; editable: boolean }) {
+  const router = useRouter();
+  const [val, setVal] = useState(row.adminNote ?? "");
+  const [saved, setSaved] = useState(row.adminNote ?? "");
+  const [busy, setBusy] = useState(false);
+
+  if (!editable) {
+    return saved ? (
+      <span className="block max-w-[300px] truncate text-[12.5px] text-ink-soft" title={saved}>
+        {saved}
+      </span>
+    ) : (
+      <span className="text-ink-subtle">—</span>
+    );
+  }
+
+  async function commit() {
+    const next = val.trim();
+    if (next === saved.trim()) {
+      setVal(next);
+      return;
+    }
+    setBusy(true);
+    const res = await setSalaryNote(row.id, next);
+    setBusy(false);
+    if (!res.ok) {
+      setVal(saved);
+      fireToast({ message: res.error, type: "error" });
+      return;
+    }
+    setSaved(next);
+    setVal(next);
+    router.refresh();
+  }
+
+  return (
+    <input
+      type="text"
+      value={val}
+      disabled={busy}
+      onChange={(e) => setVal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        else if (e.key === "Escape") {
+          setVal(saved);
+          e.currentTarget.blur();
+        }
+      }}
+      placeholder="Add a note…"
+      aria-label={`Note for ${row.employeeName}`}
+      className="w-full min-w-[190px] rounded-md border border-transparent bg-transparent px-2 py-1 text-[12.5px] text-ink-soft transition-colors placeholder:text-ink-subtle hover:border-hairline focus:border-[color-mix(in_srgb,#16a34a_55%,transparent)] focus:bg-surface-card focus:outline-none disabled:opacity-60"
+    />
+  );
+}
+
 /* Header groups are computed inside the component (visibleGroups) so the
  * conditional Remarks + super-admin Paid groups append correctly. */
 
@@ -325,10 +381,13 @@ type SortState = { key: string; dir: "asc" | "desc" } | null;
 export function SalaryBreakupTable({
   rows,
   canMarkPaid = false,
+  canEditNote = false,
   hideCompanyFilter = false,
 }: {
   rows: SalaryRow[];
   canMarkPaid?: boolean;
+  /** Super-admins can edit the inline Remarks note; others see it read-only. */
+  canEditNote?: boolean;
   /** When the parent already filters by company (salary workspace), hide the
    *  table's own company dropdown so there's a single source of truth. */
   hideCompanyFilter?: boolean;
@@ -402,12 +461,14 @@ export function SalaryBreakupTable({
     </button>
   );
 
-  const anyRemark = rows.some((r) => r.remarks || r.mananRemarks);
-  // Columns: drop "remarks" when none exist, drop the super-admin "paid" toggle
-  // when the viewer can't mark paid. Groups rebuilt to match (the trailing
-  // Remarks + Paid groups are single-span, so they append conditionally).
+  // Show the Remarks/Note column when a super-admin can edit it, or when any row
+  // already carries a note (so it stays visible read-only for everyone).
+  const showRemarks = canEditNote || rows.some((r) => r.adminNote);
+  // Column order (trailing): … Payout · Paid · Remarks. Drop "paid" when the
+  // viewer can't mark paid; drop "remarks" when hidden. Groups rebuilt to match
+  // (both are single-span trailing groups, appended in the same order).
   const visibleCols = COLUMNS.filter(
-    (c) => (c.key !== "remarks" || anyRemark) && (c.key !== "paid" || canMarkPaid),
+    (c) => (c.key !== "paid" || canMarkPaid) && (c.key !== "remarks" || showRemarks),
   );
   const visibleGroups: { label: string; span: number }[] = [
     { label: "", span: 1 }, // Company
@@ -415,8 +476,8 @@ export function SalaryBreakupTable({
     { label: "Pay", span: 4 },
     { label: "Adjustments", span: 2 },
     { label: "Payout", span: 1 },
-    ...(anyRemark ? [{ label: "", span: 1 }] : []),
-    ...(canMarkPaid ? [{ label: "", span: 1 }] : []),
+    ...(canMarkPaid ? [{ label: "", span: 1 }] : []), // Paid
+    ...(showRemarks ? [{ label: "", span: 1 }] : []), // Remarks
   ];
 
   return (
@@ -631,7 +692,7 @@ export function SalaryBreakupTable({
                         ...(c.key === "company" ? { left: EMP_W } : {}),
                       }}
                     >
-                      {c.render(r)}
+                      {c.key === "remarks" ? <RemarkCell row={r} editable={canEditNote} /> : c.render(r)}
                     </td>
                   ))}
                 </tr>

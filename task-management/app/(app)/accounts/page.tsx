@@ -1,3 +1,6 @@
+import Link from "next/link";
+import type { Route } from "next";
+import { Wallet, CalendarCheck2 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { ACCOUNTS_SECTIONS } from "@/lib/accounts/sections";
@@ -50,6 +53,24 @@ export default async function AccountsIndexPage() {
             master register. {built} of {sections.length} sections are live —
             the rest are scaffolded and ready to wire.
           </p>
+
+          {/* Payroll + attendance — the Accounts team can read (not edit) these
+              Employees-module surfaces to reconcile pay & attendance. */}
+          <div className="mt-4 flex flex-wrap items-center gap-2.5">
+            <Link
+              href={"/salary" as Route}
+              className="inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[13.5px] font-bold text-white transition-opacity hover:opacity-90"
+              style={{ background: `linear-gradient(135deg, ${MODULE_THEME.accounts.accent}, ${ACCENT})` }}
+            >
+              <Wallet size={15} strokeWidth={2.4} /> Salary module
+            </Link>
+            <Link
+              href={"/attendance/dashboard" as Route}
+              className="inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-3.5 py-1.5 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-hairline-strong"
+            >
+              <CalendarCheck2 size={15} strokeWidth={2.4} /> Attendance report
+            </Link>
+          </div>
         </header>
 
         <AccountsIndex sections={sections} />

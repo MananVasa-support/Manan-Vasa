@@ -319,3 +319,34 @@ export async function setSalaryPaid(id: string, paid: boolean): Promise<ActionRe
   revalidatePath(PATH);
   return { ok: true };
 }
+
+/**
+ * Set the editable "Remarks" note for one salary_breakup row. SUPER-ADMINS ONLY
+ * (Manan/Hetesh). Stored on salary_breakup.admin_note (survives sheet re-syncs).
+ * An empty/blank note clears it.
+ */
+export async function setSalaryNote(id: string, note: string): Promise<ActionResult> {
+  const me = await requireAdmin();
+  if (!isSuperAdmin(me.email)) {
+    return { ok: false, error: "Only super-admins can edit salary notes." };
+  }
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  if (!UUID_RE.test(id)) return { ok: false, error: "Invalid row." };
+  const trimmed = note.trim().slice(0, 500);
+  const value = trimmed.length ? trimmed : null;
+  try {
+    await db
+      .update(salaryBreakup)
+      .set({
+        adminNote: value,
+        adminNoteAt: value ? new Date() : null,
+        adminNoteById: value ? me.id : null,
+      })
+      .where(eq(salaryBreakup.id, id));
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+  revalidatePath(PATH);
+  return { ok: true };
+}

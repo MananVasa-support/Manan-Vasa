@@ -46,7 +46,8 @@ export function toPayrollRows(rows: SalaryBreakup[]): PayrollExportRow[] {
     previousPending: num(r.previousPending),
     finalPayment: num(r.finalPayment),
     salaryGiven: r.salaryGiven == null ? null : num(r.salaryGiven),
-    remarks: r.remarks ?? "",
+    // Super-admin note (admin_note), NOT the imported joining-date remarks.
+    remarks: r.adminNote ?? "",
   }));
 }
 
