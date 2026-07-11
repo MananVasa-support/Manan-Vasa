@@ -1,5 +1,5 @@
 import "server-only";
-import { todayYmd, hasPlannedWork, getTodayItems } from "@/lib/queries/daily-checklist";
+import { todayYmd, hasPlannedWork, countPlannedItems } from "@/lib/queries/daily-checklist";
 import { MIN_DAILY_ITEMS } from "./constants";
 // Re-export so existing server-side callers can still import it from here.
 // CLIENT components must import from "@/lib/daily-checklist/constants" instead
@@ -10,19 +10,18 @@ export { MIN_DAILY_ITEMS } from "./constants";
  * Daily-checklist gate for the compulsory post-login wall: the day is planned
  * once there are ≥ MIN_DAILY_ITEMS items on today's plan.
  *
- * CRITICAL — counts `getTodayItems().length` (assigned-due tasks + personal
- * rows): the EXACT same set the client gate (daily-plan-gate.tsx) renders and
- * counts. Counting a DIFFERENT set here (e.g. personal rows only) is what made
- * "Start my day" buffer forever — the client showed "10 of 3, ready" while the
- * server counted 0 committed rows and re-blocked. Same query on both sides =
- * they can never disagree.
+ * CRITICAL — counts `countPlannedItems` = the employee's COMMITTED items
+ * (daily_checklist rows for today: personal items + tasks they actively pulled).
+ * The client gate counts the SAME set (items where source === "personal"), so
+ * the two can never disagree. Merely-assigned tasks due today do NOT count —
+ * the user must ACTIVELY commit ≥ MIN, which is the whole point of the plan gate
+ * (they show up as a pull-pool, not as pre-filled plan).
  */
 export async function needsDailyChecklistPlan(
   employeeId: string,
   now: Date = new Date(),
 ): Promise<boolean> {
-  const items = await getTodayItems(employeeId, todayYmd(now));
-  return items.length < MIN_DAILY_ITEMS;
+  return (await countPlannedItems(employeeId, todayYmd(now))) < MIN_DAILY_ITEMS;
 }
 
 /**

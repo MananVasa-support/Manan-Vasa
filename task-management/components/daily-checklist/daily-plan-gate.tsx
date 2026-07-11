@@ -54,10 +54,33 @@ export function DailyPlanGate({ greetingName, today, items: pItems, overdue: pOv
   const [entering, setEntering] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  const count = items.length;
+  // COMMITTED = daily_checklist rows (personal items + tasks the user pulled) —
+  // exactly what the server counts (countPlannedItems). Assigned-but-unpulled
+  // tasks (source "assigned") do NOT count; they live in the pull-pool below.
+  const committed = React.useMemo(() => items.filter((i) => i.source === "personal"), [items]);
+  const count = committed.length;
   const met = count >= MIN;
   const remaining = Math.max(0, MIN - count);
   const ready = met;
+
+  // Pull-pool = assigned tasks (due-today auto rows + open tasks), deduped by
+  // task id, minus anything already committed. Tap one → pullTaskToToday makes
+  // it a committed row and it leaves the pool.
+  const pool = React.useMemo(() => {
+    const committedTaskIds = new Set(committed.map((i) => i.taskId).filter(Boolean) as string[]);
+    const m = new Map<string, { id: string; title: string; client: string | null; taskNo: number | null }>();
+    for (const it of items) {
+      if (it.source === "assigned" && it.taskId && !committedTaskIds.has(it.taskId)) {
+        m.set(it.taskId, { id: it.taskId, title: it.title, client: it.client, taskNo: it.taskNo });
+      }
+    }
+    for (const t of openTasks) {
+      if (!committedTaskIds.has(t.id) && !m.has(t.id)) {
+        m.set(t.id, { id: t.id, title: t.title, client: t.client, taskNo: t.taskNo });
+      }
+    }
+    return [...m.values()];
+  }, [items, openTasks, committed]);
 
   async function act(key: string, fn: () => Promise<Res>, onOk: (r: { ok: true } & Record<string, unknown>) => void) {
     if (busyId) return;
@@ -163,14 +186,14 @@ export function DailyPlanGate({ greetingName, today, items: pItems, overdue: pOv
             <h2 className="text-[16px] font-black text-ink-strong">Today&apos;s plan</h2>
           </div>
 
-          {items.length === 0 ? (
+          {committed.length === 0 ? (
             <div className="rounded-xl border border-dashed border-hairline-strong px-4 py-6 text-center">
               <p className="text-[14px] font-semibold text-ink-muted">Nothing planned yet.</p>
               <p className="mt-0.5 text-[13px] text-ink-subtle">Type your first task below, or tap one from your tasks.</p>
             </div>
           ) : (
             <ul className="flex max-h-[260px] flex-col gap-2 overflow-y-auto pr-1">
-              {items.map((it) => (
+              {committed.map((it) => (
                 <li key={it.id} className="flex items-center gap-3 rounded-xl bg-surface-soft px-3.5 py-2.5" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>
                   <span className="inline-grid size-6 shrink-0 place-items-center rounded-full text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}><Check size={13} strokeWidth={3} /></span>
                   <div className="min-w-0 flex-1">
@@ -204,12 +227,12 @@ export function DailyPlanGate({ greetingName, today, items: pItems, overdue: pOv
         </section>
 
         {/* ── Pull from your tasks ── */}
-        {(openTasks.length > 0 || overdue.length > 0) && (
+        {(pool.length > 0 || overdue.length > 0) && (
           <section className="wg-rise mb-4 rounded-[20px] bg-surface-card p-5 max-md:p-4" style={{ animationDelay: "120ms", boxShadow: "inset 0 0 0 1px var(--color-hairline), 0 10px 30px -22px rgba(15,23,42,0.3)" }}>
             <div className="mb-3 flex items-center gap-2.5">
               <span className="inline-grid size-9 place-items-center rounded-xl" style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: RED_DEEP }}><ClipboardList size={18} strokeWidth={2.3} /></span>
               <h2 className="text-[16px] font-black text-ink-strong">Pull from your tasks</h2>
-              {openTasks.length > 0 && count < MIN && (
+              {pool.length > 0 && count < MIN && (
                 <button type="button" disabled={!!busyId} onClick={fillFromTasks} className="ml-auto inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12px] font-bold text-white disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}>
                   {busyId === "autofill" ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} strokeWidth={2.4} />} Quick-fill
                 </button>
@@ -224,9 +247,9 @@ export function DailyPlanGate({ greetingName, today, items: pItems, overdue: pOv
               </button>
             )}
 
-            {openTasks.length > 0 && (
+            {pool.length > 0 && (
               <ul className="flex max-h-[240px] flex-col gap-2 overflow-y-auto pr-1">
-                {openTasks.map((t) => (
+                {pool.map((t) => (
                   <li key={t.id} className="flex items-center gap-3 rounded-xl bg-surface-soft px-3.5 py-2.5" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[13.5px] font-bold text-ink-strong">{t.title}</div>
