@@ -322,7 +322,17 @@ type SortState = { key: string; dir: "asc" | "desc" } | null;
 
 /* ── The table ─────────────────────────────────────────────────────────── */
 
-export function SalaryBreakupTable({ rows, canMarkPaid = false }: { rows: SalaryRow[]; canMarkPaid?: boolean }) {
+export function SalaryBreakupTable({
+  rows,
+  canMarkPaid = false,
+  hideCompanyFilter = false,
+}: {
+  rows: SalaryRow[];
+  canMarkPaid?: boolean;
+  /** When the parent already filters by company (salary workspace), hide the
+   *  table's own company dropdown so there's a single source of truth. */
+  hideCompanyFilter?: boolean;
+}) {
   const [query, setQuery] = useState("");
   const [company, setCompany] = useState("__all");
   const [sort, setSort] = useState<SortState>(null);
@@ -434,7 +444,7 @@ export function SalaryBreakupTable({ rows, canMarkPaid = false }: { rows: Salary
           />
         </div>
 
-        {companies.length > 1 && (
+        {!hideCompanyFilter && companies.length > 1 && (
           <label className="inline-flex items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-subtle">
               Company

@@ -144,29 +144,55 @@ export function drawChrome(doc: PDFKit.PDFDocument): void {
   doc.save().rect(0, 5, doc.page.width, 1.2).fill(COLORS.brandDeep).restore();
 }
 
-/** Logo + entity name + a small confidential subline. Advances doc.y. */
+/** Logo + entity name + a small confidential subline. Advances doc.y.
+ *
+ * The logo is sized by HEIGHT (not width): the mark is portrait (≈973×1074), so
+ * sizing by width made it ~137px tall and it crashed straight through the title
+ * band below. A fixed logo height keeps the masthead a tidy single band, and the
+ * entity name is vertically centred against it. */
 export function drawMasthead(
   doc: PDFKit.PDFDocument,
   entity: string,
   subline: string,
 ): void {
   const left = doc.page.margins.left;
+  const right = doc.page.width - doc.page.margins.right;
   const headerTop = doc.page.margins.top + 2;
+  const LOGO_H = 46;
   let textX = left;
+  let logoBottom = headerTop;
   if (existsSync(LOGO_PATH)) {
     try {
-      const logoW = 124;
-      doc.image(LOGO_PATH, left, headerTop, { width: logoW });
-      textX = left + logoW + 16;
+      // Real aspect ratio → width for this height (fallback to the known ratio).
+      let logoW = Math.round(LOGO_H * (973 / 1074));
+      try {
+        const img = (doc as unknown as { openImage: (p: string) => { width: number; height: number } }).openImage(LOGO_PATH);
+        if (img?.width && img?.height) logoW = Math.round((img.width / img.height) * LOGO_H);
+      } catch {
+        /* keep fallback width */
+      }
+      doc.image(LOGO_PATH, left, headerTop, { height: LOGO_H });
+      textX = left + logoW + 14;
+      logoBottom = headerTop + LOGO_H;
     } catch {
       /* text-only masthead */
     }
   }
+  // Vertically centre the name + subline block against the logo band. Both are
+  // positioned at EXPLICIT y's (never doc.y between them) — pdfkit does not
+  // reliably advance doc.y after a `lineBreak:false` text, which previously made
+  // the subline land on top of the entity name.
+  const NAME_SIZE = 16;
+  const NAME_H = 18;
+  const SUB_GAP = 5;
+  const blockH = NAME_H + SUB_GAP + 10;
+  const nameY = headerTop + Math.max(0, (LOGO_H - blockH) / 2);
+  const subY = nameY + NAME_H + SUB_GAP;
   doc
     .font("Helvetica-Bold")
-    .fontSize(18)
+    .fontSize(NAME_SIZE)
     .fillColor(COLORS.ink)
-    .text(entity.toUpperCase(), textX, headerTop + 4, {
+    .text(entity.toUpperCase(), textX, nameY, {
       characterSpacing: 0.6,
       lineBreak: false,
     });
@@ -174,8 +200,19 @@ export function drawMasthead(
     .font("Helvetica")
     .fontSize(8.5)
     .fillColor(COLORS.inkSoft)
-    .text(subline, textX, doc.y + 3, { lineBreak: false });
-  doc.y = Math.max(doc.y, headerTop + 52) + 12;
+    .text(subline, textX, subY, { lineBreak: false });
+  // End the masthead below the taller of logo / text, then a hairline rule so
+  // the title band that follows reads as a separate, structured block.
+  doc.y = Math.max(logoBottom, subY + 12) + 12;
+  doc
+    .save()
+    .strokeColor(COLORS.hairline)
+    .lineWidth(0.6)
+    .moveTo(left, doc.y)
+    .lineTo(right, doc.y)
+    .stroke()
+    .restore();
+  doc.y += 14;
 }
 
 /** Red title band with a left title and optional right-aligned caption. */

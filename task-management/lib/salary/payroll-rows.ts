@@ -50,6 +50,46 @@ export function toPayrollRows(rows: SalaryBreakup[]): PayrollExportRow[] {
   }));
 }
 
+/** Per-company (paying-from entity) rollup for the export breakdown sections. */
+export interface CompanySubtotal {
+  entity: string;
+  headcount: number;
+  payableAfterLeave: number;
+  pt: number;
+  payableAfterPt: number;
+  advance: number;
+  previousPending: number;
+  finalPayment: number;
+}
+
+/** Aggregate payroll rows by paying-from entity, biggest final payment first. */
+export function toCompanySubtotals(rows: PayrollExportRow[]): CompanySubtotal[] {
+  const map = new Map<string, CompanySubtotal>();
+  for (const r of rows) {
+    const entity = r.entity?.trim() || "Unassigned";
+    const e =
+      map.get(entity) ?? {
+        entity,
+        headcount: 0,
+        payableAfterLeave: 0,
+        pt: 0,
+        payableAfterPt: 0,
+        advance: 0,
+        previousPending: 0,
+        finalPayment: 0,
+      };
+    e.headcount += 1;
+    e.payableAfterLeave += r.payableAfterLeave;
+    e.pt += r.pt;
+    e.payableAfterPt += r.payableAfterPt;
+    e.advance += r.advance;
+    e.previousPending += r.previousPending;
+    e.finalPayment += r.finalPayment;
+    map.set(entity, e);
+  }
+  return [...map.values()].sort((a, b) => b.finalPayment - a.finalPayment);
+}
+
 /** Column definitions shared by CSV + PDF (order = display order). */
 export const PAYROLL_COLUMNS: {
   key: keyof PayrollExportRow;
