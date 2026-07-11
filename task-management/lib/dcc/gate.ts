@@ -112,8 +112,15 @@ export interface DccManagerReviewState {
  * exempt. Satisfied once every present report has a dcc_reviews row.
  */
 export async function dccManagerReviewState(me: Employee, now: Date = new Date()): Promise<DccManagerReviewState> {
-  const scope = await loadDccScope(me);
-  const reportIds = [...scope.visibleIds].filter((id) => id !== me.id);
+  // Review sign-off is scoped to DIRECT reports (employees.manager_id === me),
+  // for EVERYONE incl. super-admins — a manager signs off only their own team,
+  // not the whole company (the old super-admin scope showed all 16). The DCC
+  // module (viewing) can still see wider via loadDccScope; this is just the gate.
+  const directReports = await db
+    .select({ id: employees.id })
+    .from(employees)
+    .where(and(eq(employees.managerId, me.id), eq(employees.isActive, true)));
+  const reportIds = directReports.map((r) => r.id);
   const date = addDaysYmd(localDateString(TZ, now), -1);
   if (reportIds.length === 0) return { satisfied: true, date, reports: [] };
 
