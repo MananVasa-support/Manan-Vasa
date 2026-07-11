@@ -8,8 +8,6 @@ import { MODULE_THEME, MODULE_ORDER, type ModuleTheme } from "@/lib/module-theme
 import { HubSignOut } from "@/components/hub/hub-signout";
 import { GlobalSearch } from "@/components/header/global-search";
 import type { ReactNode } from "react";
-import { isSuperAdmin } from "@/lib/auth/super-admin";
-import { gateSkipActive } from "@/lib/auth/gate-skip";
 import { isManagerWithReports, managerDailyTaskGate } from "@/lib/manager-gates";
 import { needsDailyChecklistPlan } from "@/lib/daily-checklist/gate";
 import { dccGateTarget, dccManagerReviewState } from "@/lib/dcc/gate";
@@ -17,7 +15,6 @@ import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist
 import { ManagerDailyTaskGate } from "@/components/manager-gates/manager-daily-task-gate";
 import { DccGateView } from "@/components/dcc/dcc-gate-view";
 import { DccManagerReviewGate } from "@/components/dcc/dcc-manager-review-gate";
-import { SkipGateButton } from "@/components/layout/skip-gate-button";
 
 // The hub is the post-login landing and MUST run the (app) layout's daily-ritual
 // gate on every request — never a cached/prerendered copy that would let someone
@@ -146,31 +143,22 @@ export default async function HubPage() {
   // MANAGER_GATES_OFF). Employees must commit ≥5 checklist items + log goal
   // progress; managers get their task-give gate; everyone fills DCC.
   {
-    const canSkip = isSuperAdmin(me.email);
-    const skipToday = await gateSkipActive(me).catch(() => false);
-    if (!skipToday) {
-      const wrap = (node: ReactNode) => (canSkip ? <>{node}<SkipGateButton /></> : node);
-      // Only managers exempt (they have the manager gate below); admins +
-      // super-admins now see the plan gate too. Keep in lock-step with layout.tsx.
-      const isManager = await isManagerWithReports(me.id).catch(() => false);
-      const planExempt = isManager;
-      if (!planExempt) {
-        // ≥ MIN_DAILY_ITEMS — MUST match the client gate + the (app) layout
-        // wall (all read MIN_DAILY_ITEMS), or "Start my day" buffers forever.
-        // Weekly-goal logging is no longer gated.
-        const mustPlan = await needsDailyChecklistPlan(me.id).catch(() => false);
-        if (mustPlan) return wrap(<DailyChecklistView employeeId={me.id} greetingName={firstName} mode="gate" />);
-      }
-      if (process.env.MANAGER_GATES_OFF !== "true") {
-        const dailyGate = await managerDailyTaskGate(me.id).catch(() => null);
-        if (dailyGate && !dailyGate.satisfied) return wrap(<ManagerDailyTaskGate greetingName={firstName} state={dailyGate} />);
-      }
-      if (process.env.DCC_GATE_OFF !== "true") {
-        const dccTarget = await dccGateTarget(me.id).catch(() => null);
-        if (dccTarget) return wrap(<DccGateView greetingName={firstName} date={dccTarget.date} items={dccTarget.items} entries={dccTarget.entries} />);
-        const dccReview = await dccManagerReviewState(me).catch(() => null);
-        if (dccReview && !dccReview.satisfied) return wrap(<DccManagerReviewGate greetingName={firstName} state={dccReview} />);
-      }
+    // COMPULSORY gate — no super-admin skip (removed). Keep in lock-step with
+    // app/(app)/layout.tsx. Only managers skip the plan gate (manager gate instead).
+    const isManager = await isManagerWithReports(me.id).catch(() => false);
+    if (!isManager) {
+      const mustPlan = await needsDailyChecklistPlan(me.id).catch(() => false);
+      if (mustPlan) return <DailyChecklistView employeeId={me.id} greetingName={firstName} mode="gate" />;
+    }
+    if (process.env.MANAGER_GATES_OFF !== "true") {
+      const dailyGate = await managerDailyTaskGate(me.id).catch(() => null);
+      if (dailyGate && !dailyGate.satisfied) return <ManagerDailyTaskGate greetingName={firstName} state={dailyGate} />;
+    }
+    if (process.env.DCC_GATE_OFF !== "true") {
+      const dccTarget = await dccGateTarget(me.id).catch(() => null);
+      if (dccTarget) return <DccGateView greetingName={firstName} date={dccTarget.date} items={dccTarget.items} entries={dccTarget.entries} />;
+      const dccReview = await dccManagerReviewState(me).catch(() => null);
+      if (dccReview && !dccReview.satisfied) return <DccManagerReviewGate greetingName={firstName} state={dccReview} />;
     }
   }
 

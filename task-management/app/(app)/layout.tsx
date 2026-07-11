@@ -3,9 +3,6 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/current";
 import { accessFor } from "@/lib/auth/workspace-access";
-import { isSuperAdmin } from "@/lib/auth/super-admin";
-import { gateSkipActive } from "@/lib/auth/gate-skip";
-import { SkipGateButton } from "@/components/layout/skip-gate-button";
 import { needsDailyChecklistPlan } from "@/lib/daily-checklist/gate";
 import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist-view";
 import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
@@ -45,61 +42,44 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // navigation), so gating every route is safe — the manager duty routes
   // (/tasks/new, /weekly-goals) stay reachable via the `onDutyRoute` exemption.
   //
-  // Super-admins (Manan, Hetesh) get a floating "Skip for today" button on every
-  // gate; once clicked, `gateSkipActive` returns true and the whole chain is
-  // bypassed for the rest of the day. Skip is super-admin ONLY (server-verified),
-  // so employees + managers can never bypass.
-  const canSkip = isSuperAdmin(me.email);
-  const skipToday = await gateSkipActive(me).catch(() => false);
-  // Wrap a gate render with the floating skip button for super-admins.
-  const gate = (node: ReactNode) => (canSkip ? <>{node}<SkipGateButton /></> : node);
-
-  if (!skipToday) {
+  // COMPULSORY daily gate chain — NO bypass. The super-admin "Skip for today"
+  // escape was removed (Sir: "how am I able to come here?" — the skip cookie let
+  // super-admins roam past the gate). Everyone, super-admins included, must clear
+  // the gate. Only MANAGERS skip the plan gate — they do the manager gate instead.
+  // All checks are day-scoped + FAIL-OPEN (a DB hiccup never traps anyone).
+  {
     const firstName = me.name.split(" ")[0] ?? me.name;
-    // Only MANAGERS (have direct reports) are exempt from the plan gate — their
-    // loop is give-tasks → DCC (the manager gate below). EVERYONE else, INCLUDING
-    // admins + super-admins (Sir's call: he must see it too), plans their day.
-    // Super-admins still get the floating "Skip for today" button as an escape.
     const isManager = await isManagerWithReports(me.id).catch(() => false);
-    const planExempt = isManager;
 
-    // EMPLOYEE gate — "Plan Your Day": commit ≥ MIN_DAILY_ITEMS (3) items to
-    // TODAY'S checklist. Weekly-goal logging is NO LONGER part of the gate
-    // (Sir's call). CRITICAL: this threshold reads MIN_DAILY_ITEMS, the SAME
-    // constant the client gate's enable rule uses (`met = count >= MIN`), so
-    // server + client can never drift — a mismatch made "Start my day" buffer
-    // forever (button lit → refresh → server re-blocked → same gate).
-    if (!planExempt) {
+    // PLAN gate — commit ≥ MIN_DAILY_ITEMS (3) COMMITTED items to today. Reads
+    // the SAME constant + counts the SAME set (countPlannedItems / source
+    // "personal") as the client, so it can never drift or buffer.
+    if (!isManager) {
       const mustPlan = await needsDailyChecklistPlan(me.id).catch(() => false);
       if (mustPlan) {
-        return gate(<DailyChecklistView employeeId={me.id} greetingName={firstName} mode="gate" />);
+        return <DailyChecklistView employeeId={me.id} greetingName={firstName} mode="gate" />;
       }
     }
 
-    // MANAGER gate: give each direct report their daily tasks. EXEMPT the duty
-    // routes (/tasks/new, /weekly-goals) so the gate's own links work. The Wed/Sat
-    // weekly-goal gate was removed — managers are now gated on Monday at clock-IN
-    // instead (see attendance punch). Kill-switch MANAGER_GATES_OFF.
+    // MANAGER gate: give each report their daily tasks. Duty routes (/tasks/new,
+    // /weekly-goals) exempt so the gate's own links work. Kill-switch MANAGER_GATES_OFF.
     const onDutyRoute = pathname.startsWith("/tasks/new") || pathname.startsWith("/weekly-goals");
-    const gatesOff = process.env.MANAGER_GATES_OFF === "true";
-    if (!onDutyRoute && !gatesOff) {
+    if (!onDutyRoute && process.env.MANAGER_GATES_OFF !== "true") {
       const dailyGate = await managerDailyTaskGate(me.id).catch(() => null);
       if (dailyGate && !dailyGate.satisfied) {
-        return gate(<ManagerDailyTaskGate greetingName={firstName} state={dailyGate} />);
+        return <ManagerDailyTaskGate greetingName={firstName} state={dailyGate} />;
       }
     }
 
-    // DCC compliance gate — the LAST link: every employee (managers included)
-    // fills the most recent present working day's DCC, then managers sign off
-    // their team's. Day-scoped, FAIL-OPEN, DCC_GATE_OFF kill-switch.
+    // DCC compliance gate — LAST link. Day-scoped, FAIL-OPEN, DCC_GATE_OFF switch.
     if (process.env.DCC_GATE_OFF !== "true") {
       const dccTarget = await dccGateTarget(me.id).catch(() => null);
       if (dccTarget) {
-        return gate(<DccGateView greetingName={firstName} date={dccTarget.date} items={dccTarget.items} entries={dccTarget.entries} />);
+        return <DccGateView greetingName={firstName} date={dccTarget.date} items={dccTarget.items} entries={dccTarget.entries} />;
       }
       const dccReview = await dccManagerReviewState(me).catch(() => null);
       if (dccReview && !dccReview.satisfied) {
-        return gate(<DccManagerReviewGate greetingName={firstName} state={dccReview} />);
+        return <DccManagerReviewGate greetingName={firstName} state={dccReview} />;
       }
     }
   }
