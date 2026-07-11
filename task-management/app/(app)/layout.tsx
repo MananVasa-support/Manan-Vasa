@@ -6,8 +6,7 @@ import { accessFor } from "@/lib/auth/workspace-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { gateSkipActive } from "@/lib/auth/gate-skip";
 import { SkipGateButton } from "@/components/layout/skip-gate-button";
-import { needsDailyPlan } from "@/lib/daily-checklist/gate";
-import { needsGoalActuals } from "@/lib/weekly-goals/actuals";
+import { needsDailyChecklistPlan } from "@/lib/daily-checklist/gate";
 import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist-view";
 import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
 import { IdleTimerClient } from "@/components/auth/idle-timer-client";
@@ -62,17 +61,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     const isManager = await isManagerWithReports(me.id).catch(() => false);
     const planExempt = me.isAdmin || canSkip || isManager;
 
-    // EMPLOYEE gate — "Plan Your Day": commit at least ONE item to TODAY'S
-    // checklist AND log today's progress on each open weekly goal, before
-    // entering. CRITICAL: this threshold MUST match the client gate's own
-    // enable rule (`met = count >= 1` in daily-plan-gate.tsx) — a mismatch
-    // (server wanted ≥5, client enabled at ≥1) made "Start my day" buffer
-    // forever: the button lit up, router.refresh() re-ran the server wall,
-    // which re-blocked, re-rendering the same gate. Keep them in lock-step.
+    // EMPLOYEE gate — "Plan Your Day": commit ≥ MIN_DAILY_ITEMS (3) items to
+    // TODAY'S checklist. Weekly-goal logging is NO LONGER part of the gate
+    // (Sir's call). CRITICAL: this threshold reads MIN_DAILY_ITEMS, the SAME
+    // constant the client gate's enable rule uses (`met = count >= MIN`), so
+    // server + client can never drift — a mismatch made "Start my day" buffer
+    // forever (button lit → refresh → server re-blocked → same gate).
     if (!planExempt) {
-      const mustPlan =
-        (await needsDailyPlan(me.id).catch(() => false)) ||
-        (await needsGoalActuals(me.id).catch(() => false));
+      const mustPlan = await needsDailyChecklistPlan(me.id).catch(() => false);
       if (mustPlan) {
         return gate(<DailyChecklistView employeeId={me.id} greetingName={firstName} mode="gate" />);
       }

@@ -7,5 +7,7 @@
  * server-only module into the client bundle.
  */
 
-/** Minimum items a user must plan to "Start my day". Single source of truth. */
-export const MIN_DAILY_ITEMS = 5;
+/** Minimum items a user must plan to "Start my day". Single source of truth —
+ *  the server wall (layout + hub via needsDailyChecklistPlan) AND the client
+ *  gate (daily-plan-gate.tsx `met`) both read THIS, so they can never drift. */
+export const MIN_DAILY_ITEMS = 3;

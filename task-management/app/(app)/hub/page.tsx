@@ -11,8 +11,7 @@ import type { ReactNode } from "react";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { gateSkipActive } from "@/lib/auth/gate-skip";
 import { isManagerWithReports, managerDailyTaskGate } from "@/lib/manager-gates";
-import { needsDailyPlan } from "@/lib/daily-checklist/gate";
-import { needsGoalActuals } from "@/lib/weekly-goals/actuals";
+import { needsDailyChecklistPlan } from "@/lib/daily-checklist/gate";
 import { dccGateTarget, dccManagerReviewState } from "@/lib/dcc/gate";
 import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist-view";
 import { ManagerDailyTaskGate } from "@/components/manager-gates/manager-daily-task-gate";
@@ -154,12 +153,10 @@ export default async function HubPage() {
       const isManager = await isManagerWithReports(me.id).catch(() => false);
       const planExempt = me.isAdmin || canSkip || isManager;
       if (!planExempt) {
-        // ≥1-item threshold — MUST match the client gate (daily-plan-gate.tsx
-        // `met = count >= 1`) and the (app) layout wall, or "Start my day"
-        // buffers forever on a client/server mismatch.
-        const mustPlan =
-          (await needsDailyPlan(me.id).catch(() => false)) ||
-          (await needsGoalActuals(me.id).catch(() => false));
+        // ≥ MIN_DAILY_ITEMS — MUST match the client gate + the (app) layout
+        // wall (all read MIN_DAILY_ITEMS), or "Start my day" buffers forever.
+        // Weekly-goal logging is no longer gated.
+        const mustPlan = await needsDailyChecklistPlan(me.id).catch(() => false);
         if (mustPlan) return wrap(<DailyChecklistView employeeId={me.id} greetingName={firstName} mode="gate" />);
       }
       if (process.env.MANAGER_GATES_OFF !== "true") {
