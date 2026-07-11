@@ -9,6 +9,9 @@ import { HubSignOut } from "@/components/hub/hub-signout";
 import { GlobalSearch } from "@/components/header/global-search";
 import type { ReactNode } from "react";
 import { isManagerWithReports, managerDailyTaskGate } from "@/lib/manager-gates";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { gateSkipActive } from "@/lib/auth/gate-skip";
+import { SkipGateButton } from "@/components/layout/skip-gate-button";
 import { needsDailyChecklistPlan } from "@/lib/daily-checklist/gate";
 import { dccGateTarget, dccManagerReviewState } from "@/lib/dcc/gate";
 import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist-view";
@@ -143,22 +146,29 @@ export default async function HubPage() {
   // MANAGER_GATES_OFF). Employees must commit ≥5 checklist items + log goal
   // progress; managers get their task-give gate; everyone fills DCC.
   {
-    // COMPULSORY gate — no super-admin skip (removed). Keep in lock-step with
-    // app/(app)/layout.tsx. Only managers skip the plan gate (manager gate instead).
+    // Keep in LOCK-STEP with app/(app)/layout.tsx. COMPULSORY: plan gate + own-DCC.
+    // SKIPPABLE by super-admins: manager (assign) + DCC-review gates.
     const isManager = await isManagerWithReports(me.id).catch(() => false);
     if (!isManager) {
       const mustPlan = await needsDailyChecklistPlan(me.id).catch(() => false);
       if (mustPlan) return <DailyChecklistView employeeId={me.id} greetingName={firstName} mode="gate" />;
     }
-    if (process.env.MANAGER_GATES_OFF !== "true") {
-      const dailyGate = await managerDailyTaskGate(me.id).catch(() => null);
-      if (dailyGate && !dailyGate.satisfied) return <ManagerDailyTaskGate greetingName={firstName} state={dailyGate} />;
-    }
     if (process.env.DCC_GATE_OFF !== "true") {
       const dccTarget = await dccGateTarget(me.id).catch(() => null);
       if (dccTarget) return <DccGateView greetingName={firstName} date={dccTarget.date} items={dccTarget.items} entries={dccTarget.entries} />;
-      const dccReview = await dccManagerReviewState(me).catch(() => null);
-      if (dccReview && !dccReview.satisfied) return <DccManagerReviewGate greetingName={firstName} state={dccReview} />;
+    }
+    const canSkip = isSuperAdmin(me.email);
+    const skipDuties = canSkip && (await gateSkipActive(me).catch(() => false));
+    const withSkip = (node: ReactNode) => (canSkip ? <>{node}<SkipGateButton /></> : node);
+    if (!skipDuties) {
+      if (process.env.MANAGER_GATES_OFF !== "true") {
+        const dailyGate = await managerDailyTaskGate(me.id).catch(() => null);
+        if (dailyGate && !dailyGate.satisfied) return withSkip(<ManagerDailyTaskGate greetingName={firstName} state={dailyGate} />);
+      }
+      if (process.env.DCC_GATE_OFF !== "true") {
+        const dccReview = await dccManagerReviewState(me).catch(() => null);
+        if (dccReview && !dccReview.satisfied) return withSkip(<DccManagerReviewGate greetingName={firstName} state={dccReview} />);
+      }
     }
   }
 
