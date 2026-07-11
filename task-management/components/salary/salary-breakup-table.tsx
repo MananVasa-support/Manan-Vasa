@@ -31,9 +31,10 @@ export interface SalaryRow {
   advance: string | null;
   previousPending: string | null;
   finalPayment: string | null;
-  remarks: string | null;
-  mananRemarks: string | null;
   paid: boolean;
+  /** Editable super-admin note (admin_note). Shown in the Remarks column —
+   *  the imported joining-date `remarks`/`manan_remarks` are intentionally NOT
+   *  projected to the client. */
   adminNote: string | null;
 }
 

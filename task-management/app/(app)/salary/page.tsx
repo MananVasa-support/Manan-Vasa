@@ -92,8 +92,6 @@ export default async function SalaryPage({ searchParams }: PageProps) {
     advance: r.advance,
     previousPending: r.previousPending,
     finalPayment: r.finalPayment,
-    remarks: r.remarks,
-    mananRemarks: r.mananRemarks,
     paid: r.paid,
     adminNote: r.adminNote,
   }));
