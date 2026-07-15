@@ -17,7 +17,7 @@ const EXCLUDED_SHEET_NAMES = new Set<string>([
   "sanket thorat",
   "anand singh",
   "dhanshree shigvan",
-  "himanshu lad", // exact match — keeps the separate "Himanshu Patil"
+  // "himanshu lad" — Sir re-added Himanshu Lad to payroll (2026-07-15); no longer excluded.
 ]);
 
 const RETRY = { attempts: 3, timeoutMs: [6000, 10000, 14000] as number[] };
