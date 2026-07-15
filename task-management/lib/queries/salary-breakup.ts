@@ -16,7 +16,7 @@ const EXCLUDED_SHEET_NAMES = new Set<string>([
   "kiran",
   "sanket thorat",
   "anand singh",
-  "dhanshree shigvan",
+  // "dhanshree shigvan" — Sir re-added Dhanshree Shigvan to payroll (2026-07-15).
   // "himanshu lad" — Sir re-added Himanshu Lad to payroll (2026-07-15); no longer excluded.
 ]);
 
