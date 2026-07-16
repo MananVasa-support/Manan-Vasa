@@ -61,6 +61,10 @@ WhatsApp*
 !lib/whatsapp/
 !lib/whatsapp/**
 !lib/validators/whatsapp.ts
+# …and any other lowercased `whatsapp*` SOURCE file anywhere under lib/ (e.g.
+# lib/goals/whatsapp-dispatch.ts) — else ship.sh's `git add -A` silently skips
+# it and prod fails to resolve the module at build time.
+!lib/**/whatsapp*
 !app/api/whatsapp/
 !app/api/whatsapp/**
 !tests/unit/whatsapp-*.test.ts
@@ -100,6 +104,11 @@ Altus Eco System MIS.xlsx
 *.xlsx
 *.docx
 ~$*
+# …but NOT App-Router route handlers whose dir is literally named e.g.
+# `export.xlsx/` — the *.xlsx rule (for real spreadsheets) must never eat them,
+# or ship.sh's `git add -A` silently drops the route and prod loses it.
+!app/**/*.xlsx/
+!app/**/*.xlsx/**
 ALTUS_APP_KNOWLEDGE_BASE.md
 Doc1.docx
 
