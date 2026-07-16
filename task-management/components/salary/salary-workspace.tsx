@@ -13,8 +13,8 @@ import {
 import { SalaryBreakupTable, type SalaryRow } from "@/components/salary/salary-breakup-table";
 
 /* Employees-module identity — matches the Attendance + salary pages. */
-const GREEN = "#16a34a";
-const GREEN_DEEP = "#15803d";
+const GREEN = "#E10600";
+const GREEN_DEEP = "#A80400";
 const ALL = "__all";
 
 const inr = (v: number) => `₹${Math.round(v).toLocaleString("en-IN")}`;

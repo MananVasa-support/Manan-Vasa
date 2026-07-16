@@ -9,6 +9,10 @@ import { needsDailyPlan } from "@/lib/daily-checklist/gate";
 import { needsGoalActuals } from "@/lib/weekly-goals/actuals";
 import { isManagerWithReports, isMondayIST, managerMondayGoalState } from "@/lib/manager-gates";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { satCommitGateOn, monApproveGateOn } from "@/lib/goals/flag";
+import { weekCommitSatisfied, managerApproveSatisfied } from "@/lib/goals/gates-predicates";
+import { isSaturdayIST, isWeekdayIST } from "@/lib/goals/gate-day";
+import { currentWeekStart } from "@/lib/weekly-goals/week";
 import { localDateString } from "@/lib/format";
 import {
   notifyOnInPunch,
@@ -89,8 +93,24 @@ export async function POST(req: Request) {
 
   const tz = me.timezone || "Asia/Kolkata";
 
+  // ── Saturday commit gate (NEW, default OFF; mirrors the web punch) ──
+  // On Saturday, punch-out is blocked until next week is committed + this week's
+  // progress filled. FAIL-OPEN; honors SAT_COMMIT_GATE_ON (default off ⇒ no-op).
+  if (body.kind === "out" && satCommitGateOn() && isSaturdayIST()) {
+    const committed = await weekCommitSatisfied(me.id, currentWeekStart()).catch(() => true);
+    if (!committed) {
+      return NextResponse.json(
+        { ok: false, error: "Commit next week's goals and fill this week's progress before you clock out.", needsCommit: true },
+        { status: 409, headers: MOBILE_CORS },
+      );
+    }
+  }
+
   // ── DCC punch-out block (fail-open; honors DCC_GATE_OFF) ──
-  if (body.kind === "out" && process.env.DCC_GATE_OFF !== "true") {
+  // With the Sat commit gate live, DCC is enforced Mon–Fri only (Sat's ritual is
+  // the commit above). Default (Sat gate off) ⇒ unchanged: DCC blocks every day.
+  const dccBlockDay = satCommitGateOn() ? isWeekdayIST() : true;
+  if (body.kind === "out" && dccBlockDay && process.env.DCC_GATE_OFF !== "true") {
     const today = localDateString(tz);
     const dccDone = await isDccFilledFor(me.id, today).catch(() => true);
     if (!dccDone) {
@@ -113,6 +133,23 @@ export async function POST(req: Request) {
       if (!planned || !actuals) {
         return NextResponse.json(
           { ok: false, error: "Plan your day (5 commitments + goal progress) before you clock in.", needsPlan: true },
+          { status: 409, headers: MOBILE_CORS },
+        );
+      }
+    }
+  }
+
+  // ── Monday manager-approval gate (NEW, default OFF; mirrors the web punch) ──
+  // On Monday a manager can't clock IN until they've approved their downline's
+  // last-week progress + this-week goals. FAIL-OPEN; honors MON_APPROVE_GATE_ON
+  // (default off ⇒ no-op); super-admins + non-managers exempt.
+  if (body.kind === "in" && monApproveGateOn() && !isSuperAdmin(me.email) && isMondayIST()) {
+    const isMgr = await isManagerWithReports(me.id).catch(() => false);
+    if (isMgr) {
+      const approved = await managerApproveSatisfied(me.id, currentWeekStart()).catch(() => true);
+      if (!approved) {
+        return NextResponse.json(
+          { ok: false, error: "Approve your team's last-week progress and this-week goals before you clock in.", needsApprove: true },
           { status: 409, headers: MOBILE_CORS },
         );
       }

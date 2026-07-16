@@ -41,6 +41,8 @@ function profileV2Defaults() {
     // Salary module (migration 0062).
     designationId: null as string | null,
     payingEntityId: null as string | null,
+    // Monthly Events Master (migration 0130).
+    religion: null as "hindu" | "christian" | "muslim" | "other" | "unspecified" | null,
   };
 }
 

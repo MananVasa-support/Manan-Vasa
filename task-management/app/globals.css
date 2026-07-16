@@ -42,6 +42,11 @@
   --color-teal:    #14b8a6;  --color-teal-deep:   #0f766e;  --color-teal-bg:   #f0fdfa;
   --color-indigo:  #6366f1;  --color-indigo-deep: #4338ca;  --color-indigo-bg: #eef2ff;
 
+  /* Goals module identity accent (amber-gold) — single source for the Goals
+     surfaces; components reference var(--goals-accent[-deep], <fallback>). */
+  --goals-accent:      #b45309;
+  --goals-accent-deep: #7c2d12;
+
   /* main-nav pills */
   --color-nav-pill-bg:        rgba(255, 255, 255, 0.06);
   --color-nav-pill-bg-hover:  rgba(255, 255, 255, 0.10);
@@ -2170,6 +2175,68 @@ select.nt-input {
 .nav-scroll::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--color-ink-subtle) 32%, transparent);
   border-radius: 9999px;
+}
+
+/* ── Collapsible module LEFT-RAIL (components/layout/dashboard-sidebar.tsx) ──
+   The rail stays vertical; when SidebarRail sets data-collapsed="true" it shrinks
+   to a 74px icon strip. Everything marked .sidebar-collapsible-hide disappears,
+   the nav pills + brand blocks reduce to centered icons, and content reclaims the
+   freed width. Toggle state persists in the `sidebar_collapsed` cookie. */
+.sidebar-rail {
+  transition: width 180ms ease;
+}
+.sidebar-rail[data-collapsed="true"] .sidebar-collapsible-hide {
+  display: none !important;
+}
+/* Nav pills → icon only, centered. */
+.sidebar-rail[data-collapsed="true"] .nav-pill {
+  justify-content: center;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.sidebar-rail[data-collapsed="true"] .nav-pill > span:not(.nav-pill-badge) {
+  display: none;
+}
+/* Module wordmark → icon tile only. */
+.sidebar-rail[data-collapsed="true"] .module-wordmark {
+  justify-content: center;
+  gap: 0;
+}
+.sidebar-rail[data-collapsed="true"] .module-wordmark-text {
+  display: none;
+}
+/* Brand / hub / nav / foot → centered + compact padding. */
+.sidebar-rail[data-collapsed="true"] .sidebar-brand {
+  align-items: center;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.sidebar-rail[data-collapsed="true"] .sidebar-logo {
+  justify-content: center;
+}
+.sidebar-rail[data-collapsed="true"] .sidebar-logo img {
+  height: 2.5rem;
+}
+.sidebar-rail[data-collapsed="true"] .sidebar-hub {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.sidebar-rail[data-collapsed="true"] .sidebar-hub-btn {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+.sidebar-rail[data-collapsed="true"] .sidebar-nav {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.sidebar-rail[data-collapsed="true"] .sidebar-foot {
+  justify-content: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-rail {
+    transition: none;
+  }
 }
 .nav-scroll::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--color-altus-red) 55%, transparent);

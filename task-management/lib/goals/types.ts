@@ -1,0 +1,110 @@
+/**
+ * Shared types + period-key math for the Goals Cascade (Y→Q→M→W).
+ *
+ * PURE — no DB, no `server-only` — so both server and client may import it.
+ * Period keys are anchored to the **financial year (Apr–Mar)** to match the org:
+ *   year    → `'2026'`      (FY start year)
+ *   quarter → `'2026-Q1'`   (Q1 = Apr–Jun, Q2 = Jul–Sep, Q3 = Oct–Dec, Q4 = Jan–Mar)
+ *   month   → `'2026-07'`   (calendar year-month; belongs to the FY it falls in)
+ * The Week leaf lives on `weekly_goals.week_start` (Monday date) — see fy-calendar.
+ */
+import type { GoalRow } from "@/db/schema";
+import { istYmd } from "@/lib/weekly-goals/week";
+
+export type GoalPeriod = "year" | "quarter" | "month";
+
+/** A cascade goal row (drizzle select shape). numeric(14,2) cols are STRINGs. */
+export type Goal = GoalRow;
+
+/** A goal with its cascaded children resolved into a tree. */
+export type GoalNode = Goal & { children: GoalNode[] };
+
+/** The two rolled-down target numbers carried through the cascade. `null` when
+ *  the parent left the field blank (nothing to divide). */
+export interface CascadeTargets {
+  targetQty: number | null;
+  targetAmount: number | null;
+}
+
+/** Calendar month indices (0=Jan) in FINANCIAL-YEAR order: Apr … Mar. */
+export const FY_MONTH_ORDER = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2] as const;
+
+function ymdOf(input: Date | string): string {
+  return typeof input === "string" ? input : istYmd(input);
+}
+
+/** The financial-year start year for a date. Apr–Dec → that calendar year;
+ *  Jan–Mar → the previous calendar year (still the same FY). */
+export function fyStartYearOf(input: Date | string): number {
+  const ymd = ymdOf(input);
+  const year = Number(ymd.slice(0, 4));
+  const monthIndex = Number(ymd.slice(5, 7)) - 1; // 0..11
+  return monthIndex >= 3 ? year : year - 1;
+}
+
+/** FY quarter number (1..4) for a calendar month index (0=Jan). Q1=Apr–Jun. */
+export function fyQuarterOfMonthIndex(monthIndex: number): 1 | 2 | 3 | 4 {
+  const fyMonth = (monthIndex - 3 + 12) % 12; // 0..11, Apr-first
+  return (Math.floor(fyMonth / 3) + 1) as 1 | 2 | 3 | 4;
+}
+
+/** Year period key: the FY start year as a string, e.g. '2026'. */
+export function yearKey(input: Date | string): string {
+  return String(fyStartYearOf(input));
+}
+
+/** Quarter period key, e.g. '2026-Q1'. */
+export function quarterKey(input: Date | string): string {
+  const ymd = ymdOf(input);
+  const monthIndex = Number(ymd.slice(5, 7)) - 1;
+  return `${fyStartYearOf(ymd)}-Q${fyQuarterOfMonthIndex(monthIndex)}`;
+}
+
+/** Month period key = calendar 'YYYY-MM', e.g. '2026-07'. */
+export function monthKey(input: Date | string): string {
+  return ymdOf(input).slice(0, 7);
+}
+
+/** The four quarter keys of an FY, in order Q1..Q4. */
+export function quartersOfFy(fyStartYear: number): string[] {
+  return [1, 2, 3, 4].map((q) => `${fyStartYear}-Q${q}`);
+}
+
+/** The three month keys ('YYYY-MM') owned by a quarter of an FY, in order. */
+export function monthKeysOfQuarter(fyStartYear: number, quarter: 1 | 2 | 3 | 4): string[] {
+  const slice = FY_MONTH_ORDER.slice((quarter - 1) * 3, quarter * 3);
+  return slice.map((monthIndex) => {
+    // Apr–Dec sit in the FY start year; Jan–Mar roll into the next calendar year.
+    const calYear = monthIndex >= 3 ? fyStartYear : fyStartYear + 1;
+    return `${calYear}-${String(monthIndex + 1).padStart(2, "0")}`;
+  });
+}
+
+/** All twelve month keys of an FY, in FY order (Apr … Mar). */
+export function monthKeysOfFy(fyStartYear: number): string[] {
+  return ([1, 2, 3, 4] as const).flatMap((q) => monthKeysOfQuarter(fyStartYear, q));
+}
+
+/** Parse the FY start year out of a quarter ('2026-Q1') or year ('2026') key. */
+export function fyStartYearOfKey(periodKey: string): number {
+  return Number(periodKey.slice(0, 4));
+}
+
+/** Parse the quarter number (1..4) out of a quarter key ('2026-Q3' → 3). */
+export function quarterOfKey(periodKey: string): 1 | 2 | 3 | 4 {
+  const m = periodKey.match(/-Q([1-4])$/);
+  return (m ? Number(m[1]) : 1) as 1 | 2 | 3 | 4;
+}
+
+/** The FY start year that owns a month key ('2026-07'). */
+export function fyStartYearOfMonthKey(monthKeyStr: string): number {
+  const year = Number(monthKeyStr.slice(0, 4));
+  const monthIndex = Number(monthKeyStr.slice(5, 7)) - 1;
+  return monthIndex >= 3 ? year : year - 1;
+}
+
+/** The quarter key ('YYYY-Qn') that owns a month key ('2026-07'). */
+export function quarterKeyOfMonthKey(monthKeyStr: string): string {
+  const monthIndex = Number(monthKeyStr.slice(5, 7)) - 1;
+  return `${fyStartYearOfMonthKey(monthKeyStr)}-Q${fyQuarterOfMonthIndex(monthIndex)}`;
+}

@@ -5,8 +5,8 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-const GREEN = "var(--color-green)";
-const GREEN_DEEP = "var(--color-green-deep)";
+const GREEN = "var(--color-altus-red)";
+const GREEN_DEEP = "var(--color-altus-red-deep)";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /**

@@ -41,6 +41,12 @@ const EMOJI: Record<NotificationKind, string> = {
   training_test_failed: ":x:",
   dcc_fill_reminder: ":alarm_clock:",
   ambassador_reminder: ":gem:",
+  // Goals Cascade — delivered by their own cron / in-app inbox; present to
+  // satisfy the exhaustive map but not sent via Slack.
+  goals_commit_reminder: ":dart:",
+  goals_approval_reminder: ":memo:",
+  goals_committed: ":lock:",
+  goals_approved: ":white_check_mark:",
 };
 
 const VERB: Record<NotificationKind, (actor: string, statusLabel?: string) => string> = {
@@ -71,6 +77,11 @@ const VERB: Record<NotificationKind, (actor: string, statusLabel?: string) => st
   training_test_failed: () => `Training test not passed`,
   dcc_fill_reminder: () => `Fill today's DCC KPIs`,
   ambassador_reminder: () => `You have an ambassador to follow up`,
+  // Goals Cascade — delivered by their own cron / in-app inbox; not sent via Slack.
+  goals_commit_reminder: () => `Commit your week's goals`,
+  goals_approval_reminder: () => `Approve your team's goals`,
+  goals_committed: () => `Weekly goals committed`,
+  goals_approved: () => `Your weekly goals were approved`,
 };
 
 export interface SlackCtx {

@@ -8,8 +8,8 @@ import { fireToast } from "@/lib/toast";
 import { setSalaryPaid, setSalaryNote } from "@/app/(app)/salary/actions";
 
 /* Employees-module identity — matches the Attendance page. */
-const GREEN = "#16a34a";
-const GREEN_DEEP = "#15803d";
+const GREEN = "#E10600";
+const GREEN_DEEP = "#A80400";
 
 /** Plain serializable projection of a `salary_breakup` row (server maps it). */
 export interface SalaryRow {
@@ -360,7 +360,7 @@ function RemarkCell({ row, editable }: { row: SalaryRow; editable: boolean }) {
       }}
       placeholder="Add a note…"
       aria-label={`Note for ${row.employeeName}`}
-      className="w-full min-w-[190px] rounded-md border border-transparent bg-transparent px-2 py-1 text-[12.5px] text-ink-soft transition-colors placeholder:text-ink-subtle hover:border-hairline focus:border-[color-mix(in_srgb,#16a34a_55%,transparent)] focus:bg-surface-card focus:outline-none disabled:opacity-60"
+      className="w-full min-w-[190px] rounded-md border border-transparent bg-transparent px-2 py-1 text-[12.5px] text-ink-soft transition-colors placeholder:text-ink-subtle hover:border-hairline focus:border-[color-mix(in_srgb,#E10600_55%,transparent)] focus:bg-surface-card focus:outline-none disabled:opacity-60"
     />
   );
 }
@@ -640,12 +640,12 @@ export function SalaryBreakupTable({
               filtered.map((r, i) => (
                 <tr
                   key={r.id}
-                  className="wg-rise group border-b border-hairline last:border-b-0 hover:bg-[color-mix(in_srgb,#16a34a_4%,transparent)]"
+                  className="wg-rise group border-b border-hairline last:border-b-0 hover:bg-[color-mix(in_srgb,#E10600_4%,transparent)]"
                   style={{ animationDelay: `${Math.min(i, 12) * 22}ms` }}
                 >
                   {/* Sticky employee cell */}
                   <td
-                    className="sticky left-0 z-10 px-4 py-2.5 group-hover:bg-[color-mix(in_srgb,#16a34a_4%,var(--color-surface-card))]"
+                    className="sticky left-0 z-10 px-4 py-2.5 group-hover:bg-[color-mix(in_srgb,#E10600_4%,var(--color-surface-card))]"
                     style={{
                       background: "var(--color-surface-card)",
                       boxShadow: "inset -1px 0 0 var(--color-hairline-strong)",
@@ -676,7 +676,7 @@ export function SalaryBreakupTable({
                   {visibleCols.map((c) => (
                     <td
                       key={c.key}
-                      className={`whitespace-nowrap px-3 py-2.5 ${c.key === "company" ? "sticky z-10 group-hover:bg-[color-mix(in_srgb,#16a34a_4%,var(--color-surface-card))]" : ""} ${c.align === "right" ? "text-right" : "text-left"}`}
+                      className={`whitespace-nowrap px-3 py-2.5 ${c.key === "company" ? "sticky z-10 group-hover:bg-[color-mix(in_srgb,#E10600_4%,var(--color-surface-card))]" : ""} ${c.align === "right" ? "text-right" : "text-left"}`}
                       style={{
                         boxShadow:
                           c.key === "company"

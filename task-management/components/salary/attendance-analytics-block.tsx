@@ -16,7 +16,7 @@ import {
 // this-month · last-3-months · fiscal-YTD, plus accountant ex-gratia / deduction
 // remarks. On-brand Altus tokens only.
 
-const GREEN = "var(--color-green-deep)";
+const GREEN = "var(--color-altus-red-deep)";
 const RED = "var(--color-altus-red)";
 
 /* A metric row: label + which direction is "good" (drives the accent). */
@@ -53,7 +53,7 @@ export function AttendanceAnalyticsBlock({ data }: { data: AttendanceAnalytics }
         <div>
           <span
             className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-white"
-            style={{ background: `linear-gradient(135deg, var(--color-green), ${GREEN})` }}
+            style={{ background: `linear-gradient(135deg, var(--color-altus-red), ${GREEN})` }}
           >
             <Clock size={12} strokeWidth={2.6} /> Attendance discipline
           </span>

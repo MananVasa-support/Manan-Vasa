@@ -12,7 +12,7 @@ import type { AttendanceAnalytics } from "@/lib/queries/salary-attendance-analyt
 // stream it in AFTER the (instant) discipline matrix — the metrics never wait on
 // the model. `AttendanceAiInsightsView` is the pure presentational half.
 
-const GREEN = "var(--color-green-deep)";
+const GREEN = "var(--color-altus-red-deep)";
 const RED = "var(--color-altus-red)";
 
 export async function AttendanceAiInsights({ data }: { data: AttendanceAnalytics }) {
@@ -38,7 +38,7 @@ export function AttendanceAiInsightsView({ insights }: { insights: AttendanceIns
       <div className="flex items-center gap-2">
         <span
           className="inline-grid size-7 place-items-center rounded-[10px] text-white"
-          style={{ background: `linear-gradient(135deg, var(--color-green), ${GREEN})` }}
+          style={{ background: `linear-gradient(135deg, var(--color-altus-red), ${GREEN})` }}
           aria-hidden
         >
           <Sparkles size={15} strokeWidth={2.4} />

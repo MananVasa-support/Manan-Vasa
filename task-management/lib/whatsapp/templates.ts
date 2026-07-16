@@ -31,6 +31,13 @@ const NAMES: Record<NotificationKind, string> = {
   training_test_failed: "vp_training_test_failed",
   dcc_fill_reminder: "vp_dcc_fill_reminder",
   ambassador_reminder: "vp_ambassador_reminder",
+  // Goals Cascade — the weekly report media send uses its OWN document template
+  // (WA_GOALS_TEMPLATE, see lib/whatsapp/media.ts); these matrix names are
+  // placeholders to satisfy the exhaustive map (not sent via the text dispatcher).
+  goals_commit_reminder: "vp_goals_commit_reminder",
+  goals_approval_reminder: "vp_goals_approval_reminder",
+  goals_committed: "vp_goals_committed",
+  goals_approved: "vp_goals_approved",
 };
 
 export function templateNameForKind(kind: NotificationKind): string {
@@ -129,6 +136,11 @@ const VARS: Record<NotificationKind, (ctx: TemplateCtx) => Param[]> = {
   training_test_failed: (c) => [t(c.body ?? "")],
   dcc_fill_reminder: (c) => [t(c.body ?? "")],
   ambassador_reminder: (c) => [t(c.body ?? "")],
+  // Goals Cascade — placeholder single-body builders to satisfy the exhaustive map.
+  goals_commit_reminder: (c) => [t(c.body ?? "")],
+  goals_approval_reminder: (c) => [t(c.body ?? "")],
+  goals_committed: (c) => [t(c.body ?? "")],
+  goals_approved: (c) => [t(c.body ?? "")],
 };
 
 /**

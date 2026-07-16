@@ -279,7 +279,7 @@ function SalaryRow({ row, rowIndex }: { row: SalaryRunRow; rowIndex: number }) {
           aria-label={row.disbursed ? "Mark not disbursed" : "Mark disbursed"}
           className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50"
           style={{
-            background: row.disbursed ? "var(--color-green)" : "rgba(15, 23, 42, 0.15)",
+            background: row.disbursed ? "var(--color-altus-red)" : "rgba(15, 23, 42, 0.15)",
           }}
         >
           <span

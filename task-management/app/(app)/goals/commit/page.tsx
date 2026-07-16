@@ -1,0 +1,32 @@
+import { DashboardHeader } from "@/components/layout/header";
+import { DashboardFooter } from "@/components/layout/footer";
+import { requireGoalsAccess } from "@/lib/goals/access";
+import { loadCommitData } from "@/components/goals/commit/data";
+import { CommitWorkspace } from "@/components/goals/commit/commit-workspace";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * Saturday commit surface (Module 2). Two rituals in one page:
+ *  (a) fill THIS week's progress on every current weekly goal, and
+ *  (b) commit + freeze NEXT week's goals (adopt/edit the prepopulated set, add
+ *      extra), stamping `committed_at`.
+ * Managers see + act on their whole downline too. The surface is usable any day
+ * (for prep/testing); the punch-out GATE that depends on it is Saturday-only and
+ * owned by the GATES slice.
+ */
+export default async function GoalsCommitPage() {
+  // Guard IN THE PAGE — the (app) layout gate alone isn't reliable on prod.
+  const { me } = await requireGoalsAccess();
+  const data = await loadCommitData({ id: me.id, isAdmin: me.isAdmin });
+
+  return (
+    <>
+      <DashboardHeader generatedAt={new Date()} />
+      <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
+        <CommitWorkspace data={data} />
+      </main>
+      <DashboardFooter />
+    </>
+  );
+}

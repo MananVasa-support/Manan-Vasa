@@ -26,6 +26,10 @@ import {
   EMPLOYEE_ROLES,
   TASK_PRIORITIES,
   APPROVAL_STATUSES,
+  type ReligionCode,
+  type EventStatus,
+  type EventSource,
+  type HolidayAppliesTo,
 } from "./enums";
 
 export const taskStatusEnum = pgEnum("task_status", TASK_STATUSES);
@@ -175,6 +179,10 @@ export const employees = pgTable("employees", {
   // Pulled forward from Phase C (salary): the leave allowance accrues from this
   // date and nothing accrues before it. Null => no anchor yet (0 paid leaves).
   probationEnd: date("probation_end"),
+  // Monthly Events Master (migration 0130) — drives the personalised holiday
+  // list. Nullable text; one of RELIGIONS ('hindu'|'christian'|'muslim'|
+  // 'other'|'unspecified'). Admin-set in the profile / holidays admin.
+  religion: text("religion").$type<ReligionCode>(),
 });
 
 /**
@@ -1001,6 +1009,14 @@ export const NOTIFICATION_KINDS = [
   // column, no DB change; sent directly by app/api/cron/ambassador-reminders
   // (bypasses the matrix), routed to /ambassadors.
   "ambassador_reminder",
+  // Goals Cascade (migration 0131) — Saturday commit + Monday approval flow.
+  // Text column, no DB change; the commit/approve reminders are sent directly by
+  // app/api/cron/goals (bypasses the matrix); the committed/approved acks are
+  // in-app inbox pings. Routed to /goals.
+  "goals_commit_reminder",
+  "goals_approval_reminder",
+  "goals_committed",
+  "goals_approved",
 ] as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
@@ -2909,6 +2925,29 @@ export const weeklyGoals = pgTable(
     // this goal via "Add to Tasks". One goal ⇄ one task; two-way %/done sync runs
     // through this link (lib/weekly-goals/task-sync.ts). NULL = no task yet.
     taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    // --- Goals Cascade (migration 0131, additive) — Weekly is the leaf layer of
+    // the Y→Q→M→W cascade. `monthGoalId` links a weekly goal up to its parent
+    // monthly `goals` row (null = standalone weekly). The remaining fields mirror
+    // the cascade goal card (area/uom/target+actual qty & amount/team/dependency/
+    // evidence) so the weekly board can show the same shape.
+    monthGoalId: uuid("month_goal_id").references((): AnyPgColumn => goals.id, {
+      onDelete: "set null",
+    }),
+    area: text("area"),
+    uom: text("uom"),
+    targetQty: numeric("target_qty", { precision: 14, scale: 2 }),
+    targetAmount: numeric("target_amount", { precision: 14, scale: 2 }),
+    actualQty: numeric("actual_qty", { precision: 14, scale: 2 }),
+    actualAmount: numeric("actual_amount", { precision: 14, scale: 2 }),
+    teamInvolved: jsonb("team_involved").$type<Array<{ employeeId?: string; name?: string }>>(),
+    teamDependencyPct: integer("team_dependency_pct"),
+    evidenceUrl: text("evidence_url"),
+    // Opt-in per week (cross-out = false drops it from the committed set).
+    adopted: boolean("adopted").notNull().default(true),
+    // Saturday freeze stamp (Module 2 commit gate).
+    committedAt: timestamp("committed_at", { withTimezone: true }),
+    // Monday manager-approval stamp (Module 3 approve gate).
+    approvedByManagerAt: timestamp("approved_by_manager_at", { withTimezone: true }),
     createdById: uuid("created_by_id").references(() => employees.id, {
       onDelete: "set null",
     }),
@@ -2923,6 +2962,7 @@ export const weeklyGoals = pgTable(
     index("weekly_goals_week_idx").on(t.weekStart),
     index("weekly_goals_carried_from_idx").on(t.carriedFromId),
     index("weekly_goals_task_id_idx").on(t.taskId),
+    index("weekly_goals_month_goal_idx").on(t.monthGoalId),
   ],
 );
 
@@ -3001,6 +3041,136 @@ export const weeklyGoalActuals = pgTable(
   ],
 );
 export type WeeklyGoalActual = typeof weeklyGoalActuals.$inferSelect;
+
+/* ================================================================== */
+/* Goals Cascade (migration 0131) — Year→Quarter→Month cascade tree.   */
+/* One self-referential `goals` table (period per node, parent_goal_id  */
+/* tree). The Weekly leaf layer stays on `weekly_goals` (extended above  */
+/* with month_goal_id + cascade fields). Quarter/month keys are anchored */
+/* to the financial year (Apr–Mar); Q1 = Apr–Jun. Numbers are numeric    */
+/* (14,2) → returned as STRINGs by drizzle.                              */
+/* ================================================================== */
+export const goals = pgTable(
+  "goals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    // 'year' | 'quarter' | 'month' (see db/enums.ts GOAL_PERIODS)
+    period: text("period").notNull(),
+    // canonical bucket: year '2026' · quarter '2026-Q1' · month '2026-07'
+    periodKey: text("period_key").notNull(),
+    parentGoalId: uuid("parent_goal_id").references((): AnyPgColumn => goals.id, {
+      onDelete: "set null",
+    }),
+    position: integer("position").notNull().default(1),
+    area: text("area"),
+    title: text("title").notNull(),
+    uom: text("uom"),
+    targetQty: numeric("target_qty", { precision: 14, scale: 2 }),
+    actualQty: numeric("actual_qty", { precision: 14, scale: 2 }),
+    targetAmount: numeric("target_amount", { precision: 14, scale: 2 }),
+    actualAmount: numeric("actual_amount", { precision: 14, scale: 2 }),
+    notes: text("notes"),
+    teamInvolved: jsonb("team_involved").$type<Array<{ employeeId?: string; name?: string }>>(),
+    teamDependencyPct: integer("team_dependency_pct"),
+    // owner self-rating 0..100
+    pctDone: integer("pct_done").notNull().default(0),
+    // reviewer rating; null → effective % falls back to pct_done
+    acceptPct: integer("accept_pct"),
+    reviewNotes: text("review_notes"),
+    evidenceUrl: text("evidence_url"),
+    weight: integer("weight").notNull().default(100),
+    // Reuses the app-wide Task status enum (same default as weekly_goals).
+    status: taskStatusEnum("status").notNull().default("not_started"),
+    // opt-in per period; false = crossed-out (cascade-drops descendants).
+    adopted: boolean("adopted").notNull().default(true),
+    // 'manual' | 'cascade' (cascade = auto-generated from parent by ÷)
+    source: text("source").notNull().default("manual"),
+    // carry-over footprint / audit link to the origin row.
+    clonedFromId: uuid("cloned_from_id").references((): AnyPgColumn => goals.id, {
+      onDelete: "set null",
+    }),
+    reviewedById: uuid("reviewed_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    updatedById: uuid("updated_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    archived: boolean("archived").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("goals_emp_period_key_idx").on(t.employeeId, t.period, t.periodKey),
+    index("goals_parent_idx").on(t.parentGoalId),
+    index("goals_period_key_idx").on(t.periodKey),
+    index("goals_cloned_from_idx").on(t.clonedFromId),
+  ],
+);
+export type GoalRow = typeof goals.$inferSelect;
+export type NewGoalRow = typeof goals.$inferInsert;
+
+// Goal reviews (migration 0131) — append-only audit of dual-rating events at any
+// level. Primary state stays on the goal / weekly_goal rows; this is a
+// lightweight trail (self vs manager %, note, evidence) for history.
+export const goalReviews = pgTable(
+  "goal_reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    goalId: uuid("goal_id").references(() => goals.id, { onDelete: "cascade" }),
+    weeklyGoalId: uuid("weekly_goal_id").references(() => weeklyGoals.id, {
+      onDelete: "cascade",
+    }),
+    period: text("period"),
+    selfPct: integer("self_pct"),
+    managerPct: integer("manager_pct"),
+    reviewerId: uuid("reviewer_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    note: text("note"),
+    evidenceUrl: text("evidence_url"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("goal_reviews_goal_idx").on(t.goalId),
+    index("goal_reviews_weekly_goal_idx").on(t.weeklyGoalId),
+  ],
+);
+export type GoalReview = typeof goalReviews.$inferSelect;
+export type NewGoalReview = typeof goalReviews.$inferInsert;
+
+// WhatsApp media log (migration 0131) — dedupe + audit for the goals-report
+// document/image sends (Meta Cloud media API). Unique (context, ref_key) prevents
+// a double-send for the same person+week.
+export const whatsappMediaLog = pgTable(
+  "whatsapp_media_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recipientPhone: text("recipient_phone").notNull(),
+    // 'document' | 'image'
+    mediaKind: text("media_kind").notNull(),
+    templateName: text("template_name"),
+    // e.g. 'goals_weekly'
+    context: text("context").notNull(),
+    // person+week idempotency key
+    refKey: text("ref_key").notNull(),
+    metaMessageId: text("meta_message_id"),
+    status: text("status"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("whatsapp_media_log_context_ref_uq").on(t.context, t.refKey),
+  ],
+);
+export type WhatsappMediaLog = typeof whatsappMediaLog.$inferSelect;
+export type NewWhatsappMediaLog = typeof whatsappMediaLog.$inferInsert;
 
 // Index hub (migration 0067) — the Altus Corp Ecosystem Index brought into the
 // app as an admin-editable tab. `index_sections` are titled groups; each holds
@@ -4306,3 +4476,186 @@ export const onboardingSubmissions = pgTable(
   (t) => [uniqueIndex("onb_employee_uidx").on(t.employeeId)],
 );
 export type OnboardingSubmission = typeof onboardingSubmissions.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Monthly Events Master (migration 0130). NEW tables only — load-neutral.
+// Columns are `text` where the house norm keeps unions in db/enums.ts (status,
+// source, applies_to). Money-free module. Every table carries the standard
+// created/updated audit stamps + created_by_id/updated_by_id → employees.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** User-defined category masters (the colour legend). */
+export const eventCategories = pgTable("event_categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull().unique(),
+  color: text("color").notNull(),
+  sortOrder: integer("sort_order").notNull().default(100),
+  isActive: boolean("is_active").notNull().default(true),
+  createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+  updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type EventCategoryRow = typeof eventCategories.$inferSelect;
+
+/** Master list of batch/section types that auto-block the calendar. */
+export const eventBatchTypes = pgTable("event_batch_types", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull().unique(),
+  defaultCategoryId: uuid("default_category_id").references(() => eventCategories.id, {
+    onDelete: "set null",
+  }),
+  sortOrder: integer("sort_order").notNull().default(100),
+  isActive: boolean("is_active").notNull().default(true),
+  createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+  updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type EventBatchTypeRow = typeof eventBatchTypes.$inferSelect;
+
+/** A scheduled batch/section instance → generates locked calendar events. */
+export const eventBatchSchedules = pgTable(
+  "event_batch_schedules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    batchTypeId: uuid("batch_type_id")
+      .notNull()
+      .references(() => eventBatchTypes.id, { onDelete: "cascade" }),
+    name: text("name"),
+    startDate: date("start_date").notNull(),
+    endDate: date("end_date").notNull(),
+    startMin: integer("start_min"),
+    endMin: integer("end_min"),
+    // 0=Mon … 6=Sun; empty/null = every day in the range.
+    daysOfWeek: integer("days_of_week").array(),
+    categoryId: uuid("category_id").references(() => eventCategories.id, { onDelete: "set null" }),
+    status: text("status").notNull().default("confirmed").$type<EventStatus>(),
+    location: text("location"),
+    notes: text("notes"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("event_batch_schedules_type_idx").on(t.batchTypeId),
+    index("event_batch_schedules_range_idx").on(t.startDate, t.endDate),
+  ],
+);
+export type EventBatchScheduleRow = typeof eventBatchSchedules.$inferSelect;
+
+/** Recurring monthly obligations ("compulsory sessions"). Declared before
+ *  calendarEvents because calendar_events.obligation_id references it. */
+export const obligations = pgTable("obligations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  counterparty: text("counterparty"),
+  cadence: text("cadence").notNull().default("monthly"),
+  targetCount: integer("target_count").notNull().default(1),
+  isCompulsory: boolean("is_compulsory").notNull().default(true),
+  penaltyNote: text("penalty_note"),
+  categoryId: uuid("category_id").references(() => eventCategories.id, { onDelete: "set null" }),
+  isActive: boolean("is_active").notNull().default(true),
+  createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+  updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type ObligationRow = typeof obligations.$inferSelect;
+
+/** Company holiday master for the Monthly Events Master module, per financial
+ *  year. day_of_week is derived at render time (date-fns), never stored.
+ *
+ *  NOTE: the physical table is `event_holidays` (and the Drizzle export is
+ *  `eventHolidays`) — the plain `holidays` name is already taken by the
+ *  Attendance Phase B table (migration 0059) with a completely different shape.
+ *  The module's public row type is still exported as `Holiday` from
+ *  `lib/monthly-events/types.ts`, so slices reference the contract type, not this
+ *  name. Any slice that touches the schema table directly must import
+ *  `eventHolidays`. */
+export const eventHolidays = pgTable(
+  "event_holidays",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    fyStartYear: integer("fy_start_year").notNull(),
+    holidayDate: date("holiday_date").notNull(),
+    appliesTo: text("applies_to").notNull().default("all").$type<HolidayAppliesTo>(),
+    isOptional: boolean("is_optional").notNull().default(false),
+    isOfficeClosed: boolean("is_office_closed").notNull().default(true),
+    isFestivalMarker: boolean("is_festival_marker").notNull().default(false),
+    isExamMarker: boolean("is_exam_marker").notNull().default(false),
+    notes: text("notes"),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("event_holidays_name_fy_date_uidx").on(t.name, t.fyStartYear, t.holidayDate),
+    index("event_holidays_fy_idx").on(t.fyStartYear, t.holidayDate),
+  ],
+);
+export type EventHolidayRow = typeof eventHolidays.$inferSelect;
+
+/** The core event rows (free-text label + colour + slot). */
+export const calendarEvents = pgTable(
+  "calendar_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    categoryId: uuid("category_id").references(() => eventCategories.id, { onDelete: "set null" }),
+    colorOverride: text("color_override"),
+    eventDate: date("event_date").notNull(),
+    startMin: integer("start_min"),
+    endMin: integer("end_min"),
+    allDay: boolean("all_day").notNull().default(false),
+    status: text("status").notNull().default("confirmed").$type<EventStatus>(),
+    location: text("location"),
+    notes: text("notes"),
+    source: text("source").notNull().default("manual").$type<EventSource>(),
+    sourceRefId: uuid("source_ref_id"),
+    isLocked: boolean("is_locked").notNull().default(false),
+    obligationId: uuid("obligation_id").references(() => obligations.id, { onDelete: "set null" }),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("calendar_events_date_idx").on(t.eventDate),
+    index("calendar_events_source_idx").on(t.source, t.sourceRefId),
+    index("calendar_events_obligation_idx").on(t.obligationId),
+  ],
+);
+export type CalendarEventRow = typeof calendarEvents.$inferSelect;
+
+/** Per-month completion count for an obligation (manual override; the auto-count
+ *  comes from calendar_events.obligation_id). */
+export const obligationCompletions = pgTable(
+  "obligation_completions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    obligationId: uuid("obligation_id")
+      .notNull()
+      .references(() => obligations.id, { onDelete: "cascade" }),
+    fyStartYear: integer("fy_start_year").notNull(),
+    periodMonth: integer("period_month").notNull(),
+    completedCount: integer("completed_count").notNull().default(0),
+    note: text("note"),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("obligation_completions_uidx").on(
+      t.obligationId,
+      t.fyStartYear,
+      t.periodMonth,
+    ),
+  ],
+);
+export type ObligationCompletionRow = typeof obligationCompletions.$inferSelect;

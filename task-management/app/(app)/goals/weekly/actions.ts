@@ -1,0 +1,391 @@
+"use server";
+
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { weeklyGoals, goals } from "@/db/schema";
+import { requireGoalsAccess } from "@/lib/goals/access";
+import { rateLimitOrError } from "@/lib/rate-limit";
+import { goalScopeFor } from "@/lib/weekly-goals/hierarchy";
+import { effectivePct } from "@/lib/weekly-goals/effective";
+import { mondayOf, nextWeekStart } from "@/lib/weekly-goals/week";
+
+/**
+ * Server actions for the Goals-workspace Weekly board (`/goals/weekly`).
+ *
+ * This surface REUSES the existing weekly engine (the `weekly_goals` table + its
+ * helpers) — it never edits `app/(app)/weekly-goals/*`. It only mutates the
+ * Goals-Cascade additive columns (month linkage / area / uom / targets & actuals
+ * / team / dependency / evidence / adopted) plus a cascade-aware carry-forward.
+ * Every write re-asserts access (`requireGoalsAccess`), rate-limits, zod-parses,
+ * and revalidates both this surface and the legacy board so they stay in sync.
+ */
+
+type ActionResult<T = undefined> =
+  | (T extends undefined ? { ok: true } : { ok: true } & T)
+  | { ok: false; error: string };
+
+function revalidate() {
+  revalidatePath("/goals/weekly");
+  revalidatePath("/weekly-goals");
+}
+
+/** numeric(14,2) columns round-trip as strings; serialise at the boundary. */
+function toMoney(n: number | null | undefined): string | null {
+  if (n == null || !Number.isFinite(n)) return null;
+  return n.toFixed(2);
+}
+
+type WeeklyRow = typeof weeklyGoals.$inferSelect;
+type LoadResult = { ok: false; error: string } | { ok: true; row: WeeklyRow };
+
+/**
+ * Fetch a weekly goal + decide whether the signed-in user may WRITE it. Owners
+ * (the goal's employee), admins/super-admins, and managers (any goal owned by
+ * someone in their full downline) may edit. Mirrors the weekly engine's
+ * `loadWritableGoal` — replicated here so we never import a private action.
+ */
+async function loadWritableWeekly(
+  id: string,
+  me: { id: string; isAdmin: boolean },
+): Promise<LoadResult> {
+  const [row] = await db.select().from(weeklyGoals).where(eq(weeklyGoals.id, id)).limit(1);
+  if (!row) return { ok: false, error: "Goal not found" };
+  if (me.isAdmin || row.employeeId === me.id) return { ok: true, row };
+  const scope = await goalScopeFor(me);
+  if (scope.ids.includes(row.employeeId)) return { ok: true, row };
+  return { ok: false, error: "You can only edit your own weekly goals" };
+}
+
+/** Next Sr. No. for an (employee, week) — max(position)+1, 1-based. */
+async function nextPosition(employeeId: string, weekStart: string): Promise<number> {
+  const [row] = await db
+    .select({ max: sql<number>`coalesce(max(${weeklyGoals.position}), 0)::int` })
+    .from(weeklyGoals)
+    .where(and(eq(weeklyGoals.employeeId, employeeId), eq(weeklyGoals.weekStart, weekStart)));
+  return (row?.max ?? 0) + 1;
+}
+
+// --------------------------------------------------------------------------
+// Adopt / cross-out a weekly leaf goal
+// --------------------------------------------------------------------------
+
+const SetAdoptedSchema = z.object({ id: z.string().uuid(), adopted: z.boolean() });
+
+/**
+ * Cross out (drop) or re-adopt a weekly goal from the committed set. The weekly
+ * row is the cascade LEAF, so this only flips its own `adopted` flag (no further
+ * descendants to mirror). Row is preserved for history.
+ */
+export async function setWeeklyAdopted(
+  input: z.infer<typeof SetAdoptedSchema>,
+): Promise<ActionResult> {
+  const { me } = await requireGoalsAccess();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = SetAdoptedSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const loaded = await loadWritableWeekly(parsed.data.id, me);
+  if (!loaded.ok) return loaded;
+  try {
+    await db
+      .update(weeklyGoals)
+      .set({ adopted: parsed.data.adopted, updatedById: me.id, updatedAt: new Date() })
+      .where(eq(weeklyGoals.id, parsed.data.id));
+    revalidate();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+// --------------------------------------------------------------------------
+// Edit the cascade fields (area / uom / targets & actuals / dependency / evidence / parent)
+// --------------------------------------------------------------------------
+
+const numOrNull = z.number().finite().nullable().optional();
+
+const UpdateFieldsSchema = z.object({
+  id: z.string().uuid(),
+  area: z.string().max(200).nullable().optional(),
+  uom: z.string().max(60).nullable().optional(),
+  targetQty: numOrNull,
+  targetAmount: numOrNull,
+  actualQty: numOrNull,
+  actualAmount: numOrNull,
+  teamDependencyPct: z.number().int().min(0).max(100).nullable().optional(),
+  evidenceUrl: z.string().url().max(2048).nullable().optional().or(z.literal("")),
+  monthGoalId: z.string().uuid().nullable().optional(),
+});
+
+/**
+ * Patch the additive cascade columns on a weekly goal. Only the keys present in
+ * the payload are written (partial update). `monthGoalId` (parent monthly link)
+ * is validated to belong to the SAME employee so a goal can't be re-parented to
+ * someone else's cascade.
+ */
+export async function updateWeeklyCascadeFields(
+  input: z.infer<typeof UpdateFieldsSchema>,
+): Promise<ActionResult> {
+  const { me } = await requireGoalsAccess();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = UpdateFieldsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const loaded = await loadWritableWeekly(parsed.data.id, me);
+  if (!loaded.ok) return loaded;
+  const d = parsed.data;
+
+  // Validate the parent monthly goal links to the same person (or is being cleared).
+  if (d.monthGoalId != null) {
+    const [parent] = await db
+      .select({ employeeId: goals.employeeId, period: goals.period })
+      .from(goals)
+      .where(eq(goals.id, d.monthGoalId))
+      .limit(1);
+    if (!parent) return { ok: false, error: "Parent goal not found" };
+    if (parent.employeeId !== loaded.row.employeeId)
+      return { ok: false, error: "Parent goal belongs to another person" };
+    if (parent.period !== "month")
+      return { ok: false, error: "A weekly goal can only link to a monthly goal" };
+  }
+
+  const set: Partial<typeof weeklyGoals.$inferInsert> = {
+    updatedById: me.id,
+    updatedAt: new Date(),
+  };
+  if ("area" in d) set.area = d.area ?? null;
+  if ("uom" in d) set.uom = d.uom ?? null;
+  if ("targetQty" in d) set.targetQty = toMoney(d.targetQty ?? null);
+  if ("targetAmount" in d) set.targetAmount = toMoney(d.targetAmount ?? null);
+  if ("actualQty" in d) set.actualQty = toMoney(d.actualQty ?? null);
+  if ("actualAmount" in d) set.actualAmount = toMoney(d.actualAmount ?? null);
+  if ("teamDependencyPct" in d) set.teamDependencyPct = d.teamDependencyPct ?? null;
+  if ("evidenceUrl" in d) set.evidenceUrl = d.evidenceUrl ? d.evidenceUrl : null;
+  if ("monthGoalId" in d) set.monthGoalId = d.monthGoalId ?? null;
+
+  try {
+    await db.update(weeklyGoals).set(set).where(eq(weeklyGoals.id, d.id));
+    revalidate();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+// --------------------------------------------------------------------------
+// Team Involved (jsonb) — stores employee ids; UI resolves live against ACTIVE
+// employees (departed auto-drop) but we PRESERVE the stored id for history.
+// --------------------------------------------------------------------------
+
+const TeamMemberSchema = z.object({
+  employeeId: z.string().uuid().optional(),
+  name: z.string().max(120).optional(),
+});
+const SetTeamSchema = z.object({
+  id: z.string().uuid(),
+  members: z.array(TeamMemberSchema).max(30),
+});
+
+/** Replace the `team_involved` set on a weekly goal (add/remove members). */
+export async function setWeeklyTeamInvolved(
+  input: z.infer<typeof SetTeamSchema>,
+): Promise<ActionResult> {
+  const { me } = await requireGoalsAccess();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = SetTeamSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const loaded = await loadWritableWeekly(parsed.data.id, me);
+  if (!loaded.ok) return loaded;
+  try {
+    await db
+      .update(weeklyGoals)
+      .set({ teamInvolved: parsed.data.members, updatedById: me.id, updatedAt: new Date() })
+      .where(eq(weeklyGoals.id, parsed.data.id));
+    revalidate();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+// --------------------------------------------------------------------------
+// Carry a weekly goal forward (clone) into a chosen target week
+// --------------------------------------------------------------------------
+
+const CloneForwardSchema = z.object({
+  id: z.string().uuid(),
+  toWeekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  retainProgress: z.boolean().optional(),
+});
+
+/**
+ * Clone a weekly goal forward into `toWeekStart` (e.g. W1→W2/W4, W3→W2/W1). The
+ * origin stays put (footprint preserved via `carriedFromId`); progress resets to
+ * 0% unless `retainProgress`. The commit/approval stamps are always cleared on
+ * the clone (a fresh week needs a fresh commit). Copies the cascade fields.
+ */
+export async function cloneWeeklyForward(
+  input: z.infer<typeof CloneForwardSchema>,
+): Promise<ActionResult<{ id: string }>> {
+  const { me } = await requireGoalsAccess();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = CloneForwardSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const loaded = await loadWritableWeekly(parsed.data.id, me);
+  if (!loaded.ok) return loaded;
+  const src = loaded.row;
+  const toWeek = mondayOf(parsed.data.toWeekStart);
+  const retain = parsed.data.retainProgress === true;
+
+  try {
+    const id = await cloneRow(src, toWeek, retain, me.id);
+    revalidate();
+    return { ok: true, id };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+/** Insert a forward-clone of a weekly goal row into `toWeek`; returns new id. */
+async function cloneRow(
+  src: WeeklyRow,
+  toWeek: string,
+  retain: boolean,
+  actorId: string,
+): Promise<string> {
+  const position = await nextPosition(src.employeeId, toWeek);
+  const [row] = await db
+    .insert(weeklyGoals)
+    .values({
+      employeeId: src.employeeId,
+      weekStart: toWeek,
+      position,
+      client: src.client,
+      subject: src.subject,
+      priority: src.priority,
+      incentive: src.incentive,
+      kpi: src.kpi,
+      targetDone: src.targetDone,
+      explanation: src.explanation,
+      linkUrl: src.linkUrl,
+      weight: src.weight,
+      notes: src.notes,
+      // --- cascade fields carried forward ---
+      monthGoalId: src.monthGoalId,
+      area: src.area,
+      uom: src.uom,
+      targetQty: src.targetQty,
+      targetAmount: src.targetAmount,
+      actualQty: retain ? src.actualQty : null,
+      actualAmount: retain ? src.actualAmount : null,
+      teamInvolved: src.teamInvolved,
+      teamDependencyPct: src.teamDependencyPct,
+      evidenceUrl: retain ? src.evidenceUrl : null,
+      adopted: true,
+      // A carried row starts uncommitted / unapproved for the new week.
+      committedAt: null,
+      approvedByManagerAt: null,
+      pctDone: retain ? src.pctDone : 0,
+      carriedFromId: src.id,
+      createdById: actorId,
+      updatedById: actorId,
+    })
+    .returning({ id: weeklyGoals.id });
+  return row!.id;
+}
+
+// --------------------------------------------------------------------------
+// Carry ALL unfinished forward (the manual "auto-forward" opt-in trigger)
+// --------------------------------------------------------------------------
+
+const CarryAllSchema = z.object({
+  employeeId: z.string().uuid(),
+  weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  toWeekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  retainProgress: z.boolean().optional(),
+});
+
+/**
+ * Clone every UNFINISHED (effective % < 100), adopted, non-archived weekly goal
+ * from (employee, weekStart) into the target week (defaults to the next week).
+ * The opt-in "move week n → n+1 automatically" ritual, run on demand. Skips
+ * goals already carried into the target week (same `carriedFromId`) so re-runs
+ * are idempotent. Returns how many were carried.
+ */
+export async function carryAllUnfinishedForward(
+  input: z.infer<typeof CarryAllSchema>,
+): Promise<ActionResult<{ carried: number }>> {
+  const { me, isAdmin } = await requireGoalsAccess();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = CarryAllSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  const { employeeId, weekStart } = parsed.data;
+
+  // Permission: admin, self, or a manager of the target person.
+  if (!isAdmin && employeeId !== me.id) {
+    const scope = await goalScopeFor(me);
+    if (!scope.ids.includes(employeeId))
+      return { ok: false, error: "You can only carry your own or your team's goals" };
+  }
+
+  const toWeek = parsed.data.toWeekStart
+    ? mondayOf(parsed.data.toWeekStart)
+    : nextWeekStart(mondayOf(weekStart));
+  const retain = parsed.data.retainProgress === true;
+
+  try {
+    const rows = await db
+      .select()
+      .from(weeklyGoals)
+      .where(
+        and(
+          eq(weeklyGoals.employeeId, employeeId),
+          eq(weeklyGoals.weekStart, mondayOf(weekStart)),
+          eq(weeklyGoals.archived, false),
+          eq(weeklyGoals.adopted, true),
+        ),
+      )
+      .orderBy(asc(weeklyGoals.position));
+
+    const unfinished = rows.filter(
+      (r) => effectivePct({ acceptPct: r.acceptPct, pctDone: r.pctDone }) < 100,
+    );
+    if (unfinished.length === 0) return { ok: true, carried: 0 };
+
+    // Idempotency: don't re-carry a source that already has a clone in toWeek.
+    const already = await db
+      .select({ carriedFromId: weeklyGoals.carriedFromId })
+      .from(weeklyGoals)
+      .where(
+        and(
+          eq(weeklyGoals.employeeId, employeeId),
+          eq(weeklyGoals.weekStart, toWeek),
+          inArray(
+            weeklyGoals.carriedFromId,
+            unfinished.map((r) => r.id),
+          ),
+        ),
+      );
+    const carriedIds = new Set(already.map((r) => r.carriedFromId));
+
+    let carried = 0;
+    for (const src of unfinished) {
+      if (carriedIds.has(src.id)) continue;
+      await cloneRow(src, toWeek, retain, me.id);
+      carried++;
+    }
+    revalidate();
+    return { ok: true, carried };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}

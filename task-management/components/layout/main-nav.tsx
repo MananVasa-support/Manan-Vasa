@@ -38,6 +38,8 @@ import {
   Star,
   Medal,
   FolderLock,
+  Palette,
+  PartyPopper,
 } from "lucide-react";
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
@@ -103,9 +105,6 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       },
       { href: "/tasks/kanban" as Route, label: "Kanban", Icon: SquareKanban, adminOnly: true },
       { href: "/projects" as Route, label: "Projects", Icon: FolderKanban },
-      { href: "/weekly-goals" as Route, label: "Weekly Goals", Icon: Target, not: ["/weekly-goals/team"] },
-      { href: "/weekly-goals/team" as Route, label: "Team", Icon: Users },
-      { href: "/daily-checklist" as Route, label: "Daily Checklist", Icon: ListChecks },
     ],
     // No "More" dropdown — Documents already lives in the profile/avatar menu.
     groups: [],
@@ -207,6 +206,42 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       { href: "/accounts/shares-register" as Route, label: "Shares", Icon: CandlestickChart },
       { href: "/accounts/income-tax-master-folder" as Route, label: "IT Folder", Icon: FolderArchive },
       { href: "/accounts/ca-handover" as Route, label: "CA Handover", Icon: ShieldCheck },
+    ],
+    groups: [],
+  },
+  events: {
+    // Monthly Events Master — the calendar is the hero; masters/batches/
+    // holidays/obligations are admin surfaces.
+    top: [
+      { href: "/events" as Route, label: "Overview", Icon: LayoutGrid, exact: true },
+      { href: "/events/calendar" as Route, label: "Calendar", Icon: CalendarDays },
+      { href: "/events/masters" as Route, label: "Masters", Icon: Palette, adminOnly: true },
+      { href: "/events/batches" as Route, label: "Batches", Icon: CalendarClock, adminOnly: true },
+      {
+        href: "/events/holidays" as Route,
+        label: "Holidays",
+        Icon: PartyPopper,
+        adminOnly: true,
+        not: ["/events/holidays/list"],
+      },
+      { href: "/events/obligations" as Route, label: "Obligations", Icon: Gauge, adminOnly: true },
+    ],
+    groups: [],
+  },
+  goals: {
+    // Goals Cascade — the year board is the hero; the re-parented Weekly Goals +
+    // Daily Checklist modules, plan-your-day, review, and the Saturday-commit /
+    // Monday-approve gate surfaces sit beside it. (The old /goals/weekly pill is
+    // dropped — Weekly Goals at /weekly-goals is the canonical weekly board.)
+    top: [
+      { href: "/goals" as Route, label: "Cascade", Icon: Target, exact: true },
+      { href: "/weekly-goals" as Route, label: "Weekly Goals", Icon: Target, not: ["/weekly-goals/team"] },
+      { href: "/weekly-goals/team" as Route, label: "Team", Icon: Users },
+      { href: "/daily-checklist" as Route, label: "Daily Checklist", Icon: ListChecks },
+      { href: "/goals/plan" as Route, label: "Plan Your Day", Icon: CalendarDays },
+      { href: "/goals/review" as Route, label: "Review", Icon: ClipboardList },
+      { href: "/goals/commit" as Route, label: "Commit", Icon: CalendarCheck },
+      { href: "/goals/approve" as Route, label: "Approve", Icon: CalendarRange },
     ],
     groups: [],
   },

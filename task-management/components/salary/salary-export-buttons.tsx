@@ -11,7 +11,7 @@ export function SalaryExportButtons({ month }: { month: string | null }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Btn href={`/salary/export.pdf${q}`} accent="#be123c" Icon={FileText} label="PDF" />
-      <Btn href={`/salary/export.csv${q}`} accent="#15803d" Icon={FileSpreadsheet} label="CSV" />
+      <Btn href={`/salary/export.csv${q}`} accent="#A80400" Icon={FileSpreadsheet} label="CSV" />
       <Btn href={`/salary/export.xlsx${q}`} accent="#1d4ed8" Icon={Sheet} label="Excel" />
     </div>
   );

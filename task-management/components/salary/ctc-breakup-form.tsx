@@ -13,8 +13,8 @@ import {
 } from "@/lib/salary/adjustments";
 import { buildCtcBreakup } from "@/lib/salary/ctc-breakup";
 
-const GREEN = "#16a34a";
-const GREEN_DEEP = "#15803d";
+const GREEN = "#E10600";
+const GREEN_DEEP = "#A80400";
 const RED = "#e10600";
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
@@ -113,7 +113,7 @@ export function CtcBreakupForm({ emp }: { emp: CtcFormEmployee }) {
         <div
           className="rounded-xl px-4 py-2.5 text-[13px] font-semibold"
           style={{
-            background: msg.ok ? "color-mix(in srgb, #16a34a 12%, transparent)" : "color-mix(in srgb, #e10600 12%, transparent)",
+            background: msg.ok ? "color-mix(in srgb, #E10600 12%, transparent)" : "color-mix(in srgb, #e10600 12%, transparent)",
             color: msg.ok ? GREEN_DEEP : RED,
           }}
         >
@@ -179,7 +179,7 @@ export function CtcBreakupForm({ emp }: { emp: CtcFormEmployee }) {
             type="button"
             onClick={() => setComponents([...components, { label: "", annualAmount: 0 }])}
             className="justify-self-start rounded-lg px-3 py-1.5 text-[12px] font-bold"
-            style={{ color: GREEN_DEEP, background: "color-mix(in srgb, #16a34a 10%, transparent)" }}
+            style={{ color: GREEN_DEEP, background: "color-mix(in srgb, #E10600 10%, transparent)" }}
           >
             + Add component
           </button>

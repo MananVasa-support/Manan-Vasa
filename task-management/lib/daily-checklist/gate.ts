@@ -25,6 +25,22 @@ export async function needsDailyChecklistPlan(
 }
 
 /**
+ * Role-based variant for the redesigned Plan-Your-Day (Goals Module 4). The
+ * committed minimum differs by role — 3 for individual contributors, 5 for
+ * managers (design §4) — so the caller passes `minItems`. Counts the SAME
+ * `countPlannedItems` set as the legacy gate + the planner writes (daily_checklist
+ * commits), so the gate and the /goals/plan surface can never drift. Used only
+ * behind `planGateOn()`; the legacy `needsDailyChecklistPlan` is untouched.
+ */
+export async function needsGoalsPlanCommit(
+  employeeId: string,
+  minItems: number,
+  now: Date = new Date(),
+): Promise<boolean> {
+  return (await countPlannedItems(employeeId, todayYmd(now))) < minItems;
+}
+
+/**
  * Daily-plan gate. The day is "planned" once the checklist EXISTS — i.e. the
  * employee has at least one planned item today, whether that's a manager-ASSIGNED
  * task (live from the `tasks` table) or a PERSONAL item (a `daily_checklist` row)

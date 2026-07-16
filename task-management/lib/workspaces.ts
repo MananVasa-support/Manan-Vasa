@@ -18,6 +18,8 @@ export const WORKSPACE_IDS = [
   "marketing",
   "training",
   "accounts",
+  "events",
+  "goals",
 ] as const;
 
 export type WorkspaceId = (typeof WORKSPACE_IDS)[number];
@@ -34,6 +36,8 @@ export const WORKSPACE_LABEL: Record<WorkspaceId, string> = {
   marketing: "Marketing",
   training: "Training",
   accounts: "Accounts",
+  events: "Monthly Events Master",
+  goals: "Goals",
 };
 
 /** Where each card drops you when you enter the workspace. */
@@ -48,6 +52,8 @@ export const WORKSPACE_LANDING: Record<WorkspaceId, string> = {
   marketing: "/index-hub",
   training: "/training",
   accounts: "/accounts",
+  events: "/events",
+  goals: "/goals",
 };
 
 export const ACTIVE_WORKSPACE_COOKIE = "aw";
@@ -98,6 +104,10 @@ export function canAccessWorkspace(
   if (ws === "admin") return user.isAdmin || isAccountsRole;
   // The Accounts room itself — the Accounts department (super-admins passed above).
   if (ws === "accounts") return isAccountsRole;
+  // Monthly Events Master — admins (super-admins passed above). The employee
+  // holiday-list view is a self-guarded page (`requireUser` only), reachable
+  // directly without entering the room.
+  if (ws === "events") return user.isAdmin;
   // Department-gated rooms (Sales).
   const required = WORKSPACE_DEPARTMENT[ws];
   if (!required) return true; // open room
@@ -124,13 +134,16 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
   // "/" is the hub launcher (redirects to /hub) — it belongs to no workspace.
   const p = pathname;
 
+  // Goals — the Y→Q→M→W cascade + commit/approve/plan/review surfaces, plus the
+  // Weekly Goals + Daily Checklist modules (re-parented here from WMS).
+  if (p.startsWith("/goals")) return "goals";
+  if (p.startsWith("/weekly-goals") || p.startsWith("/daily-checklist")) return "goals";
+
   // WMS — the work loop (the dashboard now lives at /dashboard)
   if (
     p.startsWith("/dashboard") ||
     p.startsWith("/tasks") ||
     p.startsWith("/projects") ||
-    p.startsWith("/weekly-goals") ||
-    p.startsWith("/daily-checklist") ||
     p.startsWith("/documents")
   ) {
     return "wms";
@@ -170,6 +183,9 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
 
   // Accounts — admin/super-admin module with its own section nav.
   if (p.startsWith("/accounts")) return "accounts";
+
+  // Monthly Events Master — the calendar/holidays/obligations room.
+  if (p.startsWith("/events")) return "events";
 
   // Shared / unknown — keep the caller's current workspace.
   return null;

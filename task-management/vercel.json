@@ -15,6 +15,9 @@
     { "path": "/api/cron/weekly-goals?job=incomplete", "schedule": "15 4 * * 1" },
     { "path": "/api/cron/attendance-log-sync",         "schedule": "30 21 * * 0" },
     { "path": "/api/cron/pms-quarterly",               "schedule": "0 5 10 1,4,7,10 *" },
-    { "path": "/api/cron/attendance-confirm-reminder", "schedule": "0 4 * * 1" }
+    { "path": "/api/cron/attendance-confirm-reminder", "schedule": "0 4 * * 1" },
+    { "path": "/api/cron/goals?job=commit-reminder",   "schedule": "0 12 * * 6" },
+    { "path": "/api/cron/goals?job=approve-reminder",  "schedule": "30 3 * * 1" },
+    { "path": "/api/cron/attendance-autoout",          "schedule": "0 18 * * *" }
   ]
 }

@@ -20,7 +20,7 @@ import { AttendanceAiInsights } from "@/components/salary/attendance-ai-insights
 
 export const dynamic = "force-dynamic";
 
-const GREEN = "var(--color-green-deep)";
+const GREEN = "var(--color-altus-red-deep)";
 const MONTH_RE = /^\d{4}-\d{2}$/;
 
 interface PageProps {
@@ -65,7 +65,7 @@ export default async function SalaryAnalyticsPage({ searchParams }: PageProps) {
           </Link>
           <span
             className="mt-3 inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-white"
-            style={{ background: `linear-gradient(135deg, var(--color-green), ${GREEN})` }}
+            style={{ background: `linear-gradient(135deg, var(--color-altus-red), ${GREEN})` }}
           >
             <Clock size={13} strokeWidth={2.6} /> {monthLabel(month)} · Attendance analytics
           </span>
@@ -110,7 +110,7 @@ export default async function SalaryAnalyticsPage({ searchParams }: PageProps) {
                   style={
                     active
                       ? {
-                          background: `linear-gradient(135deg, var(--color-green), ${GREEN})`,
+                          background: `linear-gradient(135deg, var(--color-altus-red), ${GREEN})`,
                           color: "#fff",
                         }
                       : {

@@ -12,8 +12,8 @@ import {
 export const dynamic = "force-dynamic";
 
 /* Employees-module identity — matches the Salary page. */
-const GREEN = "#16a34a";
-const GREEN_DEEP = "#15803d";
+const GREEN = "#E10600";
+const GREEN_DEEP = "#A80400";
 
 /** Known paying entities so the signatory mapping is always selectable, even
  *  before any employee is tagged to them. */

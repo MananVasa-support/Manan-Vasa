@@ -5,6 +5,8 @@ import {
   TrendingUp,
   Megaphone,
   GraduationCap,
+  CalendarDays,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
@@ -109,14 +111,41 @@ export const MODULE_THEME: Record<WorkspaceId, ModuleTheme> = {
     accentDeep: "#3730a3",
     image: null,
   },
+  // Monthly Events Master — cyan identity, distinct from the other rooms. Sir's
+  // monthly Event Master planning sheet, rebuilt in the WMS.
+  events: {
+    id: "events",
+    label: "Monthly Events Master",
+    tagline: "The company calendar — batches, holidays & obligations in one grid.",
+    href: "/ws/events" as Route,
+    Icon: CalendarDays,
+    accent: "#0891b2",
+    accentDeep: "#0e7490",
+    image: null,
+  },
+  // Goals — Sir's yearly-goal sheet as a live Y→Q→M→W cascade + the Saturday
+  // commit / Monday approve / Plan-Your-Day daily loop. Deep amber-gold identity,
+  // distinct from WMS red and Employees green.
+  goals: {
+    id: "goals",
+    label: "Goals",
+    tagline: "Yearly → quarterly → monthly → weekly, committed and delivered daily.",
+    href: "/ws/goals" as Route,
+    Icon: Target,
+    accent: "#b45309",
+    accentDeep: "#7c2d12",
+    image: null,
+  },
 };
 
 /** Hub display order. */
 export const MODULE_ORDER: WorkspaceId[] = [
   "wms",
+  "goals",
   "admin",
   "employees",
   "sales",
   "marketing",
   "training",
+  "events",
 ];

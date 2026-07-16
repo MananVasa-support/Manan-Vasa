@@ -420,3 +420,61 @@ export const SEED_PAYMENT_MODES = [
   "PDC",
   "Barter",
 ] as const;
+
+// ── Monthly Events Master (migration 0130) ─────────────────────────────────
+// All DB columns are `text` (house norm — not pgEnums), so these unions are the
+// canonical source of truth for the Monthly Events Master module.
+
+/** Event / batch-schedule confirmation state. Tentative = hatched + dashed +
+ *  "TENT" chip; Confirmed = solid fill (see design §3/§5). */
+export const EVENT_STATUSES = ["tentative", "confirmed"] as const;
+export type EventStatus = (typeof EVENT_STATUSES)[number];
+export const EVENT_STATUS_LABELS: Record<EventStatus, string> = {
+  tentative: "Tentative",
+  confirmed: "Confirmed",
+};
+
+/** Where a calendar_events row came from. Non-`manual` rows are reconciled from
+ *  their source (holiday / batch schedule / obligation) and are usually locked. */
+export const EVENT_SOURCES = ["manual", "holiday", "batch", "obligation"] as const;
+export type EventSource = (typeof EVENT_SOURCES)[number];
+
+/** employees.religion — drives the personalised holiday list (design §7). */
+export const RELIGIONS = ["hindu", "christian", "muslim", "other", "unspecified"] as const;
+export type ReligionCode = (typeof RELIGIONS)[number];
+export const RELIGION_LABELS: Record<ReligionCode, string> = {
+  hindu: "Hindu",
+  christian: "Christian",
+  muslim: "Muslim",
+  other: "Other",
+  unspecified: "Unspecified",
+};
+
+/** holidays.applies_to — audience tag. `all` = everyone; `hindu_only` is dropped
+ *  for non-Hindus; christian/muslim are religion add-ons; custom = manual set. */
+export const HOLIDAY_APPLIES_TO = ["all", "hindu_only", "christian", "muslim", "custom"] as const;
+export type HolidayAppliesTo = (typeof HOLIDAY_APPLIES_TO)[number];
+export const HOLIDAY_APPLIES_TO_LABELS: Record<HolidayAppliesTo, string> = {
+  all: "Everyone",
+  hindu_only: "Hindu only",
+  christian: "Christian add-on",
+  muslim: "Muslim add-on",
+  custom: "Custom",
+};
+
+// ── Goals Cascade (migration 0131) ──────────────────────────────────────────
+// The Y→Q→M cascade tree. DB columns are `text` (house norm), so these unions
+// are the canonical source of truth for `goals.period` and `goals.source`.
+
+/** A cascade goal's level. Week lives on the existing weekly_goals table. */
+export const GOAL_PERIODS = ["year", "quarter", "month"] as const;
+export type GoalPeriodCode = (typeof GOAL_PERIODS)[number];
+export const GOAL_PERIOD_LABELS: Record<GoalPeriodCode, string> = {
+  year: "Yearly",
+  quarter: "Quarterly",
+  month: "Monthly",
+};
+
+/** How a goal came to exist: hand-added vs auto-generated from a parent by ÷. */
+export const GOAL_SOURCES = ["manual", "cascade"] as const;
+export type GoalSource = (typeof GOAL_SOURCES)[number];

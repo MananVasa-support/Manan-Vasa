@@ -24,8 +24,8 @@ interface PageProps {
 }
 
 /* Employees-module identity — matches the Attendance page. */
-const GREEN = "#16a34a";
-const GREEN_DEEP = "#15803d";
+const GREEN = "#E10600";
+const GREEN_DEEP = "#A80400";
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
 

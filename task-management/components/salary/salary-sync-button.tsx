@@ -6,8 +6,8 @@ import { RefreshCw, Loader2 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { refreshSalaryBreakupNow } from "@/app/(app)/salary/sync-actions";
 
-const GREEN = "#16a34a";
-const GREEN_DEEP = "#15803d";
+const GREEN = "#E10600";
+const GREEN_DEEP = "#A80400";
 
 /**
  * Admin "Sync from sheet" — pulls the LIVE "Altus Corp Salary Payment" Google

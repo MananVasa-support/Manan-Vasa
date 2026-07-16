@@ -13,6 +13,7 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { gateSkipActive } from "@/lib/auth/gate-skip";
 import { SkipGateButton } from "@/components/layout/skip-gate-button";
 import { needsDailyChecklistPlan } from "@/lib/daily-checklist/gate";
+import { loginPlanGateOn, loginDccGateOn, managerTaskGateOn, dccReviewGateOn } from "@/lib/goals/flag";
 import { dccGateTarget, dccManagerReviewState } from "@/lib/dcc/gate";
 import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist-view";
 import { ManagerDailyTaskGate } from "@/components/manager-gates/manager-daily-task-gate";
@@ -50,6 +51,8 @@ const HUB_PASTEL: Record<WorkspaceId, { from: string; to: string; ink: string; i
   marketing: { from: "#FFEDD5", to: "#FED7AA", ink: "#C2410C", inkSoft: "#EA580C" }, // orange
   training:  { from: "#F1F5F9", to: "#E2E8F0", ink: "#334155", inkSoft: "#475569" }, // grey
   accounts:  { from: "#DBEAFE", to: "#BFDBFE", ink: "#1D4ED8", inkSoft: "#2563EB" }, // (not shown on hub)
+  events:    { from: "#CFFAFE", to: "#A5F3FC", ink: "#0E7490", inkSoft: "#0891B2" }, // cyan
+  goals:     { from: "#FEF3C7", to: "#FDE68A", ink: "#B45309", inkSoft: "#D97706" }, // amber-gold
 };
 
 function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: number }) {
@@ -90,11 +93,14 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
         >
           <Icon size={24} strokeWidth={2.2} style={{ color: p.ink }} />
         </span>
-        <div className="max-w-[58%]">
+        {/* Art-less cards (WMS/Goals/Events) give the text more width so long
+            labels like "Monthly Events Master" wrap to 2 lines, not 3. */}
+        <div className={m.image ? "max-w-[58%]" : "max-w-[76%]"}>
           <h3 className="text-[30px] font-extrabold leading-none tracking-tight max-md:text-[26px]" style={{ color: p.ink }}>
             {m.label}
           </h3>
-          <p className="mt-2 text-[14.5px] font-medium leading-snug" style={{ color: p.inkSoft }}>
+          {/* Clamp to 2 lines so the tagline can never push the button off-card. */}
+          <p className="mt-2 line-clamp-2 text-[14.5px] font-medium leading-snug" style={{ color: p.inkSoft }}>
             {m.tagline}
           </p>
           {locked ? (
@@ -103,7 +109,7 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
             </span>
           ) : (
             <span className="mt-4 inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[14px] font-bold text-white" style={{ background: p.ink }}>
-              Enter workspace
+              Enter
               <ArrowRight size={15} strokeWidth={2.8} className="transition-transform duration-200 group-hover:translate-x-1" />
             </span>
           )}
@@ -148,12 +154,15 @@ export default async function HubPage() {
   {
     // Keep in LOCK-STEP with app/(app)/layout.tsx. COMPULSORY: plan gate + own-DCC.
     // SKIPPABLE by super-admins: manager (assign) + DCC-review gates.
+    // All four login walls are now OFF by default (Sir) — kept behind kill-switches,
+    // restorable per-gate: LOGIN_PLAN_GATE_ON / LOGIN_DCC_GATE_ON / MANAGER_TASK_GATE_ON
+    // / DCC_REVIEW_GATE_ON. Kept in lock-step with app/(app)/layout.tsx.
     const isManager = await isManagerWithReports(me.id).catch(() => false);
-    if (!isManager) {
+    if (loginPlanGateOn() && !isManager) {
       const mustPlan = await needsDailyChecklistPlan(me.id).catch(() => false);
       if (mustPlan) return <DailyChecklistView employeeId={me.id} greetingName={firstName} mode="gate" />;
     }
-    if (process.env.DCC_GATE_OFF !== "true") {
+    if (loginDccGateOn()) {
       const dccTarget = await dccGateTarget(me.id).catch(() => null);
       if (dccTarget) return <DccGateView greetingName={firstName} date={dccTarget.date} items={dccTarget.items} entries={dccTarget.entries} />;
     }
@@ -161,11 +170,11 @@ export default async function HubPage() {
     const skipDuties = canSkip && (await gateSkipActive(me).catch(() => false));
     const withSkip = (node: ReactNode) => (canSkip ? <>{node}<SkipGateButton /></> : node);
     if (!skipDuties) {
-      if (process.env.MANAGER_GATES_OFF !== "true") {
+      if (managerTaskGateOn()) {
         const dailyGate = await managerDailyTaskGate(me.id).catch(() => null);
         if (dailyGate && !dailyGate.satisfied) return withSkip(<ManagerDailyTaskGate greetingName={firstName} state={dailyGate} />);
       }
-      if (process.env.DCC_GATE_OFF !== "true") {
+      if (dccReviewGateOn()) {
         const dccReview = await dccManagerReviewState(me).catch(() => null);
         if (dccReview && !dccReview.satisfied) return withSkip(<DccManagerReviewGate greetingName={firstName} state={dccReview} />);
       }
@@ -176,21 +185,26 @@ export default async function HubPage() {
 
   return (
     <main
-      className="flex h-[100dvh] w-full flex-col overflow-hidden max-lg:h-auto max-lg:min-h-[100dvh] max-lg:overflow-visible"
+      className="flex min-h-[100dvh] w-full flex-col overflow-visible xl:h-[100dvh] xl:overflow-hidden"
       style={{ background: "linear-gradient(180deg, #f6f7f9 0%, #fbfbfc 38%, #ffffff 100%)" }}
     >
       <div className="mx-auto flex h-full w-full max-w-[1320px] flex-col px-8 py-6 max-md:px-5 max-md:py-5">
-        {/* ONE BAND — logo · welcome hero · Hi + sign-out, all on the same level */}
-        <header className="flex shrink-0 items-center justify-between gap-6 max-md:flex-col max-md:gap-4 max-md:text-center">
-          <Image
-            src="/logo.png"
-            alt="Altus Corp"
-            width={170}
-            height={188}
-            priority
-            className="h-[84px] w-auto shrink-0 max-md:h-[64px]"
-          />
-          <div className="min-w-0 flex-1 text-center">
+        {/* ONE BAND — logo (extreme left) · welcome hero (page-centered) · Hi over
+            Sign out (right). Both side clusters are flex-1 so the centre block is
+            truly centered on the page regardless of their differing widths. */}
+        <header className="flex shrink-0 items-center gap-6 max-md:flex-col max-md:gap-4 max-md:text-center">
+          <div className="flex flex-1 justify-start max-md:justify-center">
+            <Image
+              src="/logo.png"
+              alt="Altus Corp"
+              width={170}
+              height={188}
+              priority
+              className="h-[84px] w-auto shrink-0 max-md:h-[64px]"
+            />
+          </div>
+
+          <div className="shrink-0 text-center">
             <span className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: "var(--color-altus-red)" }}>
               Altus&nbsp;/&nbsp;Workspaces
             </span>
@@ -199,18 +213,23 @@ export default async function HubPage() {
             </h1>
             <p className="mt-1 text-[15px] text-ink-muted">Choose your workspace to get started</p>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
+
+          <div className="flex flex-1 items-center justify-end gap-3 max-md:justify-center">
             <GlobalSearch />
-            <span className="text-[15px] text-ink-soft max-sm:hidden">
-              Hi, <strong className="font-bold text-ink-strong">{firstName}</strong>
-            </span>
-            <HubSignOut />
+            {/* "Hi, Hetesh" stacked directly above a compact Sign out button. */}
+            <div className="flex flex-col items-end gap-1 max-md:items-center">
+              <span className="text-[14px] text-ink-soft">
+                Hi, <strong className="font-bold text-ink-strong">{firstName}</strong>
+              </span>
+              <HubSignOut />
+            </div>
           </div>
         </header>
 
-        {/* Workspace grid — fills the remaining viewport so the page never scrolls */}
+        {/* Workspace grid — 8 modules. On xl the 4×2 grid fills the viewport with
+            no scroll; below xl it flows into fewer columns and the page scrolls. */}
         <section
-          className="mt-5 grid min-h-0 flex-1 grid-cols-3 grid-rows-2 gap-5 max-lg:grid-cols-2 max-lg:grid-rows-none max-sm:grid-cols-1"
+          className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:min-h-0 xl:flex-1 xl:grid-cols-4 xl:grid-rows-2"
           aria-label="Workspaces"
         >
           {MODULE_ORDER.map((id, i) => (

@@ -21,8 +21,8 @@ export interface StatementEmployee {
   name: string;
 }
 
-const GREEN = "#16a34a";
-const GREEN_DEEP = "#15803d";
+const GREEN = "#E10600";
+const GREEN_DEEP = "#A80400";
 
 export function StatementDownloads({
   employees,

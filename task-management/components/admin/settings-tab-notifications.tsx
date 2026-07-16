@@ -35,6 +35,11 @@ const KIND_LABEL: Record<NotificationKind, string> = {
   training_test_failed: "Training: test failed",
   dcc_fill_reminder: "DCC — fill today's KPIs",
   ambassador_reminder: "Ambassadors — follow-up reminder",
+  // Goals Cascade — sent directly / in-app, not via the matrix.
+  goals_commit_reminder:   "Goals — Saturday commit reminder",
+  goals_approval_reminder: "Goals — Monday approval reminder",
+  goals_committed:         "Goals — week committed",
+  goals_approved:          "Goals — week approved",
 };
 
 const CHANNEL_LABEL: Record<NotificationChannel, string> = {

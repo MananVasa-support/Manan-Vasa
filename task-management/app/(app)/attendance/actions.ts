@@ -24,6 +24,10 @@ import { isDccFilledFor } from "@/lib/dcc/gate";
 import { needsDailyPlan } from "@/lib/daily-checklist/gate";
 import { needsGoalActuals, unloggedGoalLabels } from "@/lib/weekly-goals/actuals";
 import { isManagerWithReports, isMondayIST, managerMondayGoalState } from "@/lib/manager-gates";
+import { satCommitGateOn, monApproveGateOn } from "@/lib/goals/flag";
+import { weekCommitSatisfied, managerApproveSatisfied } from "@/lib/goals/gates-predicates";
+import { isSaturdayIST, isWeekdayIST } from "@/lib/goals/gate-day";
+import { currentWeekStart } from "@/lib/weekly-goals/week";
 import {
   notifyOnInPunch,
   notifyOnDayFinalized,
@@ -102,10 +106,26 @@ export async function punchAttendance(input: {
   const tz = me.timezone || "Asia/Kolkata";
   const today = localDateString(tz);
 
+  // ── Saturday commit gate (NEW, default OFF) ──────────────────────────
+  // On Saturday the week-close ritual is COMMIT — freeze next week's goals +
+  // fill this week's progress — so punch-out is blocked until the week is
+  // committed. FAIL-OPEN (a read error never traps punch-out); honors
+  // SAT_COMMIT_GATE_ON (default off ⇒ this whole block is a no-op).
+  if (kind === "out" && satCommitGateOn() && isSaturdayIST()) {
+    const committed = await weekCommitSatisfied(me.id, currentWeekStart()).catch(() => true);
+    if (!committed) {
+      return { ok: false, error: "Commit next week's goals and fill this week's progress before you clock out — open Goals › Commit." };
+    }
+  }
+
   // ── DCC punch-out block ──────────────────────────────────────────────
   // You can't clock OUT for the day until today's DCC is filled. FAIL-OPEN:
   // a check error never traps a punch-out. Honors the DCC_GATE_OFF switch.
-  if (kind === "out" && process.env.DCC_GATE_OFF !== "true") {
+  // When the Saturday commit gate is live, DCC is enforced Mon–Fri only —
+  // Saturday's ritual is the commit above (design §4). With the Sat gate off
+  // (default) this is unchanged: DCC blocks punch-out every day.
+  const dccBlockDay = satCommitGateOn() ? isWeekdayIST() : true;
+  if (kind === "out" && dccBlockDay && process.env.DCC_GATE_OFF !== "true") {
     const dccDone = await isDccFilledFor(me.id, today).catch(() => true);
     if (!dccDone) {
       return { ok: false, error: "Fill today's DCC before you clock out — open the DCC page, then try again." };
@@ -138,6 +158,24 @@ export async function punchAttendance(input: {
           }
         }
         return { ok: false, error };
+      }
+    }
+  }
+
+  // ── Monday manager-approval gate (NEW, default OFF) ──────────────────
+  // On Monday a manager can't clock IN until they've approved their downline's
+  // LAST-week progress + THIS-week committed goals (Goals Module 3). FAIL-OPEN;
+  // honors MON_APPROVE_GATE_ON (default off ⇒ no-op); super-admins + non-managers
+  // exempt (managerApproveSatisfied is vacuously true for someone with no reports).
+  if (kind === "in" && monApproveGateOn() && !isSuperAdmin(me.email) && isMondayIST()) {
+    const isMgr = await isManagerWithReports(me.id).catch(() => false);
+    if (isMgr) {
+      const approved = await managerApproveSatisfied(me.id, currentWeekStart()).catch(() => true);
+      if (!approved) {
+        return {
+          ok: false,
+          error: "Approve your team's last-week progress and this-week goals before you clock in — open Goals › Approve.",
+        };
       }
     }
   }

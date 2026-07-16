@@ -74,7 +74,12 @@ function isAndroidMobileBrowser(userAgent: string): boolean {
   );
 }
 
-export function middleware(request: NextRequest) {
+// Next.js 16: the request-interception convention is `proxy.ts` exporting an
+// async `proxy` (formerly `middleware.ts` / `middleware`). It runs on the
+// Node.js runtime — REQUIRED by next-firebase-auth-edge ≥1.12 on Next 16: the
+// legacy middleware/Edge path hands jose a raw key and throws
+// "Key for the RS256 algorithm must be … Received an instance of Uint8Array".
+export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   if (
     !pathname.startsWith("/api/") &&
@@ -89,7 +94,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  return authMiddleware(request, {
+  // Self-heal a stale/garbage `__session` cookie. A legacy cookie signed with a
+  // DIFFERENT algorithm (e.g. an old RS256-header token from a prior auth scheme)
+  // makes next-firebase-auth-edge's HS256 custom-JWT verifier throw a hard
+  // "RS256 … Received an instance of Uint8Array" — which its own handleError does
+  // NOT catch, 500ing every request in a way the user can't escape (they can't
+  // reach /login to sign out). Wrapping the whole call turns that dead-end into a
+  // clean redirect-to-login that CLEARS the cookie, so the very next request is
+  // cookie-free and the login form renders. Valid HS256 cookies never reach here.
+  try {
+    return await authMiddleware(request, {
     loginPath: "/api/auth/session",
     logoutPath: "/api/auth/signout",
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
@@ -148,7 +162,15 @@ export function middleware(request: NextRequest) {
       url.pathname = "/login";
       return redirectClearingSession(url);
     },
-  });
+    });
+  } catch (err) {
+    // A throw that escaped handleError (e.g. the stale-cookie RS256 crypto crash).
+    // Clear the offending cookie and bounce to /login so the app self-heals.
+    console.error("auth proxy fatal — clearing session cookie", err);
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    return redirectClearingSession(url);
+  }
 }
 
 export const config = {

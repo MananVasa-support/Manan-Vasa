@@ -9,8 +9,8 @@ import { fireToast } from "@/lib/toast";
 import type { IncentivePayoutBoard, IncentivePayoutRow } from "@/lib/queries/incentive-payout";
 import { payIncentivesWithRun } from "@/app/(app)/salary/incentive-payout/actions";
 
-const GREEN = "#16a34a";
-const GREEN_DEEP = "#15803d";
+const GREEN = "#E10600";
+const GREEN_DEEP = "#A80400";
 const AMBER = "#d97706";
 
 /**

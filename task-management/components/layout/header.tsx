@@ -9,13 +9,6 @@ import { NewTaskTrigger } from "@/components/header/new-task-trigger";
 import { GlobalSearch } from "@/components/header/global-search";
 import { getCurrentEmployee } from "@/lib/auth/current";
 import { workspaceForPath, WORKSPACE_LANDING } from "@/lib/workspaces";
-import { MODULE_THEME } from "@/lib/module-theme";
-
-/** "#rrggbb" → "r g b" (the triplet form the nav-pill CSS expects). */
-function hexTriplet(hex: string): string {
-  const h = hex.replace("#", "");
-  return `${parseInt(h.slice(0, 2), 16)} ${parseInt(h.slice(2, 4), 16)} ${parseInt(h.slice(4, 6), 16)}`;
-}
 
 /**
  * Light glassy application header — single row, ~72px tall.
@@ -35,29 +28,20 @@ export async function DashboardHeader({
   const me = await getCurrentEmployee();
   const isAdmin = me?.isAdmin ?? false;
 
-  // MODULE COLOUR (meeting 2026-06-29): tint the whole header — nav pills,
-  // active state, accents — to the CURRENT module's signature colour, so you
-  // always know which module you're in. The pills read `--vp-cyan*`, so
-  // overriding those three vars on the header re-tints everything with zero
-  // CSS-rule churn. WMS keeps the default Altus red (no override).
   const pathname = (await headers()).get("x-pathname") ?? "/";
   const ws = workspaceForPath(pathname);
-  const theme = ws && ws !== "wms" ? MODULE_THEME[ws] : null;
-  const moduleVars = theme
-    ? ({
-        "--vp-cyan": hexTriplet(theme.accent),
-        "--vp-cyan-deep": hexTriplet(theme.accentDeep),
-        "--vp-cyan-tint": `color-mix(in srgb, ${theme.accent} 12%, transparent)`,
-      } as React.CSSProperties)
-    : undefined;
 
-  const ModuleIcon = theme?.Icon;
+  // Sir's "left → right" layout: EVERY module EXCEPT WMS uses a vertical LEFT-RAIL
+  // instead of this top header. The rail is rendered by the (app) LAYOUT as an
+  // in-flow flex sibling of the page (robust — content can't slide under it), so
+  // this per-page header renders NOTHING for those modules. WMS keeps the top
+  // header below.
+  if (ws && ws !== "wms") {
+    return null;
+  }
 
   return (
-    <header
-      className={`sticky top-0 z-50 header-light${theme ? " nav-themed" : ""}`}
-      style={moduleVars}
-    >
+    <header className="sticky top-0 z-50 header-light">
       <div
         className="relative"
         style={{
@@ -96,37 +80,6 @@ export async function DashboardHeader({
             <LayoutGrid size={17} strokeWidth={2.4} />
             <span>Back to Hub</span>
           </a>
-
-          {/* MODULE IDENTITY — a BIG, animated, module-coloured wordmark shown on
-              EVERY page of a non-WMS module, so you always know exactly where you
-              are. Gradient-filled text with a sweeping sheen + entrance pop. */}
-          {theme && ModuleIcon && (
-            <span className="module-wordmark inline-flex shrink-0 items-center gap-2.5 max-md:gap-2" aria-label={theme.label}>
-              <span
-                className="module-wordmark-icon inline-grid place-items-center rounded-2xl text-white max-md:rounded-xl"
-                style={{
-                  background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentDeep})`,
-                  boxShadow: `0 8px 20px -8px ${theme.accentDeep}`,
-                  width: 44,
-                  height: 44,
-                }}
-              >
-                <ModuleIcon size={22} strokeWidth={2.6} aria-hidden />
-              </span>
-              <span
-                className="module-wordmark-text leading-none"
-                style={
-                  {
-                    "--mw-a": theme.accent,
-                    "--mw-b": theme.accentDeep,
-                    fontSize: "clamp(20px, 2vw, 28px)",
-                  } as React.CSSProperties
-                }
-              >
-                {theme.label}
-              </span>
-            </span>
-          )}
 
           {/* CENTER: primary pill nav — visible on every desktop width (and
               under zoom). It stays centred while it fits; when space gets tight

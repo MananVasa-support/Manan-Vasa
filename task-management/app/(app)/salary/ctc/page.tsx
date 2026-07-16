@@ -18,8 +18,8 @@ import { CtcBreakupForm, type CtcFormEmployee } from "@/components/salary/ctc-br
 
 export const dynamic = "force-dynamic";
 
-const GREEN = "#16a34a";
-const GREEN_DEEP = "#15803d";
+const GREEN = "#E10600";
+const GREEN_DEEP = "#A80400";
 const MONTH_RE = /^\d{4}-\d{2}$/;
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 
@@ -234,7 +234,7 @@ export default async function SalaryCtcPage({ searchParams }: PageProps) {
                       className="flex items-center justify-between rounded-lg px-3 py-2 text-[13px]"
                       style={
                         active
-                          ? { background: "color-mix(in srgb, #16a34a 12%, transparent)", color: GREEN_DEEP, fontWeight: 700 }
+                          ? { background: "color-mix(in srgb, #E10600 12%, transparent)", color: GREEN_DEEP, fontWeight: 700 }
                           : { color: "var(--color-ink-soft)" }
                       }
                     >

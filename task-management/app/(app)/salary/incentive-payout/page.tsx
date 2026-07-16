@@ -14,8 +14,8 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-const GREEN = "#16a34a";
-const GREEN_DEEP = "#15803d";
+const GREEN = "#E10600";
+const GREEN_DEEP = "#A80400";
 const MONTH_RE = /^\d{4}-\d{2}$/;
 const inr = (v: number) => `₹${Math.round(v).toLocaleString("en-IN")}`;
 

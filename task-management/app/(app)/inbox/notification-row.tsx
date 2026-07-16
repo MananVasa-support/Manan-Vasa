@@ -63,6 +63,11 @@ const KIND_META: Record<NotificationKind, { icon: LucideIcon; tone: string }> = 
   dcc_fill_reminder: { icon: AlarmClock, tone: "amber" },
   // Ambassadors — partner follow-up / stalled referral nudge.
   ambassador_reminder: { icon: AlarmClock, tone: "amber" },
+  // Goals Cascade — commit / approve reminders + committed / approved acks.
+  goals_commit_reminder: { icon: Target, tone: "amber" },
+  goals_approval_reminder: { icon: AlarmClock, tone: "amber" },
+  goals_committed: { icon: CheckCircle2, tone: "green" },
+  goals_approved: { icon: CheckCircle2, tone: "green" },
 };
 
 // Kinds that deep-link somewhere other than the related task / inbox.
@@ -72,6 +77,10 @@ const KIND_HREF: Partial<Record<string, string>> = {
   weekly_goals_assigned: "/weekly-goals",
   weekly_goals_fill_reminder: "/weekly-goals",
   weekly_goals_incomplete: "/weekly-goals",
+  goals_commit_reminder: "/goals/commit",
+  goals_approval_reminder: "/goals/approve",
+  goals_committed: "/goals/weekly",
+  goals_approved: "/goals/weekly",
 };
 
 /**

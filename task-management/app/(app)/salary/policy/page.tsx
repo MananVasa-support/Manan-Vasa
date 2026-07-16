@@ -108,7 +108,7 @@ export default async function SalaryPolicyPage() {
             {/* Consent status / sign */}
             {myConsent ? (
               <div className="rounded-section border border-hairline bg-surface-card p-6 flex items-center gap-3">
-                <CheckCircle2 size={22} strokeWidth={2.2} style={{ color: "var(--color-green)" }} />
+                <CheckCircle2 size={22} strokeWidth={2.2} style={{ color: "var(--color-altus-red)" }} />
                 <div>
                   <p className="text-[15px] font-bold text-ink-strong">
                     You have acknowledged this policy
@@ -159,7 +159,7 @@ export default async function SalaryPolicyPage() {
                             <td className="px-6 py-3 text-ink-strong font-medium">{r.name}</td>
                             <td className="px-6 py-3 text-center">
                               {r.consented ? (
-                                <span className="font-bold" style={{ color: "var(--color-green)" }}>
+                                <span className="font-bold" style={{ color: "var(--color-altus-red)" }}>
                                   ✓
                                 </span>
                               ) : (
