@@ -80,7 +80,7 @@ export function FormEditorDialog({
   return (
     <Dialog.Root open={open} onOpenChange={(o) => { setOpen(o); if (o) reseed(); }}>
       <Dialog.Trigger asChild>
-        <button className="inline-flex items-center gap-1.5 rounded-full border border-hairline px-3.5 py-2 text-[13.5px] font-bold text-ink-soft hover:text-ink-strong transition-colors">
+        <button className="brand-btn inline-flex items-center gap-1.5 rounded-full border border-hairline px-3.5 py-2 text-[13.5px] font-bold text-ink-soft hover:text-ink-strong transition-colors">
           <Pencil size={14} /> Edit form
         </button>
       </Dialog.Trigger>
@@ -131,13 +131,13 @@ export function FormEditorDialog({
                 <div className="mt-2 flex items-center gap-1.5">
                   <button type="button" onClick={() => move(i, -1)} className="rounded-md p-1.5 text-ink-soft hover:bg-surface-soft"><ArrowUp size={14} /></button>
                   <button type="button" onClick={() => move(i, 1)} className="rounded-md p-1.5 text-ink-soft hover:bg-surface-soft"><ArrowDown size={14} /></button>
-                  <button type="button" onClick={() => remove(i)} className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-[12px] font-bold text-[#A80400] hover:bg-[#FEF2F2]"><Trash2 size={13} /> Remove</button>
+                  <button type="button" onClick={() => remove(i)} className="brand-btn ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-[12px] font-bold text-[#A80400] hover:bg-[#FEF2F2]"><Trash2 size={13} /> Remove</button>
                 </div>
               </div>
             ))}
           </div>
 
-          <button type="button" onClick={add} className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-dashed border-hairline px-4 py-2 text-[13px] font-bold text-ink-soft hover:text-ink-strong">
+          <button type="button" onClick={add} className="brand-btn mt-3 inline-flex items-center gap-1.5 rounded-full border border-dashed border-hairline px-4 py-2 text-[13px] font-bold text-ink-soft hover:text-ink-strong">
             <Plus size={14} /> Add field
           </button>
 
@@ -150,11 +150,11 @@ export function FormEditorDialog({
               {pending ? "Saving…" : "Save form"}
             </button>
             <button type="button" onClick={reset} disabled={pending}
-              className="inline-flex items-center gap-1.5 rounded-md border border-hairline py-2.5 px-4 text-[14px] font-bold text-ink-soft">
+              className="brand-btn inline-flex items-center gap-1.5 rounded-md border border-hairline py-2.5 px-4 text-[14px] font-bold text-ink-soft">
               <RotateCcw size={14} /> Reset to default
             </button>
             <Dialog.Close asChild>
-              <button type="button" className="ml-auto px-4 py-2.5 text-[14px] font-medium text-[#64748B]" disabled={pending}>Cancel</button>
+              <button type="button" className="brand-btn ml-auto px-4 py-2.5 text-[14px] font-medium text-[#64748B]" disabled={pending}>Cancel</button>
             </Dialog.Close>
           </div>
         </Dialog.Content>

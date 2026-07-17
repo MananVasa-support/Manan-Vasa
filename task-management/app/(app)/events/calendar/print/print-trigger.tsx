@@ -11,7 +11,7 @@ export function PrintTrigger() {
     <button
       type="button"
       onClick={() => window.print()}
-      className="inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] font-bold border border-hairline bg-surface-card text-ink-soft hover:border-altus-red hover:text-altus-red transition-all"
+      className="brand-btn inline-flex items-center gap-2 h-10 px-4 rounded-pill text-[14px] font-bold border border-hairline bg-surface-card text-ink-soft hover:border-altus-red hover:text-altus-red transition-all"
     >
       <Printer size={16} strokeWidth={2.3} />
       Print / Save PDF

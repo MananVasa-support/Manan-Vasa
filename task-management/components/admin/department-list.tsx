@@ -65,7 +65,7 @@ function DepartmentRowActions({
       <button
         type="button"
         onClick={onEdit}
-        className="rounded-md px-3 py-1.5 text-[13px] font-semibold text-ink-soft hover:bg-surface-soft hover:text-ink-strong transition-colors"
+        className="brand-btn rounded-md px-3 py-1.5 text-[13px] font-semibold text-ink-soft hover:bg-surface-soft hover:text-ink-strong transition-colors"
       >
         Edit
       </button>
@@ -73,7 +73,7 @@ function DepartmentRowActions({
         type="button"
         disabled={pending}
         onClick={toggleActive}
-        className="rounded-md px-3 py-1.5 text-[13px] font-semibold text-ink-soft hover:bg-surface-soft hover:text-ink-strong transition-colors disabled:opacity-50"
+        className="brand-btn rounded-md px-3 py-1.5 text-[13px] font-semibold text-ink-soft hover:bg-surface-soft hover:text-ink-strong transition-colors disabled:opacity-50"
       >
         {department.isActive ? "Deactivate" : "Reactivate"}
       </button>
@@ -264,7 +264,7 @@ function EditDepartmentDialog({
               <Dialog.Close asChild>
                 <button
                   type="button"
-                  className="px-4 py-2.5 text-[14px] font-medium text-[#64748B]"
+                  className="brand-btn px-4 py-2.5 text-[14px] font-medium text-[#64748B]"
                   disabled={pending}
                 >
                   Cancel

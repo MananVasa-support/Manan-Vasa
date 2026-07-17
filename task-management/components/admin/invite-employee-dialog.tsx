@@ -141,7 +141,7 @@ export function InviteEmployeeDialog({
             {error && <div className="text-[14px] text-[#A80400]">{error}</div>}
             <div className="flex justify-end gap-2 pt-2">
               <Dialog.Close asChild>
-                <button type="button" className="px-4 py-2.5 text-[14px] font-medium text-[#64748B]">
+                <button type="button" className="brand-btn px-4 py-2.5 text-[14px] font-medium text-[#64748B]">
                   Cancel
                 </button>
               </Dialog.Close>

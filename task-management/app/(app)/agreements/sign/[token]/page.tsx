@@ -92,7 +92,7 @@ export default async function SignAgreementPage({
               </div>
               <a
                 href={`/agreements/pdf/${agreement.id}`}
-                className="wg-btn wg-sheen inline-flex items-center justify-center gap-2 rounded-pill px-4 py-2 text-[13.5px] font-bold text-white whitespace-nowrap"
+                className="brand-btn wg-btn wg-sheen inline-flex items-center justify-center gap-2 rounded-pill px-4 py-2 text-[13.5px] font-bold text-white whitespace-nowrap"
                 style={{
                   background: "linear-gradient(135deg, #15803d, #0f5f2d)",
                   boxShadow:

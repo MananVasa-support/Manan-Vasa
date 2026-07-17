@@ -48,7 +48,7 @@ export function RecordingButton({
       type="button"
       onClick={onClick}
       disabled={pending}
-      className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14px] font-bold text-ink-soft hover:border-ink-subtle disabled:opacity-50"
+      className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14px] font-bold text-ink-soft hover:border-ink-subtle disabled:opacity-50"
       style={{ ["--tc" as string]: ACCENT }}
     >
       {pending ? <Loader2 size={15} className="animate-spin" /> : <Film size={15} />} Request recording

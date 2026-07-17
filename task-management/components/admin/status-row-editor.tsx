@@ -70,7 +70,7 @@ export function StatusRowEditor({ status, initial, isLast }: Props) {
         type="button"
         onClick={onSave}
         disabled={!dirty || pending}
-        className="inline-flex items-center gap-1.5 rounded-md border border-[rgba(15,23,42,0.10)] bg-white px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
+        className="brand-btn inline-flex items-center gap-1.5 rounded-md border border-[rgba(15,23,42,0.10)] bg-white px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
       >
         {pending ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />

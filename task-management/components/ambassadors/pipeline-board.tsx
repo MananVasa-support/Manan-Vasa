@@ -199,7 +199,7 @@ export function PipelineBoard({ referrals, ambassadors, products, employees }: P
               setFOwner("");
               setFStage("");
             }}
-            className="text-[13px] font-bold text-ink-muted underline-offset-2 hover:text-altus-red hover:underline"
+            className="brand-btn text-[13px] font-bold text-ink-muted underline-offset-2 hover:text-altus-red hover:underline"
           >
             Clear
           </button>

@@ -636,7 +636,7 @@ function EmptyState({ noData, onClear }: { noData: boolean; onClear?: () => void
         <button
           type="button"
           onClick={onClear}
-          className={`wg-btn mt-4 inline-flex items-center gap-1.5 rounded-full border border-hairline bg-white/80 py-2 px-4 text-[13px] font-bold text-ink-strong hover:border-hairline-strong ${FOCUS_RING}`}
+          className={`brand-btn wg-btn mt-4 inline-flex items-center gap-1.5 rounded-full border border-hairline bg-white/80 py-2 px-4 text-[13px] font-bold text-ink-strong hover:border-hairline-strong ${FOCUS_RING}`}
         >
           <X size={14} strokeWidth={2.4} />
           Clear search

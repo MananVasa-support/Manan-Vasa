@@ -274,7 +274,7 @@ export function OutstandingFilterBar({ employees, entities, modes, cycles }: Pro
                 }
                 reset();
               }}
-              className="inline-flex items-center gap-1.5 text-chip text-ink-subtle hover:text-ink-strong transition-colors px-3 py-2 rounded-chip"
+              className="brand-btn inline-flex items-center gap-1.5 text-chip text-ink-subtle hover:text-ink-strong transition-colors px-3 py-2 rounded-chip"
               aria-label="Reset filters"
             >
               <RotateCcw size={14} strokeWidth={2.2} />

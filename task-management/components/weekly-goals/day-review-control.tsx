@@ -47,7 +47,7 @@ export function DayReviewControl({
         type="button"
         onClick={() => submit("approved")}
         disabled={pending}
-        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-bold text-white disabled:opacity-50"
+        className="brand-btn inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-bold text-white disabled:opacity-50"
         style={{ background: approved ? "#15803d" : "linear-gradient(135deg, var(--color-green), var(--color-green-deep))" }}
       >
         {pending ? <Loader2 size={13} className="animate-spin" /> : <Check size={14} strokeWidth={2.8} />}
@@ -57,7 +57,7 @@ export function DayReviewControl({
         type="button"
         onClick={() => submit("needs_rework")}
         disabled={pending}
-        className="inline-flex items-center gap-1.5 rounded-lg border-2 px-3 py-1.5 text-[13px] font-bold disabled:opacity-50"
+        className="brand-btn inline-flex items-center gap-1.5 rounded-lg border-2 px-3 py-1.5 text-[13px] font-bold disabled:opacity-50"
         style={{ borderColor: rework ? "#d97706" : "var(--color-hairline-strong)", color: rework ? "#b45309" : "var(--color-ink-soft)" }}
       >
         <RotateCcw size={14} strokeWidth={2.4} /> {rework ? "Needs rework" : "Rework"}

@@ -15,7 +15,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { motion, useReducedMotion } from "motion/react";
-import { GripVertical, Plus, Sparkles, ChevronLeft, ChevronRight, Loader2, Target, Users2, UserPlus } from "lucide-react";
+import { GripVertical, Plus, Sparkles, ChevronLeft, ChevronRight, Loader2, Target, Users2, UserPlus, Mic, ArrowRight, ChevronDown } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import {
   createGoal,
@@ -23,6 +23,7 @@ import {
   setGoalPctDone,
   setGoalCategory,
   setGoalTeam,
+  editGoal,
   moveGoalForward,
   moveWeeklyToWeek,
   promoteToLevel,
@@ -34,6 +35,8 @@ import {
   isSpillover,
   fmtNum,
   fyLabel,
+  effectiveGoalPct,
+  pctTone,
   type GoalDTO,
   type RosterMember,
 } from "./util";
@@ -44,6 +47,7 @@ import {
   quarterKey as quarterKeyOf,
   monthKey as monthKeyOf,
   quarterOfKey,
+  fyStartYearOf,
 } from "@/lib/goals/types";
 
 export interface WeeklyDTO {
@@ -79,6 +83,7 @@ interface CardCtxValue {
   onSetPct: (id: string, pct: number) => void;
   onSetCategory: (id: string, category: GoalCategory) => void;
   onSetTeam: (id: string, team: Array<{ employeeId?: string; name?: string }>) => void;
+  onSetNotes: (id: string, notes: string) => void;
 }
 const CardCtx = React.createContext<CardCtxValue>({
   canWrite: false,
@@ -87,7 +92,94 @@ const CardCtx = React.createContext<CardCtxValue>({
   onSetPct: () => {},
   onSetCategory: () => {},
   onSetTeam: () => {},
+  onSetNotes: () => {},
 });
+
+/* ── Executive-cockpit primitives (Year lens) ──────────────────────────────── */
+
+/** SVG progress ring, coloured by scorecard band. Children render in the centre. */
+function Ring({
+  pct,
+  size = 120,
+  stroke = 12,
+  track = "var(--color-hairline-strong)",
+  color,
+  children,
+}: {
+  pct: number;
+  size?: number;
+  stroke?: number;
+  track?: string;
+  color?: string;
+  children?: React.ReactNode;
+}) {
+  const p = Math.max(0, Math.min(100, pct));
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const arc = color ?? pctTone(p).color;
+  return (
+    <div className="relative grid shrink-0 place-items-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }} aria-hidden>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={track} strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={arc}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - p / 100)}
+          style={{ transition: "stroke-dashoffset 1s cubic-bezier(0.22,1,0.36,1)" }}
+        />
+      </svg>
+      <div className="absolute inset-0 grid place-items-center">{children}</div>
+    </div>
+  );
+}
+
+export interface PeriodRowData {
+  key: string;
+  label: string;
+  sub?: string;
+  pct: number;
+  has: boolean;
+  isNow?: boolean;
+  onOpen?: () => void;
+}
+
+/** A full-width child-period ROW (a quarter under a year, a month under a
+ *  quarter): label + bar + big %. Stacks vertically; opens the child lens. */
+function PeriodRow({ d }: { d: PeriodRowData }) {
+  const tone = pctTone(d.pct);
+  return (
+    <button
+      type="button"
+      onClick={d.onOpen}
+      className="group flex w-full items-center gap-3.5 rounded-xl border px-4 py-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-[0_10px_22px_-16px_rgba(15,23,42,0.4)]"
+      style={{ borderColor: "var(--color-hairline)", background: "var(--color-surface-soft)" }}
+    >
+      <div className="w-[104px] shrink-0">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[12.5px] font-black uppercase tracking-[0.06em] text-ink-strong">{d.label}</span>
+          {d.isNow && <span aria-label="current" className="size-1.5 rounded-full" style={{ background: "var(--color-altus-red)", boxShadow: "0 0 0 3px color-mix(in srgb, var(--color-altus-red) 22%, transparent)" }} />}
+        </div>
+        {d.sub && <div className="text-[10.5px] font-semibold text-ink-faint">{d.sub}</div>}
+      </div>
+      <div className="h-2.5 flex-1 overflow-hidden rounded-full" style={{ background: "var(--color-hairline-strong)" }}>
+        <span className="block h-full rounded-full transition-[width] duration-700" style={{ width: `${d.has ? d.pct : 0}%`, background: tone.color }} />
+      </div>
+      <span
+        className="w-[58px] shrink-0 text-right text-[19px] font-black tabular-nums"
+        style={{ color: d.has ? tone.color : "var(--color-ink-subtle)", fontFamily: "var(--font-display), system-ui, sans-serif" }}
+      >
+        {d.has ? `${d.pct}%` : "—"}
+      </span>
+      <ChevronRight size={16} className="shrink-0 text-ink-soft transition-transform group-hover:translate-x-0.5" />
+    </button>
+  );
+}
 
 interface Props {
   goals: GoalDTO[];
@@ -106,7 +198,6 @@ export function CascadeWorkspace(props: Props) {
   const reduce = useReducedMotion();
 
   const [lens, setLens] = React.useState<Lens>("year");
-  const [yearRight, setYearRight] = React.useState<"quarter" | "month">("quarter");
   const [busy, setBusy] = React.useState<string | null>(null);
   const [dragId, setDragId] = React.useState<string | null>(null);
 
@@ -158,9 +249,10 @@ export function CascadeWorkspace(props: Props) {
   const onWeeklyPct = (id: string, pct: number) => run(`wpct:${id}`, () => setWeeklyGoalPct({ id, pctDone: pct }));
   const onSetCategory = (id: string, category: GoalCategory) => run(`cat:${id}`, () => setGoalCategory({ id, category }));
   const onSetTeam = (id: string, team: Array<{ employeeId?: string; name?: string }>) => run(`team:${id}`, () => setGoalTeam({ id, team }));
+  const onSetNotes = (id: string, notes: string) => run(`notes:${id}`, () => editGoal({ id, notes }));
 
   const cardCtx: CardCtxValue = React.useMemo(
-    () => ({ canWrite, roster, busy, onSetPct, onSetCategory, onSetTeam }),
+    () => ({ canWrite, roster, busy, onSetPct, onSetCategory, onSetTeam, onSetNotes }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [canWrite, roster, busy],
   );
@@ -238,21 +330,35 @@ export function CascadeWorkspace(props: Props) {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 max-md:w-full">
           {roster.length > 1 && (
-            <select
-              value={viewedEmployeeId}
-              onChange={(e) => router.push(`/goals/cascade?emp=${e.target.value}&fy=${fyStartYear}`)}
-              className="h-9 rounded-chip border border-hairline bg-surface-card px-3 text-[13px] font-semibold text-ink-strong"
+            <label
+              className="group relative inline-flex h-12 items-center gap-2.5 rounded-2xl border-[1.5px] bg-surface-card pl-3.5 pr-9 transition-shadow hover:shadow-[0_10px_24px_-16px_rgba(15,23,42,0.5)]"
+              style={{ borderColor: "var(--color-hairline-strong)", boxShadow: "0 4px 12px -10px rgba(15,23,42,0.35)" }}
             >
-              {roster.map((r) => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </select>
+              <span className="grid size-7 shrink-0 place-items-center rounded-xl text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}>
+                <Users2 size={15} strokeWidth={2.4} />
+              </span>
+              <span className="flex flex-col leading-none">
+                <span className="text-[9px] font-black uppercase tracking-[0.14em] text-ink-subtle">Viewing</span>
+                <span className="mt-0.5 text-[14.5px] font-black text-ink-strong">{viewedName}</span>
+              </span>
+              <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft" />
+              <select
+                value={viewedEmployeeId}
+                onChange={(e) => router.push(`/goals/cascade?emp=${e.target.value}&fy=${fyStartYear}`)}
+                aria-label="Select employee"
+                className="absolute inset-0 cursor-pointer opacity-0"
+              >
+                {roster.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+            </label>
           )}
-          <div className="flex items-center gap-1 rounded-chip border border-hairline bg-surface-card p-0.5">
+          <div className="flex h-12 items-center gap-1 rounded-2xl border-[1.5px] bg-surface-card px-1.5" style={{ borderColor: "var(--color-hairline-strong)", boxShadow: "0 4px 12px -10px rgba(15,23,42,0.35)" }}>
             <FyStep dir={-1} onClick={() => router.push(`/goals/cascade?emp=${viewedEmployeeId}&fy=${fyStartYear - 1}`)} />
-            <span className="px-2 text-[12px] font-bold tabular-nums text-ink-strong">FY{fyStartYear % 100}</span>
+            <span className="min-w-[52px] text-center text-[15px] font-black tabular-nums text-ink-strong">FY{fyStartYear % 100}</span>
             <FyStep dir={1} onClick={() => router.push(`/goals/cascade?emp=${viewedEmployeeId}&fy=${fyStartYear + 1}`)} />
           </div>
         </div>
@@ -293,146 +399,200 @@ export function CascadeWorkspace(props: Props) {
         onDragEnd={onDragEnd}
         onDragCancel={() => setDragId(null)}
       >
-        {lens === "year" && (
-          <Split
-            left={
-              <FrozenPanel title="Yearly goals" subtitle="Fixed reference">
-                {yearGoals.length === 0 ? (
-                  <Empty text="No yearly goals yet." />
-                ) : (
-                  yearGoals.map((g) => (
-                    <GoalCard
-                      key={g.id}
-                      g={g}
-                      onGenerate={() => onGenerate(g.id)}
-                      generating={busy === `gen:${g.id}`}
-                      genLabel="quarters"
-                    />
-                  ))
-                )}
-                {canWrite && <QuickAdd busy={busy === `add:${fyStartYear}`} onAdd={(t) => onAdd("year", String(fyStartYear), t)} />}
-              </FrozenPanel>
-            }
-            rightHeader={
-              <div className="inline-flex rounded-chip border border-hairline bg-surface-card p-0.5">
-                {(["quarter", "month"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setYearRight(m)}
-                    className="rounded-[9px] px-3 py-1 text-[12px] font-bold capitalize"
-                    style={yearRight === m ? { background: ACCENT, color: "#fff" } : { color: "var(--color-ink-muted)" }}
-                  >
-                    {m === "quarter" ? "Quarters (4)" : "Months (12)"}
-                  </button>
-                ))}
-              </div>
-            }
-            right={
-              yearRight === "quarter"
-                ? quartersOfFy(fyStartYear).map((qk) => (
-                    <GoalColumn
-                      key={qk}
-                      periodKey={qk}
-                      label={`Q${quarterOfKey(qk)}`}
-                      sub={(Q_LABEL[quarterOfKey(qk)] ?? "")}
-                      goals={byPeriod("quarter", qk)}
-                      canWrite={canWrite}
-                      addBusy={busy === `add:${qk}`}
-                      onAdd={(t) => onAdd("quarter", qk, t)}
-                    />
-                  ))
-                : monthsInFy.map((mk) => (
-                    <GoalColumn
-                      key={mk}
-                      periodKey={mk}
-                      label={`${monLabel(mk)}`}
-                      sub={mk.slice(0, 4)}
-                      goals={byPeriod("month", mk)}
-                      canWrite={canWrite}
-                      addBusy={busy === `add:${mk}`}
-                      onAdd={(t) => onAdd("month", mk, t)}
-                    />
-                  ))
-            }
-          />
-        )}
+        {lens === "year" && (() => {
+          const overall = yearGoals.length
+            ? Math.round(yearGoals.reduce((s, g) => s + effectiveGoalPct(g), 0) / yearGoals.length)
+            : 0;
+          const liveQ = goals.filter((g) => g.period === "quarter" && effectiveGoalPct(g) > 0).length;
+          const status =
+            yearGoals.length === 0 ? "Set your north star"
+            : overall >= 70 ? "On track for the year"
+            : overall >= 40 ? "Building momentum"
+            : "Just getting started";
+          const isCurrentFy = fyStartYear === fyStartYearOf(new Date());
+          const qkeys = quartersOfFy(fyStartYear);
+          return (
+            <div className="space-y-6">
+              {/* ── HERO: overall cascade health ── */}
+              <section
+                className="wg-rise relative overflow-hidden rounded-section border p-6 max-md:p-4"
+                style={{
+                  borderColor: "var(--color-hairline)",
+                  background: `radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, ${ACCENT} 10%, transparent), transparent 55%), var(--color-surface-card)`,
+                  boxShadow: "0 2px 4px rgba(15,23,42,0.05), 0 30px 60px -34px rgba(15,23,42,0.35)",
+                }}
+              >
+                <div className="flex flex-wrap items-center gap-6 max-md:gap-4">
+                  <Ring pct={overall} size={128} stroke={13} color="var(--color-altus-red)">
+                    <div className="text-center">
+                      <div
+                        className="leading-none tabular-nums text-ink-strong"
+                        style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 34, letterSpacing: "-0.03em" }}
+                      >
+                        {overall}
+                        <span className="text-[16px]">%</span>
+                      </div>
+                      <div className="mt-0.5 text-[9.5px] font-black uppercase tracking-[0.14em] text-ink-subtle">Health</div>
+                    </div>
+                  </Ring>
+                  <div className="min-w-[220px] flex-1">
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10.5px] font-black uppercase tracking-[0.14em] text-white" style={{ background: "#0f172a" }}>
+                      {fyLabel(fyStartYear)} · Cascade health
+                    </span>
+                    <h2
+                      className="mt-2.5 text-ink-strong"
+                      style={{ fontFamily: "var(--font-serif), var(--font-display), serif", fontWeight: 800, fontSize: "clamp(24px, 3.2vw, 38px)", letterSpacing: "-0.02em", lineHeight: 1.03 }}
+                    >
+                      {status}
+                    </h2>
+                    <p className="mt-1.5 text-[13.5px] font-medium text-ink-muted">
+                      {yearGoals.length} yearly {yearGoals.length === 1 ? "goal" : "goals"} · {liveQ} {liveQ === 1 ? "quarter" : "quarters"} live · {viewedName}
+                    </p>
+                  </div>
+                  {canWrite && (
+                    <div className="w-full max-w-[280px] max-md:max-w-none">
+                      <QuickAdd busy={busy === `add:${fyStartYear}`} onAdd={(t) => onAdd("year", String(fyStartYear), t)} />
+                    </div>
+                  )}
+                </div>
+              </section>
 
-        {lens === "quarter" && (
-          <Split
-            leftHeader={
-              <div className="flex gap-1">
+              {/* ── PER-GOAL BLOCKS: editable card + its four quarters ── */}
+              {yearGoals.length === 0 ? (
+                <div className="rounded-section border border-dashed p-12 text-center" style={{ borderColor: "var(--color-hairline-strong)" }}>
+                  <p className="text-[15px] font-bold text-ink-strong">No yearly goals yet for {fyLabel(fyStartYear)}</p>
+                  <p className="mt-1 text-[13.5px] text-ink-muted">Add one above, then Auto-divide it into quarters, months and weeks.</p>
+                </div>
+              ) : (
+                <div className="grid gap-5 xl:grid-cols-2">
+                {yearGoals.map((yg, i) => {
+                  const kidsRows: PeriodRowData[] = qkeys.map((qk) => {
+                    const q = quarterOfKey(qk);
+                    const kids = goals.filter((g) => g.period === "quarter" && g.parentGoalId === yg.id && g.periodKey === qk);
+                    const has = kids.length > 0;
+                    const qpct = has ? Math.round(kids.reduce((s, g) => s + effectiveGoalPct(g), 0) / kids.length) : 0;
+                    return {
+                      key: qk,
+                      label: `Q${q}`,
+                      sub: Q_LABEL[q] ?? "",
+                      pct: qpct,
+                      has,
+                      isNow: isCurrentFy && q === nowQ,
+                      onOpen: () => { setSelQuarter(q); setLens("quarter"); },
+                    };
+                  });
+                  return (
+                    <CockpitGoalCard
+                      key={yg.id}
+                      g={yg}
+                      childRows={kidsRows}
+                      genLabel="quarters"
+                      onGenerate={() => onGenerate(yg.id)}
+                      generating={busy === `gen:${yg.id}`}
+                      delayMs={i * 60}
+                    />
+                  );
+                })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {lens === "quarter" && (() => {
+          const qKey = `${fyStartYear}-Q${selQuarter}`;
+          const qGoals = byPeriod("quarter", qKey);
+          const months = monthKeysOfQuarter(fyStartYear, selQuarter as 1 | 2 | 3 | 4);
+          return (
+            <div className="space-y-6">
+              {canWrite && (
+                <div className="flex justify-end">
+                  <div className="w-full max-w-[300px] max-md:max-w-none"><QuickAdd busy={busy === `add:${qKey}`} onAdd={(t) => onAdd("quarter", qKey, t)} /></div>
+                </div>
+              )}
+              {/* centered, prominently-outlined quarter tabs */}
+              <div className="flex flex-wrap items-center justify-center gap-2.5">
                 {quartersOfFy(fyStartYear).map((qk) => {
                   const q = quarterOfKey(qk);
+                  const on = selQuarter === q;
                   return (
                     <button
                       key={qk}
                       type="button"
                       onClick={() => setSelQuarter(q)}
-                      className="rounded-chip px-2.5 py-1 text-[12px] font-bold"
-                      style={selQuarter === q ? { background: ACCENT, color: "#fff" } : { background: "var(--color-surface-soft)", color: "var(--color-ink-muted)" }}
+                      className="rounded-xl border-2 px-6 py-2.5 text-[15px] font-black tracking-wide transition-all active:scale-95"
+                      style={on
+                        ? { background: ACCENT, color: "#fff", borderColor: ACCENT, boxShadow: `0 10px 22px -12px ${ACCENT_DEEP}` }
+                        : { background: "var(--color-surface-card)", color: "var(--color-ink-strong)", borderColor: "var(--color-hairline-strong)" }}
                     >
                       Q{q}
                     </button>
                   );
                 })}
+                <span className="ml-1.5 text-[14px] font-bold text-ink-muted">{Q_LABEL[selQuarter] ?? ""}</span>
               </div>
-            }
-            left={
-              <FrozenPanel title={`Q${selQuarter} goals`} subtitle={(Q_LABEL[selQuarter] ?? "")}>
-                {byPeriod("quarter", `${fyStartYear}-Q${selQuarter}`).length === 0 ? (
-                  <Empty text="No goals for this quarter." />
-                ) : (
-                  byPeriod("quarter", `${fyStartYear}-Q${selQuarter}`).map((g) => (
-                    <GoalCard key={g.id} g={g} onGenerate={() => onGenerate(g.id)} generating={busy === `gen:${g.id}`} genLabel="months" />
-                  ))
-                )}
-                {canWrite && <QuickAdd busy={busy === `add:${fyStartYear}-Q${selQuarter}`} onAdd={(t) => onAdd("quarter", `${fyStartYear}-Q${selQuarter}`, t)} />}
-              </FrozenPanel>
-            }
-            right={monthKeysOfQuarter(fyStartYear, selQuarter as 1 | 2 | 3 | 4).map((mk) => (
-              <GoalColumn
-                key={mk}
-                periodKey={mk}
-                label={monLabel(mk)}
-                sub={mk.slice(0, 4)}
-                goals={byPeriod("month", mk)}
-                canWrite={canWrite}
-                addBusy={busy === `add:${mk}`}
-                onAdd={(t) => onAdd("month", mk, t)}
-              />
-            ))}
-          />
-        )}
+              {qGoals.length === 0 ? (
+                <div className="rounded-section border border-dashed p-12 text-center" style={{ borderColor: "var(--color-hairline-strong)" }}>
+                  <p className="text-[15px] font-bold text-ink-strong">No goals yet for Q{selQuarter}</p>
+                  <p className="mt-1 text-[13.5px] text-ink-muted">Add one above, then Auto-divide it into months.</p>
+                </div>
+              ) : (
+                <div className="grid gap-5 xl:grid-cols-2">
+                {qGoals.map((qg, i) => {
+                  const rows: PeriodRowData[] = months.map((mk) => {
+                    const kids = goals.filter((g) => g.period === "month" && g.parentGoalId === qg.id && g.periodKey === mk);
+                    const has = kids.length > 0;
+                    const mpct = has ? Math.round(kids.reduce((s, g) => s + effectiveGoalPct(g), 0) / kids.length) : 0;
+                    return { key: mk, label: monLabel(mk), sub: mk.slice(0, 4), pct: mpct, has, isNow: mk === nowMonth, onOpen: () => { setSelMonth(mk); setLens("month"); } };
+                  });
+                  return (
+                    <CockpitGoalCard key={qg.id} g={qg} childRows={rows} genLabel="months" onGenerate={() => onGenerate(qg.id)} generating={busy === `gen:${qg.id}`} delayMs={i * 60} />
+                  );
+                })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
-        {lens === "month" && (
-          <Split
-            leftHeader={
-              <select
-                value={selMonth}
-                onChange={(e) => setSelMonth(e.target.value)}
-                className="h-8 rounded-chip border border-hairline bg-surface-card px-2 text-[12px] font-bold text-ink-strong"
-              >
-                {monthsInFy.map((mk) => (
-                  <option key={mk} value={mk}>{monLabel(mk)} {mk.slice(0, 4)}</option>
+        {lens === "month" && (() => {
+          const mGoals = byPeriod("month", selMonth);
+          return (
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center gap-3">
+                <select
+                  value={selMonth}
+                  onChange={(e) => setSelMonth(e.target.value)}
+                  className="h-11 rounded-xl border-[1.5px] bg-surface-card px-3.5 text-[14.5px] font-black text-ink-strong"
+                  style={{ borderColor: "var(--color-hairline-strong)" }}
+                >
+                  {monthsInFy.map((mk) => (
+                    <option key={mk} value={mk}>{monLabel(mk)} {mk.slice(0, 4)}</option>
+                  ))}
+                </select>
+                {canWrite && <div className="ml-auto w-full max-w-[280px] max-md:max-w-none"><QuickAdd busy={busy === `add:${selMonth}`} onAdd={(t) => onAdd("month", selMonth, t)} /></div>}
+              </div>
+              {mGoals.length === 0 ? (
+                <div className="rounded-section border border-dashed p-14 text-center" style={{ borderColor: "var(--color-hairline-strong)" }}>
+                  <p className="text-[19px] font-black text-ink-strong">No goals yet for {monLabel(selMonth)}</p>
+                  <p className="mt-1.5 text-[15px] text-ink-muted">Add one above, then Auto-divide it into weeks.</p>
+                </div>
+              ) : (
+                <div className="grid gap-5 xl:grid-cols-2">
+                {mGoals.map((mg, i) => (
+                  <CockpitGoalCard key={mg.id} g={mg} childRows={[]} genLabel="weeks" onGenerate={() => onGenerate(mg.id)} generating={busy === `gen:${mg.id}`} delayMs={i * 60} />
                 ))}
-              </select>
-            }
-            left={
-              <FrozenPanel title={`${monLabel(selMonth)} goals`} subtitle="Fixed reference">
-                {byPeriod("month", selMonth).length === 0 ? (
-                  <Empty text="No goals for this month." />
-                ) : (
-                  byPeriod("month", selMonth).map((g) => (
-                    <GoalCard key={g.id} g={g} onGenerate={() => onGenerate(g.id)} generating={busy === `gen:${g.id}`} genLabel="weeks" />
-                  ))
-                )}
-                {canWrite && <QuickAdd busy={busy === `add:${selMonth}`} onAdd={(t) => onAdd("month", selMonth, t)} />}
-              </FrozenPanel>
-            }
-            right={<WeekColumns month={selMonth} weekly={weekly} canWrite={canWrite} onPct={onWeeklyPct} busy={busy} />}
-          />
-        )}
+                </div>
+              )}
+              <div>
+                <h3 className="mb-3 text-[16px] font-black uppercase tracking-[0.08em] text-ink-strong">Weeks of {monLabel(selMonth)}</h3>
+                <div className="flex gap-3 overflow-x-auto pb-3">
+                  <WeekColumns month={selMonth} weekly={weekly} canWrite={canWrite} onPct={onWeeklyPct} busy={busy} />
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {lens === "levels" && (
           <>
@@ -532,17 +692,17 @@ function WeekColumn({ weekStart, items, canWrite, onPct, busy }: { weekStart: st
   return (
     <div
       ref={setNodeRef}
-      className="flex min-h-[72vh] min-w-[220px] shrink-0 flex-col rounded-2xl border-2 bg-white/80 p-2.5 transition-colors"
+      className="flex min-h-[72vh] min-w-[300px] shrink-0 flex-col rounded-2xl border-2 bg-white/80 p-3 transition-colors"
       style={{
         borderColor: isOver ? "#0f172a" : "var(--color-hairline-strong)",
         background: isOver ? "rgba(15,23,42,0.03)" : undefined,
         boxShadow: isOver ? "0 0 0 3px rgba(15,23,42,0.08)" : "0 1px 3px rgba(15,23,42,0.05)",
       }}
     >
-      <div className="mb-2.5 flex items-baseline gap-1.5 border-b-2 px-1 pb-2" style={{ borderColor: "var(--color-hairline)" }}>
-        <span className="text-[14px] font-black text-ink-strong">W{weekNoOf(weekStart)}</span>
-        <span className="text-[11px] font-semibold text-ink-muted">{weekStart.slice(8)}/{weekStart.slice(5, 7)}</span>
-        <span className="ml-auto inline-flex min-w-5 justify-center rounded-full bg-surface-soft px-1.5 text-[11px] font-black tabular-nums text-ink-soft">{items.length}</span>
+      <div className="mb-3 flex items-baseline gap-2 border-b-2 px-1 pb-2.5" style={{ borderColor: "var(--color-hairline)" }}>
+        <span className="text-[17px] font-black text-ink-strong">W{weekNoOf(weekStart)}</span>
+        <span className="text-[12.5px] font-semibold text-ink-muted">{weekStart.slice(8)}/{weekStart.slice(5, 7)}</span>
+        <span className="ml-auto inline-flex min-w-5 justify-center rounded-full bg-surface-soft px-2 text-[12px] font-black tabular-nums text-ink-soft">{items.length}</span>
       </div>
       <div className="flex flex-1 flex-col gap-2.5">
         {items.map((w) => (
@@ -568,13 +728,13 @@ function WeeklyCard({ w, canWrite, onPct, busy }: { w: WeeklyDTO; canWrite: bool
       className={`rounded-lg border bg-white px-2.5 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[box-shadow,transform] duration-150 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(15,23,42,0.10)] ${isDragging ? "" : "wg-rise"}`}
       style={{ borderColor: "var(--color-hairline)", borderLeft: `3px solid ${color}`, opacity: isDragging ? 0.35 : 1, cursor: canWrite ? "grab" : "default", touchAction: "none" }}
     >
-      <div className="flex items-center gap-1.5">
-        <span className="shrink-0 rounded px-1 py-0.5 text-[10px] font-black text-white" style={{ background: color }}>W{w.weekNo}</span>
-        <span className="truncate text-[12.5px] font-semibold text-ink-strong" title={w.title}>{w.title}</span>
-        {canWrite && <span aria-hidden className="ml-auto text-ink-muted/25"><GripVertical size={13} /></span>}
+      <div className="flex items-center gap-2">
+        <span className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-black text-white" style={{ background: color }}>W{w.weekNo}</span>
+        <span className="truncate text-[14.5px] font-bold text-ink-strong" title={w.title}>{w.title}</span>
+        {canWrite && <span aria-hidden className="ml-auto text-ink-muted/25"><GripVertical size={14} /></span>}
       </div>
-      <div className="mt-1.5 flex items-center gap-2">
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-track">
+      <div className="mt-2 flex items-center gap-2">
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-track">
           <span className="block h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
         </div>
         {canWrite ? (
@@ -586,90 +746,14 @@ function WeeklyCard({ w, canWrite, onPct, busy }: { w: WeeklyDTO; canWrite: bool
               onBlur={() => { const n = Math.max(0, Math.min(100, Number(draft) || 0)); if (n !== w.pctDone) onPct(w.id, n); }}
               inputMode="numeric"
               aria-label={`Percent complete for ${w.title}`}
-              className="w-9 rounded border border-hairline bg-surface-soft px-1 py-0.5 text-right text-[12px] font-bold tabular-nums text-ink-strong"
+              className="w-11 rounded border border-hairline bg-surface-soft px-1.5 py-1 text-right text-[14px] font-bold tabular-nums text-ink-strong"
             />
-            <span className="text-[11px] font-bold text-ink-muted">%</span>
-            {busy && <Loader2 size={12} className="animate-spin text-ink-muted" />}
+            <span className="text-[13px] font-bold text-ink-muted">%</span>
+            {busy && <Loader2 size={13} className="animate-spin text-ink-muted" />}
           </div>
         ) : (
-          <span className="text-[12px] font-black tabular-nums" style={{ color }}>{pct}%</span>
+          <span className="text-[14.5px] font-black tabular-nums" style={{ color }}>{pct}%</span>
         )}
-      </div>
-    </div>
-  );
-}
-
-/* ── Split: fixed-left frozen column + horizontally-scrolling right columns ── */
-function Split(props: {
-  left: React.ReactNode;
-  right: React.ReactNode;
-  leftHeader?: React.ReactNode;
-  rightHeader?: React.ReactNode;
-}) {
-  return (
-    <div className="grid gap-4 grid-cols-[minmax(240px,0.85fr)_1fr] max-lg:grid-cols-1">
-      <div>
-        {props.leftHeader && <div className="mb-2">{props.leftHeader}</div>}
-        {props.left}
-      </div>
-      <div className="min-w-0">
-        {props.rightHeader && <div className="mb-2 flex justify-end">{props.rightHeader}</div>}
-        <div className="flex gap-3 overflow-x-auto pb-3">{props.right}</div>
-      </div>
-    </div>
-  );
-}
-
-function FrozenPanel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-  return (
-    <div className="sticky top-4 rounded-2xl border border-hairline bg-surface-card p-3">
-      <div className="mb-2 px-1">
-        <div className="text-[15px] font-black text-ink-strong">{title}</div>
-        <div className="text-[11px] font-semibold text-ink-muted">{subtitle}</div>
-      </div>
-      <div className="flex flex-col gap-2">{children}</div>
-    </div>
-  );
-}
-
-/* ── A droppable period column (right side) ── */
-function GoalColumn(props: {
-  periodKey: string;
-  label: string;
-  sub: string;
-  goals: GoalDTO[];
-  canWrite: boolean;
-  addBusy: boolean;
-  onAdd: (title: string) => void;
-}) {
-  const { setNodeRef, isOver } = useDroppable({ id: `col:${props.periodKey}` });
-  const empty = props.goals.length === 0;
-  return (
-    <div
-      ref={setNodeRef}
-      className="flex min-h-[72vh] min-w-[272px] shrink-0 flex-col rounded-2xl border-2 bg-white/80 transition-colors"
-      style={{
-        borderColor: isOver ? "#0f172a" : "var(--color-hairline-strong)",
-        background: isOver ? "rgba(15,23,42,0.03)" : undefined,
-        boxShadow: isOver ? "0 0 0 3px rgba(15,23,42,0.08)" : "0 1px 3px rgba(15,23,42,0.05)",
-      }}
-    >
-      {/* Calendar-style column header */}
-      <div className="flex items-baseline gap-2 border-b-2 px-3.5 py-3" style={{ borderColor: "var(--color-hairline)" }}>
-        <span className="text-[15px] font-black text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif" }}>{props.label}</span>
-        <span className="text-[11.5px] font-medium text-ink-muted">{props.sub}</span>
-        <span className="ml-auto inline-flex min-w-5 justify-center rounded-full bg-surface-soft px-1.5 text-[11px] font-black tabular-nums text-ink-soft">{props.goals.length}</span>
-      </div>
-      <div className="flex flex-1 flex-col gap-2.5 p-2.5">
-        {props.goals.map((g) => (
-          <DraggableGoalCard key={g.id} g={g} />
-        ))}
-        {empty && !props.canWrite && (
-          <div className="grid flex-1 place-items-center rounded-lg border border-dashed px-4 py-8 text-center text-[12px] text-ink-muted/70" style={{ borderColor: "var(--color-hairline-strong)" }}>
-            Drop a card to assign to {props.label}
-          </div>
-        )}
-        {props.canWrite && <QuickAdd busy={props.addBusy} onAdd={props.onAdd} compact />}
       </div>
     </div>
   );
@@ -716,8 +800,8 @@ function GoalCard(props: {
 
   return (
     <div
-      className="group relative rounded-lg border bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[box-shadow,transform] duration-150 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(15,23,42,0.10)]"
-      style={{ borderColor: "var(--color-hairline)", borderLeft: `3px solid ${cat.accent}` }}
+      className={`group relative w-full rounded-xl border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[box-shadow,transform] duration-150 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(15,23,42,0.10)] ${props.draggable ? "" : "max-w-[620px]"}`}
+      style={{ borderColor: "var(--color-hairline)", borderLeft: `4px solid ${cat.accent}` }}
     >
       {/* top row — category tag + grip affordance (the whole card drags) */}
       <div className="flex items-center gap-2">
@@ -726,12 +810,12 @@ function GoalCard(props: {
           disabled={!ctx.canWrite}
           onPointerDown={stopDrag}
           onClick={() => setCatOpen((o) => !o)}
-          className="rounded px-1.5 py-0.5 text-[9.5px] font-black uppercase tracking-wide disabled:cursor-default"
+          className="rounded-md px-2 py-1 text-[11px] font-black uppercase tracking-wide disabled:cursor-default"
           style={{ color: cat.color, background: cat.bg }}
         >
           {cat.label}
         </button>
-        <span className="text-[9.5px] font-bold tabular-nums text-ink-subtle">{goalCode(g)}</span>
+        <span className="text-[11px] font-bold tabular-nums text-ink-subtle">{goalCode(g)}</span>
         <span className="ml-auto" />
         {props.draggable && (
           <span aria-hidden className="text-ink-muted/25 group-hover:text-ink-muted/60">
@@ -761,13 +845,13 @@ function GoalCard(props: {
       )}
 
       {/* title */}
-      <div className="mt-1.5 text-[14px] font-semibold leading-snug text-ink-strong" style={{ overflowWrap: "anywhere" }}>
+      <div className="mt-2 text-[17px] font-bold leading-snug text-ink-strong" style={{ overflowWrap: "anywhere" }}>
         {g.title}
       </div>
 
       {/* meta */}
       {(g.area || g.targetQty != null || g.targetAmount != null) && (
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-ink-muted">
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[12.5px] text-ink-muted">
           {g.area && <span>{g.area}</span>}
           {g.targetQty != null && <span className="tabular-nums">{fmtNum(g.targetQty)} {g.uom ?? ""}</span>}
           {g.targetAmount != null && <span className="tabular-nums">₹{fmtNum(g.targetAmount)}</span>}
@@ -785,39 +869,38 @@ function GoalCard(props: {
               onBlur={() => { const n = Math.max(0, Math.min(100, Number(draft) || 0)); if (n !== g.pctDone) ctx.onSetPct(g.id, n); }}
               inputMode="numeric"
               aria-label={`Percent complete for ${g.title}`}
-              className="w-8 rounded border-0 bg-transparent p-0 text-left text-[15px] font-bold tabular-nums focus:outline-none"
+              className="w-12 rounded border-0 bg-transparent p-0 text-left text-[22px] font-black tabular-nums focus:outline-none"
               style={{ color: cat.accent }}
             />
-            <span className="text-[13px] font-bold" style={{ color: cat.accent }}>%</span>
-            {ctx.busy === `pct:${g.id}` && <Loader2 size={12} className="animate-spin text-ink-muted" />}
+            <span className="text-[16px] font-black" style={{ color: cat.accent }}>%</span>
+            {ctx.busy === `pct:${g.id}` && <Loader2 size={14} className="animate-spin text-ink-muted" />}
           </span>
         ) : (
-          <span className="text-[15px] font-bold tabular-nums" style={{ color: cat.accent }}>{self}%</span>
+          <span className="text-[22px] font-black tabular-nums" style={{ color: cat.accent }}>{self}%</span>
         )}
-        <span className="text-[13px] font-semibold tabular-nums text-ink-subtle">{target}%</span>
+        <span className="text-[15px] font-bold tabular-nums text-ink-subtle">of {target}%</span>
       </div>
 
       {/* progress bar */}
-      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-surface-track">
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-track">
         <span className="block h-full rounded-full" style={{ width: `${self}%`, background: cat.accent }} />
       </div>
 
       {/* team involvement */}
-      <div className="mt-2 flex items-center gap-1.5">
+      <div className="mt-3 flex items-center gap-2">
         <TeamAvatars team={team} />
         {ctx.canWrite && (
           <button
             type="button"
             onPointerDown={stopDrag}
             onClick={() => setTeamOpen((o) => !o)}
-            className="inline-flex size-5 items-center justify-center rounded-full border border-dashed text-ink-muted hover:text-ink-soft"
+            className="inline-flex items-center gap-1.5 rounded-full border border-dashed px-3 py-1.5 text-[12.5px] font-bold text-ink-muted transition-colors hover:border-hairline-strong hover:text-ink-strong"
             style={{ borderColor: "var(--color-hairline-strong)" }}
-            aria-label="Assign people"
           >
-            <UserPlus size={11} />
+            <UserPlus size={15} strokeWidth={2.4} /> {team.length > 0 ? "Edit people" : "Involve people"}
           </button>
         )}
-        {ctx.busy === `team:${g.id}` && <Loader2 size={11} className="animate-spin text-ink-muted" />}
+        {ctx.busy === `team:${g.id}` && <Loader2 size={13} className="animate-spin text-ink-muted" />}
       </div>
 
       {teamOpen && ctx.canWrite && (
@@ -837,7 +920,7 @@ function GoalCard(props: {
           onPointerDown={stopDrag}
           onClick={props.onGenerate}
           disabled={props.generating}
-          className="mt-2 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11.5px] font-bold text-ink-soft hover:border-hairline-strong disabled:opacity-50"
+          className="brand-btn mt-2 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11.5px] font-bold text-ink-soft hover:border-hairline-strong disabled:opacity-50"
           style={{ borderColor: "var(--color-hairline)" }}
         >
           {props.generating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} style={{ color: ACCENT }} />}
@@ -845,6 +928,209 @@ function GoalCard(props: {
         </button>
       )}
     </div>
+  );
+}
+
+/** Year-lens cockpit card — compact + clear: title, easy slider progress, a
+ *  notes field with dictation, and a tight row of four quarters. */
+function CockpitGoalCard({
+  g,
+  childRows,
+  genLabel,
+  onGenerate,
+  generating,
+  delayMs = 0,
+}: {
+  g: GoalDTO;
+  childRows: PeriodRowData[];
+  genLabel: string;
+  onGenerate: () => void;
+  generating: boolean;
+  delayMs?: number;
+}) {
+  const ctx = React.useContext(CardCtx);
+  const cat = categoryStyle(g.category, isSpillover(g));
+  const eff = effectiveGoalPct(g);
+  const tone = pctTone(eff);
+  const target = g.acceptPct ?? 100;
+
+  const [pct, setPct] = React.useState(g.pctDone);
+  React.useEffect(() => setPct(g.pctDone), [g.pctDone]);
+  const commitPct = (n: number) => { const c = Math.max(0, Math.min(100, n)); setPct(c); if (c !== g.pctDone) ctx.onSetPct(g.id, c); };
+
+  const [notesOpen, setNotesOpen] = React.useState(!!g.notes?.trim());
+  const [notes, setNotes] = React.useState(g.notes ?? "");
+  React.useEffect(() => setNotes(g.notes ?? ""), [g.notes]);
+  const { listening, toggle } = useDictation();
+  const dictateNotes = () => { const base = notes.trim() ? notes.trim() + " " : ""; toggle((s) => setNotes((base + s).slice(0, 2000))); };
+  const commitNotes = () => { const t = notes.trim(); if (t !== (g.notes ?? "").trim()) ctx.onSetNotes(g.id, t); };
+
+  const [catOpen, setCatOpen] = React.useState(false);
+  const [teamOpen, setTeamOpen] = React.useState(false);
+  const team = g.teamInvolved ?? [];
+
+  return (
+    <section
+      className="wg-rise overflow-hidden rounded-section border"
+      style={{ borderColor: "var(--color-hairline)", background: "var(--color-surface-card)", borderLeft: `4px solid ${cat.accent}`, boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 14px 32px -26px rgba(15,23,42,0.3)", animationDelay: `${delayMs}ms` }}
+    >
+      {/* Title + big % */}
+      <div className="flex items-start gap-4 px-5 pt-4 max-md:px-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={!ctx.canWrite}
+              onClick={() => setCatOpen((o) => !o)}
+              className="rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wide disabled:cursor-default"
+              style={{ color: cat.color, background: cat.bg }}
+            >
+              {cat.label}
+            </button>
+            <span className="text-[10px] font-bold tabular-nums text-ink-subtle">{goalCode(g)}</span>
+          </div>
+          {catOpen && ctx.canWrite && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {(["target", "milestone", "operational", "goal"] as const).map((c) => {
+                const cs = categoryStyle(c, false);
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => { ctx.onSetCategory(g.id, c); setCatOpen(false); }}
+                    className="rounded px-1.5 py-0.5 text-[9.5px] font-bold uppercase"
+                    style={{ color: cs.color, background: cs.bg, outline: g.category === c ? `1px solid ${cs.color}` : "none" }}
+                  >
+                    {cs.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <h3
+            className="mt-1.5 leading-[1.05] text-ink-strong"
+            style={{ overflowWrap: "anywhere", fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(24px, 2.6vw, 30px)", letterSpacing: "-0.02em" }}
+          >
+            {g.title}
+          </h3>
+          {(g.area || g.targetQty != null || g.targetAmount != null) && (
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-ink-muted">
+              {g.area && <span>{g.area}</span>}
+              {g.targetQty != null && <span className="tabular-nums">{fmtNum(g.targetQty)} {g.uom ?? ""}</span>}
+              {g.targetAmount != null && <span className="tabular-nums">₹{fmtNum(g.targetAmount)}</span>}
+            </div>
+          )}
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="leading-none tabular-nums" style={{ color: tone.color, fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.02em" }}>
+            {eff}
+            <span className="text-[15px]">%</span>
+          </div>
+          <div className="mt-0.5 text-[9.5px] font-black uppercase tracking-[0.1em] text-ink-subtle">of {target}%</div>
+        </div>
+      </div>
+
+      {/* Easy progress: drag slider + quick chips */}
+      <div className="px-5 pt-3.5 max-md:px-4">
+        <div className="flex items-center gap-3">
+          <span className="w-[70px] shrink-0 text-[10.5px] font-black uppercase tracking-[0.08em] text-ink-subtle">Progress</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={pct}
+            disabled={!ctx.canWrite}
+            onChange={(e) => setPct(Number(e.target.value))}
+            onPointerUp={(e) => commitPct(Number((e.target as HTMLInputElement).value))}
+            onKeyUp={(e) => commitPct(Number((e.target as HTMLInputElement).value))}
+            aria-label={`Progress for ${g.title}`}
+            className="h-2 flex-1 cursor-pointer appearance-none rounded-full disabled:cursor-default"
+            style={{ accentColor: tone.color, background: `linear-gradient(90deg, ${tone.color} ${pct}%, var(--color-hairline-strong) ${pct}%)` }}
+          />
+          <span className="w-11 shrink-0 text-right text-[17px] font-black tabular-nums" style={{ color: tone.color }}>{pct}%</span>
+          {ctx.busy === `pct:${g.id}` && <Loader2 size={13} className="animate-spin text-ink-muted" />}
+        </div>
+        {ctx.canWrite && (
+          <div className="mt-2 flex flex-wrap gap-1.5 pl-[82px] max-md:pl-0">
+            {[0, 25, 50, 75, 100].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => commitPct(n)}
+                className="rounded-full border px-2.5 py-1 text-[11px] font-bold tabular-nums transition-colors"
+                style={pct === n ? { background: tone.color, color: "#fff", borderColor: tone.color } : { color: "var(--color-ink-muted)", borderColor: "var(--color-hairline-strong)" }}
+              >
+                {n}%
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Notes + dictation */}
+      <div className="px-5 pt-3.5 max-md:px-4">
+        {!notesOpen ? (
+          <button type="button" onClick={() => setNotesOpen(true)} className="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-ink-muted hover:text-ink-strong">
+            <Plus size={13} strokeWidth={2.8} /> Add a note
+          </button>
+        ) : (
+          <div className="flex items-start gap-2 rounded-xl border p-2" style={{ borderColor: "var(--color-hairline-strong)", background: "var(--color-surface-soft)" }}>
+            <textarea
+              value={notes}
+              disabled={!ctx.canWrite}
+              onChange={(e) => setNotes(e.target.value.slice(0, 2000))}
+              onBlur={commitNotes}
+              rows={2}
+              placeholder="Notes, blockers, context… or tap the mic to dictate"
+              className="min-w-0 flex-1 resize-none bg-transparent text-[13px] leading-relaxed text-ink-strong outline-none placeholder:text-ink-subtle"
+            />
+            {ctx.canWrite && <MicButton listening={listening} onClick={dictateNotes} size={34} />}
+            {ctx.busy === `notes:${g.id}` && <Loader2 size={13} className="mt-1 animate-spin text-ink-muted" />}
+          </div>
+        )}
+      </div>
+
+      {/* Footer: child periods (vertical) + team + generate */}
+      <div className="mt-3.5 border-t px-5 py-3.5 max-md:px-4" style={{ borderColor: "var(--color-hairline)" }}>
+        {childRows.length > 0 && (
+          <div className="mb-3 flex flex-col gap-2">
+            {childRows.map((d) => (
+              <PeriodRow key={d.key} d={d} />
+            ))}
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+          <TeamAvatars team={team} />
+          {ctx.canWrite && (
+            <button
+              type="button"
+              onClick={() => setTeamOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-dashed px-3 py-1.5 text-[12.5px] font-bold text-ink-muted transition-colors hover:border-hairline-strong hover:text-ink-strong"
+              style={{ borderColor: "var(--color-hairline-strong)" }}
+            >
+              <UserPlus size={15} strokeWidth={2.4} /> {team.length > 0 ? "Edit people" : "Involve people"}
+            </button>
+          )}
+          <span className="ml-auto" />
+          {ctx.canWrite && (
+            <button
+              type="button"
+              onClick={onGenerate}
+              disabled={generating}
+              className="brand-btn inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-bold text-white disabled:opacity-50"
+            >
+              {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              Auto-divide into {genLabel}
+            </button>
+          )}
+        </div>
+        {teamOpen && ctx.canWrite && (
+          <div className="mt-2">
+            <TeamPicker roster={ctx.roster} team={team} onDone={(next) => { ctx.onSetTeam(g.id, next); setTeamOpen(false); }} onCancel={() => setTeamOpen(false)} />
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -897,11 +1183,11 @@ function TeamPicker({
         ))}
       </div>
       <div className="mt-1.5 flex justify-end gap-1.5">
-        <button type="button" onClick={onCancel} className="rounded-md px-2.5 py-1 text-[11.5px] font-semibold text-ink-muted">Cancel</button>
+        <button type="button" onClick={onCancel} className="brand-btn rounded-md px-2.5 py-1 text-[11.5px] font-semibold text-ink-muted">Cancel</button>
         <button
           type="button"
           onClick={() => onDone(roster.filter((r) => sel.has(r.id)).map((r) => ({ employeeId: r.id, name: r.name })))}
-          className="rounded-md px-2.5 py-1 text-[11.5px] font-bold text-white"
+          className="brand-btn rounded-md px-2.5 py-1 text-[11.5px] font-bold text-white"
           style={{ background: "#1d4ed8" }}
         >
           Save
@@ -911,36 +1197,102 @@ function TeamPicker({
   );
 }
 
+/** Web-Speech dictation. `onText(transcript)` fires with the growing utterance;
+ *  the caller merges it with whatever base text it captured at start. */
+function useDictation() {
+  const [listening, setListening] = React.useState(false);
+  const recRef = React.useRef<{ stop: () => void } | null>(null);
+  const toggle = React.useCallback((onText: (t: string) => void) => {
+    if (recRef.current) { recRef.current.stop(); return; }
+    const SR =
+      (window as unknown as { SpeechRecognition?: new () => never }).SpeechRecognition ??
+      (window as unknown as { webkitSpeechRecognition?: new () => never }).webkitSpeechRecognition;
+    if (!SR) { fireToast({ message: "Voice input isn't supported in this browser.", type: "error" }); return; }
+    const rec = new (SR as unknown as new () => {
+      lang: string; interimResults: boolean; continuous: boolean;
+      onresult: (e: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void;
+      onend: () => void; onerror: () => void; start: () => void; stop: () => void;
+    })();
+    rec.lang = "en-IN"; rec.interimResults = true; rec.continuous = false;
+    rec.onresult = (e) => {
+      let s = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) s += e.results[i]![0]!.transcript;
+      onText(s);
+    };
+    rec.onend = () => { setListening(false); recRef.current = null; };
+    rec.onerror = () => { setListening(false); recRef.current = null; };
+    recRef.current = rec; setListening(true); rec.start();
+  }, []);
+  return { listening, toggle };
+}
+
+/** Round mic toggle — pulses red while listening. */
+function MicButton({ listening, onClick, size = 40 }: { listening: boolean; onClick: () => void; size?: number }) {
+  return (
+    <button
+      type="button"
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      aria-label={listening ? "Stop dictation" : "Dictate"}
+      aria-pressed={listening}
+      className={`relative inline-flex shrink-0 items-center justify-center rounded-xl transition-colors ${listening ? "text-white" : "text-ink-soft hover:bg-surface-soft hover:text-ink-strong"}`}
+      style={{ width: size, height: size, background: listening ? "var(--color-altus-red)" : undefined }}
+    >
+      {listening && <span aria-hidden className="absolute inset-0 animate-ping rounded-xl" style={{ background: "var(--color-altus-red)", opacity: 0.35 }} />}
+      <Mic size={Math.round(size * 0.45)} strokeWidth={2.4} className="relative" />
+    </button>
+  );
+}
+
 function QuickAdd({ busy, onAdd, compact }: { busy: boolean; onAdd: (title: string) => void; compact?: boolean }) {
   const [open, setOpen] = React.useState(false);
   const [v, setV] = React.useState("");
+  const { listening, toggle } = useDictation();
+  const dictate = () => { const base = v.trim() ? v.trim() + " " : ""; toggle((s) => setV((base + s).slice(0, 400))); };
+
   if (!open) {
     return (
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`inline-flex items-center gap-1.5 rounded-chip border border-dashed border-hairline-strong px-2.5 text-[12px] font-bold text-ink-muted hover:text-ink-soft ${compact ? "py-1.5" : "py-2"}`}
+        className={
+          compact
+            ? "brand-btn wg-btn inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12.5px] font-bold text-white"
+            : "brand-btn wg-btn wg-sheen inline-flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-[15.5px] font-black text-white"
+        }
       >
-        <Plus size={13} /> Add goal
+        <Plus size={compact ? 15 : 19} strokeWidth={3} /> Add goal
       </button>
     );
   }
   return (
     <form
       onSubmit={(e) => { e.preventDefault(); if (v.trim()) { onAdd(v); setV(""); setOpen(false); } }}
-      className="flex items-center gap-1"
+      className={`wg-rise flex items-center gap-2 rounded-2xl border-[1.5px] bg-surface-card ${compact ? "p-1 pl-2.5" : "p-1.5 pl-4"}`}
+      style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 45%, var(--color-hairline-strong))", boxShadow: "0 8px 22px -14px rgba(225,6,0,0.5)" }}
     >
+      {!compact && (
+        <Sparkles size={17} strokeWidth={2.4} className="shrink-0" style={{ color: ACCENT }} />
+      )}
       <input
         autoFocus
         value={v}
         onChange={(e) => setV(e.target.value)}
-        onBlur={() => { if (!v.trim()) setOpen(false); }}
+        onBlur={() => { if (!v.trim() && !listening) setOpen(false); }}
         maxLength={400}
-        placeholder="Goal…"
-        className="min-w-0 flex-1 rounded-chip border border-hairline bg-surface-card px-2 py-1.5 text-[12.5px] text-ink-strong"
+        placeholder={compact ? "Goal…" : "Name your goal — or tap the mic to dictate…"}
+        className={`min-w-0 flex-1 border-0 bg-transparent text-ink-strong outline-none placeholder:text-ink-subtle ${compact ? "text-[12.5px]" : "text-[15px] font-medium"}`}
       />
-      <button type="submit" disabled={busy || v.trim().length < 1} className="inline-flex size-7 shrink-0 items-center justify-center rounded-chip text-white disabled:opacity-40" style={{ background: ACCENT }}>
-        {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={14} />}
+      <MicButton listening={listening} onClick={dictate} size={compact ? 32 : 40} />
+      {/* submit */}
+      <button
+        type="submit"
+        onMouseDown={(e) => e.preventDefault()}
+        disabled={busy || v.trim().length < 1}
+        className={`brand-btn inline-flex shrink-0 items-center justify-center rounded-xl text-white transition-transform active:scale-95 disabled:opacity-40 ${compact ? "size-8" : "size-10"}`}
+        aria-label="Add goal"
+      >
+        {busy ? <Loader2 size={compact ? 14 : 17} className="animate-spin" /> : <ArrowRight size={compact ? 15 : 18} strokeWidth={2.8} />}
       </button>
     </form>
   );
@@ -948,8 +1300,8 @@ function QuickAdd({ busy, onAdd, compact }: { busy: boolean; onAdd: (title: stri
 
 function FyStep({ dir, onClick }: { dir: -1 | 1; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="inline-grid size-7 place-items-center rounded-chip text-ink-muted hover:bg-surface-soft" aria-label={dir < 0 ? "Previous FY" : "Next FY"}>
-      {dir < 0 ? <ChevronLeft size={15} /> : <ChevronRight size={15} />}
+    <button type="button" onClick={onClick} className="inline-grid size-9 place-items-center rounded-xl text-ink-muted transition-colors hover:bg-surface-soft hover:text-ink-strong active:scale-95" aria-label={dir < 0 ? "Previous FY" : "Next FY"}>
+      {dir < 0 ? <ChevronLeft size={18} strokeWidth={2.6} /> : <ChevronRight size={18} strokeWidth={2.6} />}
     </button>
   );
 }
@@ -961,10 +1313,6 @@ function Dot({ c, label }: { c: string; label: string }) {
       {label}
     </span>
   );
-}
-
-function Empty({ text }: { text: string }) {
-  return <div className="rounded-chip border border-dashed border-hairline px-3 py-4 text-center text-[12px] text-ink-muted">{text}</div>;
 }
 
 /* ── Combined "Levels" board — one column per level; drop a card onto a higher

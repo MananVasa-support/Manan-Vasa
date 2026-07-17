@@ -45,7 +45,7 @@ export function MaterialTests({
                   <span className="text-[13.5px] font-semibold text-ink-subtle">No test set yet.</span>
                 )}
                 {canManage && (
-                  <Link href={`/training/${materialId}/tests` as Route} className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white py-2 px-3.5 text-[13.5px] font-bold text-ink-strong hover:border-altus-red">
+                  <Link href={`/training/${materialId}/tests` as Route} className="brand-btn inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white py-2 px-3.5 text-[13.5px] font-bold text-ink-strong hover:border-altus-red">
                     <Pencil size={14} /> {hasQuestions ? "Edit" : "Add questions"}
                   </Link>
                 )}

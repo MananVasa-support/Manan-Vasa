@@ -279,7 +279,7 @@ export function IncentiveTargets({
                           <button
                             type="button"
                             onClick={() => openEdit(r.empName, r.target)}
-                            className="wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-ink-soft transition-colors hover:text-ink-strong"
+                            className="brand-btn wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-ink-soft transition-colors hover:text-ink-strong"
                             style={{
                               fontSize: 12,
                               fontWeight: 700,
@@ -420,14 +420,14 @@ function SetTargetDialog({
             </label>
             <div className="flex justify-end gap-2 pt-1">
               <Dialog.Close asChild>
-                <button type="button" className="cursor-pointer px-4 py-2.5 font-semibold text-ink-subtle" style={{ fontSize: 14 }} disabled={pending}>
+                <button type="button" className="brand-btn cursor-pointer px-4 py-2.5 font-semibold text-ink-subtle" style={{ fontSize: 14 }} disabled={pending}>
                   Cancel
                 </button>
               </Dialog.Close>
               <button
                 type="submit"
                 disabled={pending}
-                className="wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 font-bold text-white disabled:opacity-50"
+                className="brand-btn wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 font-bold text-white disabled:opacity-50"
                 style={{
                   fontSize: 14,
                   background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,

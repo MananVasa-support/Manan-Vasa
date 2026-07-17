@@ -71,7 +71,7 @@ export function IncentiveImportDialog() {
       <Dialog.Trigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-pill border border-hairline bg-surface-card px-4 h-10 font-semibold text-ink-strong hover:bg-surface-soft hover:border-hairline-strong transition-colors"
+          className="brand-btn inline-flex items-center gap-2 rounded-pill border border-hairline bg-surface-card px-4 h-10 font-semibold text-ink-strong hover:bg-surface-soft hover:border-hairline-strong transition-colors"
           style={{ fontSize: 13.5 }}
         >
           <Upload size={15} strokeWidth={2.3} />
@@ -116,7 +116,7 @@ export function IncentiveImportDialog() {
                 <button
                   type="button"
                   onClick={reset}
-                  className="rounded-chip border border-hairline bg-surface-card px-4 py-2.5 font-semibold text-ink-strong hover:bg-surface-soft transition-colors"
+                  className="brand-btn rounded-chip border border-hairline bg-surface-card px-4 py-2.5 font-semibold text-ink-strong hover:bg-surface-soft transition-colors"
                   style={{ fontSize: 14 }}
                 >
                   Import another
@@ -206,7 +206,7 @@ export function IncentiveImportDialog() {
                   <button
                     type="button"
                     onClick={reset}
-                    className="inline-flex items-center gap-1.5 px-3 py-2.5 font-semibold text-ink-subtle hover:text-ink-strong transition-colors"
+                    className="brand-btn inline-flex items-center gap-1.5 px-3 py-2.5 font-semibold text-ink-subtle hover:text-ink-strong transition-colors"
                     style={{ fontSize: 13.5 }}
                   >
                     <X size={14} strokeWidth={2.4} />

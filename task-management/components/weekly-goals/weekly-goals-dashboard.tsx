@@ -129,7 +129,7 @@ export function WeeklyGoalsDashboard(props: Props) {
             </p>
             <Link
               href={"/weekly-goals" as Route}
-              className="wg-btn cursor-pointer mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full text-[14px] font-bold border border-hairline bg-surface-card text-ink-strong hover:border-hairline-strong"
+              className="brand-btn wg-btn cursor-pointer mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full text-[14px] font-bold border border-hairline bg-surface-card text-ink-strong hover:border-hairline-strong"
             >
               <ArrowLeft size={15} strokeWidth={2.4} />
               Back to Weekly Goals

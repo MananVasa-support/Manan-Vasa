@@ -60,7 +60,7 @@ export function TabAi({ detail }: { detail: AmbassadorDetail }) {
               type="button"
               onClick={generate}
               disabled={pending}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white py-2 px-3 text-[13px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] disabled:opacity-60"
+              className="brand-btn inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white py-2 px-3 text-[13px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] disabled:opacity-60"
             >
               {pending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} strokeWidth={2.6} />}
               Regenerate

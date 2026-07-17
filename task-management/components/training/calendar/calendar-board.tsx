@@ -121,7 +121,7 @@ function SessionCard({ s, index, canManage }: { s: SessionListRow; index: number
               type="button"
               onClick={onRequestRecording}
               disabled={busy !== null}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-hairline px-2.5 py-1.5 text-[12px] font-bold text-ink-soft hover:border-ink-subtle disabled:opacity-50"
+              className="brand-btn inline-flex items-center gap-1.5 rounded-lg border border-hairline px-2.5 py-1.5 text-[12px] font-bold text-ink-soft hover:border-ink-subtle disabled:opacity-50"
             >
               {busy === "rec" ? <Loader2 size={12} className="animate-spin" /> : <Film size={12} />} Recording
             </button>
@@ -178,7 +178,7 @@ export function CalendarBoard({
             <button
               type="button"
               onClick={() => setCreating(true)}
-              className="inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[15px] font-bold text-white transition-transform active:scale-[0.99]"
+              className="brand-btn inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[15px] font-bold text-white transition-transform active:scale-[0.99]"
               style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: `0 12px 30px -12px ${ACCENT}99` }}
             >
               <Plus size={17} strokeWidth={2.6} /> Schedule training

@@ -193,7 +193,7 @@ export function SalaryProfileImportDialog() {
                   type="button"
                   onClick={runPreview}
                   disabled={pending}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 text-[14px] font-medium text-[#64748B] disabled:opacity-50"
+                  className="brand-btn inline-flex items-center gap-1.5 px-4 py-2.5 text-[14px] font-medium text-[#64748B] disabled:opacity-50"
                 >
                   <RefreshCw size={14} strokeWidth={2.2} />
                   Re-read
@@ -218,7 +218,7 @@ export function SalaryProfileImportDialog() {
             <Dialog.Close asChild>
               <button
                 type="button"
-                className="px-4 py-2 text-[14px] font-medium text-[#64748B]"
+                className="brand-btn px-4 py-2 text-[14px] font-medium text-[#64748B]"
                 disabled={pending}
               >
                 Close

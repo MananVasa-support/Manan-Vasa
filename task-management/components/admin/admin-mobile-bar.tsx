@@ -212,7 +212,7 @@ export function AdminMobileBar({ adminName, adminEmail, backHref, canSeeAccounts
                   setOpen(false);
                   handleSignOut();
                 }}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-altus-red hover:bg-red-bg transition-colors text-left"
+                className="brand-btn inline-flex items-center gap-2 px-3 py-2 rounded-lg text-altus-red hover:bg-red-bg transition-colors text-left"
               >
                 <LogOut size={16} strokeWidth={2.2} />
                 <span className="text-[14px] font-medium">Sign out</span>

@@ -95,7 +95,7 @@ export function WeeklyGoalsImport(props: Props) {
           setError(null);
           setResult(null);
         }}
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[14.5px] font-bold border border-hairline bg-surface-card text-ink-strong transition-all hover:brightness-95 active:scale-[0.98]"
+        className="brand-btn inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[14.5px] font-bold border border-hairline bg-surface-card text-ink-strong transition-all hover:brightness-95 active:scale-[0.98]"
       >
         <Upload size={16} strokeWidth={2.4} />
         Bulk Import
@@ -143,7 +143,7 @@ export function WeeklyGoalsImport(props: Props) {
               <button
                 type="button"
                 onClick={downloadTemplate}
-                className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface-card px-3 py-1.5 text-[12.5px] font-bold text-ink-strong transition-all hover:brightness-95 active:scale-[0.98]"
+                className="brand-btn mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface-card px-3 py-1.5 text-[12.5px] font-bold text-ink-strong transition-all hover:brightness-95 active:scale-[0.98]"
               >
                 <Download size={14} strokeWidth={2.4} />
                 Download template (.csv)
@@ -189,7 +189,7 @@ export function WeeklyGoalsImport(props: Props) {
               <button
                 type="button"
                 onClick={() => !pending && setOpen(false)}
-                className="px-4 py-2 rounded-full border border-hairline bg-surface-card font-bold text-[14px] text-ink-soft hover:text-ink-strong transition-colors"
+                className="brand-btn px-4 py-2 rounded-full border border-hairline bg-surface-card font-bold text-[14px] text-ink-soft hover:text-ink-strong transition-colors"
               >
                 {result ? "Done" : "Cancel"}
               </button>

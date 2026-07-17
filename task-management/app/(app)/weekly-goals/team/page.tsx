@@ -145,7 +145,7 @@ export default async function TeamPerformancePage() {
                   <div className="mt-4 flex items-center gap-2.5 flex-wrap">
                     <Link
                       href={`/weekly-goals?emp=${m.id}` as Route}
-                      className="inline-flex items-center gap-1.5 rounded-xl border-2 px-3.5 py-2 text-[13px] font-bold transition-colors"
+                      className="brand-btn inline-flex items-center gap-1.5 rounded-xl border-2 px-3.5 py-2 text-[13px] font-bold transition-colors"
                       style={{ borderColor: `color-mix(in srgb, ${RED} 35%, transparent)`, color: "var(--color-altus-red-deep)" }}
                     >
                       <Target size={14} strokeWidth={2.4} /> View goals

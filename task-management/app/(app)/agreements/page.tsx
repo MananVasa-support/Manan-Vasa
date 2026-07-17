@@ -152,7 +152,7 @@ function EmployeeAgreements({ rows }: { rows: AgreementRow[] }) {
                   href={`/agreements/pdf/${r.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card px-3.5 py-2 text-[13px] font-semibold text-ink-strong hover:border-ink-soft"
+                  className="brand-btn inline-flex items-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card px-3.5 py-2 text-[13px] font-semibold text-ink-strong hover:border-ink-soft"
                 >
                   <ExternalLink size={13} strokeWidth={2.3} /> View PDF
                 </a>

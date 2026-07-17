@@ -324,7 +324,7 @@ export function SessionForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl border border-hairline-strong bg-white px-5 py-3 text-[14.5px] font-bold text-ink-soft hover:border-ink-subtle"
+            className="brand-btn rounded-xl border border-hairline-strong bg-white px-5 py-3 text-[14.5px] font-bold text-ink-soft hover:border-ink-subtle"
           >
             Cancel
           </button>
@@ -332,7 +332,7 @@ export function SessionForm({
         <button
           type="submit"
           disabled={pending}
-          className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-[15px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-60"
+          className="brand-btn inline-flex items-center gap-2 rounded-xl px-6 py-3 text-[15px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-60"
           style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: `0 12px 30px -12px ${ACCENT}99` }}
         >
           {pending ? <Loader2 size={17} className="animate-spin" /> : <Calendar size={17} strokeWidth={2.6} />}

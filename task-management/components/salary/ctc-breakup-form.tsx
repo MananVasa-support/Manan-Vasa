@@ -277,7 +277,7 @@ export function CtcBreakupForm({ emp }: { emp: CtcFormEmployee }) {
               flash(r, "Retention bonus saved.");
             })
           }
-          className="mt-3 rounded-lg px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
+          className="brand-btn mt-3 rounded-lg px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
           style={{ background: "linear-gradient(135deg, #7c3aed, #6d28d9)" }}
         >
           Save retention bonus

@@ -141,7 +141,7 @@ export function VasaBalances({
             {snapshots.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </label>
-        <button type="button" onClick={newSnapshot} disabled={busy} className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2 px-3.5 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red disabled:opacity-50">
+        <button type="button" onClick={newSnapshot} disabled={busy} className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2 px-3.5 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red disabled:opacity-50">
           <CalendarPlus size={15} strokeWidth={2.4} /> New snapshot
         </button>
         {asOn && (
@@ -151,7 +151,7 @@ export function VasaBalances({
         )}
         <div className="ml-auto flex items-center gap-2">
           {busy && <Loader2 size={16} className="animate-spin text-ink-subtle" />}
-          <a href="/accounts/vasa-family-interpersonal/export" className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2 px-3.5 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red" title="Download every snapshot as Excel">
+          <a href="/accounts/vasa-family-interpersonal/export" className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2 px-3.5 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red" title="Download every snapshot as Excel">
             <Download size={15} strokeWidth={2.4} /> Export
           </a>
         </div>
@@ -207,10 +207,10 @@ export function VasaBalances({
           <>
             <input autoFocus value={newParty} onChange={(e) => setNewParty(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addParty(); if (e.key === "Escape") { setAdding(false); setNewParty(""); } }} placeholder="New party name…" className="rounded-lg border border-hairline-strong bg-white px-3 py-2 text-[14px] font-semibold text-ink-strong outline-none focus:border-[color:var(--color-altus-red)]" />
             <button type="button" onClick={addParty} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-white disabled:opacity-50" style={{ background: "var(--color-altus-red)" }}><Check size={15} strokeWidth={2.6} /> Add</button>
-            <button type="button" onClick={() => { setAdding(false); setNewParty(""); }} className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-3 py-2 text-[13.5px] font-bold text-ink-muted"><X size={15} /> Cancel</button>
+            <button type="button" onClick={() => { setAdding(false); setNewParty(""); }} className="brand-btn inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-3 py-2 text-[13.5px] font-bold text-ink-muted"><X size={15} /> Cancel</button>
           </>
         ) : (
-          <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-2 rounded-xl border border-dashed border-hairline-strong bg-white py-2 px-3.5 text-[13.5px] font-bold text-ink-soft transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red">
+          <button type="button" onClick={() => setAdding(true)} className="brand-btn inline-flex items-center gap-2 rounded-xl border border-dashed border-hairline-strong bg-white py-2 px-3.5 text-[13.5px] font-bold text-ink-soft transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red">
             <Plus size={15} strokeWidth={2.6} /> Add party
           </button>
         )}

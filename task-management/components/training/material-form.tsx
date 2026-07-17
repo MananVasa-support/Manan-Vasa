@@ -155,7 +155,7 @@ export function MaterialForm({
                 <button type="button" onClick={() => setFile(null)} aria-label="Remove file" className="text-ink-subtle hover:text-altus-red"><X size={16} /></button>
               </div>
             ) : (
-              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className={FIELD + " flex items-center gap-2 text-ink-subtle disabled:opacity-60"}>
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className={"brand-btn " + FIELD + " flex items-center gap-2 text-ink-subtle disabled:opacity-60"}>
                 {uploading ? <Loader2 size={17} className="animate-spin" /> : <Upload size={17} strokeWidth={2.2} />}
                 {uploading ? "Uploading…" : "Choose file (≤100MB)"}
               </button>
@@ -207,7 +207,7 @@ export function MaterialForm({
       )}
 
       <div className="flex items-center justify-end gap-3 border-t border-hairline pt-5">
-        <button type="button" onClick={() => router.push("/training" as Route)} className="inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-5 py-3 text-[15px] font-bold text-ink-strong hover:border-hairline-strong">
+        <button type="button" onClick={() => router.push("/training" as Route)} className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-5 py-3 text-[15px] font-bold text-ink-strong hover:border-hairline-strong">
           <ArrowLeft size={16} strokeWidth={2.4} /> Cancel
         </button>
         <button type="submit" disabled={submitting || uploading} className="inline-flex items-center gap-2 rounded-xl py-3 px-7 text-[15px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-60" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}>

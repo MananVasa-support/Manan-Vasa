@@ -150,7 +150,7 @@ export function OutstandingExportDialog({
       <Dialog.Trigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 h-10 px-4 rounded-pill text-[14px] font-bold border border-hairline bg-surface-card text-ink-soft hover:border-altus-red hover:text-altus-red transition-all print:hidden"
+          className="brand-btn inline-flex items-center gap-1.5 h-10 px-4 rounded-pill text-[14px] font-bold border border-hairline bg-surface-card text-ink-soft hover:border-altus-red hover:text-altus-red transition-all print:hidden"
         >
           <Download size={16} strokeWidth={2.3} />
           Export
@@ -207,7 +207,7 @@ export function OutstandingExportDialog({
           <button
             type="button"
             onClick={onCsvCollections}
-            className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#64748B] hover:text-altus-red transition-colors"
+            className="brand-btn mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#64748B] hover:text-altus-red transition-colors"
           >
             <ClipboardCopy size={14} strokeWidth={2.2} />
             Also export Collections as CSV
@@ -248,7 +248,7 @@ export function OutstandingExportDialog({
             <Dialog.Close asChild>
               <button
                 type="button"
-                className="px-4 py-2 text-[14px] font-medium text-[#64748B]"
+                className="brand-btn px-4 py-2 text-[14px] font-medium text-[#64748B]"
               >
                 Close
               </button>

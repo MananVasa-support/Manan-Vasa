@@ -122,7 +122,7 @@ export function InstallmentEditor({
             <Dialog.Close asChild>
               <button
                 type="button"
-                className="rounded-md py-2.5 px-5 text-[14px] font-medium text-[#64748B]"
+                className="brand-btn rounded-md py-2.5 px-5 text-[14px] font-medium text-[#64748B]"
               >
                 Done
               </button>

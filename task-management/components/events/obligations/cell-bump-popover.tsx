@@ -204,7 +204,7 @@ export function CellBumpPopover({
                 type="button"
                 onClick={onClear}
                 disabled={pending}
-                className="text-[13px] font-semibold text-ink-soft transition-colors hover:text-altus-red disabled:opacity-50"
+                className="brand-btn text-[13px] font-semibold text-ink-soft transition-colors hover:text-altus-red disabled:opacity-50"
               >
                 Clear override
               </button>
@@ -215,7 +215,7 @@ export function CellBumpPopover({
               type="button"
               onClick={onSave}
               disabled={pending}
-              className="rounded-pill px-4 py-2 text-[14px] font-bold text-white shadow-sm transition-transform enabled:hover:-translate-y-0.5 disabled:opacity-50"
+              className="brand-btn rounded-pill px-4 py-2 text-[14px] font-bold text-white shadow-sm transition-transform enabled:hover:-translate-y-0.5 disabled:opacity-50"
               style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
             >
               {pending ? "Saving…" : "Save"}

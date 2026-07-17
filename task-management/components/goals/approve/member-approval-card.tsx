@@ -170,7 +170,7 @@ function Column({
           type="button"
           disabled={pending || !canApprove}
           onClick={() => onApprove(!approved)}
-          className={`wg-btn inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-bold hover:brightness-110 disabled:opacity-50 ${FOCUS_RING}`}
+          className={`brand-btn wg-btn inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-bold hover:brightness-110 disabled:opacity-50 ${FOCUS_RING}`}
           style={{
             background: approved
               ? "linear-gradient(135deg, var(--color-slate), var(--color-slate-deep))"
@@ -324,7 +324,7 @@ function CommitRow({
               onClick={() =>
                 run(() => requireGoalChange({ weeklyGoalId: goal.id, reviewNotes: note || null }), "Sent back for changes.")
               }
-              className={`wg-btn inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-bold text-white hover:brightness-110 disabled:opacity-50 ${FOCUS_RING}`}
+              className={`brand-btn wg-btn inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-bold text-white hover:brightness-110 disabled:opacity-50 ${FOCUS_RING}`}
               style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
             >
               <MessageSquareWarning size={13} /> Require change
@@ -333,7 +333,7 @@ function CommitRow({
               type="button"
               disabled={pending}
               onClick={() => setChanging(false)}
-              className={`wg-btn rounded-full border border-hairline px-3 py-1.5 text-[12.5px] font-bold text-ink-soft hover:text-ink-strong ${FOCUS_RING}`}
+              className={`brand-btn wg-btn rounded-full border border-hairline px-3 py-1.5 text-[12.5px] font-bold text-ink-soft hover:text-ink-strong ${FOCUS_RING}`}
             >
               Cancel
             </button>
@@ -344,7 +344,7 @@ function CommitRow({
           type="button"
           disabled={pending}
           onClick={() => setChanging(true)}
-          className={`mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-bold text-ink-muted transition-colors hover:text-[#7c2d12] ${FOCUS_RING} rounded`}
+          className={`brand-btn mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-bold text-ink-muted transition-colors hover:text-[#7c2d12] ${FOCUS_RING} rounded`}
         >
           <MessageSquareWarning size={13} /> Require change
         </button>

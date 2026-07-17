@@ -397,7 +397,7 @@ export function EditEmployeeDialog({
                     type="button"
                     onClick={onSaveSchedule}
                     disabled={schedPending}
-                    className="rounded-md py-2 px-4 text-[14px] font-medium text-[#0F172A] border border-[#CBD5E1] bg-white hover:border-[#94A3B8] transition-colors disabled:opacity-50"
+                    className="brand-btn rounded-md py-2 px-4 text-[14px] font-medium text-[#0F172A] border border-[#CBD5E1] bg-white hover:border-[#94A3B8] transition-colors disabled:opacity-50"
                   >
                     {schedPending ? "Saving…" : "Save schedule"}
                   </button>
@@ -409,7 +409,7 @@ export function EditEmployeeDialog({
               <Dialog.Close asChild>
                 <button
                   type="button"
-                  className="px-4 py-2.5 text-[14px] font-medium text-[#64748B]"
+                  className="brand-btn px-4 py-2.5 text-[14px] font-medium text-[#64748B]"
                   disabled={pending}
                 >
                   Cancel

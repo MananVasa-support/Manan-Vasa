@@ -21,7 +21,7 @@ export function SeedConstitutionButton({ accent, accentDeep }: { accent: string;
           else fireToast({ message: res.error, type: "error" });
         })
       }
-      className="wg-btn inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-bold text-white disabled:opacity-50"
+      className="brand-btn wg-btn inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-bold text-white disabled:opacity-50"
       style={{ background: `linear-gradient(135deg, ${accent}, ${accentDeep})` }}
     >
       {pending ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} strokeWidth={2.4} />}

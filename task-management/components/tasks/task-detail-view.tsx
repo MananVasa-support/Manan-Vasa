@@ -927,7 +927,7 @@ function ArchiveToggle({ taskId, archived }: { taskId: string; archived: boolean
         type="button"
         onClick={toggle}
         disabled={pending}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-chip border border-hairline px-3.5 py-2.5 text-[14px] font-semibold text-ink-strong transition-colors hover:bg-surface-soft disabled:opacity-60"
+        className="brand-btn inline-flex w-full items-center justify-center gap-2 rounded-chip border border-hairline px-3.5 py-2.5 text-[14px] font-semibold text-ink-strong transition-colors hover:bg-surface-soft disabled:opacity-60"
       >
         {pending ? (
           <Loader2 size={15} className="animate-spin" />
@@ -973,7 +973,7 @@ function DeleteTask({ taskId, taskTitle }: { taskId: string; taskTitle: string }
         <button
           type="button"
           onClick={() => setArmed(true)}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-chip border border-altus-red/30 px-3.5 py-2.5 text-[14px] font-semibold text-altus-red transition-colors hover:bg-altus-red/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
+          className="brand-btn inline-flex w-full items-center justify-center gap-2 rounded-chip border border-altus-red/30 px-3.5 py-2.5 text-[14px] font-semibold text-altus-red transition-colors hover:bg-altus-red/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
         >
           <Trash2 size={15} strokeWidth={2.2} />
           Delete task permanently
@@ -1005,7 +1005,7 @@ function DeleteTask({ taskId, taskTitle }: { taskId: string; taskTitle: string }
           type="button"
           onClick={() => setArmed(false)}
           disabled={pending}
-          className="rounded-chip border border-hairline px-3 py-2 text-[13.5px] font-semibold text-ink-strong transition-colors hover:bg-surface-soft disabled:opacity-60"
+          className="brand-btn rounded-chip border border-hairline px-3 py-2 text-[13.5px] font-semibold text-ink-strong transition-colors hover:bg-surface-soft disabled:opacity-60"
         >
           Cancel
         </button>
@@ -1167,7 +1167,7 @@ function TopHeaderStrip({
       <div className="flex items-center gap-2 shrink-0">
         <Link
           href={`/tasks/${task.id}/focus` as Route}
-          className="wg-btn inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold text-ink-soft border border-hairline bg-white/85 hover:bg-white hover:border-hairline-strong transition-all"
+          className="brand-btn wg-btn inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold text-ink-soft border border-hairline bg-white/85 hover:bg-white hover:border-hairline-strong transition-all"
           style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)" }}
         >
           <Maximize2 size={14} strokeWidth={2.4} />
@@ -1175,7 +1175,7 @@ function TopHeaderStrip({
         </Link>
         <Link
           href={`/tasks/new?from=${task.id}` as Route}
-          className="wg-btn inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold text-ink-soft border border-hairline bg-white/85 hover:bg-white hover:border-hairline-strong transition-all"
+          className="brand-btn wg-btn inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-semibold text-ink-soft border border-hairline bg-white/85 hover:bg-white hover:border-hairline-strong transition-all"
           style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)" }}
         >
           <Copy size={14} strokeWidth={2.4} />

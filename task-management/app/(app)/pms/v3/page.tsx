@@ -100,7 +100,7 @@ export default async function PmsV3Page() {
           <div className="mt-4 flex flex-wrap gap-2.5">
             <Link
               href={"/pms/v3/constitution" as Route}
-              className="wg-btn inline-flex items-center gap-2 rounded-pill border-2 bg-white/70 px-4 py-2.5 text-[14px] font-bold"
+              className="brand-btn wg-btn inline-flex items-center gap-2 rounded-pill border-2 bg-white/70 px-4 py-2.5 text-[14px] font-bold"
               style={{ borderColor: `color-mix(in srgb, ${ACCENT} 40%, transparent)`, color: ACCENT_DEEP }}
             >
               <ScrollText size={16} strokeWidth={2.4} /> Constitution scoring

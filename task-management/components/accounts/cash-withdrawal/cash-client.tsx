@@ -153,7 +153,7 @@ export function CashWithdrawal({ fyStartYear, cols, currentMonth, items, months,
             <option value="">All entities</option>
             {entities.map((a) => (<option key={a} value={a}>{a}</option>))}
           </select>
-          {hasFilters && <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red"><X size={15} strokeWidth={2.4} /> Clear</button>}
+          {hasFilters && <button type="button" onClick={clearFilters} className="brand-btn inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red"><X size={15} strokeWidth={2.4} /> Clear</button>}
           <button type="button" onClick={startAdd} className="ml-auto inline-flex items-center gap-2 rounded-xl py-2.5 px-4 text-[14.5px] font-bold text-white transition-transform active:scale-[0.99]" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 10px 26px -12px rgba(225,6,0,0.6)" }}>
             <Plus size={16} strokeWidth={2.6} /> Add withdrawal
           </button>
@@ -181,7 +181,7 @@ export function CashWithdrawal({ fyStartYear, cols, currentMonth, items, months,
                 <EditorRow colSpan={totalCols} draft={draft} setDraft={setDraft} entityOptions={entityOptions} payeeOptions={payeeOptions} onSave={save} onCancel={cancel} busy={busy} adding={adding} />
               )}
               {filtered.length === 0 && !adding ? (
-                <tr><td colSpan={totalCols} className="px-5 py-16 text-center"><p className="text-[15px] font-semibold text-ink-muted">{hasFilters ? "No withdrawals match these filters." : "No withdrawals for this financial year yet."}</p>{!hasFilters && <button type="button" onClick={startAdd} className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red"><Plus size={15} strokeWidth={2.6} /> Add the first withdrawal</button>}</td></tr>
+                <tr><td colSpan={totalCols} className="px-5 py-16 text-center"><p className="text-[15px] font-semibold text-ink-muted">{hasFilters ? "No withdrawals match these filters." : "No withdrawals for this financial year yet."}</p>{!hasFilters && <button type="button" onClick={startAdd} className="brand-btn mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red"><Plus size={15} strokeWidth={2.6} /> Add the first withdrawal</button>}</td></tr>
               ) : (
                 filtered.map((r) => editingId === r.id ? (
                   <EditorRow key={r.id} colSpan={totalCols} draft={draft} setDraft={setDraft} entityOptions={entityOptions} payeeOptions={payeeOptions} onSave={save} onCancel={cancel} busy={busy} adding={false} />
@@ -346,7 +346,7 @@ function EditorRow({ colSpan, draft, setDraft, entityOptions, payeeOptions, onSa
           <Field label="Cheque amount (₹)" className="col-span-3 max-lg:col-span-2 max-md:col-span-2"><input value={draft.amount} onChange={(e) => set({ amount: e.target.value })} className={INPUT} inputMode="numeric" placeholder="195000" aria-label="Cheque amount" /></Field>
         </div>
         <div className="mt-4 flex items-center justify-end gap-2">
-          <button type="button" onClick={onCancel} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-4 py-2 text-[14px] font-bold text-ink-muted hover:bg-surface-soft disabled:opacity-50"><X size={16} strokeWidth={2.4} /> Cancel</button>
+          <button type="button" onClick={onCancel} disabled={busy} className="brand-btn inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-4 py-2 text-[14px] font-bold text-ink-muted hover:bg-surface-soft disabled:opacity-50"><X size={16} strokeWidth={2.4} /> Cancel</button>
           <button type="button" onClick={onSave} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[14px] font-bold text-white disabled:opacity-50" style={{ background: "var(--color-altus-red)" }}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.6} />} {adding ? "Add withdrawal" : "Save changes"}</button>
         </div>
       </td>

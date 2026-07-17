@@ -146,7 +146,7 @@ export function MaterialsTable({
           </button>
         )}
         {hasFilters && (
-          <button type="button" onClick={() => { setQ(""); setSubject(""); setInductionOnly(false); }} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
+          <button type="button" onClick={() => { setQ(""); setSubject(""); setInductionOnly(false); }} className="brand-btn inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
             <X size={15} strokeWidth={2.4} /> Clear
           </button>
         )}

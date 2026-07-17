@@ -127,7 +127,7 @@ export function ObligationsClient({
         <button
           type="button"
           onClick={openCreate}
-          className="wg-btn inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[15px] font-bold text-white"
+          className="brand-btn wg-btn inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[15px] font-bold text-white"
           style={{
             background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
             boxShadow: "0 10px 24px -12px rgba(8,145,178,0.7), inset 0 1px 0 rgba(255,255,255,0.25)",
@@ -397,7 +397,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
       <button
         type="button"
         onClick={onCreate}
-        className="wg-btn mt-5 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[15px] font-bold text-white"
+        className="brand-btn wg-btn mt-5 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[15px] font-bold text-white"
         style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
       >
         <Plus size={17} strokeWidth={2.6} aria-hidden />

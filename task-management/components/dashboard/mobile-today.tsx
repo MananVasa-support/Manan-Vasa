@@ -134,7 +134,7 @@ export function MobileToday({
       <div className="mt-7">
         <Link
           href={"/?full=1" as Route}
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-pill border border-hairline-strong bg-surface-card font-semibold text-ink-strong transition-colors hover:bg-surface-soft"
+          className="brand-btn inline-flex h-12 w-full items-center justify-center gap-2 rounded-pill border border-hairline-strong bg-surface-card font-semibold text-ink-strong transition-colors hover:bg-surface-soft"
           style={{ fontSize: 15.5 }}
         >
           <LayoutDashboard size={18} strokeWidth={2.2} aria-hidden />

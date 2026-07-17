@@ -127,7 +127,7 @@ export function DirectoryTable({ rows }: { rows: AmbassadorListRow[] }) {
           <button
             type="button"
             onClick={clearFilters}
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red"
+            className="brand-btn inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red"
           >
             <X size={15} strokeWidth={2.4} /> Clear
           </button>

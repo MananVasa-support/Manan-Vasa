@@ -66,7 +66,7 @@ export function IncentiveFormDialog() {
     >
       <Dialog.Trigger asChild>
         <button
-          className="wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full py-2.5 px-5 text-[15px] font-bold text-white"
+          className="brand-btn wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full py-2.5 px-5 text-[15px] font-bold text-white"
           style={{
             background: "linear-gradient(135deg, #16a34a, #15803d)",
             boxShadow:
@@ -174,7 +174,7 @@ export function IncentiveFormDialog() {
                 <Dialog.Close asChild>
                   <button
                     type="button"
-                    className="rounded-pill px-4 py-2.5 text-[15px] font-semibold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
+                    className="brand-btn rounded-pill px-4 py-2.5 text-[15px] font-semibold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
                     disabled={pending}
                   >
                     Cancel

@@ -247,7 +247,7 @@ export function IncentiveTeamSplit({
                 <button
                   type="button"
                   onClick={addRow}
-                  className="wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-2 font-bold text-ink-soft transition-colors hover:text-ink-strong"
+                  className="brand-btn wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-2 font-bold text-ink-soft transition-colors hover:text-ink-strong"
                   style={{ fontSize: 13, boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}
                 >
                   <Plus size={15} strokeWidth={2.6} /> Add participant
@@ -267,7 +267,7 @@ export function IncentiveTeamSplit({
                     type="button"
                     onClick={clearSplit}
                     disabled={pending}
-                    className="cursor-pointer text-[13px] font-bold text-[var(--color-red-deep)] disabled:opacity-50"
+                    className="brand-btn cursor-pointer text-[13px] font-bold text-[var(--color-red-deep)] disabled:opacity-50"
                   >
                     Remove split
                   </button>
@@ -276,14 +276,14 @@ export function IncentiveTeamSplit({
                 )}
                 <div className="flex justify-end gap-2">
                   <Dialog.Close asChild>
-                    <button type="button" className="cursor-pointer px-4 py-2.5 font-semibold text-ink-subtle" style={{ fontSize: 14 }} disabled={pending}>
+                    <button type="button" className="brand-btn cursor-pointer px-4 py-2.5 font-semibold text-ink-subtle" style={{ fontSize: 14 }} disabled={pending}>
                       Cancel
                     </button>
                   </Dialog.Close>
                   <button
                     type="submit"
                     disabled={pending}
-                    className="wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 font-bold text-white disabled:opacity-50"
+                    className="brand-btn wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 font-bold text-white disabled:opacity-50"
                     style={{
                       fontSize: 14,
                       background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,

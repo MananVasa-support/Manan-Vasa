@@ -229,7 +229,7 @@ export function ActivityFilterBar({ employees, initial }: Props) {
           <a
             href={`/admin/activity/export?${searchParams.toString()}`}
             download
-            className="inline-flex items-center gap-1.5 text-chip text-ink-subtle hover:text-ink-strong transition-colors px-3 py-2 rounded-chip"
+            className="brand-btn inline-flex items-center gap-1.5 text-chip text-ink-subtle hover:text-ink-strong transition-colors px-3 py-2 rounded-chip"
             title="Download current view as CSV"
             aria-label="Export CSV"
           >
@@ -239,7 +239,7 @@ export function ActivityFilterBar({ employees, initial }: Props) {
           <button
             type="button"
             onClick={reset}
-            className="inline-flex items-center gap-1.5 text-chip text-ink-subtle hover:text-ink-strong transition-colors px-3 py-2 rounded-chip"
+            className="brand-btn inline-flex items-center gap-1.5 text-chip text-ink-subtle hover:text-ink-strong transition-colors px-3 py-2 rounded-chip"
             aria-label="Reset filters"
           >
             <RotateCcw size={14} strokeWidth={2.2} />
@@ -395,7 +395,7 @@ export function ActivityActiveFilterChips({
       <button
         type="button"
         onClick={resetAll}
-        className="ml-1 text-[13px] font-semibold hover:underline"
+        className="brand-btn ml-1 text-[13px] font-semibold hover:underline"
         style={{ color: "var(--color-altus-red)" }}
       >
         Reset

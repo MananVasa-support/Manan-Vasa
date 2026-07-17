@@ -173,7 +173,7 @@ export function OutstandingImportDialog() {
       <Dialog.Trigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2.5 px-4 text-[14px] font-medium text-ink-strong hover:border-hairline-strong transition-colors"
+          className="brand-btn inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2.5 px-4 text-[14px] font-medium text-ink-strong hover:border-hairline-strong transition-colors"
         >
           <Upload size={15} strokeWidth={2.2} />
           Import
@@ -376,7 +376,7 @@ export function OutstandingImportDialog() {
                     setPayload(null);
                   }}
                   disabled={pending}
-                  className="px-4 py-2.5 text-[14px] font-medium text-[#64748B]"
+                  className="brand-btn px-4 py-2.5 text-[14px] font-medium text-[#64748B]"
                 >
                   Discard
                 </button>
@@ -408,7 +408,7 @@ export function OutstandingImportDialog() {
               onClick={onUndo}
               disabled={pending || !lastBatchId}
               title={lastBatchId ? undefined : "No import done yet in this session"}
-              className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2 px-4 text-[13px] font-medium text-ink-strong hover:border-hairline-strong transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="brand-btn inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2 px-4 text-[13px] font-medium text-ink-strong hover:border-hairline-strong transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Undo2 size={14} strokeWidth={2.2} />
               Undo Last Import
@@ -416,7 +416,7 @@ export function OutstandingImportDialog() {
             <Dialog.Close asChild>
               <button
                 type="button"
-                className="px-4 py-2 text-[14px] font-medium text-[#64748B]"
+                className="brand-btn px-4 py-2 text-[14px] font-medium text-[#64748B]"
                 disabled={pending}
               >
                 Close

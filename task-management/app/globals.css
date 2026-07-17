@@ -2306,6 +2306,35 @@ select.nt-input {
 .wg-btn:hover { transform: translateY(-2px); }
 .wg-btn:active { transform: translateY(0) scale(0.985); }
 
+/* ── Brand-red labeled buttons (per Sir 2026-07-17) ──────────────────────────
+   Canonical fill for EVERY text-labeled button — primary, secondary, cancel,
+   ghost, submit. Icon-only buttons, filter pills and tab/segment toggles do NOT
+   use this. `.brand-btn` = full-strength solid Altus red; `.brand-btn--soft` =
+   the same red at slightly lower emphasis. The `!important` fill is author-
+   important, so it overrides BOTH Tailwind `bg-*` utility classes AND normal
+   inline `style={{background}}` backgrounds (author !important beats inline
+   normal in the cascade) — i.e. adding `.brand-btn` reddens a button whatever
+   its previous colour. Stateful controls (the punch dial, paid/unpaid toggles)
+   are deliberately NOT given this class so they keep their state colours. */
+.brand-btn {
+  background: linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep)) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow: 0 8px 18px -12px color-mix(in srgb, var(--color-altus-red-deep) 80%, transparent);
+}
+.brand-btn:hover { filter: brightness(1.05); }
+.brand-btn:disabled { opacity: 0.55; }
+.brand-btn--soft {
+  background: color-mix(in srgb, var(--color-altus-red) 14%, var(--color-surface-card)) !important;
+  color: var(--color-altus-red-deep) !important;
+  border: 1.5px solid color-mix(in srgb, var(--color-altus-red) 40%, transparent) !important;
+  box-shadow: none;
+}
+.brand-btn--soft:hover {
+  background: color-mix(in srgb, var(--color-altus-red) 22%, var(--color-surface-card)) !important;
+  filter: none;
+}
+
 /* Primary CTA gets a slow light sheen sweeping across on hover. */
 .wg-sheen { position: relative; overflow: hidden; }
 .wg-sheen::after {

@@ -573,7 +573,7 @@ export function TaskEditForm({
           type="button"
           onClick={onCancel}
           disabled={pending}
-          className="px-5 py-2.5 rounded-lg text-[14px] font-medium border border-hairline bg-white text-ink-strong hover:bg-surface-soft disabled:opacity-50"
+          className="brand-btn px-5 py-2.5 rounded-lg text-[14px] font-medium border border-hairline bg-white text-ink-strong hover:bg-surface-soft disabled:opacity-50"
         >
           Cancel
         </button>

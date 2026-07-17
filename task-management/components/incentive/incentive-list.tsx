@@ -99,7 +99,7 @@ function RequestCard({ row, isAdmin }: { row: IncentiveRequestRow; isAdmin: bool
                 type="button"
                 disabled={pending}
                 onClick={() => decide("approved")}
-                className="wg-btn wg-sheen cursor-pointer rounded-full px-4 py-2 text-[13px] font-bold text-white disabled:opacity-50"
+                className="brand-btn wg-btn wg-sheen cursor-pointer rounded-full px-4 py-2 text-[13px] font-bold text-white disabled:opacity-50"
                 style={{
                   background: "linear-gradient(135deg, #16A34A, #15803D)",
                   boxShadow:

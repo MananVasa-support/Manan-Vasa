@@ -522,7 +522,7 @@ export function WeeklyGoalsBoard(props: Props) {
           )}
           <div className="ml-auto flex items-center gap-2.5">
             {activeFilterCount > 0 && (
-              <button type="button" onClick={clearFilters} className={`cursor-pointer inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold text-altus-red hover:bg-altus-red/[0.06] ${FOCUS_RING}`}>
+              <button type="button" onClick={clearFilters} className={`brand-btn cursor-pointer inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold text-altus-red hover:bg-altus-red/[0.06] ${FOCUS_RING}`}>
                 <X size={14} strokeWidth={2.6} /> Clear {activeFilterCount}
               </button>
             )}
@@ -796,7 +796,7 @@ function BalanceButton({
           router.refresh();
         })
       }
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}
+      className={`brand-btn inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}
       style={{
         borderColor: "color-mix(in srgb, var(--color-altus-red) 36%, transparent)",
         background: "color-mix(in srgb, var(--color-altus-red) 8%, transparent)",
@@ -1105,7 +1105,7 @@ function DeleteGoalDialog({
                 <button
                   type="button"
                   onClick={onClose}
-                  className={`rounded-pill px-4 py-2.5 text-[14px] font-semibold text-ink-soft hover:text-ink-strong transition-colors ${FOCUS_RING}`}
+                  className={`brand-btn rounded-pill px-4 py-2.5 text-[14px] font-semibold text-ink-soft hover:text-ink-strong transition-colors ${FOCUS_RING}`}
                 >
                   Cancel
                 </button>
@@ -1140,7 +1140,7 @@ function DeleteGoalDialog({
                   type="button"
                   onClick={() => setStep(1)}
                   disabled={pending}
-                  className={`rounded-pill px-4 py-2.5 text-[14px] font-semibold text-ink-soft hover:text-ink-strong transition-colors disabled:opacity-50 ${FOCUS_RING}`}
+                  className={`brand-btn rounded-pill px-4 py-2.5 text-[14px] font-semibold text-ink-soft hover:text-ink-strong transition-colors disabled:opacity-50 ${FOCUS_RING}`}
                 >
                   ← Back
                 </button>

@@ -111,7 +111,7 @@ function PortalGroup({
         <button
           type="button"
           onClick={onAdd}
-          className="wg-btn cursor-pointer inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-bold border border-hairline bg-surface-card text-ink-strong hover:border-hairline-strong"
+          className="brand-btn wg-btn cursor-pointer inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-bold border border-hairline bg-surface-card text-ink-strong hover:border-hairline-strong"
         >
           <Plus size={14} strokeWidth={2.6} /> Add login
         </button>

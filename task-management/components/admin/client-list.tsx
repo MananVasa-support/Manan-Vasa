@@ -286,7 +286,7 @@ function EditClientDialog({
               <Dialog.Close asChild>
                 <button
                   type="button"
-                  className="px-4 py-2.5 text-[14px] font-medium text-[#64748B]"
+                  className="brand-btn px-4 py-2.5 text-[14px] font-medium text-[#64748B]"
                   disabled={pending}
                 >
                   Cancel
@@ -356,7 +356,7 @@ function DeleteClientDialog({
             <Dialog.Close asChild>
               <button
                 type="button"
-                className="px-4 py-2.5 text-[14px] font-medium text-[#64748B]"
+                className="brand-btn px-4 py-2.5 text-[14px] font-medium text-[#64748B]"
                 disabled={pending}
               >
                 Cancel

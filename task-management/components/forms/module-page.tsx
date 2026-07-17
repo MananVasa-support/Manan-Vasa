@@ -78,7 +78,7 @@ export async function ModulePage({ module, searchParams }: Props) {
             {module === "reference" && (
               <a
                 href="/record-reference/export"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-surface-card px-3.5 py-2 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)]"
+                className="brand-btn inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-surface-card px-3.5 py-2 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)]"
               >
                 <Download size={15} strokeWidth={2.6} />
                 Export CSV

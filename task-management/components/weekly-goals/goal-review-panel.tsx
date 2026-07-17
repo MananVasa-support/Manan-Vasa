@@ -208,7 +208,7 @@ export function GoalReviewPanel({
               approved ? "Un-approved." : "Approved — Accept % locked.",
             )
           }
-          className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60 ${FOCUS_RING}`}
+          className={`brand-btn inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60 ${FOCUS_RING}`}
           style={{
             background: approved
               ? "linear-gradient(135deg, var(--color-slate), var(--color-slate-deep))"
@@ -228,7 +228,7 @@ export function GoalReviewPanel({
               goal.archived ? "Restored to the board." : "Archived.",
             )
           }
-          className={`inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface-card px-4 py-2 text-[14px] font-bold text-ink-soft transition-colors hover:text-ink-strong disabled:opacity-60 ${FOCUS_RING}`}
+          className={`brand-btn inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface-card px-4 py-2 text-[14px] font-bold text-ink-soft transition-colors hover:text-ink-strong disabled:opacity-60 ${FOCUS_RING}`}
         >
           {goal.archived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
           {goal.archived ? "Restore" : "Archive"}
@@ -238,7 +238,7 @@ export function GoalReviewPanel({
           type="button"
           disabled={pending}
           onClick={onDelete}
-          className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold text-altus-red transition-colors hover:bg-red-50 disabled:opacity-60 ${FOCUS_RING}`}
+          className={`brand-btn ml-auto inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold text-altus-red transition-colors hover:bg-red-50 disabled:opacity-60 ${FOCUS_RING}`}
         >
           <Trash2 size={15} />
           Delete

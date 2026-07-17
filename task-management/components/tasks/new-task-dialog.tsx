@@ -334,7 +334,7 @@ export function NewTaskDialog({ defaultInitiatorId }: Props) {
                 type="button"
                 onClick={goImport}
                 title="Bulk-import tasks from CSV or Excel"
-                className="inline-flex items-center gap-2 rounded-full px-4 h-10 text-[14px] font-semibold transition-colors hover:bg-surface-soft max-md:px-3"
+                className="brand-btn inline-flex items-center gap-2 rounded-full px-4 h-10 text-[14px] font-semibold transition-colors hover:bg-surface-soft max-md:px-3"
                 style={{
                   border: "1px solid var(--color-hairline)",
                   background: "#ffffff",

@@ -131,7 +131,7 @@ export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, o
             <button
               type="button"
               onClick={onToCloseout}
-              className="wg-btn wg-sheen inline-flex h-12 items-center gap-2 rounded-chip px-6 text-[15px] font-bold text-white shadow-[0_10px_26px_rgba(124,45,18,0.28)] max-md:w-full"
+              className="brand-btn wg-btn wg-sheen inline-flex h-12 items-center gap-2 rounded-chip px-6 text-[15px] font-bold text-white shadow-[0_10px_26px_rgba(124,45,18,0.28)] max-md:w-full"
               style={{ background: GOALS_GRADIENT }}
             >
               <ClipboardCheck size={18} /> Close out my day
@@ -140,7 +140,7 @@ export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, o
               type="button"
               onClick={onReopen}
               disabled={busy === "__reopen"}
-              className="inline-flex h-12 items-center gap-2 rounded-chip border border-hairline bg-surface-card px-5 text-[14px] font-semibold text-ink-soft hover:border-hairline-strong disabled:opacity-50 max-md:w-full"
+              className="brand-btn inline-flex h-12 items-center gap-2 rounded-chip border border-hairline bg-surface-card px-5 text-[14px] font-semibold text-ink-soft hover:border-hairline-strong disabled:opacity-50 max-md:w-full"
             >
               {busy === "__reopen" ? <Loader2 size={16} className="animate-spin" /> : <ArrowLeft size={16} />} Adjust plan
             </button>
@@ -266,7 +266,7 @@ export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, o
           type="button"
           onClick={onReopen}
           disabled={busy === "__reopen"}
-          className="inline-flex h-11 items-center gap-2 rounded-chip border border-hairline bg-surface-card px-5 text-[14px] font-semibold text-ink-soft hover:border-hairline-strong disabled:opacity-50 max-md:w-full"
+          className="brand-btn inline-flex h-11 items-center gap-2 rounded-chip border border-hairline bg-surface-card px-5 text-[14px] font-semibold text-ink-soft hover:border-hairline-strong disabled:opacity-50 max-md:w-full"
         >
           {busy === "__reopen" ? <Loader2 size={16} className="animate-spin" /> : <ArrowLeft size={16} />} Back to planning
         </button>
@@ -275,7 +275,7 @@ export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, o
             type="button"
             onClick={onFinish}
             disabled={busy === "__finish"}
-            className="wg-btn wg-sheen inline-flex h-11 items-center gap-2 rounded-chip px-6 text-[15px] font-bold text-white shadow-[0_10px_26px_rgba(124,45,18,0.28)] disabled:opacity-50 max-md:w-full"
+            className="brand-btn wg-btn wg-sheen inline-flex h-11 items-center gap-2 rounded-chip px-6 text-[15px] font-bold text-white shadow-[0_10px_26px_rgba(124,45,18,0.28)] disabled:opacity-50 max-md:w-full"
             style={{ background: GOALS_GRADIENT }}
           >
             {busy === "__finish" ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />} Finish day

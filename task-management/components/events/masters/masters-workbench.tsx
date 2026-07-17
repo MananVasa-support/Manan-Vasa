@@ -185,7 +185,7 @@ function CategoryPanel({ categories }: { categories: CategoryVM[] }) {
                     <button
                       type="button"
                       onClick={() => restore(cat)}
-                      className="inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:bg-surface-soft hover:text-ink-strong"
+                      className="brand-btn inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:bg-surface-soft hover:text-ink-strong"
                     >
                       <RotateCcw size={13} strokeWidth={2.4} /> Restore
                     </button>
@@ -399,7 +399,7 @@ function BatchTypePanel({
                     <button
                       type="button"
                       onClick={() => setActive(bt, true)}
-                      className="inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:bg-surface-soft hover:text-ink-strong"
+                      className="brand-btn inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:bg-surface-soft hover:text-ink-strong"
                     >
                       <RotateCcw size={13} strokeWidth={2.4} /> Restore
                     </button>
@@ -466,7 +466,7 @@ function PanelHeader({
       <button
         type="button"
         onClick={onAdd}
-        className="wg-btn inline-flex shrink-0 items-center gap-1.5 rounded-pill px-3.5 py-2 text-[13px] font-bold text-white"
+        className="brand-btn wg-btn inline-flex shrink-0 items-center gap-1.5 rounded-pill px-3.5 py-2 text-[13px] font-bold text-white"
         style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
       >
         <Plus size={15} strokeWidth={2.6} />

@@ -157,7 +157,7 @@ export function MondayConfirmQueueView({ queue }: { queue: MondayConfirmQueue })
                     type="button"
                     onClick={() => startTransition(() => void confirmOne(r.employeeId))}
                     disabled={isBusy || isPending}
-                    className="inline-flex items-center gap-1.5 rounded-pill border px-4 py-1.5 text-[12.5px] font-bold transition-colors disabled:opacity-50"
+                    className="brand-btn inline-flex items-center gap-1.5 rounded-pill border px-4 py-1.5 text-[12.5px] font-bold transition-colors disabled:opacity-50"
                     style={{
                       borderColor: "var(--color-hairline-strong)",
                       color: "var(--color-ink-strong)",

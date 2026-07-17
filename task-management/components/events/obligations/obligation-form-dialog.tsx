@@ -277,7 +277,7 @@ export function ObligationFormDialog({
                 <Dialog.Close asChild>
                   <button
                     type="button"
-                    className="rounded-pill px-4 py-2.5 text-[15px] font-semibold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
+                    className="brand-btn rounded-pill px-4 py-2.5 text-[15px] font-semibold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
                     disabled={pending}
                   >
                     Cancel
@@ -286,7 +286,7 @@ export function ObligationFormDialog({
                 <button
                   type="submit"
                   disabled={pending}
-                  className="rounded-pill px-6 py-2.5 text-[15px] font-bold text-white shadow-sm transition-transform enabled:hover:-translate-y-0.5 disabled:opacity-50"
+                  className="brand-btn rounded-pill px-6 py-2.5 text-[15px] font-bold text-white shadow-sm transition-transform enabled:hover:-translate-y-0.5 disabled:opacity-50"
                   style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
                 >
                   {pending ? "Saving…" : isEdit ? "Save changes" : "Add obligation"}

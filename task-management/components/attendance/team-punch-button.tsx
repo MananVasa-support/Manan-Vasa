@@ -64,7 +64,7 @@ export function TeamPunchButton({
       <button
         type="button"
         onClick={begin}
-        className="wg-btn inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12.5px] font-bold transition-colors"
+        className="brand-btn wg-btn inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12.5px] font-bold transition-colors"
         style={{
           color: accent,
           boxShadow: `inset 0 0 0 1.5px color-mix(in srgb, ${accent} 35%, transparent)`,

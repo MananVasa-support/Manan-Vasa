@@ -81,13 +81,14 @@ export async function DashboardHeader({
             <span>Back to Hub</span>
           </a>
 
-          {/* CENTER: primary pill nav — visible on every desktop width (and
-              under zoom). It stays centred while it fits; when space gets tight
-              it scrolls horizontally FROM THE LEFT (w-max + mx-auto) so pills
-              are never clipped, never overlap, and never disappear. Collapses
-              to the hamburger drawer only on real phones (max-md). */}
+          {/* LEFT → RIGHT: primary pill nav, left-anchored to match every other
+              module's left-rail layout (per Sir). Pills flow from the left right
+              after "Back to Hub"; when space gets tight the row scrolls
+              horizontally FROM THE LEFT (w-max, no mx-auto) so pills are never
+              clipped, never overlap, and never disappear. Collapses to the
+              hamburger drawer only on real phones (max-md). */}
           <div className="flex-1 min-w-0 overflow-x-auto nav-scroll max-md:hidden">
-            <div className="flex w-max mx-auto">
+            <div className="flex w-max">
               <MainNavServer />
             </div>
           </div>

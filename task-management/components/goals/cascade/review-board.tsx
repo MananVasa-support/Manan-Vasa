@@ -205,7 +205,7 @@ function ReviewRow({
                 type="button"
                 onClick={commitReview}
                 disabled={pending}
-                className="wg-btn wg-sheen inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-60"
+                className="brand-btn wg-btn wg-sheen inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-60"
                 style={{ background: `linear-gradient(135deg, ${GOALS_ACCENT}, ${GOALS_ACCENT_DEEP})` }}
               >
                 {pending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} strokeWidth={3} />}
@@ -238,7 +238,7 @@ function ReviewRow({
             href={evidenceHref}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface-card px-3 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:text-ink-strong"
+            className="brand-btn inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface-card px-3 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:text-ink-strong"
           >
             <ExternalLink size={12} /> View evidence
           </a>
@@ -258,7 +258,7 @@ function ReviewRow({
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={pending}
-            className="rounded-full border border-hairline bg-surface-card px-3 py-1.5 text-[12.5px] font-bold text-ink-strong hover:brightness-95 disabled:opacity-60"
+            className="brand-btn rounded-full border border-hairline bg-surface-card px-3 py-1.5 text-[12.5px] font-bold text-ink-strong hover:brightness-95 disabled:opacity-60"
           >
             Upload file
           </button>

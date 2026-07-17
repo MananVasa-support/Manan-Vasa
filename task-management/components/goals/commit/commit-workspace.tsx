@@ -502,7 +502,7 @@ function NextWeekCard({
             variant="outline"
             onClick={submitAdd}
             disabled={disabled || !draft.trim()}
-            className="shrink-0"
+            className="brand-btn shrink-0"
           >
             <Plus size={16} /> Add
           </Button>
@@ -517,7 +517,7 @@ function NextWeekCard({
             : `${adopted.length} goal${adopted.length === 1 ? "" : "s"} ready to commit.`}
         </p>
         {frozen ? (
-          <Button variant="ghost" onClick={() => onUnfreeze(member)} disabled={disabled}>
+          <Button variant="ghost" onClick={() => onUnfreeze(member)} disabled={disabled} className="brand-btn">
             <LockOpen size={16} /> Unfreeze
           </Button>
         ) : (
@@ -525,7 +525,7 @@ function NextWeekCard({
             variant="primary"
             onClick={() => onFreeze(member)}
             disabled={disabled || adopted.length === 0}
-            className="wg-sheen"
+            className="brand-btn wg-sheen"
             style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
           >
             <Snowflake size={16} /> Freeze next week

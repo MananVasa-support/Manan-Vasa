@@ -388,7 +388,7 @@ function ClaimCard({
                 type="button"
                 disabled={pending}
                 onClick={() => decide("approved")}
-                className="wg-btn rounded-pill px-3.5 py-2 text-[13px] font-bold text-white disabled:opacity-50"
+                className="brand-btn wg-btn rounded-pill px-3.5 py-2 text-[13px] font-bold text-white disabled:opacity-50"
                 style={{
                   background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,
                   boxShadow: `0 8px 20px -12px color-mix(in srgb, ${GREEN_DEEP} 75%, transparent)`,
@@ -495,7 +495,7 @@ function AdminPanel({ row, adminFields, productOptions }: { row: ModuleSubmissio
         type="button"
         onClick={save}
         disabled={pending}
-        className="wg-btn mt-3 inline-flex items-center gap-1.5 rounded-pill px-4.5 py-2 text-[13px] font-bold text-white disabled:opacity-50"
+        className="brand-btn wg-btn mt-3 inline-flex items-center gap-1.5 rounded-pill px-4.5 py-2 text-[13px] font-bold text-white disabled:opacity-50"
         style={{
           background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,
           boxShadow: `0 8px 20px -12px color-mix(in srgb, ${GREEN_DEEP} 75%, transparent)`,

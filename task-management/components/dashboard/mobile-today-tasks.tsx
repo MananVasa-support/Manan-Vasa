@@ -81,7 +81,7 @@ export function MobileTodayTasks({
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          className="mt-3 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-pill border border-hairline bg-surface-card font-semibold text-ink-soft transition-colors active:bg-surface-soft"
+          className="brand-btn mt-3 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-pill border border-hairline bg-surface-card font-semibold text-ink-soft transition-colors active:bg-surface-soft"
           style={{ fontSize: 14.5 }}
         >
           {expanded ? "Show less" : `View all ${total} tasks`}

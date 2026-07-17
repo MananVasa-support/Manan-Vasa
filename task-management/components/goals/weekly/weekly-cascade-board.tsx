@@ -173,7 +173,7 @@ export function WeeklyCascadeBoard({
           <button
             type="button"
             onClick={() => goWeek(thisWeek)}
-            className="wg-btn rounded-pill border border-hairline bg-surface-card px-3 py-1.5 text-[12.5px] font-semibold text-ink-muted hover:border-hairline-strong hover:text-ink-strong"
+            className="brand-btn wg-btn rounded-pill border border-hairline bg-surface-card px-3 py-1.5 text-[12.5px] font-semibold text-ink-muted hover:border-hairline-strong hover:text-ink-strong"
           >
             Jump to this week
           </button>
@@ -199,7 +199,7 @@ export function WeeklyCascadeBoard({
             type="button"
             onClick={carryAll}
             disabled={pending}
-            className="wg-btn wg-sheen ml-auto inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50"
+            className="brand-btn wg-btn wg-sheen ml-auto inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50"
             style={{
               background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
               boxShadow: "0 8px 20px -10px color-mix(in srgb, var(--goals-accent, #b45309) 65%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)",

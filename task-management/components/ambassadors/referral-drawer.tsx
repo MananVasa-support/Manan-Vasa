@@ -378,7 +378,7 @@ export function ReferralDrawer({
             <button
               type="button"
               onClick={() => !submitting && onClose()}
-              className="inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-5 py-3 text-[15px] font-bold text-ink-strong transition-colors hover:border-hairline-strong"
+              className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-5 py-3 text-[15px] font-bold text-ink-strong transition-colors hover:border-hairline-strong"
             >
               Cancel
             </button>

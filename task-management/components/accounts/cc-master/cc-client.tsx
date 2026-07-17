@@ -238,18 +238,18 @@ export function CcMaster({
           {entities.map((a) => (<option key={a} value={a}>{a}</option>))}
         </select>
         {hasFilters && (
-          <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
+          <button type="button" onClick={clearFilters} className="brand-btn inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
             <X size={15} strokeWidth={2.4} /> Clear
           </button>
         )}
         <span className="text-[13px] font-bold text-ink-soft">Editing: <span className="text-altus-red">{MONTH_LABELS[month - 1]}</span></span>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {cards.length === 0 && prevFyCount > 0 && (
-            <button type="button" onClick={carryForward} disabled={busy} title={`Copy all ${prevFyCount} cards from ${fyLabel(fyStartYear - 1)}`} className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2.5 px-4 text-[14px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red disabled:opacity-50">
+            <button type="button" onClick={carryForward} disabled={busy} title={`Copy all ${prevFyCount} cards from ${fyLabel(fyStartYear - 1)}`} className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2.5 px-4 text-[14px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red disabled:opacity-50">
               {busy ? <Loader2 size={15} className="animate-spin" /> : <CalendarClock size={15} strokeWidth={2.4} />} Start from {fyLabel(fyStartYear - 1)}
             </button>
           )}
-          <a href={`/accounts/cc-tracker/export?fy=${fyStartYear}`} className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2.5 px-4 text-[14px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red" title="Download this year as an Excel file">
+          <a href={`/accounts/cc-tracker/export?fy=${fyStartYear}`} className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2.5 px-4 text-[14px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red" title="Download this year as an Excel file">
             <Download size={15} strokeWidth={2.4} /> Export
           </a>
           <button type="button" onClick={startAdd} className="inline-flex items-center gap-2 rounded-xl py-2.5 px-4 text-[14.5px] font-bold text-white transition-transform active:scale-[0.99]" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 10px 26px -12px rgba(225,6,0,0.6)" }}>
@@ -279,7 +279,7 @@ export function CcMaster({
                 <td colSpan={totalCols} className="px-5 py-16 text-center">
                   <p className="text-[15px] font-semibold text-ink-muted">{hasFilters ? "No cards match these filters." : "No cards for this financial year yet."}</p>
                   {!hasFilters && (
-                    <button type="button" onClick={startAdd} className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red">
+                    <button type="button" onClick={startAdd} className="brand-btn mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red">
                       <Plus size={15} strokeWidth={2.6} /> Add the first card
                     </button>
                   )}
@@ -341,7 +341,7 @@ export function CcMaster({
                     <span className="text-[14px] font-bold text-ink-soft">{c.code ? `#${c.code} · ` : ""}{c.cardName}</span>
                     <span className="ml-2 text-[12px] font-semibold text-ink-subtle">{[c.entityName, c.stmtPeriod].filter(Boolean).join(" · ")}</span>
                   </div>
-                  <button type="button" onClick={() => restore(c.id)} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-3 py-1.5 text-[13px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-green)] hover:text-[color:var(--color-green-deep)] disabled:opacity-50">
+                  <button type="button" onClick={() => restore(c.id)} disabled={busy} className="brand-btn inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-3 py-1.5 text-[13px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-green)] hover:text-[color:var(--color-green-deep)] disabled:opacity-50">
                     <RotateCcw size={14} strokeWidth={2.4} /> Restore
                   </button>
                 </div>
@@ -563,7 +563,7 @@ function CardEditorRow({ colSpan, draft, setDraft, entityOptions, onSave, onCanc
           </Field>
         </div>
         <div className="mt-4 flex items-center justify-end gap-2">
-          <button type="button" onClick={onCancel} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-4 py-2 text-[14px] font-bold text-ink-muted hover:bg-surface-soft disabled:opacity-50">
+          <button type="button" onClick={onCancel} disabled={busy} className="brand-btn inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-4 py-2 text-[14px] font-bold text-ink-muted hover:bg-surface-soft disabled:opacity-50">
             <X size={16} strokeWidth={2.4} /> Cancel
           </button>
           <button type="button" onClick={onSave} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[14px] font-bold text-white disabled:opacity-50" style={{ background: "var(--color-altus-red)" }}>

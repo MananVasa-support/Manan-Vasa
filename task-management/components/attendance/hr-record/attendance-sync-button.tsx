@@ -57,7 +57,7 @@ export function AttendanceSyncButton() {
       onClick={sync}
       disabled={busy}
       title="Pull the latest attendance + paid-leave from the HR Attendance log sheet"
-      className="wg-btn wg-sheen inline-flex items-center gap-2 rounded-pill px-4 py-2 text-[13.5px] font-bold text-white whitespace-nowrap disabled:opacity-60"
+      className="brand-btn wg-btn wg-sheen inline-flex items-center gap-2 rounded-pill px-4 py-2 text-[13.5px] font-bold text-white whitespace-nowrap disabled:opacity-60"
       style={{
         background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,
         boxShadow: `0 8px 20px -10px color-mix(in srgb, ${GREEN_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,

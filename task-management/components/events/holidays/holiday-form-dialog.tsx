@@ -103,7 +103,7 @@ export function HolidayFormDialog({ fyStartYear, holiday, onClose, onSaved }: Pr
             type="button"
             onClick={onClose}
             disabled={pending}
-            className="inline-flex h-10 items-center rounded-chip px-4 text-[14px] font-semibold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
+            className="brand-btn inline-flex h-10 items-center rounded-chip px-4 text-[14px] font-semibold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
           >
             Cancel
           </button>
@@ -112,7 +112,7 @@ export function HolidayFormDialog({ fyStartYear, holiday, onClose, onSaved }: Pr
             data-autofocus
             onClick={submit}
             disabled={pending}
-            className="inline-flex h-10 items-center rounded-chip px-5 text-[14px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="brand-btn inline-flex h-10 items-center rounded-chip px-5 text-[14px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
           >
             {pending ? "Saving…" : isEdit ? "Save changes" : "Add holiday"}

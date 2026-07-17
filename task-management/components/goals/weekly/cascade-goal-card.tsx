@@ -401,7 +401,7 @@ function EditFieldsForm({ goal, onDone }: { goal: CascadeWeeklyGoal; onDone: () 
           type="button"
           onClick={onDone}
           disabled={pending}
-          className="rounded-pill px-3 py-1.5 text-[12.5px] font-semibold text-ink-muted hover:text-ink-strong"
+          className="brand-btn rounded-pill px-3 py-1.5 text-[12.5px] font-semibold text-ink-muted hover:text-ink-strong"
         >
           Cancel
         </button>
@@ -409,7 +409,7 @@ function EditFieldsForm({ goal, onDone }: { goal: CascadeWeeklyGoal; onDone: () 
           type="button"
           onClick={save}
           disabled={pending}
-          className="wg-btn wg-sheen rounded-pill px-4 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50"
+          className="brand-btn wg-btn wg-sheen rounded-pill px-4 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50"
           style={{
             background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
             boxShadow: "0 6px 16px -8px color-mix(in srgb, var(--goals-accent, #b45309) 60%, transparent), inset 0 1px 0 rgba(255,255,255,0.22)",

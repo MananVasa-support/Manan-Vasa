@@ -220,7 +220,7 @@ export function DailyPlanGate({ greetingName, today, items: pItems, overdue: pOv
               placeholder="What will you work on? e.g. Call Altus Corp about invoice"
               className="min-w-0 flex-1 rounded-xl border-2 border-hairline-strong bg-white px-3.5 py-2.5 text-[14px] font-semibold text-ink-strong outline-none focus:border-[color:var(--color-green)]"
             />
-            <button type="submit" disabled={busyId === "add-own" || draft.trim().length < 2} className="wg-btn inline-flex shrink-0 items-center gap-1.5 rounded-xl px-4 text-[13.5px] font-bold text-white disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}>
+            <button type="submit" disabled={busyId === "add-own" || draft.trim().length < 2} className="brand-btn wg-btn inline-flex shrink-0 items-center gap-1.5 rounded-xl px-4 text-[13.5px] font-bold text-white disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}>
               {busyId === "add-own" ? <Loader2 size={15} className="animate-spin" /> : <Plus size={16} strokeWidth={2.6} />} Add
             </button>
           </form>
@@ -255,7 +255,7 @@ export function DailyPlanGate({ greetingName, today, items: pItems, overdue: pOv
                       <div className="truncate text-[13.5px] font-bold text-ink-strong">{t.title}</div>
                       <div className="truncate text-[11.5px] font-semibold text-ink-subtle">{t.taskNo ? `#${t.taskNo}` : ""}{t.client ? `${t.taskNo ? " · " : ""}${t.client}` : ""}</div>
                     </div>
-                    <button type="button" disabled={!!busyId} onClick={() => addTask(t.id)} className="inline-flex shrink-0 items-center gap-1 rounded-pill px-3 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}>
+                    <button type="button" disabled={!!busyId} onClick={() => addTask(t.id)} className="brand-btn inline-flex shrink-0 items-center gap-1 rounded-pill px-3 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}>
                       {busyId === `task:${t.id}` ? <Loader2 size={13} className="animate-spin" /> : <Plus size={14} strokeWidth={2.6} />} Add
                     </button>
                   </li>
@@ -271,7 +271,7 @@ export function DailyPlanGate({ greetingName, today, items: pItems, overdue: pOv
             type="button"
             onClick={startDay}
             disabled={!ready || entering}
-            className="wg-btn wg-sheen flex w-full items-center justify-center gap-2.5 rounded-2xl py-4 text-[16px] font-black text-white transition disabled:cursor-not-allowed"
+            className="brand-btn wg-btn wg-sheen flex w-full items-center justify-center gap-2.5 rounded-2xl py-4 text-[16px] font-black text-white transition disabled:cursor-not-allowed"
             style={{
               background: ready ? `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` : "var(--color-surface-track)",
               color: ready ? "#fff" : "var(--color-ink-subtle)",

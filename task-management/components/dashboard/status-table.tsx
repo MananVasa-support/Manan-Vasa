@@ -237,7 +237,7 @@ export function StatusTable({
                 setQuery("");
                 setSelectedDept(null);
               }}
-              className="mt-3 text-cta text-altus-red hover:underline"
+              className="brand-btn mt-3 text-cta text-altus-red hover:underline"
             >
               Clear filters
             </button>
@@ -411,7 +411,7 @@ function FilterBar({
         <button
           type="button"
           onClick={onClear}
-          className="ml-auto inline-flex items-center gap-1.5 text-[14px] font-bold text-ink-muted hover:text-altus-red transition-colors"
+          className="brand-btn ml-auto inline-flex items-center gap-1.5 text-[14px] font-bold text-ink-muted hover:text-altus-red transition-colors"
         >
           <X className="size-3.5" />
           Clear filters

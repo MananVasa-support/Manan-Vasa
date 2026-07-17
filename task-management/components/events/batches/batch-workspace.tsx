@@ -96,7 +96,7 @@ export function BatchWorkspace({
           type="button"
           onClick={openNew}
           disabled={noTypes}
-          className="wg-btn inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 text-[15px] font-bold text-white disabled:opacity-50"
+          className="brand-btn wg-btn inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 text-[15px] font-bold text-white disabled:opacity-50"
           style={{
             background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
             boxShadow: "0 10px 24px -12px rgba(8,145,178,0.7), inset 0 1px 0 rgba(255,255,255,0.25)",
@@ -169,7 +169,7 @@ function EmptyState({ onNew, disabled }: { onNew: () => void; disabled: boolean 
         type="button"
         onClick={onNew}
         disabled={disabled}
-        className="wg-btn mt-5 inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 text-[15px] font-bold text-white disabled:opacity-50"
+        className="brand-btn wg-btn mt-5 inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 text-[15px] font-bold text-white disabled:opacity-50"
         style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
       >
         <Plus size={17} strokeWidth={2.6} />
@@ -293,7 +293,7 @@ function ScheduleCard({
           type="button"
           onClick={onEdit}
           disabled={pending}
-          className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] font-bold text-ink-strong transition-colors hover:bg-surface-soft disabled:opacity-50"
+          className="brand-btn inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] font-bold text-ink-strong transition-colors hover:bg-surface-soft disabled:opacity-50"
         >
           <Pencil size={14} strokeWidth={2.4} />
           Edit
@@ -302,7 +302,7 @@ function ScheduleCard({
           type="button"
           onClick={onToggleActive}
           disabled={pending}
-          className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] font-bold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
+          className="brand-btn inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] font-bold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
         >
           <Power size={14} strokeWidth={2.4} />
           {row.isActive ? "Deactivate" : "Reactivate"}
@@ -311,7 +311,7 @@ function ScheduleCard({
           type="button"
           onClick={onDelete}
           disabled={pending}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] font-bold text-altus-red transition-colors hover:bg-surface-soft disabled:opacity-50"
+          className="brand-btn ml-auto inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] font-bold text-altus-red transition-colors hover:bg-surface-soft disabled:opacity-50"
         >
           <Trash2 size={14} strokeWidth={2.4} />
           Delete

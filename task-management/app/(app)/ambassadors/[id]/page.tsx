@@ -135,7 +135,7 @@ export default async function AmbassadorWorkspacePage({
               <div className="flex flex-wrap items-center gap-2.5">
                 <Link
                   href={`/ambassadors/${a.id}/edit` as Route}
-                  className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-3 px-5 text-[15px] font-bold text-ink-strong transition-transform active:scale-[0.99] hover:border-[color:var(--color-altus-red)]"
+                  className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-3 px-5 text-[15px] font-bold text-ink-strong transition-transform active:scale-[0.99] hover:border-[color:var(--color-altus-red)]"
                 >
                   <Pencil size={16} strokeWidth={2.6} />
                   Edit

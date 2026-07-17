@@ -1459,7 +1459,7 @@ function DeleteNodeDialog({
                 <button
                   type="button"
                   onClick={() => onOpenChange(false)}
-                  className="px-4 py-2.5 text-[14px] font-semibold text-ink-soft hover:text-ink-strong transition-colors"
+                  className="brand-btn px-4 py-2.5 text-[14px] font-semibold text-ink-soft hover:text-ink-strong transition-colors"
                 >
                   Cancel
                 </button>
@@ -1499,7 +1499,7 @@ function DeleteNodeDialog({
                   type="button"
                   onClick={() => setStep(1)}
                   disabled={pending}
-                  className="px-4 py-2.5 text-[14px] font-semibold text-ink-soft hover:text-ink-strong transition-colors disabled:opacity-50"
+                  className="brand-btn px-4 py-2.5 text-[14px] font-semibold text-ink-soft hover:text-ink-strong transition-colors disabled:opacity-50"
                 >
                   ← Back
                 </button>
@@ -2236,7 +2236,7 @@ function NewProjectButton({ hero = false }: { hero?: boolean }) {
           <button
             type="button"
             onClick={openFn}
-            className="inline-flex items-center gap-1.5 rounded-pill border border-hairline-strong bg-surface-card px-3.5 py-2 text-[13px] font-semibold text-ink-strong hover:border-altus-red transition-colors"
+            className="brand-btn inline-flex items-center gap-1.5 rounded-pill border border-hairline-strong bg-surface-card px-3.5 py-2 text-[13px] font-semibold text-ink-strong hover:border-altus-red transition-colors"
           >
             <Plus size={14} strokeWidth={2.4} />
             New Project

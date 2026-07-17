@@ -426,7 +426,7 @@ function CustomDialog({
 
           <div className="flex justify-end gap-2">
             <Dialog.Close asChild>
-              <button type="button" className="px-4 py-2.5 text-[14px] font-medium text-ink-soft">
+              <button type="button" className="brand-btn px-4 py-2.5 text-[14px] font-medium text-ink-soft">
                 Cancel
               </button>
             </Dialog.Close>

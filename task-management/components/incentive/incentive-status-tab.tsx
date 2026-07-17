@@ -162,7 +162,7 @@ export function IncentiveStatusTab({
                           <button
                             type="button"
                             onClick={() => setStatusRow(r)}
-                            className="wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-ink-soft transition-colors hover:text-ink-strong"
+                            className="brand-btn wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-ink-soft transition-colors hover:text-ink-strong"
                             style={{ fontSize: 12, fontWeight: 700, boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}
                           >
                             <SlidersHorizontal size={12} strokeWidth={2.4} />
@@ -171,7 +171,7 @@ export function IncentiveStatusTab({
                           <button
                             type="button"
                             onClick={() => setSplitRow(r)}
-                            className="wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-ink-soft transition-colors hover:text-ink-strong"
+                            className="brand-btn wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-ink-soft transition-colors hover:text-ink-strong"
                             style={{ fontSize: 12, fontWeight: 700, boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}
                           >
                             <Users size={12} strokeWidth={2.4} />

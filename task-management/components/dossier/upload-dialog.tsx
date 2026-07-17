@@ -151,7 +151,7 @@ export function UploadDialog({
           </label>
 
           <div className="mt-1 flex items-center justify-end gap-2">
-            <button type="button" onClick={() => !busy && onClose()} className="rounded-pill px-4 py-2 text-[13.5px] font-bold text-ink-muted hover:text-ink-strong">Cancel</button>
+            <button type="button" onClick={() => !busy && onClose()} className="brand-btn rounded-pill px-4 py-2 text-[13.5px] font-bold text-ink-muted hover:text-ink-strong">Cancel</button>
             <button
               type="submit"
               disabled={busy}

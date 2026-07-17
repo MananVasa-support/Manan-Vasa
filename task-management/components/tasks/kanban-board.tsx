@@ -360,7 +360,7 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
                         onClick={() =>
                           setVisibleByCol((m) => ({ ...m, [col]: limit + COL_STEP }))
                         }
-                        className="mt-1 w-full rounded-chip py-2.5 text-[14px] font-bold transition-colors text-ink-soft hover:bg-surface-card"
+                        className="brand-btn mt-1 w-full rounded-chip py-2.5 text-[14px] font-bold transition-colors text-ink-soft hover:bg-surface-card"
                         style={{ border: "1px dashed var(--color-hairline-strong)" }}
                       >
                         Show {Math.min(COL_STEP, hiddenCount)} more ({hiddenCount} hidden)

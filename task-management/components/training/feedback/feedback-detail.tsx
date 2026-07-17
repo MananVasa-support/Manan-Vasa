@@ -82,7 +82,7 @@ export function FeedbackDetailView({ fb, canManage, employees }: { fb: FD; canMa
           <div className="mt-3">
             <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.06em] text-ink-subtle">Voice note</span>
             <audio controls src={fb.voiceUrl} className="w-full" />
-            <button type="button" onClick={summarizeVoice} disabled={sumBusy} className="mt-2 inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-[13px] font-bold transition-colors disabled:opacity-60" style={{ borderColor: "color-mix(in srgb, var(--color-purple) 40%, transparent)", color: "var(--color-purple-deep)", background: "color-mix(in srgb, var(--color-purple) 8%, transparent)" }}>
+            <button type="button" onClick={summarizeVoice} disabled={sumBusy} className="brand-btn mt-2 inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-[13px] font-bold transition-colors disabled:opacity-60" style={{ borderColor: "color-mix(in srgb, var(--color-purple) 40%, transparent)", color: "var(--color-purple-deep)", background: "color-mix(in srgb, var(--color-purple) 8%, transparent)" }}>
               {sumBusy ? <><Loader2 size={14} className="animate-spin" /> Transcribing & summarizing…</> : <><Sparkles size={14} /> Summarize with AI · English / Hindi→Hinglish</>}
             </button>
             {ai && (
@@ -123,25 +123,25 @@ export function FeedbackDetailView({ fb, canManage, employees }: { fb: FD; canMa
           {!fb.resolution && (
             <>
               {!resolveOpen ? (
-                <button type="button" onClick={() => setResolveOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-xl py-3 text-[15px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-green), var(--color-green-deep))" }}><Check size={16} strokeWidth={2.6} /> Mark resolved</button>
+                <button type="button" onClick={() => setResolveOpen(true)} className="brand-btn inline-flex items-center justify-center gap-2 rounded-xl py-3 text-[15px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-green), var(--color-green-deep))" }}><Check size={16} strokeWidth={2.6} /> Mark resolved</button>
               ) : (
                 <div className="flex flex-col gap-2">
                   <textarea className="w-full rounded-lg border border-hairline-strong bg-white px-3 py-2.5 text-[14.5px] outline-none focus:border-[color:var(--color-altus-red)] min-h-[72px]" value={how} onChange={(e) => setHow(e.target.value)} placeholder="How was it resolved?" />
                   <div className="flex gap-2">
-                    <button type="button" disabled={busy === "resolve"} onClick={() => run("resolve", () => resolveFeedback({ id: fb.id, resolutionHow: how }), "Marked resolved.")} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-[14px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-green), var(--color-green-deep))" }}>{busy === "resolve" ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Save</button>
-                    <button type="button" onClick={() => setResolveOpen(false)} className="rounded-xl border border-hairline bg-white px-4 text-[14px] font-bold text-ink-soft">Cancel</button>
+                    <button type="button" disabled={busy === "resolve"} onClick={() => run("resolve", () => resolveFeedback({ id: fb.id, resolutionHow: how }), "Marked resolved.")} className="brand-btn inline-flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-[14px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-green), var(--color-green-deep))" }}>{busy === "resolve" ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Save</button>
+                    <button type="button" onClick={() => setResolveOpen(false)} className="brand-btn rounded-xl border border-hairline bg-white px-4 text-[14px] font-bold text-ink-soft">Cancel</button>
                   </div>
                 </div>
               )}
               {!fb.escalate && (
                 !escalateOpen ? (
-                  <button type="button" onClick={() => setEscalateOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-hairline bg-white py-3 text-[15px] font-bold text-ink-strong hover:border-altus-red"><CornerUpRight size={16} /> Escalate</button>
+                  <button type="button" onClick={() => setEscalateOpen(true)} className="brand-btn inline-flex items-center justify-center gap-2 rounded-xl border border-hairline bg-white py-3 text-[15px] font-bold text-ink-strong hover:border-altus-red"><CornerUpRight size={16} /> Escalate</button>
                 ) : (
                   <div className="flex flex-col gap-2">
                     <LookupSelect label="consultant" value={escTo} onChange={setEscTo} options={employees} className="w-full rounded-lg border border-hairline-strong bg-white px-3.5 py-2.5 text-[14.5px] outline-none focus:border-[color:var(--color-altus-red)]" placeholder="Escalate to…" />
                     <div className="flex gap-2">
-                      <button type="button" disabled={busy === "esc"} onClick={() => run("esc", () => escalateFeedback(fb.id, escTo), "Escalated.")} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-[14px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-amber), var(--color-amber-deep))" }}>{busy === "esc" ? <Loader2 size={15} className="animate-spin" /> : <CornerUpRight size={15} />} Escalate</button>
-                      <button type="button" onClick={() => setEscalateOpen(false)} className="rounded-xl border border-hairline bg-white px-4 text-[14px] font-bold text-ink-soft">Cancel</button>
+                      <button type="button" disabled={busy === "esc"} onClick={() => run("esc", () => escalateFeedback(fb.id, escTo), "Escalated.")} className="brand-btn inline-flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-[14px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-amber), var(--color-amber-deep))" }}>{busy === "esc" ? <Loader2 size={15} className="animate-spin" /> : <CornerUpRight size={15} />} Escalate</button>
+                      <button type="button" onClick={() => setEscalateOpen(false)} className="brand-btn rounded-xl border border-hairline bg-white px-4 text-[14px] font-bold text-ink-soft">Cancel</button>
                     </div>
                   </div>
                 )
@@ -150,12 +150,12 @@ export function FeedbackDetailView({ fb, canManage, employees }: { fb: FD; canMa
           )}
 
           {fb.resolution && !fb.signedOff && canManage && (
-            <button type="button" disabled={busy === "sign"} onClick={() => run("sign", () => signOffFeedback(fb.id), "Signed off.")} className="inline-flex items-center justify-center gap-2 rounded-xl py-3 text-[15px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-green), var(--color-green-deep))" }}>{busy === "sign" ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={16} />} Manager sign-off</button>
+            <button type="button" disabled={busy === "sign"} onClick={() => run("sign", () => signOffFeedback(fb.id), "Signed off.")} className="brand-btn inline-flex items-center justify-center gap-2 rounded-xl py-3 text-[15px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-green), var(--color-green-deep))" }}>{busy === "sign" ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={16} />} Manager sign-off</button>
           )}
 
           {canManage && (
             <div className="flex gap-2 border-t border-hairline pt-3">
-              <button type="button" disabled={busy === "arch"} onClick={() => run("arch", () => archiveFeedback(fb.id, !fb.archived), fb.archived ? "Unarchived." : "Archived.")} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-hairline bg-white py-2.5 text-[13.5px] font-bold text-ink-soft hover:border-ink-subtle"><Archive size={14} /> {fb.archived ? "Unarchive" : "Archive"}</button>
+              <button type="button" disabled={busy === "arch"} onClick={() => run("arch", () => archiveFeedback(fb.id, !fb.archived), fb.archived ? "Unarchived." : "Archived.")} className="brand-btn inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-hairline bg-white py-2.5 text-[13.5px] font-bold text-ink-soft hover:border-ink-subtle"><Archive size={14} /> {fb.archived ? "Unarchive" : "Archive"}</button>
               <button type="button" disabled={busy === "del"} onClick={() => { if (confirm("Delete this feedback permanently?")) run("del", () => deleteFeedback(fb.id).then((r) => { if (r.ok) router.push("/training/feedback" as Route); return r; }), "Deleted."); }} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-hairline bg-white px-3 py-2.5 text-[13.5px] font-bold text-ink-soft hover:text-altus-red hover:border-altus-red"><Trash2 size={14} /></button>
             </div>
           )}

@@ -514,7 +514,7 @@ function PlanColumn(props: {
           type="button"
           onClick={onStart}
           disabled={!met || starting}
-          className="wg-btn wg-sheen inline-flex h-11 items-center gap-2 rounded-chip px-5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(124,45,18,0.28)] disabled:opacity-40 disabled:shadow-none focus-visible:outline-2"
+          className="brand-btn wg-btn wg-sheen inline-flex h-11 items-center gap-2 rounded-chip px-5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(124,45,18,0.28)] disabled:opacity-40 disabled:shadow-none focus-visible:outline-2"
           style={{ background: GOALS_GRADIENT, outlineColor: GOALS_ACCENT }}
         >
           {starting ? <Loader2 size={16} className="animate-spin" /> : <Sunrise size={16} />} Start my day

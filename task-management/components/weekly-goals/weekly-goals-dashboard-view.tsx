@@ -91,7 +91,7 @@ export async function WeeklyGoalsDashboardView({ employeeId }: { employeeId?: st
       <div className="mx-auto max-w-[1280px] px-8 max-md:px-4 pt-6 flex items-center gap-3 flex-wrap">
         <Link
           href={"/weekly-goals" as Route}
-          className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface-card px-3.5 py-1.5 text-[13.5px] font-bold text-ink-soft transition-colors hover:text-ink-strong"
+          className="brand-btn inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface-card px-3.5 py-1.5 text-[13.5px] font-bold text-ink-soft transition-colors hover:text-ink-strong"
         >
           <ArrowLeft size={15} strokeWidth={2.4} />
           Back to goals

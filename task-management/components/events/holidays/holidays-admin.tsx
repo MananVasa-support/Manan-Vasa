@@ -95,7 +95,7 @@ export function HolidaysAdmin({ fyStartYear, holidays, employees }: Props) {
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="inline-flex h-10 items-center gap-2 rounded-chip px-4 text-[14px] font-bold text-white transition-opacity hover:opacity-90"
+          className="brand-btn inline-flex h-10 items-center gap-2 rounded-chip px-4 text-[14px] font-bold text-white transition-opacity hover:opacity-90"
           style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
         >
           <Plus size={17} strokeWidth={2.6} />

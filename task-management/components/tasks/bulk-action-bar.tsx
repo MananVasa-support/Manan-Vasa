@@ -258,7 +258,7 @@ export function BulkActionBar({
                 run("Archived", () => bulkArchive(selectedIds));
               }
             }}
-            className={chipBtn}
+            className={`brand-btn ${chipBtn}`}
           >
             <Archive size={14} strokeWidth={2.2} />
             Archive
@@ -275,7 +275,7 @@ export function BulkActionBar({
                 run("Deleted", () => bulkDelete(selectedIds));
               }
             }}
-            className="inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[13px] font-bold text-altus-red bg-surface-card shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:bg-altus-red/8 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
+            className="brand-btn inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[13px] font-bold text-altus-red bg-surface-card shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:bg-altus-red/8 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
             style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 35%, transparent)" }}
           >
             <Trash2 size={14} strokeWidth={2.2} />
@@ -287,7 +287,7 @@ export function BulkActionBar({
       <button
         type="button"
         onClick={onClear}
-        className="ml-auto inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] font-semibold text-ink-subtle hover:text-ink-strong transition-colors"
+        className="brand-btn ml-auto inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] font-semibold text-ink-subtle hover:text-ink-strong transition-colors"
       >
         <X size={14} strokeWidth={2.4} />
         Clear

@@ -97,7 +97,7 @@ export function ManagerWeeklyGoalGate({
             type="button"
             onClick={recheck}
             disabled={busy}
-            className={`inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white px-5 py-3 text-[15px] font-bold text-ink-strong disabled:opacity-60 ${FOCUS}`}
+            className={`brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white px-5 py-3 text-[15px] font-bold text-ink-strong disabled:opacity-60 ${FOCUS}`}
           >
             {busy ? <Loader2 size={17} className="animate-spin" /> : <RefreshCw size={16} strokeWidth={2.4} />} I&apos;ve set them — re-check
           </button>

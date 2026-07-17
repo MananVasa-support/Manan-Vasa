@@ -85,7 +85,7 @@ export function CreateRecognitionForm({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="wg-btn wg-sheen inline-flex items-center gap-2 rounded-pill px-5 py-2.5 text-[14px] font-bold text-white whitespace-nowrap"
+        className="brand-btn wg-btn wg-sheen inline-flex items-center gap-2 rounded-pill px-5 py-2.5 text-[14px] font-bold text-white whitespace-nowrap"
         style={{
           background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
           boxShadow: `0 10px 24px -12px color-mix(in srgb, ${ACCENT_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
@@ -191,7 +191,7 @@ export function CreateRecognitionForm({
           type="button"
           disabled={pending}
           onClick={submit}
-          className="wg-btn wg-sheen inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[14px] font-bold text-white transition-opacity disabled:opacity-60"
+          className="brand-btn wg-btn wg-sheen inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[14px] font-bold text-white transition-opacity disabled:opacity-60"
           style={{
             background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
             boxShadow: `0 8px 18px -10px color-mix(in srgb, ${ACCENT_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
@@ -204,7 +204,7 @@ export function CreateRecognitionForm({
           type="button"
           disabled={pending}
           onClick={close}
-          className="rounded-xl border border-hairline bg-white px-4 py-2.5 text-[14px] font-bold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-60"
+          className="brand-btn rounded-xl border border-hairline bg-white px-4 py-2.5 text-[14px] font-bold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-60"
         >
           Cancel
         </button>

@@ -469,7 +469,7 @@ function RowAction({ onClick, label, icon, dark }: { onClick: () => void; label:
       type="button"
       onClick={onClick}
       title={label}
-      className={`wg-btn inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-bold transition-colors ${FOCUS_RING}`}
+      className={`brand-btn wg-btn inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-bold transition-colors ${FOCUS_RING}`}
       style={
         dark
           ? { background: "var(--color-ink-strong)", color: "#fff" }

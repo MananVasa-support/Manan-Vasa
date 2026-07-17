@@ -76,7 +76,7 @@ export function DccManagerReviewGate({ greetingName, state }: { greetingName: st
 
         <div className="mt-7 flex items-center justify-between gap-3 rounded-2xl border border-hairline-strong bg-white px-5 py-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
           <span className="text-[15px] font-bold text-ink-muted">{remaining === 0 ? "Everyone reviewed" : `${remaining} of ${state.reports.length} left`}</span>
-          <button onClick={approveAll} disabled={bulk || remaining === 0} className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red disabled:opacity-40">
+          <button onClick={approveAll} disabled={bulk || remaining === 0} className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red disabled:opacity-40">
             {bulk ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />} Approve all
           </button>
         </div>
@@ -92,7 +92,7 @@ export function DccManagerReviewGate({ greetingName, state }: { greetingName: st
                   <p className="truncate text-[16px] font-bold text-ink-strong">{r.name}</p>
                   <p className="text-[13px] font-semibold text-ink-subtle">{r.done}/{r.due} done {pct >= 0 ? `· ${pct}%` : ""}</p>
                 </div>
-                <button onClick={() => openDetail(r)} className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong px-3 py-2 text-[13.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red" title="View their DCC"><Eye size={15} /> View</button>
+                <button onClick={() => openDetail(r)} className="brand-btn inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong px-3 py-2 text-[13.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red" title="View their DCC"><Eye size={15} /> View</button>
                 <button onClick={() => review(r.id, "approved")} className="rounded-xl px-4 py-2.5 text-[14.5px] font-bold transition-colors" style={v === "approved" ? { background: "var(--color-green)", color: "white" } : { background: "white", color: "var(--color-green-deep)", border: "1px solid var(--color-hairline-strong)" }}>✓ Approve</button>
                 <button onClick={() => review(r.id, "needs_rework")} className="rounded-xl px-4 py-2.5 text-[14.5px] font-bold transition-colors" style={v === "needs_rework" ? { background: "var(--color-altus-red)", color: "white" } : { background: "white", color: "var(--color-altus-red-deep)", border: "1px solid var(--color-hairline-strong)" }}>Needs rework</button>
                 {busy === r.id && <Loader2 size={16} className="animate-spin text-ink-subtle" />}

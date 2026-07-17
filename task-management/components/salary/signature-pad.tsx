@@ -172,13 +172,13 @@ export function SignaturePad() {
           type="button"
           onClick={clearCanvas}
           disabled={submitting}
-          className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2 px-3.5 text-[13px] font-medium text-ink-strong hover:border-hairline-strong transition-colors disabled:opacity-50"
+          className="brand-btn inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2 px-3.5 text-[13px] font-medium text-ink-strong hover:border-hairline-strong transition-colors disabled:opacity-50"
         >
           <Eraser size={14} strokeWidth={2.2} />
           Clear
         </button>
 
-        <label className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2 px-3.5 text-[13px] font-medium text-ink-strong hover:border-hairline-strong transition-colors cursor-pointer">
+        <label className="brand-btn inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2 px-3.5 text-[13px] font-medium text-ink-strong hover:border-hairline-strong transition-colors cursor-pointer">
           <Upload size={14} strokeWidth={2.2} />
           {uploadFile ? "Change image" : "Upload image"}
           <input

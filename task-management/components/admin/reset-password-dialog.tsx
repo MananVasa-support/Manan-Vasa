@@ -131,7 +131,7 @@ export function ResetPasswordDialog({ open, onOpenChange, employee }: Props) {
               type="button"
               onClick={handleGenerate}
               disabled={pending}
-              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#A80400] hover:underline"
+              className="brand-btn inline-flex items-center gap-1.5 text-[13px] font-medium text-[#A80400] hover:underline"
             >
               <Sparkles size={14} />
               Generate strong password
@@ -142,7 +142,7 @@ export function ResetPasswordDialog({ open, onOpenChange, employee }: Props) {
             <Dialog.Close asChild>
               <button
                 type="button"
-                className="px-4 py-2.5 text-[14px] font-medium text-[#64748B]"
+                className="brand-btn px-4 py-2.5 text-[14px] font-medium text-[#64748B]"
                 disabled={pending}
               >
                 Cancel

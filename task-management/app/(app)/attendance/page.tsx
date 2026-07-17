@@ -218,7 +218,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
           {me.isAdmin && (
             <a
               href="/attendance/dashboard"
-              className="wg-btn shrink-0 inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[13.5px] font-bold text-white"
+              className="brand-btn wg-btn shrink-0 inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[13.5px] font-bold text-white"
               style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 8px 20px -10px color-mix(in srgb, #15803d 70%, transparent)" }}
             >
               <ClipboardList size={15} strokeWidth={2.4} /> Att Report

@@ -384,7 +384,7 @@ export function OvertimeClient({
           <button
             type="submit"
             disabled={submitting}
-            className="wg-btn wg-sheen inline-flex cursor-pointer items-center justify-center gap-2 rounded-pill py-3 px-5 text-[15px] font-bold text-white disabled:opacity-60"
+            className="brand-btn wg-btn wg-sheen inline-flex cursor-pointer items-center justify-center gap-2 rounded-pill py-3 px-5 text-[15px] font-bold text-white disabled:opacity-60"
             style={{
               background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,
               boxShadow: `0 12px 30px -12px color-mix(in srgb, ${GREEN_DEEP} 75%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,

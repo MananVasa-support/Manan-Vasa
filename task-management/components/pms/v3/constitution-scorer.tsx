@@ -114,7 +114,7 @@ export function ConstitutionScorer({
             type="button"
             onClick={saveWeights}
             disabled={savingWeights}
-            className="wg-btn inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-bold text-white disabled:opacity-50"
+            className="brand-btn wg-btn inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-bold text-white disabled:opacity-50"
             style={{ background: `linear-gradient(135deg, ${accent}, ${accentDeep})` }}
           >
             {savingWeights ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} strokeWidth={2.6} />}
@@ -236,7 +236,7 @@ function ParaCard({
               type="button"
               onClick={submit}
               disabled={pending}
-              className="wg-btn inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50"
+              className="brand-btn wg-btn inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50"
               style={{ background: `linear-gradient(135deg, ${accent}, ${accentDeep})` }}
             >
               {pending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} strokeWidth={2.8} />}

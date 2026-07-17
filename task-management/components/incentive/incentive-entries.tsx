@@ -58,7 +58,7 @@ export function IncentiveEntries({
           <button
             type="button"
             onClick={() => setMode({ kind: "create" })}
-            className="wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-4 h-10 font-bold text-white"
+            className="brand-btn wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-4 h-10 font-bold text-white"
             style={{
               fontSize: 13.5,
               background: "linear-gradient(135deg, #16a34a, #15803d)",
@@ -321,14 +321,14 @@ function EntryDialog({
 
             <div className="flex justify-end gap-2 pt-1">
               <Dialog.Close asChild>
-                <button type="button" className="px-4 py-2.5 font-semibold text-ink-subtle" style={{ fontSize: 14 }} disabled={pending}>
+                <button type="button" className="brand-btn px-4 py-2.5 font-semibold text-ink-subtle" style={{ fontSize: 14 }} disabled={pending}>
                   Cancel
                 </button>
               </Dialog.Close>
               <button
                 type="submit"
                 disabled={pending}
-                className="wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 font-bold text-white disabled:opacity-50"
+                className="brand-btn wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 font-bold text-white disabled:opacity-50"
                 style={{
                   fontSize: 14,
                   background: "linear-gradient(135deg, #16a34a, #15803d)",

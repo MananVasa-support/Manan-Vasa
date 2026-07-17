@@ -137,7 +137,7 @@ export function ReturnDialog({ row, onClose }: { row: CaReturnRow | null; onClos
           </div>
 
           <div className="shrink-0 flex items-center justify-end gap-2 px-6 py-4 border-t border-hairline">
-            <button type="button" onClick={onClose} disabled={saving} className="cursor-pointer rounded-full px-4 py-2 text-[13.5px] font-bold text-ink-soft hover:text-ink-strong">
+            <button type="button" onClick={onClose} disabled={saving} className="brand-btn cursor-pointer rounded-full px-4 py-2 text-[13.5px] font-bold text-ink-soft hover:text-ink-strong">
               Cancel
             </button>
             <button

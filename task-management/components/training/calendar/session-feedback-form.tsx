@@ -98,7 +98,7 @@ export function SessionFeedbackForm({
         <button
           type="submit"
           disabled={pending}
-          className="inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[14.5px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-60"
+          className="brand-btn inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[14.5px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-60"
           style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: `0 12px 30px -12px ${ACCENT}99` }}
         >
           {pending ? <Loader2 size={16} className="animate-spin" /> : mine ? <Check size={16} strokeWidth={2.6} /> : <MessageSquareHeart size={16} strokeWidth={2.4} />}

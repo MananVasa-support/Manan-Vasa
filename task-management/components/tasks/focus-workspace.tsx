@@ -177,7 +177,7 @@ export function FocusWorkspace({
       <button
         type="button"
         onClick={() => setShowShortcuts(true)}
-        className="fixed bottom-5 right-5 z-30 inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12px] font-semibold backdrop-blur transition-all hover:-translate-y-px"
+        className="brand-btn fixed bottom-5 right-5 z-30 inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12px] font-semibold backdrop-blur transition-all hover:-translate-y-px"
         style={{
           background: "rgba(255,255,255,0.06)",
           border: "1px solid rgba(255,255,255,0.14)",
@@ -312,7 +312,7 @@ function TopBar({
       <div className="flex items-center gap-3">
         <Link
           href={`/tasks/${taskId}` as Route}
-          className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-semibold backdrop-blur transition-all hover:-translate-y-px"
+          className="brand-btn inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-semibold backdrop-blur transition-all hover:-translate-y-px"
           style={{
             background: "rgba(255,255,255,0.06)",
             border: "1px solid rgba(255,255,255,0.14)",
@@ -765,7 +765,7 @@ function FocusTimer() {
             type="button"
             onClick={start}
             disabled={state === "done"}
-            className="inline-flex items-center gap-1.5 rounded-pill px-4 py-2 text-[13px] font-bold text-white disabled:opacity-40 transition-all hover:-translate-y-px"
+            className="brand-btn inline-flex items-center gap-1.5 rounded-pill px-4 py-2 text-[13px] font-bold text-white disabled:opacity-40 transition-all hover:-translate-y-px"
             style={{
               background: `linear-gradient(135deg, ${accent}, ${accent}dd)`,
               boxShadow: `0 8px 20px -8px ${accent}80`,
@@ -778,7 +778,7 @@ function FocusTimer() {
           <button
             type="button"
             onClick={pause}
-            className="inline-flex items-center gap-1.5 rounded-pill px-4 py-2 text-[13px] font-bold transition-all hover:-translate-y-px"
+            className="brand-btn inline-flex items-center gap-1.5 rounded-pill px-4 py-2 text-[13px] font-bold transition-all hover:-translate-y-px"
             style={{
               background: "rgba(255,255,255,0.10)",
               border: "1px solid rgba(255,255,255,0.20)",
@@ -913,7 +913,7 @@ function QuickActions({
         type="button"
         onClick={() => changeStatus("done")}
         disabled={pending || task.status === "done"}
-        className="group relative w-full rounded-section overflow-hidden text-left px-5 py-5 disabled:opacity-50 transition-all hover:-translate-y-px"
+        className="brand-btn group relative w-full rounded-section overflow-hidden text-left px-5 py-5 disabled:opacity-50 transition-all hover:-translate-y-px"
         style={{
           background: "linear-gradient(135deg, #10b981 0%, #047857 100%)",
           boxShadow: "0 14px 32px -12px rgba(16, 185, 129, 0.45), inset 0 1px 0 rgba(255,255,255,0.18)",
@@ -999,7 +999,7 @@ function QuickActions({
                 type="button"
                 onClick={() => changeStatus(s)}
                 disabled={pending}
-                className="rounded-md py-2 text-[11.5px] font-semibold transition-all hover:-translate-y-px disabled:opacity-40"
+                className="brand-btn rounded-md py-2 text-[11.5px] font-semibold transition-all hover:-translate-y-px disabled:opacity-40"
                 style={{
                   background: "rgba(255,255,255,0.04)",
                   border: "1px solid rgba(255,255,255,0.10)",

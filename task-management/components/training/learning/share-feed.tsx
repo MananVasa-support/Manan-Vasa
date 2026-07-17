@@ -97,7 +97,7 @@ function ShareCard({ share, index }: { share: ShareForFeedback; index: number })
             type="button"
             onClick={submit}
             disabled={saving || !dirty || rating == null}
-            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[14px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-50"
+            className="brand-btn inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[14px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-50"
             style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
           >
             {saving ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} strokeWidth={2.4} />}

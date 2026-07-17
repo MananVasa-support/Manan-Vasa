@@ -323,7 +323,7 @@ export function ManagerInitiatorCard({
                 setOpen((o) => !o);
               }}
               aria-expanded={open}
-              className="wg-btn flex w-full items-center justify-between rounded-xl border px-3.5 py-2.5 text-left"
+              className="brand-btn wg-btn flex w-full items-center justify-between rounded-xl border px-3.5 py-2.5 text-left"
               style={{
                 borderColor: "var(--color-hairline-strong)",
                 background:

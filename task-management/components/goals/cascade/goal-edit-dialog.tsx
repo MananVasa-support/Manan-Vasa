@@ -283,13 +283,13 @@ export function GoalEditDialog({
         </div>
 
         <div className="mt-5 flex items-center justify-end gap-2">
-          <button type="button" onClick={() => !pending && onOpenChange(false)} className="rounded-full border border-hairline bg-surface-card px-4 py-2 text-[14px] font-bold text-ink-soft transition-colors hover:text-ink-strong">
+          <button type="button" onClick={() => !pending && onOpenChange(false)} className="brand-btn rounded-full border border-hairline bg-surface-card px-4 py-2 text-[14px] font-bold text-ink-soft transition-colors hover:text-ink-strong">
             Cancel
           </button>
           <button
             type="submit"
             disabled={pending}
-            className="wg-btn wg-sheen inline-flex items-center gap-2 rounded-full px-5 py-2 text-[14px] font-bold text-white disabled:opacity-60"
+            className="brand-btn wg-btn wg-sheen inline-flex items-center gap-2 rounded-full px-5 py-2 text-[14px] font-bold text-white disabled:opacity-60"
             style={{ background: `linear-gradient(135deg, ${GOALS_ACCENT}, ${GOALS_ACCENT_DEEP})` }}
           >
             {pending && <Loader2 size={15} className="animate-spin" />}

@@ -98,7 +98,7 @@ export default async function InboxPage({ searchParams }: PageProps) {
           <div className="mt-10 flex justify-center">
             <Link
               href={`/inbox?before=${encodeURIComponent(nextCursor)}` as Route}
-              className="nav-pill"
+              className="brand-btn nav-pill"
               style={{
                 background: "rgba(15, 23, 42, 0.06)",
                 color: "var(--color-ink-strong)",

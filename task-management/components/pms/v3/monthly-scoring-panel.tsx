@@ -240,7 +240,7 @@ function KpiCard({
                 type="button"
                 onClick={submit}
                 disabled={pending}
-                className="wg-btn inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13.5px] font-bold text-white disabled:opacity-50"
+                className="brand-btn wg-btn inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13.5px] font-bold text-white disabled:opacity-50"
                 style={{ background: `linear-gradient(135deg, ${accent}, ${accentDeep})` }}
               >
                 {pending ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.6} />}

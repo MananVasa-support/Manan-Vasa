@@ -49,7 +49,7 @@ export function TestTaker({ test }: { test: TakingTest }) {
         <p className="mt-1 text-[16px] font-semibold" style={{ color: result.passed ? "var(--color-green-deep)" : "var(--color-altus-red-deep)" }}>You scored {result.score}% · pass mark {test.passMark}%</p>
         {!result.passed && <p className="mt-2 text-[14px] font-medium text-ink-muted">Your manager has been notified. Review the material and try again.</p>}
         <div className="mt-6 flex items-center justify-center gap-3">
-          <button type="button" onClick={() => router.push(`/training/${test.materialId}` as Route)} className="inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-5 py-3 text-[15px] font-bold text-ink-strong hover:border-hairline-strong"><ArrowLeft size={16} /> Back to material</button>
+          <button type="button" onClick={() => router.push(`/training/${test.materialId}` as Route)} className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-5 py-3 text-[15px] font-bold text-ink-strong hover:border-hairline-strong"><ArrowLeft size={16} /> Back to material</button>
           <button type="button" onClick={() => { setResult(null); setAnswers({}); }} className="inline-flex items-center gap-2 rounded-xl py-3 px-5 text-[15px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}><RotateCcw size={16} /> Retake</button>
         </div>
       </div>
@@ -87,7 +87,7 @@ export function TestTaker({ test }: { test: TakingTest }) {
       {error && <p className="text-[14px] font-semibold" style={{ color: "var(--color-altus-red-deep)" }}>{error}</p>}
 
       <div className="flex items-center justify-between gap-3 border-t border-hairline pt-5">
-        <button type="button" onClick={() => router.push(`/training/${test.materialId}` as Route)} className="inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-5 py-3 text-[15px] font-bold text-ink-strong hover:border-hairline-strong"><ArrowLeft size={16} /> Cancel</button>
+        <button type="button" onClick={() => router.push(`/training/${test.materialId}` as Route)} className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-5 py-3 text-[15px] font-bold text-ink-strong hover:border-hairline-strong"><ArrowLeft size={16} /> Cancel</button>
         <button type="button" onClick={onSubmit} disabled={submitting} className="inline-flex items-center gap-2 rounded-xl py-3 px-7 text-[15px] font-bold text-white disabled:opacity-60" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}>
           {submitting ? <Loader2 size={17} className="animate-spin" /> : null} Submit test
         </button>

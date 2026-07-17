@@ -356,7 +356,7 @@ export function EmployeeDetailDialog({
                               <button
                                 type="button"
                                 onClick={() => setEditingDate(d.logDate)}
-                                className={`inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-1.5 px-2.5 text-[12px] font-semibold text-ink-soft hover:text-ink-strong hover:border-hairline-strong transition-colors ${FOCUS_RING}`}
+                                className={`brand-btn inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-1.5 px-2.5 text-[12px] font-semibold text-ink-soft hover:text-ink-strong hover:border-hairline-strong transition-colors ${FOCUS_RING}`}
                               >
                                 {d.inAt || d.outAt ? (
                                   <>
@@ -563,7 +563,7 @@ function EditRow({
             type="button"
             disabled={busy}
             onClick={onCancel}
-            className={`inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-1.5 px-3 text-[12px] font-semibold text-ink-soft hover:text-ink-strong transition-colors disabled:opacity-60 ${FOCUS_RING}`}
+            className={`brand-btn inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-1.5 px-3 text-[12px] font-semibold text-ink-soft hover:text-ink-strong transition-colors disabled:opacity-60 ${FOCUS_RING}`}
           >
             Cancel
           </button>
@@ -606,7 +606,7 @@ function ConvertButton({
       disabled={busy}
       onClick={run}
       title="Convert this worked holiday / weekly-off to a redeemable comp-off"
-      className={`inline-flex items-center gap-1.5 rounded-md border py-1.5 px-2.5 text-[12px] font-semibold transition-colors disabled:opacity-60 ${FOCUS_RING}`}
+      className={`brand-btn inline-flex items-center gap-1.5 rounded-md border py-1.5 px-2.5 text-[12px] font-semibold transition-colors disabled:opacity-60 ${FOCUS_RING}`}
       style={{
         borderColor: "var(--color-teal)",
         color: "var(--color-teal-deep)",
@@ -853,7 +853,7 @@ function LeaveCompOffPanel({
                 type="button"
                 disabled={busy}
                 onClick={redeem}
-                className={`mt-2.5 inline-flex items-center gap-1.5 rounded-md py-1.5 px-3 text-[12px] font-bold text-white disabled:opacity-60 transition-opacity ${FOCUS_RING}`}
+                className={`brand-btn mt-2.5 inline-flex items-center gap-1.5 rounded-md py-1.5 px-3 text-[12px] font-bold text-white disabled:opacity-60 transition-opacity ${FOCUS_RING}`}
                 style={{ background: "var(--color-teal-deep)" }}
               >
                 <Gift size={13} strokeWidth={2.4} /> Redeem
@@ -882,7 +882,7 @@ function LeaveCompOffPanel({
                     type="button"
                     disabled={busy}
                     onClick={() => removeCredit(c.id)}
-                    className={`ml-auto inline-flex items-center gap-1 rounded-md py-1 px-2 text-[11.5px] font-bold text-[color:var(--color-altus-red)] hover:bg-[color:color-mix(in_srgb,var(--color-altus-red)_8%,transparent)] disabled:opacity-50 transition-colors ${FOCUS_RING}`}
+                    className={`brand-btn ml-auto inline-flex items-center gap-1 rounded-md py-1 px-2 text-[11.5px] font-bold text-[color:var(--color-altus-red)] hover:bg-[color:color-mix(in_srgb,var(--color-altus-red)_8%,transparent)] disabled:opacity-50 transition-colors ${FOCUS_RING}`}
                   >
                     <Trash2 size={12} strokeWidth={2.4} /> Remove
                   </button>
@@ -925,7 +925,7 @@ function DeleteLink({ onClick, disabled }: { onClick: () => void; disabled: bool
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-red-deep hover:underline disabled:opacity-60"
+      className="brand-btn mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-red-deep hover:underline disabled:opacity-60"
       style={{ color: "var(--color-red-deep)" }}
     >
       <Trash2 size={12} strokeWidth={2.2} /> Delete

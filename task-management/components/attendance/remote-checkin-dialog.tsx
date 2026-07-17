@@ -134,10 +134,10 @@ export function RemoteCheckInDialog({
                 <Check size={15} className="text-[color:var(--color-green-deep)]" strokeWidth={2.6} />
                 <span className="tabular-nums">{loc.lat.toFixed(5)}, {loc.lng.toFixed(5)}</span>
                 <span className="ml-auto text-[11.5px] font-medium text-ink-subtle">±{Math.round(loc.acc)}m</span>
-                <button type="button" onClick={getLocation} className="text-[12px] font-bold text-[color:var(--color-green-deep)]">Refresh</button>
+                <button type="button" onClick={getLocation} className="brand-btn text-[12px] font-bold text-[color:var(--color-green-deep)]">Refresh</button>
               </div>
             ) : (
-              <button type="button" onClick={getLocation} disabled={locBusy} className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[13.5px] font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}>
+              <button type="button" onClick={getLocation} disabled={locBusy} className="brand-btn inline-flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[13.5px] font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}>
                 {locBusy ? <Loader2 size={15} className="animate-spin" /> : <LocateFixed size={15} strokeWidth={2.4} />}{locBusy ? "Locating…" : "Enable location"}
               </button>
             )}
@@ -166,8 +166,8 @@ export function RemoteCheckInDialog({
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-hairline px-6 py-3">
-          <button type="button" onClick={() => !busy && onClose()} className="rounded-pill px-4 py-2 text-[13.5px] font-bold text-ink-muted hover:text-ink-strong">Cancel</button>
-          <button type="button" onClick={submit} disabled={busy} className="wg-btn wg-sheen inline-flex items-center gap-2 rounded-pill px-5 py-2.5 text-[13.5px] font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`, boxShadow: `0 8px 20px -10px ${GREEN_DEEP}` }}>
+          <button type="button" onClick={() => !busy && onClose()} className="brand-btn rounded-pill px-4 py-2 text-[13.5px] font-bold text-ink-muted hover:text-ink-strong">Cancel</button>
+          <button type="button" onClick={submit} disabled={busy} className="brand-btn wg-btn wg-sheen inline-flex items-center gap-2 rounded-pill px-5 py-2.5 text-[13.5px] font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`, boxShadow: `0 8px 20px -10px ${GREEN_DEEP}` }}>
             {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.6} />}{busy ? "Logging…" : `Log ${kind === "in" ? "check-in" : "check-out"}`}
           </button>
         </div>

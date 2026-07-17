@@ -27,7 +27,7 @@ export function MarkAllButton({ hasUnread }: Props) {
           if (!res.ok) fireToast({ message: res.error });
         });
       }}
-      className="nav-pill text-body disabled:cursor-not-allowed disabled:opacity-40"
+      className="brand-btn nav-pill text-body disabled:cursor-not-allowed disabled:opacity-40"
       style={{
         background: "rgba(15, 23, 42, 0.06)",
         color: "var(--color-ink-strong)",

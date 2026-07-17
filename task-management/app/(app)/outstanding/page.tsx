@@ -148,7 +148,7 @@ export default async function OutstandingPage({ searchParams }: PageProps) {
             {isAdmin && (
               <Link
                 href={"/outstanding/contracts" as Route}
-                className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2.5 px-4 text-[14px] font-medium text-ink-strong hover:border-hairline-strong transition-colors"
+                className="brand-btn inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2.5 px-4 text-[14px] font-medium text-ink-strong hover:border-hairline-strong transition-colors"
               >
                 <Settings2 size={15} strokeWidth={2.2} />
                 Manage contracts

@@ -780,7 +780,7 @@ function ActionButton({
   children: React.ReactNode;
 }) {
   const base =
-    "inline-flex items-center gap-1 rounded-pill px-2 py-1 font-bold transition-colors";
+    "brand-btn inline-flex items-center gap-1 rounded-pill px-2 py-1 font-bold transition-colors";
   const style: React.CSSProperties = {
     fontSize: 11.5,
     background: `color-mix(in srgb, var(--color-${tone}) 10%, transparent)`,
@@ -829,7 +829,7 @@ function ActionLink({
     <Link
       href={href}
       aria-label={label}
-      className="inline-flex items-center gap-1 rounded-pill px-2 py-1 font-bold transition-colors"
+      className="brand-btn inline-flex items-center gap-1 rounded-pill px-2 py-1 font-bold transition-colors"
       style={{
         fontSize: 11.5,
         background: "var(--color-surface-soft)",

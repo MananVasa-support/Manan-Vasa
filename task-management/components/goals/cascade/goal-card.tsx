@@ -257,7 +257,7 @@ export function GoalCard({
           <button
             type="button"
             onClick={() => setEditOpen(true)}
-            className="wg-btn inline-flex items-center gap-1 rounded-full border border-hairline bg-surface-card px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:text-ink-strong"
+            className="brand-btn wg-btn inline-flex items-center gap-1 rounded-full border border-hairline bg-surface-card px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:text-ink-strong"
           >
             <Pencil size={12} strokeWidth={2.4} /> Edit
           </button>
@@ -266,7 +266,7 @@ export function GoalCard({
               type="button"
               onClick={generate}
               disabled={pending}
-              className="wg-btn inline-flex items-center gap-1 rounded-full border border-hairline bg-surface-card px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:text-ink-strong disabled:opacity-60"
+              className="brand-btn wg-btn inline-flex items-center gap-1 rounded-full border border-hairline bg-surface-card px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:text-ink-strong disabled:opacity-60"
               title={`Auto-divide into ${childLevel} goals`}
             >
               {pending ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} strokeWidth={2.4} />}
@@ -287,14 +287,14 @@ export function GoalCard({
             type="button"
             onClick={archive}
             disabled={pending}
-            className="wg-btn inline-flex items-center gap-1 rounded-full border border-hairline bg-surface-card px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:text-altus-red disabled:opacity-60"
+            className="brand-btn wg-btn inline-flex items-center gap-1 rounded-full border border-hairline bg-surface-card px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:text-altus-red disabled:opacity-60"
           >
             <Archive size={12} strokeWidth={2.4} /> Archive
           </button>
           {drillKey && (
             <Link
               href={`/goals/cascade/${drillKey}` as Route}
-              className="wg-btn wg-sheen ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-black text-white"
+              className="brand-btn wg-btn wg-sheen ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-black text-white"
               style={{ background: "linear-gradient(135deg, #b45309, #7c2d12)" }}
             >
               Open {childLevel} <ChevronRight size={13} strokeWidth={2.6} />
