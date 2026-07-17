@@ -183,6 +183,9 @@ function task(partial: Partial<Task>): Task {
     // Search infra (migration 0061) — DB-generated STORED column. Test
     // fixtures never exercise it; default null keeps the select shape valid.
     searchText: partial.searchText ?? null,
+    // Recycle Bin (migration 0135) — abandoned tasks leave the daily loop.
+    abandonedAt: partial.abandonedAt ?? null,
+    abandonedById: partial.abandonedById ?? null,
   };
 }
 

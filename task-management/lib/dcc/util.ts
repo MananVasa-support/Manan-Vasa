@@ -105,6 +105,8 @@ export function parseFrequency(raw: string | null | undefined): ParsedFrequency 
 
 /** A DCC item, minimally, for the slot model. */
 export interface SlotItem {
+  /** Optional row id — callers may pass full slot rows; ignored by the scheduler. */
+  id?: string | null;
   weekdays: number | null;
   scheduleKind?: string | null;
   isParticipantList?: boolean | null;

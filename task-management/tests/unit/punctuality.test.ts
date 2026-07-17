@@ -45,6 +45,13 @@ function task(p: Partial<Task>): Task {
     projectNodeId: null,
     originGoalId: null,
     searchText: null,
+    calendarAttempts: 0,
+    calendarNextAttemptAt: null,
+    calendarLastSyncAt: null,
+    calendarLastError: null,
+    ambReferralId: null,
+    abandonedAt: null,
+    abandonedById: null,
     ...p,
   };
 }
