@@ -1,100 +1,106 @@
-import * as React from "react";
-import Link from "next/link";
-import type { Route } from "next";
-import { Target, ArrowLeft, Layers } from "lucide-react";
+import { notFound } from "next/navigation";
+import { and, eq, gte, lte } from "drizzle-orm";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
-import { MODULE_THEME } from "@/lib/module-theme";
+import { db } from "@/lib/db";
+import { weeklyGoals } from "@/db/schema";
 import { requireGoalsAccess } from "@/lib/goals/access";
+import { goalsCascadeEnabled } from "@/lib/goals/flag";
+import { getYearBoard, getAssignedGoals } from "@/lib/goals/queries";
+import { fyStartYearOf } from "@/lib/goals/types";
+import type { GoalNode } from "@/lib/goals/types";
+import { toGoalDTO, type GoalDTO } from "@/components/goals/cascade/util";
+import { CascadeWorkspace, type WeeklyDTO } from "@/components/goals/cascade/cascade-workspace";
+import { resolveGoalsView } from "./view";
 
 export const dynamic = "force-dynamic";
 
-const THEME = MODULE_THEME.goals;
-const ACCENT = THEME.accent; // #b45309
-const ACCENT_DEEP = THEME.accentDeep; // #7c2d12
+/** Flatten a goal tree back to every node (children ignored by toGoalDTO). */
+function collect(nodes: GoalNode[]): GoalNode[] {
+  const out: GoalNode[] = [];
+  const walk = (ns: GoalNode[]) => ns.forEach((n) => (out.push(n), walk(n.children)));
+  walk(nodes);
+  return out;
+}
 
-// PLACEHOLDER shell — the year board (Y→Q→M drill, cross-out, add-extra,
-// move-forward) is built by the CASCADE-UI slice.
-export default async function GoalsCascadePage() {
-  await requireGoalsAccess();
+/** Calendar week number (1..53) for a Monday date "YYYY-MM-DD". */
+function weekNoOf(weekStart: string): number {
+  const d = new Date(`${weekStart}T00:00:00Z`);
+  const start = Date.UTC(d.getUTCFullYear(), 0, 1);
+  return Math.max(1, Math.ceil((d.getTime() - start) / 86_400_000 / 7) + 1);
+}
+
+export default async function GoalsCascadePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ emp?: string; fy?: string }>;
+}) {
+  const { me, isAdmin } = await requireGoalsAccess();
+  if (!goalsCascadeEnabled()) notFound();
+
+  const sp = await searchParams;
+  const view = await resolveGoalsView(me, isAdmin, sp.emp);
+  const fy = sp.fy && /^\d{4}$/.test(sp.fy) ? Number(sp.fy) : fyStartYearOf(new Date());
+
+  const [board, wrows, assigned] = await Promise.all([
+    getYearBoard(view.viewedEmployeeId, fy),
+    db
+      .select({
+        id: weeklyGoals.id,
+        weekStart: weeklyGoals.weekStart,
+        monthGoalId: weeklyGoals.monthGoalId,
+        subject: weeklyGoals.subject,
+        targetDone: weeklyGoals.targetDone,
+        area: weeklyGoals.area,
+        uom: weeklyGoals.uom,
+        pctDone: weeklyGoals.pctDone,
+        acceptPct: weeklyGoals.acceptPct,
+        position: weeklyGoals.position,
+        carriedFromId: weeklyGoals.carriedFromId,
+      })
+      .from(weeklyGoals)
+      .where(
+        and(
+          eq(weeklyGoals.employeeId, view.viewedEmployeeId),
+          eq(weeklyGoals.archived, false),
+          gte(weeklyGoals.weekStart, `${fy}-04-01`),
+          lte(weeklyGoals.weekStart, `${fy + 1}-03-31`),
+        ),
+      ),
+    getAssignedGoals(view.viewedEmployeeId, fy),
+  ]);
+
+  const goals: GoalDTO[] = [...collect(board.years), ...collect(board.standalone)].map(toGoalDTO);
+
+  const weekly: WeeklyDTO[] = wrows.map((w) => ({
+    id: w.id,
+    weekStart: w.weekStart,
+    monthKey: w.weekStart.slice(0, 7),
+    weekNo: weekNoOf(w.weekStart),
+    title: (w.targetDone?.trim() || w.subject?.trim() || "Weekly goal") as string,
+    area: w.area,
+    uom: w.uom,
+    pctDone: w.pctDone,
+    acceptPct: w.acceptPct,
+    position: w.position,
+    cascade: w.monthGoalId != null,
+    spillover: w.carriedFromId != null,
+  }));
+
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
-        {/* Module masthead — signature animated wordmark */}
-        <header className="wg-rise flex items-center gap-3">
-          <span
-            className="module-wordmark-icon inline-grid size-11 place-items-center rounded-2xl text-white"
-            style={{
-              background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
-              boxShadow: `0 10px 24px -10px ${ACCENT_DEEP}`,
-            }}
-          >
-            <Target size={22} strokeWidth={2.6} aria-hidden />
-          </span>
-          <span
-            className="module-wordmark-text leading-none"
-            style={
-              {
-                "--mw-a": ACCENT,
-                "--mw-b": ACCENT_DEEP,
-                fontSize: "clamp(26px, 3vw, 38px)",
-              } as React.CSSProperties
-            }
-          >
-            The Cascade
-          </span>
-        </header>
-
-        {/* Branded coming-soon panel */}
-        <section
-          className="wg-rise relative mt-8 overflow-hidden rounded-section border border-dashed p-12 text-center max-md:p-8"
-          style={{
-            animationDelay: "80ms",
-            borderColor: "var(--color-hairline-strong)",
-            background: `radial-gradient(ellipse 80% 130% at 50% 0%, color-mix(in srgb, ${ACCENT} 8%, transparent), transparent 62%), var(--color-surface-card)`,
-          }}
-        >
-          {/* faint top accent seam */}
-          <span
-            aria-hidden
-            className="absolute inset-x-0 top-0 h-[3px]"
-            style={{ background: `linear-gradient(90deg, ${ACCENT}, ${ACCENT_DEEP}, transparent)` }}
-          />
-          <span
-            className="wg-ring-glow mx-auto inline-grid size-16 place-items-center rounded-2xl"
-            style={{
-              color: ACCENT_DEEP,
-              background: `color-mix(in srgb, ${ACCENT} 14%, transparent)`,
-              boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${ACCENT} 22%, transparent)`,
-            }}
-          >
-            <Layers size={30} strokeWidth={2.2} />
-          </span>
-          <h1
-            className="mt-5 text-ink-strong"
-            style={{
-              fontFamily: "var(--font-display), system-ui, sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(24px, 3vw, 34px)",
-              letterSpacing: "-0.02em",
-            }}
-          >
-            The year board is landing next
-          </h1>
-          <p className="mx-auto mt-2.5 max-w-[52ch] text-[15px] font-medium leading-relaxed text-ink-muted">
-            Plan the year, auto-divide it into quarters, months and weeks, then drill
-            Year → Quarter → Month with cross-out, add-extra and carry-forward — all in
-            one connected board. It is being wired up now.
-          </p>
-          <Link
-            href={"/goals" as Route}
-            className="wg-btn wg-sheen mt-6 inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-[14px] font-bold text-white"
-            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
-          >
-            <ArrowLeft size={16} strokeWidth={2.6} /> Back to Goals
-          </Link>
-        </section>
+      <main className="w-full px-6 max-md:px-3 pt-6 pb-16">
+        <CascadeWorkspace
+          goals={goals}
+          weekly={weekly}
+          assigned={assigned}
+          fyStartYear={fy}
+          viewedEmployeeId={view.viewedEmployeeId}
+          viewedName={view.viewedName}
+          roster={view.roster}
+          canWrite={view.canWrite}
+        />
       </main>
       <DashboardFooter />
     </>

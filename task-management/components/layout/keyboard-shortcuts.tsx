@@ -14,7 +14,7 @@ const GO_TO: Record<string, string> = {
   p: "/projects",
   i: "/inbox",
   w: "/weekly-goals",
-  c: "/daily-checklist",
+  c: "/goals/plan",
   k: "/tasks/kanban",
   a: "/attendance",
 };

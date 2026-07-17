@@ -80,22 +80,24 @@ export function computeDayCode(
 
   const worked = Math.max(0, (outAt ? toMin(outAt) : toMin(refNow)) - toMin(inAt));
   const late = toMin(inAt) > toMin(sched.lateAfter);
-  const leftEarly = outAt != null && toMin(outAt) <= toMin(sched.earlyBefore);
+  // Early = left strictly BEFORE the early-before time (7:30 pm). At exactly the
+  // cutoff it is NOT early (Sir: "7:30 ke pehle logout = early").
+  const leftEarly = outAt != null && toMin(outAt) < toMin(sched.earlyBefore);
 
-  // Checked in but not out yet — can't grade the day.
+  // Checked in but NEVER checked out (Sir #12): credit a HALF-DAY, not the old
+  // "incomplete/0". The person came in; a missing punch-out shouldn't zero them.
   if (!outAt) {
-    return { code: "incomplete", dayValue: 0, late, leftEarly: false, lateWaived: false, workedMinutes: worked };
+    return { code: "H/D", dayValue: 0.5, late, leftEarly: false, lateWaived: false, workedMinutes: worked };
   }
 
-  if (worked < sched.halfDayMinutes) {
-    return { code: "H/D", dayValue: 0.5, late, leftEarly, lateWaived: false, workedMinutes: worked };
+  // Sir's day rule: a FULL day needs the 9-hour target completed. Anything less —
+  // even 5–9h, which used to score a full day — is now a HALF-DAY (Sir #6/#7). A
+  // late arrival / early exit that STILL lands the full 9h is forgiven (lateWaived).
+  if (worked >= sched.fullDayMinutes) {
+    const lateWaived = late || leftEarly;
+    return { code: "P", dayValue: 1, late, leftEarly, lateWaived, workedMinutes: worked };
   }
-
-  // Late/early arrival is forgiven when the person still puts in a full day.
-  const lateWaived = (late || leftEarly) && worked >= sched.fullDayMinutes;
-  // Phase A keeps a worked weekly-off as "P" — HP (holiday-pay) extra-pay
-  // crediting is a Phase B concern, so we don't special-case W/O here.
-  return { code: "P", dayValue: 1, late, leftEarly, lateWaived, workedMinutes: worked };
+  return { code: "H/D", dayValue: 0.5, late, leftEarly, lateWaived: false, workedMinutes: worked };
 }
 
 /**

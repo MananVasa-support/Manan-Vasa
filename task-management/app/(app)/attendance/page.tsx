@@ -2,11 +2,8 @@ import {
   MapPin,
   ShieldCheck,
   CalendarCheck,
-  CalendarDays,
   LogIn,
   LogOut,
-  Timer,
-  Clock3,
   MoveRight,
   Activity,
   Users,
@@ -15,6 +12,9 @@ import {
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { PunchCard } from "@/components/attendance/punch-card";
+import { TodayPanel } from "@/components/attendance/today-panel";
+import { AttendanceKpiStrip } from "@/components/attendance/attendance-kpi-strip";
+import { MonthCalendar } from "@/components/attendance/month-calendar";
 import { RemoteCheckInTrigger } from "@/components/attendance/remote-checkin-trigger";
 import { TeamDatePicker } from "@/components/attendance/team-date-picker";
 import {
@@ -31,6 +31,8 @@ import {
   type PunchDetail,
 } from "@/lib/queries/attendance";
 import { getOrgSettings } from "@/lib/queries/org-settings";
+import { getSelfAttendanceSummary } from "@/lib/queries/attendance-summary";
+import { getEmployeeMonthStatus } from "@/lib/queries/attendance-status";
 import { withRetry } from "@/lib/db/with-timeout";
 import { formatTimeInTz, localDateString } from "@/lib/format";
 
@@ -85,33 +87,6 @@ function fmtDur(ms: number): string {
   return h > 0 ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}m`;
 }
 
-/** Monday of the week containing `dateStr` (YYYY-MM-DD, drift-free). */
-function mondayOf(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const dt = new Date(Date.UTC(y ?? 2026, (m ?? 1) - 1, d ?? 1, 12));
-  dt.setUTCDate(dt.getUTCDate() - ((dt.getUTCDay() + 6) % 7));
-  return dt.toISOString().slice(0, 10);
-}
-
-/** Wall-clock minutes-of-day of `at` in tz — for the average check-in stat. */
-function minutesInTz(at: Date, tz: string): number | null {
-  const text = new Intl.DateTimeFormat("en-GB", {
-    timeZone: tz,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(at);
-  const m = /^(\d{1,2}):(\d{2})/.exec(text);
-  if (!m) return null;
-  return ((Number(m[1]) % 24) * 60) + Number(m[2]);
-}
-
-function fmtMinutes(min: number): string {
-  const h = Math.floor(min / 60) % 24;
-  const m = Math.round(min % 60);
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
-
 export default async function AttendancePage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const me = await requireUser();
@@ -124,37 +99,35 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   const rawDate = typeof sp.date === "string" ? sp.date : today;
   const teamDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : today;
 
-  const [myDays, team, settings] = await Promise.all([
+  const [curYear, curMonth] = today.split("-").map(Number) as [number, number];
+
+  const [myDays, team, settings, selfSummary, monthStatus] = await Promise.all([
     withRetry(() => listMyAttendance(me.id, since), { ...RETRY, label: "att-mydays" }),
     me.isAdmin
       ? withRetry(() => listTeamAttendanceForDate(teamDate), { ...RETRY, label: "att-team" })
       : Promise.resolve(null),
     withRetry(() => getOrgSettings(), { ...RETRY, label: "att-settings" }),
+    withRetry(() => getSelfAttendanceSummary(me.id), { ...RETRY, label: "att-self" }),
+    withRetry(() => getEmployeeMonthStatus(me.id, curYear, curMonth, today), { ...RETRY, label: "att-month" }),
   ]);
+
+  // Month calendar cells (client-safe) — colour-coded per graded day.
+  const monthCells = monthStatus.days.map((d) => ({
+    date: d.logDate,
+    day: Number(d.logDate.slice(8, 10)),
+    weekday: d.weekday,
+    code: d.code,
+    late: d.late,
+    leftEarly: d.leftEarly,
+    isWeeklyOff: d.isWeeklyOff,
+    inAt: d.inAt,
+    outAt: d.outAt,
+    workedMinutes: d.workedMinutes,
+    future: d.logDate > today,
+  }));
 
   const todayRow = myDays.find((d) => d.date === today);
   const firstName = me.name.split(" ")[0] ?? me.name;
-
-  // ── Derived stats (from the already-loaded 14 days — zero extra queries) ──
-  const presentDays = myDays.filter((d) => d.in).length;
-
-  const weekStart = mondayOf(today);
-  const weekMs = myDays
-    .filter((d) => d.date >= weekStart)
-    .reduce((sum, d) => sum + (workedMs(d) ?? 0), 0);
-  const WEEK_REF_MS = 40 * 3_600_000; // visual reference: standard 40h week
-
-  const completeMs = myDays.map(workedMs).filter((v): v is number => v != null);
-  const avgDayMs = completeMs.length
-    ? completeMs.reduce((a, b) => a + b, 0) / completeMs.length
-    : null;
-
-  const inMinutes = myDays
-    .map((d) => (d.in ? minutesInTz(d.in.at, tz) : null))
-    .filter((v): v is number => v != null);
-  const avgInMin = inMinutes.length
-    ? inMinutes.reduce((a, b) => a + b, 0) / inMinutes.length
-    : null;
 
   // Most recent punch across the loaded window → "Last punch" line in the hero.
   let lastPunchLabel: string | null = null;
@@ -179,6 +152,20 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   // outside the radius. When no coords are configured the fence is off (punch
   // from anywhere) — the card still captures location but never blocks.
   const geofenceEnabled = settings.officeLat != null && settings.officeLng != null;
+
+  // Today's punches (for the status chip + Today panel).
+  const inLabel = todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : null;
+  const outLabel = todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null;
+  const inISO = todayRow?.in ? todayRow.in.at.toISOString() : null;
+  const outISO = todayRow?.out ? todayRow.out.at.toISOString() : null;
+  const status = outLabel
+    ? { label: "Day complete", tone: "#94a3b8" }
+    : inLabel
+      ? { label: `Checked in · since ${inLabel}`, tone: "#16a34a" }
+      : { label: "Ready to check in", tone: "#16a34a" };
+  const monthLabel = new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric" }).format(
+    new Date(Date.UTC(curYear, curMonth - 1, 1)),
+  );
 
   // Serialize the team rows for the client roster (search lives client-side).
   const rosterRows: RosterRow[] | null = team
@@ -217,6 +204,16 @@ export default async function AttendancePage({ searchParams }: PageProps) {
             >
               Good to see you, {firstName}
             </h1>
+            <span
+              className="mt-2.5 inline-flex items-center gap-2 rounded-pill border bg-surface-card px-3 py-1.5 text-[12.5px] font-bold"
+              style={{ borderColor: `color-mix(in srgb, ${status.tone} 32%, transparent)`, color: "var(--color-ink-strong)" }}
+            >
+              <span aria-hidden className="relative inline-flex size-2.5">
+                <span className="absolute inline-flex h-full w-full rounded-full opacity-70 animate-ping motion-reduce:hidden" style={{ background: status.tone }} />
+                <span className="relative inline-flex size-2.5 rounded-full" style={{ background: status.tone }} />
+              </span>
+              {status.label}
+            </span>
           </div>
           {me.isAdmin && (
             <a
@@ -229,10 +226,10 @@ export default async function AttendancePage({ searchParams }: PageProps) {
           )}
         </header>
 
-        {/* ── Full-width working grid: punch hero left · stats + timeline right ── */}
-        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
-          {/* LEFT — punch hero (clock + dial + map + note) */}
-          <div className="lg:col-span-7">
+        {/* ── Two balanced halves: attendance box (left) · how am I doing (right) ── */}
+        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+          {/* FIRST HALF — the attendance box + how am I doing */}
+          <div className="flex flex-col gap-5">
             <PunchCard
               todayLabel={labelForDate(today)}
               inLabel={todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : null}
@@ -244,48 +241,13 @@ export default async function AttendancePage({ searchParams }: PageProps) {
               radiusM={settings.attendanceRadiusM}
               lastPunchLabel={lastPunchLabel}
             />
+            <AttendanceKpiStrip data={selfSummary} />
           </div>
 
-          {/* RIGHT — derived stats + the 14-day timeline */}
-          <div className="flex flex-col gap-5 lg:col-span-5">
-            <section className="grid grid-cols-2 gap-3.5">
-              <StatCard
-                icon={<Timer size={17} strokeWidth={2.4} />}
-                accent="var(--color-altus-red)"
-                label="This week"
-                value={weekMs > 0 ? fmtDur(weekMs) : "—"}
-                caption="hours worked"
-                progress={weekMs > 0 ? Math.min(weekMs / WEEK_REF_MS, 1) : null}
-                delay={0}
-              />
-              <StatCard
-                icon={<CalendarDays size={17} strokeWidth={2.4} />}
-                accent="#16a34a"
-                label="Present"
-                value={`${presentDays}`}
-                caption="of last 14 days"
-                progress={presentDays / 14}
-                delay={60}
-              />
-              <StatCard
-                icon={<LogIn size={17} strokeWidth={2.4} />}
-                accent="#15803d"
-                label="Avg check-in"
-                value={avgInMin != null ? fmtMinutes(avgInMin) : "—"}
-                caption={avgInMin != null ? `across ${inMinutes.length} day${inMinutes.length === 1 ? "" : "s"}` : "no check-ins yet"}
-                delay={120}
-              />
-              <StatCard
-                icon={<Clock3 size={17} strokeWidth={2.4} />}
-                accent="#334155"
-                label="Avg day"
-                value={avgDayMs != null ? fmtDur(avgDayMs) : "—"}
-                caption={avgDayMs != null ? `${completeMs.length} full day${completeMs.length === 1 ? "" : "s"}` : "no full days yet"}
-                delay={180}
-              />
-            </section>
-
-            <MyTimeline days={myDays} tz={tz} today={today} />
+          {/* SECOND HALF — Today ring · this month's calendar · remote check-in */}
+          <div className="flex flex-col gap-5">
+            <TodayPanel inLabel={inLabel} outLabel={outLabel} inISO={inISO} outISO={outISO} fullDayHours={9} />
+            <MonthCalendar cells={monthCells} monthLabel={monthLabel} compact />
             <RemoteCheckInTrigger hasCheckedIn={!!todayRow?.in} hasCheckedOut={!!todayRow?.out} />
           </div>
         </div>
@@ -349,75 +311,6 @@ function toRosterPunch(p: PunchDetail | null, tz: string): RosterPunch | null {
     verify: p.verifyMethod,
     distanceM: p.distanceM,
   };
-}
-
-/* ────────────────────────────── Stat cards ────────────────────────────── */
-
-function StatCard({
-  icon,
-  accent,
-  label,
-  value,
-  caption,
-  progress,
-  delay,
-}: {
-  icon: React.ReactNode;
-  accent: string;
-  label: string;
-  value: string;
-  caption: string;
-  /** 0–1 fill for the thin bar; omit/null to hide it. */
-  progress?: number | null;
-  delay: number;
-}) {
-  const pct = progress != null ? Math.round(Math.max(0, Math.min(progress, 1)) * 100) : null;
-  return (
-    <div
-      className="wg-rise group relative overflow-hidden rounded-[18px] bg-surface-card p-4"
-      style={{
-        boxShadow:
-          "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.8), 0 14px 34px -24px rgba(15,23,42,0.4)",
-        animationDelay: `${delay}ms`,
-      }}
-    >
-      {/* accent aurora wash */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full opacity-60 transition-opacity duration-300 group-hover:opacity-100"
-        style={{ background: `radial-gradient(circle, color-mix(in srgb, ${accent} 22%, transparent), transparent 68%)` }}
-      />
-      <div className="relative flex items-start justify-between gap-2">
-        <span
-          className="inline-grid size-10 shrink-0 place-items-center rounded-[13px] text-white"
-          style={{ background: `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 62%, black))`, boxShadow: `0 8px 18px -10px ${accent}` }}
-        >
-          {icon}
-        </span>
-        {pct != null && (
-          <span className="tabular-nums rounded-full px-2 py-0.5 text-[11px] font-black" style={{ background: `color-mix(in srgb, ${accent} 12%, transparent)`, color: accent }}>
-            {pct}%
-          </span>
-        )}
-      </div>
-      <div className="relative mt-3 text-[10.5px] font-black uppercase tracking-[0.14em] text-ink-subtle">{label}</div>
-      <div
-        className="relative mt-0.5 tabular-nums text-ink-strong"
-        style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.03em", lineHeight: 1 }}
-      >
-        {value}
-      </div>
-      <div className="relative mt-1 text-[12px] font-semibold text-ink-subtle">{caption}</div>
-      {progress != null && (
-        <div className="relative mt-3 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--color-surface-track)" }} role="presentation">
-          <div
-            className="h-full rounded-full transition-[width] duration-700"
-            style={{ width: `${pct}%`, background: `linear-gradient(90deg, color-mix(in srgb, ${accent} 65%, white), ${accent})` }}
-          />
-        </div>
-      )}
-    </div>
-  );
 }
 
 /* ─────────────────────────── Recent activity ─────────────────────────── */

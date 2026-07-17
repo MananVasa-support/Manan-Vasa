@@ -14,6 +14,7 @@ import {
   Inbox,
   FileText,
   Archive,
+  ChevronUp,
 } from "lucide-react";
 
 type Props = {
@@ -23,6 +24,9 @@ type Props = {
   avatarUrl: string | null;
   inboxUnread: number;
   archivedTasks: number;
+  /** "rail" = the sidebar footer: a full-width bar (avatar + name + ▲) that opens
+   *  the menu UPWARD. Default = the compact avatar trigger in the top header. */
+  variant?: "rail";
 };
 
 export function UserMenu({
@@ -32,6 +36,7 @@ export function UserMenu({
   avatarUrl,
   inboxUnread,
   archivedTasks,
+  variant,
 }: Props) {
   async function handleSignOut() {
     try {
@@ -67,56 +72,62 @@ export function UserMenu({
         padding: 1.5,
       };
 
+  const avatarNode = avatarUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={avatarUrl} alt={name} className="h-8 w-8 rounded-full object-cover block" />
+  ) : (
+    <span
+      className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold text-white"
+      style={{ background: "linear-gradient(135deg, #475569, #1f2937)" }}
+    >
+      {initials}
+    </span>
+  );
+
+  const ringedAvatar = (
+    <span className="relative inline-flex rounded-full" style={ringStyle}>
+      {avatarNode}
+      {inboxUnread > 0 && (
+        <span
+          aria-hidden
+          className="absolute -top-0.5 -right-0.5 z-10 h-2.5 w-2.5 rounded-full ring-2 ring-white"
+          style={{ background: "var(--color-altus-red)" }}
+        />
+      )}
+    </span>
+  );
+
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <button
-          aria-label={
-            inboxUnread > 0 ? `User menu — ${inboxUnread} unread` : "User menu"
-          }
-          className="group relative flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-white/40 transition-transform"
-          style={{ transition: "transform 200ms ease" }}
-        >
-          {/* Unread-inbox dot — the badge that used to sit on the nav's Inbox
-              pill, now that Inbox lives inside this menu. */}
-          {inboxUnread > 0 && (
-            <span
-              aria-hidden
-              className="absolute -top-0.5 -right-0.5 z-10 h-2.5 w-2.5 rounded-full ring-2 ring-white"
-              style={{ background: "var(--color-altus-red)" }}
-            />
-          )}
-          <span
-            className="inline-flex rounded-full"
-            style={{
-              ...ringStyle,
-              transition: "filter 200ms ease, transform 200ms ease",
-            }}
+        {variant === "rail" ? (
+          <button
+            aria-label={inboxUnread > 0 ? `User menu — ${inboxUnread} unread` : "User menu"}
+            className="group flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-surface-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-altus-red)]"
           >
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={avatarUrl}
-                alt={name}
-                className="h-8 w-8 rounded-full object-cover block"
-              />
-            ) : (
-              <span
-                className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold text-white"
-                style={{
-                  background:
-                    "linear-gradient(135deg, #475569, #1f2937)",
-                }}
-              >
-                {initials}
+            {ringedAvatar}
+            <span className="sidebar-collapsible-hide min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-semibold text-ink-strong">{name}</span>
+              <span className="block truncate text-[11px] text-ink-soft">
+                {isAdmin ? "Administrator" : "Team member"}
               </span>
-            )}
-          </span>
-        </button>
+            </span>
+            <ChevronUp className="sidebar-collapsible-hide shrink-0 text-ink-soft" size={16} strokeWidth={2.4} />
+          </button>
+        ) : (
+          <button
+            aria-label={inboxUnread > 0 ? `User menu — ${inboxUnread} unread` : "User menu"}
+            className="group relative flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-white/40 transition-transform"
+            style={{ transition: "transform 200ms ease" }}
+          >
+            {ringedAvatar}
+          </button>
+        )}
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
-          align="end"
+          side={variant === "rail" ? "top" : "bottom"}
+          align={variant === "rail" ? "start" : "end"}
           sideOffset={10}
           collisionPadding={12}
           className="z-[100] min-w-[240px] rounded-xl border border-[#E2E8F0] bg-white shadow-2xl p-1.5 text-sm max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto"

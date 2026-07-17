@@ -3,9 +3,10 @@
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { dailyChecklist, weeklyGoals, goals, tasks } from "@/db/schema";
+import { dailyChecklist, dailyPlanDay, weeklyGoals, goals, tasks } from "@/db/schema";
 import { requireUser } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
+import { applyTaskStatusChange } from "@/lib/tasks/set-status";
 import { todayYmd } from "@/lib/queries/daily-checklist";
 import type { PlanItem, PlanKind } from "@/components/goals/plan/types";
 
@@ -227,6 +228,112 @@ export async function addTaskToPlan(
   }
 }
 
+/**
+ * Pull a PREVIOUSLY-UNFINISHED commitment (a prior-day daily_checklist row, done
+ * = false) onto today — carrying its origin (weekly goal_id / task_id) so the
+ * pipeline can still reflect completion back to the source. Skips if the same
+ * goal/task is already on today's plan.
+ */
+export async function addUnfinishedToPlan(
+  rowId: string,
+): Promise<ActionResult<{ item: PlanItem | null }>> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  if (!UUID.safeParse(rowId).success) return { ok: false, error: "Invalid item." };
+
+  const [src] = await db
+    .select({
+      employeeId: dailyChecklist.employeeId,
+      goalId: dailyChecklist.goalId,
+      taskId: dailyChecklist.taskId,
+      origin: dailyChecklist.origin,
+      title: dailyChecklist.title,
+      client: dailyChecklist.client,
+      subject: dailyChecklist.subject,
+      planDate: dailyChecklist.planDate,
+    })
+    .from(dailyChecklist)
+    .where(eq(dailyChecklist.id, rowId))
+    .limit(1);
+  if (!src || src.employeeId !== me.id) return { ok: false, error: "That item isn't yours." };
+
+  const ymd = todayYmd();
+  try {
+    // Don't double-pull the same goal/task into today.
+    if (src.goalId || src.taskId) {
+      const [dupe] = await db
+        .select({ id: dailyChecklist.id })
+        .from(dailyChecklist)
+        .where(
+          and(
+            eq(dailyChecklist.employeeId, me.id),
+            eq(dailyChecklist.planDate, ymd),
+            src.goalId ? eq(dailyChecklist.goalId, src.goalId) : eq(dailyChecklist.taskId, src.taskId!),
+          ),
+        )
+        .limit(1);
+      if (dupe) return { ok: true, item: null };
+    }
+
+    const { count, nextPosition } = await countAndNextPosition(me.id, ymd);
+    if (count >= MAX_ITEMS_PER_DAY)
+      return { ok: false, error: `You can plan at most ${MAX_ITEMS_PER_DAY} items a day.` };
+    const [row] = await db
+      .insert(dailyChecklist)
+      .values({
+        employeeId: me.id,
+        planDate: ymd,
+        goalId: src.goalId,
+        taskId: src.taskId,
+        origin: src.origin,
+        title: src.title,
+        client: src.client,
+        subject: src.subject,
+        position: nextPosition,
+        movedFromDate: src.planDate,
+      })
+      .onConflictDoNothing({
+        target: [dailyChecklist.employeeId, dailyChecklist.planDate, dailyChecklist.goalId],
+      })
+      .returning();
+    const kind: PlanKind = src.goalId ? "weekly" : src.taskId ? "task" : "unfinished";
+    return { ok: true, item: row ? rowToPlanItem(row, kind) : null };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * "Abandon" a task from the daily loop → the Recycle Bin. It leaves the plan
+ * sources + task lists; a manager can later restore or permanently delete it.
+ * The doer (or an admin) can abandon their own task.
+ */
+export async function abandonTask(taskId: string): Promise<ActionResult> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  if (!UUID.safeParse(taskId).success) return { ok: false, error: "Invalid task." };
+
+  const [t] = await db
+    .select({ doerId: tasks.doerId })
+    .from(tasks)
+    .where(eq(tasks.id, taskId))
+    .limit(1);
+  if (!t) return { ok: false, error: "Task not found." };
+  if (t.doerId !== me.id && !me.isAdmin) return { ok: false, error: "That task isn't yours." };
+
+  try {
+    await db
+      .update(tasks)
+      .set({ abandonedAt: new Date(), abandonedById: me.id, updatedAt: new Date() })
+      .where(eq(tasks.id, taskId));
+    return { ok: true };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 /** Add a typed ad-hoc commitment ("what will you deliver today"). */
 export async function addAdhocToPlan(
   titleRaw: string,
@@ -289,6 +396,150 @@ export async function reorderPlan(orderedIds: string[]): Promise<ActionResult> {
     return { ok: true };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/* ─────────────────────── day lifecycle (Plan My Day) ─────────────────────── */
+
+/**
+ * "Start my day" — persist that the plan is committed. Idempotent per day (a
+ * unique index on employee_id+plan_date; re-clicking keeps the first started_at
+ * and just clears any stale closed_at so re-planning re-opens the day).
+ */
+export async function startMyDay(): Promise<ActionResult> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const ymd = todayYmd();
+  try {
+    await db
+      .insert(dailyPlanDay)
+      .values({ employeeId: me.id, planDate: ymd, startedAt: new Date() })
+      .onConflictDoUpdate({
+        target: [dailyPlanDay.employeeId, dailyPlanDay.planDate],
+        set: { startedAt: sql`coalesce(${dailyPlanDay.startedAt}, now())`, closedAt: null, updatedAt: new Date() },
+      });
+    return { ok: true };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Re-open the plan (back to morning drag-drop) — clears started/closed for today. */
+export async function reopenPlan(): Promise<ActionResult> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const ymd = todayYmd();
+  try {
+    await db
+      .update(dailyPlanDay)
+      .set({ startedAt: null, closedAt: null, updatedAt: new Date() })
+      .where(and(eq(dailyPlanDay.employeeId, me.id), eq(dailyPlanDay.planDate, ymd)));
+    return { ok: true };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** "Finish day" — stamp the end-of-day close-out as complete. */
+export async function closeMyDay(): Promise<ActionResult> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const ymd = todayYmd();
+  try {
+    await db
+      .insert(dailyPlanDay)
+      .values({ employeeId: me.id, planDate: ymd, startedAt: new Date(), closedAt: new Date() })
+      .onConflictDoUpdate({
+        target: [dailyPlanDay.employeeId, dailyPlanDay.planDate],
+        set: { startedAt: sql`coalesce(${dailyPlanDay.startedAt}, now())`, closedAt: new Date(), updatedAt: new Date() },
+      });
+    return { ok: true };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Close-out marking for a single commitment: an optional 0-100% progress + a
+ * done tick. Setting 100% ticks done; ticking done fills 100%. Own rows only.
+ */
+export async function setItemProgress(
+  itemId: string,
+  input: { done: boolean; pct: number | null; note?: string | null },
+): Promise<ActionResult> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  if (!UUID.safeParse(itemId).success) return { ok: false, error: "Invalid item." };
+
+  let pct = input.pct == null ? null : Math.max(0, Math.min(100, Math.round(input.pct)));
+  let done = !!input.done;
+  // Keep the tick and the percent coherent.
+  if (pct === 100) done = true;
+  if (done && pct == null) pct = 100;
+  if (!done && pct === 100) pct = 99; // a 100% item is "done" by definition
+
+  // Optional close-out note (Sir's rule 5) — undefined ⇒ leave the note as-is.
+  const noteRaw = input.note;
+  const note = noteRaw === undefined ? undefined : (noteRaw ?? "").toString().slice(0, 500) || null;
+
+  try {
+    const [updated] = await db
+      .update(dailyChecklist)
+      .set({
+        done,
+        donePct: pct,
+        status: done ? "done" : "not_started",
+        ...(note === undefined ? {} : { doneNote: note }),
+        closedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, me.id)))
+      .returning({ id: dailyChecklist.id, taskId: dailyChecklist.taskId, goalId: dailyChecklist.goalId });
+    if (!updated) return { ok: false, error: "That item isn't on your plan." };
+
+    // ── The pipeline (Sir): a commitment at 100% reflects back to its SOURCE so
+    // nothing accumulates — the origin task flips done, the origin weekly goal
+    // hits 100%. Best-effort: a reflect failure must NOT undo the mark itself.
+    if (done && pct === 100) {
+      await reflectCompletion(me, updated.taskId, updated.goalId).catch(() => {});
+    }
+    return { ok: true };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Push a 100%-done commitment back onto its origin task / weekly goal. */
+async function reflectCompletion(
+  me: { id: string; name: string; isAdmin: boolean },
+  taskId: string | null,
+  goalId: string | null,
+): Promise<void> {
+  if (taskId) {
+    const [t] = await db
+      .select({ doerId: tasks.doerId, updatedAt: tasks.updatedAt, status: tasks.status })
+      .from(tasks)
+      .where(eq(tasks.id, taskId))
+      .limit(1);
+    // Only the doer closes their own task, and don't fight an approval verdict.
+    if (t && t.doerId === me.id && !["done", "approved", "cancelled"].includes(t.status)) {
+      await applyTaskStatusChange(
+        { id: me.id, name: me.name, isAdmin: me.isAdmin },
+        taskId,
+        "done",
+        t.updatedAt.toISOString(),
+      );
+    }
+  }
+  if (goalId) {
+    await db
+      .update(weeklyGoals)
+      .set({ pctDone: 100, pctUpdatedById: me.id, pctUpdatedAt: new Date(), updatedById: me.id, updatedAt: new Date() })
+      .where(and(eq(weeklyGoals.id, goalId), eq(weeklyGoals.employeeId, me.id)));
   }
 }
 

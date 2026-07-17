@@ -15,6 +15,8 @@ import {
   History,
   Mic,
   Square,
+  Clock3,
+  Plus,
 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { punchAttendance } from "@/app/(app)/attendance/actions";
@@ -75,6 +77,7 @@ export function PunchCard({
 }) {
   const router = useRouter();
   const [note, setNote] = React.useState("");
+  const [noteOpen, setNoteOpen] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
   const [loc, setLoc] = React.useState<LocState>({ phase: "idle" });
 
@@ -264,7 +267,7 @@ export function PunchCard({
       />
 
       {/* ── Light hero: clock + punch disc ── */}
-      <div className="relative px-7 pt-8 pb-7 max-md:px-5 text-center">
+      <div className="relative px-6 pt-6 pb-5 max-md:px-4 text-center">
         <p
           className="uppercase text-ink-subtle"
           style={{
@@ -278,11 +281,13 @@ export function PunchCard({
 
         <LiveClock tz={tz} />
 
-        <div className="mt-3 flex justify-center">
-          <LocationPill loc={loc} distanceM={distanceM} withinFence={withinFence} radiusM={radiusM} />
-        </div>
+        {coords && (
+          <div className="mt-2.5 flex justify-center">
+            <LocationPill loc={loc} distanceM={distanceM} withinFence={withinFence} radiusM={radiusM} />
+          </div>
+        )}
 
-        <div className="mt-6 flex justify-center">
+        <div className="mt-4 flex justify-center">
           <PunchDisc
             mode={mode}
             pending={pending}
@@ -291,7 +296,7 @@ export function PunchCard({
           />
         </div>
 
-        <div className="mt-5 flex flex-col items-center gap-1.5">
+        <div className="mt-3 flex flex-col items-center gap-1">
           <span className="inline-flex items-center gap-2 text-[15.5px] font-bold text-ink-strong">
             <span aria-hidden className="relative inline-flex size-2.5">
               <span
@@ -303,6 +308,20 @@ export function PunchCard({
             {status.label}
           </span>
           <span className="text-[12.5px] font-medium text-ink-muted">{status.sub}</span>
+          {!coords && geofenceEnabled && (
+            <button
+              type="button"
+              onClick={requestLocation}
+              disabled={loc.phase === "locating"}
+              className="mt-0.5 inline-flex items-center gap-1 text-[11.5px] font-semibold text-ink-subtle underline-offset-2 transition-colors hover:text-ink-muted hover:underline disabled:opacity-60"
+            >
+              {loc.phase === "locating" ? (
+                <><Loader2 size={11} className="animate-spin" /> Locating…</>
+              ) : (
+                <><LocateFixed size={11} strokeWidth={2.4} /> {loc.phase === "denied" || loc.phase === "error" ? "Location blocked — tap to enable" : "Enable your location to punch"}</>
+              )}
+            </button>
+          )}
           {lastPunchLabel && (
             <span className="mt-1 inline-flex items-center gap-1.5 text-[12px] tabular-nums text-ink-subtle">
               <History size={12} strokeWidth={2.2} aria-hidden /> Last punch: {lastPunchLabel}
@@ -312,55 +331,66 @@ export function PunchCard({
       </div>
 
       {/* ── Map · today's punches · note ── */}
-      <div className="relative px-7 pb-7 max-md:px-5">
+      <div className="relative px-6 pb-5 max-md:px-4">
         <div
           aria-hidden
-          className="mb-5 h-px w-full"
+          className="mb-4 h-px w-full"
           style={{ background: "linear-gradient(90deg, transparent, var(--color-hairline-strong), transparent)" }}
         />
 
-        {coords ? (
-          <MapPanel coords={coords} distanceM={distanceM} withinFence={withinFence} radiusM={radiusM} />
-        ) : (
-          <LocationPanel loc={loc} geofenceEnabled={geofenceEnabled} onEnable={requestLocation} />
+        {coords && (
+          <div className="mb-5">
+            <MapPanel coords={coords} distanceM={distanceM} withinFence={withinFence} radiusM={radiusM} />
+          </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 mb-5">
-          <Stat label="Checked in" value={inLabel} kind="in" />
-          <Stat label="Checked out" value={outLabel} kind="out" />
-        </div>
-
-        <div className="mb-1.5 flex items-center justify-between gap-2">
-          <label htmlFor="punch-note" className="block text-[13px] font-bold uppercase tracking-wide text-ink-subtle">
-            Note / reason <span className="font-medium normal-case text-ink-subtle">(optional)</span>
-          </label>
-          {voiceSupported && (
-            <button
-              type="button"
-              onClick={toggleVoice}
-              title={listening ? "Stop recording" : "Dictate your note"}
-              className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[12px] font-bold transition"
-              style={
-                listening
-                  ? { background: "var(--color-altus-red)", color: "#fff", boxShadow: "0 0 0 4px color-mix(in srgb, var(--color-altus-red) 20%, transparent)" }
-                  : { background: "color-mix(in srgb, #16a34a 10%, transparent)", color: "#15803d" }
-              }
-            >
-              {listening ? <Square size={12} strokeWidth={2.6} className="animate-pulse" /> : <Mic size={13} strokeWidth={2.4} />}
-              {listening ? "Recording…" : "Voice"}
-            </button>
-          )}
-        </div>
-        <textarea
-          id="punch-note"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          maxLength={500}
-          rows={3}
-          placeholder="e.g. client visit in the morning — or tap Voice to dictate"
-          className="w-full resize-y rounded-xl px-3.5 py-3 text-[15px] font-medium text-ink-strong bg-white outline-none transition-colors focus:border-[#16a34a]"
-          style={{ border: "2px solid var(--color-hairline-strong)", boxShadow: "inset 0 1px 3px rgba(15,23,42,0.05)" }}
-        />
+        {/* Note / reason — collapsed by default to save space (today's in/out
+            already shows in the "Today" panel). Tap to add one. */}
+        {!noteOpen ? (
+          <button
+            type="button"
+            onClick={() => setNoteOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-pill border border-dashed px-3 py-1.5 text-[12.5px] font-bold text-ink-muted transition-colors hover:text-ink-soft"
+            style={{ borderColor: "var(--color-hairline-strong)" }}
+          >
+            <Plus size={13} strokeWidth={2.6} /> Add a note or reason {note.trim() ? "· added" : ""}
+          </button>
+        ) : (
+          <>
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <label htmlFor="punch-note" className="block text-[12.5px] font-bold uppercase tracking-wide text-ink-subtle">
+                Note / reason <span className="font-medium normal-case text-ink-subtle">(optional)</span>
+              </label>
+              {voiceSupported && (
+                <button
+                  type="button"
+                  onClick={toggleVoice}
+                  title={listening ? "Stop recording" : "Dictate your note"}
+                  className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[12px] font-bold transition"
+                  style={
+                    listening
+                      ? { background: "var(--color-altus-red)", color: "#fff", boxShadow: "0 0 0 4px color-mix(in srgb, var(--color-altus-red) 20%, transparent)" }
+                      : { background: "color-mix(in srgb, #16a34a 10%, transparent)", color: "#15803d" }
+                  }
+                >
+                  {listening ? <Square size={12} strokeWidth={2.6} className="animate-pulse" /> : <Mic size={13} strokeWidth={2.4} />}
+                  {listening ? "Recording…" : "Voice"}
+                </button>
+              )}
+            </div>
+            <textarea
+              id="punch-note"
+              autoFocus
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={500}
+              rows={2}
+              placeholder="e.g. client visit in the morning — or tap Voice to dictate"
+              className="w-full resize-y rounded-xl px-3.5 py-2.5 text-[14.5px] font-medium text-ink-strong bg-white outline-none transition-colors focus:border-[#16a34a]"
+              style={{ border: "2px solid var(--color-hairline-strong)", boxShadow: "inset 0 1px 3px rgba(15,23,42,0.05)" }}
+            />
+          </>
+        )}
       </div>
     </section>
   );
@@ -497,7 +527,7 @@ function PunchDisc({
   const active = !disabled && mode !== "done";
 
   return (
-    <div className="relative flex size-[184px] items-center justify-center max-sm:size-[164px]">
+    <div className="relative flex size-[148px] items-center justify-center max-sm:size-[132px]">
       {/* concentric rings on the light surface */}
       <span
         aria-hidden
@@ -523,7 +553,7 @@ function PunchDisc({
         onClick={onClick}
         disabled={disabled}
         aria-label={mode === "done" ? "Day complete" : s.label}
-        className={`relative size-[152px] max-sm:size-[134px] rounded-full ${active ? "wg-sheen" : ""} group flex flex-col items-center justify-center gap-1.5 overflow-hidden text-white outline-none transition-transform duration-200 focus-visible:ring-4 ${
+        className={`relative size-[120px] max-sm:size-[106px] rounded-full ${active ? "wg-sheen" : ""} group flex flex-col items-center justify-center gap-1 overflow-hidden text-white outline-none transition-transform duration-200 focus-visible:ring-4 ${
           active ? "hover:scale-[1.03] active:scale-[0.98]" : "cursor-not-allowed"
         } motion-reduce:transition-none motion-reduce:hover:scale-100`}
         style={{
@@ -689,25 +719,69 @@ function LiveClock({ tz }: { tz: string }) {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
-  const text = now
+  const fmt = now
     ? new Intl.DateTimeFormat("en-IN", { timeZone: tz, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(now)
     : "--:--:--";
-  return (
-    <p
-      className="tabular-nums mt-1.5"
+  const [hh = "--", mm = "--", ss = "--"] = fmt.split(":");
+  const period = now ? (Number(hh) < 12 ? "AM" : "PM") : "";
+
+  const digit = (v: string, seconds?: boolean) => (
+    <span
+      className="tabular-nums"
       style={{
         fontFamily: "var(--font-display), system-ui, sans-serif",
-        fontSize: "clamp(54px, 6.5vw, 78px)",
-        fontWeight: 800,
-        lineHeight: 1.05,
+        fontSize: seconds ? "clamp(30px, 3.6vw, 42px)" : "clamp(44px, 5.4vw, 62px)",
+        fontWeight: 900,
+        lineHeight: 1,
         letterSpacing: "-0.03em",
-        color: "var(--color-ink-strong)",
-        textShadow: "0 2px 24px rgba(22,163,74,0.16)",
+        color: seconds ? "#15803d" : "var(--color-ink-strong)",
+        alignSelf: seconds ? "flex-end" : undefined,
+        paddingBottom: seconds ? 3 : 0,
+        textShadow: seconds ? "0 2px 14px rgba(22,163,74,0.28)" : "0 3px 22px rgba(22,163,74,0.14)",
       }}
-      aria-label="Current time"
     >
-      {text}
-    </p>
+      {v}
+    </span>
+  );
+
+  return (
+    <div
+      className="wg-rise mt-2 inline-flex items-center gap-3 rounded-[20px] px-4 py-2.5"
+      style={{
+        background: "linear-gradient(135deg, color-mix(in srgb,#16a34a 6%,#fff), var(--color-surface-card))",
+        boxShadow: "inset 0 0 0 1px color-mix(in srgb,#16a34a 16%,transparent), 0 14px 40px -22px rgba(22,163,74,0.5)",
+      }}
+      aria-label={`Current time ${fmt}`}
+    >
+      {/* clock icon with a live pulse ring */}
+      <span className="relative inline-grid size-10 shrink-0 place-items-center rounded-2xl text-white" style={{ background: "linear-gradient(135deg,#16a34a,#15803d)", boxShadow: "0 8px 18px -8px rgba(22,163,74,0.6)" }}>
+        <Clock3 size={21} strokeWidth={2.5} />
+        <span aria-hidden className="absolute inset-0 rounded-2xl animate-ping opacity-25 motion-reduce:hidden" style={{ boxShadow: "inset 0 0 0 2px #16a34a" }} />
+      </span>
+
+      <div className="flex items-baseline gap-1.5">
+        {digit(hh)}
+        <BlinkColon />
+        {digit(mm)}
+        <BlinkColon />
+        {digit(ss, true)}
+      </div>
+
+      <div className="flex flex-col items-center gap-0.5 pl-0.5">
+        <span className="rounded-md px-1.5 py-0.5 text-[11px] font-black" style={{ background: "color-mix(in srgb,#16a34a 12%,transparent)", color: "#15803d" }}>{period}</span>
+        <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-ink-subtle">IST</span>
+      </div>
+    </div>
+  );
+}
+
+/** Two dots that blink together — the ticking colon between clock units. */
+function BlinkColon() {
+  return (
+    <span className="mx-0.5 flex flex-col justify-center gap-[7px] self-center pb-1.5 animate-pulse motion-reduce:animate-none">
+      <span className="size-[7px] rounded-full" style={{ background: "#16a34a" }} />
+      <span className="size-[7px] rounded-full" style={{ background: "#16a34a" }} />
+    </span>
   );
 }
 

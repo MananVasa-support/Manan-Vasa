@@ -71,7 +71,7 @@ let cached: Resend | null = null;
  * the `void` return for `sendNotificationEmail`) to know whether an
  * email actually went out.
  */
-function getResend(): Resend | null {
+export function getResend(): Resend | null {
   if (cached) return cached;
   const key = process.env.RESEND_API_KEY;
   if (!key) return null;
@@ -79,7 +79,7 @@ function getResend(): Resend | null {
   return cached;
 }
 
-const FROM = process.env.RESEND_FROM_EMAIL || "Altus Corp Dashboard <onboarding@resend.dev>";
+export const FROM = process.env.RESEND_FROM_EMAIL || "Altus Corp Dashboard <onboarding@resend.dev>";
 
 /**
  * D12 (WMS overhaul Phase 6) — company-record BCC. When `EMAIL_BCC_ADDRESS` is
@@ -90,7 +90,7 @@ const FROM = process.env.RESEND_FROM_EMAIL || "Altus Corp Dashboard <onboarding@
  * to auth credential mails (invite / reset / password) — those carry secrets we
  * don't want archived.
  */
-function companyBcc(): { bcc?: string[] } {
+export function companyBcc(): { bcc?: string[] } {
   const raw = process.env.EMAIL_BCC_ADDRESS?.trim();
   if (!raw) return {};
   const list = raw.split(",").map((s) => s.trim()).filter(Boolean);
@@ -99,7 +99,7 @@ function companyBcc(): { bcc?: string[] } {
 
 const SUBJECT_MAX = 80;
 
-function clampSubject(s: string): string {
+export function clampSubject(s: string): string {
   const trimmed = s.trim();
   if (trimmed.length <= SUBJECT_MAX) return trimmed;
   return `${trimmed.slice(0, SUBJECT_MAX - 1)}…`;
@@ -113,7 +113,7 @@ export function digestSubject(pendingCount: number): string {
   return `You have ${pendingCount} pending ${noun} — Altus Corp Dashboard`;
 }
 
-function errorMessage(err: unknown): string {
+export function errorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
   try {

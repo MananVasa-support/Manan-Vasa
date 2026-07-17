@@ -121,6 +121,84 @@ export const GOALS_ACCENT = "#b45309";
 export const GOALS_ACCENT_DEEP = "#7c2d12";
 
 /* ------------------------------------------------------------------ */
+/* Auto-naming codes (Sir): Y1 → AQ1/JuQ1/OQ1/JQ1 → JulM1 → W1..W52    */
+/* ------------------------------------------------------------------ */
+
+/** FY quarter (1=Apr,2=Jul,3=Oct,4=Jan) → anchor-month prefix (J=Jan,A=Apr,Ju=Jul,O=Oct). */
+const Q_PREFIX: Record<1 | 2 | 3 | 4, string> = { 1: "A", 2: "Ju", 3: "O", 4: "J" };
+
+/** The short auto-code for a cascade goal: Y{n} / {Q}Q{n} / {Mon}M{n}. `position`
+ *  is the 1-based Sr. No. within the period bucket. */
+export function goalCode(g: { period: GoalPeriod; periodKey: string; position: number }): string {
+  if (g.period === "year") return `Y${g.position}`;
+  if (g.period === "quarter") return `${Q_PREFIX[quarterOfKey(g.periodKey)]}Q${g.position}`;
+  const mon = MONTHS[Number(g.periodKey.slice(5, 7)) - 1] ?? "";
+  return `${mon}M${g.position}`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Colour by ORIGIN (Sir): auto=dark blue · manual=black · spillover=red */
+/* ------------------------------------------------------------------ */
+
+export interface OriginStyle {
+  color: string;
+  label: "Auto" | "Manual" | "Spillover";
+  kind: "cascade" | "manual" | "spillover";
+}
+
+const ORIGIN_BLUE = "#1e3a8a"; // dark blue — auto-derived from a parent
+const ORIGIN_BLACK = "#111827"; // black — manual standalone
+const ORIGIN_RED = "#b91c1c"; // red — spilled over, incomplete
+
+/** A goal is a SPILLOVER when it was carried from a prior period and isn't done. */
+export function isSpillover(g: { clonedFromId: string | null; pctDone: number; acceptPct: number | null }): boolean {
+  return g.clonedFromId != null && effectiveGoalPct(g) < 100;
+}
+
+export function originStyle(g: {
+  source: string;
+  clonedFromId: string | null;
+  pctDone: number;
+  acceptPct: number | null;
+}): OriginStyle {
+  if (isSpillover(g)) return { color: ORIGIN_RED, label: "Spillover", kind: "spillover" };
+  if (g.source === "cascade") return { color: ORIGIN_BLUE, label: "Auto", kind: "cascade" };
+  return { color: ORIGIN_BLACK, label: "Manual", kind: "manual" };
+}
+
+/* ------------------------------------------------------------------ */
+/* Category tags (Kanban) — target · milestone · operational · goal    */
+/* ------------------------------------------------------------------ */
+
+export const GOAL_CATEGORIES = ["target", "milestone", "operational", "goal"] as const;
+export type GoalCategory = (typeof GOAL_CATEGORIES)[number];
+
+export interface CategoryStyle {
+  label: string;
+  /** tag text colour */
+  color: string;
+  /** tag background */
+  bg: string;
+  /** left card border accent */
+  accent: string;
+}
+
+/** Card tag styling. Spillover (carried + incomplete) overrides the category → red. */
+export function categoryStyle(category: string | null | undefined, spillover: boolean): CategoryStyle {
+  if (spillover) return { label: "Spillover", color: "#b91c1c", bg: "rgba(185,28,28,0.10)", accent: "#b91c1c" };
+  switch (category) {
+    case "target":
+      return { label: "Quarter Target", color: "#1d4ed8", bg: "rgba(29,78,216,0.10)", accent: "#1d4ed8" };
+    case "milestone":
+      return { label: "Milestone", color: "#4338ca", bg: "rgba(67,56,202,0.10)", accent: "#4338ca" };
+    case "operational":
+      return { label: "Operational", color: "#475569", bg: "rgba(71,85,105,0.10)", accent: "#94a3b8" };
+    default:
+      return { label: "Goal", color: "#334155", bg: "rgba(51,65,85,0.08)", accent: "#334155" };
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Serialisable DTOs (server → client boundary)                        */
 /* ------------------------------------------------------------------ */
 
@@ -148,6 +226,10 @@ export interface GoalDTO {
   weight: number;
   adopted: boolean;
   source: string;
+  /** Category tag (target · milestone · operational · goal). */
+  category: string;
+  /** Carry-forward link — set ⇒ this row spilled over from a prior period. */
+  clonedFromId: string | null;
 }
 
 export interface GoalNodeDTO extends GoalDTO {
@@ -192,6 +274,8 @@ export function toGoalDTO(r: {
   weight: number;
   adopted: boolean;
   source: string;
+  category: string;
+  clonedFromId: string | null;
 }): GoalDTO {
   return {
     id: r.id,
@@ -217,6 +301,8 @@ export function toGoalDTO(r: {
     weight: r.weight,
     adopted: r.adopted,
     source: r.source,
+    category: r.category,
+    clonedFromId: r.clonedFromId,
   };
 }
 

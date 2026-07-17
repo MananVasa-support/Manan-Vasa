@@ -38,6 +38,7 @@ const NAMES: Record<NotificationKind, string> = {
   goals_approval_reminder: "vp_goals_approval_reminder",
   goals_committed: "vp_goals_committed",
   goals_approved: "vp_goals_approved",
+  hr_confirmation_due: "vp_hr_confirmation",
 };
 
 export function templateNameForKind(kind: NotificationKind): string {
@@ -141,6 +142,7 @@ const VARS: Record<NotificationKind, (ctx: TemplateCtx) => Param[]> = {
   goals_approval_reminder: (c) => [t(c.body ?? "")],
   goals_committed: (c) => [t(c.body ?? "")],
   goals_approved: (c) => [t(c.body ?? "")],
+  hr_confirmation_due: (c) => [t(c.body ?? "")],
 };
 
 /**

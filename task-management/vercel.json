@@ -18,6 +18,13 @@
     { "path": "/api/cron/attendance-confirm-reminder", "schedule": "0 4 * * 1" },
     { "path": "/api/cron/goals?job=commit-reminder",   "schedule": "0 12 * * 6" },
     { "path": "/api/cron/goals?job=approve-reminder",  "schedule": "30 3 * * 1" },
-    { "path": "/api/cron/attendance-autoout",          "schedule": "0 18 * * *" }
+    { "path": "/api/cron/attendance-autoout",          "schedule": "0 18 * * *" },
+    { "path": "/api/cron/attendance-weekly",             "schedule": "0 12 * * 0" },
+    { "path": "/api/cron/attendance-monthly?job=statement", "schedule": "0 4 1 * *" },
+    { "path": "/api/cron/attendance-monthly?job=freeze",     "schedule": "0 4 2 * *" },
+    { "path": "/api/cron/monthly-slips",                 "schedule": "0 5 12 * *" },
+    { "path": "/api/cron/goals-spillover",               "schedule": "0 3 1 * *" },
+    { "path": "/api/cron/goals-sunday-report",           "schedule": "30 3 * * 0" },
+    { "path": "/api/cron/hr-confirmations",              "schedule": "0 4 * * *" }
   ]
 }

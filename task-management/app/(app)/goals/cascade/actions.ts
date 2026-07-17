@@ -4,7 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { goals } from "@/db/schema";
+import { goals, weeklyGoals } from "@/db/schema";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/lib/goals/scope";
 import { setAdopted, generateChildren } from "@/lib/goals/cascade";
 import { cloneForward, moveTo } from "@/lib/goals/carry";
+import { quarterKeyOfMonthKey, fyStartYearOfMonthKey, fyStartYearOfKey } from "@/lib/goals/types";
 import { GOAL_PERIODS } from "@/db/enums";
 
 /* ------------------------------------------------------------------ */
@@ -70,9 +71,12 @@ const TeamIn = z
   .max(40)
   .nullish();
 
+const CATEGORY = z.enum(["target", "milestone", "operational", "goal"]);
+
 const GoalFields = {
   area: z.string().max(160).nullish(),
   title: z.string().min(1, "Goal is required").max(400),
+  category: CATEGORY.optional(),
   uom: z.string().max(80).nullish(),
   targetQty: MoneyIn,
   targetAmount: MoneyIn,
@@ -162,6 +166,7 @@ export async function createGoal(
       weight: d.weight ?? 100,
       adopted: true,
       source: "manual",
+      category: d.category ?? "goal",
       createdById: me.id,
       updatedById: me.id,
     })
@@ -169,6 +174,51 @@ export async function createGoal(
 
   revalidateGoals(d.periodKey);
   return { ok: true, id: row!.id };
+}
+
+/* ------------------------------------------------------------------ */
+/* Set a goal's category tag + its involved team (Kanban marking)      */
+/* ------------------------------------------------------------------ */
+
+export async function setGoalCategory(
+  input: { id: string; category: z.infer<typeof CATEGORY> },
+): Promise<ActionResult> {
+  const { me, isAdmin } = await requireGoalsAccess();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = z.object({ id: z.string().uuid(), category: CATEGORY }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const loaded = await loadWritableGoalRow(parsed.data.id, { id: me.id, isAdmin });
+  if (!loaded.ok) return loaded;
+  await db
+    .update(goals)
+    .set({ category: parsed.data.category, updatedById: me.id, updatedAt: new Date() })
+    .where(eq(goals.id, parsed.data.id));
+  revalidateGoals(loaded.row.periodKey);
+  return { ok: true };
+}
+
+export async function setGoalTeam(
+  input: { id: string; team: Array<{ employeeId?: string; name?: string }> },
+): Promise<ActionResult> {
+  const { me, isAdmin } = await requireGoalsAccess();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = z
+    .object({
+      id: z.string().uuid(),
+      team: z.array(z.object({ employeeId: z.string().uuid().optional(), name: z.string().max(120).optional() })).max(40),
+    })
+    .safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const loaded = await loadWritableGoalRow(parsed.data.id, { id: me.id, isAdmin });
+  if (!loaded.ok) return loaded;
+  await db
+    .update(goals)
+    .set({ teamInvolved: parsed.data.team, updatedById: me.id, updatedAt: new Date() })
+    .where(eq(goals.id, parsed.data.id));
+  revalidateGoals(loaded.row.periodKey);
+  return { ok: true };
 }
 
 /* ------------------------------------------------------------------ */
@@ -380,6 +430,154 @@ export async function moveGoalForward(
 /* ------------------------------------------------------------------ */
 /* Archive (soft-delete — the row is preserved)                        */
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* Weekly leaf — move a weekly goal to another week (kanban, item 19)  */
+/* ------------------------------------------------------------------ */
+
+const MoveWeeklySchema = z.object({
+  id: z.string().uuid(),
+  weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid week"),
+});
+
+export async function moveWeeklyToWeek(
+  input: z.infer<typeof MoveWeeklySchema>,
+): Promise<ActionResult> {
+  const { me, isAdmin } = await requireGoalsAccess();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = MoveWeeklySchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+
+  const [w] = await db
+    .select({ id: weeklyGoals.id, employeeId: weeklyGoals.employeeId })
+    .from(weeklyGoals)
+    .where(eq(weeklyGoals.id, parsed.data.id))
+    .limit(1);
+  if (!w) return { ok: false, error: "Weekly goal not found." };
+  const scope = await goalScopeFor({ id: me.id, isAdmin });
+  if (!(w.employeeId === me.id || canManageGoalFor(scope, w.employeeId))) {
+    return { ok: false, error: "That goal isn't yours to move." };
+  }
+
+  await db
+    .update(weeklyGoals)
+    .set({ weekStart: parsed.data.weekStart, updatedAt: new Date() })
+    .where(eq(weeklyGoals.id, parsed.data.id));
+  revalidatePath("/goals/cascade");
+  return { ok: true };
+}
+
+/* ------------------------------------------------------------------ */
+/* Promote a card UP a level (combined "Levels" board, Sir) — weekly →  */
+/* month/quarter/year, or a month/quarter goal → a higher level. The    */
+/* card "travels along": it changes level to the OWNING ancestor period.*/
+/* ------------------------------------------------------------------ */
+
+const LEVEL_RANK = { year: 0, quarter: 1, month: 2 } as const;
+type PromoteLevel = keyof typeof LEVEL_RANK;
+
+const PromoteSchema = z.object({
+  id: z.string().uuid(),
+  kind: z.enum(["goal", "weekly"]),
+  level: z.enum(["year", "quarter", "month"]),
+});
+
+/** The target period key at `level` that OWNS a source month key. */
+function ownerKey(monthKey: string, level: PromoteLevel): string {
+  if (level === "month") return monthKey;
+  if (level === "quarter") return quarterKeyOfMonthKey(monthKey);
+  return String(fyStartYearOfMonthKey(monthKey));
+}
+
+export async function promoteToLevel(
+  input: z.infer<typeof PromoteSchema>,
+): Promise<ActionResult> {
+  const { me, isAdmin } = await requireGoalsAccess();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = PromoteSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const { id, kind, level } = parsed.data;
+
+  try {
+    if (kind === "weekly") {
+      // Weekly leaf → a goal at the target level (promote up, then remove the leaf).
+      const [w] = await db
+        .select({
+          id: weeklyGoals.id,
+          employeeId: weeklyGoals.employeeId,
+          weekStart: weeklyGoals.weekStart,
+          subject: weeklyGoals.subject,
+          targetDone: weeklyGoals.targetDone,
+          client: weeklyGoals.client,
+          area: weeklyGoals.area,
+          uom: weeklyGoals.uom,
+          pctDone: weeklyGoals.pctDone,
+          weight: weeklyGoals.weight,
+        })
+        .from(weeklyGoals)
+        .where(eq(weeklyGoals.id, id))
+        .limit(1);
+      if (!w) return { ok: false, error: "Weekly goal not found." };
+      const scope = await goalScopeFor({ id: me.id, isAdmin });
+      if (!(w.employeeId === me.id || canManageGoalFor(scope, w.employeeId))) {
+        return { ok: false, error: "That goal isn't yours." };
+      }
+      const targetKey = ownerKey(w.weekStart.slice(0, 7), level);
+      const position = await nextGoalPosition(w.employeeId, level, targetKey);
+      await db.insert(goals).values({
+        employeeId: w.employeeId,
+        period: level,
+        periodKey: targetKey,
+        parentGoalId: null,
+        position,
+        area: w.area,
+        title: w.targetDone?.trim() || w.subject?.trim() || w.client?.trim() || "Goal",
+        uom: w.uom,
+        pctDone: w.pctDone,
+        weight: w.weight,
+        source: "manual",
+        category: "goal",
+        createdById: me.id,
+        updatedById: me.id,
+      });
+      await db.update(weeklyGoals).set({ archived: true, updatedAt: new Date() }).where(eq(weeklyGoals.id, id));
+      revalidateGoals(targetKey);
+      return { ok: true };
+    }
+
+    // A cascade goal → a HIGHER level (year/quarter/month). No-op / reject if the
+    // target isn't strictly higher (demote is ambiguous — a year owns 12 months).
+    const loaded = await loadWritableGoalRow(id, { id: me.id, isAdmin });
+    if (!loaded.ok) return loaded;
+    const row = loaded.row;
+    const srcRank = LEVEL_RANK[row.period as PromoteLevel] ?? 2;
+    if (LEVEL_RANK[level] >= srcRank) {
+      return { ok: false, error: "Drop a card onto a HIGHER level to promote it." };
+    }
+    const monthKeyForOwner =
+      row.period === "month"
+        ? row.periodKey
+        : row.period === "quarter"
+          ? `${fyStartYearOfKey(row.periodKey)}-04` // any month of that FY resolves the year
+          : `${row.periodKey}-04`;
+    const targetKey =
+      level === "year"
+        ? String(fyStartYearOfMonthKey(monthKeyForOwner))
+        : level === "quarter"
+          ? quarterKeyOfMonthKey(monthKeyForOwner)
+          : row.periodKey;
+    await db
+      .update(goals)
+      .set({ period: level, periodKey: targetKey, parentGoalId: null, source: "manual", updatedById: me.id, updatedAt: new Date() })
+      .where(eq(goals.id, id));
+    revalidateGoals(row.periodKey, targetKey);
+    return { ok: true };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
 
 export async function archiveGoal(
   input: z.infer<typeof IdSchema>,

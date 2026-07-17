@@ -24,7 +24,9 @@ import { isDccFilledFor } from "@/lib/dcc/gate";
 import { needsDailyPlan } from "@/lib/daily-checklist/gate";
 import { needsGoalActuals, unloggedGoalLabels } from "@/lib/weekly-goals/actuals";
 import { isManagerWithReports, isMondayIST, managerMondayGoalState } from "@/lib/manager-gates";
-import { satCommitGateOn, monApproveGateOn } from "@/lib/goals/flag";
+import { satCommitGateOn, monApproveGateOn, checkoutCloseoutGateOn } from "@/lib/goals/flag";
+import { isDayClosedOut } from "@/lib/queries/daily-checklist";
+import { assertMonthEditable } from "@/lib/reports/attendance-freeze";
 import { weekCommitSatisfied, managerApproveSatisfied } from "@/lib/goals/gates-predicates";
 import { isSaturdayIST, isWeekdayIST } from "@/lib/goals/gate-day";
 import { currentWeekStart } from "@/lib/weekly-goals/week";
@@ -115,6 +117,17 @@ export async function punchAttendance(input: {
     const committed = await weekCommitSatisfied(me.id, currentWeekStart()).catch(() => true);
     if (!committed) {
       return { ok: false, error: "Commit next week's goals and fill this week's progress before you clock out — open Goals › Commit." };
+    }
+  }
+
+  // ── Close-out gate (NEW, default OFF) — Sir's checkout ORDER ─────────
+  // At clock-OUT you first close out today's commitments (mark done / 0-100%),
+  // THEN DCC (below), THEN the punch writes. Sits ABOVE the DCC block so the
+  // order is enforced. FAIL-OPEN; honors CHECKOUT_CLOSEOUT_GATE_ON (default off).
+  if (kind === "out" && checkoutCloseoutGateOn()) {
+    const closed = await isDayClosedOut(me.id, today).catch(() => true);
+    if (!closed) {
+      return { ok: false, error: "Mark your today's commitment before you clock out — open Goals › Plan my day, then Finish day." };
     }
   }
 
@@ -365,6 +378,10 @@ async function upsertPunchCore(
     reason: PunchReason;
   },
 ): Promise<ActionResult> {
+  // Rule 7 — a frozen month can't be edited (fail-open + flag-gated, default OFF).
+  const editable = await assertMonthEditable(logDate);
+  if (!editable.ok) return editable;
+
   const tz = await targetTz(employeeId);
   if (!tz) return { ok: false, error: "Employee not found." };
   const loggedAt = zonedWallClockToUtc(logDate, timeHHmm, tz);
@@ -476,6 +493,9 @@ export async function adminEditDayTimes(
   }
   const { employeeId, logDate, inHHmm, outHHmm } = parsed.data;
 
+  const editable = await assertMonthEditable(logDate);
+  if (!editable.ok) return editable;
+
   const tz = await targetTz(employeeId);
   if (!tz) return { ok: false, error: "Employee not found." };
 
@@ -540,6 +560,9 @@ export async function adminDeletePunch(
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
   const { employeeId, logDate, kind } = parsed.data;
+
+  const editable = await assertMonthEditable(logDate);
+  if (!editable.ok) return editable;
 
   try {
     await db

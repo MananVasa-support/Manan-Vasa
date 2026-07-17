@@ -46,7 +46,9 @@ function RequestCard({ row, isAdmin }: { row: IncentiveRequestRow; isAdmin: bool
   const [expanded, setExpanded] = useState(false);
   const [pending, startTransition] = useTransition();
   const pairs = incentiveDetailPairs(row.type, row.details);
-  const style = STATUS_STYLE[row.status];
+  // Fall back for any status not in the map (unknown/legacy) so a bad row can't
+  // crash the admin's full requests list.
+  const style = STATUS_STYLE[row.status] ?? { bg: "rgba(100,116,139,0.12)", fg: "#334155" };
 
   function decide(verdict: "approved" | "rejected") {
     startTransition(async () => {
@@ -74,13 +76,13 @@ function RequestCard({ row, isAdmin }: { row: IncentiveRequestRow; isAdmin: bool
         <div className="min-w-0">
           <div className="flex items-center gap-2.5 flex-wrap">
             <span className="text-[16px] font-semibold text-ink-strong">
-              {INCENTIVE_TYPE_LABELS[row.type]}
+              {INCENTIVE_TYPE_LABELS[row.type] ?? row.type}
             </span>
             <span
               className="rounded-pill px-2.5 py-0.5 text-[12px] font-bold"
               style={{ background: style.bg, color: style.fg }}
             >
-              {INCENTIVE_STATUS_LABELS[row.status]}
+              {INCENTIVE_STATUS_LABELS[row.status] ?? row.status}
             </span>
           </div>
           <p className="text-[13.5px] text-ink-subtle mt-1">

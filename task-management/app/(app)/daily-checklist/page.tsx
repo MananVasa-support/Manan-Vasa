@@ -1,19 +1,13 @@
-import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
-import { requireUser } from "@/lib/auth/current";
-import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist-view";
+import { redirect } from "next/navigation";
+import type { Route } from "next";
 
 export const dynamic = "force-dynamic";
 
-export default async function DailyChecklistPage() {
-  const me = await requireUser();
-  return (
-    <>
-      <DashboardHeader generatedAt={new Date()} />
-      <main className="ledger-paper min-h-screen">
-        <DailyChecklistView employeeId={me.id} mode="page" />
-      </main>
-      <DashboardFooter />
-    </>
-  );
+/**
+ * "Daily Checklist" was merged into the unified "Plan My Day" page (Sir: they're
+ * the same thing). This route now permanently redirects there so old links,
+ * bookmarks, and the `c` shortcut all land on the single surface.
+ */
+export default function DailyChecklistPage() {
+  redirect("/goals/plan" as Route);
 }

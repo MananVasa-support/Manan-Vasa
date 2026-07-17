@@ -9,7 +9,8 @@ import { needsDailyPlan } from "@/lib/daily-checklist/gate";
 import { needsGoalActuals } from "@/lib/weekly-goals/actuals";
 import { isManagerWithReports, isMondayIST, managerMondayGoalState } from "@/lib/manager-gates";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
-import { satCommitGateOn, monApproveGateOn } from "@/lib/goals/flag";
+import { satCommitGateOn, monApproveGateOn, checkoutCloseoutGateOn } from "@/lib/goals/flag";
+import { isDayClosedOut } from "@/lib/queries/daily-checklist";
 import { weekCommitSatisfied, managerApproveSatisfied } from "@/lib/goals/gates-predicates";
 import { isSaturdayIST, isWeekdayIST } from "@/lib/goals/gate-day";
 import { currentWeekStart } from "@/lib/weekly-goals/week";
@@ -101,6 +102,19 @@ export async function POST(req: Request) {
     if (!committed) {
       return NextResponse.json(
         { ok: false, error: "Commit next week's goals and fill this week's progress before you clock out.", needsCommit: true },
+        { status: 409, headers: MOBILE_CORS },
+      );
+    }
+  }
+
+  // ── Close-out gate (NEW, default OFF; mirrors the web punch) — checkout ORDER:
+  // close out today's commitments, THEN DCC, THEN the punch. Sits above DCC.
+  if (body.kind === "out" && checkoutCloseoutGateOn()) {
+    const today = localDateString(tz);
+    const closed = await isDayClosedOut(me.id, today).catch(() => true);
+    if (!closed) {
+      return NextResponse.json(
+        { ok: false, error: "Mark your today's commitment before you clock out — open Plan my day, then Finish day.", needsCloseout: true },
         { status: 409, headers: MOBILE_CORS },
       );
     }

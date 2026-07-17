@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Building2, ChevronsUpDown, Search, Check, Loader2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Building2, ChevronsUpDown, Search, Check, Loader2, FileDown } from "lucide-react";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { fireToast } from "@/lib/toast";
-import { setSalaryPaid, setSalaryNote } from "@/app/(app)/salary/actions";
+import { setSalaryPaid, setSalaryNote, setWaiveOff, setPayoutAdjustment } from "@/app/(app)/salary/actions";
+import { perDayRate, waiveAddBack } from "@/lib/salary/waive-off";
 
 /* Employees-module identity — matches the Attendance page. */
 const GREEN = "#E10600";
@@ -14,6 +15,8 @@ const GREEN_DEEP = "#A80400";
 /** Plain serializable projection of a `salary_breakup` row (server maps it). */
 export interface SalaryRow {
   id: string;
+  /** The employee id — powers the downloadable payslip PDF link. */
+  employeeId: string | null;
   srNo: number | null;
   employeeName: string;
   designation: string | null;
@@ -24,6 +27,8 @@ export interface SalaryRow {
   weeklyOff: string | null;
   totalDaysWorked: string | null;
   finalWorkingDays: string | null;
+  /** Calendar days in the month (sheet col) — denominator for the per-day rate. */
+  daysInMonth: string | null;
   monthlyCtc: string | null;
   payableAfterLeave: string | null;
   pt: string | null;
@@ -36,7 +41,18 @@ export interface SalaryRow {
    *  the imported joining-date `remarks`/`manan_remarks` are intentionally NOT
    *  projected to the client. */
   adminNote: string | null;
+  /** Super-admin "Wave-Off" GRANT: how many attendance days to condone. The view
+   *  adds them back at the per-day rate to reduce the deduction. Additive to the
+   *  DISPLAYED net only — the base amounts are never mutated. */
+  waiveOffDays: string | null;
+  waiveOffNote: string | null;
+  /** Super-admin signed pre-payout adjustment (+extra / −deduct), Sir #37. */
+  payoutAdjustment: string | null;
+  payoutAdjustmentNote: string | null;
 }
+
+// perDayRate + waiveAddBack now come from the shared @/lib/salary/waive-off so the
+// net-to-pay can never drift between the table, CSV, payroll PDF and mobile.
 
 const inr = (v: string | null) =>
   v == null || v === "" ? "—" : `₹${Math.round(Number(v)).toLocaleString("en-IN")}`;
@@ -244,6 +260,49 @@ const COLUMNS: Col[] = [
     ),
     total: (rows) => <MoneyTotal rows={rows} pick={(r) => r.finalPayment} tone="final" />,
   },
+  // Super-admin-only "Wave-Off" GRANT — condone N days; the net is recomputed
+  // (final payment + days × per-day rate). Rendered by the component (needs the
+  // canWaiveOff flag); placeholder here is replaced in the body. Filtered out of
+  // visibleCols when !canWaiveOff.
+  {
+    key: "waiveOff",
+    label: "Wave-Off",
+    align: "left",
+    groupStart: true,
+    minWidth: 168,
+    sortValue: (r) => num(r.waiveOffDays),
+    render: () => null,
+    // Footer: total rupees waived back across the filtered set.
+    total: (rows) => {
+      const sum = rows.reduce((s, r) => s + waiveAddBack(r), 0);
+      if (sum <= 0) return null;
+      return (
+        <span className="tabular-nums text-[13px] font-black" style={{ color: "#166534" }}>
+          + ₹{Math.round(sum).toLocaleString("en-IN")}
+        </span>
+      );
+    },
+  },
+  // Super-admin-only pre-payout ADJUSTMENT (+extra / −deduct), Sir #37. Rendered
+  // by the component (needs canWaiveOff); filtered out of visibleCols otherwise.
+  {
+    key: "payoutAdj",
+    label: "Adjustment",
+    align: "left",
+    groupStart: true,
+    minWidth: 168,
+    sortValue: (r) => num(r.payoutAdjustment),
+    render: () => null,
+    total: (rows) => {
+      const sum = rows.reduce((s, r) => s + num(r.payoutAdjustment), 0);
+      if (sum === 0) return null;
+      return (
+        <span className="tabular-nums text-[13px] font-black" style={{ color: sum >= 0 ? "#166534" : "#b91c1c" }}>
+          {sum >= 0 ? "+" : "−"} ₹{Math.abs(Math.round(sum)).toLocaleString("en-IN")}
+        </span>
+      );
+    },
+  },
   // Super-admin-only "Paid" toggle (filtered out of visibleCols when !canMarkPaid).
   // Sortable → paid rows group together. Unpaid sorts before paid ascending.
   {
@@ -264,6 +323,16 @@ const COLUMNS: Col[] = [
     align: "left",
     groupStart: true,
     minWidth: 220,
+    render: () => null,
+  },
+  // Extreme-right — a downloadable PDF payslip (salary + attendance + incentives).
+  // Rendered by the component (needs the `month`); always shown.
+  {
+    key: "payslip",
+    label: "Payslip",
+    align: "left",
+    groupStart: true,
+    minWidth: 120,
     render: () => null,
   },
 ];
@@ -365,6 +434,200 @@ function RemarkCell({ row, editable }: { row: SalaryRow; editable: boolean }) {
   );
 }
 
+/* Super-admin "Wave-Off" grant — type how many attendance days to CONDONE for a
+ * person; the salary is recalculated (final payment + days × per-day rate), i.e.
+ * "your money isn't deducted". A GRANT, not a raw-amount edit: the stored base
+ * numbers never change — only the displayed net. Optimistic; saves on blur /
+ * Enter, reverts on Escape or error. Read-only for everyone but super-admins. */
+function WaiveOffCell({ row, editable }: { row: SalaryRow; editable: boolean }) {
+  const router = useRouter();
+  const initial = row.waiveOffDays == null || Number(row.waiveOffDays) === 0 ? "" : dec(row.waiveOffDays);
+  const [val, setVal] = useState(initial);
+  const [savedDays, setSavedDays] = useState(num(row.waiveOffDays));
+  const [busy, setBusy] = useState(false);
+
+  const perDay = perDayRate(row);
+  // Editable → preview from the live input; read-only → the stored grant.
+  const days = editable ? Math.max(0, Number(val) || 0) : savedDays;
+  const addBack = days > 0 ? days * perDay : 0;
+  const newNet = num(row.finalPayment) + addBack;
+
+  const delta =
+    addBack > 0 ? (
+      <div className="mt-1 leading-tight">
+        <span className="tabular-nums text-[11.5px] font-bold" style={{ color: "#166534" }}>
+          + ₹{Math.round(addBack).toLocaleString("en-IN")} waived
+        </span>
+        <span
+          className="ml-1.5 tabular-nums text-[11.5px] font-black"
+          style={{ color: GREEN_DEEP }}
+          title="Net after wave-off (final payment + condoned days)"
+        >
+          → ₹{Math.round(newNet).toLocaleString("en-IN")}
+        </span>
+      </div>
+    ) : null;
+
+  if (!editable) {
+    return savedDays > 0 ? (
+      <div>
+        <span className="tabular-nums text-[12.5px] font-bold text-ink-soft">
+          {dec(row.waiveOffDays)} {num(row.waiveOffDays) === 1 ? "day" : "days"}
+        </span>
+        {delta}
+      </div>
+    ) : (
+      <span className="text-ink-subtle">—</span>
+    );
+  }
+
+  async function commit() {
+    const nextDays = Math.round(Math.max(0, Number(val) || 0) * 100) / 100;
+    if (nextDays === savedDays) {
+      setVal(nextDays === 0 ? "" : String(nextDays));
+      return;
+    }
+    setBusy(true);
+    const res = await setWaiveOff({ rowId: row.id, days: nextDays });
+    setBusy(false);
+    if (!res.ok) {
+      setVal(savedDays === 0 ? "" : String(savedDays));
+      fireToast({ message: res.error, type: "error" });
+      return;
+    }
+    setSavedDays(nextDays);
+    setVal(nextDays === 0 ? "" : String(nextDays));
+    router.refresh();
+  }
+
+  return (
+    <div>
+      <div className="inline-flex items-center gap-1.5">
+        <input
+          type="number"
+          min={0}
+          max={366}
+          step="0.5"
+          inputMode="decimal"
+          value={val}
+          disabled={busy}
+          onChange={(e) => setVal(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            else if (e.key === "Escape") {
+              setVal(savedDays === 0 ? "" : String(savedDays));
+              e.currentTarget.blur();
+            }
+          }}
+          placeholder="0"
+          aria-label={`Wave off days for ${row.employeeName} — your money isn't deducted`}
+          title="Condone attendance days — your money isn't deducted"
+          className="w-[54px] rounded-md border border-hairline bg-surface-card px-2 py-1 text-right text-[12.5px] font-bold tabular-nums text-ink-strong transition-colors placeholder:font-normal placeholder:text-ink-subtle hover:border-hairline-strong focus:border-[color-mix(in_srgb,#166534_55%,transparent)] focus:outline-none disabled:opacity-60"
+        />
+        <span className="text-[11px] font-semibold text-ink-subtle">days</span>
+        {busy ? <Loader2 size={12} className="animate-spin text-ink-subtle" /> : null}
+      </div>
+      {delta}
+    </div>
+  );
+}
+
+/* Super-admin pre-payout ADJUSTMENT (Sir #37) — a signed rupee amount added (+)
+ * or deducted (−) before the final take-home. Base numbers never change; only the
+ * displayed net. Optimistic; saves on blur / Enter, reverts on Escape or error. */
+function AdjustmentCell({ row, editable }: { row: SalaryRow; editable: boolean }) {
+  const router = useRouter();
+  const initial = row.payoutAdjustment == null || Number(row.payoutAdjustment) === 0 ? "" : dec(row.payoutAdjustment);
+  const [val, setVal] = useState(initial);
+  const [saved, setSaved] = useState(num(row.payoutAdjustment));
+  const [busy, setBusy] = useState(false);
+
+  const amount = editable ? Number(val) || 0 : saved;
+  const delta =
+    amount !== 0 ? (
+      <div className="mt-1 leading-tight">
+        <span className="tabular-nums text-[11.5px] font-black" style={{ color: amount >= 0 ? "#166534" : "#b91c1c" }}>
+          {amount >= 0 ? "+" : "−"} ₹{Math.abs(Math.round(amount)).toLocaleString("en-IN")} {amount >= 0 ? "extra" : "deducted"}
+        </span>
+      </div>
+    ) : null;
+
+  if (!editable) {
+    return saved !== 0 ? <div>{delta}</div> : <span className="text-ink-subtle">—</span>;
+  }
+
+  async function commit() {
+    const next = Math.round((Number(val) || 0) * 100) / 100;
+    if (next === saved) {
+      setVal(next === 0 ? "" : String(next));
+      return;
+    }
+    setBusy(true);
+    const res = await setPayoutAdjustment({ rowId: row.id, amount: next });
+    setBusy(false);
+    if (!res.ok) {
+      setVal(saved === 0 ? "" : String(saved));
+      fireToast({ message: res.error, type: "error" });
+      return;
+    }
+    setSaved(next);
+    setVal(next === 0 ? "" : String(next));
+    router.refresh();
+  }
+
+  return (
+    <div>
+      <div className="inline-flex items-center gap-1.5">
+        <span className="text-[11px] font-bold text-ink-subtle">₹</span>
+        <input
+          type="number"
+          step="100"
+          inputMode="numeric"
+          value={val}
+          disabled={busy}
+          onChange={(e) => setVal(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            else if (e.key === "Escape") {
+              setVal(saved === 0 ? "" : String(saved));
+              e.currentTarget.blur();
+            }
+          }}
+          placeholder="0"
+          aria-label={`Pre-payout adjustment for ${row.employeeName} (+ extra / − deduct)`}
+          title="Add (+) or deduct (−) a rupee amount before the final payout"
+          className="w-[74px] rounded-md border border-hairline bg-surface-card px-2 py-1 text-right text-[12.5px] font-bold tabular-nums text-ink-strong transition-colors placeholder:font-normal placeholder:text-ink-subtle hover:border-hairline-strong focus:border-[color-mix(in_srgb,#166534_55%,transparent)] focus:outline-none disabled:opacity-60"
+        />
+        {busy ? <Loader2 size={12} className="animate-spin text-ink-subtle" /> : null}
+      </div>
+      {delta}
+    </div>
+  );
+}
+
+/* Extreme-right per-row payslip — a downloadable PDF (salary + attendance +
+ * incentives) via the combined-earnings route, for the currently-viewed month. */
+function PayslipLink({ row, month }: { row: SalaryRow; month?: string }) {
+  if (!row.employeeId || !month) {
+    return <span className="text-ink-subtle">—</span>;
+  }
+  const href = `/salary/earnings/${row.employeeId}?month=${month}&name=${encodeURIComponent(row.employeeName)}`;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`Download ${row.employeeName}'s payslip (salary + attendance + incentives)`}
+      className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-bold text-white transition-transform active:scale-[0.98]"
+      style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`, boxShadow: `0 6px 14px -8px ${GREEN_DEEP}` }}
+    >
+      <FileDown size={14} strokeWidth={2.5} /> PDF
+    </a>
+  );
+}
+
 /* Header groups are computed inside the component (visibleGroups) so the
  * conditional Remarks + super-admin Paid groups append correctly. */
 
@@ -383,12 +646,18 @@ export function SalaryBreakupTable({
   rows,
   canMarkPaid = false,
   canEditNote = false,
+  canWaiveOff = false,
+  month,
   hideCompanyFilter = false,
 }: {
   rows: SalaryRow[];
   canMarkPaid?: boolean;
   /** Super-admins can edit the inline Remarks note; others see it read-only. */
   canEditNote?: boolean;
+  /** Super-admins can type condoned "Wave-Off" days; others see the grant read-only. */
+  canWaiveOff?: boolean;
+  /** The payroll month ("YYYY-MM") — powers the per-row payslip PDF link. */
+  month?: string;
   /** When the parent already filters by company (salary workspace), hide the
    *  table's own company dropdown so there's a single source of truth. */
   hideCompanyFilter?: boolean;
@@ -465,11 +734,19 @@ export function SalaryBreakupTable({
   // Show the Remarks/Note column when a super-admin can edit it, or when any row
   // already carries a note (so it stays visible read-only for everyone).
   const showRemarks = canEditNote || rows.some((r) => r.adminNote);
-  // Column order (trailing): … Payout · Paid · Remarks. Drop "paid" when the
-  // viewer can't mark paid; drop "remarks" when hidden. Groups rebuilt to match
-  // (both are single-span trailing groups, appended in the same order).
+  // Show Wave-Off when a super-admin can grant it, or when any row already carries
+  // a grant (so it stays visible read-only for everyone).
+  const showWaiveOff = canWaiveOff || rows.some((r) => num(r.waiveOffDays) > 0);
+  // Adjustment (Sir #37) uses the same super-admin gate as Wave-Off.
+  const showAdjust = canWaiveOff || rows.some((r) => num(r.payoutAdjustment) !== 0);
+  // Column order (trailing): … Payout · Wave-Off · Adjustment · Paid · Remarks.
+  // Drop each when its viewer/flag isn't present. Groups rebuilt to match.
   const visibleCols = COLUMNS.filter(
-    (c) => (c.key !== "paid" || canMarkPaid) && (c.key !== "remarks" || showRemarks),
+    (c) =>
+      (c.key !== "waiveOff" || showWaiveOff) &&
+      (c.key !== "payoutAdj" || showAdjust) &&
+      (c.key !== "paid" || canMarkPaid) &&
+      (c.key !== "remarks" || showRemarks),
   );
   const visibleGroups: { label: string; span: number }[] = [
     { label: "", span: 1 }, // Company
@@ -477,8 +754,11 @@ export function SalaryBreakupTable({
     { label: "Pay", span: 4 },
     { label: "Adjustments", span: 2 },
     { label: "Payout", span: 1 },
+    ...(showWaiveOff ? [{ label: "", span: 1 }] : []), // Wave-Off (name shown on the column header)
+    ...(showAdjust ? [{ label: "", span: 1 }] : []), // Adjustment
     ...(canMarkPaid ? [{ label: "", span: 1 }] : []), // Paid
     ...(showRemarks ? [{ label: "", span: 1 }] : []), // Remarks
+    { label: "", span: 1 }, // Payslip (always shown)
   ];
 
   return (
@@ -693,7 +973,17 @@ export function SalaryBreakupTable({
                         ...(c.key === "company" ? { left: EMP_W } : {}),
                       }}
                     >
-                      {c.key === "remarks" ? <RemarkCell row={r} editable={canEditNote} /> : c.render(r)}
+                      {c.key === "remarks" ? (
+                        <RemarkCell row={r} editable={canEditNote} />
+                      ) : c.key === "waiveOff" ? (
+                        <WaiveOffCell row={r} editable={canWaiveOff} />
+                      ) : c.key === "payoutAdj" ? (
+                        <AdjustmentCell row={r} editable={canWaiveOff} />
+                      ) : c.key === "payslip" ? (
+                        <PayslipLink row={r} month={month} />
+                      ) : (
+                        c.render(r)
+                      )}
                     </td>
                   ))}
                 </tr>

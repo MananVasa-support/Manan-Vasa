@@ -54,7 +54,7 @@ export async function GET(request: Request): Promise<Response> {
   // ── Section 1: COMPANY BREAKDOWN (paying-from summary) ──
   lines.push(csvCell("COMPANY BREAKDOWN — paying from"));
   lines.push(
-    ["Company", "Headcount", "Payable", "PT", "After PT", "Advance", "Prev. Pending", "Final Payment"]
+    ["Company", "Headcount", "Payable", "PT", "After PT", "Advance", "Prev. Pending", "Final Payment", "Net Payable (incl. wave-off)"]
       .map(csvCell)
       .join(","),
   );
@@ -69,6 +69,7 @@ export async function GET(request: Request): Promise<Response> {
         csvCell(c.advance.toFixed(2)),
         csvCell(c.previousPending.toFixed(2)),
         csvCell(c.finalPayment.toFixed(2)),
+        csvCell(c.netPayable.toFixed(2)),
       ].join(","),
     );
   }
@@ -82,6 +83,7 @@ export async function GET(request: Request): Promise<Response> {
       csvCell(companies.reduce((s, c) => s + c.advance, 0).toFixed(2)),
       csvCell(companies.reduce((s, c) => s + c.previousPending, 0).toFixed(2)),
       csvCell(companies.reduce((s, c) => s + c.finalPayment, 0).toFixed(2)),
+      csvCell(companies.reduce((s, c) => s + c.netPayable, 0).toFixed(2)),
     ].join(","),
   );
   lines.push(blank);
@@ -98,6 +100,7 @@ export async function GET(request: Request): Promise<Response> {
       if (col.key === "advance") return csvCell(c.advance.toFixed(2));
       if (col.key === "previousPending") return csvCell(c.previousPending.toFixed(2));
       if (col.key === "finalPayment") return csvCell(c.finalPayment.toFixed(2));
+      if (col.key === "netPayable") return csvCell(c.netPayable.toFixed(2));
       return "";
     }).join(",");
 

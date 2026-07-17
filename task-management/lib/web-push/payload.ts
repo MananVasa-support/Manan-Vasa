@@ -45,6 +45,7 @@ const TITLES: Record<NotificationKind, (actor: string) => string> = {
   goals_approval_reminder: () => `Approve your team's goals`,
   goals_committed: () => `Weekly goals committed`,
   goals_approved: () => `Your weekly goals were approved`,
+  hr_confirmation_due: () => `Issue a confirmation letter`,
 };
 
 export interface PushCtx {

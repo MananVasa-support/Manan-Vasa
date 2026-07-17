@@ -47,6 +47,7 @@ const EMOJI: Record<NotificationKind, string> = {
   goals_approval_reminder: ":memo:",
   goals_committed: ":lock:",
   goals_approved: ":white_check_mark:",
+  hr_confirmation_due: ":memo:",
 };
 
 const VERB: Record<NotificationKind, (actor: string, statusLabel?: string) => string> = {
@@ -82,6 +83,7 @@ const VERB: Record<NotificationKind, (actor: string, statusLabel?: string) => st
   goals_approval_reminder: () => `Approve your team's goals`,
   goals_committed: () => `Weekly goals committed`,
   goals_approved: () => `Your weekly goals were approved`,
+  hr_confirmation_due: () => `Issue a confirmation letter`,
 };
 
 export interface SlackCtx {

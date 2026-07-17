@@ -25,18 +25,16 @@ export type Obligation = typeof obligations.$inferSelect;
 export type BatchSchedule = typeof eventBatchSchedules.$inferSelect;
 
 // ── Time-grid geometry (design §2/§3) ───────────────────────────────────────
-// 30-minute slots from 07:00 (420 min) to 23:00 (1380 min) inclusive of the
-// start of the last slot → 32 rows. `end` is the boundary after 22:30–23:00.
-// (Extended past the old 21:00 cap so evening events — meetings, conclaves —
-// are reachable; the grid is taller and the page scrolls through it.)
-/** Minutes-from-midnight where the grid starts (07:00). */
-export const DAY_START_MIN = 420;
-/** Minutes-from-midnight where the grid ends (23:00). */
-export const DAY_END_MIN = 1380;
+// FULL 24-hour grid — 30-minute slots from 00:00 (0 min) to 24:00 (1440 min), so
+// EVERY hour is reachable by scrolling (early-morning + late-night events too).
+/** Minutes-from-midnight where the grid starts (00:00). */
+export const DAY_START_MIN = 0;
+/** Minutes-from-midnight where the grid ends (24:00). */
+export const DAY_END_MIN = 1440;
 /** Slot height in minutes. */
 export const SLOT_MIN = 30;
-/** Number of 30-min rows in one day column (07:00→23:00 = 16h / 0.5h = 32). */
-export const SLOTS_PER_DAY = 32;
+/** Number of 30-min rows in one day column (00:00→24:00 = 24h / 0.5h = 48). */
+export const SLOTS_PER_DAY = (DAY_END_MIN - DAY_START_MIN) / SLOT_MIN;
 
 /**
  * Format minutes-from-midnight as a 12-hour clock label (e.g. 420 → "7:00 AM",

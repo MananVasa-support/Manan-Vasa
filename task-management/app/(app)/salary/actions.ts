@@ -321,6 +321,98 @@ export async function setSalaryPaid(id: string, paid: boolean): Promise<ActionRe
 }
 
 /**
+ * Set the "Wave-Off" (condoned days) grant for one salary_breakup row.
+ * SUPER-ADMINS ONLY (Manan/Hetesh) — mirrors the setSalaryPaid guard.
+ *
+ * This is a GRANT, not an edit of the raw amount: it stores how many DAYS to
+ * condone; the salary view adds those days back at the per-day rate
+ * (monthly_ctc / days_in_month) to reduce the attendance deduction ("your money
+ * isn't deducted"). The stored base amounts (payable_after_pt / final_payment)
+ * are NEVER mutated here — the add-back is purely additive to the displayed net.
+ * Stored on salary_breakup.waive_off_days/note (survives sheet re-syncs).
+ * `days = 0` clears the grant (and its audit stamps).
+ */
+export async function setWaiveOff(input: {
+  rowId: string;
+  days: number;
+  note?: string | null;
+}): Promise<ActionResult> {
+  const me = await requireAdmin();
+  if (!isSuperAdmin(me.email)) {
+    return { ok: false, error: "Only super-admins can wave off salary days." };
+  }
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const { rowId, days, note } = input;
+  if (!UUID_RE.test(rowId)) return { ok: false, error: "Invalid row." };
+  if (!Number.isFinite(days) || days < 0 || days > 366) {
+    return { ok: false, error: "Wave-off days must be between 0 and 366." };
+  }
+  // numeric(6,2): keep two decimals, clamp to the column's precision.
+  const rounded = Math.round(days * 100) / 100;
+  const trimmedNote = note?.trim().slice(0, 500) || null;
+
+  try {
+    await db
+      .update(salaryBreakup)
+      .set({
+        waiveOffDays: rounded.toFixed(2),
+        waiveOffNote: trimmedNote,
+        waiveOffAt: rounded > 0 ? new Date() : null,
+        waiveOffById: rounded > 0 ? me.id : null,
+      })
+      .where(eq(salaryBreakup.id, rowId));
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
+/**
+ * Set the SIGNED pre-payout adjustment (+extra / −deduct) on a salary_breakup row
+ * before the final take-home (Sir #37). SUPER-ADMINS ONLY. Base final_payment is
+ * never mutated; the effective net (table/exports/payslip) adds this on top.
+ */
+export async function setPayoutAdjustment(input: {
+  rowId: string;
+  amount: number;
+  note?: string | null;
+}): Promise<ActionResult> {
+  const me = await requireAdmin();
+  if (!isSuperAdmin(me.email)) {
+    return { ok: false, error: "Only super-admins can adjust the payout." };
+  }
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const { rowId, amount, note } = input;
+  if (!UUID_RE.test(rowId)) return { ok: false, error: "Invalid row." };
+  if (!Number.isFinite(amount) || Math.abs(amount) > 10_000_000) {
+    return { ok: false, error: "Adjustment must be within ±1,00,00,000." };
+  }
+  const rounded = Math.round(amount * 100) / 100;
+  const trimmedNote = note?.trim().slice(0, 500) || null;
+
+  try {
+    await db
+      .update(salaryBreakup)
+      .set({
+        payoutAdjustment: rounded.toFixed(2),
+        payoutAdjustmentNote: trimmedNote,
+        payoutAdjustmentAt: rounded !== 0 ? new Date() : null,
+        payoutAdjustmentById: rounded !== 0 ? me.id : null,
+      })
+      .where(eq(salaryBreakup.id, rowId));
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
+/**
  * Set the editable "Remarks" note for one salary_breakup row. SUPER-ADMINS ONLY
  * (Manan/Hetesh). Stored on salary_breakup.admin_note (survives sheet re-syncs).
  * An empty/blank note clears it.

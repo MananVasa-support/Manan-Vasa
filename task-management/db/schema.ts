@@ -30,6 +30,8 @@ import {
   type EventStatus,
   type EventSource,
   type HolidayAppliesTo,
+  type AgreementType,
+  type AgreementStatus,
 } from "./enums";
 
 export const taskStatusEnum = pgEnum("task_status", TASK_STATUSES);
@@ -833,6 +835,13 @@ export const tasks = pgTable(
     calendarLastSyncAt: timestamp("calendar_last_sync_at", { withTimezone: true }),
     calendarLastError: text("calendar_last_error"),
     archived: boolean("archived").notNull().default(false),
+    // Recycle Bin (migration 0135) — "abandon" a task from the daily-loop: it
+    // leaves the plan sources + task lists and sits in a manager Recycle Bin,
+    // which can restore it (clear abandoned_at) or permanently delete it.
+    abandonedAt: timestamp("abandoned_at", { withTimezone: true }),
+    abandonedById: uuid("abandoned_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
     // M2.1 additions — provenance + approval (approved_* used in M2.2) + optimistic lock
     createdById: uuid("created_by_id").references(() => employees.id, {
       onDelete: "restrict",
@@ -1017,6 +1026,10 @@ export const NOTIFICATION_KINDS = [
   "goals_approval_reminder",
   "goals_committed",
   "goals_approved",
+  // HR confirmations (migration 0138) — a daily nudge to super-admins that a
+  // probation / free-training period is ending. Text column, no DB change; sent
+  // directly by app/api/cron/hr-confirmations (bypasses the matrix).
+  "hr_confirmation_due",
 ] as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
@@ -1224,7 +1237,7 @@ export const orgSettings = pgTable("org_settings", {
   // Attendance Phase A (0058) — org-wide schedule defaults. Per-employee
   // overrides live on `employees`; null there => fall back to these.
   attLateAfter: time("att_late_after").default("10:50"),
-  attEarlyBefore: time("att_early_before").default("19:20"),
+  attEarlyBefore: time("att_early_before").default("19:30"),
   attFullDayHours: numeric("att_full_day_hours").default("9"),
   attHalfDayHours: numeric("att_half_day_hours").default("5"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
@@ -2994,8 +3007,10 @@ export const dailyChecklist = pgTable(
     subject: text("subject"),
     position: integer("position").notNull().default(1),
     status: taskStatusEnum("status").notNull().default("not_started"),
-    // Night close-out: done/not-done + an optional note on what happened.
+    // Night close-out: done/not-done + an optional 0-100% progress (NULL + done
+    // ⇒ treat as 100) + a note on what happened.
     done: boolean("done").notNull().default(false),
+    donePct: integer("done_pct"),
     doneNote: text("done_note"),
     // When it entered today's plan (morning commit) and when it was closed out.
     committedAt: timestamp("committed_at", { withTimezone: true }).notNull().defaultNow(),
@@ -3016,6 +3031,72 @@ export const dailyChecklist = pgTable(
 
 export type DailyChecklistItem = typeof dailyChecklist.$inferSelect;
 export type NewDailyChecklistItem = typeof dailyChecklist.$inferInsert;
+
+// Per employee-day lifecycle for the unified "Plan My Day" page (migration 0134).
+// started_at = "Start my day" clicked (morning commit); closed_at = end-of-day
+// close-out finished. These drive which phase the single page renders:
+//   no row / started_at null → PLAN · started, not closed → ACTIVE · closed → done.
+export const dailyPlanDay = pgTable(
+  "daily_plan_day",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    planDate: date("plan_date").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("daily_plan_day_emp_date_uq").on(t.employeeId, t.planDate)],
+);
+export type DailyPlanDay = typeof dailyPlanDay.$inferSelect;
+
+// Attendance month freeze (migration 0136) — one row per frozen month ("YYYY-MM").
+// After the monthly statement's query window (the 2nd), the month freezes and its
+// attendance becomes immutable (Sir's rule 7). Global per-month, not per-employee.
+export const attendanceMonthFreeze = pgTable("attendance_month_freeze", {
+  month: text("month").primaryKey(), // 'YYYY-MM'
+  frozenAt: timestamp("frozen_at", { withTimezone: true }).notNull().defaultNow(),
+  frozenById: uuid("frozen_by_id").references(() => employees.id, { onDelete: "set null" }),
+  note: text("note"),
+});
+export type AttendanceMonthFreeze = typeof attendanceMonthFreeze.$inferSelect;
+
+// HR confirmation reminders (migration 0138) — dedupe so HR is nudged exactly
+// once that a person's probation / free-training period is ending (Sir #38/#39).
+export const hrConfirmationReminders = pgTable(
+  "hr_confirmation_reminders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // 'probation' | 'training'
+    notifiedAt: timestamp("notified_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("hr_confirmation_reminders_uq").on(t.employeeId, t.kind)],
+);
+export type HrConfirmationReminder = typeof hrConfirmationReminders.$inferSelect;
+
+// Attendance discipline notes (migration 0140) — one admin note/reason per
+// employee + month on the read-only analytics page. Never affects pay.
+export const attendanceDisciplineNotes = pgTable(
+  "attendance_discipline_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    month: text("month").notNull(), // 'YYYY-MM'
+    note: text("note"),
+    updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("attendance_discipline_notes_uq").on(t.employeeId, t.month)],
+);
+export type AttendanceDisciplineNote = typeof attendanceDisciplineNotes.$inferSelect;
 
 // Weekly-goal DAILY actuals (migration 0093) — one progress entry per goal per
 // day, logged from the Daily Checklist "Plan Your Day" page. Builds the day-by-
@@ -3088,6 +3169,9 @@ export const goals = pgTable(
     adopted: boolean("adopted").notNull().default(true),
     // 'manual' | 'cascade' (cascade = auto-generated from parent by ÷)
     source: text("source").notNull().default("manual"),
+    // Category tag (migration 0139) — 'target' | 'milestone' | 'operational' |
+    // 'goal'. Colour-codes the Kanban cards; spillover is derived from clonedFromId.
+    category: text("category").notNull().default("goal"),
     // carry-over footprint / audit link to the origin row.
     clonedFromId: uuid("cloned_from_id").references((): AnyPgColumn => goals.id, {
       onDelete: "set null",
@@ -4132,6 +4216,22 @@ export const salaryBreakup = pgTable(
     adminNote: text("admin_note"),
     adminNoteAt: timestamp("admin_note_at", { withTimezone: true }),
     adminNoteById: uuid("admin_note_by_id").references(() => employees.id, { onDelete: "set null" }),
+    // Salary "Wave-Off" (migration 0133) — super-admin GRANT of condoned days.
+    // The view adds these days back at the per-day rate (monthly_ctc / days_in_month)
+    // to reduce the attendance deduction ("your money isn't deducted"). Purely
+    // additive to the DISPLAYED net; the imported base amounts are never mutated.
+    // NOT touched by the sheet sync, so it survives re-syncs.
+    waiveOffDays: numeric("waive_off_days", { precision: 6, scale: 2 }).notNull().default("0"),
+    waiveOffNote: text("waive_off_note"),
+    waiveOffAt: timestamp("waive_off_at", { withTimezone: true }),
+    waiveOffById: uuid("waive_off_by_id").references(() => employees.id, { onDelete: "set null" }),
+    // Pre-payout manual adjustment (migration 0137, Sir #37) — a SIGNED rupee
+    // amount added (+) or deducted (−) before the final take-home. Reversible
+    // grant on top of the computed net; base final_payment is never mutated.
+    payoutAdjustment: numeric("payout_adjustment", { precision: 14, scale: 2 }).notNull().default("0"),
+    payoutAdjustmentNote: text("payout_adjustment_note"),
+    payoutAdjustmentAt: timestamp("payout_adjustment_at", { withTimezone: true }),
+    payoutAdjustmentById: uuid("payout_adjustment_by_id").references(() => employees.id, { onDelete: "set null" }),
     importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -4476,6 +4576,49 @@ export const onboardingSubmissions = pgTable(
   (t) => [uniqueIndex("onb_employee_uidx").on(t.employeeId)],
 );
 export type OnboardingSubmission = typeof onboardingSubmissions.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Agreements (migration 0132) — full-lifecycle HR agreements: HR generates from a
+// template (auto-filled), sends, the employee e-signs (typed name + timestamp),
+// stored in the Supabase `documents` bucket + tracked. ADDITIVE, load-neutral.
+// ─────────────────────────────────────────────────────────────────────────────
+export const agreements = pgTable(
+  "agreements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    // 'appointment' | 'employment' | 'nda' | 'ctc' (db/enums AGREEMENT_TYPES)
+    type: text("type").notNull().$type<AgreementType>(),
+    // 'draft' | 'sent' | 'signed' (db/enums AGREEMENT_STATUSES)
+    status: text("status").notNull().default("draft").$type<AgreementStatus>(),
+    title: text("title").notNull(),
+    // paying entity whose signatory closes the letter
+    entity: text("entity"),
+    // the filled template fields (recipient, dates, ctc, clauses, particulars…)
+    fieldValues: jsonb("field_values").notNull().default({}).$type<Record<string, string>>(),
+    pdfPath: text("pdf_path"),
+    signedPdfPath: text("signed_pdf_path"),
+    // e-signature acceptance stamp
+    signedName: text("signed_name"),
+    signedAt: timestamp("signed_at", { withTimezone: true }),
+    signedIp: text("signed_ip"),
+    // unguessable token for the employee's sign link
+    signToken: text("sign_token").notNull(),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("agreements_employee_idx").on(t.employeeId),
+    index("agreements_status_idx").on(t.status),
+    uniqueIndex("agreements_sign_token_uq").on(t.signToken),
+  ],
+);
+export type Agreement = typeof agreements.$inferSelect;
+export type NewAgreement = typeof agreements.$inferInsert;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Monthly Events Master (migration 0130). NEW tables only — load-neutral.

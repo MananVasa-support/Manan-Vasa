@@ -40,6 +40,8 @@ import {
   FolderLock,
   Palette,
   PartyPopper,
+  FileSignature,
+  Trash2,
 } from "lucide-react";
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
@@ -137,6 +139,7 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       },
       { href: "/reimbursements" as Route, label: "Reimbursements", Icon: Receipt },
       { href: "/dossier" as Route, label: "Dossier", Icon: FolderLock },
+      { href: "/agreements" as Route, label: "Agreements", Icon: FileSignature },
     ],
     groups: [],
   },
@@ -237,11 +240,11 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       { href: "/goals" as Route, label: "Cascade", Icon: Target, exact: true },
       { href: "/weekly-goals" as Route, label: "Weekly Goals", Icon: Target, not: ["/weekly-goals/team"] },
       { href: "/weekly-goals/team" as Route, label: "Team", Icon: Users },
-      { href: "/daily-checklist" as Route, label: "Daily Checklist", Icon: ListChecks },
-      { href: "/goals/plan" as Route, label: "Plan Your Day", Icon: CalendarDays },
+      { href: "/goals/plan" as Route, label: "Plan My Day", Icon: CalendarDays },
       { href: "/goals/review" as Route, label: "Review", Icon: ClipboardList },
       { href: "/goals/commit" as Route, label: "Commit", Icon: CalendarCheck },
       { href: "/goals/approve" as Route, label: "Approve", Icon: CalendarRange },
+      { href: "/goals/recycle-bin" as Route, label: "Recycle Bin", Icon: Trash2, adminOnly: true },
     ],
     groups: [],
   },

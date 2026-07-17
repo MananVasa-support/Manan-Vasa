@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Plus, Check } from "lucide-react";
+import { GripVertical, Plus, Check, AlertTriangle, Star, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import type { SourceItem } from "./types";
 
@@ -23,12 +23,15 @@ const KIND_ACCENT: Record<SourceItem["kind"], string> = {
   quarterly: "var(--color-blue-deep)",
   yearly: "var(--color-indigo-deep)",
   task: "var(--color-slate)",
+  unfinished: "var(--color-amber-deep)",
 };
 
 interface Props {
   item: SourceItem;
   /** No-drag quick path — add straight to today's plan. */
   onAdd: (item: SourceItem) => void;
+  /** Abandon the underlying task → Recycle Bin (only for task-linked cards). */
+  onAbandon?: (item: SourceItem) => void;
 }
 
 /**
@@ -36,7 +39,7 @@ interface Props {
  * or use the "+ Add to today" quick button (no-drag path). Keyboard users tab to
  * the grip and use the dnd-kit keyboard sensor, or press the + button.
  */
-export function SourceCard({ item, onAdd }: Props) {
+export function SourceCard({ item, onAdd, onAbandon }: Props) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: sourceDragId(item),
     data: { type: "source", kind: item.kind, sourceId: item.id, title: item.title, subtitle: item.subtitle },
@@ -74,11 +77,53 @@ export function SourceCard({ item, onAdd }: Props) {
         {item.subtitle ? (
           <div className="truncate text-xs text-ink-muted">{item.subtitle}</div>
         ) : null}
+        {item.dueLabel || item.important ? (
+          <div className="mt-1 flex items-center gap-1.5">
+            {item.dueLabel ? (
+              item.overdue ? (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
+                  style={{
+                    background: "color-mix(in srgb, var(--color-altus-red) 13%, transparent)",
+                    color: "var(--color-altus-red-deep)",
+                  }}
+                >
+                  <AlertTriangle size={10} strokeWidth={2.5} />
+                  {item.dueLabel}
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-full bg-surface-soft px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-ink-muted">
+                  {item.dueLabel}
+                </span>
+              )
+            ) : null}
+            {item.important ? (
+              <span
+                className="inline-flex items-center gap-0.5 text-[10px] font-bold"
+                style={{ color: GOALS_ACCENT }}
+              >
+                <Star size={10} className="fill-current" /> Important
+              </span>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       {item.meta ? (
         <span className="shrink-0 rounded-full bg-surface-soft px-2 py-0.5 text-[11px] font-semibold text-ink-muted tabular-nums">
           {item.meta}
         </span>
+      ) : null}
+      {onAbandon && item.taskId ? (
+        <button
+          type="button"
+          onClick={() => onAbandon(item)}
+          aria-label={`Abandon ${item.title} (moves to Recycle Bin)`}
+          title="Abandon — moves to Recycle Bin"
+          className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-ink-muted/60 transition-colors hover:bg-surface-soft hover:text-[color:var(--color-altus-red)] focus-visible:outline-2"
+          style={{ outlineColor: GOALS_ACCENT }}
+        >
+          <Trash2 size={14} />
+        </button>
       ) : null}
       <button
         type="button"

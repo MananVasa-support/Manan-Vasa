@@ -12,6 +12,8 @@ import { loadAttendanceAnalytics } from "@/lib/queries/salary-attendance-analyti
 import { monthLabel } from "@/lib/salary/period";
 import { AttendanceAnalyticsBlock } from "@/components/salary/attendance-analytics-block";
 import { AttendanceAiInsights } from "@/components/salary/attendance-ai-insights";
+import { DisciplineNote } from "@/components/salary/discipline-note";
+import { getDisciplineNote } from "./actions";
 
 // WS-5 Salary — READ-ONLY attendance-analytics drill-down for one person+month.
 // Flag-gated (SALARY_ANALYTICS, default ON); 404s when off. New route, touches
@@ -50,13 +52,15 @@ export default async function SalaryAnalyticsPage({ searchParams }: PageProps) {
 
   const selectedEmp = rawEmp && rosterIds.has(rawEmp) ? rawEmp : undefined;
   const analytics = selectedEmp ? await loadAttendanceAnalytics(selectedEmp, month) : null;
+  const disciplineNote = selectedEmp ? await getDisciplineNote(selectedEmp, month) : "";
+  const selectedName = roster.find((r) => r.id === selectedEmp)?.name ?? "";
 
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto max-w-[1100px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
         {/* Hero */}
-        <header className="wg-rise mb-5">
+        <header className="wg-rise mb-5 flex flex-col items-start">
           <Link
             href={`/salary?month=${month}` as Route}
             className="inline-flex items-center gap-1 text-[13px] font-bold text-ink-subtle hover:text-ink-strong"
@@ -134,6 +138,9 @@ export default async function SalaryAnalyticsPage({ searchParams }: PageProps) {
             <Suspense fallback={<AiSkeleton />}>
               <AttendanceAiInsights data={analytics} />
             </Suspense>
+            {selectedEmp && (
+              <DisciplineNote employeeId={selectedEmp} month={month} initial={disciplineNote} name={selectedName} />
+            )}
           </div>
         ) : (
           <section className="wg-rise admin-panel px-6 py-14 text-center" style={{ animationDelay: "80ms" }}>

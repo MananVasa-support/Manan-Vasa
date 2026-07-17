@@ -109,7 +109,7 @@ export function DayColumn({
   return (
     <div
       ref={rootRef}
-      className="relative border-l border-hairline"
+      className="relative border-l border-hairline-strong"
       style={{
         height: gridHeight(slotH),
         // Solid full-hour lines + dotted half-hour lines.

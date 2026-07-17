@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { authenticateMobileRequest, MOBILE_CORS } from "@/lib/auth/mobile";
 import { mySalaryBreakup } from "@/lib/queries/salary-breakup";
 import type { SalaryBreakup } from "@/db/schema";
+import { waiveAddBack, netAfterWaiveOff } from "@/lib/salary/waive-off";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,7 +54,12 @@ function monthDto(r: SalaryBreakup) {
     payableAfterPt: num(r.payableAfterPt),
     advance: num(r.advance),
     previousPending: num(r.previousPending),
+    // Raw stored take-home (base). The EFFECTIVE net-to-pay is `netPayable`,
+    // which adds back any super-admin wave-off (condoned days).
     finalPayment: num(r.finalPayment),
+    waiveOffDays: num(r.waiveOffDays),
+    waiveAddBack: Math.round(waiveAddBack(r)),
+    netPayable: Math.round(netAfterWaiveOff(r)),
     remarks: r.remarks,
     mananRemarks: r.mananRemarks,
   };

@@ -1,7 +1,7 @@
 import { headers, cookies } from "next/headers";
 import { LayoutGrid } from "lucide-react";
-import { SidebarRail } from "./sidebar-rail";
-import { LiveIndicator } from "./live-indicator";
+import { SidebarRail, SidebarToggle } from "./sidebar-rail";
+import { SidebarBrand } from "./sidebar-brand";
 import { MainNavServer } from "./main-nav-server";
 import { NavHistoryButtons } from "./nav-history-buttons";
 import { MobileMenuServer } from "./mobile-menu-server";
@@ -9,7 +9,7 @@ import { UserMenuServer } from "@/components/header/user-menu-server";
 import { NewTaskTrigger } from "@/components/header/new-task-trigger";
 import { GlobalSearch } from "@/components/header/global-search";
 import { getCurrentEmployee } from "@/lib/auth/current";
-import { workspaceForPath, WORKSPACE_LANDING } from "@/lib/workspaces";
+import { workspaceForPath } from "@/lib/workspaces";
 import { MODULE_THEME } from "@/lib/module-theme";
 
 /**
@@ -32,7 +32,6 @@ export async function DashboardSidebar() {
   const pathname = (await headers()).get("x-pathname") ?? "/";
   const ws = workspaceForPath(pathname);
   const theme = ws && ws !== "wms" ? MODULE_THEME[ws] : null;
-  const ModuleIcon = theme?.Icon;
   // Collapsed state persists in a cookie so the server renders the right width
   // on first paint (no flicker); the client toggle updates both.
   const collapsed = (await cookies()).get("sidebar_collapsed")?.value === "1";
@@ -66,47 +65,20 @@ export async function DashboardSidebar() {
     <SidebarRail defaultCollapsed={collapsed}>
       {/* ── Brand block: history · logo · module identity ── */}
       <div className="sidebar-brand flex flex-col gap-3 px-4 pt-4 pb-3">
-        <div className="sidebar-collapsible-hide flex items-center justify-between gap-2">
-          <NavHistoryButtons />
-          <GlobalSearch workspace={ws} />
+        {/* Top control row: history + search (hidden when collapsed) with the
+            collapse toggle pinned to the right, beside the search. When collapsed,
+            only the toggle remains (centered via the sidebar-toprow CSS). */}
+        <div className="sidebar-toprow flex items-center gap-2">
+          <div className="sidebar-collapsible-hide flex min-w-0 flex-1 items-center gap-2">
+            <NavHistoryButtons />
+            <GlobalSearch workspace={ws} />
+          </div>
+          <SidebarToggle />
         </div>
 
-        <a
-          href={ws ? WORKSPACE_LANDING[ws] : "/dashboard"}
-          className="sidebar-logo flex items-center"
-          aria-label="Go to this module's home"
-        >
-          <img src="/logo.png" alt="Altus Corp" className="h-14 w-auto" style={{ display: "block" }} />
-        </a>
-
-        {/* Module identity — the big animated module wordmark (same as header). */}
-        {theme && ModuleIcon && (
-          <span className="module-wordmark inline-flex items-center gap-2.5" aria-label={theme.label}>
-            <span
-              className="module-wordmark-icon inline-grid place-items-center rounded-2xl text-white"
-              style={{
-                background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentDeep})`,
-                boxShadow: `0 8px 20px -8px ${theme.accentDeep}`,
-                width: 40,
-                height: 40,
-              }}
-            >
-              <ModuleIcon size={20} strokeWidth={2.6} aria-hidden />
-            </span>
-            <span
-              className="module-wordmark-text leading-none"
-              style={
-                {
-                  "--mw-a": theme.accent,
-                  "--mw-b": theme.accentDeep,
-                  fontSize: "clamp(18px, 1.5vw, 22px)",
-                } as React.CSSProperties
-              }
-            >
-              {theme.label}
-            </span>
-          </span>
-        )}
+        {/* Logo + module wordmark — CLIENT-reactive (usePathname) so the identity
+            tracks the current route on soft nav, not the stale server x-pathname. */}
+        <SidebarBrand />
       </div>
 
       {/* ── Back to Hub — full-width, same black pill as the header ── */}
@@ -136,15 +108,13 @@ export async function DashboardSidebar() {
         )}
       </nav>
 
-      {/* ── Bottom: Live status + user menu, pinned ── */}
+      {/* ── Bottom: full-width profile bar (avatar + name + ▲ to open the menu),
+          pinned. Replaces the old Live indicator + bare avatar. ── */}
       <div
-        className="sidebar-foot mt-auto flex items-center justify-between gap-2 border-t px-4 py-3"
+        className="sidebar-foot mt-auto border-t px-3 py-3"
         style={{ borderColor: "var(--color-hairline)" }}
       >
-        <span className="sidebar-collapsible-hide contents">
-          <LiveIndicator />
-        </span>
-        <UserMenuServer />
+        <UserMenuServer variant="rail" />
       </div>
     </SidebarRail>
    </>

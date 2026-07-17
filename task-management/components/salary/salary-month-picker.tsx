@@ -48,11 +48,11 @@ export function SalaryMonthPicker({ months, selected }: { months: string[]; sele
               key={y}
               type="button"
               onClick={() => setViewYear(y)}
-              className="tabular-nums rounded-pill px-3 py-1.5 text-[13px] font-bold transition"
+              className="tabular-nums rounded-xl px-3.5 py-1.5 text-[13px] font-black transition"
               style={
                 on
-                  ? { background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`, color: "#fff", boxShadow: `0 6px 16px -10px ${GREEN_DEEP}` }
-                  : { background: "var(--color-surface-card)", color: "var(--color-ink-soft)", boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }
+                  ? { background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`, color: "#fff", boxShadow: `0 8px 18px -8px ${GREEN_DEEP}` }
+                  : { background: "var(--color-surface-card)", color: "var(--color-ink-strong)", boxShadow: `inset 0 0 0 2px color-mix(in srgb, ${GREEN} 24%, var(--color-hairline-strong))` }
               }
             >
               {y}
@@ -69,7 +69,7 @@ export function SalaryMonthPicker({ months, selected }: { months: string[]; sele
           const on = ym === selected;
           if (!has) {
             return (
-              <span key={mn} className="tabular-nums rounded-pill px-3 py-1.5 text-[12.5px] font-semibold text-ink-subtle/45" title="No payroll for this month">
+              <span key={mn} className="tabular-nums rounded-xl px-3.5 py-1.5 text-[12.5px] font-semibold text-ink-subtle/45" title="No payroll for this month" style={{ boxShadow: "inset 0 0 0 1.5px var(--color-hairline)" }}>
                 {mn}
               </span>
             );
@@ -79,11 +79,11 @@ export function SalaryMonthPicker({ months, selected }: { months: string[]; sele
               key={mn}
               href={`/salary?month=${ym}` as Route}
               aria-current={on ? "page" : undefined}
-              className="tabular-nums rounded-pill px-3 py-1.5 text-[12.5px] font-bold transition"
+              className="tabular-nums rounded-xl px-3.5 py-1.5 text-[12.5px] font-black transition"
               style={
                 on
-                  ? { background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`, color: "#fff", boxShadow: `0 6px 16px -10px ${GREEN_DEEP}` }
-                  : { background: "var(--color-surface-soft)", color: "var(--color-ink-soft)", boxShadow: "inset 0 0 0 1px var(--color-hairline)" }
+                  ? { background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`, color: "#fff", boxShadow: `0 8px 18px -8px ${GREEN_DEEP}` }
+                  : { background: "var(--color-surface-card)", color: "var(--color-ink-strong)", boxShadow: `inset 0 0 0 2px color-mix(in srgb, ${GREEN} 22%, var(--color-hairline-strong))` }
               }
             >
               {mn}

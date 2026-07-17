@@ -8,7 +8,6 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { salaryBreakupMonths, listSalaryBreakup } from "@/lib/queries/salary-breakup";
 import { type SalaryRow } from "@/components/salary/salary-breakup-table";
 import { SalaryWorkspace } from "@/components/salary/salary-workspace";
-import { SalarySyncButton } from "@/components/salary/salary-sync-button";
 import { SalaryMonthPicker } from "@/components/salary/salary-month-picker";
 import { SalaryExportButtons } from "@/components/salary/salary-export-buttons";
 import {
@@ -75,6 +74,7 @@ export default async function SalaryPage({ searchParams }: PageProps) {
   // Plain serializable rows for the client table.
   const tableRows: SalaryRow[] = rows.map((r, i) => ({
     id: r.id,
+    employeeId: r.employeeId,
     srNo: r.srNo ?? i + 1,
     employeeName: r.employeeName,
     designation: r.designation,
@@ -85,6 +85,7 @@ export default async function SalaryPage({ searchParams }: PageProps) {
     weeklyOff: r.weeklyOff,
     totalDaysWorked: r.totalDaysWorked,
     finalWorkingDays: r.finalWorkingDays,
+    daysInMonth: r.daysInMonth,
     monthlyCtc: r.monthlyCtc,
     payableAfterLeave: r.payableAfterLeave,
     pt: r.pt,
@@ -94,6 +95,10 @@ export default async function SalaryPage({ searchParams }: PageProps) {
     finalPayment: r.finalPayment,
     paid: r.paid,
     adminNote: r.adminNote,
+    waiveOffDays: r.waiveOffDays,
+    waiveOffNote: r.waiveOffNote,
+    payoutAdjustment: r.payoutAdjustment,
+    payoutAdjustmentNote: r.payoutAdjustmentNote,
   }));
 
   return (
@@ -134,10 +139,6 @@ export default async function SalaryPage({ searchParams }: PageProps) {
               >
                 {month ? `${monthLabel(month)} payroll` : "Salary breakup"}
               </h1>
-              <p className="mt-1.5 max-w-[76ch] text-[15px] font-medium text-ink-muted">
-                Straight from the salary sheet (imported as-is). The attendance figures here are
-                the sheet&apos;s own — the app&apos;s attendance does not change these numbers.
-              </p>
               <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5">
                 {process.env.SALARY_DOCS_UI !== "false" && (
                   <Link href={"/salary/documents" as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: GREEN_DEEP }}>
@@ -158,7 +159,6 @@ export default async function SalaryPage({ searchParams }: PageProps) {
             </div>
 
             <div className="flex flex-col items-end gap-2.5 max-md:items-start">
-              <SalarySyncButton />
               <SalaryExportButtons month={month} />
             </div>
           </div>
@@ -204,7 +204,7 @@ export default async function SalaryPage({ searchParams }: PageProps) {
           </section>
         ) : (
           <>
-            <SalaryWorkspace rows={tableRows} canMarkPaid={canMarkPaid} canEditNote={canMarkPaid} />
+            <SalaryWorkspace rows={tableRows} canMarkPaid={canMarkPaid} canEditNote={canMarkPaid} canWaiveOff={canMarkPaid} month={month ?? undefined} />
 
             {/* ── Statement & earnings document downloads (behind SALARY_STATEMENTS) ── */}
             {statementsOn && month && statementEmployees.length > 0 && (

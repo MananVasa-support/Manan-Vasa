@@ -62,28 +62,16 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
 
   const inner = (
     <>
-      {/* The module's cut-out artwork — fully visible (object-contain) on the
-          colour, anchored bottom-right. No scrim, no blur. */}
-      {m.image && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={m.image}
-          alt=""
-          aria-hidden
-          className="pointer-events-none absolute bottom-0 right-0 h-[82%] w-auto max-w-[50%] object-contain object-bottom transition-transform duration-300 group-hover:scale-[1.04]"
-          style={{ filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.18))" }}
-        />
-      )}
-      {/* WMS (no art) → a large translucent icon as its mark. */}
-      {!m.image && (
-        <Icon
-          size={150}
-          strokeWidth={1.6}
-          aria-hidden
-          className="pointer-events-none absolute -bottom-3 -right-3"
-          style={{ color: p.ink, opacity: 0.16 }}
-        />
-      )}
+      {/* Every module now uses the same clean mark — a large translucent module
+          icon anchored bottom-right (like WMS / Goals / Monthly Events). The old
+          per-module cut-out artwork was dropped. */}
+      <Icon
+        size={150}
+        strokeWidth={1.6}
+        aria-hidden
+        className="pointer-events-none absolute -bottom-3 -right-3"
+        style={{ color: p.ink, opacity: 0.16 }}
+      />
 
       {/* Content — left column, constrained so it never sits under the art. */}
       <div className="relative z-10 flex h-full flex-col justify-between p-6">
@@ -93,9 +81,9 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
         >
           <Icon size={24} strokeWidth={2.2} style={{ color: p.ink }} />
         </span>
-        {/* Art-less cards (WMS/Goals/Events) give the text more width so long
+        {/* All cards are art-less now → the text gets the wider column so long
             labels like "Monthly Events Master" wrap to 2 lines, not 3. */}
-        <div className={m.image ? "max-w-[58%]" : "max-w-[76%]"}>
+        <div className="max-w-[76%]">
           <h3 className="text-[30px] font-extrabold leading-none tracking-tight max-md:text-[26px]" style={{ color: p.ink }}>
             {m.label}
           </h3>

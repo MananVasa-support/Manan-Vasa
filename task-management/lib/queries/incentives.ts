@@ -7,6 +7,7 @@ import {
   incentiveParticipants,
   incentiveProjects,
   incentiveTargets,
+  employees,
   type IncentiveCatalog,
   type IncentiveEntry,
   type IncentiveParticipant,
@@ -35,6 +36,19 @@ function num(v: string | null | undefined): number {
 
 function isExcluded(name: string | null | undefined): boolean {
   return name ? EXCLUDED.has(name.trim()) : false;
+}
+
+/**
+ * Name-keys of REMOVED (inactive) employees — their incentive rows are dropped
+ * from the dashboard so a left-out person no longer shows. Names that match NO
+ * employee (aliases) are kept, so only truly-removed people are filtered.
+ */
+async function removedNameKeys(): Promise<Set<string>> {
+  const rows = await db
+    .select({ name: employees.name })
+    .from(employees)
+    .where(eq(employees.isActive, false));
+  return new Set(rows.map((r) => nameKey(r.name)).filter(Boolean));
 }
 
 /** [start, end) date bounds for a calendar year, as YYYY-MM-DD strings. */
@@ -175,10 +189,12 @@ export interface IncentiveDashboard {
  * Excluded operational actors (see EXCLUDED) are dropped from every roll-up.
  */
 export async function getIncentiveDashboard(year: number): Promise<IncentiveDashboard> {
-  const [entries, projects] = await Promise.all([
+  const [entries, projects, removed] = await Promise.all([
     listIncentiveEntries({ year }),
     listIncentiveProjects({ year }),
+    removedNameKeys(),
   ]);
+  const dropped = (name: string | null | undefined) => isExcluded(name) || removed.has(nameKey(name));
 
   const zero = (): IncentiveTotals => ({ approved: 0, booked: 0, accrued: 0, paid: 0, unpaid: 0 });
   const permanent = zero();
@@ -207,7 +223,7 @@ export async function getIncentiveDashboard(year: number): Promise<IncentiveDash
 
   // Permanent entries — name resolved from the raw emp_name column.
   for (const e of entries) {
-    if (isExcluded(e.empName)) continue;
+    if (dropped(e.empName)) continue;
     const approved = num(e.approvedAmt);
     const paid = num(e.paidAmt);
     const unpaid = Math.max(0, approved - paid);
@@ -263,7 +279,7 @@ export async function getIncentiveDashboard(year: number): Promise<IncentiveDash
       },
     ];
     for (const leg of legs) {
-      if (!leg.name || isExcluded(leg.name) || leg.name.trim().toLowerCase() === "none") {
+      if (!leg.name || dropped(leg.name) || leg.name.trim().toLowerCase() === "none") {
         continue;
       }
       const approved = leg.approved;

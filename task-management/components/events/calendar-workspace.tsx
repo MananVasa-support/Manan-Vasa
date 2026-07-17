@@ -64,7 +64,7 @@ import {
 import { useCalendar } from "./use-calendar";
 import { ClipboardProvider, useClipboard } from "./clipboard-store";
 import { ViewSwitcher } from "./view-switcher";
-import { LegendPanel, UNCATEGORISED } from "./legend-panel";
+import { LegendDrawer, UNCATEGORISED } from "./legend-panel";
 import { FilterBar, emptyFilters, type CalendarFilters } from "./filter-bar";
 import type { EventStatus, EventSource } from "@/db/enums";
 import { TimeGridBand } from "./time-grid-band";
@@ -384,16 +384,16 @@ function InnerWorkspace({ initial, todayIso }: CalendarWorkspaceProps) {
         onClear={() => setFilters(emptyFilters())}
       />
 
-      <div className="mt-4 flex flex-col gap-4 md:flex-row">
-        <LegendPanel
-          categories={categories}
-          events={events}
-          active={filter}
-          onToggle={toggleFilter}
-          onClear={() => setFilter(new Set())}
-        />
+      <LegendDrawer
+        categories={categories}
+        events={events}
+        active={filter}
+        onToggle={toggleFilter}
+        onClear={() => setFilter(new Set())}
+      />
 
-        <div className="min-w-0 flex-1">
+      <div className="mt-4">
+        <div className="min-w-0">
           {view === "overview" ? (
             <MonthOverview
               monthDate={monthDate}

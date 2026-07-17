@@ -13,6 +13,7 @@ const KIND_LABEL: Record<PlanKind, string> = {
   quarterly: "Quarter goal",
   yearly: "Yearly goal",
   task: "Task",
+  unfinished: "Carried over",
   adhoc: "Commitment",
 };
 
@@ -27,6 +28,7 @@ const KIND_ACCENT: Record<PlanKind, string> = {
   quarterly: "var(--color-blue-deep)",
   yearly: "var(--color-indigo-deep)",
   task: "var(--color-slate)",
+  unfinished: "var(--color-amber-deep)",
   adhoc: "var(--color-green-deep)",
 };
 

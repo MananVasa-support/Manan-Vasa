@@ -2233,6 +2233,16 @@ select.nt-input {
 .sidebar-rail[data-collapsed="true"] .sidebar-foot {
   justify-content: center;
 }
+/* Collapsed: the top control row keeps only the toggle → centre it; the footer
+   profile bar keeps only the avatar → centre it too. */
+.sidebar-rail[data-collapsed="true"] .sidebar-toprow {
+  justify-content: center;
+}
+.sidebar-rail[data-collapsed="true"] .sidebar-foot button {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
 @media (prefers-reduced-motion: reduce) {
   .sidebar-rail {
     transition: none;

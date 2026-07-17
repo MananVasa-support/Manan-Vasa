@@ -172,12 +172,20 @@ export function validateIncentiveDetails(
   return { ok: true, details: clean };
 }
 
-/** Stored details → ordered [label, value] pairs for display. */
+/** Stored details → ordered [label, value] pairs for display.
+ *
+ * Defensive: an UNKNOWN `type` (legacy / imported request whose type isn't one of
+ * the 4 current forms) or a null/non-object `details` must NOT throw — otherwise a
+ * single bad row crashes the whole requests list for ADMINS (who see everyone's
+ * requests, so they hit the bad row; a normal user seeing only their own valid
+ * requests never does). Unknown type → no field config → empty pairs. */
 export function incentiveDetailPairs(
   type: IncentiveType,
-  details: Record<string, string>,
+  details: Record<string, string> | null | undefined,
 ): [string, string][] {
-  return INCENTIVE_FIELDS[type]
-    .filter((f) => (details[f.key] ?? "") !== "")
-    .map((f) => [f.label, details[f.key] as string]);
+  const fields = INCENTIVE_FIELDS[type] ?? [];
+  const d = details && typeof details === "object" ? details : {};
+  return fields
+    .filter((f) => (d[f.key] ?? "") !== "")
+    .map((f) => [f.label, String(d[f.key])]);
 }

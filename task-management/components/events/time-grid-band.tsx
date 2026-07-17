@@ -71,10 +71,10 @@ export function TimeGridBand(props: TimeGridBandProps) {
   for (let m = DAY_START_MIN; m <= DAY_END_MIN; m += 60) hourLabels.push(m);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-hairline bg-surface-card">
+    <div className="overflow-hidden rounded-xl border-2 border-hairline-strong bg-surface-card">
       {/* Header row */}
       <div
-        className="grid border-b border-hairline bg-surface-soft/60"
+        className="grid border-b border-hairline-strong bg-surface-soft/60"
         style={{ gridTemplateColumns: `${axisW}px repeat(7, minmax(0, 1fr))` }}
       >
         <div />
@@ -87,7 +87,7 @@ export function TimeGridBand(props: TimeGridBandProps) {
             <div
               key={iso}
               className={cn(
-                "flex items-baseline gap-1.5 border-l border-hairline px-2 py-1.5",
+                "flex items-baseline gap-1.5 border-l border-hairline-strong px-2 py-1.5",
                 outside && "opacity-45",
               )}
               style={hasHoliday ? { background: "rgba(200,16,46,0.06)" } : undefined}
@@ -111,7 +111,7 @@ export function TimeGridBand(props: TimeGridBandProps) {
 
       {/* All-day banner row */}
       <div
-        className="grid border-b border-hairline"
+        className="grid border-b border-hairline-strong"
         style={{ gridTemplateColumns: `${axisW}px repeat(7, minmax(0, 1fr))` }}
       >
         <div className="px-1 py-1 text-right text-[9px] font-semibold uppercase tracking-wide text-ink-soft">
@@ -122,7 +122,7 @@ export function TimeGridBand(props: TimeGridBandProps) {
           return (
             <div
               key={iso}
-              className="min-h-[26px] space-y-0.5 border-l border-hairline p-0.5"
+              className="min-h-[26px] space-y-0.5 border-l border-hairline-strong p-0.5"
               onDoubleClick={() => props.onCreateAllDay(iso)}
             >
               {allDay.map((e) => (

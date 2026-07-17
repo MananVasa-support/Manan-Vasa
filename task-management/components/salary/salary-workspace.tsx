@@ -29,10 +29,14 @@ export function SalaryWorkspace({
   rows,
   canMarkPaid = false,
   canEditNote = false,
+  canWaiveOff = false,
+  month,
 }: {
   rows: SalaryRow[];
   canMarkPaid?: boolean;
   canEditNote?: boolean;
+  canWaiveOff?: boolean;
+  month?: string;
 }) {
   const [company, setCompany] = useState<string>(ALL);
 
@@ -147,7 +151,7 @@ export function SalaryWorkspace({
         />
       </section>
 
-      <SalaryBreakupTable rows={shown} canMarkPaid={canMarkPaid} canEditNote={canEditNote} hideCompanyFilter />
+      <SalaryBreakupTable rows={shown} canMarkPaid={canMarkPaid} canEditNote={canEditNote} canWaiveOff={canWaiveOff} month={month} hideCompanyFilter />
     </>
   );
 }

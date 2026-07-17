@@ -68,6 +68,7 @@ const KIND_META: Record<NotificationKind, { icon: LucideIcon; tone: string }> = 
   goals_approval_reminder: { icon: AlarmClock, tone: "amber" },
   goals_committed: { icon: CheckCircle2, tone: "green" },
   goals_approved: { icon: CheckCircle2, tone: "green" },
+  hr_confirmation_due: { icon: CheckCircle2, tone: "amber" },
 };
 
 // Kinds that deep-link somewhere other than the related task / inbox.
@@ -81,6 +82,7 @@ const KIND_HREF: Partial<Record<string, string>> = {
   goals_approval_reminder: "/goals/approve",
   goals_committed: "/goals/weekly",
   goals_approved: "/goals/weekly",
+  hr_confirmation_due: "/agreements",
 };
 
 /**

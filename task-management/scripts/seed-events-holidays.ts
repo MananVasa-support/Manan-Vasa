@@ -135,24 +135,11 @@ const FY27_NAMED: Spec[] = [
   { name: "Gudhi Padwa", date: "2028-03-27", kind: "hindu", verify: true },
 ];
 
-// ── Religion add-ons (applies_to='christian'|'muslim'; office-open + optional) ──
-const FY26_ADDONS: Spec[] = [
-  { name: "Easter", date: "2026-04-05", kind: "christian", verify: true },
-  { name: "Christmas Eve", date: "2026-12-24", kind: "christian", verify: false },
-  { name: "Eid al-Fitr", date: "2027-03-10", kind: "muslim", verify: true },
-  { name: "Eid al-Adha (Bakri Eid)", date: "2026-05-27", kind: "muslim", verify: true },
-  { name: "Muharram", date: "2026-06-16", kind: "muslim", verify: true },
-  { name: "Ashura", date: "2026-06-25", kind: "muslim", verify: true },
-];
-
-const FY27_ADDONS: Spec[] = [
-  { name: "Easter", date: "2028-04-16", kind: "christian", verify: true },
-  { name: "Christmas Eve", date: "2027-12-24", kind: "christian", verify: false },
-  { name: "Eid al-Fitr", date: "2028-02-27", kind: "muslim", verify: true },
-  { name: "Eid al-Adha (Bakri Eid)", date: "2027-05-17", kind: "muslim", verify: true },
-  { name: "Muharram", date: "2027-06-06", kind: "muslim", verify: true },
-  { name: "Ashura", date: "2027-06-15", kind: "muslim", verify: true },
-];
+// ── Religion add-ons REMOVED (per Sir 2026-07-17) ─────────────────────────────
+// The office holiday master is EXACTLY the named 14 (applies_to='all'). The
+// Christian/Muslim optional office-open markers (Easter, Christmas Eve, Eid
+// al-Fitr, Bakri Eid, Muharram, Ashura) were dropped so the calendar shows only
+// the sanctioned list. `appliesTo`/christian/muslim kept for future re-tagging.
 
 function appliesTo(kind: Kind): HolidayAppliesTo {
   if (kind === "christian") return "christian";
@@ -182,9 +169,7 @@ async function main() {
 
   const rows = [
     ...FY26_NAMED.map((s) => toRow(s, 2026)),
-    ...FY26_ADDONS.map((s) => toRow(s, 2026)),
     ...FY27_NAMED.map((s) => toRow(s, 2027)),
-    ...FY27_ADDONS.map((s) => toRow(s, 2027)),
   ];
 
   const inserted = await db

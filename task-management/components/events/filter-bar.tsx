@@ -54,12 +54,16 @@ function Pill({
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "rounded-pill px-3 py-1 text-[12.5px] font-semibold transition-colors",
+        "rounded-lg px-3.5 py-1.5 text-[12.5px] font-bold transition-all",
         active
-          ? "text-white"
-          : "border border-hairline bg-surface-soft text-ink-muted hover:border-hairline-strong hover:text-ink-strong",
+          ? "text-white shadow-[0_6px_14px_-8px_var(--color-altus-red-deep)]"
+          : "border-[1.5px] bg-surface-card text-ink-muted hover:text-ink-strong",
       )}
-      style={active ? { background: "var(--color-altus-red, #c8102e)" } : undefined}
+      style={
+        active
+          ? { background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }
+          : { borderColor: "var(--color-hairline-strong)" }
+      }
     >
       {children}
     </button>
@@ -68,11 +72,15 @@ function Pill({
 
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-[11px] font-bold uppercase tracking-wide text-ink-soft">{label}</span>
-      <div className="flex flex-wrap items-center gap-1">{children}</div>
+    <div className="flex items-center gap-2">
+      <span className="text-[10.5px] font-black uppercase tracking-[0.12em] text-ink-subtle">{label}</span>
+      <div className="flex flex-wrap items-center gap-1.5">{children}</div>
     </div>
   );
+}
+
+function Divider() {
+  return <span aria-hidden className="mx-0.5 h-7 w-px shrink-0 bg-hairline-strong max-md:hidden" />;
 }
 
 export function FilterBar({
@@ -90,12 +98,17 @@ export function FilterBar({
 }) {
   const count = filtersActiveCount(filters);
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-hairline bg-surface-card px-3 py-2">
-      <span className="flex items-center gap-1.5 text-[12px] font-bold text-ink-strong">
-        <SlidersHorizontal size={14} strokeWidth={2.4} className="text-ink-soft" />
+    <div
+      className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border-2 bg-surface-card px-4 py-2.5"
+      style={{ borderColor: "var(--color-hairline-strong)", boxShadow: "0 6px 20px -16px rgba(15,23,42,0.3)" }}
+    >
+      <span className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-black text-white" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}>
+        <SlidersHorizontal size={14} strokeWidth={2.6} />
         Filters
+        {count > 0 && <span className="rounded-full bg-white px-1.5 text-[10.5px] font-black" style={{ color: "var(--color-altus-red)" }}>{count}</span>}
       </span>
 
+      <Divider />
       <Group label="Status">
         {STATUS_OPTS.map((o) => (
           <Pill key={o.id} active={filters.status.has(o.id)} onClick={() => onToggleStatus(o.id)}>
@@ -104,6 +117,7 @@ export function FilterBar({
         ))}
       </Group>
 
+      <Divider />
       <Group label="Source">
         {SOURCE_OPTS.map((o) => (
           <Pill key={o.id} active={filters.source.has(o.id)} onClick={() => onToggleSource(o.id)}>
@@ -112,6 +126,7 @@ export function FilterBar({
         ))}
       </Group>
 
+      <Divider />
       <Group label="Only">
         <Pill active={filters.obligationOnly} onClick={() => onToggleFlag("obligationOnly")}>
           Obligation-linked
@@ -125,7 +140,8 @@ export function FilterBar({
         <button
           type="button"
           onClick={onClear}
-          className="ml-auto inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-[12px] font-semibold text-ink-soft transition-colors hover:bg-surface-soft hover:text-ink-strong"
+          className="ml-auto inline-flex items-center gap-1 rounded-lg border-[1.5px] px-2.5 py-1.5 text-[12px] font-bold text-ink-soft transition-colors hover:text-ink-strong"
+          style={{ borderColor: "var(--color-hairline-strong)" }}
         >
           <X size={13} strokeWidth={2.6} />
           Clear ({count})

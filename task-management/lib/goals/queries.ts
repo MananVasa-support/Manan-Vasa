@@ -1,7 +1,7 @@
 import "server-only";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { goals, weeklyGoals } from "@/db/schema";
+import { goals, weeklyGoals, employees } from "@/db/schema";
 import { withRetry } from "@/lib/db/with-timeout";
 import { getDownlineIds } from "@/lib/weekly-goals/hierarchy";
 import { effectivePct, weeklyScore } from "@/lib/weekly-goals/effective";
@@ -60,6 +60,52 @@ export async function getYearBoard(employeeId: string, fyStartYear: number): Pro
     years: tree.filter((n) => n.period === "year"),
     standalone: tree.filter((n) => n.period !== "year"),
   };
+}
+
+export interface AssignedGoal {
+  id: string;
+  title: string;
+  area: string | null;
+  period: string;
+  periodKey: string;
+  pctDone: number;
+  acceptPct: number | null;
+  ownerName: string;
+}
+
+/**
+ * Goals OWNED BY OTHERS where this person is named in `team_involved` (Sir #25) —
+ * "whoever is selected for a goal sees it in his own view, in his own capacity."
+ * Scoped to the FY, excludes the person's own goals (those already show on the board).
+ */
+export async function getAssignedGoals(employeeId: string, fyStartYear: number): Promise<AssignedGoal[]> {
+  const keys = [String(fyStartYear), ...quartersOfFy(fyStartYear), ...monthKeysOfFy(fyStartYear)];
+  const rows = await withRetry(
+    () =>
+      db
+        .select({
+          id: goals.id,
+          title: goals.title,
+          area: goals.area,
+          period: goals.period,
+          periodKey: goals.periodKey,
+          pctDone: goals.pctDone,
+          acceptPct: goals.acceptPct,
+          ownerName: employees.name,
+        })
+        .from(goals)
+        .innerJoin(employees, eq(employees.id, goals.employeeId))
+        .where(
+          and(
+            eq(goals.archived, false),
+            ne(goals.employeeId, employeeId),
+            inArray(goals.periodKey, keys),
+            sql`${goals.teamInvolved} @> ${JSON.stringify([{ employeeId }])}::jsonb`,
+          ),
+        ),
+    { timeoutMs: [...READ_BUDGET], label: "goals.getAssignedGoals" },
+  );
+  return rows as AssignedGoal[];
 }
 
 /** Goals for one person at one period + key (non-archived), ordered by Sr No. */

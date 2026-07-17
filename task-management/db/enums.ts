@@ -478,3 +478,31 @@ export const GOAL_PERIOD_LABELS: Record<GoalPeriodCode, string> = {
 /** How a goal came to exist: hand-added vs auto-generated from a parent by ÷. */
 export const GOAL_SOURCES = ["manual", "cascade"] as const;
 export type GoalSource = (typeof GOAL_SOURCES)[number];
+
+// ── Agreements module (migration 0132) ──────────────────────────────────────
+/** The four HR agreement templates. */
+export const AGREEMENT_TYPES = [
+  "appointment",
+  "employment",
+  "nda",
+  "ctc",
+  "probation_confirmation",
+  "training_completion",
+] as const;
+export type AgreementType = (typeof AGREEMENT_TYPES)[number];
+export const AGREEMENT_TYPE_LABELS: Record<AgreementType, string> = {
+  appointment: "Appointment Letter",
+  employment: "Employment Agreement",
+  nda: "NDA / Confidentiality",
+  ctc: "CTC / Salary Letter",
+  probation_confirmation: "Confirmation of Appointment (Post-Probation)",
+  training_completion: "Confirmation — End of Free Training",
+};
+/** Lifecycle: drafted by HR → sent to the employee → e-signed. */
+export const AGREEMENT_STATUSES = ["draft", "sent", "signed"] as const;
+export type AgreementStatus = (typeof AGREEMENT_STATUSES)[number];
+export const AGREEMENT_STATUS_LABELS: Record<AgreementStatus, string> = {
+  draft: "Draft",
+  sent: "Sent",
+  signed: "Signed",
+};

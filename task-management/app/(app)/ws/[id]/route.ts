@@ -9,6 +9,12 @@ import {
 import { getCurrentEmployee } from "@/lib/auth/current";
 import { accessFor } from "@/lib/auth/workspace-access";
 
+// This handler reads cookies + auth and redirects — it is ALWAYS dynamic. Without
+// this, Turbopack tries to statically generate paths for /ws/[id] and the worker
+// crashes (no request/cookie context at gen time) → "Jest worker … child process
+// exceptions". Force-dynamic opts it out of any static generation attempt.
+export const dynamic = "force-dynamic";
+
 /**
  * Enter a workspace from the hub.
  *

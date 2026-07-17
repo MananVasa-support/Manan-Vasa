@@ -159,6 +159,7 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
     p.startsWith("/leave") ||
     p.startsWith("/dcc") ||
     p.startsWith("/dossier") ||
+    p.startsWith("/agreements") ||
     p.startsWith("/pms")
   ) {
     return "employees";

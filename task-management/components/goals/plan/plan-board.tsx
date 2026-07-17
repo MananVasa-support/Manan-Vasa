@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -25,8 +24,10 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   CalendarCheck2,
   ChevronDown,
+  History,
   Layers,
   ListTodo,
+  Loader2,
   Plus,
   Sparkles,
   Sunrise,
@@ -34,21 +35,29 @@ import {
 import { fireToast } from "@/lib/toast";
 import { SourceCard } from "./source-card";
 import { PlanItemCard } from "./plan-item-card";
-import { GHOST_ID, type PlanItem, type PlanSources, type SourceItem, type SourceKind } from "./types";
+import { DayReview } from "./day-review";
+import { GHOST_ID, type PlanItem, type PlanPhase, type PlanSources, type SourceItem, type SourceKind } from "./types";
 import {
   addWeeklyGoalToPlan,
   addCascadeGoalToPlan,
   addTaskToPlan,
+  addUnfinishedToPlan,
   addAdhocToPlan,
+  abandonTask,
   reorderPlan,
   removePlanItem,
+  startMyDay,
 } from "@/app/(app)/goals/plan/actions";
+
+/** Sources that de-dupe against today's plan (flip to "added" once pulled). */
+const DEDUPE_KINDS: SourceKind[] = ["weekly", "task", "unfinished"];
 
 interface Props {
   initialPlan: PlanItem[];
   sources: PlanSources;
   minItems: number;
   isManager: boolean;
+  initialPhase: PlanPhase;
 }
 
 // Goals module identity (amber-gold) — mirrors MODULE_THEME.goals. The planner
@@ -61,8 +70,9 @@ const GOALS_GRADIENT = `linear-gradient(135deg, ${GOALS_ACCENT}, ${GOALS_ACCENT_
 const PLAN_DROP_ID = "plan-drop";
 const nonGhost = (items: PlanItem[]) => items.filter((i) => i.id !== GHOST_ID);
 
-export function PlanBoard({ initialPlan, sources, minItems, isManager }: Props) {
-  const router = useRouter();
+export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPhase }: Props) {
+  const [phase, setPhase] = React.useState<PlanPhase>(initialPhase);
+  const [starting, setStarting] = React.useState(false);
   const [plan, setPlan] = React.useState<PlanItem[]>(initialPlan);
   const [src, setSrc] = React.useState<PlanSources>(sources);
   const [active, setActive] = React.useState<
@@ -80,6 +90,18 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager }: Props) 
   const committed = React.useMemo(() => nonGhost(plan), [plan]);
   const count = committed.length;
   const met = count >= minItems;
+
+  /** "Start my day" — persist the started stamp, then flip to the active phase. */
+  const onStartDay = React.useCallback(() => {
+    if (!met || starting) return;
+    setStarting(true);
+    void startMyDay()
+      .then((r) => {
+        if (r.ok) setPhase("active");
+        else fireToast({ message: r.error, type: "error" });
+      })
+      .finally(() => setStarting(false));
+  }, [met, starting]);
 
   /** Persist the current visual order (fire-and-forget, toast on failure). */
   const persistOrder = React.useCallback((items: PlanItem[]) => {
@@ -118,18 +140,20 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager }: Props) 
         inserted = base;
         return base;
       });
-      if (kind === "weekly" || kind === "task") markSource(kind, sourceId, true);
+      if (DEDUPE_KINDS.includes(kind)) markSource(kind, sourceId, true);
 
       const res =
         kind === "weekly"
           ? await addWeeklyGoalToPlan(sourceId)
           : kind === "task"
             ? await addTaskToPlan(sourceId)
-            : await addCascadeGoalToPlan(sourceId);
+            : kind === "unfinished"
+              ? await addUnfinishedToPlan(sourceId)
+              : await addCascadeGoalToPlan(sourceId);
 
       if (!res.ok) {
         setPlan((prev) => prev.filter((i) => i.id !== tempId));
-        if (kind === "weekly" || kind === "task") markSource(kind, sourceId, false);
+        if (DEDUPE_KINDS.includes(kind)) markSource(kind, sourceId, false);
         fireToast({ message: res.error });
         return;
       }
@@ -150,6 +174,16 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager }: Props) 
     (item: SourceItem) => void commitAdd(item.kind, item.id, item.title, item.subtitle),
     [commitAdd],
   );
+
+  /** Abandon a task → Recycle Bin. Optimistically drop it from its source list. */
+  const onAbandon = React.useCallback((item: SourceItem) => {
+    if (!item.taskId) return;
+    setSrc((prev) => ({ ...prev, [item.kind]: prev[item.kind].filter((s) => s.id !== item.id) }));
+    startTransition(async () => {
+      const res = await abandonTask(item.taskId!);
+      if (!res.ok) fireToast({ message: res.error });
+    });
+  }, []);
 
   const onRemove = React.useCallback((id: string) => {
     setPlan((prev) => prev.filter((i) => i.id !== id));
@@ -244,6 +278,21 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager }: Props) 
     setPlan((prev) => prev.filter((i) => i.id !== GHOST_ID));
   }
 
+  // Non-plan phases (active / close-out / closed) show the review half — same
+  // commitments, no pull panels — on the SAME page.
+  if (phase !== "plan") {
+    return (
+      <DayReview
+        phase={phase}
+        items={committed}
+        onToCloseout={() => setPhase("closeout")}
+        onBackToPlan={() => setPhase("plan")}
+        onClosed={() => setPhase("closed")}
+        onReopened={() => setPhase("plan")}
+      />
+    );
+  }
+
   return (
     <DndContext
       sensors={sensors}
@@ -253,43 +302,55 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager }: Props) 
       onDragEnd={onDragEnd}
       onDragCancel={onDragCancel}
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-6 max-lg:grid-cols-1">
-        {/* LEFT — Today's Plan */}
+      {/* Sir's four verticals: a compact plan on the left, then the three pull
+          boxes — Weekly Goals, Unfinished, and your To-Do (filtered). Drag a card
+          left, or tap +. Stacks to 2 then 1 column on narrower screens. */}
+      <div className="grid gap-5 grid-cols-[0.9fr_1fr_1fr_1.05fr] max-xl:grid-cols-2 max-md:grid-cols-1">
+        {/* 1 — Today's Plan (compact) */}
         <PlanColumn
           plan={plan}
           count={count}
           minItems={minItems}
           met={met}
           isManager={isManager}
+          starting={starting}
           onRemove={onRemove}
           onAddAdhoc={onAddAdhoc}
-          onStart={() => router.push("/hub")}
+          onStart={onStartDay}
         />
 
-        {/* RIGHT — two source windows */}
-        <div className="flex flex-col gap-5">
-          <SourceWindow
-            title="Goals"
-            subtitle="Drag a goal into today, or tap +"
-            icon={<Layers size={16} />}
-            delay={60}
-            sections={[
-              { key: "weekly", label: "Weekly", items: src.weekly },
-              { key: "monthly", label: "Monthly", items: src.monthly },
-              { key: "quarterly", label: "Quarterly", items: src.quarterly },
-              { key: "yearly", label: "Yearly", items: src.yearly },
-            ]}
-            onAdd={onAddSource}
-          />
-          <SourceWindow
-            title="Other sources"
-            subtitle="Pull open tasks into today"
-            icon={<ListTodo size={16} />}
-            delay={120}
-            sections={[{ key: "task", label: "Tasks", items: src.task }]}
-            onAdd={onAddSource}
-          />
-        </div>
+        {/* 2 — Weekly Goals */}
+        <SourceWindow
+          title="Weekly goals"
+          subtitle="What your manager set this week"
+          icon={<Layers size={16} />}
+          delay={60}
+          sections={[{ key: "weekly", label: "This week", items: src.weekly }]}
+          onAdd={onAddSource}
+        />
+
+        {/* 3 — Previously Unfinished */}
+        <SourceWindow
+          title="Unfinished"
+          subtitle="Carried over from earlier days"
+          icon={<History size={16} />}
+          delay={100}
+          sections={[{ key: "unfinished", label: "Not done yet", items: src.unfinished }]}
+          onAdd={onAddSource}
+          onAbandon={onAbandon}
+        />
+
+        {/* 4 — To-Do list (overdue + due within 7 days), with a filter */}
+        <SourceWindow
+          title="To-do list"
+          subtitle="Overdue + due within 7 days"
+          icon={<ListTodo size={16} />}
+          delay={140}
+          filterable
+          sections={[{ key: "task", label: "Pending", items: src.task }]}
+          onAdd={onAddSource}
+          onAbandon={onAbandon}
+        />
       </div>
 
       <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(0.2,0,0,1)" }}>
@@ -315,11 +376,12 @@ function PlanColumn(props: {
   minItems: number;
   met: boolean;
   isManager: boolean;
+  starting: boolean;
   onRemove: (id: string) => void;
   onAddAdhoc: (title: string) => void;
   onStart: () => void;
 }) {
-  const { plan, count, minItems, met, isManager, onRemove, onAddAdhoc, onStart } = props;
+  const { plan, count, minItems, met, isManager, starting, onRemove, onAddAdhoc, onStart } = props;
   const { setNodeRef, isOver } = useDroppable({ id: PLAN_DROP_ID });
   const [draft, setDraft] = React.useState("");
   const reduce = useReducedMotion();
@@ -451,11 +513,11 @@ function PlanColumn(props: {
         <button
           type="button"
           onClick={onStart}
-          disabled={!met}
+          disabled={!met || starting}
           className="wg-btn wg-sheen inline-flex h-11 items-center gap-2 rounded-chip px-5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(124,45,18,0.28)] disabled:opacity-40 disabled:shadow-none focus-visible:outline-2"
           style={{ background: GOALS_GRADIENT, outlineColor: GOALS_ACCENT }}
         >
-          <Sunrise size={16} /> Start my day
+          {starting ? <Loader2 size={16} className="animate-spin" /> : <Sunrise size={16} />} Start my day
         </button>
       </div>
     </section>
@@ -514,15 +576,29 @@ function PipMeter({
 /* ----------------------------------------------------------------------- */
 /* Right column — a source window with collapsible sections                */
 /* ----------------------------------------------------------------------- */
+type TaskFilter = "all" | "overdue" | "important";
+
 function SourceWindow(props: {
   title: string;
   subtitle: string;
   icon: React.ReactNode;
   delay?: number;
+  filterable?: boolean;
   sections: { key: SourceKind; label: string; items: SourceItem[] }[];
   onAdd: (item: SourceItem) => void;
+  onAbandon?: (item: SourceItem) => void;
 }) {
-  const { title, subtitle, icon, delay = 0, sections, onAdd } = props;
+  const { title, subtitle, icon, delay = 0, filterable, sections, onAdd, onAbandon } = props;
+  const [filter, setFilter] = React.useState<TaskFilter>("all");
+  const apply = React.useCallback(
+    (items: SourceItem[]) =>
+      filter === "overdue"
+        ? items.filter((i) => i.overdue)
+        : filter === "important"
+          ? items.filter((i) => i.important)
+          : items,
+    [filter],
+  );
   return (
     <section
       className="wg-rise rounded-2xl border border-hairline bg-surface-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
@@ -548,9 +624,32 @@ function SourceWindow(props: {
           <p className="text-xs text-ink-muted">{subtitle}</p>
         </div>
       </header>
+      {filterable ? (
+        <div className="mb-2.5 flex items-center gap-1.5">
+          {(["all", "overdue", "important"] as TaskFilter[]).map((f) => {
+            const on = filter === f;
+            return (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                className="rounded-full px-2.5 py-1 text-[11px] font-bold capitalize transition-colors focus-visible:outline-2"
+                style={
+                  on
+                    ? { background: GOALS_GRADIENT, color: "#fff", outlineColor: GOALS_ACCENT }
+                    : { background: "var(--color-surface-soft)", color: "var(--color-ink-muted)", outlineColor: GOALS_ACCENT }
+                }
+                aria-pressed={on}
+              >
+                {f}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       <div className="flex flex-col gap-2">
         {sections.map((s) => (
-          <SourceSection key={s.key} label={s.label} items={s.items} onAdd={onAdd} />
+          <SourceSection key={s.key} label={s.label} items={apply(s.items)} onAdd={onAdd} onAbandon={onAbandon} />
         ))}
       </div>
     </section>
@@ -561,10 +660,12 @@ function SourceSection({
   label,
   items,
   onAdd,
+  onAbandon,
 }: {
   label: string;
   items: SourceItem[];
   onAdd: (item: SourceItem) => void;
+  onAbandon?: (item: SourceItem) => void;
 }) {
   const [open, setOpen] = React.useState(true);
   const remaining = items.filter((i) => !i.added).length;
@@ -612,7 +713,7 @@ function SourceSection({
                   Nothing here right now.
                 </p>
               ) : (
-                items.map((item) => <SourceCard key={item.id} item={item} onAdd={onAdd} />)
+                items.map((item) => <SourceCard key={item.id} item={item} onAdd={onAdd} onAbandon={onAbandon} />)
               )}
             </div>
           </motion.div>

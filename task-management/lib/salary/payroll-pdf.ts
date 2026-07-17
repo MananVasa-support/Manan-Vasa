@@ -33,7 +33,7 @@ const COLS: Col[] = [
   { key: "payableAfterPt", label: "After PT", w: 72, align: "right", money: true },
   { key: "advance", label: "Advance", w: 60, align: "right", money: true },
   { key: "previousPending", label: "Prev.", w: 56, align: "right", money: true },
-  { key: "finalPayment", label: "Final Pay", w: 82, align: "right", money: true },
+  { key: "netPayable", label: "Net Pay", w: 82, align: "right", money: true },
 ];
 
 export async function renderPayrollPdf(
@@ -145,7 +145,7 @@ export async function renderPayrollPdf(
     for (const c of COLS) {
       const raw = r[c.key];
       const txt = c.money ? inr(Number(raw) || 0) : String(raw ?? "");
-      const bold = c.key === "finalPayment";
+      const bold = c.key === "netPayable";
       doc.font(bold ? "Helvetica-Bold" : "Helvetica").fillColor(bold ? "#0f172a" : "#1f2937");
       doc.text(txt, x + 4, y + 4, { width: c.w - 8, align: c.align, lineBreak: false, ellipsis: true });
       x += c.w;
@@ -178,8 +178,8 @@ export async function renderPayrollPdf(
     doc.save().rect(left, y, totalW, 14).fill(rows.indexOf(r) % 2 ? "#ffffff" : "#fafafa").restore();
     cell(r);
     y += 14;
-    entitySub += r.finalPayment;
-    grand += r.finalPayment;
+    entitySub += r.netPayable;
+    grand += r.netPayable;
   }
   flushEntitySub();
 

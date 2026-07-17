@@ -67,3 +67,23 @@ export function loginDccGateOn(): boolean {
 export function goalsWhatsappOn(): boolean {
   return process.env.GOALS_WHATSAPP_ON === "true";
 }
+
+/**
+ * Checkout close-out gate (Sir): at clock-OUT you must first close out today's
+ * commitments (mark done / 0-100%), THEN DCC, THEN attendance. Sits just above
+ * the existing punch-out DCC block. OFF by default; fail-open on any DB hiccup.
+ */
+export function checkoutCloseoutGateOn(): boolean {
+  return process.env.CHECKOUT_CLOSEOUT_GATE_ON === "true";
+}
+
+/** Auto-spillover: at month rollover, clone <100% month goals into the next month
+ *  (balance % carried, `clonedFromId` set → renders red). OFF by default. */
+export function goalsSpilloverOn(): boolean {
+  return process.env.GOALS_SPILLOVER_ON === "true";
+}
+
+/** Sunday 9am manager-rollup goals report to Manan (WhatsApp + email). OFF. */
+export function goalsSundayReportOn(): boolean {
+  return process.env.GOALS_SUNDAY_REPORT_ON === "true";
+}

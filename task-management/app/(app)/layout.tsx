@@ -10,6 +10,7 @@ import { needsDailyChecklistPlan, needsGoalsPlanCommit } from "@/lib/daily-check
 import { planGateOn, managerTaskGateOn, dccReviewGateOn, goalsCascadeEnabled, loginPlanGateOn, loginDccGateOn } from "@/lib/goals/flag";
 import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist-view";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
+import { ChromeShell } from "@/components/layout/chrome-shell";
 import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
 import { IdleTimerClient } from "@/components/auth/idle-timer-client";
 import { workspaceForPath, canAccessWorkspace } from "@/lib/workspaces";
@@ -125,23 +126,20 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // and hard-navigates to /login?reason=idle, so the next day starts fresh:
   // login → daily-checklist + weekly-goals gate → hub.
   // Sir's "left → right" layout: every module EXCEPT WMS uses a vertical LEFT-RAIL
-  // instead of the top header. The rail is an IN-FLOW flex child here, so the page
-  // (flex-1) is offset by the rail's real width — content can never overlap it.
-  // On phones the rail hides (a slim fixed top bar takes over → pt on content).
-  // WMS keeps its top header (the page renders it itself; no flex wrap here).
-  const sidebarWs = Boolean(ws && ws !== "wms");
+  // instead of the top header. The rail is an IN-FLOW flex child so the page
+  // (flex-1) is offset by its real width — content can never overlap it. WMS + the
+  // hub keep their own top header (no rail).
+  //
+  // CRITICAL: the show/hide decision is made INSIDE ChromeShell (a client boundary
+  // using usePathname), NOT here. This layout is SHARED and does not re-run on soft
+  // navigation, so deciding here from the server `x-pathname` left the sidebar stuck
+  // to the first-landed route (showing on the hub, missing on modules, only fixed by
+  // a reload/HMR). ChromeShell re-evaluates on every client navigation.
   return (
     <>
       <KeyboardShortcuts />
       <IdleTimerClient timeoutMinutes={15} />
-      {sidebarWs ? (
-        <div className="flex min-h-dvh">
-          <DashboardSidebar />
-          <div className="min-w-0 flex-1 max-md:pt-14">{children}</div>
-        </div>
-      ) : (
-        children
-      )}
+      <ChromeShell sidebar={<DashboardSidebar />}>{children}</ChromeShell>
     </>
   );
 }

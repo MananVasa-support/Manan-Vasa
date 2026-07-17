@@ -1,11 +1,31 @@
 import "server-only";
 import { and, asc, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dailyChecklist, weeklyGoals, weeklyGoalActuals, tasks } from "@/db/schema";
-import type { TaskStatus } from "@/db/enums";
+import { dailyChecklist, dailyPlanDay, weeklyGoals, weeklyGoalActuals, tasks } from "@/db/schema";
+import type { TaskStatus, TaskPriority } from "@/db/enums";
 import { istYmd } from "@/lib/weekly-goals/week";
 import { currentWeekStart } from "@/lib/weekly-goals/week";
-import { effectiveDueAtSql } from "@/lib/tasks/effective-due";
+import { effectiveDueAtSql, pickEffectiveDue } from "@/lib/tasks/effective-due";
+
+/**
+ * Has the employee CLOSED OUT today's commitments (Sir's checkout order)? True
+ * once `daily_plan_day.closed_at` is stamped (via closeMyDay). Powers the punch-
+ * out close-out gate. Treated as satisfied when the person planned nothing today.
+ */
+export async function isDayClosedOut(employeeId: string, ymd: string = todayYmd()): Promise<boolean> {
+  const [day] = await db
+    .select({ closedAt: dailyPlanDay.closedAt })
+    .from(dailyPlanDay)
+    .where(and(eq(dailyPlanDay.employeeId, employeeId), eq(dailyPlanDay.planDate, ymd)))
+    .limit(1);
+  if (day?.closedAt) return true;
+  // Nothing planned today ⇒ nothing to close out (don't trap clock-out).
+  const counted = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(dailyChecklist)
+    .where(and(eq(dailyChecklist.employeeId, employeeId), eq(dailyChecklist.planDate, ymd)));
+  return (counted[0]?.n ?? 0) === 0;
+}
 
 /** Today's plan_date in IST (the team's clock). */
 export function todayYmd(now: Date = new Date()): string {
@@ -62,6 +82,8 @@ export interface OverdueItem {
   subject: string | null;
   origin: "goal_related" | "standalone";
   goalId: string | null;
+  taskId: string | null;
+  taskNo: number | null;
   planDate: string;
 }
 
@@ -282,13 +304,43 @@ export interface OpenTaskOption {
   client: string | null;
   subject: string | null;
   status: TaskStatus;
+  /** Priority quadrant — powers the "important" badge + sort tiebreaker. */
+  priority: TaskPriority;
+  /** EFFECTIVE due date (revised ?? due_at) as an IST ymd, or null if unset. */
+  dueAt: string | null;
+  /** Effective due is strictly before today. */
+  overdue: boolean;
+  /** Effective due is today. */
+  dueToday: boolean;
+}
+
+/** Eisenhower rank: important-first, then urgent (0 = most important). */
+function importanceRank(p: TaskPriority): number {
+  switch (p) {
+    case "imp_urgent":
+      return 0;
+    case "imp_not_urgent":
+      return 1;
+    case "not_imp_urgent":
+      return 2;
+    default:
+      return 3;
+  }
 }
 
 export async function listOpenTasksForChecklist(
   employeeId: string,
   now: Date = new Date(),
+  opts: { horizonDays?: number } = {},
 ): Promise<OpenTaskOption[]> {
   const ymd = todayYmd(now);
+  // Sir's To-Do rule: on the planner, only surface OVERDUE + due-within-N-days
+  // tasks (hide far-future "kachra"). `horizonDays` unset ⇒ no horizon (the login
+  // gate + mobile keep every open task).
+  const horizonCutoff =
+    opts.horizonDays == null
+      ? null
+      : new Date(new Date(`${ymd}T00:00:00+05:30`).getTime() + (opts.horizonDays + 1) * 86_400_000);
   const rows = await db
     .select({
       id: tasks.id,
@@ -297,13 +349,20 @@ export async function listOpenTasksForChecklist(
       client: tasks.client,
       subject: tasks.subject,
       status: tasks.status,
+      priority: tasks.priority,
+      dueAt: tasks.dueAt,
+      revisedTargetDate: tasks.revisedTargetDate,
     })
     .from(tasks)
     .where(
       and(
         eq(tasks.doerId, employeeId),
         eq(tasks.archived, false),
+        isNull(tasks.abandonedAt),
         sql`${tasks.status} not in ('done','approved','cancelled')`,
+        horizonCutoff
+          ? sql`${effectiveDueAtSql()} < ${horizonCutoff.toISOString()}::timestamptz`
+          : sql`true`,
         sql`not exists (
           select 1 from ${dailyChecklist} dc
           where dc.task_id = ${tasks.id}
@@ -312,9 +371,38 @@ export async function listOpenTasksForChecklist(
         )`,
       ),
     )
-    .orderBy(desc(tasks.createdAt))
     .limit(50);
-  return rows as OpenTaskOption[];
+
+  // Enrich each open task with its EFFECTIVE due (revised ?? due_at, per the
+  // app-wide overdue rule) as an IST ymd + overdue/dueToday flags, so the
+  // planner can surface unfinished work and pull-by-due-date/importance.
+  const enriched: OpenTaskOption[] = rows.map((r) => {
+    const eff = pickEffectiveDue(r);
+    const dueYmd = eff ? istYmd(eff) : null;
+    return {
+      id: r.id,
+      taskNo: r.taskNo,
+      title: r.title,
+      client: r.client,
+      subject: r.subject,
+      status: r.status,
+      priority: r.priority,
+      dueAt: dueYmd,
+      overdue: dueYmd != null && dueYmd < ymd,
+      dueToday: dueYmd === ymd,
+    };
+  });
+
+  // Smart default sort: overdue → due-today → due-soon → no-date, with
+  // importance as the tiebreaker inside each bucket, and earlier due first.
+  const bucket = (t: OpenTaskOption) => (t.overdue ? 0 : t.dueToday ? 1 : t.dueAt ? 2 : 3);
+  enriched.sort(
+    (a, b) =>
+      bucket(a) - bucket(b) ||
+      (a.dueAt ?? "9999").localeCompare(b.dueAt ?? "9999") ||
+      importanceRank(a.priority) - importanceRank(b.priority),
+  );
+  return enriched;
 }
 
 /**
@@ -409,14 +497,20 @@ export async function getOverdueItems(
       subject: dailyChecklist.subject,
       origin: dailyChecklist.origin,
       goalId: dailyChecklist.goalId,
+      taskId: dailyChecklist.taskId,
+      taskNo: tasks.taskNo,
       planDate: dailyChecklist.planDate,
     })
     .from(dailyChecklist)
+    // Carry the source task's number for display + drop rows whose task was
+    // abandoned into the Recycle Bin (they shouldn't resurface as "unfinished").
+    .leftJoin(tasks, eq(tasks.id, dailyChecklist.taskId))
     .where(
       and(
         eq(dailyChecklist.employeeId, employeeId),
         lt(dailyChecklist.planDate, ymd),
         eq(dailyChecklist.done, false),
+        sql`(${dailyChecklist.taskId} is null or ${tasks.abandonedAt} is null)`,
       ),
     )
     .orderBy(desc(dailyChecklist.planDate));

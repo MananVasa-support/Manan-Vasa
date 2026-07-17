@@ -40,6 +40,7 @@ const KIND_LABEL: Record<NotificationKind, string> = {
   goals_approval_reminder: "Goals — Monday approval reminder",
   goals_committed:         "Goals — week committed",
   goals_approved:          "Goals — week approved",
+  hr_confirmation_due:     "HR — issue confirmation letter",
 };
 
 const CHANNEL_LABEL: Record<NotificationChannel, string> = {
