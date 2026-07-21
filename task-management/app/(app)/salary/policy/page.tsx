@@ -87,7 +87,7 @@ export default async function SalaryPolicyPage() {
                     href={policy.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="brand-btn inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2 px-4 text-[14px] font-medium text-ink-strong hover:border-hairline-strong transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2 px-4 text-[14px] font-medium text-ink-strong hover:border-hairline-strong transition-colors"
                   >
                     Open PDF
                   </a>

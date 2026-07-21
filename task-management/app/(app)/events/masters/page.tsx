@@ -20,8 +20,8 @@ import type { CategoryVM, BatchTypeVM } from "@/components/events/masters/types"
 export const dynamic = "force-dynamic";
 
 const THEME = MODULE_THEME.events;
-const ACCENT = THEME.accent;
-const ACCENT_DEEP = THEME.accentDeep;
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 /** Merge the per-category reference counts from all four referencing tables. */
 async function usageByCategory(): Promise<Map<string, number>> {

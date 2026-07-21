@@ -31,12 +31,11 @@ export async function DashboardHeader({
   const pathname = (await headers()).get("x-pathname") ?? "/";
   const ws = workspaceForPath(pathname);
 
-  // Sir's "left → right" layout: EVERY module EXCEPT WMS uses a vertical LEFT-RAIL
-  // instead of this top header. The rail is rendered by the (app) LAYOUT as an
-  // in-flow flex sibling of the page (robust — content can't slide under it), so
-  // this per-page header renders NOTHING for those modules. WMS keeps the top
-  // header below.
-  if (ws && ws !== "wms") {
+  // Sir's "left → right" layout: EVERY module — WMS included (2026-07) — now uses
+  // the vertical LEFT-RAIL (DashboardSidebar) rendered by the (app) layout. This
+  // per-page horizontal header is therefore retired for all workspaces; it stays
+  // as a no-op only because WMS pages still import & place it. Renders nothing.
+  if (ws) {
     return null;
   }
 
@@ -81,22 +80,14 @@ export async function DashboardHeader({
             <span>Back to Hub</span>
           </a>
 
-          {/* LEFT → RIGHT: primary pill nav, left-anchored to match every other
-              module's left-rail layout (per Sir). Pills flow from the left right
-              after "Back to Hub"; when space gets tight the row scrolls
-              horizontally FROM THE LEFT (w-max, no mx-auto) so pills are never
-              clipped, never overlap, and never disappear. Collapses to the
-              hamburger drawer only on real phones (max-md). */}
+          {/* Primary pill nav (unreachable — see the early return above). */}
           <div className="flex-1 min-w-0 overflow-x-auto nav-scroll max-md:hidden">
             <div className="flex w-max">
               <MainNavServer />
             </div>
           </div>
 
-          {/* RIGHT: search + live indicator + actions + avatar. Every item is
-              shrink-0; secondary chrome (Live / Admin pill) hides below 2xl and
-              the search collapses to an icon there too, so the nav always has
-              room and nothing ever overlaps. */}
+          {/* RIGHT: search + live indicator + actions + avatar. */}
           <div className="flex items-center gap-2.5 2xl:gap-3 shrink-0 max-xl:ml-auto max-md:gap-1.5">
             <GlobalSearch workspace={ws} />
             <span className="max-2xl:hidden">

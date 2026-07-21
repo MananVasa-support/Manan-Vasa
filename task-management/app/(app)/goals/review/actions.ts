@@ -8,7 +8,10 @@ import { goals, goalReviews } from "@/db/schema";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { loadWritableGoalRow, loadManageableGoalRow } from "@/lib/goals/scope";
+import { logGoalActivity } from "@/lib/goals/activity";
+import { GoalEventTypes } from "@/lib/events/types";
 import { getSupabaseAdmin, DOCUMENTS_BUCKET } from "@/lib/supabase/admin";
+import { toGoalDTO, type GoalDTO } from "@/components/goals/cascade/util";
 
 type ActionOk<T> = T extends undefined ? { ok: true } : { ok: true } & T;
 type ActionResult<T = undefined> = ActionOk<T> | { ok: false; error: string };
@@ -20,6 +23,11 @@ function firstError(err: z.ZodError): string {
 function revalidateReview(periodKey?: string | null) {
   revalidatePath("/goals/review");
   revalidatePath("/goals/cascade");
+  // bug #17 — the 5-page level routes render acceptPct/reviewNotes too.
+  revalidatePath("/goals/yearly"); // yearly rootView shares the same canvas payload
+  revalidatePath("/goals/quarterly");
+  revalidatePath("/goals/monthly");
+  revalidatePath("/goals/week");
   if (periodKey) revalidatePath(`/goals/cascade/${periodKey}`);
 }
 
@@ -35,7 +43,7 @@ const ReviewSchema = z.object({
 
 export async function reviewGoal(
   input: z.infer<typeof ReviewSchema>,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ row: GoalDTO }>> {
   const { me, isAdmin } = await requireGoalsAccess();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
@@ -52,7 +60,7 @@ export async function reviewGoal(
   if (!loaded.ok) return loaded;
   const row = loaded.row;
 
-  await db
+  const [updated] = await db
     .update(goals)
     .set({
       acceptPct: d.acceptPct,
@@ -62,7 +70,9 @@ export async function reviewGoal(
       updatedById: me.id,
       updatedAt: new Date(),
     })
-    .where(eq(goals.id, d.id));
+    .where(eq(goals.id, d.id))
+    .returning();
+  if (!updated) return { ok: false, error: "Goal not found" };
 
   // Append an audit trail row (primary state stays on the goal).
   await db.insert(goalReviews).values({
@@ -75,8 +85,20 @@ export async function reviewGoal(
     evidenceUrl: row.evidenceUrl,
   });
 
+  // Phase 7 (§4.4.6) — the GoalReviewed event type existed since mig 0095 but
+  // nothing emitted it; the LEFT-panel activity feed now reads it back.
+  // Best-effort: an emit failure never fails the review.
+  void logGoalActivity(d.id, GoalEventTypes.Reviewed, {
+    employeeId: row.employeeId,
+    goalKind: "cascade",
+    status: updated.status,
+    acceptPct: d.acceptPct,
+    from: row.acceptPct,
+    to: d.acceptPct,
+  }, me.id);
+
   revalidateReview(row.periodKey);
-  return { ok: true };
+  return { ok: true, row: toGoalDTO(updated) };
 }
 
 /* ------------------------------------------------------------------ */

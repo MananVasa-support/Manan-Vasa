@@ -114,6 +114,114 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
   React.useEffect(() => setItems(tasks), [tasks]);
   React.useEffect(() => setColumns(columnOrder), [columnOrder]);
 
+  // ── Canvas-style panning (Figma/Linear feel) ──────────────────────────────
+  // The board scrolls horizontally from ANYWHERE (wheel), and holding Space
+  // turns the pointer into a grab-hand that drags the board like a canvas.
+  const boardRef = React.useRef<HTMLDivElement | null>(null);
+  const spaceHeld = React.useRef(false);
+  const panState = React.useRef<{ startX: number; startY: number; left: number; top: number } | null>(null);
+
+  React.useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+
+    const isTypingTarget = (t: EventTarget | null) => {
+      const n = t instanceof HTMLElement ? t : null;
+      return (
+        !!n &&
+        (n.tagName === "INPUT" || n.tagName === "TEXTAREA" || n.tagName === "SELECT" || n.isContentEditable)
+      );
+    };
+
+    // Wheel anywhere over the board scrolls it horizontally — unless the
+    // pointer is over a column card-list that can still consume the vertical
+    // scroll itself (then we don't hijack its per-column scrolling).
+    const onWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth) return;
+      if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        el.scrollLeft += e.deltaX || e.deltaY;
+        e.preventDefault();
+        return;
+      }
+      // Over a scrollable column card-list: let it scroll VERTICALLY like normal
+      // — never hijack it (this is what made scrolling over a task feel broken).
+      const colList = (e.target instanceof HTMLElement ? e.target : null)?.closest<HTMLElement>(
+        "[data-col-scroll]",
+      );
+      if (colList && colList.scrollHeight > colList.clientHeight + 1) return;
+      // Otherwise (whitespace / header / short column) turn the wheel into a
+      // horizontal board pan.
+      el.scrollLeft += e.deltaY;
+      e.preventDefault();
+    };
+
+    // Hold Space → grab cursor + drag-to-pan. Never triggers while typing, and
+    // never steals Space from buttons/links/cards (keeps dnd-kit keyboard
+    // pick-up/drop and normal button activation intact).
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return;
+      const t = e.target instanceof HTMLElement ? e.target : null;
+      if (isTypingTarget(t) || t?.closest("button, a, [role='button']")) return;
+      e.preventDefault(); // keep the page itself from scrolling
+      if (!spaceHeld.current) {
+        spaceHeld.current = true;
+        el.style.cursor = "grab";
+      }
+    };
+    const releaseSpace = () => {
+      spaceHeld.current = false;
+      panState.current = null;
+      el.style.cursor = "";
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") releaseSpace();
+    };
+    // Swallow mousedown in capture while Space is held so dnd-kit's
+    // MouseSensor never starts a card/column drag mid-pan.
+    const onMouseDown = (e: MouseEvent) => {
+      if (!spaceHeld.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const onPointerDown = (e: PointerEvent) => {
+      if (!spaceHeld.current) return;
+      panState.current = { startX: e.clientX, startY: e.clientY, left: el.scrollLeft, top: el.scrollTop };
+      el.style.cursor = "grabbing";
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      const p = panState.current;
+      if (!p) return;
+      el.scrollLeft = p.left - (e.clientX - p.startX);
+      el.scrollTop = p.top - (e.clientY - p.startY);
+    };
+    const onPointerUp = () => {
+      if (!panState.current) return;
+      panState.current = null;
+      el.style.cursor = spaceHeld.current ? "grab" : "";
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("mousedown", onMouseDown, true);
+    el.addEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", releaseSpace);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("mousedown", onMouseDown, true);
+      el.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", releaseSpace);
+    };
+  }, []);
+
   const sensors = useSensors(
     // Mouse: a 6px move starts a drag, so clicking a card's link still works.
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -126,7 +234,6 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
   // renders what it's given (kept as `filtered` so the column logic below is
   // unchanged). Optimistic drag still mutates `items`.
   const filtered = items;
-  const activeCount = items.filter((t) => !t.archived).length;
 
   async function persistOrder(next: ColId[]) {
     const prev = columns;
@@ -254,10 +361,11 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
   const activeCard = active?.type === "card" ? items.find((t) => t.id === active.id) ?? null : null;
 
   return (
-    <Tooltip.Provider delayDuration={180} skipDelayDuration={400}>
+    <Tooltip.Provider delayDuration={550} skipDelayDuration={0}>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
+        autoScroll={{ threshold: { x: 0.28, y: 0 }, acceleration: 16 }}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}
@@ -267,29 +375,10 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
         }}
       >
         <div>
-          {/* Running total — filtering lives in the top filter bar now. */}
-          <div className="mb-5 flex items-center gap-2.5 flex-wrap">
-            <span
-              className="inline-flex items-center gap-2 rounded-pill px-3.5 py-1.5 text-[14.5px] font-bold"
-              style={{
-                color: "var(--color-altus-red-deep)",
-                background: "color-mix(in srgb, var(--color-altus-red) 7%, white)",
-                border: "1px solid color-mix(in srgb, var(--color-altus-red) 22%, transparent)",
-              }}
-            >
-              <span
-                className="tabular-nums"
-                style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 16 }}
-              >
-                {activeCount}
-              </span>
-              {activeCount === 1 ? "task" : "tasks"} on the board
-            </span>
-          </div>
-
           <div
+            ref={boardRef}
             className="kanban-scroll flex items-stretch gap-4 overflow-x-auto overflow-y-hidden pb-3 max-sm:snap-x max-sm:snap-mandatory"
-            style={{ height: "calc(100dvh - 290px)", minHeight: 460 }}
+            style={{ height: "calc(100dvh - 208px)", minHeight: 460, scrollBehavior: "auto" }}
           >
             <SortableContext items={columns} strategy={horizontalListSortingStrategy}>
               {columns.map((col) => {
@@ -360,7 +449,7 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
                         onClick={() =>
                           setVisibleByCol((m) => ({ ...m, [col]: limit + COL_STEP }))
                         }
-                        className="brand-btn mt-1 w-full rounded-chip py-2.5 text-[14px] font-bold transition-colors text-ink-soft hover:bg-surface-card"
+                        className="mt-1 w-full rounded-chip py-2.5 text-[14px] font-bold transition-colors text-ink-soft hover:bg-surface-card"
                         style={{ border: "1px dashed var(--color-hairline-strong)" }}
                       >
                         Show {Math.min(COL_STEP, hiddenCount)} more ({hiddenCount} hidden)
@@ -523,7 +612,7 @@ function KanbanColumn({
       </div>
 
       {/* Only this cards list scrolls — the header above stays frozen. */}
-      <div className="kanban-scroll flex-1 min-h-[40px] overflow-y-auto overflow-x-hidden flex flex-col gap-2 -mr-2 pr-2">{children}</div>
+      <div data-col-scroll className="kanban-scroll flex-1 min-h-[40px] overflow-y-auto overflow-x-hidden flex flex-col gap-2 -mr-2 pr-2">{children}</div>
     </div>
   );
 }
@@ -560,7 +649,7 @@ function KanbanCard({
       className="cursor-grab active:cursor-grabbing"
       style={{ opacity: isDragging ? 0.4 : 1 }}
     >
-      <Tooltip.Root delayDuration={220}>
+      <Tooltip.Root delayDuration={550}>
         <Tooltip.Trigger asChild>
           <div
             className="group relative rounded-chip bg-white border border-hairline p-3.5 pl-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:border-altus-red/40"

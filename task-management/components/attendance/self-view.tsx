@@ -10,7 +10,8 @@ import type { SelfAttendanceSummary } from "@/lib/queries/attendance-summary";
  * present-average / check-in-average vanity stats.
  */
 
-const ACCENT = "#15803d"; // module green
+const ACCENT = "#A80400"; // module accent (brand red)
+const OK_GREEN = "#15803d"; // green = good outcome (no salary reduced)
 const RED = "var(--color-altus-red)";
 
 const inr = (n: number) =>
@@ -46,7 +47,7 @@ export function SelfView({ data }: { data: SelfAttendanceSummary }) {
         <div className="flex items-center gap-2.5">
           <span
             className="inline-grid size-9 place-items-center rounded-xl"
-            style={{ background: "color-mix(in srgb, #16a34a 10%, transparent)", color: ACCENT }}
+            style={{ background: "color-mix(in srgb, #E10600 10%, transparent)", color: ACCENT }}
           >
             <PieChart size={18} strokeWidth={2.3} />
           </span>
@@ -137,13 +138,13 @@ function PeriodCard({ seg, s, delay }: { seg: Segment; s: AttendanceSummary; del
           boxShadow: `inset 0 0 0 1px ${hasCut ? `color-mix(in srgb, ${RED} 22%, transparent)` : "color-mix(in srgb, #16a34a 20%, transparent)"}`,
         }}
       >
-        <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold uppercase tracking-[0.1em]" style={{ color: hasCut ? RED : ACCENT }}>
+        <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold uppercase tracking-[0.1em]" style={{ color: hasCut ? RED : OK_GREEN }}>
           <IndianRupee size={13} strokeWidth={2.8} />
           Salary reduced
         </span>
         <span
           className="tabular-nums"
-          style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 19, letterSpacing: "-0.02em", color: hasCut ? RED : ACCENT }}
+          style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 19, letterSpacing: "-0.02em", color: hasCut ? RED : OK_GREEN }}
         >
           ₹{inr(reduced)}
         </span>

@@ -9,8 +9,8 @@ import { ShareFeed } from "@/components/training/learning/share-feed";
 
 export const dynamic = "force-dynamic";
 
-const ACCENT = MODULE_THEME.training.accent; // #2563eb
-const ACCENT_DEEP = MODULE_THEME.training.accentDeep; // #1d4ed8
+const ACCENT = "#E10600"; // Altus red — in-module chrome is brand red
+const ACCENT_DEEP = "#A80400"; // Altus red deep
 
 export default async function WeeklySharePage() {
   const me = await requireWorkspace("training");

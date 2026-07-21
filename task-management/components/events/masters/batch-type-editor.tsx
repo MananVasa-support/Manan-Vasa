@@ -9,7 +9,7 @@ import { createBatchType, updateBatchType } from "@/app/(app)/events/masters/act
 import { ModalShell } from "./modal-shell";
 import type { BatchTypeVM, CategoryVM } from "./types";
 
-const ACCENT = "#0891b2";
+const ACCENT = "#E10600";
 const NONE = "__none__";
 
 /** Create (no `batchType`) or edit a batch/section type. */

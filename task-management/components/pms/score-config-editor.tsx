@@ -8,8 +8,8 @@ import { saveScoreConfig } from "@/app/(app)/pms/actions";
 import type { PmsScoreConfig } from "@/lib/pms/engines/config";
 import { MODULE_THEME } from "@/lib/module-theme";
 
-const ACCENT = MODULE_THEME.employees.accent;
-const ACCENT_DEEP = MODULE_THEME.employees.accentDeep;
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 const CARD_SHADOW =
   "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -20px rgba(15,23,42,0.35)";

@@ -329,13 +329,13 @@ export function FeedbackForm({
                   <audio controls src={voice.url} className="h-9 flex-1" />
                   <button type="button" onClick={() => { setVoice(null); voiceBlobRef.current = null; }} aria-label="Remove" className="text-ink-subtle hover:text-altus-red"><X size={16} /></button>
                 </div>
-                <button type="button" onClick={summarize} disabled={summarizing || !voiceBlobRef.current} className="brand-btn inline-flex items-center justify-center gap-2 rounded-lg border py-2.5 text-[13.5px] font-bold transition-colors disabled:opacity-60" style={{ borderColor: "color-mix(in srgb, var(--color-purple) 40%, transparent)", color: "var(--color-purple-deep)", background: "color-mix(in srgb, var(--color-purple) 8%, transparent)" }}>
+                <button type="button" onClick={summarize} disabled={summarizing || !voiceBlobRef.current} className="inline-flex items-center justify-center gap-2 rounded-lg border py-2.5 text-[13.5px] font-bold transition-colors disabled:opacity-60" style={{ borderColor: "color-mix(in srgb, var(--color-purple) 40%, transparent)", color: "var(--color-purple-deep)", background: "color-mix(in srgb, var(--color-purple) 8%, transparent)" }}>
                   {summarizing ? <><Loader2 size={15} className="animate-spin" /> Transcribing & summarizing…</> : <><Sparkles size={15} /> Summarize with AI · English / Hindi→Hinglish</>}
                 </button>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <button type="button" onClick={startRecording} disabled={uploadingVoice} className={"brand-btn " + FIELD + " flex flex-1 items-center justify-center gap-2 text-ink-soft"}>
+                <button type="button" onClick={startRecording} disabled={uploadingVoice} className={FIELD + " flex flex-1 items-center justify-center gap-2 text-ink-soft"}>
                   {uploadingVoice ? <Loader2 size={16} className="animate-spin" /> : <Mic size={16} />} Record
                 </button>
                 <button type="button" onClick={() => voiceInputRef.current?.click()} disabled={uploadingVoice} className="inline-flex items-center justify-center rounded-lg border border-hairline-strong bg-white px-3 py-2.5 text-ink-soft" aria-label="Upload audio"><Upload size={16} /></button>
@@ -353,7 +353,7 @@ export function FeedbackForm({
                 <button type="button" onClick={() => setPicture(null)} aria-label="Remove" className="absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-full bg-black/60 text-white"><X size={15} /></button>
               </div>
             ) : (
-              <button type="button" onClick={() => picInputRef.current?.click()} disabled={uploadingPic} className={"brand-btn " + FIELD + " flex items-center justify-center gap-2 text-ink-subtle"}>
+              <button type="button" onClick={() => picInputRef.current?.click()} disabled={uploadingPic} className={FIELD + " flex items-center justify-center gap-2 text-ink-subtle"}>
                 {uploadingPic ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />} Add picture
               </button>
             )}
@@ -386,7 +386,7 @@ export function FeedbackForm({
       {error && <div role="alert" className="rounded-lg px-4 py-3 text-[14px] font-semibold" style={{ background: "color-mix(in srgb, var(--color-altus-red) 8%, transparent)", color: "var(--color-altus-red-deep)" }}>{error}</div>}
 
       <div className="flex items-center justify-end gap-3 border-t border-hairline pt-5">
-        <button type="button" onClick={() => router.push("/training/feedback" as Route)} className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-5 py-3 text-[15px] font-bold text-ink-strong hover:border-hairline-strong"><ArrowLeft size={16} /> Cancel</button>
+        <button type="button" onClick={() => router.push("/training/feedback" as Route)} className="inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-5 py-3 text-[15px] font-bold text-ink-strong hover:border-hairline-strong"><ArrowLeft size={16} /> Cancel</button>
         <button type="submit" disabled={submitting} className="wg-sheen inline-flex items-center gap-2 rounded-xl py-3 px-7 text-[15px] font-bold text-white disabled:opacity-60" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}>
           {submitting ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} strokeWidth={2.4} />} Submit feedback
         </button>

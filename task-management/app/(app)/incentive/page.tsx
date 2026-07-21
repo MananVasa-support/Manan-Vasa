@@ -1,10 +1,11 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { Award, TrendingUp, CheckCircle2, Hourglass, Gauge } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { IncentiveTabs } from "@/components/incentive/incentive-tabs";
+import { BillingDashboard } from "@/components/incentive/billing-dashboard";
 import { requireUser } from "@/lib/auth/current";
 import { listIncentiveRequests } from "@/lib/queries/incentive";
 import {
@@ -26,6 +27,8 @@ export const dynamic = "force-dynamic";
 
 const GREEN = "#16a34a";
 const GREEN_DEEP = "#15803d";
+const RED = "#E10600";
+const RED_DEEP = "#A80400";
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -52,16 +55,17 @@ export default async function IncentivePage({ searchParams }: PageProps) {
   // fall back on. Previously these ran bare in a Promise.all, so a single
   // transient blip on ANY of them crashed the whole /incentive page to the error
   // boundary. Reads are idempotent, so retry-on-fresh-connection is safe and is
-  // the same cure the exec dashboard uses. `getBillingDashboard` is already
-  // self-resilient (returns EMPTY on a Sheets hiccup) so it stays bare.
+  // the same cure the exec dashboard uses. The Billing tab reads a LIVE Google
+  // Sheet — it is NO LONGER in this blocking load (it was the slowest read and
+  // gated first paint). It's streamed into the Billing tab via <Suspense> below,
+  // so the page paints immediately off DB reads alone.
   const r = <T,>(label: string, make: () => Promise<T>): Promise<T> =>
     withRetry(make, { attempts: 2, timeoutMs: [6000, 9000], label });
 
-  const [dashboard, targetVsActual, billing, rows, catalog, entries, employees] =
+  const [dashboard, targetVsActual, rows, catalog, entries, employees] =
     await Promise.all([
       r("incentive:dashboard", () => getIncentiveDashboard(year)),
       r("incentive:target-vs-actual", () => getIncentiveTargetVsActual(year)),
-      getBillingDashboard(year),
       r("incentive:requests", () => listIncentiveRequests({ employeeId: me.id, isAdmin: me.isAdmin })),
       r("incentive:catalog", () => listIncentiveCatalog()),
       me.isAdmin ? r("incentive:entries", () => listIncentiveEntriesAdmin(year)) : Promise.resolve([]),
@@ -117,8 +121,8 @@ export default async function IncentivePage({ searchParams }: PageProps) {
           className="wg-rise relative mb-5 overflow-hidden rounded-[26px] px-7 py-6 max-md:px-4 max-md:py-5"
           style={{
             background: [
-              `radial-gradient(120% 190% at 100% 0%, color-mix(in srgb, ${GREEN} 9%, transparent), transparent 55%)`,
-              `radial-gradient(80% 160% at 0% 100%, color-mix(in srgb, ${GREEN} 5%, transparent), transparent 52%)`,
+              `radial-gradient(120% 190% at 100% 0%, color-mix(in srgb, ${RED} 9%, transparent), transparent 55%)`,
+              `radial-gradient(80% 160% at 0% 100%, color-mix(in srgb, ${RED} 5%, transparent), transparent 52%)`,
               "rgba(255, 255, 255, 0.72)",
             ].join(", "),
             backdropFilter: "blur(14px) saturate(140%)",
@@ -130,7 +134,7 @@ export default async function IncentivePage({ searchParams }: PageProps) {
             <div className="min-w-0">
               <span
                 className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
-                style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}
+                style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
               >
                 <Award size={13} strokeWidth={2.6} /> Employees · Incentive
               </span>
@@ -166,9 +170,9 @@ export default async function IncentivePage({ searchParams }: PageProps) {
                       style={
                         active
                           ? {
-                              background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,
+                              background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`,
                               color: "#fff",
-                              boxShadow: `0 8px 20px -10px color-mix(in srgb, ${GREEN_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
+                              boxShadow: `0 8px 20px -10px color-mix(in srgb, ${RED_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
                             }
                           : {
                               background: "var(--color-surface-card)",
@@ -194,7 +198,7 @@ export default async function IncentivePage({ searchParams }: PageProps) {
         >
           <KpiCard
             icon={<TrendingUp size={17} strokeWidth={2.4} />}
-            accent={GREEN}
+            accent={RED}
             label="Total earned"
             value={formatInr(earned)}
             caption={`permanent + project · ${year}`}
@@ -235,7 +239,11 @@ export default async function IncentivePage({ searchParams }: PageProps) {
         <IncentiveTabs
           dashboard={dashboard}
           targetVsActual={targetVsActual}
-          billing={billing}
+          billingSlot={
+            <Suspense fallback={<BillingLoading />}>
+              <BillingTab year={year} />
+            </Suspense>
+          }
           year={year}
           requests={rows}
           entries={entries}
@@ -248,6 +256,25 @@ export default async function IncentivePage({ searchParams }: PageProps) {
       </main>
       <DashboardFooter />
     </>
+  );
+}
+
+/**
+ * Streamed Billing tab — reads the LIVE Google Sheet (`getBillingDashboard`) OFF
+ * the page's critical path, so first paint never waits on Google. Suspense shows
+ * the skeleton until the sheet resolves; the read is already self-resilient
+ * (returns an EMPTY summary on any Sheets/auth hiccup).
+ */
+async function BillingTab({ year }: { year: number }) {
+  const billing = await getBillingDashboard(year);
+  return <BillingDashboard data={billing} />;
+}
+
+function BillingLoading() {
+  return (
+    <div className="rounded-2xl border border-hairline bg-surface-card p-10 text-center text-[14px] font-semibold text-ink-muted">
+      Loading billing from the live sheet…
+    </div>
   );
 }
 

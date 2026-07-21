@@ -42,16 +42,24 @@
   --color-teal:    #14b8a6;  --color-teal-deep:   #0f766e;  --color-teal-bg:   #f0fdfa;
   --color-indigo:  #6366f1;  --color-indigo-deep: #4338ca;  --color-indigo-bg: #eef2ff;
 
-  /* Goals module identity accent (amber-gold) — single source for the Goals
-     surfaces; components reference var(--goals-accent[-deep], <fallback>). */
-  --goals-accent:      #b45309;
-  --goals-accent-deep: #7c2d12;
+  /* Goals module identity accent — Altus brand red (in-module chrome is red
+     everywhere; only the Hub cards keep per-module colours). Components
+     reference var(--goals-accent[-deep], <fallback>). */
+  --goals-accent:      #E10600;
+  --goals-accent-deep: #A80400;
 
   /* main-nav pills */
   --color-nav-pill-bg:        rgba(255, 255, 255, 0.06);
   --color-nav-pill-bg-hover:  rgba(255, 255, 255, 0.10);
 
-  /* fonts */
+  /* fonts
+     The REAL display/serif pairing is loaded at the font loader
+     (app/layout.tsx): --font-display = Bricolage Grotesque and
+     --font-editorial = Fraunces. --font-serif deliberately stays Roboto
+     GLOBALLY (the text-display-* utilities below inline it across production
+     dashboards); module shells that want the editorial serif re-point
+     --font-serif at var(--font-editorial) on their own subtree — see the
+     Goals canvas shell (components/goals/canvas/goals-canvas.tsx). */
   --font-serif: var(--font-roboto), system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-sans:  var(--font-roboto), system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono:  ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -2188,6 +2196,18 @@ select.nt-input {
 .sidebar-rail[data-collapsed="true"] .sidebar-collapsible-hide {
   display: none !important;
 }
+/* Safety: an expanded rail pill's label WRAPS rather than clipping if a label
+   ever runs long (e.g. HR's "Queries & Notifications"). The HR rail is widened
+   so this shouldn't trigger, but a clean two-line pill always beats overflow. */
+.sidebar-rail[data-collapsed="false"] .sidebar-nav .nav-pill {
+  align-items: center;
+}
+.sidebar-rail[data-collapsed="false"] .sidebar-nav .nav-pill > span:not(.nav-pill-badge):not(.nav-pill-count) {
+  white-space: normal;
+  text-align: left;
+  line-height: 1.15;
+}
+
 /* Nav pills → icon only, centered. */
 .sidebar-rail[data-collapsed="true"] .nav-pill {
   justify-content: center;
@@ -2283,6 +2303,29 @@ select.nt-input {
 /* Staggered entrance for cards/sections. Pair with inline animation-delay. */
 .wg-rise { animation: fadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* While a Goals card is being dragged, dnd-kit re-renders the board ~every
+   frame; that was restarting the `.wg-rise` entrance animation on the SIBLING
+   cards, flashing them to opacity:0 (blank white) mid-drag. Pin every
+   entrance-animated card to its final state during the drag — `!important`
+   author declarations win over a running animation in the cascade, so this
+   overrides the flicker without touching `animation` (no replay on drop). */
+[data-goals-dragging="true"] .wg-rise {
+  opacity: 1 !important;
+  transform: none !important;
+}
+/* The empty slot the dragged card leaves behind reads as an intentional,
+   pulsing red drop-zone instead of a dead white box. */
+@keyframes goalsDropPulse {
+  0%, 100% { border-color: color-mix(in srgb, var(--color-altus-red) 42%, transparent); }
+  50% { border-color: color-mix(in srgb, var(--color-altus-red) 70%, transparent); }
+}
+.goals-drag-source {
+  animation: goalsDropPulse 1.3s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .goals-drag-source { animation: none; }
+}
+
 /* Weekly Goals drawer (Edit / Review) — slide from the right, fade the backdrop.
    On phones the panel becomes a bottom sheet, so it rises instead. */
 @keyframes wgFadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -2316,22 +2359,32 @@ select.nt-input {
    normal in the cascade) — i.e. adding `.brand-btn` reddens a button whatever
    its previous colour. Stateful controls (the punch dial, paid/unpaid toggles)
    are deliberately NOT given this class so they keep their state colours. */
+/* MODULE ACCENT (goals-redesign design §6): `.brand-btn` (and any pill/focus
+   ring that opts in) reads `--module-accent[-deep]` with the Altus red as the
+   fallback. NO module sets these globally — a module SHELL (e.g. the Goals
+   canvas root) sets them inline on its subtree, so WMS stays exactly the red
+   it is today while Goals renders the same primitives amber. One Button kit
+   serves every module identity (lib/module-theme.ts). */
 .brand-btn {
-  background: linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep)) !important;
+  background: linear-gradient(
+    135deg,
+    var(--module-accent, var(--color-altus-red)),
+    var(--module-accent-deep, var(--color-altus-red-deep))
+  ) !important;
   color: #fff !important;
   border-color: transparent !important;
-  box-shadow: 0 8px 18px -12px color-mix(in srgb, var(--color-altus-red-deep) 80%, transparent);
+  box-shadow: 0 8px 18px -12px color-mix(in srgb, var(--module-accent-deep, var(--color-altus-red-deep)) 80%, transparent);
 }
 .brand-btn:hover { filter: brightness(1.05); }
 .brand-btn:disabled { opacity: 0.55; }
 .brand-btn--soft {
-  background: color-mix(in srgb, var(--color-altus-red) 14%, var(--color-surface-card)) !important;
-  color: var(--color-altus-red-deep) !important;
-  border: 1.5px solid color-mix(in srgb, var(--color-altus-red) 40%, transparent) !important;
+  background: color-mix(in srgb, var(--module-accent, var(--color-altus-red)) 14%, var(--color-surface-card)) !important;
+  color: var(--module-accent-deep, var(--color-altus-red-deep)) !important;
+  border: 1.5px solid color-mix(in srgb, var(--module-accent, var(--color-altus-red)) 40%, transparent) !important;
   box-shadow: none;
 }
 .brand-btn--soft:hover {
-  background: color-mix(in srgb, var(--color-altus-red) 22%, var(--color-surface-card)) !important;
+  background: color-mix(in srgb, var(--module-accent, var(--color-altus-red)) 22%, var(--color-surface-card)) !important;
   filter: none;
 }
 

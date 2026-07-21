@@ -209,7 +209,7 @@ export function FilterBar({
 
   return (
     <div
-      className="sticky top-[96px] max-md:top-[72px] z-40 border-b border-hairline"
+      className="sticky top-0 max-md:top-14 z-40 border-b border-hairline"
       style={{
         // Frosted glass band with a whisper of the module's brand red washed
         // in from the left — reads as part of the module chrome, not a page.

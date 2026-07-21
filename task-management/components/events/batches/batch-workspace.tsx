@@ -28,8 +28,8 @@ import type {
   CategoryOption,
 } from "./types";
 
-const ACCENT = "#0891b2";
-const ACCENT_DEEP = "#0e7490";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
 function fmtDate(iso: string): string {
@@ -293,7 +293,7 @@ function ScheduleCard({
           type="button"
           onClick={onEdit}
           disabled={pending}
-          className="brand-btn inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] font-bold text-ink-strong transition-colors hover:bg-surface-soft disabled:opacity-50"
+          className="bg-surface-card inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] font-bold text-ink-strong transition-colors hover:bg-surface-soft disabled:opacity-50"
         >
           <Pencil size={14} strokeWidth={2.4} />
           Edit
@@ -302,7 +302,7 @@ function ScheduleCard({
           type="button"
           onClick={onToggleActive}
           disabled={pending}
-          className="brand-btn inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] font-bold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
+          className="bg-surface-card inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] font-bold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
         >
           <Power size={14} strokeWidth={2.4} />
           {row.isActive ? "Deactivate" : "Reactivate"}
@@ -311,7 +311,7 @@ function ScheduleCard({
           type="button"
           onClick={onDelete}
           disabled={pending}
-          className="brand-btn ml-auto inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] font-bold text-altus-red transition-colors hover:bg-surface-soft disabled:opacity-50"
+          className="bg-surface-card ml-auto inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] font-bold text-altus-red transition-colors hover:bg-surface-soft disabled:opacity-50"
         >
           <Trash2 size={14} strokeWidth={2.4} />
           Delete
@@ -344,7 +344,7 @@ function StatusChip({ status }: { status: BatchScheduleRow["status"] }) {
               color: ACCENT_DEEP,
               borderColor: ACCENT,
               backgroundImage:
-                "repeating-linear-gradient(45deg, transparent, transparent 4px, color-mix(in srgb, #0891b2 14%, transparent) 4px, color-mix(in srgb, #0891b2 14%, transparent) 8px)",
+                "repeating-linear-gradient(45deg, transparent, transparent 4px, color-mix(in srgb, #E10600 14%, transparent) 4px, color-mix(in srgb, #E10600 14%, transparent) 8px)",
             }
           : { background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }
       }

@@ -8,8 +8,8 @@ import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { setAttendance } from "@/app/(app)/training/calendar/actions";
 import type { SessionAttendeeRow } from "@/lib/queries/training-calendar";
 
-const ACCENT = "#2563eb";
-const ACCENT_DEEP = "#1d4ed8";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 type AttStatus = SessionAttendeeRow["status"];
 
@@ -142,7 +142,7 @@ export function AttendanceEditor({
                     disabled={!canMark}
                     value={r.attendedMin ?? ""}
                     onChange={(e) => setMinutes(r.employeeId, Number(e.target.value))}
-                    className="w-16 rounded-lg border border-hairline bg-white px-2 py-1.5 text-[13px] font-bold text-ink-strong outline-none focus:border-[#2563eb] disabled:opacity-60"
+                    className="w-16 rounded-lg border border-hairline bg-white px-2 py-1.5 text-[13px] font-bold text-ink-strong outline-none focus:border-[#E10600] disabled:opacity-60"
                     aria-label={`Minutes attended by ${r.employeeName}`}
                   />
                   min

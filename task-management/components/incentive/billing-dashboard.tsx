@@ -22,7 +22,7 @@ function Panel({
   title,
   description,
   icon,
-  accent = GREEN,
+  accent = "#E10600",
   delay = 0,
   children,
 }: {
@@ -168,7 +168,7 @@ export function BillingDashboard({ data }: { data: BillingSummary & { error?: st
       >
         <span
           className="mx-auto mb-4 inline-grid size-12 place-items-center rounded-2xl"
-          style={{ background: `color-mix(in srgb, ${GREEN} 10%, transparent)`, color: GREEN_DEEP }}
+          style={{ background: `color-mix(in srgb, #E10600 10%, transparent)`, color: "#A80400" }}
           aria-hidden
         >
           <ReceiptText size={22} strokeWidth={2.2} />
@@ -216,7 +216,7 @@ export function BillingDashboard({ data }: { data: BillingSummary & { error?: st
         <MetricCard
           label="Salespeople"
           value={String(perSalesperson.length)}
-          accent={GREEN_DEEP}
+          accent="#A80400"
           icon={ReceiptText}
           caption="credited this year"
           delay={150}
@@ -251,7 +251,7 @@ export function BillingDashboard({ data }: { data: BillingSummary & { error?: st
                     <span className="tabular-nums font-bold text-ink-strong shrink-0" style={{ fontSize: 15 }}>{formatInr(p.billed)}</span>
                   </div>
                   <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full" style={{ background: "var(--color-hairline)" }}>
-                    <span className="block h-full rounded-full" style={{ width: `${Math.max(2, share)}%`, background: `linear-gradient(90deg, #22c55e, ${GREEN_DEEP})` }} />
+                    <span className="block h-full rounded-full" style={{ width: `${Math.max(2, share)}%`, background: `linear-gradient(90deg, #E10600, #A80400)` }} />
                   </div>
                 </div>
                 <span className="tabular-nums font-semibold text-ink-subtle w-12 text-right shrink-0" style={{ fontSize: 13 }}>{p.deals}d</span>
@@ -283,7 +283,7 @@ export function BillingDashboard({ data }: { data: BillingSummary & { error?: st
               {perSalesperson.map((p) => (
                 <tr
                   key={p.name}
-                  className="border-t transition-colors hover:bg-[color-mix(in_srgb,#16a34a_3%,transparent)]"
+                  className="border-t transition-colors hover:bg-[color-mix(in_srgb,#E10600_3%,transparent)]"
                   style={{ borderColor: "var(--color-hairline)" }}
                 >
                   <td className="py-2.5" style={{ fontSize: 14 }}>
@@ -358,7 +358,7 @@ export function BillingDashboard({ data }: { data: BillingSummary & { error?: st
               {deals.map((d, i) => (
                 <tr
                   key={`${d.client}-${i}`}
-                  className="border-t transition-colors hover:bg-[color-mix(in_srgb,#16a34a_3%,transparent)]"
+                  className="border-t transition-colors hover:bg-[color-mix(in_srgb,#E10600_3%,transparent)]"
                   style={{ borderColor: "var(--color-hairline)" }}
                 >
                   <td className="py-2.5 font-semibold text-ink-strong" style={{ fontSize: 14 }}>{d.client || "—"}</td>
@@ -406,7 +406,7 @@ function PodiumCard({ rank, name, total, deals }: { rank: number; name: string; 
       className="relative flex flex-col items-center overflow-hidden rounded-[20px] bg-surface-card text-center"
       style={{
         boxShadow: isFirst
-          ? `inset 0 0 0 2px ${GREEN}, inset 0 1px 0 rgba(255,255,255,0.7), 0 14px 34px -22px color-mix(in srgb, ${GREEN_DEEP} 60%, transparent)`
+          ? `inset 0 0 0 2px #E10600, inset 0 1px 0 rgba(255,255,255,0.7), 0 14px 34px -22px color-mix(in srgb, #A80400 60%, transparent)`
           : "inset 0 0 0 1px var(--color-hairline-strong), inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -22px rgba(15,23,42,0.35)",
         padding: isFirst ? "22px 16px" : "16px 14px",
       }}
@@ -415,7 +415,7 @@ function PodiumCard({ rank, name, total, deals }: { rank: number; name: string; 
         <span
           aria-hidden
           className="pointer-events-none absolute inset-0"
-          style={{ background: `radial-gradient(120% 130% at 50% 0%, color-mix(in srgb, ${GREEN} 8%, transparent), transparent 60%)` }}
+          style={{ background: `radial-gradient(120% 130% at 50% 0%, color-mix(in srgb, #E10600 8%, transparent), transparent 60%)` }}
         />
       )}
       <span className="relative">

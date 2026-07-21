@@ -149,7 +149,7 @@ export function GoalQuickAdd(props: Props) {
           setOpen(true);
           requestAnimationFrame(() => clientRef.current?.focus());
         }}
-        className={`brand-btn cursor-pointer group flex w-full items-center justify-center gap-2.5 rounded-2xl border border-dashed px-4 py-5 text-[15px] font-bold transition-colors hover:bg-surface-soft ${FOCUS_RING}`}
+        className={`cursor-pointer group flex w-full items-center justify-center gap-2.5 rounded-2xl border border-dashed px-4 py-5 text-[15px] font-bold transition-colors hover:bg-surface-soft ${FOCUS_RING}`}
         style={{ borderColor: "var(--color-hairline-strong)", color: "var(--color-ink-soft)" }}
       >
         <span className="inline-flex size-7 items-center justify-center rounded-full" style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red)" }}>

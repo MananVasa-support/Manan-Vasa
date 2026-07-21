@@ -86,7 +86,7 @@ export function ReassignDialog({
         <Dialog.Trigger asChild>
           <button
             type="button"
-            className="brand-btn inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-[14px] font-medium border border-hairline bg-surface-card text-ink-strong hover:bg-surface-soft"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-[14px] font-medium border border-hairline bg-surface-card text-ink-strong hover:bg-surface-soft"
           >
             <Users size={15} strokeWidth={2.2} />
             Reassign
@@ -156,7 +156,7 @@ export function ReassignDialog({
                 <button
                   type="button"
                   disabled={pending}
-                  className="brand-btn px-5 py-2.5 rounded-md text-[14px] font-medium border border-hairline bg-surface-soft text-ink-strong disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-md text-[14px] font-medium border border-hairline bg-surface-soft text-ink-strong disabled:opacity-50"
                 >
                   Cancel
                 </button>

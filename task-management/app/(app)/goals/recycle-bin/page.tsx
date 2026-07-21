@@ -75,7 +75,7 @@ export default async function RecycleBinPage() {
         <header className="mb-6 wg-rise">
           <span
             className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"
-            style={{ background: `linear-gradient(135deg, ${THEME.accent}, ${THEME.accentDeep})` }}
+            style={{ background: `linear-gradient(135deg, ${"#E10600"}, ${"#A80400"})` }}
           >
             Goals · Recycle Bin
           </span>

@@ -96,7 +96,7 @@ export function ManagerDailyTaskGate({
             type="button"
             onClick={recheck}
             disabled={busy}
-            className={`brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white px-5 py-3 text-[15px] font-bold text-ink-strong disabled:opacity-60 ${FOCUS}`}
+            className={`inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white px-5 py-3 text-[15px] font-bold text-ink-strong disabled:opacity-60 ${FOCUS}`}
           >
             {busy ? <Loader2 size={17} className="animate-spin" /> : <RefreshCw size={16} strokeWidth={2.4} />} I&apos;ve assigned them — re-check
           </button>

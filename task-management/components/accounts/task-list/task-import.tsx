@@ -95,7 +95,7 @@ export function AccountsTaskImport() {
       <Dialog.Trigger asChild>
         <button
           type="button"
-          className="brand-btn inline-flex items-center gap-2 rounded-pill border border-hairline-strong bg-white px-4 h-10 text-[14px] font-bold text-ink-strong hover:border-altus-red hover:text-altus-red transition-colors"
+          className="inline-flex items-center gap-2 rounded-pill border border-hairline-strong bg-white px-4 h-10 text-[14px] font-bold text-ink-strong hover:border-altus-red hover:text-altus-red transition-colors"
         >
           <Upload size={16} strokeWidth={2.4} />
           Import
@@ -148,7 +148,7 @@ export function AccountsTaskImport() {
             {/* Download template */}
             <a
               href="/accounts/task-list/template"
-              className="brand-btn inline-flex items-center gap-2 rounded-pill border border-hairline bg-surface-soft px-4 h-10 text-[13.5px] font-bold text-ink-strong hover:border-hairline-strong transition-colors mb-5"
+              className="inline-flex items-center gap-2 rounded-pill border border-hairline bg-surface-soft px-4 h-10 text-[13.5px] font-bold text-ink-strong hover:border-hairline-strong transition-colors mb-5"
             >
               <Download size={15} strokeWidth={2.2} />
               Download template
@@ -276,7 +276,7 @@ export function AccountsTaskImport() {
                   type="button"
                   onClick={reset}
                   disabled={!file || uploading}
-                  className="brand-btn px-5 py-2.5 rounded-chip text-[14px] font-semibold border border-hairline bg-surface-card text-ink-strong hover:bg-surface-soft transition-colors disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-chip text-[14px] font-semibold border border-hairline bg-surface-card text-ink-strong hover:bg-surface-soft transition-colors disabled:opacity-50"
                 >
                   Clear
                 </button>

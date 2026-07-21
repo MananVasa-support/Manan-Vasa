@@ -8,7 +8,7 @@ import { LookupSelect } from "@/components/ui/lookup-select";
 import { hrMonthLabel } from "@/components/attendance/hr-record/hr-codes";
 
 const FIELD =
-  "h-11 rounded-xl border border-hairline bg-white px-3.5 text-[15px] font-semibold text-ink-strong outline-none transition-colors hover:border-hairline-strong focus-visible:ring-2 focus-visible:ring-[#16a34a]/50 focus-visible:ring-offset-1";
+  "h-11 rounded-xl border border-hairline bg-white px-3.5 text-[15px] font-semibold text-ink-strong outline-none transition-colors hover:border-hairline-strong focus-visible:ring-2 focus-visible:ring-[#E10600]/50 focus-visible:ring-offset-1";
 
 interface Props {
   employees: { id: string; name: string }[];
@@ -49,7 +49,7 @@ export function HrRecordSelectors({ employees, selectedEmp, months, selectedMont
   const newer = idx > 0 ? months[idx - 1] ?? null : null;
 
   const stepBtn =
-    "wg-btn inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-hairline bg-white text-ink-muted transition-colors hover:border-hairline-strong hover:text-[#15803d] disabled:opacity-35 disabled:pointer-events-none outline-none focus-visible:ring-2 focus-visible:ring-[#16a34a]/50 focus-visible:ring-offset-1";
+    "wg-btn inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-hairline bg-white text-ink-muted transition-colors hover:border-hairline-strong hover:text-[#A80400] disabled:opacity-35 disabled:pointer-events-none outline-none focus-visible:ring-2 focus-visible:ring-[#E10600]/50 focus-visible:ring-offset-1";
 
   return (
     <div

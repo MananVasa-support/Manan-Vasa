@@ -45,7 +45,7 @@ export default async function PeopleGivesPage() {
           <div className="flex items-center gap-2.5">
             <a
               href="/people-gives/export"
-              className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-3 px-5 text-[15px] font-bold text-ink-strong transition-transform active:scale-[0.99] hover:border-[color:var(--color-altus-red)]"
+              className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-3 px-5 text-[15px] font-bold text-ink-strong transition-transform active:scale-[0.99] hover:border-[color:var(--color-altus-red)]"
             >
               <Download size={17} strokeWidth={2.6} />
               Export CSV

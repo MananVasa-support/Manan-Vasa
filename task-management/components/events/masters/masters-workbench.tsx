@@ -37,8 +37,8 @@ import { BatchTypeEditor } from "./batch-type-editor";
 import { ArchiveCategoryDialog } from "./archive-category-dialog";
 import type { CategoryVM, BatchTypeVM } from "./types";
 
-const ACCENT = "#0891b2";
-const ACCENT_DEEP = "#0e7490";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 export function MastersWorkbench({
   categories,
@@ -185,7 +185,7 @@ function CategoryPanel({ categories }: { categories: CategoryVM[] }) {
                     <button
                       type="button"
                       onClick={() => restore(cat)}
-                      className="brand-btn inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:bg-surface-soft hover:text-ink-strong"
+                      className="bg-surface-card inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:bg-surface-soft hover:text-ink-strong"
                     >
                       <RotateCcw size={13} strokeWidth={2.4} /> Restore
                     </button>
@@ -399,7 +399,7 @@ function BatchTypePanel({
                     <button
                       type="button"
                       onClick={() => setActive(bt, true)}
-                      className="brand-btn inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:bg-surface-soft hover:text-ink-strong"
+                      className="bg-surface-card inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:bg-surface-soft hover:text-ink-strong"
                     >
                       <RotateCcw size={13} strokeWidth={2.4} /> Restore
                     </button>

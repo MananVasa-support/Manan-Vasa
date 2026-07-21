@@ -32,8 +32,8 @@ import {
   memberNextCommitted,
 } from "./types";
 
-const ACCENT = MODULE_THEME.goals.accent; // #b45309
-const ACCENT_DEEP = MODULE_THEME.goals.accentDeep; // #7c2d12
+const ACCENT = "#E10600"; // Altus red — in-module chrome is brand red
+const ACCENT_DEEP = "#A80400"; // Altus red deep
 
 /** Google-style grade colour for a % value (≥70 green, 40–69 amber, <40 red). */
 function gradeColor(pct: number): string {

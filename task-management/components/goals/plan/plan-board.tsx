@@ -63,8 +63,8 @@ interface Props {
 // Goals module identity (amber-gold) — mirrors MODULE_THEME.goals. The planner
 // lives in the amber room, so every accent (drop zone, pips, CTA, focus rings)
 // reads amber, not WMS red.
-const GOALS_ACCENT = "#b45309";
-const GOALS_ACCENT_DEEP = "#7c2d12";
+const GOALS_ACCENT = "#E10600";
+const GOALS_ACCENT_DEEP = "#A80400";
 const GOALS_GRADIENT = `linear-gradient(135deg, ${GOALS_ACCENT}, ${GOALS_ACCENT_DEEP})`;
 
 const PLAN_DROP_ID = "plan-drop";
@@ -86,6 +86,9 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+  // Stable SSR-safe DndContext id — avoids the dnd-kit hydration mismatch on
+  // `aria-describedby` (module-global counter drifts server↔client).
+  const dndId = React.useId();
 
   const committed = React.useMemo(() => nonGhost(plan), [plan]);
   const count = committed.length;
@@ -295,6 +298,7 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
 
   return (
     <DndContext
+      id={dndId}
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={onDragStart}
@@ -305,7 +309,7 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
       {/* Sir's four verticals: a compact plan on the left, then the three pull
           boxes — Weekly Goals, Unfinished, and your To-Do (filtered). Drag a card
           left, or tap +. Stacks to 2 then 1 column on narrower screens. */}
-      <div className="grid gap-5 grid-cols-[0.9fr_1fr_1fr_1.05fr] max-xl:grid-cols-2 max-md:grid-cols-1">
+      <div className="grid gap-4 grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] max-lg:grid-cols-2 max-sm:grid-cols-1">
         {/* 1 — Today's Plan (compact) */}
         <PlanColumn
           plan={plan}
@@ -403,21 +407,21 @@ function PlanColumn(props: {
   return (
     <section className="flex flex-col wg-rise">
       <header className="mb-3 flex items-end justify-between gap-3">
-        <div className="flex items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-2">
           <span
-            className="grid h-9 w-9 place-items-center rounded-xl text-white shadow-[0_4px_12px_rgba(124,45,18,0.28)]"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white shadow-[0_4px_12px_rgba(124,45,18,0.28)]"
             style={{ background: GOALS_GRADIENT }}
           >
-            <CalendarCheck2 size={17} />
+            <CalendarCheck2 size={16} />
           </span>
-          <div>
+          <div className="min-w-0">
             <h2
-              className="text-ink-strong"
-              style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 18, letterSpacing: "-0.01em" }}
+              className="truncate text-ink-strong"
+              style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 15.5, letterSpacing: "-0.01em" }}
             >
               Today&apos;s Plan
             </h2>
-            <p className="text-xs text-ink-muted">What will you deliver today?</p>
+            <p className="truncate text-[11px] text-ink-muted">What will you deliver today?</p>
           </div>
         </div>
         <PipMeter count={count} minItems={minItems} met={met} reduce={!!reduce} />
@@ -427,11 +431,11 @@ function PlanColumn(props: {
         ref={setNodeRef}
         animate={
           nudge && !reduce
-            ? { boxShadow: ["0 0 0 0 rgba(180,83,9,0)", "0 0 0 5px rgba(180,83,9,0.12)", "0 0 0 0 rgba(180,83,9,0)"] }
-            : { boxShadow: "0 0 0 0 rgba(180,83,9,0)" }
+            ? { boxShadow: ["0 0 0 0 rgba(225,6,0,0)", "0 0 0 5px rgba(225,6,0,0.12)", "0 0 0 0 rgba(225,6,0,0)"] }
+            : { boxShadow: "0 0 0 0 rgba(225,6,0,0)" }
         }
         transition={nudge && !reduce ? { duration: 2.6, repeat: Infinity, ease: "easeInOut" } : { duration: 0.25 }}
-        className="min-h-[240px] rounded-2xl border p-3 transition-colors"
+        className="min-h-[190px] rounded-2xl border p-2.5 transition-colors"
         style={{
           borderStyle: isEmpty && !isOver ? "dashed" : "solid",
           borderColor: isOver
@@ -455,49 +459,49 @@ function PlanColumn(props: {
         </SortableContext>
 
         {isEmpty ? (
-          <div className="grid place-items-center gap-2 py-11 text-center">
+          <div className="grid place-items-center gap-1.5 py-7 text-center">
             <span
-              className="grid h-12 w-12 place-items-center rounded-2xl"
+              className="grid h-10 w-10 place-items-center rounded-xl"
               style={{
                 background: `color-mix(in srgb, ${GOALS_ACCENT} 10%, transparent)`,
                 color: GOALS_ACCENT_DEEP,
               }}
             >
-              <Sunrise size={22} />
+              <Sunrise size={19} />
             </span>
-            <p className="max-w-[34ch] text-sm font-medium text-ink-soft">
+            <p className="max-w-[32ch] text-[13px] font-medium text-ink-soft">
               Drag a goal or task in from the right, or add a commitment below.
             </p>
-            <p className="text-xs text-ink-muted">
+            <p className="text-[11px] text-ink-muted">
               {minItems} to unlock your day.
             </p>
           </div>
         ) : null}
 
-        <form onSubmit={submitDraft} className="mt-3 flex items-center gap-2">
+        <form onSubmit={submitDraft} className="mt-2.5 flex items-center gap-2">
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Add a commitment…"
             aria-label="Add a commitment for today"
             maxLength={280}
-            className="h-10 flex-1 rounded-chip border border-hairline bg-surface-card px-3 text-sm text-ink-strong placeholder:text-ink-muted/60 focus-visible:outline-2"
+            className="h-9 flex-1 rounded-chip border border-hairline bg-surface-card px-3 text-[13px] text-ink-strong placeholder:text-ink-muted/60 focus-visible:outline-2"
             style={{ outlineColor: GOALS_ACCENT }}
           />
           <button
             type="submit"
             disabled={draft.trim().length < 2}
             aria-label="Add commitment"
-            className="wg-btn inline-flex h-10 w-10 items-center justify-center rounded-chip bg-ink-strong text-white disabled:opacity-40 focus-visible:outline-2"
+            className="wg-btn inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-chip bg-ink-strong text-white disabled:opacity-40 focus-visible:outline-2"
             style={{ outlineColor: GOALS_ACCENT }}
           >
-            <Plus size={17} />
+            <Plus size={16} />
           </button>
         </form>
       </motion.div>
 
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <p className="text-xs text-ink-muted">
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <p className="text-[11px] text-ink-muted">
           {met ? (
             <span className="inline-flex items-center gap-1.5 font-semibold" style={{ color: GOALS_ACCENT_DEEP }}>
               <Sparkles size={13} /> You&apos;re ready — have a focused day.
@@ -514,10 +518,10 @@ function PlanColumn(props: {
           type="button"
           onClick={onStart}
           disabled={!met || starting}
-          className="brand-btn wg-btn wg-sheen inline-flex h-11 items-center gap-2 rounded-chip px-5 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(124,45,18,0.28)] disabled:opacity-40 disabled:shadow-none focus-visible:outline-2"
+          className="brand-btn wg-btn wg-sheen inline-flex h-10 shrink-0 items-center gap-2 rounded-chip px-4 text-[13px] font-bold text-white shadow-[0_8px_22px_rgba(124,45,18,0.28)] disabled:opacity-40 disabled:shadow-none focus-visible:outline-2"
           style={{ background: GOALS_GRADIENT, outlineColor: GOALS_ACCENT }}
         >
-          {starting ? <Loader2 size={16} className="animate-spin" /> : <Sunrise size={16} />} Start my day
+          {starting ? <Loader2 size={15} className="animate-spin" /> : <Sunrise size={15} />} Start my day
         </button>
       </div>
     </section>
@@ -601,12 +605,12 @@ function SourceWindow(props: {
   );
   return (
     <section
-      className="wg-rise rounded-2xl border border-hairline bg-surface-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+      className="wg-rise rounded-2xl border border-hairline bg-surface-card p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <header className="mb-3 flex items-center gap-2.5">
+      <header className="mb-2.5 flex items-center gap-2">
         <span
-          className="grid h-8 w-8 place-items-center rounded-xl"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-lg"
           style={{
             background: `color-mix(in srgb, ${GOALS_ACCENT} 12%, transparent)`,
             color: GOALS_ACCENT_DEEP,
@@ -614,14 +618,14 @@ function SourceWindow(props: {
         >
           {icon}
         </span>
-        <div>
+        <div className="min-w-0">
           <h3
-            className="text-ink-strong"
-            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 15 }}
+            className="truncate text-ink-strong"
+            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 13.5 }}
           >
             {title}
           </h3>
-          <p className="text-xs text-ink-muted">{subtitle}</p>
+          <p className="truncate text-[11px] text-ink-muted">{subtitle}</p>
         </div>
       </header>
       {filterable ? (

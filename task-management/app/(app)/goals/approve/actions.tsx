@@ -31,10 +31,19 @@ function revalidateApprove() {
   revalidatePath("/goals/approve");
   revalidatePath("/goals/weekly");
   revalidatePath("/weekly-goals");
+  // bug #17 — approval stamps (weekly rows) render on the level pages' canvas
+  // (all three share one loadCanvasData payload) + the cascade shell.
+  revalidatePath("/goals/yearly"); // yearly rootView shares the same canvas payload
+  revalidatePath("/goals/quarterly");
+  revalidatePath("/goals/monthly");
+  revalidatePath("/goals/week");
+  revalidatePath("/goals/cascade");
 }
 
 type WeeklyGoalRow = typeof weeklyGoals.$inferSelect;
 type LoadResult = { ok: false; error: string } | { ok: true; row: WeeklyGoalRow };
+// Phase-1 optimistic spine (design §3.4): single-row mutations return the fresh
+// weekly row so clients reconcile in place; bulk actions keep count-only shapes.
 
 /**
  * Load a weekly goal + require the signed-in user is a MANAGER of its owner —
@@ -87,7 +96,7 @@ const SetMemberAcceptSchema = z.object({
  */
 export async function setMemberAccept(
   input: z.input<typeof SetMemberAcceptSchema>,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ row: WeeklyGoalRow }>> {
   const { me } = await requireGoalsAccess();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
@@ -112,9 +121,14 @@ export async function setMemberAccept(
   if (status !== undefined) patch.status = status as TaskStatus;
 
   try {
-    await db.update(weeklyGoals).set(patch).where(eq(weeklyGoals.id, weeklyGoalId));
+    const [row] = await db
+      .update(weeklyGoals)
+      .set(patch)
+      .where(eq(weeklyGoals.id, weeklyGoalId))
+      .returning();
+    if (!row) return { ok: false, error: "Goal not found" };
     revalidateApprove();
-    return { ok: true };
+    return { ok: true, row };
   } catch (err) {
     return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
   }
@@ -137,7 +151,7 @@ const SetMemberProgressSchema = z.object({
  */
 export async function setMemberProgress(
   input: z.input<typeof SetMemberProgressSchema>,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ row: WeeklyGoalRow }>> {
   const { me } = await requireGoalsAccess();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
@@ -152,7 +166,7 @@ export async function setMemberProgress(
   if (!loaded.ok) return loaded;
 
   try {
-    await db
+    const [row] = await db
       .update(weeklyGoals)
       .set({
         pctDone,
@@ -161,9 +175,11 @@ export async function setMemberProgress(
         updatedById: me.id,
         updatedAt: new Date(),
       })
-      .where(eq(weeklyGoals.id, weeklyGoalId));
+      .where(eq(weeklyGoals.id, weeklyGoalId))
+      .returning();
+    if (!row) return { ok: false, error: "Goal not found" };
     revalidateApprove();
-    return { ok: true };
+    return { ok: true, row };
   } catch (err) {
     return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
   }
@@ -248,7 +264,7 @@ const RequireGoalChangeSchema = z.object({
  */
 export async function requireGoalChange(
   input: z.input<typeof RequireGoalChangeSchema>,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ row: WeeklyGoalRow }>> {
   const { me } = await requireGoalsAccess();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
@@ -273,9 +289,14 @@ export async function requireGoalChange(
   if (reviewNotes !== undefined) patch.reviewNotes = reviewNotes;
 
   try {
-    await db.update(weeklyGoals).set(patch).where(eq(weeklyGoals.id, weeklyGoalId));
+    const [row] = await db
+      .update(weeklyGoals)
+      .set(patch)
+      .where(eq(weeklyGoals.id, weeklyGoalId))
+      .returning();
+    if (!row) return { ok: false, error: "Goal not found" };
     revalidateApprove();
-    return { ok: true };
+    return { ok: true, row };
   } catch (err) {
     return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
   }

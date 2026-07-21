@@ -1,16 +1,14 @@
-import { headers, cookies } from "next/headers";
+import { cookies } from "next/headers";
 import { LayoutGrid } from "lucide-react";
 import { SidebarRail, SidebarToggle } from "./sidebar-rail";
 import { SidebarBrand } from "./sidebar-brand";
 import { MainNavServer } from "./main-nav-server";
 import { NavHistoryButtons } from "./nav-history-buttons";
 import { MobileMenuServer } from "./mobile-menu-server";
+import { MobileModuleLabel, SidebarNewTask, SidebarSearch } from "./sidebar-route-chrome";
 import { UserMenuServer } from "@/components/header/user-menu-server";
 import { NewTaskTrigger } from "@/components/header/new-task-trigger";
-import { GlobalSearch } from "@/components/header/global-search";
 import { getCurrentEmployee } from "@/lib/auth/current";
-import { workspaceForPath } from "@/lib/workspaces";
-import { MODULE_THEME } from "@/lib/module-theme";
 
 /**
  * Vertical LEFT-RAIL navigation (Sir's "left → right" layout, used by every
@@ -23,15 +21,16 @@ import { MODULE_THEME } from "@/lib/module-theme";
  * module title/wordmark here + the module names on the hub. Everything else,
  * including the nav pills (which are "buttons"), uses the brand Altus red. So we
  * DON'T override the pill `--vp-cyan*` vars (they default to Altus red); only the
- * wordmark carries `theme.accent`.
+ * wordmark is always the Altus brand red (hub cards alone keep module colours).
  */
 export async function DashboardSidebar() {
   const me = await getCurrentEmployee();
   const isAdmin = me?.isAdmin ?? false;
 
-  const pathname = (await headers()).get("x-pathname") ?? "/";
-  const ws = workspaceForPath(pathname);
-  const theme = ws && ws !== "wms" ? MODULE_THEME[ws] : null;
+  // bug #24 — no server `x-pathname` read here: the shared layout renders once,
+  // so anything derived from it freezes after a soft navigation. All the
+  // route-dependent chrome (search scope, New-Task slot, mobile module label)
+  // lives behind the usePathname() client wrappers in sidebar-route-chrome.tsx.
   // Collapsed state persists in a cookie so the server renders the right width
   // on first paint (no flicker); the client toggle updates both.
   const collapsed = (await cookies()).get("sidebar_collapsed")?.value === "1";
@@ -51,11 +50,7 @@ export async function DashboardSidebar() {
     >
       <MobileMenuServer isAdmin={isAdmin} />
       <img src="/logo.png" alt="Altus Corp" className="h-8 w-auto" />
-      {theme && (
-        <span className="font-extrabold tracking-tight" style={{ color: theme.accentDeep, fontSize: 16 }}>
-          {theme.label}
-        </span>
-      )}
+      <MobileModuleLabel />
     </div>
 
     {/* Desktop (md+): the left rail — an IN-FLOW flex child (sticky, full height),
@@ -71,7 +66,7 @@ export async function DashboardSidebar() {
         <div className="sidebar-toprow flex items-center gap-2">
           <div className="sidebar-collapsible-hide flex min-w-0 flex-1 items-center gap-2">
             <NavHistoryButtons />
-            <GlobalSearch workspace={ws} />
+            <SidebarSearch />
           </div>
           <SidebarToggle />
         </div>
@@ -100,12 +95,11 @@ export async function DashboardSidebar() {
       {/* ── Primary nav — vertical pills (MainNav drawer variant), scrollable ── */}
       <nav aria-label="Primary" className="sidebar-nav nav-scroll min-h-0 flex-1 overflow-y-auto px-3 py-2">
         <MainNavServer variant="drawer" />
-        {/* New Task is a WMS-only action. */}
-        {ws === "wms" && (
-          <div className="mt-2 sidebar-collapsible-hide">
-            <NewTaskTrigger />
-          </div>
-        )}
+        {/* New Task is a WMS-only action — the server trigger is always rendered
+            as children; the client wrapper shows it only on WMS routes. */}
+        <SidebarNewTask>
+          <NewTaskTrigger />
+        </SidebarNewTask>
       </nav>
 
       {/* ── Bottom: full-width profile bar (avatar + name + ▲ to open the menu),

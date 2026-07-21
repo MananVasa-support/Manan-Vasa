@@ -39,6 +39,21 @@ const NAMES: Record<NotificationKind, string> = {
   goals_committed: "vp_goals_committed",
   goals_approved: "vp_goals_approved",
   hr_confirmation_due: "vp_hr_confirmation",
+  // HR Support (mig 0145) — no registered WhatsApp templates; names are
+  // placeholders to satisfy the exhaustive map (routed away from WhatsApp in
+  // the notification matrix).
+  hr_ticket_created: "vp_hr_ticket_created",
+  hr_ticket_assigned: "vp_hr_ticket_assigned",
+  hr_ticket_replied: "vp_hr_ticket_replied",
+  hr_ticket_status_changed: "vp_hr_ticket_status",
+  hr_ticket_sla_breach: "vp_hr_ticket_sla",
+  hr_ticket_csat_request: "vp_hr_ticket_csat",
+  // Appraisal (mig 0146) — IN-APP ONLY; placeholders for the exhaustive map.
+  appraisal_cycle_opened: "vp_appraisal_opened",
+  appraisal_self_reminder: "vp_appraisal_self",
+  appraisal_manager_pending: "vp_appraisal_manager",
+  appraisal_management_pending: "vp_appraisal_management",
+  appraisal_finalized: "vp_appraisal_finalized",
 };
 
 export function templateNameForKind(kind: NotificationKind): string {
@@ -143,6 +158,19 @@ const VARS: Record<NotificationKind, (ctx: TemplateCtx) => Param[]> = {
   goals_committed: (c) => [t(c.body ?? "")],
   goals_approved: (c) => [t(c.body ?? "")],
   hr_confirmation_due: (c) => [t(c.body ?? "")],
+  // HR Support — placeholder single-body builders (not sent via WhatsApp).
+  hr_ticket_created: (c) => [t(c.body ?? "")],
+  hr_ticket_assigned: (c) => [t(c.body ?? "")],
+  hr_ticket_replied: (c) => [t(c.body ?? "")],
+  hr_ticket_status_changed: (c) => [t(c.body ?? "")],
+  hr_ticket_sla_breach: (c) => [t(c.body ?? "")],
+  hr_ticket_csat_request: (c) => [t(c.body ?? "")],
+  // Appraisal — placeholder single-body builders (in-app only).
+  appraisal_cycle_opened: (c) => [t(c.body ?? "")],
+  appraisal_self_reminder: (c) => [t(c.body ?? "")],
+  appraisal_manager_pending: (c) => [t(c.body ?? "")],
+  appraisal_management_pending: (c) => [t(c.body ?? "")],
+  appraisal_finalized: (c) => [t(c.body ?? "")],
 };
 
 /**

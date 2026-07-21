@@ -128,7 +128,7 @@ export default async function ReimbursementsPage({ searchParams }: PageProps) {
             <div className="flex items-center gap-2 flex-wrap">
               <Link
                 href={"/reimbursements/dashboard" as Route}
-                className="brand-btn inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-4 py-2.5 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-[#16a34a99]"
+                className="inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-4 py-2.5 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-[#16a34a99]"
               >
                 <BarChart3 size={15} strokeWidth={2.6} />
                 Dashboard

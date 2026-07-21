@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 // Admin / Accounts module identity — indigo (meeting 2026-06-29: a colour per
 // module so you always know where you are). The full bespoke indigo chrome
 // rolls across the sub-pages next; this establishes the accent on the front door.
-const ACCENT = MODULE_THEME.accounts.accentDeep;
+const ACCENT = "#A80400";
 
 export default async function AccountsIndexPage() {
   // Guard IN THE PAGE — super-admins or the Accounts department only. The (app)
@@ -30,7 +30,7 @@ export default async function AccountsIndexPage() {
         <header className="mb-8 wg-rise">
           <span
             className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em]"
-            style={{ color: "#ffffff", background: `linear-gradient(135deg, ${MODULE_THEME.accounts.accent}, ${ACCENT})` }}
+            style={{ color: "#ffffff", background: `linear-gradient(135deg, ${"#E10600"}, ${ACCENT})` }}
           >
             Admin · Accounts
           </span>
@@ -60,7 +60,7 @@ export default async function AccountsIndexPage() {
             <Link
               href={"/salary" as Route}
               className="inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[13.5px] font-bold text-white transition-opacity hover:opacity-90"
-              style={{ background: `linear-gradient(135deg, ${MODULE_THEME.accounts.accent}, ${ACCENT})` }}
+              style={{ background: `linear-gradient(135deg, ${"#E10600"}, ${ACCENT})` }}
             >
               <Wallet size={15} strokeWidth={2.4} /> Salary module
             </Link>

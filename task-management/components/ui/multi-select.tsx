@@ -183,7 +183,7 @@ export function MultiSelect({
                   value={`${opt.label} ${opt.value}`}
                   onSelect={() => toggle(opt.value)}
                   className="rounded-xl px-2.5 py-2.5 gap-2.5 transition-colors aria-selected:bg-black/[0.04]"
-                  style={checked ? { backgroundColor: "rgba(225,6,0,0.06)" } : undefined}
+                  style={checked ? { backgroundColor: "rgba(225,6,0,0.11)" } : undefined}
                 >
                   <span className="flex items-center gap-2.5 w-full">
                     <span
@@ -204,7 +204,7 @@ export function MultiSelect({
                     <span
                       className={cn(
                         "flex-1 text-[14.5px] truncate",
-                        checked ? "font-semibold text-ink-strong" : "text-ink-soft",
+                        checked ? "font-bold text-altus-red-deep" : "text-ink-soft",
                       )}
                     >
                       {opt.label}

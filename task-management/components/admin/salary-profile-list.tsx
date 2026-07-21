@@ -149,7 +149,7 @@ export function SalaryProfileList({
             <button
               type="button"
               onClick={() => setAdvancesFor(r)}
-              className="brand-btn inline-flex items-center gap-1.5 rounded-lg border border-hairline px-3 py-2 text-[13px] font-medium text-ink-soft hover:border-hairline-strong hover:text-ink-strong transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-hairline px-3 py-2 text-[13px] font-medium text-ink-soft hover:border-hairline-strong hover:text-ink-strong transition-colors"
             >
               <IndianRupee size={14} strokeWidth={2.2} />
               Advances
@@ -158,7 +158,7 @@ export function SalaryProfileList({
               type="button"
               aria-label={`Edit ${r.name}`}
               onClick={() => setEditing(r)}
-              className="brand-btn inline-flex items-center gap-1.5 rounded-lg border border-hairline px-3 py-2 text-[13px] font-medium text-ink-soft hover:border-hairline-strong hover:text-ink-strong transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-hairline px-3 py-2 text-[13px] font-medium text-ink-soft hover:border-hairline-strong hover:text-ink-strong transition-colors"
             >
               <Pencil size={14} strokeWidth={2.2} />
               Edit
@@ -401,7 +401,7 @@ function AdvancesDialog({
             <Dialog.Close asChild>
               <button
                 type="button"
-                className="brand-btn px-4 py-2.5 text-[14px] font-medium text-[#64748B]"
+                className="px-4 py-2.5 text-[14px] font-medium text-[#64748B]"
               >
                 Close
               </button>

@@ -58,6 +58,12 @@ export function WeeklyGoalDrawer({
     }, 60);
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
+        // A floating layer (Select popover / dropdown menu) is open INSIDE the
+        // drawer: this capture-phase listener would otherwise close the whole
+        // drawer underneath it. Let Radix consume that Escape (it closes just
+        // the popover); the NEXT Escape reaches us and closes the drawer.
+        const t = e.target as Element | null;
+        if (t?.closest?.("[data-radix-popper-content-wrapper]")) return;
         e.stopPropagation();
         onCloseRef.current();
       }
@@ -119,7 +125,7 @@ export function WeeklyGoalDrawer({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-[var(--color-surface-soft)] hover:text-ink-strong"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-[var(--color-surface-soft)] hover:text-ink-strong outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1"
           >
             <X size={18} />
           </button>

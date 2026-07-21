@@ -7,8 +7,8 @@ import { fireToast } from "@/lib/toast";
 import { setObligationCompletion } from "@/app/(app)/events/obligations/actions";
 import type { CellStatus, FyMonthCol, ObligationCell } from "./types";
 
-const ACCENT = "#0891b2";
-const ACCENT_DEEP = "#0e7490";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 /** Background / text / border per cell status. Status hues are semantic (heat),
  *  intentionally outside the brand-chrome tokens. */
@@ -204,7 +204,7 @@ export function CellBumpPopover({
                 type="button"
                 onClick={onClear}
                 disabled={pending}
-                className="brand-btn text-[13px] font-semibold text-ink-soft transition-colors hover:text-altus-red disabled:opacity-50"
+                className="bg-surface-card text-[13px] font-semibold text-ink-soft transition-colors hover:text-altus-red disabled:opacity-50"
               >
                 Clear override
               </button>

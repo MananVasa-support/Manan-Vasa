@@ -130,6 +130,9 @@ export function StatusTable({
   const router = useRouter();
   const [query, setQuery] = React.useState("");
   const [selectedDept, setSelectedDept] = React.useState<string | null>(null);
+  // Show the first 10 people by default; "Show more" reveals the rest.
+  const [showAll, setShowAll] = React.useState(false);
+  const PAGE = 10;
 
   // Whole-row navigation — anyone can click anywhere on the row (or
   // Tab to it and hit Enter/Space) to drill into that person's tasks.
@@ -237,7 +240,7 @@ export function StatusTable({
                 setQuery("");
                 setSelectedDept(null);
               }}
-              className="brand-btn mt-3 text-cta text-altus-red hover:underline"
+              className="bg-surface-card mt-3 text-cta text-altus-red hover:underline"
             >
               Clear filters
             </button>
@@ -250,14 +253,15 @@ export function StatusTable({
         >
           {/* NOTE: no `overflow-x-auto` here — an overflow ancestor would make
               the <thead> stick to THIS box instead of the viewport (the header
-              floated mid-table). Without it, `thead sticky top-[160px]` pins
-              correctly under the app header + filter bar as the page scrolls. */}
+              floated mid-table). Without it, the sticky <thead> pins correctly
+              under the filter bar as the page scrolls. */}
           <table className="w-full min-w-[720px]">
-            {/* Column labels pin below the sticky app header (96px) + sticky
-                filter bar (~64px) ≈ 160px so they stay visible while the long
-                employee list scrolls. z-20 sits above body rows; the first
-                cell keeps its left-0 freeze for horizontal scroll. */}
-            <thead className="sticky top-[160px] max-md:top-[132px] z-20">
+            {/* WMS uses the vertical left rail now (no horizontal top header), so
+                the column labels pin just below the sticky filter bar (~64px) —
+                NOT the old 96px-header + filter-bar (160px), which floated the
+                header mid-table. Mobile: rail top bar (56px) + filter bar. z-20
+                sits above body rows; the first cell keeps its left-0 freeze. */}
+            <thead className="sticky top-[64px] max-md:top-[116px] z-20">
               {table.getHeaderGroups().map((hg) => (
                 <tr key={hg.id} className="border-b border-hairline">
                   {hg.headers.map((h, i) => (
@@ -279,7 +283,10 @@ export function StatusTable({
               ))}
             </thead>
             <tbody>
-              {table.getRowModel().rows.map((row) => {
+              {(showAll
+                ? table.getRowModel().rows
+                : table.getRowModel().rows.slice(0, PAGE)
+              ).map((row) => {
                 const empId = row.original.employeeId;
                 const empName = row.original.employeeName;
                 const target = hrefFor(empId);
@@ -329,6 +336,30 @@ export function StatusTable({
               })}
             </tbody>
           </table>
+
+          {/* Cap the list at 10 people; reveal the rest on demand. */}
+          {filtered.length > PAGE && (
+            <div className="border-t border-hairline">
+              <button
+                type="button"
+                onClick={() => setShowAll((v) => !v)}
+                aria-expanded={showAll}
+                className="bg-surface-card flex w-full items-center justify-center gap-1.5 px-5 py-3.5 text-[14px] font-bold text-altus-red transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_6%,transparent)]"
+              >
+                {showAll ? (
+                  <>
+                    Show less
+                    <ChevronRight size={16} strokeWidth={2.6} className="-rotate-90" />
+                  </>
+                ) : (
+                  <>
+                    Show all {filtered.length} people
+                    <ChevronRight size={16} strokeWidth={2.6} className="rotate-90" />
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </section>
@@ -411,7 +442,7 @@ function FilterBar({
         <button
           type="button"
           onClick={onClear}
-          className="brand-btn ml-auto inline-flex items-center gap-1.5 text-[14px] font-bold text-ink-muted hover:text-altus-red transition-colors"
+          className="bg-surface-card ml-auto inline-flex items-center gap-1.5 text-[14px] font-bold text-ink-muted hover:text-altus-red transition-colors"
         >
           <X className="size-3.5" />
           Clear filters

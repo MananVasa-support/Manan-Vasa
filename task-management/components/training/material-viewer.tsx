@@ -99,13 +99,13 @@ export function MaterialViewer({
           ) : material.fileType === "xls" && material.fileUrl ? (
             <div className="flex flex-col items-center gap-3 py-14">
               <Table2Icon />
-              <a href={material.fileUrl} target="_blank" rel="noopener noreferrer" className="brand-btn inline-flex items-center gap-2 rounded-xl bg-surface-track px-5 py-3 text-[15px] font-bold text-ink-strong hover:bg-surface-soft">
+              <a href={material.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-surface-track px-5 py-3 text-[15px] font-bold text-ink-strong hover:bg-surface-soft">
                 <Download size={17} strokeWidth={2.4} /> Download spreadsheet
               </a>
             </div>
           ) : material.videoUrl ? (
             <div className="flex flex-col items-center gap-3 py-14">
-              <a href={material.videoUrl} target="_blank" rel="noopener noreferrer" className="brand-btn inline-flex items-center gap-2 rounded-xl bg-surface-track px-5 py-3 text-[15px] font-bold text-ink-strong hover:bg-surface-soft">
+              <a href={material.videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-surface-track px-5 py-3 text-[15px] font-bold text-ink-strong hover:bg-surface-soft">
                 <ExternalLink size={17} strokeWidth={2.4} /> Open video
               </a>
             </div>
@@ -150,7 +150,7 @@ export function MaterialViewer({
 
         {canManage && (
           <div className="mt-1 flex gap-2 border-t border-hairline pt-4">
-            <button type="button" onClick={onArchive} disabled={busy !== null} className="brand-btn inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-hairline-strong bg-white py-2.5 text-[13.5px] font-bold text-ink-soft hover:border-ink-subtle disabled:opacity-50">
+            <button type="button" onClick={onArchive} disabled={busy !== null} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-hairline-strong bg-white py-2.5 text-[13.5px] font-bold text-ink-soft hover:border-ink-subtle disabled:opacity-50">
               {busy === "arch" ? <Loader2 size={14} className="animate-spin" /> : material.archived ? <RotateCcw size={14} /> : <Archive size={14} />} {material.archived ? "Restore" : "Archive"}
             </button>
             <button type="button" onClick={onDelete} disabled={busy !== null} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-3.5 py-2.5 text-[13.5px] font-bold text-ink-soft hover:border-altus-red hover:text-altus-red disabled:opacity-50" aria-label="Delete material">

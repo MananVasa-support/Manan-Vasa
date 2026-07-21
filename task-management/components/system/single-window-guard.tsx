@@ -204,7 +204,7 @@ export function SingleWindowGuard({ enabled = true }: { enabled?: boolean }) {
             type="button"
             onClick={() => window.close()}
             title="Close this window (keeps the other one active)"
-            className="brand-btn rounded-xl px-4 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:bg-surface-soft"
+            className="rounded-xl px-4 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:bg-surface-soft"
             style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}
           >
             Close

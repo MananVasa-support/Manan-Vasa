@@ -52,7 +52,7 @@ export function DocViewer({ doc, onClose }: { doc: ViewerDoc; onClose: () => voi
           <a
             href={url}
             download={doc.fileName}
-            className="brand-btn inline-flex items-center gap-1.5 rounded-pill bg-white/15 px-3.5 py-1.5 text-[13px] font-bold text-white hover:bg-white/25"
+            className="inline-flex items-center gap-1.5 rounded-pill bg-white/15 px-3.5 py-1.5 text-[13px] font-bold text-white hover:bg-white/25"
           >
             <Download size={14} strokeWidth={2.4} /> Download
           </a>
@@ -88,7 +88,7 @@ export function DocViewer({ doc, onClose }: { doc: ViewerDoc; onClose: () => voi
               <a
                 href={url}
                 download={doc.fileName}
-                className="brand-btn mt-4 inline-flex items-center gap-2 rounded-pill bg-white px-4 py-2 text-[13.5px] font-bold text-ink-strong"
+                className="mt-4 inline-flex items-center gap-2 rounded-pill bg-white px-4 py-2 text-[13.5px] font-bold text-ink-strong"
               >
                 <ExternalLink size={15} strokeWidth={2.4} /> Open / download
               </a>

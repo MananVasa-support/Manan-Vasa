@@ -93,7 +93,7 @@ export function GoalsImport({ roster }: { roster: RosterMember[] }) {
         <button
           type="button"
           onClick={downloadTemplate}
-          className="brand-btn wg-btn mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface-card px-3 py-1.5 text-[12.5px] font-bold text-ink-strong hover:brightness-95"
+          className="wg-btn mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface-card px-3 py-1.5 text-[12.5px] font-bold text-ink-strong hover:brightness-95"
         >
           <Download size={14} strokeWidth={2.4} /> Download template (.csv)
         </button>
@@ -146,7 +146,7 @@ export function GoalsImport({ roster }: { roster: RosterMember[] }) {
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={pending}
-          className="brand-btn wg-btn wg-sheen inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[14px] font-bold text-white disabled:opacity-60"
+          className="wg-btn wg-sheen inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[14px] font-bold text-white disabled:opacity-60"
           style={{ background: `linear-gradient(135deg, ${GOALS_ACCENT}, ${GOALS_ACCENT_DEEP})` }}
         >
           {pending ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}

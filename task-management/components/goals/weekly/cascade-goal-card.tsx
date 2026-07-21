@@ -13,11 +13,11 @@ import { TeamInvolvedEditor } from "./team-involved-editor";
 import { CarryForwardControl } from "./carry-forward-control";
 import type { BoardMe, CascadeWeeklyGoal, MonthGoalOption, RosterMember } from "./types";
 
-// Goals module identity (amber-gold), token-first with a module-theme fallback.
-const ACCENT = "var(--goals-accent, #b45309)";
-const ACCENT_DEEP = "var(--goals-accent-deep, #7c2d12)";
-const ACCENT_TINT = "color-mix(in srgb, var(--goals-accent, #b45309) 6%, transparent)";
-const ACCENT_TINT_STRONG = "color-mix(in srgb, var(--goals-accent, #b45309) 12%, transparent)";
+// Goals module identity (Altus brand red), token-first with a module-theme fallback.
+const ACCENT = "var(--goals-accent, #E10600)";
+const ACCENT_DEEP = "var(--goals-accent-deep, #A80400)";
+const ACCENT_TINT = "color-mix(in srgb, var(--goals-accent, #E10600) 6%, transparent)";
+const ACCENT_TINT_STRONG = "color-mix(in srgb, var(--goals-accent, #E10600) 12%, transparent)";
 
 /** Google 0–100 grading colour: ≥70 green, 40–69 amber, <40 red. */
 function gradeColor(pct: number): string {
@@ -279,7 +279,7 @@ function ParentGoalPicker({
       className="inline-flex items-center gap-1.5 rounded-pill border px-2.5 py-1 text-[11.5px] font-semibold"
       style={{
         background: ACCENT_TINT_STRONG,
-        borderColor: "color-mix(in srgb, var(--goals-accent, #b45309) 30%, transparent)",
+        borderColor: "color-mix(in srgb, var(--goals-accent, #E10600) 30%, transparent)",
         color: ACCENT_DEEP,
       }}
     >
@@ -401,7 +401,7 @@ function EditFieldsForm({ goal, onDone }: { goal: CascadeWeeklyGoal; onDone: () 
           type="button"
           onClick={onDone}
           disabled={pending}
-          className="brand-btn rounded-pill px-3 py-1.5 text-[12.5px] font-semibold text-ink-muted hover:text-ink-strong"
+          className="bg-surface-card rounded-pill px-3 py-1.5 text-[12.5px] font-semibold text-ink-muted hover:text-ink-strong"
         >
           Cancel
         </button>
@@ -409,10 +409,10 @@ function EditFieldsForm({ goal, onDone }: { goal: CascadeWeeklyGoal; onDone: () 
           type="button"
           onClick={save}
           disabled={pending}
-          className="brand-btn wg-btn wg-sheen rounded-pill px-4 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50"
+          className="wg-btn wg-sheen rounded-pill px-4 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50"
           style={{
             background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
-            boxShadow: "0 6px 16px -8px color-mix(in srgb, var(--goals-accent, #b45309) 60%, transparent), inset 0 1px 0 rgba(255,255,255,0.22)",
+            boxShadow: "0 6px 16px -8px color-mix(in srgb, var(--goals-accent, #E10600) 60%, transparent), inset 0 1px 0 rgba(255,255,255,0.22)",
           }}
         >
           {pending ? "Saving…" : "Save fields"}

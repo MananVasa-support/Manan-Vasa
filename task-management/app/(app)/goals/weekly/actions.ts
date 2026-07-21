@@ -29,6 +29,14 @@ type ActionResult<T = undefined> =
 function revalidate() {
   revalidatePath("/goals/weekly");
   revalidatePath("/weekly-goals");
+  // 5-page restructure level routes (bug #17) — ALL level pages share one
+  // canvas payload that includes the weekly rows (loadCanvasData), so every
+  // weekly mutation must refresh all three, not just /goals/week.
+  revalidatePath("/goals/week");
+  revalidatePath("/goals/monthly");
+  revalidatePath("/goals/yearly"); // yearly rootView shares the same canvas payload
+  revalidatePath("/goals/quarterly");
+  revalidatePath("/goals/cascade");
 }
 
 /** numeric(14,2) columns round-trip as strings; serialise at the boundary. */
@@ -80,7 +88,7 @@ const SetAdoptedSchema = z.object({ id: z.string().uuid(), adopted: z.boolean() 
  */
 export async function setWeeklyAdopted(
   input: z.infer<typeof SetAdoptedSchema>,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ row: WeeklyRow }>> {
   const { me } = await requireGoalsAccess();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
@@ -90,12 +98,14 @@ export async function setWeeklyAdopted(
   const loaded = await loadWritableWeekly(parsed.data.id, me);
   if (!loaded.ok) return loaded;
   try {
-    await db
+    const [row] = await db
       .update(weeklyGoals)
       .set({ adopted: parsed.data.adopted, updatedById: me.id, updatedAt: new Date() })
-      .where(eq(weeklyGoals.id, parsed.data.id));
+      .where(eq(weeklyGoals.id, parsed.data.id))
+      .returning();
+    if (!row) return { ok: false, error: "Goal not found" };
     revalidate();
-    return { ok: true };
+    return { ok: true, row };
   } catch (err) {
     return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
   }
@@ -128,7 +138,7 @@ const UpdateFieldsSchema = z.object({
  */
 export async function updateWeeklyCascadeFields(
   input: z.infer<typeof UpdateFieldsSchema>,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ row: WeeklyRow }>> {
   const { me } = await requireGoalsAccess();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
@@ -168,9 +178,14 @@ export async function updateWeeklyCascadeFields(
   if ("monthGoalId" in d) set.monthGoalId = d.monthGoalId ?? null;
 
   try {
-    await db.update(weeklyGoals).set(set).where(eq(weeklyGoals.id, d.id));
+    const [row] = await db
+      .update(weeklyGoals)
+      .set(set)
+      .where(eq(weeklyGoals.id, d.id))
+      .returning();
+    if (!row) return { ok: false, error: "Goal not found" };
     revalidate();
-    return { ok: true };
+    return { ok: true, row };
   } catch (err) {
     return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
   }
@@ -193,7 +208,7 @@ const SetTeamSchema = z.object({
 /** Replace the `team_involved` set on a weekly goal (add/remove members). */
 export async function setWeeklyTeamInvolved(
   input: z.infer<typeof SetTeamSchema>,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ row: WeeklyRow }>> {
   const { me } = await requireGoalsAccess();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
@@ -203,12 +218,128 @@ export async function setWeeklyTeamInvolved(
   const loaded = await loadWritableWeekly(parsed.data.id, me);
   if (!loaded.ok) return loaded;
   try {
-    await db
+    const [row] = await db
       .update(weeklyGoals)
       .set({ teamInvolved: parsed.data.members, updatedById: me.id, updatedAt: new Date() })
-      .where(eq(weeklyGoals.id, parsed.data.id));
+      .where(eq(weeklyGoals.id, parsed.data.id))
+      .returning();
+    if (!row) return { ok: false, error: "Goal not found" };
     revalidate();
-    return { ok: true };
+    return { ok: true, row };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+// --------------------------------------------------------------------------
+// Phase 3 (goals-canvas): the editable Week zoom stage
+//   addWeekGoal      — create a weekly row in ANY week (the unified drill needs
+//                      single-week creation; addChildGoal hard-refuses
+//                      month→week and addNextWeekGoal only targets next week).
+//   setWeeklyTitle   — inline title edit (writes target_done, the column every
+//                      surface renders as the row's title).
+// Both follow the invariant chain: requireGoalsAccess → rateLimit → zod →
+// authorize → write → RETURN THE ROW (design §3.4). pctDone/ritual stamps are
+// never touched here (locked decisions 1–2).
+// --------------------------------------------------------------------------
+
+const AddWeekGoalSchema = z.object({
+  employeeId: z.string().uuid(),
+  /** Monday of the target week (canvas passes the focused `wk`). */
+  weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid week"),
+  title: z.string().trim().min(1, "Add a short goal").max(2000),
+  area: z.string().trim().max(200).nullish(),
+  /** Optional month-goal linkage (validated: same person, period=month). */
+  monthGoalId: z.string().uuid().nullish(),
+});
+
+/** Create a weekly goal in a specific week — self or manager-on-behalf. */
+export async function addWeekGoal(
+  input: z.infer<typeof AddWeekGoalSchema>,
+): Promise<ActionResult<{ id: string; row: WeeklyRow }>> {
+  const { me } = await requireGoalsAccess();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = AddWeekGoalSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  const d = parsed.data;
+
+  // Authorize the TARGET person: self, admin, or in the caller's downline.
+  if (d.employeeId !== me.id && !me.isAdmin) {
+    const scope = await goalScopeFor(me);
+    if (!scope.ids.includes(d.employeeId)) {
+      return { ok: false, error: "You can't add goals for that person" };
+    }
+  }
+  // Normalise to the week's Monday so grouping stays canonical.
+  const weekStart = mondayOf(d.weekStart);
+
+  // Validate the optional month linkage (same rules as updateWeeklyCascadeFields).
+  if (d.monthGoalId != null) {
+    const [parent] = await db
+      .select({ employeeId: goals.employeeId, period: goals.period })
+      .from(goals)
+      .where(eq(goals.id, d.monthGoalId))
+      .limit(1);
+    if (!parent) return { ok: false, error: "Parent goal not found" };
+    if (parent.employeeId !== d.employeeId)
+      return { ok: false, error: "Parent goal belongs to another person" };
+    if (parent.period !== "month")
+      return { ok: false, error: "A weekly goal can only link to a monthly goal" };
+  }
+
+  try {
+    const position = await nextPosition(d.employeeId, weekStart);
+    const [row] = await db
+      .insert(weeklyGoals)
+      .values({
+        employeeId: d.employeeId,
+        weekStart,
+        position,
+        targetDone: d.title,
+        area: d.area ?? null,
+        monthGoalId: d.monthGoalId ?? null,
+        adopted: true,
+        createdById: me.id,
+        updatedById: me.id,
+      })
+      .returning();
+    if (!row) return { ok: false, error: "Insert returned no row" };
+    revalidate();
+    revalidatePath("/goals/cascade");
+    return { ok: true, id: row.id, row };
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+const SetTitleSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string().trim().min(1, "Title can't be empty").max(2000),
+});
+
+/** Inline title edit for a weekly row (writes `target_done`). */
+export async function setWeeklyTitle(
+  input: z.infer<typeof SetTitleSchema>,
+): Promise<ActionResult<{ row: WeeklyRow }>> {
+  const { me } = await requireGoalsAccess();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = SetTitleSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const loaded = await loadWritableWeekly(parsed.data.id, me);
+  if (!loaded.ok) return loaded;
+  try {
+    const [row] = await db
+      .update(weeklyGoals)
+      .set({ targetDone: parsed.data.title, updatedById: me.id, updatedAt: new Date() })
+      .where(eq(weeklyGoals.id, parsed.data.id))
+      .returning();
+    if (!row) return { ok: false, error: "Goal not found" };
+    revalidate();
+    revalidatePath("/goals/cascade");
+    return { ok: true, row };
   } catch (err) {
     return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
   }
@@ -232,7 +363,7 @@ const CloneForwardSchema = z.object({
  */
 export async function cloneWeeklyForward(
   input: z.infer<typeof CloneForwardSchema>,
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string; row: WeeklyRow | null }>> {
   const { me } = await requireGoalsAccess();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
@@ -247,8 +378,9 @@ export async function cloneWeeklyForward(
 
   try {
     const id = await cloneRow(src, toWeek, retain, me.id);
+    const [row] = await db.select().from(weeklyGoals).where(eq(weeklyGoals.id, id)).limit(1);
     revalidate();
-    return { ok: true, id };
+    return { ok: true, id, row: row ?? null };
   } catch (err) {
     return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
   }

@@ -15,6 +15,7 @@ import {
   CreditCard,
   Award,
   IndianRupee,
+  Wallet,
   Compass,
   Receipt,
   Timer,
@@ -35,13 +36,16 @@ import {
   Gauge,
   Gem,
   Share2,
-  Star,
-  Medal,
   FolderLock,
   Palette,
   PartyPopper,
   FileSignature,
   Trash2,
+  Trophy,
+  ScrollText,
+  Mail,
+  BellRing,
+  LifeBuoy,
 } from "lucide-react";
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
@@ -55,6 +59,12 @@ interface Props {
   variant?: "drawer";
   /** Active workspace from the `aw` cookie (server-resolved). */
   cookieWorkspace?: WorkspaceId;
+  /**
+   * Whether GOALS_CANVAS_ON is set (server-resolved in MainNavServer — the env
+   * var is not NEXT_PUBLIC, so it is ALWAYS falsy client-side). Gates the Goals
+   * level items, which server-redirect to /goals when the flag is off (bug #11).
+   */
+  goalsCanvasEnabled?: boolean;
 }
 
 /**
@@ -71,6 +81,11 @@ interface NavItem {
   not?: string[];
   /** Special-cased active-tasks badge — only Tasks carries it. */
   countKey?: "activeTasks";
+  /** Item exists only when GOALS_CANVAS_ON is set — hidden when off (bug #11). */
+  canvasOnly?: boolean;
+  /** Fallback destination when GOALS_CANVAS_ON is off (bug #11) — the item is
+   *  repointed there instead of bouncing off the level page's redirect. */
+  canvasOffHref?: Route;
 }
 
 interface NavGroup {
@@ -107,15 +122,22 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       },
       { href: "/tasks/kanban" as Route, label: "Kanban", Icon: SquareKanban, adminOnly: true },
       { href: "/projects" as Route, label: "Projects", Icon: FolderKanban },
+      // Important Links — the curated directory (was the Marketing room's only
+      // surface; Marketing retired as a workspace 2026-07).
+      { href: "/index-hub" as Route, label: "Important Links", Icon: Compass },
     ],
     // No "More" dropdown — Documents already lives in the profile/avatar menu.
     groups: [],
   },
   employees: {
     top: [
-      { href: "/pms" as Route, label: "Performance", Icon: Target, not: ["/pms/config", "/pms/review", "/pms/signals"] },
-      { href: "/pms/review" as Route, label: "360 Review", Icon: Star },
-      { href: "/pms/signals" as Route, label: "Signals", Icon: Medal, adminOnly: true },
+      // Appraisal (mig 0146) — consolidates Performance (/pms) + 360 Review
+      // (/pms/review) + Signals (/pms/signals) into ONE surface. The old pages
+      // still exist (and /appraisal redirects to /pms while APPRAISAL_OFF=true
+      // — see lib/pms/appraisal-flag.ts); they're just de-linked here.
+      // Order (Sir, 2026-07): Attendance · DCC · Incentive · My Salary ·
+      // Reimbursements · Appraisal. HR Record moved to the HR room; the admin
+      // Salary module + Overtime moved to the Accounts room.
       {
         href: "/attendance" as Route,
         label: "Attendance",
@@ -123,23 +145,28 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
         not: ["/attendance/dashboard", "/attendance/hr-record"],
       },
       { href: "/dcc" as Route, label: "DCC", Icon: Gauge },
-      {
-        href: "/attendance/hr-record" as Route,
-        label: "HR Record",
-        Icon: ClipboardList,
-        adminOnly: true,
-      },
-      { href: "/salary" as Route, label: "Salary", Icon: IndianRupee, adminOnly: true },
       { href: "/incentive" as Route, label: "Incentive", Icon: Award },
-      {
-        href: "/overtime" as Route,
-        label: "Overtime",
-        Icon: Timer,
-        not: ["/overtime/dashboard"],
-      },
+      { href: "/my-salary" as Route, label: "My Salary", Icon: Wallet },
       { href: "/reimbursements" as Route, label: "Reimbursements", Icon: Receipt },
+      { href: "/appraisal" as Route, label: "Appraisal", Icon: Target },
+    ],
+    groups: [],
+  },
+  hr: {
+    // HR — the paperwork room. Dossier + Agreements are live (re-parented from
+    // Employees); the rest are scaffolded sections awaiting their real build.
+    top: [
+      { href: "/hr" as Route, label: "Overview", Icon: LayoutGrid, exact: true },
+      // HR Record (attendance log) — re-parented from Employees (2026-07);
+      // stays admin-only via the page's own requireAdmin guard.
+      { href: "/attendance/hr-record" as Route, label: "HR Record", Icon: ClipboardList, adminOnly: true },
       { href: "/dossier" as Route, label: "Dossier", Icon: FolderLock },
       { href: "/agreements" as Route, label: "Agreements", Icon: FileSignature },
+      { href: "/policies" as Route, label: "Policies", Icon: ScrollText },
+      { href: "/holidays" as Route, label: "Holiday List", Icon: PartyPopper },
+      { href: "/letters" as Route, label: "Letters", Icon: Mail },
+      { href: "/queries" as Route, label: "Queries & Notifications", Icon: BellRing },
+      { href: "/support" as Route, label: "Support", Icon: LifeBuoy },
     ],
     groups: [],
   },
@@ -151,10 +178,6 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       { href: "/participant-breakthrough" as Route, label: "Breakthrough", Icon: Sparkles },
       { href: "/record-reference" as Route, label: "References", Icon: BookMarked },
     ],
-    groups: [],
-  },
-  marketing: {
-    top: [{ href: "/index-hub" as Route, label: "Index", Icon: Compass }],
     groups: [],
   },
   admin: {
@@ -209,6 +232,10 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       { href: "/accounts/shares-register" as Route, label: "Shares", Icon: CandlestickChart },
       { href: "/accounts/income-tax-master-folder" as Route, label: "IT Folder", Icon: FolderArchive },
       { href: "/accounts/ca-handover" as Route, label: "CA Handover", Icon: ShieldCheck },
+      // Payroll — the admin Salary module + Overtime, re-parented from Employees
+      // (2026-07). Gated by the Accounts room + each page's own finance guard.
+      { href: "/salary" as Route, label: "Salary", Icon: IndianRupee },
+      { href: "/overtime" as Route, label: "Overtime", Icon: Timer, not: ["/overtime/dashboard"] },
     ],
     groups: [],
   },
@@ -232,15 +259,24 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
     groups: [],
   },
   goals: {
-    // Goals Cascade — the year board is the hero; the re-parented Weekly Goals +
-    // Daily Checklist modules, plan-your-day, review, and the Saturday-commit /
-    // Monday-approve gate surfaces sit beside it. (The old /goals/weekly pill is
-    // dropped — Weekly Goals at /weekly-goals is the canonical weekly board.)
+    // One button per planning level — each opens a dedicated level page (the
+    // weekly-goals BOARD design), locked to that level; the sidebar IS the
+    // level navigator. The rituals sit below. Level pages need GOALS_CANVAS_ON
+    // (they redirect to /goals when off).
     top: [
-      { href: "/goals" as Route, label: "Cascade", Icon: Target, exact: true },
-      { href: "/weekly-goals" as Route, label: "Weekly Goals", Icon: Target, not: ["/weekly-goals/team"] },
+      // yearly rootView — the FY's YEAR objectives themselves (drill → Quarterly).
+      { href: "/goals/yearly" as Route, label: "Yearly Goals", Icon: Trophy, canvasOnly: true },
+      { href: "/goals/quarterly" as Route, label: "Quarterly Goals", Icon: Target, canvasOnly: true },
+      { href: "/goals/monthly" as Route, label: "Monthly Goals", Icon: CalendarRange, canvasOnly: true },
+      // Weekly = the REAL weekly board (WeeklyCascadeBoard over weekly_goals,
+      // its own week nav). /goals/week is a permanent redirect alias to it.
+      { href: "/goals/weekly" as Route, label: "Weekly Goals", Icon: CalendarCheck },
+      { href: "/goals/plan" as Route, label: "Daily Goals", Icon: CalendarDays },
+      // "Cascade" removed — the canvas is retired as the UI; the four level
+      // pages (board design) + rituals below are the whole module. Cross-level
+      // moves live in each card's "Move to…" drawer (the drag-to-sidebar
+      // bridge left with the canvas).
       { href: "/weekly-goals/team" as Route, label: "Team", Icon: Users },
-      { href: "/goals/plan" as Route, label: "Plan My Day", Icon: CalendarDays },
       { href: "/goals/review" as Route, label: "Review", Icon: ClipboardList },
       { href: "/goals/commit" as Route, label: "Commit", Icon: CalendarCheck },
       { href: "/goals/approve" as Route, label: "Approve", Icon: CalendarRange },
@@ -250,7 +286,13 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
   },
 };
 
-export function MainNav({ activeTasks, isAdmin, variant, cookieWorkspace }: Props) {
+export function MainNav({
+  activeTasks,
+  isAdmin,
+  variant,
+  cookieWorkspace,
+  goalsCanvasEnabled,
+}: Props) {
   const pathname = usePathname();
 
   // Path wins (keeps the bar in sync with the page you're actually on); the
@@ -259,15 +301,30 @@ export function MainNav({ activeTasks, isAdmin, variant, cookieWorkspace }: Prop
     workspaceForPath(pathname) ?? cookieWorkspace ?? "wms";
   const { top, groups } = WORKSPACE_NAV[workspace];
 
+  /** bug #11 — with GOALS_CANVAS_ON off the level pages server-redirect to
+   *  /goals, so their pills read as dead: hide the canvas-only items and
+   *  repoint the ones with a working legacy destination. The repointed item
+   *  drops its `not` list (it must highlight on its own fallback path). */
+  function resolveCanvasItems(items: NavItem[]): NavItem[] {
+    if (goalsCanvasEnabled) return items;
+    return items.flatMap((it) => {
+      if (it.canvasOnly) return [];
+      if (it.canvasOffHref) return [{ ...it, href: it.canvasOffHref, not: undefined }];
+      return [it];
+    });
+  }
+
   function isActive(item: NavItem): boolean {
     if (item.exact) return pathname === item.href;
-    if (!pathname.startsWith(item.href)) return false;
-    if (item.not?.some((p) => pathname.startsWith(p))) return false;
+    // Segment-aware: only match the exact path or a true sub-path, so
+    // `/goals/week` never lights up on `/goals/weekly` (prefix collision).
+    if (pathname !== item.href && !pathname.startsWith(item.href + "/")) return false;
+    if (item.not?.some((p) => pathname === p || pathname.startsWith(p + "/"))) return false;
     return true;
   }
 
   function visible(items: NavItem[]): NavItem[] {
-    return items.filter((it) => !it.adminOnly || isAdmin);
+    return resolveCanvasItems(items).filter((it) => !it.adminOnly || isAdmin);
   }
 
   function renderPill(item: NavItem) {

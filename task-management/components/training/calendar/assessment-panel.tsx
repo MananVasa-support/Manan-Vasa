@@ -9,10 +9,10 @@ import { LookupSelect } from "@/components/ui/lookup-select";
 import { recordAssessment, waiveAssessment } from "@/app/(app)/training/calendar/actions";
 import type { SessionAssessmentRow, SessionAttendeeRow } from "@/lib/queries/training-calendar";
 
-const ACCENT = "#2563eb";
-const ACCENT_DEEP = "#1d4ed8";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
-const INPUT = "w-full rounded-xl border border-hairline bg-white px-3.5 py-2.5 text-[15px] font-semibold text-ink-strong outline-none transition-colors focus:border-[#2563eb]";
+const INPUT = "w-full rounded-xl border border-hairline bg-white px-3.5 py-2.5 text-[15px] font-semibold text-ink-strong outline-none transition-colors focus:border-[#E10600]";
 
 export function AssessmentPanel({
   sessionId,
@@ -103,7 +103,7 @@ export function AssessmentPanel({
                     type="button"
                     onClick={() => waive(a.id)}
                     disabled={waivingId === a.id}
-                    className="brand-btn inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-3 py-1.5 text-[12.5px] font-bold text-ink-soft hover:border-ink-subtle disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-3 py-1.5 text-[12.5px] font-bold text-ink-soft hover:border-ink-subtle disabled:opacity-50"
                   >
                     {waivingId === a.id ? <Loader2 size={13} className="animate-spin" /> : <ShieldOff size={13} />} Waive
                   </button>
@@ -145,7 +145,7 @@ export function AssessmentPanel({
             <button
               type="submit"
               disabled={pending}
-              className="brand-btn inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-[14px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-[14px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-60"
               style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
             >
               {pending ? <Loader2 size={15} className="animate-spin" /> : <ClipboardCheck size={15} strokeWidth={2.4} />} Record

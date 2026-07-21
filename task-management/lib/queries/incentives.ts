@@ -43,7 +43,7 @@ function isExcluded(name: string | null | undefined): boolean {
  * from the dashboard so a left-out person no longer shows. Names that match NO
  * employee (aliases) are kept, so only truly-removed people are filtered.
  */
-async function removedNameKeys(): Promise<Set<string>> {
+export async function removedNameKeys(): Promise<Set<string>> {
   const rows = await db
     .select({ name: employees.name })
     .from(employees)
@@ -588,7 +588,7 @@ export async function getIncentiveTargetVsActual(
   year: number,
 ): Promise<IncentiveTargetVsActual> {
   const { start, end } = yearBounds(year);
-  const [dashboard, targets] = await Promise.all([
+  const [dashboard, targets, removed] = await Promise.all([
     getIncentiveDashboard(year),
     db
       .select()
@@ -599,13 +599,15 @@ export async function getIncentiveTargetVsActual(
           lt(incentiveTargets.periodMonth, end),
         ),
       ),
+    removedNameKeys(),
   ]);
 
   // Bucket targets by display name (keyed case-insensitively, mirroring the
-  // ledger's name-based identity), summing across months.
+  // ledger's name-based identity), summing across months. Removed (inactive)
+  // employees are dropped so a left-out person never shows on the targets tab.
   const targetByKey = new Map<string, { name: string; target: number }>();
   for (const t of targets) {
-    if (isExcluded(t.empName)) continue;
+    if (isExcluded(t.empName) || removed.has(nameKey(t.empName))) continue;
     const key = nameKey(t.empName);
     if (!key) continue;
     const cur = targetByKey.get(key);
@@ -700,8 +702,12 @@ function toAdminRow(e: IncentiveEntry): IncentiveEntryAdminRow {
 export async function listIncentiveEntriesAdmin(
   year: number,
 ): Promise<IncentiveEntryAdminRow[]> {
-  const rows = await listIncentiveEntries({ year });
-  return rows.map(toAdminRow);
+  const [rows, removed] = await Promise.all([
+    listIncentiveEntries({ year }),
+    removedNameKeys(),
+  ]);
+  // Drop entries belonging to removed (inactive) employees.
+  return rows.map(toAdminRow).filter((r) => !removed.has(nameKey(r.empName)));
 }
 
 // --- drill-down (slice C) --------------------------------------------------

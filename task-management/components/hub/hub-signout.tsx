@@ -30,7 +30,7 @@ export function HubSignOut() {
     <button
       type="button"
       onClick={handleSignOut}
-      className="brand-btn inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-3 py-1.5 text-[13px] font-bold text-ink-soft shadow-sm transition-colors hover:border-altus-red hover:bg-altus-red hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-altus-red)]"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-3 py-1.5 text-[13px] font-bold text-ink-soft shadow-sm transition-colors hover:border-altus-red hover:bg-altus-red hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-altus-red)]"
     >
       <LogOut size={15} strokeWidth={2.4} aria-hidden />
       Sign out

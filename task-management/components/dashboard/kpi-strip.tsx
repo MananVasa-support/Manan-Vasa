@@ -55,7 +55,7 @@ export function KpiStrip({ kpis, summary }: { kpis: KpiSet; summary: WmsSummary 
           return (
             <div role="listitem" key={item.key}>
               <div
-                className="group relative overflow-hidden rounded-2xl transition-all duration-200"
+                className="group relative h-full overflow-hidden rounded-2xl transition-all duration-200"
                 style={{
                   background: "var(--color-surface-card)",
                   border: `1px solid ${isOpen ? `rgb(${neonDeep})` : "var(--color-hairline-strong)"}`,
@@ -76,15 +76,18 @@ export function KpiStrip({ kpis, summary }: { kpis: KpiSet; summary: WmsSummary 
                     className="group/link min-w-0 flex-1 outline-none"
                     aria-label={`${item.label} — view tasks`}
                   >
+                    {/* Fixed 2-line height so wrapping labels ("NOT APPROVED")
+                        don't push the number down — every card's number lands on
+                        the same baseline. */}
                     <span
-                      className="flex items-center gap-1 uppercase font-black tracking-[0.07em] leading-none"
-                      style={{ fontSize: 12.5, color: `rgb(${neonDeep})` }}
+                      className="flex items-start gap-1 uppercase font-black tracking-[0.07em] leading-[1.15]"
+                      style={{ fontSize: 12.5, color: `rgb(${neonDeep})`, minHeight: 29 }}
                     >
-                      {item.label}
+                      <span className="min-w-0">{item.label}</span>
                       <ArrowUpRight
                         size={13}
                         strokeWidth={3}
-                        className="opacity-0 -translate-x-0.5 transition-all group-hover/link:opacity-100 group-hover/link:translate-x-0"
+                        className="mt-px shrink-0 opacity-0 -translate-x-0.5 transition-all group-hover/link:opacity-100 group-hover/link:translate-x-0"
                       />
                     </span>
                     <span

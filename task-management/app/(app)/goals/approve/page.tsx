@@ -1,22 +1,17 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
 import { ShieldCheck } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { MODULE_THEME } from "@/lib/module-theme";
 import { requireGoalsAccess } from "@/lib/goals/access";
-import { db } from "@/lib/db";
-import { employees, weeklyGoals } from "@/db/schema";
-import { withRetry } from "@/lib/db/with-timeout";
-import { getDownlineIds } from "@/lib/weekly-goals/hierarchy";
+import { loadApproveBoard } from "@/components/goals/approve/data";
 import { currentWeekStart, prevWeekStart, formatWeekLabel } from "@/lib/weekly-goals/week";
-import { isMondayIST } from "@/lib/manager-gates";
-import { ApproveWorkbench, type ApproveMember, type ApproveGoal } from "@/components/goals/approve/approve-workbench";
+import { ApproveWorkbench } from "@/components/goals/approve/approve-workbench";
 
 export const dynamic = "force-dynamic";
 
 // Goals identity — amber-gold (IDENTITY only; brand red is never used in this room).
-const ACCENT = MODULE_THEME.goals.accent; // #b45309
-const ACCENT_DEEP = MODULE_THEME.goals.accentDeep; // #7c2d12
+const ACCENT = "#E10600"; // Altus red — in-module chrome is brand red
+const ACCENT_DEEP = "#A80400"; // Altus red deep
 const DISPLAY = "var(--font-display), system-ui, sans-serif";
 
 /**
@@ -34,6 +29,9 @@ const DISPLAY = "var(--font-display), system-ui, sans-serif";
 export default async function GoalsApprovePage() {
   const { me } = await requireGoalsAccess();
 
+  // The canvas (and its ?ritual= contextual state) is retired — this page IS
+  // the Monday approval surface again in both flag states. Every nav pill,
+  // inbox goals_approval_reminder and punch-gate deep-link keeps working.
   const weekStart = currentWeekStart();
   const lastWeek = prevWeekStart(weekStart);
 
@@ -84,86 +82,5 @@ export default async function GoalsApprovePage() {
   );
 }
 
-/** Serialise a weekly_goals row to the client DTO (numeric cols are strings). */
-function toApproveGoal(r: typeof weeklyGoals.$inferSelect): ApproveGoal {
-  return {
-    id: r.id,
-    employeeId: r.employeeId,
-    weekStart: r.weekStart,
-    position: r.position,
-    subject: r.subject,
-    client: r.client,
-    area: r.area,
-    uom: r.uom,
-    targetDone: r.targetDone,
-    notes: r.notes,
-    weight: r.weight,
-    status: r.status,
-    pctDone: r.pctDone,
-    acceptPct: r.acceptPct,
-    reviewNotes: r.reviewNotes,
-    targetQty: r.targetQty,
-    actualQty: r.actualQty,
-    targetAmount: r.targetAmount,
-    actualAmount: r.actualAmount,
-    teamDependencyPct: r.teamDependencyPct,
-    evidenceUrl: r.evidenceUrl,
-    linkUrl: r.linkUrl,
-    committed: r.committedAt != null,
-    approved: r.approvedByManagerAt != null,
-  };
-}
-
-async function loadApproveBoard(
-  managerId: string,
-  weekStart: string,
-  lastWeek: string,
-): Promise<{ members: ApproveMember[]; monday: boolean }> {
-  const monday = isMondayIST();
-  try {
-    const downline = await getDownlineIds(managerId);
-    if (downline.length === 0) return { members: [], monday };
-
-    const [people, rows] = await withRetry(
-      () =>
-        Promise.all([
-          db
-            .select({ id: employees.id, name: employees.name })
-            .from(employees)
-            .where(and(inArray(employees.id, downline), eq(employees.isActive, true))),
-          db
-            .select()
-            .from(weeklyGoals)
-            .where(
-              and(
-                inArray(weeklyGoals.employeeId, downline),
-                inArray(weeklyGoals.weekStart, [lastWeek, weekStart]),
-                eq(weeklyGoals.archived, false),
-                eq(weeklyGoals.adopted, true),
-              ),
-            )
-            .orderBy(asc(weeklyGoals.position)),
-        ]),
-      { timeoutMs: [6000, 12000], label: "goals.approve.loadBoard" },
-    );
-
-    const byEmp = new Map<string, { last: ApproveGoal[]; this: ApproveGoal[] }>();
-    for (const r of rows) {
-      const bucket = byEmp.get(r.employeeId) ?? { last: [], this: [] };
-      (r.weekStart === weekStart ? bucket.this : bucket.last).push(toApproveGoal(r));
-      byEmp.set(r.employeeId, bucket);
-    }
-
-    const members: ApproveMember[] = people
-      .map((p) => {
-        const b = byEmp.get(p.id) ?? { last: [], this: [] };
-        return { id: p.id, name: p.name, lastWeek: b.last, thisWeek: b.this };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    return { members, monday };
-  } catch {
-    // Fail-safe: never throw the surface — render an empty roster.
-    return { members: [], monday };
-  }
-}
+// Board loader extracted VERBATIM to components/goals/approve/data.ts (Phase 6)
+// so the canvas RitualBanner's lazy action reads the exact same downline board.

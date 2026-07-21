@@ -23,8 +23,45 @@ export type ActionResult<T = unknown> =
 const PATH = "/daily-checklist";
 const UUID = z.string().uuid();
 
+/**
+ * Explicit RETURNING list — NEVER use bare `.returning()` on daily_checklist:
+ * that enumerates every schema column, including migration 0141's
+ * `cascade_goal_id`, which may be UNAPPLIED in prod until GOALS_CANVAS_ON
+ * ships (see db/schema.ts). Exactly the fields `toItem` consumes.
+ */
+const DAILY_ITEM_RETURNING = {
+  id: dailyChecklist.id,
+  title: dailyChecklist.title,
+  client: dailyChecklist.client,
+  subject: dailyChecklist.subject,
+  origin: dailyChecklist.origin,
+  goalId: dailyChecklist.goalId,
+  taskId: dailyChecklist.taskId,
+  status: dailyChecklist.status,
+  done: dailyChecklist.done,
+  doneNote: dailyChecklist.doneNote,
+  movedFromDate: dailyChecklist.movedFromDate,
+  position: dailyChecklist.position,
+};
+
+type DailyItemRow = Pick<
+  DailyChecklistItem,
+  | "id"
+  | "title"
+  | "client"
+  | "subject"
+  | "origin"
+  | "goalId"
+  | "taskId"
+  | "status"
+  | "done"
+  | "doneNote"
+  | "movedFromDate"
+  | "position"
+>;
+
 /** Map a DB row → the client-facing DailyItem shape (personal rows only). */
-function toItem(r: DailyChecklistItem): DailyItem {
+function toItem(r: DailyItemRow): DailyItem {
   return {
     id: r.id,
     source: "personal",
@@ -148,7 +185,7 @@ export async function pullGoalToToday(
       .onConflictDoNothing({
         target: [dailyChecklist.employeeId, dailyChecklist.planDate, dailyChecklist.goalId],
       })
-      .returning();
+      .returning(DAILY_ITEM_RETURNING);
     // NOTE: no revalidatePath here. The daily-plan GATE is rendered by the (app)
     // layout based on needsDailyPlan(); revalidating would re-run the layout and
     // drop the gate the instant the 5th item lands — kicking the user in before
@@ -199,7 +236,7 @@ export async function pullTaskToToday(
         subject: task.subject,
         position: nextPosition,
       })
-      .returning();
+      .returning(DAILY_ITEM_RETURNING);
     return { ok: true, item: row ? toItem(row) : null };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -357,7 +394,7 @@ export async function addStandaloneItem(
         title,
         position: nextPosition,
       })
-      .returning();
+      .returning(DAILY_ITEM_RETURNING);
     // No revalidatePath — see addStandaloneItem note: keeps the gate from
     // dropping mid-plan. Page mode refreshes via router.refresh().
     return { ok: true, item: toItem(row!) };

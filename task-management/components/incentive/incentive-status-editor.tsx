@@ -120,25 +120,25 @@ export function IncentiveStatusEditor({
                 type="date"
                 value={paidDate}
                 onChange={(e) => setPaidDate(e.target.value)}
-                className="w-full rounded-chip border border-hairline bg-surface-card px-3.5 h-11 text-ink-strong outline-none transition-all focus:border-[#16a34a] focus:ring-2 focus:ring-[#16a34a]/25"
+                className="w-full rounded-chip border border-hairline bg-surface-card px-3.5 h-11 text-ink-strong outline-none transition-all focus:border-[#E10600] focus:ring-2 focus:ring-[#E10600]/25"
                 style={{ fontSize: 14.5 }}
               />
             </div>
 
             <div className="flex justify-end gap-2 pt-1">
               <Dialog.Close asChild>
-                <button type="button" className="brand-btn cursor-pointer px-4 py-2.5 font-semibold text-ink-subtle" style={{ fontSize: 14 }} disabled={pending}>
+                <button type="button" className="bg-surface-card cursor-pointer px-4 py-2.5 font-semibold text-ink-subtle" style={{ fontSize: 14 }} disabled={pending}>
                   Cancel
                 </button>
               </Dialog.Close>
               <button
                 type="submit"
                 disabled={pending}
-                className="brand-btn wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 font-bold text-white disabled:opacity-50"
+                className="wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 font-bold text-white disabled:opacity-50"
                 style={{
                   fontSize: 14,
-                  background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,
-                  boxShadow: `0 10px 24px -12px color-mix(in srgb, ${GREEN_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
+                  background: `linear-gradient(135deg, #E10600, #A80400)`,
+                  boxShadow: `0 10px 24px -12px color-mix(in srgb, #A80400 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
                 }}
               >
                 {pending ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.6} />}
@@ -189,7 +189,7 @@ function MoneyField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="0"
-          className="w-full rounded-chip border border-hairline bg-surface-card pl-8 pr-3.5 h-11 text-ink-strong tabular-nums outline-none transition-all focus:border-[#16a34a] focus:ring-2 focus:ring-[#16a34a]/25"
+          className="w-full rounded-chip border border-hairline bg-surface-card pl-8 pr-3.5 h-11 text-ink-strong tabular-nums outline-none transition-all focus:border-[#E10600] focus:ring-2 focus:ring-[#E10600]/25"
           style={{ fontSize: 14.5 }}
         />
       </div>

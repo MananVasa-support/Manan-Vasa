@@ -21,7 +21,7 @@ function Btn({ href, accent, Icon, label }: { href: string; accent: string; Icon
   return (
     <a
       href={href}
-      className="brand-btn inline-flex items-center gap-1.5 rounded-pill px-3.5 py-2 text-[13px] font-bold text-ink-strong transition hover:-translate-y-px"
+      className="inline-flex items-center gap-1.5 rounded-pill px-3.5 py-2 text-[13px] font-bold text-ink-strong transition hover:-translate-y-px"
       style={{ background: "var(--color-surface-card)", boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${accent} 35%, var(--color-hairline))` }}
     >
       <Icon size={15} strokeWidth={2.3} style={{ color: accent }} /> {label}

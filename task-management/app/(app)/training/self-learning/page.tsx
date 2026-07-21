@@ -9,8 +9,8 @@ import { SelfLearningForm, SelfLearningItem } from "@/components/training/learni
 
 export const dynamic = "force-dynamic";
 
-const ACCENT = MODULE_THEME.training.accent; // #2563eb
-const ACCENT_DEEP = MODULE_THEME.training.accentDeep; // #1d4ed8
+const ACCENT = "#E10600"; // Altus red — in-module chrome is brand red
+const ACCENT_DEEP = "#A80400"; // Altus red deep
 
 function nextMonthStart(ms: string): string {
   const [y, m] = ms.split("-").map(Number);

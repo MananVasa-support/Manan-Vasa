@@ -66,11 +66,11 @@ export function IncentiveFormDialog() {
     >
       <Dialog.Trigger asChild>
         <button
-          className="brand-btn wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full py-2.5 px-5 text-[15px] font-bold text-white"
+          className="wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full py-2.5 px-5 text-[15px] font-bold text-white"
           style={{
-            background: "linear-gradient(135deg, #16a34a, #15803d)",
+            background: "linear-gradient(135deg, #E10600, #A80400)",
             boxShadow:
-              "0 10px 24px -12px rgba(21,128,61,0.7), inset 0 1px 0 rgba(255,255,255,0.25)",
+              "0 10px 24px -12px rgba(168,4,0,0.7), inset 0 1px 0 rgba(255,255,255,0.25)",
           }}
         >
           <Award size={17} strokeWidth={2.4} aria-hidden />
@@ -174,7 +174,7 @@ export function IncentiveFormDialog() {
                 <Dialog.Close asChild>
                   <button
                     type="button"
-                    className="brand-btn rounded-pill px-4 py-2.5 text-[15px] font-semibold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
+                    className="bg-surface-card rounded-pill px-4 py-2.5 text-[15px] font-semibold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
                     disabled={pending}
                   >
                     Cancel

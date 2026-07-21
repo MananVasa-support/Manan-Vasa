@@ -8,10 +8,8 @@ import type {
   IncentiveEntryAdminRow,
 } from "@/lib/queries/incentives";
 import type { IncentiveRequestRow } from "@/lib/queries/incentive";
-import type { BillingSummary } from "@/lib/billing/sheet";
 import type { EmployeeOption } from "@/lib/queries/employees";
 import { IncentiveDashboard } from "./incentive-dashboard";
-import { BillingDashboard } from "./billing-dashboard";
 import { IncentiveFormDialog } from "./incentive-form-dialog";
 import { IncentiveList } from "./incentive-list";
 import { IncentiveTargets } from "./incentive-targets";
@@ -19,13 +17,13 @@ import { IncentiveEntries } from "./incentive-entries";
 
 type TabKey = "dashboard" | "targets" | "billing" | "requests" | "entries" | "status";
 
-const GREEN = "#16a34a";
-const GREEN_DEEP = "#15803d";
+const GREEN = "#E10600";
+const GREEN_DEEP = "#A80400";
 
 export function IncentiveTabs({
   dashboard,
   targetVsActual,
-  billing,
+  billingSlot,
   year,
   requests,
   entries,
@@ -37,7 +35,9 @@ export function IncentiveTabs({
 }: {
   dashboard: DashboardData;
   targetVsActual: IncentiveTargetVsActual;
-  billing: BillingSummary & { error?: string };
+  /** The Billing tab reads a LIVE Google Sheet — it's streamed in via a
+   *  Suspense-wrapped server component so it never blocks the page's paint. */
+  billingSlot: ReactNode;
   year: number;
   requests: IncentiveRequestRow[];
   entries: IncentiveEntryAdminRow[];
@@ -125,7 +125,7 @@ export function IncentiveTabs({
       ) : active === "targets" ? (
         <IncentiveTargets data={targetVsActual} year={year} isAdmin={isAdmin} />
       ) : active === "billing" ? (
-        <BillingDashboard data={billing} />
+        billingSlot
       ) : active === "entries" && isAdmin ? (
         <IncentiveEntries rows={entries} employees={employees} year={year} />
       ) : active === "status" && showStatus ? (

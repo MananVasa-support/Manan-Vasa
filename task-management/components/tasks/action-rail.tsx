@@ -263,7 +263,7 @@ export function ActionRail({
                 <button
                   type="button"
                   disabled={pending}
-                  className="brand-btn px-5 py-2.5 rounded-md text-[14px] font-medium border border-hairline bg-surface-soft text-ink-strong disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-md text-[14px] font-medium border border-hairline bg-surface-soft text-ink-strong disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -454,7 +454,7 @@ function ActionCard({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="brand-btn action-card group"
+      className="action-card group"
       style={primaryStyle}
     >
       <span

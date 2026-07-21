@@ -13,8 +13,8 @@ import type { Holiday } from "@/lib/monthly-events/types";
 import { createHoliday, updateHoliday } from "@/app/(app)/events/holidays/actions";
 import { HolidayModal } from "./modal-shell";
 
-const ACCENT = "#0891b2";
-const ACCENT_DEEP = "#0e7490";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 const APPLIES_TO_OPTIONS = (
   Object.keys(HOLIDAY_APPLIES_TO_LABELS) as HolidayAppliesTo[]
@@ -103,7 +103,7 @@ export function HolidayFormDialog({ fyStartYear, holiday, onClose, onSaved }: Pr
             type="button"
             onClick={onClose}
             disabled={pending}
-            className="brand-btn inline-flex h-10 items-center rounded-chip px-4 text-[14px] font-semibold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
+            className="bg-surface-card inline-flex h-10 items-center rounded-chip px-4 text-[14px] font-semibold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
           >
             Cancel
           </button>

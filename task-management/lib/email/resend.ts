@@ -31,6 +31,10 @@ import { AttendanceHalfDayEmail } from "@/emails/notifications/attendance-half-d
 import { AttendanceLateDeductionEmail } from "@/emails/notifications/attendance-late-deduction";
 import { IncentiveDecisionEmail } from "@/emails/notifications/IncentiveDecision";
 import {
+  HrTicketNoticeEmail,
+  ticketThreadUrl,
+} from "@/emails/notifications/hr-ticket-notice";
+import {
   IncentiveMonthlyDigestEmail,
   type IncentiveDigestEntry,
 } from "@/emails/notifications/IncentiveMonthlyDigest";
@@ -621,6 +625,45 @@ function renderNotificationTemplate(ctx: RenderContext): ReactElement | null {
       });
     default:
       break;
+  }
+
+  // HR Support tickets (mig 0145) — these kinds carry no taskId; the ticket id +
+  // number ride in the JSON `body` meta the HR actions write. Confidential
+  // (grievance) copy stays generic (the title the dispatcher built already is).
+  if (ctx.notification.kind.startsWith("hr_ticket_")) {
+    let ticketId = "";
+    let ticketNo = 0;
+    let confidential = false;
+    if (ctx.notification.body) {
+      try {
+        const m = JSON.parse(ctx.notification.body);
+        if (m && typeof m === "object") {
+          if (typeof m.ticketId === "string") ticketId = m.ticketId;
+          if (typeof m.ticketNo === "number") ticketNo = m.ticketNo;
+          confidential = m.confidential === true;
+        }
+      } catch {
+        // free-text body — fall through with defaults (still renders a CTA).
+      }
+    }
+    if (!ticketId) return null;
+    const leadByKind: Record<string, string> = {
+      hr_ticket_created: "A new request has landed in the HR help desk and is waiting for you.",
+      hr_ticket_assigned: "This HR ticket has been assigned to you.",
+      hr_ticket_replied: "There's a new reply on your HR ticket.",
+      hr_ticket_status_changed: "The status of your HR ticket has changed.",
+      hr_ticket_sla_breach: "This HR ticket has breached its response target.",
+      hr_ticket_csat_request: "Your HR ticket was resolved — let us know how it went.",
+    };
+    return HrTicketNoticeEmail({
+      recipientName: ctx.recipient.name,
+      heading: ctx.notification.title,
+      lead: leadByKind[ctx.notification.kind] ?? "There's an update on your HR ticket.",
+      ticketNo,
+      confidential,
+      ctaHref: ticketThreadUrl(ctx.siteUrl, ticketId),
+      ctaLabel: "Open the ticket",
+    });
   }
 
   // Without a task to link to, none of the remaining per-task templates make

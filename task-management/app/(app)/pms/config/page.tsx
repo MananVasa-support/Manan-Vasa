@@ -12,8 +12,8 @@ import { MODULE_THEME } from "@/lib/module-theme";
 
 export const dynamic = "force-dynamic";
 
-const ACCENT = MODULE_THEME.employees.accent;
-const ACCENT_DEEP = MODULE_THEME.employees.accentDeep;
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 export default async function PmsConfigPage() {
   const me = await requireUser();

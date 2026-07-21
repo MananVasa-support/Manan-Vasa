@@ -253,6 +253,11 @@ export async function importGoals(
 
   revalidatePath("/goals/cascade");
   revalidatePath("/goals/review");
+  // bug #17 — imported goals must land on the 5-page level routes too.
+  revalidatePath("/goals/yearly"); // yearly rootView shares the same canvas payload
+  revalidatePath("/goals/quarterly");
+  revalidatePath("/goals/monthly");
+  revalidatePath("/goals/week");
   const skipped = matrix.length - 1 - imported;
   return { ok: true, imported, skipped: Math.max(0, skipped), warnings: warnings.slice(0, 25) };
 }

@@ -95,7 +95,7 @@ export function CarryForwardControl({
             onClick={() => setRetain((v) => !v)}
             className={`inline-flex h-4 w-4 items-center justify-center rounded border ${
               retain
-                ? "border-transparent bg-[var(--goals-accent,#b45309)] text-white"
+                ? "border-transparent bg-[var(--goals-accent,#E10600)] text-white"
                 : "border-hairline-strong bg-surface-card"
             }`}
           >

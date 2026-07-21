@@ -146,7 +146,7 @@ export function TeamInvolvedEditor({
                       <span className="flex-1 truncate text-[13px] text-ink-strong">
                         {person.name}
                       </span>
-                      {on && <Check size={15} className="text-[var(--goals-accent,#b45309)]" strokeWidth={2.5} />}
+                      {on && <Check size={15} className="text-[var(--goals-accent,#E10600)]" strokeWidth={2.5} />}
                     </button>
                   );
                 })}

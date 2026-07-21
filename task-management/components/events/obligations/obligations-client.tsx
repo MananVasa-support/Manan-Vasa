@@ -26,8 +26,8 @@ import {
   type ObligationsKpi,
 } from "./types";
 
-const ACCENT = "#0891b2";
-const ACCENT_DEEP = "#0e7490";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 interface Props {
   fyStartYear: number;

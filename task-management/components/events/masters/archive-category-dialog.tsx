@@ -11,7 +11,7 @@ import { readableText } from "./palette";
 import { ModalShell } from "./modal-shell";
 import type { CategoryVM } from "./types";
 
-const ACCENT = "#0891b2";
+const ACCENT = "#E10600";
 
 /**
  * Archiving a category that's still referenced → the admin must resolve the

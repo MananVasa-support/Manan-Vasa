@@ -93,7 +93,7 @@ export function MoveForwardMenu({
             type="checkbox"
             checked={retain}
             onChange={(e) => setRetain(e.target.checked)}
-            className="size-4 accent-[#b45309]"
+            className="size-4 accent-[#E10600]"
           />
           Retain progress
         </label>
@@ -103,8 +103,8 @@ export function MoveForwardMenu({
             type="button"
             onClick={() => run("clone")}
             disabled={pending}
-            className="brand-btn wg-btn wg-sheen inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold text-white disabled:opacity-60"
-            style={{ background: "linear-gradient(135deg, #b45309, #7c2d12)" }}
+            className="wg-btn wg-sheen inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold text-white disabled:opacity-60"
+            style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}
           >
             {pending && <Loader2 size={13} className="animate-spin" />}
             Clone
@@ -113,7 +113,7 @@ export function MoveForwardMenu({
             type="button"
             onClick={() => run("move")}
             disabled={pending}
-            className="brand-btn rounded-full border border-hairline bg-surface-card px-3 py-1.5 text-[13px] font-bold text-ink-soft transition-colors hover:text-altus-red"
+            className="rounded-full border border-hairline bg-surface-card px-3 py-1.5 text-[13px] font-bold text-ink-soft transition-colors hover:text-altus-red"
             title="Re-timeframe in place (removes from origin)"
           >
             Move

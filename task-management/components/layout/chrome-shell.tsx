@@ -15,11 +15,10 @@ import { workspaceForPath } from "@/lib/workspaces";
  * only "correct itself" on a full reload / HMR. `usePathname()` is reactive on the
  * client, so the show/hide decision here is always in sync with the current page.
  *
- * Rule (unchanged from before, just now reactive): every module EXCEPT WMS uses the
- * left rail; WMS + the hub + shared surfaces use their own top header (or none), so
- * the rail is hidden there. The `sidebar` is server-rendered once and passed in; its
- * inner nav (MainNav) + brand already read `usePathname()`, so its contents track
- * the current route too.
+ * Rule: EVERY module — including WMS — uses the vertical left rail. Only the hub
+ * and shared surfaces (which have no workspace) render without it. The `sidebar`
+ * is server-rendered once and passed in; its inner nav (MainNav) + brand already
+ * read `usePathname()`, so its contents track the current route too.
  */
 export function ChromeShell({
   sidebar,
@@ -30,7 +29,9 @@ export function ChromeShell({
 }) {
   const pathname = usePathname();
   const ws = workspaceForPath(pathname ?? "/");
-  const showSidebar = Boolean(ws && ws !== "wms");
+  // WMS now uses the rail too — show it for ANY workspace; only the hub / shared
+  // surfaces (ws === undefined) render bare.
+  const showSidebar = Boolean(ws);
 
   if (!showSidebar) return <>{children}</>;
 

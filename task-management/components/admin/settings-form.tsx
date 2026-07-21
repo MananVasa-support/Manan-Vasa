@@ -317,7 +317,7 @@ export function SettingsForm({ current }: Props) {
                 onClick={useMyLocation}
                 disabled={locating}
                 title="Use my current location"
-                className="brand-btn inline-flex items-center gap-1.5 rounded-md border px-3.5 py-2.5 text-[13px] font-semibold transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md border px-3.5 py-2.5 text-[13px] font-semibold transition-colors disabled:opacity-50"
                 style={{
                   borderColor: "var(--color-hairline-strong)",
                   background: "var(--color-surface-card)",
@@ -439,7 +439,7 @@ export function SettingsForm({ current }: Props) {
             <button
               type="button"
               onClick={resetDefaults}
-              className="brand-btn mt-3 text-[13px] font-semibold text-altus-red hover:underline underline-offset-2"
+              className="mt-3 text-[13px] font-semibold text-altus-red hover:underline underline-offset-2"
             >
               Reset to current values
             </button>

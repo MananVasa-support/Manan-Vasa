@@ -97,7 +97,7 @@ export function FeedbackDashboard({ rows, stats, canNew }: { rows: FeedbackRow[]
           <option value="">All types</option>
           {(Object.keys(FEEDBACK_TEMPLATES) as FeedbackType[]).map((t) => <option key={t} value={t}>{FEEDBACK_TEMPLATES[t].label}</option>)}
         </select>
-        {hasFilters && <button type="button" onClick={() => { setQ(""); setStatus(""); setType(""); }} className="brand-btn inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red"><X size={15} /> Clear</button>}
+        {hasFilters && <button type="button" onClick={() => { setQ(""); setStatus(""); setType(""); }} className="inline-flex items-center gap-1.5 rounded-lg bg-surface-card px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red"><X size={15} /> Clear</button>}
         <div className="ml-auto" />
         {canNew && <Link href={"/training/feedback/new" as Route} className="inline-flex items-center gap-2 rounded-xl py-2.5 px-5 text-[15px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}><Plus size={17} /> New feedback</Link>}
       </div>

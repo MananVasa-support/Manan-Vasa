@@ -130,7 +130,7 @@ export function IncentiveTargets({
         />
         <SummaryCard
           icon={<TrendingUp size={17} strokeWidth={2.4} />}
-          accent={GREEN}
+          accent="#E10600"
           label="Total actual"
           value={formatInr(totals.actual)}
           caption="incentive earned so far"
@@ -160,7 +160,7 @@ export function IncentiveTargets({
             <span
               aria-hidden
               className="inline-grid size-9 place-items-center rounded-xl"
-              style={{ background: `color-mix(in srgb, ${GREEN} 10%, transparent)`, color: GREEN_DEEP }}
+              style={{ background: `color-mix(in srgb, #E10600 10%, transparent)`, color: "#A80400" }}
             >
               <Target size={18} strokeWidth={2.3} />
             </span>
@@ -238,7 +238,7 @@ export function IncentiveTargets({
                   return (
                     <tr
                       key={r.empName}
-                      className="border-t group transition-colors hover:bg-[color-mix(in_srgb,#16a34a_3%,transparent)]"
+                      className="border-t group transition-colors hover:bg-[color-mix(in_srgb,#E10600_3%,transparent)]"
                       style={{ borderColor: "var(--color-hairline)" }}
                     >
                       <td className="py-2.5 pr-3">
@@ -249,7 +249,7 @@ export function IncentiveTargets({
                         >
                           <EmployeeAvatar name={r.empName} size="sm" />
                           <span
-                            className="font-bold text-ink-strong transition-colors group-hover:text-[#15803d]"
+                            className="font-bold text-ink-strong transition-colors group-hover:text-[#A80400]"
                             style={{ fontSize: 14 }}
                           >
                             {r.empName}
@@ -279,7 +279,7 @@ export function IncentiveTargets({
                           <button
                             type="button"
                             onClick={() => openEdit(r.empName, r.target)}
-                            className="brand-btn wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-ink-soft transition-colors hover:text-ink-strong"
+                            className="bg-surface-card wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-ink-soft transition-colors hover:text-ink-strong"
                             style={{
                               fontSize: 12,
                               fontWeight: 700,
@@ -414,24 +414,24 @@ function SetTargetDialog({
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 placeholder="e.g. 250000"
-                className="w-full rounded-chip border border-hairline bg-surface-card px-3.5 h-11 text-ink-strong tabular-nums outline-none transition-all focus:border-[#16a34a] focus:ring-2 focus:ring-[#16a34a]/25"
+                className="w-full rounded-chip border border-hairline bg-surface-card px-3.5 h-11 text-ink-strong tabular-nums outline-none transition-all focus:border-[#E10600] focus:ring-2 focus:ring-[#E10600]/25"
                 style={{ fontSize: 15 }}
               />
             </label>
             <div className="flex justify-end gap-2 pt-1">
               <Dialog.Close asChild>
-                <button type="button" className="brand-btn cursor-pointer px-4 py-2.5 font-semibold text-ink-subtle" style={{ fontSize: 14 }} disabled={pending}>
+                <button type="button" className="bg-surface-card cursor-pointer px-4 py-2.5 font-semibold text-ink-subtle" style={{ fontSize: 14 }} disabled={pending}>
                   Cancel
                 </button>
               </Dialog.Close>
               <button
                 type="submit"
                 disabled={pending}
-                className="brand-btn wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 font-bold text-white disabled:opacity-50"
+                className="wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 font-bold text-white disabled:opacity-50"
                 style={{
                   fontSize: 14,
-                  background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,
-                  boxShadow: `0 10px 24px -12px color-mix(in srgb, ${GREEN_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
+                  background: `linear-gradient(135deg, #E10600, #A80400)`,
+                  boxShadow: `0 10px 24px -12px color-mix(in srgb, #A80400 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
                 }}
               >
                 {pending ? <Loader2 size={15} className="animate-spin" /> : <Target size={15} strokeWidth={2.4} />}
@@ -532,7 +532,7 @@ function SortTh({
         }`}
       >
         {label}
-        {active && <span style={{ color: GREEN_DEEP }}>{sort.dir === "asc" ? "↑" : "↓"}</span>}
+        {active && <span style={{ color: "#A80400" }}>{sort.dir === "asc" ? "↑" : "↓"}</span>}
       </button>
     </th>
   );

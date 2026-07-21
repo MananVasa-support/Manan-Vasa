@@ -287,7 +287,7 @@ export function EventEditor({ target, categories, obligations, onClose, onSave }
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-hairline px-5 py-3.5">
-          <button type="button" onClick={onClose} className="brand-btn h-10 rounded-chip border border-hairline px-4 text-[13px] font-semibold text-ink-strong hover:bg-surface-soft">
+          <button type="button" onClick={onClose} className="bg-surface-card h-10 rounded-chip border border-hairline px-4 text-[13px] font-semibold text-ink-strong hover:bg-surface-soft">
             Cancel
           </button>
           <button

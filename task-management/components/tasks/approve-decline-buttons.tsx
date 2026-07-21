@@ -64,7 +64,7 @@ export function ApproveDeclineButtons({
         type="button"
         disabled={pending}
         onClick={() => submit("approved")}
-        className="brand-btn inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-[14px] font-medium text-white disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-[14px] font-medium text-white disabled:opacity-50"
         style={{
           background:
             "linear-gradient(135deg, var(--color-green), var(--color-green-deep))",
@@ -80,7 +80,7 @@ export function ApproveDeclineButtons({
           <button
             type="button"
             disabled={pending}
-            className="brand-btn inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-[14px] font-medium border border-hairline bg-surface-card text-ink-strong hover:bg-surface-soft disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-[14px] font-medium border border-hairline bg-surface-card text-ink-strong hover:bg-surface-soft disabled:opacity-50"
           >
             <X size={15} strokeWidth={2.4} />
             Decline
@@ -117,7 +117,7 @@ export function ApproveDeclineButtons({
                 <button
                   type="button"
                   disabled={pending}
-                  className="brand-btn px-5 py-2.5 rounded-md text-[14px] font-medium border border-hairline bg-surface-soft text-ink-strong disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-md text-[14px] font-medium border border-hairline bg-surface-soft text-ink-strong disabled:opacity-50"
                 >
                   Cancel
                 </button>

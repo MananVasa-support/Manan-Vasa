@@ -15,6 +15,8 @@ import { getIncentiveSplit, saveIncentiveSplit } from "@/app/(app)/incentive/sta
 const GREEN = "#16a34a";
 const GREEN_DEEP = "#15803d";
 const AMBER = "#d97706";
+const RED = "#E10600";
+const RED_DEEP = "#A80400";
 
 interface Share {
   empName: string;
@@ -180,7 +182,7 @@ export function IncentiveTeamSplit({
           <div className="mb-4 flex items-center gap-3">
             <span
               className="inline-grid size-10 shrink-0 place-items-center rounded-xl"
-              style={{ background: `color-mix(in srgb, ${GREEN} 12%, transparent)`, color: GREEN_DEEP }}
+              style={{ background: `color-mix(in srgb, ${RED} 12%, transparent)`, color: RED_DEEP }}
             >
               <Users size={20} strokeWidth={2.3} />
             </span>
@@ -247,7 +249,7 @@ export function IncentiveTeamSplit({
                 <button
                   type="button"
                   onClick={addRow}
-                  className="brand-btn wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-2 font-bold text-ink-soft transition-colors hover:text-ink-strong"
+                  className="bg-surface-card wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-2 font-bold text-ink-soft transition-colors hover:text-ink-strong"
                   style={{ fontSize: 13, boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}
                 >
                   <Plus size={15} strokeWidth={2.6} /> Add participant
@@ -267,7 +269,7 @@ export function IncentiveTeamSplit({
                     type="button"
                     onClick={clearSplit}
                     disabled={pending}
-                    className="brand-btn cursor-pointer text-[13px] font-bold text-[var(--color-red-deep)] disabled:opacity-50"
+                    className="cursor-pointer text-[13px] font-bold text-[var(--color-red-deep)] disabled:opacity-50"
                   >
                     Remove split
                   </button>
@@ -276,18 +278,18 @@ export function IncentiveTeamSplit({
                 )}
                 <div className="flex justify-end gap-2">
                   <Dialog.Close asChild>
-                    <button type="button" className="brand-btn cursor-pointer px-4 py-2.5 font-semibold text-ink-subtle" style={{ fontSize: 14 }} disabled={pending}>
+                    <button type="button" className="bg-surface-card cursor-pointer px-4 py-2.5 font-semibold text-ink-subtle" style={{ fontSize: 14 }} disabled={pending}>
                       Cancel
                     </button>
                   </Dialog.Close>
                   <button
                     type="submit"
                     disabled={pending}
-                    className="brand-btn wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 font-bold text-white disabled:opacity-50"
+                    className="wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 font-bold text-white disabled:opacity-50"
                     style={{
                       fontSize: 14,
-                      background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,
-                      boxShadow: `0 10px 24px -12px color-mix(in srgb, ${GREEN_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
+                      background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`,
+                      boxShadow: `0 10px 24px -12px color-mix(in srgb, ${RED_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
                     }}
                   >
                     {pending ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.6} />}
@@ -339,7 +341,7 @@ function ShareInput({
       onChange={(e) => onChange(e.target.value)}
       placeholder="0"
       aria-label={label}
-      className="w-full rounded-chip border border-hairline bg-surface-card px-2.5 h-11 text-right text-ink-strong tabular-nums outline-none transition-all focus:border-[#16a34a] focus:ring-2 focus:ring-[#16a34a]/25"
+      className="w-full rounded-chip border border-hairline bg-surface-card px-2.5 h-11 text-right text-ink-strong tabular-nums outline-none transition-all focus:border-[#E10600] focus:ring-2 focus:ring-[#E10600]/25"
       style={{ fontSize: 14 }}
     />
   );

@@ -18,6 +18,10 @@ export const dynamic = "force-dynamic";
 export default async function GoalsCommitPage() {
   // Guard IN THE PAGE — the (app) layout gate alone isn't reliable on prod.
   const { me } = await requireGoalsAccess();
+
+  // The canvas (and its ?ritual= contextual state) is retired — this page IS
+  // the Saturday commit surface again in both flag states. Every nav pill,
+  // inbox goals_commit_reminder and punch-gate deep-link keeps working.
   const data = await loadCommitData({ id: me.id, isAdmin: me.isAdmin });
 
   return (

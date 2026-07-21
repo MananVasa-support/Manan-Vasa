@@ -226,7 +226,7 @@ export function IntroductionForm({
         <button
           type="button"
           onClick={() => router.push("/people-gives" as Route)}
-          className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-5 py-3 text-[15px] font-bold text-ink-strong transition-colors hover:border-hairline-strong"
+          className="inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-5 py-3 text-[15px] font-bold text-ink-strong transition-colors hover:border-hairline-strong"
         >
           <ArrowLeft size={16} strokeWidth={2.4} />
           Cancel

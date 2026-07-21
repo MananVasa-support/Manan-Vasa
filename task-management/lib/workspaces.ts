@@ -14,8 +14,8 @@ export const WORKSPACE_IDS = [
   "wms",
   "admin",
   "employees",
+  "hr",
   "sales",
-  "marketing",
   "training",
   "accounts",
   "events",
@@ -32,8 +32,8 @@ export const WORKSPACE_LABEL: Record<WorkspaceId, string> = {
   wms: "WMS",
   admin: "Admin",
   employees: "Employees",
+  hr: "HR",
   sales: "Sales",
-  marketing: "Marketing",
   training: "Training",
   accounts: "Accounts",
   events: "Monthly Events Master",
@@ -48,12 +48,15 @@ export const WORKSPACE_LANDING: Record<WorkspaceId, string> = {
   // "Admin panel" link — it's no longer the Admin card's landing.
   admin: "/accounts",
   employees: "/attendance",
+  hr: "/hr",
   sales: "/outstanding",
-  marketing: "/index-hub",
   training: "/training",
   accounts: "/accounts",
   events: "/events",
-  goals: "/goals",
+  // The module entry = the Yearly board (the level pages' landing). With the
+  // canvas/board flag OFF that page server-redirects to /goals (the sub-hub),
+  // so production behaviour is unchanged until the flag flips.
+  goals: "/goals/yearly",
 };
 
 export const ACTIVE_WORKSPACE_COOKIE = "aw";
@@ -139,30 +142,52 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
   if (p.startsWith("/goals")) return "goals";
   if (p.startsWith("/weekly-goals") || p.startsWith("/daily-checklist")) return "goals";
 
-  // WMS — the work loop (the dashboard now lives at /dashboard)
+  // WMS — the work loop (the dashboard now lives at /dashboard). Important
+  // Links (/index-hub) moved here from the retired Marketing room.
   if (
     p.startsWith("/dashboard") ||
     p.startsWith("/tasks") ||
     p.startsWith("/projects") ||
-    p.startsWith("/documents")
+    p.startsWith("/documents") ||
+    p.startsWith("/index-hub")
   ) {
     return "wms";
   }
 
-  // Employees — people & pay
+  // HR Record (attendance log) was re-parented to the HR room (2026-07). It
+  // lives under /attendance/hr-record, so match it BEFORE the /attendance →
+  // employees rule below so the HR rail (not the Employees rail) shows there.
+  if (p.startsWith("/attendance/hr-record")) return "hr";
+
+  // Employees — people & pay. NOTE: the admin Salary module (/salary) and
+  // Overtime (/overtime) moved to the Accounts room; only the employee's OWN
+  // self-service pay view (/my-salary) stays here.
   if (
     p.startsWith("/attendance") ||
-    p.startsWith("/salary") ||
+    p.startsWith("/my-salary") ||
     p.startsWith("/incentive") ||
-    p.startsWith("/overtime") ||
     p.startsWith("/reimbursements") ||
     p.startsWith("/leave") ||
     p.startsWith("/dcc") ||
-    p.startsWith("/dossier") ||
-    p.startsWith("/agreements") ||
-    p.startsWith("/pms")
+    p.startsWith("/pms") ||
+    p.startsWith("/appraisal")
   ) {
     return "employees";
+  }
+
+  // HR — the paperwork room: dossier, agreements, policies, letters & support.
+  // (Dossier + Agreements re-parented here from Employees.)
+  if (
+    p.startsWith("/hr") ||
+    p.startsWith("/dossier") ||
+    p.startsWith("/agreements") ||
+    p.startsWith("/policies") ||
+    p.startsWith("/holidays") ||
+    p.startsWith("/letters") ||
+    p.startsWith("/queries") ||
+    p.startsWith("/support")
+  ) {
+    return "hr";
   }
 
   // Sales — collections & relationships
@@ -176,14 +201,19 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
     return "sales";
   }
 
-  // Marketing
-  if (p.startsWith("/index-hub")) return "marketing";
-
   // Training
   if (p.startsWith("/training")) return "training";
 
-  // Accounts — admin/super-admin module with its own section nav.
-  if (p.startsWith("/accounts")) return "accounts";
+  // Accounts — the finance room with its own section nav. The admin Salary
+  // module and Overtime were re-parented here from Employees (they're
+  // Accounts-managed), so they resolve to this room's nav + access gate.
+  if (
+    p.startsWith("/accounts") ||
+    p.startsWith("/salary") ||
+    p.startsWith("/overtime")
+  ) {
+    return "accounts";
+  }
 
   // Monthly Events Master — the calendar/holidays/obligations room.
   if (p.startsWith("/events")) return "events";

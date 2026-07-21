@@ -24,8 +24,8 @@ import type {
   CategoryOption,
 } from "./types";
 
-const ACCENT = "#0891b2";
-const ACCENT_DEEP = "#0e7490";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 /** 0=Mon … 6=Sun — matches event_batch_schedules.days_of_week. */
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -445,7 +445,7 @@ export function BatchScheduleForm({
                 <Dialog.Close asChild>
                   <button
                     type="button"
-                    className="brand-btn rounded-pill px-4 py-2.5 text-[15px] font-semibold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
+                    className="bg-surface-card rounded-pill px-4 py-2.5 text-[15px] font-semibold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
                     disabled={pending}
                   >
                     Cancel
@@ -469,7 +469,7 @@ export function BatchScheduleForm({
 }
 
 const INPUT =
-  "w-full rounded-chip border px-3.5 py-2.5 text-[15px] bg-surface-card text-ink-strong transition-colors outline-none border-hairline-strong focus:border-[#0891b2] focus:ring-2 focus:ring-[#0891b2]/25 placeholder:text-ink-subtle";
+  "w-full rounded-chip border px-3.5 py-2.5 text-[15px] bg-surface-card text-ink-strong transition-colors outline-none border-hairline-strong focus:border-[#E10600] focus:ring-2 focus:ring-[#E10600]/25 placeholder:text-ink-subtle";
 
 function Field({
   label,

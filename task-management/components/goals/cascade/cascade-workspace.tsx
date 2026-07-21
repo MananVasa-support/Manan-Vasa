@@ -49,6 +49,12 @@ import {
   quarterOfKey,
   fyStartYearOf,
 } from "@/lib/goals/types";
+// Canonical weighted rollup (lib/goals/derive.ts §3.1) — replaces the old
+// plain-average copies so this cockpit and the flagged canvas show ONE number.
+import { rollupPct } from "@/lib/goals/derive";
+// bug #23 — canonical FY (Apr–Mar) week number, matching the weekNo the page
+// now stamps on WeeklyDTOs (the local Jan-1 copy is deleted).
+import { weekNoOf } from "@/lib/goals/fy-calendar";
 
 export interface WeeklyDTO {
   id: string;
@@ -63,12 +69,37 @@ export interface WeeklyDTO {
   position: number;
   cascade: boolean;
   spillover: boolean;
+  /**
+   * Numeric cascade mirrors (design §3.1 blocker fix — Month→Week rollup /
+   * contribution math needs these in memory). numeric(14,2) → strings; null on
+   * legacy free-text-target rows, which `lib/goals/derive.ts` treats as
+   * UNMEASURED and excludes from allocation/contribution (locked decision 3).
+   */
+  targetQty: string | null;
+  actualQty: string | null;
+  targetAmount: string | null;
+  actualAmount: string | null;
+  weight: number;
+  adopted: boolean;
+  /** Parent month goal id (goals.id) when the row is a cascade leaf — lets the
+   *  canvas link a week row back to its month parent (Phase 3). `cascade`
+   *  above stays the boolean mirror (`monthGoalId != null`). */
+  monthGoalId: string | null;
+  /**
+   * Ritual stamps as booleans (Phase 6, design §2.2/§2.6): `committed_at` /
+   * `approved_by_manager_at` — DISPLAY ONLY (the punch gates read the columns
+   * server-side; these mirrors power the canvas "committed · awaiting Monday
+   * approval" chips). Optional so pre-Phase-6 payload shapes stay assignable;
+   * `undefined` = unknown (render nothing, never a wrong state).
+   */
+  committed?: boolean;
+  approved?: boolean;
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const Q_LABEL: Record<number, string> = { 1: "Apr–Jun", 2: "Jul–Sep", 3: "Oct–Dec", 4: "Jan–Mar" };
-const ACCENT = "#b45309";
-const ACCENT_DEEP = "#7c2d12";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 type Lens = "year" | "quarter" | "month" | "levels";
 const LEVEL_RANK: Record<string, number> = { year: 0, quarter: 1, month: 2, week: 3 };
@@ -400,9 +431,7 @@ export function CascadeWorkspace(props: Props) {
         onDragCancel={() => setDragId(null)}
       >
         {lens === "year" && (() => {
-          const overall = yearGoals.length
-            ? Math.round(yearGoals.reduce((s, g) => s + effectiveGoalPct(g), 0) / yearGoals.length)
-            : 0;
+          const overall = rollupPct(yearGoals) ?? 0;
           const liveQ = goals.filter((g) => g.period === "quarter" && effectiveGoalPct(g) > 0).length;
           const status =
             yearGoals.length === 0 ? "Set your north star"
@@ -470,7 +499,7 @@ export function CascadeWorkspace(props: Props) {
                     const q = quarterOfKey(qk);
                     const kids = goals.filter((g) => g.period === "quarter" && g.parentGoalId === yg.id && g.periodKey === qk);
                     const has = kids.length > 0;
-                    const qpct = has ? Math.round(kids.reduce((s, g) => s + effectiveGoalPct(g), 0) / kids.length) : 0;
+                    const qpct = has ? (rollupPct(kids) ?? 0) : 0;
                     return {
                       key: qk,
                       label: `Q${q}`,
@@ -542,7 +571,7 @@ export function CascadeWorkspace(props: Props) {
                   const rows: PeriodRowData[] = months.map((mk) => {
                     const kids = goals.filter((g) => g.period === "month" && g.parentGoalId === qg.id && g.periodKey === mk);
                     const has = kids.length > 0;
-                    const mpct = has ? Math.round(kids.reduce((s, g) => s + effectiveGoalPct(g), 0) / kids.length) : 0;
+                    const mpct = has ? (rollupPct(kids) ?? 0) : 0;
                     return { key: mk, label: monLabel(mk), sub: mk.slice(0, 4), pct: mpct, has, isNow: mk === nowMonth, onOpen: () => { setSelMonth(mk); setLens("month"); } };
                   });
                   return (
@@ -662,12 +691,6 @@ function monthMondays(monthKey: string): string[] {
   }
   return out;
 }
-function weekNoOf(ymd: string): number {
-  const d = new Date(`${ymd}T00:00:00Z`);
-  const start = Date.UTC(d.getUTCFullYear(), 0, 1);
-  return Math.max(1, Math.ceil((d.getTime() - start) / 86_400_000 / 7) + 1);
-}
-
 /* ── Month → week columns: droppable by weekStart, draggable weekly cards, % edit ── */
 function WeekColumns({ month, weekly, canWrite, onPct, busy }: { month: string; weekly: WeeklyDTO[]; canWrite: boolean; onPct: (id: string, pct: number) => void; busy: string | null }) {
   const wk = weekly.filter((w) => w.monthKey === month);
@@ -920,7 +943,7 @@ function GoalCard(props: {
           onPointerDown={stopDrag}
           onClick={props.onGenerate}
           disabled={props.generating}
-          className="brand-btn mt-2 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11.5px] font-bold text-ink-soft hover:border-hairline-strong disabled:opacity-50"
+          className="bg-surface-card mt-2 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11.5px] font-bold text-ink-soft hover:border-hairline-strong disabled:opacity-50"
           style={{ borderColor: "var(--color-hairline)" }}
         >
           {props.generating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} style={{ color: ACCENT }} />}
@@ -1177,18 +1200,18 @@ function TeamPicker({
       <div className="max-h-[160px] overflow-y-auto">
         {roster.map((r) => (
           <label key={r.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-[12.5px] hover:bg-surface-soft">
-            <input type="checkbox" checked={sel.has(r.id)} onChange={() => toggle(r.id)} className="accent-[#1d4ed8]" />
+            <input type="checkbox" checked={sel.has(r.id)} onChange={() => toggle(r.id)} className="accent-[#E10600]" />
             <span className="truncate text-ink-strong">{r.name}</span>
           </label>
         ))}
       </div>
       <div className="mt-1.5 flex justify-end gap-1.5">
-        <button type="button" onClick={onCancel} className="brand-btn rounded-md px-2.5 py-1 text-[11.5px] font-semibold text-ink-muted">Cancel</button>
+        <button type="button" onClick={onCancel} className="bg-surface-card rounded-md px-2.5 py-1 text-[11.5px] font-semibold text-ink-muted">Cancel</button>
         <button
           type="button"
           onClick={() => onDone(roster.filter((r) => sel.has(r.id)).map((r) => ({ employeeId: r.id, name: r.name })))}
-          className="brand-btn rounded-md px-2.5 py-1 text-[11.5px] font-bold text-white"
-          style={{ background: "#1d4ed8" }}
+          className="rounded-md px-2.5 py-1 text-[11.5px] font-bold text-white"
+          style={{ background: "#E10600" }}
         >
           Save
         </button>

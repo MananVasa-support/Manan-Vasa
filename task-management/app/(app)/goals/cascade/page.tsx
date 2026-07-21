@@ -1,13 +1,16 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { and, eq, gte, lte } from "drizzle-orm";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { db } from "@/lib/db";
 import { weeklyGoals } from "@/db/schema";
 import { requireGoalsAccess } from "@/lib/goals/access";
-import { goalsCascadeEnabled } from "@/lib/goals/flag";
+import { goalsCascadeEnabled, goalsCanvasOn } from "@/lib/goals/flag";
 import { getYearBoard, getAssignedGoals } from "@/lib/goals/queries";
 import { fyStartYearOf } from "@/lib/goals/types";
+// bug #23 — the canonical FY (Apr–Mar) week number, in lockstep with
+// canvas-data.ts + the canvas stage (the local Jan-1 copy is deleted).
+import { weekNoOf } from "@/lib/goals/fy-calendar";
 import type { GoalNode } from "@/lib/goals/types";
 import { toGoalDTO, type GoalDTO } from "@/components/goals/cascade/util";
 import { CascadeWorkspace, type WeeklyDTO } from "@/components/goals/cascade/cascade-workspace";
@@ -23,13 +26,6 @@ function collect(nodes: GoalNode[]): GoalNode[] {
   return out;
 }
 
-/** Calendar week number (1..53) for a Monday date "YYYY-MM-DD". */
-function weekNoOf(weekStart: string): number {
-  const d = new Date(`${weekStart}T00:00:00Z`);
-  const start = Date.UTC(d.getUTCFullYear(), 0, 1);
-  return Math.max(1, Math.ceil((d.getTime() - start) / 86_400_000 / 7) + 1);
-}
-
 export default async function GoalsCascadePage({
   searchParams,
 }: {
@@ -37,6 +33,12 @@ export default async function GoalsCascadePage({
 }) {
   const { me, isAdmin } = await requireGoalsAccess();
   if (!goalsCascadeEnabled()) notFound();
+
+  // The canvas is RETIRED as the UI — behind the flag the four LEVEL PAGES
+  // (weekly-goals board design) are the module, so old /goals/cascade links
+  // land on the Yearly board. Flag OFF keeps the legacy CascadeWorkspace
+  // below byte-for-byte (production unchanged).
+  if (goalsCanvasOn()) redirect("/goals/yearly");
 
   const sp = await searchParams;
   const view = await resolveGoalsView(me, isAdmin, sp.emp);
@@ -57,6 +59,21 @@ export default async function GoalsCascadePage({
         acceptPct: weeklyGoals.acceptPct,
         position: weeklyGoals.position,
         carriedFromId: weeklyGoals.carriedFromId,
+        // Numeric cascade mirrors — required for Month→Week rollup/contribution
+        // math to run client-side (design §3.1 blocker fix; same FY-range query,
+        // just wider columns — no extra round-trip).
+        targetQty: weeklyGoals.targetQty,
+        actualQty: weeklyGoals.actualQty,
+        targetAmount: weeklyGoals.targetAmount,
+        actualAmount: weeklyGoals.actualAmount,
+        weight: weeklyGoals.weight,
+        adopted: weeklyGoals.adopted,
+        // Ritual stamps (Phase 6, design §2.2/§2.6) — same FY-range query, two
+        // more columns; power the canvas "committed / awaiting Monday approval"
+        // chips. DISPLAY ONLY — the punch gates keep reading these columns
+        // server-side via the predicates.
+        committedAt: weeklyGoals.committedAt,
+        approvedByManagerAt: weeklyGoals.approvedByManagerAt,
       })
       .from(weeklyGoals)
       .where(
@@ -85,6 +102,15 @@ export default async function GoalsCascadePage({
     position: w.position,
     cascade: w.monthGoalId != null,
     spillover: w.carriedFromId != null,
+    targetQty: w.targetQty,
+    actualQty: w.actualQty,
+    targetAmount: w.targetAmount,
+    actualAmount: w.actualAmount,
+    weight: w.weight,
+    adopted: w.adopted,
+    monthGoalId: w.monthGoalId,
+    committed: w.committedAt != null,
+    approved: w.approvedByManagerAt != null,
   }));
 
   return (

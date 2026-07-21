@@ -36,7 +36,7 @@ export default async function LeavePage() {
           className="wg-rise relative mb-6 overflow-hidden rounded-[26px] px-7 py-6 max-md:px-5"
           style={{
             background:
-              "linear-gradient(120deg, color-mix(in srgb, #E10600 5%, var(--color-surface-card)) 0%, var(--color-surface-card) 42%, color-mix(in srgb, #16a34a 5%, var(--color-surface-card)) 100%)",
+              "linear-gradient(120deg, color-mix(in srgb, #E10600 5%, var(--color-surface-card)) 0%, var(--color-surface-card) 42%, color-mix(in srgb, #E10600 5%, var(--color-surface-card)) 100%)",
             boxShadow:
               "inset 0 0 0 1px var(--color-hairline), 0 8px 30px -22px rgba(15,23,42,0.35)",
             backdropFilter: "blur(10px)",
@@ -52,7 +52,7 @@ export default async function LeavePage() {
           />
           <span
             className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
-            style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
+            style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}
           >
             <CalendarHeart size={13} strokeWidth={2.6} /> Employees · Leave
           </span>

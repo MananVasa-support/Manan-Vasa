@@ -140,7 +140,7 @@ export function FilterBar({
         <button
           type="button"
           onClick={onClear}
-          className="brand-btn ml-auto inline-flex items-center gap-1 rounded-lg border-[1.5px] px-2.5 py-1.5 text-[12px] font-bold text-ink-soft transition-colors hover:text-ink-strong"
+          className="bg-surface-card ml-auto inline-flex items-center gap-1 rounded-lg border-[1.5px] px-2.5 py-1.5 text-[12px] font-bold text-ink-soft transition-colors hover:text-ink-strong"
           style={{ borderColor: "var(--color-hairline-strong)" }}
         >
           <X size={13} strokeWidth={2.6} />

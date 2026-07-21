@@ -68,7 +68,7 @@ export function IncentiveStatusTab({
               <span
                 aria-hidden
                 className="inline-grid size-9 place-items-center rounded-xl"
-                style={{ background: `color-mix(in srgb, ${GREEN} 10%, transparent)`, color: GREEN_DEEP }}
+                style={{ background: `color-mix(in srgb, #E10600 10%, transparent)`, color: "#A80400" }}
               >
                 <SlidersHorizontal size={18} strokeWidth={2.3} />
               </span>
@@ -133,7 +133,7 @@ export function IncentiveStatusTab({
                   {rows.map((r) => (
                     <tr
                       key={r.id}
-                      className="border-t transition-colors hover:bg-[color-mix(in_srgb,#16a34a_3%,transparent)]"
+                      className="border-t transition-colors hover:bg-[color-mix(in_srgb,#E10600_3%,transparent)]"
                       style={{ borderColor: "var(--color-hairline)" }}
                     >
                       <td className="px-1 py-2.5 whitespace-nowrap" style={{ fontSize: 13.5 }}>
@@ -143,7 +143,7 @@ export function IncentiveStatusTab({
                           {r.participantCount > 0 && (
                             <span
                               className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10.5px] font-bold"
-                              style={{ background: `color-mix(in srgb, ${GREEN} 12%, transparent)`, color: GREEN_DEEP }}
+                              style={{ background: `color-mix(in srgb, #E10600 12%, transparent)`, color: "#A80400" }}
                             >
                               <Users size={10} strokeWidth={2.6} />
                               {r.participantCount}
@@ -162,7 +162,7 @@ export function IncentiveStatusTab({
                           <button
                             type="button"
                             onClick={() => setStatusRow(r)}
-                            className="brand-btn wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-ink-soft transition-colors hover:text-ink-strong"
+                            className="bg-surface-card wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-ink-soft transition-colors hover:text-ink-strong"
                             style={{ fontSize: 12, fontWeight: 700, boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}
                           >
                             <SlidersHorizontal size={12} strokeWidth={2.4} />
@@ -171,7 +171,7 @@ export function IncentiveStatusTab({
                           <button
                             type="button"
                             onClick={() => setSplitRow(r)}
-                            className="brand-btn wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-ink-soft transition-colors hover:text-ink-strong"
+                            className="bg-surface-card wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-ink-soft transition-colors hover:text-ink-strong"
                             style={{ fontSize: 12, fontWeight: 700, boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}
                           >
                             <Users size={12} strokeWidth={2.4} />

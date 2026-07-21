@@ -9,8 +9,8 @@ import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { rateShare } from "@/app/(app)/training/share/actions";
 import type { ShareForFeedback } from "@/lib/queries/learning";
 
-const ACCENT = "#2563eb";
-const ACCENT_DEEP = "#1d4ed8";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 function weekLabel(weekStart: string): string {
   return new Date(`${weekStart}T00:00:00Z`).toLocaleDateString("en-US", {

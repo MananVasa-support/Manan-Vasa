@@ -8,7 +8,7 @@ import {
   incentiveTargets,
   type IncentiveParticipant,
 } from "@/db/schema";
-import { getIncentivePaidByPerson, nameKey } from "@/lib/queries/incentives";
+import { getIncentivePaidByPerson, nameKey, removedNameKeys } from "@/lib/queries/incentives";
 
 /**
  * WS-6 — Incentive three-status reporting (Booked / Accrued / Paid) against
@@ -157,6 +157,8 @@ async function bookedAccruedByMonth(
 
   const byMonth = new Map<string, Map<string, BA>>();
   const names = new Map<string, string>();
+  // Removed (inactive) employees are dropped from the status matrix too.
+  const removed = await removedNameKeys();
 
   const bump = (
     monthKey: string | null,
@@ -165,7 +167,7 @@ async function bookedAccruedByMonth(
     accrued: number,
   ) => {
     if (!monthKey || !name) return;
-    if (isExcluded(name) || name.trim().toLowerCase() === "none") return;
+    if (isExcluded(name) || removed.has(nameKey(name)) || name.trim().toLowerCase() === "none") return;
     if (booked === 0 && accrued === 0) {
       // Still register the display name so a person with only paid appears.
       const key0 = nameKey(name);
@@ -354,19 +356,22 @@ export interface IncentiveEntryStatusRow {
 export async function listIncentiveEntriesStatus(year: number): Promise<IncentiveEntryStatusRow[]> {
   const start = `${year}-01-01`;
   const end = `${year + 1}-01-01`;
-  const [entries, participants] = await Promise.all([
+  const [entries, participants, removed] = await Promise.all([
     db
       .select()
       .from(incentiveEntries)
       .where(and(gte(incentiveEntries.periodMonth, start), lt(incentiveEntries.periodMonth, end)))
       .orderBy(desc(incentiveEntries.periodMonth), desc(incentiveEntries.srcSrNo)),
     db.select().from(incentiveParticipants),
+    removedNameKeys(),
   ]);
   const countByEntry = new Map<string, number>();
   for (const p of participants) {
     if (p.entryId) countByEntry.set(p.entryId, (countByEntry.get(p.entryId) ?? 0) + 1);
   }
-  return entries.map((e) => ({
+  return entries
+    .filter((e) => !removed.has(nameKey(e.empName)))
+    .map((e) => ({
     id: e.id,
     incentiveName: e.incentiveName,
     periodMonth: e.periodMonth,

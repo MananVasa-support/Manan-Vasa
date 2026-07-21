@@ -171,7 +171,7 @@ export function TaskListPage({
         {me.isAdmin && (
           <Link
             href={"/tasks/kanban" as Route}
-            className="brand-btn inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[14px] font-bold transition-colors hover:bg-surface-soft"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[14px] font-bold transition-colors hover:bg-surface-soft"
             style={{
               color: "var(--color-altus-red-deep)",
               boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)",

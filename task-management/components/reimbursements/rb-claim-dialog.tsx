@@ -54,7 +54,7 @@ export function RbClaimDialog({
     <Dialog.Root open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setValues({}); setError(null); } }}>
       <Dialog.Trigger asChild>
         <button
-          className="brand-btn wg-btn wg-sheen inline-flex items-center gap-1.5 rounded-pill px-5 py-2.5 text-[14px] font-bold text-white"
+          className="wg-btn wg-sheen inline-flex items-center gap-1.5 rounded-pill px-5 py-2.5 text-[14px] font-bold text-white"
           style={{
             background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,
             boxShadow: `0 10px 24px -12px color-mix(in srgb, ${GREEN_DEEP} 75%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
@@ -132,7 +132,7 @@ export function RbClaimDialog({
                 <button
                   type="button"
                   disabled={pending}
-                  className="brand-btn rounded-pill px-4 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:text-ink-strong"
+                  className="bg-surface-card rounded-pill px-4 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:text-ink-strong"
                 >
                   Cancel
                 </button>
@@ -140,7 +140,7 @@ export function RbClaimDialog({
               <button
                 type="submit"
                 disabled={pending}
-                className="brand-btn wg-btn rounded-pill px-6 py-2.5 text-[14px] font-bold text-white disabled:opacity-50"
+                className="wg-btn rounded-pill px-6 py-2.5 text-[14px] font-bold text-white disabled:opacity-50"
                 style={{
                   background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,
                   boxShadow: `0 10px 24px -12px color-mix(in srgb, ${GREEN_DEEP} 75%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,

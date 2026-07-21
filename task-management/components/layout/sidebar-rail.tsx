@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { usePathname } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { workspaceForPath } from "@/lib/workspaces";
 
 /**
  * The collapsible shell for the module LEFT-RAIL. Owns the collapsed state (client,
@@ -31,6 +33,12 @@ export function SidebarRail({
 }) {
   const [collapsed, setCollapsed] = React.useState(defaultCollapsed);
 
+  // HR carries the longest nav label ("Queries & Notifications"), so its rail is
+  // a touch wider (only when expanded) so the pill never clips. Every other
+  // module keeps the standard 212px.
+  const pathname = usePathname();
+  const expandedWidth = workspaceForPath(pathname ?? "/") === "hr" ? "w-[288px]" : "w-[212px]";
+
   const toggle = React.useCallback(() => {
     setCollapsed((c) => {
       const next = !c;
@@ -43,7 +51,7 @@ export function SidebarRail({
     <CollapseCtx.Provider value={{ collapsed, toggle }}>
       <aside
         data-collapsed={collapsed ? "true" : "false"}
-        className={`sidebar-rail sticky top-0 z-40 header-light flex h-dvh shrink-0 flex-col max-md:hidden ${collapsed ? "w-[74px]" : "w-[212px]"}`}
+        className={`sidebar-rail sticky top-0 z-40 header-light flex h-dvh shrink-0 flex-col max-md:hidden ${collapsed ? "w-[74px]" : expandedWidth}`}
         style={{
           backgroundColor: "rgba(255, 255, 255, 0.86)",
           backdropFilter: "blur(20px) saturate(160%)",

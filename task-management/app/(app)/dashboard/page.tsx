@@ -118,12 +118,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     <>
       <DashboardHeader generatedAt={new Date()} />
 
-      {/* Sticky filter bar: the app header is `sticky top-0` and stays on
-          screen, so the filter bar pins just below it; z-40 under the z-50
-          header. We only style the page's wrapper — the shared FilterBar is
-          untouched. */}
+      {/* Sticky filter bar: WMS now uses the vertical left rail (no horizontal
+          top header), so the bar pins to the very top of the content column on
+          desktop; on phones it clears the rail's 56px fixed top bar (top-14). */}
       <div
-        className={`sticky top-[96px] max-md:top-[72px] z-40 ${mobileToday ? "max-md:hidden" : ""}`}
+        className={`sticky top-0 max-md:top-14 z-40 ${mobileToday ? "max-md:hidden" : ""}`}
         style={{
           background:
             "linear-gradient(180deg, color-mix(in srgb, var(--color-surface-soft) 94%, transparent) 0%, color-mix(in srgb, var(--color-surface-soft) 86%, transparent) 100%)",

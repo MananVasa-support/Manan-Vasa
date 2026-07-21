@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { getNavCounts } from "@/lib/queries/nav-counts";
 import { getCurrentEmployee } from "@/lib/auth/current";
+import { goalsCanvasOn } from "@/lib/goals/flag";
 import { ACTIVE_WORKSPACE_COOKIE, isWorkspaceId } from "@/lib/workspaces";
 import { MainNav } from "./main-nav";
 
@@ -31,6 +32,10 @@ export async function MainNavServer({ variant }: { variant?: "drawer" } = {}) {
       isAdmin={Boolean(me?.isAdmin)}
       variant={variant}
       cookieWorkspace={cookieWorkspace}
+      // bug #11 — GOALS_CANVAS_ON is a server-only env var (not NEXT_PUBLIC),
+      // so the client nav can't read it; resolve it HERE and thread it down so
+      // the Goals level pills hide/repoint instead of silently bouncing.
+      goalsCanvasEnabled={goalsCanvasOn()}
     />
   );
 }

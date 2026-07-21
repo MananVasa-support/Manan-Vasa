@@ -101,7 +101,7 @@ export function OnboardingForm({ initial, backHref }: { initial: OnboardingView;
       {/* sticky action bar */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-hairline bg-surface-card/95 px-6 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-[1400px] items-center justify-end gap-2">
-          <button type="button" disabled={!!busy} onClick={() => save("draft")} className="brand-btn inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[13.5px] font-bold text-ink-muted hover:text-ink-strong disabled:opacity-50">{busy === "draft" ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} strokeWidth={2.3} />} Save draft</button>
+          <button type="button" disabled={!!busy} onClick={() => save("draft")} className="bg-surface-card inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[13.5px] font-bold text-ink-muted hover:text-ink-strong disabled:opacity-50">{busy === "draft" ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} strokeWidth={2.3} />} Save draft</button>
           <button type="button" disabled={!!busy} onClick={() => save("submitted")} className="wg-btn wg-sheen inline-flex items-center gap-2 rounded-pill px-6 py-2.5 text-[14px] font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`, boxShadow: `0 8px 20px -10px ${RED_DEEP}` }}>{busy === "submitted" ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} strokeWidth={2.4} />} Submit onboarding</button>
         </div>
       </div>

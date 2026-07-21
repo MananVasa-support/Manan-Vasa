@@ -10,6 +10,13 @@ import {
   fyStartYearOfMonthKey,
 } from "./types";
 import { weeksOfMonth, weeksInMonth } from "./fy-calendar";
+import {
+  parseNum,
+  toMoney,
+  divideYearToQuarter,
+  divideQuarterToMonth,
+  divideMonthToWeek,
+} from "./cascade-math";
 
 /**
  * Cascade engine (Y→Q→M→W) — the roll-down + adopt/drop core.
@@ -19,37 +26,19 @@ import { weeksOfMonth, weeksInMonth } from "./fy-calendar";
  * Week = Month ÷ (that month's actual week count, 4 or 5). Applied to BOTH
  * target_qty and target_amount. Generation is **idempotent** (keyed on
  * parent_goal_id / month_goal_id) so re-running never duplicates.
+ *
+ * The pure dividers + numeric marshalling now live in `./cascade-math` (design
+ * §3.1) so the client derive layer (`lib/goals/derive.ts`) shares the exact same
+ * rounding. Re-exported here so server callers keep their import path.
  */
-
-// numeric(14,2) columns round-trip as strings; parse/serialise at the boundary.
-function parseNum(s: string | null): number | null {
-  if (s == null) return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
-}
-function toMoney(n: number | null): string | null {
-  return n == null ? null : n.toFixed(2);
-}
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
-/** Quarter target = Year ÷ 4. */
-export function divideYearToQuarter(target: number | null): number | null {
-  return target == null ? null : round2(target / 4);
-}
-
-/** Month target = Quarter ÷ 3. */
-export function divideQuarterToMonth(target: number | null): number | null {
-  return target == null ? null : round2(target / 3);
-}
-
-/** Week target = Month ÷ (weeks the month owns, 4 or 5). */
-export function divideMonthToWeek(target: number | null, weekCount: number): number | null {
-  if (target == null) return null;
-  const n = weekCount > 0 ? weekCount : 4;
-  return round2(target / n);
-}
+export {
+  parseNum,
+  toMoney,
+  round2,
+  divideYearToQuarter,
+  divideQuarterToMonth,
+  divideMonthToWeek,
+} from "./cascade-math";
 
 export interface GenerateResult {
   /** How many NEW child rows were created (0 when already fully generated). */
@@ -196,8 +185,11 @@ async function descendantGoalIds(rootId: string): Promise<string[]> {
  * weekly_goals rows hung off any month node in the subtree; re-adopting
  * (`adopted=true`) re-includes them. Rows are preserved (never deleted) so
  * history/audit survives (design §3).
+ *
+ * Returns every mutated GOAL id (root + descendants) so callers can re-read
+ * the whole subtree and return it through the rows-reconcile path (bug #22).
  */
-export async function setAdopted(goalId: string, adopted: boolean): Promise<void> {
+export async function setAdopted(goalId: string, adopted: boolean): Promise<string[]> {
   const descendants = await descendantGoalIds(goalId);
   const ids = [goalId, ...descendants];
   const now = new Date();
@@ -208,4 +200,5 @@ export async function setAdopted(goalId: string, adopted: boolean): Promise<void
     .update(weeklyGoals)
     .set({ adopted, updatedAt: now })
     .where(inArray(weeklyGoals.monthGoalId, ids));
+  return ids;
 }

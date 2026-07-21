@@ -74,3 +74,19 @@ export interface PlanSources {
 
 /** The transient placeholder id used during a cross-list drag. */
 export const GHOST_ID = "__plan_ghost__";
+
+/**
+ * Everything the PlanBoard needs for one person-day — built server-side by ONE
+ * shared assembler (`app/(app)/goals/plan/payload.ts`) so the `/goals/plan`
+ * route and the canvas Day zoom stage (Phase 5 fold-in) can never drift.
+ * Client-safe: plain data only.
+ */
+export interface PlanDayPayload {
+  initialPlan: PlanItem[];
+  sources: PlanSources;
+  minItems: number;
+  isManager: boolean;
+  initialPhase: PlanPhase;
+  /** The plan date this payload describes ("YYYY-MM-DD", IST today). */
+  ymd: string;
+}

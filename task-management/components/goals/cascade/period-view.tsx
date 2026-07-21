@@ -53,7 +53,7 @@ export function PeriodView({
         className="wg-rise relative flex flex-wrap items-center gap-3 overflow-hidden rounded-section border border-hairline p-4"
         style={{
           background:
-            "radial-gradient(ellipse 70% 130% at 0% 0%, color-mix(in srgb, #b45309 7%, transparent), transparent 58%), var(--color-surface-card)",
+            "radial-gradient(ellipse 70% 130% at 0% 0%, color-mix(in srgb, #E10600 7%, transparent), transparent 58%), var(--color-surface-card)",
           boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(15,23,42,0.04)",
         }}
       >
@@ -132,15 +132,15 @@ export function PeriodView({
           className="wg-rise relative overflow-hidden rounded-section border border-dashed border-hairline-strong p-10 text-center"
           style={{
             background:
-              "radial-gradient(ellipse 80% 130% at 50% 0%, color-mix(in srgb, #b45309 7%, transparent), transparent 60%), var(--color-surface-card)",
+              "radial-gradient(ellipse 80% 130% at 50% 0%, color-mix(in srgb, #E10600 7%, transparent), transparent 60%), var(--color-surface-card)",
           }}
         >
           <span
             className="mx-auto inline-grid size-14 place-items-center rounded-2xl"
             style={{
-              color: "#7c2d12",
-              background: "color-mix(in srgb, #b45309 13%, transparent)",
-              boxShadow: "inset 0 0 0 1px color-mix(in srgb, #b45309 20%, transparent)",
+              color: "#A80400",
+              background: "color-mix(in srgb, #E10600 13%, transparent)",
+              boxShadow: "inset 0 0 0 1px color-mix(in srgb, #E10600 20%, transparent)",
             }}
           >
             <Target size={26} strokeWidth={2.2} />

@@ -540,7 +540,7 @@ export function TaskListTable({
         <input type="date" className={CHIP} value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Target date from" title="Target date — from" />
         <input type="date" className={CHIP} value={to} onChange={(e) => setTo(e.target.value)} aria-label="Target date to" title="Target date — to" />
         {hasFilters && (
-          <button type="button" onClick={clearFilters} className="brand-btn inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
+          <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
             <X size={15} strokeWidth={2.4} /> Clear
           </button>
         )}
@@ -597,7 +597,7 @@ export function TaskListTable({
                     {hasFilters ? "No tasks match these filters." : "No tasks yet."}
                   </p>
                   {!hasFilters && (
-                    <button type="button" onClick={startAdd} className="brand-btn mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red">
+                    <button type="button" onClick={startAdd} className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red">
                       <Plus size={15} strokeWidth={2.6} /> Add the first task
                     </button>
                   )}
@@ -868,7 +868,7 @@ export function ScreenshotsTable({
         <button
           type="button"
           onClick={startAdd}
-          className="brand-btn ml-auto inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2.5 px-4 text-[14.5px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)]"
+          className="ml-auto inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2.5 px-4 text-[14.5px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)]"
         >
           <Plus size={16} strokeWidth={2.6} /> Add screenshot
         </button>
@@ -906,7 +906,7 @@ export function ScreenshotsTable({
                 <td colSpan={SHOT_COLS} className="px-5 py-12 text-center">
                   <p className="text-[15px] font-semibold text-ink-muted">{q ? "No screenshots match." : "No screenshots to post yet."}</p>
                   {!q && (
-                    <button type="button" onClick={startAdd} className="brand-btn mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red">
+                    <button type="button" onClick={startAdd} className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red">
                       <Plus size={15} strokeWidth={2.6} /> Add the first one
                     </button>
                   )}

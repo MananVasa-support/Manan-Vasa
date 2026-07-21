@@ -7,8 +7,8 @@ import { fireToast } from "@/lib/toast";
 import { releaseRecognition, dismissRecognition } from "@/app/(app)/pms/signals/actions";
 import { MODULE_THEME } from "@/lib/module-theme";
 
-const ACCENT = MODULE_THEME.employees.accent;
-const ACCENT_DEEP = MODULE_THEME.employees.accentDeep;
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 /**
  * Release / Dismiss buttons for one suggested recognition. Both are real wired
@@ -49,7 +49,7 @@ export function RecognitionActions({ id, employeeName }: { id: string; employeeN
         type="button"
         disabled={pending}
         onClick={() => run("release")}
-        className="brand-btn wg-btn wg-sheen inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13.5px] font-bold text-white transition-opacity disabled:opacity-60"
+        className="wg-btn wg-sheen inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13.5px] font-bold text-white transition-opacity disabled:opacity-60"
         style={{
           background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
           boxShadow: `0 8px 18px -10px color-mix(in srgb, ${ACCENT_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
@@ -62,7 +62,7 @@ export function RecognitionActions({ id, employeeName }: { id: string; employeeN
         type="button"
         disabled={pending}
         onClick={() => run("dismiss")}
-        className="brand-btn inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3.5 py-2 text-[13.5px] font-bold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-60"
+        className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3.5 py-2 text-[13.5px] font-bold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-60"
       >
         {busy === "dismiss" ? <Loader2 size={15} className="animate-spin" /> : <X size={15} strokeWidth={2.6} />}
         Dismiss

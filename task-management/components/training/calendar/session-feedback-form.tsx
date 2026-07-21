@@ -8,11 +8,11 @@ import { StarRating } from "@/components/ui/star-rating";
 import { submitSessionFeedback } from "@/app/(app)/training/calendar/actions";
 import type { SessionFeedbackRow } from "@/lib/queries/training-calendar";
 
-const ACCENT = "#2563eb";
-const ACCENT_DEEP = "#1d4ed8";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 const INPUT =
-  "w-full rounded-xl border border-hairline bg-white px-3.5 py-3 text-[15px] font-semibold text-ink-strong outline-none transition-colors focus:border-[#2563eb] resize-y";
+  "w-full rounded-xl border border-hairline bg-white px-3.5 py-3 text-[15px] font-semibold text-ink-strong outline-none transition-colors focus:border-[#E10600] resize-y";
 
 type DimKey = "content" | "depth" | "understanding" | "applicability";
 const DIMS: { key: DimKey; label: string }[] = [

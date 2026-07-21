@@ -106,7 +106,7 @@ export function SalaryReport({ month, monthLabel, rows }: Props) {
           <Link
             href={`/salary/export.xlsx?month=${month}` as Route}
             prefetch={false}
-            className="brand-btn inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2.5 px-4 text-[14px] font-medium text-ink-strong hover:border-hairline-strong transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2.5 px-4 text-[14px] font-medium text-ink-strong hover:border-hairline-strong transition-colors"
           >
             <Download size={15} strokeWidth={2.2} />
             Export Excel
@@ -116,7 +116,7 @@ export function SalaryReport({ month, monthLabel, rows }: Props) {
             onClick={onGenerateAll}
             disabled={busy}
             title="Create runs for every salaried employee; skips anyone already run this month"
-            className="brand-btn inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2.5 px-4 text-[14px] font-medium text-ink-strong hover:border-hairline-strong transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2.5 px-4 text-[14px] font-medium text-ink-strong hover:border-hairline-strong transition-colors disabled:opacity-50"
           >
             <Users size={15} strokeWidth={2.2} />
             {generatingAll ? "Generating all…" : "Generate for all"}
@@ -292,7 +292,7 @@ function SalaryRow({ row, rowIndex }: { row: SalaryRunRow; rowIndex: number }) {
         <Link
           href={`/salary/payslip/${row.id}` as Route}
           prefetch={false}
-          className="brand-btn inline-flex items-center justify-center gap-1.5 rounded-lg border border-hairline px-3 py-1.5 text-[13px] font-medium text-ink-soft hover:border-hairline-strong hover:text-ink-strong transition-colors whitespace-nowrap"
+          className="bg-surface-card inline-flex items-center justify-center gap-1.5 rounded-lg border border-hairline px-3 py-1.5 text-[13px] font-medium text-ink-soft hover:border-hairline-strong hover:text-ink-strong transition-colors whitespace-nowrap"
         >
           <FileText size={14} strokeWidth={2.2} />
           Payslip

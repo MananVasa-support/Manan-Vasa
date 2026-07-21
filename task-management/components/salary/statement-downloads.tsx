@@ -105,7 +105,7 @@ export function StatementDownloads({
         <a
           href={disabled ? undefined : annualHref}
           aria-disabled={disabled}
-          className="brand-btn inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2.5 px-4 text-[14px] font-medium text-ink-strong hover:border-hairline-strong transition-colors aria-disabled:opacity-40 aria-disabled:pointer-events-none"
+          className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2.5 px-4 text-[14px] font-medium text-ink-strong hover:border-hairline-strong transition-colors aria-disabled:opacity-40 aria-disabled:pointer-events-none"
         >
           <CalendarRange size={15} strokeWidth={2.2} />
           Annual statement · {fy}

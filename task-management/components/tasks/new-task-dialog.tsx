@@ -146,9 +146,9 @@ export function NewTaskDialog({ defaultInitiatorId }: Props) {
                     fontSize: 14,
                     letterSpacing: "0.005em",
                     background:
-                      "linear-gradient(135deg, rgb(225, 6, 0), rgb(168, 4, 0))",
+                      "linear-gradient(135deg, rgb(212, 6, 0), rgb(160, 4, 0))",
                     boxShadow:
-                      "0 4px 14px rgba(225, 6, 0, 0.45), inset 0 0 0 1px rgba(255,255,255,0.22)",
+                      "0 2px 6px rgba(120, 3, 0, 0.20), inset 0 0 0 1px rgba(255,255,255,0.16)",
                     transition:
                       "transform 180ms ease, box-shadow 220ms ease, filter 180ms ease",
                     animation:
@@ -156,16 +156,14 @@ export function NewTaskDialog({ defaultInitiatorId }: Props) {
                     willChange: "transform",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = "scale(1.04)";
+                    e.currentTarget.style.transform = "scale(1.02)";
                     e.currentTarget.style.boxShadow =
-                      "0 10px 28px rgba(225, 6, 0, 0.6), 0 0 0 6px rgba(225, 6, 0, 0.14), inset 0 0 0 1px rgba(255,255,255,0.32)";
-                    e.currentTarget.style.filter = "brightness(1.05)";
+                      "0 4px 12px rgba(120, 3, 0, 0.28), inset 0 0 0 1px rgba(255,255,255,0.22)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = "";
                     e.currentTarget.style.boxShadow =
-                      "0 4px 14px rgba(225, 6, 0, 0.45), inset 0 0 0 1px rgba(255,255,255,0.22)";
-                    e.currentTarget.style.filter = "";
+                      "0 2px 6px rgba(120, 3, 0, 0.20), inset 0 0 0 1px rgba(255,255,255,0.16)";
                   }}
                 >
                   <Plus size={15} strokeWidth={2.6} />
@@ -334,7 +332,7 @@ export function NewTaskDialog({ defaultInitiatorId }: Props) {
                 type="button"
                 onClick={goImport}
                 title="Bulk-import tasks from CSV or Excel"
-                className="brand-btn inline-flex items-center gap-2 rounded-full px-4 h-10 text-[14px] font-semibold transition-colors hover:bg-surface-soft max-md:px-3"
+                className="inline-flex items-center gap-2 rounded-full px-4 h-10 text-[14px] font-semibold transition-colors hover:bg-surface-soft max-md:px-3"
                 style={{
                   border: "1px solid var(--color-hairline)",
                   background: "#ffffff",

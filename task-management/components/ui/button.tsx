@@ -31,7 +31,9 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           variantClass[variant],
           className,
         )}
-        style={{ outlineColor: "var(--color-altus-red)" }}
+        // Focus ring follows the module accent (amber inside the Goals shell,
+        // Altus red everywhere else — goals-redesign design §6).
+        style={{ outlineColor: "var(--module-accent, var(--color-altus-red))" }}
         {...props}
       >
         {children}

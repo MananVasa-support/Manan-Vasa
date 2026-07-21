@@ -159,7 +159,7 @@ export function TabTimeline({
                 onClick={followUp}
                 disabled={pending}
                 title="Create a WMS task (syncs to the assignee's Google Calendar)"
-                className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2.5 px-3.5 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2.5 px-3.5 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] disabled:opacity-60"
               >
                 <ListTodo size={15} strokeWidth={2.6} />
                 Follow-up task
@@ -204,7 +204,7 @@ export function TabTimeline({
                     type="button"
                     onClick={() => markDone(a.id)}
                     disabled={pending}
-                    className="brand-btn inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white px-2.5 py-1.5 text-[12.5px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-green,#15803d)] disabled:opacity-60"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white px-2.5 py-1.5 text-[12.5px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-green,#15803d)] disabled:opacity-60"
                   >
                     <Check size={14} strokeWidth={2.8} />
                     Done

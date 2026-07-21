@@ -187,7 +187,7 @@ export function DayLedger({ today, items: pItems, overdue: pOverdue, pullable: p
               type="button"
               onClick={onMoveOverdue}
               disabled={busyId === "overdue"}
-              className={`brand-btn wg-btn cursor-pointer inline-flex items-center gap-1.5 rounded-md py-2 px-3.5 text-[13px] font-bold text-white shrink-0 disabled:opacity-50 ${FOCUS_RING}`}
+              className={`wg-btn cursor-pointer inline-flex items-center gap-1.5 rounded-md py-2 px-3.5 text-[13px] font-bold text-white shrink-0 disabled:opacity-50 ${FOCUS_RING}`}
               style={{ background: "linear-gradient(135deg, var(--color-amber), var(--color-amber-deep))" }}
             >
               {busyId === "overdue" ? <Loader2 size={14} className="animate-spin" /> : <CornerUpRight size={14} strokeWidth={2.6} />}
@@ -326,7 +326,7 @@ export function DayLedger({ today, items: pItems, overdue: pOverdue, pullable: p
                         onClick={() => onPull(g)}
                         disabled={busyId === g.id}
                         aria-label={`Add "${g.targetDone || g.subject || "Weekly goal"}" to today`}
-                        className={`brand-btn wg-btn cursor-pointer mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card py-1.5 px-3 text-[13px] font-semibold text-ink-strong hover:border-altus-red hover:text-altus-red disabled:opacity-50 ${FOCUS_RING}`}
+                        className={`wg-btn cursor-pointer mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card py-1.5 px-3 text-[13px] font-semibold text-ink-strong hover:border-altus-red hover:text-altus-red disabled:opacity-50 ${FOCUS_RING}`}
                       >
                         {busyId === g.id ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} strokeWidth={2.4} />}
                         Move to today

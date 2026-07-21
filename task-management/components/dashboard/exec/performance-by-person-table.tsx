@@ -182,7 +182,7 @@ export function PerformanceByPersonTable({
                 type="button"
                 onClick={() => setShowAll((s) => !s)}
                 aria-expanded={showAll}
-                className="brand-btn wg-sheen mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-[13.5px] font-black text-ink-strong transition-colors"
+                className="wg-sheen mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-[13.5px] font-black text-ink-strong transition-colors"
                 style={{
                   background: "color-mix(in srgb, var(--color-altus-red) 6%, transparent)",
                   border: "1px solid var(--color-hairline-strong)",

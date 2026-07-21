@@ -62,7 +62,7 @@ export function TodayPanel({
       style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline), 0 10px 30px -22px rgba(15,23,42,0.3)", animationDelay: "60ms" }}
     >
       <div className="flex items-center gap-2">
-        <span className="inline-flex size-7 items-center justify-center rounded-lg" style={{ background: `color-mix(in srgb, ${GREEN} 12%, transparent)`, color: GREEN_DEEP }}>
+        <span className="inline-flex size-7 items-center justify-center rounded-lg" style={{ background: `color-mix(in srgb, #E10600 12%, transparent)`, color: "#A80400" }}>
           <Timer size={15} strokeWidth={2.4} />
         </span>
         <span className="text-[11px] font-black uppercase tracking-[0.16em] text-ink-subtle">Today</span>

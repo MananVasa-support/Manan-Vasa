@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { goals } from "@/db/schema";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { goalScopeFor, getDownlineIds, canManageGoalFor } from "@/lib/weekly-goals/hierarchy";
+import { goalPolicy, type GoalPolicy } from "@/lib/goals/policy";
 
 /**
  * Permission scope for the Goals Cascade — the SAME org-chart model as weekly
@@ -12,6 +13,22 @@ import { goalScopeFor, getDownlineIds, canManageGoalFor } from "@/lib/weekly-goa
  * import from one place and stay in lock-step with the weekly engine.
  */
 export { goalScopeFor, getDownlineIds, canManageGoalFor };
+
+/**
+ * Phase 2 (Option A) — resolve the viewer's `GoalPolicy` over a goal OWNER,
+ * server-side (the source of truth the actions consult). One scope query at
+ * most (admins short-circuit; goalScopeFor is I/O-free for them anyway).
+ */
+export async function goalPolicyFor(
+  me: { id: string; isAdmin: boolean },
+  ownerEmployeeId: string,
+): Promise<GoalPolicy> {
+  const isOwner = ownerEmployeeId === me.id;
+  const isManagerOfOwner =
+    !isOwner &&
+    (me.isAdmin || canManageGoalFor(await goalScopeFor(me), ownerEmployeeId));
+  return goalPolicy({ isAdmin: me.isAdmin, isManagerOfOwner, isOwner });
+}
 
 type LoadResult =
   | { ok: false; error: string }

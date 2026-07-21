@@ -87,3 +87,9 @@ export function goalsSpilloverOn(): boolean {
 export function goalsSundayReportOn(): boolean {
   return process.env.GOALS_SUNDAY_REPORT_ON === "true";
 }
+
+/** The zoom-canvas Goals experience (Planning-OS redesign Phase 0/1). Default OFF;
+ *  set GOALS_CANVAS_ON='true' to render CascadeCanvas instead of CascadeWorkspace. */
+export function goalsCanvasOn(): boolean {
+  return process.env.GOALS_CANVAS_ON === "true";
+}

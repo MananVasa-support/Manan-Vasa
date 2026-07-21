@@ -100,7 +100,7 @@ export function IncEmployeeTable({
                 return (
                   <tr
                     key={r.name}
-                    className="group border-t transition-colors hover:bg-[color-mix(in_srgb,#16a34a_3%,transparent)]"
+                    className="group border-t transition-colors hover:bg-[color-mix(in_srgb,#E10600_3%,transparent)]"
                     style={{ borderColor: "var(--color-hairline)" }}
                   >
                     <td className="py-2.5 pr-3 min-w-[220px]">
@@ -111,7 +111,7 @@ export function IncEmployeeTable({
                       >
                         <EmployeeAvatar name={r.name} size="sm" />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[14px] font-bold text-ink-strong transition-colors group-hover:text-[#15803d]">
+                          <span className="block truncate text-[14px] font-bold text-ink-strong transition-colors group-hover:text-[#A80400]">
                             {r.name}
                           </span>
                           <span
@@ -123,7 +123,7 @@ export function IncEmployeeTable({
                               className="block h-full rounded-full"
                               style={{
                                 width: `${Math.max(2, share)}%`,
-                                background: "linear-gradient(90deg, #22c55e, #15803d)",
+                                background: "linear-gradient(90deg, #E10600, #A80400)",
                               }}
                             />
                           </span>
@@ -190,7 +190,7 @@ function SortTh({
         style={{ flexDirection: align === "right" ? "row-reverse" : "row" }}
       >
         {label}
-        <Icon size={12} strokeWidth={2.6} style={{ color: active ? "#15803d" : undefined }} aria-hidden />
+        <Icon size={12} strokeWidth={2.6} style={{ color: active ? "#A80400" : undefined }} aria-hidden />
       </button>
     </th>
   );

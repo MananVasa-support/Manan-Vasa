@@ -15,8 +15,8 @@ import { addSessionSubject } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-const ACCENT = MODULE_THEME.training.accent;
-const ACCENT_DEEP = MODULE_THEME.training.accentDeep;
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 export default async function TrainingCalendarPage() {
   const me = await requireWorkspace("training");

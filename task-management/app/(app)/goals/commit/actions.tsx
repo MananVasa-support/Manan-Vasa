@@ -20,8 +20,21 @@ type ActionResult<T = undefined> = ActionOk<T> | { ok: false; error: string };
 
 type Actor = { id: string; isAdmin: boolean; email: string };
 
+/** Single-row mutations return the fresh `weekly_goals` row (Phase-1 optimistic
+ *  spine, design §3.4) so clients reconcile in place instead of refetching.
+ *  The ritual stamps (`committedAt` / `approvedByManagerAt`) ride along — the
+ *  row IS the weekly table's truth, which the punch gates read. */
+type WeeklyRow = typeof weeklyGoals.$inferSelect;
+
 function revalidate() {
   revalidatePath("/goals/commit");
+  // bug #17 — commit stamps (weekly rows) render on the level pages' canvas
+  // (all three share one loadCanvasData payload) + the cascade shell.
+  revalidatePath("/goals/yearly"); // yearly rootView shares the same canvas payload
+  revalidatePath("/goals/quarterly");
+  revalidatePath("/goals/monthly");
+  revalidatePath("/goals/week");
+  revalidatePath("/goals/cascade");
 }
 
 /**
@@ -100,7 +113,7 @@ const SetProgressSchema = z.object({
  */
 export async function setCommitProgress(
   input: z.infer<typeof SetProgressSchema>,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ row: WeeklyRow }>> {
   const { me } = await requireGoalsAccess();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
@@ -114,7 +127,7 @@ export async function setCommitProgress(
 
   try {
     const now = new Date();
-    await db
+    const [row] = await db
       .update(weeklyGoals)
       .set({
         pctDone: parsed.data.pctDone,
@@ -123,7 +136,9 @@ export async function setCommitProgress(
         updatedById: me.id,
         updatedAt: now,
       })
-      .where(eq(weeklyGoals.id, parsed.data.id));
+      .where(eq(weeklyGoals.id, parsed.data.id))
+      .returning();
+    if (!row) return { ok: false, error: "Goal not found" };
     // Mirror onto a linked task, if any (best-effort — never fail the fill).
     try {
       await syncGoalToTask(parsed.data.id);
@@ -131,7 +146,7 @@ export async function setCommitProgress(
       /* task mirror is non-critical */
     }
     revalidate();
-    return { ok: true };
+    return { ok: true, row };
   } catch (err) {
     return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
   }
@@ -146,7 +161,7 @@ const AdoptSchema = z.object({ id: z.string().uuid(), adopted: z.boolean() });
 /** Cross-out (adopt/drop) a next-week goal from the committed set. */
 export async function toggleNextWeekAdopt(
   input: z.infer<typeof AdoptSchema>,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ row: WeeklyRow }>> {
   const { me } = await requireGoalsAccess();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
@@ -157,12 +172,14 @@ export async function toggleNextWeekAdopt(
   if (!loaded.ok) return loaded;
 
   try {
-    await db
+    const [row] = await db
       .update(weeklyGoals)
       .set({ adopted: parsed.data.adopted, updatedById: me.id, updatedAt: new Date() })
-      .where(eq(weeklyGoals.id, parsed.data.id));
+      .where(eq(weeklyGoals.id, parsed.data.id))
+      .returning();
+    if (!row) return { ok: false, error: "Goal not found" };
     revalidate();
-    return { ok: true };
+    return { ok: true, row };
   } catch (err) {
     return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
   }
@@ -182,7 +199,7 @@ const AddSchema = z.object({
  */
 export async function addNextWeekGoal(
   input: z.infer<typeof AddSchema>,
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string; row: WeeklyRow | null }>> {
   const { me } = await requireGoalsAccess();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
@@ -213,8 +230,14 @@ export async function addNextWeekGoal(
       .returning({ id: weeklyGoals.id });
     if (!row) return { ok: false, error: "Insert returned no row" };
     await rebalanceWeek(parsed.data.employeeId, nextWeek, me.id);
+    // Re-read AFTER the weight rebalance so the returned row is server truth.
+    const [fresh] = await db
+      .select()
+      .from(weeklyGoals)
+      .where(eq(weeklyGoals.id, row.id))
+      .limit(1);
     revalidate();
-    return { ok: true, id: row.id };
+    return { ok: true, id: row.id, row: fresh ?? null };
   } catch (err) {
     return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
   }

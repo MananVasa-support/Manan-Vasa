@@ -12,8 +12,8 @@ import {
 } from "@/app/(app)/events/obligations/actions";
 import type { CategoryOption, ObligationRowVM } from "./types";
 
-const ACCENT = "#0891b2";
-const ACCENT_DEEP = "#0e7490";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 interface Props {
   open: boolean;
@@ -277,7 +277,7 @@ export function ObligationFormDialog({
                 <Dialog.Close asChild>
                   <button
                     type="button"
-                    className="brand-btn rounded-pill px-4 py-2.5 text-[15px] font-semibold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
+                    className="bg-surface-card rounded-pill px-4 py-2.5 text-[15px] font-semibold text-ink-muted transition-colors hover:bg-surface-soft disabled:opacity-50"
                     disabled={pending}
                   >
                     Cancel

@@ -11,6 +11,8 @@ import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 
 const GREEN = "#16a34a";
 const GREEN_DEEP = "#15803d";
+const RED = "#E10600";
+const RED_DEEP = "#A80400";
 
 /**
  * Read-only per-person incentive drill-down. Fed lazily by the `getPersonDetail`
@@ -77,7 +79,7 @@ export function IncentivePersonDrilldown({
             className="sticky top-0 z-10 flex items-start justify-between gap-4 px-7 pt-6 pb-4 max-md:px-4"
             style={{
               background: [
-                `radial-gradient(130% 200% at 100% 0%, color-mix(in srgb, ${GREEN} 9%, transparent), transparent 55%)`,
+                `radial-gradient(130% 200% at 100% 0%, color-mix(in srgb, ${RED} 9%, transparent), transparent 55%)`,
                 "rgba(255,255,255,0.88)",
               ].join(", "),
               backdropFilter: "blur(10px) saturate(140%)",
@@ -85,7 +87,7 @@ export function IncentivePersonDrilldown({
             }}
           >
             <div className="flex min-w-0 items-center gap-3">
-              {empName && <EmployeeAvatar name={empName} size="lg" background={`linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`} />}
+              {empName && <EmployeeAvatar name={empName} size="lg" background={`linear-gradient(135deg, ${RED}, ${RED_DEEP})`} />}
               <div className="min-w-0">
                 <Dialog.Title
                   className="truncate text-ink-strong"
@@ -272,7 +274,7 @@ function SectionHead({ icon, label }: { icon: React.ReactNode; label: string }) 
     <div className="flex items-center gap-2 mb-2.5 text-ink-strong">
       <span
         className="inline-flex items-center justify-center h-6 w-6 rounded-lg"
-        style={{ background: `color-mix(in srgb, ${GREEN} 10%, transparent)`, color: GREEN_DEEP }}
+        style={{ background: `color-mix(in srgb, ${RED} 10%, transparent)`, color: RED_DEEP }}
       >
         {icon}
       </span>

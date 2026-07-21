@@ -158,11 +158,6 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   const outLabel = todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null;
   const inISO = todayRow?.in ? todayRow.in.at.toISOString() : null;
   const outISO = todayRow?.out ? todayRow.out.at.toISOString() : null;
-  const status = outLabel
-    ? { label: "Day complete", tone: "#94a3b8" }
-    : inLabel
-      ? { label: `Checked in · since ${inLabel}`, tone: "#16a34a" }
-      : { label: "Ready to check in", tone: "#16a34a" };
   const monthLabel = new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric" }).format(
     new Date(Date.UTC(curYear, curMonth - 1, 1)),
   );
@@ -188,7 +183,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
           <div className="min-w-0">
             <span
               className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
-              style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
+              style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}
             >
               <CalendarCheck size={13} strokeWidth={2.6} /> Employees · Attendance
             </span>
@@ -204,31 +199,27 @@ export default async function AttendancePage({ searchParams }: PageProps) {
             >
               Good to see you, {firstName}
             </h1>
-            <span
-              className="mt-2.5 inline-flex items-center gap-2 rounded-pill border bg-surface-card px-3 py-1.5 text-[12.5px] font-bold"
-              style={{ borderColor: `color-mix(in srgb, ${status.tone} 32%, transparent)`, color: "var(--color-ink-strong)" }}
-            >
-              <span aria-hidden className="relative inline-flex size-2.5">
-                <span className="absolute inline-flex h-full w-full rounded-full opacity-70 animate-ping motion-reduce:hidden" style={{ background: status.tone }} />
-                <span className="relative inline-flex size-2.5 rounded-full" style={{ background: status.tone }} />
-              </span>
-              {status.label}
-            </span>
           </div>
           {me.isAdmin && (
             <a
               href="/attendance/dashboard"
               className="brand-btn wg-btn shrink-0 inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[13.5px] font-bold text-white"
-              style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 8px 20px -10px color-mix(in srgb, #15803d 70%, transparent)" }}
+              style={{ background: "linear-gradient(135deg, #E10600, #A80400)", boxShadow: "0 8px 20px -10px color-mix(in srgb, #A80400 70%, transparent)" }}
             >
               <ClipboardList size={15} strokeWidth={2.4} /> Att Report
             </a>
           )}
         </header>
 
-        {/* ── Two balanced halves: attendance box (left) · how am I doing (right) ── */}
+        {/* ── How am I doing — full-width KPI bar across the top ── */}
+        <div className="mb-5">
+          <AttendanceKpiStrip data={selfSummary} />
+        </div>
+
+        {/* ── Two balanced halves: attendance box (left) · today/calendar (right) ── */}
         <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
-          {/* FIRST HALF — the attendance box + how am I doing */}
+          {/* FIRST HALF — the attendance box + WFH / on-site log (fills the space
+              under the punch card, per Sir) */}
           <div className="flex flex-col gap-5">
             <PunchCard
               todayLabel={labelForDate(today)}
@@ -241,14 +232,13 @@ export default async function AttendancePage({ searchParams }: PageProps) {
               radiusM={settings.attendanceRadiusM}
               lastPunchLabel={lastPunchLabel}
             />
-            <AttendanceKpiStrip data={selfSummary} />
+            <RemoteCheckInTrigger hasCheckedIn={!!todayRow?.in} hasCheckedOut={!!todayRow?.out} />
           </div>
 
-          {/* SECOND HALF — Today ring · this month's calendar · remote check-in */}
+          {/* SECOND HALF — Today ring · this month's calendar */}
           <div className="flex flex-col gap-5">
             <TodayPanel inLabel={inLabel} outLabel={outLabel} inISO={inISO} outISO={outISO} fullDayHours={9} />
             <MonthCalendar cells={monthCells} monthLabel={monthLabel} compact />
-            <RemoteCheckInTrigger hasCheckedIn={!!todayRow?.in} hasCheckedOut={!!todayRow?.out} />
           </div>
         </div>
 
@@ -266,8 +256,8 @@ export default async function AttendancePage({ searchParams }: PageProps) {
                 <span
                   className="inline-grid size-9 place-items-center rounded-xl"
                   style={{
-                    background: "color-mix(in srgb, #16a34a 10%, transparent)",
-                    color: "#15803d",
+                    background: "color-mix(in srgb, #E10600 10%, transparent)",
+                    color: "#A80400",
                   }}
                 >
                   <Users size={18} strokeWidth={2.3} />
@@ -389,7 +379,7 @@ function MyTimeline({ days, tz, today }: { days: DayPunches[]; tz: string; today
       <div className="mb-4 flex items-center gap-2.5">
         <span
           className="inline-grid size-9 place-items-center rounded-xl"
-          style={{ background: "color-mix(in srgb, #16a34a 10%, transparent)", color: "#15803d" }}
+          style={{ background: "color-mix(in srgb, #E10600 10%, transparent)", color: "#A80400" }}
         >
           <Activity size={18} strokeWidth={2.3} />
         </span>

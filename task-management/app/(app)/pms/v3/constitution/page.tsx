@@ -16,8 +16,8 @@ import { SeedConstitutionButton } from "@/components/pms/v3/seed-constitution-bu
 
 export const dynamic = "force-dynamic";
 
-const ACCENT = MODULE_THEME.employees.accent;
-const ACCENT_DEEP = MODULE_THEME.employees.accentDeep;
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 function currentPeriod(): { period: string; label: string } {
   const ist = new Date(Date.now() + 5.5 * 3_600_000);

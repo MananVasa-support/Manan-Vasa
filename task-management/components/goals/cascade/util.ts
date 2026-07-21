@@ -11,6 +11,7 @@ import {
   quarterOfKey,
   quarterKeyOfMonthKey,
 } from "@/lib/goals/types";
+import { effective } from "@/lib/goals/derive";
 
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -97,10 +98,11 @@ export function fmtNum(v: string | number | null | undefined): string {
   return String(n % 1 === 0 ? n : n.toFixed(2));
 }
 
-/** Effective % = manager-accepted once reviewed, else the owner's self-rating. */
-export function effectiveGoalPct(g: { acceptPct: number | null; pctDone: number }): number {
-  return g.acceptPct ?? g.pctDone;
-}
+/** Effective % = manager-accepted once reviewed, else the owner's self-rating.
+ *  Delegates to the ONE canonical derive layer (lib/goals/derive `effective`)
+ *  so the board, canvas and server never disagree — no local copy. */
+export const effectiveGoalPct: (g: { acceptPct: number | null; pctDone: number }) => number =
+  effective;
 
 export interface PctTone {
   /** solid accent colour */
@@ -117,8 +119,8 @@ export function pctTone(pct: number): PctTone {
   return { color: "#b91c1c", bg: "rgba(185,28,28,0.12)", band: "red" };
 }
 
-export const GOALS_ACCENT = "#b45309";
-export const GOALS_ACCENT_DEEP = "#7c2d12";
+export const GOALS_ACCENT = "#E10600"; // Altus brand red — in-module chrome is red
+export const GOALS_ACCENT_DEEP = "#A80400";
 
 /* ------------------------------------------------------------------ */
 /* Auto-naming codes (Sir): Y1 → AQ1/JuQ1/OQ1/JQ1 → JulM1 → W1..W52    */
@@ -129,7 +131,17 @@ const Q_PREFIX: Record<1 | 2 | 3 | 4, string> = { 1: "A", 2: "Ju", 3: "O", 4: "J
 
 /** The short auto-code for a cascade goal: Y{n} / {Q}Q{n} / {Mon}M{n}. `position`
  *  is the 1-based Sr. No. within the period bucket. */
-export function goalCode(g: { period: GoalPeriod; periodKey: string; position: number }): string {
+export function goalCode(g: {
+  period: GoalPeriod;
+  periodKey: string;
+  position: number;
+  id?: string;
+}): string {
+  // bug #24 — an in-flight optimistic temp row carries the sentinel position
+  // 9_999 (and an "optimistic-" id) until the server assigns its Sr. No.;
+  // render "…" instead of leaking "JanM9999" into visible copy. (Prefix kept
+  // in lockstep with TEMP_PREFIX in components/goals/canvas/optimistic.ts.)
+  if (g.position >= 9_999 || g.id?.startsWith("optimistic-")) return "…";
   if (g.period === "year") return `Y${g.position}`;
   if (g.period === "quarter") return `${Q_PREFIX[quarterOfKey(g.periodKey)]}Q${g.position}`;
   const mon = MONTHS[Number(g.periodKey.slice(5, 7)) - 1] ?? "";
@@ -202,6 +214,15 @@ export function categoryStyle(category: string | null | undefined, spillover: bo
 /* Serialisable DTOs (server → client boundary)                        */
 /* ------------------------------------------------------------------ */
 
+/** A snapshot of a picked Monthly Events Master item (obligation / batch). The
+ *  `label` is captured at pick time so the board renders the chip without ever
+ *  joining the events-master tables. */
+export interface MonthlyMasterRef {
+  kind: string;
+  id: string;
+  label: string;
+}
+
 export interface GoalDTO {
   id: string;
   employeeId: string;
@@ -230,6 +251,12 @@ export interface GoalDTO {
   category: string;
   /** Carry-forward link — set ⇒ this row spilled over from a prior period. */
   clonedFromId: string | null;
+  /** Incentive attached to the goal (Yes/No + amount + type). */
+  incentiveEnabled: boolean;
+  incentiveAmount: string | null;
+  incentiveKind: string | null;
+  /** The picked Monthly Events Master item, or null. */
+  monthlyMasterRef: MonthlyMasterRef | null;
 }
 
 export interface GoalNodeDTO extends GoalDTO {
@@ -276,6 +303,10 @@ export function toGoalDTO(r: {
   source: string;
   category: string;
   clonedFromId: string | null;
+  incentiveEnabled?: boolean;
+  incentiveAmount?: string | null;
+  incentiveKind?: string | null;
+  monthlyMasterRef?: { kind: string; id: string; label: string } | null;
 }): GoalDTO {
   return {
     id: r.id,
@@ -303,6 +334,10 @@ export function toGoalDTO(r: {
     source: r.source,
     category: r.category,
     clonedFromId: r.clonedFromId,
+    incentiveEnabled: r.incentiveEnabled ?? false,
+    incentiveAmount: r.incentiveAmount ?? null,
+    incentiveKind: r.incentiveKind ?? null,
+    monthlyMasterRef: r.monthlyMasterRef ?? null,
   };
 }
 

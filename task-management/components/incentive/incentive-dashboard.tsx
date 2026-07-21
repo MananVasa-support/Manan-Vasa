@@ -18,6 +18,8 @@ import { IncEmployeeTable } from "./inc-employee-table";
 
 const GREEN = "#16a34a";
 const GREEN_DEEP = "#15803d";
+const RED = "#E10600";
+const RED_DEEP = "#A80400";
 
 /* ─────────────────────────── small UI atoms ─────────────────────────── */
 
@@ -25,7 +27,7 @@ function Panel({
   title,
   description,
   icon,
-  accent = GREEN,
+  accent = RED,
   delay = 0,
   actions,
   children,
@@ -333,7 +335,7 @@ export function IncentiveDashboard({ data, year }: { data: DashboardData; year: 
                         <button
                           type="button"
                           data-incentive-person={row.name}
-                          className="truncate cursor-pointer font-bold text-ink-strong text-left transition-colors hover:text-[#15803d]"
+                          className="truncate cursor-pointer font-bold text-ink-strong text-left transition-colors hover:text-[#A80400]"
                           style={{ fontSize: 15 }}
                         >
                           {row.name}
@@ -353,7 +355,7 @@ export function IncentiveDashboard({ data, year }: { data: DashboardData; year: 
                           className="block h-full rounded-full"
                           style={{
                             width: `${Math.max(2, share)}%`,
-                            background: `linear-gradient(90deg, #22c55e, ${GREEN_DEEP})`,
+                            background: `linear-gradient(90deg, #E10600, ${RED_DEEP})`,
                           }}
                         />
                       </div>
@@ -425,7 +427,7 @@ export function IncentiveDashboard({ data, year }: { data: DashboardData; year: 
                 {perIncentiveName.map((r) => (
                   <tr
                     key={r.name}
-                    className="border-t transition-colors hover:bg-[color-mix(in_srgb,#16a34a_3%,transparent)]"
+                    className="border-t transition-colors hover:bg-[color-mix(in_srgb,#E10600_3%,transparent)]"
                     style={{ borderColor: "var(--color-hairline)" }}
                   >
                     <td className="py-2.5 font-semibold text-ink-soft" style={{ fontSize: 14 }}>
@@ -443,7 +445,7 @@ export function IncentiveDashboard({ data, year }: { data: DashboardData; year: 
                 ))}
                 {projectRow && (
                   <tr
-                    className="border-t transition-colors hover:bg-[color-mix(in_srgb,#16a34a_3%,transparent)]"
+                    className="border-t transition-colors hover:bg-[color-mix(in_srgb,#E10600_3%,transparent)]"
                     style={{ borderColor: "var(--color-hairline)" }}
                   >
                     <td className="py-2.5 font-semibold text-ink-soft" style={{ fontSize: 14 }}>
@@ -514,7 +516,7 @@ function PodiumCard({ rank, name, total }: { rank: number; name: string; total: 
       className="wg-btn wg-sheen relative flex cursor-pointer flex-col items-center overflow-hidden rounded-[20px] bg-surface-card text-center"
       style={{
         boxShadow: isFirst
-          ? `inset 0 0 0 2px ${GREEN}, inset 0 1px 0 rgba(255,255,255,0.7), 0 14px 34px -22px color-mix(in srgb, ${GREEN_DEEP} 60%, transparent)`
+          ? `inset 0 0 0 2px ${RED}, inset 0 1px 0 rgba(255,255,255,0.7), 0 14px 34px -22px color-mix(in srgb, ${RED_DEEP} 60%, transparent)`
           : "inset 0 0 0 1px var(--color-hairline-strong), inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -22px rgba(15,23,42,0.35)",
         padding: isFirst ? "22px 16px" : "16px 14px",
         border: "none",
@@ -525,7 +527,7 @@ function PodiumCard({ rank, name, total }: { rank: number; name: string; total: 
           aria-hidden
           className="pointer-events-none absolute inset-0"
           style={{
-            background: `radial-gradient(120% 130% at 50% 0%, color-mix(in srgb, ${GREEN} 8%, transparent), transparent 60%)`,
+            background: `radial-gradient(120% 130% at 50% 0%, color-mix(in srgb, ${RED} 8%, transparent), transparent 60%)`,
           }}
         />
       )}

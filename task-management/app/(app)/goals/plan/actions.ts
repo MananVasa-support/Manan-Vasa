@@ -8,7 +8,9 @@ import { requireUser } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { applyTaskStatusChange } from "@/lib/tasks/set-status";
 import { todayYmd } from "@/lib/queries/daily-checklist";
-import type { PlanItem, PlanKind } from "@/components/goals/plan/types";
+import { goalsCanvasOn } from "@/lib/goals/flag";
+import { getPlanDayPayload } from "./payload";
+import type { PlanDayPayload, PlanItem, PlanKind } from "@/components/goals/plan/types";
 
 /**
  * Server actions for the redesigned Plan-Your-Day planner (Module 4).
@@ -20,6 +22,8 @@ import type { PlanItem, PlanKind } from "@/components/goals/plan/types";
  *   - a cascade goal (month/quarter/year) → stored as a standalone commitment
  *     (`daily_checklist.goal_id` only references weekly_goals, so the cascade id
  *     can't live there — the goal's title carries the intent). Origin 'standalone'.
+ *     Phase 5 (GOALS_CANVAS_ON + migration 0141): the cascade id ALSO lands in
+ *     `cascade_goal_id`, flag-guarded with a legacy fallback while unapplied.
  *   - a TASK → `task_id` set, `origin='standalone'`.
  *   - ad-hoc text → neither, `origin='standalone'`.
  *
@@ -53,10 +57,31 @@ async function countAndNextPosition(
   return { count: row?.count ?? 0, nextPosition: (row?.max ?? 0) + 1 };
 }
 
-function rowToPlanItem(
-  r: typeof dailyChecklist.$inferSelect,
-  kind: PlanKind,
-): PlanItem {
+/**
+ * Explicit RETURNING list — NEVER use bare `.returning()` on daily_checklist:
+ * that enumerates every schema column, including 0141's `cascade_goal_id`,
+ * which may be UNAPPLIED in prod until GOALS_CANVAS_ON ships (see db/schema.ts).
+ * This list is exactly what `rowToPlanItem` consumes.
+ */
+const PLAN_ITEM_RETURNING = {
+  id: dailyChecklist.id,
+  title: dailyChecklist.title,
+  client: dailyChecklist.client,
+  subject: dailyChecklist.subject,
+  origin: dailyChecklist.origin,
+  done: dailyChecklist.done,
+};
+
+type PlanItemRow = {
+  id: string;
+  title: string;
+  client: string | null;
+  subject: string | null;
+  origin: string;
+  done: boolean;
+};
+
+function rowToPlanItem(r: PlanItemRow, kind: PlanKind): PlanItem {
   return {
     id: r.id,
     title: r.title,
@@ -110,7 +135,7 @@ export async function addWeeklyGoalToPlan(
       .onConflictDoNothing({
         target: [dailyChecklist.employeeId, dailyChecklist.planDate, dailyChecklist.goalId],
       })
-      .returning();
+      .returning(PLAN_ITEM_RETURNING);
     return { ok: true, item: row ? rowToPlanItem(row, "weekly") : null };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -151,17 +176,37 @@ export async function addCascadeGoalToPlan(
     const { count, nextPosition } = await countAndNextPosition(me.id, ymd);
     if (count >= MAX_ITEMS_PER_DAY)
       return { ok: false, error: `You can plan at most ${MAX_ITEMS_PER_DAY} items a day.` };
-    const [row] = await db
-      .insert(dailyChecklist)
-      .values({
-        employeeId: me.id,
-        planDate: ymd,
-        origin: "standalone",
-        title: goal.title,
-        subject: goal.area,
-        position: nextPosition,
-      })
-      .returning();
+    const base = {
+      employeeId: me.id,
+      planDate: ymd,
+      origin: "standalone",
+      title: goal.title,
+      subject: goal.area,
+      position: nextPosition,
+    };
+
+    // Phase 5 (GOALS_CANVAS_ON only): keep the cascade provenance — store the
+    // goals.id in 0141's cascade_goal_id so completion can reflect back to the
+    // source (see reflectIncremental). GUARDED: if the 0141 migration hasn't
+    // been applied yet the insert fails on the unknown column and we fall
+    // through to the legacy title-only insert — behaviour degrades, never breaks.
+    if (goalsCanvasOn()) {
+      try {
+        const [row] = await db
+          .insert(dailyChecklist)
+          .values({ ...base, cascadeGoalId: goal.id })
+          // Same cascade goal can't be pulled twice into one day (0141 unique index).
+          .onConflictDoNothing({
+            target: [dailyChecklist.employeeId, dailyChecklist.planDate, dailyChecklist.cascadeGoalId],
+          })
+          .returning(PLAN_ITEM_RETURNING);
+        return { ok: true, item: row ? rowToPlanItem(row, kind) : null };
+      } catch {
+        // 0141 unapplied — legacy path below.
+      }
+    }
+
+    const [row] = await db.insert(dailyChecklist).values(base).returning(PLAN_ITEM_RETURNING);
     return { ok: true, item: row ? rowToPlanItem(row, kind) : null };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -221,7 +266,7 @@ export async function addTaskToPlan(
         subject: task.subject,
         position: nextPosition,
       })
-      .returning();
+      .returning(PLAN_ITEM_RETURNING);
     return { ok: true, item: row ? rowToPlanItem(row, "task") : null };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -296,7 +341,7 @@ export async function addUnfinishedToPlan(
       .onConflictDoNothing({
         target: [dailyChecklist.employeeId, dailyChecklist.planDate, dailyChecklist.goalId],
       })
-      .returning();
+      .returning(PLAN_ITEM_RETURNING);
     const kind: PlanKind = src.goalId ? "weekly" : src.taskId ? "task" : "unfinished";
     return { ok: true, item: row ? rowToPlanItem(row, kind) : null };
   } catch (err: unknown) {
@@ -360,7 +405,7 @@ export async function addAdhocToPlan(
         title,
         position: nextPosition,
       })
-      .returning();
+      .returning(PLAN_ITEM_RETURNING);
     return { ok: true, item: rowToPlanItem(row!, "adhoc") };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -504,7 +549,16 @@ export async function setItemProgress(
     // ── The pipeline (Sir): a commitment at 100% reflects back to its SOURCE so
     // nothing accumulates — the origin task flips done, the origin weekly goal
     // hits 100%. Best-effort: a reflect failure must NOT undo the mark itself.
-    if (done && pct === 100) {
+    //
+    // Phase 5 fork (design §4.4 item 5, gated decision Q7): with GOALS_CANVAS_ON
+    // the reflection becomes INCREMENTAL — partial % also rolls up (monotonic).
+    // The un-flagged branch below is the byte-identical legacy 100%-only path:
+    // with the flag OFF, no number a manager reads changes.
+    if (goalsCanvasOn()) {
+      await reflectIncremental(me, updated.id, updated.taskId, updated.goalId, { done, pct }).catch(
+        () => {},
+      );
+    } else if (done && pct === 100) {
       await reflectCompletion(me, updated.taskId, updated.goalId).catch(() => {});
     }
     return { ok: true };
@@ -543,6 +597,76 @@ async function reflectCompletion(
   }
 }
 
+/**
+ * Phase 5 — INCREMENTAL reflection (runs ONLY behind GOALS_CANVAS_ON; the
+ * legacy 100%-only `reflectCompletion` above stays byte-identical for the
+ * un-flagged path).
+ *
+ * Semantics (design §4.4 item 5 + locked decisions):
+ *  · 100% ⇒ exactly the legacy reflection (task flips done, weekly hits 100).
+ *  · Partial % on a WEEKLY-goal commitment nudges the weekly's own self-rating
+ *    MONOTONICALLY — `greatest(pct_done, pct)` can raise, never lower, a rating
+ *    the owner already logged — and stamps pct_updated_at (the Saturday-commit
+ *    "filled" signal). This propagates the owner's MANUAL day mark; it is NOT
+ *    a derived actual÷target number (locked decision 2 intact) and NOT the
+ *    rollup projection (locked decision 1 intact — no derived rollup is ever
+ *    written to pctDone/acceptPct).
+ *  · A CASCADE-goal commitment (0141 `cascade_goal_id` provenance) reflects the
+ *    same monotonic mark onto its `goals` row. GUARDED: reading the column is
+ *    wrapped so an unapplied 0141 migration silently disables this leg.
+ */
+async function reflectIncremental(
+  me: { id: string; name: string; isAdmin: boolean },
+  itemId: string,
+  taskId: string | null,
+  goalId: string | null,
+  mark: { done: boolean; pct: number | null },
+): Promise<void> {
+  const pct = mark.pct;
+
+  if (mark.done && pct === 100) {
+    // Full completion — the legacy pipeline, unchanged.
+    await reflectCompletion(me, taskId, goalId);
+  } else if (goalId && pct != null && pct > 0) {
+    // Partial progress → monotonic nudge on the weekly source (own rows only).
+    await db
+      .update(weeklyGoals)
+      .set({
+        pctDone: sql`greatest(${weeklyGoals.pctDone}, ${pct})`,
+        pctUpdatedById: me.id,
+        pctUpdatedAt: new Date(),
+        updatedById: me.id,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(weeklyGoals.id, goalId), eq(weeklyGoals.employeeId, me.id)));
+  }
+
+  // Cascade provenance leg — column may not exist yet (0141 unapplied): the
+  // SELECT throws, we swallow, and the cascade reflection is quietly off.
+  if (pct != null && pct > 0) {
+    try {
+      const [row] = await db
+        .select({ cascadeGoalId: dailyChecklist.cascadeGoalId })
+        .from(dailyChecklist)
+        .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, me.id)))
+        .limit(1);
+      const cascadeGoalId = row?.cascadeGoalId ?? null;
+      if (cascadeGoalId) {
+        await db
+          .update(goals)
+          .set({
+            pctDone: sql`greatest(${goals.pctDone}, ${pct})`,
+            updatedById: me.id,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(goals.id, cascadeGoalId), eq(goals.employeeId, me.id)));
+      }
+    } catch {
+      // 0141 unapplied — provenance reflection unavailable, never fatal.
+    }
+  }
+}
+
 /** Remove a commitment from today's plan (own rows only). */
 export async function removePlanItem(itemId: string): Promise<ActionResult> {
   const me = await requireUser();
@@ -557,6 +681,32 @@ export async function removePlanItem(itemId: string): Promise<ActionResult> {
       .returning({ id: dailyChecklist.id });
     if (removed.length === 0) return { ok: false, error: "That item isn't on your plan." };
     return { ok: true };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/* ───────────────── Phase 5 — canvas Day-stage lazy loader ───────────────── */
+
+/**
+ * Load the caller's OWN Plan-Your-Day payload for the canvas Day zoom stage
+ * (design §2.1 daily fold-in + §3.3 lazy detail bundles — fetched once when the
+ * Day stage mounts, NOT eagerly joined into the cascade spine query).
+ *
+ * The day is strictly personal: `viewedEmployeeId` is only ever COMPARED to the
+ * authed user (never used as a query scope), so a spoofed id can at worst hide
+ * my own data — no downline/peer leak is possible.
+ */
+export async function loadPlanDay(
+  viewedEmployeeId: string,
+): Promise<ActionResult<{ self: boolean; payload: PlanDayPayload | null }>> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "read");
+  if (limited) return limited;
+  if (!UUID.safeParse(viewedEmployeeId).success) return { ok: false, error: "Invalid person." };
+  if (viewedEmployeeId !== me.id) return { ok: true, self: false, payload: null };
+  try {
+    return { ok: true, self: true, payload: await getPlanDayPayload(me.id) };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

@@ -22,8 +22,8 @@ import type { SessionFormValues } from "@/components/training/calendar/session-f
 
 export const dynamic = "force-dynamic";
 
-const ACCENT = MODULE_THEME.training.accent;
-const ACCENT_DEEP = MODULE_THEME.training.accentDeep;
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 interface PageProps {
   params: Promise<{ id: string }>;

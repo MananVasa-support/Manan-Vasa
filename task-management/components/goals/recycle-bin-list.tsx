@@ -6,7 +6,7 @@ import { RotateCcw, Trash2, Loader2, Archive } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { restoreTask, purgeTask } from "@/app/(app)/goals/recycle-bin/actions";
 
-const THEME_ACCENT = "#b45309";
+const THEME_ACCENT = "#E10600";
 
 export interface BinItem {
   id: string;
@@ -102,7 +102,7 @@ export function RecycleBinList({ items: initial }: { items: BinItem[] }) {
             type="button"
             onClick={() => onRestore(it)}
             disabled={busy === it.id}
-            className="brand-btn inline-flex h-9 items-center gap-1.5 rounded-chip border border-hairline bg-surface-card px-3 text-[13px] font-bold text-ink-strong transition-colors hover:border-hairline-strong disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-chip border border-hairline bg-surface-card px-3 text-[13px] font-bold text-ink-strong transition-colors hover:border-hairline-strong disabled:opacity-50"
             style={{ color: THEME_ACCENT }}
           >
             {busy === it.id ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />} Restore
@@ -122,7 +122,7 @@ export function RecycleBinList({ items: initial }: { items: BinItem[] }) {
               <button
                 type="button"
                 onClick={() => setConfirmId(null)}
-                className="brand-btn inline-flex h-9 items-center rounded-chip border border-hairline px-3 text-[13px] font-semibold text-ink-soft"
+                className="bg-surface-card inline-flex h-9 items-center rounded-chip border border-hairline px-3 text-[13px] font-semibold text-ink-soft"
               >
                 Cancel
               </button>

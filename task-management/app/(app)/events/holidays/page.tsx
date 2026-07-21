@@ -9,8 +9,8 @@ import type { ReligionCode } from "@/lib/monthly-events/types";
 
 export const dynamic = "force-dynamic";
 
-const ACCENT = "#0891b2";
-const ACCENT_DEEP = "#0e7490";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 const VALID_FY = new Set([2026, 2027]);
 
 export default async function HolidaysAdminPage({

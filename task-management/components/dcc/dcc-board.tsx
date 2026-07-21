@@ -319,10 +319,10 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
         )}
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Link href={"/dcc/ranking" as Route} className="brand-btn wg-btn inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:text-[#15803d]" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>
+          <Link href={"/dcc/ranking" as Route} className="wg-btn inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:text-[#15803d]" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>
             <Trophy size={16} style={{ color: AMBER }} /> Ranking
           </Link>
-          <button onClick={summarize} disabled={aiBusy} className="brand-btn wg-btn inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:text-[#15803d] disabled:opacity-50" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>
+          <button onClick={summarize} disabled={aiBusy} className="wg-btn inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:text-[#15803d] disabled:opacity-50" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>
             {aiBusy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} style={{ color: RED }} />} Summarize my day
           </button>
           <button onClick={() => setShowAll((v) => !v)} className="wg-btn rounded-xl bg-white px-3.5 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:text-[#15803d]" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>
@@ -524,9 +524,9 @@ function ParticipantCard({ item, ownerId, allItems, clients, canManage, subjects
         <div className="border-t border-hairline">
           {canFill && (
             <div className="flex items-center gap-2 px-5 py-2.5 max-md:px-3.5">
-              <button onClick={() => onBulk(item.id, "Done")} className="brand-btn rounded-lg px-3 py-1.5 text-[13px] font-bold" style={{ background: "color-mix(in srgb, #16a34a 14%, transparent)", color: GREEN_DEEP }}>All Done</button>
-              <button onClick={() => onBulk(item.id, "NA")} className="brand-btn rounded-lg px-3 py-1.5 text-[13px] font-bold text-ink-subtle" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>All NA</button>
-              <button onClick={() => onBulk(item.id, null)} className="brand-btn rounded-lg px-3 py-1.5 text-[13px] font-bold text-ink-subtle" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>Clear</button>
+              <button onClick={() => onBulk(item.id, "Done")} className="rounded-lg px-3 py-1.5 text-[13px] font-bold" style={{ background: "color-mix(in srgb, #16a34a 14%, transparent)", color: GREEN_DEEP }}>All Done</button>
+              <button onClick={() => onBulk(item.id, "NA")} className="bg-surface-card rounded-lg px-3 py-1.5 text-[13px] font-bold text-ink-subtle" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>All NA</button>
+              <button onClick={() => onBulk(item.id, null)} className="bg-surface-card rounded-lg px-3 py-1.5 text-[13px] font-bold text-ink-subtle" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>Clear</button>
             </div>
           )}
           {subjects.length === 0 && <p className="px-5 py-4 text-[14px] text-ink-subtle max-md:px-3.5">No participants linked yet.</p>}
@@ -556,7 +556,7 @@ function ParticipantCard({ item, ownerId, allItems, clients, canManage, subjects
           {canManage && (
             <div className="flex items-center gap-2 border-t border-hairline px-5 py-2.5 max-md:px-3.5">
               <input value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addPerson(); }} placeholder="Add participant…" className="min-w-0 flex-1 rounded-lg border border-hairline-strong bg-white px-3 py-2 text-[14px] text-ink-strong outline-none focus:border-[#16a34a]" />
-              <button onClick={addPerson} disabled={rosterBusy || !newName.trim()} className="brand-btn inline-flex items-center gap-1 rounded-lg px-3 py-2 text-[13px] font-bold text-white disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}><Plus size={14} /> Add</button>
+              <button onClick={addPerson} disabled={rosterBusy || !newName.trim()} className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-[13px] font-bold text-white disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}><Plus size={14} /> Add</button>
             </div>
           )}
         </div>
@@ -862,9 +862,9 @@ function ItemEditor({ ownerId, mode, item, compact, allItems, presetSection, sec
   return (
     <>
       {mode === "add" && sectionButton ? (
-        <button onClick={() => setOpen(true)} className="brand-btn inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:text-[#15803d]" title="Add a KPI to this section"><Plus size={14} /> Add</button>
+        <button onClick={() => setOpen(true)} className="bg-surface-card inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:text-[#15803d]" title="Add a KPI to this section"><Plus size={14} /> Add</button>
       ) : mode === "add" ? (
-        <button onClick={() => setOpen(true)} className="brand-btn wg-btn wg-sheen inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-[14px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`, boxShadow: "0 8px 20px -12px rgba(21,128,61,0.6)" }}><Plus size={17} /> Add KPI</button>
+        <button onClick={() => setOpen(true)} className="wg-btn wg-sheen inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-[14px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`, boxShadow: "0 8px 20px -12px rgba(21,128,61,0.6)" }}><Plus size={17} /> Add KPI</button>
       ) : (
         <button onClick={() => setOpen(true)} className={`inline-flex items-center gap-1.5 rounded-xl border border-hairline-strong font-bold text-ink-soft transition-colors hover:border-[#16a34a] hover:text-[#15803d] ${compact ? "h-11 px-3 text-[14px]" : "h-9 w-9 justify-center"}`} title="Edit KPI" aria-label="Edit KPI"><Pencil size={16} />{compact && <span className="max-md:hidden">Edit</span>}</button>
       )}
@@ -902,9 +902,9 @@ function ItemEditor({ ownerId, mode, item, compact, allItems, presetSection, sec
             </div>
             <div className="mt-4 flex items-center justify-between">
               {mode === "edit" ? (
-                <button onClick={remove} className="brand-btn inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-bold text-altus-red transition-colors hover:bg-[color:color-mix(in_srgb,var(--color-altus-red)_8%,transparent)]"><Trash2 size={14} /> Delete</button>
+                <button onClick={remove} className="bg-surface-card inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-bold text-altus-red transition-colors hover:bg-[color:color-mix(in_srgb,var(--color-altus-red)_8%,transparent)]"><Trash2 size={14} /> Delete</button>
               ) : <span />}
-              <button onClick={submit} className="brand-btn wg-btn inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[14px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}><Check size={15} /> Save</button>
+              <button onClick={submit} className="wg-btn inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[14px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}><Check size={15} /> Save</button>
             </div>
           </div>
         </div>,

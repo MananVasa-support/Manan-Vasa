@@ -8,6 +8,7 @@ import {
 } from "@/lib/workspaces";
 import { getCurrentEmployee } from "@/lib/auth/current";
 import { accessFor } from "@/lib/auth/workspace-access";
+import { goalsCanvasOn } from "@/lib/goals/flag";
 
 // This handler reads cookies + auth and redirects — it is ALWAYS dynamic. Without
 // this, Turbopack tries to statically generate paths for /ws/[id] and the worker
@@ -39,7 +40,12 @@ export async function GET(
     return NextResponse.redirect(new URL("/hub", req.url));
   }
 
-  const res = NextResponse.redirect(new URL(WORKSPACE_LANDING[id], req.url));
+  // Goals module entry lands on the Yearly board when the new level-page UI is
+  // live; with the flag OFF prod keeps landing on the /goals hub, unchanged.
+  const landing =
+    id === "goals" && goalsCanvasOn() ? "/goals/yearly" : WORKSPACE_LANDING[id];
+
+  const res = NextResponse.redirect(new URL(landing, req.url));
   res.cookies.set(ACTIVE_WORKSPACE_COOKIE, id, {
     path: "/",
     sameSite: "lax",

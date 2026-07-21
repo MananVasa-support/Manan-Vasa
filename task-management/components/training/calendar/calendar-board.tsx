@@ -11,8 +11,8 @@ import { SessionForm } from "@/components/training/calendar/session-form";
 import { toggleManual, requestRecording } from "@/app/(app)/training/calendar/actions";
 import type { SessionListRow } from "@/lib/queries/training-calendar";
 
-const ACCENT = "#2563eb";
-const ACCENT_DEEP = "#1d4ed8";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 type AddSubject = (name: string) => Promise<{ ok: true; option: { id: string; name: string } } | { ok: false; error: string }>;
 
@@ -121,7 +121,7 @@ function SessionCard({ s, index, canManage }: { s: SessionListRow; index: number
               type="button"
               onClick={onRequestRecording}
               disabled={busy !== null}
-              className="brand-btn inline-flex items-center gap-1.5 rounded-lg border border-hairline px-2.5 py-1.5 text-[12px] font-bold text-ink-soft hover:border-ink-subtle disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-hairline px-2.5 py-1.5 text-[12px] font-bold text-ink-soft hover:border-ink-subtle disabled:opacity-50"
             >
               {busy === "rec" ? <Loader2 size={12} className="animate-spin" /> : <Film size={12} />} Recording
             </button>
@@ -178,7 +178,7 @@ export function CalendarBoard({
             <button
               type="button"
               onClick={() => setCreating(true)}
-              className="brand-btn inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[15px] font-bold text-white transition-transform active:scale-[0.99]"
+              className="inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[15px] font-bold text-white transition-transform active:scale-[0.99]"
               style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: `0 12px 30px -12px ${ACCENT}99` }}
             >
               <Plus size={17} strokeWidth={2.6} /> Schedule training

@@ -9,11 +9,11 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { StarRating } from "@/components/ui/star-rating";
 import { createSession, updateSession } from "@/app/(app)/training/calendar/actions";
 
-const ACCENT = "#2563eb";
-const ACCENT_DEEP = "#1d4ed8";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 const INPUT =
-  "w-full rounded-xl border border-hairline bg-white px-3.5 py-3 text-[15px] font-semibold text-ink-strong outline-none transition-colors focus:border-[#2563eb]";
+  "w-full rounded-xl border border-hairline bg-white px-3.5 py-3 text-[15px] font-semibold text-ink-strong outline-none transition-colors focus:border-[#E10600]";
 
 export interface SessionFormValues {
   id?: string;
@@ -324,7 +324,7 @@ export function SessionForm({
           <button
             type="button"
             onClick={onCancel}
-            className="brand-btn rounded-xl border border-hairline-strong bg-white px-5 py-3 text-[14.5px] font-bold text-ink-soft hover:border-ink-subtle"
+            className="rounded-xl border border-hairline-strong bg-white px-5 py-3 text-[14.5px] font-bold text-ink-soft hover:border-ink-subtle"
           >
             Cancel
           </button>
@@ -332,7 +332,7 @@ export function SessionForm({
         <button
           type="submit"
           disabled={pending}
-          className="brand-btn inline-flex items-center gap-2 rounded-xl px-6 py-3 text-[15px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-[15px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-60"
           style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: `0 12px 30px -12px ${ACCENT}99` }}
         >
           {pending ? <Loader2 size={17} className="animate-spin" /> : <Calendar size={17} strokeWidth={2.6} />}

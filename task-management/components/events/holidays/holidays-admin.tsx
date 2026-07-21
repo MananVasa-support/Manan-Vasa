@@ -13,8 +13,8 @@ import { HolidayFormDialog } from "./holiday-form-dialog";
 import { ReligionEditor, type EmployeeReligionRow } from "./religion-editor";
 import { religionCounts } from "./personalise";
 
-const ACCENT = "#0891b2";
-const ACCENT_DEEP = "#0e7490";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 const APPLIES_TO_STYLE: Record<HolidayAppliesTo, { bg: string; fg: string }> = {
   all: { bg: "#e0f2fe", fg: "#0369a1" },

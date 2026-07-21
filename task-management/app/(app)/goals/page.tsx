@@ -11,12 +11,12 @@ import { requireGoalsAccess } from "@/lib/goals/access";
 export const dynamic = "force-dynamic";
 
 const THEME = MODULE_THEME.goals;
-const ACCENT = THEME.accent; // #b45309 — goals amber-gold identity
-const ACCENT_DEEP = THEME.accentDeep; // #7c2d12
+const ACCENT = "#E10600"; // Altus red — in-module chrome is brand red
+const ACCENT_DEEP = "#A80400"; // Altus red deep
 
 /** Glossy amber icon chip — goals-toned twin of `admin-section-icon`. */
 const ICON_CHIP: CSSProperties = {
-  background: `linear-gradient(135deg, #d97706 0%, ${ACCENT} 48%, ${ACCENT_DEEP} 100%)`,
+  background: `linear-gradient(135deg, #E10600 0%, ${ACCENT} 48%, ${ACCENT_DEEP} 100%)`,
   border: `1px solid ${ACCENT_DEEP}88`,
   boxShadow:
     "inset 0 1px 0 rgba(255,255,255,0.32), 0 10px 22px -10px rgba(180,83,9,0.55), 0 2px 4px rgba(124,45,18,0.28)",

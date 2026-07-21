@@ -250,7 +250,7 @@ function LeaveCard({ row, mode }: { row: LeaveRow; mode: "mine" | "pending" }) {
                     type="button"
                     disabled={pending}
                     onClick={() => decide("approved")}
-                    className="brand-btn wg-btn inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-bold text-white disabled:opacity-50"
+                    className="wg-btn inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-bold text-white disabled:opacity-50"
                     style={{
                       background: "linear-gradient(135deg, #16A34A, #15803D)",
                       boxShadow: "0 3px 10px -5px rgba(22,163,74,0.6)",
@@ -263,7 +263,7 @@ function LeaveCard({ row, mode }: { row: LeaveRow; mode: "mine" | "pending" }) {
                     type="button"
                     disabled={pending}
                     onClick={() => decide("rejected")}
-                    className="brand-btn wg-btn inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-bold disabled:opacity-50"
+                    className="wg-btn inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-bold disabled:opacity-50"
                     style={{
                       background: "rgba(225,6,0,0.07)",
                       color: "#A80400",
@@ -281,7 +281,7 @@ function LeaveCard({ row, mode }: { row: LeaveRow; mode: "mine" | "pending" }) {
                 type="button"
                 disabled={pending}
                 onClick={cancel}
-                className="brand-btn wg-btn rounded-lg px-3.5 py-2 text-[13px] font-bold text-ink-soft hover:text-ink-strong disabled:opacity-50"
+                className="bg-surface-card wg-btn rounded-lg px-3.5 py-2 text-[13px] font-bold text-ink-soft hover:text-ink-strong disabled:opacity-50"
                 style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}
               >
                 Cancel request

@@ -37,13 +37,13 @@ export function IncentiveStatusReport({ report }: { report: IncentiveStatusRepor
       <div
         className="wg-rise flex items-start gap-3 rounded-2xl px-4.5 py-3.5"
         style={{
-          background: `linear-gradient(135deg, color-mix(in srgb, ${GREEN_DEEP} 8%, transparent), color-mix(in srgb, ${GREEN} 4%, transparent))`,
+          background: `linear-gradient(135deg, color-mix(in srgb, #A80400 8%, transparent), color-mix(in srgb, #E10600 4%, transparent))`,
           boxShadow: "inset 0 0 0 1px var(--color-hairline)",
         }}
       >
         <span
           className="mt-0.5 inline-grid size-7 shrink-0 place-items-center rounded-lg"
-          style={{ background: `color-mix(in srgb, ${GREEN_DEEP} 14%, transparent)`, color: GREEN_DEEP }}
+          style={{ background: `color-mix(in srgb, #A80400 14%, transparent)`, color: "#A80400" }}
         >
           <Info size={15} strokeWidth={2.4} />
         </span>
@@ -234,7 +234,7 @@ function PersonTable({ report }: { report: IncentiveStatusReport }) {
                 return (
                   <tr
                     key={r.key}
-                    className="border-t transition-colors hover:bg-[color-mix(in_srgb,#16a34a_3%,transparent)]"
+                    className="border-t transition-colors hover:bg-[color-mix(in_srgb,#E10600_3%,transparent)]"
                     style={{ borderColor: "var(--color-hairline)" }}
                   >
                     <td className="py-2.5 pr-3">

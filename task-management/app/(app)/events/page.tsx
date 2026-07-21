@@ -10,8 +10,8 @@ import { requireEventsAccess } from "@/lib/monthly-events/access";
 export const dynamic = "force-dynamic";
 
 const THEME = MODULE_THEME.events;
-const ACCENT = THEME.accent;
-const ACCENT_DEEP = THEME.accentDeep;
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 export default async function EventsHubPage() {
   // Guard IN THE PAGE — the (app) layout gate alone isn't reliable on prod.

@@ -23,8 +23,8 @@ import { MODULE_THEME } from "@/lib/module-theme";
 
 export const dynamic = "force-dynamic";
 
-const ACCENT = MODULE_THEME.employees.accent; // green
-const ACCENT_DEEP = MODULE_THEME.employees.accentDeep;
+const ACCENT = "#E10600"; // Altus red — in-module chrome is brand red
+const ACCENT_DEEP = "#A80400";
 
 const CARD_SHADOW =
   "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -20px rgba(15,23,42,0.35)";
@@ -133,7 +133,7 @@ export default async function PmsPage() {
             <div className="flex items-center gap-2.5 flex-wrap">
               <Link
                 href={"/pms/review" as Route}
-                className="brand-btn wg-btn inline-flex items-center gap-2 rounded-pill border-2 bg-white/70 px-4 py-2.5 text-[14px] font-bold whitespace-nowrap transition-colors"
+                className="wg-btn inline-flex items-center gap-2 rounded-pill border-2 bg-white/70 px-4 py-2.5 text-[14px] font-bold whitespace-nowrap transition-colors"
                 style={{ borderColor: `color-mix(in srgb, ${ACCENT} 40%, transparent)`, color: ACCENT_DEEP }}
               >
                 <ClipboardCheck size={16} strokeWidth={2.4} /> Monthly review
@@ -141,7 +141,7 @@ export default async function PmsPage() {
               {process.env.PMS_V3 !== "false" && (
                 <Link
                   href={"/pms/v3" as Route}
-                  className="brand-btn wg-btn inline-flex items-center gap-2 rounded-pill border-2 bg-white/70 px-4 py-2.5 text-[14px] font-bold whitespace-nowrap transition-colors"
+                  className="wg-btn inline-flex items-center gap-2 rounded-pill border-2 bg-white/70 px-4 py-2.5 text-[14px] font-bold whitespace-nowrap transition-colors"
                   style={{ borderColor: `color-mix(in srgb, ${ACCENT} 40%, transparent)`, color: ACCENT_DEEP }}
                 >
                   <Sparkles size={16} strokeWidth={2.4} /> New scoring (v3)
@@ -151,14 +151,14 @@ export default async function PmsPage() {
                 <>
                   <Link
                     href={"/pms/signals" as Route}
-                    className="brand-btn wg-btn inline-flex items-center gap-2 rounded-pill border-2 bg-white/70 px-4 py-2.5 text-[14px] font-bold whitespace-nowrap transition-colors"
+                    className="wg-btn inline-flex items-center gap-2 rounded-pill border-2 bg-white/70 px-4 py-2.5 text-[14px] font-bold whitespace-nowrap transition-colors"
                     style={{ borderColor: `color-mix(in srgb, ${ACCENT} 40%, transparent)`, color: ACCENT_DEEP }}
                   >
                     <Sparkles size={16} strokeWidth={2.4} /> Signals
                   </Link>
                   <Link
                     href={"/pms/config" as Route}
-                    className="brand-btn wg-btn wg-sheen inline-flex items-center gap-2 rounded-pill px-5 py-2.5 text-[14px] font-bold text-white whitespace-nowrap"
+                    className="wg-btn wg-sheen inline-flex items-center gap-2 rounded-pill px-5 py-2.5 text-[14px] font-bold text-white whitespace-nowrap"
                     style={{
                       background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
                       boxShadow: `0 10px 24px -12px color-mix(in srgb, ${ACCENT_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,

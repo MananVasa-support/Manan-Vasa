@@ -9,8 +9,8 @@ import { type ApproveMember, allApproved } from "./types";
 export type { ApproveMember, ApproveGoal } from "./types";
 
 // Goals identity — amber-gold (this room never uses brand red).
-const ACCENT = "#b45309";
-const ACCENT_DEEP = "#7c2d12";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 const DISPLAY = "var(--font-display), system-ui, sans-serif";
 
 /**
@@ -111,7 +111,7 @@ export function ApproveWorkbench({
                   width: `${pct}%`,
                   background: done
                     ? "linear-gradient(90deg, var(--color-green), var(--color-green-deep))"
-                    : `linear-gradient(90deg, #d97706, ${ACCENT})`,
+                    : `linear-gradient(90deg, #E10600, ${ACCENT})`,
                 }}
               />
             </div>

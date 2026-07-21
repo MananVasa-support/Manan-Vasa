@@ -86,15 +86,15 @@ export function YearBoard({
           className="wg-rise relative overflow-hidden rounded-section border border-dashed border-hairline-strong p-10 text-center"
           style={{
             background:
-              "radial-gradient(ellipse 80% 130% at 50% 0%, color-mix(in srgb, #b45309 7%, transparent), transparent 60%), var(--color-surface-card)",
+              "radial-gradient(ellipse 80% 130% at 50% 0%, color-mix(in srgb, #E10600 7%, transparent), transparent 60%), var(--color-surface-card)",
           }}
         >
           <span
             className="mx-auto inline-grid size-14 place-items-center rounded-2xl"
             style={{
-              color: "#7c2d12",
-              background: "color-mix(in srgb, #b45309 13%, transparent)",
-              boxShadow: "inset 0 0 0 1px color-mix(in srgb, #b45309 20%, transparent)",
+              color: "#A80400",
+              background: "color-mix(in srgb, #E10600 13%, transparent)",
+              boxShadow: "inset 0 0 0 1px color-mix(in srgb, #E10600 20%, transparent)",
             }}
           >
             <Layers size={26} strokeWidth={2.2} />

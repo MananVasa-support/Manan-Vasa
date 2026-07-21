@@ -20,8 +20,8 @@ import { ObligationBar, statusFor } from "@/components/training/obligations/obli
 
 export const dynamic = "force-dynamic";
 
-const ACCENT = MODULE_THEME.training.accent; // blue #2563eb
-const ACCENT_DEEP = MODULE_THEME.training.accentDeep; // #1d4ed8
+const ACCENT = "#E10600"; // Altus red — in-module chrome is brand red
+const ACCENT_DEEP = "#A80400"; // Altus red deep
 
 type Person = { id: string; name: string; avatarUrl: string | null; department: string | null };
 

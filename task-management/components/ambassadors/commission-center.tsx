@@ -315,7 +315,7 @@ export function CommissionCenter({ owed, paid }: { owed: ReferralRow[]; paid: Re
               <button
                 type="button"
                 onClick={clearSelection}
-                className="brand-btn inline-flex items-center gap-1.5 rounded-xl border border-hairline-strong bg-white py-2.5 px-4 text-[14px] font-bold text-ink-soft transition-colors hover:text-altus-red"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-hairline-strong bg-white py-2.5 px-4 text-[14px] font-bold text-ink-soft transition-colors hover:text-altus-red"
               >
                 <X size={15} strokeWidth={2.6} /> Clear
               </button>
@@ -515,7 +515,7 @@ function PayoutModal({
           <button
             type="button"
             onClick={onClose}
-            className="brand-btn rounded-xl border border-hairline-strong bg-white py-2.5 px-4 text-[14px] font-bold text-ink-soft transition-colors hover:text-altus-red"
+            className="rounded-xl border border-hairline-strong bg-white py-2.5 px-4 text-[14px] font-bold text-ink-soft transition-colors hover:text-altus-red"
           >
             Cancel
           </button>

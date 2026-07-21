@@ -58,12 +58,12 @@ export function IncentiveEntries({
           <button
             type="button"
             onClick={() => setMode({ kind: "create" })}
-            className="brand-btn wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-4 h-10 font-bold text-white"
+            className="wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-4 h-10 font-bold text-white"
             style={{
               fontSize: 13.5,
-              background: "linear-gradient(135deg, #16a34a, #15803d)",
+              background: "linear-gradient(135deg, #E10600, #A80400)",
               boxShadow:
-                "0 8px 20px -10px rgba(21,128,61,0.7), inset 0 1px 0 rgba(255,255,255,0.25)",
+                "0 8px 20px -10px rgba(168,4,0,0.7), inset 0 1px 0 rgba(255,255,255,0.25)",
             }}
           >
             <Plus size={16} strokeWidth={2.6} />
@@ -101,7 +101,7 @@ export function IncentiveEntries({
                 {rows.map((r) => (
                   <tr
                     key={r.id}
-                    className="border-t transition-colors hover:bg-[color-mix(in_srgb,#16a34a_3%,transparent)]"
+                    className="border-t transition-colors hover:bg-[color-mix(in_srgb,#E10600_3%,transparent)]"
                     style={{ borderColor: "var(--color-hairline)" }}
                   >
                     <td className="px-3.5 py-2.5 whitespace-nowrap" style={{ fontSize: 13.5 }}>
@@ -321,19 +321,19 @@ function EntryDialog({
 
             <div className="flex justify-end gap-2 pt-1">
               <Dialog.Close asChild>
-                <button type="button" className="brand-btn px-4 py-2.5 font-semibold text-ink-subtle" style={{ fontSize: 14 }} disabled={pending}>
+                <button type="button" className="bg-surface-card px-4 py-2.5 font-semibold text-ink-subtle" style={{ fontSize: 14 }} disabled={pending}>
                   Cancel
                 </button>
               </Dialog.Close>
               <button
                 type="submit"
                 disabled={pending}
-                className="brand-btn wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 font-bold text-white disabled:opacity-50"
+                className="wg-btn wg-sheen inline-flex cursor-pointer items-center gap-2 rounded-full px-5 py-2.5 font-bold text-white disabled:opacity-50"
                 style={{
                   fontSize: 14,
-                  background: "linear-gradient(135deg, #16a34a, #15803d)",
+                  background: "linear-gradient(135deg, #E10600, #A80400)",
                   boxShadow:
-                    "0 10px 24px -12px rgba(21,128,61,0.7), inset 0 1px 0 rgba(255,255,255,0.25)",
+                    "0 10px 24px -12px rgba(168,4,0,0.7), inset 0 1px 0 rgba(255,255,255,0.25)",
                 }}
               >
                 {pending ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.6} />}

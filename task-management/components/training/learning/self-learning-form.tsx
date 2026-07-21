@@ -7,8 +7,8 @@ import type { LucideIcon } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { logSelfLearning, deleteSelfLearning } from "@/app/(app)/training/self-learning/actions";
 
-const ACCENT = "#2563eb";
-const ACCENT_DEEP = "#1d4ed8";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 const FIELD =
   "w-full rounded-lg border border-hairline-strong bg-white px-3.5 py-3 text-[15px] font-medium text-ink-strong outline-none transition-colors placeholder:font-normal placeholder:text-ink-subtle";
@@ -95,7 +95,7 @@ export function SelfLearningForm() {
                 className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[14.5px] font-bold transition-colors"
                 style={
                   active
-                    ? { color: "#fff", background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: "0 10px 24px -12px rgba(37,99,235,0.6)" }
+                    ? { color: "#fff", background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: "0 10px 24px -12px rgba(225,6,0,0.6)" }
                     : { color: "var(--color-ink-soft)", border: "1px solid var(--color-hairline-strong)", background: "#fff" }
                 }
               >
@@ -210,7 +210,7 @@ export function SelfLearningForm() {
           type="submit"
           disabled={submitting}
           className="brand-btn inline-flex items-center gap-2 rounded-xl py-3 px-7 text-[15px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-60"
-          style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: "0 12px 30px -12px rgba(37,99,235,0.6)" }}
+          style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}
         >
           {submitting ? <Loader2 size={17} className="animate-spin" /> : <Plus size={17} strokeWidth={2.6} />} Log learning
         </button>
@@ -270,7 +270,7 @@ export function SelfLearningItem({
     <div className="flex items-start gap-3 rounded-xl border border-hairline bg-white p-3.5">
       <span
         className="mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-lg"
-        style={{ background: "color-mix(in srgb, #2563eb 12%, transparent)", color: ACCENT_DEEP }}
+        style={{ background: "color-mix(in srgb, #E10600 12%, transparent)", color: ACCENT_DEEP }}
       >
         <Icon size={18} strokeWidth={2.2} />
       </span>

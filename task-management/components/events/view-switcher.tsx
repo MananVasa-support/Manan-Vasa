@@ -55,7 +55,7 @@ export function ViewSwitcher({
         <button
           type="button"
           onClick={onToday}
-          className="brand-btn inline-flex h-9 items-center rounded-chip border border-hairline bg-surface-card px-3 text-[13px] font-semibold text-ink-strong hover:bg-surface-soft"
+          className="inline-flex h-9 items-center rounded-chip border border-hairline bg-surface-card px-3 text-[13px] font-semibold text-ink-strong hover:bg-surface-soft"
         >
           Today
         </button>

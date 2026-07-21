@@ -6,6 +6,7 @@ import { accessFor } from "@/lib/auth/workspace-access";
 import { canAccessWorkspace, type WorkspaceId } from "@/lib/workspaces";
 import { MODULE_THEME, MODULE_ORDER, type ModuleTheme } from "@/lib/module-theme";
 import { HubSignOut } from "@/components/hub/hub-signout";
+import { ModuleLogo } from "@/components/hub/module-logos";
 import { GlobalSearch } from "@/components/header/global-search";
 import type { ReactNode } from "react";
 import { isManagerWithReports, managerDailyTaskGate } from "@/lib/manager-gates";
@@ -39,66 +40,54 @@ export const dynamic = "force-dynamic";
 /**
  * HUB-ONLY pastel palette. Scoped to the front-door cards so each module's own
  * strong identity colour (MODULE_THEME) stays intact everywhere inside it.
- * Order maps to MODULE_ORDER: WMS→Red, Admin→Blue, Employees→Green,
- * Sales→Yellow, Marketing→Orange, Training→Grey. `ink` is the deep tone used
+ * Order maps to MODULE_ORDER: WMS→Red, Admin→Blue, Employees→Green, HR→Teal,
+ * Sales→Yellow, Training→Grey. `ink` is the deep tone used
  * for text/icons/button so it stays readable on the light pastel fill.
  */
 const HUB_PASTEL: Record<WorkspaceId, { from: string; to: string; ink: string; inkSoft: string }> = {
   wms:       { from: "#FEE2E2", to: "#FECACA", ink: "#B91C1C", inkSoft: "#DC2626" }, // red
   admin:     { from: "#DBEAFE", to: "#BFDBFE", ink: "#1D4ED8", inkSoft: "#2563EB" }, // blue
   employees: { from: "#DCFCE7", to: "#BBF7D0", ink: "#15803D", inkSoft: "#16A34A" }, // green
-  sales:     { from: "#FEF9C3", to: "#FEF08A", ink: "#A16207", inkSoft: "#CA8A04" }, // yellow
-  marketing: { from: "#FFEDD5", to: "#FED7AA", ink: "#C2410C", inkSoft: "#EA580C" }, // orange
-  training:  { from: "#F1F5F9", to: "#E2E8F0", ink: "#334155", inkSoft: "#475569" }, // grey
+  hr:        { from: "#CCFBF1", to: "#99F6E4", ink: "#0F766E", inkSoft: "#0D9488" }, // teal
+  sales:     { from: "#EDE9FE", to: "#DDD6FE", ink: "#6D28D9", inkSoft: "#7C3AED" }, // violet
+  training:  { from: "#FCE7F3", to: "#FBCFE8", ink: "#BE185D", inkSoft: "#DB2777" }, // pink
   accounts:  { from: "#DBEAFE", to: "#BFDBFE", ink: "#1D4ED8", inkSoft: "#2563EB" }, // (not shown on hub)
   events:    { from: "#CFFAFE", to: "#A5F3FC", ink: "#0E7490", inkSoft: "#0891B2" }, // cyan
   goals:     { from: "#FEF3C7", to: "#FDE68A", ink: "#B45309", inkSoft: "#D97706" }, // amber-gold
 };
 
 function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: number }) {
-  const Icon = m.Icon;
   const p = HUB_PASTEL[m.id];
   const delay = { animationDelay: `${i * 70}ms` } as const;
 
   const inner = (
     <>
-      {/* Every module now uses the same clean mark — a large translucent module
-          icon anchored bottom-right (like WMS / Goals / Monthly Events). The old
-          per-module cut-out artwork was dropped. */}
-      <Icon
-        size={150}
-        strokeWidth={1.6}
-        aria-hidden
-        className="pointer-events-none absolute -bottom-3 -right-3"
-        style={{ color: p.ink, opacity: 0.16 }}
+      {/* Faint oversized logo bottom-right for depth/texture. */}
+      <ModuleLogo
+        id={m.id}
+        size={104}
+        className="pointer-events-none absolute -bottom-5 -right-5 opacity-[0.07]"
       />
 
-      {/* Content — left column, constrained so it never sits under the art. */}
-      <div className="relative z-10 flex h-full flex-col justify-between p-6">
-        <span
-          className="inline-flex size-12 items-center justify-center rounded-2xl"
-          style={{ background: "rgba(255,255,255,0.72)", border: `1px solid ${p.ink}33` }}
-        >
-          <Icon size={24} strokeWidth={2.2} style={{ color: p.ink }} />
-        </span>
-        {/* All cards are art-less now → the text gets the wider column so long
-            labels like "Monthly Events Master" wrap to 2 lines, not 3. */}
-        <div className="max-w-[76%]">
-          <h3 className="text-[30px] font-extrabold leading-none tracking-tight max-md:text-[26px]" style={{ color: p.ink }}>
+      {/* Content — fully centred (logo + text) with no wasted middle gap. */}
+      <div className="relative z-10 flex h-full flex-col items-center justify-center gap-3 p-5 text-center max-md:p-4">
+        <ModuleLogo id={m.id} size={56} className="drop-shadow-[0_7px_16px_rgba(15,23,42,0.22)]" />
+        <div className="w-full">
+          <h3 className="text-[22px] font-extrabold leading-none tracking-tight max-md:text-[20px]" style={{ color: p.ink }}>
             {m.label}
           </h3>
           {/* Clamp to 2 lines so the tagline can never push the button off-card. */}
-          <p className="mt-2 line-clamp-2 text-[14.5px] font-medium leading-snug" style={{ color: p.inkSoft }}>
+          <p className="mt-1.5 line-clamp-2 text-[12.5px] font-medium leading-snug" style={{ color: p.inkSoft }}>
             {m.tagline}
           </p>
           {locked ? (
-            <span className="mt-4 inline-flex items-center gap-1.5 rounded-pill bg-black/10 px-3 py-1.5 text-[13.5px] font-bold" style={{ color: p.ink }}>
-              <Lock size={14} strokeWidth={2.5} /> No access
+            <span className="mt-2.5 inline-flex items-center gap-1.5 rounded-pill bg-black/10 px-3 py-1 text-[12.5px] font-bold" style={{ color: p.ink }}>
+              <Lock size={13} strokeWidth={2.5} /> No access
             </span>
           ) : (
-            <span className="mt-4 inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[14px] font-bold text-white" style={{ background: p.ink }}>
+            <span className="mt-2.5 inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-[13px] font-bold text-white" style={{ background: p.ink }}>
               Enter
-              <ArrowRight size={15} strokeWidth={2.8} className="transition-transform duration-200 group-hover:translate-x-1" />
+              <ArrowRight size={14} strokeWidth={2.8} className="transition-transform duration-200 group-hover:translate-x-1" />
             </span>
           )}
         </div>
@@ -107,7 +96,7 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
   );
 
   const base =
-    "wg-rise group relative block h-full min-h-[190px] overflow-hidden rounded-3xl shadow-md max-lg:h-[230px]";
+    "wg-rise group relative block h-[236px] overflow-hidden rounded-[28px] shadow-md max-md:h-[204px]";
   const bg = { background: `linear-gradient(145deg, ${p.from}, ${p.to})` };
 
   if (locked) {
@@ -173,10 +162,10 @@ export default async function HubPage() {
 
   return (
     <main
-      className="flex min-h-[100dvh] w-full flex-col overflow-visible xl:h-[100dvh] xl:overflow-hidden"
+      className="flex min-h-[100dvh] w-full flex-col"
       style={{ background: "linear-gradient(180deg, #f6f7f9 0%, #fbfbfc 38%, #ffffff 100%)" }}
     >
-      <div className="mx-auto flex h-full w-full max-w-[1320px] flex-col px-8 py-6 max-md:px-5 max-md:py-5">
+      <div className="mx-auto flex w-full max-w-[1140px] flex-col px-8 py-6 max-md:px-5 max-md:py-5">
         {/* ONE BAND — logo (extreme left) · welcome hero (page-centered) · Hi over
             Sign out (right). Both side clusters are flex-1 so the centre block is
             truly centered on the page regardless of their differing widths. */}
@@ -217,7 +206,7 @@ export default async function HubPage() {
         {/* Workspace grid — 8 modules. On xl the 4×2 grid fills the viewport with
             no scroll; below xl it flows into fewer columns and the page scrolls. */}
         <section
-          className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:min-h-0 xl:flex-1 xl:grid-cols-4 xl:grid-rows-2"
+          className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4"
           aria-label="Workspaces"
         >
           {MODULE_ORDER.map((id, i) => (

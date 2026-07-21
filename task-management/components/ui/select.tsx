@@ -185,15 +185,25 @@ export function Select({
                     onValueChange(opt.value);
                     setOpen(false);
                   }}
-                  className={cn(isSel && "font-semibold")}
+                  aria-selected={isSel || undefined}
+                  className={cn("rounded-md", isSel && "font-bold")}
+                  // The CHOSEN value stays clearly marked (persistent red-tint +
+                  // red-deep bold label + check) so it's obvious which is picked.
+                  style={
+                    isSel
+                      ? { background: "color-mix(in srgb, var(--color-altus-red) 12%, transparent)" }
+                      : undefined
+                  }
                 >
                   <span className="flex w-full items-center gap-2">
                     <span className="inline-flex w-4 shrink-0 justify-center">
                       {isSel && (
-                        <Check size={15} strokeWidth={2.6} className="text-altus-red" />
+                        <Check size={16} strokeWidth={3} className="text-altus-red" />
                       )}
                     </span>
-                    <span className="flex-1 text-ink-strong">{opt.label}</span>
+                    <span className={cn("flex-1", isSel ? "font-bold text-altus-red-deep" : "text-ink-strong")}>
+                      {opt.label}
+                    </span>
                   </span>
                 </CommandItem>
               );

@@ -506,3 +506,217 @@ export const AGREEMENT_STATUS_LABELS: Record<AgreementStatus, string> = {
   sent: "Sent",
   signed: "Signed",
 };
+
+// ── HR Support / Ticketing (migration 0145) ─────────────────────────────────
+// One table, two doors: /support (full ticket) and /queries "Ask HR" both write
+// hr_tickets — /queries rows carry source="query". DB columns are `text` (house
+// norm — not pgEnums), so these unions are the canonical source of truth.
+
+/** Ticket lifecycle. Employees NEVER touch a status dropdown — transitions are
+ *  driven by HR actions + auto rules (employee reply flips waiting_on_employee
+ *  back to in_progress; resolved auto-closes after 72h or on employee confirm;
+ *  a closed ticket may be reopened ≤7 days after close → status "reopened",
+ *  which behaves like in_progress with reopened_count bumped). */
+export const HR_TICKET_STATUSES = [
+  "new",
+  "in_progress",
+  "waiting_on_employee",
+  "resolved",
+  "closed",
+  "reopened",
+] as const;
+export type HrTicketStatus = (typeof HR_TICKET_STATUSES)[number];
+
+/** HR-side labels. */
+export const HR_TICKET_STATUS_LABELS: Record<HrTicketStatus, string> = {
+  new: "New",
+  in_progress: "In Progress",
+  waiting_on_employee: "Waiting on Employee",
+  resolved: "Resolved",
+  closed: "Closed",
+  reopened: "Reopened",
+};
+
+/** Employee-side labels differ by design ("With HR" / "Waiting on you"). */
+export const HR_TICKET_STATUS_EMPLOYEE_LABELS: Record<HrTicketStatus, string> = {
+  new: "With HR",
+  in_progress: "With HR",
+  waiting_on_employee: "Waiting on you",
+  resolved: "Resolved",
+  closed: "Closed",
+  reopened: "With HR",
+};
+
+/** Statuses that count as "open" for queues, badges + the SLA breach cron. */
+export const HR_TICKET_OPEN_STATUSES = [
+  "new",
+  "in_progress",
+  "waiting_on_employee",
+  "reopened",
+] as const satisfies readonly HrTicketStatus[];
+
+export const HR_TICKET_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
+export type HrTicketPriority = (typeof HR_TICKET_PRIORITIES)[number];
+export const HR_TICKET_PRIORITY_LABELS: Record<HrTicketPriority, string> = {
+  low: "Low",
+  normal: "Normal",
+  high: "High",
+  urgent: "Urgent",
+};
+
+/** SLA policy per priority — STAMPED onto the ticket at create/priority-change
+ *  time (first_response_due_at / resolution_due_at); ONE breach cron compares
+ *  now() vs the stamps. Not an engine. Business days = IST Mon–Sat. */
+export const HR_TICKET_SLA: Record<
+  HrTicketPriority,
+  { firstResponseHours: number; resolutionBusinessDays: number }
+> = {
+  urgent: { firstResponseHours: 2, resolutionBusinessDays: 1 },
+  high: { firstResponseHours: 4, resolutionBusinessDays: 2 },
+  normal: { firstResponseHours: 8, resolutionBusinessDays: 3 },
+  low: { firstResponseHours: 24, resolutionBusinessDays: 5 },
+};
+
+/** Categories drive routing (hr_ticket_routes category→owner) AND visibility:
+ *  `grievance` is CONFIDENTIAL (requester + current assignee + super-admins
+ *  ONLY — see the single visibleTicketsFilter choke point) and is born at
+ *  priority ≥ high. */
+export const HR_TICKET_CATEGORIES = [
+  "payroll",
+  "leave_attendance",
+  "reimbursement",
+  "it_access",
+  "facilities",
+  "documents_letters",
+  "policy_question",
+  "grievance",
+  "other",
+] as const;
+export type HrTicketCategory = (typeof HR_TICKET_CATEGORIES)[number];
+export const HR_TICKET_CATEGORY_LABELS: Record<HrTicketCategory, string> = {
+  payroll: "Payroll & Salary",
+  leave_attendance: "Leave & Attendance",
+  reimbursement: "Reimbursement",
+  it_access: "IT & Access",
+  facilities: "Facilities",
+  documents_letters: "Documents & Letters",
+  policy_question: "Policy Question",
+  grievance: "Grievance (Confidential)",
+  other: "Other",
+};
+
+/** Which door created the ticket: /support full form vs /queries "Ask HR". */
+export const HR_TICKET_SOURCES = ["support", "query"] as const;
+export type HrTicketSource = (typeof HR_TICKET_SOURCES)[number];
+
+// ── Appraisal (migration 0146) ──────────────────────────────────────────────
+// Consolidates Performance (/pms) + 360 Review + Signals into ONE /appraisal
+// surface with a multi-dimension scoring engine. DB columns are `text` (house
+// norm), so these unions are the canonical source of truth.
+
+/** The 9 scoring dimensions. Weights are ADMIN-CONFIGURABLE via
+ *  appraisal_config.dimension_weights (seeded to
+ *  DEFAULT_APPRAISAL_DIMENSION_WEIGHTS below, which sums to 100). */
+export const APPRAISAL_DIMENSIONS = [
+  "kpi",              // admin fills + approves, then visible to the employee
+  "skill",            // max 3 per person, technical/non-technical
+  "attitude",         // same shape as skill, max 3
+  "incentive",        // AUTO: min(100%, (earned/base)/target%) × weight
+  "culture",          // 3 Constitution items / month, serial-wise, rated as ONE item
+  "knowledge_sharing",// AUTO from Training (do-6 / give-4 rule)
+  "problem_solving",  // manager-only Yes/No one-liner
+  "growth_mindset",   // manager-only Yes/No one-liner
+  "ability",          // "Ability to get things done" — manager-only Y/N one-liner
+] as const;
+export type AppraisalDimension = (typeof APPRAISAL_DIMENSIONS)[number];
+export const APPRAISAL_DIMENSION_LABELS: Record<AppraisalDimension, string> = {
+  kpi: "KPI",
+  skill: "Skill",
+  attitude: "Attitude & Mindset",
+  incentive: "Incentive",
+  culture: "Culture (Constitution)",
+  knowledge_sharing: "Knowledge Sharing",
+  problem_solving: "Problem Solving Ability",
+  growth_mindset: "Growth Mindset",
+  ability: "Ability to Get Things Done",
+};
+
+/** Dimensions dropped for NON-managers (the subjective manager-only
+ *  one-liners). The score engine renormalises the remaining weights. */
+export const APPRAISAL_MANAGER_ONLY_DIMENSIONS = [
+  "problem_solving",
+  "growth_mindset",
+  "ability",
+] as const satisfies readonly AppraisalDimension[];
+
+/** Dimensions whose score is COMPUTED, never hand-scored (no self/mgr/mgmt). */
+export const APPRAISAL_AUTO_DIMENSIONS = [
+  "incentive",
+  "knowledge_sharing",
+] as const satisfies readonly AppraisalDimension[];
+
+/** Default dimension weights — sums to 100. Reconciles sir's table (KPI 30 ·
+ *  Skill 30 · Culture 10 · KS 5 · PS 5 · GM 5 · Ability 5 = 90, no Incentive/
+ *  Attitude) with the verbal "Incentive 30" by scaling into a 100-sum whole.
+ *  ADMIN-EDITABLE at runtime via appraisal_config — this is only the seed. */
+export const DEFAULT_APPRAISAL_DIMENSION_WEIGHTS: Record<AppraisalDimension, number> = {
+  kpi: 25,
+  skill: 15,
+  attitude: 10,
+  incentive: 20,
+  culture: 10,
+  knowledge_sharing: 5,
+  problem_solving: 5,
+  growth_mindset: 5,
+  ability: 5,
+};
+
+/** Appraisal cycle lifecycle (one row per period in appraisal_cycles). */
+export const APPRAISAL_CYCLE_STATUSES = [
+  "draft",       // admin building KPI/skill/attitude items — invisible to employees
+  "open",        // published — self-scoring window
+  "review",      // manager + management scoring window
+  "finalized",   // final scores locked
+  "archived",
+] as const;
+export type AppraisalCycleStatus = (typeof APPRAISAL_CYCLE_STATUSES)[number];
+export const APPRAISAL_CYCLE_STATUS_LABELS: Record<AppraisalCycleStatus, string> = {
+  draft: "Draft",
+  open: "Self-Scoring Open",
+  review: "In Review",
+  finalized: "Finalized",
+  archived: "Archived",
+};
+
+/** Per-item scoring progress (the self → manager → management → final flow). */
+export const APPRAISAL_ITEM_STATUSES = [
+  "draft",               // admin still filling (KPI rows before approval)
+  "awaiting_self",       // published, employee's self score pending
+  "awaiting_manager",    // self done, manager score + MANDATORY explanation pending
+  "awaiting_management", // manager done, management score pending
+  "finalized",           // final score computed + locked
+] as const;
+export type AppraisalItemStatus = (typeof APPRAISAL_ITEM_STATUSES)[number];
+export const APPRAISAL_ITEM_STATUS_LABELS: Record<AppraisalItemStatus, string> = {
+  draft: "Draft",
+  awaiting_self: "Awaiting Self Score",
+  awaiting_manager: "Awaiting Manager",
+  awaiting_management: "Awaiting Management",
+  finalized: "Final",
+};
+
+/** The 3 human scoring stages + the computed final. Order is LAW:
+ *  Self (+justification, optional attachment) → Manager (+MANDATORY
+ *  explanation) → Management (+explanation) → Final. */
+export const APPRAISAL_SCORE_STAGES = ["self", "manager", "management", "final"] as const;
+export type AppraisalScoreStage = (typeof APPRAISAL_SCORE_STAGES)[number];
+
+/** Default rating-term bands ("recognition/rate" labels) — ADMIN-EDITABLE via
+ *  appraisal_config.rating_terms. `min` = inclusive lower bound of final %. */
+export const DEFAULT_APPRAISAL_RATING_TERMS: ReadonlyArray<{ min: number; label: string }> = [
+  { min: 90, label: "Outstanding" },
+  { min: 75, label: "Exceeds Expectations" },
+  { min: 60, label: "Meets Expectations" },
+  { min: 40, label: "Needs Improvement" },
+  { min: 0, label: "Unsatisfactory" },
+];

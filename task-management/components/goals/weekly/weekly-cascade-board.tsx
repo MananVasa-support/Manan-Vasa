@@ -1,8 +1,19 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, CalendarDays, ArrowRightLeft, Target } from "lucide-react";
+import type { Route } from "next";
+import {
+  ChevronLeft,
+  ChevronRight,
+  CalendarDays,
+  ArrowRightLeft,
+  Target,
+  CheckCircle2,
+  BadgeCheck,
+  ClipboardList,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { fireToast } from "@/lib/toast";
 import { carryAllUnfinishedForward } from "@/app/(app)/goals/weekly/actions";
@@ -12,9 +23,9 @@ import type { BoardMe, CascadeWeeklyGoal, MonthGoalOption, RosterMember } from "
 // Goals module identity (amber-gold). Read from the `--goals-accent` token when
 // present, else fall back to the module-theme hex. Kept as CSS-var strings so the
 // whole surface themes automatically if the root token lands.
-const ACCENT = "var(--goals-accent, #b45309)";
-const ACCENT_DEEP = "var(--goals-accent-deep, #7c2d12)";
-const ACCENT_TINT = "color-mix(in srgb, var(--goals-accent, #b45309) 12%, transparent)";
+const ACCENT = "var(--goals-accent, #E10600)";
+const ACCENT_DEEP = "var(--goals-accent-deep, #A80400)";
+const ACCENT_TINT = "color-mix(in srgb, var(--goals-accent, #E10600) 12%, transparent)";
 
 /**
  * The Goals-workspace Weekly board (client shell). Week-nav labels weeks
@@ -92,6 +103,11 @@ export function WeeklyCascadeBoard({
   const adopted = rows.filter((r) => r.adopted);
   const dropped = rows.filter((r) => !r.adopted);
 
+  // Ritual state IN CONTEXT — mirrors of committed_at / approved_by_manager_at
+  // (the pages own the logic; these chips only read the stamps + deep-link).
+  const committedCount = adopted.filter((r) => r.committed).length;
+  const approvedCount = adopted.filter((r) => r.approvedByManager).length;
+
   return (
     <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
       {/* Header — module masthead: glossy amber icon tile + gradient eyebrow + display H1 */}
@@ -101,9 +117,9 @@ export function WeeklyCascadeBoard({
           className="module-wordmark-icon relative hidden h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-section text-white sm:inline-flex"
           style={{
             background: `linear-gradient(150deg, color-mix(in srgb, #ffffff 22%, ${ACCENT}) 0%, ${ACCENT} 46%, ${ACCENT_DEEP} 100%)`,
-            border: "1px solid color-mix(in srgb, var(--goals-accent-deep, #7c2d12) 55%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--goals-accent-deep, #A80400) 55%, transparent)",
             boxShadow:
-              "inset 0 1px 0 rgba(255,255,255,0.35), 0 10px 24px -10px color-mix(in srgb, var(--goals-accent, #b45309) 60%, transparent)",
+              "inset 0 1px 0 rgba(255,255,255,0.35), 0 10px 24px -10px color-mix(in srgb, var(--goals-accent, #E10600) 60%, transparent)",
           }}
         >
           <Target size={26} strokeWidth={2.2} />
@@ -173,7 +189,7 @@ export function WeeklyCascadeBoard({
           <button
             type="button"
             onClick={() => goWeek(thisWeek)}
-            className="brand-btn wg-btn rounded-pill border border-hairline bg-surface-card px-3 py-1.5 text-[12.5px] font-semibold text-ink-muted hover:border-hairline-strong hover:text-ink-strong"
+            className="wg-btn rounded-pill border border-hairline bg-surface-card px-3 py-1.5 text-[12.5px] font-semibold text-ink-muted hover:border-hairline-strong hover:text-ink-strong"
           >
             Jump to this week
           </button>
@@ -194,15 +210,47 @@ export function WeeklyCascadeBoard({
           </select>
         )}
 
+        {/* Ritual state — Saturday commit / Monday approve, reachable in context.
+            The chips read the existing stamps; the ritual pages keep the logic. */}
+        {adopted.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Weekly ritual status">
+            <RitualChip
+              href={"/goals/commit" as Route}
+              icon={<CheckCircle2 size={13} strokeWidth={2.4} />}
+              label={`Committed ${committedCount}/${adopted.length}`}
+              done={committedCount === adopted.length}
+              title="Open the Saturday commit ritual"
+            />
+            {(me.isAdmin || canPickPerson) && (
+              <RitualChip
+                href={"/goals/approve" as Route}
+                icon={<BadgeCheck size={13} strokeWidth={2.4} />}
+                label={`Approved ${approvedCount}/${adopted.length}`}
+                done={approvedCount === adopted.length}
+                title="Open the Monday approve ritual"
+              />
+            )}
+            {(me.isAdmin || canPickPerson) && (
+              <RitualChip
+                href={"/goals/review" as Route}
+                icon={<ClipboardList size={13} strokeWidth={2.4} />}
+                label="Review"
+                done={false}
+                title="Open the weekly review scorecard"
+              />
+            )}
+          </div>
+        )}
+
         {unfinishedCount > 0 && (
           <button
             type="button"
             onClick={carryAll}
             disabled={pending}
-            className="brand-btn wg-btn wg-sheen ml-auto inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50"
+            className="wg-btn wg-sheen ml-auto inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50"
             style={{
               background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
-              boxShadow: "0 8px 20px -10px color-mix(in srgb, var(--goals-accent, #b45309) 65%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)",
+              boxShadow: "0 8px 20px -10px color-mix(in srgb, var(--goals-accent, #E10600) 65%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)",
             }}
           >
             <ArrowRightLeft size={13} />
@@ -266,5 +314,49 @@ export function WeeklyCascadeBoard({
         </div>
       )}
     </main>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Ritual chip — a stamp-state pill that deep-links to its ritual page  */
+/* (Commit / Approve / Review). Green when fully stamped, amber-tinted  */
+/* while pending — no logic duplicated, the pages own the gates.        */
+/* ------------------------------------------------------------------ */
+
+function RitualChip({
+  href,
+  icon,
+  label,
+  done,
+  title,
+}: {
+  href: Route;
+  icon: React.ReactNode;
+  label: string;
+  done: boolean;
+  title: string;
+}) {
+  return (
+    <Link
+      href={href}
+      title={title}
+      className="wg-btn inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[12.5px] font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
+      style={
+        done
+          ? {
+              background: "rgba(21,128,61,0.10)",
+              borderColor: "rgba(21,128,61,0.35)",
+              color: "#15803d",
+            }
+          : {
+              background: ACCENT_TINT,
+              borderColor: "color-mix(in srgb, var(--goals-accent, #E10600) 35%, transparent)",
+              color: ACCENT_DEEP,
+            }
+      }
+    >
+      {icon}
+      {label}
+    </Link>
   );
 }

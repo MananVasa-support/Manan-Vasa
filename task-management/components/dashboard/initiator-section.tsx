@@ -275,7 +275,7 @@ function ManagerCard({ manager: m }: { manager: InitiatorScorecard }) {
             type="button"
             onClick={() => setShowReports((s) => !s)}
             aria-expanded={showReports}
-            className="brand-btn inline-flex items-center gap-1.5 text-[12px] font-bold text-ink-soft transition-colors hover:text-ink-strong"
+            className="bg-surface-card inline-flex items-center gap-1.5 text-[12px] font-bold text-ink-soft transition-colors hover:text-ink-strong"
           >
             <ChevronDown
               size={14}

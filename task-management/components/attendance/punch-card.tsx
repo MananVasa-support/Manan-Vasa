@@ -30,9 +30,9 @@ type LocState =
   | { phase: "denied"; message: string }
   | { phase: "error"; message: string };
 
-/** Module identity: Employees = green. */
-const GREEN = "#16a34a";
-const GREEN_DEEP = "#15803d";
+/** Module identity: Employees = Altus brand red. */
+const GREEN = "#E10600";
+const GREEN_DEEP = "#A80400";
 
 /** Haversine metres — mirrors lib/geo so the card can show live distance feedback. */
 function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -205,7 +205,25 @@ export function PunchCard({
           }),
         );
         if (!res.ok) {
-          fireToast({ message: res.error, type: "error" });
+          // Goals ritual gate blocks deep-link into the EXACT ritual state so
+          // the user completes it inline (Phase 6, design §2.6): the routes
+          // alias into the canvas's ?ritual=commit / ?ritual=approve states
+          // when GOALS_CANVAS_ON, and remain the standalone pages otherwise.
+          const ritualHref = res.error.includes("Goals › Commit")
+            ? "/goals/commit"
+            : res.error.includes("Goals › Approve")
+              ? "/goals/approve"
+              : null;
+          fireToast({
+            message: res.error,
+            type: "error",
+            ...(ritualHref
+              ? {
+                  actionLabel: "Open",
+                  action: () => router.push(ritualHref as Parameters<typeof router.push>[0]),
+                }
+              : {}),
+          });
           return;
         }
         fireToast({
@@ -238,9 +256,9 @@ export function PunchCard({
       className="wg-rise relative overflow-hidden rounded-[28px]"
       style={{
         background:
-          "linear-gradient(168deg, #ffffff 0%, var(--color-surface-card) 42%, #f2faf5 78%, #ecf8f1 100%)",
+          "linear-gradient(168deg, #ffffff 0%, var(--color-surface-card) 42%, #fdf3f3 78%, #fce9e9 100%)",
         boxShadow:
-          "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.9), 0 30px 70px -34px rgba(21,128,61,0.30), 0 8px 28px -20px rgba(15,23,42,0.18)",
+          "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.9), 0 30px 70px -34px rgba(168,4,0,0.30), 0 8px 28px -20px rgba(15,23,42,0.18)",
       }}
     >
       {/* ambient washes — green module identity; a warm leaving-tint once on the clock */}
@@ -251,14 +269,14 @@ export function PunchCard({
           background:
             mode === "out"
               ? "radial-gradient(circle, rgba(225,6,0,0.09), transparent 70%)"
-              : "radial-gradient(circle, rgba(34,197,94,0.16), transparent 70%)",
+              : "radial-gradient(circle, rgba(225,6,0,0.16), transparent 70%)",
           filter: "blur(10px)",
         }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(22,163,74,0.10), transparent 70%)", filter: "blur(12px)" }}
+        style={{ background: "radial-gradient(circle, rgba(225,6,0,0.10), transparent 70%)", filter: "blur(12px)" }}
       />
       <div
         aria-hidden
@@ -370,7 +388,7 @@ export function PunchCard({
                   style={
                     listening
                       ? { background: "var(--color-altus-red)", color: "#fff", boxShadow: "0 0 0 4px color-mix(in srgb, var(--color-altus-red) 20%, transparent)" }
-                      : { background: "color-mix(in srgb, #16a34a 10%, transparent)", color: "#15803d" }
+                      : { background: "color-mix(in srgb, #E10600 10%, transparent)", color: "#A80400" }
                   }
                 >
                   {listening ? <Square size={12} strokeWidth={2.6} className="animate-pulse" /> : <Mic size={13} strokeWidth={2.4} />}
@@ -386,7 +404,7 @@ export function PunchCard({
               maxLength={500}
               rows={2}
               placeholder="e.g. client visit in the morning — or tap Voice to dictate"
-              className="w-full resize-y rounded-xl px-3.5 py-2.5 text-[14.5px] font-medium text-ink-strong bg-white outline-none transition-colors focus:border-[#16a34a]"
+              className="w-full resize-y rounded-xl px-3.5 py-2.5 text-[14.5px] font-medium text-ink-strong bg-white outline-none transition-colors focus:border-[#E10600]"
               style={{ border: "2px solid var(--color-hairline-strong)", boxShadow: "inset 0 1px 3px rgba(15,23,42,0.05)" }}
             />
           </>
@@ -422,15 +440,15 @@ function MapPanel({
   const pill =
     distanceM != null
       ? withinFence
-        ? { text: `${Math.round(distanceM)}m from office`, color: GREEN_DEEP, bg: "rgba(236,253,245,0.92)", ring: "rgba(22,163,74,0.35)" }
+        ? { text: `${Math.round(distanceM)}m from office`, color: "#15803d", bg: "rgba(236,253,245,0.92)", ring: "rgba(22,163,74,0.35)" }
         : { text: `${Math.round(distanceM)}m from office · outside ${radiusM}m`, color: "var(--color-altus-red)", bg: "rgba(255,255,255,0.92)", ring: "rgba(225,6,0,0.30)" }
-      : { text: "Location captured", color: GREEN_DEEP, bg: "rgba(236,253,245,0.92)", ring: "rgba(22,163,74,0.35)" };
+      : { text: "Location captured", color: "#15803d", bg: "rgba(236,253,245,0.92)", ring: "rgba(22,163,74,0.35)" };
 
   return (
     <div
       className="mb-5 overflow-hidden rounded-2xl bg-surface-card"
       style={{
-        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${GREEN} 30%, var(--color-hairline)), 0 12px 32px -24px rgba(21,128,61,0.5)`,
+        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${GREEN} 30%, var(--color-hairline)), 0 12px 32px -24px rgba(168,4,0,0.5)`,
       }}
     >
       <div className="flex items-center justify-between gap-3 px-4 py-2.5">
@@ -481,10 +499,10 @@ type DiscMode = "in" | "out" | "done";
 const DISC_STYLE: Record<DiscMode, { bg: string; glow: string; halo: string; ring: string; label: string; sub: string }> = {
   // Check IN = green (module identity + "go").
   in: {
-    bg: "linear-gradient(150deg, #2BC964 0%, #16A34A 45%, #15803D 100%)",
-    glow: "0 26px 60px -18px rgba(22,163,74,0.55), inset 0 2px 0 rgba(255,255,255,0.30), inset 0 -10px 24px rgba(0,0,0,0.22)",
-    halo: "0 0 44px 4px rgba(22,163,74,0.30)",
-    ring: "rgba(22,163,74,0.35)",
+    bg: "linear-gradient(150deg, #FF2A22 0%, #E10600 45%, #A80400 100%)",
+    glow: "0 26px 60px -18px rgba(225,6,0,0.55), inset 0 2px 0 rgba(255,255,255,0.30), inset 0 -10px 24px rgba(0,0,0,0.22)",
+    halo: "0 0 44px 4px rgba(225,6,0,0.30)",
+    ring: "rgba(225,6,0,0.35)",
     label: "Check in",
     sub: "Tap to punch",
   },
@@ -734,10 +752,10 @@ function LiveClock({ tz }: { tz: string }) {
         fontWeight: 900,
         lineHeight: 1,
         letterSpacing: "-0.03em",
-        color: seconds ? "#15803d" : "var(--color-ink-strong)",
+        color: seconds ? "#A80400" : "var(--color-ink-strong)",
         alignSelf: seconds ? "flex-end" : undefined,
         paddingBottom: seconds ? 3 : 0,
-        textShadow: seconds ? "0 2px 14px rgba(22,163,74,0.28)" : "0 3px 22px rgba(22,163,74,0.14)",
+        textShadow: seconds ? "0 2px 14px rgba(225,6,0,0.28)" : "0 3px 22px rgba(225,6,0,0.14)",
       }}
     >
       {v}
@@ -748,15 +766,15 @@ function LiveClock({ tz }: { tz: string }) {
     <div
       className="wg-rise mt-2 inline-flex items-center gap-3 rounded-[20px] px-4 py-2.5"
       style={{
-        background: "linear-gradient(135deg, color-mix(in srgb,#16a34a 6%,#fff), var(--color-surface-card))",
-        boxShadow: "inset 0 0 0 1px color-mix(in srgb,#16a34a 16%,transparent), 0 14px 40px -22px rgba(22,163,74,0.5)",
+        background: "linear-gradient(135deg, color-mix(in srgb,#E10600 6%,#fff), var(--color-surface-card))",
+        boxShadow: "inset 0 0 0 1px color-mix(in srgb,#E10600 16%,transparent), 0 14px 40px -22px rgba(225,6,0,0.5)",
       }}
       aria-label={`Current time ${fmt}`}
     >
       {/* clock icon with a live pulse ring */}
-      <span className="relative inline-grid size-10 shrink-0 place-items-center rounded-2xl text-white" style={{ background: "linear-gradient(135deg,#16a34a,#15803d)", boxShadow: "0 8px 18px -8px rgba(22,163,74,0.6)" }}>
+      <span className="relative inline-grid size-10 shrink-0 place-items-center rounded-2xl text-white" style={{ background: "linear-gradient(135deg,#E10600,#A80400)", boxShadow: "0 8px 18px -8px rgba(225,6,0,0.6)" }}>
         <Clock3 size={21} strokeWidth={2.5} />
-        <span aria-hidden className="absolute inset-0 rounded-2xl animate-ping opacity-25 motion-reduce:hidden" style={{ boxShadow: "inset 0 0 0 2px #16a34a" }} />
+        <span aria-hidden className="absolute inset-0 rounded-2xl animate-ping opacity-25 motion-reduce:hidden" style={{ boxShadow: "inset 0 0 0 2px #E10600" }} />
       </span>
 
       <div className="flex items-baseline gap-1.5">
@@ -768,7 +786,7 @@ function LiveClock({ tz }: { tz: string }) {
       </div>
 
       <div className="flex flex-col items-center gap-0.5 pl-0.5">
-        <span className="rounded-md px-1.5 py-0.5 text-[11px] font-black" style={{ background: "color-mix(in srgb,#16a34a 12%,transparent)", color: "#15803d" }}>{period}</span>
+        <span className="rounded-md px-1.5 py-0.5 text-[11px] font-black" style={{ background: "color-mix(in srgb,#E10600 12%,transparent)", color: "#A80400" }}>{period}</span>
         <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-ink-subtle">IST</span>
       </div>
     </div>
@@ -779,15 +797,15 @@ function LiveClock({ tz }: { tz: string }) {
 function BlinkColon() {
   return (
     <span className="mx-0.5 flex flex-col justify-center gap-[7px] self-center pb-1.5 animate-pulse motion-reduce:animate-none">
-      <span className="size-[7px] rounded-full" style={{ background: "#16a34a" }} />
-      <span className="size-[7px] rounded-full" style={{ background: "#16a34a" }} />
+      <span className="size-[7px] rounded-full" style={{ background: "#E10600" }} />
+      <span className="size-[7px] rounded-full" style={{ background: "#E10600" }} />
     </span>
   );
 }
 
 function Stat({ label, value, kind }: { label: string; value: string | null; kind: "in" | "out" }) {
   const has = value != null;
-  const accent = kind === "in" ? GREEN : "var(--color-altus-red)";
+  const accent = kind === "in" ? "#16a34a" : "var(--color-altus-red)";
   const Icon = kind === "in" ? LogIn : LogOut;
   return (
     <div

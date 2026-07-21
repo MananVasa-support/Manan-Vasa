@@ -30,7 +30,7 @@ const WORKSPACE_SCOPE: Partial<Record<WorkspaceId, (keyof GlobalSearchResult)[]>
   wms: ["tasks", "clients", "projects", "people", "documents"],
   sales: ["clients", "people", "outstanding", "ambassadors"],
   employees: ["people"],
-  marketing: ["people"],
+  hr: ["people"],
   training: ["people"],
   admin: ["clients", "people"],
   accounts: ["clients", "people"],

@@ -84,7 +84,7 @@ export function MonthCalendar({ cells, monthLabel, compact }: { cells: MonthCell
       style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline), 0 6px 24px -18px rgba(15,23,42,0.25)", animationDelay: "120ms" }}
     >
       <div className="mb-3 flex items-center gap-2">
-        <span className="inline-grid size-7 place-items-center rounded-lg" style={{ background: "color-mix(in srgb, #16a34a 10%, transparent)", color: "#15803d" }}>
+        <span className="inline-grid size-7 place-items-center rounded-lg" style={{ background: "color-mix(in srgb, #E10600 10%, transparent)", color: "#A80400" }}>
           <CalendarDays size={15} strokeWidth={2.3} />
         </span>
         <div className="min-w-0">

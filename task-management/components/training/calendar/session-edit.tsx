@@ -7,7 +7,7 @@ import { fireToast } from "@/lib/toast";
 import { SessionForm, type SessionFormValues } from "@/components/training/calendar/session-form";
 import { cancelSession, completeSession } from "@/app/(app)/training/calendar/actions";
 
-const ACCENT = "#2563eb";
+const ACCENT = "#E10600";
 
 type AddSubject = (name: string) => Promise<{ ok: true; option: { id: string; name: string } } | { ok: false; error: string }>;
 
@@ -77,7 +77,7 @@ export function SessionEdit({
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="brand-btn inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[14px] font-bold transition-colors"
+        className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[14px] font-bold transition-colors"
         style={{ borderColor: ACCENT, color: ACCENT }}
       >
         <Pencil size={15} /> Edit session
@@ -87,7 +87,7 @@ export function SessionEdit({
           type="button"
           onClick={onComplete}
           disabled={busy !== null}
-          className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14px] font-bold text-ink-soft hover:border-ink-subtle disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14px] font-bold text-ink-soft hover:border-ink-subtle disabled:opacity-50"
         >
           {busy === "done" ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Mark done
         </button>
@@ -97,7 +97,7 @@ export function SessionEdit({
           type="button"
           onClick={onCancel}
           disabled={busy !== null}
-          className="brand-btn inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14px] font-bold text-ink-soft hover:border-altus-red hover:text-altus-red disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14px] font-bold text-ink-soft hover:border-altus-red hover:text-altus-red disabled:opacity-50"
         >
           {busy === "cancel" ? <Loader2 size={15} className="animate-spin" /> : <Ban size={15} />} Cancel
         </button>

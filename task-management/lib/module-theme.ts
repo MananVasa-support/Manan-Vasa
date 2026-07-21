@@ -3,7 +3,7 @@ import {
   LayoutGrid,
   Users,
   TrendingUp,
-  Megaphone,
+  BriefcaseBusiness,
   GraduationCap,
   CalendarDays,
   Target,
@@ -50,7 +50,7 @@ export const MODULE_THEME: Record<WorkspaceId, ModuleTheme> = {
   },
   admin: {
     id: "admin",
-    label: "Admin",
+    label: "Accounts",
     tagline: "Accounts, compliance & the control room.",
     href: "/ws/admin" as Route,
     Icon: ShieldCheck,
@@ -61,12 +61,24 @@ export const MODULE_THEME: Record<WorkspaceId, ModuleTheme> = {
   employees: {
     id: "employees",
     label: "Employees",
-    tagline: "Attendance, leave, salary & the team roster.",
+    tagline: "Attendance, performance, salary, incentives & people ops.",
     href: "/ws/employees" as Route,
     Icon: Users,
     accent: "#16a34a",
     accentDeep: "#15803d",
     image: "/hub/employees.png",
+  },
+  // HR — the paperwork room: dossier, agreements, policies, letters, queries &
+  // support. Teal identity — distinct from Employees green and Events cyan.
+  hr: {
+    id: "hr",
+    label: "HR",
+    tagline: "Dossier, agreements, policies, letters & employee support.",
+    href: "/ws/hr" as Route,
+    Icon: BriefcaseBusiness,
+    accent: "#0d9488",
+    accentDeep: "#0f766e",
+    image: null,
   },
   sales: {
     id: "sales",
@@ -78,16 +90,8 @@ export const MODULE_THEME: Record<WorkspaceId, ModuleTheme> = {
     accentDeep: "#5b21b6",
     image: "/hub/sales.png",
   },
-  marketing: {
-    id: "marketing",
-    label: "Marketing",
-    tagline: "Campaigns, reach & lead generation.",
-    href: "/ws/marketing" as Route,
-    Icon: Megaphone,
-    accent: "#ea7a17",
-    accentDeep: "#c2620f",
-    image: "/hub/marketing.png",
-  },
+  // Marketing retired as a room (2026-07): its only surface (/index-hub) now
+  // lives inside WMS as "Important Links".
   training: {
     id: "training",
     label: "Training",
@@ -144,8 +148,8 @@ export const MODULE_ORDER: WorkspaceId[] = [
   "goals",
   "admin",
   "employees",
+  "hr",
   "sales",
-  "marketing",
   "training",
   "events",
 ];

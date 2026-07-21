@@ -36,8 +36,8 @@ import { PillarBar, type SubSignal } from "@/components/pms/detail/pillar-bar";
 
 export const dynamic = "force-dynamic";
 
-const ACCENT = MODULE_THEME.employees.accent; // green
-const ACCENT_DEEP = MODULE_THEME.employees.accentDeep;
+const ACCENT = "#E10600"; // Altus red — in-module chrome is brand red
+const ACCENT_DEEP = "#A80400";
 
 const CARD_SHADOW =
   "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -20px rgba(15,23,42,0.35)";

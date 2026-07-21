@@ -34,6 +34,15 @@ export interface SelfAttendanceSummary {
   thisWeek: AttendanceSummary;
   thisMonth: AttendanceSummary;
   lastMonth: AttendanceSummary;
+  /** Rolling trend: this month-to-date + the two prior full months, evaluated
+   *  as ONE span so the weekly-54h waiver stays intact across month borders. */
+  last3Months: AttendanceSummary;
+}
+
+/** (year, month 1-12) shifted back `n` calendar months, wrap-safe. */
+function monthBack(year: number, month: number, n: number): { year: number; month: number } {
+  const idx = year * 12 + (month - 1) - n;
+  return { year: Math.floor(idx / 12), month: (idx % 12) + 1 };
 }
 
 /** A day counts toward the FULL-month working-day denominator when it is a real,
@@ -88,9 +97,11 @@ export async function getSelfAttendanceSummary(
 
   const lastYear = curMonth === 1 ? curYear - 1 : curYear;
   const lastMonthNum = curMonth === 1 ? 12 : curMonth - 1;
+  // The month before last — the third slice of the "Last 3 Months" trend.
+  const m2 = monthBack(curYear, curMonth, 2);
 
   // Salary profile → monthly gross for the rupee reduction. Absent profile ⇒ 0.
-  const [profile, thisMonthStatus, lastMonthStatus] = await Promise.all([
+  const [profile, thisMonthStatus, lastMonthStatus, m2Status] = await Promise.all([
     db
       .select({ annualCtc: salaryProfiles.annualCtc })
       .from(salaryProfiles)
@@ -105,6 +116,7 @@ export async function getSelfAttendanceSummary(
       lastMonthNum,
       lastDayOfMonth(lastYear, lastMonthNum),
     ),
+    getEmployeeMonthStatus(employeeId, m2.year, m2.month, lastDayOfMonth(m2.year, m2.month)),
   ]);
 
   const annualCtc = profile ? Number(profile.annualCtc) : 0;
@@ -136,5 +148,16 @@ export async function getSelfAttendanceSummary(
     thisMonthRate,
   );
 
-  return { thisWeek, thisMonth, lastMonth };
+  // ── Last 3 months — one span (weeks stay intact across month borders).
+  //    Future days in the current month are skipped by `summarize` (not elapsed).
+  //    Rupee reduction uses this month's rate (monthly gross is constant; the
+  //    per-day divisor barely moves month to month). ──
+  const last3Months = summarize(
+    [...m2Status.days, ...lastMonthStatus.days, ...thisMonthStatus.days].map((d) =>
+      toSummaryDay(d, todayIso),
+    ),
+    thisMonthRate,
+  );
+
+  return { thisWeek, thisMonth, lastMonth, last3Months };
 }

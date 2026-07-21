@@ -32,6 +32,14 @@ import {
   type HolidayAppliesTo,
   type AgreementType,
   type AgreementStatus,
+  type HrTicketStatus,
+  type HrTicketPriority,
+  type HrTicketCategory,
+  type HrTicketSource,
+  type AppraisalDimension,
+  type AppraisalCycleStatus,
+  type AppraisalItemStatus,
+  type AppraisalScoreStage,
 } from "./enums";
 
 export const taskStatusEnum = pgEnum("task_status", TASK_STATUSES);
@@ -765,6 +773,17 @@ export const documents = pgTable(
     mimeType: text("mime_type"),
     sizeBytes: integer("size_bytes"),
     taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    // ⚠ Migration 0142 (Goals canvas Phase 7 — attachments gallery). These two
+    // columns may be UNAPPLIED in prod: never reference them in an unguarded
+    // select/insert outside the flag-guarded goals detail actions (a bare
+    // `.select()`/`.returning()` on documents would 500 against a DB without
+    // 0142 — use explicit column lists elsewhere).
+    goalId: uuid("goal_id").references((): AnyPgColumn => goals.id, {
+      onDelete: "set null",
+    }),
+    weeklyGoalId: uuid("weekly_goal_id").references((): AnyPgColumn => weeklyGoals.id, {
+      onDelete: "set null",
+    }),
     uploadedById: uuid("uploaded_by_id").references(() => employees.id, {
       onDelete: "set null",
     }),
@@ -774,6 +793,8 @@ export const documents = pgTable(
   (t) => [
     index("documents_created_idx").on(t.createdAt),
     index("documents_task_idx").on(t.taskId),
+    index("documents_goal_idx").on(t.goalId),
+    index("documents_weekly_goal_idx").on(t.weeklyGoalId),
   ],
 );
 
@@ -1030,6 +1051,25 @@ export const NOTIFICATION_KINDS = [
   // probation / free-training period is ending. Text column, no DB change; sent
   // directly by app/api/cron/hr-confirmations (bypasses the matrix).
   "hr_confirmation_due",
+  // HR Support / Ticketing (migration 0145) — text column, no DB change. The
+  // HR module owns its email templates (lib/email/resend.ts is edited in the
+  // HR phase); until then these kinds render no email (null template) and the
+  // in-app inbox row still surfaces. Confidential (grievance) tickets ALWAYS
+  // use generic copy — never leak the subject line into a notification.
+  "hr_ticket_created",       // → the routed assignee (+ super-admins for grievances)
+  "hr_ticket_assigned",      // → the new assignee
+  "hr_ticket_replied",       // → the other side of the thread (never internal notes)
+  "hr_ticket_status_changed",// → the requester (employee-facing label copy)
+  "hr_ticket_sla_breach",    // → assignee + super-admins, from the breach cron
+  "hr_ticket_csat_request",  // → requester when the ticket resolves
+  // Appraisal (migration 0146) — IN-APP ONLY by design (no email templates —
+  // lib/email/resend.ts returns null for kinds it doesn't know, so these are
+  // inbox/push-only without touching the email layer).
+  "appraisal_cycle_opened",     // → every employee with published items
+  "appraisal_self_reminder",    // → employees with pending self scores
+  "appraisal_manager_pending",  // → manager when a downline self score lands
+  "appraisal_management_pending",// → management when a manager score lands
+  "appraisal_finalized",        // → the employee when final scores lock
 ] as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
@@ -3001,6 +3041,13 @@ export const dailyChecklist = pgTable(
     // task_id ⇒ pulled from an existing Task; neither ⇒ typed ad-hoc.
     goalId: uuid("goal_id").references(() => weeklyGoals.id, { onDelete: "set null" }),
     taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    // Cascade provenance (migration 0141, Goals canvas Phase 5): a Y/Q/M goal
+    // (`goals` table) pulled onto the day keeps its id here — weekly stays on
+    // goal_id. ⚠ POSSIBLY UNAPPLIED in prod until GOALS_CANVAS_ON ships: never
+    // reference this column in an unguarded query — use explicit column lists
+    // (no bare .select()/.returning() on this table) and wrap any read/write of
+    // it in try/catch behind the flag (see goals/plan/actions.ts).
+    cascadeGoalId: uuid("cascade_goal_id").references(() => goals.id, { onDelete: "set null" }),
     origin: text("origin").notNull().default("standalone"), // 'goal_related' | 'standalone'
     title: text("title").notNull(),
     client: text("client"),
@@ -3026,6 +3073,9 @@ export const dailyChecklist = pgTable(
     // One pull of a given goal per employee per day (NULL goal_id ⇒ many ad-hoc
     // rows allowed, since NULLs are distinct in a unique index).
     uniqueIndex("daily_checklist_emp_date_goal_idx").on(t.employeeId, t.planDate, t.goalId),
+    // Cascade mirror of the above (migration 0141).
+    index("daily_checklist_cascade_goal_idx").on(t.cascadeGoalId),
+    uniqueIndex("daily_checklist_emp_date_cascade_goal_uq").on(t.employeeId, t.planDate, t.cascadeGoalId),
   ],
 );
 
@@ -3163,6 +3213,14 @@ export const goals = pgTable(
     reviewNotes: text("review_notes"),
     evidenceUrl: text("evidence_url"),
     weight: integer("weight").notNull().default(100),
+    // Incentive + Monthly-Master link (migration 0147 — possibly UNAPPLIED).
+    // Additive/nullable so bare selects stay safe until the migration lands.
+    incentiveEnabled: boolean("incentive_enabled").notNull().default(false),
+    incentiveAmount: numeric("incentive_amount", { precision: 14, scale: 2 }),
+    // 'one_time' | 'repetitive' | 'milestone'
+    incentiveKind: text("incentive_kind"),
+    // {kind,id,label} snapshot of the picked Monthly Events Master item.
+    monthlyMasterRef: jsonb("monthly_master_ref").$type<{ kind: string; id: string; label: string }>(),
     // Reuses the app-wide Task status enum (same default as weekly_goals).
     status: taskStatusEnum("status").notNull().default("not_started"),
     // opt-in per period; false = crossed-out (cascade-drops descendants).
@@ -3228,6 +3286,147 @@ export const goalReviews = pgTable(
 );
 export type GoalReview = typeof goalReviews.$inferSelect;
 export type NewGoalReview = typeof goalReviews.$inferInsert;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Goals canvas Phase 7 — collaboration tables (migration 0142, design §4.4
+// items 1/2/4). ⚠ 0142 may be UNAPPLIED in prod: every read of these tables is
+// guarded (try/catch → empty fallback) behind GOALS_CANVAS_ON in
+// app/(app)/goals/cascade/detail-actions.ts. Do not add unguarded readers.
+// All three use the goal_reviews dual-FK pattern: goal_id (cascade Y/Q/M row)
+// XOR weekly_goal_id (weekly leaf) — enforced by a DB check constraint.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Polymorphic linked entities (task/project/kpi/incentive/calendar/department).
+ *  `label` is a display snapshot taken at link time so the lazy detail bundle
+ *  never joins six ref tables; `refTable`+`refId` keep the real pointer. */
+export const goalLinks = pgTable(
+  "goal_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    goalId: uuid("goal_id").references(() => goals.id, { onDelete: "cascade" }),
+    weeklyGoalId: uuid("weekly_goal_id").references(() => weeklyGoals.id, {
+      onDelete: "cascade",
+    }),
+    kind: text("kind")
+      .$type<"task" | "project" | "kpi" | "incentive" | "calendar" | "department">()
+      .notNull(),
+    refTable: text("ref_table"),
+    refId: uuid("ref_id"),
+    label: text("label").notNull().default(""),
+    meta: jsonb("meta").$type<{ url?: string }>().notNull().default({}),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("goal_links_goal_idx").on(t.goalId),
+    index("goal_links_weekly_idx").on(t.weeklyGoalId),
+  ],
+);
+export type GoalLinkRow = typeof goalLinks.$inferSelect;
+
+/** Threaded comments (one reply level via parentId). Edit trail = editedAt;
+ *  the 15-min author edit window / admin override lives in the action layer
+ *  (mirrors the task 'commented' event semantics). */
+export const goalComments = pgTable(
+  "goal_comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    goalId: uuid("goal_id").references(() => goals.id, { onDelete: "cascade" }),
+    weeklyGoalId: uuid("weekly_goal_id").references(() => weeklyGoals.id, {
+      onDelete: "cascade",
+    }),
+    parentId: uuid("parent_id").references((): AnyPgColumn => goalComments.id, {
+      onDelete: "cascade",
+    }),
+    authorId: uuid("author_id").references(() => employees.id, { onDelete: "set null" }),
+    body: text("body").notNull(),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("goal_comments_goal_idx").on(t.goalId, t.createdAt),
+    index("goal_comments_weekly_idx").on(t.weeklyGoalId, t.createdAt),
+  ],
+);
+export type GoalCommentRow = typeof goalComments.$inferSelect;
+
+/** Goal↔goal dependency edges + first-class blockers. Source = goalId XOR
+ *  weeklyGoalId; target = onGoalId/onWeeklyGoalId, or NULL for an external
+ *  blocker carried as free text in `label` (which always holds the display
+ *  snapshot). kind 'blocked_by' feeds health; resolvedAt closes the edge. */
+export const goalDependencies = pgTable(
+  "goal_dependencies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    goalId: uuid("goal_id").references(() => goals.id, { onDelete: "cascade" }),
+    weeklyGoalId: uuid("weekly_goal_id").references(() => weeklyGoals.id, {
+      onDelete: "cascade",
+    }),
+    onGoalId: uuid("on_goal_id").references((): AnyPgColumn => goals.id, {
+      onDelete: "cascade",
+    }),
+    onWeeklyGoalId: uuid("on_weekly_goal_id").references(
+      (): AnyPgColumn => weeklyGoals.id,
+      { onDelete: "cascade" },
+    ),
+    kind: text("kind").$type<"depends_on" | "blocked_by">().notNull().default("depends_on"),
+    label: text("label").notNull().default(""),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("goal_dependencies_goal_idx").on(t.goalId),
+    index("goal_dependencies_weekly_idx").on(t.weeklyGoalId),
+    index("goal_dependencies_on_goal_idx").on(t.onGoalId),
+  ],
+);
+export type GoalDependencyRow = typeof goalDependencies.$inferSelect;
+
+/** Goals canvas Phase 8 — cached AI insights (migration 0143, design §4.4
+ *  item 7). ⚠ 0143 may be UNAPPLIED in prod: every read/write is guarded
+ *  (try/catch → empty fallback) behind GOALS_CANVAS_ON — do not add unguarded
+ *  readers. ONE row per node (unique goal_id / weekly_goal_id; dual-FK XOR,
+ *  the goal_reviews pattern — v1 generation writes cascade rows only).
+ *  Generated ASYNC + OFF the read path by lib/goals/insights.ts via the
+ *  afterResponse fire-and-forget pattern; reads only ever hit this cache.
+ *  `workload` rebalance amounts reuse suggestDistribution (lib/goals/derive) —
+ *  deterministic math, never model-invented numbers. */
+export const goalAiInsights = pgTable(
+  "goal_ai_insights",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    goalId: uuid("goal_id").references(() => goals.id, { onDelete: "cascade" }),
+    weeklyGoalId: uuid("weekly_goal_id").references(() => weeklyGoals.id, {
+      onDelete: "cascade",
+    }),
+    /** One-line health narrative for the LEFT panel (§2.2). */
+    narrative: text("narrative").notNull().default(""),
+    /** Execution suggestions for the child planners. */
+    suggestions: jsonb("suggestions").$type<string[]>().notNull().default([]),
+    /** Deterministic workload-balancing flags (kind + message). */
+    workload: jsonb("workload")
+      .$type<Array<{ kind: string; message: string }>>()
+      .notNull()
+      .default([]),
+    /** 'ai' (Gemini, the repo's existing client) or 'heuristic' fallback. */
+    source: text("source").$type<"ai" | "heuristic">().notNull().default("heuristic"),
+    model: text("model"),
+    /** sha1 of the deterministic facts — unchanged + fresh ⇒ skip regen. */
+    inputHash: text("input_hash").notNull().default(""),
+    generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("goal_ai_insights_goal_uq").on(t.goalId),
+    uniqueIndex("goal_ai_insights_weekly_uq").on(t.weeklyGoalId),
+  ],
+);
+export type GoalAiInsightRow = typeof goalAiInsights.$inferSelect;
 
 // WhatsApp media log (migration 0131) — dedupe + audit for the goals-report
 // document/image sends (Meta Cloud media API). Unique (context, ref_key) prevents
@@ -4802,3 +5001,368 @@ export const obligationCompletions = pgTable(
   ],
 );
 export type ObligationCompletionRow = typeof obligationCompletions.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HR Support / Ticketing (migration 0145 — WRITTEN, NOT APPLIED). Behind
+// HR_SUPPORT_OFF (lib/hr/flag.ts). ONE table, TWO doors: /support (full form)
+// and /queries "Ask HR" both create hr_tickets rows — the door is recorded in
+// `source`. Audit trail = event_log (aggregate "hr_ticket"), NOT a bespoke
+// table. Enums live in db/enums.ts (text columns, house norm).
+//
+// CONFIDENTIALITY (the grievance wall): a `confidential` ticket's read set is
+// requester + CURRENT assignee + super-admins ONLY — enforced by the single
+// visibleTicketsFilter predicate in the HR module (NOT is_admin, NEVER the
+// manager downline). Notification copy for confidential tickets is generic.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The ticket head. `ticket_no` is a friendly serial (#2000+ via the
+ *  hr_ticket_no_seq sequence — see migration 0145). SLA due-dates are STAMPED
+ *  at create/priority-change time from HR_TICKET_SLA; one breach cron compares
+ *  stamps vs now(). */
+export const hrTickets = pgTable(
+  "hr_tickets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Friendly serial (#2000+). DB default nextval('hr_ticket_no_seq'). */
+    ticketNo: integer("ticket_no")
+      .notNull()
+      .default(sql`nextval('hr_ticket_no_seq')`),
+    /** The requester. */
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    category: text("category").notNull().$type<HrTicketCategory>(),
+    subject: text("subject").notNull(),
+    status: text("status").notNull().default("new").$type<HrTicketStatus>(),
+    priority: text("priority").notNull().default("normal").$type<HrTicketPriority>(),
+    /** Current owner (auto-routed from hr_ticket_routes at create). */
+    assigneeId: uuid("assignee_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    /** Grievance wall — see the module's visibleTicketsFilter choke point. */
+    confidential: boolean("confidential").notNull().default(false),
+    /** Which door: 'support' (full form) | 'query' (Ask HR). */
+    source: text("source").notNull().default("support").$type<HrTicketSource>(),
+    // ── SLA stamps (computed once per create/priority change, IST Mon–Sat) ──
+    firstResponseDueAt: timestamp("first_response_due_at", { withTimezone: true }),
+    resolutionDueAt: timestamp("resolution_due_at", { withTimezone: true }),
+    firstRespondedAt: timestamp("first_responded_at", { withTimezone: true }),
+    /** Stamped by the breach cron so each breach notifies exactly once. */
+    slaBreachedAt: timestamp("sla_breached_at", { withTimezone: true }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    reopenedCount: integer("reopened_count").notNull().default(0),
+    // ── CSAT (phase 4) — requester-only, after resolve ──
+    csatScore: smallint("csat_score"), // 1..5
+    csatComment: text("csat_comment"),
+    archived: boolean("archived").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("hr_tickets_ticket_no_uq").on(t.ticketNo),
+    index("hr_tickets_employee_idx").on(t.employeeId, t.status),
+    index("hr_tickets_assignee_idx").on(t.assigneeId, t.status),
+    index("hr_tickets_status_idx").on(t.status, t.priority),
+    index("hr_tickets_category_idx").on(t.category),
+  ],
+);
+export type HrTicket = typeof hrTickets.$inferSelect;
+export type NewHrTicket = typeof hrTickets.$inferInsert;
+
+/** Thread messages. `internal = true` is an HR-only note — NEVER shown to the
+ *  requester and NEVER triggers a requester notification (the Reply/Note fork
+ *  exists from day 1). */
+export const hrTicketMessages = pgTable(
+  "hr_ticket_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ticketId: uuid("ticket_id")
+      .notNull()
+      .references(() => hrTickets.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    internal: boolean("internal").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("hr_ticket_messages_ticket_idx").on(t.ticketId, t.createdAt)],
+);
+export type HrTicketMessage = typeof hrTicketMessages.$inferSelect;
+
+/** Attachments (Supabase `documents` bucket — dossier upload pattern).
+ *  `message_id` NULL = attached to the ticket itself (the raise form). */
+export const hrTicketAttachments = pgTable(
+  "hr_ticket_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ticketId: uuid("ticket_id")
+      .notNull()
+      .references(() => hrTickets.id, { onDelete: "cascade" }),
+    messageId: uuid("message_id").references(() => hrTicketMessages.id, {
+      onDelete: "set null",
+    }),
+    uploadedById: uuid("uploaded_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    storagePath: text("storage_path").notNull(),
+    fileName: text("file_name").notNull(),
+    mimeType: text("mime_type"),
+    sizeBytes: bigint("size_bytes", { mode: "number" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("hr_ticket_attachments_ticket_idx").on(t.ticketId)],
+);
+export type HrTicketAttachment = typeof hrTicketAttachments.$inferSelect;
+
+/** category → owner routing (9 rows seeded in migration 0145 with NULL owner —
+ *  admin assigns real owners in the UI; NULL falls back to super-admins so no
+ *  ticket is ever born unowned). */
+export const hrTicketRoutes = pgTable(
+  "hr_ticket_routes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    category: text("category").notNull().unique().$type<HrTicketCategory>(),
+    ownerId: uuid("owner_id").references(() => employees.id, { onDelete: "set null" }),
+    isActive: boolean("is_active").notNull().default(true),
+    updatedById: uuid("updated_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+);
+export type HrTicketRoute = typeof hrTicketRoutes.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Appraisal (migration 0146 — WRITTEN, NOT APPLIED). Behind APPRAISAL_OFF
+// (lib/pms/appraisal-flag.ts) — when off, /appraisal redirects to /pms and the
+// old Performance/360/Signals pages stand untouched. Consolidates /pms +
+// /pms/review + /pms/signals into ONE multi-dimension scoring engine.
+//
+// Scoring law (every hand-scored item): Self (+justification, optional
+// attachment) → Manager (+MANDATORY explanation) → Management (+explanation)
+// → Final. Weight order is ALWAYS dimension weight → sub-weight; relative max
+// score = sub_weight% × dimension weight (e.g. 20% of 30% = 6%).
+// Culture reuses the pms_constitution_para pool (lib/pms/v3/schema.ts) via
+// appraisal_culture_assignments (paraId is FK'd in SQL only — the drizzle def
+// lives in a different file, so no .references() here). Notifications are
+// IN-APP ONLY (no email templates). Enums live in db/enums.ts.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** One appraisal cycle per period ('YYYY-MM' — monthly, matching the 3-items-
+ *  per-month Culture cadence). */
+export const appraisalCycles = pgTable(
+  "appraisal_cycles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** 'YYYY-MM'. */
+    period: text("period").notNull(),
+    label: text("label"),
+    status: text("status").notNull().default("draft").$type<AppraisalCycleStatus>(),
+    opensOn: date("opens_on"),
+    closesOn: date("closes_on"),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("appraisal_cycles_period_uq").on(t.period)],
+);
+export type AppraisalCycle = typeof appraisalCycles.$inferSelect;
+
+/** Singleton config row (id 'default') — dimension weights (Record<dimension,
+ *  number>, sums to 100; seeded from DEFAULT_APPRAISAL_DIMENSION_WEIGHTS) +
+ *  rating-term bands ("recognition" labels, [{min,label}] desc) + the auto-
+ *  dimension knobs. ADMIN-EDITABLE; the score engine reads ONLY this. */
+export const appraisalConfig = pgTable("appraisal_config", {
+  id: text("id").primaryKey().default("default"),
+  /** dimension → weight %. Non-managers drop the manager-only dimensions and
+   *  the engine renormalises the rest. */
+  dimensionWeights: jsonb("dimension_weights")
+    .notNull()
+    .default({})
+    .$type<Partial<Record<AppraisalDimension, number>>>(),
+  /** Rating-term bands, highest min first: [{min: 90, label: "Outstanding"}…]. */
+  ratingTerms: jsonb("rating_terms")
+    .notNull()
+    .default([])
+    .$type<Array<{ min: number; label: string }>>(),
+  /** Default incentive target % of base salary (per-employee override lives on
+   *  the incentive item's meta). score% = min(100, (earned/base)/target). */
+  incentiveTargetPct: numeric("incentive_target_pct", { precision: 6, scale: 2 })
+    .notNull()
+    .default("20"),
+  /** Knowledge-sharing rule from Training: attend `do` sessions, deliver `give`. */
+  knowledgeSharingRule: jsonb("knowledge_sharing_rule")
+    .notNull()
+    .default({ do: 6, give: 4 })
+    .$type<{ do: number; give: number }>(),
+  /** How many Constitution items are auto-assigned per month (serial-wise). */
+  culturePerMonth: integer("culture_per_month").notNull().default(3),
+  updatedById: uuid("updated_by_id").references(() => employees.id, {
+    onDelete: "set null",
+  }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type AppraisalConfigRow = typeof appraisalConfig.$inferSelect;
+
+/** One scorable line per (cycle, employee, dimension) — a KPI row, one of the
+ *  ≤3 skills, one of the ≤3 attitude items, the single incentive line, the
+ *  month's Culture trio (rated as ONE item; the 3 para ids live in meta), the
+ *  knowledge-sharing line, or a manager-only Y/N one-liner. */
+export const appraisalItems = pgTable(
+  "appraisal_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    cycleId: uuid("cycle_id")
+      .notNull()
+      .references(() => appraisalCycles.id, { onDelete: "cascade" }),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    dimension: text("dimension").notNull().$type<AppraisalDimension>(),
+    /** Sr — display order within the dimension. */
+    sortOrder: integer("sort_order").notNull().default(100),
+    /** Area column (KPI/Skill/Attitude tables). */
+    area: text("area"),
+    /** The KPI / skill / attitude / question text ("title" column). */
+    title: text("title").notNull(),
+    /** How it's measured (e.g. "Send to DCC" → "Seats"). */
+    measure: text("measure"),
+    /** Sub-weight % WITHIN the dimension — the N items' sub-weights sum to 100.
+     *  Relative max score = subWeight% × dimension weight. */
+    subWeight: numeric("sub_weight", { precision: 6, scale: 2 }).notNull().default("0"),
+    /** Skill dimension only: technical vs non-technical. NULL elsewhere. */
+    isTechnical: boolean("is_technical"),
+    /** True for the manager-only subjective one-liners (problem_solving /
+     *  growth_mindset / ability) — hidden for non-managers. */
+    isManagerOnly: boolean("is_manager_only").notNull().default(false),
+    /** True for computed dimensions (incentive / knowledge_sharing) — no
+     *  self/manager/management scoring; the engine writes the score row. */
+    isAuto: boolean("is_auto").notNull().default(false),
+    status: text("status").notNull().default("draft").$type<AppraisalItemStatus>(),
+    // ── KPI-dimension columns (admin fills + approves before publish) ──
+    /** Actual achieved value (free text/number as entered). */
+    actualValue: text("actual_value"),
+    evidence: text("evidence"),
+    adminApproved: boolean("admin_approved"),
+    /** Mandatory when adminApproved === false. */
+    adminRemarks: text("admin_remarks"),
+    /** Dimension-specific extras: culture → {paraIds: string[], serials:
+     *  number[]}; incentive → {targetPct, baseSalary, earned} overrides;
+     *  knowledge_sharing → {done, given}. */
+    meta: jsonb("meta").notNull().default({}).$type<Record<string, unknown>>(),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("appraisal_items_cycle_emp_idx").on(t.cycleId, t.employeeId),
+    index("appraisal_items_emp_dim_idx").on(t.employeeId, t.dimension),
+    index("appraisal_items_status_idx").on(t.status),
+  ],
+);
+export type AppraisalItem = typeof appraisalItems.$inferSelect;
+export type NewAppraisalItem = typeof appraisalItems.$inferInsert;
+
+/** ONE score row per item, carrying all three stages + the computed final.
+ *  Scores are 0..10 (house pms convention); the engine converts to % of the
+ *  item's relative max. Manager explanation is MANDATORY (enforced in the
+ *  action, not the DB). */
+export const appraisalScores = pgTable(
+  "appraisal_scores",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => appraisalItems.id, { onDelete: "cascade" }),
+    // ── Self ──
+    selfScore: numeric("self_score", { precision: 6, scale: 2 }),
+    selfJustification: text("self_justification"),
+    selfSubmittedAt: timestamp("self_submitted_at", { withTimezone: true }),
+    // ── Manager ──
+    managerId: uuid("manager_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    managerScore: numeric("manager_score", { precision: 6, scale: 2 }),
+    managerExplanation: text("manager_explanation"),
+    managerSubmittedAt: timestamp("manager_submitted_at", { withTimezone: true }),
+    // ── Management (the owner / "sir") ──
+    managementId: uuid("management_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    managementScore: numeric("management_score", { precision: 6, scale: 2 }),
+    managementExplanation: text("management_explanation"),
+    managementSubmittedAt: timestamp("management_submitted_at", { withTimezone: true }),
+    // ── Final ──
+    /** Relative max = subWeight% × dimension weight, denormalised at publish. */
+    maxScore: numeric("max_score", { precision: 6, scale: 2 }),
+    finalScore: numeric("final_score", { precision: 6, scale: 2 }),
+    finalizedById: uuid("finalized_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    finalizedAt: timestamp("finalized_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("appraisal_scores_item_uq").on(t.itemId)],
+);
+export type AppraisalScore = typeof appraisalScores.$inferSelect;
+
+/** Evidence attachments per item + stage (Supabase `documents` bucket, dossier
+ *  upload pattern). Optional everywhere by design. */
+export const appraisalAttachments = pgTable(
+  "appraisal_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => appraisalItems.id, { onDelete: "cascade" }),
+    /** Which stage attached it: 'self' | 'manager' | 'management'. */
+    stage: text("stage").notNull().default("self").$type<AppraisalScoreStage>(),
+    uploadedById: uuid("uploaded_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    storagePath: text("storage_path").notNull(),
+    fileName: text("file_name").notNull(),
+    mimeType: text("mime_type"),
+    sizeBytes: bigint("size_bytes", { mode: "number" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("appraisal_attachments_item_idx").on(t.itemId)],
+);
+export type AppraisalAttachment = typeof appraisalAttachments.$inferSelect;
+
+/** Culture rotation — which Constitution paragraphs are assigned to which
+ *  month, SERIAL-WISE (in pool order, not random). `paraId` points at
+ *  pms_constitution_para (FK in SQL migration 0146 only — that table's drizzle
+ *  def lives in lib/pms/v3/schema.ts and can't be referenced here without a
+ *  circular import). `serial` = 1..culturePerMonth slot within the month;
+ *  the admin menu-card manages the pool/order via pms_constitution_para. */
+export const appraisalCultureAssignments = pgTable(
+  "appraisal_culture_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** 'YYYY-MM'. */
+    period: text("period").notNull(),
+    /** FK → pms_constitution_para(id) (SQL-level, migration 0146). */
+    paraId: uuid("para_id").notNull(),
+    /** Slot 1..N within the month (serial order). */
+    serial: integer("serial").notNull(),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("appraisal_culture_period_para_uq").on(t.period, t.paraId),
+    uniqueIndex("appraisal_culture_period_serial_uq").on(t.period, t.serial),
+    index("appraisal_culture_period_idx").on(t.period),
+  ],
+);
+export type AppraisalCultureAssignment = typeof appraisalCultureAssignments.$inferSelect;

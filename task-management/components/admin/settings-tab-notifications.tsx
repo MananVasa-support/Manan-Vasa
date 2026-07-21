@@ -41,6 +41,19 @@ const KIND_LABEL: Record<NotificationKind, string> = {
   goals_committed:         "Goals — week committed",
   goals_approved:          "Goals — week approved",
   hr_confirmation_due:     "HR — issue confirmation letter",
+  // HR Support / Ticketing (mig 0145).
+  hr_ticket_created:        "HR ticket — raised",
+  hr_ticket_assigned:       "HR ticket — assigned to you",
+  hr_ticket_replied:        "HR ticket — new reply",
+  hr_ticket_status_changed: "HR ticket — status updated",
+  hr_ticket_sla_breach:     "HR ticket — SLA breached",
+  hr_ticket_csat_request:   "HR ticket — rate your experience",
+  // Appraisal (mig 0146) — in-app only by design.
+  appraisal_cycle_opened:       "Appraisal — cycle opened",
+  appraisal_self_reminder:      "Appraisal — self-score reminder",
+  appraisal_manager_pending:    "Appraisal — manager review pending",
+  appraisal_management_pending: "Appraisal — management review pending",
+  appraisal_finalized:          "Appraisal — finalized",
 };
 
 const CHANNEL_LABEL: Record<NotificationChannel, string> = {

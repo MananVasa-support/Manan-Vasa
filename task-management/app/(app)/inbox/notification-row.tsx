@@ -69,6 +69,19 @@ const KIND_META: Record<NotificationKind, { icon: LucideIcon; tone: string }> = 
   goals_committed: { icon: CheckCircle2, tone: "green" },
   goals_approved: { icon: CheckCircle2, tone: "green" },
   hr_confirmation_due: { icon: CheckCircle2, tone: "amber" },
+  // HR Support / Ticketing (mig 0145).
+  hr_ticket_created: { icon: MessageSquare, tone: "blue" },
+  hr_ticket_assigned: { icon: UserPlus, tone: "blue" },
+  hr_ticket_replied: { icon: MessageSquare, tone: "blue" },
+  hr_ticket_status_changed: { icon: RefreshCw, tone: "amber" },
+  hr_ticket_sla_breach: { icon: AlarmClock, tone: "red" },
+  hr_ticket_csat_request: { icon: Sparkles, tone: "amber" },
+  // Appraisal (mig 0146) — in-app only.
+  appraisal_cycle_opened: { icon: Target, tone: "blue" },
+  appraisal_self_reminder: { icon: AlarmClock, tone: "amber" },
+  appraisal_manager_pending: { icon: Users, tone: "amber" },
+  appraisal_management_pending: { icon: Users, tone: "amber" },
+  appraisal_finalized: { icon: CheckCircle2, tone: "green" },
 };
 
 // Kinds that deep-link somewhere other than the related task / inbox.
@@ -83,6 +96,17 @@ const KIND_HREF: Partial<Record<string, string>> = {
   goals_committed: "/goals/weekly",
   goals_approved: "/goals/weekly",
   hr_confirmation_due: "/agreements",
+  hr_ticket_created: "/support",
+  hr_ticket_assigned: "/support",
+  hr_ticket_replied: "/support",
+  hr_ticket_status_changed: "/support",
+  hr_ticket_sla_breach: "/support",
+  hr_ticket_csat_request: "/support",
+  appraisal_cycle_opened: "/appraisal",
+  appraisal_self_reminder: "/appraisal",
+  appraisal_manager_pending: "/appraisal",
+  appraisal_management_pending: "/appraisal",
+  appraisal_finalized: "/appraisal",
 };
 
 /**

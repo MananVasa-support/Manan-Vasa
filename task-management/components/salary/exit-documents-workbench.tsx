@@ -258,7 +258,7 @@ export function ExitDocumentsWorkbench({
           <button
             type="button"
             onClick={() => window.print()}
-            className="brand-btn inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card px-4 py-2.5 text-[14px] font-medium text-ink-strong hover:border-hairline-strong"
+            className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card px-4 py-2.5 text-[14px] font-medium text-ink-strong hover:border-hairline-strong"
           >
             <Printer size={15} strokeWidth={2.2} />
             Print preview

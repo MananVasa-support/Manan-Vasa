@@ -13,8 +13,8 @@ export function sourceDragId(item: SourceItem): string {
 }
 
 // Goals module identity (amber-gold) — mirrors MODULE_THEME.goals.
-const GOALS_ACCENT = "#b45309";
-const GOALS_ACCENT_DEEP = "#7c2d12";
+const GOALS_ACCENT = "#E10600";
+const GOALS_ACCENT_DEEP = "#A80400";
 
 // Kind accent bars map to real brand status tokens (weekly carries the goals amber).
 const KIND_ACCENT: Record<SourceItem["kind"], string> = {
@@ -54,7 +54,7 @@ export function SourceCard({ item, onAdd, onAbandon }: Props) {
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: item.added ? 0.55 : 1, y: 0 }}
       style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : undefined }}
-      className="group flex items-center gap-2 rounded-chip border border-hairline bg-surface-card px-3 py-2.5 shadow-[0_1px_0_rgba(15,23,42,0.03)] transition-[border-color,box-shadow] hover:border-hairline-strong hover:shadow-[0_6px_18px_rgba(124,45,18,0.08)]"
+      className="group flex items-center gap-1.5 rounded-xl border border-hairline bg-surface-card px-2.5 py-2 shadow-[0_1px_0_rgba(15,23,42,0.03)] transition-[border-color,box-shadow] hover:border-hairline-strong hover:shadow-[0_6px_18px_rgba(124,45,18,0.08)]"
     >
       <button
         type="button"
@@ -65,17 +65,17 @@ export function SourceCard({ item, onAdd, onAbandon }: Props) {
         {...attributes}
         {...listeners}
       >
-        <GripVertical size={15} />
+        <GripVertical size={14} />
       </button>
       <span
         aria-hidden
-        className="h-7 w-[3px] shrink-0 rounded-full"
+        className="h-6 w-[3px] shrink-0 rounded-full"
         style={{ background: accent }}
       />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium text-ink-strong">{item.title}</div>
+        <div className="truncate text-[13px] font-semibold text-ink-strong">{item.title}</div>
         {item.subtitle ? (
-          <div className="truncate text-xs text-ink-muted">{item.subtitle}</div>
+          <div className="truncate text-[11px] text-ink-muted">{item.subtitle}</div>
         ) : null}
         {item.dueLabel || item.important ? (
           <div className="mt-1 flex items-center gap-1.5">
@@ -119,10 +119,10 @@ export function SourceCard({ item, onAdd, onAbandon }: Props) {
           onClick={() => onAbandon(item)}
           aria-label={`Abandon ${item.title} (moves to Recycle Bin)`}
           title="Abandon — moves to Recycle Bin"
-          className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-ink-muted/60 transition-colors hover:bg-surface-soft hover:text-[color:var(--color-altus-red)] focus-visible:outline-2"
+          className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-full text-ink-muted/60 transition-colors hover:bg-surface-soft hover:text-[color:var(--color-altus-red)] focus-visible:outline-2"
           style={{ outlineColor: GOALS_ACCENT }}
         >
-          <Trash2 size={14} />
+          <Trash2 size={13} />
         </button>
       ) : null}
       <button
@@ -130,7 +130,7 @@ export function SourceCard({ item, onAdd, onAbandon }: Props) {
         onClick={() => onAdd(item)}
         disabled={item.added}
         aria-label={item.added ? "Added to today" : `Add ${item.title} to today`}
-        className="wg-btn shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full border transition-colors disabled:opacity-100 focus-visible:outline-2"
+        className="wg-btn shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-full border transition-colors disabled:opacity-100 focus-visible:outline-2"
         style={
           item.added
             ? {

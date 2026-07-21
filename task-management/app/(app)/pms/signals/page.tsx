@@ -22,8 +22,8 @@ import { MODULE_THEME } from "@/lib/module-theme";
 
 export const dynamic = "force-dynamic";
 
-const ACCENT = MODULE_THEME.employees.accent; // green
-const ACCENT_DEEP = MODULE_THEME.employees.accentDeep;
+const ACCENT = "#E10600"; // Altus red — in-module chrome is brand red
+const ACCENT_DEEP = "#A80400";
 
 const CARD_SHADOW =
   "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -20px rgba(15,23,42,0.35)";
@@ -168,7 +168,7 @@ export default async function PmsSignalsPage() {
           />
           <KpiCard
             icon={<Target size={17} strokeWidth={2.4} />}
-            accent={attainment == null ? "#334155" : attainment >= 100 ? ACCENT : attainment >= 70 ? "#d97706" : "#dc2626"}
+            accent={attainment == null ? "#334155" : attainment >= 100 ? "#16a34a" : attainment >= 70 ? "#d97706" : "#dc2626"}
             label="Attainment"
             value={attainment != null ? `${Math.round(attainment)}%` : "—"}
             caption="approved-earned vs target, YTD"
@@ -383,7 +383,7 @@ export default async function PmsSignalsPage() {
                 <tbody>
                   {tva.rows.map((row) => {
                     const pct = row.attainmentPct;
-                    const barColor = pct == null ? "var(--color-hairline-strong)" : pct >= 100 ? ACCENT : pct >= 70 ? "#d97706" : "#dc2626";
+                    const barColor = pct == null ? "var(--color-hairline-strong)" : pct >= 100 ? "#16a34a" : pct >= 70 ? "#d97706" : "#dc2626";
                     return (
                       <tr
                         key={row.empName}

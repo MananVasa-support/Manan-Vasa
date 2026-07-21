@@ -84,7 +84,7 @@ export function DuplicateFinder({
       <button
         type="button"
         onClick={() => router.push("/tasks" as Route)}
-        className="brand-btn inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink-subtle hover:text-ink-strong transition-colors mb-5"
+        className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink-subtle hover:text-ink-strong transition-colors mb-5"
       >
         <ArrowLeft size={15} strokeWidth={2.4} />
         Back to Tasks
@@ -135,14 +135,14 @@ export function DuplicateFinder({
             <button
               type="button"
               onClick={() => setSelected(new Set(extras))}
-              className="brand-btn text-[13.5px] font-bold text-altus-red hover:underline"
+              className="text-[13.5px] font-bold text-altus-red hover:underline"
             >
               Select all extras
             </button>
             <button
               type="button"
               onClick={() => setSelected(new Set())}
-              className="brand-btn text-[13.5px] font-bold text-ink-subtle hover:text-ink-strong hover:underline"
+              className="text-[13.5px] font-bold text-ink-subtle hover:text-ink-strong hover:underline"
             >
               Clear selection
             </button>

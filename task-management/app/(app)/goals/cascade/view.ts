@@ -16,6 +16,10 @@ export interface ResolvedView {
   canWrite: boolean;
   /** admin / manager over the viewed person (can review-accept). */
   canReview: boolean;
+  /** Phase 2 (Option A policy) — the viewer MANAGES the viewed person (they sit
+   *  in the viewer's scope and are not the viewer). Feeds `goalPolicy`'s
+   *  isManagerOfOwner; admins get their structure rights via isAdmin instead. */
+  managesViewed: boolean;
 }
 
 /**
@@ -50,8 +54,10 @@ export async function resolveGoalsView(
   const viewedName = roster.find((r) => r.id === viewedEmployeeId)?.name ?? me.name;
   const canWrite = scope.all || viewedEmployeeId === me.id || scope.ids.includes(viewedEmployeeId);
   const canReview = isAdmin || (viewedEmployeeId !== me.id && (scope.all || scope.ids.includes(viewedEmployeeId)));
+  const managesViewed =
+    viewedEmployeeId !== me.id && (scope.all || scope.ids.includes(viewedEmployeeId));
 
-  return { roster, viewedEmployeeId, viewedName, canWrite, canReview };
+  return { roster, viewedEmployeeId, viewedName, canWrite, canReview, managesViewed };
 }
 
 /**

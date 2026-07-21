@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { withRetry } from "@/lib/db/with-timeout";
 import {
   calendarEvents,
+  eventBatchSchedules,
+  eventBatchTypes,
   eventCategories,
   eventHolidays,
   obligations,
@@ -14,6 +16,15 @@ import type {
   Holiday,
   Obligation,
 } from "@/lib/monthly-events/types";
+
+/** One pickable item for the Goals drawer's "Monthly Master" combobox — either a
+ *  recurring obligation or a scheduled batch/event from the Monthly Events Master
+ *  module. `label` is the display snapshot the goal persists (via monthlyMasterRef). */
+export type MonthlyMasterPickable = {
+  kind: "obligation" | "batch";
+  id: string;
+  label: string;
+};
 
 /**
  * Shared reads for the Monthly Events Master module. Used across slices
@@ -70,4 +81,47 @@ export async function listObligations(): Promise<Obligation[]> {
     .from(obligations)
     .where(eq(obligations.isActive, true))
     .orderBy(asc(obligations.name));
+}
+
+/**
+ * Flat, pickable list for the Goals drawer's "Monthly Master" combobox: active
+ * obligations + active scheduled batches (joined to their batch-type for a
+ * readable name). Each item is `{ kind, id, label }` — the goal stores that
+ * snapshot so the board never re-joins these tables to render the chip.
+ */
+export async function listMonthlyMasterPickables(): Promise<MonthlyMasterPickable[]> {
+  const [obl, batches] = await Promise.all([
+    db
+      .select({
+        id: obligations.id,
+        name: obligations.name,
+        counterparty: obligations.counterparty,
+      })
+      .from(obligations)
+      .where(eq(obligations.isActive, true))
+      .orderBy(asc(obligations.name)),
+    db
+      .select({
+        id: eventBatchSchedules.id,
+        name: eventBatchSchedules.name,
+        startDate: eventBatchSchedules.startDate,
+        typeName: eventBatchTypes.name,
+      })
+      .from(eventBatchSchedules)
+      .innerJoin(eventBatchTypes, eq(eventBatchSchedules.batchTypeId, eventBatchTypes.id))
+      .where(eq(eventBatchSchedules.isActive, true))
+      .orderBy(asc(eventBatchSchedules.startDate)),
+  ]);
+
+  const oblItems: MonthlyMasterPickable[] = obl.map((o) => ({
+    kind: "obligation",
+    id: o.id,
+    label: o.counterparty ? `${o.name} · ${o.counterparty}` : o.name,
+  }));
+  const batchItems: MonthlyMasterPickable[] = batches.map((b) => ({
+    kind: "batch",
+    id: b.id,
+    label: `${b.name?.trim() || b.typeName}${b.startDate ? ` · ${b.startDate}` : ""}`,
+  }));
+  return [...oblItems, ...batchItems];
 }

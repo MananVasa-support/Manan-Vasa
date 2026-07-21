@@ -15,7 +15,7 @@ import { MODULE_THEME } from "@/lib/module-theme";
 export function SidebarBrand() {
   const pathname = usePathname();
   const ws = workspaceForPath(pathname ?? "/");
-  const theme = ws && ws !== "wms" ? MODULE_THEME[ws] : null;
+  const theme = ws ? MODULE_THEME[ws] : null;
   const ModuleIcon = theme?.Icon;
   const landing = ws ? WORKSPACE_LANDING[ws] : "/dashboard";
 
@@ -35,8 +35,8 @@ export function SidebarBrand() {
           <span
             className="module-wordmark-icon inline-grid place-items-center rounded-2xl text-white"
             style={{
-              background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentDeep})`,
-              boxShadow: `0 8px 20px -8px ${theme.accentDeep}`,
+              background: `linear-gradient(135deg, var(--color-altus-red, #E10600), var(--color-altus-red-deep, #A80400))`,
+              boxShadow: `0 8px 20px -8px var(--color-altus-red-deep, #A80400)`,
               width: 40,
               height: 40,
             }}
@@ -47,8 +47,8 @@ export function SidebarBrand() {
             className="module-wordmark-text leading-none"
             style={
               {
-                "--mw-a": theme.accent,
-                "--mw-b": theme.accentDeep,
+                "--mw-a": "var(--color-altus-red, #E10600)",
+                "--mw-b": "var(--color-altus-red-deep, #A80400)",
                 fontSize: "clamp(18px, 1.5vw, 22px)",
               } as React.CSSProperties
             }

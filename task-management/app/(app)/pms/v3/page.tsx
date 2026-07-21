@@ -16,8 +16,8 @@ import { TotalBadge } from "@/components/pms/v3/total-summary";
 
 export const dynamic = "force-dynamic";
 
-const ACCENT = MODULE_THEME.employees.accent;
-const ACCENT_DEEP = MODULE_THEME.employees.accentDeep;
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 const CARD_SHADOW =
   "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -20px rgba(15,23,42,0.35)";
 
@@ -100,7 +100,7 @@ export default async function PmsV3Page() {
           <div className="mt-4 flex flex-wrap gap-2.5">
             <Link
               href={"/pms/v3/constitution" as Route}
-              className="brand-btn wg-btn inline-flex items-center gap-2 rounded-pill border-2 bg-white/70 px-4 py-2.5 text-[14px] font-bold"
+              className="wg-btn inline-flex items-center gap-2 rounded-pill border-2 bg-white/70 px-4 py-2.5 text-[14px] font-bold"
               style={{ borderColor: `color-mix(in srgb, ${ACCENT} 40%, transparent)`, color: ACCENT_DEEP }}
             >
               <ScrollText size={16} strokeWidth={2.4} /> Constitution scoring

@@ -130,39 +130,22 @@ export default async function KanbanPage({ searchParams }: PageProps) {
                 "radial-gradient(circle, color-mix(in srgb, var(--color-altus-red) 8%, transparent), transparent 70%)",
             }}
           />
-          <header className="wg-rise relative mb-6 flex items-end justify-between gap-4 flex-wrap">
-            <div>
-              <p
-                className="uppercase font-black"
-                style={{
-                  fontFamily: "var(--font-display), system-ui, sans-serif",
-                  fontSize: 13,
-                  letterSpacing: "0.14em",
-                  color: "var(--color-altus-red-deep)",
-                }}
-              >
-                WMS · Board
-              </p>
-              <h1
-                className="mt-1.5 text-ink-strong"
-                style={{
-                  fontFamily: "var(--font-display), system-ui, sans-serif",
-                  fontWeight: 900,
-                  fontSize: "clamp(34px, 3.6vw, 46px)",
-                  letterSpacing: "-0.025em",
-                  lineHeight: 1,
-                }}
-              >
-                Kanban
-              </h1>
-              <p className="mt-2.5 text-ink-soft" style={{ fontSize: 15.5 }}>
-                Drag a task between columns to change its status.
-                {me.isAdmin ? " Drag a column header to reorder the board." : ""}
-              </p>
-            </div>
+          <header className="wg-rise relative mb-4 flex items-center justify-center">
+            <h1
+              className="text-ink-strong"
+              style={{
+                fontFamily: "var(--font-display), system-ui, sans-serif",
+                fontWeight: 900,
+                fontSize: "clamp(24px, 2.6vw, 32px)",
+                letterSpacing: "-0.025em",
+                lineHeight: 1,
+              }}
+            >
+              Kanban View
+            </h1>
             <Link
               href={"/tasks" as Route}
-              className="wg-btn inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-4 h-10 text-[14px] font-bold text-ink-soft hover:text-ink-strong hover:border-hairline-strong transition-colors"
+              className="wg-btn absolute right-0 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-4 h-9 text-[13.5px] font-bold text-ink-soft hover:text-ink-strong hover:border-hairline-strong transition-colors"
               style={{ boxShadow: "0 1px 2px rgba(15,23,42,0.04)" }}
             >
               List View →

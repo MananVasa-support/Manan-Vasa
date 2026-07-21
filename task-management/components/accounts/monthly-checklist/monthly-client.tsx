@@ -420,7 +420,7 @@ export function MonthlyChecklist({
           {responsibles.map((p) => (<option key={p} value={p}>{p}</option>))}
         </select>
         {hasFilters && (
-          <button type="button" onClick={clearFilters} className="brand-btn inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
+          <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
             <X size={15} strokeWidth={2.4} /> Clear
           </button>
         )}
@@ -497,7 +497,7 @@ export function MonthlyChecklist({
                     {hasFilters ? "No items match these filters." : "No items yet."}
                   </p>
                   {!hasFilters && (
-                    <button type="button" onClick={startAdd} className="brand-btn mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red">
+                    <button type="button" onClick={startAdd} className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red">
                       <Plus size={15} strokeWidth={2.6} /> Add the first item
                     </button>
                   )}
@@ -690,7 +690,7 @@ function EditorRow({
           </Field>
         </div>
         <div className="mt-4 flex items-center justify-end gap-2">
-          <button type="button" onClick={onCancel} disabled={busy} className="brand-btn inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-4 py-2 text-[14px] font-bold text-ink-muted hover:bg-surface-soft disabled:opacity-50">
+          <button type="button" onClick={onCancel} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-4 py-2 text-[14px] font-bold text-ink-muted hover:bg-surface-soft disabled:opacity-50">
             <X size={16} strokeWidth={2.4} /> Cancel
           </button>
           <button type="button" onClick={onSave} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[14px] font-bold text-white disabled:opacity-50" style={{ background: "var(--color-altus-red)" }}>

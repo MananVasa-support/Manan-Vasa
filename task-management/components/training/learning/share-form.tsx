@@ -7,8 +7,8 @@ import { fireToast } from "@/lib/toast";
 import { saveShare } from "@/app/(app)/training/share/actions";
 import type { ThisWeekShare } from "@/lib/queries/learning";
 
-const ACCENT = "#2563eb";
-const ACCENT_DEEP = "#1d4ed8";
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 const SHARE_MIN = 10;
 
 const FIELD =
@@ -55,7 +55,7 @@ export function ShareForm({
         style={
           existing
             ? { background: "color-mix(in srgb, #16a34a 10%, transparent)", border: "1px solid color-mix(in srgb, #16a34a 36%, transparent)" }
-            : { background: "color-mix(in srgb, #2563eb 8%, transparent)", border: "1px solid color-mix(in srgb, #2563eb 34%, transparent)" }
+            : { background: "color-mix(in srgb, #E10600 8%, transparent)", border: "1px solid color-mix(in srgb, #E10600 34%, transparent)" }
         }
       >
         {existing ? (
@@ -150,7 +150,7 @@ export function ShareForm({
           type="submit"
           disabled={submitting}
           className="brand-btn inline-flex items-center gap-2 rounded-xl py-3 px-7 text-[15px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-60"
-          style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: "0 12px 30px -12px rgba(37,99,235,0.6)" }}
+          style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}
         >
           {submitting ? <Loader2 size={17} className="animate-spin" /> : <Video size={17} strokeWidth={2.4} />}
           {existing ? "Update Share" : "Log this week's Share"}

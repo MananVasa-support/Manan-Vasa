@@ -19,7 +19,7 @@ const KIND_LABEL: Record<PlanKind, string> = {
 
 // Goals module identity (amber-gold) — mirrors MODULE_THEME.goals. Used for the
 // weekly kind-dot + focus rings so the planner reads as an amber room, not WMS red.
-const GOALS_ACCENT = "#b45309";
+const GOALS_ACCENT = "#E10600";
 
 // Kind-dots map to real brand status tokens (no undefined --color-emerald leak).
 const KIND_ACCENT: Record<PlanKind, string> = {

@@ -10,7 +10,7 @@ import { CATEGORY_PALETTE, HEX_RE, readableText } from "./palette";
 import { ModalShell } from "./modal-shell";
 import type { CategoryVM } from "./types";
 
-const ACCENT = "#0891b2";
+const ACCENT = "#E10600";
 
 /** Create (no `category`) or edit an existing category. */
 export function CategoryEditor({
@@ -143,7 +143,7 @@ export function CategoryEditor({
                 if (v && !v.startsWith("#")) v = `#${v}`;
                 setColor(v);
               }}
-              placeholder="#0891b2"
+              placeholder="#E10600"
               spellCheck={false}
               className="h-9 w-32 rounded-chip border border-hairline bg-surface-card px-3 font-mono text-[13px] text-ink-strong outline-none transition-all hover:border-hairline-strong focus:border-altus-red focus:ring-2 focus:ring-altus-red/25"
             />

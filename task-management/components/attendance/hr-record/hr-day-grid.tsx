@@ -39,7 +39,7 @@ export function HrDayGrid({ month, days }: { month: string; days: HrSheetDayCell
       <div className="mb-5 flex items-center gap-2.5">
         <span
           className="inline-grid size-9 place-items-center rounded-xl"
-          style={{ background: "color-mix(in srgb, #16a34a 10%, transparent)", color: "#15803d" }}
+          style={{ background: "color-mix(in srgb, #E10600 10%, transparent)", color: "#A80400" }}
         >
           <CalendarDays size={18} strokeWidth={2.3} />
         </span>
@@ -90,7 +90,7 @@ export function HrDayGrid({ month, days }: { month: string; days: HrSheetDayCell
               role="img"
               aria-label={title}
               title={title}
-              className="wg-rise group relative flex min-h-[62px] flex-col justify-between rounded-xl px-2 py-1.5 outline-none transition-transform duration-150 hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#16a34a]/60 focus-visible:ring-offset-1 max-md:min-h-[52px] max-md:px-1.5"
+              className="wg-rise group relative flex min-h-[62px] flex-col justify-between rounded-xl px-2 py-1.5 outline-none transition-transform duration-150 hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#E10600]/60 focus-visible:ring-offset-1 max-md:min-h-[52px] max-md:px-1.5"
               style={{
                 animationDelay: `${Math.min(i, 20) * 12}ms`,
                 background: s.faint

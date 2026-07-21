@@ -76,7 +76,7 @@ export default async function HrRecordPage({ searchParams }: PageProps) {
             <div className="flex flex-wrap items-center gap-2">
               <span
                 className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
-                style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
+                style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}
               >
                 <Archive size={13} strokeWidth={2.6} /> Employees · Attendance · HR Record
               </span>
@@ -129,7 +129,7 @@ export default async function HrRecordPage({ searchParams }: PageProps) {
               <EmployeeAvatar
                 name={employee.name}
                 size="lg"
-                background="linear-gradient(135deg, #16a34a, #14532d)"
+                background="linear-gradient(135deg, #E10600, #A80400)"
               />
               <div className="min-w-0">
                 <div
@@ -164,8 +164,8 @@ export default async function HrRecordPage({ searchParams }: PageProps) {
                   <span
                     className="inline-flex rounded-pill px-3 py-1.5 text-[12px] font-black uppercase tracking-[0.1em]"
                     style={{
-                      background: "color-mix(in srgb, #16a34a 10%, transparent)",
-                      color: "#15803d",
+                      background: "color-mix(in srgb, #E10600 10%, transparent)",
+                      color: "#A80400",
                     }}
                   >
                     FY {summary.fy}
@@ -248,7 +248,7 @@ function EmptyState({
     >
       <span
         className="mx-auto mb-4 inline-grid size-14 place-items-center rounded-2xl"
-        style={{ background: "color-mix(in srgb, #16a34a 9%, transparent)", color: "#15803d" }}
+        style={{ background: "color-mix(in srgb, #E10600 9%, transparent)", color: "#A80400" }}
       >
         {icon}
       </span>
