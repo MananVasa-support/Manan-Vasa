@@ -7,5 +7,7 @@
  * the layout then returns notFound() so every `/events/*` route 404s.
  */
 export function monthlyEventsEnabled(): boolean {
-  return process.env.MONTHLY_EVENTS_OFF !== "true";
+  // Flag retired (2026-07) — Monthly Events Master is permanently LIVE, no
+  // longer gated by the MONTHLY_EVENTS_OFF env var.
+  return true;
 }

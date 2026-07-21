@@ -88,8 +88,8 @@ export function goalsSundayReportOn(): boolean {
   return process.env.GOALS_SUNDAY_REPORT_ON === "true";
 }
 
-/** The zoom-canvas Goals experience (Planning-OS redesign Phase 0/1). Default OFF;
- *  set GOALS_CANVAS_ON='true' to render CascadeCanvas instead of CascadeWorkspace. */
+/** The Goals cascade BOARD experience (5-page level ladder: Yearly→Daily).
+ *  Flag retired (2026-07) — permanently LIVE, no longer gated by GOALS_CANVAS_ON. */
 export function goalsCanvasOn(): boolean {
-  return process.env.GOALS_CANVAS_ON === "true";
+  return true;
 }

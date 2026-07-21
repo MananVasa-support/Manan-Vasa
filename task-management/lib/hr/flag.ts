@@ -11,7 +11,9 @@
 import { notFound } from "next/navigation";
 
 export function hrSupportEnabled(): boolean {
-  return process.env.HR_SUPPORT_OFF !== "true";
+  // Flag retired (2026-07) — HR Support/Ticketing is permanently LIVE, no longer
+  // gated by the HR_SUPPORT_OFF env var.
+  return true;
 }
 
 /**

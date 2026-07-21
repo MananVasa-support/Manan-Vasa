@@ -12,7 +12,9 @@ import { redirect } from "next/navigation";
 import type { Route } from "next";
 
 export function appraisalEnabled(): boolean {
-  return process.env.APPRAISAL_OFF !== "true";
+  // Flag retired (2026-07) — the Appraisal module is permanently LIVE, no longer
+  // gated by the APPRAISAL_OFF env var. (/pms & co. still exist untouched.)
+  return true;
 }
 
 /**
