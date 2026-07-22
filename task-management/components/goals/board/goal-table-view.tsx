@@ -186,52 +186,28 @@ function PctCell({
   disabled: boolean;
   onCommit: (pct: number) => void;
 }) {
-  const [draft, setDraft] = React.useState(pct);
-  React.useEffect(() => setDraft(pct), [pct]);
-  const tone = pctTone(draft);
-
-  function commitSlider() {
-    if (draft !== pct) onCommit(draft);
-  }
+  const tone = pctTone(pct);
 
   return (
-    <div className="flex items-center gap-2">
-      <input
-        type="range"
-        min={0}
-        max={100}
-        step={5}
-        value={draft}
-        disabled={disabled}
-        aria-label="Percent done"
-        onChange={(e) => setDraft(Number(e.target.value))}
-        onPointerUp={commitSlider}
-        onBlur={commitSlider}
-        onKeyUp={(e) => {
-          if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(e.key))
-            commitSlider();
-        }}
-        className="gtv-range w-[64px] shrink-0"
-        style={
-          {
-            "--gtv-tone": tone.color,
-            background: `linear-gradient(to right, ${tone.color} 0% ${draft}%, var(--color-hairline) ${draft}% 100%)`,
-          } as React.CSSProperties
-        }
-      />
+    <div className="flex items-center gap-1.5">
       <NumBox
         value={String(pct)}
         min={0}
         max={100}
         disabled={disabled}
-        ariaLabel="Percent done value"
+        ariaLabel="Percent done"
         onCommit={(raw) => {
           const n = Math.max(0, Math.min(100, Math.round(Number(raw) || 0)));
           if (n !== pct) onCommit(n);
         }}
-        className="w-[46px]"
+        className="w-[52px]"
       />
-      <span className="text-[11px] font-bold tabular-nums" style={{ color: tone.color }}>%</span>
+      <span
+        className="inline-flex h-6 min-w-7 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums"
+        style={{ color: tone.color, background: tone.bg }}
+      >
+        %
+      </span>
     </div>
   );
 }
@@ -240,7 +216,7 @@ function PctCell({
 /* Cell: Team members — name chips + roster popover                    */
 /* ------------------------------------------------------------------ */
 
-type TeamRef = { employeeId?: string; name?: string };
+type TeamRef = { employeeId?: string; name?: string; weight?: number };
 
 function memberKey(m: TeamRef): string {
   return m.employeeId ?? `name:${(m.name ?? "").toLowerCase()}`;
@@ -261,18 +237,29 @@ function TeamMembersCell({
   const list = team ?? [];
   const picked = React.useMemo(() => new Set(list.map(memberKey)), [list]);
 
+  function isPicked(r: RosterMember): boolean {
+    return picked.has(r.id) || list.some((m) => !m.employeeId && (m.name ?? "").toLowerCase() === r.name.toLowerCase());
+  }
   function toggle(member: RosterMember) {
     const key = member.id;
-    const has = picked.has(key) || list.some((m) => !m.employeeId && (m.name ?? "").toLowerCase() === member.name.toLowerCase());
-    const next = has
+    const next = isPicked(member)
       ? list.filter(
           (m) => m.employeeId !== key && !(m.employeeId == null && (m.name ?? "").toLowerCase() === member.name.toLowerCase()),
         )
-      : [...list, { employeeId: member.id, name: member.name }];
+      : [...list, { employeeId: member.id, name: member.name, weight: 100 }];
     onCommit(next.length ? next : null);
   }
+  function setWeight(member: RosterMember, w: number) {
+    onCommit(
+      list.map((m) =>
+        m.employeeId === member.id || (!m.employeeId && (m.name ?? "").toLowerCase() === member.name.toLowerCase())
+          ? { ...m, weight: w }
+          : m,
+      ),
+    );
+  }
 
-  const shown = list.slice(0, 3);
+  const shown = list.slice(0, 2);
   const extra = list.length - shown.length;
 
   return (
@@ -280,8 +267,8 @@ function TeamMembersCell({
       {shown.map((m) => (
         <span
           key={memberKey(m)}
-          title={m.name}
-          className="inline-flex max-w-[92px] items-center gap-1 truncate rounded-full border px-2 py-0.5 text-[11px] font-semibold text-ink-strong"
+          title={`${m.name}${m.weight != null ? ` · weight ${m.weight}` : ""}`}
+          className="inline-flex max-w-[112px] items-center gap-1 truncate rounded-full border px-1.5 py-0.5 text-[11px] font-semibold text-ink-strong"
           style={{ borderColor: "var(--color-hairline)", background: "var(--color-surface-soft)" }}
         >
           <span
@@ -292,13 +279,16 @@ function TeamMembersCell({
             {(m.name ?? "?").trim().charAt(0).toUpperCase()}
           </span>
           <span className="truncate">{m.name ?? "—"}</span>
+          {m.weight != null && (
+            <span className="tabular-nums font-bold text-altus-red-deep">·{m.weight}</span>
+          )}
         </span>
       ))}
       {extra > 0 && (
         <span
           className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-altus-red-deep"
           style={{ background: redTint(10) }}
-          title={list.slice(3).map((m) => m.name).join(", ")}
+          title={list.slice(2).map((m) => `${m.name} (wt ${m.weight ?? "—"})`).join(", ")}
         >
           +{extra}
         </span>
@@ -309,7 +299,7 @@ function TeamMembersCell({
           <button
             type="button"
             disabled={disabled}
-            aria-label="Edit team members"
+            aria-label="Edit team members + weights"
             className={cn(
               "inline-flex h-6 items-center gap-1 rounded-full border border-dashed px-2 text-[11px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red",
               "disabled:cursor-not-allowed disabled:opacity-60",
@@ -323,35 +313,60 @@ function TeamMembersCell({
         <PopoverContent
           align="start"
           sideOffset={6}
-          className="z-[80] w-60 rounded-xl border border-hairline bg-surface-card p-1.5"
+          className="z-[80] w-72 rounded-xl border border-hairline bg-surface-card p-1.5"
           style={{ boxShadow: "0 18px 44px -18px rgba(15,23,42,0.3)" }}
         >
           <p className="flex items-center gap-1.5 px-2.5 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-subtle">
-            <Users size={12} /> Team members
+            <Users size={12} /> Members &amp; weights
           </p>
           <div className="max-h-64 overflow-auto">
             {roster.map((r) => {
-              const isSel =
-                picked.has(r.id) ||
-                list.some((m) => !m.employeeId && (m.name ?? "").toLowerCase() === r.name.toLowerCase());
+              const isSel = isPicked(r);
+              const mine = list.find(
+                (m) => m.employeeId === r.id || (!m.employeeId && (m.name ?? "").toLowerCase() === r.name.toLowerCase()),
+              );
               return (
-                <button
+                <div
                   key={r.id}
-                  type="button"
-                  onClick={() => toggle(r)}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors",
-                    isSel ? "" : "hover:bg-black/[0.04]",
-                  )}
+                  className={cn("flex items-center gap-2 rounded-lg px-2.5 py-1.5 transition-colors", isSel ? "" : "hover:bg-black/[0.04]")}
                   style={isSel ? { background: redTint(10) } : undefined}
                 >
-                  <span className="inline-flex w-4 shrink-0 justify-center">
-                    {isSel && <Check size={14} strokeWidth={3} className="text-altus-red" />}
-                  </span>
-                  <span className={cn("flex-1 truncate text-[13px]", isSel ? "font-bold text-altus-red-deep" : "text-ink-strong")}>
-                    {r.name}
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => toggle(r)}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  >
+                    <span className="inline-flex w-4 shrink-0 justify-center">
+                      {isSel && <Check size={14} strokeWidth={3} className="text-altus-red" />}
+                    </span>
+                    <span className={cn("min-w-0 flex-1 truncate text-[13px]", isSel ? "font-bold text-altus-red-deep" : "text-ink-strong")}>
+                      {r.name}
+                    </span>
+                  </button>
+                  {isSel && (
+                    <label className="flex shrink-0 items-center gap-1">
+                      <span className="text-[10px] font-bold uppercase text-ink-subtle">wt</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={1000}
+                        value={mine?.weight ?? 100}
+                        onChange={(e) => {
+                          const raw = e.target.value.trim();
+                          const w = raw === "" ? 0 : Math.max(0, Math.min(1000, Math.round(Number(raw) || 0)));
+                          setWeight(r, w);
+                        }}
+                        aria-label={`Weight for ${r.name}`}
+                        className={cn(
+                          "h-7 w-[56px] rounded-md border bg-white px-1.5 text-right text-[12.5px] font-bold tabular-nums text-ink-strong focus:border-altus-red",
+                          "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+                          FOCUS_RING,
+                        )}
+                        style={{ borderColor: "var(--color-hairline-strong)", fontFamily: "var(--font-display)" }}
+                      />
+                    </label>
+                  )}
+                </div>
               );
             })}
             {roster.length === 0 && <p className="px-3 py-4 text-center text-[12.5px] text-ink-subtle">No roster.</p>}
@@ -601,16 +616,13 @@ export function GoalTableView(props: GoalTableViewProps) {
     <div className="relative">
       {/* scoped slider chrome */}
       <style>{`
-        .gtv-range { -webkit-appearance:none; appearance:none; height:5px; border-radius:999px; outline:none; cursor:pointer; }
-        .gtv-range:disabled { opacity:.55; cursor:not-allowed; }
-        .gtv-range::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%;
-          background:var(--gtv-tone); border:2.5px solid #fff; box-shadow:0 1px 5px rgba(15,23,42,.35); transition:transform .15s ease; }
-        .gtv-range:not(:disabled)::-webkit-slider-thumb:hover { transform:scale(1.18); }
-        .gtv-range::-moz-range-thumb { width:14px; height:14px; border-radius:50%; background:var(--gtv-tone);
-          border:2.5px solid #fff; box-shadow:0 1px 5px rgba(15,23,42,.35); transition:transform .15s ease; }
-        .gtv-range:not(:disabled)::-moz-range-thumb:hover { transform:scale(1.18); }
-        @media (prefers-reduced-motion: reduce) {
-          .gtv-range::-webkit-slider-thumb, .gtv-range::-moz-range-thumb { transition:none; }
+        /* Prominent column dividers so the user clearly sees each column split. */
+        .gtv-table th, .gtv-table td {
+          border-right: 1.5px solid color-mix(in srgb, var(--color-ink-strong) 10%, transparent);
+        }
+        .gtv-table th:last-child, .gtv-table td:last-child { border-right: none; }
+        .gtv-table thead th {
+          border-right-color: color-mix(in srgb, var(--color-altus-red) 22%, transparent);
         }
       `}</style>
 
@@ -709,7 +721,7 @@ export function GoalTableView(props: GoalTableViewProps) {
           boxShadow: "0 1px 2px rgba(15,23,42,0.05), 0 18px 44px -30px rgba(15,23,42,0.28)",
         }}
       >
-        <table className="w-full border-collapse text-[13.5px]">
+        <table className="gtv-table w-full border-collapse text-[13.5px]">
           <thead>
             <tr
               style={{

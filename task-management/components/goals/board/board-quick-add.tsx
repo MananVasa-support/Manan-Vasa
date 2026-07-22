@@ -7,12 +7,14 @@ import {
   periodKeyLabel,
   type GoalDTO,
   type MonthlyMasterRef,
+  type RosterMember,
 } from "@/components/goals/cascade/util";
 import { buildOptimisticGoal, type GoalMutationApi } from "@/components/goals/canvas/optimistic";
 import type { GoalPeriod } from "@/lib/goals/types";
 import { WeeklyGoalDrawer } from "@/components/weekly-goals/goal-drawer";
 import { MonthlyMasterField } from "@/components/goals/board/goal-board-card";
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
+import { TeamWeightsField, type TeamMemberWeight } from "@/components/goals/board/team-weights-field";
 
 const FOCUS_RING =
   "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-card)]";
@@ -34,6 +36,8 @@ interface Props {
   customLookups: { areas: string[]; measures: string[]; types: string[] };
   /** Admins get the inline "+ Add / delete option" affordances. */
   isAdmin: boolean;
+  /** People pickable as team members (with per-member weights). */
+  roster: RosterMember[];
   currentCount: number;
   mutation: GoalMutationApi;
   /** Small "+ Add" tile for a Kanban column footer (same composer drawer). */
@@ -63,6 +67,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
   const [target, setTarget] = React.useState("");
   const [actual, setActual] = React.useState("");
   const [weight, setWeight] = React.useState("100");
+  const [team, setTeam] = React.useState<TeamMemberWeight[]>([]);
   const [monthlyMasterRef, setMonthlyMasterRef] = React.useState<MonthlyMasterRef | null>(null);
   const [notes, setNotes] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -90,6 +95,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
     setTarget("");
     setActual("");
     setWeight("100");
+    setTeam([]);
     setMonthlyMasterRef(null);
     setNotes("");
     setError(null);
@@ -120,6 +126,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
       category: type.trim() || "Goal",
       targetQty: numOrNull(target),
       actualQty: numOrNull(actual),
+      teamInvolved: team.length ? team : null,
       notes: notes.trim() || null,
       weight: w,
       monthlyMasterRef,
@@ -136,6 +143,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
       uom: fields.uom,
       targetQty: fields.targetQty,
       actualQty: fields.actualQty,
+      teamInvolved: fields.teamInvolved,
       notes: fields.notes,
       weight: fields.weight,
       monthlyMasterRef: fields.monthlyMasterRef,
@@ -335,6 +343,15 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
             />
             <span className="mt-1 block text-[11.5px] font-medium text-ink-subtle">share of the period score</span>
           </label>
+
+          {/* ── Team members (each with their OWN weight) ── */}
+          <div className="block">
+            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Team members</span>
+            <TeamWeightsField value={team} roster={props.roster} onChange={setTeam} />
+            <span className="mt-1 block text-[11.5px] font-medium text-ink-subtle">
+              Add the people on this goal — each gets their own weight (share).
+            </span>
+          </div>
 
           {/* ── Monthly Master ── */}
           <div className="block">

@@ -113,7 +113,14 @@ async function nextGoalPosition(
 
 const MoneyIn = z.union([z.number(), z.string()]).nullish();
 const TeamIn = z
-  .array(z.object({ employeeId: z.string().optional(), name: z.string().optional() }))
+  .array(
+    z.object({
+      employeeId: z.string().optional(),
+      name: z.string().optional(),
+      // Per-member weight (share of the goal). Optional; 0..1000.
+      weight: z.number().int().min(0).max(1000).optional(),
+    }),
+  )
   .max(40)
   .nullish();
 
@@ -365,7 +372,7 @@ export async function setGoalCategory(
 }
 
 export async function setGoalTeam(
-  input: { id: string; team: Array<{ employeeId?: string; name?: string }> },
+  input: { id: string; team: Array<{ employeeId?: string; name?: string; weight?: number }> },
 ): Promise<ActionResult<{ row: GoalDTO }>> {
   const { me, isAdmin } = await requireGoalsAccess();
   const limited = rateLimitOrError(me.id, "write");
@@ -373,7 +380,15 @@ export async function setGoalTeam(
   const parsed = z
     .object({
       id: z.string().uuid(),
-      team: z.array(z.object({ employeeId: z.string().uuid().optional(), name: z.string().max(120).optional() })).max(40),
+      team: z
+        .array(
+          z.object({
+            employeeId: z.string().uuid().optional(),
+            name: z.string().max(120).optional(),
+            weight: z.number().int().min(0).max(1000).optional(),
+          }),
+        )
+        .max(40),
     })
     .safeParse(input);
   if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
@@ -2019,9 +2034,7 @@ export async function bulkArchiveGoals(
 const BulkShareSchema = z.object({
   ids: z.array(z.string().uuid()).min(1).max(500),
   shareWithTeam: z.boolean(),
-  teamInvolved: z
-    .array(z.object({ employeeId: z.string().optional(), name: z.string().optional() }))
-    .nullish(),
+  teamInvolved: TeamIn,
   teamDependencyPct: z.number().int().min(0).max(100).nullish(),
 });
 

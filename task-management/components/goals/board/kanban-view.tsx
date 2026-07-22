@@ -205,6 +205,7 @@ function KanbanColumn({
             typeOptions={props.typeOptions}
             customLookups={props.customLookups}
             isAdmin={props.isAdmin}
+            roster={props.cardProps.roster}
             currentCount={goals.length}
             mutation={props.mutation}
           />

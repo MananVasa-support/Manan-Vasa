@@ -1239,6 +1239,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                 typeOptions={typeOptions}
                 customLookups={customLookups}
                 isAdmin={props.isAdmin}
+                roster={props.roster}
                 currentCount={inBucket.length}
                 mutation={mutation}
               />

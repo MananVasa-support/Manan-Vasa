@@ -2992,7 +2992,7 @@ export const weeklyGoals = pgTable(
     targetAmount: numeric("target_amount", { precision: 14, scale: 2 }),
     actualQty: numeric("actual_qty", { precision: 14, scale: 2 }),
     actualAmount: numeric("actual_amount", { precision: 14, scale: 2 }),
-    teamInvolved: jsonb("team_involved").$type<Array<{ employeeId?: string; name?: string }>>(),
+    teamInvolved: jsonb("team_involved").$type<Array<{ employeeId?: string; name?: string; weight?: number }>>(),
     teamDependencyPct: integer("team_dependency_pct"),
     evidenceUrl: text("evidence_url"),
     // Opt-in per week (cross-out = false drops it from the committed set).
@@ -3221,7 +3221,7 @@ export const goals = pgTable(
     targetAmount: numeric("target_amount", { precision: 14, scale: 2 }),
     actualAmount: numeric("actual_amount", { precision: 14, scale: 2 }),
     notes: text("notes"),
-    teamInvolved: jsonb("team_involved").$type<Array<{ employeeId?: string; name?: string }>>(),
+    teamInvolved: jsonb("team_involved").$type<Array<{ employeeId?: string; name?: string; weight?: number }>>(),
     teamDependencyPct: integer("team_dependency_pct"),
     // "Share with team" Yes/No (migration 0149) — when on, the goal is shared
     // with the team_involved members (team_dependency_pct = participation %).

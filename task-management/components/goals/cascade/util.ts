@@ -245,7 +245,7 @@ export interface GoalDTO {
   targetAmount: string | null;
   actualAmount: string | null;
   notes: string | null;
-  teamInvolved: Array<{ employeeId?: string; name?: string }> | null;
+  teamInvolved: Array<{ employeeId?: string; name?: string; weight?: number }> | null;
   teamDependencyPct: number | null;
   pctDone: number;
   acceptPct: number | null;
@@ -302,7 +302,7 @@ export function toGoalDTO(r: {
   targetAmount: string | null;
   actualAmount: string | null;
   notes: string | null;
-  teamInvolved: Array<{ employeeId?: string; name?: string }> | null;
+  teamInvolved: Array<{ employeeId?: string; name?: string; weight?: number }> | null;
   teamDependencyPct: number | null;
   pctDone: number;
   acceptPct: number | null;
