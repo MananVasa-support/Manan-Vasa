@@ -121,24 +121,26 @@ function KanbanColumn({
   return (
     <section
       aria-label={`${periodKeyLabel(bucketKey)} — ${goals.length} goal${goals.length === 1 ? "" : "s"}`}
-      className={`flex flex-col rounded-2xl border transition-all ${fixedWidth ? "w-[272px] shrink-0" : "min-w-0"}`}
+      className={`flex flex-col rounded-2xl border-2 border-dashed transition-all ${fixedWidth ? "w-[272px] shrink-0" : "min-w-0"}`}
       style={{
         background: isOver
           ? "color-mix(in srgb, var(--color-altus-red) 5%, var(--color-surface-soft))"
           : "var(--color-surface-soft)",
-        borderColor: isOver ? "var(--color-altus-red)" : "var(--color-hairline)",
+        borderColor: isOver
+          ? "var(--color-altus-red)"
+          : "color-mix(in srgb, var(--color-altus-red) 35%, var(--color-hairline-strong))",
         boxShadow: isOver
           ? "0 0 0 3px color-mix(in srgb, var(--color-altus-red) 14%, transparent)"
-          : "0 1px 3px rgba(15,23,42,0.04)",
+          : "0 2px 10px -6px color-mix(in srgb, var(--color-altus-red) 30%, transparent)",
       }}
     >
-      <header className="flex items-center gap-2 px-3 pb-1.5 pt-2.5">
+      <header className="flex items-center justify-center gap-2 px-3 pb-2 pt-3">
         <button
           type="button"
           onClick={() => props.onSelectBucket(bucketKey)}
           aria-pressed={active}
           title={`Focus ${periodKeyLabel(bucketKey)} (score card + shareable URL)`}
-          className={`cursor-pointer truncate rounded-md text-[13.5px] font-bold transition-colors hover:text-[var(--color-altus-red-deep)] ${FOCUS_RING}`}
+          className={`cursor-pointer truncate rounded-md text-[15px] font-extrabold tracking-tight transition-colors hover:text-[var(--color-altus-red-deep)] ${FOCUS_RING}`}
           style={{ color: active ? "var(--color-altus-red-deep)" : "var(--color-ink-strong)" }}
         >
           {label}
@@ -156,7 +158,7 @@ function KanbanColumn({
         {active && (
           <span
             aria-hidden
-            className="ml-auto size-1.5 rounded-full"
+            className="size-1.5 rounded-full"
             style={{ background: "var(--color-altus-red)" }}
           />
         )}
@@ -167,8 +169,8 @@ function KanbanColumn({
         <SortableContext items={goals.map((g) => g.id)} strategy={verticalListSortingStrategy}>
           {goals.length === 0 ? (
             <p
-              className="flex flex-1 items-center justify-center rounded-xl border border-dashed px-3 py-6 text-center text-[12.5px] font-semibold"
-              style={{ borderColor: "var(--color-hairline-strong)", color: "var(--color-ink-subtle)" }}
+              className="flex flex-1 items-center justify-center rounded-xl border-2 border-dashed px-3 py-6 text-center text-[12.5px] font-semibold"
+              style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 30%, transparent)", color: "var(--color-ink-subtle)" }}
             >
               {props.filtersActive ? `No matches in ${label}` : `Nothing in ${label} yet`}
             </p>

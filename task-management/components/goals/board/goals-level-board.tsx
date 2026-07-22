@@ -1052,17 +1052,18 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               `bucket:` ids must stay unique inside one DndContext). ────── */}
           {props.level !== "year" && !kanban && (
             <nav
-              className="wg-rise mb-5 rounded-2xl border p-3"
+              className="wg-rise mb-5 rounded-2xl border-2 p-3"
               style={{
-                background: "var(--color-surface-card)",
-                borderColor: "var(--color-hairline)",
-                boxShadow: "0 1px 3px rgba(15,23,42,0.05)",
+                background: "color-mix(in srgb, var(--color-altus-red) 4%, var(--color-surface-card))",
+                borderColor: "color-mix(in srgb, var(--color-altus-red) 42%, transparent)",
+                boxShadow:
+                  "inset 0 0 0 1px color-mix(in srgb, var(--color-altus-red) 12%, transparent), 0 8px 24px -14px color-mix(in srgb, var(--color-altus-red) 45%, transparent)",
                 animationDelay: "40ms",
               }}
               aria-label={`Pick a ${PERIOD_LABEL[props.level].toLowerCase()}`}
             >
               {props.level === "quarter" ? (
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center justify-center gap-2 flex-wrap">
                   {buckets.map((k) => (
                     <BucketPill
                       key={k}

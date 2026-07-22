@@ -164,10 +164,10 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
         }}
         className={
           compact
-            ? `wg-btn cursor-pointer group flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed px-3 py-2.5 text-[13px] font-bold transition-colors hover:bg-surface-soft hover:border-[color-mix(in_srgb,var(--color-altus-red)_45%,var(--color-hairline-strong))] ${FOCUS_RING}`
-            : `wg-btn cursor-pointer group flex w-full items-center justify-center gap-2.5 rounded-2xl border border-dashed px-4 py-5 text-[15px] font-bold transition-colors hover:bg-surface-soft hover:border-[color-mix(in_srgb,var(--color-altus-red)_45%,var(--color-hairline-strong))] ${FOCUS_RING}`
+            ? `wg-btn cursor-pointer group flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-3 py-2.5 text-[13px] font-bold transition-colors hover:bg-surface-soft hover:border-[color-mix(in_srgb,var(--color-altus-red)_45%,var(--color-hairline-strong))] ${FOCUS_RING}`
+            : `wg-btn cursor-pointer group flex w-full items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed px-4 py-5 text-[15px] font-bold transition-colors hover:bg-surface-soft hover:border-[color-mix(in_srgb,var(--color-altus-red)_45%,var(--color-hairline-strong))] ${FOCUS_RING}`
         }
-        style={{ borderColor: "var(--color-hairline-strong)", color: "var(--color-ink-soft)", background: "transparent" }}
+        style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 40%, transparent)", color: "var(--color-altus-red-deep)", background: "color-mix(in srgb, var(--color-altus-red) 4%, transparent)" }}
       >
         <span
           className={`inline-flex items-center justify-center rounded-full ${compact ? "size-5" : "size-7"}`}

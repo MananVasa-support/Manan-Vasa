@@ -243,8 +243,12 @@ function GoalBoardCardImpl({
     <div
       ref={(el) => {
         setNodeRef(el);
+        if (variant === "kanban") setActivatorNodeRef(el);
         cardRef.current = el;
       }}
+      {...(variant === "kanban" && canWrite && policy.canReorder && !dragDisabled
+        ? { ...attributes, ...listeners }
+        : {})}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
@@ -252,14 +256,15 @@ function GoalBoardCardImpl({
         ...(variant === "kanban"
           ? {
               background: "var(--color-surface-card)",
-              border: "1px solid var(--color-hairline)",
-              boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
+              border: "1.5px solid var(--color-hairline-strong)",
+              boxShadow:
+                "0 6px 16px -10px rgba(15,23,42,0.28), 0 1px 2px rgba(15,23,42,0.06), inset 0 1px 0 rgba(255,255,255,0.6)",
             }
           : null),
       }}
       className={
         variant === "kanban"
-          ? "group relative rounded-xl transition-shadow hover:shadow-[0_10px_24px_-16px_rgba(15,23,42,0.28)]"
+          ? `group relative rounded-2xl transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--color-altus-red)_40%,var(--color-hairline-strong))] hover:shadow-[0_14px_30px_-14px_color-mix(in_srgb,var(--color-altus-red)_45%,transparent)] ${canWrite && policy.canReorder && !dragDisabled ? "cursor-grab touch-none active:cursor-grabbing" : ""}`
           : "group relative"
       }
     >
@@ -588,18 +593,6 @@ function GoalBoardCardImpl({
                 {goal.title}
               </h3>
             </button>
-            {canWrite && policy.canReorder && !dragDisabled && (
-              <button
-                type="button"
-                ref={setActivatorNodeRef}
-                {...attributes}
-                {...listeners}
-                aria-label={`Move "${goal.title}" — drag between columns, or press space then arrows`}
-                className={`mt-0.5 shrink-0 cursor-grab touch-none rounded text-ink-subtle opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing max-md:opacity-100 ${FOCUS_RING}`}
-              >
-                <GripVertical size={15} />
-              </button>
-            )}
           </div>
 
           <div
