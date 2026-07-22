@@ -93,6 +93,13 @@ export interface SharedCardProps {
   canWrite: boolean;
   roster: RosterMember[];
   areaOptions: string[];
+  /** Measure (→ uom) + Type (→ category) dropdown options: base + admin-added. */
+  measureOptions: string[];
+  typeOptions: string[];
+  /** Admin-added (deletable) subsets per kind. */
+  customLookups: { areas: string[]; measures: string[]; types: string[] };
+  /** Admins get the inline add/delete affordances on the managed dropdowns. */
+  isAdmin: boolean;
   fyStartYear: number;
   mutation: GoalMutationApi;
   onRequestArchive: (g: GoalDTO) => void;
@@ -120,6 +127,10 @@ function GoalBoardCardImpl({
   canWrite,
   roster,
   areaOptions,
+  measureOptions,
+  typeOptions,
+  customLookups,
+  isAdmin,
   fyStartYear,
   mutation,
   onRequestArchive,
@@ -377,19 +388,6 @@ function GoalBoardCardImpl({
                   {goal.teamDependencyPct != null && (
                     <span className="tabular-nums">{goal.teamDependencyPct}% dep</span>
                   )}
-                </span>
-              </>
-            )}
-            {goal.incentiveEnabled && (
-              <>
-                <Sep />
-                <span
-                  className="inline-flex items-center gap-1 rounded-full px-2 py-[1px] text-[11px] font-bold"
-                  style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red-deep)" }}
-                >
-                  <Gift size={11} aria-hidden />
-                  {goal.incentiveAmount ? `₹${fmtNum(Number(goal.incentiveAmount))}` : "Incentive"}
-                  {goal.incentiveKind ? ` · ${goal.incentiveKind.replace(/_/g, "-")}` : ""}
                 </span>
               </>
             )}
@@ -750,7 +748,7 @@ function GoalBoardCardImpl({
               </p>
             </FieldGroup>
 
-            <FieldGroup title="Weight & incentive">
+            <FieldGroup title="Weight">
               <Field label="Weight">
                 <input
                   type="number"
@@ -769,16 +767,9 @@ function GoalBoardCardImpl({
                 />
               </Field>
               <p id={`goal-weight-hint-${goal.id}`} className="text-[12px] font-medium" style={{ color: "var(--color-ink-subtle)" }}>
-                This goal&apos;s share of the period score (100 = an even share).
+                This goal&apos;s share of the period score (100 = an even share). Editable at every
+                level — change it even on a goal that cascaded down from a parent.
               </p>
-
-              <IncentiveField
-                enabled={goal.incentiveEnabled}
-                amount={goal.incentiveAmount}
-                kind={goal.incentiveKind}
-                disabled={ro}
-                onCommit={(fields) => save(fields, () => editGoal({ id: goal.id, ...fields }))}
-              />
             </FieldGroup>
 
             <FieldGroup title="Team involved">

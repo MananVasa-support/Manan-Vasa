@@ -198,15 +198,22 @@ export interface CategoryStyle {
 /** Card tag styling. Spillover (carried + incomplete) overrides the category → red. */
 export function categoryStyle(category: string | null | undefined, spillover: boolean): CategoryStyle {
   if (spillover) return { label: "Spillover", color: "#b91c1c", bg: "rgba(185,28,28,0.10)", accent: "#b91c1c" };
-  switch (category) {
+  // Case-insensitive so both the legacy lowercase enum ("target") and the new
+  // capitalised Type options ("Target") resolve; unknown admin-added Types get
+  // the neutral default but keep their own label.
+  switch ((category ?? "").toLowerCase()) {
     case "target":
       return { label: "Quarter Target", color: "#1d4ed8", bg: "rgba(29,78,216,0.10)", accent: "#1d4ed8" };
     case "milestone":
       return { label: "Milestone", color: "#4338ca", bg: "rgba(67,56,202,0.10)", accent: "#4338ca" };
     case "operational":
       return { label: "Operational", color: "#475569", bg: "rgba(71,85,105,0.10)", accent: "#94a3b8" };
-    default:
+    case "goal":
+    case "":
       return { label: "Goal", color: "#334155", bg: "rgba(51,65,85,0.08)", accent: "#334155" };
+    default:
+      // Custom admin-added Type — neutral chip, its own label.
+      return { label: category as string, color: "#334155", bg: "rgba(51,65,85,0.08)", accent: "#334155" };
   }
 }
 
@@ -251,12 +258,15 @@ export interface GoalDTO {
   category: string;
   /** Carry-forward link — set ⇒ this row spilled over from a prior period. */
   clonedFromId: string | null;
-  /** Incentive attached to the goal (Yes/No + amount + type). */
+  /** Incentive attached to the goal (Yes/No + amount + type). RETIRED — kept
+   *  on the DTO for back-compat but no longer surfaced in the goals UI. */
   incentiveEnabled: boolean;
   incentiveAmount: string | null;
   incentiveKind: string | null;
   /** The picked Monthly Events Master item, or null. */
   monthlyMasterRef: MonthlyMasterRef | null;
+  /** "Share with team" Yes/No (mig 0149). */
+  shareWithTeam: boolean;
 }
 
 export interface GoalNodeDTO extends GoalDTO {
@@ -307,6 +317,7 @@ export function toGoalDTO(r: {
   incentiveAmount?: string | null;
   incentiveKind?: string | null;
   monthlyMasterRef?: { kind: string; id: string; label: string } | null;
+  shareWithTeam?: boolean;
 }): GoalDTO {
   return {
     id: r.id,
@@ -325,6 +336,7 @@ export function toGoalDTO(r: {
     notes: r.notes,
     teamInvolved: r.teamInvolved,
     teamDependencyPct: r.teamDependencyPct,
+    shareWithTeam: r.shareWithTeam ?? false,
     pctDone: r.pctDone,
     acceptPct: r.acceptPct,
     reviewNotes: r.reviewNotes,

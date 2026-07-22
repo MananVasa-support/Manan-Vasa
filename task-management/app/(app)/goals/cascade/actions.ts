@@ -4,8 +4,9 @@ import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { goals, weeklyGoals, dailyChecklist } from "@/db/schema";
+import { goals, weeklyGoals, dailyChecklist, goalLookups } from "@/db/schema";
 import { requireGoalsAccess } from "@/lib/goals/access";
+import { listGoalLookups, goalLookupExists, isBaseGoalLookup, type GoalLookupOptions } from "@/lib/goals/lookups";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import {
   loadWritableGoalRow,
@@ -20,7 +21,7 @@ import { logGoalActivity } from "@/lib/goals/activity";
 import { GoalEventTypes } from "@/lib/events/types";
 import { cloneForward, moveTo } from "@/lib/goals/carry";
 import { mondayOf } from "@/lib/weekly-goals/week";
-import { quarterKeyOfMonthKey, fyStartYearOfMonthKey, fyStartYearOfKey } from "@/lib/goals/types";
+import { quarterKeyOfMonthKey, fyStartYearOfMonthKey, fyStartYearOfKey, quartersOfFy, monthKeysOfQuarter } from "@/lib/goals/types";
 import { GOAL_PERIODS } from "@/db/enums";
 import { toGoalDTO, type GoalDTO } from "@/components/goals/cascade/util";
 import {
@@ -116,7 +117,9 @@ const TeamIn = z
   .max(40)
   .nullish();
 
-const CATEGORY = z.enum(["target", "milestone", "operational", "goal"]);
+// Type/category is now an admin-extensible free-text value (mig 0148 lookups):
+// base types (Goal/Target/Milestone/Operational) + any admin-added ones.
+const CATEGORY = z.string().trim().min(1).max(60);
 const INCENTIVE_KIND = z.enum(["one_time", "repetitive", "milestone"]);
 /** The picked Monthly-Master item snapshot ({kind,id,label}) or null to clear. */
 const MonthlyMasterRefIn = z
@@ -139,6 +142,7 @@ const GoalFields = {
   notes: z.string().max(4000).nullish(),
   teamInvolved: TeamIn,
   teamDependencyPct: z.number().int().min(0).max(100).nullish(),
+  shareWithTeam: z.boolean().optional(),
   weight: z.number().int().min(0).max(1000).optional(),
   incentiveEnabled: z.boolean().optional(),
   incentiveAmount: MoneyIn,
@@ -502,6 +506,7 @@ export async function editGoal(
   if (d.notes !== undefined) patch.notes = d.notes ?? null;
   if (d.teamInvolved !== undefined) patch.teamInvolved = d.teamInvolved ?? null;
   if (d.teamDependencyPct !== undefined) patch.teamDependencyPct = d.teamDependencyPct ?? null;
+  if (d.shareWithTeam !== undefined) patch.shareWithTeam = d.shareWithTeam;
   if (d.weight !== undefined) patch.weight = d.weight;
   if (d.incentiveEnabled !== undefined) patch.incentiveEnabled = d.incentiveEnabled;
   if (d.incentiveAmount !== undefined) patch.incentiveAmount = money(d.incentiveAmount);
@@ -1922,4 +1927,258 @@ export async function redistributeChildren(
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Goal Area / Measure lookups — admin-extensible dropdown options.     */
+/* Base options live in lib/goals/lookups.ts; ADMINS can add more here  */
+/* (persisted in goal_lookups, mig 0148) so they appear for everyone.   */
+/* ------------------------------------------------------------------ */
+
+const AddLookupSchema = z.object({
+  kind: z.enum(["area", "measure", "type"]),
+  value: z.string().trim().min(1, "Enter a value").max(60),
+});
+
+export async function addGoalLookup(
+  input: z.infer<typeof AddLookupSchema>,
+): Promise<ActionResult<{ options: GoalLookupOptions }>> {
+  const { me, isAdmin } = await requireGoalsAccess();
+  if (!isAdmin) return { ok: false, error: "Only admins can add options." };
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = AddLookupSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const { kind, value } = parsed.data;
+
+  // Already a base or custom option → treat as success (idempotent), no dup row.
+  if (await goalLookupExists(kind, value)) {
+    return { ok: true, options: await listGoalLookups() };
+  }
+
+  try {
+    await db.insert(goalLookups).values({ kind, value, createdById: me.id });
+  } catch {
+    // Unique-index race (someone added the same value) — fine, fall through.
+  }
+  revalidateGoals();
+  return { ok: true, options: await listGoalLookups() };
+}
+
+const RemoveLookupSchema = z.object({
+  kind: z.enum(["area", "measure", "type"]),
+  value: z.string().trim().min(1).max(60),
+});
+
+/** Soft-delete an admin-added option. BASE options can't be removed. */
+export async function removeGoalLookup(
+  input: z.infer<typeof RemoveLookupSchema>,
+): Promise<ActionResult<{ options: GoalLookupOptions }>> {
+  const { me, isAdmin } = await requireGoalsAccess();
+  if (!isAdmin) return { ok: false, error: "Only admins can remove options." };
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = RemoveLookupSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const { kind, value } = parsed.data;
+
+  if (isBaseGoalLookup(kind, value)) {
+    return { ok: false, error: "Built-in options can't be removed." };
+  }
+  await db
+    .update(goalLookups)
+    .set({ active: false })
+    .where(and(eq(goalLookups.kind, kind), eq(goalLookups.value, value)));
+  revalidateGoals();
+  return { ok: true, options: await listGoalLookups() };
+}
+
+/* ================================================================== */
+/* BULK actions + Yearly auto-divide + goals Recycle-Bin restore/purge */
+/* ================================================================== */
+
+const IdsSchema = z.object({ ids: z.array(z.string().uuid()).min(1).max(500) });
+
+/** Bulk soft-delete (→ recycle bin). Reuses archiveGoal's per-row auth. */
+export async function bulkArchiveGoals(
+  input: z.infer<typeof IdsSchema>,
+): Promise<ActionResult<{ archived: number }>> {
+  const parsed = IdsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  let n = 0;
+  let lastErr = "";
+  for (const id of parsed.data.ids) {
+    const r = await archiveGoal({ id });
+    if (r.ok) n++;
+    else lastErr = r.error;
+  }
+  if (n === 0) return { ok: false, error: lastErr || "Nothing was deleted." };
+  return { ok: true, archived: n };
+}
+
+const BulkShareSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(500),
+  shareWithTeam: z.boolean(),
+  teamInvolved: z
+    .array(z.object({ employeeId: z.string().optional(), name: z.string().optional() }))
+    .nullish(),
+  teamDependencyPct: z.number().int().min(0).max(100).nullish(),
+});
+
+/** Bulk "Share with team" (+ optional members / participation %). */
+export async function bulkSetShareWithTeam(
+  input: z.infer<typeof BulkShareSchema>,
+): Promise<ActionResult<{ updated: number }>> {
+  const parsed = BulkShareSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const d = parsed.data;
+  let n = 0;
+  for (const id of d.ids) {
+    const r = await editGoal({
+      id,
+      shareWithTeam: d.shareWithTeam,
+      ...(d.teamInvolved !== undefined ? { teamInvolved: d.teamInvolved } : {}),
+      ...(d.teamDependencyPct !== undefined ? { teamDependencyPct: d.teamDependencyPct } : {}),
+    });
+    if (r.ok) n++;
+  }
+  if (n === 0) return { ok: false, error: "Nothing was updated." };
+  return { ok: true, updated: n };
+}
+
+const BulkCopySchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(200),
+  targetLevel: z.enum(["year", "quarter", "month", "week", "day"]),
+  targetKey: z.string().min(4).max(16),
+});
+
+/** Bulk copy goals into another period (reuses copyGoalToPeriod per row). */
+export async function bulkCopyGoalsToPeriod(
+  input: z.infer<typeof BulkCopySchema>,
+): Promise<ActionResult<{ copied: number }>> {
+  const parsed = BulkCopySchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const d = parsed.data;
+  let n = 0;
+  for (const id of d.ids) {
+    const r = await copyGoalToPeriod({ id, targetLevel: d.targetLevel, targetKey: d.targetKey });
+    if (r.ok) n++;
+  }
+  if (n === 0) return { ok: false, error: "Nothing was copied." };
+  return { ok: true, copied: n };
+}
+
+/**
+ * Divide a YEARLY goal into 4 quarterly + 12 monthly children in one click —
+ * equal weight, linked to the parent (source='cascade'). Numbers/uom/area/type
+ * carry down; targets/actuals reset.
+ */
+export async function divideYearlyGoal(
+  input: z.infer<typeof IdSchema>,
+): Promise<ActionResult<{ created: number }>> {
+  const { me, isAdmin } = await requireGoalsAccess();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = IdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+
+  const loaded = await loadWritableGoalRow(parsed.data.id, { id: me.id, isAdmin });
+  if (!loaded.ok) return loaded;
+  const src = loaded.row;
+  if (src.period !== "year") {
+    return { ok: false, error: "Only a yearly goal can be divided into quarters + months." };
+  }
+
+  const pol = await policyGate({ id: me.id, isAdmin }, src.employeeId);
+  if (pol && !pol.canAutoDivide) return { ok: false, error: POLICY_REASONS.autoDivide };
+
+  const fy = Number(src.periodKey);
+  if (!Number.isFinite(fy)) return { ok: false, error: "Bad yearly period." };
+
+  const baseCols = {
+    employeeId: src.employeeId,
+    area: src.area,
+    title: src.title,
+    uom: src.uom,
+    category: src.category,
+    source: "cascade" as const,
+    createdById: me.id,
+    updatedById: me.id,
+    adopted: true,
+  };
+
+  let created = 0;
+  try {
+    for (const qKey of quartersOfFy(fy)) {
+      const qPos = await nextGoalPosition(src.employeeId, "quarter", qKey);
+      const [qRow] = await db
+        .insert(goals)
+        .values({ ...baseCols, period: "quarter", periodKey: qKey, parentGoalId: src.id, position: qPos, weight: 25 })
+        .returning({ id: goals.id });
+      if (!qRow) continue;
+      created++;
+      const q = Number(qKey.split("-Q")[1]) as 1 | 2 | 3 | 4;
+      for (const mKey of monthKeysOfQuarter(fy, q)) {
+        const mPos = await nextGoalPosition(src.employeeId, "month", mKey);
+        const [mRow] = await db
+          .insert(goals)
+          .values({ ...baseCols, period: "month", periodKey: mKey, parentGoalId: qRow.id, position: mPos, weight: 8 })
+          .returning({ id: goals.id });
+        if (mRow) created++;
+      }
+    }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+  void logGoalActivity(
+    src.id,
+    GoalEventTypes.CascadeEdited,
+    { employeeId: src.employeeId, goalKind: "cascade", detail: "divided year " + fy + " into " + created + " children" },
+    me.id,
+  );
+  revalidateGoals(src.periodKey);
+  return { ok: true, created };
+}
+
+/* Recycle bin (archived goals) — restore + permanent delete. */
+
+/** Un-archive a goal (restore from the recycle bin). */
+export async function restoreGoal(input: z.infer<typeof IdSchema>): Promise<ActionResult> {
+  const { me, isAdmin } = await requireGoalsAccess();
+  const parsed = IdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const [row] = await db.select().from(goals).where(eq(goals.id, parsed.data.id)).limit(1);
+  if (!row) return { ok: false, error: "Goal not found." };
+  const scope = await goalScopeFor({ id: me.id, isAdmin });
+  if (!canManageGoalFor(scope, row.employeeId)) return { ok: false, error: "Not allowed." };
+  await db
+    .update(goals)
+    .set({ archived: false, updatedById: me.id, updatedAt: new Date() })
+    .where(eq(goals.id, row.id));
+  revalidateGoals(row.periodKey);
+  revalidatePath("/goals/recycle-bin");
+  return { ok: true };
+}
+
+/** PERMANENTLY delete archived goals (recycle-bin hard delete). Only archived
+ *  rows the viewer manages are removed; their children detach (FK set null). */
+export async function purgeGoals(
+  input: z.infer<typeof IdsSchema>,
+): Promise<ActionResult<{ deleted: number }>> {
+  const { me, isAdmin } = await requireGoalsAccess();
+  const parsed = IdsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const scope = await goalScopeFor({ id: me.id, isAdmin });
+
+  const rows = await db
+    .select({ id: goals.id, employeeId: goals.employeeId, archived: goals.archived })
+    .from(goals)
+    .where(inArray(goals.id, parsed.data.ids));
+  const purgeable = rows
+    .filter((r) => r.archived && canManageGoalFor(scope, r.employeeId))
+    .map((r) => r.id);
+  if (purgeable.length === 0) return { ok: false, error: "Nothing to delete." };
+  await db.delete(goals).where(inArray(goals.id, purgeable));
+  revalidatePath("/goals/recycle-bin");
+  return { ok: true, deleted: purgeable.length };
 }

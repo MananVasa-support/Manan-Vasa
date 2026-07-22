@@ -55,6 +55,7 @@ import {
   reorderGoals,
 } from "@/app/(app)/goals/cascade/actions";
 import { GoalBoardCard, ProgressRing, type SharedCardProps } from "./goal-board-card";
+import { GoalTableView } from "./goal-table-view";
 import { BoardQuickAdd, type BoardQuickAddHandle } from "./board-quick-add";
 import { GoalsBulkUpload } from "./goals-bulk-upload";
 import { KanbanBoard } from "./kanban-view";
@@ -541,10 +542,18 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
   );
   const parentGoal = React.useMemo(() => parentOf(props.periodKey), [parentOf, props.periodKey]);
 
-  const areaOptions = React.useMemo(
-    () => [...new Set(goals.map((g) => g.area).filter((a): a is string => !!a))].sort(),
-    [goals],
-  );
+  // Area dropdown options: the managed base+custom set (from the loader) FIRST,
+  // then any area found on an existing goal that isn't already listed.
+  const areaOptions = React.useMemo(() => {
+    const seen = new Set(props.areaOptions.map((a) => a.toLowerCase()));
+    const extra = [...new Set(goals.map((g) => g.area).filter((a): a is string => !!a))]
+      .filter((a) => !seen.has(a.toLowerCase()))
+      .sort();
+    return [...props.areaOptions, ...extra];
+  }, [props.areaOptions, goals]);
+  const measureOptions = props.measureOptions;
+  const typeOptions = props.typeOptions;
+  const customLookups = props.customLookups;
 
   /** Direct children of every goal (the payload holds ALL levels) — feeds the
    *  drawer's allocation strip + Rebalance without any extra fetch. */
@@ -732,12 +741,16 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
       canWrite,
       roster: props.roster,
       areaOptions,
+      measureOptions,
+      typeOptions,
+      customLookups,
+      isAdmin: props.isAdmin,
       fyStartYear: fy,
       mutation,
       onRequestArchive: requestArchive,
       dragDisabled,
     }),
-    [policy, canWrite, props.roster, areaOptions, fy, mutation, requestArchive, dragDisabled],
+    [policy, canWrite, props.roster, areaOptions, measureOptions, typeOptions, customLookups, props.isAdmin, fy, mutation, requestArchive, dragDisabled],
   );
 
   const isSelf = props.viewedEmployeeId === props.myEmployeeId;
@@ -752,7 +765,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
         color: "var(--color-ink-strong)",
       }}
     >
-      <div className="relative mx-auto max-w-[1180px] px-10 max-md:px-4 pt-8 pb-24">
+      <div className="relative mx-auto max-w-[1600px] px-8 max-md:px-4 pt-8 pb-24">
         {/* ── HEADER — ONE unified command bar: identity + tabs · overview
             (dial + donut) · person + FY, all in a single creative band. ── */}
         <section
@@ -770,7 +783,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
           <span aria-hidden className="pointer-events-none absolute -left-24 -bottom-28 h-60 w-60 rounded-full" style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--color-altus-red) 8%, transparent), transparent 70%)" }} />
           <span aria-hidden className="pointer-events-none absolute left-0 top-0 h-full w-1.5" style={{ background: "linear-gradient(180deg, var(--color-altus-red), var(--color-altus-red-deep))" }} />
 
-          <div className="relative flex items-center gap-6 px-7 py-5 max-xl:flex-wrap max-md:gap-4 max-md:px-4">
+          <div className="relative flex min-h-[108px] items-center gap-6 px-7 py-5 max-xl:flex-wrap max-md:gap-4 max-md:px-4">
             {/* 1 · identity + tabs */}
             <div className="min-w-0 flex-1 max-xl:w-full max-xl:flex-none">
               <div className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--color-altus-red-deep)" }}>
@@ -820,7 +833,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
             {/* 2 · overview — dial + score + donut (divider-separated) */}
             {inBucket.length > 0 && (
               <div
-                className="flex shrink-0 items-center gap-4 self-stretch border-l pl-6 max-xl:self-auto max-xl:border-l-0 max-xl:pl-0"
+                className="flex shrink-0 items-center justify-center gap-4 self-center border-l pl-6 max-xl:self-auto max-xl:border-l-0 max-xl:pl-0"
                 style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 16%, var(--color-hairline))" }}
               >
                 <ScoreDial value={score} />
@@ -1173,6 +1186,10 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               employeeId={props.viewedEmployeeId}
               parentOf={parentOf}
               areaOptions={areaOptions}
+              measureOptions={measureOptions}
+              typeOptions={typeOptions}
+              customLookups={customLookups}
+              isAdmin={props.isAdmin}
               mutation={mutation}
               focusId={props.focusId ?? null}
               filtersActive={activeFilterCount > 0}
@@ -1193,67 +1210,21 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                 </button>
               </div>
             ) : (
-              <>
-              {/* Live drag hint — tells the user exactly what's happening while
-                  they carry a card (no more clueless blank cards). */}
-              {activeDrag && (
-                <div
-                  className="mb-3 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[12.5px] font-bold"
-                  style={{
-                    background: "color-mix(in srgb, var(--color-altus-red) 10%, var(--color-surface-card))",
-                    color: "var(--color-altus-red-deep)",
-                    border: "1px solid color-mix(in srgb, var(--color-altus-red) 26%, transparent)",
-                    boxShadow: "0 8px 22px -14px color-mix(in srgb, var(--color-altus-red) 60%, transparent)",
-                  }}
-                >
-                  <span aria-hidden className="relative inline-flex size-2">
-                    <span className="absolute inline-flex h-full w-full rounded-full opacity-70 animate-ping motion-reduce:hidden" style={{ background: "var(--color-altus-red)" }} />
-                    <span className="relative inline-flex size-2 rounded-full" style={{ background: "var(--color-altus-red)" }} />
-                  </span>
-                  Moving “{activeDrag.title}” — drop on another goal to reorder
-                </div>
-              )}
-
-              <SortableContext items={displayed.map((g) => g.id)} strategy={rectSortingStrategy}>
-                {/* 2-per-row grid on wide screens (saves vertical space); one
-                    column below lg. `data-goals-dragging` pins the sibling cards'
-                    entrance animation so they never flash blank mid-drag. */}
-                <div
-                  className="grid grid-cols-1 gap-3 lg:grid-cols-2"
-                  data-goals-dragging={activeDrag ? "true" : undefined}
-                >
-                  {displayed.map((goal, i) => {
-                    const isDragSource = activeDrag?.id === goal.id;
-                    return (
-                      <div
-                        key={goal.id}
-                        className={`wg-rise overflow-hidden rounded-2xl transition-[border-color,box-shadow,background] duration-200 ${isDragSource ? "goals-drag-source" : ""}`}
-                        style={{
-                          background: isDragSource
-                            ? "color-mix(in srgb, var(--color-altus-red) 4%, var(--color-surface-card))"
-                            : "var(--color-surface-card)",
-                          border: isDragSource
-                            ? "1.5px dashed color-mix(in srgb, var(--color-altus-red) 55%, transparent)"
-                            : "1px solid var(--color-hairline)",
-                          boxShadow: isDragSource
-                            ? "none"
-                            : "0 1px 2px rgba(15,23,42,0.04), 0 12px 30px -24px rgba(15,23,42,0.14)",
-                          animationDelay: `${Math.min(i, 14) * 40}ms`,
-                        }}
-                      >
-                        <GoalBoardCard
-                          goal={goal}
-                          srNo={i + 1}
-                          autoFocus={props.focusId === goal.id}
-                          childGoals={childrenByParent.get(goal.id) ?? EMPTY_CHILDREN}
-                          {...sharedCardProps}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </SortableContext>
-              </>
+              /* The goals LIST is now a prominent inline-editable TABLE
+                 (Area · Goal · Measure · Target/Actual · %Done · Team% ·
+                 Members · Share · Type + bulk bar). */
+              <GoalTableView
+                goals={displayed}
+                canWrite={canWrite}
+                isAdmin={props.isAdmin}
+                roster={props.roster}
+                areaOptions={areaOptions}
+                measureOptions={measureOptions}
+                typeOptions={typeOptions}
+                customLookups={customLookups}
+                fyStartYear={fy}
+                level={props.level}
+              />
             )}
 
             {canWrite && (
@@ -1264,6 +1235,10 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                 periodKey={props.periodKey}
                 parent={parentGoal}
                 areaOptions={areaOptions}
+                measureOptions={measureOptions}
+                typeOptions={typeOptions}
+                customLookups={customLookups}
+                isAdmin={props.isAdmin}
                 currentCount={inBucket.length}
                 mutation={mutation}
               />

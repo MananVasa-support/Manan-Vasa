@@ -111,6 +111,7 @@ export function buildOptimisticGoal(input: {
     notes: null,
     teamInvolved: null,
     teamDependencyPct: null,
+    shareWithTeam: false,
     pctDone: 0,
     acceptPct: null,
     reviewNotes: null,

@@ -29,6 +29,14 @@ export interface GoalsBoardData {
   /* Option-A policy identity (lib/goals/policy.ts goalPolicy input). */
   isAdmin: boolean;
   managesViewed: boolean;
+  /** Area dropdown options (base + admin-added), migration 0148. */
+  areaOptions: string[];
+  /** Measure dropdown options (→ goals.uom): base + admin-added. */
+  measureOptions: string[];
+  /** Type dropdown options (→ goals.category): base + admin-added. */
+  typeOptions: string[];
+  /** The admin-added (deletable) subset per kind — base options aren't here. */
+  customLookups: { areas: string[]; measures: string[]; types: string[] };
 }
 
 export interface GoalsLevelBoardProps extends GoalsBoardData {

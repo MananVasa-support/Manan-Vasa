@@ -53,6 +53,10 @@ export interface KanbanBoardProps {
   employeeId: string;
   parentOf: (bucketKey: string) => { id: string; title: string } | null;
   areaOptions: string[];
+  measureOptions: string[];
+  typeOptions: string[];
+  customLookups: { areas: string[]; measures: string[]; types: string[] };
+  isAdmin: boolean;
   mutation: GoalMutationApi;
   focusId: string | null;
   /** Drag is paused while filters narrow the columns (partial-order guard). */
@@ -197,6 +201,10 @@ function KanbanColumn({
             periodKey={bucketKey}
             parent={props.parentOf(bucketKey)}
             areaOptions={props.areaOptions}
+            measureOptions={props.measureOptions}
+            typeOptions={props.typeOptions}
+            customLookups={props.customLookups}
+            isAdmin={props.isAdmin}
             currentCount={goals.length}
             mutation={props.mutation}
           />

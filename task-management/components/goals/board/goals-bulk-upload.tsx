@@ -458,13 +458,6 @@ export function GoalsBulkUpload(props: Props) {
                   </span>
                   <button
                     type="button"
-                    onClick={downloadCsvTemplate}
-                    className={`wg-btn inline-flex items-center gap-1.5 rounded-full border border-hairline-strong bg-surface-card px-3 py-1.5 text-[12.5px] font-bold text-ink-strong hover:brightness-95 cursor-pointer ${FOCUS_RING}`}
-                  >
-                    <Download size={14} strokeWidth={2.4} /> CSV
-                  </button>
-                  <button
-                    type="button"
                     onClick={downloadXlsxTemplate}
                     className={`wg-btn inline-flex items-center gap-1.5 rounded-full border border-hairline-strong bg-surface-card px-3 py-1.5 text-[12.5px] font-bold text-ink-strong hover:brightness-95 cursor-pointer ${FOCUS_RING}`}
                   >
@@ -490,7 +483,7 @@ export function GoalsBulkUpload(props: Props) {
                 <input
                   ref={inputRef}
                   type="file"
-                  accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  accept=".xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                   className="hidden"
                   onChange={onPick}
                 />

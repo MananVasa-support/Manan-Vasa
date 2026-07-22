@@ -5,18 +5,14 @@ import { Plus, Loader2, Check } from "lucide-react";
 import { createGoal, addChildGoal } from "@/app/(app)/goals/cascade/actions";
 import {
   periodKeyLabel,
-  categoryStyle,
-  GOAL_CATEGORIES,
   type GoalDTO,
   type MonthlyMasterRef,
 } from "@/components/goals/cascade/util";
 import { buildOptimisticGoal, type GoalMutationApi } from "@/components/goals/canvas/optimistic";
 import type { GoalPeriod } from "@/lib/goals/types";
-import { ComboInput } from "@/components/weekly-goals/field-controls";
 import { WeeklyGoalDrawer } from "@/components/weekly-goals/goal-drawer";
-import { IncentiveField, MonthlyMasterField } from "@/components/goals/board/goal-board-card";
-
-type IncentiveKind = "one_time" | "repetitive" | "milestone";
+import { MonthlyMasterField } from "@/components/goals/board/goal-board-card";
+import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
 
 const FOCUS_RING =
   "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-card)]";
@@ -30,6 +26,14 @@ interface Props {
    *  goal files under it via addChildGoal; absent → a standalone via createGoal. */
   parent: { id: string; title: string } | null;
   areaOptions: string[];
+  /** Measure dropdown options (→ goals.uom): base + admin-added. */
+  measureOptions: string[];
+  /** Type dropdown options (→ goals.category): base + admin-added. */
+  typeOptions: string[];
+  /** Admin-added (deletable) subsets per kind. */
+  customLookups: { areas: string[]; measures: string[]; types: string[] };
+  /** Admins get the inline "+ Add / delete option" affordances. */
+  isAdmin: boolean;
   currentCount: number;
   mutation: GoalMutationApi;
   /** Small "+ Add" tile for a Kanban column footer (same composer drawer). */
@@ -54,11 +58,11 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
   const [saving, setSaving] = React.useState(false);
   const [title, setTitle] = React.useState("");
   const [area, setArea] = React.useState("");
-  const [category, setCategory] = React.useState<(typeof GOAL_CATEGORIES)[number]>("goal");
+  const [measure, setMeasure] = React.useState("");
+  const [type, setType] = React.useState("Goal");
+  const [target, setTarget] = React.useState("");
+  const [actual, setActual] = React.useState("");
   const [weight, setWeight] = React.useState("100");
-  const [incentiveEnabled, setIncentiveEnabled] = React.useState(false);
-  const [incentiveAmount, setIncentiveAmount] = React.useState<string | null>(null);
-  const [incentiveKind, setIncentiveKind] = React.useState<IncentiveKind | null>(null);
   const [monthlyMasterRef, setMonthlyMasterRef] = React.useState<MonthlyMasterRef | null>(null);
   const [notes, setNotes] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -81,11 +85,11 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
   function reset() {
     setTitle("");
     setArea("");
-    setCategory("goal");
+    setMeasure("");
+    setType("Goal");
+    setTarget("");
+    setActual("");
     setWeight("100");
-    setIncentiveEnabled(false);
-    setIncentiveAmount(null);
-    setIncentiveKind(null);
     setMonthlyMasterRef(null);
     setNotes("");
     setError(null);
@@ -103,15 +107,21 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
 
     const parsedWeight = Number.parseInt(weight, 10);
     const w = Number.isFinite(parsedWeight) ? Math.max(0, Math.min(1000, parsedWeight)) : 100;
+    const numOrNull = (s: string): string | null => {
+      const v = s.trim();
+      if (!v) return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? String(n) : null;
+    };
     const fields = {
       title: t,
       area: area.trim() || null,
-      category,
+      uom: measure.trim() || null,
+      category: type.trim() || "Goal",
+      targetQty: numOrNull(target),
+      actualQty: numOrNull(actual),
       notes: notes.trim() || null,
       weight: w,
-      incentiveEnabled,
-      incentiveAmount: incentiveEnabled ? incentiveAmount : null,
-      incentiveKind: incentiveEnabled ? incentiveKind : null,
       monthlyMasterRef,
     };
     const temp: GoalDTO = {
@@ -122,12 +132,12 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
         title: t,
         area: fields.area,
       }),
-      category,
+      category: fields.category,
+      uom: fields.uom,
+      targetQty: fields.targetQty,
+      actualQty: fields.actualQty,
       notes: fields.notes,
       weight: fields.weight,
-      incentiveEnabled: fields.incentiveEnabled,
-      incentiveAmount: fields.incentiveAmount,
-      incentiveKind: fields.incentiveKind,
       monthlyMasterRef: fields.monthlyMasterRef,
       parentGoalId: props.parent?.id ?? null,
     };
@@ -225,6 +235,22 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
             </p>
           )}
 
+          {/* 1 · Area — a managed dropdown (admins can add more). */}
+          <div className="block">
+            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Area</span>
+            <GoalLookupSelect
+              kind="area"
+              noun="area"
+              value={area}
+              onChange={setArea}
+              options={props.areaOptions}
+              custom={props.customLookups.areas}
+              isAdmin={props.isAdmin}
+              placeholder="Choose an area"
+            />
+          </div>
+
+          {/* 2 · Goal. */}
           <label className="block">
             <span className="mb-1 block text-[12px] font-bold text-ink-soft">Goal</span>
             <input
@@ -237,26 +263,59 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
             />
           </label>
 
+          {/* 3 · Measure (→ uom) + Type. */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="block">
+              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Measure</span>
+              <GoalLookupSelect
+                kind="measure"
+                noun="measure"
+                value={measure}
+                onChange={setMeasure}
+                options={props.measureOptions}
+                custom={props.customLookups.measures}
+                isAdmin={props.isAdmin}
+                placeholder="Choose a measure"
+              />
+            </div>
+            <div className="block">
+              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Type</span>
+              <GoalLookupSelect
+                kind="type"
+                noun="type"
+                value={type}
+                onChange={setType}
+                options={props.typeOptions}
+                custom={props.customLookups.types}
+                isAdmin={props.isAdmin}
+                placeholder="Choose a type"
+              />
+            </div>
+          </div>
+
+          {/* 4 · Target vs Actual. */}
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
-              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Area</span>
-              <ComboInput value={area} options={props.areaOptions} onChange={setArea} placeholder="Area / function" />
+              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Target</span>
+              <input
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                inputMode="decimal"
+                placeholder="e.g. 100"
+                className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-bold tabular-nums text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
+                style={{ borderColor: "var(--color-hairline-strong)" }}
+              />
             </label>
             <label className="block">
-              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Category</span>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as (typeof GOAL_CATEGORIES)[number])}
-                aria-label="Goal category"
-                className={`h-10 w-full cursor-pointer rounded-md border bg-white px-2.5 text-[14px] font-semibold text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
+              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Actual</span>
+              <input
+                value={actual}
+                onChange={(e) => setActual(e.target.value)}
+                inputMode="decimal"
+                placeholder="e.g. 0"
+                className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-bold tabular-nums text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
                 style={{ borderColor: "var(--color-hairline-strong)" }}
-              >
-                {GOAL_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {categoryStyle(c, false).label}
-                  </option>
-                ))}
-              </select>
+              />
             </label>
           </div>
 
@@ -276,18 +335,6 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
             />
             <span className="mt-1 block text-[11.5px] font-medium text-ink-subtle">share of the period score</span>
           </label>
-
-          {/* ── Incentive ── */}
-          <IncentiveField
-            enabled={incentiveEnabled}
-            amount={incentiveAmount}
-            kind={incentiveKind}
-            onCommit={(patch) => {
-              if (patch.incentiveEnabled !== undefined) setIncentiveEnabled(patch.incentiveEnabled);
-              if (patch.incentiveAmount !== undefined) setIncentiveAmount(patch.incentiveAmount);
-              if (patch.incentiveKind !== undefined) setIncentiveKind(patch.incentiveKind ?? null);
-            }}
-          />
 
           {/* ── Monthly Master ── */}
           <div className="block">

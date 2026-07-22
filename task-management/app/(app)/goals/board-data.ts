@@ -1,6 +1,7 @@
 import "server-only";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { getYearBoard } from "@/lib/goals/queries";
+import { listGoalLookups } from "@/lib/goals/lookups";
 import { fyStartYearOf } from "@/lib/goals/types";
 import type { GoalNode } from "@/lib/goals/types";
 import { toGoalDTO, type GoalDTO } from "@/components/goals/cascade/util";
@@ -32,7 +33,10 @@ export async function loadBoardData(sp: {
   const view = await resolveGoalsView(me, isAdmin, sp.emp);
   const fy = sp.fy && /^\d{4}$/.test(sp.fy) ? Number(sp.fy) : fyStartYearOf(new Date());
 
-  const board = await getYearBoard(view.viewedEmployeeId, fy);
+  const [board, lookups] = await Promise.all([
+    getYearBoard(view.viewedEmployeeId, fy),
+    listGoalLookups(),
+  ]);
   const goals: GoalDTO[] = [...collect(board.years), ...collect(board.standalone)].map(
     toGoalDTO,
   );
@@ -48,5 +52,11 @@ export async function loadBoardData(sp: {
     canReview: view.canReview,
     isAdmin,
     managesViewed: view.managesViewed,
+    // Admin-extensible Area / Measure / Type dropdown options (base + custom),
+    // plus the custom (deletable) subsets for the inline "remove option" UI.
+    areaOptions: lookups.areas,
+    measureOptions: lookups.measures,
+    typeOptions: lookups.types,
+    customLookups: lookups.custom,
   };
 }

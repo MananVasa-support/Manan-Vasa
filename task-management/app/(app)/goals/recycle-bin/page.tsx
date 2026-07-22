@@ -6,10 +6,13 @@ import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { requireUser } from "@/lib/auth/current";
 import { db } from "@/lib/db";
-import { tasks, employees } from "@/db/schema";
+import { tasks, employees, goals } from "@/db/schema";
 import { isManagerWithReports } from "@/lib/manager-gates";
 import { MODULE_THEME } from "@/lib/module-theme";
 import { RecycleBinList } from "@/components/goals/recycle-bin-list";
+import { RecycleBinGoals, type BinGoal } from "@/components/goals/recycle-bin-goals";
+import { goalCode, periodKeyLabel } from "@/components/goals/cascade/util";
+import type { GoalPeriod } from "@/lib/goals/types";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +71,39 @@ export default async function RecycleBinPage() {
     abandonedAt: r.abandonedAt ? r.abandonedAt.toISOString() : null,
   }));
 
+  // ── Archived (deleted) GOALS — the goals recycle bin ──
+  const goalOwner = alias(employees, "goal_owner");
+  const goalRows = await db
+    .select({
+      id: goals.id,
+      title: goals.title,
+      area: goals.area,
+      period: goals.period,
+      periodKey: goals.periodKey,
+      position: goals.position,
+      updatedAt: goals.updatedAt,
+      ownerName: goalOwner.name,
+    })
+    .from(goals)
+    .leftJoin(goalOwner, eq(goalOwner.id, goals.employeeId))
+    .where(
+      scopeIds
+        ? and(eq(goals.archived, true), inArray(goals.employeeId, scopeIds))
+        : eq(goals.archived, true),
+    )
+    .orderBy(desc(goals.updatedAt))
+    .limit(300);
+
+  const binGoals: BinGoal[] = goalRows.map((g) => ({
+    id: g.id,
+    title: g.title,
+    area: g.area,
+    code: goalCode({ period: g.period as GoalPeriod, periodKey: g.periodKey, position: g.position, id: g.id }),
+    periodLabel: periodKeyLabel(g.periodKey),
+    ownerName: g.ownerName ?? "—",
+    deletedAt: g.updatedAt ? g.updatedAt.toISOString() : null,
+  }));
+
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
@@ -92,10 +128,20 @@ export default async function RecycleBinPage() {
             Recycle Bin
           </h1>
           <p className="mt-2 font-medium text-ink-muted" style={{ fontSize: 15 }}>
-            Tasks your team abandoned from the daily loop. Restore one back into play, or permanently delete it.
+            Deleted goals and abandoned tasks. Restore them, or permanently delete.
           </p>
         </header>
-        <RecycleBinList items={items} />
+
+        {/* Deleted GOALS — restore or permanently delete (select-all + confirm). */}
+        <RecycleBinGoals items={binGoals} />
+
+        {/* Abandoned daily-loop TASKS (existing). */}
+        <section className="mt-10">
+          <h2 className="mb-3 text-[13px] font-black uppercase tracking-[0.08em] text-ink-muted">
+            Abandoned tasks
+          </h2>
+          <RecycleBinList items={items} />
+        </section>
       </main>
       <DashboardFooter />
     </>

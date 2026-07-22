@@ -3181,6 +3181,23 @@ export type WeeklyGoalActual = typeof weeklyGoalActuals.$inferSelect;
 /* to the financial year (Apr–Mar); Q1 = Apr–Jun. Numbers are numeric    */
 /* (14,2) → returned as STRINGs by drizzle.                              */
 /* ================================================================== */
+// Goal Area + Measure lookups (migration 0148) — admin-extensible dropdown
+// options for the goal composer. `kind` = 'area' | 'measure'; base options live
+// in code (lib/goals/lookups.ts), these are the admin-added extras.
+export const goalLookups = pgTable(
+  "goal_lookups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: text("kind").notNull(),
+    value: text("value").notNull(),
+    active: boolean("active").notNull().default(true),
+    sortOrder: integer("sort_order"),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("goal_lookups_kind_idx").on(t.kind)],
+);
+
 export const goals = pgTable(
   "goals",
   {
@@ -3206,6 +3223,9 @@ export const goals = pgTable(
     notes: text("notes"),
     teamInvolved: jsonb("team_involved").$type<Array<{ employeeId?: string; name?: string }>>(),
     teamDependencyPct: integer("team_dependency_pct"),
+    // "Share with team" Yes/No (migration 0149) — when on, the goal is shared
+    // with the team_involved members (team_dependency_pct = participation %).
+    shareWithTeam: boolean("share_with_team").notNull().default(false),
     // owner self-rating 0..100
     pctDone: integer("pct_done").notNull().default(0),
     // reviewer rating; null → effective % falls back to pct_done
