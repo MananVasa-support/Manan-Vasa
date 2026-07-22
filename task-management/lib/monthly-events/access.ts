@@ -24,8 +24,16 @@ export interface EventsAccess {
  *  admins. Kept minimal per spec — the Founder Office. */
 const EVENTS_VIEW_DEPARTMENTS = ["Founder"];
 
-export async function eventsAccess(): Promise<EventsAccess | null> {
-  const me = await requireUser();
+/**
+ * Compute the events access for an ALREADY-RESOLVED employee (no web session
+ * read). This is the single source of truth for the department gate; both the
+ * web `eventsAccess()` (which resolves via `requireUser()`) and the native
+ * mobile API (which resolves via Firebase-bearer `authenticateMobileRequest`)
+ * call through here so the two surfaces can never diverge.
+ */
+export async function eventsAccessForEmployee(
+  me: Employee,
+): Promise<EventsAccess | null> {
   const isAdmin = isSuperAdmin(me.email) || me.isAdmin;
   if (isAdmin) return { me, isAdmin: true };
 
@@ -35,6 +43,11 @@ export async function eventsAccess(): Promise<EventsAccess | null> {
     return { me, isAdmin: false };
   }
   return null;
+}
+
+export async function eventsAccess(): Promise<EventsAccess | null> {
+  const me = await requireUser();
+  return eventsAccessForEmployee(me);
 }
 
 /** For pages: returns access or redirects to /hub if not allowed. Re-assert in

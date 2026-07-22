@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { moduleSubmissions } from "@/db/schema";
 import { authenticateMobileRequest, MOBILE_CORS } from "@/lib/auth/mobile";
+import { rateLimitOrError } from "@/lib/rate-limit";
 import { listModuleSubmissions, type ModuleSubmissionRow } from "@/lib/queries/modules";
+import { resolveRequestFields, getProductOptions } from "@/lib/forms/server";
+import { validateFields } from "@/lib/forms/field-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,12 +77,15 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const view = url.searchParams.get("view") === "archived" ? "archived" : "active";
 
-  const rows = await listModuleSubmissions({
-    module: "reimbursement",
-    employeeId: me.id,
-    isAdmin: false, // the app is personal — only the signed-in user's claims
-    archived: view === "archived",
-  });
+  const [rows, fields] = await Promise.all([
+    listModuleSubmissions({
+      module: "reimbursement",
+      employeeId: me.id,
+      isAdmin: false, // the app is personal — only the signed-in user's claims
+      archived: view === "archived",
+    }),
+    resolveRequestFields("reimbursement"),
+  ]);
 
   // ── KPIs folded over the loaded rows (zero extra queries — mirrors the web page) ──
   const sum = (rs: ModuleSubmissionRow[]) => rs.reduce((s, r) => s + claimAmount(r), 0);
@@ -106,7 +114,59 @@ export async function GET(req: Request) {
         approvedShare,
       },
       claims: rows.map(claimDto),
+      // The claim-form schema (same config the web claim dialog renders from),
+      // so the app can file a new reimbursement without hardcoding fields.
+      fields: fields.map((f) => ({
+        key: f.key,
+        label: f.label,
+        type: f.type,
+        required: f.required ?? false,
+        options: f.options ?? [],
+        placeholder: f.placeholder ?? null,
+      })),
     },
     { headers: MOBILE_CORS },
   );
+}
+
+/**
+ * POST /api/mobile/reimbursements — file a new reimbursement claim for the
+ * signed-in user. Mirrors the web `submitModule({ module: "reimbursement" })`:
+ * validates against the resolved field schema and inserts, owner-scoped.
+ * Body: { fields: {fieldKey: value} } (bill_url is a Supabase path the app
+ * uploads via /api/mobile/storage/sign first).
+ */
+export async function POST(req: Request) {
+  const auth = await authenticateMobileRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status, headers: MOBILE_CORS });
+  }
+  const me = auth.employee;
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return NextResponse.json({ error: limited.error }, { status: 429, headers: MOBILE_CORS });
+
+  const body = (await req.json().catch(() => null)) as { fields?: Record<string, string> } | null;
+  if (!body) return NextResponse.json({ error: "invalid-json" }, { status: 400, headers: MOBILE_CORS });
+
+  const [fields, products] = await Promise.all([
+    resolveRequestFields("reimbursement"),
+    getProductOptions(),
+  ]);
+  const validated = validateFields(fields, body.fields ?? {}, products);
+  if (!validated.ok) {
+    return NextResponse.json({ error: validated.error }, { status: 400, headers: MOBILE_CORS });
+  }
+
+  try {
+    const [row] = await db
+      .insert(moduleSubmissions)
+      .values({ module: "reimbursement", employeeId: me.id, fields: validated.values })
+      .returning({ id: moduleSubmissions.id });
+    return NextResponse.json({ ok: true, id: row!.id }, { headers: MOBILE_CORS });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500, headers: MOBILE_CORS },
+    );
+  }
 }

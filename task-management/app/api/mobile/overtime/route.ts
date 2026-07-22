@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { overtimeEntries } from "@/db/schema";
 import { authenticateMobileRequest, MOBILE_CORS } from "@/lib/auth/mobile";
+import { rateLimitOrError } from "@/lib/rate-limit";
 import { listOvertimeEntries } from "@/lib/queries/overtime";
 import { localDateString } from "@/lib/format";
 
@@ -95,4 +99,60 @@ export async function GET(req: Request) {
     },
     { headers: MOBILE_CORS },
   );
+}
+
+const LogSchema = z
+  .object({
+    workDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a valid date.")
+      .refine((s) => !Number.isNaN(Date.parse(`${s}T00:00:00Z`)), "Pick a valid date."),
+    hours: z.coerce.number().gt(0, "Hours must be more than 0.").max(24, "Hours cannot exceed 24."),
+    reason: z.string().trim().max(1000).optional().nullable(),
+  })
+  .strict();
+
+/**
+ * POST /api/mobile/overtime — the signed-in user logs an overtime entry for
+ * themselves. Mirrors the web `logOvertime` (self path): lands as `pending`.
+ * Body: { workDate: "YYYY-MM-DD", hours, reason? }.
+ */
+export async function POST(req: Request) {
+  const auth = await authenticateMobileRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status, headers: MOBILE_CORS });
+  }
+  const me = auth.employee;
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return NextResponse.json({ error: limited.error }, { status: 429, headers: MOBILE_CORS });
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "invalid-json" }, { status: 400, headers: MOBILE_CORS });
+  }
+  const parsed = LogSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "invalid" }, { status: 400, headers: MOBILE_CORS });
+  }
+
+  try {
+    const [row] = await db
+      .insert(overtimeEntries)
+      .values({
+        employeeId: me.id,
+        workDate: parsed.data.workDate,
+        hours: parsed.data.hours.toFixed(2),
+        reason: parsed.data.reason ? parsed.data.reason : null,
+        createdById: me.id,
+      })
+      .returning({ id: overtimeEntries.id });
+    return NextResponse.json({ ok: true, id: row!.id }, { headers: MOBILE_CORS });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500, headers: MOBILE_CORS },
+    );
+  }
 }

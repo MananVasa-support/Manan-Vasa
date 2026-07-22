@@ -1,12 +1,21 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { incentiveRequests } from "@/db/schema";
 import { authenticateMobileRequest, MOBILE_CORS } from "@/lib/auth/mobile";
+import { rateLimitOrError } from "@/lib/rate-limit";
 import {
   getIncentivePersonDetail,
   getIncentiveTargetVsActual,
   nameKey,
 } from "@/lib/queries/incentives";
 import { listIncentiveRequests } from "@/lib/queries/incentive";
-import { INCENTIVE_STATUS_LABELS, INCENTIVE_TYPE_LABELS } from "@/db/enums";
+import { INCENTIVE_FIELDS, validateIncentiveDetails } from "@/lib/incentive-fields";
+import {
+  INCENTIVE_STATUS_LABELS,
+  INCENTIVE_TYPE_LABELS,
+  INCENTIVE_TYPES,
+} from "@/db/enums";
 import type { IncentiveStatus, IncentiveType } from "@/db/enums";
 
 export const runtime = "nodejs";
@@ -126,7 +135,74 @@ export async function GET(req: Request) {
       },
       lines,
       requests: requestRows,
+      // The request-form schema (same config the web create dialog renders from),
+      // so the app can file a new incentive request without hardcoding fields.
+      forms: INCENTIVE_TYPES.map((t) => ({
+        type: t,
+        label: INCENTIVE_TYPE_LABELS[t] ?? t,
+        fields: INCENTIVE_FIELDS[t].map((f) => ({
+          key: f.key,
+          label: f.label,
+          type: f.type,
+          required: f.required ?? false,
+          options: f.options ?? [],
+          placeholder: f.placeholder ?? null,
+          showIf: f.showIf ?? null,
+        })),
+      })),
     },
     { headers: MOBILE_CORS },
   );
+}
+
+const CreateSchema = z
+  .object({
+    type: z.enum(INCENTIVE_TYPES),
+    details: z.record(z.string(), z.string()),
+  })
+  .strict();
+
+/**
+ * POST /api/mobile/incentive — file a new incentive request for the signed-in
+ * user. Mirrors the web `createIncentiveRequest`: validates the details against
+ * the type's field schema (validateIncentiveDetails) and inserts as `pending`.
+ * Body: { type, details: {fieldKey: value} }.
+ */
+export async function POST(req: Request) {
+  const auth = await authenticateMobileRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status, headers: MOBILE_CORS });
+  }
+  const me = auth.employee;
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return NextResponse.json({ error: limited.error }, { status: 429, headers: MOBILE_CORS });
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "invalid-json" }, { status: 400, headers: MOBILE_CORS });
+  }
+  const parsed = CreateSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "invalid" }, { status: 400, headers: MOBILE_CORS });
+  }
+
+  const validated = validateIncentiveDetails(parsed.data.type, parsed.data.details);
+  if (!validated.ok) {
+    return NextResponse.json({ error: validated.error }, { status: 400, headers: MOBILE_CORS });
+  }
+
+  try {
+    const [row] = await db
+      .insert(incentiveRequests)
+      .values({ employeeId: me.id, type: parsed.data.type, details: validated.details })
+      .returning({ id: incentiveRequests.id });
+    return NextResponse.json({ ok: true, id: row!.id }, { headers: MOBILE_CORS });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500, headers: MOBILE_CORS },
+    );
+  }
 }
