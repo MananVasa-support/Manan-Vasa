@@ -4,6 +4,9 @@ import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { goalsCascadeEnabled } from "@/lib/goals/flag";
+import { goalsSpace } from "@/lib/goals/space";
+import { loadPersonalWD } from "@/app/(app)/goals/personal-wd-data";
+import { PersonalWDBoard } from "@/components/goals/board/personal-wd-board";
 import { PlanBoard } from "@/components/goals/plan/plan-board";
 import { MODULE_THEME } from "@/lib/module-theme";
 import { getPlanDayPayload } from "./payload";
@@ -22,9 +25,27 @@ export const dynamic = "force-dynamic";
  * `getPlanDayPayload` assembler, so the two surfaces can never drift. The
  * board persists to `daily_checklist` (same table the plan gate counts).
  */
-export default async function GoalsPlanPage() {
-  const { me } = await requireGoalsAccess();
+export default async function GoalsPlanPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { me, isAdmin } = await requireGoalsAccess();
   if (!goalsCascadeEnabled()) notFound();
+
+  // PERSONAL space (admins) → the private day board (goals table, scope=personal).
+  if ((await goalsSpace(isAdmin)) === "personal") {
+    const sp = await searchParams;
+    const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+    const data = await loadPersonalWD("day", { day: pick(sp.day), emp: pick(sp.emp) });
+    return (
+      <>
+        <DashboardHeader generatedAt={new Date()} />
+        <PersonalWDBoard data={data} />
+        <DashboardFooter />
+      </>
+    );
+  }
 
   const payload = await getPlanDayPayload(me.id);
   const isManager = payload.isManager;

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { getNavCounts } from "@/lib/queries/nav-counts";
 import { getCurrentEmployee } from "@/lib/auth/current";
 import { goalsCanvasOn } from "@/lib/goals/flag";
+import { goalsSpace } from "@/lib/goals/space";
 import { ACTIVE_WORKSPACE_COOKIE, isWorkspaceId } from "@/lib/workspaces";
 import { MainNav } from "./main-nav";
 
@@ -25,6 +26,7 @@ export async function MainNavServer({ variant }: { variant?: "drawer" } = {}) {
   // surfaces (Inbox / Profile / Admin) that belong to no single room.
   const awRaw = (await cookies()).get(ACTIVE_WORKSPACE_COOKIE)?.value;
   const cookieWorkspace = isWorkspaceId(awRaw) ? awRaw : undefined;
+  const space = await goalsSpace(Boolean(me?.isAdmin));
 
   return (
     <MainNav
@@ -36,6 +38,7 @@ export async function MainNavServer({ variant }: { variant?: "drawer" } = {}) {
       // so the client nav can't read it; resolve it HERE and thread it down so
       // the Goals level pills hide/repoint instead of silently bouncing.
       goalsCanvasEnabled={goalsCanvasOn()}
+      goalsSpace={space}
     />
   );
 }

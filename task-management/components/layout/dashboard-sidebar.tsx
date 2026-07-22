@@ -5,7 +5,7 @@ import { SidebarBrand } from "./sidebar-brand";
 import { MainNavServer } from "./main-nav-server";
 import { NavHistoryButtons } from "./nav-history-buttons";
 import { MobileMenuServer } from "./mobile-menu-server";
-import { MobileModuleLabel, SidebarNewTask, SidebarSearch } from "./sidebar-route-chrome";
+import { MobileModuleLabel, SidebarNewTask, SidebarSearch, SidebarGoalsSpace } from "./sidebar-route-chrome";
 import { UserMenuServer } from "@/components/header/user-menu-server";
 import { NewTaskTrigger } from "@/components/header/new-task-trigger";
 import { getCurrentEmployee } from "@/lib/auth/current";
@@ -89,6 +89,9 @@ export async function DashboardSidebar() {
           <span className="sidebar-collapsible-hide">Back to Hub</span>
         </a>
       </div>
+
+      {/* Personal | Professional space switch — Goals room, admins only. */}
+      <SidebarGoalsSpace isAdmin={isAdmin} />
 
       <div className="mx-4 mb-1 border-t" style={{ borderColor: "var(--color-hairline)" }} />
 

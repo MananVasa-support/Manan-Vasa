@@ -65,6 +65,9 @@ interface Props {
    * level items, which server-redirect to /goals when the flag is off (bug #11).
    */
   goalsCanvasEnabled?: boolean;
+  /** Active Goals space (mig 0150). "personal" swaps the goals nav for the
+   *  private admin set (levels + Recycle Bin, no team rituals). */
+  goalsSpace?: "professional" | "personal";
 }
 
 /**
@@ -286,12 +289,28 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
   },
 };
 
+/** Admin PERSONAL goals space — the private set: five level pages + Recycle
+ *  Bin, no team-accountability rituals. Same routes as professional; the pages
+ *  render personal-scoped data based on the goals_space cookie. */
+const GOALS_PERSONAL_NAV: WorkspaceNav = {
+  top: [
+    { href: "/goals/yearly" as Route, label: "Yearly Goals", Icon: Trophy },
+    { href: "/goals/quarterly" as Route, label: "Quarterly Goals", Icon: Target },
+    { href: "/goals/monthly" as Route, label: "Monthly Goals", Icon: CalendarRange },
+    { href: "/goals/weekly" as Route, label: "Weekly Goals", Icon: CalendarCheck },
+    { href: "/goals/plan" as Route, label: "Daily Goals", Icon: CalendarDays },
+    { href: "/goals/recycle-bin" as Route, label: "Recycle Bin", Icon: Trash2, adminOnly: true },
+  ],
+  groups: [],
+};
+
 export function MainNav({
   activeTasks,
   isAdmin,
   variant,
   cookieWorkspace,
   goalsCanvasEnabled,
+  goalsSpace,
 }: Props) {
   const pathname = usePathname();
 
@@ -299,7 +318,10 @@ export function MainNav({
   // cookie covers shared surfaces; WMS is the floor.
   const workspace: WorkspaceId =
     workspaceForPath(pathname) ?? cookieWorkspace ?? "wms";
-  const { top, groups } = WORKSPACE_NAV[workspace];
+  // In the admin's PERSONAL goals space, the nav is the private set: the level
+  // pages + Recycle Bin (no Team / Review / Commit / Approve rituals).
+  const { top, groups } =
+    workspace === "goals" && goalsSpace === "personal" ? GOALS_PERSONAL_NAV : WORKSPACE_NAV[workspace];
 
   /** bug #11 — with GOALS_CANVAS_ON off the level pages server-redirect to
    *  /goals, so their pills read as dead: hide the canvas-only items and

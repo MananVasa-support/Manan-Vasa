@@ -37,7 +37,8 @@ export function SidebarRail({
   // a touch wider (only when expanded) so the pill never clips. Every other
   // module keeps the standard 212px.
   const pathname = usePathname();
-  const expandedWidth = workspaceForPath(pathname ?? "/") === "hr" ? "w-[288px]" : "w-[212px]";
+  const ws = workspaceForPath(pathname ?? "/");
+  const expandedWidth = ws === "hr" ? "w-[288px]" : ws === "goals" ? "w-[248px]" : "w-[212px]";
 
   const toggle = React.useCallback(() => {
     setCollapsed((c) => {

@@ -58,7 +58,7 @@ export interface GoalTableViewProps {
   typeOptions: string[];
   customLookups: { areas: string[]; measures: string[]; types: string[] };
   fyStartYear: number;
-  level: "year" | "quarter" | "month";
+  level: "year" | "quarter" | "month" | "week" | "day";
 }
 
 type ActionRes = { ok: true } | { ok: false; error: string };

@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { goals, weeklyGoals, dailyChecklist, goalLookups } from "@/db/schema";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { listGoalLookups, goalLookupExists, isBaseGoalLookup, type GoalLookupOptions } from "@/lib/goals/lookups";
+import { goalsSpace } from "@/lib/goals/space";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import {
   loadWritableGoalRow,
@@ -208,10 +209,12 @@ export async function createGoal(
   if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
   const d = parsed.data;
 
-  const scope = await goalScopeFor({ id: me.id, isAdmin });
-  if (!canManageGoalFor(scope, d.employeeId)) {
+  const accessScope = await goalScopeFor({ id: me.id, isAdmin });
+  if (!canManageGoalFor(accessScope, d.employeeId)) {
     return { ok: false, error: "You can't add goals for that person" };
   }
+  // New goals land in the admin's ACTIVE space (personal | professional).
+  const space = await goalsSpace(isAdmin);
 
   const position = await nextGoalPosition(d.employeeId, d.period, d.periodKey);
   const [row] = await db
@@ -222,6 +225,7 @@ export async function createGoal(
       periodKey: d.periodKey,
       parentGoalId: null,
       position,
+      scope: space,
       area: d.area ?? null,
       title: d.title,
       uom: d.uom ?? null,
@@ -442,6 +446,7 @@ export async function addChildGoal(
       periodKey: d.periodKey,
       parentGoalId: parent.id,
       position,
+      scope: parent.scope, // child inherits the parent's space
       area: d.area ?? parent.area,
       title: d.title,
       uom: d.uom ?? parent.uom,
@@ -1487,6 +1492,7 @@ export async function copyGoalToPeriod(
           periodKey: targetKey,
           parentGoalId: null, // independent — no roll-up to the source
           position,
+          scope: src.scope, // copy stays in the source's space
           area: src.area,
           title: src.title,
           uom: src.uom,
@@ -2114,6 +2120,7 @@ export async function divideYearlyGoal(
     title: src.title,
     uom: src.uom,
     category: src.category,
+    scope: src.scope, // divided children stay in the parent's space
     source: "cascade" as const,
     createdById: me.id,
     updatedById: me.id,
@@ -2194,4 +2201,89 @@ export async function purgeGoals(
   await db.delete(goals).where(inArray(goals.id, purgeable));
   revalidatePath("/goals/recycle-bin");
   return { ok: true, deleted: purgeable.length };
+}
+
+/* ------------------------------------------------------------------ */
+/* First-run: copy the admin's PROFESSIONAL goal tree into PERSONAL.    */
+/* Only when their personal space is empty. Progress/actuals reset;     */
+/* parent links remapped so the Y→Q→M cascade is preserved.             */
+/* ------------------------------------------------------------------ */
+
+export async function copyProfessionalToPersonal(): Promise<ActionResult<{ created: number }>> {
+  const { me, isAdmin } = await requireGoalsAccess();
+  if (!isAdmin) return { ok: false, error: "Only admins have a personal space." };
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  // Guard — only seed an EMPTY personal space.
+  const [existing] = await db
+    .select({ id: goals.id })
+    .from(goals)
+    .where(and(eq(goals.employeeId, me.id), eq(goals.scope, "personal"), eq(goals.archived, false)))
+    .limit(1);
+  if (existing) return { ok: false, error: "Your personal space already has goals." };
+
+  // Source: this admin's professional Y/Q/M goals.
+  const src = await db
+    .select()
+    .from(goals)
+    .where(
+      and(
+        eq(goals.employeeId, me.id),
+        eq(goals.scope, "professional"),
+        eq(goals.archived, false),
+        inArray(goals.period, ["year", "quarter", "month"]),
+      ),
+    );
+  if (src.length === 0) return { ok: false, error: "You have no professional goals to copy." };
+
+  try {
+    // Pass 1 — insert copies (no parent link yet), building old→new id map.
+    const idMap = new Map<string, string>();
+    for (const g of src) {
+      const [row] = await db
+        .insert(goals)
+        .values({
+          employeeId: g.employeeId,
+          period: g.period,
+          periodKey: g.periodKey,
+          parentGoalId: null,
+          position: g.position,
+          scope: "personal",
+          area: g.area,
+          title: g.title,
+          uom: g.uom,
+          targetQty: g.targetQty,
+          targetAmount: g.targetAmount,
+          actualQty: null,
+          actualAmount: null,
+          notes: g.notes,
+          teamInvolved: g.teamInvolved,
+          teamDependencyPct: g.teamDependencyPct,
+          weight: g.weight,
+          category: g.category,
+          source: "manual",
+          pctDone: 0,
+          acceptPct: null,
+          adopted: true,
+          createdById: me.id,
+          updatedById: me.id,
+        })
+        .returning({ id: goals.id });
+      if (row) idMap.set(g.id, row.id);
+    }
+    // Pass 2 — re-link parents inside the personal copy.
+    for (const g of src) {
+      if (!g.parentGoalId) continue;
+      const newSelf = idMap.get(g.id);
+      const newParent = idMap.get(g.parentGoalId);
+      if (newSelf && newParent) {
+        await db.update(goals).set({ parentGoalId: newParent }).where(eq(goals.id, newSelf));
+      }
+    }
+    revalidateGoals();
+    return { ok: true, created: idMap.size };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
 }

@@ -71,6 +71,8 @@ export const PERIOD_LABEL: Record<GoalPeriod, string> = {
   year: "Year",
   quarter: "Quarter",
   month: "Month",
+  week: "Week",
+  day: "Day",
 };
 
 /** The child level below a period ('year'→'quarter', …, 'month'→'week'). */

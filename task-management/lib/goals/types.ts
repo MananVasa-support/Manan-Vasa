@@ -11,7 +11,7 @@
 import type { GoalRow } from "@/db/schema";
 import { istYmd } from "@/lib/weekly-goals/week";
 
-export type GoalPeriod = "year" | "quarter" | "month";
+export type GoalPeriod = "year" | "quarter" | "month" | "week" | "day";
 
 /** A cascade goal row (drizzle select shape). numeric(14,2) cols are STRINGs. */
 export type Goal = GoalRow;

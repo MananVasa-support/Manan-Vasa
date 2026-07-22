@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, or, gte, lte, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { goals, weeklyGoals, employees } from "@/db/schema";
 import { withRetry } from "@/lib/db/with-timeout";
@@ -38,8 +38,17 @@ export interface YearBoard {
 }
 
 /** The whole cascade for one person in one financial year, as a tree. */
-export async function getYearBoard(employeeId: string, fyStartYear: number): Promise<YearBoard> {
+export async function getYearBoard(
+  employeeId: string,
+  fyStartYear: number,
+  scope: "professional" | "personal" = "professional",
+): Promise<YearBoard> {
   const keys = [String(fyStartYear), ...quartersOfFy(fyStartYear), ...monthKeysOfFy(fyStartYear)];
+  // Year/Quarter/Month match by canonical key; the Personal space ALSO stores
+  // week/day goals in this table (periodKey = a date), so include those by
+  // period + FY date-range. (Professional has no week/day rows here → no-op.)
+  const fyStart = `${fyStartYear}-04-01`;
+  const fyEnd = `${fyStartYear + 1}-03-31`;
   const rows = await withRetry(
     () =>
       db
@@ -49,7 +58,15 @@ export async function getYearBoard(employeeId: string, fyStartYear: number): Pro
           and(
             eq(goals.employeeId, employeeId),
             eq(goals.archived, false),
-            inArray(goals.periodKey, keys),
+            eq(goals.scope, scope),
+            or(
+              inArray(goals.periodKey, keys),
+              and(
+                inArray(goals.period, ["week", "day"]),
+                gte(goals.periodKey, fyStart),
+                lte(goals.periodKey, fyEnd),
+              ),
+            ),
           ),
         ),
     { timeoutMs: [...READ_BUDGET], label: "goals.getYearBoard" },

@@ -29,6 +29,8 @@ export interface GoalsBoardData {
   /* Option-A policy identity (lib/goals/policy.ts goalPolicy input). */
   isAdmin: boolean;
   managesViewed: boolean;
+  /** Active goals space (mig 0150): "professional" (shared) | "personal". */
+  space: "professional" | "personal";
   /** Area dropdown options (base + admin-added), migration 0148. */
   areaOptions: string[];
   /** Measure dropdown options (→ goals.uom): base + admin-added. */

@@ -3245,6 +3245,9 @@ export const goals = pgTable(
     status: taskStatusEnum("status").notNull().default("not_started"),
     // opt-in per period; false = crossed-out (cascade-drops descendants).
     adopted: boolean("adopted").notNull().default(true),
+    // Personal | Professional space (migration 0150). 'professional' = the shared
+    // module (default → all existing rows); 'personal' = an admin's private goals.
+    scope: text("scope").notNull().default("professional"),
     // 'manual' | 'cascade' (cascade = auto-generated from parent by ÷)
     source: text("source").notNull().default("manual"),
     // Category tag (migration 0139) — 'target' | 'milestone' | 'operational' |

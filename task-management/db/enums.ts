@@ -467,12 +467,14 @@ export const HOLIDAY_APPLIES_TO_LABELS: Record<HolidayAppliesTo, string> = {
 // are the canonical source of truth for `goals.period` and `goals.source`.
 
 /** A cascade goal's level. Week lives on the existing weekly_goals table. */
-export const GOAL_PERIODS = ["year", "quarter", "month"] as const;
+export const GOAL_PERIODS = ["year", "quarter", "month", "week", "day"] as const;
 export type GoalPeriodCode = (typeof GOAL_PERIODS)[number];
 export const GOAL_PERIOD_LABELS: Record<GoalPeriodCode, string> = {
   year: "Yearly",
   quarter: "Quarterly",
   month: "Monthly",
+  week: "Weekly",
+  day: "Daily",
 };
 
 /** How a goal came to exist: hand-added vs auto-generated from a parent by ÷. */

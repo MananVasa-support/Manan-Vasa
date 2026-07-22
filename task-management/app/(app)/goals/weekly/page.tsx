@@ -3,6 +3,9 @@ import { alias } from "drizzle-orm/pg-core";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { requireGoalsAccess } from "@/lib/goals/access";
+import { goalsSpace } from "@/lib/goals/space";
+import { loadPersonalWD } from "@/app/(app)/goals/personal-wd-data";
+import { PersonalWDBoard } from "@/components/goals/board/personal-wd-board";
 import { db } from "@/lib/db";
 import { weeklyGoals, goals, employees } from "@/db/schema";
 import { goalScopeFor } from "@/lib/weekly-goals/hierarchy";
@@ -49,6 +52,23 @@ const parentGoal = alias(goals, "parent_month_goal");
 export default async function GoalsWeeklyPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const { me, isAdmin } = await requireGoalsAccess();
+
+  // PERSONAL space (admins) → the private week board (goals table, scope=personal).
+  // Professional keeps the cascade-aware weekly_goals surface below.
+  if ((await goalsSpace(isAdmin)) === "personal") {
+    const data = await loadPersonalWD("week", {
+      wk: pick(sp.wk),
+      day: pick(sp.day),
+      emp: pick(sp.emp),
+    });
+    return (
+      <>
+        <DashboardHeader generatedAt={new Date()} />
+        <PersonalWDBoard data={data} />
+        <DashboardFooter />
+      </>
+    );
+  }
 
   const thisWeek = currentWeekStart();
   const weekStart = mondayOf(pick(sp.week) ?? thisWeek);

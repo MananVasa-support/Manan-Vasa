@@ -12,6 +12,7 @@ import { MODULE_THEME } from "@/lib/module-theme";
 import { RecycleBinList } from "@/components/goals/recycle-bin-list";
 import { RecycleBinGoals, type BinGoal } from "@/components/goals/recycle-bin-goals";
 import { goalCode, periodKeyLabel } from "@/components/goals/cascade/util";
+import { goalsSpace } from "@/lib/goals/space";
 import type { GoalPeriod } from "@/lib/goals/types";
 
 export const dynamic = "force-dynamic";
@@ -71,7 +72,8 @@ export default async function RecycleBinPage() {
     abandonedAt: r.abandonedAt ? r.abandonedAt.toISOString() : null,
   }));
 
-  // ── Archived (deleted) GOALS — the goals recycle bin ──
+  // ── Archived (deleted) GOALS — the goals recycle bin, in the active space ──
+  const space = await goalsSpace(me.isAdmin);
   const goalOwner = alias(employees, "goal_owner");
   const goalRows = await db
     .select({
@@ -88,8 +90,8 @@ export default async function RecycleBinPage() {
     .leftJoin(goalOwner, eq(goalOwner.id, goals.employeeId))
     .where(
       scopeIds
-        ? and(eq(goals.archived, true), inArray(goals.employeeId, scopeIds))
-        : eq(goals.archived, true),
+        ? and(eq(goals.archived, true), eq(goals.scope, space), inArray(goals.employeeId, scopeIds))
+        : and(eq(goals.archived, true), eq(goals.scope, space)),
     )
     .orderBy(desc(goals.updatedAt))
     .limit(300);

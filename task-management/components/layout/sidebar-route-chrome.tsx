@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { workspaceForPath } from "@/lib/workspaces";
 import { MODULE_THEME } from "@/lib/module-theme";
 import { GlobalSearch } from "@/components/header/global-search";
+import { GoalsSpaceToggle } from "@/components/goals/board/goals-space-toggle";
 
 /**
  * bug #24 — route-REACTIVE sidebar chrome. The shared (app) layout renders the
@@ -30,6 +31,13 @@ export function SidebarNewTask({ children }: { children: React.ReactNode }): Rea
   const ws = workspaceForPath(usePathname() ?? "/");
   if (ws !== "wms") return null;
   return <div className="mt-3 flex justify-center sidebar-collapsible-hide">{children}</div>;
+}
+
+/** Personal | Professional space toggle — Goals room, ADMINS only. */
+export function SidebarGoalsSpace({ isAdmin }: { isAdmin: boolean }): React.JSX.Element | null {
+  const ws = workspaceForPath(usePathname() ?? "/");
+  if (ws !== "goals" || !isAdmin) return null;
+  return <GoalsSpaceToggle />;
 }
 
 /** The mobile top-bar module label (module colour = identity only). */

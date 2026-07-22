@@ -56,6 +56,7 @@ import {
 } from "@/app/(app)/goals/cascade/actions";
 import { GoalBoardCard, ProgressRing, type SharedCardProps } from "./goal-board-card";
 import { GoalTableView } from "./goal-table-view";
+import { PersonalStartPrompt } from "./personal-start-prompt";
 import { BoardQuickAdd, type BoardQuickAddHandle } from "./board-quick-add";
 import { GoalsBulkUpload } from "./goals-bulk-upload";
 import { KanbanBoard } from "./kanban-view";
@@ -1060,6 +1061,9 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
           onDragEnd={onDragEnd}
           accessibility={{ announcements: dndAnnouncements, screenReaderInstructions: dndInstructions }}
         >
+          {/* First-run: empty PERSONAL space → offer to copy from Professional. */}
+          {props.space === "personal" && goals.length === 0 && <PersonalStartPrompt />}
+
           {/* ── Period pills — nav + ALWAYS-ON drop targets. Hidden in Kanban:
               the columns themselves are the buckets (and the droppables — the
               `bucket:` ids must stay unique inside one DndContext). ────── */}
