@@ -46,10 +46,6 @@ import {
   Mail,
   BellRing,
   LifeBuoy,
-  UserSearch,
-  ClipboardCheck,
-  DoorOpen,
-  Briefcase,
   Home,
 } from "lucide-react";
 import type { Route } from "next";
@@ -57,6 +53,7 @@ import type { LucideIcon } from "lucide-react";
 import { MainNavPill } from "./main-nav-pill";
 import { MainNavGroup } from "./main-nav-group";
 import { workspaceForPath, type WorkspaceId } from "@/lib/workspaces";
+import { HR_STAGES, hrItemHref, type HrStage, type HrStageKey } from "@/lib/hr/lifecycle";
 
 interface Props {
   activeTasks: number;
@@ -109,20 +106,20 @@ interface WorkspaceNav {
   groups: NavGroup[];
 }
 
-/* ── HR room: per-sub-module sidebars ────────────────────────────────────────
- * HR is a two-tier room. The front door (`/hr`) offers seven cards; the four
- * lifecycle STAGES each own a separate sidebar, swapped in by hrSectionForPath.
- * Everything else (Overview, Holiday List, Help Desk) keeps the hub rail.       */
-type HrSection = "hub" | "pre-interview" | "post-interview" | "pre-joining" | "post-joining";
+/* ── HR room: a separate sidebar per lifecycle card ──────────────────────────
+ * HR is a two-tier room. The front door (`/hr`) offers eight cards; each of the
+ * five lifecycle STAGES (+ Overview / Holiday List / Help Desk) owns its OWN
+ * sidebar, swapped in by hrSectionForPath. Every stage rail is generated from
+ * the single lifecycle source (lib/hr/lifecycle.ts).                            */
+type HrSection = "hub" | HrStageKey | "holiday" | "helpdesk";
 
-/** The front-door rail — the seven stages, so the rail is also the switcher. */
+const HR_HOME: NavItem = { href: "/hr" as Route, label: "HR Home", Icon: Home, exact: true };
+
+/** The front-door rail — the eight cards, so the rail is also the switcher. */
 const HR_HUB_NAV: WorkspaceNav = {
   top: [
-    { href: "/hr" as Route, label: "HR Home", Icon: Home, exact: true },
-    { href: "/hr/pre-interview" as Route, label: "Pre-Interview", Icon: UserSearch },
-    { href: "/hr/post-interview" as Route, label: "Post-Interview", Icon: ClipboardCheck },
-    { href: "/hr/pre-joining" as Route, label: "Pre-Joining", Icon: DoorOpen },
-    { href: "/hr/post-joining" as Route, label: "Post-Joining", Icon: Briefcase },
+    HR_HOME,
+    ...HR_STAGES.map((s) => ({ href: `/hr/${s.slug}` as Route, label: s.title, Icon: s.Icon })),
     { href: "/hr/overview" as Route, label: "Overview", Icon: LayoutGrid },
     { href: "/holidays" as Route, label: "Holiday List", Icon: PartyPopper },
     { href: "/support" as Route, label: "Help Desk", Icon: LifeBuoy },
@@ -130,69 +127,41 @@ const HR_HUB_NAV: WorkspaceNav = {
   groups: [],
 };
 
-/** Post-Joining — the working employee's file. HR Record stays admin-only. */
-const HR_POST_JOINING_NAV: WorkspaceNav = {
-  top: [
-    { href: "/hr" as Route, label: "HR Home", Icon: Home, exact: true },
-    { href: "/hr/post-joining" as Route, label: "Post-Joining", Icon: Briefcase, exact: true },
-    { href: "/attendance/hr-record" as Route, label: "HR Record", Icon: ClipboardList, adminOnly: true },
-    { href: "/agreements" as Route, label: "Agreements", Icon: FileSignature },
-    { href: "/dossier" as Route, label: "Dossier", Icon: FolderLock },
-    { href: "/policies" as Route, label: "Policies", Icon: ScrollText },
-    { href: "/hr-docs" as Route, label: "Letters", Icon: Mail },
-  ],
-  groups: [],
-};
+/** One rail per stage — HR Home + the stage overview + its own sidebar items. */
+function stageNav(s: HrStage): WorkspaceNav {
+  return {
+    top: [
+      HR_HOME,
+      { href: `/hr/${s.slug}` as Route, label: s.title, Icon: s.Icon, exact: true },
+      ...s.items.map((it) => ({ href: hrItemHref(s.slug, it) as Route, label: it.label, Icon: it.Icon })),
+    ],
+    groups: [],
+  };
+}
 
-/** The three stages awaiting their real build — a minimal back + self rail. */
-const HR_PRE_INTERVIEW_NAV: WorkspaceNav = {
-  top: [
-    { href: "/hr" as Route, label: "HR Home", Icon: Home, exact: true },
-    { href: "/hr/pre-interview" as Route, label: "Pre-Interview", Icon: UserSearch, exact: true },
-  ],
+const HR_HOLIDAY_NAV: WorkspaceNav = {
+  top: [HR_HOME, { href: "/holidays" as Route, label: "Holiday List", Icon: PartyPopper, exact: true }],
   groups: [],
 };
-const HR_POST_INTERVIEW_NAV: WorkspaceNav = {
-  top: [
-    { href: "/hr" as Route, label: "HR Home", Icon: Home, exact: true },
-    { href: "/hr/post-interview" as Route, label: "Post-Interview", Icon: ClipboardCheck, exact: true },
-  ],
-  groups: [],
-};
-const HR_PRE_JOINING_NAV: WorkspaceNav = {
-  top: [
-    { href: "/hr" as Route, label: "HR Home", Icon: Home, exact: true },
-    { href: "/hr/pre-joining" as Route, label: "Pre-Joining", Icon: DoorOpen, exact: true },
-  ],
+const HR_HELPDESK_NAV: WorkspaceNav = {
+  top: [HR_HOME, { href: "/support" as Route, label: "Help Desk", Icon: LifeBuoy }],
   groups: [],
 };
 
 const HR_SECTION_NAV: Record<HrSection, WorkspaceNav> = {
   hub: HR_HUB_NAV,
-  "pre-interview": HR_PRE_INTERVIEW_NAV,
-  "post-interview": HR_POST_INTERVIEW_NAV,
-  "pre-joining": HR_PRE_JOINING_NAV,
-  "post-joining": HR_POST_JOINING_NAV,
+  holiday: HR_HOLIDAY_NAV,
+  helpdesk: HR_HELPDESK_NAV,
+  ...(Object.fromEntries(HR_STAGES.map((s) => [s.slug, stageNav(s)])) as Record<HrStageKey, WorkspaceNav>),
 };
 
-/**
- * Which HR sub-module a path belongs to. The Post-Joining stage claims not only
- * `/hr/post-joining` but the reparented document routes it contains (dossier,
- * agreements, policies, hr-record, letters) so the rail stays put as you work.
- */
+/** Which HR card a path belongs to — a stage under `/hr/<stage>`, the holiday
+ *  or help-desk surfaces, else the hub switcher rail (front door + Overview). */
 function hrSectionForPath(p: string): HrSection {
-  if (
-    p.startsWith("/hr/post-joining") ||
-    p.startsWith("/dossier") ||
-    p.startsWith("/agreements") ||
-    p.startsWith("/policies") ||
-    p.startsWith("/attendance/hr-record") ||
-    p.startsWith("/letters") ||
-    p.startsWith("/hr-docs")
-  ) return "post-joining";
-  if (p.startsWith("/hr/pre-interview")) return "pre-interview";
-  if (p.startsWith("/hr/post-interview")) return "post-interview";
-  if (p.startsWith("/hr/pre-joining")) return "pre-joining";
+  const m = p.match(/^\/hr\/(pre-interview|post-interview|pre-joining|post-joining|exit)(\/|$)/);
+  if (m) return m[1] as HrStageKey;
+  if (p.startsWith("/holidays")) return "holiday";
+  if (p.startsWith("/support") || p.startsWith("/hr/routing") || p.startsWith("/hr/metrics")) return "helpdesk";
   return "hub";
 }
 

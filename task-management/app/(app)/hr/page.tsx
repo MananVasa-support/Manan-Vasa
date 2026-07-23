@@ -1,55 +1,27 @@
-import {
-  UserSearch,
-  ClipboardCheck,
-  DoorOpen,
-  Briefcase,
-  LayoutGrid,
-  PartyPopper,
-  LifeBuoy,
-} from "lucide-react";
+import { LayoutGrid, PartyPopper, LifeBuoy } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { HR_STAGES } from "@/lib/hr/lifecycle";
 import { HrPageHeader, HrCard, type HrCardDef } from "@/components/hr/hr-chrome";
 
 export const dynamic = "force-dynamic";
 
 /**
- * HR room front door — the employee lifecycle in seven cards: four stages of the
- * journey (Pre-Interview → Post-Interview → Pre-Joining → Post-Joining) on the
- * top row, then Overview · Holiday List · Help Desk centred below. Each of the
- * four stages is its own sub-module with its own sidebar; the three below are
- * direct destinations.
+ * HR room front door — the employee lifecycle in eight cards: the five stages
+ * (Pre-Interview → Post-Interview → Pre-Joining → Post-Joining → Exit) on top,
+ * then Overview · Holiday List · Help Desk below. Each stage is its own
+ * sub-module with its own sidebar; the three below are direct destinations.
  */
-const STAGE_CARDS: HrCardDef[] = [
-  {
-    slug: "/hr/pre-interview",
-    title: "Pre-Interview",
-    blurb: "Everything before a candidate walks in — sourcing, screening and interview scheduling.",
-    Icon: UserSearch,
-    soon: true,
-  },
-  {
-    slug: "/hr/post-interview",
-    title: "Post-Interview",
-    blurb: "After the conversation — evaluations, decisions, offers and candidate communication.",
-    Icon: ClipboardCheck,
-    soon: true,
-  },
-  {
-    slug: "/hr/pre-joining",
-    title: "Pre-Joining",
-    blurb: "Between offer and day one — acceptance, documentation and onboarding readiness.",
-    Icon: DoorOpen,
-    soon: true,
-  },
-  {
-    slug: "/hr/post-joining",
-    title: "Post-Joining",
-    blurb: "The employee's working file — HR record, agreements, dossier, policies and letters.",
-    Icon: Briefcase,
-  },
-];
+const STAGE_CARDS: HrCardDef[] = HR_STAGES.map((s) => ({
+  slug: `/hr/${s.slug}`,
+  title: s.title,
+  blurb: s.blurb,
+  Icon: s.Icon,
+  // A stage is still "planned" only while every surface inside it is a screen
+  // awaiting its build (Pre-Interview). Any stage with a live letter is ready.
+  soon: s.items.every((it) => it.kind === "screen"),
+}));
 
 const DIRECT_CARDS: HrCardDef[] = [
   {
@@ -82,20 +54,20 @@ export default async function HrHubPage() {
       <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
         <HrPageHeader
           title="The employee lifecycle, one room"
-          subtitle="Four stages of the people journey — from first contact to a settled team member — plus the overview, holiday calendar and help desk. Open a stage to work inside it."
+          subtitle="Five stages of the people journey — from first contact to a clean exit — plus the overview, holiday calendar and help desk. Open a stage to work inside it."
         />
 
-        {/* Top row — the four lifecycle stages (4 across on desktop). */}
-        <section className="grid grid-cols-1 gap-4 max-md:gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Top row — the five lifecycle stages. */}
+        <section className="grid grid-cols-1 gap-4 max-md:gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {STAGE_CARDS.map((c, i) => (
             <HrCard key={c.slug} card={c} delay={i * 40} />
           ))}
         </section>
 
-        {/* Second row — three direct destinations, centred under the four above. */}
-        <section className="mx-auto mt-4 grid grid-cols-1 gap-4 max-md:gap-3 sm:grid-cols-3 lg:max-w-[75%]">
+        {/* Second row — three direct destinations, centred under the stages. */}
+        <section className="mx-auto mt-4 grid grid-cols-1 gap-4 max-md:gap-3 sm:grid-cols-3 lg:max-w-[62%]">
           {DIRECT_CARDS.map((c, i) => (
-            <HrCard key={c.slug} card={c} delay={(i + 4) * 40} />
+            <HrCard key={c.slug} card={c} delay={(i + 5) * 40} />
           ))}
         </section>
       </main>

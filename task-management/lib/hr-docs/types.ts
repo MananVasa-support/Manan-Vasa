@@ -72,6 +72,10 @@ export const DOC_TYPES: readonly DocType[] = [
   { typeKey: "rejection", category: "recruitment", title: "Rejection Letter", trigger: "email", signature: "none", content: "text" },
   { typeKey: "interns_letter", category: "recruitment", title: "Internship Letter", trigger: "issued", signature: "esign", content: "text" },
   { typeKey: "interns_certificate", category: "recruitment", title: "Internship Certificate", trigger: "issued", signature: "none", content: "certificate" },
+  // Post-Interview lifecycle stage (added 2026-07)
+  { typeKey: "offer_letter", category: "recruitment", title: "Offer Letter", trigger: "email", signature: "none", content: "text" },
+  { typeKey: "assignment_letter", category: "recruitment", title: "Assignment Letter", trigger: "email", signature: "none", content: "text" },
+  { typeKey: "next_round_call", category: "recruitment", title: "Next Round Invitation", trigger: "email", signature: "none", content: "text" },
 
   // B — Appointment & Agreements
   { typeKey: "appointment_letter", category: "appointment", title: "Appointment Letter", trigger: "issued", signature: "esign", content: "text" },
@@ -94,6 +98,8 @@ export const DOC_TYPES: readonly DocType[] = [
   // E — Milestones & Recognition
   { typeKey: "free_training_completed", category: "milestones", title: "Free Training Completion Certificate", trigger: "issued", signature: "none", content: "certificate" },
   { typeKey: "probation_completed", category: "milestones", title: "Probation Completion Certificate", trigger: "issued", signature: "none", content: "certificate" },
+  // Post-Joining lifecycle stage — the text confirmation letter (added 2026-07)
+  { typeKey: "confirmation_letter", category: "milestones", title: "Confirmation Letter", trigger: "issued", signature: "none", content: "text" },
   { typeKey: "employee_of_month", category: "milestones", title: "Employee of the Month", trigger: "issued", signature: "none", content: "certificate" },
   { typeKey: "birthday_anniversary", category: "milestones", title: "Birthday / Work Anniversary", trigger: "email", signature: "none", content: "text" },
 
@@ -106,6 +112,9 @@ export const DOC_TYPES: readonly DocType[] = [
   { typeKey: "resignation_rejected", category: "separation", title: "Resignation Rejection", trigger: "issued", signature: "none", content: "text" },
   { typeKey: "ffs_letter", category: "separation", title: "Full & Final Settlement Letter", trigger: "issued", signature: "esign", content: "text" },
   { typeKey: "handover_letter", category: "separation", title: "Handover Letter", trigger: "issued", signature: "esign", content: "text" },
+  // Exit lifecycle stage (added 2026-07)
+  { typeKey: "experience_letter", category: "separation", title: "Experience Letter", trigger: "issued", signature: "none", content: "certificate" },
+  { typeKey: "completion_certificate", category: "separation", title: "Completion Certificate", trigger: "issued", signature: "none", content: "certificate" },
 ];
 
 const BY_KEY = new Map<string, DocType>(DOC_TYPES.map((d) => [d.typeKey, d]));

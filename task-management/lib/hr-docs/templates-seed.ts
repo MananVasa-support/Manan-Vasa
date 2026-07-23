@@ -72,6 +72,52 @@ We wish {{firstName}} continued success in every future endeavour.
 Human Resources, {{company}}`,
   },
 
+  offer_letter: {
+    title: "Offer Letter",
+    bodyMd: `Dear {{name}},
+
+We are pleased to offer you the position of **{{designation}}** at **{{company}}**. Following our interview process, we were impressed by your capabilities and believe you will be a strong addition to our team.
+
+Your proposed date of joining is **{{joiningDate}}**, with a cost-to-company of **{{ctc}}** per annum. The detailed compensation structure, appointment letter and joining formalities will follow on your acceptance of this offer.
+
+Kindly confirm your acceptance by replying to this email. We look forward to welcoming you to {{company}}.
+
+Warm regards,
+{{hrName}}
+Human Resources, {{company}}`,
+  },
+  assignment_letter: {
+    title: "Assignment Letter",
+    bodyMd: `Dear {{name}},
+
+Thank you for your continued interest in the **{{designation}}** role at **{{company}}**. As the next step in our selection process, we would like you to complete a short assignment so we can better understand your approach and skills.
+
+**Assignment:** _____________________
+**Submit by:** _____________________
+
+Please share your completed work by replying to this email. Do reach out if you have any questions — we're happy to help.
+
+Warm regards,
+{{hrName}}
+Human Resources, {{company}}`,
+  },
+  next_round_call: {
+    title: "Next Round Invitation",
+    bodyMd: `Dear {{name}},
+
+Thank you for your time so far in our selection process for the **{{designation}}** role at **{{company}}**. We're pleased to let you know that you have progressed to the next round.
+
+**Round:** _____________________
+**Date & time:** _____________________
+**Mode / venue:** _____________________
+
+Please confirm your availability by replying to this email. We look forward to speaking with you again.
+
+Warm regards,
+{{hrName}}
+Human Resources, {{company}}`,
+  },
+
   // ── B — Appointment & Agreements ───────────────────────────────────────────
   appointment_letter: {
     title: "Appointment Letter",
@@ -259,6 +305,20 @@ Congratulations!
 {{hrName}}
 Human Resources, {{company}}`,
   },
+  confirmation_letter: {
+    title: "Confirmation Letter",
+    bodyMd: `Dear {{name}},
+
+We are pleased to confirm your employment as **{{designation}}** at **{{company}}** with effect from **{{date}}**, having successfully completed your probation period.
+
+Your performance, conduct and commitment during probation have met our expectations, and we are glad to have you continue as a regular member of the {{department}} team. All terms of your appointment continue to apply.
+
+Congratulations, and here's to a long and rewarding association.
+
+Warm regards,
+{{hrName}}
+Human Resources, {{company}}`,
+  },
   employee_of_month: {
     title: "Employee of the Month",
     bodyMd: `**Employee of the Month**
@@ -373,6 +433,30 @@ You are requested to complete the handover to **{{reportingManager}}** (or nomin
 We appreciate your cooperation in ensuring a smooth transition.
 
 Warm regards,
+{{hrName}}
+Human Resources, {{company}}`,
+  },
+  experience_letter: {
+    title: "Experience Letter",
+    bodyMd: `**TO WHOMSOEVER IT MAY CONCERN**
+
+This is to certify that **{{name}}** was employed with **{{company}}** as **{{designation}}** in the {{department}} team, from **{{joiningDate}}** to **{{lastWorkingDay}}**.
+
+During this tenure, {{firstName}} was found to be sincere, diligent and professional, and contributed positively to the organisation. Their conduct throughout the period of employment was satisfactory.
+
+We wish {{firstName}} success in all future endeavours.
+
+{{hrName}}
+Human Resources, {{company}}`,
+  },
+  completion_certificate: {
+    title: "Completion Certificate",
+    bodyMd: `**CERTIFICATE OF COMPLETION**
+
+This is to certify that **{{name}}** has successfully completed their engagement as **{{designation}}** with **{{company}}**, concluding on **{{lastWorkingDay}}**.
+
+All assigned responsibilities and the handover of duties were duly completed. We acknowledge {{firstName}}'s contribution during their association with {{company}} and extend our best wishes for the future.
+
 {{hrName}}
 Human Resources, {{company}}`,
   },
