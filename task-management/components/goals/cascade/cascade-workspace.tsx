@@ -1284,7 +1284,7 @@ function QuickAdd({ busy, onAdd, compact }: { busy: boolean; onAdd: (title: stri
             : "brand-btn wg-btn wg-sheen inline-flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-[15.5px] font-black text-white"
         }
       >
-        <Plus size={compact ? 15 : 19} strokeWidth={3} /> Add goal
+        <Plus size={compact ? 15 : 19} strokeWidth={3} /> Add Goal
       </button>
     );
   }

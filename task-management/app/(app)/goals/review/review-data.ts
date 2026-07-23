@@ -8,6 +8,7 @@ import { getYearBoard } from "@/lib/goals/queries";
 import { fyStartYearOf } from "@/lib/goals/types";
 import type { GoalNode } from "@/lib/goals/types";
 import { toGoalDTO, periodKeyLabel, num, type RosterMember } from "@/components/goals/cascade/util";
+import { listGoalLookups } from "@/lib/goals/lookups";
 import { weekNoOf } from "@/lib/goals/fy-calendar";
 import { formatWeekShort } from "@/lib/weekly-goals/week";
 import { resolveGoalsView } from "../cascade/view";
@@ -34,6 +35,9 @@ export interface ReviewItem {
   id: string;
   title: string;
   area: string | null;
+  /** Goal category / type (goal-kind only; null for weekly + daily). Reviewers
+   *  with approve rights can change it inline. */
+  category: string | null;
   /** Short human code (e.g. "JuQ2", "W28", "22 Jul"). */
   code: string | null;
   /** Human period label ("Jul 2026", "Week of 21 Jul", "22 Jul 2026"). */
@@ -62,6 +66,9 @@ export interface ReviewData {
   viewedEmployeeId: string;
   viewedName: string;
   roster: RosterMember[];
+  /** Managed Type/category options for the reviewer's inline dropdown. */
+  typeOptions: string[];
+  customTypes: string[];
   /** Self may set %Done on their own rows. */
   canWrite: boolean;
   /** Manager/management may set Approved% + notes. */
@@ -180,6 +187,7 @@ export async function loadReviewData(sp: { emp?: string; fy?: string }): Promise
       id: g.id,
       title: g.title,
       area: g.area,
+      category: g.category,
       code: g.periodKey,
       periodLabel: periodKeyLabel(g.periodKey),
       pctDone: g.pctDone,
@@ -202,6 +210,7 @@ export async function loadReviewData(sp: { emp?: string; fy?: string }): Promise
       id: w.id,
       title: (w.targetDone?.trim() || w.subject?.trim() || "Weekly goal") as string,
       area: w.area,
+      category: null,
       code: `W${weekNoOf(w.weekStart)}`,
       periodLabel: `Week of ${formatWeekShort(w.weekStart)}`,
       pctDone: w.pctDone,
@@ -225,6 +234,7 @@ export async function loadReviewData(sp: { emp?: string; fy?: string }): Promise
       id: d.id,
       title: d.title,
       area: d.subject,
+      category: null,
       code: dayLabel(d.planDate),
       periodLabel: dayLabel(d.planDate),
       pctDone: pct,
@@ -244,6 +254,8 @@ export async function loadReviewData(sp: { emp?: string; fy?: string }): Promise
     (Object.keys(levels) as ReviewLevel[]).map((k) => [k, levels[k].length]),
   ) as Record<ReviewLevel, number>;
 
+  const lookups = await listGoalLookups();
+
   return {
     levels,
     counts,
@@ -252,6 +264,8 @@ export async function loadReviewData(sp: { emp?: string; fy?: string }): Promise
     viewedEmployeeId: empId,
     viewedName: view.viewedName,
     roster: view.roster,
+    typeOptions: lookups.types,
+    customTypes: lookups.custom.types,
     canWrite: view.canWrite,
     canReview: view.canReview,
   };

@@ -11,7 +11,6 @@ import {
   KeyboardSensor,
   useSensor,
   useSensors,
-  useDroppable,
   closestCorners,
   pointerWithin,
   type CollisionDetection,
@@ -26,12 +25,11 @@ import {
   rectSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
-import { ChevronLeft, ChevronRight, Search, X, Target, Trash2, List, Columns3, Star, Plus, Download, ArrowUpDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X, Target, Trash2, List, Columns3, Plus, Download, ArrowUpDown } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { BoardQuickChips, type QuickChip } from "@/components/weekly-goals/board-quick-chips";
 import { fireToast } from "@/lib/toast";
 import { goalPolicy } from "@/lib/goals/policy";
-import { rollupPct } from "@/lib/goals/derive";
 import {
   quartersOfFy,
   monthKeysOfQuarter,
@@ -46,7 +44,6 @@ import {
   parentPeriodKeyOf,
   childLevelOf,
   categoryStyle,
-  PERIOD_LABEL,
 } from "@/components/goals/cascade/util";
 import { useOptimisticGoals } from "@/components/goals/canvas/optimistic";
 import {
@@ -106,149 +103,6 @@ function csvCell(v: string): string {
   return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
 
-/**
- * Premium score dial — a bespoke SVG ring with an Altus-red gradient arc, a
- * soft red glow, rounded cap and a star core. Load-neutral (GPU CSS only), the
- * glow pulse is reduced-motion-gated via `.wg-ring-glow`.
- */
-function ScoreDial({ value, size = 68 }: { value: number; size?: number }): React.JSX.Element {
-  const v = Math.max(0, Math.min(100, Math.round(value)));
-  const stroke = Math.max(5, Math.round(size * 0.1));
-  const r = (size - stroke) / 2;
-  const c = size / 2;
-  const circ = 2 * Math.PI * r;
-  const dash = (v / 100) * circ;
-  const gid = React.useId();
-  const core = Math.round(size * 0.5);
-  return (
-    <span
-      role="img"
-      aria-label={`${v}% score`}
-      className="relative inline-flex shrink-0 items-center justify-center"
-      style={{ width: size, height: size }}
-    >
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden className="block -rotate-90">
-        <defs>
-          <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="var(--color-altus-red)" />
-            <stop offset="100%" stopColor="var(--color-altus-red-deep)" />
-          </linearGradient>
-        </defs>
-        <circle cx={c} cy={c} r={r} fill="none" stroke="color-mix(in srgb, var(--color-altus-red) 12%, transparent)" strokeWidth={stroke} />
-        <circle
-          cx={c}
-          cy={c}
-          r={r}
-          fill="none"
-          stroke={`url(#${gid})`}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={`${dash} ${circ}`}
-          className="wg-ring-glow"
-          style={{
-            filter: "drop-shadow(0 0 5px color-mix(in srgb, var(--color-altus-red) 55%, transparent))",
-            transition: "stroke-dasharray 0.7s cubic-bezier(0.22,1,0.36,1)",
-          }}
-        />
-      </svg>
-      <span
-        className="absolute inline-flex items-center justify-center rounded-full"
-        style={{
-          width: core,
-          height: core,
-          background: "linear-gradient(150deg, color-mix(in srgb, var(--color-altus-red) 12%, var(--color-surface-card)), var(--color-surface-card))",
-          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7), 0 2px 6px -3px color-mix(in srgb, var(--color-altus-red) 45%, transparent)",
-        }}
-      >
-        <Star
-          size={Math.round(size * 0.27)}
-          strokeWidth={2.2}
-          style={{ color: "var(--color-altus-red)", fill: "color-mix(in srgb, var(--color-altus-red) 24%, transparent)" }}
-        />
-      </span>
-    </span>
-  );
-}
-
-/**
- * Mini health DONUT — a bespoke SVG breakdown of the bucket's status split
- * done(green) / on-track(#d97706) / behind(altus-red), with the goal total in
- * the centre. Static (reduced-motion-safe by construction), brand-colored,
- * load-neutral (pure SVG, no libs).
- */
-function HealthDonut({
-  done,
-  ontrack,
-  behind,
-  size = 52,
-}: {
-  done: number;
-  ontrack: number;
-  behind: number;
-  size?: number;
-}): React.JSX.Element {
-  const total = done + ontrack + behind;
-  const stroke = Math.max(6, Math.round(size * 0.16));
-  const r = (size - stroke) / 2;
-  const c = size / 2;
-  const circ = 2 * Math.PI * r;
-  const segments: { v: number; color: string }[] = [
-    { v: done, color: "var(--color-green)" },
-    { v: ontrack, color: "#d97706" },
-    { v: behind, color: "var(--color-altus-red)" },
-  ];
-  let acc = 0;
-  return (
-    <span
-      role="img"
-      aria-label={`${done} done, ${ontrack} on track, ${behind} behind`}
-      className="relative inline-flex shrink-0 items-center justify-center"
-      style={{ width: size, height: size }}
-    >
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="block -rotate-90" aria-hidden>
-        <circle
-          cx={c}
-          cy={c}
-          r={r}
-          fill="none"
-          stroke="color-mix(in srgb, var(--color-ink-strong) 8%, transparent)"
-          strokeWidth={stroke}
-        />
-        {total > 0 &&
-          segments.map((s, i) => {
-            if (s.v <= 0) return null;
-            const len = (s.v / total) * circ;
-            const offset = -acc;
-            acc += len;
-            return (
-              <circle
-                key={i}
-                cx={c}
-                cy={c}
-                r={r}
-                fill="none"
-                stroke={s.color}
-                strokeWidth={stroke}
-                strokeDasharray={`${len} ${circ - len}`}
-                strokeDashoffset={offset}
-              />
-            );
-          })}
-      </svg>
-      <span
-        className="absolute tabular-nums"
-        style={{
-          fontFamily: "var(--font-display)",
-          fontWeight: 800,
-          fontSize: Math.round(size * 0.3),
-          color: "var(--color-ink-strong)",
-        }}
-      >
-        {total}
-      </span>
-    </span>
-  );
-}
 
 /**
  * Goals LEVEL BOARD — the weekly-goals-board design (header + score card,
@@ -482,12 +336,6 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
     setSearch("");
     setCompletion("all");
   };
-
-  // ── Headline score for the scope — the canonical WEIGHTED rollup over the
-  //    adopted goals (lib/goals/derive `rollupPct`; no local average copy). ──
-  const adopted = React.useMemo(() => inBucket.filter((g) => g.adopted), [inBucket]);
-  const score = rollupPct(inBucket) ?? 0;
-  const doneCount = adopted.filter((g) => effectiveGoalPct(g) >= 100).length;
 
   // ── Export the CURRENTLY-VISIBLE goals to CSV (client-side Blob) ──────
   const exportCsv = React.useCallback(() => {
@@ -831,52 +679,23 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               ) : null}
             </div>
 
-            {/* 2 · overview — dial + score + donut (divider-separated) */}
-            {inBucket.length > 0 && (
+            {/* 2 · period pills — Q1–Q4 as a compact 2×2 grid, in the header */}
+            {props.level !== "year" && (
               <div
-                className="flex shrink-0 items-center justify-center gap-4 self-center border-l pl-6 max-xl:self-auto max-xl:border-l-0 max-xl:pl-0"
+                className={`grid shrink-0 ${props.level === "quarter" ? "grid-cols-2" : "grid-cols-4"} gap-2 self-center border-l pl-6 max-xl:w-full max-xl:border-l-0 max-xl:pl-0`}
                 style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 16%, var(--color-hairline))" }}
+                role="tablist"
+                aria-label="Pick a period"
               >
-                <ScoreDial value={score} />
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--color-altus-red-deep)" }}>
-                    {periodKeyShort(props.periodKey)} score
-                  </div>
-                  <div
-                    className="tabular-nums leading-[0.95]"
-                    style={{
-                      fontFamily: "var(--font-display)",
-                      fontWeight: 800,
-                      fontSize: 38,
-                      backgroundImage: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-                      WebkitBackgroundClip: "text",
-                      backgroundClip: "text",
-                      color: "transparent",
-                    }}
-                  >
-                    {score}%
-                  </div>
-                  <div className="mt-0.5 text-[12px] font-bold" style={{ color: "var(--color-ink-muted)" }}>
-                    {adopted.length > 0 ? (
-                      <>
-                        <span className="tabular-nums" style={{ color: "var(--color-ink-strong)" }}>{doneCount}/{adopted.length}</span> done
-                      </>
-                    ) : (
-                      "no adopted goals"
-                    )}
-                  </div>
-                </div>
-                <div
-                  className="flex items-center gap-2.5 border-l pl-4"
-                  style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 12%, var(--color-hairline))" }}
-                >
-                  <HealthDonut done={chipCounts.done} ontrack={chipCounts.ontrack} behind={chipCounts.behind + chipCounts.unfilled} />
-                  <div className="flex flex-col gap-0.5 text-[10.5px] font-bold tabular-nums">
-                    <span style={{ color: "var(--color-green-deep)" }}>● {chipCounts.done} done</span>
-                    <span style={{ color: "#b45309" }}>● {chipCounts.ontrack} on&nbsp;track</span>
-                    <span style={{ color: "var(--color-altus-red-deep)" }}>● {chipCounts.behind + chipCounts.unfilled} behind</span>
-                  </div>
-                </div>
+                {buckets.map((k) => (
+                  <HeaderPill
+                    key={k}
+                    label={props.level === "quarter" ? periodKeyLabel(k) : periodKeyShort(k)}
+                    count={countByBucket.get(k) ?? 0}
+                    active={k === props.periodKey}
+                    onPick={() => go({ period: k })}
+                  />
+                ))}
               </div>
             )}
 
@@ -962,6 +781,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               </div>
             </div>
           </div>
+
         </section>
 
         {/* ── Feature toolbar — New goal · Search · Sort · Export · Bulk upload.
@@ -1041,7 +861,32 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               employeeId={props.viewedEmployeeId}
               level={props.level}
               periodKey={props.periodKey}
+              existingTitles={levelGoals
+                .filter((g) => g.periodKey === props.periodKey)
+                .map((g) => g.title)}
             />
+          )}
+
+          {/* View toggle — List | Kanban (quarter/month only), beside Bulk upload */}
+          {props.level !== "year" && (
+            <div
+              role="group"
+              aria-label="Board view"
+              className="inline-flex items-center overflow-hidden rounded-full border border-hairline-strong bg-surface-soft"
+            >
+              <ViewToggleButton
+                active={!kanban}
+                label="List"
+                icon={<List size={14} strokeWidth={2.4} />}
+                onClick={() => pickView("list")}
+              />
+              <ViewToggleButton
+                active={kanban}
+                label="Kanban"
+                icon={<Columns3 size={14} strokeWidth={2.4} />}
+                onClick={() => pickView("kanban")}
+              />
+            </div>
           )}
         </div>
 
@@ -1063,119 +908,6 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
         >
           {/* First-run: empty PERSONAL space → offer to copy from Professional. */}
           {props.space === "personal" && goals.length === 0 && <PersonalStartPrompt />}
-
-          {/* ── Period pills — nav + ALWAYS-ON drop targets. Hidden in Kanban:
-              the columns themselves are the buckets (and the droppables — the
-              `bucket:` ids must stay unique inside one DndContext). ────── */}
-          {props.level !== "year" && !kanban && (
-            <nav
-              className="wg-rise mb-5 rounded-2xl border-2 p-3"
-              style={{
-                background: "color-mix(in srgb, var(--color-altus-red) 4%, var(--color-surface-card))",
-                borderColor: "color-mix(in srgb, var(--color-altus-red) 42%, transparent)",
-                boxShadow:
-                  "inset 0 0 0 1px color-mix(in srgb, var(--color-altus-red) 12%, transparent), 0 8px 24px -14px color-mix(in srgb, var(--color-altus-red) 45%, transparent)",
-                animationDelay: "40ms",
-              }}
-              aria-label={`Pick a ${PERIOD_LABEL[props.level].toLowerCase()}`}
-            >
-              {props.level === "quarter" ? (
-                <div className="flex items-center justify-center gap-2 flex-wrap">
-                  {buckets.map((k) => (
-                    <BucketPill
-                      key={k}
-                      bucketKey={k}
-                      label={periodKeyLabel(k)}
-                      count={countByBucket.get(k) ?? 0}
-                      active={k === props.periodKey}
-                      onPick={() => go({ period: k })}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-4 gap-x-5 gap-y-2 max-lg:grid-cols-2 max-md:grid-cols-1">
-                  {([1, 2, 3, 4] as const).map((q) => (
-                    <div key={q} className="min-w-0">
-                      <div className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--color-ink-subtle)" }}>
-                        {periodKeyLabel(`${fy}-Q${q}`)}
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {monthKeysOfQuarter(fy, q).map((k) => (
-                          <BucketPill
-                            key={k}
-                            bucketKey={k}
-                            label={periodKeyShort(k)}
-                            count={countByBucket.get(k) ?? 0}
-                            active={k === props.periodKey}
-                            onPick={() => go({ period: k })}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </nav>
-          )}
-
-          {/* ── Filter command bar — hidden on the Yearly surface (per request:
-              no search/filter row there; the handful of year goals need none) ── */}
-          {props.level !== "year" && (
-          <div
-            className="wg-rise mb-5 rounded-2xl border p-3"
-            style={{
-              background: "var(--color-surface-card)",
-              borderColor: "var(--color-hairline)",
-              boxShadow: "0 1px 3px rgba(15,23,42,0.05)",
-              animationDelay: "60ms",
-            }}
-          >
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <BoardQuickChips value={completion} counts={chipCounts} onSelect={setCompletion} />
-              <div className="ml-auto flex items-center gap-2.5">
-                {activeFilterCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className={`cursor-pointer inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold text-altus-red hover:bg-altus-red/[0.06] ${FOCUS_RING}`}
-                  >
-                    <X size={14} strokeWidth={2.6} /> Clear {activeFilterCount}
-                  </button>
-                )}
-                <span className="text-[13px] font-bold text-ink-soft tabular-nums whitespace-nowrap">
-                  {visibleCount}
-                  {activeFilterCount > 0 && visibleCount !== scopeTotal ? ` of ${scopeTotal}` : ""} goal
-                  {visibleCount === 1 ? "" : "s"}
-                </span>
-                {/* View toggle — always shown here (this bar only renders for
-                    quarter/month levels now; Yearly has no filter bar). */}
-                <div
-                  role="group"
-                  aria-label="Board view"
-                  className="inline-flex items-center overflow-hidden rounded-full border border-hairline-strong bg-surface-soft"
-                >
-                  <ViewToggleButton
-                    active={!kanban}
-                    label="List"
-                    icon={<List size={14} strokeWidth={2.4} />}
-                    onClick={() => pickView("list")}
-                  />
-                  <ViewToggleButton
-                    active={kanban}
-                    label="Kanban"
-                    icon={<Columns3 size={14} strokeWidth={2.4} />}
-                    onClick={() => pickView("kanban")}
-                  />
-                </div>
-              </div>
-            </div>
-            {activeFilterCount > 0 && canWrite && policy.canReorder && (
-              <p className="mt-2 text-[12px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
-                Drag is paused while filters are on — clear them to reorder or move cards.
-              </p>
-            )}
-          </div>
-          )}
 
           {/* ── The board body — classic list or Kanban columns ─────── */}
           {kanban ? (
@@ -1336,23 +1068,20 @@ function ViewToggleButton({
 /* Period pill — nav button + always-on drop target                    */
 /* ------------------------------------------------------------------ */
 
-function BucketPill({
-  bucketKey,
+/** Non-droppable period pill for the HEADER bar (click to switch bucket). */
+function HeaderPill({
   label,
   count,
   active,
   onPick,
 }: {
-  bucketKey: string;
   label: string;
   count: number;
   active: boolean;
   onPick: () => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `${BUCKET_DROP_PREFIX}${bucketKey}` });
   return (
     <button
-      ref={setNodeRef}
       type="button"
       onClick={onPick}
       aria-pressed={active}
@@ -1366,18 +1095,11 @@ function BucketPill({
               color: "#fff",
               boxShadow: "0 8px 20px -10px rgba(225,6,0,0.5)",
             }
-          : isOver
-            ? {
-                background: "color-mix(in srgb, var(--color-altus-red) 10%, var(--color-surface-card))",
-                borderColor: "var(--color-altus-red)",
-                color: "var(--color-altus-red-deep)",
-                transform: "scale(1.06)",
-              }
-            : {
-                background: "var(--color-surface-card)",
-                borderColor: "var(--color-hairline-strong)",
-                color: "var(--color-ink-soft)",
-              }
+          : {
+              background: "var(--color-surface-card)",
+              borderColor: "var(--color-hairline-strong)",
+              color: "var(--color-ink-soft)",
+            }
       }
     >
       {label}
@@ -1394,6 +1116,7 @@ function BucketPill({
     </button>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Empty state                                                         */

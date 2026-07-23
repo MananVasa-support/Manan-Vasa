@@ -8,6 +8,7 @@ import { goals, weeklyGoals, dailyChecklist, goalLookups } from "@/db/schema";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { listGoalLookups, goalLookupExists, isBaseGoalLookup, type GoalLookupOptions } from "@/lib/goals/lookups";
 import { goalsSpace } from "@/lib/goals/space";
+import { autoPctDone, statusForPct } from "@/lib/goals/auto-pct";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import {
   loadWritableGoalRow,
@@ -275,10 +276,10 @@ const BulkRowSchema = z.object({
   uom: z.string().max(80).nullish(),
   weight: z.number().int().min(0).max(1000).optional(),
   targetQty: MoneyIn,
+  actualQty: MoneyIn,
   targetAmount: MoneyIn,
-  incentiveEnabled: z.boolean().optional(),
-  incentiveAmount: MoneyIn,
-  incentiveKind: INCENTIVE_KIND.nullish(),
+  /** Type tag (Operational / Milestone / … or a custom admin Type). */
+  category: z.string().max(60).nullish(),
 });
 
 const BulkCreateSchema = z.object({
@@ -309,7 +310,9 @@ export async function bulkCreateGoals(
   try {
     const inserted = await db.transaction(async (tx) => {
       const values = d.rows.map((r, i) => {
-        const withIncentive = r.incentiveEnabled === true;
+        // Auto % Done from Target ÷ Actual when both drive the row (same rule as
+        // the inline table); otherwise 0.
+        const auto = autoPctDone(r.targetQty, r.actualQty);
         return {
           employeeId: d.employeeId,
           period: d.level,
@@ -320,14 +323,14 @@ export async function bulkCreateGoals(
           title: r.title,
           uom: r.uom ?? null,
           targetQty: money(r.targetQty),
+          actualQty: money(r.actualQty),
           targetAmount: money(r.targetAmount),
           weight: r.weight ?? 100,
+          pctDone: auto ?? 0,
+          status: auto != null ? statusForPct(auto) : "not_started",
           adopted: true,
           source: "manual",
-          category: "goal",
-          incentiveEnabled: withIncentive,
-          incentiveAmount: withIncentive ? money(r.incentiveAmount) : null,
-          incentiveKind: withIncentive ? (r.incentiveKind ?? null) : null,
+          category: (r.category ?? "").trim() || "goal",
           createdById: me.id,
           updatedById: me.id,
         };
@@ -532,6 +535,21 @@ export async function editGoal(
   if (d.incentiveAmount !== undefined) patch.incentiveAmount = money(d.incentiveAmount);
   if (d.incentiveKind !== undefined) patch.incentiveKind = d.incentiveKind ?? null;
   if (d.monthlyMasterRef !== undefined) patch.monthlyMasterRef = d.monthlyMasterRef ?? null;
+
+  // Auto % Done from Target / Actual — when a numeric target (> 0) drives the
+  // goal, its progress IS Actual ÷ Target (clamped 0–100), so % Done can never
+  // drift from the numbers. Recompute only when target or actual just changed;
+  // when it isn't computable (no/zero target, or no actual) % Done is left to
+  // manual entry (setGoalPctDone).
+  if (d.targetQty !== undefined || d.actualQty !== undefined) {
+    const effTarget = d.targetQty !== undefined ? money(d.targetQty) : loaded.row.targetQty;
+    const effActual = d.actualQty !== undefined ? money(d.actualQty) : loaded.row.actualQty;
+    const auto = autoPctDone(effTarget, effActual);
+    if (auto !== null) {
+      patch.pctDone = auto;
+      patch.status = statusForPct(auto);
+    }
+  }
 
   const [row] = await db.update(goals).set(patch).where(eq(goals.id, d.id)).returning();
   if (!row) return { ok: false, error: "Goal not found" };
@@ -2127,13 +2145,44 @@ export async function divideYearlyGoal(
     adopted: true,
   };
 
+  // Split the parent's Actual + Target across the children so they SUM back to
+  // the year: each quarter gets ¼, each month 1⁄12. % Done rides on the same
+  // Actual ÷ Target ratio, so every child inherits the parent's progress.
+  const toN = (v: string | null): number | null => {
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const share = (v: number | null, by: number): string | null =>
+    v == null ? null : String(Math.round((v / by) * 100) / 100);
+  const srcT = toN(src.targetQty);
+  const srcA = toN(src.actualQty);
+  const dividedPct = autoPctDone(src.targetQty, src.actualQty);
+  const pctCols = {
+    pctDone: dividedPct ?? 0,
+    status: (dividedPct != null ? statusForPct(dividedPct) : "not_started") as
+      | "done"
+      | "initiated"
+      | "not_started",
+  };
+
   let created = 0;
   try {
     for (const qKey of quartersOfFy(fy)) {
       const qPos = await nextGoalPosition(src.employeeId, "quarter", qKey);
       const [qRow] = await db
         .insert(goals)
-        .values({ ...baseCols, period: "quarter", periodKey: qKey, parentGoalId: src.id, position: qPos, weight: 25 })
+        .values({
+          ...baseCols,
+          ...pctCols,
+          period: "quarter",
+          periodKey: qKey,
+          parentGoalId: src.id,
+          position: qPos,
+          weight: 25,
+          targetQty: share(srcT, 4),
+          actualQty: share(srcA, 4),
+        })
         .returning({ id: goals.id });
       if (!qRow) continue;
       created++;
@@ -2142,7 +2191,17 @@ export async function divideYearlyGoal(
         const mPos = await nextGoalPosition(src.employeeId, "month", mKey);
         const [mRow] = await db
           .insert(goals)
-          .values({ ...baseCols, period: "month", periodKey: mKey, parentGoalId: qRow.id, position: mPos, weight: 8 })
+          .values({
+            ...baseCols,
+            ...pctCols,
+            period: "month",
+            periodKey: mKey,
+            parentGoalId: qRow.id,
+            position: mPos,
+            weight: 8,
+            targetQty: share(srcT, 12),
+            actualQty: share(srcA, 12),
+          })
           .returning({ id: goals.id });
         if (mRow) created++;
       }

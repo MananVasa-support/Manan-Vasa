@@ -13,6 +13,23 @@ import {
 import { AGREEMENT_TYPE_LABELS, AGREEMENT_STATUS_LABELS } from "@/db/enums";
 import type { AgreementRow } from "@/lib/agreements/types";
 import { Workbench } from "@/components/agreements/workbench";
+import { signatureStatusMap } from "@/lib/documents/status";
+import type { SignatureStatus } from "@/lib/documents/signing";
+import { SignatureStatusPill } from "@/components/documents/signature-status-pill";
+
+type AgreementSignatureRecord = Record<
+  string,
+  { signatureId: string; status: SignatureStatus; signedPdfPath: string | null }
+>;
+
+async function signaturesFor(rows: AgreementRow[]): Promise<AgreementSignatureRecord> {
+  const map = await signatureStatusMap("agreement", rows.map((r) => r.id));
+  const out: AgreementSignatureRecord = {};
+  for (const [docId, s] of map) {
+    out[docId] = { signatureId: s.signatureId, status: s.status, signedPdfPath: s.signedPdfPath };
+  }
+  return out;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -71,9 +88,20 @@ export default async function AgreementsPage() {
         </header>
 
         {isAdmin ? (
-          <Workbench roster={await rosterForAgreements()} agreements={await listAgreements()} />
+          await (async () => {
+            const [roster, agreements] = await Promise.all([
+              rosterForAgreements(),
+              listAgreements(),
+            ]);
+            const signatures = await signaturesFor(agreements);
+            return <Workbench roster={roster} agreements={agreements} signatures={signatures} />;
+          })()
         ) : (
-          <EmployeeAgreements rows={await agreementsForEmployee(me.id)} />
+          await (async () => {
+            const rows = await agreementsForEmployee(me.id);
+            const signatures = await signaturesFor(rows);
+            return <EmployeeAgreements rows={rows} signatures={signatures} />;
+          })()
         )}
       </main>
       <DashboardFooter />
@@ -91,7 +119,13 @@ function fmt(iso: string | null): string {
     : d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function EmployeeAgreements({ rows }: { rows: AgreementRow[] }) {
+function EmployeeAgreements({
+  rows,
+  signatures,
+}: {
+  rows: AgreementRow[];
+  signatures: AgreementSignatureRecord;
+}) {
   if (rows.length === 0) {
     return (
       <div
@@ -110,6 +144,7 @@ function EmployeeAgreements({ rows }: { rows: AgreementRow[] }) {
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {rows.map((r) => {
         const signed = r.status === "signed";
+        const sig = signatures[r.id] ?? null;
         return (
           <article
             key={r.id}
@@ -120,6 +155,11 @@ function EmployeeAgreements({ rows }: { rows: AgreementRow[] }) {
               <div>
                 <h3 className="text-[15px] font-bold text-ink-strong">{AGREEMENT_TYPE_LABELS[r.type]}</h3>
                 <p className="mt-0.5 text-[12px] text-ink-subtle">{r.title}</p>
+                {sig && (
+                  <div className="mt-1.5">
+                    <SignatureStatusPill status={sig.status} />
+                  </div>
+                )}
               </div>
               {signed ? (
                 <span

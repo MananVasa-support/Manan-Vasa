@@ -13,12 +13,54 @@ import {
   CheckCircle2,
   BadgeCheck,
   ClipboardList,
+  Snowflake,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { fireToast } from "@/lib/toast";
 import { carryAllUnfinishedForward } from "@/app/(app)/goals/weekly/actions";
 import { CascadeGoalCard } from "./cascade-goal-card";
+import { GoalTableView } from "@/components/goals/board/goal-table-view";
+import { WEEKLY_TABLE_ACTIONS } from "@/components/goals/board/weekly-table-actions";
+import { CommitDialog } from "@/components/goals/commit/commit-dialog";
+import type { CommitMember } from "@/components/goals/commit/types";
+import type { GoalDTO } from "@/components/goals/cascade/util";
 import type { BoardMe, CascadeWeeklyGoal, MonthGoalOption, RosterMember } from "./types";
+
+/** Map a weekly cascade row onto the shared inline table's GoalDTO shape. */
+function weeklyToGoalDTO(g: CascadeWeeklyGoal): GoalDTO {
+  return {
+    id: g.id,
+    employeeId: g.employeeId,
+    period: "week",
+    periodKey: g.weekStart,
+    parentGoalId: g.monthGoalId ?? null,
+    position: g.position,
+    area: g.area,
+    title: (g.targetDone ?? "").trim() || (g.subject ?? "").trim() || "Untitled",
+    uom: g.uom,
+    targetQty: g.targetQty,
+    actualQty: g.actualQty,
+    targetAmount: g.targetAmount,
+    actualAmount: g.actualAmount,
+    notes: null,
+    teamInvolved: g.teamInvolved?.map((m) => ({ employeeId: m.employeeId, name: m.name })) ?? null,
+    teamDependencyPct: g.teamDependencyPct,
+    pctDone: g.pctDone,
+    acceptPct: g.acceptPct,
+    reviewNotes: null,
+    evidenceUrl: g.evidenceUrl,
+    weight: g.weight,
+    adopted: g.adopted,
+    source: "manual",
+    category: "goal",
+    clonedFromId: g.carriedFromId ?? null,
+    incentiveEnabled: false,
+    incentiveAmount: null,
+    incentiveKind: null,
+    monthlyMasterRef: null,
+    shareWithTeam: false,
+  };
+}
 
 // Goals module identity (amber-gold). Read from the `--goals-accent` token when
 // present, else fall back to the module-theme hex. Kept as CSS-var strings so the
@@ -50,6 +92,12 @@ export function WeeklyCascadeBoard({
   rows,
   roster,
   monthGoalOptions,
+  areaOptions,
+  measureOptions,
+  typeOptions,
+  customLookups,
+  fyStartYear,
+  commit,
 }: {
   me: BoardMe;
   weekStart: string;
@@ -65,9 +113,17 @@ export function WeeklyCascadeBoard({
   rows: CascadeWeeklyGoal[];
   roster: RosterMember[];
   monthGoalOptions: MonthGoalOption[];
+  areaOptions: string[];
+  measureOptions: string[];
+  typeOptions: string[];
+  customLookups: { areas: string[]; measures: string[]; types: string[] };
+  fyStartYear: number;
+  /** Self "freeze next week" ritual, surfaced as a popup (null when not self). */
+  commit: { member: CommitMember; nextWeekLabel: string; weekStart: string } | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
+  const [commitOpen, setCommitOpen] = React.useState(false);
 
   function goWeek(w: string) {
     const params = new URLSearchParams();
@@ -214,13 +270,30 @@ export function WeeklyCascadeBoard({
             The chips read the existing stamps; the ritual pages keep the logic. */}
         {adopted.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Weekly ritual status">
-            <RitualChip
-              href={"/goals/commit" as Route}
-              icon={<CheckCircle2 size={13} strokeWidth={2.4} />}
-              label={`Committed ${committedCount}/${adopted.length}`}
-              done={committedCount === adopted.length}
-              title="Open the Saturday commit ritual"
-            />
+            {commit ? (
+              <button
+                type="button"
+                onClick={() => setCommitOpen(true)}
+                title="Freeze next week (Saturday commit)"
+                className="wg-btn inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[12.5px] font-bold"
+                style={
+                  committedCount === adopted.length
+                    ? { borderColor: "#15803d", color: "#166534", background: "rgba(21,128,61,0.10)" }
+                    : { borderColor: ACCENT, color: ACCENT_DEEP, background: `color-mix(in srgb, ${ACCENT} 8%, transparent)` }
+                }
+              >
+                <Snowflake size={13} strokeWidth={2.4} />
+                {committedCount === adopted.length ? "Next week frozen" : "Commit next week"}
+              </button>
+            ) : (
+              <RitualChip
+                href={"/goals/commit" as Route}
+                icon={<CheckCircle2 size={13} strokeWidth={2.4} />}
+                label={`Committed ${committedCount}/${adopted.length}`}
+                done={committedCount === adopted.length}
+                title="Open the Saturday commit ritual"
+              />
+            )}
             {(me.isAdmin || canPickPerson) && (
               <RitualChip
                 href={"/goals/approve" as Route}
@@ -280,16 +353,21 @@ export function WeeklyCascadeBoard({
         </motion.div>
       ) : (
         <div className="flex flex-col gap-3">
-          {adopted.map((g, i) => (
-            <CascadeGoalCard
-              key={g.id}
-              goal={g}
-              me={me}
-              roster={roster}
-              monthGoalOptions={monthGoalOptions}
-              index={i}
-            />
-          ))}
+          <GoalTableView
+            goals={adopted.map(weeklyToGoalDTO)}
+            canWrite
+            isAdmin={me.isAdmin}
+            roster={roster}
+            areaOptions={areaOptions}
+            measureOptions={measureOptions}
+            typeOptions={typeOptions}
+            customLookups={customLookups}
+            fyStartYear={fyStartYear}
+            level="week"
+            variant="weekly"
+            actions={WEEKLY_TABLE_ACTIONS}
+            detailKind="weekly"
+          />
 
           {dropped.length > 0 && (
             <>
@@ -312,6 +390,16 @@ export function WeeklyCascadeBoard({
             </>
           )}
         </div>
+      )}
+
+      {commit && (
+        <CommitDialog
+          open={commitOpen}
+          onClose={() => setCommitOpen(false)}
+          member={commit.member}
+          nextWeekLabel={commit.nextWeekLabel}
+          weekStart={commit.weekStart}
+        />
       )}
     </main>
   );

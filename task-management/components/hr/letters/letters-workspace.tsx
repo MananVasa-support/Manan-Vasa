@@ -2,10 +2,12 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Upload, Mail, Download, Trash2, X, Search } from "lucide-react";
+import { Loader2, Upload, Mail, Download, Trash2, X, Search, PenLine } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { LETTER_TYPES } from "@/lib/hr/letter-types";
 import { uploadLetter, deleteLetter } from "@/app/(app)/letters/actions";
+import { SignatureStatusPill } from "@/components/documents/signature-status-pill";
+import type { SignatureStatus } from "@/lib/documents/signing";
 
 const RED = "var(--color-altus-red)";
 const RED_DEEP = "var(--color-altus-red-deep)";
@@ -36,14 +38,22 @@ function fmtDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
+interface SignatureLite {
+  signatureId: string;
+  status: SignatureStatus;
+  signedPdfPath: string | null;
+}
+
 export function LettersWorkspace({
   letters,
   isAdmin,
   roster,
+  signatures = {},
 }: {
   letters: Letter[];
   isAdmin: boolean;
   roster: Array<{ id: string; name: string }>;
+  signatures?: Record<string, SignatureLite>;
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -98,7 +108,10 @@ export function LettersWorkspace({
         </div>
       ) : (
         <ul className="space-y-2">
-          {filtered.map((l) => (
+          {filtered.map((l) => {
+            const sig = signatures[l.id] ?? null;
+            const isSigned = sig?.status === "signed";
+            return (
             <li key={l.id} className="flex items-center gap-3 rounded-2xl border border-hairline bg-surface-card px-4 py-3">
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: "#E1060014" }}>
                 <Mail size={16} style={{ color: RED_DEEP }} />
@@ -107,6 +120,7 @@ export function LettersWorkspace({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="truncate text-[14px] font-semibold text-ink-strong">{l.title}</span>
                   <span className="rounded-pill bg-surface-soft px-2 py-0.5 text-[11px] font-bold text-ink-muted">{l.letterLabel}</span>
+                  {sig && <SignatureStatusPill status={sig.status} />}
                 </div>
                 <div className="truncate text-[12px] text-ink-muted">
                   {isAdmin && l.employeeName ? `${l.employeeName} · ` : ""}
@@ -123,9 +137,27 @@ export function LettersWorkspace({
               >
                 <Download size={13} /> Open
               </a>
+              {!isSigned && (
+                <a
+                  href={`/documents/sign?kind=letter&doc=${l.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold text-white"
+                  style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
+                >
+                  <PenLine size={13} /> {sig?.status === "verified" ? "Finish signing" : "Review & sign"}
+                </a>
+              )}
+              {isSigned && (
+                <a
+                  href={`/documents/sign?kind=letter&doc=${l.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-hairline px-2.5 py-1.5 text-[12.5px] font-semibold text-ink-strong transition hover:border-[var(--color-altus-red)]"
+                >
+                  <PenLine size={13} /> Signed
+                </a>
+              )}
               {isAdmin && <DeleteButton id={l.id} onDone={() => router.refresh()} />}
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
 

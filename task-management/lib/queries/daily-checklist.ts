@@ -78,6 +78,7 @@ export interface PullableGoal {
 export interface OverdueItem {
   id: string;
   title: string;
+  description: string | null;
   client: string | null;
   subject: string | null;
   origin: "goal_related" | "standalone";
@@ -301,6 +302,7 @@ export interface OpenTaskOption {
   id: string;
   taskNo: number | null;
   title: string;
+  description: string | null;
   client: string | null;
   subject: string | null;
   status: TaskStatus;
@@ -346,6 +348,7 @@ export async function listOpenTasksForChecklist(
       id: tasks.id,
       taskNo: tasks.taskNo,
       title: tasks.title,
+      description: tasks.description,
       client: tasks.client,
       subject: tasks.subject,
       status: tasks.status,
@@ -383,6 +386,7 @@ export async function listOpenTasksForChecklist(
       id: r.id,
       taskNo: r.taskNo,
       title: r.title,
+      description: r.description,
       client: r.client,
       subject: r.subject,
       status: r.status,
@@ -493,6 +497,7 @@ export async function getOverdueItems(
     .select({
       id: dailyChecklist.id,
       title: dailyChecklist.title,
+      description: tasks.description,
       client: dailyChecklist.client,
       subject: dailyChecklist.subject,
       origin: dailyChecklist.origin,

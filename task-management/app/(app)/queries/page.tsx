@@ -21,7 +21,8 @@ const RED = "var(--color-altus-red)";
 const RED_DEEP = "var(--color-altus-red-deep)";
 
 export default async function QueriesPage() {
-  const me = await requireWorkspace("hr");
+  // Re-parented from HR to the Employees room (2026-07) — an employee surface.
+  const me = await requireWorkspace("employees");
   if (!hrSupportEnabled()) {
     return (
       <HrComingSoon

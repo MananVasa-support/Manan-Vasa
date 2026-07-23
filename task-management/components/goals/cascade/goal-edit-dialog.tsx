@@ -233,17 +233,6 @@ export function GoalEditDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Target (qty)</label>
-              <input value={f.targetQty} onChange={(e) => upd("targetQty", e.target.value)} className={`${inputCls} mt-1`} inputMode="decimal" placeholder="0" />
-            </div>
-            <div>
-              <label className={labelCls}>Target amount (₹)</label>
-              <input value={f.targetAmount} onChange={(e) => upd("targetAmount", e.target.value)} className={`${inputCls} mt-1`} inputMode="decimal" placeholder="0" />
-            </div>
-          </div>
-
           {isEdit && (
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -256,6 +245,17 @@ export function GoalEditDialog({
               </div>
             </div>
           )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Target (qty)</label>
+              <input value={f.targetQty} onChange={(e) => upd("targetQty", e.target.value)} className={`${inputCls} mt-1`} inputMode="decimal" placeholder="0" />
+            </div>
+            <div>
+              <label className={labelCls}>Target amount (₹)</label>
+              <input value={f.targetAmount} onChange={(e) => upd("targetAmount", e.target.value)} className={`${inputCls} mt-1`} inputMode="decimal" placeholder="0" />
+            </div>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -293,7 +293,7 @@ export function GoalEditDialog({
             style={{ background: `linear-gradient(135deg, ${GOALS_ACCENT}, ${GOALS_ACCENT_DEEP})` }}
           >
             {pending && <Loader2 size={15} className="animate-spin" />}
-            {isEdit ? "Save changes" : "Add goal"}
+            {isEdit ? "Save Changes" : "Add Goal"}
           </button>
         </div>
       </form>

@@ -33,20 +33,48 @@ export function SidebarRail({
 }) {
   const [collapsed, setCollapsed] = React.useState(defaultCollapsed);
 
-  // HR carries the longest nav label ("Queries & Notifications"), so its rail is
-  // a touch wider (only when expanded) so the pill never clips. Every other
-  // module keeps the standard 212px.
   const pathname = usePathname();
   const ws = workspaceForPath(pathname ?? "/");
   const expandedWidth = ws === "hr" ? "w-[288px]" : ws === "goals" ? "w-[248px]" : "w-[212px]";
 
+  // Once the user hits the toggle we stop auto-managing (never fight a manual choice).
+  const userTouchedRef = React.useRef(false);
   const toggle = React.useCallback(() => {
+    userTouchedRef.current = true;
     setCollapsed((c) => {
       const next = !c;
       document.cookie = `sidebar_collapsed=${next ? "1" : "0"}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
       return next;
     });
   }, []);
+
+  // HR front door auto-collapse — opening the HR module (the `/hr` front door)
+  // collapses the rail to icon-only so the seven lifecycle cards get full width.
+  // ONLY for HR, ONLY the first time this browser session (`hr-rail-autocollapsed`),
+  // and we restore the prior width the moment you leave the HR module — so no
+  // other room is affected and a manual toggle always wins.
+  const collapsedRef = React.useRef(collapsed);
+  collapsedRef.current = collapsed;
+  const priorRef = React.useRef<boolean | null>(null);
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const inHr = workspaceForPath(pathname ?? "/") === "hr";
+    const atFrontDoor = pathname === "/hr";
+    const KEY = "hr-rail-autocollapsed";
+    if (
+      atFrontDoor &&
+      priorRef.current === null &&
+      !userTouchedRef.current &&
+      !sessionStorage.getItem(KEY)
+    ) {
+      sessionStorage.setItem(KEY, "1");
+      priorRef.current = collapsedRef.current;
+      if (!collapsedRef.current) setCollapsed(true);
+    } else if (!inHr && priorRef.current !== null && !userTouchedRef.current) {
+      setCollapsed(priorRef.current);
+      priorRef.current = null;
+    }
+  }, [pathname]);
 
   return (
     <CollapseCtx.Provider value={{ collapsed, toggle }}>

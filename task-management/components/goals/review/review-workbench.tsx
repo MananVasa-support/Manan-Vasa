@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import type { ReviewData, ReviewItem, ReviewLevel } from "@/app/(app)/goals/review/review-data";
 import { submitReview } from "@/app/(app)/goals/review/actions";
+import { ReviewTable } from "@/components/goals/review/review-table";
 import { pctTone, fmtNum } from "@/components/goals/cascade/util";
 import { useCountUp } from "@/lib/use-count-up";
 import { fireToast } from "@/lib/toast";
@@ -811,16 +812,14 @@ export function ReviewWorkbench({ data }: { data: ReviewData }) {
       {items.length === 0 ? (
         <EmptyLevel level={level} counts={data.counts} onSwitch={setLevel} />
       ) : (
-        <div key={level} className="flex flex-col gap-3">
-          {items.map((item, i) => (
-            <ReviewCard
-              key={item.id}
-              item={item}
-              index={i}
-              canWrite={data.canWrite}
-              canReview={data.canReview}
-            />
-          ))}
+        <div key={level}>
+          <ReviewTable
+            items={items}
+            canWrite={data.canWrite}
+            canReview={data.canReview}
+            typeOptions={data.typeOptions}
+            customTypes={data.customTypes}
+          />
         </div>
       )}
     </div>

@@ -672,7 +672,11 @@ function SourceSection({
   onAbandon?: (item: SourceItem) => void;
 }) {
   const [open, setOpen] = React.useState(true);
+  const [showAll, setShowAll] = React.useState(false);
   const remaining = items.filter((i) => !i.added).length;
+  const CAP = 6;
+  const shown = showAll ? items : items.slice(0, CAP);
+  const hidden = items.length - shown.length;
   return (
     <div className="rounded-xl border border-hairline/70">
       <button
@@ -717,7 +721,26 @@ function SourceSection({
                   Nothing here right now.
                 </p>
               ) : (
-                items.map((item) => <SourceCard key={item.id} item={item} onAdd={onAdd} onAbandon={onAbandon} />)
+                <>
+                  {shown.map((item) => (
+                    <SourceCard key={item.id} item={item} onAdd={onAdd} onAbandon={onAbandon} />
+                  ))}
+                  {(hidden > 0 || showAll) && items.length > CAP ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAll((v) => !v)}
+                      className="mx-1 mt-0.5 inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-1.5 text-[12px] font-bold transition-colors focus-visible:outline-2"
+                      style={{
+                        borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 32%, transparent)`,
+                        color: GOALS_ACCENT_DEEP,
+                        background: `color-mix(in srgb, ${GOALS_ACCENT} 6%, transparent)`,
+                        outlineColor: GOALS_ACCENT,
+                      }}
+                    >
+                      {showAll ? "Show less" : `Show ${hidden} more`}
+                    </button>
+                  ) : null}
+                </>
               )}
             </div>
           </motion.div>

@@ -31,7 +31,7 @@ export function SidebarBrand() {
       </a>
 
       {theme && ModuleIcon && (
-        <span className="module-wordmark inline-flex items-center gap-2.5" aria-label={theme.label}>
+        <span className="module-wordmark inline-flex w-full items-center justify-center gap-2.5" aria-label={theme.label}>
           <span
             className="module-wordmark-icon inline-grid place-items-center rounded-2xl text-white"
             style={{

@@ -35,7 +35,7 @@ export default async function SupportPage({ searchParams }: PageProps) {
   if (!hrSupportEnabled()) {
     return (
       <HrComingSoon
-        title="Support"
+        title="Help Desk"
         Icon={LifeBuoy}
         blurb="Get help from the HR desk — questions, requests and escalations, all tracked in one place. This section is being built."
       />
@@ -69,13 +69,13 @@ export default async function SupportPage({ searchParams }: PageProps) {
               className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"
               style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
             >
-              HR · Support
+              HR · Help Desk
             </span>
             <h1
               className="mt-1.5 text-ink-strong"
               style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(26px,3vw,38px)", letterSpacing: "-0.025em" }}
             >
-              {v.handler ? "Help desk" : "HR Support"}
+              {v.handler ? "Help desk" : "Help Desk"}
             </h1>
             <p className="mt-1 text-[14px] font-medium text-ink-muted">
               {v.handler

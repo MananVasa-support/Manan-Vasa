@@ -170,7 +170,9 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
     p.startsWith("/leave") ||
     p.startsWith("/dcc") ||
     p.startsWith("/pms") ||
-    p.startsWith("/appraisal")
+    p.startsWith("/appraisal") ||
+    // Queries & Notifications re-parented from HR → Employees (2026-07).
+    p.startsWith("/queries")
   ) {
     return "employees";
   }
@@ -184,7 +186,6 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
     p.startsWith("/policies") ||
     p.startsWith("/holidays") ||
     p.startsWith("/letters") ||
-    p.startsWith("/queries") ||
     p.startsWith("/support")
   ) {
     return "hr";

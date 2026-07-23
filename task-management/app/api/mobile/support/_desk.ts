@@ -256,7 +256,7 @@ export async function replyOnTicketMobile(
   loaded: LoadedTicket,
   rawBody: unknown,
   attachments: AttachmentInput[] | undefined,
-): Promise<DeskResult<Record<string, never>>> {
+): Promise<DeskResult<unknown>> {
   const { ticket } = loaded;
   const bodyRes = BodySchema.safeParse(rawBody);
   if (!bodyRes.success) return { ok: false, status: 400, error: bodyRes.error.issues[0]!.message };
@@ -319,7 +319,7 @@ export async function addInternalNoteMobile(
   loaded: LoadedTicket,
   rawBody: unknown,
   attachments: AttachmentInput[] | undefined,
-): Promise<DeskResult<Record<string, never>>> {
+): Promise<DeskResult<unknown>> {
   const { v, ticket } = loaded;
   if (!canHandle(v, ticket)) return { ok: false, status: 403, error: "Only HR can add internal notes." };
   const bodyRes = BodySchema.safeParse(rawBody);
@@ -367,7 +367,7 @@ export async function assignTicketMobile(
   me: Employee,
   loaded: LoadedTicket,
   assigneeId: string | null,
-): Promise<DeskResult<Record<string, never>>> {
+): Promise<DeskResult<unknown>> {
   const { v, ticket } = loaded;
   if (!canHandle(v, ticket)) return { ok: false, status: 403, error: "Forbidden" };
   if (assigneeId && !z.string().uuid().safeParse(assigneeId).success) return { ok: false, status: 400, error: "Invalid assignee" };
@@ -406,7 +406,7 @@ export async function changeStatusMobile(
   me: Employee,
   loaded: LoadedTicket,
   status: string,
-): Promise<DeskResult<Record<string, never>>> {
+): Promise<DeskResult<unknown>> {
   const { v, ticket } = loaded;
   if (!(STATUS_VALUES as readonly string[]).includes(status)) return { ok: false, status: 400, error: "Invalid status" };
   const next = status as HrTicketStatus;
@@ -485,7 +485,7 @@ export async function changePriorityMobile(
   me: Employee,
   loaded: LoadedTicket,
   priority: string,
-): Promise<DeskResult<Record<string, never>>> {
+): Promise<DeskResult<unknown>> {
   const { v, ticket } = loaded;
   if (!canHandle(v, ticket)) return { ok: false, status: 403, error: "Forbidden" };
   if (!(HR_TICKET_PRIORITIES as readonly string[]).includes(priority)) return { ok: false, status: 400, error: "Invalid priority" };

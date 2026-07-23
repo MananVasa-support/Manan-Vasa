@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { goals } from "@/db/schema";
 import { authenticateMobileRequest, MOBILE_CORS } from "@/lib/auth/mobile";
 import { rateLimitOrError } from "@/lib/rate-limit";
+import { autoPctDone, statusForPct } from "@/lib/goals/auto-pct";
 import { toGoalDTO } from "@/components/goals/cascade/util";
 
 export const runtime = "nodejs";
@@ -67,7 +68,7 @@ export async function POST(req: Request) {
 
   // Own-goal guard: the goal must belong to the signed-in user.
   const [owned] = await db
-    .select({ id: goals.id })
+    .select({ id: goals.id, targetQty: goals.targetQty, actualQty: goals.actualQty })
     .from(goals)
     .where(and(eq(goals.id, d.id), eq(goals.employeeId, me.id)))
     .limit(1);
@@ -84,6 +85,19 @@ export async function POST(req: Request) {
   if (d.teamDependencyPct !== undefined) patch.teamDependencyPct = d.teamDependencyPct ?? null;
   if (d.shareWithTeam !== undefined) patch.shareWithTeam = d.shareWithTeam;
   if (d.teamInvolved !== undefined) patch.teamInvolved = d.teamInvolved ?? null;
+
+  // Auto % Done from Target / Actual (shared with the web editGoal action):
+  // when target/actual just changed and a numeric target drives the goal,
+  // progress = Actual ÷ Target (clamped). Otherwise % Done stays as sent.
+  if (d.targetQty !== undefined || d.actualQty !== undefined) {
+    const effTarget = d.targetQty !== undefined ? money(d.targetQty) : owned.targetQty;
+    const effActual = d.actualQty !== undefined ? money(d.actualQty) : owned.actualQty;
+    const auto = autoPctDone(effTarget, effActual);
+    if (auto !== null) {
+      patch.pctDone = auto;
+      patch.status = statusForPct(auto);
+    }
+  }
 
   const [row] = await db.update(goals).set(patch).where(eq(goals.id, d.id)).returning();
   if (!row) return NextResponse.json({ error: "not-found" }, { status: 404, headers: MOBILE_CORS });

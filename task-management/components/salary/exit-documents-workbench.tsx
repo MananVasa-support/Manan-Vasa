@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, FileText, Printer } from "lucide-react";
+import { Download, FileText, Printer, ShieldCheck, PenLine, Loader2 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { SignatoryBlock } from "@/components/salary/signatory-block";
 import { signatoryForEntity } from "@/lib/salary/signatories";
+import { saveExitDocForSigning } from "@/app/(app)/letters/actions";
 import {
   EXIT_LETTER_META,
   EXIT_LETTER_TYPES,
@@ -55,9 +56,12 @@ export function ExitDocumentsWorkbench({
   const [handoverTo, setHandoverTo] = useState("");
   const [handoverSummary, setHandoverSummary] = useState("");
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedDocId, setSavedDocId] = useState<string | null>(null);
 
   function onPickEmployee(id: string) {
     setEmployeeId(id);
+    setSavedDocId(null);
     const emp = employees.find((e) => e.employeeId === id);
     if (emp) {
       setEmployeeName(emp.name);
@@ -130,6 +134,44 @@ export function ExitDocumentsWorkbench({
     }
   }
 
+  async function onSaveForSigning() {
+    if (!employeeId) {
+      fireToast({ message: "Pick an employee from the list to enable signing." });
+      return;
+    }
+    if (!employeeName.trim()) {
+      fireToast({ message: "Enter the employee's name first." });
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await saveExitDocForSigning({
+        employeeId,
+        type,
+        employeeName: employeeName.trim(),
+        entity,
+        designation: designation.trim() || undefined,
+        letterDate: letterDate || undefined,
+        place: place.trim() || undefined,
+        lastWorkingDay: lastWorkingDay || undefined,
+        settlementAmount: settlementAmount.trim() || undefined,
+        settlementBreakup: settlementBreakup.trim() || undefined,
+        assets: assets.trim() || undefined,
+        assetReturnBy: assetReturnBy || undefined,
+        handoverTo: handoverTo.trim() || undefined,
+        handoverSummary: handoverSummary.trim() || undefined,
+      });
+      if (!res.ok) {
+        fireToast({ message: res.error, type: "error" });
+        return;
+      }
+      setSavedDocId(res.id);
+      fireToast({ message: "Archived. Ready for DigiLocker-verified signing.", type: "success" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
       {/* ── Form ── */}
@@ -145,7 +187,7 @@ export function ExitDocumentsWorkbench({
               <button
                 key={t}
                 type="button"
-                onClick={() => setType(t)}
+                onClick={() => { setType(t); setSavedDocId(null); }}
                 className="rounded-pill px-3 py-1.5 text-[12.5px] font-bold transition-colors"
                 style={
                   active
@@ -263,6 +305,52 @@ export function ExitDocumentsWorkbench({
             <Printer size={15} strokeWidth={2.2} />
             Print preview
           </button>
+        </div>
+
+        {/* Archive + DigiLocker-verified signing */}
+        <div className="mt-4 rounded-xl border border-hairline bg-surface-soft p-3.5">
+          <div className="mb-2 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.08em] text-ink-subtle">
+            <ShieldCheck size={14} strokeWidth={2.4} style={{ color: GREEN_DEEP }} />
+            E-signing
+          </div>
+          {savedDocId ? (
+            <div>
+              <p className="mb-2.5 text-[12.5px] text-ink-muted">
+                Archived to the employee&apos;s document vault. Open the verified signing flow
+                (DigiLocker · Aadhaar e-KYC) to complete it.
+              </p>
+              <a
+                href={`/documents/sign?kind=exit_doc&doc=${savedDocId}`}
+                className="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-[13.5px] font-semibold text-white"
+                style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}
+              >
+                <PenLine size={14} strokeWidth={2.4} />
+                Open signing
+              </a>
+            </div>
+          ) : (
+            <div>
+              <p className="mb-2.5 text-[12.5px] text-ink-muted">
+                {employeeId
+                  ? "Archive this letter to the employee's vault and enable DigiLocker-verified e-signing."
+                  : "Pick an employee from the list above to archive this letter and enable e-signing."}
+              </p>
+              <button
+                type="button"
+                onClick={onSaveForSigning}
+                disabled={saving || !employeeId}
+                className="inline-flex items-center gap-1.5 rounded-md border px-4 py-2 text-[13.5px] font-semibold disabled:opacity-50"
+                style={{ color: GREEN_DEEP, borderColor: `color-mix(in srgb, ${GREEN} 40%, transparent)` }}
+              >
+                {saving ? (
+                  <Loader2 size={14} className="animate-spin" strokeWidth={2.4} />
+                ) : (
+                  <ShieldCheck size={14} strokeWidth={2.4} />
+                )}
+                {saving ? "Archiving…" : "Save & enable e-signing"}
+              </button>
+            </div>
+          )}
         </div>
       </section>
 

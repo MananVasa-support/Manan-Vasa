@@ -52,6 +52,25 @@ function shortDue(ymd: string | null): string | null {
  * pull box. Dedupe by origin (goal/task/title), drop anything already re-pulled
  * onto today's plan, and cap so a long tail can't flood the column.
  */
+/** The most descriptive label for a task card: its real description first, then
+ *  the title — many WMS tasks store the CLIENT in `title`, so the description is
+ *  what the user actually wants to read. Falls back to the client / "Untitled". */
+function displayTitle(title: string | null, description: string | null, client: string | null): string {
+  const desc = description?.trim();
+  if (desc) return desc;
+  const t = title?.trim();
+  if (t) return t;
+  return client?.trim() || "Untitled";
+}
+
+/** Drop the subtitle when it just repeats the title (the "Altus Corp / Altus Corp"
+ *  duplication). */
+function dedupeSub(title: string, subtitle: string | null): string | null {
+  const s = subtitle?.trim();
+  if (!s) return null;
+  return s.toLowerCase() === title.trim().toLowerCase() ? null : s;
+}
+
 function buildUnfinished(
   rows: OverdueItem[],
   planRows: { goalId: string | null; taskId: string | null }[],
@@ -66,11 +85,12 @@ function buildUnfinished(
     const key = r.goalId ?? r.taskId ?? `t:${r.title}`;
     if (seen.has(key)) continue;
     seen.add(key);
+    const label = displayTitle(r.title, r.description, r.client);
     out.push({
       id: r.id,
       kind: "unfinished",
-      title: r.title,
-      subtitle: r.client ?? r.subject ?? null,
+      title: label,
+      subtitle: dedupeSub(label, r.client ?? r.subject ?? null),
       meta: r.taskNo ? `#${r.taskNo}` : null,
       added: false,
       overdue: true,
@@ -158,18 +178,21 @@ export async function getPlanDayPayload(employeeId: string, now: Date = new Date
     monthly: monthG.filter((g) => g.adopted).map((g) => goalToSource(g, "monthly")),
     quarterly: quarterG.filter((g) => g.adopted).map((g) => goalToSource(g, "quarterly")),
     yearly: yearG.filter((g) => g.adopted).map((g) => goalToSource(g, "yearly")),
-    task: openTasks.map<SourceItem>((t) => ({
+    task: openTasks.map<SourceItem>((t) => {
+      const label = displayTitle(t.title, t.description, t.client);
+      return {
       id: t.id,
       kind: "task",
-      title: t.title,
-      subtitle: t.client ?? t.subject ?? null,
+      title: label,
+      subtitle: dedupeSub(label, t.client ?? t.subject ?? null),
       meta: t.taskNo ? `#${t.taskNo}` : null,
       added: false,
       overdue: t.overdue,
       dueLabel: t.overdue ? "Overdue" : t.dueToday ? "Today" : shortDue(t.dueAt),
       important: t.priority === "imp_urgent" || t.priority === "imp_not_urgent",
       taskId: t.id,
-    })),
+      };
+    }),
     unfinished: buildUnfinished(unfinishedRows, planRows),
   };
 

@@ -8,6 +8,7 @@ import { weeklyGoals, goals } from "@/db/schema";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { goalScopeFor } from "@/lib/weekly-goals/hierarchy";
+import { autoPctDone } from "@/lib/goals/auto-pct";
 import { effectivePct } from "@/lib/weekly-goals/effective";
 import { mondayOf, nextWeekStart } from "@/lib/weekly-goals/week";
 
@@ -176,6 +177,15 @@ export async function updateWeeklyCascadeFields(
   if ("teamDependencyPct" in d) set.teamDependencyPct = d.teamDependencyPct ?? null;
   if ("evidenceUrl" in d) set.evidenceUrl = d.evidenceUrl ? d.evidenceUrl : null;
   if ("monthGoalId" in d) set.monthGoalId = d.monthGoalId ?? null;
+
+  // Auto % Done from Actual ÷ Target (mirrors the cascade edit + inline table):
+  // when target/actual just changed, progress rides on the two numbers.
+  if ("targetQty" in d || "actualQty" in d) {
+    const effT = "targetQty" in d ? d.targetQty ?? null : loaded.row.targetQty;
+    const effA = "actualQty" in d ? d.actualQty ?? null : loaded.row.actualQty;
+    const auto = autoPctDone(effT, effA);
+    if (auto !== null) set.pctDone = auto;
+  }
 
   try {
     const [row] = await db

@@ -6,6 +6,9 @@ import { renderAgreement } from "@/lib/agreements/templates";
 import { AgreementPreview } from "@/components/agreements/agreement-preview";
 import { signatoryForEntity } from "@/lib/salary/signatories";
 import { SignPanel } from "@/components/agreements/sign-panel";
+import { getSignatureState } from "@/app/(app)/documents/sign/actions";
+import { SignDocument } from "@/components/documents/sign/sign-document";
+import type { SignatureState } from "@/lib/documents/signing";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +42,18 @@ export default async function SignAgreementPage({
   });
   const signatory = signatoryForEntity(agreement.entity);
   const isSigned = agreement.status === "signed";
+
+  // DigiLocker-verified signing state for this agreement (owner/admin-guarded).
+  // If the viewer isn't the owner/admin, or the table isn't applied yet, this
+  // throws — we fall back to the legacy typed-name sign panel so nothing 500s.
+  let sigState: SignatureState | null = null;
+  if (!isSigned) {
+    try {
+      sigState = await getSignatureState({ docKind: "agreement", docId: agreement.id });
+    } catch {
+      sigState = null;
+    }
+  }
 
   return (
     <div className="min-h-full bg-surface-soft py-8 max-md:py-5">
@@ -103,6 +118,8 @@ export default async function SignAgreementPage({
                 Download signed PDF
               </a>
             </div>
+          ) : sigState ? (
+            <SignDocument docKind="agreement" docId={agreement.id} initialState={sigState} />
           ) : (
             <SignPanel token={token} employeeName={employeeName} agreementTitle={agreement.title} />
           )}

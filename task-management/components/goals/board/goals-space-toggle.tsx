@@ -64,8 +64,8 @@ export function GoalsSpaceToggle() {
         role="group"
         aria-label="Goals space"
       >
-        <Seg value="personal" label="Personal" Icon={User} />
         <Seg value="professional" label="Professional" Icon={Briefcase} />
+        <Seg value="personal" label="Personal" Icon={User} />
       </div>
     </div>
   );

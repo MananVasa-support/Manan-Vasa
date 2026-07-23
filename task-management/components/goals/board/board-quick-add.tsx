@@ -51,7 +51,7 @@ export interface BoardQuickAddHandle {
 }
 
 /**
- * The dashed "+ Add goal" tile for the Goals level board (goal-quick-add.tsx
+ * The dashed "+ Add Goal" tile for the Goals level board (goal-quick-add.tsx
  * design applied to the goals table). Opens the composer drawer; the create is
  * optimistic — a temp row appears instantly and reconciles with the returned
  * server row (Sr. No., normalised money strings).
@@ -171,7 +171,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
 
   return (
     <>
-      {/* The calm dashed "+ Add goal" tile — deliberately NOT `.brand-btn`
+      {/* The calm dashed "+ Add Goal" tile — deliberately NOT `.brand-btn`
           (its !important solid-red fill turned this into a giant red bar).
           Hairline dashed border, muted ink, gentle lift + red-tint on hover. */}
       <button
@@ -193,7 +193,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
         >
           <Plus size={compact ? 13 : 16} strokeWidth={2.8} />
         </span>
-        Add goal
+        Add Goal
         {!compact && (
           <span className="text-[12.5px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
             · into {bucketLabel}
@@ -207,8 +207,8 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
           setOpen(false);
           reset();
         }}
-        eyebrow={`New goal · #${props.currentCount + 1} · ${bucketLabel}`}
-        title={`Add a ${props.level} goal`}
+        eyebrow={`New Goal · #${props.currentCount + 1} · ${bucketLabel}`}
+        title={`Add a ${props.level} Goal`}
         footer={
           <div className="flex items-center justify-between gap-3">
             <span className="text-[12px] font-medium" style={{ color: "var(--color-ink-subtle)" }}>
@@ -223,7 +223,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
               style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
             >
               {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.8} />}
-              Add goal
+              Add Goal
             </button>
           </div>
         }
@@ -248,7 +248,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
             <span className="mb-1 block text-[12px] font-bold text-ink-soft">Area</span>
             <GoalLookupSelect
               kind="area"
-              noun="area"
+              noun="Area"
               value={area}
               onChange={setArea}
               options={props.areaOptions}
@@ -277,7 +277,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
               <span className="mb-1 block text-[12px] font-bold text-ink-soft">Measure</span>
               <GoalLookupSelect
                 kind="measure"
-                noun="measure"
+                noun="Measure"
                 value={measure}
                 onChange={setMeasure}
                 options={props.measureOptions}
@@ -290,7 +290,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
               <span className="mb-1 block text-[12px] font-bold text-ink-soft">Type</span>
               <GoalLookupSelect
                 kind="type"
-                noun="type"
+                noun="Type"
                 value={type}
                 onChange={setType}
                 options={props.typeOptions}
@@ -301,19 +301,8 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
             </div>
           </div>
 
-          {/* 4 · Target vs Actual. */}
+          {/* 4 · Actual vs Target (% Done = Actual ÷ Target). */}
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Target</span>
-              <input
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-                inputMode="decimal"
-                placeholder="e.g. 100"
-                className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-bold tabular-nums text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
-                style={{ borderColor: "var(--color-hairline-strong)" }}
-              />
-            </label>
             <label className="block">
               <span className="mb-1 block text-[12px] font-bold text-ink-soft">Actual</span>
               <input
@@ -321,6 +310,17 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
                 onChange={(e) => setActual(e.target.value)}
                 inputMode="decimal"
                 placeholder="e.g. 0"
+                className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-bold tabular-nums text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
+                style={{ borderColor: "var(--color-hairline-strong)" }}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Target</span>
+              <input
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                inputMode="decimal"
+                placeholder="e.g. 100"
                 className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-bold tabular-nums text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
                 style={{ borderColor: "var(--color-hairline-strong)" }}
               />
@@ -346,7 +346,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
 
           {/* ── Team members (each with their OWN weight) ── */}
           <div className="block">
-            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Team members</span>
+            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Team Members</span>
             <TeamWeightsField value={team} roster={props.roster} onChange={setTeam} />
             <span className="mt-1 block text-[11.5px] font-medium text-ink-subtle">
               Add the people on this goal — each gets their own weight (share).

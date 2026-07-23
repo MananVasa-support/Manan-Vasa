@@ -46,6 +46,11 @@ import {
   Mail,
   BellRing,
   LifeBuoy,
+  UserSearch,
+  ClipboardCheck,
+  DoorOpen,
+  Briefcase,
+  Home,
 } from "lucide-react";
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
@@ -104,6 +109,93 @@ interface WorkspaceNav {
   groups: NavGroup[];
 }
 
+/* ── HR room: per-sub-module sidebars ────────────────────────────────────────
+ * HR is a two-tier room. The front door (`/hr`) offers seven cards; the four
+ * lifecycle STAGES each own a separate sidebar, swapped in by hrSectionForPath.
+ * Everything else (Overview, Holiday List, Help Desk) keeps the hub rail.       */
+type HrSection = "hub" | "pre-interview" | "post-interview" | "pre-joining" | "post-joining";
+
+/** The front-door rail — the seven stages, so the rail is also the switcher. */
+const HR_HUB_NAV: WorkspaceNav = {
+  top: [
+    { href: "/hr" as Route, label: "HR Home", Icon: Home, exact: true },
+    { href: "/hr/pre-interview" as Route, label: "Pre-Interview", Icon: UserSearch },
+    { href: "/hr/post-interview" as Route, label: "Post-Interview", Icon: ClipboardCheck },
+    { href: "/hr/pre-joining" as Route, label: "Pre-Joining", Icon: DoorOpen },
+    { href: "/hr/post-joining" as Route, label: "Post-Joining", Icon: Briefcase },
+    { href: "/hr/overview" as Route, label: "Overview", Icon: LayoutGrid },
+    { href: "/holidays" as Route, label: "Holiday List", Icon: PartyPopper },
+    { href: "/support" as Route, label: "Help Desk", Icon: LifeBuoy },
+  ],
+  groups: [],
+};
+
+/** Post-Joining — the working employee's file. HR Record stays admin-only. */
+const HR_POST_JOINING_NAV: WorkspaceNav = {
+  top: [
+    { href: "/hr" as Route, label: "HR Home", Icon: Home, exact: true },
+    { href: "/hr/post-joining" as Route, label: "Post-Joining", Icon: Briefcase, exact: true },
+    { href: "/attendance/hr-record" as Route, label: "HR Record", Icon: ClipboardList, adminOnly: true },
+    { href: "/agreements" as Route, label: "Agreements", Icon: FileSignature },
+    { href: "/dossier" as Route, label: "Dossier", Icon: FolderLock },
+    { href: "/policies" as Route, label: "Policies", Icon: ScrollText },
+    { href: "/hr-docs" as Route, label: "Letters", Icon: Mail },
+  ],
+  groups: [],
+};
+
+/** The three stages awaiting their real build — a minimal back + self rail. */
+const HR_PRE_INTERVIEW_NAV: WorkspaceNav = {
+  top: [
+    { href: "/hr" as Route, label: "HR Home", Icon: Home, exact: true },
+    { href: "/hr/pre-interview" as Route, label: "Pre-Interview", Icon: UserSearch, exact: true },
+  ],
+  groups: [],
+};
+const HR_POST_INTERVIEW_NAV: WorkspaceNav = {
+  top: [
+    { href: "/hr" as Route, label: "HR Home", Icon: Home, exact: true },
+    { href: "/hr/post-interview" as Route, label: "Post-Interview", Icon: ClipboardCheck, exact: true },
+  ],
+  groups: [],
+};
+const HR_PRE_JOINING_NAV: WorkspaceNav = {
+  top: [
+    { href: "/hr" as Route, label: "HR Home", Icon: Home, exact: true },
+    { href: "/hr/pre-joining" as Route, label: "Pre-Joining", Icon: DoorOpen, exact: true },
+  ],
+  groups: [],
+};
+
+const HR_SECTION_NAV: Record<HrSection, WorkspaceNav> = {
+  hub: HR_HUB_NAV,
+  "pre-interview": HR_PRE_INTERVIEW_NAV,
+  "post-interview": HR_POST_INTERVIEW_NAV,
+  "pre-joining": HR_PRE_JOINING_NAV,
+  "post-joining": HR_POST_JOINING_NAV,
+};
+
+/**
+ * Which HR sub-module a path belongs to. The Post-Joining stage claims not only
+ * `/hr/post-joining` but the reparented document routes it contains (dossier,
+ * agreements, policies, hr-record, letters) so the rail stays put as you work.
+ */
+function hrSectionForPath(p: string): HrSection {
+  if (
+    p.startsWith("/hr/post-joining") ||
+    p.startsWith("/dossier") ||
+    p.startsWith("/agreements") ||
+    p.startsWith("/policies") ||
+    p.startsWith("/attendance/hr-record") ||
+    p.startsWith("/letters") ||
+    p.startsWith("/hr-docs")
+  ) return "post-joining";
+  if (p.startsWith("/hr/pre-interview")) return "pre-interview";
+  if (p.startsWith("/hr/post-interview")) return "post-interview";
+  if (p.startsWith("/hr/pre-joining")) return "pre-joining";
+  return "hub";
+}
+
 /**
  * Per-workspace navigation. Each room exposes ONLY its own modules — entering
  * WMS never shows Attendance/Salary/Outstanding, and vice-versa. Shared platform
@@ -152,27 +244,16 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       { href: "/my-salary" as Route, label: "My Salary", Icon: Wallet },
       { href: "/reimbursements" as Route, label: "Reimbursements", Icon: Receipt },
       { href: "/appraisal" as Route, label: "Appraisal", Icon: Target },
-    ],
-    groups: [],
-  },
-  hr: {
-    // HR — the paperwork room. Dossier + Agreements are live (re-parented from
-    // Employees); the rest are scaffolded sections awaiting their real build.
-    top: [
-      { href: "/hr" as Route, label: "Overview", Icon: LayoutGrid, exact: true },
-      // HR Record (attendance log) — re-parented from Employees (2026-07);
-      // stays admin-only via the page's own requireAdmin guard.
-      { href: "/attendance/hr-record" as Route, label: "HR Record", Icon: ClipboardList, adminOnly: true },
-      { href: "/dossier" as Route, label: "Dossier", Icon: FolderLock },
-      { href: "/agreements" as Route, label: "Agreements", Icon: FileSignature },
-      { href: "/policies" as Route, label: "Policies", Icon: ScrollText },
-      { href: "/holidays" as Route, label: "Holiday List", Icon: PartyPopper },
-      { href: "/letters" as Route, label: "Letters", Icon: Mail },
+      // Queries & Notifications — re-parented here from the HR room (2026-07):
+      // it's an employee-facing surface (raise a query, track company notices).
       { href: "/queries" as Route, label: "Queries & Notifications", Icon: BellRing },
-      { href: "/support" as Route, label: "Support", Icon: LifeBuoy },
     ],
     groups: [],
   },
+  // HR — the lifecycle room. Its rail is CONTEXT-AWARE (see HR_SECTION_NAV +
+  // hrSectionForPath): the front door shows the seven stages; entering a stage
+  // swaps the rail to that stage's own sidebar. This entry is the hub default.
+  hr: HR_HUB_NAV,
   sales: {
     top: [
       { href: "/ambassadors" as Route, label: "Ambassadors", Icon: Gem },
@@ -274,14 +355,13 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       // Weekly = the REAL weekly board (WeeklyCascadeBoard over weekly_goals,
       // its own week nav). /goals/week is a permanent redirect alias to it.
       { href: "/goals/weekly" as Route, label: "Weekly Goals", Icon: CalendarCheck },
-      { href: "/goals/plan" as Route, label: "Daily Goals", Icon: CalendarDays },
+      { href: "/goals/plan" as Route, label: "Plan my Day", Icon: CalendarDays },
       // "Cascade" removed — the canvas is retired as the UI; the four level
       // pages (board design) + rituals below are the whole module. Cross-level
       // moves live in each card's "Move to…" drawer (the drag-to-sidebar
       // bridge left with the canvas).
-      { href: "/weekly-goals/team" as Route, label: "Team", Icon: Users },
+      { href: "/weekly-goals/team" as Route, label: "Team Dashboard", Icon: Users },
       { href: "/goals/review" as Route, label: "Review", Icon: ClipboardList },
-      { href: "/goals/commit" as Route, label: "Commit", Icon: CalendarCheck },
       { href: "/goals/approve" as Route, label: "Approve", Icon: CalendarRange },
       { href: "/goals/recycle-bin" as Route, label: "Recycle Bin", Icon: Trash2, adminOnly: true },
     ],
@@ -298,7 +378,7 @@ const GOALS_PERSONAL_NAV: WorkspaceNav = {
     { href: "/goals/quarterly" as Route, label: "Quarterly Goals", Icon: Target },
     { href: "/goals/monthly" as Route, label: "Monthly Goals", Icon: CalendarRange },
     { href: "/goals/weekly" as Route, label: "Weekly Goals", Icon: CalendarCheck },
-    { href: "/goals/plan" as Route, label: "Daily Goals", Icon: CalendarDays },
+    { href: "/goals/plan" as Route, label: "Plan my Day", Icon: CalendarDays },
     { href: "/goals/recycle-bin" as Route, label: "Recycle Bin", Icon: Trash2, adminOnly: true },
   ],
   groups: [],
@@ -319,9 +399,14 @@ export function MainNav({
   const workspace: WorkspaceId =
     workspaceForPath(pathname) ?? cookieWorkspace ?? "wms";
   // In the admin's PERSONAL goals space, the nav is the private set: the level
-  // pages + Recycle Bin (no Team / Review / Commit / Approve rituals).
+  // pages + Recycle Bin (no Team / Review / Commit / Approve rituals). The HR
+  // room is two-tier: the rail swaps per lifecycle stage (hrSectionForPath).
   const { top, groups } =
-    workspace === "goals" && goalsSpace === "personal" ? GOALS_PERSONAL_NAV : WORKSPACE_NAV[workspace];
+    workspace === "goals" && goalsSpace === "personal"
+      ? GOALS_PERSONAL_NAV
+      : workspace === "hr"
+        ? HR_SECTION_NAV[hrSectionForPath(pathname)]
+        : WORKSPACE_NAV[workspace];
 
   /** bug #11 — with GOALS_CANVAS_ON off the level pages server-redirect to
    *  /goals, so their pills read as dead: hide the canvas-only items and

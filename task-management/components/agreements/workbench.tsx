@@ -9,7 +9,7 @@ import { AgreementPreview } from "@/components/agreements/agreement-preview";
 import { AGREEMENT_TYPE_LABELS, type AgreementType } from "@/db/enums";
 import type { AgreementEmployee, AgreementRow } from "@/lib/agreements/types";
 import { TemplatePicker } from "@/components/agreements/template-picker";
-import { StatusTracker } from "@/components/agreements/status-tracker";
+import { StatusTracker, type AgreementSignatures } from "@/components/agreements/status-tracker";
 import { saveAgreement, sendAgreement } from "@/app/(app)/agreements/actions";
 
 const GREEN = "#E10600";
@@ -95,9 +95,11 @@ function fmtCtc(annual: string | null): string {
 export function Workbench({
   roster,
   agreements,
+  signatures = {},
 }: {
   roster: AgreementEmployee[];
   agreements: AgreementRow[];
+  signatures?: AgreementSignatures;
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const [employeeId, setEmployeeId] = useState("");
@@ -341,7 +343,7 @@ export function Workbench({
         </section>
       </div>
 
-      <StatusTracker rows={agreements} />
+      <StatusTracker rows={agreements} signatures={signatures} />
 
       <style jsx global>{`
         .agreements-form .ui-input {

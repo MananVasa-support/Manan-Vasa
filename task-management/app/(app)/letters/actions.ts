@@ -12,6 +12,13 @@ import { getSupabaseAdmin, DOCUMENTS_BUCKET } from "@/lib/supabase/admin";
 import { hrSupportEnabled } from "@/lib/hr/flag";
 import { isLetterType, LETTER_DOCTYPE_PREFIX } from "@/lib/hr/letter-types";
 import { safeFileName, validateUpload } from "@/lib/hr/upload";
+import { renderExitLetterPdf } from "@/lib/salary/exit-letter-pdf";
+import {
+  EXIT_LETTER_META,
+  EXIT_LETTER_TYPES,
+  type ExitLetterInput,
+  type ExitLetterType,
+} from "@/lib/salary/exit-letters";
 import type { Employee } from "@/db/schema";
 
 type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string };
@@ -76,6 +83,133 @@ export async function uploadLetter(form: FormData): Promise<Result<{ id: string 
         mimeType: file.type || null,
         sizeBytes: file.size,
         notes,
+        uploadedById: me.id,
+      })
+      .returning({ id: employeeDocuments.id });
+  } catch (err) {
+    await admin.storage.from(DOCUMENTS_BUCKET).remove([path]).catch(() => {});
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+  if (!inserted) return { ok: false, error: "Insert returned no row" };
+
+  revalidatePath("/letters");
+  return { ok: true, id: inserted.id };
+}
+
+/**
+ * Exit-document docType prefix (`exit_`) — a sibling of the letter space in the
+ * dossier `employee_documents` table. These are the WS-5 exit letters (Full &
+ * Final / Return of Assets / Handover Accepted) once archived for e-signing.
+ */
+const EXIT_DOCTYPE_PREFIX = "exit_";
+
+const ExitSaveSchema = z.object({
+  employeeId: z.string().uuid("Pick an employee to enable signing."),
+  type: z.enum(EXIT_LETTER_TYPES as [ExitLetterType, ...ExitLetterType[]]),
+  employeeName: z.string().trim().min(1).max(200),
+  entity: z.string().trim().min(1).max(120),
+  designation: z.string().trim().max(200).optional(),
+  letterDate: z.string().trim().max(40).optional(),
+  place: z.string().trim().max(120).optional(),
+  lastWorkingDay: z.string().trim().max(40).optional(),
+  settlementAmount: z.string().trim().max(200).optional(),
+  settlementBreakup: z.string().trim().max(4000).optional(),
+  assets: z.string().trim().max(4000).optional(),
+  assetReturnBy: z.string().trim().max(40).optional(),
+  handoverTo: z.string().trim().max(200).optional(),
+  handoverSummary: z.string().trim().max(4000).optional(),
+});
+
+export interface ExitSaveInput {
+  employeeId: string;
+  type: string;
+  employeeName: string;
+  entity: string;
+  designation?: string;
+  letterDate?: string;
+  place?: string;
+  lastWorkingDay?: string;
+  settlementAmount?: string;
+  settlementBreakup?: string;
+  assets?: string;
+  assetReturnBy?: string;
+  handoverTo?: string;
+  handoverSummary?: string;
+}
+
+/**
+ * Render the current exit letter as a PDF, archive it to the employee's private
+ * document vault (`employee_documents`, docType `exit_<type>`), and return the
+ * new row id so the builder can hand off to the DigiLocker-verified signing flow
+ * (docKind "exit_doc"). Admin-only; requires a real employee (signing binds to
+ * an employees.id). Additive — reuses the same renderer as the download route.
+ */
+export async function saveExitDocForSigning(
+  input: ExitSaveInput,
+): Promise<Result<{ id: string }>> {
+  if (!hrSupportEnabled()) return { ok: false, error: "HR module is off." };
+  const me = await requireUser();
+  if (!isAdmin(me)) return { ok: false, error: "Forbidden" };
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const parsed = ExitSaveSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+  const d = parsed.data;
+
+  const emp = await db.query.employees.findFirst({
+    where: eq(employees.id, d.employeeId),
+    columns: { id: true },
+  });
+  if (!emp) return { ok: false, error: "Employee not found." };
+
+  const letterInput: ExitLetterInput = {
+    type: d.type,
+    employeeName: d.employeeName,
+    entity: d.entity,
+    designation: d.designation ?? null,
+    letterDate: d.letterDate ?? null,
+    place: d.place ?? null,
+    lastWorkingDay: d.lastWorkingDay ?? null,
+    settlementAmount: d.settlementAmount ?? null,
+    settlementBreakup: d.settlementBreakup ?? null,
+    assets: d.assets ?? null,
+    assetReturnBy: d.assetReturnBy ?? null,
+    handoverTo: d.handoverTo ?? null,
+    handoverSummary: d.handoverSummary ?? null,
+  };
+
+  let pdf: Buffer;
+  try {
+    pdf = await renderExitLetterPdf(letterInput, { generatedBy: me.name });
+  } catch (err) {
+    return { ok: false, error: `Could not render the letter: ${err instanceof Error ? err.message : String(err)}` };
+  }
+
+  const meta = EXIT_LETTER_META[d.type];
+  const fileName = `${meta.type}-${d.employeeName.replace(/\s+/g, "")}.pdf`;
+  const path = `hr-exit/${d.employeeId}/${crypto.randomUUID()}/${safeFileName(fileName)}`;
+  const admin = getSupabaseAdmin();
+  const { error: upErr } = await admin.storage
+    .from(DOCUMENTS_BUCKET)
+    .upload(path, pdf, { contentType: "application/pdf", upsert: false });
+  if (upErr) return { ok: false, error: `Upload failed: ${upErr.message}` };
+
+  let inserted;
+  try {
+    [inserted] = await db
+      .insert(employeeDocuments)
+      .values({
+        employeeId: d.employeeId,
+        docType: `${EXIT_DOCTYPE_PREFIX}${d.type}`,
+        title: meta.title,
+        effectiveDate: d.letterDate && /^\d{4}-\d{2}-\d{2}$/.test(d.letterDate) ? d.letterDate : null,
+        storagePath: path,
+        fileName,
+        mimeType: "application/pdf",
+        sizeBytes: pdf.length,
         uploadedById: me.id,
       })
       .returning({ id: employeeDocuments.id });

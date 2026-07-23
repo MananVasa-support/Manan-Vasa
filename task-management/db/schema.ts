@@ -41,6 +41,7 @@ import {
   type AppraisalItemStatus,
   type AppraisalScoreStage,
 } from "./enums";
+import type { DocKind, SignatureStatus } from "@/lib/documents/signing";
 
 export const taskStatusEnum = pgEnum("task_status", TASK_STATUSES);
 export const employeeRoleEnum = pgEnum("employee_role", EMPLOYEE_ROLES);
@@ -4843,6 +4844,65 @@ export type Agreement = typeof agreements.$inferSelect;
 export type NewAgreement = typeof agreements.$inferInsert;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Document Signatures (migration 0151) — DigiLocker-VERIFIED e-signing for HR
+// documents (Letters, Agreements, Exit docs). The signer proves identity via
+// DigiLocker OAuth, we store the VERIFIED identity (name/DOB/gender/address/
+// photo) + a MASKED Aadhaar (last-4 only — NEVER a full 12-digit number, per the
+// Aadhaar Act) + DigiLocker's ref/txn id, then archive a signed PDF. NEW table
+// only — additive, load-neutral. Files live in the private `documents` bucket.
+// ─────────────────────────────────────────────────────────────────────────────
+export const documentSignatures = pgTable(
+  "document_signatures",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** 'letter' | 'agreement' | 'exit_doc' (see lib/documents/signing.ts DOC_KINDS) */
+    docKind: text("doc_kind").notNull().$type<DocKind>(),
+    /** source document row id (employee_documents.id / agreements.id / exit doc id) */
+    docId: uuid("doc_id").notNull(),
+    signerEmployeeId: uuid("signer_employee_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    /** 'pending' | 'verified' | 'signed' */
+    status: text("status").notNull().default("pending").$type<SignatureStatus>(),
+    method: text("method").notNull().default("digilocker"),
+    // verified identity (from DigiLocker; PII, MASKED aadhaar only)
+    verifiedName: text("verified_name"),
+    verifiedDob: text("verified_dob"),
+    verifiedGender: text("verified_gender"),
+    verifiedAddress: text("verified_address"),
+    /** last-4 only, e.g. 'XXXXXXXX1234' — NEVER a full 12-digit Aadhaar */
+    maskedAadhaar: text("masked_aadhaar"),
+    /** storage path of the DigiLocker photo (documents bucket), or null */
+    photoPath: text("photo_path"),
+    /** provider txn/ref id */
+    digilockerRef: text("digilocker_ref"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    // signature
+    /** 'drawn' | 'typed' | null */
+    signatureKind: text("signature_kind").$type<"drawn" | "typed">(),
+    signatureText: text("signature_text"),
+    signatureImagePath: text("signature_image_path"),
+    consentText: text("consent_text"),
+    /** archived signed PDF storage path (documents bucket) */
+    signedPdfPath: text("signed_pdf_path"),
+    signedAt: timestamp("signed_at", { withTimezone: true }),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("document_signatures_doc_idx").on(t.docKind, t.docId),
+    index("document_signatures_signer_idx").on(t.signerEmployeeId),
+  ],
+);
+export type DocumentSignature = typeof documentSignatures.$inferSelect;
+export type NewDocumentSignature = typeof documentSignatures.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Monthly Events Master (migration 0130). NEW tables only — load-neutral.
 // Columns are `text` where the house norm keeps unions in db/enums.ts (status,
 // source, applies_to). Money-free module. Every table carries the standard
@@ -5389,3 +5449,259 @@ export const appraisalCultureAssignments = pgTable(
   ],
 );
 export type AppraisalCultureAssignment = typeof appraisalCultureAssignments.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HR Letters / Documents engine (migration 0152) — the 26-type letter program.
+// THREE NEW tables only — additive, load-neutral. HYBRID template model: a fixed
+// Altus letterhead/frame + signature block in code, with an ADMIN-EDITABLE body
+// (`body_md`) carrying {{mergeFields}} auto-filled per employee. Rendered PDFs +
+// any archived artefacts live in the private `documents` bucket. Signature state
+// for e-sign docs comes from `document_signatures` (doc_kind 'letter', doc_id =
+// document_instances.id) — not duplicated here.
+// ─────────────────────────────────────────────────────────────────────────────
+export const letterTemplates = pgTable(
+  "letter_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** 'A'..'G' family letter (see lib/hr-docs/types.ts HR_CATEGORIES) */
+    category: text("category").notNull(),
+    /** stable identity, e.g. 'appointment_letter' — one row per DOC_TYPES key */
+    typeKey: text("type_key").notNull(),
+    title: text("title").notNull(),
+    /** admin-editable body with {{mergeFields}} (the fixed frame lives in code) */
+    bodyMd: text("body_md").notNull().default(""),
+    /** 'issued' | 'email' | 'request' */
+    trigger: text("trigger").notNull().default("issued"),
+    /** 'none' | 'acknowledge' | 'esign' */
+    signature: text("signature").notNull().default("none"),
+    /** 'text' | 'structured' | 'certificate' */
+    content: text("content").notNull().default("text"),
+    active: boolean("active").notNull().default(true),
+    updatedById: uuid("updated_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("letter_templates_type_key_uq").on(t.typeKey)],
+);
+export type LetterTemplate = typeof letterTemplates.$inferSelect;
+export type NewLetterTemplate = typeof letterTemplates.$inferInsert;
+
+export const documentInstances = pgTable(
+  "document_instances",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** which template/type this instance was composed from */
+    typeKey: text("type_key").notNull(),
+    /** signer/recipient; NULL for pre-hire candidates (use candidate_* instead) */
+    employeeId: uuid("employee_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    candidateName: text("candidate_name"),
+    candidateEmail: text("candidate_email"),
+    /** 'draft' | 'sent' | 'acknowledged' | 'signed' */
+    status: text("status").notNull().default("draft"),
+    /** the filled {{merge}} field values at compose time */
+    mergeValues: jsonb("merge_values").notNull().default({}).$type<Record<string, string>>(),
+    /** frozen body_md at issue (the source of truth for the rendered PDF) */
+    bodySnapshotMd: text("body_snapshot_md"),
+    /** archived rendered PDF storage path (private `documents` bucket) */
+    renderedPdfPath: text("rendered_pdf_path"),
+    emailedAt: timestamp("emailed_at", { withTimezone: true }),
+    issuedById: uuid("issued_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    issuedAt: timestamp("issued_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("document_instances_employee_idx").on(t.employeeId),
+    index("document_instances_type_idx").on(t.typeKey),
+    index("document_instances_status_idx").on(t.status),
+  ],
+);
+export type DocumentInstance = typeof documentInstances.$inferSelect;
+export type NewDocumentInstance = typeof documentInstances.$inferInsert;
+
+export const ctcBreakups = pgTable(
+  "ctc_breakups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    version: integer("version").notNull().default(1),
+    /** 'initial' | 'promotion' | 'appraisal' */
+    reason: text("reason").notNull().default("initial"),
+    effectiveDate: date("effective_date"),
+    /** the 20-field CTC structure (see lib/hr-docs/types.ts CtcFields) */
+    fields: jsonb("fields").notNull().default({}),
+    /** [{ id, date, title, detail }] growth-journey timeline */
+    growthJourney: jsonb("growth_journey").notNull().default([]),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("ctc_breakups_employee_version_uq").on(t.employeeId, t.version),
+    index("ctc_breakups_employee_idx").on(t.employeeId),
+  ],
+);
+export type CtcBreakup = typeof ctcBreakups.$inferSelect;
+export type NewCtcBreakup = typeof ctcBreakups.$inferInsert;
+
+// ─── Appraisal v2 (migration 0153) — fresh module, appr_* prefix ────────────
+// ONE live rolling scorecard per employee (no cycles). Management is FINAL:
+// each item carries Self (advisory) + Manager (advisory) + Management (final)
+// scores, all 0-100 %. 6 dimensions with admin-adjustable weights summing 100.
+
+/** Per-employee standing config: assignees, dimension weights, knowledge rule. */
+export const apprConfig = pgTable("appr_config", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  employeeId: uuid("employee_id")
+    .notNull()
+    .unique()
+    .references(() => employees.id, { onDelete: "cascade" }),
+  managerId: uuid("manager_id").references(() => employees.id, {
+    onDelete: "set null",
+  }),
+  managementId: uuid("management_id").references(() => employees.id, {
+    onDelete: "set null",
+  }),
+  dimensionWeights: jsonb("dimension_weights")
+    .notNull()
+    .default({ incentive: 30, kpi: 30, skill: 10, attitude: 20, culture: 5, knowledge: 5 }),
+  incentiveTarget: numeric("incentive_target", { precision: 14, scale: 2 }),
+  knowledgeDo: integer("knowledge_do").notNull().default(1),
+  knowledgeGive: integer("knowledge_give").notNull().default(1),
+  updatedById: uuid("updated_by_id").references(() => employees.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type ApprConfig = typeof apprConfig.$inferSelect;
+export type NewApprConfig = typeof apprConfig.$inferInsert;
+
+/** KPI rows (<=5 / employee). */
+export const apprKpi = pgTable(
+  "appr_kpi",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    srNo: integer("sr_no"),
+    area: text("area"),
+    measure: text("measure"),
+    subWeight: integer("sub_weight").notNull().default(20),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("appr_kpi_employee_idx").on(t.employeeId)],
+);
+export type ApprKpi = typeof apprKpi.$inferSelect;
+export type NewApprKpi = typeof apprKpi.$inferInsert;
+
+/** Skills-to-learn (<=3 / employee). */
+export const apprSkill = pgTable(
+  "appr_skill",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    name: text("name"),
+    technical: boolean("technical").notNull().default(false),
+    subWeight: integer("sub_weight").notNull().default(33),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("appr_skill_employee_idx").on(t.employeeId)],
+);
+export type ApprSkill = typeof apprSkill.$inferSelect;
+export type NewApprSkill = typeof apprSkill.$inferInsert;
+
+/** The 4 fixed Attitude & Mindset items (ensure-seeded per employee). */
+export const apprAttitude = pgTable(
+  "appr_attitude",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    // 'problem_solving' | 'growth_mindset' | 'get_things_done' | 'empower_work'
+    key: text("key").notNull(),
+    label: text("label"),
+    weight: integer("weight").notNull().default(5),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("appr_attitude_employee_idx").on(t.employeeId)],
+);
+export type ApprAttitude = typeof apprAttitude.$inferSelect;
+export type NewApprAttitude = typeof apprAttitude.$inferInsert;
+
+/** ONE live scorecard row / employee (incentive + culture direct scores). */
+export const apprScorecard = pgTable("appr_scorecard", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  employeeId: uuid("employee_id")
+    .notNull()
+    .unique()
+    .references(() => employees.id, { onDelete: "cascade" }),
+  incentiveScore: integer("incentive_score"),
+  incentiveNote: text("incentive_note"),
+  cultureScore: integer("culture_score"),
+  // 'in_progress' | 'finalized'
+  status: text("status").notNull().default("in_progress"),
+  finalizedAt: timestamp("finalized_at", { withTimezone: true }),
+  updatedById: uuid("updated_by_id").references(() => employees.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type ApprScorecard = typeof apprScorecard.$inferSelect;
+export type NewApprScorecard = typeof apprScorecard.$inferInsert;
+
+/** One row per scored item (kpi|skill|attitude) — Self/Manager/Management. */
+export const apprItemScore = pgTable(
+  "appr_item_score",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    // 'kpi' | 'skill' | 'attitude'
+    itemKind: text("item_kind").notNull(),
+    itemId: uuid("item_id").notNull(),
+    actual: text("actual"),
+    evidenceUrl: text("evidence_url"),
+    approved: boolean("approved"),
+    remarks: text("remarks"),
+    selfScore: integer("self_score"),
+    selfNote: text("self_note"),
+    managerScore: integer("manager_score"),
+    managerNote: text("manager_note"),
+    managementScore: integer("management_score"),
+    managementNote: text("management_note"),
+    updatedById: uuid("updated_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("appr_item_score_employee_idx").on(t.employeeId),
+    uniqueIndex("appr_item_score_item_uq").on(t.itemKind, t.itemId),
+  ],
+);
+export type ApprItemScore = typeof apprItemScore.$inferSelect;
+export type NewApprItemScore = typeof apprItemScore.$inferInsert;

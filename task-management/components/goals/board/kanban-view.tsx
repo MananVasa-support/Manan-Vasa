@@ -138,14 +138,30 @@ function KanbanColumn({
           : "0 2px 10px -6px color-mix(in srgb, var(--color-altus-red) 30%, transparent)",
       }}
     >
-      <header className="flex items-center justify-center gap-2 px-3 pb-2 pt-3">
+      {/* Prominent, boxed, COLOURED column header — sticky so Q1–Q4 freeze at
+          the top of the viewport while the cards below scroll under them. */}
+      <header
+        className="sticky top-2 z-20 mx-2 mt-2 flex items-center justify-center gap-2 rounded-xl px-3 py-2.5"
+        style={
+          active
+            ? {
+                background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+                boxShadow: "0 10px 24px -12px color-mix(in srgb, var(--color-altus-red) 70%, transparent)",
+              }
+            : {
+                background: "var(--color-surface-card)",
+                border: "1.5px solid color-mix(in srgb, var(--color-altus-red) 32%, var(--color-hairline-strong))",
+                boxShadow: "0 2px 10px -6px rgba(15,23,42,0.2)",
+              }
+        }
+      >
         <button
           type="button"
           onClick={() => props.onSelectBucket(bucketKey)}
           aria-pressed={active}
           title={`Focus ${periodKeyLabel(bucketKey)} (score card + shareable URL)`}
-          className={`cursor-pointer truncate rounded-md text-[15px] font-extrabold tracking-tight transition-colors hover:text-[var(--color-altus-red-deep)] ${FOCUS_RING}`}
-          style={{ color: active ? "var(--color-altus-red-deep)" : "var(--color-ink-strong)" }}
+          className={`cursor-pointer truncate rounded-md text-[15.5px] font-black tracking-tight ${FOCUS_RING}`}
+          style={{ color: active ? "#fff" : "var(--color-ink-strong)", fontFamily: "var(--font-display)" }}
         >
           {label}
         </button>
@@ -153,19 +169,12 @@ function KanbanColumn({
           className="inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-[1px] text-[11px] font-bold tabular-nums"
           style={
             active
-              ? { background: "color-mix(in srgb, var(--color-altus-red) 12%, transparent)", color: "var(--color-altus-red-deep)" }
-              : { background: "var(--color-surface-card)", color: "var(--color-ink-subtle)", border: "1px solid var(--color-hairline)" }
+              ? { background: "rgba(255,255,255,0.24)", color: "#fff" }
+              : { background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red-deep)" }
           }
         >
           {goals.length}
         </span>
-        {active && (
-          <span
-            aria-hidden
-            className="size-1.5 rounded-full"
-            style={{ background: "var(--color-altus-red)" }}
-          />
-        )}
       </header>
 
       {/* Droppable body — empty columns are still full-height drop targets. */}

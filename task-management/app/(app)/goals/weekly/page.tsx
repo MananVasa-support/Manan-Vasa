@@ -17,7 +17,9 @@ import {
   formatWeekLabel,
 } from "@/lib/weekly-goals/week";
 import { weekNoOf } from "@/lib/goals/fy-calendar";
-import { monthKey } from "@/lib/goals/types";
+import { monthKey, fyStartYearOf } from "@/lib/goals/types";
+import { listGoalLookups } from "@/lib/goals/lookups";
+import { loadCommitData } from "@/components/goals/commit/data";
 import { WeeklyCascadeBoard } from "@/components/goals/weekly/weekly-cascade-board";
 import type {
   CascadeWeeklyGoal,
@@ -225,6 +227,18 @@ export default async function GoalsWeeklyPage({ searchParams }: PageProps) {
         .map((r) => ({ id: r.id, name: r.name }))
     : [];
 
+  // Managed Area / Measure / Type dropdowns for the inline table.
+  const lookups = await listGoalLookups();
+  const fyStart = fyStartYearOf(new Date(`${weekStart}T00:00:00Z`));
+
+  // Self "freeze next week" ritual — surfaced as a popup button (self view only).
+  const commitData = await loadCommitData({ id: me.id, isAdmin });
+  const selfMember = commitData.members.find((m) => m.isSelf) ?? commitData.members[0];
+  const commit =
+    selfMember && scopeEmp === me.id
+      ? { member: selfMember, nextWeekLabel: commitData.nextWeekLabel, weekStart: commitData.weekStart }
+      : null;
+
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
@@ -243,6 +257,12 @@ export default async function GoalsWeeklyPage({ searchParams }: PageProps) {
         rows={rows}
         roster={roster}
         monthGoalOptions={monthGoalOptions}
+        areaOptions={lookups.areas}
+        measureOptions={lookups.measures}
+        typeOptions={lookups.types}
+        customLookups={lookups.custom}
+        fyStartYear={fyStart}
+        commit={commit}
       />
       <DashboardFooter />
     </>

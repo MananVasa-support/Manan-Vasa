@@ -98,12 +98,12 @@ export function GoalLookupSelect({
         <button
           type="button"
           className={cn(
-            "flex w-full items-center justify-between gap-2 rounded-md border bg-white text-left text-ink-strong transition-colors focus:border-altus-red",
+            "flex w-full items-center justify-between gap-2 rounded-md border-[1.5px] bg-white text-left text-ink-strong transition-colors focus:border-altus-red",
             compact ? "h-9 px-2.5 text-[13px]" : "h-10 px-2.5 text-[14px] font-semibold",
             FOCUS_RING,
             className,
           )}
-          style={{ borderColor: "var(--color-hairline-strong)" }}
+          style={{ borderColor: "color-mix(in srgb, var(--color-ink-strong) 34%, transparent)" }}
         >
           <span className={cn("truncate", !value && "text-ink-subtle font-normal")}>
             {value || placeholder || `Choose a ${noun}`}

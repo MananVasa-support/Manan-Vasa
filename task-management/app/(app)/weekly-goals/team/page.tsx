@@ -127,14 +127,14 @@ export default async function TeamPerformancePage() {
 
                   <div className="mt-4 grid grid-cols-3 gap-2.5 max-sm:grid-cols-2">
                     <Metric icon={<Target size={14} />} label="Goals" value={`${p?.goalsDone ?? 0}/${p?.goalsCount ?? 0}`} />
-                    <Metric icon={<ClipboardList size={14} />} label="Assigned / workload" value={p?.assignedToday ?? 0} />
+                    <Metric icon={<ClipboardList size={14} />} label="Tasks given" value={p?.assignedToday ?? 0} />
                     <Metric icon={<CheckCircle2 size={14} />} label="Done today" value={p?.doneToday ?? 0} tone="green" />
                     <Metric icon={<Clock3 size={14} />} label="Pending" value={p?.pendingTasks ?? 0} />
                     <Metric icon={<AlertTriangle size={14} />} label="Overdue" value={p?.overdueTasks ?? 0} tone={(p?.overdueTasks ?? 0) > 0 ? "red" : undefined} />
-                    <Metric icon={<PauseCircle size={14} />} label="Blocked" value={p?.blockedTasks ?? 0} tone={(p?.blockedTasks ?? 0) > 0 ? "amber" : undefined} />
+                    <Metric icon={<PauseCircle size={14} />} label="On hold" value={p?.blockedTasks ?? 0} tone={(p?.blockedTasks ?? 0) > 0 ? "amber" : undefined} />
                     <Metric icon={<LifeBuoy size={14} />} label="Need help" value={p?.needHelp ?? 0} tone={(p?.needHelp ?? 0) > 0 ? "amber" : undefined} />
-                    <Metric icon={<ShieldCheck size={14} />} label="DCC" value={p?.dccCompliancePct == null ? "—" : `${p.dccCompliancePct}%`} tone={p?.dccCompliancePct != null && p.dccCompliancePct < 80 ? "red" : undefined} />
-                    <Metric icon={<GraduationCap size={14} />} label="Training (mo)" value={`${p?.trainingHoursMonth ?? 0}h`} />
+                    <Metric icon={<ShieldCheck size={14} />} label="Daily checklist" value={p?.dccCompliancePct == null ? "—" : `${p.dccCompliancePct}%`} tone={p?.dccCompliancePct != null && p.dccCompliancePct < 80 ? "red" : undefined} />
+                    <Metric icon={<GraduationCap size={14} />} label="Training this month" value={`${p?.trainingHoursMonth ?? 0}h`} />
                   </div>
 
                   <div className="mt-3.5 flex items-center gap-4 text-[12.5px] text-ink-subtle">
@@ -144,7 +144,7 @@ export default async function TeamPerformancePage() {
 
                   <div className="mt-4 flex items-center gap-2.5 flex-wrap">
                     <Link
-                      href={`/weekly-goals?emp=${m.id}` as Route}
+                      href={`/goals/weekly?emp=${m.id}` as Route}
                       className="brand-btn inline-flex items-center gap-1.5 rounded-xl border-2 px-3.5 py-2 text-[13px] font-bold transition-colors"
                       style={{ borderColor: `color-mix(in srgb, ${RED} 35%, transparent)`, color: "var(--color-altus-red-deep)" }}
                     >

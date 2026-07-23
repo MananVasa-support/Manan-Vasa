@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ExternalLink, PenLine } from "lucide-react";
+import { ExternalLink, PenLine, ShieldCheck } from "lucide-react";
 import {
   AGREEMENT_STATUSES,
   AGREEMENT_STATUS_LABELS,
@@ -9,6 +9,14 @@ import {
   type AgreementStatus,
 } from "@/db/enums";
 import type { AgreementRow } from "@/lib/agreements/types";
+import type { SignatureStatus } from "@/lib/documents/signing";
+import { SignatureStatusPill } from "@/components/documents/signature-status-pill";
+
+/** Latest DigiLocker-signature status per agreement id (from the server page). */
+export type AgreementSignatures = Record<
+  string,
+  { signatureId: string; status: SignatureStatus; signedPdfPath: string | null }
+>;
 
 const GREEN = "#E10600";
 const GREEN_DEEP = "#A80400";
@@ -43,7 +51,13 @@ function StatusChip({ status }: { status: AgreementStatus }) {
 type Filter = AgreementStatus | "all";
 
 /** Admin tracker: every agreement, filterable by status, with PDF + sign links. */
-export function StatusTracker({ rows }: { rows: AgreementRow[] }) {
+export function StatusTracker({
+  rows,
+  signatures = {},
+}: {
+  rows: AgreementRow[];
+  signatures?: AgreementSignatures;
+}) {
   const [filter, setFilter] = useState<Filter>("all");
 
   const counts = useMemo(() => {
@@ -107,6 +121,7 @@ export function StatusTracker({ rows }: { rows: AgreementRow[] }) {
                 <th className="pb-2 pr-3">Employee</th>
                 <th className="pb-2 pr-3">Type</th>
                 <th className="pb-2 pr-3">Status</th>
+                <th className="pb-2 pr-3">Verified e-sign</th>
                 <th className="pb-2 pr-3">Signed</th>
                 <th className="pb-2 pr-3 text-right">Links</th>
               </tr>
@@ -117,6 +132,9 @@ export function StatusTracker({ rows }: { rows: AgreementRow[] }) {
                   <td className="py-2.5 pr-3 font-semibold text-ink-strong">{r.employeeName}</td>
                   <td className="py-2.5 pr-3 text-ink-muted">{AGREEMENT_TYPE_LABELS[r.type]}</td>
                   <td className="py-2.5 pr-3"><StatusChip status={r.status} /></td>
+                  <td className="py-2.5 pr-3">
+                    <SignatureStatusPill status={signatures[r.id]?.status ?? null} />
+                  </td>
                   <td className="py-2.5 pr-3 text-ink-muted">
                     {r.status === "signed" ? (
                       <span>
@@ -146,6 +164,15 @@ export function StatusTracker({ rows }: { rows: AgreementRow[] }) {
                         style={{ color: GREEN_DEEP, boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${GREEN} 40%, transparent)` }}
                       >
                         <PenLine size={12} strokeWidth={2.4} /> Sign
+                      </a>
+                      <a
+                        href={`/documents/sign?kind=agreement&doc=${r.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold"
+                        style={{ color: GREEN_DEEP, boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${GREEN} 40%, transparent)` }}
+                      >
+                        <ShieldCheck size={12} strokeWidth={2.4} /> Verify
                       </a>
                     </div>
                   </td>
