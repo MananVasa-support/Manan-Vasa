@@ -33,6 +33,10 @@ export default async function HrStageItemPage({
 
   const isAdmin = me.isAdmin || isSuperAdmin(me.email);
 
+  // Note: Basic Details is a "link" item (→ /hr/candidates, its own full-screen
+  // route) so it's already handled by the link redirect above — its heavy
+  // 108-field wizard never sits in this shared item-route bundle.
+
   let body: React.ReactNode;
   if (it.kind === "doc" && it.typeKey) {
     if (!isAdmin) {

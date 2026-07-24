@@ -3,14 +3,23 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { employees, designations } from "@/db/schema";
 import { formatMergeDate } from "@/lib/hr-docs/merge";
-import type { HrDocEmployee } from "@/components/hr-docs/compose-dialog";
+
+/** Roster row the letter compose needs (matches LetterCompose's ComposeEmployee). */
+export interface HrRosterEmployee {
+  id: string;
+  name: string;
+  email: string;
+  department: string;
+  designation: string;
+  reportingManager: string;
+  joiningDate: string;
+}
 
 /**
- * Active roster with the fields the merge engine + letter preview need
- * (designation joined, reporting-manager name resolved). Shared by the Document
- * Hub and every per-letter station in the HR lifecycle stages.
+ * Active roster with the fields the letter compose needs (designation joined,
+ * reporting-manager name resolved). Used by the letter stations + letter library.
  */
-export async function loadHrRoster(): Promise<HrDocEmployee[]> {
+export async function loadHrRoster(): Promise<HrRosterEmployee[]> {
   const rows = await db
     .select({
       id: employees.id,

@@ -73,7 +73,7 @@ export const DOC_TYPES: readonly DocType[] = [
   { typeKey: "interns_letter", category: "recruitment", title: "Internship Letter", trigger: "issued", signature: "esign", content: "text" },
   { typeKey: "interns_certificate", category: "recruitment", title: "Internship Certificate", trigger: "issued", signature: "none", content: "certificate" },
   // Post-Interview lifecycle stage (added 2026-07)
-  { typeKey: "offer_letter", category: "recruitment", title: "Offer Letter", trigger: "email", signature: "none", content: "text" },
+  { typeKey: "offer_letter", category: "recruitment", title: "Selection Letter", trigger: "email", signature: "none", content: "text" },
   { typeKey: "assignment_letter", category: "recruitment", title: "Assignment Letter", trigger: "email", signature: "none", content: "text" },
   { typeKey: "next_round_call", category: "recruitment", title: "Next Round Invitation", trigger: "email", signature: "none", content: "text" },
 

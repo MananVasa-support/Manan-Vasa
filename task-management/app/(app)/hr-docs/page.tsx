@@ -1,16 +1,11 @@
-import { and, eq, sql } from "drizzle-orm";
 import { FileText } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
-import { db } from "@/lib/db";
-import { employees, designations, letterTemplates } from "@/db/schema";
-import { formatMergeDate } from "@/lib/hr-docs/merge";
 import { listTemplates } from "@/app/(app)/hr-docs/actions";
-import { DocumentHub } from "@/components/hr-docs/document-hub";
-import { SelfDocsPanel, type RequestTemplate } from "@/components/hr-docs/request-dialog";
-import type { HrDocEmployee } from "@/components/hr-docs/compose-dialog";
+import { loadHrRoster } from "@/lib/hr-docs/roster";
+import { SimpleDocHub } from "@/components/hr-docs/simple-hub";
 
 export const dynamic = "force-dynamic";
 
@@ -18,87 +13,36 @@ const ACCENT = "#E10600";
 const ACCENT_DEEP = "#A80400";
 
 /**
- * HR Documents room — the Document Hub (Phase 3). Admins compose from the 26-type
- * library, edit template bodies, and track issued documents. A non-admin lands on
- * their own issued documents (same self-view the dossier embeds).
+ * HR Documents — the letter library. A clean template gallery (SimpleDocHub)
+ * that composes any letter via the self-contained LetterCompose → /api/hr-docs
+ * endpoints. (The old DocumentHub + its CTC/admin editors imported the heavy
+ * action graph and hung the webpack compile — replaced here.)
  */
 export default async function HrDocsPage() {
   const me = await requireWorkspace("hr");
   const isAdmin = me.isAdmin || isSuperAdmin(me.email);
 
   if (!isAdmin) {
-    const [reqRows, desigRows] = await Promise.all([
-      db
-        .select({
-          typeKey: letterTemplates.typeKey,
-          title: letterTemplates.title,
-          bodyMd: letterTemplates.bodyMd,
-        })
-        .from(letterTemplates)
-        .where(and(eq(letterTemplates.trigger, "request"), eq(letterTemplates.active, true))),
-      me.designationId
-        ? db
-            .select({ name: designations.name })
-            .from(designations)
-            .where(eq(designations.id, me.designationId))
-            .limit(1)
-        : Promise.resolve([] as { name: string }[]),
-    ]);
-    const requestTemplates: RequestTemplate[] = reqRows;
-
     return (
-      <Shell subtitle="Your issued letters, agreements and certificates — plus raise a leave or resignation request.">
-        <SelfDocsPanel
-          employeeId={me.id}
-          user={{
-            name: me.name,
-            email: me.email ?? "",
-            department: me.department ?? "",
-            designation: desigRows[0]?.name ?? "",
-          }}
-          requestTemplates={requestTemplates}
-        />
+      <Shell subtitle="HR letters are composed and issued by the HR desk. Your issued documents appear in your Dossier.">
+        <div className="rounded-2xl border border-dashed border-hairline-strong bg-surface-card px-6 py-14 text-center">
+          <p className="text-[15px] font-medium text-ink-muted">
+            Letters are issued by HR. If you need one, reach out to the HR desk.
+          </p>
+        </div>
       </Shell>
     );
   }
 
-  const [templatesRes, roster] = await Promise.all([listTemplates(), loadRoster()]);
-  const templates = templatesRes.ok ? templatesRes.templates : [];
+  const res = await listTemplates();
+  const templates = res.ok ? res.templates : [];
+  const roster = await loadHrRoster();
 
   return (
-    <Shell subtitle="Compose from the letter library, edit the body of any template, and track what's been issued.">
-      <DocumentHub templates={templates} roster={roster} isAdmin hrName={me.name} />
+    <Shell subtitle="Compose from the letter library — pick a template, edit the wording inline, and issue.">
+      <SimpleDocHub templates={templates} roster={roster} hrName={me.name} />
     </Shell>
   );
-}
-
-/** Active roster with the fields the merge engine + preview need. */
-async function loadRoster(): Promise<HrDocEmployee[]> {
-  const rows = await db
-    .select({
-      id: employees.id,
-      name: employees.name,
-      email: employees.email,
-      department: employees.department,
-      joinedAt: employees.joinedAt,
-      designation: designations.name,
-      managerId: employees.managerId,
-    })
-    .from(employees)
-    .leftJoin(designations, eq(designations.id, employees.designationId))
-    .where(eq(employees.isActive, true))
-    .orderBy(sql`lower(${employees.name})`);
-
-  const nameById = new Map(rows.map((r) => [r.id, r.name]));
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    email: r.email ?? "",
-    department: r.department ?? "",
-    designation: r.designation ?? "",
-    reportingManager: r.managerId ? nameById.get(r.managerId) ?? "" : "",
-    joiningDate: formatMergeDate(r.joinedAt),
-  }));
 }
 
 function Shell({ children, subtitle }: { children: React.ReactNode; subtitle: string }) {
@@ -111,7 +55,7 @@ function Shell({ children, subtitle }: { children: React.ReactNode; subtitle: st
             className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"
             style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
           >
-            <FileText size={13} strokeWidth={2.6} /> HR · Documents
+            <FileText size={13} strokeWidth={2.6} /> HR · Letters
           </span>
           <h1
             className="mt-2 text-ink-strong"
@@ -123,7 +67,7 @@ function Shell({ children, subtitle }: { children: React.ReactNode; subtitle: st
               lineHeight: 1.02,
             }}
           >
-            Document Hub
+            Letter Library
           </h1>
           <p className="mt-1.5 max-w-[76ch] text-[15px] font-medium text-ink-muted">{subtitle}</p>
         </header>

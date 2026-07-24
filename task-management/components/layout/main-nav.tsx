@@ -120,7 +120,6 @@ const HR_HUB_NAV: WorkspaceNav = {
   top: [
     HR_HOME,
     ...HR_STAGES.map((s) => ({ href: `/hr/${s.slug}` as Route, label: s.title, Icon: s.Icon })),
-    { href: "/hr/overview" as Route, label: "Overview", Icon: LayoutGrid },
     { href: "/holidays" as Route, label: "Holiday List", Icon: PartyPopper },
     { href: "/support" as Route, label: "Help Desk", Icon: LifeBuoy },
   ],
@@ -144,7 +143,12 @@ const HR_HOLIDAY_NAV: WorkspaceNav = {
   groups: [],
 };
 const HR_HELPDESK_NAV: WorkspaceNav = {
-  top: [HR_HOME, { href: "/support" as Route, label: "Help Desk", Icon: LifeBuoy }],
+  top: [
+    HR_HOME,
+    { href: "/support" as Route, label: "Live Tickets", Icon: LifeBuoy },
+    { href: "/hr/routing" as Route, label: "Ticket Routing", Icon: ShieldCheck, adminOnly: true },
+    { href: "/hr/metrics" as Route, label: "Support Metrics", Icon: Gauge, adminOnly: true },
+  ],
   groups: [],
 };
 
@@ -160,6 +164,8 @@ const HR_SECTION_NAV: Record<HrSection, WorkspaceNav> = {
 function hrSectionForPath(p: string): HrSection {
   const m = p.match(/^\/hr\/(pre-interview|post-interview|pre-joining|post-joining|exit)(\/|$)/);
   if (m) return m[1] as HrStageKey;
+  if (p.startsWith("/hr/candidates")) return "pre-interview"; // Basic Details lives here
+
   if (p.startsWith("/holidays")) return "holiday";
   if (p.startsWith("/support") || p.startsWith("/hr/routing") || p.startsWith("/hr/metrics")) return "helpdesk";
   return "hub";

@@ -3,27 +3,19 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   typedRoutes: true,
   devIndicators: false,
-  serverExternalPackages: ["firebase-admin", "pdfkit"],
-  // Build-time reduction: tree-shake heavy barrel packages at import so the
-  // production compile graph stays small (this codebase pulls a LOT of
-  // lucide-react icons + charts + Radix across the new HR/appraisal/goals
-  // surfaces). Cuts both build time and memory — the Hobby 2-core/8GB builder
-  // was hitting the 45-min timeout on the full cold graph.
-  experimental: {
-    optimizePackageImports: [
-      "lucide-react",
-      "recharts",
-      "date-fns",
-      "@radix-ui/react-dialog",
-      "@radix-ui/react-dropdown-menu",
-      "@radix-ui/react-popover",
-      "@radix-ui/react-tabs",
-      "@radix-ui/react-tooltip",
-      "@radix-ui/react-separator",
-      "@tanstack/react-table",
-      "cmdk",
-    ],
-  },
+  // Externalize heavy server packages so the bundler does NOT compile their huge
+  // trees into every route (the Sentry + OpenTelemetry + Prisma-instrumentation
+  // graph was adding ~50s to first-compile of EVERY page). They're require()'d at
+  // runtime from node_modules instead. Sentry has no build-time hook here (config
+  // isn't wrapped with withSentryConfig), so externalizing the runtime SDK is safe.
+  serverExternalPackages: [
+    "firebase-admin",
+    "pdfkit",
+    "@sentry/nextjs",
+    "@sentry/node",
+    "@opentelemetry/instrumentation",
+    "@prisma/instrumentation",
+  ],
 };
 
 export default nextConfig;

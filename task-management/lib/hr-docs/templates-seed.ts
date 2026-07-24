@@ -73,7 +73,7 @@ Human Resources, {{company}}`,
   },
 
   offer_letter: {
-    title: "Offer Letter",
+    title: "Selection Letter",
     bodyMd: `Dear {{name}},
 
 We are pleased to offer you the position of **{{designation}}** at **{{company}}**. Following our interview process, we were impressed by your capabilities and believe you will be a strong addition to our team.

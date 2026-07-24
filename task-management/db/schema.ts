@@ -5705,3 +5705,32 @@ export const apprItemScore = pgTable(
 );
 export type ApprItemScore = typeof apprItemScore.$inferSelect;
 export type NewApprItemScore = typeof apprItemScore.$inferInsert;
+
+/** Candidate Intake (Pre-Interview → Basic Details) — the 108-field walk-in
+ *  interview form. Full answers in `data` jsonb; hot columns lifted for listing. */
+export const candidateIntake = pgTable(
+  "candidate_intake",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    positionApplied: text("position_applied"),
+    fullName: text("full_name").notNull().default(""),
+    mobile: text("mobile"),
+    email: text("email"),
+    // 'new' | 'shortlisted' | 'rejected' | 'hired'
+    status: text("status").notNull().default("new"),
+    data: jsonb("data").notNull().default({}),
+    photoPath: text("photo_path"),
+    signaturePath: text("signature_path"),
+    createdById: uuid("created_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("candidate_intake_created_at_idx").on(t.createdAt),
+    index("candidate_intake_status_idx").on(t.status),
+  ],
+);
+export type CandidateIntake = typeof candidateIntake.$inferSelect;
+export type NewCandidateIntake = typeof candidateIntake.$inferInsert;

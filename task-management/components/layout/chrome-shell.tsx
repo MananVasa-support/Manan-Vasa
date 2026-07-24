@@ -30,8 +30,12 @@ export function ChromeShell({
   const pathname = usePathname();
   const ws = workspaceForPath(pathname ?? "/");
   // WMS now uses the rail too — show it for ANY workspace; only the hub / shared
-  // surfaces (ws === undefined) render bare.
-  const showSidebar = Boolean(ws);
+  // surfaces (ws === undefined) render bare. Exceptions: the HR front door (`/hr`),
+  // the Candidate Interview Form (`/hr/intake`), and the Candidate Records list
+  // (`/hr/candidates`) are full-screen focused surfaces — all render with NO rail
+  // (their own back button is the nav). Other stage sub-pages keep their rail.
+  const showSidebar =
+    Boolean(ws) && pathname !== "/hr" && pathname !== "/hr/candidates" && pathname !== "/hr/intake";
 
   if (!showSidebar) return <>{children}</>;
 
