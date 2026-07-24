@@ -12,7 +12,7 @@ import {
   listAgreements,
   agreementsForEmployee,
 } from "@/lib/agreements/queries";
-import { FIELD_VALUE_KEYS } from "@/app/(app)/agreements/actions";
+import { FIELD_VALUE_KEYS } from "@/lib/agreements/field-keys";
 import { AGREEMENT_TYPES, AGREEMENT_TYPE_LABELS, AGREEMENT_STATUS_LABELS } from "@/db/enums";
 import type { AgreementRow } from "@/lib/agreements/types";
 

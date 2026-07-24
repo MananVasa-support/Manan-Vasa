@@ -9,6 +9,7 @@ import { agreements } from "@/db/schema";
 import { AGREEMENT_TYPES, AGREEMENT_TYPE_LABELS } from "@/db/enums";
 import { requireAgreementsAdmin } from "@/lib/agreements/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
+import { FIELD_VALUE_KEYS } from "@/lib/agreements/field-keys";
 
 /**
  * Agreements module · admin server actions (create-or-update draft, send, delete).
@@ -26,28 +27,6 @@ export type ActionResult<T = unknown> =
   | { ok: false; error: string };
 
 const UUID = z.string().uuid();
-
-/**
- * The editable fill-in fields persisted in agreements.field_values. Keys map 1:1
- * to AgreementInput (lib/agreements/templates.ts), excluding the three columns
- * stored on their own (type, entity, employeeName). The sign agent + PDF route
- * MUST rely on exactly these keys.
- */
-export const FIELD_VALUE_KEYS = [
-  "designation",
-  "department",
-  "letterDate",
-  "place",
-  "joiningDate",
-  "ctcAmount",
-  "ctcBreakup",
-  "probationMonths",
-  "reportingTo",
-  "workLocation",
-  "noticePeriod",
-  "confidentialityYears",
-  "extraClauses",
-] as const;
 
 const saveSchema = z.object({
   id: UUID.optional(),
