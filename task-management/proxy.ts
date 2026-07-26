@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { authMiddleware } from "next-firebase-auth-edge";
 
 const PUBLIC_PATHS = [
+  "/ctest",
   "/login",
   "/forgot-password",
   "/set-password",

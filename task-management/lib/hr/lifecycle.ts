@@ -22,6 +22,9 @@ import {
   MessagesSquare,
   Banknote,
   Users,
+  Handshake,
+  Trophy,
+  Cake,
 } from "lucide-react";
 
 /**
@@ -31,8 +34,8 @@ import {
  * (/hr/<stage>/<item>) are all generated from this.
  *
  * item.kind:
- *   "doc"    — a letter/agreement/certificate → a compose station at
- *              /hr/<stage>/<slug> backed by letter template `typeKey`.
+ *   "doc"    — a letter/agreement/certificate → redirects to that letter's own
+ *              page /hr/letters/<typeKey> (the key of a registered LetterTemplate).
  *   "screen" — a workflow surface still to be planned → placeholder page.
  *   "link"   — jumps to an existing module route (`href`), no page of its own.
  */
@@ -50,7 +53,7 @@ export interface HrItem {
   label: string;
   Icon: LucideIcon;
   kind: HrItemKind;
-  /** kind === "doc": the letter_templates.type_key this station composes. */
+  /** kind === "doc": the LetterTemplate key opened at /hr/letters/<typeKey>. */
   typeKey?: string;
   /** kind === "link": the existing route to jump to. */
   href?: string;
@@ -74,9 +77,9 @@ export const HR_STAGES: HrStage[] = [
     blurb: "Everything before a candidate walks in — details and assessments.",
     Icon: UserSearch,
     items: [
-      { slug: "basic-details", label: "Basic Details", Icon: ContactRound, kind: "link", href: "/hr/intake", blurb: "Fill the candidate interview form." },
-      { slug: "first-assessment", label: "First Assessment", Icon: ClipboardList, kind: "screen", blurb: "The first-round evaluation." },
-      { slug: "management-assessment", label: "Management Assessment", Icon: Gauge, kind: "screen", blurb: "The management-round evaluation." },
+      { slug: "basic-details", label: "Candidate Interview Form", Icon: ContactRound, kind: "link", href: "/hr/intake", blurb: "Fill the candidate's interview details." },
+      { slug: "first-assessment", label: "Candidate Evaluation Checklist", Icon: ClipboardList, kind: "link", href: "/hr/evaluation", blurb: "The interactive interview evaluation checklist." },
+      { slug: "management-assessment", label: "Management Assessment", Icon: Gauge, kind: "link", href: "/hr/management-assessment", blurb: "The management-round evaluation — notes, voice notes & attachments." },
     ],
   },
   {
@@ -87,10 +90,10 @@ export const HR_STAGES: HrStage[] = [
     Icon: ClipboardCheck,
     items: [
       { slug: "candidate-records", label: "Candidate Records", Icon: Users, kind: "link", href: "/hr/candidates", blurb: "Every candidate whose interview form was filled." },
-      { slug: "offer-letter", label: "Selection Letter", Icon: FileCheck2, kind: "doc", typeKey: "offer_letter", blurb: "Extend the role to the selected candidate." },
+      { slug: "offer-letter", label: "Selection Letter", Icon: FileCheck2, kind: "doc", typeKey: "selection", blurb: "Extend the role to the selected candidate." },
       { slug: "reject-letter", label: "Rejection Letter", Icon: FileX2, kind: "doc", typeKey: "rejection", blurb: "A considerate decline." },
-      { slug: "assignment-letter", label: "Assignment Needed Letter", Icon: FileText, kind: "doc", typeKey: "assignment_letter", blurb: "Send a pre-hire assignment." },
-      { slug: "next-round", label: "One More Interview Needed Letter", Icon: Repeat, kind: "doc", typeKey: "next_round_call", blurb: "Invite the candidate to another round." },
+      { slug: "assignment-letter", label: "Assignment Needed Letter", Icon: FileText, kind: "doc", typeKey: "assignment", blurb: "Send a pre-hire assignment." },
+      { slug: "next-round", label: "One More Interview Needed Letter", Icon: Repeat, kind: "doc", typeKey: "next-round", blurb: "Invite the candidate to another round." },
     ],
   },
   {
@@ -100,9 +103,10 @@ export const HR_STAGES: HrStage[] = [
     blurb: "Between offer and day one — appointment, CTC, policies and forms.",
     Icon: DoorOpen,
     items: [
-      { slug: "acceptance-letter", label: "Acceptance Letter", Icon: FileSignature, kind: "doc", typeKey: "appointment_letter", blurb: "The formal appointment letter." },
-      { slug: "ctc-breakup", label: "CTC Breakup", Icon: IndianRupee, kind: "link", href: "/hr-docs", blurb: "Build the structured CTC in the letter library." },
-      { slug: "all-policies-signatory", label: "All Policies Sign", Icon: ScrollText, kind: "link", href: "/policies", blurb: "Every company policy to acknowledge and sign." },
+      { slug: "acceptance-letter", label: "Acceptance Letter", Icon: Handshake, kind: "doc", typeKey: "acceptance", blurb: "The candidate's written acceptance of the offer." },
+      { slug: "appointment-letter", label: "Appointment Letter", Icon: FileSignature, kind: "doc", typeKey: "appointment", blurb: "The formal appointment letter." },
+      { slug: "ctc-breakup", label: "CTC Breakup", Icon: IndianRupee, kind: "link", href: "/hr/ctc", blurb: "Build the structured CTC breakup & compensation letters." },
+      { slug: "all-policies-signatory", label: "Policies Signatory", Icon: ScrollText, kind: "link", href: "/hr?policies=1", blurb: "Every company policy to acknowledge and sign." },
       { slug: "employment-form", label: "Employment Form", Icon: ClipboardList, kind: "screen", blurb: "The joining data form." },
     ],
   },
@@ -114,8 +118,10 @@ export const HR_STAGES: HrStage[] = [
     Icon: Briefcase,
     items: [
       { slug: "induction", label: "Induction", Icon: GraduationCap, kind: "screen", blurb: "Onboarding & induction flow — to be planned." },
-      { slug: "free-training", label: "Free Training Letter", Icon: Award, kind: "doc", typeKey: "free_training_completed", blurb: "Free-training completion certificate." },
-      { slug: "confirmation", label: "Confirmation Letter", Icon: BadgeCheck, kind: "doc", typeKey: "confirmation_letter", blurb: "Confirm the employee after probation." },
+      { slug: "free-training", label: "Free Training Letter", Icon: Award, kind: "doc", typeKey: "free-training", blurb: "Pre-employment training & evaluation letter." },
+      { slug: "confirmation", label: "Confirmation Letter", Icon: BadgeCheck, kind: "doc", typeKey: "confirmation", blurb: "Confirm the employee after probation." },
+      { slug: "employee-of-the-month", label: "Employee of the Month", Icon: Trophy, kind: "doc", typeKey: "employee-of-the-month", blurb: "Recognise a standout performer." },
+      { slug: "birthday-wishes", label: "Birthday Wishes", Icon: Cake, kind: "doc", typeKey: "birthday", blurb: "A warm birthday note from the team." },
       { slug: "appraisal", label: "Appraisal Letter", Icon: Target, kind: "link", href: "/appraisal", blurb: "The live rolling scorecard & appraisal outcome." },
     ],
   },
@@ -126,11 +132,12 @@ export const HR_STAGES: HrStage[] = [
     blurb: "A clean separation — interview, settlement and closing documents.",
     Icon: LogOut,
     items: [
-      { slug: "exit-interview", label: "Exit Interview Form", Icon: MessagesSquare, kind: "screen", blurb: "The exit conversation — form to be made." },
-      { slug: "full-and-final", label: "FFS + Acknowledgement", Icon: Banknote, kind: "doc", typeKey: "ffs_letter", blurb: "Full & final settlement + acknowledgement." },
-      { slug: "resignation-letter", label: "Resignation Letter", Icon: FileText, kind: "doc", typeKey: "resignation_accepted", blurb: "Acknowledge the resignation." },
-      { slug: "experience-letter", label: "Experience Letter", Icon: Award, kind: "doc", typeKey: "experience_letter", blurb: "Certify their tenure." },
-      { slug: "completion-certificate", label: "Certificate", Icon: BadgeCheck, kind: "doc", typeKey: "completion_certificate", blurb: "Certificate of completion." },
+      { slug: "exit-interview", label: "Exit Interview & Handover", Icon: MessagesSquare, kind: "link", href: "/hr/exit", blurb: "The exit interview questionnaire & handover clearance checklist." },
+      { slug: "full-and-final", label: "Full & Final Settlement", Icon: Banknote, kind: "doc", typeKey: "ffs", blurb: "The full & final settlement letter." },
+      { slug: "ffs-acknowledgement", label: "FFS Acknowledgement", Icon: FileSignature, kind: "doc", typeKey: "ffs-acknowledgement", blurb: "The employee's acknowledgement of the settlement." },
+      { slug: "relieving-letter", label: "Relieving Letter", Icon: FileText, kind: "doc", typeKey: "relieving", blurb: "Relieve the employee on their last day." },
+      { slug: "experience-letter", label: "Experience Letter", Icon: Award, kind: "screen", blurb: "Certify their tenure — letter to be authored." },
+      { slug: "completion-certificate", label: "Certificate", Icon: BadgeCheck, kind: "screen", blurb: "Certificate of completion — to be authored." },
     ],
   },
 ];
@@ -148,5 +155,9 @@ export function getHrItem(stageKey: string, itemSlug: string): HrItem | undefine
 /** Where a sidebar/card item points: an external module for links, else its own
  *  station page under the stage. */
 export function hrItemHref(stageSlug: string, item: HrItem): string {
-  return item.kind === "link" && item.href ? item.href : `/hr/${stageSlug}/${item.slug}`;
+  if (item.kind === "link" && item.href) return item.href;
+  // Letters open on their OWN page directly — skip the intermediate stage/item
+  // redirect (which briefly flashed the rail).
+  if (item.kind === "doc" && item.typeKey) return `/hr/letters/${item.typeKey}`;
+  return `/hr/${stageSlug}/${item.slug}`;
 }

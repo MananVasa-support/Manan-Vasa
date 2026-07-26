@@ -2,15 +2,48 @@
 
 import * as React from "react";
 import { ArrowLeft, ArrowRight, Loader2, Send } from "lucide-react";
-import { INTAKE_SECTIONS, vkey, type IntakeSection } from "@/lib/hr/candidate/intake-schema";
-import { saveCandidateIntake, uploadCandidateFile } from "@/app/(app)/hr/candidate-actions";
+import { INTAKE_SECTIONS, hasAnyContent, intakeProgress, sectionRequiredKeys, type IntakeSection } from "@/lib/hr/candidate/intake-schema";
+import { saveCandidateDraft, submitCandidateDraft, uploadCandidateFile } from "@/app/(app)/hr/candidate-actions";
 import { fireToast } from "@/lib/toast";
 import { IntakeRail } from "./intake-rail";
 import { IntakeSectionStep } from "./intake-section-step";
 import { IntakeReviewStep } from "./intake-review-step";
 
 const RED = "var(--color-altus-red)";
-const DRAFT_KEY = "candidate-intake-draft-v1";
+
+/** Backup pointer to the in-flight draft, so a refresh can resume even if the
+ *  URL somehow lost its ?draft=<id>. Cleared once the form is submitted. */
+const DRAFT_LS_KEY = "altus:intake:draft";
+
+/** Pin a freshly-created draft to the URL (so a refresh resumes it) + stash a
+ *  localStorage backup pointer. Robust to being called before hydration. */
+function pinDraftToUrl(id: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("draft") !== id) {
+      url.searchParams.set("draft", id);
+      url.searchParams.delete("new");
+      window.history.replaceState(window.history.state, "", url.toString());
+    }
+  } catch {
+    /* replaceState can throw in sandboxed frames — the localStorage backup covers us. */
+  }
+  try {
+    window.localStorage.setItem(DRAFT_LS_KEY, id);
+  } catch {
+    /* private-mode / storage-disabled — non-fatal. */
+  }
+}
+
+export interface IntakeInitial {
+  draftId?: string;
+  values?: Record<string, string>;
+  instances?: Record<string, string[]>;
+  photoPath?: string | null;
+  signaturePath?: string | null;
+  startAtReview?: boolean;
+}
 
 // All animation + the "large field" scoping as a STATIC stylesheet (no
 // framer-motion — its barrel cold-compiles ~49s and hangs; no styled-jsx either).
@@ -21,88 +54,214 @@ const IW_CSS = `
 .iw-step { animation: iwStepIn 0.28s cubic-bezier(0.22,1,0.36,1) both; }
 @keyframes iwRowIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 .iw-row { animation: iwRowIn 0.25s ease-out both; }
-.iw-fields input:not([type="file"]),
-.iw-fields textarea { min-height: 48px; font-size: 15px; padding: 12px 16px; }
-.iw-fields textarea { min-height: 104px; line-height: 1.5; }
-.iw-fields label { font-weight: 700; font-size: 14.5px; }
-@media (prefers-reduced-motion: reduce) { .iw-step, .iw-row { animation: none !important; } }
+
+/* ── Floating-label outlined fields (Candidate Interview Form only) ── */
+.iwf { position: relative; --iwf-bd: color-mix(in srgb, var(--color-altus-red) 15%, var(--color-hairline)); }
+.iwf-control {
+  width: 100%;
+  min-height: 60px;
+  border: 2px solid var(--iwf-bd);
+  border-radius: 14px;
+  background: #fff;
+  padding: 16px 15px;
+  font-size: 15.5px;
+  line-height: 1.35;
+  color: var(--color-ink-strong);
+  outline: none;
+  transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+.iwf-control::placeholder { color: transparent; }
+.iwf.is-float .iwf-control::placeholder { color: var(--color-ink-subtle); opacity: 1; }
+.iwf-control:hover { border-color: color-mix(in srgb, var(--color-altus-red) 34%, var(--color-hairline)); }
+.iwf-control:focus {
+  border-color: var(--color-altus-red);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-altus-red) 13%, transparent);
+}
+.iwf--area .iwf-control { min-height: 132px; padding-top: 26px; resize: vertical; line-height: 1.55; }
+.iwf select.iwf-control { -webkit-appearance: none; appearance: none; cursor: pointer; padding-right: 42px; }
+.iwf.is-readonly .iwf-control { background: var(--color-surface-soft, #f5f5f7); color: var(--color-ink-strong); cursor: default; }
+
+.iwf-label {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  transform-origin: left center;
+  padding: 0 6px;
+  max-width: calc(100% - 26px);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--color-ink-muted);
+  font-size: 15.5px;
+  font-weight: 500;
+  pointer-events: none;
+  background: transparent;
+  transition: transform .2s cubic-bezier(.22,1,.36,1), color .18s ease, font-size .18s ease;
+}
+.iwf--area .iwf-label { top: 0; transform: translateY(25px); }
+.iwf.is-float .iwf-label {
+  top: 0;
+  transform: translateY(-10px) scale(.82);
+  color: var(--color-altus-red-deep);
+  font-weight: 700;
+  background: #fff;
+}
+.iwf.is-error .iwf-control { border-color: var(--color-altus-red); background: color-mix(in srgb, var(--color-altus-red) 4%, #fff); }
+.iwf.is-error.is-float .iwf-label { color: var(--color-altus-red); }
+.iwf-req { color: var(--color-altus-red); margin-left: 2px; }
+.iwf-caret { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: var(--color-ink-soft); pointer-events: none; }
+
+/* ── Inline chip radiogroup (Yes/No & small MCQs) ── */
+.iwc { position: relative; border: 2px solid color-mix(in srgb, var(--color-altus-red) 15%, var(--color-hairline)); border-radius: 14px; background: #fff; padding: 11px 14px 12px; transition: border-color .18s ease; }
+.iwc:focus-within { border-color: color-mix(in srgb, var(--color-altus-red) 40%, var(--color-hairline)); }
+.iwc.is-error { border-color: var(--color-altus-red); background: color-mix(in srgb, var(--color-altus-red) 4%, #fff); }
+.iwc-legend { display: block; font-size: 12.5px; font-weight: 700; letter-spacing: .01em; color: var(--color-ink-muted); margin-bottom: 9px; }
+.iwc.is-error .iwc-legend { color: var(--color-altus-red); }
+.iwc-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.iwc-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  border-radius: 999px;
+  padding: 8px 15px;
+  font-size: 13.5px; font-weight: 700;
+  border: 1.5px solid var(--color-hairline);
+  background: #fff; color: var(--color-ink-soft);
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .12s ease;
+}
+.iwc-chip:hover { border-color: color-mix(in srgb, var(--color-altus-red) 42%, var(--color-hairline)); color: var(--color-ink-strong); }
+.iwc-chip.is-on { background: var(--color-altus-red); border-color: var(--color-altus-red); color: #fff; box-shadow: 0 8px 18px -10px color-mix(in srgb, var(--color-altus-red) 85%, transparent); }
+.iwc-chip:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-altus-red) 32%, transparent); }
+.iwc-chip:active { transform: translateY(1px); }
+
+@keyframes iwRecPulse { 0% { box-shadow: 0 0 0 0 rgba(225,6,0,0.55); } 70% { box-shadow: 0 0 0 8px rgba(225,6,0,0); } 100% { box-shadow: 0 0 0 0 rgba(225,6,0,0); } }
+.iw-rec-dot { animation: iwRecPulse 1.4s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .iw-step, .iw-row, .iw-rec-dot { animation: none !important; }
+  .iwf-label, .iwf-control, .iwc-chip, .iwc { transition: none !important; }
+}
 `;
 
 type Vals = Record<string, string>;
 type StepStatus = "active" | "done" | "error" | "idle";
 
-export function IntakeWizard({ onClose, onSaved }: { onClose: () => void; onSaved?: (id: string) => void }) {
+export function IntakeWizard({
+  onClose,
+  onSaved,
+  positions = [],
+  departments = [],
+  canManagePositions = false,
+  initial,
+}: {
+  onClose: () => void;
+  onSaved?: (id: string) => void;
+  positions?: string[];
+  departments?: string[];
+  canManagePositions?: boolean;
+  initial?: IntakeInitial;
+}) {
   const sections = INTAKE_SECTIONS;
   const reviewStep = sections.length;
 
-  const [step, setStep] = React.useState(0);
-  const [values, setValues] = React.useState<Vals>({});
-  // Repeater instances: sectionId -> array of stable uids.
+  const [step, setStep] = React.useState(initial?.startAtReview ? sections.length : 0);
+  const [values, setValues] = React.useState<Vals>(() => initial?.values ?? {});
+  // Repeater instances: sectionId -> array of stable uids (seeded for new forms,
+  // restored for resumed drafts).
   const [instances, setInstances] = React.useState<Record<string, string[]>>(() => {
+    if (initial?.instances && Object.keys(initial.instances).length) return initial.instances;
     const init: Record<string, string[]> = {};
     for (const s of sections) if (s.repeat) init[s.id] = Array.from({ length: Math.max(s.repeat.seed, s.repeat.min) }, (_, i) => `i${i}`);
     return init;
   });
-  const [photo, setPhoto] = React.useState<{ path?: string; preview?: string; busy?: boolean }>({});
-  const [sign, setSign] = React.useState<{ path?: string; preview?: string; busy?: boolean }>({});
+  const [photo, setPhoto] = React.useState<{ path?: string; preview?: string; busy?: boolean }>(() => (initial?.photoPath ? { path: initial.photoPath } : {}));
+  const [sign, setSign] = React.useState<{ path?: string; preview?: string; busy?: boolean }>(() => (initial?.signaturePath ? { path: initial.signaturePath } : {}));
   const [saving, setSaving] = React.useState(false);
   const [attempted, setAttempted] = React.useState<Set<string>>(new Set());
-  const uidRef = React.useRef(100);
+  // High base so freshly-added repeater uids never collide with a resumed draft's.
+  const uidRef = React.useRef(100000);
 
-  // Restore draft
-  React.useEffect(() => {
+  // ── Instant DB autosave (replaces the old global localStorage draft) ──
+  const [recordId, setRecordId] = React.useState<string | null>(initial?.draftId ?? null);
+  const recordIdRef = React.useRef<string | null>(initial?.draftId ?? null);
+  const savingRef = React.useRef(false);
+  const dirtyRef = React.useRef(false);
+  const stateRef = React.useRef({ values, instances, photoPath: photo.path, signaturePath: sign.path });
+  stateRef.current = { values, instances, photoPath: photo.path, signaturePath: sign.path };
+
+  const flush = React.useCallback(async () => {
+    if (!dirtyRef.current || savingRef.current) return;
+    const s = stateRef.current;
+    if (!hasAnyContent(s.values)) return;
+    dirtyRef.current = false;
+    savingRef.current = true;
     try {
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if (raw) {
-        const d = JSON.parse(raw);
-        if (d.values) setValues(d.values);
-        if (d.instances) setInstances(d.instances);
+      const res = await saveCandidateDraft({
+        id: recordIdRef.current ?? undefined,
+        values: s.values,
+        instances: s.instances,
+        photoPath: s.photoPath,
+        signaturePath: s.signaturePath,
+      });
+      if (res.ok) {
+        if (!recordIdRef.current) { recordIdRef.current = res.id; setRecordId(res.id); pinDraftToUrl(res.id); }
+      } else {
+        dirtyRef.current = true;
       }
-    } catch {}
+    } catch {
+      dirtyRef.current = true;
+    } finally {
+      savingRef.current = false;
+    }
   }, []);
-  // Autosave draft (debounced)
-  React.useEffect(() => {
-    const t = setTimeout(() => {
-      try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ values, instances })); } catch {}
-    }, 600);
-    return () => clearTimeout(t);
-  }, [values, instances]);
 
-  const set = React.useCallback((key: string, v: string) => setValues((p) => ({ ...p, [key]: v })), []);
+  // A resumed draft already has an id — keep the localStorage backup pointer in
+  // sync so a later refresh still resolves even if the URL is stripped.
+  React.useEffect(() => {
+    if (initial?.draftId) pinDraftToUrl(initial.draftId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Mark dirty on any change; flush on a ~1.2s tick and once more on unmount.
+  React.useEffect(() => { if (hasAnyContent(values)) dirtyRef.current = true; }, [values, instances, photo.path, sign.path]);
+  React.useEffect(() => {
+    const iv = setInterval(() => { void flush(); }, 1200);
+    return () => { clearInterval(iv); void flush(); };
+  }, [flush]);
+
+  const set = React.useCallback((key: string, v: string) => {
+    setValues((p) => ({ ...p, [key]: v }));
+    dirtyRef.current = true;
+  }, []);
 
   // ── completion / progress ──
-  function requiredKeysForSection(s: IntakeSection): string[] {
-    if (s.declaration) return s.fields.filter((f) => f.required).map((f) => vkey(s.id, f.key));
-    if (s.repeat) {
-      const ids = instances[s.id] ?? [];
-      const first = ids[0];
-      if (!first) return [];
-      return s.fields.filter((f) => f.required).map((f) => `${s.id}.${first}.${f.key}`);
-    }
-    return s.fields.filter((f) => f.required).map((f) => vkey(s.id, f.key));
-  }
+  // Every field is mandatory (see intake-schema.isRequiredField); a section's
+  // required keys are derived live so showIf-hidden fields never count and each
+  // repeater instance must be complete.
   /** Required value-keys (or __photo__/__sign__ markers) still empty in a section. */
   function missingKeys(s: IntakeSection): string[] {
-    const out = requiredKeysForSection(s).filter((k) => (values[k] ?? "").trim() === "");
+    const out = sectionRequiredKeys(s, values, instances).filter((k) => (values[k] ?? "").trim() === "");
     if (s.declaration) {
       if (!photo.path) out.push(`${s.id}.__photo__`);
       if (!sign.path) out.push(`${s.id}.__sign__`);
     }
     return out;
   }
+  /**
+   * A section reads "done" (green tick) ONLY when it actually has required work
+   * AND none of it is missing — so a fresh, untouched section (repeaters with
+   * empty instances, etc.) never shows complete. Declaration is special-cased
+   * because its two uploads are its "required work" alongside the text fields.
+   */
   function sectionComplete(s: IntakeSection): boolean {
-    return missingKeys(s).length === 0;
+    const hasRequirements = s.declaration || sectionRequiredKeys(s, values, instances).length > 0;
+    return hasRequirements && missingKeys(s).length === 0;
   }
-  const allRequired = sections.flatMap(requiredKeysForSection);
-  const filledRequired = allRequired.filter((k) => (values[k] ?? "").trim() !== "").length;
-  const pct = Math.round((filledRequired / Math.max(allRequired.length, 1)) * 100);
+  const pct = intakeProgress(values, instances, Boolean(photo.path), Boolean(sign.path));
 
   function go(to: number) {
     setStep(Math.max(0, Math.min(reviewStep, to)));
     requestAnimationFrame(() => document.querySelector<HTMLElement>(".iw-step [data-autofocus]")?.focus());
   }
   function focusFirstInvalid() {
-    document.querySelector<HTMLElement>('.iw-step [data-invalid="true"] input, .iw-step [data-invalid="true"] textarea, .iw-step [data-invalid="true"] button')?.focus();
+    document.querySelector<HTMLElement>('.iw-step [data-invalid="true"] input, .iw-step [data-invalid="true"] textarea, .iw-step [data-invalid="true"] select, .iw-step [data-invalid="true"] button')?.focus();
   }
   // Hard-block: Next only advances when the current section's required fields are filled.
   function handleNext() {
@@ -156,19 +315,24 @@ export function IntakeWizard({ onClose, onSaved }: { onClose: () => void; onSave
   async function submit() {
     setSaving(true);
     try {
-      const res = await saveCandidateIntake({
-        fullName: values["personal.fullName"] ?? "",
-        positionApplied: values["personal.position"] ?? undefined,
-        mobile: values["personal.mobile"] ?? undefined,
-        email: values["personal.email"] ?? undefined,
-        data: values,
-        photoPath: photo.path,
-        signaturePath: sign.path,
+      const s = stateRef.current;
+      const saved = await saveCandidateDraft({
+        id: recordIdRef.current ?? undefined,
+        values: s.values,
+        instances: s.instances,
+        photoPath: s.photoPath,
+        signaturePath: s.signaturePath,
       });
-      if (!res.ok) { fireToast({ message: res.error, type: "error" }); return; }
-      try { localStorage.removeItem(DRAFT_KEY); } catch {}
+      if (!saved.ok) { fireToast({ message: saved.error, type: "error" }); return; }
+      recordIdRef.current = saved.id;
+      setRecordId(saved.id);
+      const done = await submitCandidateDraft(saved.id);
+      if (!done.ok) { fireToast({ message: done.error, type: "error" }); return; }
+      dirtyRef.current = false;
+      // Form is complete — drop the backup pointer so a later "start new" is clean.
+      try { window.localStorage.removeItem(DRAFT_LS_KEY); } catch { /* non-fatal */ }
       fireToast({ message: "Candidate saved." });
-      onSaved?.(res.id);
+      onSaved?.(saved.id);
     } finally {
       setSaving(false);
     }
@@ -205,14 +369,35 @@ export function IntakeWizard({ onClose, onSaved }: { onClose: () => void; onSave
             <div className="h-full rounded-full" style={{ background: `linear-gradient(90deg, ${RED}, var(--color-altus-red-deep))`, width: `${pct}%`, transition: "width 0.4s cubic-bezier(0.22,1,0.36,1)" }} />
           </div>
         </div>
-        <span className="shrink-0 text-[12.5px] font-bold text-ink-muted tabular-nums">{pct}% complete</span>
+        <div className="shrink-0 text-right">
+          <span className="block text-[12.5px] font-bold text-ink-muted tabular-nums">{pct}% complete</span>
+          {recordId && <span className="text-[11px] font-semibold" style={{ color: "#16a34a" }}>Auto-saved ✓</span>}
+        </div>
       </div>
 
       {/* body: rail (desktop column + mobile strip) + step area */}
       <div className="flex min-h-0 flex-1 max-md:flex-col">
         <IntakeRail steps={steps} activeIndex={step} onSelect={go} />
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[860px] px-10 py-10 max-md:px-4 max-md:py-6">
+          <div className="mx-auto w-full max-w-[1000px] px-10 py-10 max-md:px-4 max-md:py-6">
+            {active && (
+              <div
+                className="mb-6 inline-flex items-center gap-2 rounded-pill px-3.5 py-1.5 text-[12.5px] font-bold"
+                style={{
+                  color: "var(--color-altus-red-deep)",
+                  background: "color-mix(in srgb, var(--color-altus-red) 8%, white)",
+                  border: "1px solid color-mix(in srgb, var(--color-altus-red) 22%, white)",
+                }}
+              >
+                <span
+                  className="grid h-4 w-4 place-items-center rounded-full text-[10px] font-black text-white"
+                  style={{ background: "var(--color-altus-red)" }}
+                >
+                  !
+                </span>
+                Every field is required.
+              </div>
+            )}
             <div key={step} className="iw-step">
               {active ? (
                 <IntakeSectionStep
@@ -226,6 +411,9 @@ export function IntakeWizard({ onClose, onSaved }: { onClose: () => void; onSave
                   sign={sign}
                   onUpload={upload}
                   invalid={attempted.has(active.id) ? new Set(missingKeys(active)) : new Set<string>()}
+                  positions={positions}
+                  departments={departments}
+                  canManagePositions={canManagePositions}
                 />
               ) : (
                 <IntakeReviewStep sections={sections} values={values} instances={instances} photo={photo} sign={sign} onEdit={go} />

@@ -34,6 +34,14 @@ export interface FormFieldDef {
   placeholder?: string;
   /** Only shown + validated when another field currently holds this value. */
   showIf?: { key: string; value: string };
+  /** Read-only display (e.g. an auto-computed value the user can't type). */
+  readOnly?: boolean;
+  /** Value is derived, not typed. "ageFromDob" = whole years from the DOB field. */
+  compute?: "ageFromDob";
+  /** Options come from a live app master (Candidate Intake wizard only). */
+  optionsFrom?: "departments" | "positions";
+  /** Text field that seeds an Aadhaar-based lookup (auto-fills mobile/location). */
+  aadhaarLookup?: boolean;
 }
 
 export const FIELD_TYPE_LABELS: Record<FormFieldType, string> = {

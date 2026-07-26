@@ -17,12 +17,24 @@ import {
   agreements,
   employees,
 } from "@/db/schema";
-import { getDocType } from "@/lib/hr-docs/types";
+import { getDocType } from "@/lib/hr/letters/registry";
 import { requireUser, requireAdmin } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { getSupabaseAdmin, DOCUMENTS_BUCKET } from "@/lib/supabase/admin";
-import { isDigiLockerConfigured, buildAuthUrl } from "@/lib/digilocker/config";
+import { cookies } from "next/headers";
+import {
+  isDigiLockerConfigured,
+  digiLockerConfigStatus,
+  buildAuthUrl,
+  isPkceEnabled,
+  generatePkce,
+} from "@/lib/digilocker/config";
+import {
+  PKCE_COOKIE,
+  serializePkceCookie,
+  pkceCookieOptions,
+} from "@/lib/digilocker/pkce-cookie";
 import {
   DOC_KIND_LABELS,
   isDocKind,
@@ -207,7 +219,19 @@ export async function startSignature(input: {
       return { ok: true, signatureId: row.id, authUrl: null, configured: false };
     }
 
-    const authUrl = buildAuthUrl({ state: row.id });
+    // PKCE: generate a verifier now, stash it in a short-lived HttpOnly cookie
+    // (SameSite=Lax survives the DigiLocker redirect back), and send only the
+    // S256 challenge to the authorize endpoint. The callback re-presents the
+    // verifier at token exchange.
+    let codeChallenge: string | undefined;
+    if (isPkceEnabled()) {
+      const pkce = generatePkce();
+      codeChallenge = pkce.challenge;
+      const jar = await cookies();
+      jar.set(PKCE_COOKIE, serializePkceCookie(row.id, pkce.verifier), pkceCookieOptions());
+    }
+
+    const authUrl = buildAuthUrl({ state: row.id, codeChallenge });
     return { ok: true, signatureId: row.id, authUrl, configured: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -387,7 +411,7 @@ export async function finalizeSignature(input: {
 
   revalidatePath("/documents/sign");
   revalidatePath(docKind === "agreement" ? "/agreements" : "/letters");
-  revalidatePath("/hr-docs");
+  revalidatePath("/hr/letters");
   return { ok: true, pdfPath: signedPdfPath };
 }
 
@@ -412,7 +436,7 @@ export async function getSignatureState(input: {
   if (!isAdmin(me) && doc.employeeId !== me.id) throw new Error("Forbidden");
 
   const row = await latestSignatureRow(docKind, input.docId);
-  const digilockerConfigured = isDigiLockerConfigured();
+  const configStatus = digiLockerConfigStatus();
 
   return {
     exists: row !== null,
@@ -440,7 +464,8 @@ export async function getSignatureState(input: {
       signedPdfPath: row?.signedPdfPath ?? null,
       signedAt: row?.signedAt ? row.signedAt.toISOString() : null,
     },
-    digilockerConfigured,
+    digilockerConfigured: configStatus.configured,
+    digilockerMissingEnv: configStatus.missing,
   };
 }
 

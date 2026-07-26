@@ -98,12 +98,14 @@ export function GoalLookupSelect({
         <button
           type="button"
           className={cn(
-            "flex w-full items-center justify-between gap-2 rounded-md border-[1.5px] bg-white text-left text-ink-strong transition-colors focus:border-altus-red",
-            compact ? "h-9 px-2.5 text-[13px]" : "h-10 px-2.5 text-[14px] font-semibold",
+            "flex w-full items-center justify-between gap-2 rounded-md text-left text-ink-strong transition-colors",
+            compact
+              ? "h-9 px-2 text-[13px] border-0 bg-transparent hover:bg-black/[0.04] focus:bg-black/[0.06]"
+              : "h-10 px-2.5 text-[14px] font-semibold border-[1.5px] bg-white focus:border-altus-red",
             FOCUS_RING,
             className,
           )}
-          style={{ borderColor: "color-mix(in srgb, var(--color-ink-strong) 34%, transparent)" }}
+          style={compact ? undefined : { borderColor: "color-mix(in srgb, var(--color-ink-strong) 34%, transparent)" }}
         >
           <span className={cn("truncate", !value && "text-ink-subtle font-normal")}>
             {value || placeholder || `Choose a ${noun}`}

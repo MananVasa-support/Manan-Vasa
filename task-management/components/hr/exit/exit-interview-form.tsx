@@ -1,0 +1,253 @@
+"use client";
+
+import * as React from "react";
+import { ArrowLeft, Loader2, Check } from "lucide-react";
+import { fireToast } from "@/lib/toast";
+import { saveExitRecord } from "@/app/(app)/hr/exit/exit-actions";
+import {
+  EXIT_TEXT_QUESTIONS,
+  EXIT_CHOICE_QUESTIONS,
+  EXIT_RATING_ASPECTS,
+  EXIT_RATING_LEGEND,
+  EXIT_CONFIDENTIALITY_NOTE,
+} from "@/lib/hr/exit/content";
+import { FloatingInput, FloatingTextarea, ChipGroup, RatingMatrix } from "./exit-fields";
+
+type Fields = Record<string, string>;
+type Ratings = Record<string, number>;
+
+interface InitialData {
+  fields?: Fields;
+  ratings?: Ratings;
+}
+
+export function ExitInterviewForm({
+  employeeId,
+  employeeName,
+  recordId,
+  initial,
+  onBack,
+  onSaved,
+}: {
+  employeeId: string;
+  employeeName: string;
+  recordId: string | null;
+  initial?: InitialData;
+  onBack: () => void;
+  onSaved?: (id: string) => void;
+}) {
+  const [fields, setFields] = React.useState<Fields>(() => ({
+    header_employeeName: employeeName,
+    ...(initial?.fields ?? {}),
+  }));
+  const [ratings, setRatings] = React.useState<Ratings>(() => initial?.ratings ?? {});
+  const [saving, setSaving] = React.useState(false);
+  const [savedAt, setSavedAt] = React.useState<Date | null>(recordId ? new Date() : null);
+
+  const idRef = React.useRef<string | null>(recordId);
+  const dirtyRef = React.useRef(false);
+  const savingRef = React.useRef(false);
+  const stateRef = React.useRef({ fields, ratings });
+  stateRef.current = { fields, ratings };
+
+  const setF = React.useCallback((k: string, v: string) => {
+    setFields((p) => ({ ...p, [k]: v }));
+    dirtyRef.current = true;
+  }, []);
+  const setR = React.useCallback((id: string, v: number) => {
+    setRatings((p) => ({ ...p, [id]: v }));
+    dirtyRef.current = true;
+  }, []);
+
+  const persist = React.useCallback(
+    async (silent: boolean): Promise<boolean> => {
+      if (savingRef.current) return false;
+      savingRef.current = true;
+      try {
+        const s = stateRef.current;
+        const res = await saveExitRecord({
+          id: idRef.current ?? undefined,
+          employeeId,
+          kind: "interview",
+          data: { fields: s.fields, ratings: s.ratings },
+        });
+        if (res.ok) {
+          idRef.current = res.id;
+          setSavedAt(new Date());
+          dirtyRef.current = false;
+          if (!silent) fireToast({ message: "Exit interview saved." });
+          onSaved?.(res.id);
+          return true;
+        }
+        if (!silent) fireToast({ message: res.error, type: "error" });
+        return false;
+      } finally {
+        savingRef.current = false;
+      }
+    },
+    [employeeId, onSaved],
+  );
+
+  // Autosave: flush ~1.4s after edits, and once on unmount.
+  React.useEffect(() => {
+    const iv = setInterval(() => {
+      if (dirtyRef.current) void persist(true);
+    }, 1400);
+    return () => {
+      clearInterval(iv);
+      if (dirtyRef.current) void persist(true);
+    };
+  }, [persist]);
+
+  async function onSaveClick() {
+    setSaving(true);
+    try {
+      await persist(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="ex-step mx-auto w-full max-w-[920px] px-6 pb-40 pt-8 max-md:px-4">
+      {/* title + confidentiality note */}
+      <div className="mb-6">
+        <span className="text-[12px] font-bold uppercase tracking-[0.12em] text-ink-muted">Annexure B</span>
+        <h1
+          className="mt-1 text-ink-strong"
+          style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 26, letterSpacing: "-0.01em" }}
+        >
+          Exit Interview Questionnaire
+        </h1>
+        <p
+          className="mt-3 rounded-xl px-4 py-3 text-[13.5px] leading-relaxed text-ink-strong"
+          style={{
+            background: "color-mix(in srgb, var(--color-altus-red) 5%, #fff)",
+            border: "1px solid color-mix(in srgb, var(--color-altus-red) 18%, #fff)",
+          }}
+        >
+          <strong style={{ color: "var(--color-altus-red-deep)" }}>Confidentiality Note:</strong> {EXIT_CONFIDENTIALITY_NOTE}
+        </p>
+      </div>
+
+      {/* header fields */}
+      <div className="mb-8 grid grid-cols-2 gap-4 max-md:grid-cols-1">
+        <FloatingInput label="Employee Name" value={fields.header_employeeName ?? ""} onChange={(v) => setF("header_employeeName", v)} autoFocus />
+        <FloatingInput label="Designation" value={fields.header_designation ?? ""} onChange={(v) => setF("header_designation", v)} />
+        <FloatingInput label="Manager Name" value={fields.header_managerName ?? ""} onChange={(v) => setF("header_managerName", v)} />
+        <FloatingInput label="Date of Interview" type="date" value={fields.header_dateOfInterview ?? ""} onChange={(v) => setF("header_dateOfInterview", v)} />
+      </div>
+
+      <div className="flex flex-col gap-7">
+        {/* Q1 */}
+        <Question n={EXIT_TEXT_QUESTIONS.q1!.n} prompt={EXIT_TEXT_QUESTIONS.q1!.prompt}>
+          <FloatingTextarea label="Your answer" value={fields.q1 ?? ""} onChange={(v) => setF("q1", v)} />
+        </Question>
+
+        {/* Q2–Q5, Q8 interleaved with the text questions in document order */}
+        <ChoiceBlock q={EXIT_CHOICE_QUESTIONS[0]!} fields={fields} setF={setF} />
+        <ChoiceBlock q={EXIT_CHOICE_QUESTIONS[1]!} fields={fields} setF={setF} />
+        <ChoiceBlock q={EXIT_CHOICE_QUESTIONS[2]!} fields={fields} setF={setF} />
+        <ChoiceBlock q={EXIT_CHOICE_QUESTIONS[3]!} fields={fields} setF={setF} />
+
+        {/* Q6 */}
+        <Question n={EXIT_TEXT_QUESTIONS.q6!.n} prompt={EXIT_TEXT_QUESTIONS.q6!.prompt}>
+          <FloatingTextarea label="Your answer" value={fields.q6 ?? ""} onChange={(v) => setF("q6", v)} />
+        </Question>
+
+        {/* Q7 */}
+        <Question n={EXIT_TEXT_QUESTIONS.q7!.n} prompt={EXIT_TEXT_QUESTIONS.q7!.prompt}>
+          <FloatingTextarea label="Your answer" value={fields.q7 ?? ""} onChange={(v) => setF("q7", v)} />
+        </Question>
+
+        {/* Q8 */}
+        <ChoiceBlock q={EXIT_CHOICE_QUESTIONS[4]!} fields={fields} setF={setF} />
+
+        {/* Q9 */}
+        <Question n={EXIT_TEXT_QUESTIONS.q9!.n} prompt={EXIT_TEXT_QUESTIONS.q9!.prompt}>
+          <FloatingTextarea label="Your answer" value={fields.q9 ?? ""} onChange={(v) => setF("q9", v)} />
+        </Question>
+
+        {/* Q10 — rating matrix */}
+        <Question n={10} prompt="Please rate the following on a scale of 1 (Poor) to 5 (Excellent).">
+          <RatingMatrix aspects={EXIT_RATING_ASPECTS} legend={EXIT_RATING_LEGEND} values={ratings} onChange={setR} />
+        </Question>
+      </div>
+
+      {/* signatures */}
+      <div className="mt-10 rounded-2xl border border-hairline bg-white p-6 max-md:p-4">
+        <h2 className="mb-4 text-[13px] font-bold uppercase tracking-[0.1em] text-ink-muted">Sign-off</h2>
+        <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+          <FloatingInput label="Employee Signature (name)" value={fields.sign_employeeName ?? ""} onChange={(v) => setF("sign_employeeName", v)} />
+          <FloatingInput label="Date" type="date" value={fields.sign_employeeDate ?? ""} onChange={(v) => setF("sign_employeeDate", v)} />
+          <FloatingInput label="HR Representative Signature (name)" value={fields.sign_hrName ?? ""} onChange={(v) => setF("sign_hrName", v)} />
+          <FloatingInput label="Date" type="date" value={fields.sign_hrDate ?? ""} onChange={(v) => setF("sign_hrDate", v)} />
+        </div>
+      </div>
+
+      {/* sticky action bar */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-hairline bg-white/95 px-6 py-3.5 backdrop-blur max-md:px-4">
+        <div className="mx-auto flex w-full max-w-[920px] items-center justify-between gap-3">
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-4 py-2.5 text-[13.5px] font-semibold text-ink-strong transition-colors hover:border-ink-soft"
+          >
+            <ArrowLeft size={15} /> Back
+          </button>
+          <div className="flex items-center gap-3">
+            {savedAt && (
+              <span className="inline-flex items-center gap-1 text-[12px] font-semibold" style={{ color: "#16a34a" }}>
+                <Check size={13} strokeWidth={3} /> Saved
+              </span>
+            )}
+            <button
+              onClick={onSaveClick}
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#18181b] px-6 py-2.5 text-[13.5px] font-bold text-white transition-colors hover:bg-black disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} {saving ? "Saving…" : "Save exit interview"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Question({ n, prompt, children }: { n: number; prompt: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <div className="mb-3 flex gap-2.5">
+        <span
+          className="grid h-6 w-6 flex-none place-items-center rounded-full text-[12px] font-black text-white"
+          style={{ background: "var(--color-altus-red)" }}
+        >
+          {n}
+        </span>
+        <h3 className="text-[15.5px] font-bold leading-snug text-ink-strong">{prompt}</h3>
+      </div>
+      <div className="pl-[34px] max-md:pl-0">{children}</div>
+    </section>
+  );
+}
+
+function ChoiceBlock({
+  q,
+  fields,
+  setF,
+}: {
+  q: { id: string; n: number; prompt: string; choices: string[]; comments?: boolean };
+  fields: Fields;
+  setF: (k: string, v: string) => void;
+}) {
+  return (
+    <Question n={q.n} prompt={q.prompt}>
+      <ChipGroup options={q.choices} value={fields[q.id] ?? ""} onChange={(v) => setF(q.id, v)} />
+      {q.comments && (
+        <div className="mt-3">
+          <FloatingTextarea label="Comments" value={fields[`${q.id}_comments`] ?? ""} onChange={(v) => setF(`${q.id}_comments`, v)} rows={2} />
+        </div>
+      )}
+    </Question>
+  );
+}

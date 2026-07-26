@@ -357,6 +357,24 @@ export const departments = pgTable(
 );
 
 /**
+ * Admin-managed list of interview positions — the "Position Applied For" dropdown
+ * in the Candidate Interview Form. Seeded with the default ladder (mig 0155);
+ * authorised users add/remove options live. Never hard-deleted from records —
+ * `is_active` hides an option from new pickers while old records keep their text.
+ */
+export const interviewPositions = pgTable(
+  "interview_positions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    label: text("label").notNull().unique(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("interview_positions_active_sort_idx").on(t.isActive, t.sortOrder, t.label)],
+);
+
+/**
  * Many-to-many membership: one person can belong to several departments.
  * Source of truth for department membership.  The `is_primary` row mirrors
  * the legacy single-department columns on `employees` (department / department_id)
@@ -1281,6 +1299,17 @@ export const orgSettings = pgTable("org_settings", {
   attEarlyBefore: time("att_early_before").default("19:30"),
   attFullDayHours: numeric("att_full_day_hours").default("9"),
   attHalfDayHours: numeric("att_half_day_hours").default("5"),
+  // 0162 — HR "assignment owner": the employee who receives the auto-created
+  // task when an HR assignment is dispatched from a candidate's Management
+  // Assessment. NULL => resolve by name ("Rutvisha Mehta") at read time.
+  hrAssignmentOwnerId: uuid("hr_assignment_owner_id").references(() => employees.id, {
+    onDelete: "set null",
+  }),
+  // 0163 — super-admin-set weighting (0..100) per Candidate-Evaluation section,
+  // keyed by EVAL_CATEGORIES id (culture, behaviour, … personality). Must total
+  // 100 (validated in the app). NULL => the app falls back to EQUAL weights
+  // across the eight sections. Shape: { "culture": 13, "behaviour": 12, … }.
+  evaluationWeights: jsonb("evaluation_weights").$type<Record<string, number>>(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -3197,6 +3226,24 @@ export const goalLookups = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("goal_lookups_kind_idx").on(t.kind)],
+);
+
+// Skills Master (migration 0162) — admin-extensible dropdown options for the
+// Management Assessment skills capture. `kind` = 'technical' | 'non_technical';
+// a fixed BASE set lives in code (lib/hr/skills.ts), these are the admin-added
+// extras. Soft-delete via `active`. Mirrors the goal_lookups pattern.
+export const skillLookups = pgTable(
+  "skill_lookups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: text("kind").notNull(),
+    value: text("value").notNull(),
+    active: boolean("active").notNull().default(true),
+    sortOrder: integer("sort_order").default(100),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("skill_lookups_kind_idx").on(t.kind)],
 );
 
 export const goals = pgTable(
@@ -5463,7 +5510,7 @@ export const letterTemplates = pgTable(
   "letter_templates",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    /** 'A'..'G' family letter (see lib/hr-docs/types.ts HR_CATEGORIES) */
+    /** letter family (see lib/hr/letters/types.ts HR_CATEGORIES) */
     category: text("category").notNull(),
     /** stable identity, e.g. 'appointment_letter' — one row per DOC_TYPES key */
     typeKey: text("type_key").notNull(),
@@ -5506,6 +5553,12 @@ export const documentInstances = pgTable(
     mergeValues: jsonb("merge_values").notNull().default({}).$type<Record<string, string>>(),
     /** frozen body_md at issue (the source of truth for the rendered PDF) */
     bodySnapshotMd: text("body_snapshot_md"),
+    /** rich-editor structured snapshot (TipTap JSON) when composed in "Edit freely" mode (mig 0161) */
+    bodyRich: jsonb("body_rich").$type<Record<string, unknown>>(),
+    /** rich-editor HTML body — the source of truth for the headless-Chromium PDF (mig 0161) */
+    bodyHtml: text("body_html"),
+    /** which editor produced the body: 'structured' (template + merge_values) | 'rich' (body_html) (mig 0161) */
+    contentKind: text("content_kind").notNull().default("structured"),
     /** archived rendered PDF storage path (private `documents` bucket) */
     renderedPdfPath: text("rendered_pdf_path"),
     emailedAt: timestamp("emailed_at", { withTimezone: true }),
@@ -5536,7 +5589,7 @@ export const ctcBreakups = pgTable(
     /** 'initial' | 'promotion' | 'appraisal' */
     reason: text("reason").notNull().default("initial"),
     effectiveDate: date("effective_date"),
-    /** the 20-field CTC structure (see lib/hr-docs/types.ts CtcFields) */
+    /** the structured CTC fields (the CTC workbench engine — future batch) */
     fields: jsonb("fields").notNull().default({}),
     /** [{ id, date, title, detail }] growth-journey timeline */
     growthJourney: jsonb("growth_journey").notNull().default([]),
@@ -5719,6 +5772,12 @@ export const candidateIntake = pgTable(
     // 'new' | 'shortlisted' | 'rejected' | 'hired'
     status: text("status").notNull().default("new"),
     data: jsonb("data").notNull().default({}),
+    // Repeater structure for resuming a draft: { [sectionId]: string[] } (uids).
+    instances: jsonb("instances"),
+    // null = in-progress draft; set = the form was completed/submitted.
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    // Candidate Evaluation Checklist state: { checked: string[] } (criterion ids).
+    evaluation: jsonb("evaluation"),
     photoPath: text("photo_path"),
     signaturePath: text("signature_path"),
     createdById: uuid("created_by_id").references(() => employees.id, {

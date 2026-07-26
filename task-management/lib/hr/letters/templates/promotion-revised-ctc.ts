@@ -1,0 +1,72 @@
+/**
+ * PROMOTION — REVISED CTC LETTER — a promotion with the accompanying CTC revision.
+ *
+ * Confirms the employee's elevation to a new designation (and, optionally,
+ * department / reporting manager) together with the revised Cost to Company that
+ * comes with it. Previous → revised CTC and the effective date are called out,
+ * followed by the headline revised structure. All ₹ figures are editable red
+ * fields pulled from the Compensation Workbench.
+ *
+ * PURE + CLIENT-SAFE — imports only ../types. Load-neutral.
+ */
+
+import { type LetterTemplate, t, f, para, heading, term, signature } from "../types";
+
+const template: LetterTemplate = {
+  key: "promotion-revised-ctc",
+  title: "Promotion — Revised CTC Letter",
+  category: "compensation",
+  entityDefault: "altus-corp",
+  signature: "esign",
+  blurb: "Confirm a promotion and the revised CTC that comes with it.",
+  blocks: [
+    para(t("Dear "), f("employeeName", "Employee Name", { placeholder: "e.g. Mr. Rohan Choudhary" }), t(",")),
+
+    para(
+      t(
+        "It gives us immense pleasure to recognise your outstanding performance, ownership and leadership. In acknowledgement of your contribution, we are delighted to promote you from ",
+      ),
+      f("previousDesignation", "Previous Designation", { placeholder: "e.g. Business Development Manager" }),
+      t(" to "),
+      f("newDesignation", "New Designation", { placeholder: "e.g. Senior Business Development Manager" }),
+      t(", effective "),
+      f("effectiveDate", "Effective Date", { placeholder: "e.g. 1 August 2026" }),
+      t("."),
+    ),
+
+    heading("Role Details", 2),
+    term("New Designation", f("newDesignation", "New Designation")),
+    term("Department", f("department", "Department", { placeholder: "e.g. Sales" })),
+    term("Reporting Manager", f("reportingManager", "Reporting Manager", { placeholder: "e.g. CA Manan Vasa" })),
+
+    heading("Revised Compensation", 2),
+    term("Previous Cost to Company (per annum)", f("previousCtc", "Previous CTC (per year)", { placeholder: "₹0" })),
+    term("Revised Cost to Company (per annum)", f("revisedCtc", "Revised CTC (per year)", { placeholder: "₹0" })),
+    term("Gross Monthly Salary", f("grossMonthly", "Gross (per month)", { placeholder: "₹0" })),
+    term("Net Take-Home (per month)", f("netMonthly", "Net Take-Home (per month)", { placeholder: "₹0" })),
+    term("Revised Cost to Company (per month)", f("ctcMonthly", "CTC (per month)", { placeholder: "₹0" })),
+
+    para(
+      t(
+        "The detailed component-wise breakup of your revised CTC is enclosed as an annexure. With this new role come greater responsibilities, and we are confident you will rise to them with the same dedication you have always shown. All other terms and conditions of your employment remain unchanged.",
+      ),
+    ),
+
+    para(
+      t("Congratulations once again on this well-deserved milestone in your journey with us."),
+    ),
+
+    para(t("Warm regards,")),
+
+    signature({
+      forEntity: true,
+      esign: true,
+      name: [t("CA Manan Vasa")],
+      designation: [f("signatoryDesignation", "Designation", { defaultValue: "Founder" })],
+      showDate: true,
+      place: [f("place", "Place", { defaultValue: "Mumbai" })],
+    }),
+  ],
+};
+
+export default template;

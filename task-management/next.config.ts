@@ -11,6 +11,12 @@ const nextConfig: NextConfig = {
   serverExternalPackages: [
     "firebase-admin",
     "pdfkit",
+    // Server-only headless-Chromium PDF renderer for rich ("Google Docs") HR
+    // letters. Externalized like pdfkit so their large native/binary trees are
+    // require()'d at runtime and never compiled into a route graph (and NEVER a
+    // client one). Imported lazily inside the server function that runs them.
+    "puppeteer-core",
+    "@sparticuz/chromium",
     "@sentry/nextjs",
     "@sentry/node",
     "@opentelemetry/instrumentation",

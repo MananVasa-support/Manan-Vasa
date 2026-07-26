@@ -1,0 +1,81 @@
+import Link from "next/link";
+import type { Route } from "next";
+import { ArrowLeft, ShieldCheck, Clock } from "lucide-react";
+import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { getPolicy, getPolicyCard, isComingSoon } from "@/lib/hr/policies/registry";
+import { PolicyView } from "@/components/hr/policies/policy-view";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * A single policy, on its own full-screen page: `/hr/policies/<key>`. Loads the
+ * PolicyDoc from the registry, renders it on the shared <Letterhead> via
+ * <PolicyView> (read-only body + entity picker + Export PDF + day-one Sign /
+ * Acknowledge). Keys that are advertised-but-unauthored ("coming soon", e.g.
+ * CLASH) show a tasteful greyed placeholder so the popup links never dead-end.
+ */
+export default async function PolicyPage({
+  params,
+}: {
+  params: Promise<{ key: string }>;
+}) {
+  await requireWorkspace("hr");
+  const { key } = await params;
+  const policy = getPolicy(key);
+  const card = getPolicyCard(key);
+  const comingSoon = isComingSoon(key);
+  const title = policy?.title ?? card?.title ?? "Policy";
+
+  return (
+    <div className="min-h-dvh bg-[#faf9fb]">
+      <header className="sticky top-0 z-30 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-hairline bg-white/90 px-6 py-3 backdrop-blur max-md:px-4 print:hidden">
+        <div className="justify-self-start">
+          <Link
+            href={"/hr" as Route}
+            className="group inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-bold text-white transition-transform hover:-translate-x-0.5 max-md:px-3"
+            style={{
+              background: "linear-gradient(120deg, #18181b 0%, #A80400 100%)",
+              boxShadow: "0 12px 26px -12px rgba(168,4,0,0.55)",
+            }}
+          >
+            <ArrowLeft size={15} strokeWidth={2.6} className="transition-transform group-hover:-translate-x-0.5" />
+            <span className="max-md:hidden">All policies</span>
+            <span className="md:hidden">Back</span>
+          </Link>
+        </div>
+        <span className="justify-self-center inline-flex items-center gap-1.5 truncate text-[15px] font-extrabold tracking-tight text-ink-strong">
+          <ShieldCheck size={15} strokeWidth={2.4} style={{ color: "#A80400" }} aria-hidden />
+          <span className="truncate">{title}</span>
+        </span>
+        <span aria-hidden className="justify-self-end" />
+      </header>
+
+      <main className="mx-auto w-full max-w-[900px] px-6 max-md:px-3 pt-8 pb-24">
+        {policy && !comingSoon ? <PolicyView doc={policy} /> : <ComingSoon title={card?.title} />}
+      </main>
+    </div>
+  );
+}
+
+function ComingSoon({ title }: { title?: string }) {
+  return (
+    <div className="mx-auto mt-10 max-w-[560px] rounded-2xl border border-dashed border-hairline-strong bg-white px-8 py-14 text-center">
+      <span
+        className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl"
+        style={{ background: "#64748b1a", color: "#64748b" }}
+      >
+        <Clock size={26} strokeWidth={2.1} />
+      </span>
+      <h1
+        className="text-ink-strong"
+        style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 22 }}
+      >
+        {title ? `${title} — coming soon` : "This policy is coming soon"}
+      </h1>
+      <p className="mt-2 text-[14px] font-medium leading-relaxed text-ink-muted">
+        This policy is being drafted. It will appear here as a fully readable,
+        day-one signable document on the Altus letterhead soon.
+      </p>
+    </div>
+  );
+}

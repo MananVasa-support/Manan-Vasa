@@ -50,8 +50,17 @@ const SIGNATORIES: Record<SignatoryKey, Signatory> = {
   },
 };
 
-/** Entities (case/space-insensitive) that route to Manan Vasa. */
-const MANAN_ENTITIES = new Set(["altus corp", "mjv huf", "jsv huf"]);
+/** Entities (case/space-insensitive) that route to Manan Vasa. Includes both the
+ *  legacy spellings AND the canonical HR display names (migration 0158 renamed
+ *  "MJV HUF" → "The Gainmakers (MJV HUF)", "JSV HUF" → "Legacy Creators (JSV
+ *  HUF)") so signatory routing keeps working after the roster is reconciled. */
+const MANAN_ENTITIES = new Set([
+  "altus corp",
+  "mjv huf",
+  "jsv huf",
+  "the gainmakers (mjv huf)",
+  "legacy creators (jsv huf)",
+]);
 /** Entities (case/space-insensitive) that route to CMV. */
 const CMV_ENTITIES = new Set(["unleashed"]);
 

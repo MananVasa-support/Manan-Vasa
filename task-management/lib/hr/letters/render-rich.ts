@@ -1,0 +1,366 @@
+import "server-only";
+
+import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { getEntity, DEFAULT_ENTITY_ID, type Entity, type EntityId } from "@/lib/hr/entities";
+
+/**
+ * HR LETTERS — server-only headless-Chromium PDF renderer for RICH ("Edit
+ * freely" / Google-Docs) letters.
+ *
+ * A rich letter's body is arbitrary TipTap HTML (headings, lists, tables,
+ * inline images, alignment …) that pdfkit cannot faithfully paint. Instead we
+ * assemble a FULL standalone A4 HTML document that reproduces the FROZEN
+ * <Letterhead> (components/hr/letterhead/letterhead.tsx) exactly — the
+ * altus-header.png strip pinned to the top, the altus-footer.png strip pinned
+ * to the bottom, the same 794×1123 page box + body padding, and (for a
+ * non-Altus paying entity) the white logo-cover + entity-logo swap — inject the
+ * body HTML, and print it to PDF with headless Chromium.
+ *
+ * The letterhead strip PNGs and entity logos are read off the local filesystem
+ * (public/letterhead/*.png, public/logos/*.png) and inlined as base64 data URIs
+ * so Chromium can render the page WITHOUT a running Next.js server. Any inline
+ * letter <img> whose src is a private-bucket storage PATH (not http/https/data)
+ * is resolved to a fresh signed URL before printing.
+ *
+ * Chromium launch is ENV-AWARE:
+ *   · Vercel / production  → @sparticuz/chromium + puppeteer-core
+ *   · local dev            → puppeteer-core channel:"chrome" (dev has Chrome),
+ *                            falling back to a discovered Windows Chrome/Edge.
+ *
+ * puppeteer-core + @sparticuz/chromium are imported LAZILY (await import) and
+ * are in next.config.ts serverExternalPackages, so their large binary trees
+ * never reach a route/client graph (webpack-hang rule). Load-neutral.
+ */
+
+/* ------------------------------------------------------------------ */
+/* Asset inlining                                                       */
+/* ------------------------------------------------------------------ */
+
+const publicDir = path.join(process.cwd(), "public");
+const HEADER_ART_FILE = path.join(publicDir, "letterhead", "altus-header.png");
+const FOOTER_ART_FILE = path.join(publicDir, "letterhead", "altus-footer.png");
+
+/** Read a public asset off disk and return a base64 `data:` URI (or null). */
+async function fileToDataUri(absPath: string): Promise<string | null> {
+  try {
+    if (!existsSync(absPath)) return null;
+    const buf = await readFile(absPath);
+    const ext = path.extname(absPath).toLowerCase();
+    const mime =
+      ext === ".png"
+        ? "image/png"
+        : ext === ".jpg" || ext === ".jpeg"
+          ? "image/jpeg"
+          : ext === ".webp"
+            ? "image/webp"
+            : ext === ".gif"
+              ? "image/gif"
+              : ext === ".svg"
+                ? "image/svg+xml"
+                : "application/octet-stream";
+    return `data:${mime};base64,${buf.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
+/** Resolve the entity logo file (public/logos/<id>.png) → data URI, guarded. */
+async function entityLogoDataUri(entity: Entity): Promise<string | null> {
+  const rel = entity.logo.replace(/^\//, "");
+  const p = path.join(publicDir, rel);
+  const uri = await fileToDataUri(p);
+  if (uri) return uri;
+  return fileToDataUri(path.join(publicDir, "logo.png"));
+}
+
+/* ------------------------------------------------------------------ */
+/* Inline image → signed URL resolution                                 */
+/* ------------------------------------------------------------------ */
+
+/** Inline-image signed-URL TTL (1 hour is ample for a one-shot render). */
+const IMAGE_SIGNED_TTL_SECONDS = 60 * 60;
+
+/**
+ * Any inline letter <img> whose src is a private `documents`-bucket storage PATH
+ * (i.e. not http/https/data/file) is resolved to a fresh signed URL so Chromium
+ * can fetch it. Already-signed https URLs and data URIs are left untouched.
+ */
+async function resolveInlineImages(bodyHtml: string): Promise<string> {
+  const srcRe = /(<img\b[^>]*?\bsrc\s*=\s*)(["'])(.*?)\2/gi;
+
+  // Collect the distinct storage paths that need signing.
+  const paths = new Set<string>();
+  for (const m of bodyHtml.matchAll(srcRe)) {
+    const raw = (m[3] || "").trim();
+    if (!raw) continue;
+    if (/^(https?:|data:|file:|blob:)/i.test(raw)) continue;
+    paths.add(raw.replace(/^\/+/, ""));
+  }
+  if (paths.size === 0) return bodyHtml;
+
+  const signed = new Map<string, string>();
+  try {
+    const { getSupabaseAdmin, DOCUMENTS_BUCKET } = await import("@/lib/supabase/admin");
+    const admin = getSupabaseAdmin();
+    await Promise.all(
+      [...paths].map(async (p) => {
+        try {
+          const { data } = await admin.storage
+            .from(DOCUMENTS_BUCKET)
+            .createSignedUrl(p, IMAGE_SIGNED_TTL_SECONDS);
+          if (data?.signedUrl) signed.set(p, data.signedUrl);
+        } catch {
+          /* leave unresolved — Chromium simply shows a broken image */
+        }
+      }),
+    );
+  } catch {
+    // Supabase admin unavailable → leave paths as-is.
+    return bodyHtml;
+  }
+
+  return bodyHtml.replace(srcRe, (whole, pre: string, q: string, src: string) => {
+    const key = (src || "").trim().replace(/^\/+/, "");
+    const url = signed.get(key);
+    return url ? `${pre}${q}${url}${q}` : whole;
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Standalone A4 document (frozen letterhead, exact)                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Build the full standalone HTML document. Mirrors letterhead.tsx: A4 page box
+ * (794×1123), header strip pinned top + footer strip pinned bottom (position
+ * fixed so they REPEAT on every printed page, exactly like the letterhead's
+ * @media print rules), body padding 198px 70px 104px, and for a non-Altus
+ * entity the white cover + entity-logo swap. @page A4 zero-margin +
+ * print-color-adjust:exact so the strips print edge-to-edge.
+ */
+function buildDocument(opts: {
+  headerUri: string | null;
+  footerUri: string | null;
+  overlayLogo: boolean;
+  logoUri: string | null;
+  logoAlt: string;
+  bodyHtml: string;
+}): string {
+  const { headerUri, footerUri, overlayLogo, logoUri, logoAlt, bodyHtml } = opts;
+
+  const headerImg = headerUri
+    ? `<img class="alh-art alh-art-top" src="${headerUri}" alt="" aria-hidden="true">`
+    : "";
+  const footerImg = footerUri
+    ? `<img class="alh-art alh-art-bottom" src="${footerUri}" alt="" aria-hidden="true">`
+    : "";
+  const logoSwap =
+    overlayLogo && logoUri
+      ? `<span class="alh-logo-cover" aria-hidden="true"></span>` +
+        `<img class="alh-logo" src="${logoUri}" alt="${escAttr(logoAlt)}">`
+      : overlayLogo
+        ? `<span class="alh-logo-cover" aria-hidden="true"></span>`
+        : "";
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=794">
+<style>
+${LETTERHEAD_CSS}
+</style>
+</head>
+<body>
+  <div class="alh-page">
+    ${headerImg}
+    ${logoSwap}
+    <main class="alh-body">${bodyHtml}</main>
+    ${footerImg}
+  </div>
+</body>
+</html>`;
+}
+
+function escAttr(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * CSS reproduces letterhead.tsx (incl. its @media print behaviour) for a
+ * headless print run: fixed header/footer strips that repeat across pages, the
+ * non-Altus logo swap, A4 zero-margin page, exact colour printing. Body styles
+ * for common rich-letter marks (headings, lists, tables, images, alignment) so
+ * arbitrary TipTap HTML lands on-brand.
+ */
+const LETTERHEAD_CSS = `
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+@page{size:A4;margin:0;}
+html,body{margin:0;padding:0;background:#ffffff;}
+.alh-page{
+  position:relative;
+  width:794px;
+  min-height:1123px;
+  margin:0 auto;
+  background:#ffffff;
+  color:#111114;
+  overflow:hidden;
+}
+/* Header + footer artwork — crisp, full-width, natural aspect. Fixed so they
+   repeat on every printed page (matches letterhead.tsx @media print). */
+.alh-art{position:fixed;left:0;width:794px;height:auto;display:block;z-index:0;pointer-events:none;}
+.alh-art-top{top:0;}
+.alh-art-bottom{bottom:0;}
+/* Per-entity logo swap (non-Altus): white cover wipes the baked-in Altus logo…
+   fixed so the swap repeats on every printed page alongside the header strip. */
+.alh-logo-cover{position:fixed;left:0;top:0;width:140px;height:158px;background:#ffffff;z-index:1;}
+/* …then the entity's own logo is pasted in its place. */
+.alh-logo{
+  position:fixed;left:26px;top:16px;
+  height:122px;width:auto;max-width:126px;
+  object-fit:contain;display:block;z-index:2;
+}
+/* Body */
+.alh-body{
+  position:relative;z-index:3;
+  padding:198px 70px 104px;
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:15px;line-height:1.72;color:#111114;
+}
+.alh-body p{margin:0 0 14px;}
+.alh-body h1{font-size:22px;line-height:1.3;margin:0 0 12px;font-weight:700;}
+.alh-body h2{font-size:18px;line-height:1.35;margin:18px 0 10px;font-weight:700;}
+.alh-body h3{font-size:15.5px;line-height:1.4;margin:16px 0 8px;font-weight:700;}
+.alh-body ul,.alh-body ol{margin:0 0 14px;padding-left:24px;}
+.alh-body li{margin:0 0 6px;}
+.alh-body strong{font-weight:700;}
+.alh-body a{color:#A80400;text-decoration:underline;}
+.alh-body img{max-width:100%;height:auto;}
+.alh-body table{border-collapse:collapse;width:100%;margin:0 0 14px;}
+.alh-body th,.alh-body td{border:1px solid #E2E8F0;padding:6px 10px;text-align:left;vertical-align:top;}
+.alh-body hr{border:none;border-top:1px solid #E2E8F0;margin:18px 0;}
+/* Empty-field markers survive an eject; render them subtly instead of raw. */
+.alh-body .letter-field-empty{color:#A80400;background:#FCE9E8;border-radius:3px;padding:0 3px;}
+`;
+
+/* ------------------------------------------------------------------ */
+/* Chromium launch + render                                             */
+/* ------------------------------------------------------------------ */
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+/** Candidate Windows Chrome / Edge executables for the dev fallback. */
+function windowsChromeCandidates(): string[] {
+  const pf = process.env["ProgramFiles"] || "C:\\Program Files";
+  const pfx86 = process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
+  const local = process.env["LOCALAPPDATA"] || "";
+  const list = [
+    path.join(pf, "Google", "Chrome", "Application", "chrome.exe"),
+    path.join(pfx86, "Google", "Chrome", "Application", "chrome.exe"),
+    local ? path.join(local, "Google", "Chrome", "Application", "chrome.exe") : "",
+    path.join(pf, "Google", "Chrome Beta", "Application", "chrome.exe"),
+    path.join(pfx86, "Microsoft", "Edge", "Application", "msedge.exe"),
+    path.join(pf, "Microsoft", "Edge", "Application", "msedge.exe"),
+  ];
+  return list.filter(Boolean);
+}
+
+/** Launch a headless browser appropriate to the runtime. Throws on failure. */
+async function launchBrowser(): Promise<any> {
+  const puppeteer = await import("puppeteer-core");
+  const onVercel = !!process.env.VERCEL || process.env.NODE_ENV === "production";
+
+  if (onVercel) {
+    const chromium = (await import("@sparticuz/chromium")).default as any;
+    const executablePath = await chromium.executablePath();
+    return puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath,
+      headless: chromium.headless,
+    } as any);
+  }
+
+  // Local dev — prefer the installed Chrome via the "chrome" channel.
+  try {
+    return await puppeteer.launch({ channel: "chrome", headless: true } as any);
+  } catch {
+    // Fall back to a discovered Windows Chrome / Edge binary.
+    for (const candidate of windowsChromeCandidates()) {
+      if (existsSync(candidate)) {
+        return puppeteer.launch({ executablePath: candidate, headless: true } as any);
+      }
+    }
+    throw new Error(
+      "No Chrome/Chromium found for PDF rendering. Install Google Chrome (dev) " +
+        "or ensure @sparticuz/chromium is deployed (production).",
+    );
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Public entry                                                         */
+/* ------------------------------------------------------------------ */
+
+export interface RenderRichLetterInput {
+  /** Paying entity (id / display string). Drives the letterhead logo swap. */
+  entity: string;
+  /** The rich letter body — arbitrary TipTap HTML. */
+  bodyHtml: string;
+}
+
+/**
+ * Render a rich HR letter (free-form TipTap HTML) to a print-ready A4 PDF on the
+ * selected paying-entity letterhead, via headless Chromium.
+ */
+export async function renderRichLetterPdf({
+  entity,
+  bodyHtml,
+}: RenderRichLetterInput): Promise<Uint8Array> {
+  const e = getEntity((entity as EntityId | string) ?? null);
+  const overlayLogo = e.id !== DEFAULT_ENTITY_ID;
+
+  const [headerUri, footerUri, logoUri, resolvedBody] = await Promise.all([
+    fileToDataUri(HEADER_ART_FILE),
+    fileToDataUri(FOOTER_ART_FILE),
+    overlayLogo ? entityLogoDataUri(e) : Promise.resolve(null),
+    resolveInlineImages(bodyHtml || ""),
+  ]);
+
+  const html = buildDocument({
+    headerUri,
+    footerUri,
+    overlayLogo,
+    logoUri,
+    logoAlt: `${e.displayName} logo`,
+    bodyHtml: resolvedBody,
+  });
+
+  let browser: any = null;
+  try {
+    browser = await launchBrowser();
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "networkidle0" });
+    const pdf = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      preferCSSPageSize: true,
+      margin: { top: "0", right: "0", bottom: "0", left: "0" },
+    });
+    return new Uint8Array(pdf);
+  } catch (err) {
+    throw new Error(
+      `Rich letter PDF render failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  } finally {
+    if (browser) {
+      try {
+        await browser.close();
+      } catch {
+        /* ignore close errors */
+      }
+    }
+  }
+}

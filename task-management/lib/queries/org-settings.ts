@@ -41,6 +41,8 @@ const DEFAULTS: OrgSettings = {
   attEarlyBefore: "19:30",
   attFullDayHours: "9",
   attHalfDayHours: "5",
+  hrAssignmentOwnerId: null,
+  evaluationWeights: null,
   updatedAt: new Date(0),
   updatedById: null,
 };

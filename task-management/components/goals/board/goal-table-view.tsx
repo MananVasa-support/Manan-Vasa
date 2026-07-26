@@ -192,13 +192,13 @@ function NumBox({
         }
       }}
       className={cn(
-        "h-9 rounded-md border-[1.5px] bg-white px-2 text-right text-[13.5px] font-semibold text-ink-strong tabular-nums transition-colors focus:border-altus-red",
+        "h-9 rounded-md border-0 bg-transparent px-2 text-right text-[13.5px] font-semibold text-ink-strong tabular-nums transition-colors hover:bg-black/[0.04] focus:bg-black/[0.06]",
         "disabled:cursor-not-allowed disabled:opacity-60",
         "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
         FOCUS_RING,
         className,
       )}
-      style={{ borderColor: "color-mix(in srgb, var(--color-ink-strong) 34%, transparent)", fontFamily: "var(--font-display)" }}
+      style={{ fontFamily: "var(--font-display)" }}
     />
   );
 }
@@ -566,40 +566,14 @@ function SharePill({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div
-      className={cn(
-        "inline-flex overflow-hidden rounded-full border text-[11px] font-bold",
-        disabled && "cursor-not-allowed opacity-60",
-      )}
-      style={{
-        borderColor: on ? "var(--color-altus-red)" : "var(--color-hairline-strong)",
-        background: on ? redTint(8) : "var(--color-surface-card)",
-      }}
-      role="group"
-      aria-label="Share with team"
-    >
-      {([true, false] as const).map((v) => {
-        const active = on === v;
-        return (
-          <button
-            key={String(v)}
-            type="button"
-            disabled={disabled}
-            aria-pressed={active}
-            onClick={() => !active && onChange(v)}
-            className={cn("px-2.5 py-1 transition-colors disabled:cursor-not-allowed", FOCUS_RING)}
-            style={
-              active
-                ? v
-                  ? { background: "var(--color-altus-red)", color: "#fff" }
-                  : { background: "var(--color-ink-soft)", color: "#fff" }
-                : { color: "var(--color-ink-subtle)" }
-            }
-          >
-            {v ? "Yes" : "No"}
-          </button>
-        );
-      })}
+    <div className={cn("inline-flex justify-center", disabled && "cursor-not-allowed opacity-60")}>
+      <BrandCheck
+        checked={on}
+        onToggle={() => {
+          if (!disabled) onChange(!on);
+        }}
+        label="Share with team"
+      />
     </div>
   );
 }
@@ -849,17 +823,13 @@ export function GoalTableView(props: GoalTableViewProps) {
     <div className="relative">
       {/* scoped slider chrome */}
       <style>{`
-        /* Prominent column dividers so the user clearly sees each column split. */
-        .gtv-table th, .gtv-table td {
-          border-right: 1.5px solid color-mix(in srgb, var(--color-ink-strong) 28%, transparent);
-        }
-        .gtv-table th:last-child, .gtv-table td:last-child { border-right: none; }
+        /* No vertical dividers — a clean list feel with only horizontal rules. */
+        .gtv-table th, .gtv-table td { border-right: none; }
         /* Frozen header — stays put while the rows scroll. */
         .gtv-table thead th {
           position: sticky;
           top: 0;
           z-index: 6;
-          border-right-color: color-mix(in srgb, var(--color-altus-red) 45%, transparent);
           background-image: linear-gradient(120deg,
             color-mix(in srgb, var(--color-altus-red) 16%, var(--color-surface-card)),
             color-mix(in srgb, var(--color-altus-red) 8%, var(--color-surface-card)));
@@ -1041,7 +1011,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                 <tr
                   className="group transition-colors"
                   style={{
-                    borderBottom: i === rows.length - 1 ? undefined : "1px solid var(--color-hairline)",
+                    borderBottom: i === rows.length - 1 ? undefined : "1px solid color-mix(in srgb, var(--color-ink-strong) 22%, transparent)",
                     background: isSel ? redTint(5) : undefined,
                   }}
                   onMouseEnter={(e) => {

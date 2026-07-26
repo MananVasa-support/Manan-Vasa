@@ -289,21 +289,20 @@ export async function setCultureScore(input: {
 // ─── finalizeScorecard ────────────────────────────────────────────────────────
 
 /**
- * Best-effort: compose an Appraisal HR letter for the employee via the HR-docs
- * module (typeKey 'appraisal_ctc') if that module is present. NEVER throws — a
- * missing module, missing template, or any error is swallowed so finalize
- * always succeeds.
+ * Best-effort: record an Appraisal-letter draft for the employee via the HR
+ * letters module (typeKey 'appraisal_ctc'). NEVER throws — a missing module,
+ * missing template, or any error is swallowed so finalize always succeeds.
  */
 async function composeAppraisalLetter(employeeId: string): Promise<void> {
   try {
-    const mod = (await import("@/app/(app)/hr-docs/actions")) as {
-      composeDocument?: (input: {
+    const mod = (await import("@/lib/hr/letters/issue-core")) as {
+      composeDraft?: (input: {
         typeKey: string;
         employeeId?: string | null;
       }) => Promise<{ ok: boolean } | undefined>;
     };
-    if (typeof mod.composeDocument === "function") {
-      await mod.composeDocument({ typeKey: "appraisal_ctc", employeeId });
+    if (typeof mod.composeDraft === "function") {
+      await mod.composeDraft({ typeKey: "appraisal_ctc", employeeId });
     }
   } catch {
     // HR-docs not present / template missing / any error → ignore.

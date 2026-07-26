@@ -82,4 +82,10 @@ export interface SignatureState {
   signature: SignatureMark;
   /** false when DIGILOCKER_* env is unset — the UI shows a calm "not configured" state */
   digilockerConfigured: boolean;
+  /**
+   * When digilockerConfigured is false, the exact required env var NAMES still
+   * missing (never any values) — so an admin sees precisely what to set. Empty
+   * when configured.
+   */
+  digilockerMissingEnv: string[];
 }

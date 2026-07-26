@@ -10,9 +10,26 @@ import {
   Sparkles,
   LayoutGrid,
   X,
+  IdCard,
+  Inbox,
+  Plus,
   type LucideIcon,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { HR_STAGES, hrItemHref, type HrStage } from "@/lib/hr/lifecycle";
+
+// Loaded on demand (keeps the candidate-actions graph out of the /hr bundle).
+const IntakeChooserPopup = dynamic(
+  () => import("@/components/hr/candidate/intake-chooser-popup").then((m) => m.IntakeChooserPopup),
+  { ssr: false },
+);
+
+// Loaded on demand — keeps the (sizeable) policy content out of the initial /hr
+// bundle. Opened from Pre-Joining → "All Policies Sign".
+const AllPoliciesPopup = dynamic(
+  () => import("@/components/hr/policies/all-policies-popup").then((m) => m.AllPoliciesPopup),
+  { ssr: false },
+);
 
 /**
  * HR front door — a premium, light-theme, animated welcome. A "Welcome to HR"
@@ -34,13 +51,18 @@ interface Card {
   title: string;
   Icon: LucideIcon;
   stage?: HrStage; // present → clicking opens the stage pop-up instead of navigating
+  popup?: "help-desk"; // present → clicking opens the Help Desk quick-popup
 }
 
 // Every card shares the Altus red + black identity (no rainbow of hues).
+// The employee lifecycle stages, then the utility cards. "Help Desk" opens a
+// quick-popup (matching the stage pop-ups) and "HR Record" — the per-person hub
+// and the home for the Letters library — sits right beside it.
 const CARDS: Card[] = [
   ...HR_STAGES.map((s) => ({ slug: `/hr/${s.slug}`, title: s.title, Icon: s.Icon, stage: s })),
-  { slug: "/holidays", title: "Holiday List", Icon: PartyPopper },
-  { slug: "/support", title: "Help Desk", Icon: LifeBuoy },
+  { slug: "/hr/holidays", title: "Holiday List", Icon: PartyPopper },
+  { slug: "/support", title: "Help Desk", Icon: LifeBuoy, popup: "help-desk" as const },
+  { slug: "/hr/record", title: "HR Record", Icon: IdCard },
 ];
 
 const ACCENT = "#E10600";
@@ -71,11 +93,18 @@ const LAND_CSS = `
 
 export function HrLanding() {
   const [openStage, setOpenStage] = React.useState<HrStage | null>(null);
+  const [chooserOpen, setChooserOpen] = React.useState(false);
+  const [policiesOpen, setPoliciesOpen] = React.useState(false);
+  const [helpDeskOpen, setHelpDeskOpen] = React.useState(false);
 
   // Re-open a stage's pop-up when we return via /hr?open=<slug> (the "Back to
-  // Pre-Interview" button on the Basic Details form points here).
+  // Pre-Interview" button on the Basic Details form points here), and open the
+  // All-Policies pop-up when reached via /hr?policies=1 (the "All Policies Sign"
+  // link from the Pre-Joining sidebar / stage page).
   React.useEffect(() => {
-    const slug = new URLSearchParams(window.location.search).get("open");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("policies")) setPoliciesOpen(true);
+    const slug = params.get("open");
     if (!slug) return;
     const s = HR_STAGES.find((x) => x.slug === slug);
     if (s) setOpenStage(s);
@@ -127,7 +156,7 @@ export function HrLanding() {
         </p>
       </div>
 
-      {/* Cards — 4 in the top row, 3 centred below */}
+      {/* Cards — 4 in the top row, 4 centred below (Help Desk + HR Record close the deck) */}
       <div className="mx-auto mt-10 max-md:mt-8 flex w-full max-w-[1010px] flex-col items-center gap-5 px-6 max-md:px-5 pb-16">
         {[CARDS.slice(0, 4), CARDS.slice(4)].map((row, r) => (
           <div key={r} className="flex flex-wrap justify-center gap-5 max-md:gap-4">
@@ -135,7 +164,16 @@ export function HrLanding() {
               const idx = r === 0 ? i : i + 4;
               return (
                 <div key={c.slug} className="hr-card-in" style={{ animationDelay: `${120 + idx * 60}ms` }}>
-                  <DeckCard card={c} onOpen={c.stage ? () => setOpenStage(c.stage!) : undefined} />
+                  <DeckCard
+                    card={c}
+                    onOpen={
+                      c.stage
+                        ? () => setOpenStage(c.stage!)
+                        : c.popup === "help-desk"
+                          ? () => setHelpDeskOpen(true)
+                          : undefined
+                    }
+                  />
                 </div>
               );
             })}
@@ -144,7 +182,17 @@ export function HrLanding() {
       </div>
 
       {/* Stage pop-up — pick a surface inside the chosen stage */}
-      {openStage && <StagePopup stage={openStage} onClose={() => setOpenStage(null)} />}
+      {openStage && (
+        <StagePopup
+          stage={openStage}
+          onClose={() => setOpenStage(null)}
+          onOpenChooser={() => setChooserOpen(true)}
+          onOpenPolicies={() => setPoliciesOpen(true)}
+        />
+      )}
+      {chooserOpen && <IntakeChooserPopup onClose={() => setChooserOpen(false)} />}
+      <AllPoliciesPopup open={policiesOpen} onClose={() => setPoliciesOpen(false)} />
+      {helpDeskOpen && <HelpDeskPopup onClose={() => setHelpDeskOpen(false)} />}
 
       <style dangerouslySetInnerHTML={{ __html: LAND_CSS }} />
     </div>
@@ -200,7 +248,7 @@ function DeckCard({ card, onOpen }: { card: Card; onOpen?: () => void }) {
   );
 }
 
-function StagePopup({ stage, onClose }: { stage: HrStage; onClose: () => void }) {
+function StagePopup({ stage, onClose, onOpenChooser, onOpenPolicies }: { stage: HrStage; onClose: () => void; onOpenChooser: () => void; onOpenPolicies: () => void }) {
   const RED = "#E10600";
   const RED_DEEP = "#A80400";
 
@@ -250,10 +298,136 @@ function StagePopup({ stage, onClose }: { stage: HrStage; onClose: () => void })
         <div className="grid gap-2.5 p-4 pt-3">
           {stage.items.map((item, i) => {
             const Icon = item.Icon;
+            const href = hrItemHref(stage.slug, item);
+            const cls =
+              "group flex items-center gap-3.5 rounded-2xl border border-hairline bg-surface-card px-4 py-3.5 text-left transition-all hover:border-hairline-strong hover:shadow-md";
+            const inner = (
+              <>
+                <span
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[15px] font-black text-white"
+                  style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
+                >
+                  {i + 1}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5 text-[15px] font-bold text-ink-strong">
+                    <Icon size={15} strokeWidth={2.2} style={{ color: RED_DEEP }} /> {item.label}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[12.5px] font-medium text-ink-muted">{item.blurb}</span>
+                </span>
+                <ArrowUpRight size={17} className="shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              </>
+            );
+            // Candidate Interview Form opens the New/Continue chooser POP-UP.
+            if (href === "/hr/intake") {
+              return (
+                <button
+                  key={item.slug}
+                  type="button"
+                  onClick={() => { onClose(); onOpenChooser(); }}
+                  className={`w-full ${cls}`}
+                >
+                  {inner}
+                </button>
+              );
+            }
+            // "All Policies Sign" opens the All-Policies POP-UP (read + sign each
+            // policy on day one) rather than navigating to a route.
+            if (item.slug === "all-policies-signatory") {
+              return (
+                <button
+                  key={item.slug}
+                  type="button"
+                  onClick={() => { onClose(); onOpenPolicies(); }}
+                  className={`w-full ${cls}`}
+                >
+                  {inner}
+                </button>
+              );
+            }
+            return (
+              <Link key={item.slug} href={href as Route} onClick={onClose} className={cls}>
+                {inner}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELP DESK — a quick-popup of option cards (same pattern as the stage pop-ups),
+// so the Help Desk experience is rail-less like the rest of the HR module.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface HelpDeskOption {
+  slug: string;
+  label: string;
+  blurb: string;
+  href: string;
+  Icon: LucideIcon;
+}
+
+const HELP_DESK_OPTIONS: HelpDeskOption[] = [
+  { slug: "raise", label: "Raise a ticket", blurb: "Ask HR for help — a question, request or escalation.", href: "/support/new", Icon: Plus },
+  { slug: "my-requests", label: "My requests", blurb: "Track everything you've raised and its status.", href: "/support", Icon: Inbox },
+];
+
+function HelpDeskPopup({ onClose }: { onClose: () => void }) {
+  const RED = "#E10600";
+  const RED_DEEP = "#A80400";
+
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center p-4"
+      style={{ background: "rgba(10,10,12,0.5)", backdropFilter: "blur(3px)", animation: "hrOverlayIn 0.18s ease-out both" }}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="w-full max-w-[540px] overflow-hidden rounded-[22px] bg-white"
+        style={{ boxShadow: "0 40px 100px -30px rgba(15,23,42,0.55)", border: "1px solid color-mix(in srgb, #E10600 22%, white)", animation: "hrPopIn 0.24s cubic-bezier(0.22,1,0.36,1) both" }}
+      >
+        <div className="relative px-6 pt-6 pb-4" style={{ background: "linear-gradient(180deg, color-mix(in srgb, #E10600 7%, white), #ffffff)" }}>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-surface-muted hover:text-ink-strong"
+          >
+            <X size={18} strokeWidth={2.4} />
+          </button>
+          <span
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] font-bold uppercase tracking-[0.2em] text-white"
+            style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
+          >
+            <LifeBuoy size={12} strokeWidth={2.6} /> Altus · Help Desk
+          </span>
+          <h2
+            className="mt-2.5 text-ink-strong"
+            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: "-0.02em", lineHeight: 1.05 }}
+          >
+            Choose a step
+          </h2>
+          <p className="mt-1 max-w-[44ch] text-[13.5px] font-medium leading-snug text-ink-muted">
+            Get help from the HR desk — questions, requests and escalations, all tracked in one place.
+          </p>
+        </div>
+
+        <div className="grid gap-2.5 p-4 pt-3">
+          {HELP_DESK_OPTIONS.map((item, i) => {
+            const Icon = item.Icon;
             return (
               <Link
                 key={item.slug}
-                href={hrItemHref(stage.slug, item) as Route}
+                href={item.href as Route}
                 onClick={onClose}
                 className="group flex items-center gap-3.5 rounded-2xl border border-hairline bg-surface-card px-4 py-3.5 text-left transition-all hover:border-hairline-strong hover:shadow-md"
               >

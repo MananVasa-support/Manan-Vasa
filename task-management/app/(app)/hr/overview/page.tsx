@@ -44,7 +44,7 @@ export default async function HrOverviewPage() {
       : []),
     { slug: "/dossier", title: "Dossier", blurb: "Every person's complete document file.", Icon: FolderLock },
     { slug: "/agreements", title: "Agreements", blurb: "Issue, sign and archive employee agreements digitally.", Icon: FileSignature },
-    { slug: "/hr-docs", title: "Letters", blurb: "The full letter library — editable inline with live previews.", Icon: Mail },
+    { slug: "/hr/letters", title: "Letters", blurb: "Every letter on the Altus letterhead — editable red fields, export or issue.", Icon: Mail },
     { slug: "/policies", title: "Policies", blurb: "The company handbook — every policy in one place.", Icon: ScrollText },
     { slug: "/holidays", title: "Holiday List", blurb: "The official holiday calendar for the year.", Icon: PartyPopper },
     { slug: "/support", title: "Help Desk", blurb: "Questions, requests and escalations to the HR desk.", Icon: LifeBuoy },

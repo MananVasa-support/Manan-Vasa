@@ -111,6 +111,7 @@ export function SignDocument({
           docKind={docKind}
           docId={docId}
           configured={state.digilockerConfigured}
+          missingEnv={state.digilockerMissingEnv}
           busy={busy}
           setBusy={setBusy}
         />
@@ -150,12 +151,14 @@ function PendingStep({
   docKind,
   docId,
   configured,
+  missingEnv,
   busy,
   setBusy,
 }: {
   docKind: DocKind;
   docId: string;
   configured: boolean;
+  missingEnv: string[];
   busy: boolean;
   setBusy: (v: boolean) => void;
 }) {
@@ -190,6 +193,23 @@ function PendingStep({
         </span>{" "}
         DigiLocker sign-in hasn&apos;t been switched on for this workspace. Ask an
         admin to add the DigiLocker credentials, then reload this page to sign.
+        {missingEnv.length > 0 && (
+          <>
+            <span className="mt-2.5 block text-[12px] font-semibold text-ink-subtle">
+              Missing environment variable{missingEnv.length === 1 ? "" : "s"}:
+            </span>
+            <ul className="mt-1 flex flex-wrap gap-1.5">
+              {missingEnv.map((name) => (
+                <li
+                  key={name}
+                  className="rounded-md border border-hairline bg-surface-card px-2 py-0.5 font-mono text-[11.5px] text-ink-strong"
+                >
+                  {name}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </Notice>
     );
   }

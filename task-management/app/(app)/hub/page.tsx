@@ -3,8 +3,9 @@ import Link from "next/link";
 import { ArrowRight, Lock } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { accessFor } from "@/lib/auth/workspace-access";
-import { canAccessWorkspace, type WorkspaceId } from "@/lib/workspaces";
+import { canAccessWorkspace, WORKSPACE_LANDING, type WorkspaceId } from "@/lib/workspaces";
 import { MODULE_THEME, MODULE_ORDER, type ModuleTheme } from "@/lib/module-theme";
+import { EnterWorkspaceLink } from "@/components/hub/enter-workspace-link";
 import { HubSignOut } from "@/components/hub/hub-signout";
 import { ModuleLogo } from "@/components/hub/module-logos";
 import { GlobalSearch } from "@/components/header/global-search";
@@ -107,14 +108,15 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
     );
   }
   return (
-    <Link
-      href={m.href}
-      aria-label={`Open ${m.label}`}
+    <EnterWorkspaceLink
+      id={m.id}
+      href={WORKSPACE_LANDING[m.id]}
+      ariaLabel={`Open ${m.label}`}
       className={`${base} transition duration-200 hover:-translate-y-1.5 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2`}
       style={{ ...bg, ...delay, "--tw-ring-color": p.ink } as React.CSSProperties}
     >
       {inner}
-    </Link>
+    </EnterWorkspaceLink>
   );
 }
 
