@@ -124,7 +124,7 @@ export async function POST(req: Request) {
   // With the Sat commit gate live, DCC is enforced Mon–Fri only (Sat's ritual is
   // the commit above). Default (Sat gate off) ⇒ unchanged: DCC blocks every day.
   const dccBlockDay = satCommitGateOn() ? isWeekdayIST() : true;
-  if (body.kind === "out" && dccBlockDay && process.env.DCC_GATE_OFF !== "true") {
+  if (body.kind === "out" && dccBlockDay && false /* gate force-off 2026-07-27 (attendance unblock) */) {
     const today = localDateString(tz);
     const dccDone = await isDccFilledFor(me.id, today).catch(() => true);
     if (!dccDone) {
@@ -138,7 +138,7 @@ export async function POST(req: Request) {
   // ── Clock-IN planning gate (employees only; fail-open; PUNCH_PLAN_GATE_OFF) ──
   // Mirrors the web punch + layout "Plan Your Day" gate. Managers/admins/super-
   // admins exempt. Returns needsPlan so the app can route the user to the plan.
-  if (body.kind === "in" && process.env.PUNCH_PLAN_GATE_OFF !== "true") {
+  if (body.kind === "in" && false /* plan gate force-off 2026-07-27 (attendance unblock) */) {
     const exempt =
       isSuperAdmin(me.email) || me.isAdmin || (await isManagerWithReports(me.id).catch(() => true));
     if (!exempt) {
@@ -173,7 +173,7 @@ export async function POST(req: Request) {
   // ── Manager Monday goal-set gate (fail-open; MANAGER_GATES_OFF; SA exempt) ──
   if (
     body.kind === "in" &&
-    process.env.MANAGER_GATES_OFF !== "true" &&
+    false /* mgr Monday gate force-off 2026-07-27 (attendance unblock) */ &&
     !isSuperAdmin(me.email) &&
     isMondayIST()
   ) {

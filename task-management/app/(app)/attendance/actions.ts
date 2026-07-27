@@ -138,7 +138,7 @@ export async function punchAttendance(input: {
   // Saturday's ritual is the commit above (design §4). With the Sat gate off
   // (default) this is unchanged: DCC blocks punch-out every day.
   const dccBlockDay = satCommitGateOn() ? isWeekdayIST() : true;
-  if (kind === "out" && dccBlockDay && process.env.DCC_GATE_OFF !== "true") {
+  if (kind === "out" && dccBlockDay && false /* gate force-off 2026-07-27 (attendance unblock) */) {
     const dccDone = await isDccFilledFor(me.id, today).catch(() => true);
     if (!dccDone) {
       return { ok: false, error: "Fill today's DCC before you clock out — open the DCC page, then try again." };
@@ -150,7 +150,7 @@ export async function punchAttendance(input: {
   // on each open weekly goal — before clocking IN. Managers, admins and super-
   // admins are EXEMPT. FAIL-OPEN (any check error → allow the punch), honors
   // PUNCH_PLAN_GATE_OFF. Mirrors the layout gate so the mobile punch can't skip it.
-  if (kind === "in" && process.env.PUNCH_PLAN_GATE_OFF !== "true") {
+  if (kind === "in" && false /* plan gate force-off 2026-07-27 (attendance unblock) */) {
     const exempt =
       isSuperAdmin(me.email) || me.isAdmin || (await isManagerWithReports(me.id).catch(() => true));
     if (!exempt) {
@@ -199,7 +199,7 @@ export async function punchAttendance(input: {
   // weekend). FAIL-OPEN, honors MANAGER_GATES_OFF, super-admins exempt.
   if (
     kind === "in" &&
-    process.env.MANAGER_GATES_OFF !== "true" &&
+    false /* mgr Monday gate force-off 2026-07-27 (attendance unblock) */ &&
     !isSuperAdmin(me.email) &&
     isMondayIST()
   ) {

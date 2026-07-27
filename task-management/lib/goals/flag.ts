@@ -1,89 +1,88 @@
 /**
  * Kill-switches for the Goals Cascade program.
  *
+ * ⚠️ 2026-07-27 EMERGENCY: ALL daily-flow GATES are FORCE-DISABLED in code
+ * (return false regardless of env) because active gates were blocking people
+ * from clocking in/out (logging attendance). To restore a gate later, put back
+ * its `process.env.X === "true"` check. The punch-path env gates
+ * (DCC_GATE_OFF / PUNCH_PLAN_GATE_OFF / MANAGER_GATES_OFF) are likewise
+ * force-disabled in app/(app)/attendance/actions.ts and the mobile punch route.
+ *
  * TWO polarities, by design (design §10, locked decision 1):
  *  - The **cascade module** itself ships ENABLED behind `GOALS_CASCADE_OFF`
  *    (set it to `'true'` to 404 the whole `/goals` surface) — mirrors the house
- *    convention (MONTHLY_EVENTS_OFF / DCC_GATE_OFF).
- *  - Every **daily-flow GATE** ships DISABLED (default OFF). Each returns `false`
- *    unless its `*_ON` env var is exactly `'true'`. Hetesh browser-verifies each
- *    gate, then flips it on. This keeps the load-bearing login/punch flow untouched
- *    until proven safe.
+ *    convention (MONTHLY_EVENTS_OFF / DCC_GATE_OFF). NOT a login/attendance gate,
+ *    left untouched.
+ *  - Every **daily-flow GATE** ships DISABLED (default OFF) — now hard-off.
  *
  * Read straight off process.env — no I/O, safe to import anywhere.
  */
 
-/** The cascade module (all of `/goals`). Default ENABLED. */
+/** The cascade module (all of `/goals`). Default ENABLED. NOT a gate. */
 export function goalsCascadeEnabled(): boolean {
   return process.env.GOALS_CASCADE_OFF !== "true";
 }
 
-/** Saturday commit gate (punch-out blocked until the week is committed). OFF. */
+/** Saturday commit gate (punch-out blocked until the week is committed). FORCE-OFF. */
 export function satCommitGateOn(): boolean {
-  return process.env.SAT_COMMIT_GATE_ON === "true";
+  return false;
 }
 
-/** Monday manager-approval gate (attendance mark blocked until approved). OFF. */
+/** Monday manager-approval gate (attendance mark blocked until approved). FORCE-OFF. */
 export function monApproveGateOn(): boolean {
-  return process.env.MON_APPROVE_GATE_ON === "true";
+  return false;
 }
 
-/** Plan-Your-Day login gate → /goals/plan (role-based minimum). OFF. */
+/** Plan-Your-Day login gate → /goals/plan (role-based minimum). FORCE-OFF. */
 export function planGateOn(): boolean {
-  return process.env.PLAN_GATE_ON === "true";
+  return false;
 }
 
-/** Compulsory punch-out → missed = Half-Day reconcile (autoout cron). OFF. */
+/** Compulsory punch-out → missed = Half-Day reconcile (autoout cron). FORCE-OFF. */
 export function compulsoryPunchoutOn(): boolean {
-  return process.env.COMPULSORY_PUNCHOUT_ON === "true";
+  return false;
 }
 
-/** The legacy "manager must assign tasks daily" login rule. OFF = rule removed. */
+/** The legacy "manager must assign tasks daily" login rule. FORCE-OFF. */
 export function managerTaskGateOn(): boolean {
-  return process.env.MANAGER_TASK_GATE_ON === "true";
+  return false;
 }
 
-/** The DCC manager-review login gate ("Review your team"). OFF = removed. */
+/** The DCC manager-review login gate ("Review your team"). FORCE-OFF. */
 export function dccReviewGateOn(): boolean {
-  return process.env.DCC_REVIEW_GATE_ON === "true";
+  return false;
 }
 
 /**
- * The two remaining COMPULSORY login walls, now made removable per Sir. Both
- * DEFAULT OFF (the ritual is gone at login); flip the env var to restore.
- *   • Plan / Daily-Checklist gate — "commit ≥5 items to plan your day".
- *   • Own-DCC gate — "fill your DCC before you start".
- * Kept independent of the punch-path `DCC_GATE_OFF` (which still guards clock-out)
- * so removing the LOGIN wall never weakens the punch-out DCC check.
+ * The two remaining COMPULSORY login walls (plan/DCC before you start).
+ * FORCE-OFF so nothing blocks login/attendance.
  */
 export function loginPlanGateOn(): boolean {
-  return process.env.LOGIN_PLAN_GATE_ON === "true";
+  return false;
 }
 export function loginDccGateOn(): boolean {
-  return process.env.LOGIN_DCC_GATE_ON === "true";
+  return false;
 }
 
-/** WhatsApp goals-report delivery (media/text send). OFF. */
+/** WhatsApp goals-report delivery (media/text send). OFF. NOT a login/attendance gate. */
 export function goalsWhatsappOn(): boolean {
   return process.env.GOALS_WHATSAPP_ON === "true";
 }
 
 /**
  * Checkout close-out gate (Sir): at clock-OUT you must first close out today's
- * commitments (mark done / 0-100%), THEN DCC, THEN attendance. Sits just above
- * the existing punch-out DCC block. OFF by default; fail-open on any DB hiccup.
+ * commitments. FORCE-OFF so it never blocks punch-out.
  */
 export function checkoutCloseoutGateOn(): boolean {
-  return process.env.CHECKOUT_CLOSEOUT_GATE_ON === "true";
+  return false;
 }
 
-/** Auto-spillover: at month rollover, clone <100% month goals into the next month
- *  (balance % carried, `clonedFromId` set → renders red). OFF by default. */
+/** Auto-spillover at month rollover. OFF. NOT a login/attendance gate. */
 export function goalsSpilloverOn(): boolean {
   return process.env.GOALS_SPILLOVER_ON === "true";
 }
 
-/** Sunday 9am manager-rollup goals report to Manan (WhatsApp + email). OFF. */
+/** Sunday 9am manager-rollup goals report. OFF. NOT a login/attendance gate. */
 export function goalsSundayReportOn(): boolean {
   return process.env.GOALS_SUNDAY_REPORT_ON === "true";
 }
