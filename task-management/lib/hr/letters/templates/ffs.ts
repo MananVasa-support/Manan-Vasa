@@ -32,7 +32,7 @@ const template: LetterTemplate = {
 
     para(
       t("This letter confirms that you have been relieved from the services of "),
-      f("company", "Company Name", { defaultValue: "Altus Corp" }),
+      f("company", "Firm Name", { defaultValue: "Altus Corp" }),
       t(" effective "),
       f("lastWorkingDate", "Last Working Date", { placeholder: "e.g. 31 July 2026" }),
       t(", following the completion of all exit formalities."),
@@ -72,7 +72,7 @@ const template: LetterTemplate = {
       t(
         "By accepting this settlement, it is understood that all salary, benefits, reimbursements, and other dues arising out of your employment with ",
       ),
-      f("company", "Company Name"),
+      f("company", "Firm Name"),
       t(
         " have been fully settled, and no further financial claims remain outstanding from either party, except as may be required by applicable law.",
       ),
@@ -80,7 +80,7 @@ const template: LetterTemplate = {
 
     para(
       t("We thank you for your contributions during your tenure with "),
-      f("company", "Company Name"),
+      f("company", "Firm Name"),
       t(" and wish you every success in your future endeavors."),
     ),
 

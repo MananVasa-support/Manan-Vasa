@@ -537,7 +537,7 @@ export function ManagementAssessmentScreen({
                   onDoj={updateDoj}
                 />
 
-                <EvaluationCard ratings={ratings} onRate={onRate} score={overall.rated ? overall.avg : null} weights={weights} />
+                <EvaluationCard ratings={ratings} onRate={onRate} score={overall.rated ? overall.avg : null} weights={weights} candidateId={candidateId} />
 
                 <ScoresCard
                   hrScore={overall.rated ? overall.avg : null}
@@ -1189,12 +1189,13 @@ function OutcomeCard({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function EvaluationCard({
-  ratings, onRate, score, weights,
+  ratings, onRate, score, weights, candidateId,
 }: {
   ratings: Ratings;
   onRate: (criterionId: string, value: number) => void;
   score: number | null;
   weights: EvaluationWeights;
+  candidateId: string;
 }) {
   return (
     <Card>
@@ -1210,6 +1211,29 @@ function EvaluationCard({
           </span>
         }
       />
+
+      {/* Full structured Management Evaluation — the weighted A–N instrument. */}
+      {candidateId && (
+        <Link
+          href={`/hr/evaluation?role=management&candidate=${candidateId}` as Route}
+          className="group mb-4 flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all hover:shadow-md"
+          style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 30%, white)", background: "color-mix(in srgb, var(--color-altus-red) 5%, white)" }}
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-white" style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}>
+            <ClipboardCheck size={16} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-1 text-[14px] font-bold text-ink-strong">
+              Open the full Management Evaluation
+              <ArrowUpRight size={14} className="text-[color:var(--color-altus-red-deep)] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            </span>
+            <span className="mt-0.5 block text-[12px] font-medium leading-snug text-ink-muted">
+              The weighted A–N instrument — non-negotiables, competency ratings, X-Factor, sales gate &amp; recommendation. Saved as the management pass and compared with the interviewer&apos;s.
+            </span>
+          </span>
+        </Link>
+      )}
+
       <EvaluationChecklistBody ratings={ratings} onRate={onRate} weights={weights} />
     </Card>
   );

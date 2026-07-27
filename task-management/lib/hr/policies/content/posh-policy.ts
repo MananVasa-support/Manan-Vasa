@@ -40,10 +40,10 @@ const poshPolicy: PolicyDoc = {
     heading(
       "Introduction & Purpose",
       p(
-        "Altus Corp is dedicated to fostering a healthy, safe, and inspiring work environment that enables all employees to perform to their highest potential. We operate on a foundation of mutual respect, dignity, and professional integrity.",
+        "{firm} is dedicated to fostering a healthy, safe, and inspiring work environment that enables all employees to perform to their highest potential. We operate on a foundation of mutual respect, dignity, and professional integrity.",
       ),
       p(
-        "The purpose of this Prevention of Sexual Harassment (POSH) Policy is to clearly state Altus Corp's zero-tolerance stance toward sexual harassment in the workplace. This document outlines the mechanisms for preventing, reporting, and redressing any incidents of sexual harassment, ensuring that every individual associated with the company feels secure, valued, and protected.",
+        "The purpose of this Prevention of Sexual Harassment (POSH) Policy is to clearly state {firm}'s zero-tolerance stance toward sexual harassment in the workplace. This document outlines the mechanisms for preventing, reporting, and redressing any incidents of sexual harassment, ensuring that every individual associated with the firm feels secure, valued, and protected.",
       ),
     ),
 
@@ -52,16 +52,16 @@ const poshPolicy: PolicyDoc = {
       "Policy Statement & Scope",
       sub("2.1 Policy Statement"),
       p(
-        "Altus Corp maintains a strict zero-tolerance policy against any form of sexual harassment. Any act of sexual harassment is considered a severe form of misconduct and will attract immediate and stringent disciplinary action, up to and including termination of employment.",
+        "{firm} maintains a strict zero-tolerance policy against any form of sexual harassment. Any act of sexual harassment is considered a severe form of misconduct and will attract immediate and stringent disciplinary action, up to and including termination of employment.",
       ),
       sub("2.2 Scope and Coverage"),
       p(
-        "This policy applies to all individuals employed by or associated with Altus Corp. Its jurisdiction extends to:",
+        "This policy applies to all individuals employed by or associated with {firm}. Its jurisdiction extends to:",
       ),
       ul(
         "Personnel: All full-time, part-time, probationary, temporary, contractual, apprentice, trainee, and freelance workers, as well as interns, consultants, interview candidates, vendors, clients, visitors, contractors, and delivery personnel.",
-        "Workplace: The registered office, any branch offices, client locations, and any off-site venues where business activities occur (including Enterprise events, business travel, transport provided by the company, and official social gatherings).",
-        "Digital Workplace: All virtual environments, including official emails, Google Meet, Teams communications, WhatsApp messages, Meetings, Trainings, Workshops, Video conferences, and any online platforms utilized for Altus Corp business operations.",
+        "Workplace: The registered office, any branch offices, client locations, and any off-site venues where business activities occur (including Enterprise events, business travel, transport provided by the firm, and official social gatherings).",
+        "Digital Workplace: All virtual environments, including official emails, Google Meet, Teams communications, WhatsApp messages, Meetings, Trainings, Workshops, Video conferences, and any online platforms utilized for {firm} business operations.",
       ),
     ),
 
@@ -72,7 +72,7 @@ const poshPolicy: PolicyDoc = {
         "This policy is formulated in strict compliance with The Sexual Harassment of Women at Workplace (Prevention, Prohibition and Redressal) Act, 2013 (commonly referred to as the 'POSH Act') along with its corresponding rules.",
       ),
       p(
-        "While Indian statutory law explicitly protects aggrieved women under the POSH Act, Altus Corp believes in an inclusive work culture. Therefore, our internal Enterprise framework extends protection and a redressal mechanism to all employees, regardless of gender, gender identity, or sexual orientation, ensuring equal dignity for everyone.",
+        "While Indian statutory law explicitly protects aggrieved women under the POSH Act, {firm} believes in an inclusive work culture. Therefore, our internal Enterprise framework extends protection and a redressal mechanism to all employees, regardless of gender, gender identity, or sexual orientation, ensuring equal dignity for everyone.",
         "Enterprise Inclusion Note: ",
       ),
     ),
@@ -81,17 +81,17 @@ const poshPolicy: PolicyDoc = {
     heading(
       "Definitions",
       ul(
-        "Aggrieved Individual: Any person, whether employed with Altus Corp or not, who alleges having been subjected to any act of sexual harassment by a respondent at the workplace. This explicitly covers harassment suffered by or caused by clients, vendors, visitors, contractors, interview candidates, consultants, Delivery personnel and Interns.",
+        "Aggrieved Individual: Any person, whether employed with {firm} or not, who alleges having been subjected to any act of sexual harassment by a respondent at the workplace. This explicitly covers harassment suffered by or caused by clients, vendors, visitors, contractors, interview candidates, consultants, Delivery personnel and Interns.",
         "Respondent: Any person against whom the aggrieved individual has lodged a formal complaint of sexual harassment.",
         "Workplace: Any place visited by the employee arising out of or during the course of employment, including transportation provided by the employer for undertaking such a journey.",
-        "Internal Complaints Committee (ICC): The designated committee constituted by Altus Corp management to investigate, evaluate, and redress complaints related to sexual harassment.",
+        "Internal Complaints Committee (ICC): The designated committee constituted by {firm} management to investigate, evaluate, and redress complaints related to sexual harassment.",
       ),
     ),
 
     /* 5 ─────────────────────────────────────────────────────────── */
     heading(
       "Guiding Principles",
-      p("Altus Corp's POSH framework operates under five core principles:"),
+      p("{firm}'s POSH framework operates under five core principles:"),
       table({
         variant: "principle",
         columns: ["Principle", "Description"],
@@ -122,7 +122,7 @@ const poshPolicy: PolicyDoc = {
       "Standards Of Professional Conducts & Relationship Boundaries",
       sub("6.1 General Conduct"),
       p(
-        "All members of the Altus Corp ecosystem are expected to maintain an environment free from intimidation and hostility. Professional conduct dictates that:",
+        "All members of the {firm} ecosystem are expected to maintain an environment free from intimidation and hostility. Professional conduct dictates that:",
       ),
       ul(
         "Interactions between colleagues must remain respectful, courteous, and bound by professional limits.",
@@ -131,10 +131,10 @@ const poshPolicy: PolicyDoc = {
       ),
       sub("6.2 Personal Relationship Policy (Cooling-Off Period)"),
       p(
-        "To maintain absolute professional integrity, minimize conflicts of interest, and prevent a hostile or biased work environment, Altus Corp enforces a strict boundary policy.",
+        "To maintain absolute professional integrity, minimize conflicts of interest, and prevent a hostile or biased work environment, {firm} enforces a strict boundary policy.",
       ),
       p(
-        "No romantic or sexual involvement of any kind is permitted between any colleague, customer, associate, supplier, vendor, or participant while actively in the employment of Altus Corp. Personal relationships of this nature may only be pursued after a strict 31-day cooling-off period calculated from the individual's last official day of employment with the company.",
+        "No romantic or sexual involvement of any kind is permitted between any colleague, customer, associate, supplier, vendor, or participant while actively in the employment of {firm}. Personal relationships of this nature may only be pursued after a strict 31-day cooling-off period calculated from the individual's last official day of employment with the firm.",
       ),
     ),
 
@@ -183,9 +183,9 @@ const poshPolicy: PolicyDoc = {
       ),
       sub("8.3 Third-Party (Client, Vendor, & Visitor) Responsibilities"),
       p(
-        "All external stakeholders—including vendors, associates, clients, contractors, and visitors—must strictly comply with this POSH policy while on company premises, participating in Enterprise events, or communicating with Altus Corp personnel through digital channels. Non-compliance will result in immediate termination of business associations, removal from premises, and legal action if warranted.",
+        "All external stakeholders—including vendors, associates, clients, contractors, and visitors—must strictly comply with this POSH policy while on firm premises, participating in Enterprise events, or communicating with {firm} personnel through digital channels. Non-compliance will result in immediate termination of business associations, removal from premises, and legal action if warranted.",
       ),
-      sub("8.4 Company Responsibilities"),
+      sub("8.4 Firm Responsibilities"),
       ul(
         "Provide a safe working environment at the workplace.",
         "Display the order constituting the authority prominently at the workplace and digitally.",
@@ -198,7 +198,7 @@ const poshPolicy: PolicyDoc = {
     heading(
       "Internal Complaints Committee (ICC)",
       p(
-        "Altus Corp has constituted an Internal Complaints Committee (ICC) specifically tasked with addressing complaints of sexual harassment.",
+        "{firm} has constituted an Internal Complaints Committee (ICC) specifically tasked with addressing complaints of sexual harassment.",
       ),
       p("The committee is composed of the following members, nominated by the management:"),
       ul(
@@ -305,7 +305,7 @@ const poshPolicy: PolicyDoc = {
       ),
       sub("12.2 Comprehensive Protection Against Victimization"),
       p(
-        "Altus Corp guarantees that no employee will be victimized, penalized, or disciplined for reporting an incident in good faith or for participating as a witness.",
+        "{firm} guarantees that no employee will be victimized, penalized, or disciplined for reporting an incident in good faith or for participating as a witness.",
       ),
       p(
         "Retaliation or victimization is strictly prohibited and is expanded to explicitly include the following actions if used as punitive measures against an individual involved in a POSH case:",
@@ -340,7 +340,7 @@ const poshPolicy: PolicyDoc = {
     heading(
       "Disciplinary Actions",
       p(
-        "If the allegation against the respondent is proved, the ICC will recommend disciplinary actions to the Altus Corp management. Actions may include, but are not limited to:",
+        "If the allegation against the respondent is proved, the ICC will recommend disciplinary actions to the {firm} management. Actions may include, but are not limited to:",
       ),
       ul(
         "Written warning, censure, or reprimand.",
@@ -384,10 +384,10 @@ const poshPolicy: PolicyDoc = {
   declaration: declaration({
     heading: "Employee Declaration & Acknowledgment",
     statement:
-      "Please read the statement below carefully. Sign, date, and return this page to the Human Resources Department within seven (7) days of receiving this document. I, the undersigned, hereby acknowledge that I have received, read, and fully understood the Altus Corp Prevention of Sexual Harassment (POSH) Policy (Version 1.0). I agree to abide by the principles, conduct guidelines, relationship boundaries, and rules outlined in this policy. I understand that any violation of this policy may lead to disciplinary action up to and including the termination of my employment with Altus Corp.",
+      "Please read the statement below carefully. Sign, date, and return this page to the Human Resources Department within seven (7) days of receiving this document. I, the undersigned, hereby acknowledge that I have received, read, and fully understood the {firm} Prevention of Sexual Harassment (POSH) Policy (Version 1.0). I agree to abide by the principles, conduct guidelines, relationship boundaries, and rules outlined in this policy. I understand that any violation of this policy may lead to disciplinary action up to and including the termination of my employment with {firm}.",
     employeeFields: ["Employee Name", "Employee ID", "Department", "Signature", "Date"],
     hrLabel: "Received By (HR Representative)",
-    approvalLabel: "Enterprise Approval & Authentication — Approved By [Founder Signature / Seal] Altus Corp",
+    approvalLabel: "Enterprise Approval & Authentication — Approved By [Founder Signature / Seal] {firm}",
   }),
 };
 

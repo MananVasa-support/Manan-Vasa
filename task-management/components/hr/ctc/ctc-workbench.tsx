@@ -643,7 +643,7 @@ function EmptyState() {
       <h2 className="ctcw-empty-title">Build a structured CTC</h2>
       <p className="ctcw-empty-text">
         Pick an employee to open their compensation. Enter the earnings, deductions and employer contributions —
-        the gross, net take-home and total Cost to Company recompute live. Every save adds a version to their
+        the gross, net take-home and total Cost to Firm recompute live. Every save adds a version to their
         Growth Journey.
       </p>
     </div>

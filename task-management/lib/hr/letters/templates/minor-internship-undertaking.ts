@@ -34,7 +34,7 @@ const template: LetterTemplate = {
     // ── To / address block (recipient = Altus Corp) ─────────────────────
     para(t("To,")),
     para(t("Manan Vasa,")),
-    para(t("Altus Corp,")),
+    para(t("{firm},")),
     para(t("C-6, Gambhir Estates,")),
     para(t("Kotkar Road, Off Aarey Road,")),
     para(t("Goregaon East – 400063,")),
@@ -50,7 +50,7 @@ const template: LetterTemplate = {
     para(t("Dear Manan Vasa,")),
     para(
       t(
-        "I, the undersigned, hereby submit this Undertaking in connection with the internship of my ward / child at Altus Corp. I acknowledge and agree to the following terms and conditions, which govern the participation of a minor (below the age of 18 years) in an internship programme at the organisation.",
+        "I, the undersigned, hereby submit this Undertaking in connection with the internship of my ward / child at {firm}. I acknowledge and agree to the following terms and conditions, which govern the participation of a minor (below the age of 18 years) in an internship programme at the organisation.",
       ),
     ),
 
@@ -97,7 +97,7 @@ const template: LetterTemplate = {
     ),
     para(
       t(
-        "4.1  Consent for Participation:  I grant full and informed consent for my ward to participate in the internship programme offered by Altus Corp for the duration specified above.",
+        "4.1  Consent for Participation:  I grant full and informed consent for my ward to participate in the internship programme offered by {firm} for the duration specified above.",
       ),
     ),
     para(
@@ -119,37 +119,37 @@ const template: LetterTemplate = {
     ),
     para(
       t(
-        "4.5  Supervision:  I acknowledge that my ward shall be supervised at all times by a designated mentor at Altus Corp and that I shall be reachable during all internship hours for any emergency or communication.",
+        "4.5  Supervision:  I acknowledge that my ward shall be supervised at all times by a designated mentor at {firm} and that I shall be reachable during all internship hours for any emergency or communication.",
       ),
     ),
     para(
       t(
-        "4.6  Conduct and Discipline:  I undertake that my ward shall adhere to the code of conduct, confidentiality requirements, and professional standards of Altus Corp for the duration of the internship. Any breach of conduct may result in immediate termination of the internship.",
+        "4.6  Conduct and Discipline:  I undertake that my ward shall adhere to the code of conduct, confidentiality requirements, and professional standards of {firm} for the duration of the internship. Any breach of conduct may result in immediate termination of the internship.",
       ),
     ),
     para(
       t(
-        "4.7  Confidentiality:  I and my ward agree to maintain strict confidentiality with respect to any proprietary, sensitive, or internal information of Altus Corp that may come to our knowledge during the internship, both during and after the internship period.",
+        "4.7  Confidentiality:  I and my ward agree to maintain strict confidentiality with respect to any proprietary, sensitive, or internal information of {firm} that may come to our knowledge during the internship, both during and after the internship period.",
       ),
     ),
     para(
       t(
-        "4.8  Health & Safety:  I confirm that my ward is medically fit to participate in the internship and shall inform Altus Corp of any health conditions or special requirements. Altus Corp shall not be held responsible for any pre-existing conditions.",
+        "4.8  Health & Safety:  I confirm that my ward is medically fit to participate in the internship and shall inform {firm} of any health conditions or special requirements. {firm} shall not be held responsible for any pre-existing conditions.",
       ),
     ),
     para(
       t(
-        "4.9  Insurance & Liability:  I acknowledge that Altus Corp shall not be liable for any injury, illness, accident, or loss suffered by my ward during the internship period, unless arising from gross negligence on the part of the organisation. I agree to arrange appropriate personal insurance coverage for my ward.",
+        "4.9  Insurance & Liability:  I acknowledge that {firm} shall not be liable for any injury, illness, accident, or loss suffered by my ward during the internship period, unless arising from gross negligence on the part of the organisation. I agree to arrange appropriate personal insurance coverage for my ward.",
       ),
     ),
     para(
       t(
-        "4.10  Withdrawal & Termination:  I understand that either party may withdraw from this internship arrangement with prior written notice of at least 3 (three) business days. Altus Corp reserves the right to terminate the internship immediately in the event of misconduct or breach of any undertaking herein.",
+        "4.10  Withdrawal & Termination:  I understand that either party may withdraw from this internship arrangement with prior written notice of at least 3 (three) business days. {firm} reserves the right to terminate the internship immediately in the event of misconduct or breach of any undertaking herein.",
       ),
     ),
     para(
       t(
-        "4.11  Remuneration:  I understand and agree that this internship is stipendiary of Rs 5000/- (as applicable), and does not entitle my ward to any full-time employment with Altus Corp now or in the future.",
+        "4.11  Remuneration:  I understand and agree that this internship is stipendiary of Rs 5000/- (as applicable), and does not entitle my ward to any full-time employment with {firm} now or in the future.",
       ),
     ),
 
@@ -157,7 +157,7 @@ const template: LetterTemplate = {
     heading("5. DECLARATION", 2),
     para(
       t(
-        "I declare that the information provided above is true, complete, and accurate to the best of my knowledge. I have read and understood this Undertaking in its entirety and agree to be bound by the terms herein. I understand that this document shall be retained on record by Altus Corp.",
+        "I declare that the information provided above is true, complete, and accurate to the best of my knowledge. I have read and understood this Undertaking in its entirety and agree to be bound by the terms herein. I understand that this document shall be retained on record by {firm}.",
       ),
     ),
     para(
@@ -175,7 +175,7 @@ const template: LetterTemplate = {
     para(t("Signature of Intern")),
     spacer("md"),
     para(t("_______________________________")),
-    para(t("Signature of HR Representative, Altus Corp")),
+    para(t("Signature of HR Representative, {firm}")),
     spacer("md"),
     para(t("_______________________________")),
     para(t("Date & Official Stamp")),

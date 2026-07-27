@@ -36,14 +36,14 @@ const exitPolicy: PolicyDoc = {
     heading(
       "Introduction & Objective",
       p(
-        "Altus Corp is committed to ensuring that employee separations are handled with the highest level of professionalism, legal compliance, and operational security. This policy establishes a standardized, equitable process for managing voluntary and involuntary separations while safeguarding Altus Corp's intellectual property, client relationships, and business continuity.",
+        "{firm} is committed to ensuring that employee separations are handled with the highest level of professionalism, legal compliance, and operational security. This policy establishes a standardized, equitable process for managing voluntary and involuntary separations while safeguarding {firm}'s intellectual property, client relationships, and business continuity.",
       ),
     ),
 
     heading(
       "Scope and Applicability",
       p(
-        "This policy applies to all personnel on the Altus Corp payroll, including permanent, probationary, part-time, and fixed-term contract employees globally.",
+        "This policy applies to all personnel on the {firm} payroll, including permanent, probationary, part-time, and fixed-term contract employees globally.",
       ),
     ),
 
@@ -58,7 +58,7 @@ const exitPolicy: PolicyDoc = {
         "Involuntary Termination (For Cause):",
       ),
       p(
-        "Separation initiated by the company following a failed Performance Improvement Plan (PIP).",
+        "Separation initiated by the firm following a failed Performance Improvement Plan (PIP).",
         "Involuntary Termination (Performance):",
       ),
       p(
@@ -89,27 +89,27 @@ const exitPolicy: PolicyDoc = {
 
       sub("4.2 Salary in Lieu of Notice (Buy-Out)"),
       p(
-        "Altus Corp reserves the absolute right to accept, reject, or negotiate notice period buyouts. If an employee requests an early release, management may permit them to pay the company their gross salary in lieu of the unserved days. Conversely, Altus Corp may terminate employment immediately by paying the employee's base salary in lieu of notice.",
+        "{firm} reserves the absolute right to accept, reject, or negotiate notice period buyouts. If an employee requests an early release, management may permit them to pay the firm their gross salary in lieu of the unserved days. Conversely, {firm} may terminate employment immediately by paying the employee's base salary in lieu of notice.",
       ),
 
       sub("4.3 Garden Leave"),
       p(
-        "During the notice period, Altus Corp reserves the right to place the resigning employee on \"Garden Leave.\" Under this status:",
+        "During the notice period, {firm} reserves the right to place the resigning employee on \"Garden Leave.\" Under this status:",
       ),
       ul(
         "The employee remains on the payroll and receives full salary and benefits.",
-        "The employee is relieved of all active duties and must not access company premises, networks, or contact clients/colleagues without HR approval.",
+        "The employee is relieved of all active duties and must not access firm premises, networks, or contact clients/colleagues without HR approval.",
         "The employee must remain available during standard working hours to answer transition-related queries.",
       ),
 
       sub("4.4 Resignation Acceptance"),
       p(
-        "The submission of a resignation letter does not, by itself, constitute its acceptance. A resignation becomes effective only upon written acceptance by Human Resources, approval by Management, and confirmation of the Last Working Day (LWD). Until such confirmation is issued, the employee continues to be treated as being in active employment with Altus Corp and remains bound by all applicable terms of employment.",
+        "The submission of a resignation letter does not, by itself, constitute its acceptance. A resignation becomes effective only upon written acceptance by Human Resources, approval by Management, and confirmation of the Last Working Day (LWD). Until such confirmation is issued, the employee continues to be treated as being in active employment with {firm} and remains bound by all applicable terms of employment.",
       ),
 
-      sub("4.5 Company's Rights During the Notice Period"),
+      sub("4.5 Firm's Rights During the Notice Period"),
       p(
-        "To ensure business continuity, client servicing, operational efficiency, protection of confidential information, and a smooth business transition, Altus Corp reserves the right, at its sole discretion and at any time during the notice period, to:",
+        "To ensure business continuity, client servicing, operational efficiency, protection of confidential information, and a smooth business transition, {firm} reserves the right, at its sole discretion and at any time during the notice period, to:",
       ),
       ul(
         "Transfer the employee's reporting manager, alter the reporting structure, or modify job responsibilities, including the withdrawal of client-facing duties.",
@@ -120,7 +120,7 @@ const exitPolicy: PolicyDoc = {
 
       sub("4.6 Extension of Notice Period"),
       p(
-        "Where Knowledge Transfer, documentation, client transition, or handover remains incomplete, or where Company assets remain pending return or applicable Company standards have not been met, Mr. Manan Vasa, Founder, reserves the right to approve or recommend an extension of the employee's notice period, subject to the applicable employment terms and business requirements. Any such extension shall continue only for the period reasonably required to complete the pending obligations and shall be communicated to the employee in writing by Human Resources.",
+        "Where Knowledge Transfer, documentation, client transition, or handover remains incomplete, or where Firm assets remain pending return or applicable Firm standards have not been met, Mr. Manan Vasa, Founder, reserves the right to approve or recommend an extension of the employee's notice period, subject to the applicable employment terms and business requirements. Any such extension shall continue only for the period reasonably required to complete the pending obligations and shall be communicated to the employee in writing by Human Resources.",
       ),
     ),
 
@@ -167,31 +167,31 @@ const exitPolicy: PolicyDoc = {
         "Exit Interview:",
       ),
       p(
-        "As directed by Mr. Manan Vasa, Founder, all communication with clients regarding an employee's resignation shall be determined solely by the Company, having regard to the client relationship, the nature of the work involved, business continuity, and prevailing circumstances. Depending on these factors, the client may be informed by Mr. Manan Vasa, a newly assigned Client Manager or Relationship Manager, or, only where specifically instructed by Mr. Manan Vasa, the exiting employee.",
+        "As directed by Mr. Manan Vasa, Founder, all communication with clients regarding an employee's resignation shall be determined solely by the Firm, having regard to the client relationship, the nature of the work involved, business continuity, and prevailing circumstances. Depending on these factors, the client may be informed by Mr. Manan Vasa, a newly assigned Client Manager or Relationship Manager, or, only where specifically instructed by Mr. Manan Vasa, the exiting employee.",
         "Client Communication During Exit:",
       ),
       p(
-        "Employees are not permitted to independently inform clients of their resignation, replacement, transition, or any related Company decision without prior approval from Mr. Manan Vasa, who shall determine the timing, mode of communication, and person responsible for informing the client, in order to protect client relationships and business continuity. All external communication relating to an employee's resignation, transition, or separation shall remain confidential until officially communicated by Mr. Manan Vasa (Founder) or an authorised representative of Altus Corp.",
+        "Employees are not permitted to independently inform clients of their resignation, replacement, transition, or any related Firm decision without prior approval from Mr. Manan Vasa, who shall determine the timing, mode of communication, and person responsible for informing the client, in order to protect client relationships and business continuity. All external communication relating to an employee's resignation, transition, or separation shall remain confidential until officially communicated by Mr. Manan Vasa (Founder) or an authorised representative of {firm}.",
       ),
     ),
 
     heading(
       "Intellectual Property (IP), Data Security & Asset Recovery",
       p(
-        "Employees are strictly prohibited from downloading or copying confidential data; deleting or altering business records; forwarding company emails; sharing passwords; uploading Company data to personal cloud storage; or otherwise transferring or retaining confidential information and Company documents. Any violation of this clause may result in disciplinary action and legal proceedings. Employees shall not retain, store, reproduce, or keep copies of Company information in any form, including electronic files, printed documents, screenshots, cloud storage, portable storage devices, or personal systems after separation from the Company.",
+        "Employees are strictly prohibited from downloading or copying confidential data; deleting or altering business records; forwarding firm emails; sharing passwords; uploading Firm data to personal cloud storage; or otherwise transferring or retaining confidential information and Firm documents. Any violation of this clause may result in disciplinary action and legal proceedings. Employees shall not retain, store, reproduce, or keep copies of Firm information in any form, including electronic files, printed documents, screenshots, cloud storage, portable storage devices, or personal systems after separation from the Firm.",
         "Data Security:",
       ),
       p(
-        "All work produced during the employee's tenure remains the exclusive intellectual property of Altus Corp.",
+        "All work produced during the employee's tenure remains the exclusive intellectual property of {firm}.",
         "IP Ownership:",
       ),
-      sub("Company Property & Digital Access"),
+      sub("Firm Property & Digital Access"),
       p(
-        "On or before the Last Working Day, employees must return all Company property in their possession, including laptops, desktops, mobile phones, chargers, SIM cards, ID cards, access cards, office keys, USB devices, hard drives, security tokens, software licenses, authentication devices, Company documents, and any other Company property. Failure to return such assets in working condition will result in their depreciated value being deducted directly from the Full and Final (F&F) Settlement.",
+        "On or before the Last Working Day, employees must return all Firm property in their possession, including laptops, desktops, mobile phones, chargers, SIM cards, ID cards, access cards, office keys, USB devices, hard drives, security tokens, software licenses, authentication devices, Firm documents, and any other Firm property. Failure to return such assets in working condition will result in their depreciated value being deducted directly from the Full and Final (F&F) Settlement.",
         "Asset Return:",
       ),
       p(
-        "Altus Corp may revoke, on or before the Last Working Day, the employee's access to email, VPN, cloud storage, shared drives, internal software, source code repositories, ERP, CRM, and other Company accounts.",
+        "{firm} may revoke, on or before the Last Working Day, the employee's access to email, VPN, cloud storage, shared drives, internal software, source code repositories, ERP, CRM, and other Firm accounts.",
       ),
     ),
 
@@ -201,11 +201,11 @@ const exitPolicy: PolicyDoc = {
         "Departing employees remain bound by the terms of their initial Non-Disclosure Agreement (NDA).",
       ),
       p(
-        "Employees may not solicit, poach, or hire Altus Corp staff, nor may they solicit Altus Corp clients for a period of twenty-four (24) months following separation.",
+        "Employees may not solicit, poach, or hire {firm} staff, nor may they solicit {firm} clients for a period of twenty-four (24) months following separation.",
         "Non-Solicitation:",
       ),
       p(
-        "Both the departing employee and Altus Corp agree not to publish or make false, misleading, malicious, or defamatory statements about each other – including about the Company's Management, employees, clients, products, or services – whether on social media, LinkedIn, Glassdoor, Google, Indeed, AmbitionBox, blogs, online forums, discussion boards, public interviews, podcasts, webinars, newspapers, digital or print media, public speaking engagements, review websites, or any other public communication platform. This clause does not restrict disclosures required by applicable law or communications made to lawful regulatory or governmental authorities.",
+        "Both the departing employee and {firm} agree not to publish or make false, misleading, malicious, or defamatory statements about each other – including about the Firm's Management, employees, clients, products, or services – whether on social media, LinkedIn, Glassdoor, Google, Indeed, AmbitionBox, blogs, online forums, discussion boards, public interviews, podcasts, webinars, newspapers, digital or print media, public speaking engagements, review websites, or any other public communication platform. This clause does not restrict disclosures required by applicable law or communications made to lawful regulatory or governmental authorities.",
         "Non-Disparagement:",
       ),
     ),
@@ -213,7 +213,7 @@ const exitPolicy: PolicyDoc = {
     heading(
       "Full and Final (F&F) Settlement",
       p(
-        "The F&F settlement will be calculated and credited to the employee's salary account within forty-five (45) days of the final working date, subject to the successful completion of the clearance matrix. This includes salary till the Last Working Day, leave encashment, bonus (if applicable), incentives, variable pay, gratuity (if eligible), expense reimbursements, and approved claims, less any applicable notice pay adjustment, loan recovery, asset recovery, or other lawful deductions. The settlement shall be processed in accordance with Company policy, the employee's employment contract, and applicable Indian laws.",
+        "The F&F settlement will be calculated and credited to the employee's salary account within forty-five (45) days of the final working date, subject to the successful completion of the clearance matrix. This includes salary till the Last Working Day, leave encashment, bonus (if applicable), incentives, variable pay, gratuity (if eligible), expense reimbursements, and approved claims, less any applicable notice pay adjustment, loan recovery, asset recovery, or other lawful deductions. The settlement shall be processed in accordance with Firm policy, the employee's employment contract, and applicable Indian laws.",
       ),
     ),
 

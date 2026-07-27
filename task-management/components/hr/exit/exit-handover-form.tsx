@@ -4,8 +4,9 @@ import * as React from "react";
 import { ArrowLeft, Loader2, Check } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { saveExitRecord } from "@/app/(app)/hr/exit/exit-actions";
-import { CLEARANCE_ROWS, HANDOVER_INSTRUCTIONS } from "@/lib/hr/exit/content";
-import { FloatingInput, CheckRow } from "./exit-fields";
+import { CLEARANCE_ROWS, HANDOVER_INSTRUCTIONS, HANDOVER_NOTES_LABEL } from "@/lib/hr/exit/content";
+import { FloatingInput, FloatingTextarea, CheckRow, LabelValueGrid, EmployeeCombobox, AutoFillField } from "./exit-fields";
+import type { ExitRosterEmployee } from "@/lib/hr/exit/schema";
 
 type Fields = Record<string, string>;
 type Checked = Record<string, boolean>;
@@ -18,6 +19,8 @@ interface InitialData {
 export function ExitHandoverForm({
   employeeId,
   employeeName,
+  roster = [],
+  onEmployeeChange,
   recordId,
   initial,
   onBack,
@@ -25,15 +28,24 @@ export function ExitHandoverForm({
 }: {
   employeeId: string;
   employeeName: string;
+  /** Full roster powering the searchable Employee dropdown + auto-fill. */
+  roster?: ExitRosterEmployee[];
+  /** Switch the record to another employee (workspace re-loads their form). */
+  onEmployeeChange?: (id: string) => void;
   recordId: string | null;
   initial?: InitialData;
   onBack: () => void;
   onSaved?: (id: string) => void;
 }) {
-  const [fields, setFields] = React.useState<Fields>(() => ({
-    header_employeeName: employeeName,
-    ...(initial?.fields ?? {}),
-  }));
+  const rosterEmp = roster.find((e) => e.id === employeeId) ?? null;
+  const [fields, setFields] = React.useState<Fields>(() => {
+    const seeded: Fields = { ...(initial?.fields ?? {}) };
+    seeded.header_employeeName = seeded.header_employeeName || employeeName;
+    // Auto-fill Employee ID + Department from the roster only when not already saved.
+    if (!seeded.header_employeeId) seeded.header_employeeId = rosterEmp?.employeeCode ?? rosterEmp?.id ?? "";
+    if (!seeded.header_department) seeded.header_department = rosterEmp?.department ?? "";
+    return seeded;
+  });
   const [checked, setChecked] = React.useState<Checked>(() => initial?.checked ?? {});
   const [saving, setSaving] = React.useState(false);
   const [savedAt, setSavedAt] = React.useState<Date | null>(recordId ? new Date() : null);
@@ -125,11 +137,31 @@ export function ExitHandoverForm({
         </p>
       </div>
 
-      {/* header fields */}
+      {/* identity recap — aligned label → value grid */}
+      <div className="mb-6 rounded-2xl border border-hairline bg-white px-5 py-4 max-md:px-4">
+        <LabelValueGrid
+          rows={[
+            { label: "Employee", value: fields.header_employeeName || employeeName },
+            { label: "Employee ID", value: fields.header_employeeId },
+            { label: "Department", value: fields.header_department },
+            { label: "Form", value: "Handover & Clearance · Annexure A" },
+          ]}
+        />
+      </div>
+
+      {/* header fields — searchable employee dropdown auto-fills Employee ID + Department */}
+      <div className="mb-4">
+        <EmployeeCombobox
+          label="Employee Name"
+          roster={roster}
+          value={employeeId}
+          onChange={(id) => onEmployeeChange?.(id)}
+          autoFocus
+        />
+      </div>
       <div className="mb-8 grid grid-cols-2 gap-4 max-md:grid-cols-1">
-        <FloatingInput label="Employee Name" value={fields.header_employeeName ?? ""} onChange={(v) => setF("header_employeeName", v)} autoFocus />
-        <FloatingInput label="Employee ID" value={fields.header_employeeId ?? ""} onChange={(v) => setF("header_employeeId", v)} />
-        <FloatingInput label="Department" value={fields.header_department ?? ""} onChange={(v) => setF("header_department", v)} />
+        <AutoFillField label="Employee ID" value={fields.header_employeeId ?? ""} onChange={(v) => setF("header_employeeId", v)} />
+        <AutoFillField label="Department" value={fields.header_department ?? ""} onChange={(v) => setF("header_department", v)} />
         <FloatingInput label="Last Working Day" type="date" value={fields.header_lastWorkingDay ?? ""} onChange={(v) => setF("header_lastWorkingDay", v)} />
       </div>
 
@@ -194,6 +226,17 @@ export function ExitHandoverForm({
           );
         })}
       </div>
+
+      {/* clearance notes */}
+      <section className="mt-4 overflow-hidden rounded-2xl border border-hairline bg-white p-5 max-md:p-4">
+        <h3 className="mb-3 text-[13px] font-bold uppercase tracking-[0.1em] text-ink-muted">Notes</h3>
+        <FloatingTextarea
+          label={HANDOVER_NOTES_LABEL}
+          value={fields.notes ?? ""}
+          onChange={(v) => setF("notes", v)}
+          rows={3}
+        />
+      </section>
 
       {/* sticky action bar */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-hairline bg-white/95 px-6 py-3.5 backdrop-blur max-md:px-4">

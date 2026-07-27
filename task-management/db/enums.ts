@@ -481,6 +481,49 @@ export const GOAL_PERIOD_LABELS: Record<GoalPeriodCode, string> = {
 export const GOAL_SOURCES = ["manual", "cascade"] as const;
 export type GoalSource = (typeof GOAL_SOURCES)[number];
 
+// ── Goal type taxonomy (migration 0168) ─────────────────────────────────────
+// The single `goal_type` taxonomy that replaces the fuzzy `goals.category` +
+// `weekly_goals.kpi` fields. Lives on BOTH `goals` and `weekly_goals` as a
+// nullable `text` column (house norm — not a pgEnum), so these unions are the
+// canonical source of truth. Spec:
+// docs/superpowers/specs/2026-07-27-goals-module-design.md §2.
+//
+// The type decides how a goal is scored (see lib/goals/scoring.ts):
+//   • 'kpi'         — Incentive class. Feeds the appraisal KPI bucket → incentive %.
+//                     Intra-KPI line weights sum to 100. Every KPI line is
+//                     incentive-linked (adhoc incentives are paid on top, outside).
+//   • 'branding'    — Non-KPI performance. Feeds the appraisal Monthly Goals bucket.
+//   • 'strategic'   — Non-KPI performance. Feeds the appraisal Monthly Goals bucket.
+//   • 'operational' — Non-KPI performance. Feeds the appraisal Monthly Goals bucket.
+//   • 'essential'   — Org/admin must-do. Shown on the scorecard but NEVER scored
+//                     (target-vs-actual date + days-delayed tracked only).
+//
+// Non-KPI = branding | strategic | operational; their weights across a person's
+// month sum to 100 and roll up into the Monthly Goals dimension score.
+//
+// LEGACY MAPPING (backfilled by 0168; legacy columns are KEPT, not dropped):
+//   old weekly_goals.kpi = true            → goal_type 'kpi'
+//   old goals.category   = 'operational'   → goal_type 'operational'
+//   everything else scored                 → default 'operational'
+//                                            (rows may also be left NULL pre-fill).
+export const GOAL_TYPES = ["kpi", "branding", "strategic", "operational", "essential"] as const;
+export type GoalType = (typeof GOAL_TYPES)[number];
+export const GOAL_TYPE_LABELS: Record<GoalType, string> = {
+  kpi: "KPI",
+  branding: "Branding",
+  strategic: "Strategic",
+  operational: "Operational",
+  essential: "Essential",
+};
+
+/** The three Non-KPI performance types — scored as weighted goals (Σ weights =
+ *  100) that roll up into the appraisal Monthly Goals bucket. */
+export const NON_KPI_GOAL_TYPES = [
+  "branding",
+  "strategic",
+  "operational",
+] as const satisfies readonly GoalType[];
+
 // ── Agreements module (migration 0132) ──────────────────────────────────────
 /** The four HR agreement templates. */
 export const AGREEMENT_TYPES = [

@@ -27,7 +27,7 @@ const template: LetterTemplate = {
     ),
     para(
       t(
-        "We are pleased to inform you that you have been shortlisted for the second round of the interview. We would like to invite you to discuss your opportunities with our company.",
+        "We are pleased to inform you that you have been shortlisted for the second round of the interview. We would like to invite you to discuss your opportunities with our firm.",
       ),
     ),
     heading("Interview Details:", 3),

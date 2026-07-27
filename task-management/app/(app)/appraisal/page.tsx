@@ -121,8 +121,9 @@ export default async function AppraisalPage({
             Appraisal
           </h1>
           <p className="mt-1.5 max-w-[76ch] text-[15px] font-medium text-ink-muted">
-            One live rolling scorecard per person across Incentive, KPI, Skill, Attitude,
-            Culture and Knowledge Sharing — Self and Manager advise, Management is final.
+            One live rolling scorecard per person — the KPI bucket drives the incentive payout,
+            Monthly Goals and the culture/competency dimensions round out the rest. Self and
+            Manager advise, Management is final.
           </p>
         </header>
 

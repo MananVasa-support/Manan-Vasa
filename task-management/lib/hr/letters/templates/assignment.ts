@@ -25,7 +25,7 @@ const template: LetterTemplate = {
       t("Thank you for the time you have invested with us so far. We were genuinely impressed by our conversations, and we are pleased to move you forward to the next step for the "),
       f("position", "Position Title", { placeholder: "e.g. Accounts Executive" }),
       t(" role at "),
-      f("company", "Company / Entity", { defaultValue: "Altus Corp" }),
+      f("company", "Firm / Entity", { defaultValue: "Altus Corp" }),
       t("."),
     ),
     para(

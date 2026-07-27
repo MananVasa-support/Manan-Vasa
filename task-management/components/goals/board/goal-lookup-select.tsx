@@ -116,10 +116,31 @@ export function GoalLookupSelect({
       <PopoverContent
         align="start"
         sideOffset={6}
-        className="z-[80] w-[var(--radix-popover-trigger-width)] min-w-[12rem] rounded-xl border border-hairline bg-surface-card p-1.5"
+        className="w-[var(--radix-popover-trigger-width)] min-w-[12rem] rounded-xl border border-hairline bg-surface-card p-1.5"
         style={{ boxShadow: "0 18px 44px -18px rgba(15,23,42,0.3)" }}
       >
-        <div className="max-h-72 overflow-auto">
+        {/* Keyboard: the popover auto-focuses its first option on open; ↑/↓ move
+            between options, Enter selects (the option buttons carry the onClick).
+            z-index comes from the PopoverContent primitive (z-[200]) — do NOT
+            re-set it here or the list buries itself behind the z-[120] drawer. */}
+        <div
+          className="max-h-72 overflow-auto"
+          role="listbox"
+          onKeyDown={(e) => {
+            if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+            e.preventDefault();
+            const btns = Array.from(
+              e.currentTarget.querySelectorAll<HTMLButtonElement>("[data-opt]"),
+            );
+            if (!btns.length) return;
+            const idx = btns.findIndex((b) => b === document.activeElement);
+            const next =
+              e.key === "ArrowDown"
+                ? Math.min(btns.length - 1, idx + 1)
+                : Math.max(0, idx < 0 ? 0 : idx - 1);
+            btns[next]?.focus();
+          }}
+        >
           {opts.map((o) => {
             const isSel = o.toLowerCase() === value.toLowerCase();
             const canDelete = isAdmin && deletableSet.has(o.toLowerCase());
@@ -134,6 +155,9 @@ export function GoalLookupSelect({
               >
                 <button
                   type="button"
+                  data-opt
+                  role="option"
+                  aria-selected={isSel}
                   onClick={() => {
                     onChange(o);
                     setOpen(false);

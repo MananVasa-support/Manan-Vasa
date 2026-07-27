@@ -9,9 +9,12 @@ import {
   EXIT_CHOICE_QUESTIONS,
   EXIT_RATING_ASPECTS,
   EXIT_RATING_LEGEND,
+  EXIT_ENV_FEEDBACK,
+  EXIT_INFRA_FEEDBACK,
   EXIT_CONFIDENTIALITY_NOTE,
 } from "@/lib/hr/exit/content";
-import { FloatingInput, FloatingTextarea, ChipGroup, RatingMatrix } from "./exit-fields";
+import { FloatingInput, FloatingTextarea, ChipGroup, RatingMatrix, LabelValueGrid, EmployeeCombobox, AutoFillField } from "./exit-fields";
+import type { ExitRosterEmployee } from "@/lib/hr/exit/schema";
 
 type Fields = Record<string, string>;
 type Ratings = Record<string, number>;
@@ -24,6 +27,8 @@ interface InitialData {
 export function ExitInterviewForm({
   employeeId,
   employeeName,
+  roster = [],
+  onEmployeeChange,
   recordId,
   initial,
   onBack,
@@ -31,15 +36,24 @@ export function ExitInterviewForm({
 }: {
   employeeId: string;
   employeeName: string;
+  /** Full roster powering the searchable Employee dropdown + auto-fill. */
+  roster?: ExitRosterEmployee[];
+  /** Switch the record to another employee (workspace re-loads their form). */
+  onEmployeeChange?: (id: string) => void;
   recordId: string | null;
   initial?: InitialData;
   onBack: () => void;
   onSaved?: (id: string) => void;
 }) {
-  const [fields, setFields] = React.useState<Fields>(() => ({
-    header_employeeName: employeeName,
-    ...(initial?.fields ?? {}),
-  }));
+  const rosterEmp = roster.find((e) => e.id === employeeId) ?? null;
+  const [fields, setFields] = React.useState<Fields>(() => {
+    const seeded: Fields = { ...(initial?.fields ?? {}) };
+    seeded.header_employeeName = seeded.header_employeeName || employeeName;
+    // Auto-fill Manager / Designation from the roster only when not already saved.
+    if (!seeded.header_designation) seeded.header_designation = rosterEmp?.designation ?? "";
+    if (!seeded.header_managerName) seeded.header_managerName = rosterEmp?.managerName ?? "";
+    return seeded;
+  });
   const [ratings, setRatings] = React.useState<Ratings>(() => initial?.ratings ?? {});
   const [saving, setSaving] = React.useState(false);
   const [savedAt, setSavedAt] = React.useState<Date | null>(recordId ? new Date() : null);
@@ -117,7 +131,7 @@ export function ExitInterviewForm({
           className="mt-1 text-ink-strong"
           style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 26, letterSpacing: "-0.01em" }}
         >
-          Exit Interview Questionnaire
+          Director Exit Interview
         </h1>
         <p
           className="mt-3 rounded-xl px-4 py-3 text-[13.5px] leading-relaxed text-ink-strong"
@@ -130,12 +144,32 @@ export function ExitInterviewForm({
         </p>
       </div>
 
-      {/* header fields */}
+      {/* identity recap — aligned label → value grid */}
+      <div className="mb-6 rounded-2xl border border-hairline bg-white px-5 py-4 max-md:px-4">
+        <LabelValueGrid
+          rows={[
+            { label: "Employee", value: fields.header_employeeName || employeeName },
+            { label: "Designation", value: fields.header_designation },
+            { label: "Manager", value: fields.header_managerName },
+            { label: "Form", value: "Director Exit Interview · Annexure B" },
+          ]}
+        />
+      </div>
+
+      {/* header fields — searchable employee dropdown auto-fills Manager + Designation */}
+      <div className="mb-4">
+        <EmployeeCombobox
+          label="Employee Name"
+          roster={roster}
+          value={employeeId}
+          onChange={(id) => onEmployeeChange?.(id)}
+          autoFocus
+        />
+      </div>
       <div className="mb-8 grid grid-cols-2 gap-4 max-md:grid-cols-1">
-        <FloatingInput label="Employee Name" value={fields.header_employeeName ?? ""} onChange={(v) => setF("header_employeeName", v)} autoFocus />
-        <FloatingInput label="Designation" value={fields.header_designation ?? ""} onChange={(v) => setF("header_designation", v)} />
-        <FloatingInput label="Manager Name" value={fields.header_managerName ?? ""} onChange={(v) => setF("header_managerName", v)} />
-        <FloatingInput label="Date of Interview" type="date" value={fields.header_dateOfInterview ?? ""} onChange={(v) => setF("header_dateOfInterview", v)} />
+        <AutoFillField label="Designation" value={fields.header_designation ?? ""} onChange={(v) => setF("header_designation", v)} />
+        <AutoFillField label="Manager Name" value={fields.header_managerName ?? ""} onChange={(v) => setF("header_managerName", v)} />
+        <FloatingInput label="Date of Exit Interview" type="date" value={fields.header_dateOfInterview ?? ""} onChange={(v) => setF("header_dateOfInterview", v)} />
       </div>
 
       <div className="flex flex-col gap-7">
@@ -168,9 +202,22 @@ export function ExitInterviewForm({
           <FloatingTextarea label="Your answer" value={fields.q9 ?? ""} onChange={(v) => setF("q9", v)} />
         </Question>
 
-        {/* Q10 — rating matrix */}
-        <Question n={10} prompt="Please rate the following on a scale of 1 (Poor) to 5 (Excellent).">
+        {/* About the Firm — standardized 5-point ratings + open feedback */}
+        <SectionHeading title="About the Firm" hint="Rate each aspect on the 5-point scale, then add anything in your own words." />
+
+        {/* Q10 — rating matrix (5-point: Poor → Excellent) */}
+        <Question n={10} prompt="Please rate the following experience areas (Poor → Excellent).">
           <RatingMatrix aspects={EXIT_RATING_ASPECTS} legend={EXIT_RATING_LEGEND} values={ratings} onChange={setR} />
+        </Question>
+
+        {/* Q11 — open-ended work environment & culture (replaces de-duplicated ratings) */}
+        <Question n={EXIT_ENV_FEEDBACK.n} prompt={EXIT_ENV_FEEDBACK.prompt}>
+          <FloatingTextarea label={EXIT_ENV_FEEDBACK.label} value={fields[EXIT_ENV_FEEDBACK.id] ?? ""} onChange={(v) => setF(EXIT_ENV_FEEDBACK.id, v)} />
+        </Question>
+
+        {/* Q12 — infrastructure feedback (new) */}
+        <Question n={EXIT_INFRA_FEEDBACK.n} prompt={EXIT_INFRA_FEEDBACK.prompt}>
+          <FloatingTextarea label={EXIT_INFRA_FEEDBACK.label} value={fields[EXIT_INFRA_FEEDBACK.id] ?? ""} onChange={(v) => setF(EXIT_INFRA_FEEDBACK.id, v)} />
         </Question>
       </div>
 
@@ -209,6 +256,20 @@ export function ExitInterviewForm({
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionHeading({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="mt-2 flex items-center gap-3">
+      <span className="h-px flex-none" style={{ width: 22, background: "var(--color-altus-red)" }} aria-hidden />
+      <div>
+        <h2 className="text-[15px] font-black uppercase tracking-[0.08em] text-ink-strong" style={{ color: "var(--color-altus-red-deep)" }}>
+          {title}
+        </h2>
+        {hint && <p className="mt-0.5 text-[12.5px] text-ink-muted">{hint}</p>}
       </div>
     </div>
   );

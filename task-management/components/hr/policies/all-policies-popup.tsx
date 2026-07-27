@@ -103,7 +103,7 @@ export function AllPoliciesPopup({
         <header className="app-head">
           <div className="app-head-titles">
             <span className="app-eyebrow">
-              <ShieldCheck size={13} strokeWidth={2.6} aria-hidden /> Company Policies
+              <ShieldCheck size={13} strokeWidth={2.6} aria-hidden /> Firm Policies
             </span>
             <h2 id="app-title" className="app-title">
               All Policies

@@ -83,7 +83,7 @@ const template: LetterTemplate = {
       ),
       f("referralPct", "Referral %", { placeholder: "e.g. 10" }),
       t(
-        "% of the converted business amount, subject to applicable company policies and successful realization of payments from the respective client(s).",
+        "% of the converted business amount, subject to applicable firm policies and successful realization of payments from the respective client(s).",
       ),
     ),
     para(

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft, FileText, Home } from "lucide-react";
+import { LetterBackButton } from "@/components/hr/letters/letter-back-button";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { getLetter } from "@/lib/hr/letters/registry";
@@ -36,9 +37,10 @@ export default async function LetterPage({
     <div className="min-h-dvh bg-[#faf9fb]">
       <header className="sticky top-0 z-30 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-hairline bg-white/90 px-6 py-3 backdrop-blur max-md:px-4 print:hidden">
         <div className="justify-self-start flex items-center gap-2">
+          <LetterBackButton />
           <Link
             href={"/hr" as Route}
-            className="inline-flex items-center gap-1.5 rounded-full border border-hairline-strong bg-white px-3.5 py-2 text-[13px] font-bold text-ink-strong transition-colors hover:border-ink-muted max-md:px-2.5"
+            className="inline-flex items-center gap-1.5 rounded-full border border-hairline-strong bg-white px-3.5 py-2 text-[13px] font-bold text-ink-strong transition-colors hover:border-ink-muted max-md:px-2.5 max-md:hidden"
           >
             <Home size={15} strokeWidth={2.4} />
             <span className="max-md:hidden">HR Home</span>

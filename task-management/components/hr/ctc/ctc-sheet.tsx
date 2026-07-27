@@ -103,7 +103,7 @@ export function CtcSheet({
           annual={totals.employerAnnual}
           muted
         />
-        <LadderRow label="Cost to Company (CTC)" monthly={totals.ctcMonthly} annual={totals.ctcAnnual} hero />
+        <LadderRow label="Cost to Firm (CTC)" monthly={totals.ctcMonthly} annual={totals.ctcAnnual} hero />
       </section>
     </div>
   );

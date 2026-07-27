@@ -14,10 +14,16 @@ import {
   BadgeCheck,
   ClipboardList,
   Snowflake,
+  Plus,
+  Loader2,
+  Check,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { fireToast } from "@/lib/toast";
-import { carryAllUnfinishedForward } from "@/app/(app)/goals/weekly/actions";
+import { addWeekGoal, carryAllUnfinishedForward } from "@/app/(app)/goals/weekly/actions";
+import { WeeklyGoalDrawer } from "@/components/weekly-goals/goal-drawer";
+import { WeeklyGoalsImport } from "@/components/weekly-goals/weekly-goals-import";
+import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
 import { CascadeGoalCard } from "./cascade-goal-card";
 import { GoalTableView } from "@/components/goals/board/goal-table-view";
 import { WEEKLY_TABLE_ACTIONS } from "@/components/goals/board/weekly-table-actions";
@@ -124,6 +130,7 @@ export function WeeklyCascadeBoard({
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
   const [commitOpen, setCommitOpen] = React.useState(false);
+  const quickAddRef = React.useRef<WeeklyQuickAddHandle>(null);
 
   function goWeek(w: string) {
     const params = new URLSearchParams();
@@ -266,6 +273,29 @@ export function WeeklyCascadeBoard({
           </select>
         )}
 
+        {/* Create — a single weekly goal (composer drawer) + bulk file import.
+            Both write into the week + person in view via the cascade weekly
+            engine (addWeekGoal / importWeeklyGoals). */}
+        <button
+          type="button"
+          onClick={() => quickAddRef.current?.open()}
+          className="wg-btn wg-sheen inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[12.5px] font-bold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
+          style={{
+            background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
+            boxShadow:
+              "0 8px 20px -10px color-mix(in srgb, var(--goals-accent, #E10600) 65%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)",
+          }}
+        >
+          <Plus size={14} strokeWidth={2.8} />
+          Add weekly goal
+        </button>
+        <WeeklyGoalsImport
+          employeeId={scopeEmp}
+          weekStart={weekStart}
+          weekLabel={weekLabel}
+          isAdmin={me.isAdmin}
+        />
+
         {/* Ritual state — Saturday commit / Monday approve, reachable in context.
             The chips read the existing stamps; the ritual pages keep the logic. */}
         {adopted.length > 0 && (
@@ -392,6 +422,21 @@ export function WeeklyCascadeBoard({
         </div>
       )}
 
+      {/* Add a single weekly goal — the dashed tile after the list (the pill in
+          the controls row opens this same composer via the ref). */}
+      <div className="mt-4">
+        <WeeklyQuickAdd
+          ref={quickAddRef}
+          employeeId={scopeEmp}
+          weekStart={weekStart}
+          currentCount={rows.length}
+          monthGoalOptions={monthGoalOptions}
+          areaOptions={areaOptions}
+          customAreas={customLookups.areas}
+          isAdmin={me.isAdmin}
+        />
+      </div>
+
       {commit && (
         <CommitDialog
           open={commitOpen}
@@ -448,3 +493,229 @@ function RitualChip({
     </Link>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Weekly quick-add — create ONE weekly goal in the week + person in    */
+/* view. Mirrors board-quick-add's UX (WeeklyGoalDrawer, save-and-add-  */
+/* another with a bumping eyebrow count, an "End" button, keyboard-     */
+/* first ⌘/Ctrl+Enter) but writes through the CASCADE weekly action     */
+/* `addWeekGoal` (NOT the legacy createWeeklyGoal). addWeekGoal only    */
+/* takes { employeeId, weekStart, title, area?, monthGoalId? }, so the  */
+/* composer surfaces exactly those fields; targets/actuals/team stay    */
+/* inline-editable on the row afterwards.                               */
+/* ------------------------------------------------------------------ */
+
+const QUICK_ADD_FOCUS_RING =
+  "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-card)]";
+
+export interface WeeklyQuickAddHandle {
+  open: () => void;
+}
+
+const WeeklyQuickAdd = React.forwardRef<
+  WeeklyQuickAddHandle,
+  {
+    employeeId: string;
+    weekStart: string;
+    currentCount: number;
+    monthGoalOptions: MonthGoalOption[];
+    areaOptions: string[];
+    customAreas: string[];
+    isAdmin: boolean;
+  }
+>(function WeeklyQuickAdd(props, ref) {
+  const router = useRouter();
+  const [open, setOpen] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const [title, setTitle] = React.useState("");
+  const [area, setArea] = React.useState("");
+  const [monthGoalId, setMonthGoalId] = React.useState("");
+  const [error, setError] = React.useState<string | null>(null);
+  const [addedCount, setAddedCount] = React.useState(0);
+  const titleRef = React.useRef<HTMLInputElement>(null);
+
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      open: () => {
+        setOpen(true);
+        requestAnimationFrame(() => titleRef.current?.focus());
+      },
+    }),
+    [],
+  );
+
+  function reset() {
+    setTitle("");
+    setArea("");
+    setMonthGoalId("");
+    setError(null);
+  }
+
+  function closeAll() {
+    setOpen(false);
+    reset();
+    setAddedCount(0);
+  }
+
+  function submit() {
+    const t = title.trim();
+    if (!t) {
+      setError("Give the goal a name before saving.");
+      titleRef.current?.focus();
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    void addWeekGoal({
+      employeeId: props.employeeId,
+      weekStart: props.weekStart,
+      title: t,
+      area: area.trim() || null,
+      monthGoalId: monthGoalId || null,
+    })
+      .then((res) => {
+        setSaving(false);
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        // Save-and-add-another: keep the drawer open, clear the fields, bump the
+        // running count in the eyebrow, refocus the first field. "End" closes.
+        setAddedCount((c) => c + 1);
+        reset();
+        titleRef.current?.focus();
+        router.refresh();
+      })
+      .catch((e: unknown) => {
+        setSaving(false);
+        setError(e instanceof Error ? e.message : "Couldn't save the goal. Try again.");
+      });
+  }
+
+  return (
+    <>
+      {/* Calm dashed "+ Add weekly goal" tile (matches board-quick-add). */}
+      <button
+        type="button"
+        onClick={() => {
+          setOpen(true);
+          requestAnimationFrame(() => titleRef.current?.focus());
+        }}
+        className={`wg-btn group flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed px-4 py-5 text-[15px] font-bold transition-colors hover:bg-surface-soft ${QUICK_ADD_FOCUS_RING}`}
+        style={{
+          borderColor: "color-mix(in srgb, var(--color-altus-red) 40%, transparent)",
+          color: "var(--color-altus-red-deep)",
+          background: "color-mix(in srgb, var(--color-altus-red) 4%, transparent)",
+        }}
+      >
+        <span
+          className="inline-flex size-7 items-center justify-center rounded-full"
+          style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red)" }}
+        >
+          <Plus size={16} strokeWidth={2.8} />
+        </span>
+        Add weekly goal
+      </button>
+
+      <WeeklyGoalDrawer
+        open={open}
+        onClose={closeAll}
+        eyebrow={`New weekly goal · #${props.currentCount + addedCount + 1}`}
+        title="Add Goal for the Week"
+        footer={
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[12px] font-medium" style={{ color: "var(--color-ink-subtle)" }}>
+              {addedCount > 0 ? `${addedCount} added · keep going, or End` : "⌘/Ctrl + Enter to save"}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={closeAll}
+                className={`inline-flex items-center rounded-full border px-5 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:bg-surface-soft hover:text-ink-strong ${QUICK_ADD_FOCUS_RING}`}
+                style={{ borderColor: "var(--color-hairline-strong)" }}
+              >
+                End
+              </button>
+              <button
+                type="button"
+                onClick={submit}
+                disabled={saving}
+                className={`wg-btn inline-flex items-center gap-1.5 rounded-full px-6 py-2.5 text-[14px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 ${QUICK_ADD_FOCUS_RING}`}
+                style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+              >
+                {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.8} />}
+                Add Goal
+              </button>
+            </div>
+          </div>
+        }
+      >
+        <div
+          className="grid gap-5"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
+          }}
+        >
+          {error && (
+            <p
+              className="rounded-lg px-3 py-2 text-[13px] font-semibold text-altus-red"
+              style={{ background: "color-mix(in srgb, var(--color-altus-red) 8%, transparent)" }}
+            >
+              {error}
+            </p>
+          )}
+
+          {/* Area — managed dropdown (admins can add options). */}
+          <div className="block">
+            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Area</span>
+            <GoalLookupSelect
+              kind="area"
+              noun="Area"
+              value={area}
+              onChange={setArea}
+              options={props.areaOptions}
+              custom={props.customAreas}
+              isAdmin={props.isAdmin}
+              placeholder="Choose an area"
+            />
+          </div>
+
+          {/* Goal (→ target_done, the row's title everywhere). */}
+          <label className="block">
+            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Goal</span>
+            <input
+              ref={titleRef}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="What does done look like this week?"
+              className={`h-10 w-full rounded-md border bg-white px-2.5 text-[15px] font-medium text-ink-strong focus:border-altus-red ${QUICK_ADD_FOCUS_RING}`}
+              style={{ borderColor: "var(--color-hairline-strong)" }}
+            />
+          </label>
+
+          {/* Link up to a monthly cascade goal (optional parent). */}
+          <label className="block">
+            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Monthly goal</span>
+            <select
+              value={monthGoalId}
+              onChange={(e) => setMonthGoalId(e.target.value)}
+              className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-semibold text-ink-strong focus:border-altus-red ${QUICK_ADD_FOCUS_RING}`}
+              style={{ borderColor: "var(--color-hairline-strong)" }}
+            >
+              <option value="">No monthly link</option>
+              {props.monthGoalOptions.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.title}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-[11.5px] font-medium text-ink-subtle">
+              Ladder this week&apos;s goal up to its monthly parent (optional).
+            </span>
+          </label>
+        </div>
+      </WeeklyGoalDrawer>
+    </>
+  );
+});

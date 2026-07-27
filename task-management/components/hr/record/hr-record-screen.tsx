@@ -16,6 +16,13 @@ import {
   HeartHandshake,
   Library,
   UserRound,
+  ScrollText,
+  CircleCheck,
+  Circle,
+  FileDown,
+  LogOut,
+  MessagesSquare,
+  ClipboardCheck,
 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import type { CandidateRow } from "@/app/(app)/hr/candidate-actions";
@@ -24,6 +31,10 @@ import {
   saveManagementAssessment,
   type ManagementAssessmentState,
 } from "@/app/(app)/hr/management-assessment-actions";
+import { getPolicySigningStatus } from "@/app/(app)/hr/record/policy-status";
+import type { PolicySignStatus } from "@/app/(app)/hr/record/policy-status-types";
+import { getExitStatus } from "@/app/(app)/hr/record/exit-status";
+import type { ExitSummary } from "@/app/(app)/hr/record/exit-status-types";
 import { SkillMultiSelect, type SkillSelection } from "@/components/hr/candidate/skill-multiselect";
 import type { SkillLookupOptions } from "@/lib/hr/skills";
 
@@ -106,6 +117,11 @@ export function HrRecordScreen({
   const [skills, setSkills] = React.useState<SkillSelection>(EMPTY_SKILLS);
   const [saving, setSaving] = React.useState(false);
   const [dirty, setDirty] = React.useState(false);
+  const [policy, setPolicy] = React.useState<PolicySignStatus | null>(null);
+  const [policyLoading, setPolicyLoading] = React.useState(false);
+  const [docketLoading, setDocketLoading] = React.useState(false);
+  const [exit, setExit] = React.useState<ExitSummary | null>(null);
+  const [exitLoading, setExitLoading] = React.useState(false);
 
   const maRef = React.useRef<ManagementAssessmentState | null>(null);
   const skillsRef = React.useRef(skills); skillsRef.current = skills;
@@ -144,8 +160,21 @@ export function HrRecordScreen({
     setSkills(EMPTY_SKILLS); skillsRef.current = EMPTY_SKILLS;
     maRef.current = null;
     setDirty(false);
+    setPolicy(null); setPolicyLoading(false);
+    setExit(null); setExitLoading(false);
     if (!id) return;
     setLoading(true);
+    // Policy-signing + exit records load in PARALLEL (never block the editor).
+    setPolicyLoading(true);
+    void getPolicySigningStatus(id)
+      .then((res) => { if (cidRef.current === id) setPolicy(res.ok ? res.status : null); })
+      .catch(() => { if (cidRef.current === id) setPolicy(null); })
+      .finally(() => { if (cidRef.current === id) setPolicyLoading(false); });
+    setExitLoading(true);
+    void getExitStatus(id)
+      .then((res) => { if (cidRef.current === id) setExit(res.ok ? res.status : null); })
+      .catch(() => { if (cidRef.current === id) setExit(null); })
+      .finally(() => { if (cidRef.current === id) setExitLoading(false); });
     try {
       const state = await getManagementAssessment(id);
       maRef.current = state;
@@ -163,6 +192,44 @@ export function HrRecordScreen({
   function updateSkills(next: SkillSelection) {
     setSkills(next); skillsRef.current = next;
     scheduleSave();
+  }
+
+  async function downloadDocket() {
+    const id = cidRef.current;
+    if (!id || docketLoading) return;
+    setDocketLoading(true);
+    try {
+      const res = await fetch("/api/hr/docket", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ candidateId: id }),
+      });
+      // A JSON body means "nothing to download" (or an error) — surface it as a toast.
+      const ct = res.headers.get("content-type") ?? "";
+      if (ct.includes("application/json")) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        fireToast({ message: data?.error || "Couldn't build the docket.", type: "error" });
+        return;
+      }
+      if (!res.ok) {
+        fireToast({ message: "Couldn't build the docket.", type: "error" });
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `docket-${(selected?.fullName || "person").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      fireToast({ message: "Docket downloaded.", type: "success" });
+    } catch {
+      fireToast({ message: "Couldn't build the docket.", type: "error" });
+    } finally {
+      setDocketLoading(false);
+    }
   }
 
   React.useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
@@ -339,10 +406,65 @@ export function HrRecordScreen({
                   </span>
                   <ArrowUpRight size={17} className="shrink-0 text-ink-subtle transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                 </Link>
+                {selected && (
+                  <button
+                    type="button"
+                    onClick={() => void downloadDocket()}
+                    disabled={docketLoading}
+                    className="mt-2.5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-[13.5px] font-bold text-white transition-opacity hover:opacity-95 disabled:opacity-50"
+                    style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`, boxShadow: "0 10px 22px -14px rgba(168,4,0,0.8)" }}
+                  >
+                    {docketLoading ? (
+                      <><Loader2 size={15} className="animate-spin" /> Building docket…</>
+                    ) : (
+                      <><FileDown size={15} /> Download docket (PDF)</>
+                    )}
+                  </button>
+                )}
                 <p className="mt-3 flex items-start gap-2 text-[12px] leading-relaxed text-ink-subtle">
                   <UserRound size={13} className="mt-0.5 shrink-0" />
-                  Once the candidate becomes an employee, their files live in the dossier vault.
+                  The docket merges every archived, signed document into one PDF packet. Files also live in the dossier vault.
                 </p>
+              </RecordCard>
+            </section>
+
+            {/* Policies signed record */}
+            <section className="col-span-12 rec-fade">
+              <RecordCard
+                n={4}
+                icon={<ScrollText size={18} />}
+                title="Policies Signatory"
+                sub="How many firm policies this person has signed — and what's still pending."
+                right={
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[12px] font-bold"
+                    style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, white)", color: RED_DEEP }}
+                  >
+                    {policy ? policy.policies.filter((p) => p.signed).length : 0} / {policy ? policy.policies.length : 0} signed
+                  </span>
+                }
+              >
+                <PoliciesSigned status={policy} loading={policyLoading} />
+              </RecordCard>
+            </section>
+
+            {/* Exit & Handover record */}
+            <section className="col-span-12 rec-fade">
+              <RecordCard
+                n={5}
+                icon={<LogOut size={18} />}
+                title="Exit & Handover"
+                sub="This person's exit interview and handover clearance — populated once their separation begins."
+                right={
+                  <Link
+                    href={"/hr/exit" as Route}
+                    className="inline-flex items-center gap-1 rounded-pill border border-hairline-strong bg-white px-3 py-1 text-[12px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
+                  >
+                    Open Exit <ArrowUpRight size={13} />
+                  </Link>
+                }
+              >
+                <ExitHandover status={exit} loading={exitLoading} />
               </RecordCard>
             </section>
 
@@ -389,6 +511,116 @@ export function HrRecordScreen({
   );
 }
 
+/**
+ * The per-person policy-signing record: a progress RING (signed / total) beside a
+ * checklist of every published policy — a green tick when signed, a hollow ring
+ * when still pending. When the person isn't yet linked to an employee account, a
+ * gentle note explains why nothing is signed yet.
+ */
+function PoliciesSigned({ status, loading }: { status: PolicySignStatus | null; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="grid place-items-center py-8 text-ink-muted">
+        <Loader2 className="animate-spin" style={{ color: RED }} />
+      </div>
+    );
+  }
+  const policies = status?.policies ?? [];
+  const total = policies.length;
+  const signed = policies.filter((p) => p.signed).length;
+  const remaining = total - signed;
+  const pct = total > 0 ? signed / total : 0;
+  const allDone = total > 0 && signed === total;
+
+  // Ring geometry
+  const R = 46;
+  const C = 2 * Math.PI * R;
+  const dash = C * pct;
+
+  return (
+    <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+      {/* Progress ring */}
+      <div className="flex shrink-0 items-center gap-4">
+        <div className="relative grid place-items-center" style={{ width: 116, height: 116 }}>
+          <svg width={116} height={116} viewBox="0 0 116 116" className="rec-ring">
+            <circle cx={58} cy={58} r={R} fill="none" stroke="var(--color-hairline)" strokeWidth={10} />
+            <circle
+              cx={58} cy={58} r={R} fill="none"
+              stroke={allDone ? "#15803d" : RED}
+              strokeWidth={10} strokeLinecap="round"
+              strokeDasharray={`${dash} ${C - dash}`}
+              transform="rotate(-90 58 58)"
+              style={{ transition: "stroke-dasharray 0.6s cubic-bezier(0.22,1,0.36,1)" }}
+            />
+          </svg>
+          <div className="absolute grid place-items-center text-center">
+            <span className="text-[26px] font-black leading-none tabular-nums text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif" }}>
+              {signed}
+              <span className="text-[15px] font-bold text-ink-subtle">/{total}</span>
+            </span>
+            <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-soft">Signed</span>
+          </div>
+        </div>
+        <div className="sm:hidden">
+          <p className="text-[13px] font-semibold text-ink-strong">{allDone ? "All policies signed 🎉" : `${remaining} remaining`}</p>
+        </div>
+      </div>
+
+      {/* Checklist */}
+      <div className="min-w-0 flex-1">
+        {total === 0 ? (
+          <p className="text-[13.5px] font-medium text-ink-muted">No policies are published yet.</p>
+        ) : (
+          <>
+            <div className="mb-3 hidden items-center gap-2 sm:flex">
+              {allDone ? (
+                <span className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[12px] font-bold" style={{ background: "color-mix(in srgb, #16a34a 12%, white)", color: "#15803d" }}>
+                  <CircleCheck size={13} strokeWidth={2.6} /> All signed
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[12px] font-bold" style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, white)", color: RED_DEEP }}>
+                  {remaining} remaining
+                </span>
+              )}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {policies.map((p) => (
+                <div
+                  key={p.key}
+                  className="flex items-center gap-2.5 rounded-xl border px-3 py-2.5"
+                  style={{
+                    borderColor: p.signed ? "color-mix(in srgb, #16a34a 30%, white)" : "var(--color-hairline)",
+                    background: p.signed ? "color-mix(in srgb, #16a34a 6%, white)" : "var(--color-surface-soft)",
+                  }}
+                >
+                  {p.signed ? (
+                    <CircleCheck size={17} strokeWidth={2.4} style={{ color: "#15803d" }} className="shrink-0" />
+                  ) : (
+                    <Circle size={17} strokeWidth={2} className="shrink-0 text-ink-subtle" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-ink-strong">{p.title}</span>
+                  <span
+                    className="shrink-0 text-[11px] font-bold uppercase tracking-[0.08em]"
+                    style={{ color: p.signed ? "#15803d" : "var(--color-ink-subtle)" }}
+                  >
+                    {p.signed ? "Signed" : "Pending"}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {status && !status.matched && (
+              <p className="mt-3 flex items-start gap-2 text-[12px] leading-relaxed text-ink-subtle">
+                <UserRound size={13} className="mt-0.5 shrink-0" />
+                Not yet linked to an employee account — signatures will appear here once this person joins and signs on day one.
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SkillGroupSummary({
   icon, title, items, tone,
 }: {
@@ -417,6 +649,83 @@ function SkillGroupSummary({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** The per-person Exit & Handover summary — exit interview status + handover
+ *  clearance progress, or a gentle note when there's nothing on file yet. */
+function ExitHandover({ status, loading }: { status: ExitSummary | null; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="grid place-items-center py-8 text-ink-muted">
+        <Loader2 className="animate-spin" style={{ color: RED }} />
+      </div>
+    );
+  }
+  const started = Boolean(status && (status.interviewUpdatedAt || status.handoverUpdatedAt));
+  if (!status || !started) {
+    return (
+      <p className="flex items-start gap-2 text-[13px] leading-relaxed text-ink-subtle">
+        <UserRound size={13} className="mt-0.5 shrink-0" />
+        {status && !status.matched
+          ? "Not linked to an employee account yet — exit records will appear here once this person joins and their separation begins."
+          : "No exit process on file yet — the exit interview and handover clearance will show here once started."}
+      </p>
+    );
+  }
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const pct = status.handoverTotal > 0 ? Math.round((status.handoverCleared / status.handoverTotal) * 100) : 0;
+  const handoverDone = status.handoverTotal > 0 && status.handoverCleared === status.handoverTotal;
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {/* Exit interview */}
+      <div
+        className="rounded-xl border px-4 py-3"
+        style={
+          status.interviewUpdatedAt
+            ? { borderColor: "color-mix(in srgb, #16a34a 30%, white)", background: "color-mix(in srgb, #16a34a 6%, white)" }
+            : { borderColor: "var(--color-hairline)", background: "var(--color-surface-soft)" }
+        }
+      >
+        <div className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-ink-soft">
+          <MessagesSquare size={13} /> Exit Interview
+        </div>
+        {status.interviewUpdatedAt ? (
+          <p className="text-[13.5px] font-bold" style={{ color: "#15803d" }}>Completed · {fmtDate(status.interviewUpdatedAt)}</p>
+        ) : (
+          <p className="text-[13.5px] font-medium text-ink-subtle">Not done yet</p>
+        )}
+      </div>
+
+      {/* Handover & clearance */}
+      <div
+        className="rounded-xl border px-4 py-3"
+        style={
+          handoverDone
+            ? { borderColor: "color-mix(in srgb, #16a34a 30%, white)", background: "color-mix(in srgb, #16a34a 6%, white)" }
+            : { borderColor: "var(--color-hairline)", background: "var(--color-surface-soft)" }
+        }
+      >
+        <div className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-ink-soft">
+          <ClipboardCheck size={13} /> Handover & Clearance
+        </div>
+        {status.handoverUpdatedAt ? (
+          <>
+            <p className="text-[13.5px] font-bold text-ink-strong tabular-nums">
+              {status.handoverCleared}/{status.handoverTotal} cleared
+              <span className="ml-1 text-[12px] font-semibold" style={{ color: handoverDone ? "#15803d" : RED_DEEP }}>({pct}%)</span>
+            </p>
+            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--color-hairline)" }}>
+              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: handoverDone ? "#16a34a" : `linear-gradient(90deg, ${RED}, ${RED_DEEP})` }} />
+            </div>
+            <p className="mt-1 text-[11px] font-medium text-ink-subtle">Updated {fmtDate(status.handoverUpdatedAt)}</p>
+          </>
+        ) : (
+          <p className="text-[13.5px] font-medium text-ink-subtle">Not started</p>
+        )}
+      </div>
     </div>
   );
 }

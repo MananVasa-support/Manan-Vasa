@@ -120,7 +120,7 @@ function ctcRows(): TableRow[] {
 }
 
 const NOTES_SEED =
-  "1. Six months probation, six days working.\n2. Reimbursement of conveyance for client visits will be paid as per company policy.";
+  "1. Six months probation, six days working.\n2. Reimbursement of conveyance for client visits will be paid as per firm policy.";
 
 const GROWTH_SEED = [
   "1. Learning Productivity Shastra Workshop worth Rs. 30,000/- in the first two months of joining (improves time management & productivity).",
@@ -135,9 +135,9 @@ const template: LetterTemplate = {
   category: "compensation",
   entityDefault: "altus-corp",
   signature: "esign",
-  blurb: "The structured Cost-to-Company annexure — component-wise pay-slip break-up.",
+  blurb: "The structured Cost-to-Firm annexure — component-wise pay-slip break-up.",
   blocks: [
-    heading("COST TO THE COMPANY STRUCTURE WITH BREAK-UP", 1),
+    heading("COST TO THE FIRM STRUCTURE WITH BREAK-UP", 1),
 
     term("Name", f("employeeName", "Name", { placeholder: "e.g. Ms. Tanisha Shah" })),
     term("Designation", f("designation", "Designation", { placeholder: "e.g. Business Development Manager" })),

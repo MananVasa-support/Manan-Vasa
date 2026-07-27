@@ -177,8 +177,12 @@ ${LETTERHEAD_CSS}
   <div class="alh-page">
     ${headerImg}
     ${logoSwap}
-    <main class="alh-body">${bodyHtml}</main>
     ${footerImg}
+    <table class="alh-frame">
+      <thead><tr><td><div class="alh-head-space"></div></td></tr></thead>
+      <tbody><tr><td><main class="alh-body">${bodyHtml}</main></td></tr></tbody>
+      <tfoot><tr><td><div class="alh-foot-space"></div></td></tr></tfoot>
+    </table>
   </div>
 </body>
 </html>`;
@@ -222,12 +226,19 @@ html,body{margin:0;padding:0;background:#ffffff;}
   height:122px;width:auto;max-width:126px;
   object-fit:contain;display:block;z-index:2;
 }
+/* Page frame — thead/tfoot are empty spacer bands the browser REPEATS + reserves
+   on every printed page, so the body never slides under the fixed header/footer
+   on page 2+. (Same technique as letterhead.tsx.) */
+.alh-frame{position:relative;z-index:3;width:100%;border-collapse:collapse;table-layout:fixed;}
+.alh-frame>thead>tr>td,.alh-frame>tbody>tr>td,.alh-frame>tfoot>tr>td{padding:0;border:0;vertical-align:top;}
+.alh-head-space{height:196px;}
+.alh-foot-space{height:100px;}
 /* Body */
 .alh-body{
-  position:relative;z-index:3;
-  padding:198px 70px 104px;
+  padding:2px 70px 8px;
   font-family:Georgia,"Times New Roman",serif;
   font-size:15px;line-height:1.72;color:#111114;
+  overflow-wrap:break-word;
 }
 .alh-body p{margin:0 0 14px;}
 .alh-body h1{font-size:22px;line-height:1.3;margin:0 0 12px;font-weight:700;}

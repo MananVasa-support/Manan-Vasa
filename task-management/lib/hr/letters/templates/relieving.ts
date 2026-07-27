@@ -42,9 +42,9 @@ const template: LetterTemplate = {
     para(
       t("This letter is an official acknowledgement that your resignation from your position as "),
       f("position", "Position", { placeholder: "e.g. Sales Manager" }),
-      t(" at Altus Corp was received on "),
+      t(" at {firm} was received on "),
       f("resignationReceivedDate", "Resignation Received Date", { placeholder: "e.g. 21st March 2026" }),
-      t(". This also certifies that you have successfully completed your tenure with the company from "),
+      t(". This also certifies that you have successfully completed your tenure with the firm from"),
       f("tenureFrom", "Tenure From", { placeholder: "e.g. 8th December 2025" }),
       t(" to "),
       f("tenureTo", "Tenure To", { placeholder: "e.g. 21st March 2026" }),
@@ -52,17 +52,17 @@ const template: LetterTemplate = {
     ),
     para(
       t(
-        "We hereby confirm your departure from the company and grant you release from your duties and responsibilities as a sales manager. We are pleased with the way you have performed all your duties, responsibilities, and tasks with diligence, sincerity, and utmost professionalism.",
+        "We hereby confirm your departure from the firm and grant you release from your duties and responsibilities as a sales manager. We are pleased with the way you have performed all your duties, responsibilities, and tasks with diligence, sincerity, and utmost professionalism.",
       ),
     ),
     para(
       t(
-        "Kindly note that your full and final settlement will be made as per the company's policy in the stipulated time.",
+        "Kindly note that your full and final settlement will be made as per the firm's policy in the stipulated time.",
       ),
     ),
     para(
       t(
-        "We highly appreciate your efforts and contributions to the company during your tenure and wish you the best in all your future endeavors.",
+        "We highly appreciate your efforts and contributions to the firm during your tenure and wish you the best in all your future endeavors.",
       ),
     ),
 

@@ -1,64 +1,61 @@
 /**
- * Appraisal v2 — client-safe shared types + constants.
+ * Appraisal v2 — client-safe shared types + constants (ROLE-BASED FRAMEWORK).
  *
  * NO server imports here (no "server-only", no db) — this module is imported by
  * both server actions and client components, so it must stay pure/isomorphic.
  *
- * ONE LIVE ROLLING SCORECARD per employee. Management is the FINAL authority:
- * each item is scored Self (advisory) + Manager (advisory) + Management (final,
- * the one that counts). All item scores are PERCENT 0-100, weighted by each
- * item's sub-weight into its dimension %. 6 dimensions, admin-adjustable
- * weights summing to 100. Overall /100 = Σ(dimensionPct × dimensionWeight/100).
+ * ONE LIVE ROLLING SCORECARD per employee. Each person is a Manager or a
+ * Non-Manager; the role selects the dimension set + weights from the shared
+ * performance framework (lib/performance/framework · MACRO_BUCKETS). The KPI
+ * dimension is the incentive driver — computed from the person's KPI-dictionary
+ * targets (never entered as a 0-100 score); its internal KPI % IS the Final
+ * Incentive Authorization %. Every OTHER dimension is a 0-100 score entered
+ * Self (advisory) + Manager (advisory) + Management (final). Overall /100 =
+ * Σ(dimensionPct × weight/100) over the role's dimensions.
  */
 
-/** The six appraisal dimensions, in display order. */
-export const APPR_DIMENSIONS = [
-  "incentive",
-  "kpi",
-  "skill",
-  "attitude",
-  "culture",
-  "knowledge",
-] as const;
+import {
+  MACRO_BUCKETS,
+  ROLE_CLASSES,
+  kpiWeight,
+  scoreBuckets,
+  type Bucket,
+  type RoleClass,
+} from "@/lib/performance/framework";
 
-export type ApprDimension = (typeof APPR_DIMENSIONS)[number];
-
-/** Human labels for each dimension. */
-export const DIMENSION_LABELS: Record<ApprDimension, string> = {
-  incentive: "Incentive",
-  kpi: "KPI",
-  skill: "Skill",
-  attitude: "Attitude & Mindset",
-  culture: "Culture",
-  knowledge: "Knowledge Sharing",
-};
-
-/** Default (admin-adjustable) dimension weights — MUST sum to 100. */
-export const DEFAULT_WEIGHTS: Record<ApprDimension, number> = {
-  incentive: 30,
-  kpi: 30,
-  skill: 10,
-  attitude: 20,
-  culture: 5,
-  knowledge: 5,
+export {
+  MACRO_BUCKETS,
+  ROLE_CLASSES,
+  kpiWeight,
+  scoreBuckets,
+  type Bucket,
+  type RoleClass,
 };
 
 /** Tier that produced a score. Management is FINAL. */
 export type ScoreTier = "self" | "manager" | "management";
 
-/** Item kinds that carry per-item Self/Manager/Management scores. */
-export type ItemKind = "kpi" | "skill" | "attitude";
+/** The role's dimensions in display order (id/label/weight/kind). */
+export function dimensionsForRole(role: RoleClass): Bucket[] {
+  return MACRO_BUCKETS[role];
+}
 
 /**
- * The 4 fixed Attitude & Mindset items (each weight 5 → 20 total). Seeded per
- * employee via ensureAttitudeItems.
+ * Resolve a role's dimension weights: the framework defaults, with a saved
+ * per-employee override applied ONLY for that role's own bucket ids (a finite,
+ * ≥0 number). Legacy/foreign keys in the override are ignored.
  */
-export const ATTITUDE_ITEMS: { key: string; label: string; weight: number }[] = [
-  { key: "problem_solving", label: "Problem Solving", weight: 5 },
-  { key: "growth_mindset", label: "Growth Mindset", weight: 5 },
-  { key: "get_things_done", label: "Get Things Done", weight: 5 },
-  { key: "empower_work", label: "Empower Work", weight: 5 },
-];
+export function resolveRoleWeights(
+  role: RoleClass,
+  override?: Record<string, number> | null,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const b of MACRO_BUCKETS[role]) {
+    const v = Number(override?.[b.id]);
+    out[b.id] = Number.isFinite(v) && v >= 0 ? v : b.weight;
+  }
+  return out;
+}
 
 /** Rating band for a 0-100 pct. >=80 green · >=60 amber · else red. */
 export type RatingBand = "green" | "amber" | "red";
@@ -76,48 +73,16 @@ export interface ConfigRow {
   employeeId: string;
   managerId: string | null;
   managementId: string | null;
-  dimensionWeights: Record<ApprDimension, number>;
+  roleClass: RoleClass;
+  /** Optional per-dimension weight override, keyed by bucket id. */
+  dimensionWeights: Record<string, number>;
   incentiveTarget: string | null;
-  knowledgeDo: number;
-  knowledgeGive: number;
   updatedById: string | null;
 }
 
-export interface KpiRow {
-  id: string;
-  employeeId: string;
-  srNo: number | null;
-  area: string | null;
-  measure: string | null;
-  subWeight: number;
-}
-
-export interface SkillRow {
-  id: string;
-  employeeId: string;
-  name: string | null;
-  technical: boolean;
-  subWeight: number;
-}
-
-export interface AttitudeRow {
-  id: string;
-  employeeId: string;
-  key: string;
-  label: string | null;
-  weight: number;
-}
-
-/** One scored item's Self/Manager/Management scores + evidence. */
-export interface ItemScore {
-  id: string;
-  employeeId: string;
-  itemKind: ItemKind;
-  itemId: string;
-  actual: string | null;
-  evidenceUrl: string | null;
-  approved: boolean | null;
-  remarks: string | null;
+/** One role dimension's Self/Manager/Management (0-100) scores + notes. */
+export interface DimensionScoreRow {
+  dimensionKey: string;
   selfScore: number | null;
   selfNote: string | null;
   managerScore: number | null;
@@ -126,11 +91,16 @@ export interface ItemScore {
   managementNote: string | null;
 }
 
+/** KPI-dictionary line actuals — { lineId: actual }. */
+export type KpiActuals = Record<string, number>;
+
 /** One dimension's computed contribution to the overall total. */
 export interface PerDimension {
-  dimension: ApprDimension;
+  key: string;
   label: string;
-  /** 0-100 dimension percentage (weighted avg of Management scores). */
+  /** 'kpi' (computed from actuals) | 'score' (0-100 entered). */
+  kind: "kpi" | "score";
+  /** 0-100 dimension percentage. */
   pct: number;
   /** Dimension weight (out of 100). */
   weight: number;
@@ -141,12 +111,17 @@ export interface PerDimension {
 /** The fully-computed live scorecard for one employee. */
 export interface AppraisalScorecard {
   employeeId: string;
+  roleClass: RoleClass;
   perDimension: PerDimension[];
   /** Overall 0-100 final score. */
   total: number;
   band: RatingBand;
   color: string;
   ratingLabel: string;
+  /** 0-100 internal KPI score. */
+  internalKpi: number;
+  /** 0-100 — the Final Incentive Authorization % (= internalKpi). */
+  incentivePct: number;
   /** 'in_progress' | 'finalized' */
   status: string;
 }

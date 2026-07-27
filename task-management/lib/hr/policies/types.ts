@@ -146,6 +146,25 @@ export interface WorkflowNode {
   closure?: string;
 }
 
+/** One code → meaning row of a legend (e.g. attendance status codes). */
+export interface LegendItem {
+  /** The short code / abbreviation, e.g. "HD", "WFH". */
+  code: string;
+  /** What the code means, e.g. "Half Day". */
+  meaning: string;
+}
+
+/**
+ * A LEGEND — a premium code-chip grid (each code rendered as a branded chip
+ * beside its meaning). Used for reference keys like the attendance status codes.
+ */
+export interface LegendNode {
+  kind: "legend";
+  items: LegendItem[];
+  /** Optional note printed above the grid. */
+  caption?: string;
+}
+
 /** Any content node inside a section body. */
 export type PolicyNode =
   | ParagraphNode
@@ -153,7 +172,8 @@ export type PolicyNode =
   | BulletsNode
   | TableNode
   | CommitteeNode
-  | WorkflowNode;
+  | WorkflowNode
+  | LegendNode;
 
 /* ------------------------------------------------------------------ */
 /* Section + declaration + the document                                 */
@@ -188,7 +208,7 @@ export interface DeclarationBlock {
 export const DEFAULT_DECLARATION: DeclarationBlock = {
   heading: "Declaration & Acknowledgement",
   statement:
-    "I hereby acknowledge that I have read, understood and agree to abide by the terms of this policy. I understand that this policy forms part of my terms of engagement, and that any breach may attract disciplinary action, up to and including termination of employment, in accordance with the Company's rules and applicable law.",
+    "I hereby acknowledge that I have read, understood and agree to abide by the terms of this policy. I understand that this policy forms part of my terms of engagement, and that any breach may attract disciplinary action, up to and including termination of employment, in accordance with the Firm's rules and applicable law.",
   employeeFields: ["Employee Name", "Employee ID", "Department", "Signature", "Date"],
   hrLabel: "Received by HR",
   approvalLabel: "Enterprise Approval — Founder Signature / Seal",
@@ -268,6 +288,13 @@ export const table = (spec: {
 export const committee = (members: CommitteeMember[], caption?: string): CommitteeNode => ({
   kind: "committee",
   members,
+  caption,
+});
+
+/** A legend / key — code chips beside their meanings. */
+export const legend = (items: LegendItem[], caption?: string): LegendNode => ({
+  kind: "legend",
+  items,
   caption,
 });
 

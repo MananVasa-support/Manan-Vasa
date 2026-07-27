@@ -130,7 +130,7 @@ export function TicketComposer({ mode = "support" }: { mode?: "support" | "query
           <ShieldAlert size={17} className="mt-0.5 shrink-0" />
           <span>
             This is a <strong>confidential grievance</strong>. Only you, the HR person handling it,
-            and company super-admins can ever read it — never your manager or other HR staff.
+            and firm super-admins can ever read it — never your manager or other HR staff.
           </span>
         </div>
       )}

@@ -15,6 +15,8 @@ import {
   SquarePen,
   ArrowLeft,
   ShieldCheck,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Letterhead } from "@/components/hr/letterhead/letterhead";
 import { ENTITY_LIST, getEntity, type EntityId } from "@/lib/hr/entities";
@@ -29,6 +31,7 @@ import {
 } from "@/lib/hr/letters/types";
 import { templateToRichHtml } from "@/lib/hr/letters/rich";
 import { applyPronouns, normalizeGender, type Gender } from "@/lib/hr/pronouns";
+import { applyFirm } from "@/lib/hr/firm";
 import {
   readCtcLetterPrefill,
   clearCtcLetterPrefill,
@@ -125,6 +128,9 @@ export function LetterEditor({
   const [busyPdf, setBusyPdf] = useState(false);
   const [issuing, setIssuing] = useState(false);
   const [issued, setIssued] = useState(false);
+  // "Hide boxes" — preview the FINISHED letter (no editable input chrome, empty
+  // rows/fields dropped). Default OFF so every box is visible + fillable.
+  const [clean, setClean] = useState(false);
 
   // ── "Edit freely" (rich / Google-Docs) mode ──────────────────────
   const [richMode, setRichMode] = useState(false);
@@ -354,7 +360,7 @@ export function LetterEditor({
     }
   }
 
-  const ctx: RenderCtx = { values, setValue, firstFieldId, entity, today, gender };
+  const ctx: RenderCtx = { values, setValue, firstFieldId, entity, today, gender, clean };
 
   return (
     <div className="alw-wrap">
@@ -417,7 +423,10 @@ export function LetterEditor({
           </select>
         </label>
 
-        {isAdmin && roster.length > 0 && (
+        {/* The Attach-employee picker is hidden when we ARRIVED with an employee
+            already attached (e.g. from the CTC Workbench) — they're bound, so the
+            dropdown would be redundant. */}
+        {isAdmin && roster.length > 0 && !initialEmployeeId && (
           <label className="alw-pick">
             <UserPlus2 size={15} strokeWidth={2.2} aria-hidden />
             <span className="alw-pick-label">Attach employee</span>
@@ -459,6 +468,18 @@ export function LetterEditor({
         )}
 
         <div className="alw-actions">
+          {!richMode && (
+            <button
+              type="button"
+              className={`alw-btn alw-btn-ghost${clean ? " alw-btn-on" : ""}`}
+              onClick={() => setClean((c) => !c)}
+              aria-pressed={clean}
+              title={clean ? "Show the editable boxes" : "Hide boxes — preview the finished letter"}
+            >
+              {clean ? <Eye size={15} strokeWidth={2.2} /> : <EyeOff size={15} strokeWidth={2.2} />}
+              {clean ? "Show boxes" : "Hide boxes"}
+            </button>
+          )}
           {richMode ? (
             <button type="button" className="alw-btn alw-btn-ghost" onClick={backToFields}>
               <ArrowLeft size={15} strokeWidth={2.2} /> Back to fields
@@ -516,9 +537,7 @@ export function LetterEditor({
         <div className="alw-stage">
           <Letterhead entity={entity}>
             <div className="alw-date">{today}</div>
-            {template.blocks.map((block, i) => (
-              <BlockView key={i} block={block} ctx={ctx} />
-            ))}
+            {renderBlocks(template.blocks, ctx)}
           </Letterhead>
         </div>
       )}
@@ -537,6 +556,53 @@ interface RenderCtx {
   entity: EntityId;
   today: string;
   gender: Gender;
+  /** "Hide boxes" preview: render the finished letter, not the editable form. */
+  clean: boolean;
+}
+
+/**
+ * Render the block stream, grouping consecutive `term` blocks into ONE aligned
+ * <table> (Label : value) so every colon lines up in a clean table structure.
+ */
+function renderBlocks(blocks: Block[], ctx: RenderCtx): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  let i = 0;
+  while (i < blocks.length) {
+    const b = blocks[i]!;
+    if (b.kind === "term") {
+      const run: Extract<Block, { kind: "term" }>[] = [];
+      let j = i;
+      while (j < blocks.length && blocks[j]!.kind === "term") {
+        run.push(blocks[j] as Extract<Block, { kind: "term" }>);
+        j += 1;
+      }
+      out.push(<TermTable key={`term-${i}`} terms={run} ctx={ctx} />);
+      i = j;
+    } else {
+      out.push(<BlockView key={i} block={b} ctx={ctx} />);
+      i += 1;
+    }
+  }
+  return out;
+}
+
+/** A run of term rows as a real 2-column table: Label : value, colons aligned. */
+function TermTable({ terms, ctx }: { terms: Extract<Block, { kind: "term" }>[]; ctx: RenderCtx }) {
+  return (
+    <table className="alw-termtable">
+      <tbody>
+        {terms.map((t, i) => (
+          <tr key={i}>
+            <th className="alw-tt-label">{applyFirm(applyPronouns(t.label, ctx.gender), ctx.entity)}</th>
+            <td className="alw-tt-colon">:</td>
+            <td className="alw-tt-val">
+              <Spans spans={t.value} ctx={ctx} />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 }
 
 function BlockView({ block, ctx }: { block: Block; ctx: RenderCtx }) {
@@ -550,7 +616,7 @@ function BlockView({ block, ctx }: { block: Block; ctx: RenderCtx }) {
           className="alw-heading"
           style={{ fontSize: size }}
         >
-          {applyPronouns(block.text, ctx.gender)}
+          {applyFirm(applyPronouns(block.text, ctx.gender), ctx.entity)}
         </p>
       );
     }
@@ -563,9 +629,11 @@ function BlockView({ block, ctx }: { block: Block; ctx: RenderCtx }) {
     case "term":
       return (
         <p className="alw-p alw-term">
-          <span className="alw-term-label">{applyPronouns(block.label, ctx.gender)}</span>
-          <span className="alw-term-sep"> : </span>
-          <Spans spans={block.value} ctx={ctx} />
+          <span className="alw-term-label">{applyFirm(applyPronouns(block.label, ctx.gender), ctx.entity)}</span>
+          <span className="alw-term-value">
+            <span className="alw-term-colon">:</span>
+            <Spans spans={block.value} ctx={ctx} />
+          </span>
         </p>
       );
     case "bullets":
@@ -586,10 +654,11 @@ function BlockView({ block, ctx }: { block: Block; ctx: RenderCtx }) {
 }
 
 /**
- * A bordered table. The interactive editor shows ALL rows (so every component is
- * fillable); a "Hide empty rows" toggle previews the FINAL document, which drops
- * component rows whose per-month amount is blank/zero. Group rows span all
- * columns; total/grand rows carry their own weight. Fields inside cells stay
+ * A bordered table. While editing (boxes visible) it shows ALL rows so every
+ * component is fillable; in "Hide boxes" preview mode it drops component rows
+ * whose per-month amount is blank/zero — the finished document. Group rows span
+ * all columns; total/grand rows carry their own weight. A <colgroup> pins the
+ * column widths so the numeric columns stay aligned. Fields inside cells stay
  * fully editable via the shared <Spans>.
  */
 function TableView({
@@ -599,22 +668,21 @@ function TableView({
   block: Extract<Block, { kind: "table" }>;
   ctx: RenderCtx;
 }) {
-  const [hideEmpty, setHideEmpty] = useState(false);
-  const rows = hideEmpty ? block.rows.filter((r) => tableRowVisible(r, ctx.values)) : block.rows;
+  const rows = ctx.clean
+    ? block.rows.filter((r) => tableRowVisible(r, ctx.values))
+    : block.rows;
   const cols = block.columns.length;
+  // First column takes the bulk; the remaining (numeric) columns split evenly.
+  const firstW = cols >= 3 ? 52 : cols === 2 ? 58 : 100;
+  const restW = cols > 1 ? (100 - firstW) / (cols - 1) : 0;
   return (
     <div className="alw-tablewrap">
-      <div className="alw-table-toolbar no-print">
-        <button
-          type="button"
-          className="alw-table-toggle"
-          onClick={() => setHideEmpty((h) => !h)}
-          aria-pressed={hideEmpty}
-        >
-          {hideEmpty ? "Show all rows" : "Hide empty rows"}
-        </button>
-      </div>
       <table className="alw-table">
+        <colgroup>
+          {block.columns.map((_, i) => (
+            <col key={i} style={{ width: `${i === 0 ? firstW : restW}%` }} />
+          ))}
+        </colgroup>
         <thead>
           <tr>
             {block.columns.map((c, i) => (
@@ -665,15 +733,13 @@ function SignatureView({
   return (
     <div className="alw-sign">
       {block.forEntity && <p className="alw-sign-for">For {e.displayName}</p>}
-      {block.esign && <p className="alw-sign-esign">(E-Sign)</p>}
+      {/* The proprietor's signature + label, used on every HR document. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="alw-sign-img" src="/signatures/proprietor-signature.png" alt="Signature" />
       <p className="alw-sign-name">
         <Spans spans={block.name} ctx={ctx} />
       </p>
-      {block.designation && (
-        <p className="alw-sign-desig">
-          <Spans spans={block.designation} ctx={ctx} />
-        </p>
-      )}
+      <p className="alw-sign-desig">Proprietor</p>
       {block.showDate && <p className="alw-sign-meta">Date: {ctx.today}</p>}
       {block.place && (
         <p className="alw-sign-meta">
@@ -689,7 +755,7 @@ function Spans({ spans, ctx }: { spans: Span[]; ctx: RenderCtx }) {
     <>
       {spans.map((span, i) =>
         span.t === "text" ? (
-          <span key={i}>{applyPronouns(span.text, ctx.gender)}</span>
+          <span key={i}>{applyFirm(applyPronouns(span.text, ctx.gender), ctx.entity)}</span>
         ) : (
           <Field key={span.id} spec={span} ctx={ctx} />
         ),
@@ -700,7 +766,10 @@ function Spans({ spans, ctx }: { spans: Span[]; ctx: RenderCtx }) {
 
 /** One inline editable field. Shows a light-grey placeholder (the term to fill)
  *  when empty and normal black text once filled — NO overlaying label, never red.
- *  The red in the reference docs only marked "fill this in". */
+ *  The red in the reference docs only marked "fill this in".
+ *
+ *  In "Hide boxes" (clean) mode it renders as plain document text: the value with
+ *  no input chrome, and an empty field simply disappears — the finished letter. */
 function Field({
   spec,
   ctx,
@@ -710,6 +779,17 @@ function Field({
 }) {
   const value = ctx.values[spec.id] ?? "";
   const filled = value.trim().length > 0;
+
+  // ── Clean / preview render ────────────────────────────────────────
+  if (ctx.clean) {
+    if (!filled) return null;
+    return spec.multiline ? (
+      <span className="alw-clean alw-clean-multi">{value}</span>
+    ) : (
+      <span className="alw-clean">{value}</span>
+    );
+  }
+
   const autoFocus = spec.id === ctx.firstFieldId;
   const common = {
     value,
@@ -719,12 +799,19 @@ function Field({
     "data-filled": filled || undefined,
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       ctx.setValue(spec.id, e.target.value),
-    style: { minWidth: `${Math.max(spec.label.length, value.length, 6)}ch` },
   };
+  // Multiline fields (Notes, Growth Journey) flow full-width and WRAP — never
+  // grow to their content length (that overflowed the A4 page + clipped). Single-
+  // line fields size to their content with a small floor.
   return spec.multiline ? (
     <textarea rows={1} {...common} className="alw-input alw-input-multi" />
   ) : (
-    <input type="text" {...common} className="alw-input" />
+    <input
+      type="text"
+      {...common}
+      className="alw-input"
+      style={{ minWidth: `${Math.max(spec.label.length, value.length, 3)}ch`, maxWidth: "100%" }}
+    />
   );
 }
 
@@ -805,27 +892,26 @@ const EDITOR_CSS = `
   margin:16px 0 8px;font-weight:800;letter-spacing:-.01em;
   font-family:var(--font-display, Georgia, serif);color:var(--color-ink-strong, #0f172a);
 }
-.alw-term{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px;}
+/* Term rows → aligned label / value grid so every colon lines up vertically. */
+.alw-term{display:grid;grid-template-columns:200px 1fr;column-gap:8px;align-items:baseline;margin:0 0 8px;}
 .alw-term-label{font-weight:700;}
-.alw-term-sep{font-weight:700;}
+.alw-term-value{min-width:0;}
+.alw-term-colon{font-weight:700;margin-right:6px;}
+@media (max-width:640px){.alw-term{grid-template-columns:130px 1fr;}}
+/* Grouped term rows as a real table — colons aligned in a shared column. */
+.alw-termtable{border-collapse:collapse;margin:4px 0 16px;width:100%;font-variant-numeric:tabular-nums;}
+.alw-termtable th.alw-tt-label{text-align:left;vertical-align:top;font-weight:700;padding:4px 10px 4px 0;white-space:nowrap;color:var(--color-ink-strong,#0f172a);}
+.alw-termtable td.alw-tt-colon{vertical-align:top;font-weight:700;padding:4px 10px 4px 0;width:1px;color:var(--color-ink-strong,#0f172a);}
+.alw-termtable td.alw-tt-val{vertical-align:top;padding:4px 0;color:var(--color-ink-strong,#0f172a);width:100%;overflow-wrap:break-word;}
+@media (max-width:640px){.alw-termtable th.alw-tt-label{white-space:normal;}}
 .alw-ul{margin:0 0 14px;padding-left:4px;list-style:none;}
 .alw-ul li{position:relative;padding-left:20px;margin-bottom:7px;font-size:15px;line-height:1.9;color:var(--color-ink-strong,#0f172a);}
 .alw-ul li::before{content:"";position:absolute;left:2px;top:.72em;width:6px;height:6px;border-radius:9999px;background:${RED};}
 
 /* Table block (e.g. the CTC break-up) */
 .alw-tablewrap{margin:6px 0 16px;overflow-x:auto;}
-.alw-table-toolbar{display:flex;justify-content:flex-end;margin-bottom:8px;}
-.alw-table-toggle{
-  display:inline-flex;align-items:center;gap:5px;cursor:pointer;
-  padding:5px 11px;border-radius:8px;
-  font-family:var(--font-display, system-ui, sans-serif);
-  font-size:11.5px;font-weight:800;letter-spacing:.02em;color:${RED_DEEP};
-  background:#fff;border:1px solid color-mix(in srgb, ${RED} 32%, #cbd5e1);
-  transition:background .12s ease, transform .12s ease;
-}
-.alw-table-toggle:hover{background:rgba(225,6,0,.06);transform:translateY(-1px);}
 .alw-table{
-  width:100%;border-collapse:collapse;
+  width:100%;border-collapse:collapse;table-layout:fixed;
   border:1px solid var(--color-hairline-strong, #cbd5e1);
   border-radius:12px;overflow:hidden;font-variant-numeric:tabular-nums;
 }
@@ -841,6 +927,7 @@ const EDITOR_CSS = `
 .alw-table td{
   padding:7px 14px;font-size:14px;color:var(--color-ink-strong, #0f172a);
   border-bottom:1px solid var(--color-hairline, #eef0f4);vertical-align:middle;
+  overflow-wrap:break-word;
 }
 .alw-td-left{text-align:left;font-weight:600;}
 .alw-td-num{text-align:right;white-space:nowrap;}
@@ -864,6 +951,7 @@ const EDITOR_CSS = `
 /* Signature block */
 .alw-sign{margin-top:26px;line-height:1.6;}
 .alw-sign-for{margin:0 0 2px;font-weight:800;color:${RED_DEEP};font-size:15px;}
+.alw-sign-img{display:block;height:66px;width:auto;max-width:230px;margin:6px 0 2px;object-fit:contain;}
 .alw-sign-esign{margin:0 0 14px;font-size:12.5px;letter-spacing:.06em;color:var(--color-ink-muted,#94a3b8);}
 .alw-sign-name{margin:0;font-weight:800;font-size:15px;color:var(--color-ink-strong,#0f172a);}
 .alw-sign-desig{margin:2px 0 0;font-size:13.5px;color:var(--color-ink-muted,#475569);}
@@ -884,7 +972,18 @@ const EDITOR_CSS = `
   border-bottom-color:${RED};border-bottom-style:solid;
   background:rgba(225,6,0,.05);
 }
-.alw-input-multi{resize:none;overflow:hidden;line-height:inherit;min-width:16ch;max-width:100%;white-space:pre-wrap;vertical-align:top;}
+/* Multiline fields flow full-width + WRAP (never stretch to content width). */
+.alw-input-multi{
+  display:block;width:100%;min-width:0;max-width:100%;
+  resize:none;overflow:hidden;line-height:inherit;white-space:pre-wrap;vertical-align:top;
+}
+
+/* "Hide boxes" clean render — the field's value as plain document text. */
+.alw-clean{font:inherit;color:var(--color-ink-strong,#0f172a);font-weight:600;}
+.alw-clean-multi{display:block;white-space:pre-wrap;}
+.alw-tr-grand .alw-clean{color:#fff;}
+/* Active state for the Hide-boxes toggle */
+.alw-btn-on{border-color:${RED} !important;color:${RED_DEEP};background:rgba(225,6,0,.05);}
 
 @media (max-width:900px){
   .alw-pick select{min-width:112px;}
@@ -895,6 +994,15 @@ const EDITOR_CSS = `
   .no-print{display:none !important;}
   .alw-stage{padding:0;}
   .alw-input{border-bottom:none;background:transparent;color:var(--color-ink-strong,#0f172a);}
+  /* Never print the grey "fill this in" placeholders — an unfilled field is blank. */
+  .alw-input::placeholder{color:transparent !important;}
+  .alw-tablewrap{overflow:visible;}
+  /* Keep the coloured group/total/grand rows in the printout + PDF. */
+  .alw-tr-group td,.alw-tr-total td,.alw-tr-grand td{
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;
+  }
+  /* Don't split a table row across a page break. */
+  .alw-table tr{break-inside:avoid;}
 }
 `;
 

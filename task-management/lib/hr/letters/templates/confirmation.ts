@@ -43,7 +43,7 @@ const template: LetterTemplate = {
     ),
     para(
       t("Based on your performance, commitment, and contribution to "),
-      f("company", "Company Name", { defaultValue: "Altus Corp" }),
+      t("{firm}"),
       t(", we are delighted to confirm your appointment as a permanent employee in the position of "),
       f("designation", "Designation", { placeholder: "e.g. Accounts Executive" }),
       t(", effective "),
@@ -52,17 +52,17 @@ const template: LetterTemplate = {
     ),
     para(
       t(
-        "During your probation, you demonstrated professionalism, dedication, and a positive attitude towards your responsibilities. We appreciate your efforts and look forward to your continued contribution to the growth and success of the Company.",
+        "During your probation, you demonstrated professionalism, dedication, and a positive attitude towards your responsibilities. We appreciate your efforts and look forward to your continued contribution to the growth and success of the Firm.",
       ),
     ),
     para(
       t(
-        "Your employment will continue under the terms and conditions outlined in your Appointment Letter and in accordance with the Company's policies, as amended from time to time. All applicable employee benefits and entitlements will be available to you in accordance with Company policy.",
+        "Your employment will continue under the terms and conditions outlined in your Appointment Letter and in accordance with the Firm's policies, as amended from time to time. All applicable employee benefits and entitlements will be available to you in accordance with Firm policy.",
       ),
     ),
     para(
       t("Congratulations on successfully completing your probation. We wish you continued success and look forward to a long and rewarding association with "),
-      f("company", "Company Name", { defaultValue: "Altus Corp" }),
+      t("{firm}"),
       t("."),
     ),
     para(t("Yours sincerely,")),

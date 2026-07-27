@@ -30,15 +30,15 @@ const template: LetterTemplate = {
     ),
 
     heading("Revised Compensation", 2),
-    term("Previous Cost to Company (per annum)", f("previousCtc", "Previous CTC (per year)", { placeholder: "₹0" })),
-    term("Revised Cost to Company (per annum)", f("revisedCtc", "Revised CTC (per year)", { placeholder: "₹0" })),
+    term("Previous Cost to Firm (per annum)", f("previousCtc", "Previous CTC (per year)", { placeholder: "₹0" })),
+    term("Revised Cost to Firm (per annum)", f("revisedCtc", "Revised CTC (per year)", { placeholder: "₹0" })),
     term("Increment", f("increment", "Increment", { placeholder: "e.g. ₹1,20,000 (18%)" })),
     term("Effective From", f("effectiveDate", "Effective Date", { placeholder: "e.g. 1 April 2026" })),
 
     heading("Revised Monthly Structure", 2),
     term("Gross Monthly Salary", f("grossMonthly", "Gross (per month)", { placeholder: "₹0" })),
     term("Net Take-Home (per month)", f("netMonthly", "Net Take-Home (per month)", { placeholder: "₹0" })),
-    term("Revised Cost to Company (per month)", f("ctcMonthly", "CTC (per month)", { placeholder: "₹0" })),
+    term("Revised Cost to Firm (per month)", f("ctcMonthly", "CTC (per month)", { placeholder: "₹0" })),
 
     para(
       t(

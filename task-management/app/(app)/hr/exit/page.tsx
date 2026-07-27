@@ -1,6 +1,5 @@
 import { requireWorkspace } from "@/lib/auth/workspace-access";
-import { listEmployeeOptions } from "@/lib/queries/employees";
-import { listExitRecords } from "@/app/(app)/hr/exit/exit-actions";
+import { listExitRecords, listExitRoster } from "@/app/(app)/hr/exit/exit-actions";
 import { ExitWorkspace } from "@/components/hr/exit/exit-workspace";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function ExitPage() {
   await requireWorkspace("hr");
   const [employees, recent] = await Promise.all([
-    listEmployeeOptions().catch(() => []),
+    listExitRoster().catch(() => []),
     listExitRecords().catch(() => []),
   ]);
   return <ExitWorkspace employees={employees} recent={recent} />;

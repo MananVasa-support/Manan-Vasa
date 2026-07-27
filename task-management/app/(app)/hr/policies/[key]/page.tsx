@@ -1,30 +1,36 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { ArrowLeft, ShieldCheck, Clock } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Clock, PencilLine } from "lucide-react";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
-import { getPolicy, getPolicyCard, isComingSoon } from "@/lib/hr/policies/registry";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { getPolicyCard, isComingSoon } from "@/lib/hr/policies/registry";
+import { loadPublishedPolicy } from "@/lib/hr/policies/load-db";
 import { PolicyView } from "@/components/hr/policies/policy-view";
 
 export const dynamic = "force-dynamic";
 
 /**
  * A single policy, on its own full-screen page: `/hr/policies/<key>`. Loads the
- * PolicyDoc from the registry, renders it on the shared <Letterhead> via
- * <PolicyView> (read-only body + entity picker + Export PDF + day-one Sign /
- * Acknowledge). Keys that are advertised-but-unauthored ("coming soon", e.g.
- * CLASH) show a tasteful greyed placeholder so the popup links never dead-end.
+ * PolicyDoc from the CMS (the currently-published version, so live edits render),
+ * falling back to the code registry, and renders it on the shared <Letterhead>
+ * via <PolicyView> (read-only body + entity picker + Export PDF + day-one Sign /
+ * Acknowledge). Workspace admins additionally see an "Edit policy" entry point.
+ * Keys that are advertised-but-unauthored ("coming soon", e.g. CLASH) show a
+ * tasteful greyed placeholder so the popup links never dead-end.
  */
 export default async function PolicyPage({
   params,
 }: {
   params: Promise<{ key: string }>;
 }) {
-  await requireWorkspace("hr");
+  const me = await requireWorkspace("hr");
   const { key } = await params;
-  const policy = getPolicy(key);
+  const policy = await loadPublishedPolicy(key);
   const card = getPolicyCard(key);
   const comingSoon = isComingSoon(key);
   const title = policy?.title ?? card?.title ?? "Policy";
+  const isAdmin = me.isAdmin || isSuperAdmin(me.email);
+  const showDoc = Boolean(policy) && !comingSoon;
 
   return (
     <div className="min-h-dvh bg-[#faf9fb]">
@@ -47,11 +53,23 @@ export default async function PolicyPage({
           <ShieldCheck size={15} strokeWidth={2.4} style={{ color: "#A80400" }} aria-hidden />
           <span className="truncate">{title}</span>
         </span>
-        <span aria-hidden className="justify-self-end" />
+        <div className="justify-self-end">
+          {isAdmin && showDoc && (
+            <Link
+              href={`/hr/policies/${key}/edit` as Route}
+              className="group inline-flex items-center gap-2 rounded-full border border-hairline-strong bg-white px-4 py-2 text-[13px] font-bold text-ink-strong transition-transform hover:-translate-y-0.5 max-md:px-3"
+              style={{ boxShadow: "0 10px 24px -16px rgba(24,24,27,0.55)" }}
+            >
+              <PencilLine size={15} strokeWidth={2.4} style={{ color: "#A80400" }} />
+              <span className="max-md:hidden">Edit policy</span>
+              <span className="md:hidden">Edit</span>
+            </Link>
+          )}
+        </div>
       </header>
 
       <main className="mx-auto w-full max-w-[900px] px-6 max-md:px-3 pt-8 pb-24">
-        {policy && !comingSoon ? <PolicyView doc={policy} /> : <ComingSoon title={card?.title} />}
+        {showDoc && policy ? <PolicyView doc={policy} /> : <ComingSoon title={card?.title} />}
       </main>
     </div>
   );

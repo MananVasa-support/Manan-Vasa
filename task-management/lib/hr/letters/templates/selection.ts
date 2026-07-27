@@ -64,7 +64,7 @@ const template: LetterTemplate = {
       t("For business generated through your personal connections or references, you will be entitled to "),
       f("referralPct", "Referral %", { defaultValue: "20%" }),
       t(
-        " of the converted business amount, subject to company policies and successful realization of payments.",
+        " of the converted business amount, subject to firm policies and successful realization of payments.",
       ),
     ),
 
@@ -119,7 +119,7 @@ const template: LetterTemplate = {
 
     para(
       t(
-        "We are excited to have you join Altus Corp and look forward to a successful and rewarding professional journey together.",
+        "We are excited to have you join {firm} and look forward to a successful and rewarding professional journey together.",
       ),
     ),
 

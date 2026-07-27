@@ -27,7 +27,7 @@ const template: LetterTemplate = {
       t("Thank you for your time and interest in the "),
       f("position", "Position Title", { placeholder: "e.g. Accounts Executive" }),
       t(" role at "),
-      f("company", "Company Name", { defaultValue: "Altus Corp" }),
+      f("company", "Firm Name", { defaultValue: "Altus Corp" }),
       t("."),
     ),
     para(

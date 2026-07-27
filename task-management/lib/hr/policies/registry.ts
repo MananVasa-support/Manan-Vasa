@@ -28,6 +28,8 @@ import poshPolicy from "./content/posh-policy";
 import exitPolicy from "./content/exit-policy";
 import antiHarassmentPolicy from "./content/anti-harassment-non-discrimination-policy";
 import clashPolicy from "./content/clash-policy";
+import preEmploymentTrainingEvaluationPolicy from "./content/pre-employment-training-evaluation-policy";
+import attendancePolicy from "./content/attendance-policy";
 
 /* ================================================================== */
 /* The registry — key → PolicyDoc                                       */
@@ -44,6 +46,8 @@ export const POLICIES: Record<string, PolicyDoc> = {
   [exitPolicy.key]: exitPolicy,
   [antiHarassmentPolicy.key]: antiHarassmentPolicy,
   [clashPolicy.key]: clashPolicy,
+  [preEmploymentTrainingEvaluationPolicy.key]: preEmploymentTrainingEvaluationPolicy,
+  [attendancePolicy.key]: attendancePolicy,
 };
 
 /** Ordered list of every AUTHORED policy (iteration / listing). */
@@ -115,6 +119,20 @@ export const POLICY_CARDS: PolicyCard[] = [
     title: "Incentive Clash Policy",
     blurb: "Fair incentive attribution via CRM records, call recordings and teamwork.",
     badge: "IC",
+    status: "ready",
+  },
+  {
+    key: "pre-employment-training-evaluation-policy",
+    title: "Pre-Employment Training & Evaluation",
+    blurb: "Structured 15-day pre-employment training, evaluation criteria and stipend terms.",
+    badge: "PT",
+    status: "ready",
+  },
+  {
+    key: "attendance-policy",
+    title: "Attendance Policy",
+    blurb: "Working hours, half-day & waiver rules, deductions, ex-gratia, comp-off, WFH and the attendance legend.",
+    badge: "AT",
     status: "ready",
   },
 ];

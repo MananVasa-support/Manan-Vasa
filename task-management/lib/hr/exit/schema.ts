@@ -32,3 +32,43 @@ export type ExitRecord = typeof exitRecords.$inferSelect;
 export type NewExitRecord = typeof exitRecords.$inferInsert;
 
 export type ExitKind = "interview" | "handover";
+
+/**
+ * Typed shapes of the `data` jsonb payload. The column stays a free-form jsonb
+ * (so persistence never breaks when copy/fields evolve), but these interfaces
+ * keep the form <-> store contract sound and documented.
+ *
+ * `fields` is a flat string map keyed by question/field id — including the new
+ * exit-interview keys `header_designation`, `header_managerName`,
+ * `env_culture_feedback`, `infrastructure_feedback`, and the handover `notes`
+ * key. `ratings` maps each rating-aspect id to its 1–5 score (5 = Excellent).
+ */
+export interface ExitInterviewData {
+  fields?: Record<string, string>;
+  ratings?: Record<string, number>;
+}
+
+export interface ExitHandoverData {
+  fields?: Record<string, string>;
+  checked?: Record<string, boolean>;
+}
+
+export type ExitRecordData = ExitInterviewData | ExitHandoverData;
+
+/**
+ * Rich roster row the Exit page hands to the forms. Carries enough identity to
+ * power the searchable Employee dropdown and auto-fill Manager / Designation
+ * (interview) and Employee ID / Department (handover). Sourced from `employees`
+ * with self-join → manager name and FK joins → designation/department (legacy
+ * `department` text as fallback). Kept in this pure module so it can be imported
+ * from both the server loader (a "use server" file may only export async fns)
+ * and the client form components.
+ */
+export interface ExitRosterEmployee {
+  id: string;
+  name: string;
+  designation: string;
+  managerName: string;
+  department: string;
+  employeeCode?: string;
+}

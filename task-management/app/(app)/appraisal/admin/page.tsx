@@ -13,19 +13,13 @@ import type { Route } from "next";
 import { asc, eq } from "drizzle-orm";
 import { SlidersHorizontal } from "lucide-react";
 import { db } from "@/lib/db";
-import {
-  apprConfig,
-  apprKpi,
-  apprSkill,
-  designations,
-  employees,
-} from "@/db/schema";
+import { apprConfig, designations, employees } from "@/db/schema";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { requireAppraisal } from "@/lib/pms/appraisal-flag";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
-import { DEFAULT_WEIGHTS, type ApprDimension } from "@/lib/appraisal2/types";
+import type { RoleClass } from "@/lib/appraisal2/types";
 import {
   AdminPanel,
   type AdminEmployee,
@@ -39,16 +33,6 @@ const ACCENT_DEEP = "var(--color-altus-red-deep)";
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
-}
-
-function toWeights(raw: unknown): Record<ApprDimension, number> {
-  const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  const out = {} as Record<ApprDimension, number>;
-  for (const d of Object.keys(DEFAULT_WEIGHTS) as ApprDimension[]) {
-    const v = Number(obj[d]);
-    out[d] = Number.isFinite(v) && v >= 0 ? v : DEFAULT_WEIGHTS[d];
-  }
-  return out;
 }
 
 export default async function AppraisalAdminPage({ searchParams }: PageProps) {
@@ -86,44 +70,18 @@ export default async function AppraisalAdminPage({ searchParams }: PageProps) {
     new Set(people.map((p) => p.department).filter((d): d is string => !!d)),
   ).sort((a, b) => a.localeCompare(b));
 
-  // Selected employee's current config, KPIs and Skills.
+  // Selected employee's current config (role class + assignees).
   let config: EmployeeConfig | null = null;
   if (selectedId && people.some((p) => p.id === selectedId)) {
-    const [cfgRow, kpiRows, skillRows] = await Promise.all([
-      db.query.apprConfig.findFirst({ where: eq(apprConfig.employeeId, selectedId) }),
-      db
-        .select()
-        .from(apprKpi)
-        .where(eq(apprKpi.employeeId, selectedId))
-        .orderBy(asc(apprKpi.srNo), asc(apprKpi.createdAt)),
-      db
-        .select()
-        .from(apprSkill)
-        .where(eq(apprSkill.employeeId, selectedId))
-        .orderBy(asc(apprSkill.createdAt)),
-    ]);
+    const cfgRow = await db.query.apprConfig.findFirst({
+      where: eq(apprConfig.employeeId, selectedId),
+    });
 
     config = {
       employeeId: selectedId,
+      roleClass: (cfgRow?.roleClass === "manager" ? "manager" : "non-manager") as RoleClass,
       managerId: cfgRow?.managerId ?? null,
       managementId: cfgRow?.managementId ?? null,
-      incentiveTarget: cfgRow?.incentiveTarget ?? null,
-      knowledgeDo: cfgRow?.knowledgeDo ?? 1,
-      knowledgeGive: cfgRow?.knowledgeGive ?? 1,
-      weights: toWeights(cfgRow?.dimensionWeights),
-      kpis: kpiRows.map((k) => ({
-        id: k.id,
-        srNo: k.srNo,
-        area: k.area,
-        measure: k.measure,
-        subWeight: k.subWeight,
-      })),
-      skills: skillRows.map((s) => ({
-        id: s.id,
-        name: s.name,
-        technical: s.technical,
-        subWeight: s.subWeight,
-      })),
     };
   }
 
@@ -153,8 +111,9 @@ export default async function AppraisalAdminPage({ searchParams }: PageProps) {
             Scorecard configuration
           </h1>
           <p className="mt-1.5 max-w-[76ch] text-[15px] font-medium text-ink-muted">
-            Pick a person, then set their KPIs, skills-to-learn, incentive target, knowledge rule,
-            dimension weights and the manager + management assignees.
+            Pick a person, then set their role class (Manager or Non-Manager — this selects the
+            dimension set and weights) and the manager + management assignees. KPI targets come
+            from the shared KPI dictionary; actuals and dimension scores are entered on the scorecard.
           </p>
         </header>
 

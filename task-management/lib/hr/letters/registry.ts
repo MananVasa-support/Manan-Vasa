@@ -37,6 +37,8 @@ import freeTraining from "./templates/free-training";
 import ctcBreakup from "./templates/ctc-breakup";
 import appraisalRevisedCtc from "./templates/appraisal-revised-ctc";
 import promotionRevisedCtc from "./templates/promotion-revised-ctc";
+import increment from "./templates/increment";
+import promotion from "./templates/promotion";
 // Milestones & Recognition
 import employeeOfTheMonth from "./templates/employee-of-the-month";
 import birthday from "./templates/birthday";
@@ -44,8 +46,12 @@ import birthday from "./templates/birthday";
 import ffs from "./templates/ffs";
 import ffsAcknowledgement from "./templates/ffs-acknowledgement";
 import relieving from "./templates/relieving";
+import letterOfRecommendation from "./templates/letter-of-recommendation";
+import experienceLetter from "./templates/experience-letter";
+import resignationRejection from "./templates/resignation-rejection";
 // Interns
 import minorInternshipUndertaking from "./templates/minor-internship-undertaking";
+import internAppointment from "./templates/intern-appointment";
 
 /* ================================================================== */
 /* The registry                                                         */
@@ -66,12 +72,15 @@ export const LETTERS: Record<string, LetterTemplate> = {
   // Appointment & Agreements
   acceptance,
   appointment,
+  "intern-appointment": internAppointment,
   confirmation,
   "free-training": freeTraining,
   // Compensation
   "ctc-breakup": ctcBreakup,
   "appraisal-revised-ctc": appraisalRevisedCtc,
   "promotion-revised-ctc": promotionRevisedCtc,
+  increment,
+  promotion,
   // Milestones & Recognition
   "employee-of-the-month": employeeOfTheMonth,
   birthday,
@@ -79,6 +88,9 @@ export const LETTERS: Record<string, LetterTemplate> = {
   ffs,
   "ffs-acknowledgement": ffsAcknowledgement,
   relieving,
+  "letter-of-recommendation": letterOfRecommendation,
+  "experience-letter": experienceLetter,
+  "resignation-rejection": resignationRejection,
 };
 
 /** Ordered list of every authored letter (index / iteration). */

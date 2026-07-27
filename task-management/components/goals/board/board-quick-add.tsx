@@ -71,6 +71,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
   const [monthlyMasterRef, setMonthlyMasterRef] = React.useState<MonthlyMasterRef | null>(null);
   const [notes, setNotes] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+  const [addedCount, setAddedCount] = React.useState(0);
   const titleRef = React.useRef<HTMLInputElement>(null);
 
   React.useImperativeHandle(
@@ -85,6 +86,14 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
   );
 
   const bucketLabel = periodKeyLabel(props.periodKey);
+  const periodNoun =
+    props.level === "year"
+      ? "Year"
+      : props.level === "quarter"
+        ? "Quarter"
+        : props.level === "week"
+          ? "Week"
+          : "Month";
   const compact = props.compact ?? false;
 
   function reset() {
@@ -164,6 +173,10 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
       .then((ok) => {
         setSaving(false);
         if (!ok) return; // mutate toasted; the temp row reverted
+        // Save-and-add-another: keep the composer open, clear the fields, bump the
+        // running count shown in the eyebrow, and put focus back on the first field
+        // so the next goal can be typed immediately. "End" closes when finished.
+        setAddedCount((c) => c + 1);
         reset();
         titleRef.current?.focus();
       });
@@ -206,25 +219,40 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
         onClose={() => {
           setOpen(false);
           reset();
+          setAddedCount(0);
         }}
-        eyebrow={`New Goal · #${props.currentCount + 1} · ${bucketLabel}`}
-        title={`Add a ${props.level} Goal`}
+        eyebrow={`New Goal · #${props.currentCount + addedCount + 1} · ${bucketLabel}`}
+        title={`Add Goal for the ${periodNoun}`}
         footer={
           <div className="flex items-center justify-between gap-3">
             <span className="text-[12px] font-medium" style={{ color: "var(--color-ink-subtle)" }}>
-              ⌘/Ctrl + Enter to save
-              {props.parent ? ` · files under “${props.parent.title}”` : " · standalone in this bucket"}
+              {addedCount > 0 ? `${addedCount} added · keep going, or End` : "⌘/Ctrl + Enter to save"}
+              {props.parent ? ` · files under “${props.parent.title}”` : ""}
             </span>
-            <button
-              type="button"
-              onClick={submit}
-              disabled={saving}
-              className={`wg-btn inline-flex items-center gap-1.5 rounded-full px-6 py-2.5 text-[14px] font-bold text-white disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}
-              style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
-            >
-              {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.8} />}
-              Add Goal
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  reset();
+                  setAddedCount(0);
+                }}
+                className={`inline-flex items-center rounded-full border px-5 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:bg-surface-soft hover:text-ink-strong ${FOCUS_RING}`}
+                style={{ borderColor: "var(--color-hairline-strong)" }}
+              >
+                End
+              </button>
+              <button
+                type="button"
+                onClick={submit}
+                disabled={saving}
+                className={`wg-btn inline-flex items-center gap-1.5 rounded-full px-6 py-2.5 text-[14px] font-bold text-white disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}
+                style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+              >
+                {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.8} />}
+                Add Goal
+              </button>
+            </div>
           </div>
         }
       >

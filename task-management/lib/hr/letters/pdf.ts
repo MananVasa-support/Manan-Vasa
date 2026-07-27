@@ -6,6 +6,7 @@ import PDFDocument from "pdfkit";
 import { format } from "date-fns";
 import { getEntity, type EntityId, type Entity } from "@/lib/hr/entities";
 import { applyPronouns, type Gender } from "@/lib/hr/pronouns";
+import { applyFirm } from "@/lib/hr/firm";
 import {
   type LetterTemplate,
   type Block,
@@ -150,9 +151,10 @@ interface Ctx {
 }
 
 function renderBlock(doc: PDFKit.PDFDocument, block: Block, ctx: Ctx): void {
-  const { left, width, values, gender } = ctx;
-  /** Resolve a span array AND its gendered tokens (Mr./Ms., his/her…). */
-  const resolve = (spans: Span[]): string => applyPronouns(resolveSpans(spans, values), gender);
+  const { left, width, values, gender, entity } = ctx;
+  /** Resolve a span array AND its gendered + firm-name tokens. */
+  const resolve = (spans: Span[]): string =>
+    applyFirm(applyPronouns(resolveSpans(spans, values), gender), entity);
   switch (block.kind) {
     case "spacer": {
       doc.y += block.size === "lg" ? 22 : block.size === "sm" ? 6 : 12;
@@ -166,7 +168,7 @@ function renderBlock(doc: PDFKit.PDFDocument, block: Block, ctx: Ctx): void {
         .font("Helvetica-Bold")
         .fontSize(size)
         .fillColor(INK)
-        .text(applyPronouns(block.text, gender), left, doc.y, { width, lineGap: 2 });
+        .text(applyFirm(applyPronouns(block.text, gender), entity), left, doc.y, { width, lineGap: 2 });
       doc.y += 6;
       return;
     }
@@ -194,15 +196,17 @@ function renderBlock(doc: PDFKit.PDFDocument, block: Block, ctx: Ctx): void {
       const value = resolve(block.value);
       ctx.ensure(20);
       const top = doc.y;
-      const labelText = `${applyPronouns(block.label, gender)} : `;
+      const label = applyFirm(applyPronouns(block.label, gender), entity);
+      // Fixed label column so every term's colon aligns vertically.
+      const LABEL_COL = 150;
       doc.font("Helvetica-Bold").fontSize(11).fillColor(INK);
-      const labelW = doc.widthOfString(labelText);
-      doc.text(labelText, left, top, { lineBreak: false, continued: false });
+      doc.text(label, left, top, { width: LABEL_COL - 8, lineBreak: true });
+      doc.text(":", left + LABEL_COL, top, { lineBreak: false });
       doc
         .font("Helvetica")
         .fontSize(11)
         .fillColor(INK_MUTED)
-        .text(value, left + labelW, top, { width: width - labelW, lineGap: 2 });
+        .text(value, left + LABEL_COL + 10, top, { width: width - LABEL_COL - 10, lineGap: 2 });
       doc.y = Math.max(doc.y, top + 16);
       return;
     }
@@ -249,8 +253,9 @@ function renderTable(
   block: Extract<Block, { kind: "table" }>,
   ctx: Ctx,
 ): void {
-  const { left, width, values, gender } = ctx;
-  const resolve = (spans: Span[]): string => applyPronouns(resolveSpans(spans, values), gender);
+  const { left, width, values, gender, entity } = ctx;
+  const resolve = (spans: Span[]): string =>
+    applyFirm(applyPronouns(resolveSpans(spans, values), gender), entity);
   const cols = block.columns.length;
   const firstW = cols > 1 ? Math.round(width * 0.5) : width;
   const restW = cols > 1 ? (width - firstW) / (cols - 1) : 0;
@@ -353,7 +358,8 @@ function renderSignature(
   ctx: Ctx,
 ): void {
   const { left, values, entity, letterDate, gender } = ctx;
-  const resolve = (spans: Span[]): string => applyPronouns(resolveSpans(spans, values), gender);
+  const resolve = (spans: Span[]): string =>
+    applyFirm(applyPronouns(resolveSpans(spans, values), gender), entity);
   ctx.ensure(120);
   doc.y += 16;
   const line = (text: string, opts: { bold?: boolean; color?: string; size?: number; gap?: number } = {}) => {
@@ -367,12 +373,24 @@ function renderSignature(
   };
 
   if (block.forEntity) line(`For ${entity.displayName}`, { bold: true, color: RED_DEEP });
-  if (block.esign) line("(E-Sign)", { color: INK_FAINT, size: 10, gap: 22 });
-  else doc.y += 8;
+  // The proprietor's signature image (replaces the plain "(E-Sign)" placeholder).
+  void INK_FAINT;
+  try {
+    const sigPath = path.join(process.cwd(), "public", "signatures", "proprietor-signature.png");
+    if (existsSync(sigPath)) {
+      ctx.ensure(62);
+      doc.image(sigPath, left, doc.y, { height: 46 });
+      doc.y += 52;
+    } else {
+      doc.y += 8;
+    }
+  } catch {
+    doc.y += 8;
+  }
 
   const name = resolve(block.name);
   line(name, { bold: true });
-  if (block.designation) line(resolve(block.designation), { color: INK_MUTED, size: 10 });
+  line("Proprietor", { color: INK_MUTED, size: 10 });
   if (block.showDate) line(`Date: ${letterDate}`, { color: INK_MUTED, size: 10 });
   if (block.place) {
     const place = resolve(block.place);

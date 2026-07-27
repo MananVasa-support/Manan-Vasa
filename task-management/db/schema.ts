@@ -1263,6 +1263,8 @@ export const orgSettings = pgTable("org_settings", {
   id: integer("id").primaryKey().default(1),
   companyName: text("company_name").notNull().default("Altus Corp"),
   logoUrl: text("logo_url"),
+  /** Secondary Admin PIN (scrypt/bcrypt hash) required to publish policy edits. */
+  adminPinHash: text("admin_pin_hash"),
   digestHourIst: integer("digest_hour_ist").notNull().default(9),
   idleTimeoutMinutes: integer("idle_timeout_minutes").notNull().default(10),
   workingDays: integer("working_days")
@@ -2972,6 +2974,11 @@ export const weeklyGoals = pgTable(
     // Set only for 'routine' — the catalog row the amount came from. FK in mig 0071.
     incentiveCatalogId: uuid("incentive_catalog_id"),
     kpi: boolean("kpi").notNull().default(false),
+    // Goal type taxonomy (migration 0168, additive) — one of GOAL_TYPES
+    // ('kpi' | 'branding' | 'strategic' | 'operational' | 'essential'), see
+    // db/enums.ts. Nullable so bare selects stay safe pre-migration. Supersedes
+    // the legacy `kpi` boolean (kept, NOT dropped): kpi=true backfills to 'kpi'.
+    goalType: text("goal_type"),
     targetDone: text("target_done"),
     pctDone: integer("pct_done").notNull().default(0),
     pctUpdatedById: uuid("pct_updated_by_id").references(() => employees.id, {
@@ -3301,6 +3308,12 @@ export const goals = pgTable(
     // Category tag (migration 0139) — 'target' | 'milestone' | 'operational' |
     // 'goal'. Colour-codes the Kanban cards; spillover is derived from clonedFromId.
     category: text("category").notNull().default("goal"),
+    // Goal type taxonomy (migration 0168, additive) — one of GOAL_TYPES
+    // ('kpi' | 'branding' | 'strategic' | 'operational' | 'essential'), see
+    // db/enums.ts. Nullable so bare selects stay safe pre-migration. Supersedes
+    // the legacy `category` tag (kept, NOT dropped): category='operational'
+    // backfills to 'operational'; other scored rows default to 'operational'.
+    goalType: text("goal_type"),
     // carry-over footprint / audit link to the origin row.
     clonedFromId: uuid("cloned_from_id").references((): AnyPgColumn => goals.id, {
       onDelete: "set null",
@@ -5625,9 +5638,19 @@ export const apprConfig = pgTable("appr_config", {
   managementId: uuid("management_id").references(() => employees.id, {
     onDelete: "set null",
   }),
-  dimensionWeights: jsonb("dimension_weights")
-    .notNull()
-    .default({ incentive: 30, kpi: 30, skill: 10, attitude: 20, culture: 5, knowledge: 5 }),
+  // 'manager' | 'non-manager' — selects the dimension set + weights (MACRO_BUCKETS).
+  roleClass: text("role_class").notNull().default("non-manager"),
+  // Role-based bucket weights (kpi/goals/culture/…); default = non-manager framework.
+  dimensionWeights: jsonb("dimension_weights").notNull().default({
+    kpi: 20,
+    goals: 30,
+    culture: 15,
+    problemSolving: 10,
+    growthMindset: 10,
+    attendTraining: 5,
+    skillUpgrade: 5,
+    teamPlayer: 5,
+  }),
   incentiveTarget: numeric("incentive_target", { precision: 14, scale: 2 }),
   knowledgeDo: integer("knowledge_do").notNull().default(1),
   knowledgeGive: integer("knowledge_give").notNull().default(1),
@@ -5709,9 +5732,13 @@ export const apprScorecard = pgTable("appr_scorecard", {
     .notNull()
     .unique()
     .references(() => employees.id, { onDelete: "cascade" }),
+  // Legacy direct scores (preserved; unused by the role-based engine).
   incentiveScore: integer("incentive_score"),
   incentiveNote: text("incentive_note"),
   cultureScore: integer("culture_score"),
+  // KPI-dictionary line actuals — { lineId: actual } — Management-entered; the
+  // internal KPI % computed from these = the Final Incentive Authorization %.
+  kpiActuals: jsonb("kpi_actuals").notNull().default({}),
   // 'in_progress' | 'finalized'
   status: text("status").notNull().default("in_progress"),
   finalizedAt: timestamp("finalized_at", { withTimezone: true }),
@@ -5759,6 +5786,40 @@ export const apprItemScore = pgTable(
 export type ApprItemScore = typeof apprItemScore.$inferSelect;
 export type NewApprItemScore = typeof apprItemScore.$inferInsert;
 
+/**
+ * Migration 0167 — one Self/Manager/Management (0..100) score per ROLE dimension
+ * (goals, culture, skillUpgrade, knowledgeSharing, problemSolving, growthMindset,
+ * mih, teamNurture, attendTraining, teamPlayer). Management is FINAL. The KPI
+ * dimension is NOT stored here — it computes from appr_scorecard.kpi_actuals.
+ */
+export const apprDimensionScore = pgTable(
+  "appr_dimension_score",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    dimensionKey: text("dimension_key").notNull(),
+    selfScore: integer("self_score"),
+    selfNote: text("self_note"),
+    managerScore: integer("manager_score"),
+    managerNote: text("manager_note"),
+    managementScore: integer("management_score"),
+    managementNote: text("management_note"),
+    updatedById: uuid("updated_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("appr_dimension_score_uq").on(t.employeeId, t.dimensionKey),
+    index("appr_dimension_score_employee_idx").on(t.employeeId),
+  ],
+);
+export type ApprDimensionScore = typeof apprDimensionScore.$inferSelect;
+export type NewApprDimensionScore = typeof apprDimensionScore.$inferInsert;
+
 /** Candidate Intake (Pre-Interview → Basic Details) — the 108-field walk-in
  *  interview form. Full answers in `data` jsonb; hot columns lifted for listing. */
 export const candidateIntake = pgTable(
@@ -5778,6 +5839,10 @@ export const candidateIntake = pgTable(
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
     // Candidate Evaluation Checklist state: { checked: string[] } (criterion ids).
     evaluation: jsonb("evaluation"),
+    // Candidate Evaluation v2 — structured, two-instance blob:
+    // { interviewer?: EvaluationInstance, management?: EvaluationInstance }
+    // (see lib/hr/candidate/evaluation-v2.ts). The old `evaluation` stays intact.
+    evaluationV2: jsonb("evaluation_v2"),
     photoPath: text("photo_path"),
     signaturePath: text("signature_path"),
     createdById: uuid("created_by_id").references(() => employees.id, {
@@ -5792,4 +5857,111 @@ export const candidateIntake = pgTable(
   ],
 );
 export type CandidateIntake = typeof candidateIntake.$inferSelect;
+
+/**
+ * Per-designation weight profiles for Candidate Evaluation v2. One row per
+ * designation (Intern → Sr VP) plus a `default` pseudo-row that seeds the base
+ * profile. `weights` = { [sectionId]: number } (relative macro weights).
+ */
+export const evaluationWeightProfiles = pgTable("evaluation_weight_profiles", {
+  designation: text("designation").primaryKey(),
+  weights: jsonb("weights").notNull().default({}).$type<Record<string, number>>(),
+  updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type EvaluationWeightProfile = typeof evaluationWeightProfiles.$inferSelect;
+
+/**
+ * Monthly Performance & Incentive scorecards (the Altus HR Intelligence Engine).
+ * One row per (person_key, period_month). `computed` caches the deterministic
+ * breakdown for the Dossier. See lib/performance/*.
+ */
+export const performanceScorecards = pgTable(
+  "performance_scorecards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id").references(() => employees.id, { onDelete: "set null" }),
+    /** KPI-dictionary key (e.g. "rohan"). */
+    personKey: text("person_key").notNull(),
+    personName: text("person_name").notNull().default(""),
+    /** YYYY-MM. */
+    periodMonth: text("period_month").notNull(),
+    roleClass: text("role_class").notNull().default("non-manager"),
+    kpiActuals: jsonb("kpi_actuals").notNull().default({}).$type<Record<string, number>>(),
+    bucketScores: jsonb("bucket_scores").notNull().default({}).$type<Record<string, number>>(),
+    computed: jsonb("computed"),
+    totalScore: numeric("total_score", { precision: 6, scale: 2 }),
+    incentivePct: numeric("incentive_pct", { precision: 6, scale: 2 }),
+    narrative: text("narrative"),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("perf_scorecard_person_month_uk").on(t.personKey, t.periodMonth)],
+);
+export type PerformanceScorecard = typeof performanceScorecards.$inferSelect;
+
+/* ── Policy CMS (admin-editable policies + versioning + compliance) ────── */
+
+/** The living policy record (one per policy key). Points at the current version. */
+export const policyDocuments = pgTable("policy_documents", {
+  key: text("key").primaryKey(),
+  title: text("title").notNull(),
+  docCode: text("doc_code").notNull().default(""),
+  category: text("category").notNull().default("policy"),
+  badge: text("badge").notNull().default(""),
+  blurb: text("blurb").notNull().default(""),
+  summary: text("summary").notNull().default(""),
+  owner: text("owner").notNull().default(""),
+  registeredOffice: text("registered_office").notNull().default(""),
+  hrEmail: text("hr_email").notNull().default(""),
+  entityDefault: text("entity_default").notNull().default("altus-corp"),
+  currentVersion: integer("current_version").notNull().default(1),
+  status: text("status").notNull().default("published"), // draft | published | archived
+  updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type PolicyDocumentRow = typeof policyDocuments.$inferSelect;
+
+/** Immutable version history — `sections` is the declarative PolicyDoc.sections. */
+export const policyVersions = pgTable(
+  "policy_versions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    policyKey: text("policy_key").notNull(),
+    version: integer("version").notNull(),
+    title: text("title").notNull(),
+    docCode: text("doc_code").notNull().default(""),
+    effectiveDate: text("effective_date").notNull().default(""),
+    summary: text("summary").notNull().default(""),
+    sections: jsonb("sections").notNull().default([]),
+    publishedById: uuid("published_by_id").references(() => employees.id, { onDelete: "set null" }),
+    publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("policy_versions_key_version_uk").on(t.policyKey, t.version)],
+);
+export type PolicyVersionRow = typeof policyVersions.$inferSelect;
+
+/** Per-employee compliance for a policy's CURRENT version. Publishing a new
+ *  version resets everyone to 'pending' (the re-signing request). */
+export const policyCompliance = pgTable(
+  "policy_compliance",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    policyKey: text("policy_key").notNull(),
+    version: integer("version").notNull(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("pending"), // pending | signed
+    signedAt: timestamp("signed_at", { withTimezone: true }),
+    docInstanceId: uuid("doc_instance_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("policy_compliance_key_emp_uk").on(t.policyKey, t.employeeId)],
+);
+export type PolicyComplianceRow = typeof policyCompliance.$inferSelect;
 export type NewCandidateIntake = typeof candidateIntake.$inferInsert;

@@ -41,7 +41,7 @@ const antiHarassmentPolicy: PolicyDoc = {
   hrEmail: "hr.altuscorp@gmail.com",
   entityDefault: "altus-corp",
   summary:
-    "Altus Corp is committed to a professional, inclusive and respectful working environment in which every individual is treated with dignity and evaluated solely on merit, capability and execution. This Policy sets out the standards of conduct, the prohibited behaviours, the reporting channels and the disciplinary framework that together protect the organisation's people and culture.",
+    "{firm} is committed to a professional, inclusive and respectful working environment in which every individual is treated with dignity and evaluated solely on merit, capability and execution. This Policy sets out the standards of conduct, the prohibited behaviours, the reporting channels and the disciplinary framework that together protect the organisation's people and culture.",
 
   sections: [
     /* ── 1. Preamble & Objective ──────────────────────────────────
@@ -50,10 +50,10 @@ const antiHarassmentPolicy: PolicyDoc = {
     heading(
       "Preamble & Objective",
       p(
-        "This Anti-Harassment & Non-Discrimination Policy establishes Altus Corp's uncompromising commitment to a workplace free from discrimination, harassment, microaggression and bullying in any form. It has been adopted by the Founder and the Human Resources Department and forms an integral part of the terms of engagement of every individual to whom it applies.",
+        "This Anti-Harassment & Non-Discrimination Policy establishes {firm}'s uncompromising commitment to a workplace free from discrimination, harassment, microaggression and bullying in any form. It has been adopted by the Founder and the Human Resources Department and forms an integral part of the terms of engagement of every individual to whom it applies.",
       ),
       p(
-        "The objective of this Policy is to define prohibited conduct, empower every member of the organisation to report concerns safely, guarantee objective and confidential redressal, and set out the disciplinary consequences of any breach — thereby safeguarding employee dignity, sustaining an inclusive corporate culture and preserving the Company's professional reputation.",
+        "The objective of this Policy is to define prohibited conduct, empower every member of the organisation to report concerns safely, guarantee objective and confidential redressal, and set out the disciplinary consequences of any breach — thereby safeguarding employee dignity, sustaining an inclusive corporate culture and preserving the Firm's professional reputation.",
       ),
     ),
 
@@ -62,14 +62,14 @@ const antiHarassmentPolicy: PolicyDoc = {
       "Policy Statement & Scope",
       sub("2.1 Policy Statement"),
       p(
-        "Altus Corp strictly prohibits any manifestation of discriminatory bias, microaggressions, marginalization, or workplace bullying. Any violation of this core behavioral code is categorized as severe professional misconduct and will result in immediate, severe disciplinary consequences up to summary dismissal for cause.",
+        "{firm} strictly prohibits any manifestation of discriminatory bias, microaggressions, marginalization, or workplace bullying. Any violation of this core behavioral code is categorized as severe professional misconduct and will result in immediate, severe disciplinary consequences up to summary dismissal for cause.",
       ),
       sub("2.2 Scope and Jurisdiction"),
-      p("This framework applies universally across the entire operational grid of Altus Corp:"),
+      p("This framework applies universally across the entire operational grid of {firm}:"),
       ul(
         "Personnel Coverage: All core employees, contractual specialists, freelance personnel, temporary resources, advisors, interns, as well as external interview candidates, enterprise clients, delivery staff, and vendor entities.",
         "Physical Workplaces: All physical offices, satellite places, co-working allocations, client deployment facilities, and event venues.",
-        "Digital & Remote Infrastructure: All collaboration layers including email, Google Meet, Phone calls, Altus Corp Apps, Zoom, Microsoft Teams, institutional WhatsApp clusters, virtual conference channels, and public digital platforms where corporate association is legible.",
+        "Digital & Remote Infrastructure: All collaboration layers including email, Google Meet, Phone calls, {firm} Apps, Zoom, Microsoft Teams, institutional WhatsApp clusters, virtual conference channels, and public digital platforms where corporate association is legible.",
       ),
     ),
 
@@ -77,7 +77,7 @@ const antiHarassmentPolicy: PolicyDoc = {
     heading(
       "Core Guiding Principles",
       p(
-        "The management of workplace grievances and cultural protection at Altus Corp is governed by five structural principles:",
+        "The management of workplace grievances and cultural protection at {firm} is governed by five structural principles:",
       ),
       table({
         variant: "principle",
@@ -112,7 +112,7 @@ const antiHarassmentPolicy: PolicyDoc = {
       "Defining Prohibited Discriminatory Actions & Bullying",
       sub("4.1 Prohibited Discrimination Parameters"),
       p(
-        "Discrimination represents any unfair distinction, professional limitation, or exclusion applied to an individual based on personal characteristics rather than functional competence. Altus Corp provides blanket protections against bias centered around: race, caste, nationality, regional accent, age, biological sex, gender expression, gender identity, sexual orientation, disability, neurodivergence parameters, pregnancy, medical history, religion, political opinion (where lawful), marital status, family status, veteran status, genetic information, socio-economic background, language, or citizenship status (where applicable).",
+        "Discrimination represents any unfair distinction, professional limitation, or exclusion applied to an individual based on personal characteristics rather than functional competence. {firm} provides blanket protections against bias centered around: race, caste, nationality, regional accent, age, biological sex, gender expression, gender identity, sexual orientation, disability, neurodivergence parameters, pregnancy, medical history, religion, political opinion (where lawful), marital status, family status, veteran status, genetic information, socio-economic background, language, or citizenship status (where applicable).",
       ),
       sub("4.2 Workplace Bullying & Hostile Environment Examples"),
       p(
@@ -126,15 +126,15 @@ const antiHarassmentPolicy: PolicyDoc = {
       ),
       sub("4.3 Abusive, Offensive & Inappropriate Language"),
       p(
-        "Altus Corp maintains a zero-tolerance standard against the use of abusive, offensive, vulgar, insulting, threatening, or intimidating language, as well as profanity, derogatory remarks, disrespectful communication, or discriminatory comments, in any work-related interaction. This standard applies uniformly across every channel of official communication, including:",
+        "{firm} maintains a zero-tolerance standard against the use of abusive, offensive, vulgar, insulting, threatening, or intimidating language, as well as profanity, derogatory remarks, disrespectful communication, or discriminatory comments, in any work-related interaction. This standard applies uniformly across every channel of official communication, including:",
       ),
       ul(
         "In-Person & Verbal Communication: Face-to-face conversations, telephone calls, video meetings, and online meetings conducted in a professional capacity.",
         "Digital & Messaging Platforms: Emails, WhatsApp, Zoom Calls, Phone Calls, Microsoft Teams, Google Meet, and other internal messaging or collaboration platforms.",
-        "Client & Vendor Interactions: Client meetings, vendor interactions, and all other official, work-related communication undertaken on behalf of Altus Corp.",
+        "Client & Vendor Interactions: Client meetings, vendor interactions, and all other official, work-related communication undertaken on behalf of {firm}.",
       ),
       p(
-        "This standard is enforced to maintain professionalism, promote mutual respect, sustain an inclusive workplace culture, safeguard employee safety, and preserve the Company's professional reputation.",
+        "This standard is enforced to maintain professionalism, promote mutual respect, sustain an inclusive workplace culture, safeguard employee safety, and preserve the Firm's professional reputation.",
       ),
       sub("4.4 Progressive Disciplinary Action for Language Violations"),
       p(
@@ -167,7 +167,7 @@ const antiHarassmentPolicy: PolicyDoc = {
     heading(
       "Grievance Redressal Framework",
       p(
-        "To execute objective reviews, Altus Corp has operationalized a centralized compliance committee. This structural panel evaluates all reported incidents with maximum confidentiality and operational rigor:",
+        "To execute objective reviews, {firm} has operationalized a centralized compliance committee. This structural panel evaluates all reported incidents with maximum confidentiality and operational rigor:",
       ),
       committee([
         {
@@ -230,7 +230,7 @@ const antiHarassmentPolicy: PolicyDoc = {
       "Safeguards Against Retaliation & Disciplinary Framework",
       sub("8.1 Absolute Non-Retaliation Guarantee"),
       p(
-        "Altus Corp maintains an uncompromising stance against career victimization. Any subtle or explicit retaliation—such as giving fabricated low appraisal metrics, withholding standard equity options, malicious shifts in team dynamics, or digital exclusion due to a filed grievance—is a direct critical policy breach.",
+        "{firm} maintains an uncompromising stance against career victimization. Any subtle or explicit retaliation—such as giving fabricated low appraisal metrics, withholding standard equity options, malicious shifts in team dynamics, or digital exclusion due to a filed grievance—is a direct critical policy breach.",
       ),
       sub("8.2 Actionable Disciplinary Matrix"),
       p(
@@ -260,10 +260,10 @@ const antiHarassmentPolicy: PolicyDoc = {
         "Please read the declaration statement below thoroughly. Authenticate, date, and return this sheet to People Operations within seven (7) business days.",
       ),
       p(
-        "I, the undersigned, hereby acknowledge that I have received, read, and comprehensively understood the Altus Corp Anti-Harassment & Non-Discrimination Policy (Version 1.0).",
+        "I, the undersigned, hereby acknowledge that I have received, read, and comprehensively understood the {firm} Anti-Harassment & Non-Discrimination Policy (Version 1.0).",
       ),
       p(
-        "I explicitly agree to preserve the professional codes, interactive boundaries, and behavioral expectations defined herein. I understand that failure to operate within this respectful corporate ecosystem will result in immediate disciplinary measures up to summary termination of my association with Altus Corp.",
+        "I explicitly agree to preserve the professional codes, interactive boundaries, and behavioral expectations defined herein. I understand that failure to operate within this respectful corporate ecosystem will result in immediate disciplinary measures up to summary termination of my association with {firm}.",
       ),
     ),
   ],

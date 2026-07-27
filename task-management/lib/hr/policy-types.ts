@@ -26,7 +26,7 @@ export const POLICY_CATEGORIES: PolicyCategoryMeta[] = [
   { key: "it_security", label: "IT & Security", hint: "Acceptable use, data & device policy.", accent: "#7c3aed" },
   { key: "workplace_safety", label: "Workplace & Safety", hint: "Office, facilities & safety norms.", accent: "#0891b2" },
   { key: "hr_general", label: "HR — General", hint: "Onboarding, exit & general HR policy.", accent: "#b45309" },
-  { key: "other", label: "Other", hint: "Any other company policy.", accent: "#475569" },
+  { key: "other", label: "Other", hint: "Any other firm policy.", accent: "#475569" },
 ];
 
 const BY_KEY = new Map<string, PolicyCategoryMeta>(POLICY_CATEGORIES.map((c) => [c.key, c]));

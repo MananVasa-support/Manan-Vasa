@@ -97,18 +97,18 @@ export const MANAGEMENT_DISCRETION_TITLE = "Management Discretion Regarding Holi
 
 /** The discretion note, verbatim. */
 export const MANAGEMENT_DISCRETION_NOTE =
-  "Considering the nature of Altus Corp's business, operational requirements, client commitments, employee roles, work locations, and the diverse religious beliefs and personal preferences of its employees, the Company reserves the sole and absolute discretion to determine the holidays applicable to individual employees or groups of employees.";
+  "Considering the nature of Altus Corp's business, operational requirements, client commitments, employee roles, work locations, and the diverse religious beliefs and personal preferences of its employees, the Firm reserves the sole and absolute discretion to determine the holidays applicable to individual employees or groups of employees.";
 
 /** The "Accordingly:" clause list, verbatim, in order. */
 export const MANAGEMENT_DISCRETION_CLAUSES: string[] = [
-  "The Company may require certain employees to work on any notified public holiday based on business requirements, while granting them a compensatory holiday or any other benefit as determined by the Company and applicable law.",
-  "The Company may grant different holidays, substitute holidays, restricted holidays, or other leave arrangements to different employees or groups of employees based on operational needs, client requirements, location, religion, or any other relevant business consideration.",
+  "The Firm may require certain employees to work on any notified public holiday based on business requirements, while granting them a compensatory holiday or any other benefit as determined by the Firm and applicable law.",
+  "The Firm may grant different holidays, substitute holidays, restricted holidays, or other leave arrangements to different employees or groups of employees based on operational needs, client requirements, location, religion, or any other relevant business consideration.",
   "Any exception, relaxation, concession, substitute holiday, additional holiday, or special leave arrangement granted to an employee shall be purely discretionary and shall not constitute a precedent or create any contractual, statutory, legal, equitable, or vested right or entitlement for that employee or any other employee.",
   "Altus Corp reserves the right to modify, substitute, add, remove, or reschedule holidays, or revise the holiday calendar at any time to comply with applicable law or meet business requirements.",
-  "Where a notified public holiday falls on a weekly off, no substitute holiday shall be provided unless expressly approved by the Company or required under applicable law.",
-  "All decisions of the Company relating to the applicability of holidays, grant of exceptions, substitute holidays, or interpretation of this Policy shall be final and binding, subject to applicable law.",
+  "Where a notified public holiday falls on a weekly off, no substitute holiday shall be provided unless expressly approved by the Firm or required under applicable law.",
+  "All decisions of the Firm relating to the applicability of holidays, grant of exceptions, substitute holidays, or interpretation of this Policy shall be final and binding, subject to applicable law.",
 ];
 
 /** The closing paragraph, verbatim. */
 export const MANAGEMENT_DISCRETION_CLOSING =
-  "Nothing contained in this Policy shall limit the Company's right to manage its operations or workforce in accordance with applicable law and legitimate business requirements.";
+  "Nothing contained in this Policy shall limit the Firm's right to manage its operations or workforce in accordance with applicable law and legitimate business requirements.";

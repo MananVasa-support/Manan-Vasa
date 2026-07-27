@@ -6,14 +6,12 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ChevronDown, ClipboardCheck, MessagesSquare, Loader2, ChevronRight } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { getExitRecord, type ExitRecordRow } from "@/app/(app)/hr/exit/exit-actions";
+import type { ExitRosterEmployee } from "@/lib/hr/exit/schema";
 import { ExitStyle } from "./exit-fields";
 import { ExitInterviewForm } from "./exit-interview-form";
 import { ExitHandoverForm } from "./exit-handover-form";
 
-interface EmployeeOpt {
-  id: string;
-  name: string;
-}
+type EmployeeOpt = ExitRosterEmployee;
 
 type Kind = "interview" | "handover";
 type Mode = { screen: "pick" } | { screen: Kind; recordId: string | null; initial: unknown };
@@ -21,8 +19,8 @@ type Mode = { screen: "pick" } | { screen: Kind; recordId: string | null; initia
 const CARDS: { kind: Kind; title: string; desc: string; annex: string; Icon: typeof MessagesSquare }[] = [
   {
     kind: "interview",
-    title: "Exit Interview Questionnaire",
-    desc: "10 structured questions, choice ratings and a 1–5 experience matrix — captured confidentially.",
+    title: "Director Exit Interview",
+    desc: "Structured questions, a standardized 5-point experience scale and open feedback — captured confidentially.",
     annex: "Annexure B",
     Icon: MessagesSquare,
   },
@@ -108,6 +106,8 @@ export function ExitWorkspace({
           key={`interview-${empId}-${mode.recordId ?? "new"}`}
           employeeId={empId}
           employeeName={activeEmp?.name ?? ""}
+          roster={employees}
+          onEmployeeChange={(id) => openForm("interview", id)}
           recordId={mode.recordId}
           initial={(mode.initial as { fields?: Record<string, string>; ratings?: Record<string, number> }) ?? undefined}
           onBack={backToPick}
@@ -117,6 +117,8 @@ export function ExitWorkspace({
           key={`handover-${empId}-${mode.recordId ?? "new"}`}
           employeeId={empId}
           employeeName={activeEmp?.name ?? ""}
+          roster={employees}
+          onEmployeeChange={(id) => openForm("handover", id)}
           recordId={mode.recordId}
           initial={(mode.initial as { fields?: Record<string, string>; checked?: Record<string, boolean> }) ?? undefined}
           onBack={backToPick}
@@ -237,7 +239,7 @@ function PickScreen({
                   <span>
                     <span className="block text-[14px] font-bold text-ink-strong">{r.employeeName}</span>
                     <span className="block text-[12px] text-ink-muted">
-                      {r.kind === "interview" ? "Exit Interview Questionnaire" : "Handover & Clearance Checklist"}
+                      {r.kind === "interview" ? "Director Exit Interview" : "Handover & Clearance Checklist"}
                     </span>
                   </span>
                 </span>

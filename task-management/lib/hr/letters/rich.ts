@@ -28,6 +28,7 @@
 
 import { getEntity, type Entity, type EntityId } from "@/lib/hr/entities";
 import { applyPronouns, type Gender } from "@/lib/hr/pronouns";
+import { applyFirm } from "@/lib/hr/firm";
 import { type LetterTemplate, type Block, type Span, tableRowVisible } from "./types";
 
 /* ------------------------------------------------------------------ */
@@ -198,7 +199,8 @@ export function templateToRichHtml(
 ): string {
   const resolved = getEntity(entity ?? template.entityDefault ?? null);
   const html = template.blocks.map((block) => blockToHtml(block, values ?? {}, resolved)).join("\n");
-  // Resolve gendered tokens ({title}/{he}/{his}/… → Mr./Ms., his/her, …) so the
-  // "Edit freely" seed already reads correctly for this candidate's gender.
-  return applyPronouns(html, gender);
+  // Resolve gendered tokens ({title}/{he}/{his}/… → Mr./Ms., his/her, …) AND the
+  // firm-name token ({firm} → the issuing entity) so the "Edit freely" seed
+  // already reads correctly for this candidate + paying entity.
+  return applyFirm(applyPronouns(html, gender), resolved);
 }

@@ -4,9 +4,16 @@
  * Uses the CLEAN master letterhead strips (public/letterhead/altus-header.png,
  * 1008×225, and altus-footer.png, 1018×92) as crisp <img> layers — the angular
  * red ribbon + logo on top, the contact line + red address bar on the bottom.
- * The middle stays white for the letter/policy body. Because header + footer are
- * their own fixed layers, they repeat correctly across pages when a long policy
- * prints.
+ * The middle stays white for the letter/policy body.
+ *
+ * ── Repeating on EVERY printed page ─────────────────────────────────────────
+ * The body sits inside a single-column <table> whose <thead>/<tfoot> are EMPTY
+ * spacer bands. Browsers repeat thead/tfoot — AND reserve their height — at the
+ * top/bottom of every printed page, so the body text can never slide under the
+ * header/footer on page 2+. The artwork itself is `position:fixed` in print so
+ * it paints into those reserved bands on each page. This is the bulletproof,
+ * cross-browser way to letterhead a multi-page document (works in Chrome print
+ * AND the Chromium/puppeteer PDF path).
  *
  * Per-entity branding: the header strip carries the Altus Corp logo. For a
  * NON-Altus paying entity we lay a white cover over that baked-in logo and paste
@@ -43,7 +50,8 @@ export function Letterhead({ entity, children, className }: LetterheadProps) {
     <div className={`alh-page${className ? ` ${className}` : ""}`}>
       <style>{LETTERHEAD_CSS}</style>
 
-      {/* ── Header artwork (crisp strip) ───────────────────────── */}
+      {/* ── Header + footer artwork (crisp strips) — absolute on screen,
+             FIXED in print so they repeat on every printed page. ─────── */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="alh-art alh-art-top" src={HEADER_ART} alt="" aria-hidden />
       {overlayLogo && (
@@ -53,13 +61,37 @@ export function Letterhead({ entity, children, className }: LetterheadProps) {
           <img className="alh-logo" src={e.logo} alt={`${e.displayName} logo`} />
         </>
       )}
-
-      {/* ── Body ───────────────────────────────────────────────── */}
-      <main className="alh-body">{children}</main>
-
-      {/* ── Footer artwork (crisp strip) ───────────────────────── */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="alh-art alh-art-bottom" src={FOOTER_ART} alt="" aria-hidden />
+
+      {/* ── Page frame ───────────────────────────────────────────
+             The thead/tfoot are empty spacer bands the browser repeats
+             + reserves on EVERY printed page, keeping the body clear of
+             the fixed artwork. On screen they simply hold the top/bottom
+             margin the header/footer sit in. ─────────────────────────── */}
+      <table className="alh-frame">
+        <thead>
+          <tr>
+            <td>
+              <div className="alh-head-space" aria-hidden />
+            </td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <main className="alh-body">{children}</main>
+            </td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>
+              <div className="alh-foot-space" aria-hidden />
+            </td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   );
 }
@@ -92,25 +124,32 @@ const LETTERHEAD_CSS = `
   height:122px;width:auto;max-width:126px;
   object-fit:contain;display:block;z-index:2;
 }
+/* Page frame — a single-column table whose head/foot reserve + repeat the
+ * header/footer band on every printed page (see file header). */
+.alh-frame{position:relative;z-index:3;width:100%;border-collapse:collapse;table-layout:fixed;}
+.alh-frame td{padding:0;border:0;vertical-align:top;}
+.alh-head-space{height:196px;}
+.alh-foot-space{height:100px;}
 /* Body */
 .alh-body{
-  position:relative;z-index:3;
-  padding:198px 70px 104px;
+  padding:2px 70px 8px;
   font-family:var(--font-display, Georgia, "Times New Roman", serif);
   font-size:15px;line-height:1.72;color:#111114;
+  overflow-wrap:break-word;
 }
 .alh-body p{margin:0 0 14px;}
-/* Print / PDF — pin header + footer to every printed page */
+/* Print / PDF — pin header + footer to every printed page; the thead/tfoot
+ * spacers keep the body from ever overlapping them. */
 @media print{
   @page{size:A4;margin:0;}
   html,body{background:#fff;margin:0;}
   .alh-page{
     box-shadow:none;border-radius:0;margin:0;
-    width:auto;min-height:auto;max-width:none;
+    width:auto;min-height:auto;max-width:none;overflow:visible;
   }
   .alh-art-top{position:fixed;top:0;}
   .alh-art-bottom{position:fixed;bottom:0;}
-  .alh-body{padding-top:190px;padding-bottom:96px;}
+  .alh-frame{width:100%;}
   .alh-art,.alh-logo-cover,.alh-logo{
     -webkit-print-color-adjust:exact;print-color-adjust:exact;
   }

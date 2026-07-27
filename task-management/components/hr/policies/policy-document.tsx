@@ -21,12 +21,16 @@
 
 import { Letterhead } from "@/components/hr/letterhead/letterhead";
 import type { EntityId, Entity } from "@/lib/hr/entities";
+import { applyFirm } from "@/lib/hr/firm";
 import type {
   PolicyDoc,
   PolicySection,
   PolicyNode,
   DeclarationBlock,
 } from "@/lib/hr/policies/types";
+
+/** Resolve `{firm}` tokens against the issuing entity — a string transformer. */
+type Fx = (s: string) => string;
 
 const RED = "#E10600";
 const RED_DEEP = "#A80400";
@@ -39,6 +43,9 @@ export interface PolicyDocumentProps {
 
 export function PolicyDocument({ doc, entity }: PolicyDocumentProps) {
   const brand = entity ?? doc.entityDefault ?? "altus-corp";
+  // Resolve firm-name tokens against the chosen issuing entity — so the whole
+  // policy re-brands live when the reader swaps the entity in the toolbar.
+  const fx: Fx = (s) => applyFirm(s, brand);
   const codeRows: Array<[string, string]> = [
     ["Document Code", doc.docCode],
     ["Version", doc.version],
@@ -54,8 +61,8 @@ export function PolicyDocument({ doc, entity }: PolicyDocumentProps) {
       <Letterhead entity={brand}>
         {/* ── Title + doc-code box ─────────────────────────────── */}
         <div className="apd-titlewrap">
-          <p className="apd-eyebrow">Company Policy</p>
-          <h1 className="apd-title">{doc.title}</h1>
+          <p className="apd-eyebrow">Firm Policy</p>
+          <h1 className="apd-title">{fx(doc.title)}</h1>
         </div>
 
         <table className="apd-codebox">
@@ -69,15 +76,15 @@ export function PolicyDocument({ doc, entity }: PolicyDocumentProps) {
           </tbody>
         </table>
 
-        {doc.summary && <p className="apd-summary">{doc.summary}</p>}
+        {doc.summary && <p className="apd-summary">{fx(doc.summary)}</p>}
 
         {/* ── Sections ─────────────────────────────────────────── */}
         {doc.sections.map((section, i) => (
-          <SectionView key={i} index={i + 1} section={section} />
+          <SectionView key={i} index={i + 1} section={section} fx={fx} />
         ))}
 
         {/* ── Declaration / sign-off ───────────────────────────── */}
-        {doc.declaration && <DeclarationView block={doc.declaration} />}
+        {doc.declaration && <DeclarationView block={doc.declaration} fx={fx} />}
       </Letterhead>
     </div>
   );
@@ -87,49 +94,73 @@ export function PolicyDocument({ doc, entity }: PolicyDocumentProps) {
 /* Section + node rendering                                             */
 /* ------------------------------------------------------------------ */
 
-function SectionView({ index, section }: { index: number; section: PolicySection }) {
+function SectionView({ index, section, fx }: { index: number; section: PolicySection; fx: Fx }) {
   return (
     <section className="apd-section">
       <h2 className="apd-h2">
         <span className="apd-h2-num">{index}.</span>
-        {section.heading}
+        {fx(section.heading)}
       </h2>
       {section.nodes.map((node, i) => (
-        <NodeView key={i} node={node} />
+        <NodeView key={i} node={node} fx={fx} />
       ))}
     </section>
   );
 }
 
-function NodeView({ node }: { node: PolicyNode }) {
+function NodeView({ node, fx }: { node: PolicyNode; fx: Fx }) {
   switch (node.kind) {
     case "p":
       return (
         <p className="apd-p">
-          {node.lead && <strong className="apd-lead">{node.lead}</strong>}
-          {node.text}
+          {node.lead && <strong className="apd-lead">{fx(node.lead)}</strong>}
+          {fx(node.text)}
         </p>
       );
     case "sub":
-      return <h3 className="apd-h3">{node.text}</h3>;
+      return <h3 className="apd-h3">{fx(node.text)}</h3>;
     case "ul":
       return (
         <ul className="apd-ul">
           {node.items.map((item, i) => (
-            <li key={i}>{item}</li>
+            <li key={i}>{fx(item)}</li>
           ))}
         </ul>
       );
     case "table":
-      return <TableView node={node} />;
+      return <TableView node={node} fx={fx} />;
     case "committee":
-      return <CommitteeView node={node} />;
+      return <CommitteeView node={node} fx={fx} />;
     case "workflow":
-      return <WorkflowView node={node} />;
+      return <WorkflowView node={node} fx={fx} />;
+    case "legend":
+      return <LegendView node={node} fx={fx} />;
   }
 }
 
-function TableView({ node }: { node: Extract<PolicyNode, { kind: "table" }> }) {
+/**
+ * A LEGEND grid — each code rendered as a gradient brand chip beside its meaning.
+ * A premium reference key (used for the attendance status codes). Responsive:
+ * three columns on a wide page, collapsing gracefully; every chip is fixed-width
+ * so the meanings align into clean columns. Print-safe (chips keep their fill).
+ */
+function LegendView({ node, fx }: { node: Extract<PolicyNode, { kind: "legend" }>; fx: Fx }) {
+  return (
+    <div className="apd-legend-wrap">
+      {node.caption && <p className="apd-caption">{fx(node.caption)}</p>}
+      <div className="apd-legend">
+        {node.items.map((it, i) => (
+          <div key={i} className="apd-legend-item">
+            <span className="apd-legend-chip">{it.code}</span>
+            <span className="apd-legend-mean">{fx(it.meaning)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TableView({ node, fx }: { node: Extract<PolicyNode, { kind: "table" }>; fx: Fx }) {
   const cls =
     node.variant === "keyval"
       ? "apd-table apd-table-keyval"
@@ -143,7 +174,7 @@ function TableView({ node }: { node: Extract<PolicyNode, { kind: "table" }> }) {
           <thead>
             <tr>
               {node.columns.map((c, i) => (
-                <th key={i}>{c}</th>
+                <th key={i}>{fx(c)}</th>
               ))}
             </tr>
           </thead>
@@ -154,10 +185,10 @@ function TableView({ node }: { node: Extract<PolicyNode, { kind: "table" }> }) {
               {row.map((cell, ci) =>
                 node.variant === "keyval" && ci === 0 ? (
                   <th key={ci} scope="row">
-                    {cell}
+                    {fx(cell)}
                   </th>
                 ) : (
-                  <td key={ci}>{cell}</td>
+                  <td key={ci}>{fx(cell)}</td>
                 ),
               )}
             </tr>
@@ -168,10 +199,10 @@ function TableView({ node }: { node: Extract<PolicyNode, { kind: "table" }> }) {
   );
 }
 
-function CommitteeView({ node }: { node: Extract<PolicyNode, { kind: "committee" }> }) {
+function CommitteeView({ node, fx }: { node: Extract<PolicyNode, { kind: "committee" }>; fx: Fx }) {
   return (
     <div className="apd-tablewrap">
-      {node.caption && <p className="apd-caption">{node.caption}</p>}
+      {node.caption && <p className="apd-caption">{fx(node.caption)}</p>}
       <table className="apd-table apd-table-committee">
         <thead>
           <tr>
@@ -184,8 +215,8 @@ function CommitteeView({ node }: { node: Extract<PolicyNode, { kind: "committee"
         <tbody>
           {node.members.map((m, i) => (
             <tr key={i}>
-              <td className="apd-cell-pos">{m.position}</td>
-              <td>{m.name}</td>
+              <td className="apd-cell-pos">{fx(m.position)}</td>
+              <td>{fx(m.name)}</td>
               <td>{m.email ?? "—"}</td>
               <td>{m.contact ?? "—"}</td>
             </tr>
@@ -196,15 +227,15 @@ function CommitteeView({ node }: { node: Extract<PolicyNode, { kind: "committee"
   );
 }
 
-function WorkflowView({ node }: { node: Extract<PolicyNode, { kind: "workflow" }> }) {
+function WorkflowView({ node, fx }: { node: Extract<PolicyNode, { kind: "workflow" }>; fx: Fx }) {
   return (
     <ol className="apd-flow">
       {node.steps.map((step, i) => (
         <li key={i} className="apd-flow-step">
           <span className="apd-flow-num">{i + 1}</span>
           <span className="apd-flow-body">
-            <span className="apd-flow-text">{step.text}</span>
-            {step.note && <span className="apd-flow-note">{step.note}</span>}
+            <span className="apd-flow-text">{fx(step.text)}</span>
+            {step.note && <span className="apd-flow-note">{fx(step.note)}</span>}
           </span>
         </li>
       ))}
@@ -214,7 +245,7 @@ function WorkflowView({ node }: { node: Extract<PolicyNode, { kind: "workflow" }
             ✓
           </span>
           <span className="apd-flow-body">
-            <span className="apd-flow-text">{node.closure}</span>
+            <span className="apd-flow-text">{fx(node.closure)}</span>
             <span className="apd-flow-note">Case closure</span>
           </span>
         </li>
@@ -227,17 +258,17 @@ function WorkflowView({ node }: { node: Extract<PolicyNode, { kind: "workflow" }
 /* Declaration / sign-off                                               */
 /* ------------------------------------------------------------------ */
 
-function DeclarationView({ block }: { block: DeclarationBlock }) {
+function DeclarationView({ block, fx }: { block: DeclarationBlock; fx: Fx }) {
   return (
     <section className="apd-section apd-decl">
-      <h2 className="apd-h2 apd-h2-decl">{block.heading}</h2>
-      <p className="apd-p apd-decl-statement">{block.statement}</p>
+      <h2 className="apd-h2 apd-h2-decl">{fx(block.heading)}</h2>
+      <p className="apd-p apd-decl-statement">{fx(block.statement)}</p>
 
       <div className="apd-decl-grid">
         {block.employeeFields.map((f) => (
           <div key={f} className="apd-signline">
             <span className="apd-signline-rule" aria-hidden />
-            <span className="apd-signline-label">{f}</span>
+            <span className="apd-signline-label">{fx(f)}</span>
           </div>
         ))}
       </div>
@@ -245,11 +276,11 @@ function DeclarationView({ block }: { block: DeclarationBlock }) {
       <div className="apd-decl-approvals">
         <div className="apd-approval">
           <span className="apd-approval-box" aria-hidden />
-          <span className="apd-approval-label">{block.hrLabel}</span>
+          <span className="apd-approval-label">{fx(block.hrLabel)}</span>
         </div>
         <div className="apd-approval">
           <span className="apd-approval-box" aria-hidden />
-          <span className="apd-approval-label">{block.approvalLabel}</span>
+          <span className="apd-approval-label">{fx(block.approvalLabel)}</span>
         </div>
       </div>
     </section>
@@ -377,6 +408,39 @@ const POLICY_CSS = `
   font-size:12px;font-weight:600;font-style:italic;
   color:var(--color-ink-muted, #64748b);
 }
+
+/* Legend — premium code-chip grid (attendance codes, etc.) */
+.apd-legend-wrap{margin:8px 0 18px;}
+.apd-legend{
+  display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:9px 16px;
+  padding:16px;border-radius:14px;
+  border:1px solid color-mix(in srgb, ${RED} 16%, #e2e8f0);
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, ${RED} 6%, transparent), transparent 60%),
+    linear-gradient(180deg, #ffffff, var(--color-surface-soft, #f8fafc));
+  -webkit-print-color-adjust:exact;print-color-adjust:exact;
+}
+.apd-legend-item{
+  display:flex;align-items:center;gap:10px;min-width:0;
+  padding:5px 4px;
+}
+.apd-legend-chip{
+  flex:0 0 auto;min-width:44px;height:30px;padding:0 10px;
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:9px;
+  font-family:var(--font-display, system-ui, sans-serif);
+  font-size:13px;font-weight:900;letter-spacing:.03em;color:#fff;
+  background:linear-gradient(135deg, ${RED}, ${RED_DEEP});
+  box-shadow:0 6px 14px -8px rgba(168,4,0,.75), inset 0 1px 0 rgba(255,255,255,.22);
+  -webkit-print-color-adjust:exact;print-color-adjust:exact;
+}
+.apd-legend-mean{
+  min-width:0;font-size:13px;line-height:1.35;font-weight:600;
+  color:var(--color-ink-strong, #0f172a);overflow-wrap:break-word;
+}
+@media (max-width:720px){ .apd-legend{grid-template-columns:repeat(2, minmax(0,1fr));} }
+@media print{ .apd-legend{grid-template-columns:repeat(3, minmax(0,1fr));break-inside:avoid;} }
 
 /* Workflow */
 .apd-flow{list-style:none;margin:6px 0 16px;padding:0;counter-reset:none;}

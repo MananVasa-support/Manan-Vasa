@@ -1,36 +1,24 @@
 "use client";
 
 /**
- * Appraisal v2 — ADMIN PANEL (client).
+ * Appraisal v2 — ADMIN PANEL (ROLE-BASED, client).
  *
  * Left rail: department filter + searchable employee picker. Right: the selected
- * person's scorecard config — assignees, dimension weights (sum-to-100), the
- * <=5 KPIs, the <=3 Skills, the incentive target and the knowledge do/give rule.
- * Every mutation calls a "use server" admin action; on success we refresh the
- * server props so the panel always reflects the saved truth. Brand tokens only,
- * keyboard-friendly (each editor is a submittable form).
+ * person's scorecard config — the ROLE CLASS (Manager | Non-Manager, which
+ * selects the dimension set + weights) and the manager (advisory) + management
+ * (final) assignees. Every mutation calls a "use server" admin action; on
+ * success we refresh the server props so the panel reflects the saved truth.
+ * Brand tokens only, keyboard-friendly (each editor is a submittable form).
  */
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
-import { Search, Plus, Trash2, Save, Loader2, Check, UserCog } from "lucide-react";
+import { Search, Save, Loader2, Check, UserCog } from "lucide-react";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { fireToast } from "@/lib/toast";
-import {
-  APPR_DIMENSIONS,
-  DIMENSION_LABELS,
-  type ApprDimension,
-} from "@/lib/appraisal2/types";
-import {
-  setApprConfig,
-  setAssignees,
-  setWeights,
-  upsertKpi,
-  removeKpi,
-  upsertSkill,
-  removeSkill,
-} from "@/app/(app)/appraisal/admin-actions";
+import { MACRO_BUCKETS, ROLE_CLASSES, type RoleClass } from "@/lib/appraisal2/types";
+import { setAssignees, setRoleClass } from "@/app/(app)/appraisal/admin-actions";
 
 const RED = "var(--color-altus-red)";
 const RED_DEEP = "var(--color-altus-red-deep)";
@@ -48,29 +36,11 @@ export interface AdminEmployee {
   avatarUrl: string | null;
 }
 
-export interface KpiDraft {
-  id: string;
-  srNo: number | null;
-  area: string | null;
-  measure: string | null;
-  subWeight: number;
-}
-export interface SkillDraft {
-  id: string;
-  name: string | null;
-  technical: boolean;
-  subWeight: number;
-}
 export interface EmployeeConfig {
   employeeId: string;
+  roleClass: RoleClass;
   managerId: string | null;
   managementId: string | null;
-  incentiveTarget: string | null;
-  knowledgeDo: number;
-  knowledgeGive: number;
-  weights: Record<ApprDimension, number>;
-  kpis: KpiDraft[];
-  skills: SkillDraft[];
 }
 
 // ─── section shell ────────────────────────────────────────────────────────────
@@ -149,6 +119,72 @@ function useAction() {
   return { busy, ok, run };
 }
 
+// ─── role class ─────────────────────────────────────────────────────────────
+
+function RoleEditor({ config }: { config: EmployeeConfig }) {
+  const { busy, ok, run } = useAction();
+  const [role, setRole] = React.useState<RoleClass>(config.roleClass);
+  const buckets = MACRO_BUCKETS[role];
+
+  return (
+    <Section
+      title="Role class"
+      hint="Manager or Non-Manager — this selects the scorecard's dimension set and weights."
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void run(() => setRoleClass({ employeeId: config.employeeId, roleClass: role }), "Role class saved");
+        }}
+      >
+        <div className="flex flex-wrap gap-2">
+          {ROLE_CLASSES.map((r) => {
+            const on = role === r.value;
+            return (
+              <button
+                key={r.value}
+                type="button"
+                onClick={() => setRole(r.value)}
+                className="rounded-xl px-4 py-2 text-[13.5px] font-bold transition"
+                style={{
+                  background: on ? `linear-gradient(135deg, ${RED}, ${RED_DEEP})` : "var(--color-surface-soft)",
+                  color: on ? "#fff" : "var(--color-ink-muted)",
+                  boxShadow: on ? "none" : "inset 0 0 0 1px var(--color-hairline)",
+                }}
+              >
+                {r.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Read-only weight preview for the chosen role. */}
+        <div className="mt-4 grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))" }}>
+          {buckets.map((b) => (
+            <div
+              key={b.id}
+              className="flex items-center justify-between rounded-xl bg-surface-soft px-3 py-1.5"
+              style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}
+            >
+              <span className="truncate text-[12px] font-semibold text-ink-strong">{b.label}</span>
+              <span className="tabular-nums ml-2 shrink-0 text-[12.5px] font-black" style={{ color: RED_DEEP }}>
+                {b.weight}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 flex items-center justify-between">
+          <span className="text-[12px] font-semibold text-ink-subtle">
+            KPI drives the incentive · dimensions sum to 100.
+          </span>
+          <SaveButton busy={busy} ok={ok} />
+        </div>
+      </form>
+    </Section>
+  );
+}
+
 // ─── assignees ────────────────────────────────────────────────────────────────
 
 function AssigneesEditor({ config, people }: { config: EmployeeConfig; people: AdminEmployee[] }) {
@@ -201,459 +237,6 @@ function AssigneesEditor({ config, people }: { config: EmployeeConfig; people: A
           <SaveButton busy={busy} ok={ok} />
         </div>
       </form>
-    </Section>
-  );
-}
-
-// ─── dimension weights ────────────────────────────────────────────────────────
-
-function WeightsEditor({ config }: { config: EmployeeConfig }) {
-  const { busy, ok, run } = useAction();
-  const [weights, setLocal] = React.useState<Record<ApprDimension, number>>(config.weights);
-  const sum = APPR_DIMENSIONS.reduce((s, d) => s + (Number(weights[d]) || 0), 0);
-  const balanced = sum === 100;
-
-  return (
-    <Section title="Dimension weights" hint="The six dimensions must sum to exactly 100.">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!balanced) {
-            fireToast({ message: `Weights must sum to 100 (currently ${sum}).`, type: "error" });
-            return;
-          }
-          void run(() => setWeights({ employeeId: config.employeeId, weights }), "Weights saved");
-        }}
-      >
-        <div className="grid grid-cols-3 gap-3 max-md:grid-cols-2">
-          {APPR_DIMENSIONS.map((d) => (
-            <label key={d} className="flex flex-col gap-1.5">
-              <Label>{DIMENSION_LABELS[d]}</Label>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                className={INPUT}
-                value={weights[d]}
-                onChange={(e) =>
-                  setLocal((w) => ({ ...w, [d]: Math.max(0, Math.min(100, Number(e.target.value) || 0)) }))
-                }
-              />
-            </label>
-          ))}
-        </div>
-        <div className="mt-4 flex items-center justify-between">
-          <span
-            className="rounded-pill px-3 py-1.5 text-[12.5px] font-bold"
-            style={{
-              background: balanced
-                ? "color-mix(in srgb, #16a34a 14%, transparent)"
-                : "color-mix(in srgb, #dc2626 14%, transparent)",
-              color: balanced ? "#15803d" : "#b91c1c",
-            }}
-          >
-            Total {sum} / 100 {balanced ? "✓" : ""}
-          </span>
-          <SaveButton busy={busy} ok={ok} />
-        </div>
-      </form>
-    </Section>
-  );
-}
-
-// ─── incentive target + knowledge rule ────────────────────────────────────────
-
-function ConfigEditor({ config }: { config: EmployeeConfig }) {
-  const { busy, ok, run } = useAction();
-  const [incentive, setIncentive] = React.useState(config.incentiveTarget ?? "");
-  const [doN, setDoN] = React.useState(config.knowledgeDo);
-  const [giveN, setGiveN] = React.useState(config.knowledgeGive);
-
-  return (
-    <Section
-      title="Incentive target & knowledge rule"
-      hint="Target is reference only (final incentive score is entered by Management). Knowledge = do-N / give-N counts from Training."
-    >
-      <form
-        className="grid grid-cols-3 gap-3 max-md:grid-cols-1"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void run(
-            () =>
-              setApprConfig({
-                employeeId: config.employeeId,
-                incentiveTarget: incentive === "" ? null : incentive,
-                knowledgeDo: doN,
-                knowledgeGive: giveN,
-              }),
-            "Config saved",
-          );
-        }}
-      >
-        <label className="flex flex-col gap-1.5">
-          <Label>Incentive target (₹)</Label>
-          <input
-            type="number"
-            min={0}
-            step="0.01"
-            className={INPUT}
-            value={incentive}
-            onChange={(e) => setIncentive(e.target.value)}
-            placeholder="e.g. 50000"
-          />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <Label>Knowledge · do N</Label>
-          <input
-            type="number"
-            min={0}
-            className={INPUT}
-            value={doN}
-            onChange={(e) => setDoN(Math.max(0, Number(e.target.value) || 0))}
-          />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <Label>Knowledge · give N</Label>
-          <input
-            type="number"
-            min={0}
-            className={INPUT}
-            value={giveN}
-            onChange={(e) => setGiveN(Math.max(0, Number(e.target.value) || 0))}
-          />
-        </label>
-        <div className="col-span-3 flex justify-end max-md:col-span-1">
-          <SaveButton busy={busy} ok={ok} />
-        </div>
-      </form>
-    </Section>
-  );
-}
-
-// ─── KPIs ─────────────────────────────────────────────────────────────────────
-
-function KpiRowEditor({ row, employeeId }: { row: KpiDraft; employeeId: string }) {
-  const { busy, ok, run } = useAction();
-  const router = useRouter();
-  const [area, setArea] = React.useState(row.area ?? "");
-  const [measure, setMeasure] = React.useState(row.measure ?? "");
-  const [subWeight, setSubWeight] = React.useState(row.subWeight);
-  const [removing, setRemoving] = React.useState(false);
-
-  return (
-    <form
-      className="grid grid-cols-[44px_1fr_1fr_92px_auto] items-end gap-2 max-md:grid-cols-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void run(
-          () => upsertKpi({ employeeId, id: row.id, srNo: row.srNo ?? undefined, area, measure, subWeight }),
-          "KPI saved",
-        );
-      }}
-    >
-      <div className="flex flex-col gap-1.5 max-md:col-span-2">
-        <Label>Sr</Label>
-        <div className="grid h-[38px] place-items-center rounded-xl bg-surface-soft text-[14px] font-bold text-ink-muted" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>
-          {row.srNo ?? "—"}
-        </div>
-      </div>
-      <label className="flex flex-col gap-1.5">
-        <Label>Area</Label>
-        <input className={INPUT} value={area} onChange={(e) => setArea(e.target.value)} placeholder="Result area" />
-      </label>
-      <label className="flex flex-col gap-1.5">
-        <Label>Measure</Label>
-        <input className={INPUT} value={measure} onChange={(e) => setMeasure(e.target.value)} placeholder="How it's measured" />
-      </label>
-      <label className="flex flex-col gap-1.5">
-        <Label>Sub-wt</Label>
-        <input
-          type="number"
-          min={0}
-          max={100}
-          className={INPUT}
-          value={subWeight}
-          onChange={(e) => setSubWeight(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
-        />
-      </label>
-      <div className="flex items-center gap-1.5 pb-0.5 max-md:col-span-2 max-md:justify-end">
-        <SaveButton busy={busy} ok={ok} />
-        <button
-          type="button"
-          disabled={removing}
-          onClick={async () => {
-            setRemoving(true);
-            const res = await removeKpi(row.id);
-            setRemoving(false);
-            if (!res.ok) {
-              fireToast({ message: res.error, type: "error" });
-              return;
-            }
-            fireToast({ message: "KPI removed", type: "success" });
-            router.refresh();
-          }}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-subtle hover:text-[color:var(--color-altus-red)]"
-          style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}
-          aria-label="Remove KPI"
-        >
-          {removing ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} strokeWidth={2.2} />}
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function KpiAdder({ employeeId, nextSr }: { employeeId: string; nextSr: number }) {
-  const { busy, ok, run } = useAction();
-  const [area, setArea] = React.useState("");
-  const [measure, setMeasure] = React.useState("");
-  const [subWeight, setSubWeight] = React.useState(20);
-
-  return (
-    <form
-      className="grid grid-cols-[44px_1fr_1fr_92px_auto] items-end gap-2 rounded-xl bg-surface-soft/60 p-2 max-md:grid-cols-2"
-      style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}
-      onSubmit={async (e) => {
-        e.preventDefault();
-        const done = await run(
-          () => upsertKpi({ employeeId, srNo: nextSr, area, measure, subWeight }),
-          "KPI added",
-        );
-        if (done) {
-          setArea("");
-          setMeasure("");
-          setSubWeight(20);
-        }
-      }}
-    >
-      <div className="flex flex-col gap-1.5 max-md:col-span-2">
-        <Label>Sr</Label>
-        <div className="grid h-[38px] place-items-center rounded-xl bg-surface-card text-[14px] font-bold text-ink-muted">{nextSr}</div>
-      </div>
-      <label className="flex flex-col gap-1.5">
-        <Label>Area</Label>
-        <input className={INPUT} value={area} onChange={(e) => setArea(e.target.value)} placeholder="New result area" />
-      </label>
-      <label className="flex flex-col gap-1.5">
-        <Label>Measure</Label>
-        <input className={INPUT} value={measure} onChange={(e) => setMeasure(e.target.value)} placeholder="How it's measured" />
-      </label>
-      <label className="flex flex-col gap-1.5">
-        <Label>Sub-wt</Label>
-        <input
-          type="number"
-          min={0}
-          max={100}
-          className={INPUT}
-          value={subWeight}
-          onChange={(e) => setSubWeight(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
-        />
-      </label>
-      <div className="flex items-center pb-0.5 max-md:col-span-2 max-md:justify-end">
-        <button
-          type="submit"
-          disabled={busy}
-          className="inline-flex items-center gap-1.5 rounded-pill px-4 py-2 text-[13px] font-bold disabled:opacity-60"
-          style={{ background: "var(--color-surface-card)", color: RED, boxShadow: `inset 0 0 0 1.5px ${RED}` }}
-        >
-          {busy ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} strokeWidth={2.6} />}
-          Add
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function KpiSection({ config }: { config: EmployeeConfig }) {
-  const kpis = config.kpis;
-  const sum = kpis.reduce((s, k) => s + (k.subWeight || 0), 0);
-  const atCap = kpis.length >= 5;
-  const nextSr = (kpis.reduce((m, k) => Math.max(m, k.srNo ?? 0), 0) || kpis.length) + 1;
-
-  return (
-    <Section title={`KPIs (${kpis.length}/5)`} hint="Result areas scored per item. Sub-weights ideally sum to 100 across your KPIs.">
-      <div className="flex flex-col gap-2.5">
-        {kpis.map((k) => (
-          <KpiRowEditor key={k.id} row={k} employeeId={config.employeeId} />
-        ))}
-        {kpis.length === 0 && (
-          <p className="text-[13px] font-medium text-ink-subtle">No KPIs yet — add up to 5 below.</p>
-        )}
-        {!atCap && <KpiAdder employeeId={config.employeeId} nextSr={nextSr} />}
-      </div>
-      {kpis.length > 0 && (
-        <div className="mt-3">
-          <span
-            className="rounded-pill px-3 py-1.5 text-[12px] font-bold"
-            style={{
-              background: sum === 100 ? "color-mix(in srgb, #16a34a 14%, transparent)" : "var(--color-surface-soft)",
-              color: sum === 100 ? "#15803d" : "var(--color-ink-muted)",
-            }}
-          >
-            Sub-weights total {sum}{sum === 100 ? " / 100 ✓" : " / 100"}
-          </span>
-        </div>
-      )}
-    </Section>
-  );
-}
-
-// ─── Skills ───────────────────────────────────────────────────────────────────
-
-function SkillRowEditor({ row, employeeId }: { row: SkillDraft; employeeId: string }) {
-  const { busy, ok, run } = useAction();
-  const router = useRouter();
-  const [name, setName] = React.useState(row.name ?? "");
-  const [technical, setTechnical] = React.useState(row.technical);
-  const [subWeight, setSubWeight] = React.useState(row.subWeight);
-  const [removing, setRemoving] = React.useState(false);
-
-  return (
-    <form
-      className="grid grid-cols-[1fr_auto_92px_auto] items-end gap-2 max-md:grid-cols-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void run(() => upsertSkill({ employeeId, id: row.id, name, technical, subWeight }), "Skill saved");
-      }}
-    >
-      <label className="flex flex-col gap-1.5">
-        <Label>Skill to learn</Label>
-        <input className={INPUT} value={name} onChange={(e) => setName(e.target.value)} placeholder="Skill" />
-      </label>
-      <div className="flex flex-col gap-1.5">
-        <Label>Technical</Label>
-        <button
-          type="button"
-          onClick={() => setTechnical((v) => !v)}
-          className="inline-flex h-[38px] items-center gap-2 rounded-xl px-3 text-[13px] font-bold"
-          style={{
-            background: technical ? `color-mix(in srgb, ${RED} 12%, transparent)` : "var(--color-surface-soft)",
-            color: technical ? RED : "var(--color-ink-muted)",
-            boxShadow: technical ? `inset 0 0 0 1.5px ${RED}` : "inset 0 0 0 1px var(--color-hairline)",
-          }}
-        >
-          {technical ? <Check size={14} strokeWidth={2.6} /> : null}
-          {technical ? "Technical" : "Behavioural"}
-        </button>
-      </div>
-      <label className="flex flex-col gap-1.5">
-        <Label>Sub-wt</Label>
-        <input
-          type="number"
-          min={0}
-          max={100}
-          className={INPUT}
-          value={subWeight}
-          onChange={(e) => setSubWeight(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
-        />
-      </label>
-      <div className="flex items-center gap-1.5 pb-0.5 max-md:col-span-2 max-md:justify-end">
-        <SaveButton busy={busy} ok={ok} />
-        <button
-          type="button"
-          disabled={removing}
-          onClick={async () => {
-            setRemoving(true);
-            const res = await removeSkill(row.id);
-            setRemoving(false);
-            if (!res.ok) {
-              fireToast({ message: res.error, type: "error" });
-              return;
-            }
-            fireToast({ message: "Skill removed", type: "success" });
-            router.refresh();
-          }}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-subtle hover:text-[color:var(--color-altus-red)]"
-          style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}
-          aria-label="Remove skill"
-        >
-          {removing ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} strokeWidth={2.2} />}
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function SkillAdder({ employeeId }: { employeeId: string }) {
-  const { busy, ok, run } = useAction();
-  const [name, setName] = React.useState("");
-  const [technical, setTechnical] = React.useState(false);
-  const [subWeight, setSubWeight] = React.useState(33);
-
-  return (
-    <form
-      className="grid grid-cols-[1fr_auto_92px_auto] items-end gap-2 rounded-xl bg-surface-soft/60 p-2 max-md:grid-cols-2"
-      style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}
-      onSubmit={async (e) => {
-        e.preventDefault();
-        const done = await run(() => upsertSkill({ employeeId, name, technical, subWeight }), "Skill added");
-        if (done) {
-          setName("");
-          setTechnical(false);
-          setSubWeight(33);
-        }
-      }}
-    >
-      <label className="flex flex-col gap-1.5">
-        <Label>Skill to learn</Label>
-        <input className={INPUT} value={name} onChange={(e) => setName(e.target.value)} placeholder="New skill" />
-      </label>
-      <div className="flex flex-col gap-1.5">
-        <Label>Technical</Label>
-        <button
-          type="button"
-          onClick={() => setTechnical((v) => !v)}
-          className="inline-flex h-[38px] items-center gap-2 rounded-xl px-3 text-[13px] font-bold"
-          style={{
-            background: technical ? `color-mix(in srgb, ${RED} 12%, transparent)` : "var(--color-surface-card)",
-            color: technical ? RED : "var(--color-ink-muted)",
-            boxShadow: technical ? `inset 0 0 0 1.5px ${RED}` : "inset 0 0 0 1px var(--color-hairline)",
-          }}
-        >
-          {technical ? <Check size={14} strokeWidth={2.6} /> : null}
-          {technical ? "Technical" : "Behavioural"}
-        </button>
-      </div>
-      <label className="flex flex-col gap-1.5">
-        <Label>Sub-wt</Label>
-        <input
-          type="number"
-          min={0}
-          max={100}
-          className={INPUT}
-          value={subWeight}
-          onChange={(e) => setSubWeight(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
-        />
-      </label>
-      <div className="flex items-center pb-0.5 max-md:col-span-2 max-md:justify-end">
-        <button
-          type="submit"
-          disabled={busy}
-          className="inline-flex items-center gap-1.5 rounded-pill px-4 py-2 text-[13px] font-bold disabled:opacity-60"
-          style={{ background: "var(--color-surface-card)", color: RED, boxShadow: `inset 0 0 0 1.5px ${RED}` }}
-        >
-          {busy ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} strokeWidth={2.6} />}
-          Add
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function SkillSection({ config }: { config: EmployeeConfig }) {
-  const skills = config.skills;
-  const atCap = skills.length >= 3;
-  return (
-    <Section title={`Skills to learn (${skills.length}/3)`} hint="Up to 3 skills — flag each as Technical or Behavioural.">
-      <div className="flex flex-col gap-2.5">
-        {skills.map((s) => (
-          <SkillRowEditor key={s.id} row={s} employeeId={config.employeeId} />
-        ))}
-        {skills.length === 0 && (
-          <p className="text-[13px] font-medium text-ink-subtle">No skills yet — add up to 3 below.</p>
-        )}
-        {!atCap && <SkillAdder employeeId={config.employeeId} />}
-      </div>
     </Section>
   );
 }
@@ -781,11 +364,8 @@ export function AdminPanel({
             </div>
           </div>
 
+          <RoleEditor config={config} />
           <AssigneesEditor config={config} people={people} />
-          <WeightsEditor config={config} />
-          <ConfigEditor config={config} />
-          <KpiSection config={config} />
-          <SkillSection config={config} />
         </div>
       ) : (
         <div
@@ -801,7 +381,7 @@ export function AdminPanel({
             </div>
             <p className="text-[15px] font-bold text-ink-strong">Pick a person to configure</p>
             <p className="mt-1 text-[13px] font-medium text-ink-subtle">
-              Choose from the list to set their KPIs, skills, weights and assignees.
+              Choose from the list to set their role class and assignees.
             </p>
           </div>
         </div>

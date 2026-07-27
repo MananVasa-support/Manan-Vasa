@@ -15,6 +15,7 @@ const DEFAULTS: OrgSettings = {
   id: 1,
   companyName: "Altus Corp",
   logoUrl: null,
+  adminPinHash: null,
   digestHourIst: 9,
   idleTimeoutMinutes: 15,
   workingDays: [1, 2, 3, 4, 5],

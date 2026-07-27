@@ -1,11 +1,12 @@
 "use server";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { employees } from "@/db/schema";
-import { exitRecords } from "@/lib/hr/exit/schema";
+import { employees, designations, departments } from "@/db/schema";
+import { exitRecords, type ExitRosterEmployee } from "@/lib/hr/exit/schema";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 
@@ -130,5 +131,39 @@ export async function listExitRecords(): Promise<ExitRecordRow[]> {
     employeeName: r.employeeName ?? "—",
     kind: r.kind as (typeof KINDS)[number],
     updatedAt: r.updatedAt,
+  }));
+}
+
+/**
+ * Rich active-employee roster for the Exit forms: each row carries the
+ * manager's name (self-join on `manager_id`), designation and department
+ * (FK joins, with the legacy free-text `department` column as fallback) so the
+ * forms can auto-fill Manager / Designation / Department / Employee ID on
+ * selection. HR-gated; ordered by name for the searchable dropdown.
+ */
+export async function listExitRoster(): Promise<ExitRosterEmployee[]> {
+  await requireWorkspace("hr");
+  const mgr = alias(employees, "exit_mgr");
+  const rows = await db
+    .select({
+      id: employees.id,
+      name: employees.name,
+      designation: designations.name,
+      managerName: mgr.name,
+      departmentName: departments.name,
+      departmentLegacy: employees.department,
+    })
+    .from(employees)
+    .leftJoin(mgr, eq(employees.managerId, mgr.id))
+    .leftJoin(designations, eq(employees.designationId, designations.id))
+    .leftJoin(departments, eq(employees.departmentId, departments.id))
+    .where(eq(employees.isActive, true))
+    .orderBy(asc(employees.name));
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    designation: r.designation ?? "",
+    managerName: r.managerName ?? "",
+    department: r.departmentName ?? r.departmentLegacy ?? "",
   }));
 }

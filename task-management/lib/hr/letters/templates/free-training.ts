@@ -44,12 +44,12 @@ const template: LetterTemplate = {
       ],
       [
         t(
-          "The training is designed to familiarize candidates with the company's work culture, processes, systems, products, and performance expectations.",
+          "The training is designed to familiarize candidates with the firm's work culture, processes, systems, products, and performance expectations.",
         ),
       ],
       [
         t(
-          "This period also allows the company to evaluate the candidate's skills, attitude, learning ability, discipline, professionalism, and overall suitability for the role.",
+          "This period also allows the firm to evaluate the candidate's skills, attitude, learning ability, discipline, professionalism, and overall suitability for the role.",
         ),
       ],
     ),
@@ -68,7 +68,7 @@ const template: LetterTemplate = {
       ],
       [
         t(
-          "During this period, candidates are expected to comply with all company policies, confidentiality requirements, workplace conduct standards, and instructions provided by their supervisors or trainers.",
+          "During this period, candidates are expected to comply with all firm policies, confidentiality requirements, workplace conduct standards, and instructions provided by their supervisors or trainers.",
         ),
       ],
     ),
@@ -102,12 +102,12 @@ const template: LetterTemplate = {
       ],
       [
         t(
-          "The company will communicate its decision regarding selection or non-selection on the same day, wherever reasonably practicable, to ensure transparency and avoid any gap in communication.",
+          "The firm will communicate its decision regarding selection or non-selection on the same day, wherever reasonably practicable, to ensure transparency and avoid any gap in communication.",
         ),
       ],
       [
         t(
-          "Candidates who successfully meet the company's performance and behavioural standards may be offered employment through the issuance of an official Appointment Letter, subject to management approval and completion of any other pre-employment formalities.",
+          "Candidates who successfully meet the firm's performance and behavioural standards may be offered employment through the issuance of an official Appointment Letter, subject to management approval and completion of any other pre-employment formalities.",
         ),
       ],
     ),
@@ -117,12 +117,12 @@ const template: LetterTemplate = {
       [t("The 15-day training period is unpaid unless the candidate is selected for employment.")],
       [
         t(
-          "If the candidate is successfully selected and issued an Appointment Letter, the company will pay the candidate for the entire 15-day training period along with the applicable salary/payroll process.",
+          "If the candidate is successfully selected and issued an Appointment Letter, the firm will pay the candidate for the entire 15-day training period along with the applicable salary/payroll process.",
         ),
       ],
       [
         t(
-          "If the candidate is not selected by the company after evaluation, no payment or remuneration shall be payable for the training period.",
+          "If the candidate is not selected by the firm after evaluation, no payment or remuneration shall be payable for the training period.",
         ),
       ],
       [
@@ -136,7 +136,7 @@ const template: LetterTemplate = {
     bullets(
       [
         t(
-          "The company reserves the right to discontinue the candidate's participation in the training program at any time if their performance, conduct, attendance, or suitability is found to be unsatisfactory.",
+          "The firm reserves the right to discontinue the candidate's participation in the training program at any time if their performance, conduct, attendance, or suitability is found to be unsatisfactory.",
         ),
       ],
       [
@@ -146,7 +146,7 @@ const template: LetterTemplate = {
       ],
       [
         t(
-          "In either case, where the candidate is relieved by the company during the training period or voluntarily withdraws before selection, the training engagement shall conclude without any obligation on the part of Altus Corp to offer employment or make any payment for the training period.",
+          "In either case, where the candidate is relieved by the firm during the training period or voluntarily withdraws before selection, the training engagement shall conclude without any obligation on the part of Altus Corp to offer employment or make any payment for the training period.",
         ),
       ],
     ),
@@ -158,7 +158,7 @@ const template: LetterTemplate = {
       ),
     ),
 
-    heading("10. Company Rights", 2),
+    heading("10. Firm Rights", 2),
     para(
       t(
         "Altus Corp reserves the right to amend, extend, shorten, suspend, or discontinue this policy or the training program at its sole discretion, subject to applicable laws.",

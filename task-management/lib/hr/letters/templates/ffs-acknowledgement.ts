@@ -26,7 +26,7 @@ const template: LetterTemplate = {
 
     para(t("To")),
     para(t("The HR Department")),
-    para(f("company", "Company Name", { defaultValue: "Altus Corp" })),
+    para(f("company", "Firm Name", { defaultValue: "Altus Corp" })),
 
     para(t("Subject: Acknowledgement of Receipt of Full & Final Settlement")),
 
@@ -40,7 +40,7 @@ const template: LetterTemplate = {
       t(
         ", hereby acknowledge that I have received my Full & Final Settlement from ",
       ),
-      f("company", "Company Name", { defaultValue: "Altus Corp" }),
+      f("company", "Firm Name", { defaultValue: "Altus Corp" }),
       t(" in respect of my employment, which ended on "),
       f("lastWorkingDate", "Last Working Date", { placeholder: "e.g. 30 June 2026" }),
       t("."),
@@ -50,7 +50,7 @@ const template: LetterTemplate = {
       t(
         "I further confirm that, upon receipt of the above settlement, I have no further financial claims, demands, or dues of any nature whatsoever against ",
       ),
-      f("company", "Company Name", { defaultValue: "Altus Corp" }),
+      f("company", "Firm Name", { defaultValue: "Altus Corp" }),
       t(
         " arising out of or in connection with my employment or its termination.",
       ),
@@ -58,7 +58,7 @@ const template: LetterTemplate = {
 
     para(
       t(
-        "I also confirm that I have returned all company property, documents, equipment, and confidential information in my possession, if applicable.",
+        "I also confirm that I have returned all firm property, documents, equipment, and confidential information in my possession, if applicable.",
       ),
     ),
 
