@@ -75,18 +75,11 @@ export async function requireSuperAdmin(): Promise<Employee> {
  * @returns the same employee, for ergonomic chaining; throws "Fill your weekly goals" when gated.
  */
 export async function requireWeeklyGoalsFilled(me: Employee): Promise<Employee> {
-  let gated = false;
-  try {
-    const mod = (await import("@/lib/queries/weekly-goals")) as {
-      hasUnfilledWeekGoals?: (employeeId: string) => Promise<boolean>;
-    };
-    if (typeof mod.hasUnfilledWeekGoals === "function") {
-      gated = await mod.hasUnfilledWeekGoals(me.id);
-    }
-  } catch {
-    // Gate module not available yet → fail open (no-op).
-    gated = false;
-  }
-  if (gated) throw new Error("Fill your weekly goals to continue");
+  // ⚠️ 2026-07-27: gate FORCE-DISABLED. It used to throw "Fill your weekly goals
+  // to continue" when the user had unfilled current-week goals — an UNHANDLED
+  // throw that bubbled to the error boundary as "We hit a snag." and blocked task
+  // creation (createTask + the mobile create path). Consistent with the other
+  // daily-flow gates being off, this is now a no-op. To restore, put back the
+  // `hasUnfilledWeekGoals(me.id)` check + `throw new Error(...)`.
   return me;
 }
