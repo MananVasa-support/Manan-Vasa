@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { listCandidateIntakes } from "@/app/(app)/hr/candidate-actions";
 import { listSkillLookups, type SkillLookupOptions } from "@/lib/hr/skills";
@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
  * and the home for the Letters library.
  */
 export default async function HrRecordPage() {
-  const me = await requireWorkspace("hr");
+  const me = await requireHrStaff();
   const isAdmin = me.isAdmin || isSuperAdmin(me.email);
 
   let candidates: Awaited<ReturnType<typeof listCandidateIntakes>> = [];

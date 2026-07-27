@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { employees, designations, departments } from "@/db/schema";
 import { exitRecords, type ExitRosterEmployee } from "@/lib/hr/exit/schema";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 
 type Result<T> = ({ ok: true } & T) | { ok: false; error: string };
@@ -29,7 +29,7 @@ const SaveSchema = z.object({
  * HR-gated.
  */
 export async function saveExitRecord(input: z.input<typeof SaveSchema>): Promise<Result<{ id: string }>> {
-  const me = await requireWorkspace("hr");
+  const me = await requireHrStaff();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
@@ -77,7 +77,7 @@ export async function getExitRecord(
   employeeId: string,
   kind: (typeof KINDS)[number],
 ): Promise<ExitRecordState | null> {
-  await requireWorkspace("hr");
+  await requireHrStaff();
   if (!z.string().uuid().safeParse(employeeId).success) return null;
   if (!(KINDS as readonly string[]).includes(kind)) return null;
   const [r] = await db
@@ -112,7 +112,7 @@ export interface ExitRecordRow {
 
 /** Recent exit submissions (both kinds) for the workspace history list. */
 export async function listExitRecords(): Promise<ExitRecordRow[]> {
-  await requireWorkspace("hr");
+  await requireHrStaff();
   const rows = await db
     .select({
       id: exitRecords.id,
@@ -142,7 +142,7 @@ export async function listExitRecords(): Promise<ExitRecordRow[]> {
  * selection. HR-gated; ordered by name for the searchable dropdown.
  */
 export async function listExitRoster(): Promise<ExitRosterEmployee[]> {
-  await requireWorkspace("hr");
+  await requireHrStaff();
   const mgr = alias(employees, "exit_mgr");
   const rows = await db
     .select({

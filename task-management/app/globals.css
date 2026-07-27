@@ -2185,6 +2185,92 @@ select.nt-input {
   border-radius: 9999px;
 }
 
+/* ============================================================
+   Premium dropdown language — one cohesive look shared by the
+   Goals `Select` (components/ui/select.tsx) + `GoalLookupSelect`
+   (components/goals/board/goal-lookup-select.tsx). GPU/opacity-
+   only motion, reduced-motion safe. `!important` is deliberate:
+   it lets these win over the shared PopoverContent's inline
+   box-shadow + Tailwind border/bg utilities without forking the
+   primitive, so every Goals dropdown reads identically.
+   ============================================================ */
+@keyframes gddPanelIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* The floating panel (applied to the PopoverContent). */
+.gdd-panel {
+  border-radius: 1rem !important;                 /* rounded-2xl */
+  border: 1px solid var(--color-hairline-strong) !important;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-surface-card) 94%, var(--color-altus-red) 3%),
+      color-mix(in srgb, var(--color-surface-card) 90%, transparent)
+    ) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  backdrop-filter: blur(14px) saturate(1.15);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 24px 60px -24px rgba(15, 23, 42, 0.42),
+    0 10px 26px -18px color-mix(in srgb, var(--color-altus-red) 30%, transparent) !important;
+  transform-origin: top center;
+  animation: gddPanelIn 0.18s cubic-bezier(0.22, 1, 0.36, 1) both !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gdd-panel { animation: none !important; }
+}
+
+/* Tasteful, brand-tinted slim scrollbar for the option lists. */
+.gdd-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-altus-red) 34%, transparent) transparent;
+}
+.gdd-scroll::-webkit-scrollbar { width: 8px; }
+.gdd-scroll::-webkit-scrollbar-track { background: transparent; }
+.gdd-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-altus-red) 28%, transparent);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.gdd-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-altus-red) 52%, transparent);
+  background-clip: padding-box;
+}
+
+/* The trigger — rounded-xl, top-lit surface, red-tinted 1.5px border
+   that intensifies to full altus-red on hover / focus / open, an inset
+   highlight + soft drop shadow, and a visible red focus ring. */
+.gdd-trigger {
+  border: 1.5px solid color-mix(in srgb, var(--color-altus-red) 22%, var(--color-hairline)) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0) 46%),
+    var(--color-surface-card);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 10px 22px -18px color-mix(in srgb, var(--color-altus-red) 42%, transparent);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.gdd-trigger:hover {
+  border-color: color-mix(in srgb, var(--color-altus-red) 46%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 2px 5px rgba(15, 23, 42, 0.07),
+    0 14px 28px -18px color-mix(in srgb, var(--color-altus-red) 56%, transparent);
+}
+.gdd-trigger:focus-visible,
+.gdd-trigger[data-state="open"] {
+  border-color: var(--color-altus-red) !important;
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 3px color-mix(in srgb, var(--color-altus-red) 22%, transparent),
+    0 14px 30px -18px color-mix(in srgb, var(--color-altus-red) 62%, transparent);
+}
+
 /* ── Collapsible module LEFT-RAIL (components/layout/dashboard-sidebar.tsx) ──
    The rail stays vertical; when SidebarRail sets data-collapsed="true" it shrinks
    to a 74px icon strip. Everything marked .sidebar-collapsible-hide disappears,
@@ -2270,6 +2356,42 @@ select.nt-input {
 }
 .nav-scroll::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--color-altus-red) 55%, transparent);
+}
+
+/* ── Pastel left-rail nav (2026-07-27) ─────────────────────────────────────
+   Module sidebar nav pills: white OUTLINED boxes with near-black text; hover
+   and the SELECTED pill use a soft PASTEL-RED wash (not a hard black/red fill).
+   Applies to every module that uses the left rail; HR has no rail so it's
+   untouched. Scoped to `.sidebar-rail` so the header, hub cards and the mobile
+   drawer keep their own colours. Icons inherit `currentColor`. */
+.sidebar-rail .sidebar-nav .nav-pill {
+  background: #ffffff;
+  border: 1.5px solid rgba(0, 0, 0, 0.18);
+  color: #1a1a1a;
+  box-shadow: none;
+}
+.sidebar-rail .sidebar-nav .nav-pill:hover {
+  background: color-mix(in srgb, var(--color-altus-red) 8%, #ffffff);
+  border-color: color-mix(in srgb, var(--color-altus-red) 35%, #ffffff);
+  color: #1a1a1a;
+  transform: none;
+  box-shadow: none;
+}
+.sidebar-rail .sidebar-nav .nav-pill-active,
+.sidebar-rail .sidebar-nav .nav-pill-active:hover {
+  background: color-mix(in srgb, var(--color-altus-red) 15%, #ffffff);
+  border-color: color-mix(in srgb, var(--color-altus-red) 45%, #ffffff);
+  color: var(--color-altus-red-deep);
+  box-shadow: none;
+  transform: none;
+}
+.sidebar-rail .sidebar-nav .nav-pill-count {
+  background: rgba(0, 0, 0, 0.06);
+  color: #1a1a1a;
+}
+.sidebar-rail .sidebar-nav .nav-pill-active .nav-pill-count {
+  background: color-mix(in srgb, var(--color-altus-red) 22%, #ffffff);
+  color: var(--color-altus-red-deep);
 }
 
 /* Outstanding dashboard print — when this page is printed, hide the global

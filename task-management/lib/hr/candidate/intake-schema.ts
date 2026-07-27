@@ -66,7 +66,16 @@ const EDU_FIELDS: FormFieldDef[] = [
   { key: "school", label: "Name of School / College", type: "text" },
   { key: "board", label: "Board / University", type: "text" },
   { key: "mode", label: "Regular / Part-Time", type: "buttons", options: ["Regular", "Part-Time"] },
-  { key: "passing", label: "Month & Year of Passing", type: "text", placeholder: "e.g. May 2019" },
+  {
+    key: "passingMonth",
+    label: "Month of Passing",
+    type: "select",
+    options: [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
+    ],
+  },
+  { key: "passingYear", label: "Year of Passing", type: "text", placeholder: "e.g. 2019" },
   { key: "attempts", label: "Number of Attempts", type: "number" },
   { key: "percentage", label: "Percentage", type: "text", placeholder: "e.g. 78%" },
 ];
@@ -283,4 +292,22 @@ export function ageFromDob(dob: string): string {
   const m = now.getMonth() - d.getMonth();
   if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
   return age >= 0 && age < 130 ? String(age) : "";
+}
+
+/**
+ * Auto-pick the family member's Gender from their Relationship — e.g. "Brother"
+ * → Male, "Younger Sister" → Female, "Father-in-law" → Male. Returns null for
+ * gender-neutral / unknown relationships (Cousin, Spouse, Guardian, Sibling,
+ * Friend…) so those stay manual. Substring match handles qualifiers like
+ * "Elder", "Step", "Real", "In-law".
+ */
+export function genderForRelationship(rel: string): "Male" | "Female" | null {
+  const r = rel.trim().toLowerCase();
+  if (!r) return null;
+  const MALE = ["father", "dad", "papa", "brother", "bro", "son", "husband", "hubby", "grandfather", "grandpa", "uncle", "nephew", "grandson"];
+  const FEMALE = ["mother", "mom", "mum", "sister", "sis", "daughter", "wife", "grandmother", "grandma", "aunt", "niece", "granddaughter"];
+  // Check MALE first — no female term is a substring of a male relationship.
+  if (MALE.some((m) => r.includes(m))) return "Male";
+  if (FEMALE.some((f) => r.includes(f))) return "Female";
+  return null;
 }

@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { HR_STAGES } from "@/lib/hr/lifecycle";
 import { HrPageHeader, HrCard, type HrCardDef } from "@/components/hr/hr-chrome";
@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
  * Agreements, Letters, Policies, Holiday List, Help Desk).
  */
 export default async function HrOverviewPage() {
-  const me = await requireWorkspace("hr");
+  const me = await requireHrStaff();
   const isAdmin = me.isAdmin || isSuperAdmin(me.email);
 
   const stageCards: HrCardDef[] = HR_STAGES.map((s) => ({

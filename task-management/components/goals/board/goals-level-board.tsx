@@ -42,7 +42,6 @@ import {
   periodKeyShort,
   fyLabel,
   parentPeriodKeyOf,
-  childLevelOf,
   categoryStyle,
 } from "@/components/goals/cascade/util";
 import { useOptimisticGoals } from "@/components/goals/canvas/optimistic";
@@ -53,6 +52,7 @@ import {
 } from "@/app/(app)/goals/cascade/actions";
 import { GoalBoardCard, ProgressRing, type SharedCardProps } from "./goal-board-card";
 import { GoalTableView } from "./goal-table-view";
+import { LEVEL_TABLE_ACTIONS } from "./level-table-actions";
 import { PersonalStartPrompt } from "./personal-start-prompt";
 import { BoardQuickAdd, type BoardQuickAddHandle } from "./board-quick-add";
 import { GoalsBulkUpload } from "./goals-bulk-upload";
@@ -67,15 +67,6 @@ const BUCKET_DROP_PREFIX = "bucket:";
 
 /** localStorage key for the List ⇄ Kanban preference (shared by the level pages). */
 const VIEW_STORE_KEY = "goals-board-view";
-
-/** Yearly view tabs — a compact functional strip in the header (sits where the
- *  tagline was, so it adds a feature without adding header height). */
-type YearTabId = "summary" | "individual" | "shared";
-const YEAR_TABS: { id: YearTabId; label: string }[] = [
-  { id: "summary", label: "Summary" },
-  { id: "individual", label: "Individual Goals" },
-  { id: "shared", label: "Shared Goals" },
-];
 
 /** Stable empty-children identity — keeps React.memo effective for the
  *  (majority of) cards that have no children. */
@@ -220,9 +211,6 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
   const deferredSearch = React.useDeferredValue(search);
   const [completion, setCompletion] = React.useState<QuickChip>("all");
   const [sortKey, setSortKey] = React.useState<SortKey>("position");
-  // Yearly-only view tab (Summary / Individual / Shared / History) — filters
-  // the list in-place; the strip lives in the header where the tagline was.
-  const [yearTab, setYearTab] = React.useState<YearTabId>("summary");
 
   const filterGoal = React.useCallback(
     (g: GoalDTO) => {
@@ -241,17 +229,6 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
       return true;
     },
     [deferredSearch, completion],
-  );
-
-  // Yearly view-tab predicate (Individual = solo, Shared = has team); Summary +
-  // every non-year level pass through.
-  const passesYearTab = React.useCallback(
-    (g: GoalDTO) => {
-      if (props.level !== "year" || yearTab === "summary") return true;
-      const shared = (g.teamInvolved?.length ?? 0) > 0;
-      return yearTab === "shared" ? shared : !shared;
-    },
-    [props.level, yearTab],
   );
 
   // Sort comparator — Sr. No. keeps the position order (drag stays live); every
@@ -282,21 +259,9 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
   );
 
   const displayed = React.useMemo(() => {
-    const list = inBucket.filter((g) => filterGoal(g) && passesYearTab(g));
+    const list = inBucket.filter((g) => filterGoal(g));
     return sortKey === "position" ? list : [...list].sort(sortCmp);
-  }, [inBucket, filterGoal, passesYearTab, sortKey, sortCmp]);
-
-  // Per-tab counts for the header strip badges (Yearly only).
-  const yearTabCounts = React.useMemo<Record<YearTabId, number> | null>(() => {
-    if (props.level !== "year") return null;
-    let individual = 0;
-    let shared = 0;
-    for (const g of inBucket) {
-      if ((g.teamInvolved?.length ?? 0) > 0) shared++;
-      else individual++;
-    }
-    return { summary: inBucket.length, individual, shared };
-  }, [props.level, inBucket]);
+  }, [inBucket, filterGoal, sortKey, sortCmp]);
 
   /** Kanban: every bucket's (filtered, Sr.-No.-sorted) goals in one pass. */
   const goalsByBucket = React.useMemo(() => {
@@ -603,7 +568,6 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
   );
 
   const isSelf = props.viewedEmployeeId === props.myEmployeeId;
-  const childLabel = childLevelOf(props.level);
 
   return (
     <div
@@ -632,51 +596,18 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
           <span aria-hidden className="pointer-events-none absolute -left-24 -bottom-28 h-60 w-60 rounded-full" style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--color-altus-red) 8%, transparent), transparent 70%)" }} />
           <span aria-hidden className="pointer-events-none absolute left-0 top-0 h-full w-1.5" style={{ background: "linear-gradient(180deg, var(--color-altus-red), var(--color-altus-red-deep))" }} />
 
-          <div className="relative flex min-h-[108px] items-center gap-6 px-7 py-5 max-xl:flex-wrap max-md:gap-4 max-md:px-4">
-            {/* 1 · identity + tabs */}
+          <div className="relative flex min-h-[68px] items-center gap-6 px-7 py-3.5 max-xl:flex-wrap max-md:gap-4 max-md:px-4">
+            {/* 1 · identity — eyebrow + title only (one short band) */}
             <div className="min-w-0 flex-1 max-xl:w-full max-xl:flex-none">
-              <div className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--color-altus-red-deep)" }}>
+              <div className="text-[10.5px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--color-altus-red-deep)" }}>
                 Goals · {fyLabel(fy)} · {isSelf ? "My goals" : props.viewedName}
               </div>
               <h1
-                className="mt-1"
-                style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, color: "var(--color-ink-strong)", fontSize: "clamp(26px, 2.6vw, 40px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
+                className="mt-0.5"
+                style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, color: "var(--color-ink-strong)", fontSize: "clamp(24px, 2.3vw, 34px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
               >
                 {props.heading}
               </h1>
-              {props.level !== "year" ? (
-                <p className="mt-1.5 max-w-[52ch] font-medium" style={{ fontSize: 13.5, lineHeight: 1.4, color: "var(--color-ink-muted)" }}>
-                  {props.tagline ?? `${periodKeyLabel(props.periodKey)} — each goal cascades down a level (${childLabel}).`}
-                </p>
-              ) : yearTabCounts ? (
-                <div className="mt-2 -ml-1 flex items-center gap-0.5 flex-wrap" role="tablist" aria-label="Goal views">
-                  {YEAR_TABS.map((t) => {
-                    const active = yearTab === t.id;
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={active}
-                        onClick={() => setYearTab(t.id)}
-                        className={`relative cursor-pointer rounded-lg px-2.5 py-1.5 text-[13px] font-bold transition-colors ${FOCUS_RING}`}
-                        style={{
-                          color: active ? "var(--color-altus-red-deep)" : "var(--color-ink-subtle)",
-                          background: active ? "color-mix(in srgb, var(--color-altus-red) 10%, transparent)" : "transparent",
-                        }}
-                      >
-                        {t.label}
-                        <span className="ml-1.5 rounded-full px-1.5 py-0.5 text-[10.5px] tabular-nums" style={{ background: active ? "color-mix(in srgb, var(--color-altus-red) 18%, transparent)" : "var(--color-surface-soft)", color: active ? "var(--color-altus-red-deep)" : "var(--color-ink-subtle)" }}>
-                          {yearTabCounts[t.id]}
-                        </span>
-                        {active && (
-                          <span className="absolute inset-x-2.5 -bottom-px h-[2px] rounded-full" style={{ background: "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))" }} />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
             </div>
 
             {/* 2 · period pills — Q1–Q4 as a compact 2×2 grid, in the header */}
@@ -699,9 +630,9 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               </div>
             )}
 
-            {/* 3 · person + FY (divider-separated) */}
+            {/* 3 · person + FY — side by side on one horizontal band */}
             <div
-              className="flex shrink-0 flex-col items-center gap-2.5 self-stretch justify-center border-l pl-6 max-xl:w-full max-xl:flex-row max-xl:justify-between max-xl:border-l-0 max-xl:pl-0"
+              className="flex shrink-0 flex-row items-center gap-3 border-l pl-6 max-xl:w-full max-xl:justify-between max-xl:border-l-0 max-xl:pl-0"
               style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 16%, var(--color-hairline))" }}
             >
               {/* Name selector — a bold, glowing custom pill (avatar + "VIEWING"
@@ -825,24 +756,18 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
             )}
           </div>
 
-          {/* Sort */}
-          <label className="relative inline-flex items-center">
+          {/* Sort — premium Select inside a pill shell (matches the toolbar row). */}
+          <div className="relative inline-flex h-[38px] items-center rounded-full border border-hairline-strong bg-surface-card pl-9 pr-3 transition-colors focus-within:border-altus-red hover:border-hairline-strong">
             <ArrowUpDown size={15} strokeWidth={2.4} className="pointer-events-none absolute left-3 text-ink-subtle" />
-            <span className="sr-only">Sort goals</span>
-            <select
+            <Select
               value={sortKey}
-              onChange={(e) => setSortKey(e.target.value as SortKey)}
-              aria-label="Sort goals"
-              className={`h-[38px] cursor-pointer appearance-none rounded-full border border-hairline-strong bg-surface-card pl-9 pr-8 text-[13px] font-bold text-ink-soft transition-colors hover:text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
-            >
-              {SORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-            <ChevronRight size={14} className="pointer-events-none absolute right-2.5 rotate-90 text-ink-subtle" />
-          </label>
+              onValueChange={(v) => setSortKey(v as SortKey)}
+              ariaLabel="Sort goals"
+              unstyled
+              className="flex min-w-[9rem] cursor-pointer items-center gap-1.5 text-[13px] font-bold text-ink-soft"
+              options={SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+            />
+          </div>
 
           {/* Export */}
           <button
@@ -960,6 +885,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                 customLookups={customLookups}
                 fyStartYear={fy}
                 level={props.level}
+                actions={LEVEL_TABLE_ACTIONS}
               />
             )}
 
@@ -1086,7 +1012,7 @@ function HeaderPill({
       onClick={onPick}
       aria-pressed={active}
       aria-label={`${label} — ${count} goal${count === 1 ? "" : "s"}`}
-      className={`wg-btn inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13.5px] font-bold transition-all cursor-pointer ${FOCUS_RING}`}
+      className={`wg-btn inline-flex items-center justify-center rounded-full border px-3 py-1.5 text-[13.5px] font-bold transition-all cursor-pointer ${FOCUS_RING}`}
       style={
         active
           ? {
@@ -1103,16 +1029,6 @@ function HeaderPill({
       }
     >
       {label}
-      <span
-        className="inline-flex min-w-[18px] items-center justify-center rounded-full px-1 text-[11px] font-bold tabular-nums"
-        style={
-          active
-            ? { background: "rgba(255,255,255,0.22)", color: "#fff" }
-            : { background: "var(--color-surface-soft)", color: "var(--color-ink-subtle)" }
-        }
-      >
-        {count}
-      </span>
     </button>
   );
 }

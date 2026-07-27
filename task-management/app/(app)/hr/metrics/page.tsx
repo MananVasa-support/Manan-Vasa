@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { hrSupportEnabled } from "@/lib/hr/flag";
@@ -23,7 +23,7 @@ function fmtHours(h: number | null): string {
 }
 
 export default async function HrMetricsPage() {
-  const me = await requireWorkspace("hr");
+  const me = await requireHrStaff();
   if (!hrSupportEnabled()) notFound();
   const v = await resolveViewer(me);
   if (!v.handler && !v.superAdmin) notFound();

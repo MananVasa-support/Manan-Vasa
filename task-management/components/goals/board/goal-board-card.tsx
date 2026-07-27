@@ -715,22 +715,17 @@ function GoalBoardCardImpl({
                   />
                 </Field>
                 <Field label="Category">
-                  <select
+                  <Select
                     value={goal.category}
                     disabled={ro}
-                    onChange={(e) => {
-                      const c = e.target.value as (typeof GOAL_CATEGORIES)[number];
+                    onValueChange={(v) => {
+                      const c = v as (typeof GOAL_CATEGORIES)[number];
                       save({ category: c }, () => setGoalCategory({ id: goal.id, category: c }));
                     }}
-                    aria-label="Goal category"
-                    className={`w-full cursor-pointer rounded-md border border-hairline bg-white px-2.5 py-2 text-[14px] font-semibold text-ink-strong focus:border-altus-red/50 disabled:opacity-60 disabled:bg-surface-soft disabled:cursor-default ${FOCUS_RING}`}
-                  >
-                    {GOAL_CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {categoryStyle(c, false).label}
-                      </option>
-                    ))}
-                  </select>
+                    ariaLabel="Goal category"
+                    searchable={false}
+                    options={GOAL_CATEGORIES.map((c) => ({ value: c, label: categoryStyle(c, false).label }))}
+                  />
                 </Field>
               </div>
             </FieldGroup>

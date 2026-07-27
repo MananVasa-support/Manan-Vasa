@@ -17,6 +17,8 @@ import {
   Plus,
   Loader2,
   Check,
+  List,
+  Columns3,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { fireToast } from "@/lib/toast";
@@ -24,13 +26,19 @@ import { addWeekGoal, carryAllUnfinishedForward } from "@/app/(app)/goals/weekly
 import { WeeklyGoalDrawer } from "@/components/weekly-goals/goal-drawer";
 import { WeeklyGoalsImport } from "@/components/weekly-goals/weekly-goals-import";
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
+import { Select } from "@/components/ui/select";
+import { TeamWeightsField, type TeamMemberWeight } from "@/components/goals/board/team-weights-field";
 import { CascadeGoalCard } from "./cascade-goal-card";
 import { GoalTableView } from "@/components/goals/board/goal-table-view";
 import { WEEKLY_TABLE_ACTIONS } from "@/components/goals/board/weekly-table-actions";
 import { CommitDialog } from "@/components/goals/commit/commit-dialog";
 import type { CommitMember } from "@/components/goals/commit/types";
 import type { GoalDTO } from "@/components/goals/cascade/util";
+import { WeeklyKanban } from "./weekly-kanban";
 import type { BoardMe, CascadeWeeklyGoal, MonthGoalOption, RosterMember } from "./types";
+
+/** localStorage key for the weekly board's List ⇄ Kanban preference. */
+const WEEKLY_VIEW_STORE_KEY = "goals-weekly-view";
 
 /** Map a weekly cascade row onto the shared inline table's GoalDTO shape. */
 function weeklyToGoalDTO(g: CascadeWeeklyGoal): GoalDTO {
@@ -132,6 +140,28 @@ export function WeeklyCascadeBoard({
   const [commitOpen, setCommitOpen] = React.useState(false);
   const quickAddRef = React.useRef<WeeklyQuickAddHandle>(null);
 
+  // ── View: classic list ⇄ Kanban (persisted). SSR renders "list"; the stored
+  //    preference applies after mount so hydration stays clean. ─────────
+  const [view, setView] = React.useState<"list" | "kanban">("list");
+  React.useEffect(() => {
+    try {
+      if (window.localStorage.getItem(WEEKLY_VIEW_STORE_KEY) === "kanban") setView("kanban");
+    } catch {
+      /* storage unavailable — stay on list */
+    }
+  }, []);
+  const pickView = React.useCallback((v: "list" | "kanban") => {
+    setView(v);
+    try {
+      window.localStorage.setItem(WEEKLY_VIEW_STORE_KEY, v);
+    } catch {
+      /* non-fatal */
+    }
+  }, []);
+  // Who may create a weekly goal here: self, an admin, or a manager viewing a
+  // downline member (the server re-asserts this on addWeekGoal).
+  const canWrite = me.isAdmin || scopeEmp === me.id || canPickPerson;
+
   function goWeek(w: string) {
     const params = new URLSearchParams();
     params.set("week", w);
@@ -171,115 +201,161 @@ export function WeeklyCascadeBoard({
   const committedCount = adopted.filter((r) => r.committed).length;
   const approvedCount = adopted.filter((r) => r.approvedByManager).length;
 
+  // Whose board — self vs. a downline member (drives the header eyebrow +
+  // the "VIEWING" avatar pill). people[] is empty when the picker is hidden,
+  // so fall back to the first row's employeeName, then a neutral label.
+  const isSelf = scopeEmp === me.id;
+  const viewedName =
+    people.find((p) => p.id === scopeEmp)?.name ?? rows[0]?.employeeName ?? (isSelf ? "My goals" : "Teammate");
+
   return (
     <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
-      {/* Header — module masthead: glossy amber icon tile + gradient eyebrow + display H1 */}
-      <header className="mb-6 flex items-start gap-4 wg-rise">
-        <span
-          aria-hidden
-          className="module-wordmark-icon relative hidden h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-section text-white sm:inline-flex"
-          style={{
-            background: `linear-gradient(150deg, color-mix(in srgb, #ffffff 22%, ${ACCENT}) 0%, ${ACCENT} 46%, ${ACCENT_DEEP} 100%)`,
-            border: "1px solid color-mix(in srgb, var(--goals-accent-deep, #A80400) 55%, transparent)",
-            boxShadow:
-              "inset 0 1px 0 rgba(255,255,255,0.35), 0 10px 24px -10px color-mix(in srgb, var(--goals-accent, #E10600) 60%, transparent)",
-          }}
-        >
-          <Target size={26} strokeWidth={2.2} />
-        </span>
-        <div className="min-w-0">
-          <span
-            className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"
-            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
-          >
-            <Target size={12} /> Weekly board
-          </span>
-          <h1
-            className="mt-2 text-display-md text-ink-strong"
-            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, letterSpacing: "-0.02em" }}
-          >
-            This week, laddered to the year
-          </h1>
-          <p className="mt-1.5 text-body font-medium text-ink-muted" style={{ maxWidth: "64ch" }}>
-            Each weekly goal below carries from its monthly parent. Cross out what you&apos;re dropping,
-            fill the target &amp; actuals, tag the team you depend on, and carry the unfinished forward.
-          </p>
-        </div>
-      </header>
+      {/* ── HEADER — level-board style: one compact pastel-red command band.
+          LEFT = identity (eyebrow + "Weekly Goals"); RIGHT = week stepper +
+          person selector (moved out of the toolbar). Mirrors goals-level-board. ── */}
+      <section
+        className="wg-rise relative mb-5 overflow-hidden rounded-[26px]"
+        style={{
+          background:
+            "linear-gradient(105deg, color-mix(in srgb, var(--color-altus-red) 8%, var(--color-surface-card)) 0%, var(--color-surface-card) 44%, color-mix(in srgb, var(--color-altus-red) 5%, var(--color-surface-card)) 100%)",
+          border: "1px solid color-mix(in srgb, var(--color-altus-red) 18%, var(--color-hairline))",
+          boxShadow:
+            "inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 6px rgba(15,23,42,0.05), 0 26px 60px -34px color-mix(in srgb, var(--color-altus-red) 44%, transparent)",
+        }}
+      >
+        {/* aurora washes + left accent rail */}
+        <span aria-hidden className="pointer-events-none absolute -right-12 -top-24 h-64 w-64 rounded-full" style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--color-altus-red) 15%, transparent), transparent 66%)" }} />
+        <span aria-hidden className="pointer-events-none absolute -left-24 -bottom-28 h-60 w-60 rounded-full" style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--color-altus-red) 8%, transparent), transparent 70%)" }} />
+        <span aria-hidden className="pointer-events-none absolute left-0 top-0 h-full w-1.5" style={{ background: "linear-gradient(180deg, var(--color-altus-red), var(--color-altus-red-deep))" }} />
 
-      {/* Controls */}
-      <div className="mb-6 flex flex-wrap items-center gap-3 wg-rise" style={{ animationDelay: "0.06s" }}>
-        <div
-          className="flex items-center gap-1 rounded-pill border border-hairline bg-surface-card p-1"
-          style={{ boxShadow: "0 1px 2px rgba(15,23,42,0.04), inset 0 1px 0 rgba(255,255,255,0.6)" }}
-        >
-          <button
-            type="button"
-            onClick={() => goWeek(prevWeek)}
-            aria-label="Previous week"
-            className="wg-btn inline-flex h-8 w-8 items-center justify-center rounded-full text-ink-muted hover:bg-surface-soft hover:text-ink-strong"
+        <div className="relative flex min-h-[68px] items-center gap-6 px-7 py-3.5 max-xl:flex-wrap max-md:gap-4 max-md:px-4">
+          {/* 1 · identity — eyebrow + compact title only */}
+          <div className="min-w-0 flex-1 max-xl:w-full max-xl:flex-none">
+            <div className="text-[10.5px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--color-altus-red-deep)" }}>
+              Goals · {weekLabel} · {isSelf ? "My goals" : viewedName}
+            </div>
+            <h1
+              className="mt-0.5"
+              style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, color: "var(--color-ink-strong)", fontSize: "clamp(24px, 2.3vw, 34px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
+            >
+              Weekly Goals
+            </h1>
+          </div>
+
+          {/* 2 · person + week — side by side on one horizontal band */}
+          <div
+            className="flex shrink-0 flex-row items-center gap-3 border-l pl-6 max-xl:w-full max-xl:justify-between max-xl:border-l-0 max-xl:pl-0"
+            style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 16%, var(--color-hairline))" }}
           >
-            <ChevronLeft size={17} />
-          </button>
-          <div className="flex items-center gap-2 px-2">
-            <CalendarDays size={15} style={{ color: ACCENT }} />
-            <div className="leading-tight">
-              <div className="flex items-center gap-1.5">
+            {/* Person selector — glowing "VIEWING" avatar pill wrapping the
+                existing native select (goPerson). */}
+            {canPickPerson && people.length > 0 && (
+              <div className="group relative w-[236px] max-md:w-full">
                 <span
-                  className="rounded-chip px-1.5 py-0.5 text-[11px] font-black tabular-nums text-white"
+                  aria-hidden
+                  className="pointer-events-none absolute -inset-[2px] rounded-2xl opacity-55 blur-[7px] transition-opacity duration-300 group-hover:opacity-90"
+                  style={{ background: "linear-gradient(120deg, var(--color-altus-red), #ff5560, var(--color-altus-red-deep))" }}
+                />
+                <div
+                  className="relative flex items-center gap-2.5 rounded-2xl px-2.5 py-1.5"
                   style={{
-                    background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
-                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.28)",
+                    background: "linear-gradient(135deg, color-mix(in srgb, var(--color-altus-red) 12%, var(--color-surface-card)), var(--color-surface-card) 70%)",
+                    border: "1.5px solid color-mix(in srgb, var(--color-altus-red) 32%, transparent)",
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.78), 0 9px 24px -13px color-mix(in srgb, var(--color-altus-red) 60%, transparent)",
                   }}
+                >
+                  <span
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[13px] font-black text-white"
+                    style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 4px 10px -4px var(--color-altus-red)" }}
+                  >
+                    {viewedName.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?"}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[8.5px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--color-altus-red-deep)" }}>
+                      Viewing
+                    </div>
+                    <Select
+                      value={scopeEmp}
+                      onValueChange={(v) => goPerson(v)}
+                      searchable
+                      searchPlaceholder="Search people…"
+                      ariaLabel="View another person's goals"
+                      unstyled
+                      className="flex w-full cursor-pointer items-center gap-1 text-left text-[13.5px] font-bold text-ink-strong"
+                      options={people.map((p) => ({
+                        value: p.id,
+                        label: p.id === me.id ? `${p.name} (me)` : p.name,
+                      }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Week stepper — mirrors the level board's FY stepper pill. */}
+            <div
+              className="inline-flex items-center overflow-hidden rounded-full"
+              style={{
+                background: "var(--color-surface-card)",
+                border: "1px solid color-mix(in srgb, var(--color-altus-red) 20%, var(--color-hairline))",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(15,23,42,0.05)",
+              }}
+            >
+              <button
+                type="button"
+                aria-label="Previous week"
+                onClick={() => goWeek(prevWeek)}
+                className="cursor-pointer px-2.5 py-1.5 text-ink-subtle transition-colors outline-none hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)] hover:text-altus-red focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60"
+              >
+                <ChevronLeft size={17} strokeWidth={2.4} />
+              </button>
+              <span
+                className="flex items-center gap-1.5 px-3 py-1.5"
+                style={{ borderInline: "1px solid color-mix(in srgb, var(--color-altus-red) 14%, var(--color-hairline))" }}
+              >
+                <CalendarDays size={13} style={{ color: "var(--color-altus-red)" }} />
+                <span
+                  className="rounded-chip px-1.5 py-0.5 text-[10.5px] font-black tabular-nums text-white"
+                  style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.28)" }}
                 >
                   W{weekNo}
                 </span>
-                <span className="text-[13px] font-bold text-ink-strong">{weekLabel}</span>
-              </div>
+                <span className="text-[13px] font-bold tabular-nums text-ink-strong">{weekLabel}</span>
+              </span>
+              <button
+                type="button"
+                aria-label="Next week"
+                onClick={() => goWeek(nextWeek)}
+                className="cursor-pointer px-2.5 py-1.5 text-ink-subtle transition-colors outline-none hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)] hover:text-altus-red focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60"
+              >
+                <ChevronRight size={17} strokeWidth={2.4} />
+              </button>
             </div>
+
+            {!isCurrentWeek && (
+              <button
+                type="button"
+                onClick={() => goWeek(thisWeek)}
+                title="Jump to this week"
+                className="wg-btn shrink-0 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold text-altus-red outline-none transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)] focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60"
+                style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 30%, transparent)" }}
+              >
+                This week
+              </button>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={() => goWeek(nextWeek)}
-            aria-label="Next week"
-            className="wg-btn inline-flex h-8 w-8 items-center justify-center rounded-full text-ink-muted hover:bg-surface-soft hover:text-ink-strong"
-          >
-            <ChevronRight size={17} />
-          </button>
         </div>
+      </section>
 
-        {!isCurrentWeek && (
-          <button
-            type="button"
-            onClick={() => goWeek(thisWeek)}
-            className="wg-btn rounded-pill border border-hairline bg-surface-card px-3 py-1.5 text-[12.5px] font-semibold text-ink-muted hover:border-hairline-strong hover:text-ink-strong"
-          >
-            Jump to this week
-          </button>
-        )}
-
-        {canPickPerson && people.length > 0 && (
-          <select
-            value={scopeEmp}
-            onChange={(e) => goPerson(e.target.value)}
-            className="rounded-pill border border-hairline bg-surface-card px-3 py-1.5 text-[13px] font-semibold text-ink-strong outline-none transition-colors focus:border-hairline-strong"
-            style={{ outlineColor: ACCENT }}
-          >
-            {people.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.id === me.id ? `${p.name} (me)` : p.name}
-              </option>
-            ))}
-          </select>
-        )}
-
+      {/* Controls — ONE row (scrolls horizontally on narrow widths, never wraps) */}
+      <div className="mb-6 flex flex-nowrap items-center gap-2 overflow-x-auto py-1 wg-rise" style={{ animationDelay: "0.06s" }}>
         {/* Create — a single weekly goal (composer drawer) + bulk file import.
             Both write into the week + person in view via the cascade weekly
             engine (addWeekGoal / importWeeklyGoals). */}
         <button
           type="button"
           onClick={() => quickAddRef.current?.open()}
-          className="wg-btn wg-sheen inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[12.5px] font-bold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
+          className="wg-btn wg-sheen inline-flex shrink-0 items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12px] font-bold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
           style={{
             background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
             boxShadow:
@@ -289,23 +365,45 @@ export function WeeklyCascadeBoard({
           <Plus size={14} strokeWidth={2.8} />
           Add weekly goal
         </button>
-        <WeeklyGoalsImport
-          employeeId={scopeEmp}
-          weekStart={weekStart}
-          weekLabel={weekLabel}
-          isAdmin={me.isAdmin}
-        />
+        <div className="shrink-0">
+          <WeeklyGoalsImport
+            employeeId={scopeEmp}
+            weekStart={weekStart}
+            weekLabel={weekLabel}
+            isAdmin={me.isAdmin}
+          />
+        </div>
+
+        {/* View toggle — List | Kanban (mirrors the monthly board's control) */}
+        <div
+          role="group"
+          aria-label="Board view"
+          className="inline-flex shrink-0 items-center overflow-hidden rounded-full border border-hairline-strong bg-surface-soft"
+        >
+          <ViewToggleButton
+            active={view === "list"}
+            label="List"
+            icon={<List size={14} strokeWidth={2.4} />}
+            onClick={() => pickView("list")}
+          />
+          <ViewToggleButton
+            active={view === "kanban"}
+            label="Kanban"
+            icon={<Columns3 size={14} strokeWidth={2.4} />}
+            onClick={() => pickView("kanban")}
+          />
+        </div>
 
         {/* Ritual state — Saturday commit / Monday approve, reachable in context.
             The chips read the existing stamps; the ritual pages keep the logic. */}
         {adopted.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Weekly ritual status">
+          <div className="flex shrink-0 flex-nowrap items-center gap-1.5" role="group" aria-label="Weekly ritual status">
             {commit ? (
               <button
                 type="button"
                 onClick={() => setCommitOpen(true)}
                 title="Freeze next week (Saturday commit)"
-                className="wg-btn inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[12.5px] font-bold"
+                className="wg-btn inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill border px-2.5 py-1.5 text-[12px] font-bold"
                 style={
                   committedCount === adopted.length
                     ? { borderColor: "#15803d", color: "#166534", background: "rgba(21,128,61,0.10)" }
@@ -350,20 +448,32 @@ export function WeeklyCascadeBoard({
             type="button"
             onClick={carryAll}
             disabled={pending}
-            className="wg-btn wg-sheen ml-auto inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50"
+            title={`Carry ${unfinishedCount} unfinished goal(s) into next week`}
+            className="wg-btn wg-sheen ml-auto inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill px-3 py-1.5 text-[12px] font-bold text-white disabled:opacity-50"
             style={{
               background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
               boxShadow: "0 8px 20px -10px color-mix(in srgb, var(--goals-accent, #E10600) 65%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)",
             }}
           >
             <ArrowRightLeft size={13} />
-            {pending ? "Carrying…" : `Carry ${unfinishedCount} unfinished → next week`}
+            {pending ? "Carrying…" : `Carry ${unfinishedCount} → next week`}
           </button>
         )}
       </div>
 
-      {/* List */}
-      {rows.length === 0 ? (
+      {/* Body — classic list or the drag-to-plan Kanban */}
+      {view === "kanban" ? (
+        <WeeklyKanban
+          me={me}
+          scopeEmp={scopeEmp}
+          weekStart={weekStart}
+          weekNo={weekNo}
+          weekLabel={weekLabel}
+          rows={rows}
+          monthGoalOptions={monthGoalOptions}
+          canWrite={canWrite}
+        />
+      ) : rows.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
@@ -432,7 +542,10 @@ export function WeeklyCascadeBoard({
           currentCount={rows.length}
           monthGoalOptions={monthGoalOptions}
           areaOptions={areaOptions}
-          customAreas={customLookups.areas}
+          measureOptions={measureOptions}
+          typeOptions={typeOptions}
+          customLookups={customLookups}
+          roster={roster}
           isAdmin={me.isAdmin}
         />
       </div>
@@ -447,6 +560,40 @@ export function WeeklyCascadeBoard({
         />
       )}
     </main>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* View toggle — List ⇄ Kanban segmented control (mirrors the level board) */
+/* ------------------------------------------------------------------ */
+
+function ViewToggleButton({
+  active,
+  label,
+  icon,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={`${label} view`}
+      className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
+      style={
+        active
+          ? { background: "var(--color-surface-card)", color: ACCENT_DEEP, boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }
+          : { background: "transparent", color: "var(--color-ink-subtle)" }
+      }
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
@@ -473,7 +620,7 @@ function RitualChip({
     <Link
       href={href}
       title={title}
-      className="wg-btn inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[12.5px] font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
+      className="wg-btn inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill border px-2.5 py-1.5 text-[12px] font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
       style={
         done
           ? {
@@ -496,13 +643,13 @@ function RitualChip({
 
 /* ------------------------------------------------------------------ */
 /* Weekly quick-add — create ONE weekly goal in the week + person in    */
-/* view. Mirrors board-quick-add's UX (WeeklyGoalDrawer, save-and-add-  */
-/* another with a bumping eyebrow count, an "End" button, keyboard-     */
-/* first ⌘/Ctrl+Enter) but writes through the CASCADE weekly action     */
-/* `addWeekGoal` (NOT the legacy createWeeklyGoal). addWeekGoal only    */
-/* takes { employeeId, weekStart, title, area?, monthGoalId? }, so the  */
-/* composer surfaces exactly those fields; targets/actuals/team stay    */
-/* inline-editable on the row afterwards.                               */
+/* view. Mirrors board-quick-add's UX AND its full field set            */
+/* (Area · Goal · Measure · Type · Actual · Target · Weight · Team       */
+/* Members) plus the weekly-only "Monthly goal" link. Writes through the */
+/* CASCADE weekly action `addWeekGoal`, which now persists every field   */
+/* onto the weekly_goals row. Keeps the WeeklyGoalDrawer, save-and-add-  */
+/* another (drawer stays open + eyebrow count bumps), an "End" button,   */
+/* and keyboard-first ⌘/Ctrl+Enter.                                      */
 /* ------------------------------------------------------------------ */
 
 const QUICK_ADD_FOCUS_RING =
@@ -520,7 +667,10 @@ const WeeklyQuickAdd = React.forwardRef<
     currentCount: number;
     monthGoalOptions: MonthGoalOption[];
     areaOptions: string[];
-    customAreas: string[];
+    measureOptions: string[];
+    typeOptions: string[];
+    customLookups: { areas: string[]; measures: string[]; types: string[] };
+    roster: RosterMember[];
     isAdmin: boolean;
   }
 >(function WeeklyQuickAdd(props, ref) {
@@ -529,6 +679,12 @@ const WeeklyQuickAdd = React.forwardRef<
   const [saving, setSaving] = React.useState(false);
   const [title, setTitle] = React.useState("");
   const [area, setArea] = React.useState("");
+  const [measure, setMeasure] = React.useState("");
+  const [type, setType] = React.useState("Goal");
+  const [actual, setActual] = React.useState("");
+  const [target, setTarget] = React.useState("");
+  const [weight, setWeight] = React.useState("100");
+  const [team, setTeam] = React.useState<TeamMemberWeight[]>([]);
   const [monthGoalId, setMonthGoalId] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [addedCount, setAddedCount] = React.useState(0);
@@ -548,6 +704,12 @@ const WeeklyQuickAdd = React.forwardRef<
   function reset() {
     setTitle("");
     setArea("");
+    setMeasure("");
+    setType("Goal");
+    setActual("");
+    setTarget("");
+    setWeight("100");
+    setTeam([]);
     setMonthGoalId("");
     setError(null);
   }
@@ -567,11 +729,27 @@ const WeeklyQuickAdd = React.forwardRef<
     }
     setError(null);
     setSaving(true);
+
+    const parsedWeight = Number.parseInt(weight, 10);
+    const w = Number.isFinite(parsedWeight) ? Math.max(0, Math.min(1000, parsedWeight)) : 100;
+    const numOrNull = (s: string): string | null => {
+      const v = s.trim();
+      if (!v) return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? String(n) : null;
+    };
+
     void addWeekGoal({
       employeeId: props.employeeId,
       weekStart: props.weekStart,
       title: t,
       area: area.trim() || null,
+      uom: measure.trim() || null,
+      category: type.trim() || null,
+      actualQty: numOrNull(actual),
+      targetQty: numOrNull(target),
+      weight: w,
+      teamInvolved: team.length ? team : null,
       monthGoalId: monthGoalId || null,
     })
       .then((res) => {
@@ -675,7 +853,7 @@ const WeeklyQuickAdd = React.forwardRef<
               value={area}
               onChange={setArea}
               options={props.areaOptions}
-              custom={props.customAreas}
+              custom={props.customLookups.areas}
               isAdmin={props.isAdmin}
               placeholder="Choose an area"
             />
@@ -694,22 +872,104 @@ const WeeklyQuickAdd = React.forwardRef<
             />
           </label>
 
+          {/* Measure (→ uom) + Type (→ goal_type). */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="block">
+              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Measure</span>
+              <GoalLookupSelect
+                kind="measure"
+                noun="Measure"
+                value={measure}
+                onChange={setMeasure}
+                options={props.measureOptions}
+                custom={props.customLookups.measures}
+                isAdmin={props.isAdmin}
+                placeholder="Choose a measure"
+              />
+            </div>
+            <div className="block">
+              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Type</span>
+              <GoalLookupSelect
+                kind="type"
+                noun="Type"
+                value={type}
+                onChange={setType}
+                options={props.typeOptions}
+                custom={props.customLookups.types}
+                isAdmin={props.isAdmin}
+                placeholder="Choose a type"
+              />
+            </div>
+          </div>
+
+          {/* Actual vs Target (% Done = Actual ÷ Target). */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Actual</span>
+              <input
+                value={actual}
+                onChange={(e) => setActual(e.target.value)}
+                inputMode="decimal"
+                placeholder="e.g. 0"
+                className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-bold tabular-nums text-ink-strong focus:border-altus-red ${QUICK_ADD_FOCUS_RING}`}
+                style={{ borderColor: "var(--color-hairline-strong)" }}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Target</span>
+              <input
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                inputMode="decimal"
+                placeholder="e.g. 100"
+                className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-bold tabular-nums text-ink-strong focus:border-altus-red ${QUICK_ADD_FOCUS_RING}`}
+                style={{ borderColor: "var(--color-hairline-strong)" }}
+              />
+            </label>
+          </div>
+
+          {/* Weight — share of the weekly weighted-completion score. */}
+          <label className="block">
+            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Weight</span>
+            <input
+              type="number"
+              min={0}
+              max={1000}
+              step={1}
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              placeholder="100"
+              className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-bold tabular-nums text-ink-strong focus:border-altus-red ${QUICK_ADD_FOCUS_RING}`}
+              style={{ borderColor: "var(--color-hairline-strong)" }}
+            />
+            <span className="mt-1 block text-[11.5px] font-medium text-ink-subtle">share of the week&apos;s score</span>
+          </label>
+
+          {/* Team members (each with their OWN weight). */}
+          <div className="block">
+            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Team Members</span>
+            <TeamWeightsField value={team} roster={props.roster} onChange={setTeam} />
+            <span className="mt-1 block text-[11.5px] font-medium text-ink-subtle">
+              Add the people on this goal — each gets their own weight (share).
+            </span>
+          </div>
+
           {/* Link up to a monthly cascade goal (optional parent). */}
           <label className="block">
             <span className="mb-1 block text-[12px] font-bold text-ink-soft">Monthly goal</span>
-            <select
+            <Select
               value={monthGoalId}
-              onChange={(e) => setMonthGoalId(e.target.value)}
-              className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-semibold text-ink-strong focus:border-altus-red ${QUICK_ADD_FOCUS_RING}`}
-              style={{ borderColor: "var(--color-hairline-strong)" }}
-            >
-              <option value="">No monthly link</option>
-              {props.monthGoalOptions.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.title}
-                </option>
-              ))}
-            </select>
+              onValueChange={setMonthGoalId}
+              ariaLabel="Monthly goal"
+              placeholder="No monthly link"
+              searchable={props.monthGoalOptions.length > 8}
+              searchPlaceholder="Search monthly goals…"
+              className="h-10"
+              options={[
+                { value: "", label: "No monthly link" },
+                ...props.monthGoalOptions.map((m) => ({ value: m.id, label: m.title })),
+              ]}
+            />
             <span className="mt-1 block text-[11.5px] font-medium text-ink-subtle">
               Ladder this week&apos;s goal up to its monthly parent (optional).
             </span>

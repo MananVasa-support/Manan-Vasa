@@ -4,7 +4,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { candidateIntake, employees } from "@/db/schema";
 import { exitRecords, type ExitHandoverData } from "@/lib/hr/exit/schema";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { CLEARANCE_ROWS } from "@/lib/hr/exit/content";
 import type { ExitSummary } from "./exit-status-types";
 
@@ -23,7 +23,7 @@ export async function getExitStatus(
   candidateId: string,
 ): Promise<{ ok: true; status: ExitSummary } | { ok: false; error: string }> {
   try {
-    await requireWorkspace("hr");
+    await requireHrStaff();
   } catch {
     return { ok: false, error: "Not authorised." };
   }

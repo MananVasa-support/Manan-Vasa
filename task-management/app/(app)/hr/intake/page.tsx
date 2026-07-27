@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { listInterviewPositions, listCandidateDrafts, getCandidateDraft } from "@/app/(app)/hr/candidate-actions";
 import { listDepartments } from "@/lib/queries/departments";
@@ -21,7 +21,7 @@ export default async function IntakePage({
 }: {
   searchParams: Promise<{ new?: string; draft?: string }>;
 }) {
-  const me = await requireWorkspace("hr");
+  const me = await requireHrStaff();
   const isAdmin = me.isAdmin || isSuperAdmin(me.email);
   const sp = await searchParams;
 

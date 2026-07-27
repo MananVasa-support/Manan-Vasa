@@ -253,12 +253,42 @@ export async function setWeeklyTeamInvolved(
 // never touched here (locked decisions 1–2).
 // --------------------------------------------------------------------------
 
+/** Accept a numeric qty as a number OR a numeric string (kept OPTIONAL). */
+const NumericQty = z.union([z.string(), z.number()]).nullish();
+
+/** Coerce a qty input to a numeric(14,2) string (or null). Blank/non-finite → null. */
+function toQty(v: string | number | null | undefined): string | null {
+  if (v == null) return null;
+  const s = typeof v === "number" ? String(v) : v.trim();
+  if (s === "") return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n.toFixed(2) : null;
+}
+
+/** Per-member team involvement (each with its OWN weight) → team_involved jsonb. */
+const TeamWeightMemberSchema = z.object({
+  employeeId: z.string().uuid().optional(),
+  name: z.string().max(120).optional(),
+  weight: z.number().int().min(0).max(1000).optional(),
+});
+
 const AddWeekGoalSchema = z.object({
   employeeId: z.string().uuid(),
   /** Monday of the target week (canvas passes the focused `wk`). */
   weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid week"),
   title: z.string().trim().min(1, "Add a short goal").max(2000),
   area: z.string().trim().max(200).nullish(),
+  /** Measure (unit of measure) → weekly_goals.uom. */
+  uom: z.string().trim().max(60).nullish(),
+  /** Type (goal taxonomy) → weekly_goals.goal_type. */
+  category: z.string().trim().max(60).nullish(),
+  /** numeric(14,2) qty columns — accept number|string, stored as string|null. */
+  targetQty: NumericQty,
+  actualQty: NumericQty,
+  /** Weight: the goal's share of the weekly weighted-completion score. */
+  weight: z.coerce.number().int().min(0).max(1000).optional(),
+  /** Team members (each with their own weight) → team_involved jsonb. */
+  teamInvolved: z.array(TeamWeightMemberSchema).max(30).nullish(),
   /** Optional month-goal linkage (validated: same person, period=month). */
   monthGoalId: z.string().uuid().nullish(),
 });
@@ -298,6 +328,12 @@ export async function addWeekGoal(
       return { ok: false, error: "A weekly goal can only link to a monthly goal" };
   }
 
+  const targetQty = toQty(d.targetQty);
+  const actualQty = toQty(d.actualQty);
+  // % Done rides on Actual ÷ Target when both are given (mirrors the inline
+  // edit + import); otherwise the column keeps its 0 default.
+  const auto = autoPctDone(targetQty, actualQty);
+
   try {
     const position = await nextPosition(d.employeeId, weekStart);
     const [row] = await db
@@ -308,6 +344,13 @@ export async function addWeekGoal(
         position,
         targetDone: d.title,
         area: d.area ?? null,
+        uom: d.uom ?? null,
+        goalType: d.category ?? null,
+        targetQty,
+        actualQty,
+        weight: d.weight ?? 100,
+        teamInvolved: d.teamInvolved && d.teamInvolved.length > 0 ? d.teamInvolved : null,
+        ...(auto !== null ? { pctDone: auto } : {}),
         monthGoalId: d.monthGoalId ?? null,
         adopted: true,
         createdById: me.id,

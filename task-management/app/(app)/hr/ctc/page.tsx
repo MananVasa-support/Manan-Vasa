@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { loadCtcRoster } from "@/app/(app)/hr/ctc/actions";
 import { CtcWorkbench } from "@/components/hr/ctc/ctc-workbench";
@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
  * the numbers. Full-screen focused surface (no rail) — its own back button navs.
  */
 export default async function CtcPage() {
-  const me = await requireWorkspace("hr");
+  const me = await requireHrStaff();
   const isAdmin = me.isAdmin || isSuperAdmin(me.email);
   const roster = await loadCtcRoster().catch(() => []);
 

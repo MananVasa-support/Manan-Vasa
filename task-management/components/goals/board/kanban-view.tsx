@@ -19,8 +19,9 @@
  */
 
 import * as React from "react";
-import { useDroppable } from "@dnd-kit/core";
+import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { ChevronDown } from "lucide-react";
 import {
   type GoalDTO,
   periodKeyLabel,
@@ -79,29 +80,107 @@ export function KanbanBoard(props: KanbanBoardProps) {
     );
   }
 
-  // Monthly — 12 columns, horizontally scrollable, grouped by quarter.
+  // Monthly — 12 columns, horizontally scrollable, grouped by COLLAPSIBLE quarters.
+  return <MonthlyKanban {...props} />;
+}
+
+/* ------------------------------------------------------------------ */
+/* Monthly board — quarter groups collapse/expand; every month column  */
+/* is a droppable in the page's ONE DndContext, so a card drags freely  */
+/* ACROSS quarters (Q2 month → Q4 month). While a drag is in flight we  */
+/* force every quarter OPEN so a collapsed quarter never hides a valid  */
+/* drop target — the reader's collapse choice resumes once they let go. */
+/* ------------------------------------------------------------------ */
+
+function MonthlyKanban(props: KanbanBoardProps) {
+  // Collapsed quarters (by quarter number). Empty = all expanded (default).
+  const [collapsed, setCollapsed] = React.useState<Record<number, boolean>>({});
+  // Any active drag reveals all months so cross-quarter drops always land.
+  const dragging = useDndContext().active != null;
+
+  const toggle = React.useCallback(
+    (q: number) => setCollapsed((c) => ({ ...c, [q]: !c[q] })),
+    [],
+  );
+
   return (
     <div
       className="wg-rise overflow-x-auto pb-3 -mx-1 px-1"
       role="group"
-      aria-label="Months of the financial year — drag a goal between columns to move it"
+      aria-label="Months of the financial year — click a quarter to collapse it; drag a goal between columns (even across quarters) to move it"
     >
       <div className="flex min-w-max items-start gap-5">
-        {([1, 2, 3, 4] as const).map((q) => (
-          <section key={q} aria-label={periodKeyLabel(`${props.fyStartYear}-Q${q}`)} className="shrink-0">
-            <h3
-              className="mb-2 px-1 text-[10.5px] font-bold uppercase tracking-[0.14em]"
-              style={{ color: "var(--color-ink-subtle)" }}
-            >
-              {periodKeyLabel(`${props.fyStartYear}-Q${q}`)}
-            </h3>
-            <div className="flex items-start gap-3.5">
-              {monthKeysOfQuarter(props.fyStartYear, q).map((k) => (
-                <KanbanColumn key={k} bucketKey={k} fixedWidth {...props} />
-              ))}
-            </div>
-          </section>
-        ))}
+        {([1, 2, 3, 4] as const).map((q) => {
+          const quarterKey = `${props.fyStartYear}-Q${q}`;
+          const months = monthKeysOfQuarter(props.fyStartYear, q);
+          const isCollapsed = !dragging && collapsed[q] === true;
+          const count = months.reduce(
+            (n, k) => n + (props.goalsByBucket.get(k)?.length ?? 0),
+            0,
+          );
+          const panelId = `kanban-q-${props.fyStartYear}-${q}`;
+          return (
+            <section key={q} aria-label={periodKeyLabel(quarterKey)} className="shrink-0">
+              <button
+                type="button"
+                onClick={() => toggle(q)}
+                aria-expanded={!isCollapsed}
+                aria-controls={panelId}
+                title={isCollapsed ? `Expand ${periodKeyLabel(quarterKey)}` : `Collapse ${periodKeyLabel(quarterKey)}`}
+                className={`mb-2 flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.14em] transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_7%,transparent)] ${FOCUS_RING}`}
+                style={{ color: "var(--color-ink-subtle)" }}
+              >
+                <ChevronDown
+                  size={13}
+                  strokeWidth={2.6}
+                  className="transition-transform"
+                  style={{ transform: isCollapsed ? "rotate(-90deg)" : "none", color: "var(--color-altus-red)" }}
+                />
+                {periodKeyLabel(quarterKey)}
+                <span
+                  className="ml-0.5 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 py-[1px] text-[10px] font-bold tabular-nums"
+                  style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red-deep)" }}
+                >
+                  {count}
+                </span>
+              </button>
+              {isCollapsed ? (
+                // Collapsed rail — a slim clickable spine that still names the
+                // quarter + count (click anywhere to re-open).
+                <button
+                  type="button"
+                  id={panelId}
+                  onClick={() => toggle(q)}
+                  aria-label={`Expand ${periodKeyLabel(quarterKey)} — ${count} goal${count === 1 ? "" : "s"}`}
+                  className={`flex h-[120px] w-[52px] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_5%,transparent)] ${FOCUS_RING}`}
+                  style={{
+                    borderColor: "color-mix(in srgb, var(--color-altus-red) 30%, var(--color-hairline-strong))",
+                    color: "var(--color-ink-subtle)",
+                  }}
+                >
+                  <span
+                    className="text-[11px] font-black tracking-wide"
+                    style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", color: "var(--color-ink-soft)" }}
+                  >
+                    {periodKeyShort(months[0] ?? "")}–{periodKeyShort(months[months.length - 1] ?? "")}
+                  </span>
+                  <span
+                    className="inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-[1px] text-[10.5px] font-bold tabular-nums"
+                    style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red-deep)" }}
+                  >
+                    {count}
+                  </span>
+                </button>
+              ) : (
+                <div id={panelId} className="flex items-start gap-3.5">
+                  {months.map((k) => (
+                    <KanbanColumn key={k} bucketKey={k} fixedWidth {...props} />
+                  ))}
+                </div>
+              )}
+            </section>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Check, X, Loader2, ChevronDown, Trash2 } from "lucide-react";
+import { Plus, Check, X, Loader2, ChevronDown, Trash2, Search } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { addGoalLookup, removeGoalLookup } from "@/app/(app)/goals/cascade/actions";
 import { fireToast } from "@/lib/toast";
@@ -50,12 +50,39 @@ export function GoalLookupSelect({
   const [adding, setAdding] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const [busy, setBusy] = React.useState(false);
+  const [query, setQuery] = React.useState("");
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const searchRef = React.useRef<HTMLInputElement>(null);
+  const listRef = React.useRef<HTMLDivElement>(null);
   const deletableSet = React.useMemo(() => new Set(deletable.map((d) => d.toLowerCase())), [deletable]);
+
+  // Search box appears once the list gets long enough to warrant it.
+  const showSearch = opts.length > 8;
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? opts.filter((o) => o.toLowerCase().includes(q)) : opts;
+  }, [opts, query]);
 
   React.useEffect(() => {
     if (adding) requestAnimationFrame(() => inputRef.current?.focus());
   }, [adding]);
+
+  // Reset the query each time the panel (re)opens; when a search box shows,
+  // focus it so the keyboard-first flow is type-immediately-then-arrow-down.
+  React.useEffect(() => {
+    if (open) {
+      setQuery("");
+      if (showSearch) requestAnimationFrame(() => searchRef.current?.focus());
+    }
+  }, [open, showSearch]);
+
+  function moveFocus(dir: 1 | -1) {
+    const btns = Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>("[data-opt]") ?? []);
+    if (!btns.length) return;
+    const idx = btns.findIndex((b) => b === document.activeElement);
+    const next = dir === 1 ? Math.min(btns.length - 1, idx + 1) : Math.max(0, idx < 0 ? 0 : idx - 1);
+    btns[next]?.focus();
+  }
 
   async function commitAdd() {
     const v = draft.trim();
@@ -98,50 +125,68 @@ export function GoalLookupSelect({
         <button
           type="button"
           className={cn(
-            "flex w-full items-center justify-between gap-2 rounded-md text-left text-ink-strong transition-colors",
+            "group/gdd flex w-full items-center justify-between gap-2 text-left text-ink-strong",
             compact
-              ? "h-9 px-2 text-[13px] border-0 bg-transparent hover:bg-black/[0.04] focus:bg-black/[0.06]"
-              : "h-10 px-2.5 text-[14px] font-semibold border-[1.5px] bg-white focus:border-altus-red",
-            FOCUS_RING,
+              ? cn(
+                  "h-9 rounded-lg px-2 text-[13px] transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_7%,transparent)] data-[state=open]:bg-[color-mix(in_srgb,var(--color-altus-red)_9%,transparent)]",
+                  FOCUS_RING,
+                )
+              : "gdd-trigger h-10 rounded-xl px-3 text-[14px] font-semibold",
             className,
           )}
-          style={compact ? undefined : { borderColor: "color-mix(in srgb, var(--color-ink-strong) 34%, transparent)" }}
         >
-          <span className={cn("truncate", !value && "text-ink-subtle font-normal")}>
+          <span className={cn("truncate", !value && "font-normal text-ink-subtle")}>
             {value || placeholder || `Choose a ${noun}`}
           </span>
-          <ChevronDown size={15} className="shrink-0 text-ink-subtle" />
+          <ChevronDown
+            size={15}
+            className={cn(
+              "shrink-0 text-ink-subtle transition-transform duration-200 group-hover/gdd:text-altus-red",
+              open && "rotate-180 text-altus-red",
+            )}
+          />
         </button>
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        sideOffset={6}
-        className="w-[var(--radix-popover-trigger-width)] min-w-[12rem] rounded-xl border border-hairline bg-surface-card p-1.5"
-        style={{ boxShadow: "0 18px 44px -18px rgba(15,23,42,0.3)" }}
+        sideOffset={8}
+        className="gdd-panel w-[var(--radix-popover-trigger-width)] min-w-[13rem] p-1.5"
       >
-        {/* Keyboard: the popover auto-focuses its first option on open; ↑/↓ move
-            between options, Enter selects (the option buttons carry the onClick).
-            z-index comes from the PopoverContent primitive (z-[200]) — do NOT
-            re-set it here or the list buries itself behind the z-[120] drawer. */}
+        {/* Keyboard: a search box (long lists) or the first option takes focus on
+            open; ↑/↓ move between options, Enter selects, Esc closes. z-index comes
+            from the PopoverContent primitive (z-[200]) so the panel always sits
+            ABOVE the z-120 WeeklyGoalDrawer + the sticky header — do NOT re-set it
+            here or the list buries itself behind the drawer (the old "broken" bug). */}
+        {showSearch && (
+          <div className="px-1 pb-1.5">
+            <div className="flex items-center gap-2 rounded-lg border border-hairline bg-white/70 px-2.5">
+              <Search size={14} className="shrink-0 text-ink-subtle" />
+              <input
+                ref={searchRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowDown") { e.preventDefault(); moveFocus(1); }
+                  else if (e.key === "Escape") { setOpen(false); }
+                }}
+                placeholder={`Search ${noun.toLowerCase()}…`}
+                aria-label={`Search ${noun}`}
+                className="h-9 w-full bg-transparent text-[13.5px] font-medium text-ink-strong outline-none placeholder:text-ink-subtle"
+              />
+            </div>
+          </div>
+        )}
         <div
-          className="max-h-72 overflow-auto"
+          ref={listRef}
+          className="gdd-scroll max-h-72 overflow-auto"
           role="listbox"
           onKeyDown={(e) => {
             if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
             e.preventDefault();
-            const btns = Array.from(
-              e.currentTarget.querySelectorAll<HTMLButtonElement>("[data-opt]"),
-            );
-            if (!btns.length) return;
-            const idx = btns.findIndex((b) => b === document.activeElement);
-            const next =
-              e.key === "ArrowDown"
-                ? Math.min(btns.length - 1, idx + 1)
-                : Math.max(0, idx < 0 ? 0 : idx - 1);
-            btns[next]?.focus();
+            moveFocus(e.key === "ArrowDown" ? 1 : -1);
           }}
         >
-          {opts.map((o) => {
+          {filtered.map((o) => {
             const isSel = o.toLowerCase() === value.toLowerCase();
             const canDelete = isAdmin && deletableSet.has(o.toLowerCase());
             return (
@@ -149,7 +194,9 @@ export function GoalLookupSelect({
                 key={o}
                 className={cn(
                   "group flex items-center gap-2 rounded-lg px-2.5 py-2 transition-colors",
-                  isSel ? "" : "hover:bg-black/[0.04]",
+                  isSel
+                    ? ""
+                    : "hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)]",
                 )}
                 style={isSel ? { background: "color-mix(in srgb, var(--color-altus-red) 12%, transparent)" } : undefined}
               >
@@ -162,7 +209,10 @@ export function GoalLookupSelect({
                     onChange(o);
                     setOpen(false);
                   }}
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onChange(o); setOpen(false); }
+                  }}
+                  className={cn("flex min-w-0 flex-1 items-center gap-2 rounded-md text-left", FOCUS_RING)}
                 >
                   <span className="inline-flex w-4 shrink-0 justify-center">
                     {isSel && <Check size={15} strokeWidth={3} className="text-altus-red" />}
@@ -186,8 +236,10 @@ export function GoalLookupSelect({
               </div>
             );
           })}
-          {opts.length === 0 && (
-            <p className="px-3 py-4 text-center text-[13px] text-ink-subtle">No options yet.</p>
+          {filtered.length === 0 && (
+            <p className="px-3 py-4 text-center text-[13px] text-ink-subtle">
+              {opts.length === 0 ? "No options yet." : "No matches."}
+            </p>
           )}
         </div>
 
@@ -205,7 +257,7 @@ export function GoalLookupSelect({
                   }}
                   maxLength={60}
                   placeholder={`New ${noun}…`}
-                  className={cn("h-9 flex-1 rounded-md border bg-white px-2.5 text-[13.5px] font-semibold text-ink-strong focus:border-altus-red", FOCUS_RING)}
+                  className={cn("h-9 flex-1 rounded-lg border bg-white px-2.5 text-[13.5px] font-semibold text-ink-strong focus:border-altus-red", FOCUS_RING)}
                   style={{ borderColor: "var(--color-hairline-strong)" }}
                 />
                 <button
@@ -213,8 +265,8 @@ export function GoalLookupSelect({
                   onClick={() => void commitAdd()}
                   disabled={busy || !draft.trim()}
                   aria-label={`Save new ${noun}`}
-                  className="grid size-9 shrink-0 place-items-center rounded-md text-white disabled:opacity-50"
-                  style={{ background: "var(--color-altus-red)" }}
+                  className="grid size-9 shrink-0 place-items-center rounded-lg text-white shadow-sm transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+                  style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
                 >
                   {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.8} />}
                 </button>
@@ -222,7 +274,7 @@ export function GoalLookupSelect({
                   type="button"
                   onClick={() => { setAdding(false); setDraft(""); }}
                   aria-label="Cancel"
-                  className="grid size-9 shrink-0 place-items-center rounded-md border bg-white text-ink-subtle hover:text-ink-strong"
+                  className="grid size-9 shrink-0 place-items-center rounded-lg border bg-white text-ink-subtle hover:text-ink-strong"
                   style={{ borderColor: "var(--color-hairline-strong)" }}
                 >
                   <X size={15} strokeWidth={2.6} />
@@ -232,7 +284,7 @@ export function GoalLookupSelect({
               <button
                 type="button"
                 onClick={() => setAdding(true)}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13.5px] font-bold text-altus-red transition-colors hover:bg-altus-red/[0.06]"
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13.5px] font-bold text-altus-red transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)]"
               >
                 <Plus size={15} strokeWidth={2.8} /> Add {noun}
               </button>

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth/current";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { getSupabaseAdmin, DOCUMENTS_BUCKET } from "@/lib/supabase/admin";
 import { createHrAssignmentTask } from "@/lib/hr/assignment-task";
@@ -125,7 +125,7 @@ async function signPaths(paths: string[]): Promise<Map<string, string | null>> {
  * every recording and attachment so the workspace can play/preview them.
  */
 export async function getManagementAssessment(candidateId: string): Promise<ManagementAssessmentState> {
-  await requireWorkspace("hr");
+  await requireHrStaff();
   const empty: ManagementAssessmentState = { notes: "", recordings: [], attachments: [], outcome: null };
   if (!isUuid(candidateId)) return empty;
 
@@ -260,7 +260,7 @@ export async function sendRecruiterOutcome(
   candidateId: string,
   input: z.input<typeof RecruiterOutcomeSchema>,
 ): Promise<{ ok: true; skipped: boolean } | { ok: false; error: string }> {
-  const me = await requireWorkspace("hr");
+  const me = await requireHrStaff();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   if (!isUuid(candidateId)) return { ok: false, error: "Pick a candidate first." };
@@ -297,7 +297,7 @@ export async function createAssignmentTask(
   candidateId: string,
   input: z.input<typeof AssignmentTaskSchema>,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const me = await requireWorkspace("hr");
+  const me = await requireHrStaff();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   if (!isUuid(candidateId)) return { ok: false, error: "Pick a candidate first." };

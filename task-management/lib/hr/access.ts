@@ -1,8 +1,10 @@
 import "server-only";
+import { redirect } from "next/navigation";
 import { inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { employees, type Employee } from "@/db/schema";
 import { isSuperAdmin, SUPER_ADMIN_EMAILS } from "@/lib/auth/super-admin";
+import { requireUser } from "@/lib/auth/current";
 import { employeeDepartmentNames } from "@/lib/queries/departments";
 import { matchesDepartment } from "@/lib/workspaces";
 
@@ -34,6 +36,31 @@ export async function isHrHandler(me: Employee): Promise<boolean> {
   const structured = await employeeDepartmentNames(me.id).catch(() => [] as string[]);
   const departments = me.department ? [...structured, me.department] : structured;
   return matchesDepartment(departments, HR_DEPARTMENT);
+}
+
+/**
+ * FULL HR-module access = super-admins + members of the "HR" department ONLY.
+ * General admins are NOT HR staff here (distinct from {@link isHrHandler}, which
+ * also admits admins for the help-desk queue). Everyone else is a normal
+ * employee who only sees the limited HR view: their own record (the /portal
+ * self-service), the Holiday List, and the Help Desk.
+ */
+export async function isHrStaff(me: Employee): Promise<boolean> {
+  if (isSuperAdmin(me.email)) return true;
+  const structured = await employeeDepartmentNames(me.id).catch(() => [] as string[]);
+  const departments = me.department ? [...structured, me.department] : structured;
+  return matchesDepartment(departments, HR_DEPARTMENT);
+}
+
+/**
+ * Gate an HR-STAFF-ONLY page: a normal employee is bounced to the HR landing
+ * (their limited view). Use INSTEAD OF requireWorkspace("hr") on every HR page
+ * that isn't the landing, the Holiday List, or the employee self-record.
+ */
+export async function requireHrStaff(): Promise<Employee> {
+  const me = await requireUser();
+  if (!(await isHrStaff(me))) redirect("/hr");
+  return me;
 }
 
 /** The employee ids of the super-admin allow-list (grievance fallback owners). */

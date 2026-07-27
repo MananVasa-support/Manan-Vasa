@@ -125,6 +125,42 @@ export async function getAssignedGoals(employeeId: string, fyStartYear: number):
   return rows as AssignedGoal[];
 }
 
+/**
+ * Cascade goals OWNED BY OTHERS and SHARED with this person — the level-board
+ * counterpart to `getAssignedGoals` (which returns the canvas's lean read-only
+ * shape). Here we return the FULL rows so the board can map them through
+ * `toGoalDTO` and render them inline on the member's own Yearly/Quarterly/
+ * Monthly board. A row qualifies when: not archived, in the SAME space, owned by
+ * someone else, `share_with_team = true`, in this FY's buckets, AND `team_involved`
+ * contains this person. One lean containment select (mirrors getAssignedGoals'
+ * proven pattern) — load-neutral (result set is only this person's shared goals).
+ */
+export async function getSharedGoals(
+  employeeId: string,
+  fyStartYear: number,
+  scope: "professional" | "personal" = "professional",
+): Promise<Goal[]> {
+  const keys = [String(fyStartYear), ...quartersOfFy(fyStartYear), ...monthKeysOfFy(fyStartYear)];
+  const rows = await withRetry(
+    () =>
+      db
+        .select()
+        .from(goals)
+        .where(
+          and(
+            eq(goals.archived, false),
+            eq(goals.scope, scope),
+            ne(goals.employeeId, employeeId),
+            eq(goals.shareWithTeam, true),
+            inArray(goals.periodKey, keys),
+            sql`${goals.teamInvolved} @> ${JSON.stringify([{ employeeId }])}::jsonb`,
+          ),
+        ),
+    { timeoutMs: [...READ_BUDGET], label: "goals.getSharedGoals" },
+  );
+  return rows as Goal[];
+}
+
 /** Goals for one person at one period + key (non-archived), ordered by Sr No. */
 export async function getPeriodGoals(
   employeeId: string,

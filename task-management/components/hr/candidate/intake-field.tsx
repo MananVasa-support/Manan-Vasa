@@ -63,6 +63,12 @@ export function IntakeField({
 
   const common = {
     id,
+    // Unique, non-semantic name + autoComplete off so the browser NEVER autofills
+    // the person's saved profile (organization / designation / name / email / tel)
+    // into these candidate fields. Chrome's heuristic autofill was filling every
+    // recognized field with the same saved value — the "fields getting repeated" bug.
+    name: id,
+    autoComplete: "off",
     value,
     onFocus: () => setFocused(true),
     onBlur: () => setFocused(false),

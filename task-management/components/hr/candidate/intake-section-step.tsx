@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Plus, X, UploadCloud, Search, Loader2, Mic } from "lucide-react";
 import { visibleFields, type FormFieldDef } from "@/lib/forms/field-types";
-import { vkey, ageFromDob, type IntakeSection } from "@/lib/hr/candidate/intake-schema";
+import { vkey, ageFromDob, genderForRelationship, type IntakeSection } from "@/lib/hr/candidate/intake-schema";
 import { fireToast } from "@/lib/toast";
 import { IntakePositionSelect } from "@/components/hr/candidate/intake-position-select";
 import { IntakeField, IntakeReadonlyField } from "@/components/hr/candidate/intake-field";
@@ -143,7 +143,20 @@ export function IntakeSectionStep({
                   const span = fieldSpan(f);
                   return (
                     <div key={f.key} data-invalid={err ? "true" : undefined} className={span}>
-                      <IntakeField field={f} value={values[k] ?? ""} onChange={(_, v) => set(k, v)} error={err} />
+                      <IntakeField
+                        field={f}
+                        value={values[k] ?? ""}
+                        onChange={(_, v) => {
+                          set(k, v);
+                          // Family: auto-pick Gender from the Relationship (Brother→Male,
+                          // Sister→Female, …); ambiguous relationships stay manual.
+                          if (section.id === "family" && f.key === "relationship") {
+                            const g = genderForRelationship(v);
+                            if (g) set(`${section.id}.${uid}.gender`, g);
+                          }
+                        }}
+                        error={err}
+                      />
                       {err && <RequiredMsg />}
                     </div>
                   );
@@ -262,6 +275,8 @@ function AadhaarField({
       <div className={`iwf min-w-0 flex-1${float ? " is-float" : ""}${error ? " is-error" : ""}`}>
         <input
           id={id}
+          name={id}
+          autoComplete="off"
           inputMode="numeric"
           value={value}
           data-autofocus={autoFocus || undefined}

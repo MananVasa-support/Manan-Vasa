@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft, FileText, Home } from "lucide-react";
 import { LetterBackButton } from "@/components/hr/letters/letter-back-button";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { getLetter } from "@/lib/hr/letters/registry";
 import { loadLetterRoster, loadLetterCandidates } from "@/lib/hr/letters/roster";
@@ -27,7 +27,7 @@ export default async function LetterPage({
   params: Promise<{ key: string }>;
   searchParams: Promise<{ candidate?: string; employee?: string; ctc?: string }>;
 }) {
-  const me = await requireWorkspace("hr");
+  const me = await requireHrStaff();
   const { key } = await params;
   const { candidate, employee } = await searchParams;
   const isAdmin = me.isAdmin || isSuperAdmin(me.email);

@@ -127,10 +127,11 @@ export function Select({
             unstyled
               ? "flex w-full items-center justify-between gap-2 text-left outline-none disabled:opacity-50 disabled:cursor-not-allowed"
               : cn(
-                  "flex w-full items-center gap-2 h-11 px-3.5 rounded-chip border border-hairline bg-surface-card text-[15px] text-left text-ink-strong outline-none transition-all",
-                  "hover:border-hairline-strong focus:border-altus-red focus:ring-2 focus:ring-altus-red/25",
-                  "data-[state=open]:border-altus-red data-[state=open]:ring-2 data-[state=open]:ring-altus-red/25",
-                  "disabled:opacity-50 disabled:cursor-not-allowed",
+                  // Shared premium trigger language (.gdd-trigger): red-tinted
+                  // 1.5px border → full altus-red on hover/focus/open, top-lit
+                  // surface + inset highlight + soft shadow, visible red focus ring.
+                  "gdd-trigger flex w-full items-center gap-2 h-11 px-3.5 rounded-xl text-[15px] text-left text-ink-strong outline-none",
+                  "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none",
                 ),
             className,
           )}
@@ -157,7 +158,11 @@ export function Select({
         // first teams Tab through these constantly.
         onCloseAutoFocus={(e) => e.preventDefault()}
         className={cn(
-          "p-0 w-[var(--radix-popover-trigger-width)] min-w-[12rem]",
+          // .gdd-panel = the shared premium dropdown surface (rounded-2xl,
+          // backdrop-blur, layered shadow, fade+slide+scale entrance). It rides
+          // the primitive's z-[200] portal, so it always sits above the
+          // WeeklyGoalDrawer (z-120) + sticky header — never behind them.
+          "gdd-panel p-1.5 w-[var(--radix-popover-trigger-width)] min-w-[12rem]",
           contentClassName,
         )}
       >
@@ -169,7 +174,7 @@ export function Select({
             // focused input for arrow-key nav + Tab-to-commit + typeahead.
             <CommandInput className="sr-only" aria-label="Filter options" placeholder="" />
           )}
-          <CommandList className="max-h-[22rem] overflow-auto">
+          <CommandList className="gdd-scroll max-h-[22rem] overflow-auto">
             <CommandEmpty className="px-3 py-3 text-[15px] text-ink-subtle">
               No results.
             </CommandEmpty>
@@ -186,7 +191,7 @@ export function Select({
                     setOpen(false);
                   }}
                   aria-selected={isSel || undefined}
-                  className={cn("rounded-md", isSel && "font-bold")}
+                  className={cn("rounded-lg", isSel && "font-bold")}
                   // The CHOSEN value stays clearly marked (persistent red-tint +
                   // red-deep bold label + check) so it's obvious which is picked.
                   style={

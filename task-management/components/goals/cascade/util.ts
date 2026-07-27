@@ -100,6 +100,14 @@ export function fmtNum(v: string | number | null | undefined): string {
   return String(n % 1 === 0 ? n : n.toFixed(2));
 }
 
+/** Render a numeric(14,2) string WITHOUT a trailing ".00" — "50.00"→"50",
+ *  "12.50"→"12.5", "12.05"→"12.05". Empty/null → "". Keeps a genuine fraction. */
+export function trimDecimal(v: string | number | null | undefined): string {
+  if (v == null || v === "") return "";
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? String(n) : String(v);
+}
+
 /** Effective % = manager-accepted once reviewed, else the owner's self-rating.
  *  Delegates to the ONE canonical derive layer (lib/goals/derive `effective`)
  *  so the board, canvas and server never disagree — no local copy. */
@@ -235,6 +243,10 @@ export interface MonthlyMasterRef {
 export interface GoalDTO {
   id: string;
   employeeId: string;
+  /** Who created the row. Optional (older rows / temp optimistic rows omit it).
+   *  Drives the Mine (created by the owner) vs Assigned (created by a manager)
+   *  badge on the level board. */
+  createdById?: string | null;
   period: GoalPeriod;
   periodKey: string;
   parentGoalId: string | null;
@@ -292,6 +304,7 @@ export interface GoalPeriodBucket {
 export function toGoalDTO(r: {
   id: string;
   employeeId: string;
+  createdById?: string | null;
   period: string;
   periodKey: string;
   parentGoalId: string | null;
@@ -324,6 +337,7 @@ export function toGoalDTO(r: {
   return {
     id: r.id,
     employeeId: r.employeeId,
+    createdById: r.createdById ?? null,
     period: r.period as GoalPeriod,
     periodKey: r.periodKey,
     parentGoalId: r.parentGoalId,

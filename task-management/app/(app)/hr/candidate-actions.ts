@@ -7,7 +7,8 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { candidateIntake, interviewPositions } from "@/db/schema";
 import { requireUser } from "@/lib/auth/current";
-import { requireWorkspace, requireWorkspaceAdmin } from "@/lib/auth/workspace-access";
+import { requireWorkspaceAdmin } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { getSupabaseAdmin, DOCUMENTS_BUCKET } from "@/lib/supabase/admin";
 import { ALL_CRITERION_IDS } from "@/lib/hr/candidate/evaluation-checklist";
@@ -209,7 +210,7 @@ const LETTER_IMAGE_SIGNED_TTL_SECONDS = 60 * 60;
  * can render it immediately. HR-workspace + rate-limit guarded.
  */
 export async function uploadLetterImage(fd: FormData): Promise<Result<{ path: string; signedUrl: string }>> {
-  const me = await requireWorkspace("hr");
+  const me = await requireHrStaff();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 

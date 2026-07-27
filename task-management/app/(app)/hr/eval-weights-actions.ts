@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { EVAL_CATEGORIES } from "@/lib/hr/candidate/evaluation-checklist";
@@ -58,7 +58,7 @@ const WeightsSchema = z.record(
 export async function setEvaluationWeights(
   input: unknown,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const me = await requireWorkspace("hr");
+  const me = await requireHrStaff();
   if (!isSuperAdmin(me.email)) return { ok: false, error: "Only a super-admin can change section weights." };
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;

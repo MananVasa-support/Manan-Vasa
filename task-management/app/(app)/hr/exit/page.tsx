@@ -1,4 +1,4 @@
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { listExitRecords, listExitRoster } from "@/app/(app)/hr/exit/exit-actions";
 import { ExitWorkspace } from "@/components/hr/exit/exit-workspace";
 
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * autosave; re-opening a form resumes the saved version.
  */
 export default async function ExitPage() {
-  await requireWorkspace("hr");
+  await requireHrStaff();
   const [employees, recent] = await Promise.all([
     listExitRoster().catch(() => []),
     listExitRecords().catch(() => []),

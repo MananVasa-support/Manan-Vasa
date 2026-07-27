@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { getHrStage, hrItemHref } from "@/lib/hr/lifecycle";
 import { HrPageHeader, HrCard, type HrCardDef } from "@/components/hr/hr-chrome";
 
@@ -17,7 +17,7 @@ export default async function HrStagePage({
 }: {
   params: Promise<{ stage: string }>;
 }) {
-  await requireWorkspace("hr");
+  await requireHrStaff();
   const { stage } = await params;
   const st = getHrStage(stage);
   if (!st) notFound();

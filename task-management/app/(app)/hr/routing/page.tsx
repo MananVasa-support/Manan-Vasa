@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
@@ -14,7 +14,7 @@ import { RoutingEditor } from "@/components/hr/routing/routing-editor";
 export const dynamic = "force-dynamic";
 
 export default async function RoutingPage() {
-  const me = await requireWorkspace("hr");
+  const me = await requireHrStaff();
   if (!hrSupportEnabled()) notFound();
   if (!me.isAdmin && !isSuperAdmin(me.email)) redirect("/hr");
 

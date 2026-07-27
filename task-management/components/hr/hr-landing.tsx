@@ -65,6 +65,16 @@ const CARDS: Card[] = [
   { slug: "/hr/record", title: "HR Record", Icon: IdCard },
 ];
 
+// The limited deck a NORMAL employee sees: only their own HR record (the /portal
+// self-service — NOT the staff-only /hr/record hub), the Holiday List, and the
+// Help Desk. No stages, no intake/policies pop-ups. Kept to three intentional,
+// centred cards.
+const LIMITED_CARDS: Card[] = [
+  { slug: "/hr/holidays", title: "Holiday List", Icon: PartyPopper },
+  { slug: "/support", title: "Help Desk", Icon: LifeBuoy, popup: "help-desk" as const },
+  { slug: "/portal", title: "My HR Record", Icon: IdCard },
+];
+
 const ACCENT = "#E10600";
 const ACCENT_DEEP = "#A80400";
 
@@ -91,7 +101,7 @@ const LAND_CSS = `
   @media (prefers-reduced-motion: reduce) { .hr-aurora, .hr-shine, .hr-in, .hr-card-in { animation: none !important; } }
 `;
 
-export function HrLanding() {
+export function HrLanding({ isHrStaff }: { isHrStaff: boolean }) {
   const [openStage, setOpenStage] = React.useState<HrStage | null>(null);
   const [chooserOpen, setChooserOpen] = React.useState(false);
   const [policiesOpen, setPoliciesOpen] = React.useState(false);
@@ -100,15 +110,19 @@ export function HrLanding() {
   // Re-open a stage's pop-up when we return via /hr?open=<slug> (the "Back to
   // Pre-Interview" button on the Basic Details form points here), and open the
   // All-Policies pop-up when reached via /hr?policies=1 (the "All Policies Sign"
-  // link from the Pre-Joining sidebar / stage page).
+  // link from the Pre-Joining sidebar / stage page). Staff-only — a normal
+  // employee never gets these surfaces even via a hand-crafted URL.
   React.useEffect(() => {
+    if (!isHrStaff) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("policies")) setPoliciesOpen(true);
     const slug = params.get("open");
     if (!slug) return;
     const s = HR_STAGES.find((x) => x.slug === slug);
     if (s) setOpenStage(s);
-  }, []);
+  }, [isHrStaff]);
+
+  const cards = isHrStaff ? CARDS : LIMITED_CARDS;
 
   return (
     <div className="hr-land relative min-h-[calc(100dvh-64px)] w-full overflow-hidden">
@@ -151,14 +165,16 @@ export function HrLanding() {
           className="hr-in mx-auto mt-4 max-w-[54ch] font-medium text-ink-muted"
           style={{ fontSize: "clamp(15px, 1.6vw, 18px)", lineHeight: 1.5, animationDelay: "140ms" }}
         >
-          The complete employee journey in one room — from the first hello to a warm
-          goodbye. Pick a stage to step inside.
+          {isHrStaff
+            ? "The complete employee journey in one room — from the first hello to a warm goodbye. Pick a stage to step inside."
+            : "Your HR home — view your own record, check the holiday calendar, and reach the Help Desk whenever you need a hand."}
         </p>
       </div>
 
-      {/* Cards — 4 in the top row, 4 centred below (Help Desk + HR Record close the deck) */}
+      {/* Cards — staff see the full deck (4 on top, 4 centred below); a normal
+          employee sees three centred cards (Holiday · Help Desk · My HR Record). */}
       <div className="mx-auto mt-10 max-md:mt-8 flex w-full max-w-[1010px] flex-col items-center gap-5 px-6 max-md:px-5 pb-16">
-        {[CARDS.slice(0, 4), CARDS.slice(4)].map((row, r) => (
+        {(isHrStaff ? [cards.slice(0, 4), cards.slice(4)] : [cards]).map((row, r) => (
           <div key={r} className="flex flex-wrap justify-center gap-5 max-md:gap-4">
             {row.map((c, i) => {
               const idx = r === 0 ? i : i + 4;
@@ -181,8 +197,9 @@ export function HrLanding() {
         ))}
       </div>
 
-      {/* Stage pop-up — pick a surface inside the chosen stage */}
-      {openStage && (
+      {/* Stage / intake / policies pop-ups are STAFF-ONLY — never mount for a
+          normal employee. The Help Desk pop-up is open to everyone. */}
+      {isHrStaff && openStage && (
         <StagePopup
           stage={openStage}
           onClose={() => setOpenStage(null)}
@@ -190,8 +207,8 @@ export function HrLanding() {
           onOpenPolicies={() => setPoliciesOpen(true)}
         />
       )}
-      {chooserOpen && <IntakeChooserPopup onClose={() => setChooserOpen(false)} />}
-      <AllPoliciesPopup open={policiesOpen} onClose={() => setPoliciesOpen(false)} />
+      {isHrStaff && chooserOpen && <IntakeChooserPopup onClose={() => setChooserOpen(false)} />}
+      {isHrStaff && <AllPoliciesPopup open={policiesOpen} onClose={() => setPoliciesOpen(false)} />}
       {helpDeskOpen && <HelpDeskPopup onClose={() => setHelpDeskOpen(false)} />}
 
       <style dangerouslySetInnerHTML={{ __html: LAND_CSS }} />

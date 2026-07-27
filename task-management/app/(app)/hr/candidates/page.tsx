@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { listCandidateIntakes } from "@/app/(app)/hr/candidate-actions";
 import { BasicDetailsScreen } from "@/components/hr/candidate/basic-details-screen";
 
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
  * whose interview form (/hr/intake) was filled. "New" jumps to the form.
  */
 export default async function CandidatesPage() {
-  await requireWorkspace("hr");
+  await requireHrStaff();
 
   // Resilient: a slow/failed/hanging list load must never block the form.
   let candidates: Awaited<ReturnType<typeof listCandidateIntakes>> = [];

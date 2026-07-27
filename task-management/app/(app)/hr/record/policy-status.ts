@@ -3,7 +3,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { candidateIntake, employees, documentInstances, documentSignatures } from "@/db/schema";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { POLICY_CARDS, isPolicyKey } from "@/lib/hr/policies/registry";
 import type { PolicySignRow, PolicySignStatus } from "./policy-status-types";
 
@@ -24,7 +24,7 @@ export async function getPolicySigningStatus(
   candidateId: string,
 ): Promise<{ ok: true; status: PolicySignStatus } | { ok: false; error: string }> {
   try {
-    await requireWorkspace("hr");
+    await requireHrStaff();
   } catch {
     return { ok: false, error: "Not authorised." };
   }

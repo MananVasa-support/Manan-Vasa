@@ -5,7 +5,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { ctcBreakups } from "@/db/schema";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { loadLetterRoster } from "@/lib/hr/letters/roster";
 import {
@@ -31,7 +31,7 @@ export interface CtcRosterOption {
 
 /** Active employees for the workbench's employee picker. Read-only, query-light. */
 export async function loadCtcRoster(): Promise<CtcRosterOption[]> {
-  await requireWorkspace("hr");
+  await requireHrStaff();
   const rows = await loadLetterRoster().catch(() => []);
   return rows.map((r) => ({
     id: r.id,
@@ -63,7 +63,7 @@ function toVersion(row: typeof ctcBreakups.$inferSelect): CtcVersion {
 
 /** Every CTC version for an employee, oldest → newest. */
 export async function loadCtcVersions(employeeId: string): Promise<CtcVersion[]> {
-  await requireWorkspace("hr");
+  await requireHrStaff();
   if (!z.string().uuid().safeParse(employeeId).success) return [];
   const rows = await db
     .select()
@@ -105,7 +105,7 @@ export type SaveCtcInput = z.input<typeof SaveSchema>;
  * their own columns.
  */
 export async function saveCtcVersion(input: SaveCtcInput): Promise<Result<{ id: string; version: number }>> {
-  const me = await requireWorkspace("hr");
+  const me = await requireHrStaff();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
@@ -172,7 +172,7 @@ export async function saveCtcVersion(input: SaveCtcInput): Promise<Result<{ id: 
 
 /** Delete a CTC version (a mis-entered draft). Does not renumber siblings. */
 export async function deleteCtcVersion(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const me = await requireWorkspace("hr");
+  const me = await requireHrStaff();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   if (!z.string().uuid().safeParse(id).success) return { ok: false, error: "Invalid version." };

@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import type { CSSProperties } from "react";
 import { ArrowLeft, ArrowUpRight, Mail } from "lucide-react";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { lettersByCategory } from "@/lib/hr/letters/registry";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ const RED_DEEP = "#A80400";
  * left rail) — its back button is the nav.
  */
 export default async function LettersIndexPage() {
-  await requireWorkspace("hr");
+  await requireHrStaff();
   const groups = lettersByCategory();
 
   return (

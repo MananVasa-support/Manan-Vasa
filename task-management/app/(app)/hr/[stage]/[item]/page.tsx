@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import type { Route } from "next";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { getHrStage, getHrItem } from "@/lib/hr/lifecycle";
 import { HrPageHeader, HrPlanned } from "@/components/hr/hr-chrome";
 
@@ -19,7 +19,7 @@ export default async function HrStageItemPage({
 }: {
   params: Promise<{ stage: string; item: string }>;
 }) {
-  await requireWorkspace("hr");
+  await requireHrStaff();
   const { stage, item } = await params;
   const st = getHrStage(stage);
   const it = getHrItem(stage, item);

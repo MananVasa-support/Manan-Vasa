@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { getCandidateBasics, getCandidateEvaluation } from "@/app/(app)/hr/candidate-actions";
 import { EvaluationRecord } from "@/components/hr/candidate/evaluation-record";
 
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
  * stars + Quick Summary). Opened from the Candidate Records list.
  */
 export default async function EvaluationRecordPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireWorkspace("hr");
+  await requireHrStaff();
   const { id } = await params;
   const [basics, ratings] = await Promise.all([getCandidateBasics(id), getCandidateEvaluation(id)]);
   if (!basics) notFound();

@@ -107,6 +107,11 @@ export function canAccessWorkspace(
   if (ws === "admin") return user.isAdmin || isAccountsRole;
   // The Accounts room itself — the Accounts department (super-admins passed above).
   if (ws === "accounts") return isAccountsRole;
+  // HR room is OPEN to every employee — but normal employees only see the limited
+  // view (own record via /portal, Holiday List, Help Desk). Full HR (super-admins
+  // + the "HR" department) is gated per-page/landing via `isHrStaff`/`requireHrStaff`
+  // (lib/hr/access.ts) — NOT here, so a normal employee can still reach their
+  // limited surfaces.
   // Monthly Events Master — admins (super-admins passed above). The employee
   // holiday-list view is a self-guarded page (`requireUser` only), reachable
   // directly without entering the room.

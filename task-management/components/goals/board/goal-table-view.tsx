@@ -41,7 +41,7 @@ import {
   bulkCopyGoalsToPeriod,
 } from "@/app/(app)/goals/cascade/actions";
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
-import { pctTone, fmtNum, num, periodKeyLabel, goalCode } from "@/components/goals/cascade/util";
+import { pctTone, fmtNum, num, periodKeyLabel, goalCode, trimDecimal } from "@/components/goals/cascade/util";
 import type { GoalDTO, RosterMember } from "@/components/goals/cascade/util";
 import { autoPctDone } from "@/lib/goals/auto-pct";
 import { quartersOfFy } from "@/lib/goals/types";
@@ -579,6 +579,28 @@ function SharePill({
 }
 
 /* ------------------------------------------------------------------ */
+/* Self-vs-assigned origin badge                                       */
+/* ------------------------------------------------------------------ */
+
+/** "Mine" when the viewed owner created the row, "Assigned" when a manager
+ *  created it for them. Subtle by design — a compact identity pill. */
+function OriginBadge({ assigned }: { assigned: boolean }) {
+  return (
+    <span
+      className="inline-flex items-center rounded-full px-1.5 py-px text-[9px] font-black uppercase tracking-[0.06em] leading-none"
+      title={assigned ? "Assigned by a manager" : "Created by the goal owner"}
+      style={
+        assigned
+          ? { color: "var(--color-altus-red-deep)", background: redTint(11) }
+          : { color: "var(--color-ink-subtle)", background: "var(--color-surface-soft)", boxShadow: "inset 0 0 0 1px var(--color-hairline)" }
+      }
+    >
+      {assigned ? "Assigned" : "Self"}
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* The table                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -830,10 +852,10 @@ export function GoalTableView(props: GoalTableViewProps) {
           position: sticky;
           top: 0;
           z-index: 6;
-          background-image: linear-gradient(120deg,
-            color-mix(in srgb, var(--color-altus-red) 16%, var(--color-surface-card)),
-            color-mix(in srgb, var(--color-altus-red) 8%, var(--color-surface-card)));
-          box-shadow: 0 2px 0 color-mix(in srgb, var(--color-altus-red) 34%, var(--color-hairline-strong));
+          background-image: linear-gradient(180deg,
+            color-mix(in srgb, #6b7280 13%, var(--color-surface-card)),
+            color-mix(in srgb, #6b7280 8%, var(--color-surface-card)));
+          box-shadow: 0 2px 0 color-mix(in srgb, #6b7280 24%, var(--color-hairline-strong));
         }
       `}</style>
 
@@ -853,6 +875,24 @@ export function GoalTableView(props: GoalTableViewProps) {
           >
             {selected.size} selected
           </span>
+
+          {/* Edit — only when EXACTLY one row is selected (single-goal edit). */}
+          {!weekly && selected.size === 1 && (
+            <button
+              type="button"
+              onClick={() => {
+                const g = rows.find((r) => selected.has(r.id));
+                if (g) setEditingGoal(g);
+              }}
+              className={cn(
+                "wg-sheen inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12.5px] font-bold text-ink-strong transition-colors hover:border-altus-red hover:text-altus-red",
+                FOCUS_RING,
+              )}
+              style={{ borderColor: "var(--color-hairline-strong)" }}
+            >
+              <Pencil size={13} strokeWidth={2.6} /> Edit
+            </button>
+          )}
 
           <button
             type="button"
@@ -964,8 +1004,8 @@ export function GoalTableView(props: GoalTableViewProps) {
           <thead>
             <tr
               style={{
-                background: `linear-gradient(120deg, ${redTint(16)}, ${redTint(8)})`,
-                borderBottom: "2px solid color-mix(in srgb, var(--color-altus-red) 34%, var(--color-hairline-strong))",
+                background: `linear-gradient(180deg, color-mix(in srgb, #6b7280 13%, var(--color-surface-card)), color-mix(in srgb, #6b7280 8%, var(--color-surface-card)))`,
+                borderBottom: "2px solid color-mix(in srgb, #6b7280 24%, var(--color-hairline-strong))",
               }}
             >
               <th className={cn(TH, "w-9 pl-3")}>
@@ -976,25 +1016,12 @@ export function GoalTableView(props: GoalTableViewProps) {
                   label="Select all goals"
                 />
               </th>
-              <th className={cn(TH, "w-9")} aria-label="Delete" />
-              <th className={cn(TH, "w-14")}>#</th>
+              <th className={cn(TH, "w-px")}>#</th>
               <th className={cn(TH, "min-w-[104px]")}>Area</th>
               <th className={cn(TH, "min-w-[150px]")}>Goal</th>
               <th className={cn(TH, "min-w-[104px]")}>Measure</th>
               <th className={TH}>Actual / Target</th>
-              <th className={cn(TH, "text-center")}>
-                <span className="inline-flex items-center gap-1.5">
-                  % Done
-                  <span
-                    aria-label="Auto-calculated from Actual ÷ Target"
-                    title="Auto-calculated from Actual ÷ Target"
-                    className="inline-flex h-[18px] items-center rounded-full px-1.5 text-[9px] font-black uppercase tracking-[0.06em]"
-                    style={{ color: "var(--color-altus-red-deep)", background: redTint(12) }}
-                  >
-                    auto
-                  </span>
-                </span>
-              </th>
+              <th className={cn(TH, "w-[64px] text-center")}>% Done</th>
               <th className={cn(TH, "w-[60px]")}>Team %</th>
               <th className={cn(TH, "min-w-[140px]")}>Members</th>
               {!weekly && <th className={TH}>Share</th>}
@@ -1026,52 +1053,19 @@ export function GoalTableView(props: GoalTableViewProps) {
                     <BrandCheck checked={isSel} onToggle={() => toggleRow(g.id)} label={`Select "${g.title}"`} />
                   </td>
 
-                  {/* edit (top) + delete (bottom) — left for easy access */}
-                  <td className="px-1 py-4 align-middle">
-                    <div className="flex flex-col items-center gap-1.5">
-                      {!weekly && (
-                        <button
-                          type="button"
-                          disabled={locked}
-                          aria-label={`Edit "${g.title}"`}
-                          title="Edit goal"
-                          onClick={() => setEditingGoal(g)}
-                          className={cn(
-                            "grid size-7 place-items-center rounded-md border text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red",
-                            "disabled:cursor-not-allowed disabled:opacity-50",
-                            FOCUS_RING,
-                          )}
-                          style={{ borderColor: "var(--color-hairline-strong)" }}
-                        >
-                          <Pencil size={12} strokeWidth={2.4} />
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        disabled={locked}
-                        aria-label={`Delete "${g.title}"`}
-                        title="Delete (moves to recycle bin)"
-                        onClick={() => removeRows([g.id], () => A.archiveGoal({ id: g.id }), "Goal moved to the recycle bin")}
-                        className={cn(
-                          "grid size-7 place-items-center rounded-md border text-altus-red transition-colors hover:bg-altus-red hover:text-white",
-                          "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-altus-red",
-                          FOCUS_RING,
-                        )}
-                        style={{ borderColor: redTint(40) }}
-                      >
-                        <Trash2 size={13} strokeWidth={2.4} />
-                      </button>
-                    </div>
-                  </td>
-
-                  {/* Sr. No — auto-code Y1 / AQ1 / AprM1, sequential with no gaps */}
+                  {/* Sr. No — auto-code Y1 / AQ1 / AprM1 + Mine/Assigned pill */}
                   <td className="px-2 py-4 align-middle">
-                    <span
-                      className="whitespace-nowrap text-[13px] font-bold text-ink-soft tabular-nums"
-                      style={{ fontFamily: "var(--font-display)" }}
-                    >
-                      {goalCode({ period: g.period, periodKey: g.periodKey, position: i + 1, id: g.id })}
-                    </span>
+                    <div className="flex flex-col items-start gap-1">
+                      <span
+                        className="whitespace-nowrap text-[13px] font-bold text-ink-soft tabular-nums"
+                        style={{ fontFamily: "var(--font-display)" }}
+                      >
+                        {goalCode({ period: g.period, periodKey: g.periodKey, position: i + 1, id: g.id })}
+                      </span>
+                      {!weekly && level !== "week" && level !== "day" && (
+                        <OriginBadge assigned={g.createdById != null && g.createdById !== g.employeeId} />
+                      )}
+                    </div>
                   </td>
 
                   {/* Area */}
@@ -1164,7 +1158,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                   <td className="px-2 py-4 align-middle">
                     <div className="flex items-center gap-1">
                       <NumBox
-                        value={g.actualQty ?? ""}
+                        value={trimDecimal(g.actualQty)}
                         disabled={locked}
                         ariaLabel="Actual"
                         placeholder="Act"
@@ -1179,7 +1173,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                       />
                       <span className="text-[13px] font-bold text-ink-subtle">/</span>
                       <NumBox
-                        value={g.targetQty ?? ""}
+                        value={trimDecimal(g.targetQty)}
                         disabled={locked}
                         ariaLabel="Target"
                         placeholder="Tgt"
@@ -1277,7 +1271,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                     goalId={g.id}
                     notes={g.notes}
                     canWrite={!locked}
-                    colSpan={weekly ? 10 : 12}
+                    colSpan={weekly ? 9 : 11}
                     nodeKind={detailKind}
                     onSaveNotes={(n) => patchNotes(g.id, n)}
                   />

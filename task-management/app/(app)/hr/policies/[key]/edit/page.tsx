@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft, SlidersHorizontal, Eye } from "lucide-react";
-import { requireWorkspaceAdmin } from "@/lib/auth/workspace-access";
+import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { PolicyEditor } from "@/components/hr/policies/policy-editor";
 
@@ -19,7 +19,7 @@ export default async function PolicyEditPage({
 }: {
   params: Promise<{ key: string }>;
 }) {
-  const me = await requireWorkspaceAdmin("hr");
+  const me = await requireHrStaff();
   const { key } = await params;
   const superAdmin = isSuperAdmin(me.email);
 
