@@ -38,6 +38,11 @@ export interface CascadeWeeklyGoal {
   carriedFromId: string | null;
   monthGoalId: string | null;
   monthGoalTitle: string | null;
+  /** Deadline (ISO 'YYYY-MM-DD') — weekly_goals.target_date, or null. */
+  targetDate: string | null;
+  /** Who created the row + when — drives the Self / Assigned assignment type. */
+  createdById: string | null;
+  createdAt: string | null;
 }
 
 /** An active/inactive employee used to resolve Team Involved + the add picker. */

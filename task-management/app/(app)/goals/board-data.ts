@@ -41,8 +41,15 @@ export async function loadBoardData(sp: {
     getSharedGoals(view.viewedEmployeeId, fy, space),
     listGoalLookups(),
   ]);
-  const ownGoals: GoalDTO[] = [...collect(board.years), ...collect(board.standalone)].map(
-    toGoalDTO,
+  // Resolve the creator's display name from the ALREADY-loaded roster — no extra
+  // query (load-neutral). Off-roster creators (e.g. a manager outside the viewer's
+  // scope, or a shared goal's owner) resolve to null and the UI falls back gently.
+  const nameById = new Map(view.roster.map((r) => [r.id, r.name] as const));
+  const nameOf = (id: string | null | undefined): string | null =>
+    id ? nameById.get(id) ?? null : null;
+
+  const ownGoals: GoalDTO[] = [...collect(board.years), ...collect(board.standalone)].map((r) =>
+    toGoalDTO({ ...r, createdByName: nameOf(r.createdById) }),
   );
 
   // Goals owned by SOMEONE ELSE but shared with the viewed person (share_with_team
@@ -54,7 +61,7 @@ export async function loadBoardData(sp: {
   // deletes on a goal they neither own nor manage, so an inline edit simply
   // reverts — a member can never delete the owner's goal.
   const sharedGoals: GoalDTO[] = shared.map((row) => ({
-    ...toGoalDTO(row),
+    ...toGoalDTO({ ...row, createdByName: nameOf(row.employeeId) }),
     employeeId: view.viewedEmployeeId,
     createdById: row.employeeId,
   }));

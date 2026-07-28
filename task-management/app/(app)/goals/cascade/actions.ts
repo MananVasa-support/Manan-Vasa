@@ -24,7 +24,7 @@ import { GoalEventTypes } from "@/lib/events/types";
 import { cloneForward, moveTo } from "@/lib/goals/carry";
 import { mondayOf } from "@/lib/weekly-goals/week";
 import { quarterKeyOfMonthKey, fyStartYearOfMonthKey, fyStartYearOfKey, quartersOfFy, monthKeysOfQuarter } from "@/lib/goals/types";
-import { GOAL_PERIODS } from "@/db/enums";
+import { GOAL_PERIODS, TASK_STATUSES } from "@/db/enums";
 import { toGoalDTO, type GoalDTO } from "@/components/goals/cascade/util";
 import {
   listMonthlyMasterPickables,
@@ -130,6 +130,12 @@ const TeamIn = z
 // base types (Goal/Target/Milestone/Operational) + any admin-added ones.
 const CATEGORY = z.string().trim().min(1).max(60);
 const INCENTIVE_KIND = z.enum(["one_time", "repetitive", "milestone"]);
+/** Target date (deadline) — ISO 'YYYY-MM-DD', "" / null to clear. Stays OPTIONAL
+ *  (undefined = "not provided") so editGoal never clobbers it on an unrelated edit;
+ *  "" is normalised to null at persist time. */
+const TargetDateIn = z
+  .union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"), z.literal(""), z.null()])
+  .optional();
 /** The picked Monthly-Master item snapshot ({kind,id,label}) or null to clear. */
 const MonthlyMasterRefIn = z
   .object({
@@ -157,6 +163,13 @@ const GoalFields = {
   incentiveAmount: MoneyIn,
   incentiveKind: INCENTIVE_KIND.nullish(),
   monthlyMasterRef: MonthlyMasterRefIn,
+  targetDate: TargetDateIn,
+  // Inline Status editor — a real goals.status column (reuses the app-wide Task
+  // status enum). OPTIONAL so editGoal never clobbers it on an unrelated edit.
+  status: z.enum(TASK_STATUSES).optional(),
+  // Inline Reviewer editor — writes goals.reviewed_by_id (the designated
+  // reviewer). null clears it. OPTIONAL for the same never-clobber reason.
+  reviewedById: z.string().uuid().nullish(),
 };
 
 const CreateGoalSchema = z.object({
@@ -242,6 +255,8 @@ export async function createGoal(
       incentiveAmount: money(d.incentiveAmount),
       incentiveKind: d.incentiveKind ?? null,
       monthlyMasterRef: d.monthlyMasterRef ?? null,
+      // Target date lives on MONTH goals only (year/quarter roll up from children).
+      targetDate: d.period === "month" ? d.targetDate || null : null,
       adopted: true,
       source: "manual",
       category: d.category ?? "goal",
@@ -467,6 +482,8 @@ export async function addChildGoal(
       incentiveAmount: money(d.incentiveAmount),
       incentiveKind: d.incentiveKind ?? null,
       monthlyMasterRef: d.monthlyMasterRef ?? null,
+      // Target date lives on MONTH goals only (a quarter child never carries one).
+      targetDate: childPeriod === "month" ? d.targetDate || null : null,
       adopted: true,
       source: "manual",
       category: d.category ?? "goal",
@@ -535,6 +552,17 @@ export async function editGoal(
   if (d.incentiveAmount !== undefined) patch.incentiveAmount = money(d.incentiveAmount);
   if (d.incentiveKind !== undefined) patch.incentiveKind = d.incentiveKind ?? null;
   if (d.monthlyMasterRef !== undefined) patch.monthlyMasterRef = d.monthlyMasterRef ?? null;
+  // Target date is a MONTH-only field — accept the edit only on month rows so a
+  // year/quarter goal can never acquire a deadline through the API.
+  if (d.targetDate !== undefined && loaded.row.period === "month") {
+    patch.targetDate = d.targetDate || null;
+  }
+  // Inline Status — a directly-set status persists as-is. (When a numeric Target/
+  // Actual drives the row, the auto-derive block below re-derives status from the
+  // %; a lone Status edit never carries those keys, so this value stands.)
+  if (d.status !== undefined) patch.status = d.status;
+  // Inline Reviewer — write the designated reviewer (or null to clear).
+  if (d.reviewedById !== undefined) patch.reviewedById = d.reviewedById ?? null;
 
   // Auto % Done from Target / Actual — when a numeric target (> 0) drives the
   // goal, its progress IS Actual ÷ Target (clamped 0–100), so % Done can never
@@ -2083,26 +2111,186 @@ export async function bulkSetShareWithTeam(
   return { ok: true, updated: n };
 }
 
+/** Titles already present in a destination CHILD period — powers copy
+ *  dup-collision (year/quarter/month live in `goals`; week → weekly_goals;
+ *  day → daily_checklist). Case is preserved; the caller normalises. */
+async function existingTitlesInPeriod(
+  employeeId: string,
+  targetLevel: "year" | "quarter" | "month" | "week" | "day",
+  targetKey: string,
+): Promise<string[]> {
+  if (targetLevel === "year" || targetLevel === "quarter" || targetLevel === "month") {
+    const rows = await db
+      .select({ title: goals.title })
+      .from(goals)
+      .where(
+        and(
+          eq(goals.employeeId, employeeId),
+          eq(goals.period, targetLevel),
+          eq(goals.periodKey, targetKey),
+          eq(goals.archived, false),
+        ),
+      );
+    return rows.map((r) => r.title);
+  }
+  if (targetLevel === "week") {
+    const weekStart = mondayOf(targetKey);
+    const rows = await db
+      .select({ title: weeklyGoals.targetDone })
+      .from(weeklyGoals)
+      .where(and(eq(weeklyGoals.employeeId, employeeId), eq(weeklyGoals.weekStart, weekStart)));
+    return rows.map((r) => r.title).filter((t): t is string => !!t);
+  }
+  const rows = await db
+    .select({ title: dailyChecklist.title })
+    .from(dailyChecklist)
+    .where(and(eq(dailyChecklist.employeeId, employeeId), eq(dailyChecklist.planDate, targetKey)));
+  return rows.map((r) => r.title).filter((t): t is string => !!t);
+}
+
+/** Remove a destination period's goals whose title matches one of `titles`
+ *  (case-insensitive) — the "Replace" arm of a copy dup-collision. Goals-table
+ *  rows are soft-archived (recoverable); week/day rows are hard-deleted (they
+ *  carry no archive column). */
+async function removeMatchingInPeriod(
+  employeeId: string,
+  targetLevel: "year" | "quarter" | "month" | "week" | "day",
+  targetKey: string,
+  titles: Set<string>,
+): Promise<void> {
+  const norm = (t: string | null) => (t ?? "").trim().toLowerCase();
+  if (targetLevel === "year" || targetLevel === "quarter" || targetLevel === "month") {
+    const rows = await db
+      .select({ id: goals.id, title: goals.title })
+      .from(goals)
+      .where(
+        and(
+          eq(goals.employeeId, employeeId),
+          eq(goals.period, targetLevel),
+          eq(goals.periodKey, targetKey),
+          eq(goals.archived, false),
+        ),
+      );
+    const hit = rows.filter((r) => titles.has(norm(r.title))).map((r) => r.id);
+    if (hit.length) {
+      await db
+        .update(goals)
+        .set({ archived: true, updatedAt: new Date() })
+        .where(inArray(goals.id, hit));
+    }
+    return;
+  }
+  if (targetLevel === "week") {
+    const weekStart = mondayOf(targetKey);
+    const rows = await db
+      .select({ id: weeklyGoals.id, title: weeklyGoals.targetDone })
+      .from(weeklyGoals)
+      .where(and(eq(weeklyGoals.employeeId, employeeId), eq(weeklyGoals.weekStart, weekStart)));
+    const hit = rows.filter((r) => titles.has(norm(r.title))).map((r) => r.id);
+    if (hit.length) await db.delete(weeklyGoals).where(inArray(weeklyGoals.id, hit));
+    return;
+  }
+  const rows = await db
+    .select({ id: dailyChecklist.id, title: dailyChecklist.title })
+    .from(dailyChecklist)
+    .where(and(eq(dailyChecklist.employeeId, employeeId), eq(dailyChecklist.planDate, targetKey)));
+  const hit = rows.filter((r) => titles.has(norm(r.title))).map((r) => r.id);
+  if (hit.length) await db.delete(dailyChecklist).where(inArray(dailyChecklist.id, hit));
+}
+
+const DetectCollisionSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(200),
+  targetLevel: z.enum(["year", "quarter", "month", "week", "day"]),
+  /** Candidate destination CHILD period keys (up to a month's worth of days). */
+  targetKeys: z.array(z.string().min(4).max(16)).min(1).max(31),
+});
+
+/**
+ * For a set of selected goals + candidate destination CHILD periods, return
+ * which destination keys already hold a goal with the SAME title. Drives the
+ * "Copy to" dup-collision prompt (Skip / Replace / Cancel) on the client.
+ */
+export async function detectCopyCollisions(
+  input: z.infer<typeof DetectCollisionSchema>,
+): Promise<ActionResult<{ collisions: Record<string, string[]> }>> {
+  await requireGoalsAccess();
+  const parsed = DetectCollisionSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const { ids, targetLevel, targetKeys } = parsed.data;
+
+  const srcRows = await db
+    .select({ title: goals.title, employeeId: goals.employeeId })
+    .from(goals)
+    .where(inArray(goals.id, ids));
+  const employeeId = srcRows[0]?.employeeId; // one board = one owner
+  if (!employeeId) return { ok: true, collisions: {} };
+  const srcTitles = new Set(srcRows.map((r) => r.title.trim().toLowerCase()));
+
+  const collisions: Record<string, string[]> = {};
+  for (const key of targetKeys) {
+    const existing = await existingTitlesInPeriod(employeeId, targetLevel, key);
+    const dup = Array.from(
+      new Set(existing.filter((t) => srcTitles.has(t.trim().toLowerCase()))),
+    );
+    if (dup.length) collisions[key] = dup;
+  }
+  return { ok: true, collisions };
+}
+
 const BulkCopySchema = z.object({
   ids: z.array(z.string().uuid()).min(1).max(200),
   targetLevel: z.enum(["year", "quarter", "month", "week", "day"]),
   targetKey: z.string().min(4).max(16),
+  /** Collision policy when the destination already holds a same-title goal:
+   *  · undefined / "keep-both" — copy anyway (PHASE 2: true field-level merge)
+   *  · "skip"    — don't copy the colliding source goals
+   *  · "replace" — clear the destination's matching goals first, then copy. */
+  onDuplicate: z.enum(["skip", "replace", "keep-both"]).optional(),
 });
 
-/** Bulk copy goals into another period (reuses copyGoalToPeriod per row). */
+/** Bulk copy goals into another CHILD period (reuses copyGoalToPeriod per row).
+ *  Copies to the SAME child level+key the caller passes — the client derives the
+ *  correct child level (year→quarter, quarter→month, month→week, week→day). */
 export async function bulkCopyGoalsToPeriod(
   input: z.infer<typeof BulkCopySchema>,
-): Promise<ActionResult<{ copied: number }>> {
+): Promise<ActionResult<{ copied: number; skipped: number }>> {
   const parsed = BulkCopySchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
   const d = parsed.data;
+
+  let copyIds = d.ids;
+  let skipped = 0;
+
+  if (d.onDuplicate === "skip" || d.onDuplicate === "replace") {
+    const srcRows = await db
+      .select({ id: goals.id, title: goals.title, employeeId: goals.employeeId })
+      .from(goals)
+      .where(inArray(goals.id, d.ids));
+    const employeeId = srcRows[0]?.employeeId;
+    if (employeeId) {
+      const existing = new Set(
+        (await existingTitlesInPeriod(employeeId, d.targetLevel, d.targetKey)).map((t) =>
+          t.trim().toLowerCase(),
+        ),
+      );
+      if (d.onDuplicate === "skip") {
+        const keep = srcRows.filter((r) => !existing.has(r.title.trim().toLowerCase()));
+        copyIds = keep.map((r) => r.id);
+        skipped = d.ids.length - copyIds.length;
+      } else {
+        const srcTitles = new Set(srcRows.map((r) => r.title.trim().toLowerCase()));
+        await removeMatchingInPeriod(employeeId, d.targetLevel, d.targetKey, srcTitles);
+      }
+    }
+  }
+
   let n = 0;
-  for (const id of d.ids) {
+  for (const id of copyIds) {
     const r = await copyGoalToPeriod({ id, targetLevel: d.targetLevel, targetKey: d.targetKey });
     if (r.ok) n++;
   }
-  if (n === 0) return { ok: false, error: "Nothing was copied." };
-  return { ok: true, copied: n };
+  if (n === 0 && skipped === 0) return { ok: false, error: "Nothing was copied." };
+  return { ok: true, copied: n, skipped };
 }
 
 /**

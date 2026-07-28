@@ -53,8 +53,13 @@ import {
   fmtNum,
   num,
   periodKeyLabel,
+  targetDateStatus,
+  fmtTargetDate,
+  goalTakesTargetDate,
+  assignmentInfo,
   GOAL_CATEGORIES,
 } from "@/components/goals/cascade/util";
+import { AssignmentChip, AssignmentLine } from "@/components/goals/board/assignment-chip";
 import { POLICY_REASONS, type GoalPolicy } from "@/lib/goals/policy";
 import { deriveHealth } from "@/lib/goals/derive";
 import { TeamAvatarStack, type TeamMember } from "@/components/goals/canvas/people";
@@ -155,6 +160,7 @@ function GoalBoardCardImpl({
   const spill = isSpillover(goal);
   const cat = categoryStyle(goal.category, spill);
   const origin = originStyle(goal);
+  const assign = assignmentInfo(goal);
   const tone = eff >= 100 ? "green" : pctTone(eff);
   const crossed = !goal.adopted;
   // Progress bar width eases 0 → eff on mount and on change (reduced-motion:
@@ -343,6 +349,7 @@ function GoalBoardCardImpl({
             >
               {cat.label}
             </span>
+            <AssignmentChip info={assign} />
             {atRisk && (
               <span
                 className="wg-pip-pop inline-flex items-center gap-1 rounded-full px-2 py-[1px] text-[11px] font-bold"
@@ -398,6 +405,12 @@ function GoalBoardCardImpl({
                   <CalendarClock size={11} aria-hidden />
                   {goal.monthlyMasterRef.label}
                 </span>
+              </>
+            )}
+            {goalTakesTargetDate(goal.period) && goal.targetDate && (
+              <>
+                <Sep />
+                <TargetDateChip iso={goal.targetDate} />
               </>
             )}
             <Sep />
@@ -606,10 +619,14 @@ function GoalBoardCardImpl({
             >
               {cat.label}
             </span>
+            <AssignmentChip info={assign} />
             {goal.area && (
               <span className="max-w-[9rem] truncate font-semibold" style={{ color: "var(--color-ink-soft)" }}>
                 {goal.area}
               </span>
+            )}
+            {goalTakesTargetDate(goal.period) && goal.targetDate && (
+              <TargetDateChip iso={goal.targetDate} compact />
             )}
             {crossed && (
               <span className="inline-flex items-center gap-1">
@@ -668,6 +685,18 @@ function GoalBoardCardImpl({
         }
       >
           <div className="grid gap-6">
+            {/* Assignment — Self-created / Assigned by … (quiet, information-rich). */}
+            <div
+              className="flex flex-wrap items-center gap-2 rounded-xl px-3 py-2.5"
+              style={{ background: "var(--color-surface-soft)", border: "1px solid var(--color-hairline)" }}
+            >
+              <span className="text-[11px] font-black uppercase tracking-[0.12em]" style={{ color: "var(--color-ink-subtle)" }}>
+                Assignment
+              </span>
+              <AssignmentChip info={assign} />
+              <AssignmentLine info={assign} />
+            </div>
+
             <FieldGroup title="Progress">
               <Field label="How done is it?">
                 <ProgressControl
@@ -728,6 +757,26 @@ function GoalBoardCardImpl({
                   />
                 </Field>
               </div>
+              {/* Target date — MONTH goals only (year/quarter roll up from children). */}
+              {goal.period === "month" && (
+                <Field label="Target date">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="date"
+                      defaultValue={goal.targetDate ?? ""}
+                      disabled={ro}
+                      aria-label="Target date"
+                      onBlur={(e) => {
+                        const v = e.target.value || null;
+                        if (v !== (goal.targetDate ?? null))
+                          save({ targetDate: v }, () => editGoal({ id: goal.id, targetDate: v }));
+                      }}
+                      className={`w-48 rounded-md border border-hairline bg-white px-2.5 py-2 text-[14px] font-medium text-ink-strong focus:border-altus-red/50 disabled:opacity-60 disabled:bg-surface-soft ${FOCUS_RING}`}
+                    />
+                    {goal.targetDate && <TargetDateChip iso={goal.targetDate} />}
+                  </div>
+                </Field>
+              )}
             </FieldGroup>
 
             <FieldGroup title="Monthly Master">
@@ -830,6 +879,24 @@ export const GoalBoardCard = React.memo(GoalBoardCardImpl);
 
 function Sep() {
   return <span aria-hidden style={{ opacity: 0.5 }}>·</span>;
+}
+
+/** Deadline chip — calendar icon + formatted date, coloured by how close/overdue.
+ *  Rendered only for month/week goals that carry a target date. */
+export function TargetDateChip({ iso, compact }: { iso: string; compact?: boolean }) {
+  const st = targetDateStatus(iso);
+  if (st.daysLeft == null) return null;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full font-bold tabular-nums ${compact ? "px-1.5 py-[1px] text-[10.5px]" : "px-2 py-[1px] text-[11px]"}`}
+      style={{ background: `color-mix(in srgb, ${st.color} 12%, transparent)`, color: st.color }}
+      title={`Target date ${fmtTargetDate(iso)} · ${st.label}`}
+    >
+      <CalendarClock size={compact ? 10 : 11} aria-hidden />
+      {fmtTargetDate(iso)}
+      <span style={{ opacity: 0.85 }}>· {st.label}</span>
+    </span>
+  );
 }
 
 /** The circular effective-% ring at the start of each row (weekly-board look).

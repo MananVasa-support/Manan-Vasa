@@ -291,6 +291,11 @@ const AddWeekGoalSchema = z.object({
   teamInvolved: z.array(TeamWeightMemberSchema).max(30).nullish(),
   /** Optional month-goal linkage (validated: same person, period=month). */
   monthGoalId: z.string().uuid().nullish(),
+  /** Deadline for this weekly goal (ISO 'YYYY-MM-DD') → weekly_goals.target_date.
+   *  OPTIONAL ("" / null / absent all clear it) so existing callers stay valid. */
+  targetDate: z
+    .union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"), z.literal(""), z.null()])
+    .optional(),
 });
 
 /** Create a weekly goal in a specific week — self or manager-on-behalf. */
@@ -351,6 +356,7 @@ export async function addWeekGoal(
         weight: d.weight ?? 100,
         teamInvolved: d.teamInvolved && d.teamInvolved.length > 0 ? d.teamInvolved : null,
         ...(auto !== null ? { pctDone: auto } : {}),
+        targetDate: d.targetDate || null,
         monthGoalId: d.monthGoalId ?? null,
         adopted: true,
         createdById: me.id,

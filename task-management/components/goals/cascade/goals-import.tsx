@@ -6,33 +6,8 @@ import { Upload, Loader2, FileSpreadsheet, Download } from "lucide-react";
 import { importGoals } from "@/app/(app)/goals/import/actions";
 import { GOALS_ACCENT, GOALS_ACCENT_DEEP, type RosterMember } from "./util";
 
-const TEMPLATE_HEADERS = [
-  "Employee", "Period", "PeriodKey", "Area", "Goal", "UOM",
-  "Tgt", "TgtAmt", "Team", "Dependency", "Weight", "Notes",
-];
-const TEMPLATE_EXAMPLES = [
-  ["ananya@altuscorp.com", "Year", "2026", "Sales", "Grow ARR to ₹5Cr", "₹", "", "50000000", "", "", "100", "North + West"],
-  ["ananya@altuscorp.com", "Quarter", "2026-Q1", "Sales", "Close 12 enterprise seats", "seats", "12", "", "Rahul; Priya", "20", "100", ""],
-  ["ananya@altuscorp.com", "Month", "2026-07", "Sales", "Onboard 4 pilots", "pilots", "4", "", "", "", "100", "Kickoff Mon"],
-];
-
-function csvCell(v: string): string {
-  return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-}
-
-function downloadTemplate(): void {
-  const rows = [TEMPLATE_HEADERS, ...TEMPLATE_EXAMPLES];
-  const csv = rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "goals-cascade-template.csv";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
+/** The enterprise exceljs template (branded, validated dropdowns, frozen panes). */
+const TEMPLATE_URL = "/goals/template.xlsx";
 
 type Result = { imported: number; skipped: number; warnings: string[] } | null;
 
@@ -86,17 +61,17 @@ export function GoalsImport({ roster }: { roster: RosterMember[] }) {
       </p>
 
       <div className="mt-3 rounded-xl border border-hairline bg-black/[0.015] p-3">
-        <p className="text-[12px] font-black uppercase tracking-[0.05em] text-ink-muted">Recognised headers</p>
+        <p className="text-[12px] font-black uppercase tracking-[0.05em] text-ink-muted">Branded Excel template</p>
         <p className="mt-1 text-[13px] font-semibold text-ink-soft">
-          Employee · Period · PeriodKey · Area · Goal · UOM · Tgt · TgtAmt · Team · Dependency · Weight · Notes
+          Level · Title · Year/Quarter/Month · Type · Category · Area · UoM · Target/Actual · Owner ·
+          Reviewer · Team · Status · Weight — with dropdowns, frozen panes and locked read-only columns.
         </p>
-        <button
-          type="button"
-          onClick={downloadTemplate}
+        <a
+          href={TEMPLATE_URL}
           className="wg-btn mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface-card px-3 py-1.5 text-[12.5px] font-bold text-ink-strong hover:brightness-95"
         >
-          <Download size={14} strokeWidth={2.4} /> Download template (.csv)
-        </button>
+          <Download size={14} strokeWidth={2.4} /> Download template (.xlsx)
+        </a>
       </div>
 
       <div className="mt-4">

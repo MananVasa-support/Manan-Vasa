@@ -17,6 +17,9 @@ import {
 } from "@/app/(app)/goals/cascade/detail-actions";
 import { fireToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { UserCog } from "lucide-react";
+import { AssignmentLine } from "@/components/goals/board/assignment-chip";
+import type { AssignmentInfo } from "@/components/goals/cascade/util";
 
 const FOCUS_RING =
   "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1";
@@ -34,6 +37,7 @@ export function GoalDetailRow({
   canWrite,
   colSpan,
   nodeKind = "cascade",
+  assignment,
   onSaveNotes,
 }: {
   goalId: string;
@@ -42,6 +46,8 @@ export function GoalDetailRow({
   colSpan: number;
   /** Which engine this goal lives in — cascade `goals` (default) or weekly_goals. */
   nodeKind?: "cascade" | "weekly";
+  /** Assignment Type summary — renders the "Self-created / Assigned by…" line. */
+  assignment?: AssignmentInfo;
   /** Persist notes through the parent's optimistic editField. */
   onSaveNotes: (notes: string | null) => void;
 }) {
@@ -107,6 +113,18 @@ export function GoalDetailRow({
           borderBottom: "1px solid var(--color-hairline)",
         }}
       >
+        {/* ── Assignment ── a quiet line: Self-created / Assigned by … */}
+        {assignment && (
+          <div className="mb-4 flex items-center gap-1.5">
+            <UserCog size={13} className="text-altus-red" />
+            <span className="text-[11px] font-black uppercase tracking-[0.07em] text-ink-soft">
+              Assignment
+            </span>
+            <span className="mx-1 text-ink-subtle">·</span>
+            <AssignmentLine info={assignment} />
+          </div>
+        )}
+
         <div className="grid gap-5 md:grid-cols-2">
           {/* ── Notes ── */}
           <div>

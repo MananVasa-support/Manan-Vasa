@@ -19,6 +19,7 @@ import {
   Check,
   List,
   Columns3,
+  LayoutDashboard,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { fireToast } from "@/lib/toast";
@@ -35,16 +36,25 @@ import { CommitDialog } from "@/components/goals/commit/commit-dialog";
 import type { CommitMember } from "@/components/goals/commit/types";
 import type { GoalDTO } from "@/components/goals/cascade/util";
 import { WeeklyKanban } from "./weekly-kanban";
+import { GoalsDashboard } from "@/components/goals/board/goals-dashboard";
 import type { BoardMe, CascadeWeeklyGoal, MonthGoalOption, RosterMember } from "./types";
 
 /** localStorage key for the weekly board's List ⇄ Kanban preference. */
 const WEEKLY_VIEW_STORE_KEY = "goals-weekly-view";
 
-/** Map a weekly cascade row onto the shared inline table's GoalDTO shape. */
-function weeklyToGoalDTO(g: CascadeWeeklyGoal): GoalDTO {
+/** Map a weekly cascade row onto the shared inline table's GoalDTO shape.
+ *  `nameOf` resolves the creator's display name from the loaded roster so an
+ *  assigned weekly goal shows "Assigned by …" (load-neutral). */
+function weeklyToGoalDTO(
+  g: CascadeWeeklyGoal,
+  nameOf?: (id: string | null) => string | null,
+): GoalDTO {
   return {
     id: g.id,
     employeeId: g.employeeId,
+    createdById: g.createdById,
+    createdAt: g.createdAt,
+    createdByName: g.createdById ? nameOf?.(g.createdById) ?? null : null,
     period: "week",
     periodKey: g.weekStart,
     parentGoalId: g.monthGoalId ?? null,
@@ -73,6 +83,7 @@ function weeklyToGoalDTO(g: CascadeWeeklyGoal): GoalDTO {
     incentiveKind: null,
     monthlyMasterRef: null,
     shareWithTeam: false,
+    targetDate: g.targetDate ?? null,
   };
 }
 
@@ -138,19 +149,28 @@ export function WeeklyCascadeBoard({
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
   const [commitOpen, setCommitOpen] = React.useState(false);
+
+  // Resolve a creator id → name from the loaded roster (load-neutral) so an
+  // assigned weekly goal reads "Assigned by …".
+  const nameById = React.useMemo(() => new Map(roster.map((r) => [r.id, r.name] as const)), [roster]);
+  const nameOf = React.useCallback(
+    (id: string | null) => (id ? nameById.get(id) ?? null : null),
+    [nameById],
+  );
   const quickAddRef = React.useRef<WeeklyQuickAddHandle>(null);
 
   // ── View: classic list ⇄ Kanban (persisted). SSR renders "list"; the stored
   //    preference applies after mount so hydration stays clean. ─────────
-  const [view, setView] = React.useState<"list" | "kanban">("list");
+  const [view, setView] = React.useState<"list" | "kanban" | "dashboard">("list");
   React.useEffect(() => {
     try {
-      if (window.localStorage.getItem(WEEKLY_VIEW_STORE_KEY) === "kanban") setView("kanban");
+      const stored = window.localStorage.getItem(WEEKLY_VIEW_STORE_KEY);
+      if (stored === "kanban" || stored === "dashboard") setView(stored);
     } catch {
       /* storage unavailable — stay on list */
     }
   }, []);
-  const pickView = React.useCallback((v: "list" | "kanban") => {
+  const pickView = React.useCallback((v: "list" | "kanban" | "dashboard") => {
     setView(v);
     try {
       window.localStorage.setItem(WEEKLY_VIEW_STORE_KEY, v);
@@ -392,6 +412,12 @@ export function WeeklyCascadeBoard({
             icon={<Columns3 size={14} strokeWidth={2.4} />}
             onClick={() => pickView("kanban")}
           />
+          <ViewToggleButton
+            active={view === "dashboard"}
+            label="Dashboard"
+            icon={<LayoutDashboard size={14} strokeWidth={2.4} />}
+            onClick={() => pickView("dashboard")}
+          />
         </div>
 
         {/* Ritual state — Saturday commit / Monday approve, reachable in context.
@@ -461,8 +487,10 @@ export function WeeklyCascadeBoard({
         )}
       </div>
 
-      {/* Body — classic list or the drag-to-plan Kanban */}
-      {view === "kanban" ? (
+      {/* Body — analytics dashboard, classic list, or the drag-to-plan Kanban */}
+      {view === "dashboard" ? (
+        <GoalsDashboard allGoals={adopted.map((g) => weeklyToGoalDTO(g, nameOf))} level="week" fyStartYear={fyStartYear} />
+      ) : view === "kanban" ? (
         <WeeklyKanban
           me={me}
           scopeEmp={scopeEmp}
@@ -494,7 +522,7 @@ export function WeeklyCascadeBoard({
       ) : (
         <div className="flex flex-col gap-3">
           <GoalTableView
-            goals={adopted.map(weeklyToGoalDTO)}
+            goals={adopted.map((g) => weeklyToGoalDTO(g, nameOf))}
             canWrite
             isAdmin={me.isAdmin}
             roster={roster}
@@ -539,6 +567,7 @@ export function WeeklyCascadeBoard({
           ref={quickAddRef}
           employeeId={scopeEmp}
           weekStart={weekStart}
+          weekLabel={weekLabel}
           currentCount={rows.length}
           monthGoalOptions={monthGoalOptions}
           areaOptions={areaOptions}
@@ -664,6 +693,7 @@ const WeeklyQuickAdd = React.forwardRef<
   {
     employeeId: string;
     weekStart: string;
+    weekLabel: string;
     currentCount: number;
     monthGoalOptions: MonthGoalOption[];
     areaOptions: string[];
@@ -683,6 +713,7 @@ const WeeklyQuickAdd = React.forwardRef<
   const [type, setType] = React.useState("Goal");
   const [actual, setActual] = React.useState("");
   const [target, setTarget] = React.useState("");
+  const [targetDate, setTargetDate] = React.useState("");
   const [weight, setWeight] = React.useState("100");
   const [team, setTeam] = React.useState<TeamMemberWeight[]>([]);
   const [monthGoalId, setMonthGoalId] = React.useState("");
@@ -708,6 +739,7 @@ const WeeklyQuickAdd = React.forwardRef<
     setType("Goal");
     setActual("");
     setTarget("");
+    setTargetDate("");
     setWeight("100");
     setTeam([]);
     setMonthGoalId("");
@@ -751,6 +783,7 @@ const WeeklyQuickAdd = React.forwardRef<
       weight: w,
       teamInvolved: team.length ? team : null,
       monthGoalId: monthGoalId || null,
+      targetDate: targetDate.trim() || null,
     })
       .then((res) => {
         setSaving(false);
@@ -803,9 +836,20 @@ const WeeklyQuickAdd = React.forwardRef<
         title="Add Goal for the Week"
         footer={
           <div className="flex items-center justify-between gap-3">
-            <span className="text-[12px] font-medium" style={{ color: "var(--color-ink-subtle)" }}>
-              {addedCount > 0 ? `${addedCount} added · keep going, or End` : "⌘/Ctrl + Enter to save"}
-            </span>
+            <div className="flex min-w-0 items-center gap-2.5">
+              {/* Reach bulk import straight from the composer — its dialog portals
+                  to <body> at z-200, above this drawer (z-120), so it stacks on
+                  top rather than being buried. Closing the drawer unmounts it. */}
+              <WeeklyGoalsImport
+                employeeId={props.employeeId}
+                weekStart={props.weekStart}
+                weekLabel={props.weekLabel}
+                isAdmin={props.isAdmin}
+              />
+              <span className="min-w-0 truncate text-[12px] font-medium" style={{ color: "var(--color-ink-subtle)" }}>
+                {addedCount > 0 ? `${addedCount} added · keep going, or End` : "⌘/Ctrl + Enter to save"}
+              </span>
+            </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -927,6 +971,21 @@ const WeeklyQuickAdd = React.forwardRef<
               />
             </label>
           </div>
+
+          {/* Target Date (deadline) — turns amber ≤7 days out, red once overdue. */}
+          <label className="block">
+            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Target Date</span>
+            <input
+              type="date"
+              value={targetDate}
+              onChange={(e) => setTargetDate(e.target.value)}
+              className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-medium text-ink-strong focus:border-altus-red ${QUICK_ADD_FOCUS_RING}`}
+              style={{ borderColor: "var(--color-hairline-strong)" }}
+            />
+            <span className="mt-1 block text-[11.5px] font-medium text-ink-subtle">
+              When should this be done? Amber ≤7 days out, red once overdue.
+            </span>
+          </label>
 
           {/* Weight — share of the weekly weighted-completion score. */}
           <label className="block">

@@ -15,6 +15,7 @@ import { WeeklyGoalDrawer } from "@/components/weekly-goals/goal-drawer";
 import { MonthlyMasterField } from "@/components/goals/board/goal-board-card";
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
 import { TeamWeightsField, type TeamMemberWeight } from "@/components/goals/board/team-weights-field";
+import { GoalsBulkUpload } from "@/components/goals/board/goals-bulk-upload";
 
 const FOCUS_RING =
   "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-card)]";
@@ -40,6 +41,9 @@ interface Props {
   roster: RosterMember[];
   currentCount: number;
   mutation: GoalMutationApi;
+  /** Titles already in THIS bucket — forwarded to the in-composer Bulk Upload so
+   *  it can flag duplicate rows. Optional (defaults to none). */
+  existingTitles?: string[];
   /** Small "+ Add" tile for a Kanban column footer (same composer drawer). */
   compact?: boolean;
 }
@@ -66,6 +70,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
   const [type, setType] = React.useState("Goal");
   const [target, setTarget] = React.useState("");
   const [actual, setActual] = React.useState("");
+  const [targetDate, setTargetDate] = React.useState("");
   const [weight, setWeight] = React.useState("100");
   const [team, setTeam] = React.useState<TeamMemberWeight[]>([]);
   const [monthlyMasterRef, setMonthlyMasterRef] = React.useState<MonthlyMasterRef | null>(null);
@@ -103,6 +108,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
     setType("Goal");
     setTarget("");
     setActual("");
+    setTargetDate("");
     setWeight("100");
     setTeam([]);
     setMonthlyMasterRef(null);
@@ -139,6 +145,8 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
       notes: notes.trim() || null,
       weight: w,
       monthlyMasterRef,
+      // Target date rides ONLY on month goals (year/quarter roll up from children).
+      targetDate: props.level === "month" ? targetDate.trim() || null : null,
     };
     const temp: GoalDTO = {
       ...buildOptimisticGoal({
@@ -156,6 +164,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
       notes: fields.notes,
       weight: fields.weight,
       monthlyMasterRef: fields.monthlyMasterRef,
+      targetDate: fields.targetDate,
       parentGoalId: props.parent?.id ?? null,
     };
 
@@ -225,10 +234,21 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
         title={`Add Goal for the ${periodNoun}`}
         footer={
           <div className="flex items-center justify-between gap-3">
-            <span className="text-[12px] font-medium" style={{ color: "var(--color-ink-subtle)" }}>
-              {addedCount > 0 ? `${addedCount} added · keep going, or End` : "⌘/Ctrl + Enter to save"}
-              {props.parent ? ` · files under “${props.parent.title}”` : ""}
-            </span>
+            <div className="flex min-w-0 items-center gap-2.5">
+              {/* Reach Bulk Upload straight from the composer — its dialog portals
+                  to <body> at z-200, above this drawer (z-120), so it stacks on
+                  top rather than being buried. Closing the drawer unmounts it. */}
+              <GoalsBulkUpload
+                employeeId={props.employeeId}
+                level={props.level}
+                periodKey={props.periodKey}
+                existingTitles={props.existingTitles ?? []}
+              />
+              <span className="min-w-0 truncate text-[12px] font-medium" style={{ color: "var(--color-ink-subtle)" }}>
+                {addedCount > 0 ? `${addedCount} added · keep going, or End` : "⌘/Ctrl + Enter to save"}
+                {props.parent ? ` · files under “${props.parent.title}”` : ""}
+              </span>
+            </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -354,6 +374,23 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
               />
             </label>
           </div>
+
+          {/* ── Target Date (deadline) — MONTH goals only ── */}
+          {props.level === "month" && (
+            <label className="block">
+              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Target Date</span>
+              <input
+                type="date"
+                value={targetDate}
+                onChange={(e) => setTargetDate(e.target.value)}
+                className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-medium text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
+                style={{ borderColor: "var(--color-hairline-strong)" }}
+              />
+              <span className="mt-1 block text-[11.5px] font-medium text-ink-subtle">
+                When should this month goal be done? Turns amber ≤7 days out, red once overdue.
+              </span>
+            </label>
+          )}
 
           {/* ── Weight ── */}
           <label className="block">

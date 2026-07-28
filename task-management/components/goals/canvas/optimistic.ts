@@ -97,6 +97,9 @@ export function buildOptimisticGoal(input: {
   return {
     id: `${TEMP_PREFIX}${crypto.randomUUID()}`,
     employeeId: input.employeeId,
+    // A quick-add row is always self-created → no creator/date recorded (self).
+    createdAt: null,
+    createdByName: null,
     period: input.period,
     periodKey: input.periodKey,
     parentGoalId: null,
@@ -125,6 +128,7 @@ export function buildOptimisticGoal(input: {
     incentiveAmount: null,
     incentiveKind: null,
     monthlyMasterRef: null,
+    targetDate: null,
   };
 }
 

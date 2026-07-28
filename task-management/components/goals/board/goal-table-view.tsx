@@ -15,10 +15,14 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import * as Dialog from "@radix-ui/react-dialog";
 import {
+  ArrowRightLeft,
+  CalendarDays,
   Check,
   ChevronDown,
   Copy,
+  Flag,
   ListChecks,
   Minus,
   Pencil,
@@ -36,15 +40,30 @@ import {
   editGoal,
   archiveGoal,
   divideYearlyGoal,
+  moveGoalToPeriod,
   bulkArchiveGoals,
   bulkSetShareWithTeam,
   bulkCopyGoalsToPeriod,
+  detectCopyCollisions,
 } from "@/app/(app)/goals/cascade/actions";
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
-import { pctTone, fmtNum, num, periodKeyLabel, goalCode, trimDecimal } from "@/components/goals/cascade/util";
+import { Select } from "@/components/ui/select";
+import { ADMIN_TASK_STATUSES, USER_TASK_STATUSES, type TaskStatus } from "@/db/enums";
+import { pctTone, fmtNum, num, periodKeyLabel, periodKeyShort, goalCode, trimDecimal, targetDateStatus, fmtTargetDate, assignmentInfo } from "@/components/goals/cascade/util";
+import { CalendarClock } from "lucide-react";
+import { AssignmentChip } from "@/components/goals/board/assignment-chip";
 import type { GoalDTO, RosterMember } from "@/components/goals/cascade/util";
 import { autoPctDone } from "@/lib/goals/auto-pct";
-import { quartersOfFy } from "@/lib/goals/types";
+import {
+  quartersOfFy,
+  monthKeysOfQuarter,
+  monthKeysOfFy,
+  quarterOfKey,
+  fyStartYearOfKey,
+  fyStartYearOfMonthKey,
+} from "@/lib/goals/types";
+import { weeksOfMonth } from "@/lib/goals/fy-calendar";
+import { addDays, formatWeekShort } from "@/lib/weekly-goals/week";
 import { fireToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
@@ -200,6 +219,191 @@ function NumBox({
       )}
       style={{ fontFamily: "var(--font-display)" }}
     />
+  );
+}
+
+/** Inline single-line TEXT cell (Goal title). Keeps a local draft and commits on
+ *  blur / Enter; Esc reverts. Same commit contract as NumBox so every editable
+ *  cell behaves identically (Enter = save · Esc = cancel · blur = auto-save). */
+function TextCell({
+  value,
+  onCommit,
+  disabled,
+  ariaLabel,
+  placeholder,
+  className,
+}: {
+  value: string;
+  onCommit: (v: string) => void;
+  disabled: boolean;
+  ariaLabel: string;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [draft, setDraft] = React.useState(value);
+  React.useEffect(() => setDraft(value), [value]);
+
+  function commit() {
+    const v = draft.trim();
+    if (v === value.trim()) return;
+    onCommit(v);
+  }
+
+  return (
+    <input
+      type="text"
+      value={draft}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      placeholder={placeholder}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+          (e.target as HTMLInputElement).blur();
+        } else if (e.key === "Escape") {
+          setDraft(value);
+          (e.target as HTMLInputElement).blur();
+        }
+      }}
+      className={cn(
+        "w-full rounded-md border bg-white px-2 py-1 text-[14px] font-bold text-ink-strong focus:border-altus-red disabled:opacity-60",
+        FOCUS_RING,
+        className,
+      )}
+      style={{ borderColor: "var(--color-hairline-strong)" }}
+    />
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Cell: Status — inline dropdown over the app's Task statuses          */
+/* ------------------------------------------------------------------ */
+
+/** Human label for a Task status enum value (live set + legacy verdicts). */
+const STATUS_LABEL: Partial<Record<TaskStatus, string>> = {
+  dont_know: "Not assessed",
+  not_started: "Not started",
+  initiated: "In progress",
+  follow_up: "Follow-up",
+  need_help: "Need help",
+  on_hold: "On hold",
+  need_info: "Need info",
+  done: "Done",
+  approved: "Approved",
+  not_approved: "Not approved",
+  cancelled: "Cancelled",
+  transferred: "Transferred",
+};
+
+function statusLabel(s: string): string {
+  return (
+    STATUS_LABEL[s as TaskStatus] ??
+    s.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
+  );
+}
+
+/** A quiet band colour for the status dot (done = green · active = amber · else grey). */
+function statusColor(s: string): string {
+  if (s === "done" || s === "approved") return "#15803d";
+  if (s === "not_started" || s === "dont_know" || s === "not_approved" || s === "cancelled")
+    return "var(--color-ink-soft)";
+  return "#b45309";
+}
+
+/** Inline Status dropdown. Built on the shared `Select` primitive so it inherits
+ *  the keyboard-first flow (type-ahead first-match highlight, ↑/↓, Enter/Tab to
+ *  commit + advance, Esc to close). Admins see every live status; others see the
+ *  user-settable set. The row's CURRENT value is always included. */
+function StatusCell({
+  value,
+  isAdmin,
+  disabled,
+  onCommit,
+}: {
+  value: string;
+  isAdmin: boolean;
+  disabled: boolean;
+  onCommit: (status: TaskStatus) => void;
+}) {
+  const base = (isAdmin ? ADMIN_TASK_STATUSES : USER_TASK_STATUSES) as readonly TaskStatus[];
+  const options = React.useMemo(() => {
+    const set = new Set<string>(base);
+    // Keep a legacy/out-of-set current value visible so it never silently drops.
+    const list = value && !set.has(value) ? [value as TaskStatus, ...base] : [...base];
+    return list.map((s) => ({ value: s, label: statusLabel(s) }));
+  }, [base, value]);
+
+  return (
+    <div className={cn("flex items-center gap-1.5", disabled && "pointer-events-none opacity-60")}>
+      <span
+        aria-hidden
+        className="size-2 shrink-0 rounded-full"
+        style={{ background: statusColor(value || "not_started") }}
+      />
+      <Select
+        value={value || "not_started"}
+        onValueChange={(v) => {
+          if (!disabled && v !== value) onCommit(v as TaskStatus);
+        }}
+        disabled={disabled}
+        ariaLabel="Status"
+        unstyled
+        className="min-w-0 flex-1 cursor-pointer gap-1 text-[13px] font-semibold text-ink-strong hover:text-altus-red"
+        options={options}
+      />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Cell: Reviewer — inline roster dropdown → reviewedById              */
+/* ------------------------------------------------------------------ */
+
+const REVIEWER_NONE = "__none__";
+
+/** Inline Reviewer picker (writes goals.reviewed_by_id). Reuses `Select` for the
+ *  keyboard-first flow; a leading "No reviewer" option clears the field. */
+function ReviewerCell({
+  reviewedById,
+  roster,
+  disabled,
+  onCommit,
+}: {
+  reviewedById: string | null | undefined;
+  roster: RosterMember[];
+  disabled: boolean;
+  onCommit: (id: string | null) => void;
+}) {
+  const options = React.useMemo(
+    () => [
+      { value: REVIEWER_NONE, label: "No reviewer" },
+      ...roster.map((r) => ({ value: r.id, label: r.name })),
+    ],
+    [roster],
+  );
+  const current = reviewedById ?? REVIEWER_NONE;
+
+  return (
+    <div className={cn(disabled && "pointer-events-none opacity-60")}>
+      <Select
+        value={current}
+        onValueChange={(v) => {
+          const next = v === REVIEWER_NONE ? null : v;
+          if (!disabled && next !== (reviewedById ?? null)) onCommit(next);
+        }}
+        disabled={disabled}
+        searchable
+        searchPlaceholder="Search people…"
+        placeholder="No reviewer"
+        ariaLabel="Reviewer"
+        unstyled
+        className="w-full cursor-pointer gap-1 text-[13px] font-semibold text-ink-strong hover:text-altus-red"
+        options={options}
+      />
+    </div>
   );
 }
 
@@ -579,24 +783,487 @@ function SharePill({
 }
 
 /* ------------------------------------------------------------------ */
-/* Self-vs-assigned origin badge                                       */
+/* Cell: Target Date — inline deadline under the goal title (month/week) */
+/* Editable date box for month (cascade) goals; read-only coloured chip */
+/* for week rows (weekly goals set their date in the composer).         */
 /* ------------------------------------------------------------------ */
 
-/** "Mine" when the viewed owner created the row, "Assigned" when a manager
- *  created it for them. Subtle by design — a compact identity pill. */
-function OriginBadge({ assigned }: { assigned: boolean }) {
+function TargetDateInline({
+  iso,
+  editable,
+  disabled,
+  onCommit,
+}: {
+  iso: string | null;
+  editable: boolean;
+  disabled: boolean;
+  onCommit: (v: string | null) => void;
+}) {
+  const st = targetDateStatus(iso);
+  const has = st.daysLeft != null;
+
+  if (!editable) {
+    if (!has) return null;
+    return (
+      <span
+        className="mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-[1px] text-[11px] font-bold tabular-nums"
+        style={{ background: `color-mix(in srgb, ${st.color} 12%, transparent)`, color: st.color }}
+        title={`Target date ${fmtTargetDate(iso)} · ${st.label}`}
+      >
+        <CalendarClock size={11} aria-hidden />
+        {fmtTargetDate(iso)} · {st.label}
+      </span>
+    );
+  }
+
   return (
-    <span
-      className="inline-flex items-center rounded-full px-1.5 py-px text-[9px] font-black uppercase tracking-[0.06em] leading-none"
-      title={assigned ? "Assigned by a manager" : "Created by the goal owner"}
-      style={
-        assigned
-          ? { color: "var(--color-altus-red-deep)", background: redTint(11) }
-          : { color: "var(--color-ink-subtle)", background: "var(--color-surface-soft)", boxShadow: "inset 0 0 0 1px var(--color-hairline)" }
-      }
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      <input
+        type="date"
+        defaultValue={iso ?? ""}
+        disabled={disabled}
+        aria-label="Target date"
+        onBlur={(e) => {
+          const v = e.target.value || null;
+          if (v !== (iso ?? null)) onCommit(v);
+        }}
+        className={cn(
+          "h-7 rounded-md border bg-white px-1.5 text-[12px] font-semibold text-ink-strong focus:border-altus-red disabled:opacity-60",
+          FOCUS_RING,
+        )}
+        style={{ borderColor: has ? st.color : "var(--color-hairline-strong)" }}
+      />
+      {has && (
+        <span
+          className="inline-flex items-center gap-1 rounded-full px-1.5 py-[1px] text-[10.5px] font-bold tabular-nums"
+          style={{ background: `color-mix(in srgb, ${st.color} 12%, transparent)`, color: st.color }}
+          title={st.label}
+        >
+          <CalendarClock size={10} aria-hidden />
+          {st.label}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Hierarchy-aware "Copy to" — derive the CURRENT level's immediate     */
+/* child periods (never siblings / parents). year→quarters, quarter→    */
+/* that quarter's 3 months, month→that month's weeks, week→its 7 days.  */
+/* ------------------------------------------------------------------ */
+
+type Level = "year" | "quarter" | "month" | "week" | "day";
+type ChildLevel = "quarter" | "month" | "week" | "day";
+type PeriodTarget = { key: string; label: string; sub?: string };
+type ChildMap = { childLevel: ChildLevel; childNoun: string; targets: PeriodTarget[] };
+
+const QUARTER_SUB = ["Apr–Jun", "Jul–Sep", "Oct–Dec", "Jan–Mar"];
+const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const LEVEL_ADJ: Record<Level, string> = {
+  year: "Yearly",
+  quarter: "Quarterly",
+  month: "Monthly",
+  week: "Weekly",
+  day: "Daily",
+};
+
+/** The immediate CHILD periods a level's goals should copy into. */
+function childMapping(level: Level, periodKey: string | undefined): ChildMap | null {
+  if (!periodKey) return null;
+  if (level === "year") {
+    const fy = Number(periodKey);
+    if (!Number.isFinite(fy)) return null;
+    return {
+      childLevel: "quarter",
+      childNoun: "quarter",
+      targets: quartersOfFy(fy).map((k, i) => ({ key: k, label: `Q${i + 1}`, sub: QUARTER_SUB[i] })),
+    };
+  }
+  if (level === "quarter") {
+    if (!/^\d{4}-Q[1-4]$/.test(periodKey)) return null;
+    const fy = fyStartYearOfKey(periodKey);
+    const q = quarterOfKey(periodKey);
+    return {
+      childLevel: "month",
+      childNoun: "month",
+      targets: monthKeysOfQuarter(fy, q).map((k) => ({ key: k, label: periodKeyShort(k), sub: k.slice(0, 4) })),
+    };
+  }
+  if (level === "month") {
+    if (!/^\d{4}-\d{2}$/.test(periodKey)) return null;
+    const fy = fyStartYearOfMonthKey(periodKey);
+    const monthIndex = Number(periodKey.slice(5, 7)) - 1;
+    // Label by ORDER within the month ("Week 1..N"), not the FY week number.
+    return {
+      childLevel: "week",
+      childNoun: "week",
+      targets: weeksOfMonth(fy, monthIndex).map((w, i) => ({
+        key: w.mondayISO,
+        label: `Week ${i + 1}`,
+        sub: formatWeekShort(w.mondayISO),
+      })),
+    };
+  }
+  if (level === "week") {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(periodKey)) return null;
+    // periodKey is the week's Monday — Mon…Sun of that week.
+    return {
+      childLevel: "day",
+      childNoun: "day",
+      targets: DAY_NAMES.map((name, i) => {
+        const iso = addDays(periodKey, i);
+        return { key: iso, label: name, sub: `${iso.slice(8, 10)}/${iso.slice(5, 7)}` };
+      }),
+    };
+  }
+  return null; // day has no child level
+}
+
+/** Sibling buckets at the goal's OWN level (for "Move to…", cascade only). */
+function siblingTargets(level: Level, periodKey: string | undefined): PeriodTarget[] {
+  if (!periodKey) return [];
+  if (level === "quarter" && /^\d{4}-Q[1-4]$/.test(periodKey)) {
+    const fy = fyStartYearOfKey(periodKey);
+    return quartersOfFy(fy)
+      .filter((k) => k !== periodKey)
+      .map((k) => ({ key: k, label: `Q${quarterOfKey(k)}`, sub: QUARTER_SUB[quarterOfKey(k) - 1] }));
+  }
+  if (level === "month" && /^\d{4}-\d{2}$/.test(periodKey)) {
+    const fy = fyStartYearOfMonthKey(periodKey);
+    return monthKeysOfFy(fy)
+      .filter((k) => k !== periodKey)
+      .map((k) => ({ key: k, label: periodKeyShort(k), sub: k.slice(0, 4) }));
+  }
+  return [];
+}
+
+const MENU_BTN =
+  "inline-flex items-center gap-1.5 rounded-lg border bg-surface-card px-2.5 py-1.5 text-[12.5px] font-bold text-ink-strong transition-colors hover:border-altus-red hover:text-altus-red";
+
+/** Context-aware "Copy to" — a checkable list of the current level's child
+ *  periods; copy the selected goals into ONE OR MORE of them in a single go. */
+function CopyToMenu({
+  childMap,
+  count,
+  onCopy,
+}: {
+  childMap: ChildMap;
+  count: number;
+  onCopy: (keys: string[]) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [picked, setPicked] = React.useState<Set<string>>(new Set());
+  const reset = () => setPicked(new Set());
+  const toggle = (k: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  function go() {
+    if (picked.size === 0) return;
+    onCopy([...picked]);
+    reset();
+    setOpen(false);
+  }
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) reset();
+      }}
     >
-      {assigned ? "Assigned" : "Self"}
-    </span>
+      <PopoverTrigger asChild>
+        <button type="button" className={cn(MENU_BTN, FOCUS_RING)} style={{ borderColor: "var(--color-hairline-strong)" }}>
+          <Copy size={13} /> Copy to {childMap.childNoun}
+          <ChevronDown size={12} className="opacity-70" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        className="z-[80] w-64 rounded-xl border border-hairline bg-surface-card p-1.5"
+        style={{ boxShadow: "0 18px 44px -18px rgba(15,23,42,0.3)" }}
+      >
+        <p className="flex items-center gap-1.5 px-2.5 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-subtle">
+          <Copy size={12} /> Copy {count} goal{count === 1 ? "" : "s"} to…
+        </p>
+        <div className="max-h-64 overflow-auto">
+          {childMap.targets.map((t) => {
+            const on = picked.has(t.key);
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => toggle(t.key)}
+                className={cn("flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors", on ? "" : "hover:bg-black/[0.04]")}
+                style={on ? { background: redTint(10) } : undefined}
+              >
+                <BrandCheck checked={on} onToggle={() => toggle(t.key)} label={`Copy to ${t.label}`} />
+                <span className={cn("min-w-0 flex-1 truncate text-[13px]", on ? "font-bold text-altus-red-deep" : "text-ink-strong")}>
+                  {t.label}
+                </span>
+                {t.sub && <span className="shrink-0 text-[11px] font-semibold text-ink-subtle tabular-nums">{t.sub}</span>}
+              </button>
+            );
+          })}
+          {childMap.targets.length === 0 && (
+            <p className="px-3 py-4 text-center text-[12.5px] text-ink-subtle">No child periods.</p>
+          )}
+        </div>
+        <div className="mt-1 flex items-center justify-between gap-2 border-t px-2.5 pt-2" style={{ borderColor: "var(--color-hairline)" }}>
+          <span className="text-[11.5px] font-semibold text-ink-subtle tabular-nums">{picked.size} picked</span>
+          <button
+            type="button"
+            disabled={picked.size === 0}
+            onClick={go}
+            className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50", FOCUS_RING)}
+            style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+          >
+            Copy
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** "Move to…" — re-home the selected goals to ONE sibling bucket at the same level. */
+function MoveToMenu({
+  siblings,
+  noun,
+  onMove,
+}: {
+  siblings: PeriodTarget[];
+  noun: string;
+  onMove: (key: string, label: string) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" className={cn(MENU_BTN, FOCUS_RING)} style={{ borderColor: "var(--color-hairline-strong)" }}>
+          <ArrowRightLeft size={13} /> Move to {noun}
+          <ChevronDown size={12} className="opacity-70" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        className="z-[80] w-56 rounded-xl border border-hairline bg-surface-card p-1.5"
+        style={{ boxShadow: "0 18px 44px -18px rgba(15,23,42,0.3)" }}
+      >
+        <p className="flex items-center gap-1.5 px-2.5 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-subtle">
+          <ArrowRightLeft size={12} /> Move to another {noun}
+        </p>
+        <div className="max-h-64 overflow-auto">
+          {siblings.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => {
+                onMove(t.key, t.label);
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-ink-strong transition-colors hover:bg-black/[0.04]"
+            >
+              <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{t.label}</span>
+              {t.sub && <span className="shrink-0 text-[11px] font-semibold text-ink-subtle tabular-nums">{t.sub}</span>}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** Bulk status — status is derived from % Done, so three presets set the % (and
+ *  therefore status) on every selected goal. */
+const STATUS_PRESETS: { pct: number; label: string; color: string }[] = [
+  { pct: 0, label: "Not started", color: "var(--color-ink-soft)" },
+  { pct: 50, label: "In progress", color: "var(--color-amber, #d97706)" },
+  { pct: 100, label: "Done", color: "var(--color-emerald, #059669)" },
+];
+
+function BulkStatusMenu({ onPick }: { onPick: (pct: number, label: string) => void }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" className={cn(MENU_BTN, FOCUS_RING)} style={{ borderColor: "var(--color-hairline-strong)" }}>
+          <Flag size={13} /> Status
+          <ChevronDown size={12} className="opacity-70" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        className="z-[80] w-48 rounded-xl border border-hairline bg-surface-card p-1.5"
+        style={{ boxShadow: "0 18px 44px -18px rgba(15,23,42,0.3)" }}
+      >
+        {STATUS_PRESETS.map((s) => (
+          <button
+            key={s.pct}
+            type="button"
+            onClick={() => {
+              onPick(s.pct, s.label);
+              setOpen(false);
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-black/[0.04]"
+          >
+            <span aria-hidden className="size-2.5 rounded-full" style={{ background: s.color }} />
+            <span className="flex-1 text-[13px] font-semibold text-ink-strong">{s.label}</span>
+            <span className="text-[11px] font-bold text-ink-subtle tabular-nums">{s.pct}%</span>
+          </button>
+        ))}
+        {/* PHASE 2: per-goal Priority / Reviewer / KPI verbs — those fields don't
+            exist on a cascade goal yet, so no fake bulk-editor is offered here. */}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** Bulk target-date (month goals only — the only level with an editable deadline). */
+function BulkTargetDate({ onApply }: { onApply: (iso: string | null) => void }) {
+  const [open, setOpen] = React.useState(false);
+  const [iso, setIso] = React.useState("");
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" className={cn(MENU_BTN, FOCUS_RING)} style={{ borderColor: "var(--color-hairline-strong)" }}>
+          <CalendarDays size={13} /> Target date
+          <ChevronDown size={12} className="opacity-70" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        className="z-[80] w-60 rounded-xl border border-hairline bg-surface-card p-2.5"
+        style={{ boxShadow: "0 18px 44px -18px rgba(15,23,42,0.3)" }}
+      >
+        <p className="pb-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-subtle">Set target date</p>
+        <input
+          type="date"
+          value={iso}
+          onChange={(e) => setIso(e.target.value)}
+          aria-label="Bulk target date"
+          className={cn("h-9 w-full rounded-md border bg-white px-2 text-[13px] font-semibold text-ink-strong focus:border-altus-red", FOCUS_RING)}
+          style={{ borderColor: "var(--color-hairline-strong)" }}
+        />
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              onApply(null);
+              setOpen(false);
+            }}
+            className={cn("rounded-lg px-2 py-1.5 text-[12px] font-bold text-ink-subtle transition-colors hover:text-ink-strong", FOCUS_RING)}
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            disabled={!iso}
+            onClick={() => {
+              onApply(iso);
+              setOpen(false);
+            }}
+            className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50", FOCUS_RING)}
+            style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+          >
+            Apply
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** Duplicate-collision prompt shown when a chosen destination already holds a
+ *  goal with the same title. Skip / Replace / Cancel (Merge = PHASE 2). */
+function DupCollisionDialog({
+  open,
+  collisions,
+  labelFor,
+  onResolve,
+}: {
+  open: boolean;
+  collisions: Record<string, string[]>;
+  labelFor: (key: string) => string;
+  onResolve: (mode: "skip" | "replace" | null) => void;
+}) {
+  const entries = Object.entries(collisions);
+  const total = entries.reduce((n, [, list]) => n + list.length, 0);
+  return (
+    <Dialog.Root open={open} onOpenChange={(o) => !o && onResolve(null)}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[90] bg-black/40" />
+        <Dialog.Content
+          className="fixed left-1/2 top-1/2 z-[100] w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-surface-card p-6"
+          style={{ border: "1px solid var(--color-hairline-strong)", boxShadow: "0 24px 60px -16px rgba(15,23,42,0.4)" }}
+        >
+          <div className="mb-4 flex items-start gap-3">
+            <span
+              aria-hidden
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl"
+              style={{ background: redTint(12), color: "var(--color-altus-red)" }}
+            >
+              <Copy size={19} strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0">
+              <Dialog.Title className="font-bold text-ink-strong" style={{ fontSize: 18, letterSpacing: "-0.01em" }}>
+                {total} duplicate{total === 1 ? "" : "s"} already there
+              </Dialog.Title>
+              <Dialog.Description className="mt-1 text-[13.5px] text-ink-subtle" style={{ lineHeight: 1.5 }}>
+                Some destinations already hold a goal with the same title. How should the copy proceed?
+              </Dialog.Description>
+            </div>
+          </div>
+
+          <div
+            className="mb-4 max-h-40 overflow-auto rounded-lg border p-2 text-[12.5px]"
+            style={{ borderColor: "var(--color-hairline)", background: "var(--color-surface-soft)" }}
+          >
+            {entries.map(([key, list]) => (
+              <div key={key} className="py-0.5">
+                <span className="font-bold text-ink-strong">{labelFor(key)}:</span>{" "}
+                <span className="text-ink-soft">{list.join(", ")}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => onResolve(null)}
+              className={cn("rounded-lg border px-3.5 py-2 text-[13px] font-semibold text-ink-soft transition-colors hover:text-ink-strong", FOCUS_RING)}
+              style={{ borderColor: "var(--color-hairline-strong)" }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => onResolve("skip")}
+              className={cn("rounded-lg border px-3.5 py-2 text-[13px] font-bold text-ink-strong transition-colors hover:border-altus-red hover:text-altus-red", FOCUS_RING)}
+              style={{ borderColor: "var(--color-hairline-strong)" }}
+            >
+              Skip duplicates
+            </button>
+            <button
+              type="button"
+              onClick={() => onResolve("replace")}
+              className={cn("inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-bold text-white", FOCUS_RING)}
+              style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+            >
+              Replace
+            </button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
@@ -617,7 +1284,6 @@ export function GoalTableView(props: GoalTableViewProps) {
     measureOptions,
     typeOptions,
     customLookups,
-    fyStartYear,
     level,
   } = props;
 
@@ -636,7 +1302,15 @@ export function GoalTableView(props: GoalTableViewProps) {
   const [rows, setRows] = React.useState<GoalDTO[]>(goals);
   React.useEffect(() => setRows(goals), [goals]);
 
-  const quarters = React.useMemo(() => quartersOfFy(fyStartYear), [fyStartYear]);
+  // Every goal on this board shares one period key — derive the current period
+  // from it, then the hierarchy-correct CHILD periods (Copy to) + SIBLINGS (Move).
+  const currentPeriodKey = goals[0]?.periodKey;
+  const childMap = React.useMemo(() => childMapping(level, currentPeriodKey), [level, currentPeriodKey]);
+  const siblings = React.useMemo(() => siblingTargets(level, currentPeriodKey), [level, currentPeriodKey]);
+
+  // Pending "Copy to" awaiting a duplicate-collision decision (Skip/Replace/Cancel).
+  const [dupPrompt, setDupPrompt] = React.useState<{ keys: string[]; collisions: Record<string, string[]> } | null>(null);
+
   const allSelected = rows.length > 0 && rows.every((g) => selected.has(g.id));
   const someSelected = selected.size > 0 && !allSelected;
   const locked = !canWrite;
@@ -794,13 +1468,125 @@ export function GoalTableView(props: GoalTableViewProps) {
       clearSelection,
     );
   }
-  function bulkCopy(targetKey: string) {
+  // Human label for a chosen child period key (Q2 / Apr / Week 2 / Mon).
+  const childLabelFor = React.useCallback(
+    (key: string) => childMap?.targets.find((t) => t.key === key)?.label ?? periodKeyLabel(key),
+    [childMap],
+  );
+
+  /** Copy the selected goals into the given CHILD periods, with a collision policy. */
+  const performCopy = React.useCallback(
+    (keys: string[], onDuplicate?: "skip" | "replace") => {
+      const cl = childMap;
+      if (!cl || keys.length === 0) return;
+      const selIds = [...selected];
+      startTransition(async () => {
+        let copied = 0;
+        let skipped = 0;
+        let err = "";
+        for (const key of keys) {
+          const res = await bulkCopyGoalsToPeriod({
+            ids: selIds,
+            targetLevel: cl.childLevel,
+            targetKey: key,
+            ...(onDuplicate ? { onDuplicate } : {}),
+          });
+          if (res.ok) {
+            copied += res.copied;
+            skipped += res.skipped;
+          } else {
+            err = res.error;
+          }
+        }
+        if (copied === 0 && skipped === 0) {
+          fireToast({ message: err || "Nothing was copied.", type: "error" });
+          return;
+        }
+        scheduleRefresh();
+        clearSelection();
+        const labels = keys.map((k) => cl.targets.find((t) => t.key === k)?.label ?? k);
+        const dest = labels.length <= 2 ? labels.join(" and ") : `${labels.length} ${cl.childNoun}s`;
+        const noun = `${LEVEL_ADJ[level]} Goal${copied === 1 ? "" : "s"}`;
+        let msg = copied > 0 ? `${copied} ${noun} copied to ${dest}.` : "";
+        if (skipped > 0) msg += `${msg ? " " : ""}${skipped} duplicate${skipped === 1 ? "" : "s"} skipped.`;
+        fireToast({ message: msg, type: "success" });
+      });
+    },
+    [childMap, selected, level, scheduleRefresh, clearSelection],
+  );
+
+  /** Entry point from the Copy-to menu: detect collisions first, then either
+   *  copy straight away or open the Skip/Replace/Cancel prompt. */
+  const requestCopy = React.useCallback(
+    (keys: string[]) => {
+      const cl = childMap;
+      if (!cl || keys.length === 0) return;
+      const selIds = [...selected];
+      startTransition(async () => {
+        const det = await detectCopyCollisions({ ids: selIds, targetLevel: cl.childLevel, targetKeys: keys });
+        if (!det.ok) {
+          fireToast({ message: det.error, type: "error" });
+          return;
+        }
+        if (Object.keys(det.collisions).length > 0) {
+          setDupPrompt({ keys, collisions: det.collisions });
+        } else {
+          performCopy(keys, undefined);
+        }
+      });
+    },
+    [childMap, selected, performCopy],
+  );
+
+  function bulkMove(targetKey: string, label: string) {
+    const selIds = [...selected];
     run(
-      () => bulkCopyGoalsToPeriod({ ids, targetLevel: "quarter", targetKey }),
-      `Copied ${ids.length} goal${ids.length === 1 ? "" : "s"} to ${periodKeyLabel(targetKey)}`,
+      async () => {
+        for (const id of selIds) {
+          const res = await moveGoalToPeriod({ id, periodKey: targetKey });
+          if (!res.ok) return res;
+        }
+        return { ok: true } as ActionRes;
+      },
+      `Moved ${selIds.length} goal${selIds.length === 1 ? "" : "s"} to ${label}`,
       clearSelection,
     );
   }
+
+  function bulkStatus(pct: number, label: string) {
+    const sel = new Set(ids);
+    setRows((prev) => prev.map((r) => (sel.has(r.id) ? { ...r, pctDone: pct } : r)));
+    run(
+      async () => {
+        for (const id of ids) {
+          const res = await A.setGoalPctDone({ id, pctDone: pct });
+          if (!res.ok) return res;
+        }
+        return { ok: true } as ActionRes;
+      },
+      `${ids.length} goal${ids.length === 1 ? "" : "s"} marked "${label}"`,
+      clearSelection,
+    );
+  }
+
+  function bulkTargetDate(iso: string | null) {
+    const sel = new Set(ids);
+    setRows((prev) => prev.map((r) => (sel.has(r.id) ? { ...r, targetDate: iso } : r)));
+    run(
+      async () => {
+        for (const id of ids) {
+          const res = await A.editGoal({ id, targetDate: iso });
+          if (!res.ok) return res;
+        }
+        return { ok: true } as ActionRes;
+      },
+      iso
+        ? `Target date set on ${ids.length} goal${ids.length === 1 ? "" : "s"}`
+        : `Target date cleared on ${ids.length} goal${ids.length === 1 ? "" : "s"}`,
+      clearSelection,
+    );
+  }
+
   function bulkDivide() {
     run(
       async () => {
@@ -952,29 +1738,27 @@ export function GoalTableView(props: GoalTableViewProps) {
 
           <BulkMembers roster={roster} count={selected.size} onApply={bulkSetMembers} />
 
+          <span className="mx-0.5 hidden h-5 w-px sm:block" style={{ background: "var(--color-hairline-strong)" }} />
+          <BulkStatusMenu onPick={bulkStatus} />
+
           {!weekly && (
             <>
-              <span className="mx-0.5 hidden h-5 w-px sm:block" style={{ background: "var(--color-hairline-strong)" }} />
-              <span className="inline-flex items-center gap-1 text-[12px] font-bold text-ink-soft">
-                <Copy size={12} /> Copy to
-              </span>
-              <div className="inline-flex gap-1">
-                {quarters.map((qk, i) => (
-                  <button
-                    key={qk}
-                    type="button"
-                    onClick={() => bulkCopy(qk)}
-                    title={`Copy to ${periodKeyLabel(qk)}`}
-                    className={cn(
-                      "rounded-lg border bg-surface-card px-2.5 py-1.5 text-[12.5px] font-bold text-ink-strong tabular-nums transition-colors hover:border-altus-red hover:text-altus-red",
-                      FOCUS_RING,
-                    )}
-                    style={{ borderColor: "var(--color-hairline-strong)", fontFamily: "var(--font-display)" }}
-                  >
-                    Q{i + 1}
-                  </button>
-                ))}
-              </div>
+              {/* Context-aware copy: only the CURRENT level's immediate child periods. */}
+              {childMap && childMap.targets.length > 0 && (
+                <>
+                  <span className="mx-0.5 hidden h-5 w-px sm:block" style={{ background: "var(--color-hairline-strong)" }} />
+                  <CopyToMenu childMap={childMap} count={selected.size} onCopy={requestCopy} />
+                </>
+              )}
+
+              {/* Move to a sibling bucket at this level (quarter / month only). */}
+              {siblings.length > 0 && (
+                <MoveToMenu siblings={siblings} noun={level === "quarter" ? "quarter" : "month"} onMove={bulkMove} />
+              )}
+
+              {/* Target date — an editable deadline only exists on month goals.
+                  PHASE 2: week deadlines are composer-driven on the weekly board. */}
+              {level === "month" && <BulkTargetDate onApply={bulkTargetDate} />}
             </>
           )}
 
@@ -1026,6 +1810,8 @@ export function GoalTableView(props: GoalTableViewProps) {
               <th className={cn(TH, "min-w-[140px]")}>Members</th>
               {!weekly && <th className={TH}>Share</th>}
               {!weekly && <th className={cn(TH, "min-w-[104px]")}>Type</th>}
+              {!weekly && <th className={cn(TH, "min-w-[132px]")}>Status</th>}
+              {!weekly && <th className={cn(TH, "min-w-[136px]")}>Reviewer</th>}
             </tr>
           </thead>
           <tbody>
@@ -1062,9 +1848,9 @@ export function GoalTableView(props: GoalTableViewProps) {
                       >
                         {goalCode({ period: g.period, periodKey: g.periodKey, position: i + 1, id: g.id })}
                       </span>
-                      {!weekly && level !== "week" && level !== "day" && (
-                        <OriginBadge assigned={g.createdById != null && g.createdById !== g.employeeId} />
-                      )}
+                      {/* Assignment Type — Self / Assigned (assigned carries a
+                          by · on · source tooltip). Every level can be assigned. */}
+                      {level !== "day" && <AssignmentChip goal={g} />}
                     </div>
                   </td>
 
@@ -1085,27 +1871,31 @@ export function GoalTableView(props: GoalTableViewProps) {
                     </div>
                   </td>
 
-                  {/* Goal title + Notes/Files expander */}
+                  {/* Goal title (inline in BOTH engines now) + Notes/Files expander */}
                   <td className="px-2.5 py-4 align-middle">
-                    {weekly ? (
-                      <input
-                        defaultValue={g.title}
+                    <TextCell
+                      value={g.title}
+                      disabled={locked}
+                      ariaLabel="Goal title"
+                      placeholder="Goal…"
+                      onCommit={(v) => {
+                        // Title is required — an empty commit reverts (never blanks the row).
+                        if (v && v !== g.title) editField(g.id, { title: v }, () => A.editGoal({ id: g.id, title: v }));
+                      }}
+                    />
+                    {/* Notes stay inline-editable in the expandable detail row below
+                        (a textarea + attachments that commits via editGoal({notes})
+                        through patchNotes) — no separate Notes column needed. */}
+                    {/* Target date — month goals (editable) + week goals (chip); never year/quarter. */}
+                    {(level === "month" || level === "week") && (
+                      <TargetDateInline
+                        iso={g.targetDate}
+                        editable={level === "month" && !weekly}
                         disabled={locked}
-                        aria-label="Goal title"
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          if (v && v !== g.title) editField(g.id, { title: v }, () => A.editGoal({ id: g.id, title: v }));
-                        }}
-                        className={cn(
-                          "w-full rounded-md border bg-white px-2 py-1 text-[14px] font-bold text-ink-strong focus:border-altus-red disabled:opacity-60",
-                          FOCUS_RING,
-                        )}
-                        style={{ borderColor: "var(--color-hairline-strong)" }}
+                        onCommit={(v) =>
+                          editField(g.id, { targetDate: v }, () => A.editGoal({ id: g.id, targetDate: v }))
+                        }
                       />
-                    ) : (
-                      <p className="line-clamp-2 text-[14.5px] font-bold leading-snug text-ink-strong" title={g.title}>
-                        {g.title}
-                      </p>
                     )}
                     <button
                       type="button"
@@ -1265,14 +2055,39 @@ export function GoalTableView(props: GoalTableViewProps) {
                     </td>
                   )}
 
+                  {/* Status — inline dropdown over the app's Task statuses. */}
+                  {!weekly && (
+                    <td className="px-2 py-4 align-middle">
+                      <StatusCell
+                        value={g.status ?? "not_started"}
+                        isAdmin={isAdmin}
+                        disabled={locked}
+                        onCommit={(s) => editField(g.id, { status: s }, () => A.editGoal({ id: g.id, status: s }))}
+                      />
+                    </td>
+                  )}
+
+                  {/* Reviewer — inline roster dropdown → reviewedById. */}
+                  {!weekly && (
+                    <td className="px-2 py-4 align-middle">
+                      <ReviewerCell
+                        reviewedById={g.reviewedById}
+                        roster={roster}
+                        disabled={locked}
+                        onCommit={(id) => editField(g.id, { reviewedById: id }, () => A.editGoal({ id: g.id, reviewedById: id }))}
+                      />
+                    </td>
+                  )}
+
                 </tr>
                 {expanded.has(g.id) && (
                   <GoalDetailRow
                     goalId={g.id}
                     notes={g.notes}
                     canWrite={!locked}
-                    colSpan={weekly ? 9 : 11}
+                    colSpan={weekly ? 9 : 13}
                     nodeKind={detailKind}
+                    assignment={assignmentInfo(g)}
                     onSaveNotes={(n) => patchNotes(g.id, n)}
                   />
                 )}
@@ -1299,6 +2114,17 @@ export function GoalTableView(props: GoalTableViewProps) {
           }}
         />
       )}
+
+      <DupCollisionDialog
+        open={dupPrompt != null}
+        collisions={dupPrompt?.collisions ?? {}}
+        labelFor={childLabelFor}
+        onResolve={(mode) => {
+          const pending = dupPrompt;
+          setDupPrompt(null);
+          if (mode && pending) performCopy(pending.keys, mode);
+        }}
+      />
     </div>
   );
 }

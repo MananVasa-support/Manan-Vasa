@@ -35,6 +35,7 @@ interface FieldState {
   teamDependencyPct: string;
   weight: string;
   notes: string;
+  targetDate: string;
 }
 
 function initial(mode: Mode): FieldState {
@@ -52,13 +53,21 @@ function initial(mode: Mode): FieldState {
       teamDependencyPct: g.teamDependencyPct == null ? "" : String(g.teamDependencyPct),
       weight: String(g.weight),
       notes: g.notes ?? "",
+      targetDate: g.targetDate ?? "",
     };
   }
   return {
     area: "", title: "", uom: "", targetQty: "", targetAmount: "",
     actualQty: "", actualAmount: "", teamInvolved: [], teamDependencyPct: "",
-    weight: "100", notes: "",
+    weight: "100", notes: "", targetDate: "",
   };
+}
+
+/** The period this dialog is composing/editing — drives the month-only fields. */
+function periodOf(mode: Mode): GoalPeriod {
+  if (mode.kind === "edit") return mode.goal.period;
+  if (mode.kind === "child") return mode.childPeriod;
+  return mode.period;
 }
 
 const inputCls =
@@ -94,6 +103,7 @@ export function GoalEditDialog({
   }, [open]);
 
   const isEdit = mode.kind === "edit";
+  const isMonth = periodOf(mode) === "month";
   const heading =
     mode.kind === "edit"
       ? "Edit goal"
@@ -127,6 +137,8 @@ export function GoalEditDialog({
       teamDependencyPct: f.teamDependencyPct.trim() === "" ? null : num(f.teamDependencyPct) ?? null,
       weight: num(f.weight) ?? 100,
       notes: f.notes.trim() || null,
+      // Target date only on month goals (the server ignores it for year/quarter).
+      ...(isMonth ? { targetDate: f.targetDate.trim() || null } : {}),
     };
 
     start(async () => {
@@ -256,6 +268,18 @@ export function GoalEditDialog({
               <input value={f.targetAmount} onChange={(e) => upd("targetAmount", e.target.value)} className={`${inputCls} mt-1`} inputMode="decimal" placeholder="0" />
             </div>
           </div>
+
+          {isMonth && (
+            <div>
+              <label className={labelCls}>Target date</label>
+              <input
+                type="date"
+                value={f.targetDate}
+                onChange={(e) => upd("targetDate", e.target.value)}
+                className={`${inputCls} mt-1`}
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>

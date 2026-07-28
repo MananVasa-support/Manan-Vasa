@@ -3296,6 +3296,10 @@ export const goals = pgTable(
     incentiveKind: text("incentive_kind"),
     // {kind,id,label} snapshot of the picked Monthly Events Master item.
     monthlyMasterRef: jsonb("monthly_master_ref").$type<{ kind: string; id: string; label: string }>(),
+    // Deadline for MONTHLY goals (migration 0169, additive/nullable). Only ever
+    // set on month-period rows — year/quarter progress rolls up from children, so
+    // they carry NO target date. Weekly goals keep their own weekly_goals.target_date.
+    targetDate: date("target_date"),
     // Reuses the app-wide Task status enum (same default as weekly_goals).
     status: taskStatusEnum("status").notNull().default("not_started"),
     // opt-in per period; false = crossed-out (cascade-drops descendants).

@@ -25,7 +25,7 @@ import {
   rectSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
-import { ChevronLeft, ChevronRight, Search, X, Target, Trash2, List, Columns3, Plus, Download, ArrowUpDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X, Target, Trash2, List, Columns3, LayoutDashboard, Plus, Download, ArrowUpDown } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { BoardQuickChips, type QuickChip } from "@/components/weekly-goals/board-quick-chips";
 import { fireToast } from "@/lib/toast";
@@ -34,6 +34,8 @@ import {
   quartersOfFy,
   monthKeysOfQuarter,
   fyStartYearOf,
+  fyStartYearOfKey,
+  quarterKeyOfMonthKey,
 } from "@/lib/goals/types";
 import {
   type GoalDTO,
@@ -43,6 +45,7 @@ import {
   fyLabel,
   parentPeriodKeyOf,
   categoryStyle,
+  childLevelOf,
 } from "@/components/goals/cascade/util";
 import { useOptimisticGoals } from "@/components/goals/canvas/optimistic";
 import {
@@ -56,7 +59,8 @@ import { LEVEL_TABLE_ACTIONS } from "./level-table-actions";
 import { PersonalStartPrompt } from "./personal-start-prompt";
 import { BoardQuickAdd, type BoardQuickAddHandle } from "./board-quick-add";
 import { GoalsBulkUpload } from "./goals-bulk-upload";
-import { KanbanBoard } from "./kanban-view";
+import { HierarchyKanban } from "./hierarchy-kanban";
+import { GoalsDashboard } from "./goals-dashboard";
 import type { GoalsLevelBoardProps } from "./types";
 
 /** Shared visible focus ring for keyboard users (brand-red on neutral surfaces). */
@@ -164,19 +168,19 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
     [levelGoals, props.periodKey],
   );
 
-  // ── View: classic list ⇄ Kanban columns (persisted; Yearly is list-only —
-  //    one bucket makes columns meaningless). SSR renders "list"; the stored
-  //    preference applies after mount so hydration stays clean. ─────────
-  const [view, setView] = React.useState<"list" | "kanban">("list");
+  // ── View: classic list ⇄ HIERARCHICAL Kanban (persisted). EVERY level now
+  //    gets a Kanban — including Yearly (Year → Quarter). SSR renders "list";
+  //    the stored preference applies after mount so hydration stays clean. ──
+  const [view, setView] = React.useState<"list" | "kanban" | "dashboard">("list");
   React.useEffect(() => {
-    if (props.level === "year") return;
     try {
-      if (window.localStorage.getItem(VIEW_STORE_KEY) === "kanban") setView("kanban");
+      const stored = window.localStorage.getItem(VIEW_STORE_KEY);
+      if (stored === "kanban" || stored === "dashboard") setView(stored);
     } catch {
       /* storage unavailable — stay on list */
     }
-  }, [props.level]);
-  const pickView = React.useCallback((v: "list" | "kanban") => {
+  }, []);
+  const pickView = React.useCallback((v: "list" | "kanban" | "dashboard") => {
     setView(v);
     try {
       window.localStorage.setItem(VIEW_STORE_KEY, v);
@@ -184,7 +188,11 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
       /* non-fatal */
     }
   }, []);
-  const kanban = view === "kanban" && props.level !== "year";
+  const kanban = view === "kanban";
+  const dashboard = view === "dashboard";
+  // The frozen-parent Kanban's own level → its child lane level lives one below.
+  const parentLevel: "year" | "quarter" | "month" =
+    props.level === "year" ? "year" : props.level === "quarter" ? "quarter" : "month";
 
   // ── Header "+ New goal" → fires the SAME BoardQuickAdd composer (one create
   //    path). In Kanban the board-level quick-add isn't mounted, so hop to List
@@ -192,19 +200,21 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
   const quickAddRef = React.useRef<BoardQuickAddHandle>(null);
   const [pendingCompose, setPendingCompose] = React.useState(false);
   React.useEffect(() => {
-    if (pendingCompose && !kanban) {
+    if (pendingCompose && view === "list") {
       quickAddRef.current?.open();
       setPendingCompose(false);
     }
-  }, [pendingCompose, kanban]);
+  }, [pendingCompose, view]);
   const openComposer = React.useCallback(() => {
-    if (kanban) {
+    // The board-level quick-add is only mounted in List view — hop there first
+    // from Kanban/Dashboard, then open once it commits (pendingCompose effect).
+    if (view !== "list") {
       pickView("list");
       setPendingCompose(true);
     } else {
       quickAddRef.current?.open();
     }
-  }, [kanban, pickView]);
+  }, [view, pickView]);
 
   // ── Filters (search + quick chips) ──────────────────────────────────
   const [search, setSearch] = React.useState("");
@@ -276,9 +286,23 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
     return m;
   }, [buckets, levelGoals, filterGoal]);
 
+  // The hierarchy Kanban's lane cards live at the CHILD level (Year→Quarter,
+  // Quarter→Month, Month→Week) under the selected parent bucket — scope the
+  // quick-chips to exactly those so the counts match the cards on screen.
+  const kanbanChildScope = React.useMemo(() => {
+    if (!kanban) return EMPTY_CHILDREN;
+    const child = childLevelOf(parentLevel);
+    return goals.filter((g) => {
+      if (g.period !== child) return false;
+      if (parentLevel === "year") return fyStartYearOfKey(g.periodKey) === fy;
+      if (parentLevel === "quarter") return quarterKeyOfMonthKey(g.periodKey) === props.periodKey;
+      return g.periodKey.slice(0, 7) === props.periodKey; // week's Monday-month === selected month
+    });
+  }, [kanban, parentLevel, goals, fy, props.periodKey]);
+
   // Chip counts scope with the view: the selected bucket in list view, the
-  // whole level in Kanban (the chips filter every column).
-  const chipScope = kanban ? levelGoals : inBucket;
+  // child lanes in Kanban (the chips filter every lane).
+  const chipScope = kanban ? kanbanChildScope : inBucket;
   const chipCounts = React.useMemo<Record<QuickChip, number>>(() => {
     const c: Record<QuickChip, number> = { all: chipScope.length, behind: 0, ontrack: 0, done: 0, unfilled: 0 };
     for (const g of chipScope) {
@@ -451,6 +475,16 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
         });
     },
     [mutation, policy.canReQuarter],
+  );
+
+  /** Persist a reordered Sr.-No. line for a hierarchy Kanban LANE (child-level
+   *  drag-within-a-lane). Reuses the same reorder path as the list/onDragEnd. */
+  const reorderChildIds = React.useCallback(
+    (ids: string[]) => {
+      if (!policy.canReorder || ids.length === 0) return;
+      void mutation.mutate({ type: "reorder", ids }, () => reorderGoals(ids));
+    },
+    [mutation, policy.canReorder],
   );
 
   const onDragEnd = React.useCallback(
@@ -792,151 +826,163 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
             />
           )}
 
-          {/* View toggle — List | Kanban (quarter/month only), beside Bulk upload */}
-          {props.level !== "year" && (
-            <div
-              role="group"
-              aria-label="Board view"
-              className="inline-flex items-center overflow-hidden rounded-full border border-hairline-strong bg-surface-soft"
-            >
-              <ViewToggleButton
-                active={!kanban}
-                label="List"
-                icon={<List size={14} strokeWidth={2.4} />}
-                onClick={() => pickView("list")}
-              />
-              <ViewToggleButton
-                active={kanban}
-                label="Kanban"
-                icon={<Columns3 size={14} strokeWidth={2.4} />}
-                onClick={() => pickView("kanban")}
-              />
-            </div>
-          )}
+          {/* View toggle — List | Kanban. Now on EVERY level: the Yearly board
+              gets a Year→Quarter hierarchical Kanban too. */}
+          <div
+            role="group"
+            aria-label="Board view"
+            className="inline-flex items-center overflow-hidden rounded-full border border-hairline-strong bg-surface-soft"
+          >
+            <ViewToggleButton
+              active={!kanban}
+              label="List"
+              icon={<List size={14} strokeWidth={2.4} />}
+              onClick={() => pickView("list")}
+            />
+            <ViewToggleButton
+              active={kanban}
+              label="Kanban"
+              icon={<Columns3 size={14} strokeWidth={2.4} />}
+              onClick={() => pickView("kanban")}
+            />
+            <ViewToggleButton
+              active={dashboard}
+              label="Dashboard"
+              icon={<LayoutDashboard size={14} strokeWidth={2.4} />}
+              onClick={() => pickView("dashboard")}
+            />
+          </div>
         </div>
 
         {/* Sort pauses drag-reorder — tell the user how to get it back. */}
-        {canWrite && policy.canReorder && sortKey !== "position" && !kanban && (
+        {canWrite && policy.canReorder && sortKey !== "position" && view === "list" && (
           <p className="wg-rise -mt-3 mb-4 text-[12px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
             Sorted by {SORT_OPTIONS.find((o) => o.value === sortKey)?.label} — drag-to-reorder is paused.
             Switch back to <button type="button" onClick={() => setSortKey("position")} className="cursor-pointer font-bold text-altus-red underline underline-offset-2">Sr. No.</button> to reorder.
           </p>
         )}
 
-        <DndContext
-          id={dndId}
-          sensors={sensors}
-          collisionDetection={collisionDetection}
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
-          accessibility={{ announcements: dndAnnouncements, screenReaderInstructions: dndInstructions }}
-        >
-          {/* First-run: empty PERSONAL space → offer to copy from Professional. */}
-          {props.space === "personal" && goals.length === 0 && <PersonalStartPrompt />}
+        {/* First-run: empty PERSONAL space → offer to copy from Professional. */}
+        {props.space === "personal" && goals.length === 0 && <PersonalStartPrompt />}
 
-          {/* ── The board body — classic list or Kanban columns ─────── */}
-          {kanban ? (
-            <KanbanBoard
-              level={props.level === "quarter" ? "quarter" : "month"}
-              fyStartYear={fy}
-              goalsByBucket={goalsByBucket}
-              selectedKey={props.periodKey}
-              onSelectBucket={(k) => go({ period: k })}
-              cardProps={sharedCardProps}
-              childrenByParent={childrenByParent}
-              employeeId={props.viewedEmployeeId}
-              parentOf={parentOf}
-              areaOptions={areaOptions}
-              measureOptions={measureOptions}
-              typeOptions={typeOptions}
-              customLookups={customLookups}
-              isAdmin={props.isAdmin}
-              mutation={mutation}
-              focusId={props.focusId ?? null}
-              filtersActive={activeFilterCount > 0}
-            />
-          ) : (
-          <div className="flex flex-col gap-3.5">
-            {inBucket.length === 0 ? (
-              <EmptyState periodLabel={periodKeyLabel(props.periodKey)} />
-            ) : displayed.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-hairline-strong bg-surface-card px-6 py-8 text-center">
-                <p className="text-[15px] font-bold text-ink-strong">No goals match these filters</p>
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className={`mt-3 cursor-pointer inline-flex items-center gap-1.5 rounded-full bg-altus-red px-4 py-2 text-[13px] font-bold text-white ${FOCUS_RING}`}
-                >
-                  <X size={14} strokeWidth={2.6} /> Clear filters
-                </button>
-              </div>
-            ) : (
-              /* The goals LIST is now a prominent inline-editable TABLE
-                 (Area · Goal · Measure · Target/Actual · %Done · Team% ·
-                 Members · Share · Type + bulk bar). */
-              <GoalTableView
-                goals={displayed}
-                canWrite={canWrite}
-                isAdmin={props.isAdmin}
-                roster={props.roster}
-                areaOptions={areaOptions}
-                measureOptions={measureOptions}
-                typeOptions={typeOptions}
-                customLookups={customLookups}
-                fyStartYear={fy}
-                level={props.level}
-                actions={LEVEL_TABLE_ACTIONS}
-              />
-            )}
-
-            {canWrite && (
-              <BoardQuickAdd
-                ref={quickAddRef}
-                employeeId={props.viewedEmployeeId}
-                level={props.level}
-                periodKey={props.periodKey}
-                parent={parentGoal}
-                areaOptions={areaOptions}
-                measureOptions={measureOptions}
-                typeOptions={typeOptions}
-                customLookups={customLookups}
-                isAdmin={props.isAdmin}
-                roster={props.roster}
-                currentCount={inBucket.length}
-                mutation={mutation}
-              />
-            )}
-          </div>
-          )}
-
-          {/* Drag ghost — a lean copy of the row being carried. The overlay
-              wrapper defaults to the ACTIVE node's size (a full-width row!),
-              which looked like a giant white bar sweeping the page — size it
-              to the ghost's own content instead. */}
-          <DragOverlay
-            dropAnimation={{ duration: 220, easing: "cubic-bezier(0.2,0,0,1)" }}
-            style={{ width: "max-content", height: "auto" }}
+        {/* ── The board body — HIERARCHICAL frozen-parent Kanban, or the
+            classic inline-editable list. The Kanban owns its OWN DndContext
+            (its draggables are CHILD-level cards, re-homed via the shared
+            moveToBucket); the list keeps the board's period-pill DndContext. ── */}
+        {dashboard ? (
+          <GoalsDashboard allGoals={goals} level={props.level} fyStartYear={fy} />
+        ) : kanban ? (
+          <HierarchyKanban
+            parentLevel={parentLevel}
+            fyStartYear={fy}
+            selectedKey={props.periodKey}
+            goals={goals}
+            filterGoal={filterGoal}
+            filtersActive={activeFilterCount > 0}
+            cardProps={sharedCardProps}
+            childrenByParent={childrenByParent}
+            roster={props.roster}
+            viewedEmployeeId={props.viewedEmployeeId}
+            viewedName={props.viewedName}
+            canWrite={canWrite}
+            policy={policy}
+            onRehome={moveToBucket}
+            onReorder={reorderChildIds}
+            focusId={props.focusId ?? null}
+          />
+        ) : (
+          <DndContext
+            id={dndId}
+            sensors={sensors}
+            collisionDetection={collisionDetection}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            accessibility={{ announcements: dndAnnouncements, screenReaderInstructions: dndInstructions }}
           >
-            {activeDrag && (
-              <div
-                className="flex items-center gap-3 rounded-2xl border px-4 py-3"
-                style={{
-                  background: "linear-gradient(135deg, color-mix(in srgb, var(--color-altus-red) 6%, var(--color-surface-card)), var(--color-surface-card))",
-                  borderColor: "color-mix(in srgb, var(--color-altus-red) 48%, transparent)",
-                  boxShadow:
-                    "0 28px 64px -14px rgba(225,6,0,0.4), 0 0 0 4px color-mix(in srgb, var(--color-altus-red) 12%, transparent), inset 0 1px 0 rgba(255,255,255,0.6)",
-                  transform: "rotate(-2.5deg) scale(1.04)",
-                  cursor: "grabbing",
-                }}
-              >
-                <ProgressRing pct={effectiveGoalPct(activeDrag)} tone="slate" />
-                <span className="max-w-[320px] truncate text-[14.5px] font-bold" style={{ color: "var(--color-ink-strong)" }}>
-                  {activeDrag.title}
-                </span>
-              </div>
-            )}
-          </DragOverlay>
-        </DndContext>
+            <div className="flex flex-col gap-3.5">
+              {inBucket.length === 0 ? (
+                <EmptyState periodLabel={periodKeyLabel(props.periodKey)} />
+              ) : displayed.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-hairline-strong bg-surface-card px-6 py-8 text-center">
+                  <p className="text-[15px] font-bold text-ink-strong">No goals match these filters</p>
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className={`mt-3 cursor-pointer inline-flex items-center gap-1.5 rounded-full bg-altus-red px-4 py-2 text-[13px] font-bold text-white ${FOCUS_RING}`}
+                  >
+                    <X size={14} strokeWidth={2.6} /> Clear filters
+                  </button>
+                </div>
+              ) : (
+                /* The goals LIST is now a prominent inline-editable TABLE
+                   (Area · Goal · Measure · Target/Actual · %Done · Team% ·
+                   Members · Share · Type + bulk bar). */
+                <GoalTableView
+                  goals={displayed}
+                  canWrite={canWrite}
+                  isAdmin={props.isAdmin}
+                  roster={props.roster}
+                  areaOptions={areaOptions}
+                  measureOptions={measureOptions}
+                  typeOptions={typeOptions}
+                  customLookups={customLookups}
+                  fyStartYear={fy}
+                  level={props.level}
+                  actions={LEVEL_TABLE_ACTIONS}
+                />
+              )}
+
+              {canWrite && (
+                <BoardQuickAdd
+                  ref={quickAddRef}
+                  employeeId={props.viewedEmployeeId}
+                  level={props.level}
+                  periodKey={props.periodKey}
+                  parent={parentGoal}
+                  areaOptions={areaOptions}
+                  measureOptions={measureOptions}
+                  typeOptions={typeOptions}
+                  customLookups={customLookups}
+                  isAdmin={props.isAdmin}
+                  roster={props.roster}
+                  currentCount={inBucket.length}
+                  mutation={mutation}
+                  existingTitles={levelGoals
+                    .filter((g) => g.periodKey === props.periodKey)
+                    .map((g) => g.title)}
+                />
+              )}
+            </div>
+
+            {/* Drag ghost — a lean copy of the row being carried. The overlay
+                wrapper defaults to the ACTIVE node's size (a full-width row!),
+                which looked like a giant white bar sweeping the page — size it
+                to the ghost's own content instead. */}
+            <DragOverlay
+              dropAnimation={{ duration: 220, easing: "cubic-bezier(0.2,0,0,1)" }}
+              style={{ width: "max-content", height: "auto" }}
+            >
+              {activeDrag && (
+                <div
+                  className="flex items-center gap-3 rounded-2xl border px-4 py-3"
+                  style={{
+                    background: "linear-gradient(135deg, color-mix(in srgb, var(--color-altus-red) 6%, var(--color-surface-card)), var(--color-surface-card))",
+                    borderColor: "color-mix(in srgb, var(--color-altus-red) 48%, transparent)",
+                    boxShadow:
+                      "0 28px 64px -14px rgba(225,6,0,0.4), 0 0 0 4px color-mix(in srgb, var(--color-altus-red) 12%, transparent), inset 0 1px 0 rgba(255,255,255,0.6)",
+                    transform: "rotate(-2.5deg) scale(1.04)",
+                    cursor: "grabbing",
+                  }}
+                >
+                  <ProgressRing pct={effectiveGoalPct(activeDrag)} tone="slate" />
+                  <span className="max-w-[320px] truncate text-[14.5px] font-bold" style={{ color: "var(--color-ink-strong)" }}>
+                    {activeDrag.title}
+                  </span>
+                </div>
+              )}
+            </DragOverlay>
+          </DndContext>
+        )}
       </div>
 
       {/* One shared archive dialog for the whole board. */}

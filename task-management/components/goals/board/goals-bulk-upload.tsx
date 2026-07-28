@@ -19,6 +19,7 @@ import {
 import { bulkCreateGoals } from "@/app/(app)/goals/cascade/actions";
 import { fireToast } from "@/lib/toast";
 import { periodKeyLabel } from "@/components/goals/cascade/util";
+import { columnForHeader, normKey } from "@/lib/goals/template-columns";
 import type { GoalPeriod } from "@/lib/goals/types";
 
 const FOCUS_RING =
@@ -33,38 +34,10 @@ const LEVEL_LABEL: Record<GoalPeriod, string> = {
   day: "Daily",
 };
 
-/* ------------------------------------------------------------------ */
-/* Template — LEVEL-AWARE (title, sheet name + filename all differ)    */
-/* ------------------------------------------------------------------ */
-
-// Current goal columns (incentive retired). Only "Goal" is required.
-const TEMPLATE_HEADERS = ["Area", "Goal", "Measure", "Actual", "Target", "Type", "Weight"];
-
-const TEMPLATE_EXAMPLE = [
-  ["Revenue", "Close 12 enterprise deals", "Nos.", "0", "12", "Operational", "150"],
-  ["Health", "Exercise 3x every week", "Yes/No", "", "", "Goal", "100"],
-  ["Strategy", "Launch the v2 client portal", "Nos.", "0", "1", "Milestone", "120"],
-];
-
-/** A slug that's safe in a filename (letters/digits/dashes). */
-function slug(s: string): string {
-  return s.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "goals";
-}
-
-function downloadXlsxTemplate(level: GoalPeriod, periodKey: string, bucketLabel: string): void {
-  const levelName = LEVEL_LABEL[level];
-  // Row 1 is a human title banner; row 2 is a hint; row 3 is the HEADER row the
-  // importer reads; then the examples. The importer auto-detects the header row
-  // by matching known column names, so the banner rows are ignored on re-upload.
-  const banner = [`Altus · ${levelName} Goals template — ${bucketLabel}`];
-  const hint = ["Fill ONE goal per row below the header. Only ‘Goal’ is required. Delete these first 3 rows or leave them — they're ignored on upload."];
-  const aoa = [banner, hint, TEMPLATE_HEADERS, ...TEMPLATE_EXAMPLE];
-
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [{ wch: 16 }, { wch: 36 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 16 }, { wch: 9 }];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, `${levelName} Goals`);
-  XLSX.writeFile(wb, `altus-${slug(levelName)}-goals-${slug(periodKey)}-template.xlsx`);
+/** The enterprise exceljs template (branded, validated dropdowns, frozen panes),
+ *  generated server-side and pre-scoped to the viewed level + period bucket. */
+function templateUrl(level: GoalPeriod, periodKey: string): string {
+  return `/goals/template.xlsx?level=${encodeURIComponent(level)}&periodKey=${encodeURIComponent(periodKey)}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -73,24 +46,29 @@ function downloadXlsxTemplate(level: GoalPeriod, periodKey: string, bucketLabel:
 
 type Field = "area" | "title" | "uom" | "weight" | "target" | "actual" | "category";
 
-function norm(s: unknown): string {
-  return String(s ?? "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-}
+const norm = normKey;
+
+/** Manifest field → this board's simplified Field (the board imports into ONE
+ *  bucket, so Level/Owner/period columns are intentionally ignored). */
+const BOARD_FIELD: Record<string, Field> = {
+  title: "title",
+  area: "area",
+  uom: "uom",
+  weight: "weight",
+  targetQty: "target",
+  actualQty: "actual",
+  category: "category",
+};
 
 function mapHeader(raw: string): Field | null {
-  const h = norm(raw);
-  if (!h) return null;
-  if (h.includes("weight") || h === "wt") return "weight";
-  if (h.includes("measure") || h.includes("uom") || h === "unit" || h.includes("unitofmeasure")) return "uom";
-  if (h.includes("actual") || h.includes("achieved") || h.includes("done")) return "actual";
-  if (h.includes("target") || h.includes("quantity") || h === "qty") return "target";
-  if (h.includes("type") || h.includes("category") || h === "kind") return "category";
-  if (h.includes("area") || h.includes("function") || h.includes("department")) return "area";
-  if (h.includes("goal") || h.includes("title") || h.includes("objective") || h.includes("kpi") || h.includes("what"))
-    return "title";
-  return null;
+  const k = norm(raw);
+  if (!k) return null;
+  // Legacy board template used "Type" to mean the category tag.
+  if (k === "type") return "category";
+  // Precise, manifest-driven mapping (round-trips the exceljs template — no more
+  // "Goal Level"/"Goal Owner" accidentally matching the Title column).
+  const field = columnForHeader(raw)?.field;
+  return field ? (BOARD_FIELD[field] ?? null) : null;
 }
 
 /** Find the row index whose cells map to ≥2 known fields (the header row). */
@@ -378,7 +356,7 @@ export function GoalsBulkUpload(props: Props) {
         }}
       >
         <Upload size={15} strokeWidth={2.4} />
-        Bulk upload
+        Bulk Upload
       </button>
 
       {open &&
@@ -387,7 +365,7 @@ export function GoalsBulkUpload(props: Props) {
             <div
               role="dialog"
               aria-modal="true"
-              aria-label={`Bulk upload ${levelName.toLowerCase()} goals`}
+              aria-label={`Bulk Upload ${levelName.toLowerCase()} goals`}
               className="wg-rise flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-[22px]"
               style={{
                 background: "var(--color-surface-card)",
@@ -414,7 +392,7 @@ export function GoalsBulkUpload(props: Props) {
                   </span>
                   <div className="min-w-0">
                     <h2 className="font-bold text-ink-strong" style={{ fontSize: 19, letterSpacing: "-0.01em" }}>
-                      Bulk upload · {levelName} goals
+                      Bulk Upload · {levelName} goals
                     </h2>
                     <p className="mt-0.5 text-[13px] font-semibold" style={{ color: "var(--color-ink-muted)" }}>
                       Into <strong className="text-ink-strong">{bucketLabel}</strong> · rows are appended (existing goals are kept)
@@ -441,13 +419,12 @@ export function GoalsBulkUpload(props: Props) {
                   <span className="text-[12px] font-bold uppercase tracking-[0.06em]" style={{ color: "var(--color-ink-subtle)" }}>
                     {levelName} template
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => downloadXlsxTemplate(props.level, props.periodKey, bucketLabel)}
+                  <a
+                    href={templateUrl(props.level, props.periodKey)}
                     className={`wg-btn inline-flex items-center gap-1.5 rounded-full border border-hairline-strong bg-surface-card px-3 py-1.5 text-[12.5px] font-bold text-ink-strong hover:brightness-95 cursor-pointer ${FOCUS_RING}`}
                   >
                     <Download size={14} strokeWidth={2.4} /> Download Excel
-                  </button>
+                  </a>
                   <div className="ml-auto flex items-center gap-2">
                     {fileName && (
                       <span className="max-w-[180px] truncate text-[12.5px] font-semibold" style={{ color: "var(--color-ink-muted)" }}>

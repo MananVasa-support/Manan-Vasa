@@ -125,7 +125,7 @@ export function AccountsTaskImport() {
                   className="text-ink-strong"
                   style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 21, letterSpacing: "-0.02em" }}
                 >
-                  Bulk import
+                  Bulk Import
                 </Dialog.Title>
                 <Dialog.Description className="mt-1 text-ink-muted" style={{ fontSize: 13.5, maxWidth: "52ch" }}>
                   Upload an Excel/CSV. Task rows and Screenshots-to-Post rows on the

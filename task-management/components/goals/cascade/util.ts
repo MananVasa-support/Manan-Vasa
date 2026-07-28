@@ -38,8 +38,16 @@ export function fyLabel(fyStartYear: number): string {
 }
 
 /** Human label for any period key. Year → "FY 2026–27", quarter → "Q1 · Apr–Jun",
- *  month → "Jul 2026". */
+ *  month → "Jul 2026", week (Monday ISO) → "Wk of 13 Jul". */
 export function periodKeyLabel(periodKey: string): string {
+  // Week leaf = a Monday date ('YYYY-MM-DD') — `periodOfKey` doesn't classify it
+  // (weeks live on weekly_goals), so name it here so re-home toasts on the
+  // Monthly hierarchy board read cleanly.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(periodKey)) {
+    const d = Number(periodKey.slice(8, 10));
+    const m = Number(periodKey.slice(5, 7)) - 1;
+    return `Wk of ${d} ${MONTHS[m] ?? ""}`.trim();
+  }
   const period = periodOfKey(periodKey);
   if (period === "year") return fyLabel(Number(periodKey));
   if (period === "quarter") {
@@ -51,8 +59,13 @@ export function periodKeyLabel(periodKey: string): string {
   return `${MONTHS[m]} ${y}`;
 }
 
-/** Short label — "Q1", "Jul", "FY26". */
+/** Short label — "Q1", "Jul", "FY26", week → "Jul 13". */
 export function periodKeyShort(periodKey: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(periodKey)) {
+    const d = Number(periodKey.slice(8, 10));
+    const m = Number(periodKey.slice(5, 7)) - 1;
+    return `${MONTHS[m] ?? ""} ${d}`.trim();
+  }
   const period = periodOfKey(periodKey);
   if (period === "year") return `FY${String(Number(periodKey) % 100)}`;
   if (period === "quarter") return `Q${quarterOfKey(periodKey)}`;
@@ -133,6 +146,69 @@ export const GOALS_ACCENT = "#E10600"; // Altus brand red — in-module chrome i
 export const GOALS_ACCENT_DEEP = "#A80400";
 
 /* ------------------------------------------------------------------ */
+/* Target Date (deadline) — colour + label for month/week goals only.  */
+/* Year/Quarter carry no target date (their progress rolls up).        */
+/* ------------------------------------------------------------------ */
+
+export interface TargetDateStatus {
+  tone: "ok" | "warn" | "over";
+  /** semantic hex — green (ok) / amber (warn) / red (over). */
+  color: string;
+  /** short human label: "in 12 days" · "in 3 days" · "today" · "2 days ago". */
+  label: string;
+  /** whole days from today (local): >0 future, 0 today, <0 past. null when no date. */
+  daysLeft: number | null;
+}
+
+/** Midnight-local day index for a Date (drops the time so day-diffs are exact). */
+function dayIndex(d: Date): number {
+  return Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 86_400_000);
+}
+
+/**
+ * Deadline health for a goal's target date (ISO 'YYYY-MM-DD'):
+ *   >7 days remaining → green (ok) · ≤7 days incl. today → amber (warn) · past → red (over).
+ * Days are counted from *today* in local time. null / blank → no chip (returns tone "ok"
+ * with daysLeft null; callers should skip rendering when daysLeft == null).
+ */
+export function targetDateStatus(iso: string | null | undefined): TargetDateStatus {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    return { tone: "ok", color: "#15803d", label: "", daysLeft: null };
+  }
+  const target = new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
+  const days = dayIndex(target) - dayIndex(new Date());
+
+  const label =
+    days > 1
+      ? `in ${days} days`
+      : days === 1
+        ? "tomorrow"
+        : days === 0
+          ? "today"
+          : days === -1
+            ? "yesterday"
+            : `${Math.abs(days)} days ago`;
+
+  if (days < 0) return { tone: "over", color: "#b91c1c", label, daysLeft: days };
+  if (days <= 7) return { tone: "warn", color: "#b45309", label, daysLeft: days };
+  return { tone: "ok", color: "#15803d", label, daysLeft: days };
+}
+
+/** A goal carries a target date only at MONTH or WEEK level (never year/quarter). */
+export function goalTakesTargetDate(period: GoalPeriod): boolean {
+  return period === "month" || period === "week";
+}
+
+/** Format an ISO date as "12 Jul 2026" for the chip. Blank/invalid → "". */
+export function fmtTargetDate(iso: string | null | undefined): string {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
+  const y = iso.slice(0, 4);
+  const mo = Number(iso.slice(5, 7));
+  const da = Number(iso.slice(8, 10));
+  return `${da} ${MONTHS[mo - 1] ?? ""} ${y}`;
+}
+
+/* ------------------------------------------------------------------ */
 /* Auto-naming codes (Sir): Y1 → AQ1/JuQ1/OQ1/JQ1 → JulM1 → W1..W52    */
 /* ------------------------------------------------------------------ */
 
@@ -186,6 +262,72 @@ export function originStyle(g: {
   if (isSpillover(g)) return { color: ORIGIN_RED, label: "Spillover", kind: "spillover" };
   if (g.source === "cascade") return { color: ORIGIN_BLUE, label: "Auto", kind: "cascade" };
   return { color: ORIGIN_BLACK, label: "Manual", kind: "manual" };
+}
+
+/* ------------------------------------------------------------------ */
+/* Assignment type — Self vs Assigned (a first-class, derived field)    */
+/* ------------------------------------------------------------------ */
+
+export interface AssignmentInfo {
+  /** "self" when the owner created the row, "assigned" when someone else did. */
+  type: "self" | "assigned";
+  /** Creator's display name (assigned only) — null when unknown / off-roster. */
+  by: string | null;
+  /** Formatted creation date (assigned only) — "12 Jul 2026", or null. */
+  on: string | null;
+  /** Human assignment-source label: Direct · Cascaded · Bulk import. */
+  source: string;
+}
+
+/** Map `goals.source` → a human "Assignment Source" label. `manual` = Direct
+ *  (typed in by hand), `cascade` = Cascaded (auto-derived from a parent). A bulk
+ *  spreadsheet import is not yet a distinct source, so it also reads "Direct"
+ *  (the Excel-template task adds a distinguishable import source + columns). */
+export function assignmentSourceLabel(source: string): string {
+  switch (source) {
+    case "cascade":
+      return "Cascaded";
+    case "import":
+    case "bulk":
+    case "bulk_import":
+      return "Bulk import";
+    case "manual":
+    default:
+      return "Direct";
+  }
+}
+
+/**
+ * Derive the first-class Assignment Type for a goal. Self ⇔ the creator IS the
+ * owner (no creator recorded, or creator == owner). Otherwise it was assigned to
+ * the owner by someone else — expose who (`by`), when (`on`) and how (`source`).
+ * Pure + client-safe; names/dates come pre-resolved on the DTO.
+ */
+export function assignmentInfo(g: {
+  employeeId: string;
+  createdById?: string | null;
+  createdAt: string | null;
+  createdByName: string | null;
+  source: string;
+}): AssignmentInfo {
+  const assigned = g.createdById != null && g.createdById !== g.employeeId;
+  if (!assigned) return { type: "self", by: null, on: null, source: "Direct" };
+  return {
+    type: "assigned",
+    by: g.createdByName,
+    on: g.createdAt ? fmtTargetDate(g.createdAt.slice(0, 10)) : null,
+    source: assignmentSourceLabel(g.source),
+  };
+}
+
+/** One-line tooltip/summary for an assigned goal ("Assigned by X · date · src").
+ *  Self → "Self-created". */
+export function assignmentSummary(info: AssignmentInfo): string {
+  if (info.type === "self") return "Self-created";
+  const bits = [info.by ? `Assigned by ${info.by}` : "Assigned"];
+  if (info.on) bits.push(info.on);
+  bits.push(info.source);
+  return bits.join(" · ");
 }
 
 /* ------------------------------------------------------------------ */
@@ -244,9 +386,14 @@ export interface GoalDTO {
   id: string;
   employeeId: string;
   /** Who created the row. Optional (older rows / temp optimistic rows omit it).
-   *  Drives the Mine (created by the owner) vs Assigned (created by a manager)
-   *  badge on the level board. */
+   *  Drives the Self (created by the owner) vs Assigned (created by a manager)
+   *  badge on the level board — see `assignmentInfo`. */
   createdById?: string | null;
+  /** When the row was created (ISO) — the "Assigned On" date. null on temp rows. */
+  createdAt: string | null;
+  /** Display name of the creator, resolved from the loaded roster (load-neutral) —
+   *  the "Assigned By" name. null when self-created or the creator is off-roster. */
+  createdByName: string | null;
   period: GoalPeriod;
   periodKey: string;
   parentGoalId: string | null;
@@ -281,6 +428,14 @@ export interface GoalDTO {
   monthlyMasterRef: MonthlyMasterRef | null;
   /** "Share with team" Yes/No (mig 0149). */
   shareWithTeam: boolean;
+  /** Deadline (ISO 'YYYY-MM-DD') — set ONLY on month/week goals (mig 0169). */
+  targetDate: string | null;
+  /** Task status (goals.status). OPTIONAL — in-flight optimistic temp rows omit
+   *  it; the loaders select the full row so real DTOs always carry it. */
+  status?: string | null;
+  /** Designated reviewer (goals.reviewed_by_id), or null. OPTIONAL for the same
+   *  temp-row reason; resolve the name from the roster on the client. */
+  reviewedById?: string | null;
 }
 
 export interface GoalNodeDTO extends GoalDTO {
@@ -305,6 +460,8 @@ export function toGoalDTO(r: {
   id: string;
   employeeId: string;
   createdById?: string | null;
+  createdAt?: string | Date | null;
+  createdByName?: string | null;
   period: string;
   periodKey: string;
   parentGoalId: string | null;
@@ -333,11 +490,26 @@ export function toGoalDTO(r: {
   incentiveKind?: string | null;
   monthlyMasterRef?: { kind: string; id: string; label: string } | null;
   shareWithTeam?: boolean;
+  targetDate?: string | Date | null;
+  status?: string | null;
+  reviewedById?: string | null;
 }): GoalDTO {
   return {
     id: r.id,
     employeeId: r.employeeId,
     createdById: r.createdById ?? null,
+    // timestamp columns round-trip as a Date (drizzle) or an ISO string; keep the
+    // full ISO so `assignmentInfo` can format the "Assigned On" date.
+    createdAt:
+      r.createdAt == null
+        ? null
+        : typeof r.createdAt === "string"
+          ? r.createdAt
+          : r.createdAt.toISOString(),
+    // Resolved by the loader from the already-loaded roster (load-neutral); the
+    // server actions can't cheaply resolve it, so their reconciled rows carry
+    // null until the next RSC payload re-hydrates the name.
+    createdByName: r.createdByName ?? null,
     period: r.period as GoalPeriod,
     periodKey: r.periodKey,
     parentGoalId: r.parentGoalId,
@@ -366,6 +538,15 @@ export function toGoalDTO(r: {
     incentiveAmount: r.incentiveAmount ?? null,
     incentiveKind: r.incentiveKind ?? null,
     monthlyMasterRef: r.monthlyMasterRef ?? null,
+    // date columns round-trip as 'YYYY-MM-DD' strings; a Date (rare) → ISO date.
+    targetDate:
+      r.targetDate == null
+        ? null
+        : typeof r.targetDate === "string"
+          ? r.targetDate.slice(0, 10)
+          : r.targetDate.toISOString().slice(0, 10),
+    status: r.status ?? null,
+    reviewedById: r.reviewedById ?? null,
   };
 }
 

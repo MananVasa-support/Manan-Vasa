@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { addGoalLookup, removeGoalLookup } from "@/app/(app)/goals/cascade/actions";
 import { fireToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { focusNextFrom } from "@/lib/focus-next";
 
 const FOCUS_RING =
   "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-soft)]";
@@ -54,9 +55,18 @@ export function GoalLookupSelect({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const searchRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
   const deletableSet = React.useMemo(() => new Set(deletable.map((d) => d.toLowerCase())), [deletable]);
 
-  // Search box appears once the list gets long enough to warrant it.
+  // Spreadsheet-grade keyboard: a search input ALWAYS holds focus while the panel
+  // is open (visible once the list is long, else visually-hidden but still
+  // typable), and the FIRST filtered option is auto-highlighted. ↑/↓ + Home/End
+  // move the highlight; Enter OR Tab commit it (Tab then advances to the next
+  // cell); Esc closes. `active` is the highlighted index into `filtered`.
+  const [active, setActive] = React.useState(0);
+
+  // Search box shows once the list gets long enough to warrant it (the input
+  // stays mounted either way so type-ahead + arrow nav work on short lists too).
   const showSearch = opts.length > 8;
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -67,21 +77,59 @@ export function GoalLookupSelect({
     if (adding) requestAnimationFrame(() => inputRef.current?.focus());
   }, [adding]);
 
-  // Reset the query each time the panel (re)opens; when a search box shows,
-  // focus it so the keyboard-first flow is type-immediately-then-arrow-down.
+  // Reset query + highlight and focus the search box each time the panel opens.
   React.useEffect(() => {
     if (open) {
       setQuery("");
-      if (showSearch) requestAnimationFrame(() => searchRef.current?.focus());
+      setActive(0);
+      requestAnimationFrame(() => searchRef.current?.focus());
     }
-  }, [open, showSearch]);
+  }, [open]);
 
-  function moveFocus(dir: 1 | -1) {
-    const btns = Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>("[data-opt]") ?? []);
-    if (!btns.length) return;
-    const idx = btns.findIndex((b) => b === document.activeElement);
-    const next = dir === 1 ? Math.min(btns.length - 1, idx + 1) : Math.max(0, idx < 0 ? 0 : idx - 1);
-    btns[next]?.focus();
+  // Keep the highlight in range as the filter narrows, and scroll it into view.
+  React.useEffect(() => {
+    setActive((a) => Math.min(Math.max(0, a), Math.max(0, filtered.length - 1)));
+  }, [filtered.length]);
+  React.useEffect(() => {
+    if (!open) return;
+    listRef.current?.querySelector<HTMLElement>(`[data-opt="${active}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [active, open]);
+
+  /** Commit the option at index `i` (if any) and close. */
+  function commitAt(i: number): boolean {
+    const o = filtered[i];
+    if (o == null) return false;
+    onChange(o);
+    setOpen(false);
+    return true;
+  }
+
+  function onSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive((a) => Math.min(filtered.length - 1, a + 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((a) => Math.max(0, a - 1));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setActive(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setActive(Math.max(0, filtered.length - 1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (commitAt(active)) requestAnimationFrame(() => triggerRef.current?.focus());
+    } else if (e.key === "Tab") {
+      // Commit the highlight, then let Tab ADVANCE to the next cell (spreadsheet flow).
+      e.preventDefault();
+      commitAt(active);
+      setOpen(false);
+      requestAnimationFrame(() => focusNextFrom(triggerRef.current, e.shiftKey ? -1 : 1));
+    } else if (e.key === "Escape") {
+      setOpen(false);
+      requestAnimationFrame(() => triggerRef.current?.focus());
+    }
   }
 
   async function commitAdd() {
@@ -123,6 +171,7 @@ export function GoalLookupSelect({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
+          ref={triggerRef}
           type="button"
           className={cn(
             "group/gdd flex w-full items-center justify-between gap-2 text-left text-ink-strong",
@@ -150,6 +199,10 @@ export function GoalLookupSelect({
       <PopoverContent
         align="start"
         sideOffset={8}
+        // Don't let Radix restore focus to the trigger on close — Tab-to-commit
+        // manages focus itself (commit → advance to the next cell), and auto-
+        // restore would fight the browser's Tab advance.
+        onCloseAutoFocus={(e) => e.preventDefault()}
         className="gdd-panel w-[var(--radix-popover-trigger-width)] min-w-[13rem] p-1.5"
       >
         {/* Keyboard: a search box (long lists) or the first option takes focus on
@@ -157,60 +210,52 @@ export function GoalLookupSelect({
             from the PopoverContent primitive (z-[200]) so the panel always sits
             ABOVE the z-120 WeeklyGoalDrawer + the sticky header — do NOT re-set it
             here or the list buries itself behind the drawer (the old "broken" bug). */}
-        {showSearch && (
-          <div className="px-1 pb-1.5">
-            <div className="flex items-center gap-2 rounded-lg border border-hairline bg-white/70 px-2.5">
-              <Search size={14} className="shrink-0 text-ink-subtle" />
-              <input
-                ref={searchRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "ArrowDown") { e.preventDefault(); moveFocus(1); }
-                  else if (e.key === "Escape") { setOpen(false); }
-                }}
-                placeholder={`Search ${noun.toLowerCase()}…`}
-                aria-label={`Search ${noun}`}
-                className="h-9 w-full bg-transparent text-[13.5px] font-medium text-ink-strong outline-none placeholder:text-ink-subtle"
-              />
-            </div>
+        {/* Search input ALWAYS mounted (visually hidden on short lists) so it can
+            hold focus for arrow-nav + type-ahead + Enter/Tab commit everywhere. */}
+        <div className={showSearch ? "px-1 pb-1.5" : "sr-only"}>
+          <div className="flex items-center gap-2 rounded-lg border border-hairline bg-white/70 px-2.5">
+            <Search size={14} className="shrink-0 text-ink-subtle" />
+            <input
+              ref={searchRef}
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setActive(0); }}
+              onKeyDown={onSearchKeyDown}
+              placeholder={`Search ${noun.toLowerCase()}…`}
+              aria-label={`Search ${noun}`}
+              className="h-9 w-full bg-transparent text-[13.5px] font-medium text-ink-strong outline-none placeholder:text-ink-subtle"
+            />
           </div>
-        )}
-        <div
-          ref={listRef}
-          className="gdd-scroll max-h-72 overflow-auto"
-          role="listbox"
-          onKeyDown={(e) => {
-            if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-            e.preventDefault();
-            moveFocus(e.key === "ArrowDown" ? 1 : -1);
-          }}
-        >
-          {filtered.map((o) => {
+        </div>
+        <div ref={listRef} className="gdd-scroll max-h-72 overflow-auto" role="listbox">
+          {filtered.map((o, i) => {
             const isSel = o.toLowerCase() === value.toLowerCase();
+            const isActive = i === active;
             const canDelete = isAdmin && deletableSet.has(o.toLowerCase());
             return (
               <div
                 key={o}
                 className={cn(
                   "group flex items-center gap-2 rounded-lg px-2.5 py-2 transition-colors",
-                  isSel
-                    ? ""
-                    : "hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)]",
+                  !isSel && !isActive && "hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)]",
                 )}
-                style={isSel ? { background: "color-mix(in srgb, var(--color-altus-red) 12%, transparent)" } : undefined}
+                style={{
+                  background: isSel
+                    ? "color-mix(in srgb, var(--color-altus-red) 12%, transparent)"
+                    : isActive
+                      ? "color-mix(in srgb, var(--color-altus-red) 8%, transparent)"
+                      : undefined,
+                }}
               >
                 <button
                   type="button"
-                  data-opt
+                  data-opt={i}
                   role="option"
-                  aria-selected={isSel}
+                  aria-selected={isActive}
+                  tabIndex={-1}
+                  onMouseEnter={() => setActive(i)}
                   onClick={() => {
                     onChange(o);
                     setOpen(false);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onChange(o); setOpen(false); }
                   }}
                   className={cn("flex min-w-0 flex-1 items-center gap-2 rounded-md text-left", FOCUS_RING)}
                 >

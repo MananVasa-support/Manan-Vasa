@@ -120,6 +120,9 @@ export default async function GoalsWeeklyPage({ searchParams }: PageProps) {
         monthGoalId: weeklyGoals.monthGoalId,
         monthGoalTitle: parentGoal.title,
         monthGoalPeriodKey: parentGoal.periodKey,
+        targetDate: weeklyGoals.targetDate,
+        createdById: weeklyGoals.createdById,
+        createdAt: weeklyGoals.createdAt,
       })
       .from(weeklyGoals)
       .innerJoin(employees, eq(weeklyGoals.employeeId, employees.id))
@@ -212,6 +215,9 @@ export default async function GoalsWeeklyPage({ searchParams }: PageProps) {
     carriedFromId: r.carriedFromId,
     monthGoalId: r.monthGoalId,
     monthGoalTitle: r.monthGoalTitle ?? null,
+    targetDate: r.targetDate == null ? null : String(r.targetDate).slice(0, 10),
+    createdById: r.createdById ?? null,
+    createdAt: r.createdAt == null ? null : new Date(r.createdAt).toISOString(),
   }));
 
   const monthGoalOptions: MonthGoalOption[] = monthGoalRows.map((g) => ({

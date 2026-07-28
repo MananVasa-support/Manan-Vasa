@@ -1,13 +1,14 @@
 "use server";
 
 import * as XLSX from "xlsx";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { goals, employees } from "@/db/schema";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { goalScopeFor, canManageGoalFor } from "@/lib/goals/scope";
+import { autoPctDone, statusForPct } from "@/lib/goals/auto-pct";
 import {
   yearKey,
   quarterKey,
@@ -15,46 +16,45 @@ import {
   fyStartYearOfKey,
 } from "@/lib/goals/types";
 import type { GoalPeriod } from "@/lib/goals/types";
+import {
+  columnForHeader,
+  normKey,
+  statusToCode,
+  goalTypeToCode,
+  incentiveKindToCode,
+  visibilityToShare,
+  yesNoToBool,
+} from "@/lib/goals/template-columns";
 
 type ActionOk<T> = T extends undefined ? { ok: true } : { ok: true } & T;
 type ActionResult<T = undefined> = ActionOk<T> | { ok: false; error: string };
 
-/* Header → field mapping (mirrors importWeeklyGoals). */
-type ImportField =
-  | "employee"
-  | "period"
-  | "periodKey"
-  | "area"
-  | "title"
-  | "uom"
-  | "targetQty"
-  | "targetAmount"
-  | "team"
-  | "dependency"
-  | "weight"
-  | "notes";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function normHeader(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
+/* ------------------------------------------------------------------ */
+/* Header mapping — driven by the ONE manifest, plus a "periodKey"      */
+/* pseudo-field for the legacy cascade CSV (Employee/Period/PeriodKey). */
+/* ------------------------------------------------------------------ */
+type Field = string; // a manifest column `field`, or "periodKey" pseudo-field
+
+function mapHeader(raw: string): Field | null {
+  const k = normKey(raw);
+  if (["periodkey", "key", "bucket", "when"].includes(k)) return "periodKey";
+  return columnForHeader(raw)?.field ?? null;
 }
 
-function mapHeader(raw: string): ImportField | null {
-  const h = normHeader(raw);
-  if (["employee", "email", "person", "name", "owner"].includes(h)) return "employee";
-  if (["period", "level", "type"].includes(h)) return "period";
-  if (["periodkey", "key", "bucket", "when", "quarter", "month", "year"].includes(h)) return "periodKey";
-  if (["area", "category", "pillar"].includes(h)) return "area";
-  if (["goal", "title", "objective", "target"].includes(h)) return "title";
-  if (["uom", "unit", "unitofmeasurement", "measure"].includes(h)) return "uom";
-  if (["tgt", "targetqty", "targetquantity", "qty", "quantity"].includes(h)) return "targetQty";
-  if (["tgtamt", "targetamount", "amount", "targetamt", "value"].includes(h)) return "targetAmount";
-  if (["team", "teaminvolved", "involved"].includes(h)) return "team";
-  if (["dependency", "dependencypct", "depend", "dependencypercent"].includes(h)) return "dependency";
-  if (["weight", "wt"].includes(h)) return "weight";
-  if (["notes", "note", "remarks", "comment"].includes(h)) return "notes";
-  return null;
+/** Find the header row (banner rows sit above it in the styled template). */
+function findHeaderRow(matrix: unknown[][]): number {
+  for (let r = 0; r < Math.min(matrix.length, 8); r++) {
+    const mapped = (matrix[r] ?? []).map((c) => mapHeader(String(c))).filter(Boolean).length;
+    if (mapped >= 2) return r;
+  }
+  return 0;
 }
 
+/* ------------------------------------------------------------------ */
+/* Value coercion                                                      */
+/* ------------------------------------------------------------------ */
 function cleanText(v: unknown, max: number): string {
   return String(v ?? "").trim().slice(0, max);
 }
@@ -71,30 +71,60 @@ function parseMoney(v: unknown): string | null {
   return Number.isFinite(n) ? n.toFixed(2) : null;
 }
 
-/** Resolve a free-text period + key cell into a canonical (period, periodKey). */
-function resolvePeriod(periodRaw: string, keyRaw: string): { period: GoalPeriod; periodKey: string } | null {
-  const p = normHeader(periodRaw);
-  const key = keyRaw.trim();
-  let period: GoalPeriod | null = null;
-  if (["year", "yearly", "annual", "y"].includes(p)) period = "year";
-  else if (["quarter", "quarterly", "q"].includes(p)) period = "quarter";
-  else if (["month", "monthly", "m"].includes(p)) period = "month";
+function parseTeam(v: unknown): Array<{ name: string }> | null {
+  const raw = String(v ?? "").trim();
+  if (!raw) return null;
+  const names = raw.split(/[;,|]/).map((s) => s.trim()).filter(Boolean);
+  return names.length ? names.map((name) => ({ name })) : null;
+}
 
-  // Infer from the key shape when the period column is blank/ambiguous.
+/** ISO date 'YYYY-MM-DD' or null. */
+function parseIsoDate(v: unknown): string | null {
+  const s = String(v ?? "").trim().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+}
+
+const MONTH_NAME_TO_NUM: Record<string, number> = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+};
+
+/** "07 Jul" | "Jul" | "7" | "2026-07" → MM ('07') for a given year, or null. */
+function parseMonthNumber(raw: string): string | null {
+  const s = raw.trim();
+  if (/^\d{4}-\d{2}$/.test(s)) return s.slice(5, 7);
+  const num = s.match(/\b(1[0-2]|0?[1-9])\b/);
+  if (num) return String(Number(num[1])).padStart(2, "0");
+  const name = s.slice(0, 3).toLowerCase();
+  const mo = MONTH_NAME_TO_NUM[name];
+  return mo ? String(mo).padStart(2, "0") : null;
+}
+
+function mapLevel(raw: string): GoalPeriod | null {
+  const k = normKey(raw);
+  if (["year", "yearly", "annual", "y"].includes(k)) return "year";
+  if (["quarter", "quarterly", "q"].includes(k)) return "quarter";
+  if (["month", "monthly", "m"].includes(k)) return "month";
+  if (["week", "weekly", "w"].includes(k)) return "week";
+  if (["day", "daily", "d"].includes(k)) return "day";
+  return null;
+}
+
+/** Legacy fallback: resolve a free-text (period, key) pair, shape-inferring. */
+function resolvePeriodLegacy(periodRaw: string, keyRaw: string): { period: GoalPeriod; periodKey: string } | null {
+  let period = mapLevel(periodRaw);
+  const key = keyRaw.trim();
   if (!period) {
     if (/^\d{4}$/.test(key)) period = "year";
     else if (/-Q[1-4]$/i.test(key)) period = "quarter";
     else if (/^\d{4}-\d{2}$/.test(key)) period = "month";
   }
   if (!period) return null;
-
   if (period === "year") {
-    const y = /^\d{4}$/.test(key) ? key : String(yearKey(new Date()));
-    return { period, periodKey: y };
+    return { period, periodKey: /^\d{4}$/.test(key) ? key : String(yearKey(new Date())) };
   }
   if (period === "quarter") {
     if (/^\d{4}-Q[1-4]$/i.test(key)) return { period, periodKey: key.toUpperCase() };
-    // "Q1 2026" / "2026 Q1"
     const m = key.match(/(\d{4}).*Q([1-4])|Q([1-4]).*(\d{4})/i);
     if (m) {
       const yr = m[1] ?? m[4];
@@ -103,16 +133,68 @@ function resolvePeriod(periodRaw: string, keyRaw: string): { period: GoalPeriod;
     }
     return { period, periodKey: quarterKey(new Date()) };
   }
-  // month
   if (/^\d{4}-\d{2}$/.test(key)) return { period, periodKey: key };
   return { period, periodKey: monthKey(new Date()) };
 }
 
-function parseTeam(v: unknown): Array<{ name: string }> | null {
-  const raw = String(v ?? "").trim();
-  if (!raw) return null;
-  const names = raw.split(/[;,|]/).map((s) => s.trim()).filter(Boolean);
-  return names.length ? names.map((name) => ({ name })) : null;
+type PeriodResolution =
+  | { ok: true; period: GoalPeriod; periodKey: string }
+  | { ok: false; reason: string }
+  | { skip: true; reason: string };
+
+/** Resolve a row's period from Level + Year + Quarter/Month, with legacy fallback. */
+function resolveRowPeriod(get: (f: Field) => unknown): PeriodResolution {
+  const levelRaw = String(get("level") ?? "");
+  const keyRaw = String(get("periodKey") ?? "").trim();
+  const yearRaw = String(get("year") ?? "").trim();
+  const quarterRaw = String(get("quarter") ?? "").trim();
+  const monthRaw = String(get("month") ?? "").trim();
+
+  let level = mapLevel(levelRaw);
+
+  // Week / Day rows are managed on the Weekly board — skip cleanly.
+  if (level === "week" || level === "day") {
+    return { skip: true, reason: `${level} goals import from the Weekly board — skipped.` };
+  }
+
+  // Explicit legacy period key wins when present.
+  if (keyRaw) {
+    const legacy = resolvePeriodLegacy(levelRaw, keyRaw);
+    if (legacy) {
+      if (legacy.period === "week" || legacy.period === "day") {
+        return { skip: true, reason: `${legacy.period} goals import from the Weekly board — skipped.` };
+      }
+      return { ok: true, period: legacy.period, periodKey: legacy.periodKey };
+    }
+  }
+
+  // Infer level from whichever period-composition cell is filled.
+  if (!level) {
+    if (quarterRaw) level = "quarter";
+    else if (monthRaw) level = "month";
+    else if (yearRaw) level = "year";
+  }
+  if (!level) return { ok: false, reason: "set Goal Level (Year/Quarter/Month) + Year." };
+
+  const year = /^\d{4}$/.test(yearRaw)
+    ? yearRaw
+    : monthRaw && /^\d{4}-\d{2}$/.test(monthRaw)
+      ? monthRaw.slice(0, 4)
+      : String(yearKey(new Date()));
+
+  if (level === "year") return { ok: true, period: "year", periodKey: year };
+
+  if (level === "quarter") {
+    const qm = quarterRaw.match(/[1-4]/);
+    if (!qm) return { ok: false, reason: "quarter goals need a Quarter (Q1–Q4)." };
+    return { ok: true, period: "quarter", periodKey: `${year}-Q${qm[0]}` };
+  }
+
+  // month
+  if (/^\d{4}-\d{2}$/.test(monthRaw)) return { ok: true, period: "month", periodKey: monthRaw };
+  const mm = parseMonthNumber(monthRaw);
+  if (!mm) return { ok: false, reason: "month goals need a Month (e.g. 07 Jul)." };
+  return { ok: true, period: "month", periodKey: `${year}-${mm}` };
 }
 
 async function nextGoalPosition(employeeId: string, period: string, periodKey: string): Promise<number> {
@@ -130,10 +212,11 @@ async function nextGoalPosition(employeeId: string, period: string, periodKey: s
 }
 
 /**
- * Bulk-import cascade goals from an xlsx / csv (mirrors importWeeklyGoals).
- * Columns: Employee · Period · PeriodKey · Area · Goal · UOM · Tgt · TgtAmt ·
- * Team · Dependency · Weight · Notes. Admins fan rows across people via the
- * Employee column; the `employeeId` form field is the default owner.
+ * Bulk-import cascade goals from an xlsx / csv, reading the FULL Goals column
+ * manifest (lib/goals/template-columns). Each row becomes a goal at the level
+ * named by Goal Level + Year + Quarter/Month. Admins fan rows across people via
+ * the Goal Owner column; the `employeeId` form field is the default owner.
+ * Round-trips with the exceljs template from GET /goals/template.xlsx.
  */
 export async function importGoals(
   formData: FormData,
@@ -159,27 +242,34 @@ export async function importGoals(
   }
   if (matrix.length < 2) return { ok: false, error: "File needs a header row and at least one data row" };
 
-  const headerRow = matrix[0] ?? [];
-  const colMap: (ImportField | null)[] = headerRow.map((c) => mapHeader(String(c)));
+  const headerIdx = findHeaderRow(matrix);
+  const headerRow = matrix[headerIdx] ?? [];
+  const colMap: (Field | null)[] = headerRow.map((c) => mapHeader(String(c)));
   if (!colMap.includes("title")) {
-    return { ok: false, error: "Couldn't find a Goal/Title column. Add headers like Goal, Period, PeriodKey." };
+    return { ok: false, error: "Couldn't find a Goal Title column. Download the template and keep the header row." };
   }
 
-  // Roster for resolving the Employee column + permission scoping.
+  // Roster for resolving Owner/Reviewer + permission scoping.
   const roster = await db
     .select({ id: employees.id, name: employees.name, email: employees.email })
     .from(employees)
     .where(eq(employees.isActive, true));
-  const byName = new Map(roster.map((e) => [normHeader(e.name), e.id]));
+  const byName = new Map(roster.map((e) => [normKey(e.name), e.id]));
   const byEmail = new Map(roster.map((e) => [String(e.email ?? "").toLowerCase().trim(), e.id]));
+  const resolvePerson = (raw: string): string | null => {
+    const s = raw.trim();
+    if (!s) return null;
+    return byEmail.get(s.toLowerCase()) ?? byName.get(normKey(s)) ?? null;
+  };
   const scope = await goalScopeFor({ id: me.id, isAdmin });
 
   const warnings: string[] = [];
-  const pending: Array<typeof goals.$inferInsert> = [];
+  type Pending = typeof goals.$inferInsert & { _parentRaw: string | null };
+  const pending: Pending[] = [];
 
-  for (let r = 1; r < matrix.length; r++) {
+  for (let r = headerIdx + 1; r < matrix.length; r++) {
     const row = matrix[r] ?? [];
-    const get = (field: ImportField): unknown => {
+    const get = (field: Field): unknown => {
       const idx = colMap.indexOf(field);
       return idx === -1 ? "" : row[idx];
     };
@@ -189,12 +279,12 @@ export async function importGoals(
 
     // Resolve owner.
     let employeeId = scopedEmployee && scopedEmployee !== "all" ? scopedEmployee : me.id;
-    const empCell = String(get("employee") ?? "").trim();
-    if (empCell) {
-      const resolved = byEmail.get(empCell.toLowerCase()) ?? byName.get(normHeader(empCell));
+    const ownerCell = String(get("owner") ?? "").trim();
+    if (ownerCell) {
+      const resolved = resolvePerson(ownerCell);
       if (resolved) employeeId = resolved;
       else {
-        warnings.push(`Row ${r + 1}: employee "${empCell}" not found — skipped.`);
+        warnings.push(`Row ${r + 1}: owner "${ownerCell}" not found — skipped.`);
         continue;
       }
     }
@@ -203,40 +293,95 @@ export async function importGoals(
       continue;
     }
 
-    const resolved = resolvePeriod(String(get("period") ?? ""), String(get("periodKey") ?? ""));
-    if (!resolved) {
-      warnings.push(`Row ${r + 1}: couldn't read the period — set Period (Year/Quarter/Month) + PeriodKey.`);
+    const period = resolveRowPeriod(get);
+    if ("skip" in period) {
+      warnings.push(`Row ${r + 1}: ${period.reason}`);
       continue;
     }
-    // Guard against nonsense keys.
-    if (!Number.isFinite(fyStartYearOfKey(resolved.periodKey))) {
-      warnings.push(`Row ${r + 1}: bad period key "${resolved.periodKey}".`);
+    if (!period.ok) {
+      warnings.push(`Row ${r + 1}: ${period.reason}`);
+      continue;
+    }
+    if (!Number.isFinite(fyStartYearOfKey(period.periodKey))) {
+      warnings.push(`Row ${r + 1}: bad period "${period.periodKey}".`);
       continue;
     }
 
+    // Reviewer (optional).
+    let reviewedById: string | null = null;
+    const reviewerCell = String(get("reviewer") ?? "").trim();
+    if (reviewerCell) {
+      reviewedById = resolvePerson(reviewerCell);
+      if (!reviewedById) warnings.push(`Row ${r + 1}: reviewer "${reviewerCell}" not found — left blank.`);
+    }
+
+    // Numbers + auto progress.
+    const targetQty = parseMoney(get("targetQty"));
+    const actualQty = parseMoney(get("actualQty"));
+    const auto = autoPctDone(targetQty, actualQty);
+    const statusCell = statusToCode(get("status"));
+    const status = statusCell ?? (auto != null ? statusForPct(auto) : "not_started");
+
+    // Target date is a MONTH-only field.
+    const targetDate = period.period === "month" ? parseIsoDate(get("targetDate")) : null;
+
+    const parentRaw = String(get("parentGoalId") ?? "").trim();
+
     pending.push({
       employeeId,
-      period: resolved.period,
-      periodKey: resolved.periodKey,
-      parentGoalId: null,
+      period: period.period,
+      periodKey: period.periodKey,
+      parentGoalId: null, // linked in a safe post-pass below
+      _parentRaw: UUID_RE.test(parentRaw) ? parentRaw : null,
       area: cleanText(get("area"), 160) || null,
       title,
       uom: cleanText(get("uom"), 80) || null,
-      targetQty: parseMoney(get("targetQty")),
+      notes: cleanText(get("notes"), 4000) || null,
+      goalType: goalTypeToCode(get("goalType")),
+      category: cleanText(get("category"), 60) || "goal",
+      targetQty,
+      actualQty,
       targetAmount: parseMoney(get("targetAmount")),
+      actualAmount: parseMoney(get("actualAmount")),
       teamInvolved: parseTeam(get("team")),
-      teamDependencyPct: parseIntOr(get("dependency"), null),
+      teamDependencyPct: (() => {
+        const n = parseIntOr(get("dependency"), null);
+        return n == null ? null : Math.max(0, Math.min(100, n));
+      })(),
+      reviewedById,
+      status,
+      pctDone: auto ?? 0,
+      shareWithTeam: get("shareWithTeam") ? visibilityToShare(get("shareWithTeam")) : false,
+      incentiveEnabled: get("incentiveEnabled") ? yesNoToBool(get("incentiveEnabled")) : false,
+      incentiveAmount: parseMoney(get("incentiveAmount")),
+      incentiveKind: incentiveKindToCode(get("incentiveKind")),
       weight: parseIntOr(get("weight"), 100) ?? 100,
+      targetDate,
       adopted: true,
-      source: "manual",
+      source: "import",
       createdById: me.id,
       updatedById: me.id,
     });
   }
 
+  // Safe parent linking: only honour a Parent Goal ID that really exists (avoids
+  // an FK failure aborting the whole import).
+  const parentCandidates = Array.from(
+    new Set(pending.map((p) => p._parentRaw).filter((x): x is string => !!x)),
+  );
+  if (parentCandidates.length) {
+    const found = await db
+      .select({ id: goals.id })
+      .from(goals)
+      .where(inArray(goals.id, parentCandidates));
+    const okParents = new Set(found.map((g) => g.id));
+    for (const p of pending) {
+      if (p._parentRaw && okParents.has(p._parentRaw)) p.parentGoalId = p._parentRaw;
+    }
+  }
+
   let imported = 0;
   try {
-    // Assign per-bucket sequential positions.
     const posCache = new Map<string, number>();
     for (const g of pending) {
       const cacheKey = `${g.employeeId}|${g.period}|${g.periodKey}`;
@@ -244,7 +389,9 @@ export async function importGoals(
       if (pos == null) pos = await nextGoalPosition(g.employeeId, g.period!, g.periodKey!);
       g.position = pos;
       posCache.set(cacheKey, pos + 1);
-      await db.insert(goals).values(g);
+      const { _parentRaw, ...insert } = g;
+      void _parentRaw;
+      await db.insert(goals).values(insert);
       imported++;
     }
   } catch (err) {
@@ -253,8 +400,7 @@ export async function importGoals(
 
   revalidatePath("/goals/cascade");
   revalidatePath("/goals/review");
-  // bug #17 — imported goals must land on the 5-page level routes too.
-  revalidatePath("/goals/yearly"); // yearly rootView shares the same canvas payload
+  revalidatePath("/goals/yearly");
   revalidatePath("/goals/quarterly");
   revalidatePath("/goals/monthly");
   revalidatePath("/goals/week");

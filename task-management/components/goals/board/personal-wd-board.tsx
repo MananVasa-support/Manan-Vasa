@@ -120,6 +120,7 @@ export function PersonalWDBoard({ data }: { data: PersonalWDData }) {
           roster={data.roster}
           currentCount={goals.length}
           mutation={mutation}
+          existingTitles={goals.map((g) => g.title)}
         />
       </div>
     </main>
