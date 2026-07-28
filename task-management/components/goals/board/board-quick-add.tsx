@@ -293,8 +293,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
                 type="button"
                 onClick={submit}
                 disabled={saving}
-                className={`wg-btn inline-flex items-center gap-1.5 rounded-full px-6 py-2.5 text-[14px] font-bold text-white disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}
-                style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+                className={`pastel-cta wg-btn inline-flex items-center gap-1.5 rounded-full px-6 py-2.5 text-[14px] font-bold disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}
               >
                 {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.8} />}
                 Add Goal

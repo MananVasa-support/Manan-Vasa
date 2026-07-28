@@ -808,11 +808,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
             <button
               type="button"
               onClick={openComposer}
-              className={`wg-btn inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13.5px] font-bold text-white transition-all hover:-translate-y-px cursor-pointer ${FOCUS_RING}`}
-              style={{
-                background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-                boxShadow: "0 8px 20px -10px rgba(225,6,0,0.5)",
-              }}
+              className={`pastel-cta wg-btn inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13.5px] font-bold transition-all hover:-translate-y-px cursor-pointer ${FOCUS_RING}`}
             >
               <Plus size={16} strokeWidth={2.8} /> New goal
             </button>

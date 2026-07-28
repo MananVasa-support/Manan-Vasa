@@ -2493,18 +2493,35 @@ select.nt-input {
    canvas root) sets them inline on its subtree, so WMS stays exactly the red
    it is today while Goals renders the same primitives amber. One Button kit
    serves every module identity (lib/module-theme.ts). */
+/* 2026-07-28 — Softened to a PASTEL fill (light red-tint + red text + hairline
+   red border) so the whole app reads light. Was a solid red gradient. */
 .brand-btn {
-  background: linear-gradient(
-    135deg,
-    var(--module-accent, var(--color-altus-red)),
-    var(--module-accent-deep, var(--color-altus-red-deep))
-  ) !important;
-  color: #fff !important;
-  border-color: transparent !important;
-  box-shadow: 0 8px 18px -12px color-mix(in srgb, var(--module-accent-deep, var(--color-altus-red-deep)) 80%, transparent);
+  background: color-mix(in srgb, var(--module-accent, var(--color-altus-red)) 12%, #fff) !important;
+  color: var(--module-accent-deep, var(--color-altus-red-deep)) !important;
+  border: 1.5px solid color-mix(in srgb, var(--module-accent, var(--color-altus-red)) 30%, transparent) !important;
+  box-shadow: none;
 }
-.brand-btn:hover { filter: brightness(1.05); }
+.brand-btn:hover {
+  background: color-mix(in srgb, var(--module-accent, var(--color-altus-red)) 20%, #fff) !important;
+  border-color: color-mix(in srgb, var(--module-accent, var(--color-altus-red)) 45%, transparent) !important;
+  filter: none;
+}
 .brand-btn:disabled { opacity: 0.55; }
+
+/* Pastel primary CTA — the soft version of the bold red gradient buttons that
+   were set inline (New goal, Add Goal, Save…). Light red-tint fill, red text,
+   hairline red border. Apply `.pastel-cta` and drop the inline red background +
+   `text-white`. Reads `--module-accent` so per-module identity still applies. */
+.pastel-cta {
+  background: color-mix(in srgb, var(--module-accent, var(--color-altus-red)) 12%, #fff) !important;
+  color: var(--module-accent-deep, var(--color-altus-red-deep)) !important;
+  border: 1.5px solid color-mix(in srgb, var(--module-accent, var(--color-altus-red)) 30%, transparent) !important;
+  box-shadow: none !important;
+}
+.pastel-cta:hover {
+  background: color-mix(in srgb, var(--module-accent, var(--color-altus-red)) 20%, #fff) !important;
+  border-color: color-mix(in srgb, var(--module-accent, var(--color-altus-red)) 45%, transparent) !important;
+}
 .brand-btn--soft {
   background: color-mix(in srgb, var(--module-accent, var(--color-altus-red)) 14%, var(--color-surface-card)) !important;
   color: var(--module-accent-deep, var(--color-altus-red-deep)) !important;
