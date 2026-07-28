@@ -4,16 +4,15 @@ import * as React from "react";
 import {
   UserRound,
   Building2,
-  Sparkles,
   Gauge,
   ShieldCheck,
   ShieldAlert,
   ShieldQuestion,
   ArrowLeftRight,
   FileText,
+  History,
 } from "lucide-react";
 import {
-  RATING_SECTIONS,
   RECOMMENDATIONS,
   type EvaluationInstance,
 } from "@/lib/hr/candidate/evaluation-v2";
@@ -21,9 +20,11 @@ import {
   overallScore,
   allSectionScores,
   eligibilityVerdict,
+  type ScoreContext,
   type SectionScore,
   type WeightProfile,
 } from "@/lib/hr/candidate/evaluation-v2-scoring";
+import { computeComposites, scoreBand } from "@/lib/hr/candidate/evaluation-v2-composites";
 
 /**
  * EVALUATION v2 REPORT — the side-by-side Interviewer × Management comparison.
@@ -60,15 +61,17 @@ export function EvaluationV2Report({
   interviewer,
   management,
   profile,
+  ctx,
 }: {
   interviewer: EvaluationInstance | null;
   management: EvaluationInstance | null;
   profile: Record<string, number>;
+  ctx?: ScoreContext;
 }) {
   const prof = profile as WeightProfile;
 
-  const iScores = interviewer ? allSectionScores(interviewer, prof) : null;
-  const mScores = management ? allSectionScores(management, prof) : null;
+  const iScores = interviewer ? allSectionScores(interviewer, prof, ctx) : null;
+  const mScores = management ? allSectionScores(management, prof, ctx) : null;
 
   // Sections where the two roles' 0–10 micro-averages diverge by ≥ threshold.
   const deltaBySection = React.useMemo(() => {
@@ -112,12 +115,16 @@ export function EvaluationV2Report({
           instance={interviewer}
           scores={iScores}
           deltaBySection={deltaBySection}
+          ctx={ctx}
+          profile={prof}
         />
         <RoleColumn
           role="management"
           instance={management}
           scores={mScores}
           deltaBySection={deltaBySection}
+          ctx={ctx}
+          profile={prof}
         />
       </div>
     </div>
@@ -138,14 +145,19 @@ function RoleColumn({
   instance,
   scores,
   deltaBySection,
+  ctx,
+  profile,
 }: {
   role: "interviewer" | "management";
   instance: EvaluationInstance | null;
   scores: SectionScore[] | null;
   deltaBySection: Map<string, number>;
+  ctx?: ScoreContext;
+  profile: WeightProfile;
 }) {
   const meta = ROLE_META[role];
   const Icon = meta.icon;
+  const composites = instance ? computeComposites(instance, profile, ctx) : null;
 
   return (
     <section className="ev2-col flex flex-col overflow-hidden rounded-2xl border border-hairline bg-white shadow-[0_10px_30px_-22px_rgba(24,24,27,0.5)]">
@@ -177,31 +189,46 @@ function RoleColumn({
         <div className="flex flex-1 flex-col gap-5 p-5">
           {/* Overall dial + recommendation */}
           <div className="flex flex-wrap items-center gap-5">
-            <OverallDial instance={instance} />
+            <OverallDial instance={instance} ctx={ctx} interviewScore={composites?.interviewScore ?? null} />
             <div className="min-w-0 flex-1">
               <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-soft">Recommendation</p>
-              <RecommendationChip value={instance.recommendation} />
+              <RecommendationChip value={instance.recommendation} overridden={Boolean(instance.recommendationOverride)} />
               <div className="mt-3">
                 <EligibilityBadge instance={instance} />
               </div>
             </div>
           </div>
 
-          {/* X-Factor + Overall Interviewer — reported separately */}
-          <div className="grid grid-cols-2 gap-3">
-            <StatTile
-              icon={<Sparkles size={14} />}
-              label="X-Factor"
-              value={instance.xFactor}
-              hint="Bonus — outside the weighted score"
-            />
-            <StatTile
-              icon={<Gauge size={14} />}
-              label="Overall (gut)"
-              value={instance.overall}
-              hint="Manual — not blended in"
-            />
-          </div>
+          {/* Composite scorecard + gut number */}
+          {composites && (
+            <div>
+              <p className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-soft">Composite scorecard</p>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-2">
+                {composites.scorecard.map((c) => {
+                  const band = scoreBand(c.score);
+                  return (
+                    <div key={c.key} className="rounded-lg border border-hairline bg-surface-soft px-2 py-2 text-center">
+                      <p className="truncate text-[10px] font-bold uppercase tracking-[0.05em] text-ink-soft">{c.label}</p>
+                      <p className="text-[16px] font-black tabular-nums leading-none" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", color: c.score === null ? "var(--color-ink-subtle)" : band.tone }}>
+                        {c.score === null ? "—" : fmt(c.score)}
+                      </p>
+                    </div>
+                  );
+                })}
+                <StatTile icon={<Gauge size={13} />} label="Gut" value={instance.overall} hint="Manual" compact />
+              </div>
+            </div>
+          )}
+
+          {/* Override note */}
+          {instance.recommendationOverride && (
+            <div className="rounded-lg border px-3 py-2" style={{ borderColor: "color-mix(in srgb, #d97706 35%, white)", background: "color-mix(in srgb, #d97706 6%, white)" }}>
+              <p className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: "#b45309" }}>
+                <History size={12} /> Recommendation overridden
+              </p>
+              <p className="mt-0.5 text-[12.5px] font-medium text-ink-muted">{instance.recommendationOverride.reason}</p>
+            </div>
+          )}
 
           {/* Section bars */}
           <div>
@@ -222,8 +249,8 @@ function RoleColumn({
 /* Overall dial                                                        */
 /* ------------------------------------------------------------------ */
 
-function OverallDial({ instance }: { instance: EvaluationInstance }) {
-  const overall = overallScore(instance);
+function OverallDial({ instance, ctx, interviewScore }: { instance: EvaluationInstance; ctx?: ScoreContext; interviewScore: number | null }) {
+  const overall = overallScore(instance, undefined, ctx);
   const value = overall.avg;
   const tone = toneFor(value);
 
@@ -263,7 +290,7 @@ function OverallDial({ instance }: { instance: EvaluationInstance }) {
       </div>
       <div className="min-w-0">
         <p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: tone.fg }}>
-          {value === null ? "Not scored" : `${overall.pct}%`}
+          {interviewScore === null ? "Not scored" : `${interviewScore} / 100`}
         </p>
         <p className="mt-0.5 text-[12px] font-medium leading-snug text-ink-muted">
           {overall.ratedSections} / {overall.applicableSections} sections rated
@@ -354,13 +381,25 @@ function StatTile({
   label,
   value,
   hint,
+  compact,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number | null;
   hint: string;
+  compact?: boolean;
 }) {
   const tone = toneFor(value);
+  if (compact) {
+    return (
+      <div className="rounded-lg border border-hairline bg-surface-soft px-2 py-2 text-center" title={hint}>
+        <p className="truncate text-[10px] font-bold uppercase tracking-[0.05em] text-ink-soft">{label}</p>
+        <p className="text-[16px] font-black tabular-nums leading-none" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", color: value === null ? "var(--color-ink-subtle)" : tone.fg }}>
+          {value === null ? "—" : fmt(value)}
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="rounded-xl border border-hairline bg-surface-soft p-3">
       <div className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.1em] text-ink-soft">
@@ -379,7 +418,7 @@ function StatTile({
 /* Recommendation chip                                                 */
 /* ------------------------------------------------------------------ */
 
-function RecommendationChip({ value }: { value: EvaluationInstance["recommendation"] }) {
+function RecommendationChip({ value, overridden }: { value: EvaluationInstance["recommendation"]; overridden?: boolean }) {
   if (!value) {
     return (
       <span className="inline-flex items-center rounded-pill border border-dashed border-hairline-strong px-3 py-1.5 text-[13px] font-semibold text-ink-subtle">
@@ -390,12 +429,19 @@ function RecommendationChip({ value }: { value: EvaluationInstance["recommendati
   const rec = RECOMMENDATIONS.find((r) => r.value === value);
   const tone = rec?.tone ?? "#64748b";
   return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[13.5px] font-bold"
-      style={{ background: `color-mix(in srgb, ${tone} 14%, white)`, color: tone }}
-    >
-      <span className="inline-block h-2 w-2 rounded-full" style={{ background: tone }} />
-      {rec?.label ?? value}
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <span
+        className="inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[13.5px] font-bold"
+        style={{ background: `color-mix(in srgb, ${tone} 14%, white)`, color: tone }}
+      >
+        <span className="inline-block h-2 w-2 rounded-full" style={{ background: tone }} />
+        {rec?.label ?? value}
+      </span>
+      {overridden && (
+        <span className="inline-flex items-center gap-1 rounded-pill px-2 py-1 text-[10.5px] font-black uppercase tracking-[0.06em]" style={{ background: "color-mix(in srgb, #d97706 14%, white)", color: "#b45309" }}>
+          <History size={10} /> Override
+        </span>
+      )}
     </span>
   );
 }

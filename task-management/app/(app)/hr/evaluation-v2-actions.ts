@@ -15,6 +15,7 @@ import {
   type EvaluationInstance,
   type EvaluationV2,
   type EvaluatorRole,
+  type OverrideEvent,
 } from "@/lib/hr/candidate/evaluation-v2";
 import type { EvaluationV2Load, WeightProfileRow } from "./evaluation-v2-actions-types";
 
@@ -125,8 +126,18 @@ export async function saveEvaluationV2(
       .limit(1);
     if (!cand) return { ok: false, error: "Candidate not found." };
 
+    // Stamp the acting employee on any override events missing an actor id.
+    const stamp = (ev: OverrideEvent | null | undefined): OverrideEvent | null | undefined =>
+      ev ? { ...ev, by: ev.by || me.id } : ev;
+    const stamped: EvaluationInstance = {
+      ...instance,
+      recommendationOverride: stamp(instance.recommendationOverride) ?? null,
+      overrideHistory: (instance.overrideHistory ?? []).map((ev) => stamp(ev)!).filter(Boolean),
+      updatedAt: new Date().toISOString(),
+    };
+
     const blob = (cand.evaluationV2 ?? {}) as EvaluationV2;
-    const next: EvaluationV2 = { ...blob, [role]: { ...instance, updatedAt: new Date().toISOString() } };
+    const next: EvaluationV2 = { ...blob, [role]: stamped };
     await db
       .update(candidateIntake)
       .set({ evaluationV2: next, updatedAt: new Date() })

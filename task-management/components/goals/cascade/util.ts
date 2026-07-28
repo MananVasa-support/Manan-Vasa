@@ -415,8 +415,12 @@ export interface GoalDTO {
   weight: number;
   adopted: boolean;
   source: string;
-  /** Category tag (target · milestone · operational · goal). */
+  /** Category tag (target · milestone · operational · goal). Kanban colour. */
   category: string;
+  /** Goal Type taxonomy (kpi · branding · strategic · operational · essential,
+   *  mig 0168). Supersedes the legacy free-text `category`; drives appraisal
+   *  scoring + the board's inline Type selector. OPTIONAL (temp rows omit it). */
+  goalType?: string | null;
   /** Carry-forward link — set ⇒ this row spilled over from a prior period. */
   clonedFromId: string | null;
   /** Incentive attached to the goal (Yes/No + amount + type). RETIRED — kept
@@ -487,6 +491,7 @@ export function toGoalDTO(r: {
   adopted: boolean;
   source: string;
   category: string;
+  goalType?: string | null;
   clonedFromId: string | null;
   incentiveEnabled?: boolean;
   incentiveAmount?: string | null;
@@ -538,6 +543,7 @@ export function toGoalDTO(r: {
     adopted: r.adopted,
     source: r.source,
     category: r.category,
+    goalType: r.goalType ?? null,
     clonedFromId: r.clonedFromId,
     incentiveEnabled: r.incentiveEnabled ?? false,
     incentiveAmount: r.incentiveAmount ?? null,

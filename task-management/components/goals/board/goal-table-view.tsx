@@ -50,7 +50,7 @@ import {
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
 import { useGoalGridEngine, type GridColumn } from "@/components/goals/board/goal-grid";
 import { Select } from "@/components/ui/select";
-import { ADMIN_TASK_STATUSES, USER_TASK_STATUSES, type TaskStatus } from "@/db/enums";
+import { ADMIN_TASK_STATUSES, USER_TASK_STATUSES, GOAL_TYPES, GOAL_TYPE_LABELS, type TaskStatus, type GoalType } from "@/db/enums";
 import { pctTone, fmtNum, num, periodKeyLabel, periodKeyShort, goalCode, trimDecimal, targetDateStatus, fmtTargetDate, assignmentInfo } from "@/components/goals/cascade/util";
 import { CalendarClock } from "lucide-react";
 import { AssignmentChip } from "@/components/goals/board/assignment-chip";
@@ -1539,6 +1539,11 @@ function DupCollisionDialog({
 const TH =
   "px-2 py-4 text-left text-[12.5px] font-black uppercase tracking-[0.07em] text-ink-strong whitespace-nowrap";
 
+// #10 — the fixed Goal Type taxonomy labels for the inline Type selector
+// (KPI / Branding / Strategic / Operational / Essential). NOT admin-extensible,
+// unlike the legacy free-text `category` lookups.
+const GOAL_TYPE_OPTIONS: string[] = GOAL_TYPES.map((t) => GOAL_TYPE_LABELS[t]);
+
 export function GoalTableView(props: GoalTableViewProps) {
   const {
     goals,
@@ -1798,6 +1803,20 @@ export function GoalTableView(props: GoalTableViewProps) {
           return { partial: { teamDependencyPct: v }, run: () => A.editGoal({ id: g.id, teamDependencyPct: v }) };
         },
       },
+      {
+        // #14 — Weightage editable inline at EVERY level (year/quarter/month/week),
+        // even when the goal was cascaded from a parent (editGoal has no weight lock).
+        key: "weight",
+        label: "Weight",
+        read: (g) => String(g.weight ?? 100),
+        editable: () => !locked,
+        parse: (raw, g) => {
+          const n = Number(raw.trim());
+          if (!Number.isFinite(n)) return null;
+          const v = clampInt(n, 0, 1000);
+          return { partial: { weight: v }, run: () => A.editGoal({ id: g.id, weight: v }) };
+        },
+      },
     ];
 
     if (!weekly) {
@@ -1819,13 +1838,21 @@ export function GoalTableView(props: GoalTableViewProps) {
           },
         },
         {
+          // #10 — Goal Type taxonomy: KPI / Branding / Strategic / Operational /
+          // Essential (goalType enum), NOT the legacy free-text `category`.
           key: "type",
           label: "Type",
-          read: (g) => g.category ?? "",
+          read: (g) => (g.goalType ? GOAL_TYPE_LABELS[g.goalType as GoalType] ?? "" : ""),
           editable: () => !locked,
           parse: (raw, g) => {
-            const v = raw.trim();
-            return { partial: { category: v }, run: () => A.editGoal({ id: g.id, category: v }) };
+            const norm = raw.trim().toLowerCase();
+            if (norm === "")
+              return { partial: { goalType: null }, run: () => A.editGoal({ id: g.id, goalType: null }) };
+            const code = GOAL_TYPES.find(
+              (t) => t === norm || GOAL_TYPE_LABELS[t].toLowerCase() === norm,
+            );
+            if (!code) return null;
+            return { partial: { goalType: code }, run: () => A.editGoal({ id: g.id, goalType: code }) };
           },
         },
         {
@@ -2272,6 +2299,7 @@ export function GoalTableView(props: GoalTableViewProps) {
               <th className={TH}>Target</th>
               <th className={cn(TH, "w-[64px] text-center")}>% Done</th>
               <th className={cn(TH, "w-[60px]")}>Team %</th>
+              <th className={cn(TH, "w-[64px]")}>Weight</th>
               <th className={cn(TH, "min-w-[140px]")}>Members</th>
               {!weekly && <th className={cn(TH, "min-w-[150px]")}>Delegated</th>}
               {!weekly && <th className={TH}>Share</th>}
@@ -2471,6 +2499,19 @@ export function GoalTableView(props: GoalTableViewProps) {
                     />
                   </td>
 
+                  {/* Weight — #14: editable inline at every level, incl. inherited */}
+                  <td {...grid.cellProps(i, grid.ci("weight"), "px-2 py-4 align-middle")}>
+                    <NumBox
+                      value={String(g.weight ?? 100)}
+                      min={0}
+                      max={1000}
+                      disabled={locked}
+                      ariaLabel="Goal weightage"
+                      className="w-[60px]"
+                      onCommit={(raw) => grid.commit("weight", g, raw)}
+                    />
+                  </td>
+
                   {/* Team members */}
                   <td className="px-2 py-4 align-middle">
                     <TeamMembersCell
@@ -2513,7 +2554,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                     </td>
                   )}
 
-                  {/* Type */}
+                  {/* Type — fixed Goal Type taxonomy (goalType), not free-text category */}
                   {!weekly && (
                     <td {...grid.cellProps(i, grid.ci("type"), "px-2 py-4 align-middle")}>
                       <div className={cn(locked && "pointer-events-none opacity-60")}>
@@ -2522,10 +2563,10 @@ export function GoalTableView(props: GoalTableViewProps) {
                           noun="Type"
                           compact
                           placeholder="Type"
-                          value={g.category ?? ""}
-                          options={typeOptions}
-                          custom={customLookups.types}
-                          isAdmin={isAdmin}
+                          value={g.goalType ? GOAL_TYPE_LABELS[g.goalType as GoalType] : ""}
+                          options={GOAL_TYPE_OPTIONS}
+                          custom={[]}
+                          isAdmin={false}
                           onChange={(v) => grid.commit("type", g, v)}
                         />
                       </div>

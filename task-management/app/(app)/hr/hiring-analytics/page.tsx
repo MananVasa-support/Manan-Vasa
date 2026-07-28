@@ -1,0 +1,99 @@
+import Link from "next/link";
+import type { Route } from "next";
+import { ArrowLeft, Sparkles } from "lucide-react";
+import { requireHrStaff } from "@/lib/hr/access";
+import { DashboardHeader } from "@/components/layout/header";
+import { DashboardFooter } from "@/components/layout/footer";
+import { loadHiringAnalytics, type HiringAnalytics } from "@/lib/hr/candidate/analytics-data";
+import { HiringAnalyticsDashboard } from "@/components/hr/candidate/analytics/hiring-analytics-dashboard";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * HIRING ANALYTICS — the executive read-out for the Interview Intelligence
+ * Platform. HR-staff only. One data load (loadHiringAnalytics) computes 18
+ * metrics off the candidate_intake table + eval-v2 scoring core; the client
+ * dashboard renders the pipeline, funnels, skill distributions and trends.
+ */
+export default async function HiringAnalyticsPage() {
+  await requireHrStaff();
+
+  // Resilient: a slow/failed load must never hard-crash the page — fall back to
+  // the empty analytics shape (renders sensible empty-states).
+  let data: HiringAnalytics;
+  try {
+    data = await loadHiringAnalytics();
+  } catch {
+    data = emptyFallback();
+  }
+
+  const generatedAt = new Date(data.generatedAt);
+
+  return (
+    <>
+      <DashboardHeader generatedAt={generatedAt} />
+      <main className="mx-auto w-full max-w-[1280px] px-8 max-md:px-4 pt-8 pb-20">
+        <Link
+          href={"/hr?open=pre-interview" as Route}
+          className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink-muted transition hover:text-ink-strong"
+        >
+          <ArrowLeft size={15} /> Back to HR
+        </Link>
+
+        <header className="mb-7">
+          <span
+            className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
+            style={{ background: "linear-gradient(135deg,#E10600,#A80400)" }}
+          >
+            <Sparkles size={12} strokeWidth={2.6} /> Interview Intelligence
+          </span>
+          <h1
+            className="mt-2.5 text-ink-strong"
+            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(28px,3.4vw,44px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
+          >
+            Hiring Analytics
+          </h1>
+          <p className="mt-2 max-w-[76ch] text-[15px] font-medium text-ink-muted">
+            Every interview, score and decision — rolled up into a live executive view of the hiring engine.
+          </p>
+        </header>
+
+        <HiringAnalyticsDashboard data={data} />
+      </main>
+      <DashboardFooter />
+    </>
+  );
+}
+
+function emptyFallback(): HiringAnalytics {
+  return {
+    generatedAt: new Date().toISOString(),
+    totalCandidates: 0,
+    totalInterviews: 0,
+    hasEvaluations: false,
+    pipeline: { new: 0, shortlisted: 0, rejected: 0, hired: 0 },
+    pipelineTotal: 0,
+    decided: 0,
+    hired: 0,
+    rejected: 0,
+    hireRate: null,
+    rejectRate: null,
+    avgInterviewScore: null,
+    avgCandidateRating: null,
+    topInterviewers: [],
+    funnel: [],
+    technicalSkills: [],
+    behaviouralSkills: [],
+    sectionAverages: [],
+    rejectionReasons: [],
+    sources: [],
+    sourcesAvailable: false,
+    avgCompletionHours: null,
+    completionSamples: 0,
+    trend: [],
+    offerAcceptanceRate: null,
+    offered: 0,
+    accepted: 0,
+    flaggedForReview: 0,
+  };
+}

@@ -347,8 +347,10 @@ export async function setTaskPriority(
 
 /**
  * #7 — My Day kanban: drag a task onto a day column to reschedule it.
- * Sets due_at to noon IST of the target calendar day. Returns a typed
- * result so the board can toast on failure instead of crashing.
+ * Writes revised_target_date (noon IST of the target day), NOT due_at — the
+ * first committed due date stays permanent; a reschedule is a REVISION (overdue
+ * + the board's day bucket both read the effective due = revised ?? due_at).
+ * Returns a typed result so the board can toast on failure instead of crashing.
  */
 export async function rescheduleTask(
   taskId: string,
@@ -364,13 +366,13 @@ export async function rescheduleTask(
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
-  const dueAt = new Date(`${dueYmd}T12:00:00+05:30`);
-  if (isNaN(dueAt.getTime())) return { ok: false, error: "Invalid date." };
+  const revisedTargetDate = new Date(`${dueYmd}T12:00:00+05:30`);
+  if (isNaN(revisedTargetDate.getTime())) return { ok: false, error: "Invalid date." };
 
   try {
     const updated = await db
       .update(tasks)
-      .set({ dueAt })
+      .set({ revisedTargetDate })
       .where(eq(tasks.id, taskId))
       .returning({ id: tasks.id });
     if (updated.length === 0) return { ok: false, error: "Task not found." };

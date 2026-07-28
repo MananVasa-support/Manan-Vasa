@@ -22,7 +22,7 @@ import type { CalendarEvent, EventCategory } from "@/lib/monthly-events/types";
  * Monthly Events Master workbook (design §9) — three sheets:
  *   1. "Month Grid"  — stacked weekly bands (rows = 30-min slots 07:00–21:00,
  *                      cols = Mon–Sun), event titles in coloured cells, all-day
- *                      holiday banner row per week.
+ *                      event banner row per week.
  *   2. "Legend"      — every active category: swatch + name + live count.
  *   3. "Obligations" — the compulsory-session masters + this-month auto-count.
  *

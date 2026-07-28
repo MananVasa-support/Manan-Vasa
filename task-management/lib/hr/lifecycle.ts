@@ -31,6 +31,7 @@ import {
   Milestone,
   UserPlus,
   ShieldCheck,
+  BarChart3,
 } from "lucide-react";
 
 /**
@@ -87,6 +88,7 @@ export const HR_STAGES: HrStage[] = [
       { slug: "basic-details", label: "Candidate Interview Form", Icon: ContactRound, kind: "link", href: "/hr/intake", blurb: "Fill the candidate's interview details." },
       { slug: "first-assessment", label: "Candidate Evaluation Checklist", Icon: ClipboardList, kind: "link", href: "/hr/evaluation", blurb: "The interactive interview evaluation checklist." },
       { slug: "management-assessment", label: "Management Assessment", Icon: Gauge, kind: "link", href: "/hr/management-assessment", blurb: "The management-round evaluation — notes, voice notes & attachments." },
+      { slug: "hiring-analytics", label: "Hiring Analytics", Icon: BarChart3, kind: "link", href: "/hr/hiring-analytics", blurb: "The executive read-out — pipeline, hire rate, scores & interview trends." },
     ],
   },
   {

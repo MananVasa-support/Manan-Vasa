@@ -24,7 +24,7 @@ import { GoalEventTypes } from "@/lib/events/types";
 import { cloneForward, moveTo } from "@/lib/goals/carry";
 import { mondayOf } from "@/lib/weekly-goals/week";
 import { quarterKeyOfMonthKey, fyStartYearOfMonthKey, fyStartYearOfKey, quartersOfFy, monthKeysOfQuarter } from "@/lib/goals/types";
-import { GOAL_PERIODS, TASK_STATUSES } from "@/db/enums";
+import { GOAL_PERIODS, TASK_STATUSES, GOAL_TYPES } from "@/db/enums";
 import { toGoalDTO, type GoalDTO } from "@/components/goals/cascade/util";
 import {
   listMonthlyMasterPickables,
@@ -175,6 +175,9 @@ const GoalFields = {
   area: z.string().max(160).nullish(),
   title: z.string().min(1, "Goal is required").max(400),
   category: CATEGORY.optional(),
+  // Goal Type taxonomy (KPI/Branding/Strategic/Operational/Essential, mig 0168)
+  // — the inline board Type selector edits THIS; supersedes free-text `category`.
+  goalType: z.enum(GOAL_TYPES).nullish(),
   uom: z.string().max(80).nullish(),
   targetQty: MoneyIn,
   targetAmount: MoneyIn,
@@ -576,6 +579,7 @@ export async function editGoal(
   // bug #21 — `category` was accepted by the schema but silently dropped here,
   // so the returned row reverted the optimistic value with ok:true.
   if (d.category !== undefined) patch.category = d.category;
+  if (d.goalType !== undefined) patch.goalType = d.goalType ?? null;
   if (d.area !== undefined) patch.area = d.area ?? null;
   if (d.uom !== undefined) patch.uom = d.uom ?? null;
   if (d.targetQty !== undefined) patch.targetQty = money(d.targetQty);
