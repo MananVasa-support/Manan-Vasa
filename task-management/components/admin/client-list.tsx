@@ -84,6 +84,9 @@ export function ClientList({ clients }: Props) {
             onDelete={() => setDeleting(c)}
           />
         )}
+        bulkActions={(selected, clear) => (
+          <ClientBulkActions selected={selected} clear={clear} />
+        )}
         emptyState={
           <>
             <p
@@ -106,6 +109,101 @@ export function ClientList({ clients }: Props) {
       />
       <EditClientDialog client={editing} onClose={() => setEditing(null)} />
       <DeleteClientDialog client={deleting} onClose={() => setDeleting(null)} />
+    </>
+  );
+}
+
+/** Bulk actions over the ticked clients — activate / deactivate / delete. Loops
+ *  the existing per-id server actions (each revalidates); toasts the tally. */
+function ClientBulkActions({
+  selected,
+  clear,
+}: {
+  selected: ClientWithCount[];
+  clear: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  function runSetActive(isActive: boolean) {
+    startTransition(async () => {
+      let ok = 0;
+      for (const c of selected) {
+        if (c.isActive === isActive) continue;
+        const res = await updateClient(c.id, { isActive });
+        if (res.ok) ok++;
+      }
+      fireToast({ message: `${ok} client${ok === 1 ? "" : "s"} ${isActive ? "reactivated" : "deactivated"}.` });
+      clear();
+    });
+  }
+  function runDelete() {
+    startTransition(async () => {
+      let ok = 0;
+      let lastErr = "";
+      for (const c of selected) {
+        const res = await deleteClient(c.id);
+        if (res.ok) ok++;
+        else lastErr = res.error;
+      }
+      fireToast({ message: ok > 0 ? `${ok} client${ok === 1 ? "" : "s"} deleted.` : lastErr || "Nothing deleted." });
+      setConfirmDelete(false);
+      clear();
+    });
+  }
+
+  const btn =
+    "inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-surface-card px-3 py-1.5 text-[13px] font-bold text-ink-strong transition-colors hover:border-altus-red hover:text-altus-red disabled:opacity-50";
+
+  return (
+    <>
+      <button type="button" disabled={pending} onClick={() => runSetActive(true)} className={btn}>
+        <Power size={14} strokeWidth={2.2} /> Reactivate
+      </button>
+      <button type="button" disabled={pending} onClick={() => runSetActive(false)} className={btn}>
+        <Power size={14} strokeWidth={2.2} /> Deactivate
+      </button>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => setConfirmDelete(true)}
+        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-bold text-white disabled:opacity-50"
+        style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}
+      >
+        <Trash2 size={14} strokeWidth={2.4} /> Delete
+      </button>
+
+      <Dialog.Root open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/30 z-[90]" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-[100] -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-xl bg-white border border-[#E2E8F0] p-6 shadow-lg">
+            <Dialog.Title className="font-serif text-xl text-[#0F172A] mb-1">
+              Delete {selected.length} client{selected.length === 1 ? "" : "s"}
+            </Dialog.Title>
+            <Dialog.Description className="text-[15px] text-[#64748B] mb-4">
+              Remove the selected clients from the Client Name picker. This can&rsquo;t be undone —
+              tasks already filed under these names keep their label.
+            </Dialog.Description>
+            <div className="flex justify-end gap-2 pt-2">
+              <Dialog.Close asChild>
+                <button type="button" disabled={pending} className="rounded-md border border-hairline-strong px-4 py-2.5 text-[14px] font-medium text-ink-soft hover:bg-surface-soft">
+                  Cancel
+                </button>
+              </Dialog.Close>
+              <button
+                type="button"
+                onClick={runDelete}
+                disabled={pending}
+                className="inline-flex items-center gap-2 rounded-md py-2.5 px-5 text-[14px] font-semibold text-white disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}
+              >
+                <Trash2 size={15} strokeWidth={2.4} />
+                {pending ? "Deleting…" : `Delete ${selected.length}`}
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </>
   );
 }

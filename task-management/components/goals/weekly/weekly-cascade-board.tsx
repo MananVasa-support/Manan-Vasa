@@ -77,12 +77,18 @@ function weeklyToGoalDTO(
     adopted: g.adopted,
     source: "manual",
     category: "goal",
+    // Column parity with Y/Q/M — the shared table's Type/Status/Reviewer/Share/
+    // Delegated columns read + edit these real weekly_goals fields.
+    goalType: g.goalType ?? null,
+    status: g.status ?? null,
+    reviewedById: g.reviewedById ?? null,
+    delegatedTo: g.delegatedTo ?? null,
     clonedFromId: g.carriedFromId ?? null,
     incentiveEnabled: false,
     incentiveAmount: null,
     incentiveKind: null,
     monthlyMasterRef: null,
-    shareWithTeam: false,
+    shareWithTeam: g.shareWithTeam ?? false,
     targetDate: g.targetDate ?? null,
   };
 }

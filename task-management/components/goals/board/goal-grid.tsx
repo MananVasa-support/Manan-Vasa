@@ -63,6 +63,8 @@ export interface GridEngine {
   commit: (colKey: string, g: GoalDTO, raw: string) => void;
   /** Attach to the scrolling table container. */
   onKeyDown: (e: React.KeyboardEvent) => void;
+  /** Clear the active/selected cell (call on blur so the highlight never sticks). */
+  blur: () => void;
   active: CellPos | null;
   /** True once more than one cell is selected. */
   hasRange: boolean;
@@ -551,16 +553,16 @@ export function useGoalGridEngine(opts: EngineOpts): GridEngine {
       const inRect = !!rect && r >= rect.r0 && r <= rect.r1 && c >= rect.c0 && c <= rect.c1;
       const selected = inRect && hasRange;
 
+      // Neutral (not red/pink) selection chrome — a subtle slate outline for the
+      // active cell + a faint wash for a multi-cell range. No pink fill.
       const boxShadow = active
-        ? "inset 0 0 0 2px var(--color-altus-red)"
+        ? "inset 0 0 0 1.5px color-mix(in srgb, var(--color-ink-strong) 32%, transparent)"
         : selected
-          ? "inset 0 0 0 1px color-mix(in srgb, var(--color-altus-red) 45%, transparent)"
+          ? "inset 0 0 0 1px color-mix(in srgb, var(--color-ink-strong) 18%, transparent)"
           : undefined;
-      const background = active
-        ? "color-mix(in srgb, var(--color-altus-red) 7%, transparent)"
-        : selected
-          ? "color-mix(in srgb, var(--color-altus-red) 10%, transparent)"
-          : undefined;
+      const background = selected
+        ? "color-mix(in srgb, var(--color-ink-strong) 4%, transparent)"
+        : undefined;
 
       return {
         ref: (el: HTMLTableCellElement | null) => {
@@ -602,6 +604,9 @@ export function useGoalGridEngine(opts: EngineOpts): GridEngine {
     ci,
     commit,
     onKeyDown,
+    /** Clear the active/selected cell — call when focus leaves the grid so the
+     *  highlight never "sticks" after you click away (fixes the stuck box). */
+    blur: () => setSel(null),
     active: sel?.focus ?? null,
     hasRange,
   };

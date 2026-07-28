@@ -124,7 +124,7 @@ export function TeamWeightsField({
         <PopoverContent
           align="start"
           sideOffset={6}
-          className="z-[90] w-[280px] rounded-xl border border-hairline bg-surface-card p-1.5"
+          className="z-[210] w-[280px] rounded-xl border border-hairline bg-surface-card p-1.5"
           style={{ boxShadow: "0 18px 44px -18px rgba(15,23,42,0.3)" }}
         >
           <div className="flex items-center gap-2 border-b border-hairline px-2.5 pb-2">

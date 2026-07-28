@@ -396,8 +396,8 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
         <div
           className="wg-rise mb-3 flex items-center gap-2.5 rounded-xl border px-4 py-2.5 text-[13px] font-semibold"
           style={{
-            borderColor: "color-mix(in srgb, var(--color-altus-red) 22%, var(--color-hairline))",
-            background: "color-mix(in srgb, var(--color-altus-red) 4%, var(--color-surface-card))",
+            borderColor: "var(--color-hairline-strong)",
+            background: "var(--color-surface-soft)",
             color: "var(--color-ink-soft)",
           }}
         >
@@ -414,11 +414,10 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
           <aside
             className="sticky left-0 z-30 flex w-[312px] shrink-0 flex-col gap-3 rounded-2xl p-3 max-md:w-[248px]"
             style={{
-              background:
-                "linear-gradient(158deg, color-mix(in srgb, var(--color-altus-red) 9%, var(--color-surface-card)) 0%, var(--color-surface-card) 60%)",
-              border: "1.5px solid color-mix(in srgb, var(--color-altus-red) 26%, var(--color-hairline-strong))",
+              background: "var(--color-surface-card)",
+              border: "1.5px solid var(--color-hairline-strong)",
               boxShadow:
-                "0 1px 0 rgba(255,255,255,0.7) inset, 22px 0 26px -22px color-mix(in srgb, var(--color-altus-red) 55%, transparent), 0 18px 40px -28px color-mix(in srgb, var(--color-altus-red) 50%, transparent)",
+                "0 1px 0 rgba(255,255,255,0.7) inset, 18px 0 26px -22px rgba(15,23,42,0.18), 0 18px 40px -28px rgba(15,23,42,0.20)",
             }}
           >
             <div className="flex items-center gap-2 px-1 pt-0.5">
@@ -440,8 +439,8 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
 
             {parents.length === 0 ? (
               <div
-                className="flex flex-1 flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-10 text-center"
-                style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 28%, transparent)" }}
+                className="flex flex-1 flex-col items-center justify-center rounded-xl border px-4 py-10 text-center"
+                style={{ borderColor: "color-mix(in srgb, var(--color-ink-strong) 26%, transparent)" }}
               >
                 <p className="text-[13px] font-bold" style={{ color: "var(--color-ink-soft)" }}>
                   No {parentLabel.toLowerCase()} goals yet
@@ -557,8 +556,8 @@ function ParentCard({
       className="wg-sheen relative overflow-hidden rounded-2xl"
       style={{
         background: "var(--color-surface-card)",
-        border: "1.5px solid color-mix(in srgb, var(--color-altus-red) 22%, var(--color-hairline-strong))",
-        boxShadow: "0 10px 26px -16px color-mix(in srgb, var(--color-altus-red) 45%, transparent), inset 0 1px 0 rgba(255,255,255,0.7)",
+        border: "1.5px solid var(--color-hairline-strong)",
+        boxShadow: "0 10px 26px -18px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.7)",
         opacity: crossed ? 0.62 : 1,
       }}
     >
@@ -691,17 +690,17 @@ function Lane({
   return (
     <section
       aria-label={`${lane.main} — ${goals.length} goal${goals.length === 1 ? "" : "s"}`}
-      className="flex w-[274px] shrink-0 flex-col rounded-2xl border-2 border-dashed transition-all"
+      className="flex w-[274px] shrink-0 flex-col rounded-2xl border transition-all"
       style={{
         background: isOver
-          ? "color-mix(in srgb, var(--color-altus-red) 5%, var(--color-surface-soft))"
+          ? "color-mix(in srgb, var(--color-ink-strong) 5%, var(--color-surface-soft))"
           : "var(--color-surface-soft)",
         borderColor: isOver
-          ? "var(--color-altus-red)"
-          : "color-mix(in srgb, var(--color-altus-red) 22%, var(--color-hairline-strong))",
+          ? "var(--color-ink-soft)"
+          : "color-mix(in srgb, var(--color-ink-strong) 22%, var(--color-hairline-strong))",
         boxShadow: isOver
-          ? "0 0 0 3px color-mix(in srgb, var(--color-altus-red) 14%, transparent)"
-          : "0 2px 10px -8px color-mix(in srgb, var(--color-altus-red) 26%, transparent)",
+          ? "0 0 0 3px color-mix(in srgb, var(--color-ink-strong) 12%, transparent)"
+          : "0 2px 10px -8px rgba(15,23,42,0.14)",
       }}
     >
       <header
@@ -734,8 +733,8 @@ function Lane({
         <SortableContext items={goals.map((g) => g.id)} strategy={verticalListSortingStrategy}>
           {goals.length === 0 ? (
             <p
-              className="flex flex-1 items-center justify-center rounded-xl border-2 border-dashed px-3 py-6 text-center text-[12px] font-semibold"
-              style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 22%, transparent)", color: "var(--color-ink-subtle)" }}
+              className="flex flex-1 items-center justify-center rounded-xl border px-3 py-6 text-center text-[12px] font-semibold"
+              style={{ borderColor: "color-mix(in srgb, var(--color-ink-strong) 22%, transparent)", color: "var(--color-ink-subtle)" }}
             >
               {filtersActive ? `No matches in ${lane.main}` : `Nothing in ${lane.main} yet`}
             </p>

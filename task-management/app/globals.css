@@ -2365,22 +2365,28 @@ select.nt-input {
    untouched. Scoped to `.sidebar-rail` so the header, hub cards and the mobile
    drawer keep their own colours. Icons inherit `currentColor`. */
 .sidebar-rail .sidebar-nav .nav-pill {
+  /* Rounded-rect (matches the "Back to Hub" pill), compact padding — not a
+     full 999px pill. */
+  border-radius: 14px;
+  padding: 7px 12px;
   background: #ffffff;
-  border: 1.5px solid rgba(0, 0, 0, 0.18);
+  border: 1.5px solid rgba(0, 0, 0, 0.16);
   color: #1a1a1a;
   box-shadow: none;
 }
 .sidebar-rail .sidebar-nav .nav-pill:hover {
-  background: color-mix(in srgb, var(--color-altus-red) 8%, #ffffff);
-  border-color: color-mix(in srgb, var(--color-altus-red) 35%, #ffffff);
+  /* Neutral grey hover — no pink wash. */
+  background: rgba(0, 0, 0, 0.035);
+  border-color: rgba(0, 0, 0, 0.26);
   color: #1a1a1a;
   transform: none;
   box-shadow: none;
 }
 .sidebar-rail .sidebar-nav .nav-pill-active,
 .sidebar-rail .sidebar-nav .nav-pill-active:hover {
-  background: color-mix(in srgb, var(--color-altus-red) 15%, #ffffff);
-  border-color: color-mix(in srgb, var(--color-altus-red) 45%, #ffffff);
+  /* Selected: white box, red outline + red label — NO pink fill. */
+  background: #ffffff;
+  border-color: color-mix(in srgb, var(--color-altus-red) 60%, #ffffff);
   color: var(--color-altus-red-deep);
   box-shadow: none;
   transform: none;

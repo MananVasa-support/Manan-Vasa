@@ -298,8 +298,8 @@ export function WeeklyKanban({
 
             {frozen.length === 0 ? (
               <div
-                className="flex flex-1 flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-10 text-center"
-                style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 28%, transparent)" }}
+                className="flex flex-1 flex-col items-center justify-center rounded-xl border px-4 py-10 text-center"
+                style={{ borderColor: "color-mix(in srgb, var(--color-ink-strong) 26%, transparent)" }}
               >
                 <p className="text-[13px] font-bold" style={{ color: "var(--color-ink-soft)" }}>
                   No weekly goals for W{weekNo}
@@ -439,17 +439,17 @@ function DayLane({
   return (
     <section
       aria-label={`${dow} ${dayShort(date)} — ${goals.length} day goal${goals.length === 1 ? "" : "s"}`}
-      className="flex w-[240px] shrink-0 flex-col rounded-2xl border-2 border-dashed transition-all"
+      className="flex w-[240px] shrink-0 flex-col rounded-2xl border transition-all"
       style={{
         background: isOver
-          ? "color-mix(in srgb, var(--goals-accent, #E10600) 5%, var(--color-surface-soft))"
+          ? "color-mix(in srgb, var(--color-ink-strong) 5%, var(--color-surface-soft))"
           : "var(--color-surface-soft)",
         borderColor: isOver
-          ? ACCENT
-          : "color-mix(in srgb, var(--goals-accent, #E10600) 22%, var(--color-hairline-strong))",
+          ? "var(--color-ink-soft)"
+          : "color-mix(in srgb, var(--color-ink-strong) 22%, var(--color-hairline-strong))",
         boxShadow: isOver
-          ? "0 0 0 3px color-mix(in srgb, var(--goals-accent, #E10600) 14%, transparent)"
-          : "0 2px 10px -8px color-mix(in srgb, var(--goals-accent, #E10600) 26%, transparent)",
+          ? "0 0 0 3px color-mix(in srgb, var(--color-ink-strong) 12%, transparent)"
+          : "0 2px 10px -8px rgba(15,23,42,0.14)",
       }}
     >
       <header
@@ -480,8 +480,8 @@ function DayLane({
         <SortableContext items={goals.map((g) => g.id)} strategy={verticalListSortingStrategy}>
           {goals.length === 0 ? (
             <p
-              className="flex flex-1 items-center justify-center rounded-xl border-2 border-dashed px-3 py-6 text-center text-[12px] font-semibold"
-              style={{ borderColor: "color-mix(in srgb, var(--goals-accent, #E10600) 22%, transparent)", color: "var(--color-ink-subtle)" }}
+              className="flex flex-1 items-center justify-center rounded-xl border px-3 py-6 text-center text-[12px] font-semibold"
+              style={{ borderColor: "color-mix(in srgb, var(--color-ink-strong) 22%, transparent)", color: "var(--color-ink-subtle)" }}
             >
               Nothing on {dow} yet
             </p>

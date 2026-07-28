@@ -1819,77 +1819,42 @@ export function GoalTableView(props: GoalTableViewProps) {
       },
     ];
 
-    if (!weekly) {
-      cols.push(
-        {
-          key: "share",
-          label: "Share",
-          read: (g) => (g.shareWithTeam ? "Yes" : "No"),
-          editable: () => !locked,
-          parse: (raw, g) => {
-            const s = raw.trim().toLowerCase();
-            const v = ["yes", "y", "true", "1", "on", "shared", "✓"].includes(s)
-              ? true
-              : ["no", "n", "false", "0", "off"].includes(s)
-                ? false
-                : null;
-            if (v === null) return null;
-            return { partial: { shareWithTeam: v }, run: () => A.editGoal({ id: g.id, shareWithTeam: v }) };
-          },
+    cols.push(
+      {
+        key: "share",
+        label: "Share",
+        read: (g) => (g.shareWithTeam ? "Yes" : "No"),
+        editable: () => !locked,
+        parse: (raw, g) => {
+          const s = raw.trim().toLowerCase();
+          const v = ["yes", "y", "true", "1", "on", "shared", "✓"].includes(s)
+            ? true
+            : ["no", "n", "false", "0", "off"].includes(s)
+              ? false
+              : null;
+          if (v === null) return null;
+          return { partial: { shareWithTeam: v }, run: () => A.editGoal({ id: g.id, shareWithTeam: v }) };
         },
-        {
-          // #10 — Goal Type taxonomy: KPI / Branding / Strategic / Operational /
-          // Essential (goalType enum), NOT the legacy free-text `category`.
-          key: "type",
-          label: "Type",
-          read: (g) => (g.goalType ? GOAL_TYPE_LABELS[g.goalType as GoalType] ?? "" : ""),
-          editable: () => !locked,
-          parse: (raw, g) => {
-            const norm = raw.trim().toLowerCase();
-            if (norm === "")
-              return { partial: { goalType: null }, run: () => A.editGoal({ id: g.id, goalType: null }) };
-            const code = GOAL_TYPES.find(
-              (t) => t === norm || GOAL_TYPE_LABELS[t].toLowerCase() === norm,
-            );
-            if (!code) return null;
-            return { partial: { goalType: code }, run: () => A.editGoal({ id: g.id, goalType: code }) };
-          },
+      },
+      {
+        // #10 — Goal Type taxonomy: KPI / Branding / Strategic / Operational /
+        // Essential (goalType enum), NOT the legacy free-text `category`.
+        key: "type",
+        label: "Type",
+        read: (g) => (g.goalType ? GOAL_TYPE_LABELS[g.goalType as GoalType] ?? "" : ""),
+        editable: () => !locked,
+        parse: (raw, g) => {
+          const norm = raw.trim().toLowerCase();
+          if (norm === "")
+            return { partial: { goalType: null }, run: () => A.editGoal({ id: g.id, goalType: null }) };
+          const code = GOAL_TYPES.find(
+            (t) => t === norm || GOAL_TYPE_LABELS[t].toLowerCase() === norm,
+          );
+          if (!code) return null;
+          return { partial: { goalType: code }, run: () => A.editGoal({ id: g.id, goalType: code }) };
         },
-        {
-          key: "status",
-          label: "Status",
-          read: (g) => statusLabel(g.status ?? "not_started"),
-          editable: () => !locked,
-          parse: (raw, g) => {
-            const norm = raw.trim().toLowerCase();
-            if (norm === "") return null;
-            const pool = new Set<string>(statusBase);
-            if (g.status) pool.add(g.status);
-            const match = [...pool].find(
-              (s) =>
-                s.toLowerCase() === norm ||
-                s.replace(/_/g, " ").toLowerCase() === norm ||
-                statusLabel(s).toLowerCase() === norm,
-            );
-            if (!match) return null;
-            return { partial: { status: match }, run: () => A.editGoal({ id: g.id, status: match }) };
-          },
-        },
-        {
-          key: "reviewer",
-          label: "Reviewer",
-          read: (g) => (g.reviewedById ? rosterById.get(g.reviewedById) ?? "" : ""),
-          editable: () => !locked,
-          parse: (raw, g) => {
-            const s = raw.trim();
-            if (s === "") return { partial: { reviewedById: null }, run: () => A.editGoal({ id: g.id, reviewedById: null }) };
-            const id = rosterById.has(s) ? s : rosterByName.get(s.toLowerCase());
-            if (!id) return null;
-            return { partial: { reviewedById: id }, run: () => A.editGoal({ id: g.id, reviewedById: id }) };
-          },
-        },
-      );
-    }
+      },
+    );
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roster, locked, isAdmin, weekly]);
@@ -2269,6 +2234,11 @@ export function GoalTableView(props: GoalTableViewProps) {
       <div
         className="wg-rise max-h-[74vh] overflow-auto rounded-2xl border"
         onKeyDown={grid.onKeyDown}
+        onBlur={(e) => {
+          // Clear the active-cell highlight when focus leaves the table entirely
+          // (fixes the stuck red/highlight box that never went away).
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) grid.blur();
+        }}
         style={{
           borderColor: "var(--color-hairline-strong)",
           background: "var(--color-surface-card)",
@@ -2300,12 +2270,9 @@ export function GoalTableView(props: GoalTableViewProps) {
               <th className={cn(TH, "w-[64px] text-center")}>% Done</th>
               <th className={cn(TH, "w-[60px]")}>Team %</th>
               <th className={cn(TH, "w-[64px]")}>Weight</th>
-              <th className={cn(TH, "min-w-[140px]")}>Members</th>
-              {!weekly && <th className={cn(TH, "min-w-[150px]")}>Delegated</th>}
-              {!weekly && <th className={TH}>Share</th>}
-              {!weekly && <th className={cn(TH, "min-w-[104px]")}>Type</th>}
-              {!weekly && <th className={cn(TH, "min-w-[132px]")}>Status</th>}
-              {!weekly && <th className={cn(TH, "min-w-[136px]")}>Reviewer</th>}
+              <th className={cn(TH, "min-w-[150px]")}>Delegated</th>
+              <th className={TH}>Share</th>
+              <th className={cn(TH, "min-w-[104px]")}>Type</th>
             </tr>
           </thead>
           <tbody>
@@ -2318,14 +2285,14 @@ export function GoalTableView(props: GoalTableViewProps) {
                 <tr
                   className="group transition-colors"
                   style={{
-                    borderBottom: i === rows.length - 1 ? undefined : "1px solid color-mix(in srgb, var(--color-ink-strong) 22%, transparent)",
-                    background: isSel ? redTint(5) : undefined,
+                    borderBottom: i === rows.length - 1 ? undefined : "1px solid color-mix(in srgb, var(--color-ink-strong) 12%, transparent)",
+                    background: isSel ? "color-mix(in srgb, var(--color-ink-strong) 5%, transparent)" : undefined,
                   }}
                   onMouseEnter={(e) => {
-                    if (!isSel) e.currentTarget.style.background = "color-mix(in srgb, var(--color-altus-red) 2.5%, transparent)";
+                    if (!isSel) e.currentTarget.style.background = "color-mix(in srgb, var(--color-ink-strong) 3.5%, transparent)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = isSel ? redTint(5) : "";
+                    e.currentTarget.style.background = isSel ? "color-mix(in srgb, var(--color-ink-strong) 5%, transparent)" : "";
                   }}
                 >
                   {/* select */}
@@ -2512,90 +2479,41 @@ export function GoalTableView(props: GoalTableViewProps) {
                     />
                   </td>
 
-                  {/* Team members */}
+                  {/* Delegated — accountability hand-off with per-delegate % */}
                   <td className="px-2 py-4 align-middle">
-                    <TeamMembersCell
-                      team={g.teamInvolved}
+                    <DelegatesCell
+                      delegates={g.delegatedTo ?? null}
                       roster={roster}
                       disabled={locked}
-                      onCommit={(next) => {
-                        // #7 — instant share: mirror the server's auto-share so the
-                        // Share pill flips the moment a real member is added/removed.
-                        const share = (next ?? []).some((m) => m.employeeId);
-                        editField(
-                          g.id,
-                          { teamInvolved: next, shareWithTeam: share },
-                          () => A.editGoal({ id: g.id, teamInvolved: next }),
-                        );
-                      }}
+                      onCommit={(next) => editField(g.id, { delegatedTo: next }, () => A.editGoal({ id: g.id, delegatedTo: next }))}
                     />
                   </td>
 
-                  {/* Delegated — accountability hand-off with per-delegate % */}
-                  {!weekly && (
-                    <td className="px-2 py-4 align-middle">
-                      <DelegatesCell
-                        delegates={g.delegatedTo ?? null}
-                        roster={roster}
-                        disabled={locked}
-                        onCommit={(next) => editField(g.id, { delegatedTo: next }, () => A.editGoal({ id: g.id, delegatedTo: next }))}
-                      />
-                    </td>
-                  )}
-
                   {/* Share w/ team */}
-                  {!weekly && (
-                    <td {...grid.cellProps(i, grid.ci("share"), "px-2 py-4 align-middle")}>
-                      <SharePill
-                        on={g.shareWithTeam}
-                        disabled={locked}
-                        onChange={(v) => grid.commit("share", g, v ? "Yes" : "No")}
-                      />
-                    </td>
-                  )}
+                  <td {...grid.cellProps(i, grid.ci("share"), "px-2 py-4 align-middle")}>
+                    <SharePill
+                      on={g.shareWithTeam}
+                      disabled={locked}
+                      onChange={(v) => grid.commit("share", g, v ? "Yes" : "No")}
+                    />
+                  </td>
 
                   {/* Type — fixed Goal Type taxonomy (goalType), not free-text category */}
-                  {!weekly && (
-                    <td {...grid.cellProps(i, grid.ci("type"), "px-2 py-4 align-middle")}>
-                      <div className={cn(locked && "pointer-events-none opacity-60")}>
-                        <GoalLookupSelect
-                          kind="type"
-                          noun="Type"
-                          compact
-                          placeholder="Type"
-                          value={g.goalType ? GOAL_TYPE_LABELS[g.goalType as GoalType] : ""}
-                          options={GOAL_TYPE_OPTIONS}
-                          custom={[]}
-                          isAdmin={false}
-                          onChange={(v) => grid.commit("type", g, v)}
-                        />
-                      </div>
-                    </td>
-                  )}
-
-                  {/* Status — inline dropdown over the app's Task statuses. */}
-                  {!weekly && (
-                    <td {...grid.cellProps(i, grid.ci("status"), "px-2 py-4 align-middle")}>
-                      <StatusCell
-                        value={g.status ?? "not_started"}
-                        isAdmin={isAdmin}
-                        disabled={locked}
-                        onCommit={(s) => grid.commit("status", g, s)}
+                  <td {...grid.cellProps(i, grid.ci("type"), "px-2 py-4 align-middle")}>
+                    <div className={cn(locked && "pointer-events-none opacity-60")}>
+                      <GoalLookupSelect
+                        kind="type"
+                        noun="Type"
+                        compact
+                        placeholder="Type"
+                        value={g.goalType ? GOAL_TYPE_LABELS[g.goalType as GoalType] : ""}
+                        options={GOAL_TYPE_OPTIONS}
+                        custom={[]}
+                        isAdmin={false}
+                        onChange={(v) => grid.commit("type", g, v)}
                       />
-                    </td>
-                  )}
-
-                  {/* Reviewer — inline roster dropdown → reviewedById. */}
-                  {!weekly && (
-                    <td {...grid.cellProps(i, grid.ci("reviewer"), "px-2 py-4 align-middle")}>
-                      <ReviewerCell
-                        reviewedById={g.reviewedById}
-                        roster={roster}
-                        disabled={locked}
-                        onCommit={(id) => grid.commit("reviewer", g, id ?? "")}
-                      />
-                    </td>
-                  )}
+                    </div>
+                  </td>
 
                 </tr>
                 {expanded.has(g.id) && (
@@ -2603,7 +2521,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                     goalId={g.id}
                     notes={g.notes}
                     canWrite={!locked}
-                    colSpan={weekly ? 10 : 15}
+                    colSpan={13}
                     nodeKind={detailKind}
                     assignment={assignmentInfo(g)}
                     onSaveNotes={(n) => patchNotes(g.id, n)}

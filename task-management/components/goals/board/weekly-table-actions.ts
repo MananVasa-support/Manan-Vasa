@@ -38,17 +38,25 @@ export const WEEKLY_TABLE_ACTIONS: GoalTableActions = {
         members: team.map((m) => ({ employeeId: m.employeeId, name: m.name })),
       });
     }
-    // Additive cascade fields: area / measure / target / actual / team-dependency.
+    // Additive cascade fields — full column parity with Y/Q/M: area / measure /
+    // target / actual / team-dependency / weight / type / status / reviewer /
+    // share / delegated (all real weekly_goals columns).
     const fields: Record<string, unknown> = {};
     if ("area" in input) fields.area = (input.area as string | null) ?? null;
     if ("uom" in input) fields.uom = (input.uom as string | null) ?? null;
     if ("targetQty" in input) fields.targetQty = toNum(input.targetQty);
     if ("actualQty" in input) fields.actualQty = toNum(input.actualQty);
     if ("teamDependencyPct" in input) fields.teamDependencyPct = (input.teamDependencyPct as number | null) ?? null;
+    if ("weight" in input) fields.weight = input.weight;
+    if ("goalType" in input) fields.goalType = (input.goalType as string | null) ?? null;
+    if ("status" in input) fields.status = input.status;
+    if ("reviewedById" in input) fields.reviewedById = (input.reviewedById as string | null) ?? null;
+    if ("shareWithTeam" in input) fields.shareWithTeam = input.shareWithTeam;
+    if ("delegatedTo" in input) fields.delegatedTo = (input.delegatedTo as unknown) ?? null;
     if (Object.keys(fields).length > 0) {
       return updateWeeklyCascadeFields({ id, ...fields } as Parameters<typeof updateWeeklyCascadeFields>[0]);
     }
-    // notes / category / shareWithTeam aren't part of the weekly engine — no-op.
+    // category (legacy free-text tag) isn't a weekly column — no-op.
     return { ok: true } as GoalTableActionRes;
   },
   setGoalPctDone(input) {

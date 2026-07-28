@@ -1,18 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Loader2, Check } from "lucide-react";
+import { Plus, Loader2, Check, Paperclip, X } from "lucide-react";
 import { createGoal, addChildGoal } from "@/app/(app)/goals/cascade/actions";
+import { uploadGoalAttachment } from "@/app/(app)/goals/cascade/detail-actions";
 import {
   periodKeyLabel,
+  periodKeyShort,
   type GoalDTO,
-  type MonthlyMasterRef,
   type RosterMember,
 } from "@/components/goals/cascade/util";
 import { buildOptimisticGoal, type GoalMutationApi } from "@/components/goals/canvas/optimistic";
 import type { GoalPeriod } from "@/lib/goals/types";
+import { quartersOfFy, monthKeysOfFy, fyStartYearOfKey } from "@/lib/goals/types";
 import { WeeklyGoalDrawer } from "@/components/weekly-goals/goal-drawer";
-import { MonthlyMasterField } from "@/components/goals/board/goal-board-card";
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
 import { TeamWeightsField, type TeamMemberWeight } from "@/components/goals/board/team-weights-field";
 import { GoalsBulkUpload } from "@/components/goals/board/goals-bulk-upload";
@@ -73,11 +74,27 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
   const [targetDate, setTargetDate] = React.useState("");
   const [weight, setWeight] = React.useState("100");
   const [team, setTeam] = React.useState<TeamMemberWeight[]>([]);
-  const [monthlyMasterRef, setMonthlyMasterRef] = React.useState<MonthlyMasterRef | null>(null);
   const [notes, setNotes] = React.useState("");
+  const [files, setFiles] = React.useState<File[]>([]);
+  // The target bucket — defaults to the board's period, but the quick-picker at
+  // the top lets you retarget (Q1–Q4 / month) without leaving the composer.
+  const [periodKey, setPeriodKey] = React.useState(props.periodKey);
   const [error, setError] = React.useState<string | null>(null);
   const [addedCount, setAddedCount] = React.useState(0);
   const titleRef = React.useRef<HTMLInputElement>(null);
+  const fileRef = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => setPeriodKey(props.periodKey), [props.periodKey]);
+
+  // Sibling buckets for the top quick-picker (standalone goals only; a child goal
+  // is pinned to its parent's bucket). Year has no sub-buckets.
+  const periodChoices = React.useMemo<{ key: string; label: string }[]>(() => {
+    if (props.parent) return [];
+    const fy = fyStartYearOfKey(props.periodKey);
+    if (!Number.isFinite(fy)) return [];
+    if (props.level === "quarter") return quartersOfFy(fy).map((k) => ({ key: k, label: `Q${k.slice(-1)}` }));
+    if (props.level === "month") return monthKeysOfFy(fy).map((k) => ({ key: k, label: periodKeyShort(k) }));
+    return [];
+  }, [props.parent, props.periodKey, props.level]);
 
   React.useImperativeHandle(
     ref,
@@ -90,7 +107,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
     [],
   );
 
-  const bucketLabel = periodKeyLabel(props.periodKey);
+  const bucketLabel = periodKeyLabel(periodKey);
   const periodNoun =
     props.level === "year"
       ? "Year"
@@ -111,8 +128,9 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
     setTargetDate("");
     setWeight("100");
     setTeam([]);
-    setMonthlyMasterRef(null);
     setNotes("");
+    setFiles([]);
+    setPeriodKey(props.periodKey);
     setError(null);
   }
 
@@ -144,7 +162,6 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
       teamInvolved: team.length ? team : null,
       notes: notes.trim() || null,
       weight: w,
-      monthlyMasterRef,
       // Target date rides ONLY on month goals (year/quarter roll up from children).
       targetDate: props.level === "month" ? targetDate.trim() || null : null,
     };
@@ -152,7 +169,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
       ...buildOptimisticGoal({
         employeeId: props.employeeId,
         period: props.level,
-        periodKey: props.periodKey,
+        periodKey,
         title: t,
         area: fields.area,
       }),
@@ -163,25 +180,35 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
       teamInvolved: fields.teamInvolved,
       notes: fields.notes,
       weight: fields.weight,
-      monthlyMasterRef: fields.monthlyMasterRef,
       targetDate: fields.targetDate,
       parentGoalId: props.parent?.id ?? null,
     };
 
+    // Capture the REAL created goal id (the optimistic mutate only returns ok) so
+    // any picked attachments can be uploaded to it right after creation.
+    let createdId: string | null = null;
+    const pending = files.slice();
     void props.mutation
-      .mutate({ type: "insert", row: temp }, () =>
-        props.parent
-          ? addChildGoal({ parentId: props.parent.id, periodKey: props.periodKey, ...fields })
-          : createGoal({
-              employeeId: props.employeeId,
-              period: props.level,
-              periodKey: props.periodKey,
-              ...fields,
-            }),
-      )
-      .then((ok) => {
+      .mutate({ type: "insert", row: temp }, async () => {
+        const res = props.parent
+          ? await addChildGoal({ parentId: props.parent.id, periodKey, ...fields })
+          : await createGoal({ employeeId: props.employeeId, period: props.level, periodKey, ...fields });
+        if (res.ok && "id" in res && typeof res.id === "string") createdId = res.id;
+        return res;
+      })
+      .then(async (ok) => {
         setSaving(false);
         if (!ok) return; // mutate toasted; the temp row reverted
+        // Upload attachments to the freshly-created goal (best-effort, never blocks).
+        if (createdId && pending.length) {
+          for (const file of pending) {
+            const fd = new FormData();
+            fd.set("nodeId", createdId);
+            fd.set("nodeKind", "cascade");
+            fd.set("file", file);
+            try { await uploadGoalAttachment(fd); } catch { /* per-file best-effort */ }
+          }
+        }
         // Save-and-add-another: keep the composer open, clear the fields, bump the
         // running count shown in the eyebrow, and put focus back on the first field
         // so the next goal can be typed immediately. "End" closes when finished.
@@ -241,7 +268,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
               <GoalsBulkUpload
                 employeeId={props.employeeId}
                 level={props.level}
-                periodKey={props.periodKey}
+                periodKey={periodKey}
                 existingTitles={props.existingTitles ?? []}
               />
               <span className="min-w-0 truncate text-[12px] font-medium" style={{ color: "var(--color-ink-subtle)" }}>
@@ -291,36 +318,47 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
             </p>
           )}
 
-          {/* 1 · Area — a managed dropdown (admins can add more). */}
-          <div className="block">
-            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Area</span>
-            <GoalLookupSelect
-              kind="area"
-              noun="Area"
-              value={area}
-              onChange={setArea}
-              options={props.areaOptions}
-              custom={props.customLookups.areas}
-              isAdmin={props.isAdmin}
-              placeholder="Choose an area"
-            />
-          </div>
+          {/* Period quick-picker — retarget the bucket (Q1–Q4 / month) without
+              leaving the composer. Standalone goals only (children pin to parent). */}
+          {periodChoices.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {periodChoices.map((p) => {
+                const on = p.key === periodKey;
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => setPeriodKey(p.key)}
+                    aria-pressed={on}
+                    className={`wg-btn inline-flex items-center rounded-full border px-3 py-1.5 text-[12.5px] font-bold transition-colors cursor-pointer ${FOCUS_RING}`}
+                    style={
+                      on
+                        ? { background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", borderColor: "var(--color-altus-red)", color: "#fff" }
+                        : { background: "var(--color-surface-card)", borderColor: "var(--color-hairline-strong)", color: "var(--color-ink-soft)" }
+                    }
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-          {/* 2 · Goal. */}
-          <label className="block">
-            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Goal</span>
-            <input
-              ref={titleRef}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="What does done look like?"
-              className={`h-10 w-full rounded-md border bg-white px-2.5 text-[15px] font-medium text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
-              style={{ borderColor: "var(--color-hairline-strong)" }}
-            />
-          </label>
-
-          {/* 3 · Measure (→ uom) + Type. */}
-          <div className="grid gap-3 sm:grid-cols-2">
+          {/* 1 · Area · Measure · Type — one row. */}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="block">
+              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Area</span>
+              <GoalLookupSelect
+                kind="area"
+                noun="Area"
+                value={area}
+                onChange={setArea}
+                options={props.areaOptions}
+                custom={props.customLookups.areas}
+                isAdmin={props.isAdmin}
+                placeholder="Choose an area"
+              />
+            </div>
             <div className="block">
               <span className="mb-1 block text-[12px] font-bold text-ink-soft">Measure</span>
               <GoalLookupSelect
@@ -349,8 +387,21 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
             </div>
           </div>
 
-          {/* 4 · Actual vs Target (% Done = Actual ÷ Target). */}
-          <div className="grid gap-3 sm:grid-cols-2">
+          {/* 2 · Goal — its own full-width line. */}
+          <label className="block">
+            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Goal</span>
+            <input
+              ref={titleRef}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="What does done look like?"
+              className={`h-10 w-full rounded-md border bg-white px-2.5 text-[15px] font-medium text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
+              style={{ borderColor: "var(--color-hairline-strong)" }}
+            />
+          </label>
+
+          {/* 3 · Actual · Target · Weight — one row. */}
+          <div className="grid gap-3 sm:grid-cols-3">
             <label className="block">
               <span className="mb-1 block text-[12px] font-bold text-ink-soft">Actual</span>
               <input
@@ -369,6 +420,20 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
                 onChange={(e) => setTarget(e.target.value)}
                 inputMode="decimal"
                 placeholder="e.g. 100"
+                className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-bold tabular-nums text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
+                style={{ borderColor: "var(--color-hairline-strong)" }}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Weight</span>
+              <input
+                type="number"
+                min={0}
+                max={1000}
+                step={1}
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+                placeholder="100"
                 className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-bold tabular-nums text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
                 style={{ borderColor: "var(--color-hairline-strong)" }}
               />
@@ -392,52 +457,73 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
             </label>
           )}
 
-          {/* ── Weight ── */}
-          <label className="block">
-            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Weight</span>
-            <input
-              type="number"
-              min={0}
-              max={1000}
-              step={1}
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-              placeholder="100"
-              className={`h-10 w-full rounded-md border bg-white px-2.5 text-[14px] font-bold tabular-nums text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
-              style={{ borderColor: "var(--color-hairline-strong)" }}
-            />
-            <span className="mt-1 block text-[11.5px] font-medium text-ink-subtle">share of the period score</span>
-          </label>
-
           {/* ── Team members (each with their OWN weight) ── */}
           <div className="block">
             <span className="mb-1 block text-[12px] font-bold text-ink-soft">Team Members</span>
             <TeamWeightsField value={team} roster={props.roster} onChange={setTeam} />
-            <span className="mt-1 block text-[11.5px] font-medium text-ink-subtle">
-              Add the people on this goal — each gets their own weight (share).
-            </span>
           </div>
 
-          {/* ── Monthly Master ── */}
-          <div className="block">
-            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Monthly Master</span>
-            <MonthlyMasterField value={monthlyMasterRef} onCommit={setMonthlyMasterRef} />
-            <span className="mt-1 block text-[11.5px] font-medium text-ink-subtle">
-              Link to one event/task from the Monthly Events Master.
-            </span>
+          {/* ── Notes + Attachments — side by side ── */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Notes</span>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                placeholder="Plan / approach…"
+                className={`w-full resize-y rounded-md border bg-white px-2.5 py-2 text-[15px] font-medium text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
+                style={{ borderColor: "var(--color-hairline-strong)" }}
+              />
+            </label>
+            <div className="block">
+              <span className="mb-1 block text-[12px] font-bold text-ink-soft">Attachments</span>
+              <input
+                ref={fileRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const picked = Array.from(e.target.files ?? []);
+                  if (picked.length) setFiles((prev) => [...prev, ...picked]);
+                  if (fileRef.current) fileRef.current.value = "";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className={`flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed bg-white px-2.5 py-2.5 text-[13px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red ${FOCUS_RING}`}
+                style={{ borderColor: "var(--color-hairline-strong)" }}
+              >
+                <Paperclip size={14} strokeWidth={2.4} /> Attach files
+              </button>
+              {files.length > 0 && (
+                <ul className="mt-1.5 space-y-1">
+                  {files.map((f, i) => (
+                    <li
+                      key={`${f.name}-${i}`}
+                      className="flex items-center gap-2 rounded-md border px-2 py-1 text-[12px] font-medium text-ink-strong"
+                      style={{ borderColor: "var(--color-hairline)", background: "var(--color-surface-card)" }}
+                    >
+                      <Paperclip size={12} className="shrink-0 text-ink-subtle" />
+                      <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                        aria-label={`Remove ${f.name}`}
+                        className="grid size-5 shrink-0 place-items-center rounded text-ink-subtle hover:text-altus-red"
+                      >
+                        <X size={13} strokeWidth={2.4} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <span className="mt-1 block text-[11.5px] font-medium text-ink-subtle">
+                Uploaded to the goal once you add it.
+              </span>
+            </div>
           </div>
-
-          <label className="block">
-            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Notes</span>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              placeholder="Plan / approach…"
-              className={`w-full resize-y rounded-md border bg-white px-2.5 py-2 text-[15px] font-medium text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
-              style={{ borderColor: "var(--color-hairline-strong)" }}
-            />
-          </label>
         </div>
       </WeeklyGoalDrawer>
     </>

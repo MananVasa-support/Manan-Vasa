@@ -28,6 +28,13 @@ export interface CascadeWeeklyGoal {
   actualAmount: string | null;
   teamInvolved: TeamMember[];
   teamDependencyPct: number | null;
+  /** Column parity with Y/Q/M goals — the inline table's Type/Status/Reviewer/
+   *  Share/Delegated columns render + edit these on the Weekly board too. */
+  goalType: string | null;
+  status: string | null;
+  reviewedById: string | null;
+  shareWithTeam: boolean;
+  delegatedTo: Array<{ employeeId: string; name?: string; pct: number }> | null;
   evidenceUrl: string | null;
   pctDone: number;
   acceptPct: number | null;

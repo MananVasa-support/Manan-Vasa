@@ -3037,6 +3037,9 @@ export const weeklyGoals = pgTable(
     // "Delegate to team" (migration 0171) — mirrors goals.delegated_to so the
     // column is ready if weekly delegation is wired later. Additive/nullable.
     delegatedTo: jsonb("delegated_to").$type<Array<{ employeeId: string; name?: string; pct: number }>>(),
+    // "Share with team" (migration 0172) — mirrors goals.share_with_team so the
+    // weekly table has column parity with year/quarter/month. Additive.
+    shareWithTeam: boolean("share_with_team").notNull().default(false),
     evidenceUrl: text("evidence_url"),
     // Opt-in per week (cross-out = false drops it from the committed set).
     adopted: boolean("adopted").notNull().default(true),

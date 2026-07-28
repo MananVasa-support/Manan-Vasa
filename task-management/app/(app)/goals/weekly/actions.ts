@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { weeklyGoals, goals } from "@/db/schema";
+import { TASK_STATUSES, GOAL_TYPES } from "@/db/enums";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { goalScopeFor } from "@/lib/weekly-goals/hierarchy";
@@ -129,6 +130,16 @@ const UpdateFieldsSchema = z.object({
   teamDependencyPct: z.number().int().min(0).max(100).nullable().optional(),
   evidenceUrl: z.string().url().max(2048).nullable().optional().or(z.literal("")),
   monthGoalId: z.string().uuid().nullable().optional(),
+  // Column parity with Y/Q/M (all real weekly_goals columns).
+  weight: z.number().int().min(0).max(1000).optional(),
+  goalType: z.enum(GOAL_TYPES).nullable().optional(),
+  status: z.enum(TASK_STATUSES).optional(),
+  reviewedById: z.string().uuid().nullable().optional(),
+  shareWithTeam: z.boolean().optional(),
+  delegatedTo: z
+    .array(z.object({ employeeId: z.string().uuid(), name: z.string().max(120).optional(), pct: z.number().int().min(0).max(100) }))
+    .nullable()
+    .optional(),
 });
 
 /**
@@ -177,6 +188,13 @@ export async function updateWeeklyCascadeFields(
   if ("teamDependencyPct" in d) set.teamDependencyPct = d.teamDependencyPct ?? null;
   if ("evidenceUrl" in d) set.evidenceUrl = d.evidenceUrl ? d.evidenceUrl : null;
   if ("monthGoalId" in d) set.monthGoalId = d.monthGoalId ?? null;
+  // Column parity with Y/Q/M.
+  if ("weight" in d && d.weight !== undefined) set.weight = d.weight;
+  if ("goalType" in d) set.goalType = d.goalType ?? null;
+  if ("status" in d && d.status !== undefined) set.status = d.status;
+  if ("reviewedById" in d) set.reviewedById = d.reviewedById ?? null;
+  if ("shareWithTeam" in d && d.shareWithTeam !== undefined) set.shareWithTeam = d.shareWithTeam;
+  if ("delegatedTo" in d) set.delegatedTo = d.delegatedTo ?? null;
 
   // Auto % Done from Actual ÷ Target (mirrors the cascade edit + inline table):
   // when target/actual just changed, progress rides on the two numbers.

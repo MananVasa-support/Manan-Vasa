@@ -433,13 +433,13 @@ export function MainNav({
   // ── Mobile drawer: switcher on top, then flat pills (+ "More" group inline).
   if (variant === "drawer") {
     return (
-      <nav aria-label="Primary" className="flex flex-col gap-1.5 w-full">
+      <nav aria-label="Primary" className="flex flex-col gap-1 w-full">
         {topPills.map(renderPill)}
         {groups.map((group) => {
           const items = visible(group.items);
           if (items.length === 0) return null;
           return (
-            <div key={group.label} className="mt-2 flex flex-col gap-1.5">
+            <div key={group.label} className="mt-1.5 flex flex-col gap-1">
               <div className="nav-drawer-section">{group.label}</div>
               {items.map(renderPill)}
             </div>

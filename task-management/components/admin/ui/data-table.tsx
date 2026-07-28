@@ -33,6 +33,10 @@ export interface DataTableProps<T> {
   initialSort?: { key: string; dir: "asc" | "desc" };
   /** Trailing per-row actions cell (row menu, buttons…). */
   rowActions?: (row: T) => ReactNode;
+  /** Opt-in bulk actions — when provided, a leading select checkbox column + a
+   *  sticky selection bar appear; render the action buttons for the picked rows.
+   *  `clearSelection()` empties the selection (call after a successful action). */
+  bulkActions?: (selected: T[], clearSelection: () => void) => ReactNode;
   /** Shown when there are zero rows to begin with. */
   emptyState?: ReactNode;
   /** Tighter vertical padding. */
@@ -79,6 +83,7 @@ export function DataTable<T>({
   filters,
   initialSort,
   rowActions,
+  bulkActions,
   emptyState,
   dense = false,
   searchPlaceholder = "Search…",
@@ -87,6 +92,7 @@ export function DataTable<T>({
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortState>(initialSort ?? null);
   const [filterValues, setFilterValues] = useState<Record<number, string>>({});
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const searchInputId = useId();
 
   const colByKey = useMemo(() => {
@@ -148,8 +154,38 @@ export function DataTable<T>({
   }
 
   const hasToolbar = Boolean(searchText) || (filters && filters.length > 0);
-  const totalCols = columns.length + (rowActions ? 1 : 0);
+  const totalCols = columns.length + (rowActions ? 1 : 0) + (bulkActions ? 1 : 0);
   const cellPadY = dense ? "py-2.5" : "py-4";
+
+  // ── Bulk selection (opt-in) ──────────────────────────────────────────
+  const selectedRows = useMemo(
+    () => (bulkActions ? filtered.filter((r) => selectedKeys.has(getRowKey(r))) : []),
+    [bulkActions, filtered, selectedKeys, getRowKey],
+  );
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((r) => selectedKeys.has(getRowKey(r)));
+  const someFilteredSelected = filtered.some((r) => selectedKeys.has(getRowKey(r)));
+  const clearSelection = () => setSelectedKeys(new Set());
+  function toggleRow(key: string) {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+  function toggleAll() {
+    setSelectedKeys((prev) => {
+      if (allFilteredSelected) {
+        const next = new Set(prev);
+        for (const r of filtered) next.delete(getRowKey(r));
+        return next;
+      }
+      const next = new Set(prev);
+      for (const r of filtered) next.add(getRowKey(r));
+      return next;
+    });
+  }
 
   // Nothing at all — show the caller's empty state (or a default).
   if (rows.length === 0) {
@@ -242,6 +278,28 @@ export function DataTable<T>({
         </div>
       ) : null}
 
+      {/* Bulk-selection bar — appears once ≥1 row is ticked. */}
+      {bulkActions && selectedRows.length > 0 ? (
+        <div
+          className="flex flex-wrap items-center gap-3 border-b border-hairline px-5 py-3"
+          style={{ background: "rgba(248, 250, 252, 0.9)" }}
+        >
+          <span className="text-[13px] font-bold text-ink-strong tabular-nums">
+            {selectedRows.length} selected
+          </span>
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="text-[12.5px] font-semibold text-ink-subtle underline-offset-2 hover:text-ink-strong hover:underline"
+          >
+            Clear
+          </button>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {bulkActions(selectedRows, clearSelection)}
+          </div>
+        </div>
+      ) : null}
+
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] text-[15px]">
           <thead>
@@ -249,6 +307,20 @@ export function DataTable<T>({
               className="border-b border-hairline text-left text-[12px] font-bold uppercase tracking-[0.08em] text-ink-subtle"
               style={{ background: "rgba(248, 250, 252, 0.7)" }}
             >
+              {bulkActions ? (
+                <th scope="col" className="sticky top-0 z-10 w-10 px-4 py-4" style={{ background: "rgba(248, 250, 252, 0.82)" }}>
+                  <input
+                    type="checkbox"
+                    aria-label="Select all rows"
+                    checked={allFilteredSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someFilteredSelected && !allFilteredSelected;
+                    }}
+                    onChange={toggleAll}
+                    className="size-4 cursor-pointer accent-[var(--color-altus-red)]"
+                  />
+                </th>
+              ) : null}
               {columns.map((c) => {
                 const sortable = Boolean(c.sortValue);
                 const active = sort?.key === c.key;
@@ -324,6 +396,17 @@ export function DataTable<T>({
                   key={getRowKey(row)}
                   className="admin-row border-b border-hairline last:border-b-0"
                 >
+                  {bulkActions ? (
+                    <td className={cn("w-10 px-4 align-middle", cellPadY)}>
+                      <input
+                        type="checkbox"
+                        aria-label="Select row"
+                        checked={selectedKeys.has(getRowKey(row))}
+                        onChange={() => toggleRow(getRowKey(row))}
+                        className="size-4 cursor-pointer accent-[var(--color-altus-red)]"
+                      />
+                    </td>
+                  ) : null}
                   {columns.map((c) => (
                     <td
                       key={c.key}

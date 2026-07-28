@@ -667,21 +667,18 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
         {/* ── HEADER — ONE unified command bar: identity + tabs · overview
             (dial + donut) · person + FY, all in a single creative band. ── */}
         <section
-          className="wg-rise relative mb-5 overflow-hidden rounded-[26px]"
+          className="wg-rise relative mb-5 overflow-hidden rounded-[20px]"
           style={{
-            background:
-              "linear-gradient(105deg, color-mix(in srgb, var(--color-altus-red) 8%, var(--color-surface-card)) 0%, var(--color-surface-card) 44%, color-mix(in srgb, var(--color-altus-red) 5%, var(--color-surface-card)) 100%)",
-            border: "1px solid color-mix(in srgb, var(--color-altus-red) 18%, var(--color-hairline))",
+            background: "var(--color-surface-card)",
+            border: "1px solid var(--color-hairline)",
             boxShadow:
-              "inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 6px rgba(15,23,42,0.05), 0 26px 60px -34px color-mix(in srgb, var(--color-altus-red) 44%, transparent)",
+              "0 1px 2px rgba(15,23,42,0.05), 0 18px 44px -30px rgba(15,23,42,0.22)",
           }}
         >
-          {/* aurora washes + left accent rail */}
-          <span aria-hidden className="pointer-events-none absolute -right-12 -top-24 h-64 w-64 rounded-full" style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--color-altus-red) 15%, transparent), transparent 66%)" }} />
-          <span aria-hidden className="pointer-events-none absolute -left-24 -bottom-28 h-60 w-60 rounded-full" style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--color-altus-red) 8%, transparent), transparent 70%)" }} />
-          <span aria-hidden className="pointer-events-none absolute left-0 top-0 h-full w-1.5" style={{ background: "linear-gradient(180deg, var(--color-altus-red), var(--color-altus-red-deep))" }} />
+          {/* subtle left accent rail (brand) — no pink background wash */}
+          <span aria-hidden className="pointer-events-none absolute left-0 top-0 h-full w-1" style={{ background: "linear-gradient(180deg, var(--color-altus-red), var(--color-altus-red-deep))" }} />
 
-          <div className="relative flex min-h-[68px] items-center gap-6 px-7 py-3.5 max-xl:flex-wrap max-md:gap-4 max-md:px-4">
+          <div className="relative flex min-h-[64px] items-center gap-4 px-6 py-3 max-xl:flex-wrap max-md:gap-3 max-md:px-4">
             {/* 1 · identity — eyebrow + title only (one short band) */}
             <div className="min-w-0 flex-1 max-xl:w-full max-xl:flex-none">
               <div className="text-[10.5px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--color-altus-red-deep)" }}>
@@ -698,7 +695,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
             {/* 2 · period pills — Q1–Q4 as a compact 2×2 grid, in the header */}
             {props.level !== "year" && (
               <div
-                className={`grid shrink-0 ${props.level === "quarter" ? "grid-cols-2" : "grid-cols-4"} gap-2 self-center border-l pl-6 max-xl:w-full max-xl:border-l-0 max-xl:pl-0`}
+                className={`grid shrink-0 self-center border-l pl-5 ${props.level === "quarter" ? "grid-cols-4 gap-2" : "grid-cols-12 gap-1.5"} max-xl:w-full max-xl:border-l-0 max-xl:pl-0`}
                 style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 16%, var(--color-hairline))" }}
                 role="tablist"
                 aria-label="Pick a period"
@@ -710,6 +707,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                     count={countByBucket.get(k) ?? 0}
                     active={k === props.periodKey}
                     onPick={() => go({ period: k })}
+                    compact={props.level === "month"}
                   />
                 ))}
               </div>
@@ -717,20 +715,20 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
 
             {/* 3 · person + FY — side by side on one horizontal band */}
             <div
-              className="flex shrink-0 flex-row items-center gap-3 border-l pl-6 max-xl:w-full max-xl:justify-between max-xl:border-l-0 max-xl:pl-0"
+              className="flex shrink-0 flex-row items-center gap-2.5 border-l pl-5 max-xl:w-full max-xl:justify-between max-xl:border-l-0 max-xl:pl-0"
               style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 16%, var(--color-hairline))" }}
             >
               {/* Name selector — a bold, glowing custom pill (avatar + "VIEWING"
                   eyebrow + the unstyled Select as the name). */}
               {props.roster.length > 1 && (
-                <div className="group relative w-[236px] max-md:w-full">
+                <div className="group relative w-[186px] max-md:w-full">
                   <span
                     aria-hidden
                     className="pointer-events-none absolute -inset-[2px] rounded-2xl opacity-55 blur-[7px] transition-opacity duration-300 group-hover:opacity-90"
                     style={{ background: "linear-gradient(120deg, var(--color-altus-red), #ff5560, var(--color-altus-red-deep))" }}
                   />
                   <div
-                    className="relative flex items-center gap-2.5 rounded-2xl px-2.5 py-1.5"
+                    className="relative flex items-center gap-2 rounded-2xl px-2 py-1"
                     style={{
                       background: "linear-gradient(135deg, color-mix(in srgb, var(--color-altus-red) 12%, var(--color-surface-card)), var(--color-surface-card) 70%)",
                       border: "1.5px solid color-mix(in srgb, var(--color-altus-red) 32%, transparent)",
@@ -738,13 +736,13 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                     }}
                   >
                     <span
-                      className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[13px] font-black text-white"
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-[12px] font-black text-white"
                       style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 4px 10px -4px var(--color-altus-red)" }}
                     >
                       {props.viewedName.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?"}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[8.5px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--color-altus-red-deep)" }}>
+                      <div className="text-[8px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--color-altus-red-deep)" }}>
                         Viewing
                       </div>
                       <Select
@@ -754,7 +752,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                         searchPlaceholder="Search people…"
                         ariaLabel="View another person's goals"
                         unstyled
-                        className="flex w-full cursor-pointer items-center gap-1 text-left text-[13.5px] font-bold text-ink-strong"
+                        className="flex w-full cursor-pointer items-center gap-1 text-left text-[12.5px] font-bold text-ink-strong"
                         options={props.roster.map((r) => ({
                           value: r.id,
                           label: r.id === props.myEmployeeId ? `${r.name} (me)` : r.name,
@@ -776,12 +774,12 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                   type="button"
                   aria-label="Previous financial year"
                   onClick={() => go({ fy: fy - 1 })}
-                  className={`cursor-pointer px-2.5 py-1.5 text-ink-subtle transition-colors hover:text-altus-red hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)] ${FOCUS_RING}`}
+                  className={`cursor-pointer px-2 py-1 text-ink-subtle transition-colors hover:text-altus-red hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)] ${FOCUS_RING}`}
                 >
-                  <ChevronLeft size={17} strokeWidth={2.4} />
+                  <ChevronLeft size={15} strokeWidth={2.4} />
                 </button>
                 <span
-                  className="px-3.5 py-1.5 text-[13.5px] tabular-nums text-ink-strong"
+                  className="px-2.5 py-1 text-[12px] tabular-nums text-ink-strong"
                   style={{ fontFamily: "var(--font-display)", fontWeight: 800, borderInline: "1px solid color-mix(in srgb, var(--color-altus-red) 14%, var(--color-hairline))" }}
                 >
                   {fyLabel(fy)}
@@ -790,9 +788,9 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                   type="button"
                   aria-label="Next financial year"
                   onClick={() => go({ fy: fy + 1 })}
-                  className={`cursor-pointer px-2.5 py-1.5 text-ink-subtle transition-colors hover:text-altus-red hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)] ${FOCUS_RING}`}
+                  className={`cursor-pointer px-2 py-1 text-ink-subtle transition-colors hover:text-altus-red hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)] ${FOCUS_RING}`}
                 >
-                  <ChevronRight size={17} strokeWidth={2.4} />
+                  <ChevronRight size={15} strokeWidth={2.4} />
                 </button>
               </div>
             </div>
@@ -1099,11 +1097,14 @@ function HeaderPill({
   count,
   active,
   onPick,
+  compact = false,
 }: {
   label: string;
   count: number;
   active: boolean;
   onPick: () => void;
+  /** Month picker packs 12 pills on one row — a tighter pad + smaller type. */
+  compact?: boolean;
 }) {
   return (
     <button
@@ -1111,7 +1112,9 @@ function HeaderPill({
       onClick={onPick}
       aria-pressed={active}
       aria-label={`${label} — ${count} goal${count === 1 ? "" : "s"}`}
-      className={`wg-btn inline-flex items-center justify-center rounded-full border px-3 py-1.5 text-[13.5px] font-bold transition-all cursor-pointer ${FOCUS_RING}`}
+      className={`wg-btn inline-flex items-center justify-center rounded-full border font-bold transition-all cursor-pointer ${
+        compact ? "px-1.5 py-1 text-[11.5px]" : "px-3 py-1.5 text-[13.5px]"
+      } ${FOCUS_RING}`}
       style={
         active
           ? {
