@@ -428,6 +428,9 @@ export interface GoalDTO {
   monthlyMasterRef: MonthlyMasterRef | null;
   /** "Share with team" Yes/No (mig 0149). */
   shareWithTeam: boolean;
+  /** "Delegate to team" (mig 0171) — accountability hand-off, each delegate with
+   *  a % (default 100). OPTIONAL: temp/optimistic + week rows omit it. */
+  delegatedTo?: Array<{ employeeId: string; name?: string; pct: number }> | null;
   /** Deadline (ISO 'YYYY-MM-DD') — set ONLY on month/week goals (mig 0169). */
   targetDate: string | null;
   /** Task status (goals.status). OPTIONAL — in-flight optimistic temp rows omit
@@ -490,6 +493,7 @@ export function toGoalDTO(r: {
   incentiveKind?: string | null;
   monthlyMasterRef?: { kind: string; id: string; label: string } | null;
   shareWithTeam?: boolean;
+  delegatedTo?: Array<{ employeeId: string; name?: string; pct: number }> | null;
   targetDate?: string | Date | null;
   status?: string | null;
   reviewedById?: string | null;
@@ -525,6 +529,7 @@ export function toGoalDTO(r: {
     teamInvolved: r.teamInvolved,
     teamDependencyPct: r.teamDependencyPct,
     shareWithTeam: r.shareWithTeam ?? false,
+    delegatedTo: r.delegatedTo ?? null,
     pctDone: r.pctDone,
     acceptPct: r.acceptPct,
     reviewNotes: r.reviewNotes,

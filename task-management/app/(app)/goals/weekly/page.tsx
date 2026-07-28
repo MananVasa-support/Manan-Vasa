@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
@@ -14,6 +14,7 @@ import {
   mondayOf,
   nextWeekStart,
   prevWeekStart,
+  weekEnd,
   formatWeekLabel,
 } from "@/lib/weekly-goals/week";
 import { weekNoOf } from "@/lib/goals/fy-calendar";
@@ -21,6 +22,7 @@ import { monthKey, fyStartYearOf } from "@/lib/goals/types";
 import { listGoalLookups } from "@/lib/goals/lookups";
 import { loadCommitData } from "@/components/goals/commit/data";
 import { WeeklyCascadeBoard } from "@/components/goals/weekly/weekly-cascade-board";
+import { toGoalDTO, type GoalDTO } from "@/components/goals/cascade/util";
 import type {
   CascadeWeeklyGoal,
   RosterMember,
@@ -91,7 +93,7 @@ export default async function GoalsWeeklyPage({ searchParams }: PageProps) {
   // The month this week's Monday belongs to (for the "link to monthly goal" picker).
   const thisMonthKey = monthKey(weekStart);
 
-  const [rawRows, monthGoalRows] = await Promise.all([
+  const [rawRows, monthGoalRows, dayGoalRows] = await Promise.all([
     db
       .select({
         id: weeklyGoals.id,
@@ -148,7 +150,28 @@ export default async function GoalsWeeklyPage({ searchParams }: PageProps) {
         ),
       )
       .orderBy(asc(goals.position)),
+    // DAY goals whose date falls in this Mon–Sun week → the Week→Day kanban
+    // lanes. ONE lean indexed select (employee + period + date range). Empty in
+    // practice for most professional boards — the lanes render gracefully.
+    db
+      .select()
+      .from(goals)
+      .where(
+        and(
+          eq(goals.employeeId, scopeEmp),
+          eq(goals.scope, "professional"),
+          eq(goals.period, "day"),
+          eq(goals.archived, false),
+          gte(goals.periodKey, weekStart),
+          lte(goals.periodKey, weekEnd(weekStart)),
+        ),
+      )
+      .orderBy(asc(goals.position)),
   ]);
+
+  const dayGoals: GoalDTO[] = dayGoalRows
+    .map((r) => toGoalDTO(r))
+    .sort((a, b) => a.position - b.position || a.title.localeCompare(b.title));
 
   // Resolve Team Involved live: collect every referenced employee id, fetch the
   // ACTIVE ones (departed / inactive are simply absent → the UI drops them but
@@ -261,6 +284,7 @@ export default async function GoalsWeeklyPage({ searchParams }: PageProps) {
         canPickPerson={canPickPerson}
         people={people}
         rows={rows}
+        dayGoals={dayGoals}
         roster={roster}
         monthGoalOptions={monthGoalOptions}
         areaOptions={lookups.areas}

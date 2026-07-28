@@ -1,25 +1,30 @@
 "use client";
 
 /**
- * Weekly board — KANBAN view.
+ * Weekly board — KANBAN view (Week → Day).
  *
- * A clean SINGLE-WEEK Kanban: a left "This month's goals" SOURCE column whose
- * cards are the month's monthly-cascade goals, and a right column for the week
- * in view. Drag a monthly goal into the week column → it creates a weekly goal
- * linked to that monthly parent (`addWeekGoal({ employeeId, weekStart, title,
- * monthGoalId })`). Existing weekly rows render as cards in the week column and
- * keep their carry-forward affordance.
+ * A frozen-parent hierarchy board that reads Vision → Execution left-to-right,
+ * mirroring the level boards' Month → Week Kanban one rung down:
  *
- * WHY single-week (design decision): the weekly loader only hydrates the rows of
- * the ONE focused week (plus prev/next week *keys*, not their goals). Rendering
- * adjacent weeks as columns would show them permanently empty even when they
- * hold goals — misleading. So this is the recommended single-week Kanban with a
- * draggable month-goal source → the current week; week-nav (‹ ›) still moves
- * which week is the target, and cross-week movement stays on the carry-forward
- * control (which already targets ±weeks).
+ *   ┌─────────────┐  ┌──────┐ ┌──────┐ ┌──────┐ … ┌──────┐
+ *   │ FROZEN      │  │ Mon  │ │ Tue  │ │ Wed  │   │ Sun  │
+ *   │ this week's │  │ day  │ │ day  │ │ …    │   │ …    │
+ *   │ goals       │  │ cards│ │ cards│ │      │   │      │
+ *   │ (sticky)    │  │      │ │      │ │      │   │      │
+ *   └─────────────┘  └──────┘ └──────┘ └──────┘   └──────┘
+ *      ▲ pinned left       ▲ Mon…Sun lanes scroll horizontally →
  *
- * One `DndContext`; keyboard-draggable (Pointer + Keyboard sensors); every drop
- * is fail-safe — a rejected create reverts the optimistic card and toasts.
+ * FROZEN column  = the week's weekly goals (weekly_goals rows) — the roll-up the
+ *                  days ladder up to.
+ * Lanes          = Mon…Sun of the week in view.
+ * Day cards      = `goals` rows at period="day" whose date falls in that day.
+ *                  Dragging one between day lanes RE-HOMES its date
+ *                  (`moveDayGoalToDate`, optimistic + Undo, keyboard-draggable).
+ *
+ * Day goals are uncommon on a professional board (day work usually lives on the
+ * Plan-Your-Day checklist), so most lanes render an empty-but-ready state — the
+ * structure is here the moment day goals exist. One `DndContext`; Pointer +
+ * Keyboard sensors; every drop is fail-safe (a rejected move reverts + toasts).
  */
 
 import * as React from "react";
@@ -31,35 +36,52 @@ import {
   KeyboardSensor,
   useSensor,
   useSensors,
-  useDraggable,
   useDroppable,
+  closestCorners,
   pointerWithin,
+  type CollisionDetection,
   type DragStartEvent,
   type DragEndEvent,
+  type Announcements,
+  type ScreenReaderInstructions,
 } from "@dnd-kit/core";
-import { GripVertical, Link2, Plus, Target, CheckCircle2 } from "lucide-react";
+import {
+  SortableContext,
+  useSortable,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Layers, Snowflake } from "lucide-react";
 import { fireToast } from "@/lib/toast";
-import { addWeekGoal } from "@/app/(app)/goals/weekly/actions";
-import { CarryForwardControl } from "./carry-forward-control";
-import type { BoardMe, CascadeWeeklyGoal, MonthGoalOption } from "./types";
+import { addDays } from "@/lib/weekly-goals/week";
+import { moveDayGoalToDate } from "@/app/(app)/goals/cascade/actions";
+import {
+  type GoalDTO,
+  effectiveGoalPct,
+  categoryStyle,
+  fmtNum,
+} from "@/components/goals/cascade/util";
+import { pctTone } from "@/components/weekly-goals/field-controls";
+import { ProgressRing } from "@/components/goals/board/goal-board-card";
+import type { BoardMe, CascadeWeeklyGoal } from "./types";
 
 const ACCENT = "var(--goals-accent, #E10600)";
 const ACCENT_DEEP = "var(--goals-accent-deep, #A80400)";
-const ACCENT_TINT = "color-mix(in srgb, var(--goals-accent, #E10600) 10%, transparent)";
 
 const FOCUS_RING =
   "outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-soft)]";
 
-const MONTH_DRAG_PREFIX = "monthgoal:";
-const WEEK_DROP_ID = "weekcol";
+/** Drop-id contract — a day lane droppable is `dlane:<yyyy-mm-dd>`. */
+const LANE_DROP_PREFIX = "dlane:";
+const EMPTY: GoalDTO[] = [];
+const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
-/** A weekly card the user just created by dropping — held locally until the
- *  server row (same id) arrives on the next router.refresh, then reconciled. */
-interface LocalCard {
-  id: string;
-  title: string;
-  monthGoalTitle: string | null;
-  saving: boolean;
+/** "13 Jul" for a day lane sub-label. */
+function dayShort(iso: string): string {
+  const d = Number(iso.slice(8, 10));
+  const m = Number(iso.slice(5, 7)) - 1;
+  return `${d} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m] ?? ""}`.trim();
 }
 
 export function WeeklyKanban({
@@ -69,7 +91,7 @@ export function WeeklyKanban({
   weekNo,
   weekLabel,
   rows,
-  monthGoalOptions,
+  dayGoals,
   canWrite,
 }: {
   me: BoardMe;
@@ -78,153 +100,256 @@ export function WeeklyKanban({
   weekNo: number;
   weekLabel: string;
   rows: CascadeWeeklyGoal[];
-  monthGoalOptions: MonthGoalOption[];
+  dayGoals: GoalDTO[];
   canWrite: boolean;
 }) {
   const router = useRouter();
-  const [added, setAdded] = React.useState<LocalCard[]>([]);
-  const [activeOption, setActiveOption] = React.useState<MonthGoalOption | null>(null);
 
-  // Reconcile: once a locally-added card's real id shows up in the server rows,
-  // drop the optimistic copy (the real card renders instead).
-  React.useEffect(() => {
-    setAdded((prev) => prev.filter((c) => !rows.some((r) => r.id === c.id)));
-  }, [rows]);
+  // The 7 Mon…Sun dates of the week in view.
+  const days = React.useMemo(
+    () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
+    [weekStart],
+  );
+
+  // Day goals get a small local optimistic layer (goals-table rows, but this
+  // surface has no shared spine): a drag re-homes the date instantly, reconciled
+  // from the server on success (router.refresh) or reverted + toasted on failure.
+  const [items, setItems] = React.useState<GoalDTO[]>(dayGoals);
+  React.useEffect(() => setItems(dayGoals), [dayGoals]);
+
+  // The week's weekly goals — the frozen roll-up (adopted first, crossed last).
+  const frozen = React.useMemo(
+    () => [...rows].sort((a, b) => Number(b.adopted) - Number(a.adopted) || a.position - b.position),
+    [rows],
+  );
+
+  // Day cards bucketed per lane (date), Sr.-No. sorted.
+  const byDay = React.useMemo(() => {
+    const m = new Map<string, GoalDTO[]>();
+    for (const d of days) m.set(d, []);
+    for (const g of items) m.get(g.periodKey)?.push(g);
+    for (const list of m.values())
+      list.sort((a, b) => a.position - b.position || a.title.localeCompare(b.title));
+    return m;
+  }, [items, days]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+  const dndId = React.useId();
+  const [active, setActive] = React.useState<GoalDTO | null>(null);
 
-  // How many weekly goals this week already ladder up to each monthly goal —
-  // a calm badge on the source card so the drag reads as "add another".
-  const linkedByMonth = React.useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of rows) if (r.monthGoalId) m.set(r.monthGoalId, (m.get(r.monthGoalId) ?? 0) + 1);
-    return m;
-  }, [rows]);
+  const collisionDetection = React.useCallback<CollisionDetection>((args) => {
+    const under = pointerWithin(args);
+    return under.length > 0 ? under : closestCorners(args);
+  }, []);
 
-  const createFromMonth = React.useCallback(
-    (option: MonthGoalOption) => {
-      const tempId = `temp-${Math.random().toString(36).slice(2)}`;
-      setAdded((p) => [...p, { id: tempId, title: option.title, monthGoalTitle: option.title, saving: true }]);
-      void addWeekGoal({
-        employeeId: scopeEmp,
-        weekStart,
-        title: option.title,
-        monthGoalId: option.id,
-      })
+  /** Re-home a day goal to `day` — optimistic + Undo, reconciled on refresh. */
+  const rehomeDay = React.useCallback(
+    (g: GoalDTO, day: string) => {
+      if (!canWrite || day === g.periodKey) return;
+      const from = g.periodKey;
+      const patch = (list: GoalDTO[], key: string) =>
+        list.map((c) => (c.id === g.id ? { ...c, periodKey: key } : c));
+      setItems((list) => patch(list, day));
+      void moveDayGoalToDate({ id: g.id, day })
         .then((res) => {
           if (!res.ok) {
-            setAdded((p) => p.filter((c) => c.id !== tempId));
+            setItems((list) => patch(list, from));
             fireToast({ message: res.error, type: "error" });
             return;
           }
-          // Swap the temp id for the real row id, mark saved, then refresh so the
-          // fully-hydrated server row (parent link, Sr. No.) lands + reconciles.
-          setAdded((p) => p.map((c) => (c.id === tempId ? { ...c, id: res.id, saving: false } : c)));
-          fireToast({ message: `Added “${option.title}” to W${weekNo}.`, type: "success" });
+          fireToast({
+            message: `Moved to ${dayShort(day)}`,
+            type: "success",
+            actionLabel: "Undo",
+            action: () => {
+              setItems((list) => patch(list, from));
+              void moveDayGoalToDate({ id: g.id, day: from }).then((undone) => {
+                if (undone.ok) {
+                  fireToast({ message: `Moved back to ${dayShort(from)}`, type: "success" });
+                  router.refresh();
+                }
+              });
+            },
+          });
           router.refresh();
         })
-        .catch((e: unknown) => {
-          setAdded((p) => p.filter((c) => c.id !== tempId));
-          fireToast({ message: e instanceof Error ? e.message : "Couldn't add the goal. Try again.", type: "error" });
+        .catch(() => {
+          setItems((list) => patch(list, from));
+          fireToast({ message: "Couldn't move the day goal. Try again.", type: "error" });
         });
     },
-    [scopeEmp, weekStart, weekNo, router],
+    [canWrite, router],
   );
 
   const onDragStart = React.useCallback(
-    (e: DragStartEvent) => {
-      const opt = e.active.data.current?.option as MonthGoalOption | undefined;
-      setActiveOption(opt ?? null);
-    },
-    [],
+    (e: DragStartEvent) => setActive(items.find((g) => g.id === String(e.active.id)) ?? null),
+    [items],
   );
 
   const onDragEnd = React.useCallback(
     (e: DragEndEvent) => {
-      setActiveOption(null);
-      const { active, over } = e;
-      if (!over || over.id !== WEEK_DROP_ID) return;
-      const opt = active.data.current?.option as MonthGoalOption | undefined;
-      if (opt) createFromMonth(opt);
+      setActive(null);
+      const { active: a, over } = e;
+      if (!over) return;
+      const g = items.find((x) => x.id === String(a.id));
+      if (!g) return;
+      const overId = String(over.id);
+      if (overId.startsWith(LANE_DROP_PREFIX)) {
+        rehomeDay(g, overId.slice(LANE_DROP_PREFIX.length));
+        return;
+      }
+      if (overId === g.id) return;
+      const target = items.find((x) => x.id === overId);
+      if (target && target.periodKey !== g.periodKey) rehomeDay(g, target.periodKey);
     },
-    [createFromMonth],
+    [items, rehomeDay],
   );
 
-  return (
-    <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-      <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)] max-lg:grid-cols-1">
-        {/* ── Source column — this month's monthly goals (drag into the week) ── */}
-        <section
-          aria-label="This month's goals — drag one into the week"
-          className="flex flex-col rounded-2xl border border-hairline bg-surface-card"
-          style={{ boxShadow: "0 1px 2px rgba(15,23,42,0.04), inset 0 1px 0 rgba(255,255,255,0.6)" }}
-        >
-          <header className="flex items-center gap-2 border-b border-hairline px-4 py-3">
-            <span
-              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-white"
-              style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
-            >
-              <Target size={15} strokeWidth={2.4} />
-            </span>
-            <div className="min-w-0">
-              <div className="text-[13.5px] font-bold text-ink-strong">This month&apos;s goals</div>
-              <div className="text-[11px] font-medium text-ink-soft">Drag a goal into the week →</div>
-            </div>
-            <span
-              className="ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-[1px] text-[11px] font-bold tabular-nums"
-              style={{ background: ACCENT_TINT, color: ACCENT_DEEP }}
-            >
-              {monthGoalOptions.length}
-            </span>
-          </header>
-          <div className="flex flex-col gap-2 p-3">
-            {monthGoalOptions.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-hairline-strong px-3 py-8 text-center text-[12.5px] font-medium text-ink-soft">
-                No monthly goals for this month yet. Add one on the Monthly board first.
-              </p>
-            ) : (
-              monthGoalOptions.map((o) => (
-                <MonthGoalSource
-                  key={o.id}
-                  option={o}
-                  linkedCount={linkedByMonth.get(o.id) ?? 0}
-                  disabled={!canWrite}
-                />
-              ))
-            )}
-          </div>
-        </section>
+  // ── ARIA-LIVE narration (keyboard parity) ───────────────────────────
+  const nameOf = React.useCallback(
+    (id: string | number | undefined): string | null => {
+      if (id == null) return null;
+      const s = String(id);
+      if (s.startsWith(LANE_DROP_PREFIX)) return `the ${dayShort(s.slice(LANE_DROP_PREFIX.length))} lane`;
+      const g = items.find((x) => x.id === s);
+      return g ? `“${g.title}”` : null;
+    },
+    [items],
+  );
+  const announcements = React.useMemo<Announcements>(
+    () => ({
+      onDragStart({ active: a }) {
+        return `Picked up ${nameOf(a.id) ?? "the goal"}. Arrow keys move it between days; space drops, escape cancels.`;
+      },
+      onDragOver({ active: a, over }) {
+        const t = nameOf(over?.id);
+        return t ? `${nameOf(a.id) ?? "The goal"} is over ${t}.` : "No drop target.";
+      },
+      onDragEnd({ active: a, over }) {
+        const name = nameOf(a.id) ?? "the goal";
+        if (!over) return `Dropped ${name}. No change.`;
+        const overId = String(over.id);
+        if (overId.startsWith(LANE_DROP_PREFIX)) return `Moved ${name} to ${dayShort(overId.slice(LANE_DROP_PREFIX.length))}.`;
+        const o = items.find((x) => x.id === overId);
+        return o ? `Moved ${name} to ${dayShort(o.periodKey)}.` : `Dropped ${name}.`;
+      },
+      onDragCancel({ active: a }) {
+        return `Cancelled — ${nameOf(a.id) ?? "the goal"} returned.`;
+      },
+    }),
+    [nameOf, items],
+  );
+  const instructions = React.useMemo<ScreenReaderInstructions>(
+    () => ({
+      draggable:
+        "Press space or enter to pick up a day goal, arrow keys to move it between the Mon–Sun lanes, space or enter to drop, escape to cancel.",
+    }),
+    [],
+  );
 
-        {/* ── Week column — the drop target + existing weekly cards ── */}
-        <WeekColumn
-          weekNo={weekNo}
-          weekLabel={weekLabel}
-          weekStart={weekStart}
-          rows={rows}
-          added={added}
-          me={me}
-          canWrite={canWrite}
-        />
+  const totalDays = items.length;
+
+  return (
+    <DndContext
+      id={dndId}
+      sensors={sensors}
+      collisionDetection={collisionDetection}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      accessibility={{ announcements, screenReaderInstructions: instructions }}
+    >
+      {/* Horizontal-scroll stage: the frozen roll-up pins left; the day lanes scroll. */}
+      <div
+        className="wg-rise relative overflow-x-auto overflow-y-visible pb-4"
+        role="group"
+        aria-label={`This week's goals with their days — drag a day card between lanes to re-home it`}
+      >
+        <div className="flex min-w-max items-stretch gap-4">
+          {/* ── FROZEN WEEK COLUMN — sticky, the roll-up the days ladder up to ── */}
+          <aside
+            className="sticky left-0 z-30 flex w-[312px] shrink-0 flex-col gap-3 rounded-2xl p-3 max-md:w-[248px]"
+            style={{
+              background:
+                "linear-gradient(158deg, color-mix(in srgb, var(--color-altus-red) 9%, var(--color-surface-card)) 0%, var(--color-surface-card) 60%)",
+              border: "1.5px solid color-mix(in srgb, var(--color-altus-red) 26%, var(--color-hairline-strong))",
+              boxShadow:
+                "0 1px 0 rgba(255,255,255,0.7) inset, 22px 0 26px -22px color-mix(in srgb, var(--color-altus-red) 55%, transparent), 0 18px 40px -28px color-mix(in srgb, var(--color-altus-red) 50%, transparent)",
+            }}
+          >
+            <div className="flex items-center gap-2 px-1 pt-0.5">
+              <span
+                className="grid size-7 place-items-center rounded-lg text-white"
+                style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+              >
+                <Layers size={15} strokeWidth={2.5} />
+              </span>
+              <div className="min-w-0">
+                <div className="text-[9.5px] font-black uppercase tracking-[0.16em]" style={{ color: ACCENT_DEEP }}>
+                  W{weekNo} · roll-up
+                </div>
+                <div className="text-[12px] font-bold" style={{ color: "var(--color-ink-subtle)" }}>
+                  {frozen.length} goal{frozen.length === 1 ? "" : "s"} · {weekLabel}
+                </div>
+              </div>
+            </div>
+
+            {frozen.length === 0 ? (
+              <div
+                className="flex flex-1 flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-10 text-center"
+                style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 28%, transparent)" }}
+              >
+                <p className="text-[13px] font-bold" style={{ color: "var(--color-ink-soft)" }}>
+                  No weekly goals for W{weekNo}
+                </p>
+                <p className="mt-1 text-[12px] font-medium" style={{ color: "var(--color-ink-subtle)" }}>
+                  Add one above — the days below ladder up to it.
+                </p>
+              </div>
+            ) : (
+              frozen.map((g) => <FrozenWeekCard key={g.id} goal={g} />)
+            )}
+          </aside>
+
+          {/* ── DAY LANES — Mon…Sun, droppable, the execution surface ── */}
+          {days.map((date, i) => (
+            <DayLane
+              key={date}
+              date={date}
+              dow={DOW[i] ?? ""}
+              goals={byDay.get(date) ?? EMPTY}
+              draggable={canWrite}
+              me={me}
+              scopeEmp={scopeEmp}
+            />
+          ))}
+        </div>
       </div>
 
-      <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.2,0,0,1)" }}>
-        {activeOption && (
+      <p className="wg-rise mt-1 px-1 text-[12px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
+        {totalDays} day goal{totalDays === 1 ? "" : "s"} across 7 lanes
+      </p>
+
+      <DragOverlay
+        dropAnimation={{ duration: 220, easing: "cubic-bezier(0.2,0,0,1)" }}
+        style={{ width: "max-content", height: "auto" }}
+      >
+        {active && (
           <div
-            className="flex items-center gap-2 rounded-xl border px-3.5 py-2.5"
+            className="flex items-center gap-2.5 rounded-2xl border px-3.5 py-2.5"
             style={{
               background: "var(--color-surface-card)",
               borderColor: "color-mix(in srgb, var(--goals-accent, #E10600) 48%, transparent)",
-              boxShadow: "0 22px 50px -14px rgba(225,6,0,0.4), inset 0 1px 0 rgba(255,255,255,0.6)",
-              transform: "rotate(-2deg) scale(1.03)",
+              boxShadow: "0 26px 60px -14px rgba(225,6,0,0.4), inset 0 1px 0 rgba(255,255,255,0.6)",
+              transform: "rotate(-2.5deg) scale(1.04)",
               cursor: "grabbing",
             }}
           >
-            <Link2 size={14} style={{ color: ACCENT }} />
-            <span className="max-w-[260px] truncate text-[13.5px] font-bold text-ink-strong">
-              {activeOption.title}
+            <ProgressRing pct={effectiveGoalPct(active)} tone={effectiveGoalPct(active) >= 100 ? "green" : pctTone(effectiveGoalPct(active))} size={36} />
+            <span className="max-w-[280px] truncate text-[14px] font-bold" style={{ color: "var(--color-ink-strong)" }}>
+              {active.title}
             </span>
           </div>
         )}
@@ -234,241 +359,217 @@ export function WeeklyKanban({
 }
 
 /* ------------------------------------------------------------------ */
-/* Draggable source card — one monthly goal                            */
+/* Frozen weekly-goal card — the roll-up the day lanes ladder up to     */
 /* ------------------------------------------------------------------ */
 
-function MonthGoalSource({
-  option,
-  linkedCount,
-  disabled,
-}: {
-  option: MonthGoalOption;
-  linkedCount: number;
-  disabled: boolean;
-}) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `${MONTH_DRAG_PREFIX}${option.id}`,
-    data: { option },
-    disabled,
-  });
+function FrozenWeekCard({ goal }: { goal: CascadeWeeklyGoal }) {
+  const eff = goal.acceptPct ?? goal.pctDone;
+  const tone = eff >= 100 ? "green" : pctTone(eff);
+  const crossed = !goal.adopted;
+  const title = (goal.targetDone ?? "").trim() || (goal.subject ?? "").trim() || "Untitled";
 
   return (
-    <div
-      ref={setNodeRef}
-      {...(disabled ? {} : attributes)}
-      {...(disabled ? {} : listeners)}
-      aria-label={disabled ? option.title : `${option.title} — press space or enter to pick up, then move it into the week and drop`}
-      className={`group flex items-start gap-2 rounded-xl border bg-surface-card px-3 py-2.5 transition-shadow ${
-        disabled ? "cursor-default" : `cursor-grab hover:shadow-md active:cursor-grabbing ${FOCUS_RING}`
-      }`}
+    <article
+      className="wg-sheen relative overflow-hidden rounded-2xl"
       style={{
-        borderColor: "var(--color-hairline)",
-        opacity: isDragging ? 0.4 : 1,
+        background: "var(--color-surface-card)",
+        border: "1.5px solid color-mix(in srgb, var(--color-altus-red) 22%, var(--color-hairline-strong))",
+        boxShadow: "0 10px 26px -16px color-mix(in srgb, var(--color-altus-red) 45%, transparent), inset 0 1px 0 rgba(255,255,255,0.7)",
+        opacity: crossed ? 0.62 : 1,
       }}
     >
-      {!disabled && (
-        <GripVertical size={15} className="mt-0.5 shrink-0 text-ink-faint transition-colors group-hover:text-ink-soft" />
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          {option.area && (
-            <span
-              className="rounded-pill px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide"
-              style={{ background: ACCENT_TINT, color: ACCENT_DEEP }}
-            >
-              {option.area}
+      <span aria-hidden className="pointer-events-none absolute left-0 top-0 h-full w-1" style={{ background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})` }} />
+      <div className="flex items-start gap-3 p-3 pl-4">
+        <ProgressRing pct={eff} tone={tone} size={44} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-black tabular-nums" style={{ color: ACCENT_DEEP }}>
+              W{goal.position}
             </span>
-          )}
-          {linkedCount > 0 && (
-            <span
-              className="inline-flex items-center gap-0.5 rounded-pill px-1.5 py-0.5 text-[9.5px] font-bold"
-              style={{ background: "var(--color-surface-soft)", color: "var(--color-ink-soft)" }}
-              title={`${linkedCount} weekly goal${linkedCount === 1 ? "" : "s"} this week ladder up to this`}
-            >
-              <Link2 size={10} /> {linkedCount}
-            </span>
-          )}
+            {goal.area && (
+              <span
+                className="inline-flex items-center rounded-full px-1.5 py-[1px] text-[10px] font-bold uppercase tracking-wide"
+                style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: ACCENT_DEEP }}
+              >
+                {goal.area}
+              </span>
+            )}
+            {goal.committed && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold" style={{ color: ACCENT_DEEP }}>
+                <Snowflake size={10} strokeWidth={2.6} /> Committed
+              </span>
+            )}
+          </div>
+          <h3
+            className="mt-1 text-[14px] font-black leading-snug [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3] overflow-hidden"
+            style={{ color: "var(--color-ink-strong)", letterSpacing: "-0.01em", fontFamily: "var(--font-display)", textDecoration: crossed ? "line-through" : undefined }}
+            title={title}
+          >
+            {title}
+          </h3>
         </div>
-        <div className="mt-0.5 text-[13px] font-semibold leading-snug text-ink-strong">{option.title}</div>
       </div>
-    </div>
+    </article>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Week column — droppable body + existing weekly cards                */
+/* One DAY lane — droppable body + sortable day cards                   */
 /* ------------------------------------------------------------------ */
 
-function WeekColumn({
-  weekNo,
-  weekLabel,
-  weekStart,
-  rows,
-  added,
+function DayLane({
+  date,
+  dow,
+  goals,
+  draggable,
   me,
-  canWrite,
+  scopeEmp,
 }: {
-  weekNo: number;
-  weekLabel: string;
-  weekStart: string;
-  rows: CascadeWeeklyGoal[];
-  added: LocalCard[];
+  date: string;
+  dow: string;
+  goals: GoalDTO[];
+  draggable: boolean;
   me: BoardMe;
-  canWrite: boolean;
+  scopeEmp: string;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: WEEK_DROP_ID });
-  const total = rows.length + added.length;
+  const { setNodeRef, isOver } = useDroppable({ id: `${LANE_DROP_PREFIX}${date}` });
+  void me;
+  void scopeEmp;
 
   return (
     <section
-      aria-label={`Week ${weekNo} — ${total} goal${total === 1 ? "" : "s"}. Drop a monthly goal here to add it to this week.`}
-      className="flex flex-col rounded-2xl border-2 border-dashed transition-all"
+      aria-label={`${dow} ${dayShort(date)} — ${goals.length} day goal${goals.length === 1 ? "" : "s"}`}
+      className="flex w-[240px] shrink-0 flex-col rounded-2xl border-2 border-dashed transition-all"
       style={{
         background: isOver
           ? "color-mix(in srgb, var(--goals-accent, #E10600) 5%, var(--color-surface-soft))"
           : "var(--color-surface-soft)",
         borderColor: isOver
           ? ACCENT
-          : "color-mix(in srgb, var(--goals-accent, #E10600) 32%, var(--color-hairline-strong))",
-        boxShadow: isOver ? "0 0 0 3px color-mix(in srgb, var(--goals-accent, #E10600) 14%, transparent)" : "none",
+          : "color-mix(in srgb, var(--goals-accent, #E10600) 22%, var(--color-hairline-strong))",
+        boxShadow: isOver
+          ? "0 0 0 3px color-mix(in srgb, var(--goals-accent, #E10600) 14%, transparent)"
+          : "0 2px 10px -8px color-mix(in srgb, var(--goals-accent, #E10600) 26%, transparent)",
       }}
     >
       <header
-        className="sticky top-2 z-10 mx-2 mt-2 flex items-center gap-2 rounded-xl px-3 py-2.5"
+        className="sticky top-2 z-20 mx-2 mt-2 flex items-center justify-between gap-2 rounded-xl px-3 py-2"
         style={{
-          background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
-          boxShadow: "0 8px 20px -12px color-mix(in srgb, var(--goals-accent, #E10600) 70%, transparent)",
+          background: "var(--color-surface-card)",
+          border: "1.5px solid color-mix(in srgb, var(--goals-accent, #E10600) 24%, var(--color-hairline-strong))",
+          boxShadow: "0 2px 10px -6px rgba(15,23,42,0.2)",
         }}
       >
-        <span className="rounded-chip bg-white/25 px-1.5 py-0.5 text-[11px] font-black tabular-nums text-white">W{weekNo}</span>
-        <span className="truncate text-[13.5px] font-bold text-white">{weekLabel}</span>
-        <span className="ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full bg-white/25 px-1.5 py-[1px] text-[11px] font-bold tabular-nums text-white">
-          {total}
+        <div className="min-w-0">
+          <div className="truncate text-[14px] font-black tracking-tight" style={{ color: "var(--color-ink-strong)", fontFamily: "var(--font-display)" }}>
+            {dow}
+          </div>
+          <div className="truncate text-[10.5px] font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-subtle)" }}>
+            {dayShort(date)}
+          </div>
+        </div>
+        <span
+          className="inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-[1px] text-[11px] font-bold tabular-nums"
+          style={{ background: "color-mix(in srgb, var(--goals-accent, #E10600) 10%, transparent)", color: ACCENT_DEEP }}
+        >
+          {goals.length}
         </span>
       </header>
 
-      <div ref={setNodeRef} className="flex min-h-[140px] flex-1 flex-col gap-2.5 p-3">
-        {total === 0 ? (
-          <p
-            className="flex flex-1 items-center justify-center rounded-xl border-2 border-dashed px-4 py-10 text-center text-[13px] font-semibold"
-            style={{ borderColor: "color-mix(in srgb, var(--goals-accent, #E10600) 30%, transparent)", color: "var(--color-ink-soft)" }}
-          >
-            {canWrite ? "Drag a monthly goal here to plan it for this week." : "No goals for this week yet."}
-          </p>
-        ) : (
-          <>
-            {rows.map((r) => (
-              <WeekGoalCard key={r.id} goal={r} me={me} canWrite={canWrite} weekStart={weekStart} />
-            ))}
-            {added.map((c) => (
-              <PendingCard key={c.id} card={c} />
-            ))}
-          </>
-        )}
+      <div ref={setNodeRef} className="flex min-h-[96px] flex-1 flex-col gap-2.5 px-2.5 pb-2.5 pt-1">
+        <SortableContext items={goals.map((g) => g.id)} strategy={verticalListSortingStrategy}>
+          {goals.length === 0 ? (
+            <p
+              className="flex flex-1 items-center justify-center rounded-xl border-2 border-dashed px-3 py-6 text-center text-[12px] font-semibold"
+              style={{ borderColor: "color-mix(in srgb, var(--goals-accent, #E10600) 22%, transparent)", color: "var(--color-ink-subtle)" }}
+            >
+              Nothing on {dow} yet
+            </p>
+          ) : (
+            goals.map((goal) => <DayCard key={goal.id} goal={goal} draggable={draggable} />)
+          )}
+        </SortableContext>
       </div>
     </section>
   );
 }
 
-/* Google 0–100 grading colour. */
-function gradeColor(pct: number): string {
-  if (pct >= 70) return "#15803d";
-  if (pct >= 40) return "#b45309";
-  return "#b91c1c";
-}
+/* ------------------------------------------------------------------ */
+/* One DAY card — lean, draggable (pointer + keyboard) → re-home its day */
+/* ------------------------------------------------------------------ */
 
-function WeekGoalCard({
-  goal,
-  me,
-  canWrite,
-  weekStart,
-}: {
-  goal: CascadeWeeklyGoal;
-  me: BoardMe;
-  canWrite: boolean;
-  weekStart: string;
-}) {
-  const pct = goal.acceptPct ?? goal.pctDone;
-  const color = gradeColor(pct);
-  const canCarry = canWrite && (me.isAdmin || goal.employeeId === me.id);
+function DayCard({ goal, draggable }: { goal: GoalDTO; draggable: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: goal.id,
+    disabled: !draggable,
+  });
+  const eff = effectiveGoalPct(goal);
+  const tone = eff >= 100 ? "green" : pctTone(eff);
+  const cat = categoryStyle(goal.category, false);
+  const crossed = !goal.adopted;
+
+  const qtyLine =
+    goal.targetQty != null
+      ? `Qty ${fmtNum(goal.actualQty ?? 0)} / ${fmtNum(goal.targetQty)}${goal.uom ? ` ${goal.uom}` : ""}`
+      : goal.targetAmount != null
+        ? `₹ ${fmtNum(goal.actualAmount ?? 0)} / ${fmtNum(goal.targetAmount)}`
+        : "";
 
   return (
-    <article
-      className="relative overflow-hidden rounded-xl border border-hairline bg-surface-card px-3 py-2.5"
-      style={{ opacity: goal.adopted ? 1 : 0.6, boxShadow: "0 1px 2px rgba(15,23,42,0.04)" }}
+    <div
+      ref={setNodeRef}
+      {...(draggable ? { ...attributes, ...listeners } : {})}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.35 : crossed ? 0.6 : 1,
+        background: "var(--color-surface-card)",
+        border: "1.5px solid var(--color-hairline-strong)",
+        boxShadow: "0 6px 16px -10px rgba(15,23,42,0.28), 0 1px 2px rgba(15,23,42,0.06), inset 0 1px 0 rgba(255,255,255,0.6)",
+      }}
+      className={`group relative rounded-2xl p-3 transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--goals-accent,#E10600)_40%,var(--color-hairline-strong))] hover:shadow-[0_14px_30px_-14px_color-mix(in_srgb,var(--goals-accent,#E10600)_45%,transparent)] ${
+        draggable ? `cursor-grab touch-none active:cursor-grabbing ${FOCUS_RING}` : ""
+      }`}
     >
-      <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ background: color }} />
-      <div className="flex items-start gap-2 pl-1.5">
-        <span
-          className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded px-1 text-[11px] font-bold tabular-nums"
-          style={{ background: ACCENT_TINT, color: ACCENT_DEEP }}
-        >
-          {goal.position}
+      <div className="flex items-start gap-2.5">
+        <span className="shrink-0">
+          <ProgressRing pct={eff} tone={tone} size={34} />
         </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {goal.area && (
-              <span
-                className="rounded-pill px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide"
-                style={{ background: ACCENT_TINT, color: ACCENT_DEEP }}
-              >
-                {goal.area}
-              </span>
-            )}
-            <h4 className={`text-[13.5px] font-semibold text-ink-strong ${goal.adopted ? "" : "line-through"}`}>
-              {goal.subject || goal.targetDone || "Untitled goal"}
-            </h4>
-          </div>
-          {goal.monthGoalTitle && (
-            <div className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-ink-soft">
-              <Link2 size={11} style={{ color: ACCENT }} />
-              <span className="truncate max-w-[28ch]">{goal.monthGoalTitle}</span>
-            </div>
-          )}
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span
-              className="inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-[11px] font-bold"
-              style={{ background: `color-mix(in srgb, ${color} 8%, transparent)`, color }}
-            >
-              {pct}%
-            </span>
-            {goal.committed && (
-              <span className="inline-flex items-center gap-0.5 text-[10.5px] font-bold" style={{ color: ACCENT_DEEP }}>
-                <CheckCircle2 size={11} /> Committed
-              </span>
-            )}
-            {canCarry && (
-              <div className="ml-auto">
-                <CarryForwardControl goalId={goal.id} weekStart={weekStart} />
-              </div>
-            )}
-          </div>
-        </div>
+        <h3
+          className="min-w-0 flex-1 overflow-hidden text-[13.5px] font-semibold leading-snug [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]"
+          style={{
+            color: "var(--color-ink-strong)",
+            letterSpacing: "-0.004em",
+            textDecoration: crossed ? "line-through" : undefined,
+          }}
+        >
+          {goal.title}
+        </h3>
       </div>
-    </article>
-  );
-}
-
-/** Optimistic card shown from drop until the server row reconciles. */
-function PendingCard({ card }: { card: LocalCard }) {
-  return (
-    <article
-      className="relative flex items-start gap-2 rounded-xl border border-dashed px-3 py-2.5"
-      style={{ borderColor: "color-mix(in srgb, var(--goals-accent, #E10600) 40%, transparent)", background: ACCENT_TINT }}
-    >
-      <Plus size={14} className="mt-0.5" style={{ color: ACCENT }} />
-      <div className="min-w-0 flex-1">
-        <div className="text-[13.5px] font-semibold text-ink-strong">{card.title}</div>
-        {card.monthGoalTitle && (
-          <div className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-ink-soft">
-            <Link2 size={11} style={{ color: ACCENT }} />
-            <span className="truncate max-w-[28ch]">{card.monthGoalTitle}</span>
-          </div>
+      <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11.5px]" style={{ color: "var(--color-ink-subtle)" }}>
+        <span
+          className="inline-flex items-center rounded-full px-1.5 py-[1px] text-[10px] font-black uppercase tracking-wide"
+          style={{ background: "color-mix(in srgb, var(--goals-accent, #E10600) 10%, transparent)", color: ACCENT_DEEP }}
+        >
+          Day
+        </span>
+        <span
+          className="inline-flex items-center rounded-full px-1.5 py-[1px] text-[10.5px] font-bold"
+          style={{ background: cat.bg, color: cat.color }}
+        >
+          {cat.label}
+        </span>
+        {goal.area && (
+          <span className="max-w-[8rem] truncate font-semibold" style={{ color: "var(--color-ink-soft)" }}>
+            {goal.area}
+          </span>
         )}
-        <div className="mt-1 text-[10.5px] font-bold uppercase tracking-wide" style={{ color: ACCENT_DEEP }}>
-          {card.saving ? "Adding…" : "Added"}
-        </div>
       </div>
-    </article>
+      {qtyLine && (
+        <div className="mt-2 truncate text-[11.5px] font-medium tabular-nums" style={{ color: "var(--color-ink-subtle)" }}>
+          {qtyLine}
+        </div>
+      )}
+    </div>
   );
 }

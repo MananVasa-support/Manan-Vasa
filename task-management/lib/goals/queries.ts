@@ -151,14 +151,55 @@ export async function getSharedGoals(
             eq(goals.archived, false),
             eq(goals.scope, scope),
             ne(goals.employeeId, employeeId),
-            eq(goals.shareWithTeam, true),
             inArray(goals.periodKey, keys),
-            sql`${goals.teamInvolved} @> ${JSON.stringify([{ employeeId }])}::jsonb`,
+            // A goal reaches this person's board two ways: shared with them as a
+            // team member (share_with_team + team_involved), OR delegated to them
+            // (delegated_to — accountability, mig 0171). ONE indexed select still.
+            or(
+              and(
+                eq(goals.shareWithTeam, true),
+                sql`${goals.teamInvolved} @> ${JSON.stringify([{ employeeId }])}::jsonb`,
+              ),
+              sql`${goals.delegatedTo} @> ${JSON.stringify([{ employeeId }])}::jsonb`,
+            ),
           ),
         ),
     { timeoutMs: [...READ_BUDGET], label: "goals.getSharedGoals" },
   );
   return rows as Goal[];
+}
+
+/**
+ * The viewed person's WEEKLY goals across one financial year — the Month board's
+ * week-lane source (week goals live on `weekly_goals`, not the `goals` table, so
+ * the year-board query can't reach them). ONE lean indexed select by
+ * (employee, week_start range), mirroring the lean `getSharedGoals` pattern —
+ * load-neutral (the result set is only this person's weekly rows for the FY).
+ * `week_start` (a DATE) is the bucket key; the caller maps each row to a
+ * `period="week"` GoalDTO keyed on it.
+ */
+export async function getBoardWeeklyGoals(
+  employeeId: string,
+  fyStartYear: number,
+): Promise<(typeof weeklyGoals.$inferSelect)[]> {
+  const fyStart = `${fyStartYear}-04-01`;
+  const fyEnd = `${fyStartYear + 1}-03-31`;
+  const rows = await withRetry(
+    () =>
+      db
+        .select()
+        .from(weeklyGoals)
+        .where(
+          and(
+            eq(weeklyGoals.employeeId, employeeId),
+            eq(weeklyGoals.archived, false),
+            gte(weeklyGoals.weekStart, fyStart),
+            lte(weeklyGoals.weekStart, fyEnd),
+          ),
+        ),
+    { timeoutMs: [...READ_BUDGET], label: "goals.getBoardWeeklyGoals" },
+  );
+  return rows as (typeof weeklyGoals.$inferSelect)[];
 }
 
 /** Goals for one person at one period + key (non-archived), ordered by Sr No. */

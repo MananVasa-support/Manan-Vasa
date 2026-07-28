@@ -1,6 +1,6 @@
 import "server-only";
 import { requireGoalsAccess } from "@/lib/goals/access";
-import { getYearBoard, getSharedGoals } from "@/lib/goals/queries";
+import { getYearBoard, getSharedGoals, getBoardWeeklyGoals } from "@/lib/goals/queries";
 import { listGoalLookups } from "@/lib/goals/lookups";
 import { goalsSpace } from "@/lib/goals/space";
 import { fyStartYearOf } from "@/lib/goals/types";
@@ -36,9 +36,12 @@ export async function loadBoardData(sp: {
   const fy = sp.fy && /^\d{4}$/.test(sp.fy) ? Number(sp.fy) : fyStartYearOf(new Date());
   const space = await goalsSpace(isAdmin);
 
-  const [board, shared, lookups] = await Promise.all([
+  const [board, shared, weeklyRows, lookups] = await Promise.all([
     getYearBoard(view.viewedEmployeeId, fy, space),
     getSharedGoals(view.viewedEmployeeId, fy, space),
+    // The Month board's week lanes draw from weekly_goals (the year-board query
+    // can't reach them). ONE lean added select, mirroring getSharedGoals.
+    getBoardWeeklyGoals(view.viewedEmployeeId, fy),
     listGoalLookups(),
   ]);
   // Resolve the creator's display name from the ALREADY-loaded roster — no extra
@@ -68,8 +71,53 @@ export async function loadBoardData(sp: {
 
   const goals: GoalDTO[] = [...ownGoals, ...sharedGoals];
 
+  // Weekly cascade rows → period="week" GoalDTOs keyed on their Monday
+  // (`week_start`), parented up to their linked month goal. These populate the
+  // Monthly hierarchy Kanban's week lanes; re-homing one between weeks writes
+  // `week_start` (moveWeeklyToWeek), NOT the goals-table re-home. The title
+  // mirrors the weekly board's rule (target_done → subject → "Untitled").
+  const weekCards: GoalDTO[] = weeklyRows.map((r) => ({
+    id: r.id,
+    employeeId: view.viewedEmployeeId,
+    createdById: r.createdById ?? null,
+    createdAt: r.createdAt == null ? null : new Date(r.createdAt).toISOString(),
+    createdByName: nameOf(r.createdById),
+    period: "week",
+    periodKey: String(r.weekStart),
+    parentGoalId: r.monthGoalId ?? null,
+    position: r.position,
+    area: r.area,
+    title: (r.targetDone ?? "").trim() || (r.subject ?? "").trim() || "Untitled",
+    uom: r.uom,
+    targetQty: r.targetQty,
+    actualQty: r.actualQty,
+    targetAmount: r.targetAmount,
+    actualAmount: r.actualAmount,
+    notes: null,
+    teamInvolved: r.teamInvolved ?? null,
+    teamDependencyPct: r.teamDependencyPct,
+    pctDone: r.pctDone,
+    acceptPct: r.acceptPct,
+    reviewNotes: null,
+    evidenceUrl: r.evidenceUrl,
+    weight: r.weight,
+    adopted: r.adopted,
+    source: "manual",
+    category: "goal",
+    clonedFromId: r.carriedFromId ?? null,
+    incentiveEnabled: false,
+    incentiveAmount: null,
+    incentiveKind: null,
+    monthlyMasterRef: null,
+    shareWithTeam: false,
+    targetDate: r.targetDate == null ? null : String(r.targetDate).slice(0, 10),
+    status: null,
+    reviewedById: null,
+  }));
+
   return {
     goals,
+    weekCards,
     fyStartYear: fy,
     myEmployeeId: me.id,
     viewedEmployeeId: view.viewedEmployeeId,

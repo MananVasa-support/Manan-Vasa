@@ -49,11 +49,15 @@ import {
 } from "@dnd-kit/core";
 import {
   SortableContext,
+  useSortable,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
-import { ChevronDown, Layers, Lock, Sparkles } from "lucide-react";
+import { CSS } from "@dnd-kit/utilities";
+import { useRouter } from "next/navigation";
+import type { Route } from "next";
+import { ArrowUpRight, ChevronDown, Layers, Lock, Sparkles } from "lucide-react";
 import {
   type GoalDTO,
   type RosterMember,
@@ -122,6 +126,14 @@ export interface HierarchyKanbanProps {
   onRehome: (g: GoalDTO, periodKey: string) => void;
   /** Persist a new Sr.-No. order for a lane (drag within a lane). */
   onReorder: (ids: string[]) => void;
+  /** Week-lane cards (from weekly_goals) for the Monthly board — populate the
+   *  Month→Week lanes. Empty on the Year/Quarter boards + spaces without weekly
+   *  rows. */
+  weekCards?: GoalDTO[];
+  /** Re-home a WEEK-lane card to another week — writes its `week_start`
+   *  (moveWeeklyToWeek), NOT the goals-table move. Required whenever weekCards
+   *  are drawn. */
+  onRehomeWeek?: (g: GoalDTO, weekStart: string) => void;
   focusId: string | null;
 }
 
@@ -154,6 +166,8 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
     policy,
     onRehome,
     onReorder,
+    weekCards,
+    onRehomeWeek,
     focusId,
   } = props;
 
@@ -198,12 +212,28 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
   // The parent that OWNS the lanes (lowest Sr. No.) — new lane goals file under it.
   const primaryParent = parents[0] ? { id: parents[0].id, title: parents[0].title } : null;
 
+  // The WEEK lanes draw from two sources by space: goals-table week rows (the
+  // admin PERSONAL space stores week/day goals there) AND the `weekly_goals`
+  // rows the loader mapped into `weekCards` (the PROFESSIONAL cascade). Merge
+  // them for the Month→Week lanes; other levels keep their goals-table children.
+  const weeklyIdSet = React.useMemo(
+    () => new Set((weekCards ?? []).map((g) => g.id)),
+    [weekCards],
+  );
+
+  // Fast id → child lookup for the drag handlers (combined for the week case).
+  const childGoals = React.useMemo(() => {
+    const base = goals.filter((g) => g.period === childLevel);
+    if (childLevel !== "week" || !weekCards || weekCards.length === 0) return base;
+    const seen = new Set(base.map((g) => g.id));
+    return [...base, ...weekCards.filter((w) => !seen.has(w.id))];
+  }, [goals, childLevel, weekCards]);
+
   // ── Child cards, bucketed per lane (filtered + Sr.-No. sorted) ──────
   const childrenByLane = React.useMemo(() => {
     const m = new Map<string, GoalDTO[]>();
     for (const l of lanes) m.set(l.key, []);
-    for (const g of goals) {
-      if (g.period !== childLevel) continue;
+    for (const g of childGoals) {
       const bucket = m.get(g.periodKey);
       if (!bucket) continue; // a child outside this parent's lanes
       if (!filterGoal(g)) continue;
@@ -212,17 +242,29 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
     for (const list of m.values())
       list.sort((a, b) => a.position - b.position || a.title.localeCompare(b.title));
     return m;
-  }, [goals, lanes, childLevel, filterGoal]);
+  }, [childGoals, lanes, filterGoal]);
 
-  // Fast id → child lookup for the drag handlers.
-  const childGoals = React.useMemo(
-    () => goals.filter((g) => g.period === childLevel),
-    [goals, childLevel],
-  );
+  // Month→Week child COUNTS on the frozen parent cards: fold the week cards into
+  // the parent-children map (keyed on their monthGoalId) so a month card's
+  // "→ N weeks" matches the lanes. Untouched on the Year/Quarter boards.
+  const childrenByParentAug = React.useMemo(() => {
+    if (childLevel !== "week" || !weekCards || weekCards.length === 0) return childrenByParent;
+    const m = new Map(childrenByParent);
+    for (const w of weekCards) {
+      if (!w.parentGoalId) continue;
+      const list = m.get(w.parentGoalId);
+      if (list) m.set(w.parentGoalId, [...list, w]);
+      else m.set(w.parentGoalId, [w]);
+    }
+    return m;
+  }, [childrenByParent, childLevel, weekCards]);
 
-  // PHASE 2: week-level cascade goals aren't part of the loaded board set (weeks
-  // live on weekly_goals). Render the week lanes empty + say so, never crash.
-  const weekGap = childLevel === "week" && childGoals.length === 0;
+  // Week lanes now render real cards when weekly goals exist; the banner shows
+  // only when THIS month's lanes genuinely hold none (unfiltered) — graceful
+  // empty, never a crash. (childGoals spans the whole FY, so scope to the lanes.)
+  const laneKeys = React.useMemo(() => new Set(lanes.map((l) => l.key)), [lanes]);
+  const weekGap =
+    childLevel === "week" && !childGoals.some((g) => laneKeys.has(g.periodKey));
 
   const ownerName = React.useCallback(
     (g: GoalDTO) => {
@@ -260,10 +302,14 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
       const g = childGoals.find((x) => x.id === String(active.id));
       if (!g || isAssigned(g)) return; // shared goals aren't re-homed by a non-owner
       const overId = String(over.id);
+      // A WEEK-lane card (weekly_goals row) re-homes via its own week-start
+      // writer; a goals-table child re-homes via the shared bucket move.
+      const isWeekly = weeklyIdSet.has(g.id);
+      const rehome = (key: string) => (isWeekly ? onRehomeWeek?.(g, key) : onRehome(g, key));
 
       // Dropped on a lane → re-home to that child bucket.
       if (overId.startsWith(LANE_DROP_PREFIX)) {
-        onRehome(g, overId.slice(LANE_DROP_PREFIX.length));
+        rehome(overId.slice(LANE_DROP_PREFIX.length));
         return;
       }
       if (overId === g.id) return;
@@ -272,18 +318,20 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
 
       // Dropped on a card in ANOTHER lane → re-home to that lane.
       if (target.periodKey !== g.periodKey) {
-        onRehome(g, target.periodKey);
+        rehome(target.periodKey);
         return;
       }
 
-      // Same lane → persist the reordered Sr.-No. line.
+      // Same lane → persist the reordered Sr.-No. line. Weekly rows carry no
+      // goals-table position line, so a within-week reorder is a no-op here.
+      if (isWeekly) return;
       const lane = childrenByLane.get(g.periodKey) ?? EMPTY;
       const oldIndex = lane.findIndex((x) => x.id === g.id);
       const newIndex = lane.findIndex((x) => x.id === overId);
       if (oldIndex < 0 || newIndex < 0) return;
       onReorder(arrayMove(lane, oldIndex, newIndex).map((x) => x.id));
     },
-    [childGoals, childrenByLane, onRehome, onReorder],
+    [childGoals, childrenByLane, onRehome, onReorder, weeklyIdSet, onRehomeWeek],
   );
 
   // ── ARIA-LIVE narration (keyboard parity) ───────────────────────────
@@ -354,8 +402,8 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
           }}
         >
           <Sparkles size={15} strokeWidth={2.4} style={{ color: "var(--color-altus-red)" }} />
-          Week goals live on the Weekly execution board — none have cascaded into this month yet.
-          The week lanes below are ready for them (Phase&nbsp;2 wires the weekly board in).
+          No week goals have landed in this month yet. Add them on the Weekly board — they appear
+          in these lanes automatically, and you can drag one between weeks to re-home it.
         </div>
       )}
 
@@ -409,7 +457,7 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
                   goal={g}
                   srNo={i + 1}
                   ownerName={ownerName(g)}
-                  childCount={childrenByParent.get(g.id)?.length ?? 0}
+                  childCount={childrenByParentAug.get(g.id)?.length ?? 0}
                   childLabel={childLabel}
                 />
               ))
@@ -424,7 +472,8 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
               childLevel={childLevel}
               goals={childrenByLane.get(lane.key) ?? EMPTY}
               cardProps={cardProps}
-              childrenByParent={childrenByParent}
+              childrenByParent={childrenByParentAug}
+              weeklyIdSet={weeklyIdSet}
               focusId={focusId}
               filtersActive={filtersActive}
               canWrite={canWrite}
@@ -612,6 +661,7 @@ function Lane({
   goals,
   cardProps,
   childrenByParent,
+  weeklyIdSet,
   focusId,
   filtersActive,
   canWrite,
@@ -624,6 +674,9 @@ function Lane({
   goals: GoalDTO[];
   cardProps: SharedCardProps;
   childrenByParent: Map<string, GoalDTO[]>;
+  /** Ids of cards backed by `weekly_goals` (Month→Week lanes) — rendered as the
+   *  lean, re-homable WeekLaneCard rather than the goals-table GoalBoardCard. */
+  weeklyIdSet: Set<string>;
   focusId: string | null;
   filtersActive: boolean;
   canWrite: boolean;
@@ -689,6 +742,22 @@ function Lane({
           ) : (
             goals.map((goal, i) => {
               const assigned = isAssigned(goal);
+              // Week-lane cards live on weekly_goals — the goals-table card's
+              // inline edits/actions don't apply to them, so render the lean,
+              // drag-to-re-home WeekLaneCard (edit on the Weekly board via the
+              // ↗ link). Its drag uses the owner-open re-quarter right.
+              if (weeklyIdSet.has(goal.id)) {
+                return (
+                  <WeekLaneCard
+                    key={goal.id}
+                    goal={goal}
+                    srNo={i + 1}
+                    employeeId={employeeId}
+                    draggable={canWrite && policy.canReQuarter && !assigned}
+                    autoFocus={focusId === goal.id}
+                  />
+                );
+              }
               // Shared / assigned goals are read-only for a non-owner — mark them
               // non-draggable (the server rejects a re-home too).
               const cp = assigned ? { ...cardProps, dragDisabled: true } : cardProps;
@@ -736,5 +805,135 @@ function Lane({
         )}
       </div>
     </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* WEEK-lane card — a weekly_goals row on the Monthly board. Lean +      */
+/* draggable (pointer + keyboard, same DndContext): drop it on another   */
+/* week lane to re-home its `week_start`. It carries no goals-table       */
+/* inline editors (those actions don't touch weekly_goals) — the ↗ jumps  */
+/* to the Weekly board for the full editor. Mirrors GoalBoardCard's       */
+/* compact kanban look so the lanes read as one surface.                  */
+/* ------------------------------------------------------------------ */
+
+function WeekLaneCard({
+  goal,
+  srNo,
+  employeeId,
+  draggable,
+  autoFocus,
+}: {
+  goal: GoalDTO;
+  srNo: number;
+  employeeId: string;
+  draggable: boolean;
+  autoFocus: boolean;
+}) {
+  const router = useRouter();
+  const cardRef = React.useRef<HTMLDivElement | null>(null);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: goal.id,
+    disabled: !draggable,
+  });
+
+  React.useEffect(() => {
+    if (autoFocus) cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [autoFocus]);
+
+  const eff = effectiveGoalPct(goal);
+  const tone = eff >= 100 ? "green" : pctTone(eff);
+  const cat = categoryStyle(goal.category, false);
+  const crossed = !goal.adopted;
+  const openWeekly = () =>
+    router.push(`/goals/weekly?week=${goal.periodKey}&emp=${employeeId}` as Route);
+
+  const qtyLine =
+    goal.targetQty != null
+      ? `Qty ${fmtNum(goal.actualQty ?? 0)} / ${fmtNum(goal.targetQty)}${goal.uom ? ` ${goal.uom}` : ""}`
+      : goal.targetAmount != null
+        ? `₹ ${fmtNum(goal.actualAmount ?? 0)} / ${fmtNum(goal.targetAmount)}`
+        : "";
+
+  return (
+    <div
+      ref={(el) => {
+        setNodeRef(el);
+        cardRef.current = el;
+      }}
+      {...(draggable ? { ...attributes, ...listeners } : {})}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.35 : crossed ? 0.6 : 1,
+        background: "var(--color-surface-card)",
+        border: "1.5px solid var(--color-hairline-strong)",
+        boxShadow:
+          "0 6px 16px -10px rgba(15,23,42,0.28), 0 1px 2px rgba(15,23,42,0.06), inset 0 1px 0 rgba(255,255,255,0.6)",
+      }}
+      className={`group relative rounded-2xl p-3 transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--color-altus-red)_40%,var(--color-hairline-strong))] hover:shadow-[0_14px_30px_-14px_color-mix(in_srgb,var(--color-altus-red)_45%,transparent)] ${
+        draggable ? "cursor-grab touch-none active:cursor-grabbing" : ""
+      }`}
+    >
+      <div className="flex items-start gap-2.5">
+        <span className="shrink-0">
+          <ProgressRing pct={eff} tone={tone} size={36} />
+        </span>
+        <h3
+          className="min-w-0 flex-1 overflow-hidden text-[13.5px] font-semibold leading-snug [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]"
+          style={{
+            color: "var(--color-ink-strong)",
+            letterSpacing: "-0.004em",
+            textDecoration: crossed ? "line-through" : undefined,
+          }}
+        >
+          {goal.title}
+        </h3>
+        <button
+          type="button"
+          onClick={openWeekly}
+          onPointerDown={(e) => e.stopPropagation()}
+          aria-label={`Open "${goal.title}" on the Weekly board`}
+          title="Open on the Weekly board"
+          className={`shrink-0 rounded-lg p-1 text-ink-subtle transition-colors hover:text-altus-red ${FOCUS_RING}`}
+        >
+          <ArrowUpRight size={15} strokeWidth={2.6} />
+        </button>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11.5px]" style={{ color: "var(--color-ink-subtle)" }}>
+        <span className="font-bold tabular-nums" style={{ color: "var(--color-altus-red-deep)" }}>
+          W#{srNo}
+        </span>
+        <span
+          className="inline-flex items-center rounded-full px-1.5 py-[1px] text-[10.5px] font-bold"
+          style={{ background: cat.bg, color: cat.color }}
+        >
+          {cat.label}
+        </span>
+        <span
+          className="inline-flex items-center rounded-full px-1.5 py-[1px] text-[10px] font-black uppercase tracking-wide"
+          style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red-deep)" }}
+        >
+          Week
+        </span>
+        {goal.area && (
+          <span className="max-w-[9rem] truncate font-semibold" style={{ color: "var(--color-ink-soft)" }}>
+            {goal.area}
+          </span>
+        )}
+        {crossed && (
+          <span className="inline-flex items-center gap-1">
+            <Lock size={10} strokeWidth={2.4} aria-hidden /> crossed out
+          </span>
+        )}
+      </div>
+
+      {qtyLine && (
+        <div className="mt-2 truncate text-[11.5px] font-medium tabular-nums" style={{ color: "var(--color-ink-subtle)" }}>
+          {qtyLine}
+        </div>
+      )}
+    </div>
   );
 }

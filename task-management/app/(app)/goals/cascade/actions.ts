@@ -126,6 +126,32 @@ const TeamIn = z
   .max(40)
   .nullish();
 
+// "Delegate to team" (mig 0171) — accountability hand-off. Each delegate is a
+// real employee (employeeId required, unlike TeamIn's free-text members) with a
+// delegation percentage (default 100). null/[] clears delegation.
+const DelegateIn = z
+  .array(
+    z.object({
+      employeeId: z.string().uuid(),
+      name: z.string().max(120).optional(),
+      pct: z.number().int().min(0).max(100),
+    }),
+  )
+  .max(40)
+  .nullish();
+
+/** #7 — a goal carrying real (employeeId-bearing) team members is auto-shared
+ *  onto those members' boards. `getSharedGoals` gates on share_with_team, so the
+ *  moment a member is added the goal must flip shareWithTeam=true to appear. */
+function hasTeamMembers(team: unknown): boolean {
+  return (
+    Array.isArray(team) &&
+    team.some(
+      (m) => m && typeof m === "object" && typeof (m as { employeeId?: unknown }).employeeId === "string",
+    )
+  );
+}
+
 // Type/category is now an admin-extensible free-text value (mig 0148 lookups):
 // base types (Goal/Target/Milestone/Operational) + any admin-added ones.
 const CATEGORY = z.string().trim().min(1).max(60);
@@ -158,6 +184,7 @@ const GoalFields = {
   teamInvolved: TeamIn,
   teamDependencyPct: z.number().int().min(0).max(100).nullish(),
   shareWithTeam: z.boolean().optional(),
+  delegatedTo: DelegateIn,
   weight: z.number().int().min(0).max(1000).optional(),
   incentiveEnabled: z.boolean().optional(),
   incentiveAmount: MoneyIn,
@@ -250,6 +277,9 @@ export async function createGoal(
       notes: d.notes ?? null,
       teamInvolved: d.teamInvolved ?? null,
       teamDependencyPct: d.teamDependencyPct ?? null,
+      // #7 — a goal created WITH members is instantly shared onto their boards.
+      shareWithTeam: d.shareWithTeam ?? hasTeamMembers(d.teamInvolved),
+      delegatedTo: d.delegatedTo ?? null,
       weight: d.weight ?? 100,
       incentiveEnabled: d.incentiveEnabled ?? false,
       incentiveAmount: money(d.incentiveAmount),
@@ -418,7 +448,13 @@ export async function setGoalTeam(
   if (!loaded.ok) return loaded;
   const [row] = await db
     .update(goals)
-    .set({ teamInvolved: parsed.data.team, updatedById: me.id, updatedAt: new Date() })
+    // #7 — setting the team instantly shares the goal onto the members' boards.
+    .set({
+      teamInvolved: parsed.data.team,
+      shareWithTeam: hasTeamMembers(parsed.data.team),
+      updatedById: me.id,
+      updatedAt: new Date(),
+    })
     .where(eq(goals.id, parsed.data.id))
     .returning();
   if (!row) return { ok: false, error: "Goal not found" };
@@ -477,6 +513,9 @@ export async function addChildGoal(
       notes: d.notes ?? null,
       teamInvolved: d.teamInvolved ?? null,
       teamDependencyPct: d.teamDependencyPct ?? null,
+      // #7 — a child created WITH members is instantly shared onto their boards.
+      shareWithTeam: d.shareWithTeam ?? hasTeamMembers(d.teamInvolved),
+      delegatedTo: d.delegatedTo ?? null,
       weight: d.weight ?? 100,
       incentiveEnabled: d.incentiveEnabled ?? false,
       incentiveAmount: money(d.incentiveAmount),
@@ -547,6 +586,13 @@ export async function editGoal(
   if (d.teamInvolved !== undefined) patch.teamInvolved = d.teamInvolved ?? null;
   if (d.teamDependencyPct !== undefined) patch.teamDependencyPct = d.teamDependencyPct ?? null;
   if (d.shareWithTeam !== undefined) patch.shareWithTeam = d.shareWithTeam;
+  if (d.delegatedTo !== undefined) patch.delegatedTo = d.delegatedTo ?? null;
+  // #7 — instant share: adding real team members auto-enables shareWithTeam so
+  // the goal lands on their boards immediately (removing the last member turns it
+  // back off). A caller that sets shareWithTeam explicitly always wins.
+  if (d.teamInvolved !== undefined && d.shareWithTeam === undefined) {
+    patch.shareWithTeam = hasTeamMembers(d.teamInvolved);
+  }
   if (d.weight !== undefined) patch.weight = d.weight;
   if (d.incentiveEnabled !== undefined) patch.incentiveEnabled = d.incentiveEnabled;
   if (d.incentiveAmount !== undefined) patch.incentiveAmount = money(d.incentiveAmount);
@@ -797,6 +843,57 @@ export async function moveWeeklyToWeek(
   revalidateGoals();
   revalidatePath("/goals/weekly");
   return { ok: true, row };
+}
+
+/* ------------------------------------------------------------------ */
+/* Day leaf — move a DAY goal to another day (the Weekly board's Week→  */
+/* Day kanban re-home). Day goals live in `goals` (period='day', a date */
+/* periodKey); moveGoalToPeriod refuses day shapes, so this sibling     */
+/* re-home writes the new date + a fresh Sr. No. in the target day.     */
+/* ------------------------------------------------------------------ */
+
+const MoveDaySchema = z.object({
+  id: z.string().uuid(),
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid day"),
+});
+
+export async function moveDayGoalToDate(
+  input: z.infer<typeof MoveDaySchema>,
+): Promise<ActionResult<{ row: GoalDTO }>> {
+  const { me, isAdmin } = await requireGoalsAccess();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  const parsed = MoveDaySchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+
+  const loaded = await loadWritableGoalRow(parsed.data.id, { id: me.id, isAdmin });
+  if (!loaded.ok) return loaded;
+  const row = loaded.row;
+  if (row.period !== "day") {
+    return { ok: false, error: "Only a day goal can be moved between days." };
+  }
+  if (row.periodKey === parsed.data.day) return { ok: true, row: toGoalDTO(row) };
+
+  const position = await nextGoalPosition(row.employeeId, "day", parsed.data.day);
+  const [updated] = await db
+    .update(goals)
+    .set({
+      periodKey: parsed.data.day,
+      position,
+      updatedById: me.id,
+      updatedAt: new Date(),
+    })
+    .where(eq(goals.id, parsed.data.id))
+    .returning();
+  if (!updated) return { ok: false, error: "Goal not found" };
+  void logGoalActivity(updated.id, GoalEventTypes.CascadeEdited, {
+    employeeId: updated.employeeId,
+    goalKind: "cascade",
+    detail: `moved day ${row.periodKey} → ${parsed.data.day}`,
+  }, me.id);
+  revalidateGoals(row.periodKey, parsed.data.day);
+  revalidatePath("/goals/weekly");
+  return { ok: true, row: toGoalDTO(updated) };
 }
 
 /* ------------------------------------------------------------------ */

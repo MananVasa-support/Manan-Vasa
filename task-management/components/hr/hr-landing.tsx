@@ -13,6 +13,7 @@ import {
   IdCard,
   Inbox,
   Plus,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -63,6 +64,7 @@ const CARDS: Card[] = [
   { slug: "/hr/holidays", title: "Holiday List", Icon: PartyPopper },
   { slug: "/support", title: "Help Desk", Icon: LifeBuoy, popup: "help-desk" as const },
   { slug: "/hr/record", title: "HR Record", Icon: IdCard },
+  { slug: "/hr/kpi", title: "KPI Management", Icon: Target },
 ];
 
 // The limited deck a NORMAL employee sees: only their own HR record (the /portal

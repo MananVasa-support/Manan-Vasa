@@ -756,6 +756,53 @@ export const APPRAISAL_ITEM_STATUS_LABELS: Record<AppraisalItemStatus, string> =
 export const APPRAISAL_SCORE_STAGES = ["self", "manager", "management", "final"] as const;
 export type AppraisalScoreStage = (typeof APPRAISAL_SCORE_STAGES)[number];
 
+// ── KPI Management (migration 0170) ──────────────────────────────────────────
+// HR-staff-only per-person KPI assignments that REFERENCE the appraisal KPI
+// dictionary (lib/performance/kpi-dictionary.ts) as the catalog. DB columns are
+// `text` (house norm — not pgEnums), so these unions are the canonical source
+// of truth for kpi_assignments.frequency / .status and
+// kpi_assignment_history.change_type.
+
+/** How often the KPI is measured. */
+export const KPI_FREQUENCIES = ["weekly", "monthly", "quarterly", "annual"] as const;
+export type KpiFrequency = (typeof KPI_FREQUENCIES)[number];
+export const KPI_FREQUENCY_LABELS: Record<KpiFrequency, string> = {
+  weekly: "Weekly",
+  monthly: "Monthly",
+  quarterly: "Quarterly",
+  annual: "Annual",
+};
+
+/** Assignment lifecycle. `inactive` = deactivated but retained for history. */
+export const KPI_ASSIGNMENT_STATUSES = ["active", "inactive"] as const;
+export type KpiAssignmentStatus = (typeof KPI_ASSIGNMENT_STATUSES)[number];
+export const KPI_ASSIGNMENT_STATUS_LABELS: Record<KpiAssignmentStatus, string> = {
+  active: "Active",
+  inactive: "Inactive",
+};
+
+/** The change events recorded on the APPEND-ONLY kpi_assignment_history log.
+ *  A historical row is NEVER overwritten — every mutation appends one. */
+export const KPI_CHANGE_TYPES = [
+  "assigned",          // newly created
+  "updated",           // a general field edit
+  "activated",         // status → active
+  "deactivated",       // status → inactive
+  "removed",           // archived (soft-removed)
+  "weightage_changed", // weightage edited
+  "target_changed",    // target_value edited
+] as const;
+export type KpiChangeType = (typeof KPI_CHANGE_TYPES)[number];
+export const KPI_CHANGE_TYPE_LABELS: Record<KpiChangeType, string> = {
+  assigned: "Newly assigned",
+  updated: "Modified",
+  activated: "Activated",
+  deactivated: "Deactivated",
+  removed: "Removed",
+  weightage_changed: "Weightage changed",
+  target_changed: "Target changed",
+};
+
 /** Default rating-term bands ("recognition/rate" labels) — ADMIN-EDITABLE via
  *  appraisal_config.rating_terms. `min` = inclusive lower bound of final %. */
 export const DEFAULT_APPRAISAL_RATING_TERMS: ReadonlyArray<{ min: number; label: string }> = [

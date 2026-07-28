@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, eq, gte, lte, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { withRetry } from "@/lib/db/with-timeout";
 import {
@@ -58,6 +58,9 @@ export async function getMonthEvents(
           and(
             gte(calendarEvents.eventDate, from),
             lte(calendarEvents.eventDate, to),
+            // Holidays were removed from this module (they live in HR) — hide any
+            // previously-projected holiday banners so the calendar stays clean.
+            ne(calendarEvents.source, "holiday"),
           ),
         )
         .orderBy(asc(calendarEvents.eventDate), asc(calendarEvents.startMin)),

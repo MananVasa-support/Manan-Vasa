@@ -293,7 +293,7 @@ export async function tagObligation(input: unknown): Promise<ActionResult> {
   return patch(p.data.id, { obligationId: p.data.obligationId });
 }
 
-/** Unlock a holiday/batch-generated block so Sir can override it (drag / edit /
+/** Unlock a batch-generated block so Sir can override it (drag / edit /
  *  recolour / delete). The reconciler keys on source_ref_id, so an unlocked row
  *  becomes a normal editable event; deleting it may be re-created on next
  *  reconcile — that's the intended "override" semantics. */

@@ -52,6 +52,7 @@ import {
   moveGoalToPeriod,
   archiveGoal,
   reorderGoals,
+  moveWeeklyToWeek,
 } from "@/app/(app)/goals/cascade/actions";
 import { GoalBoardCard, ProgressRing, type SharedCardProps } from "./goal-board-card";
 import { GoalTableView } from "./goal-table-view";
@@ -122,6 +123,14 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
     [props.isAdmin, props.managesViewed, props.viewedEmployeeId, props.myEmployeeId],
   );
   const canWrite = props.canWrite;
+
+  // Week-lane cards (weekly_goals rows) for the Monthly hierarchy Kanban live
+  // OUTSIDE the goals-table optimistic spine (different table), so they get a
+  // small local optimistic layer of their own: a drag re-homes `week_start`
+  // instantly, reconciled from the server on success (router.refresh) or
+  // reverted + toasted on failure.
+  const [weekCards, setWeekCards] = React.useState<GoalDTO[]>(props.weekCards);
+  React.useEffect(() => setWeekCards(props.weekCards), [props.weekCards]);
 
   /** Query-param navigation on the page's own path (shareable URLs). */
   const go = React.useCallback(
@@ -485,6 +494,48 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
       void mutation.mutate({ type: "reorder", ids }, () => reorderGoals(ids));
     },
     [mutation, policy.canReorder],
+  );
+
+  /** Re-home a WEEK-lane card (weekly_goals row) to another week on the Monthly
+   *  board — writes `week_start` via moveWeeklyToWeek. Optimistic + Undo, then
+   *  router.refresh reconciles the re-fetched week cards from the server. */
+  const rehomeWeekCard = React.useCallback(
+    (g: GoalDTO, weekStart: string) => {
+      if (!policy.canReQuarter) return; // same owner-open gate as sibling re-home
+      if (weekStart === g.periodKey) return;
+      const from = g.periodKey;
+      const patch = (cards: GoalDTO[], key: string) =>
+        cards.map((c) => (c.id === g.id ? { ...c, periodKey: key } : c));
+      setWeekCards((cards) => patch(cards, weekStart));
+      void moveWeeklyToWeek({ id: g.id, weekStart })
+        .then((res) => {
+          if (!res.ok) {
+            setWeekCards((cards) => patch(cards, from));
+            fireToast({ message: res.error, type: "error" });
+            return;
+          }
+          fireToast({
+            message: `Moved to ${periodKeyLabel(weekStart)}`,
+            type: "success",
+            actionLabel: "Undo",
+            action: () => {
+              setWeekCards((cards) => patch(cards, from));
+              void moveWeeklyToWeek({ id: g.id, weekStart: from }).then((undone) => {
+                if (undone.ok) {
+                  fireToast({ message: `Moved back to ${periodKeyLabel(from)}`, type: "success" });
+                  router.refresh();
+                }
+              });
+            },
+          });
+          router.refresh();
+        })
+        .catch(() => {
+          setWeekCards((cards) => patch(cards, from));
+          fireToast({ message: "Couldn't move the week goal. Try again.", type: "error" });
+        });
+    },
+    [policy.canReQuarter, router],
   );
 
   const onDragEnd = React.useCallback(
@@ -888,6 +939,8 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
             policy={policy}
             onRehome={moveToBucket}
             onReorder={reorderChildIds}
+            weekCards={weekCards}
+            onRehomeWeek={rehomeWeekCard}
             focusId={props.focusId ?? null}
           />
         ) : (

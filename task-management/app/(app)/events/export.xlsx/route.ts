@@ -5,7 +5,6 @@ import { monthlyEventsEnabled } from "@/lib/monthly-events/flag";
 import {
   getMonthEvents,
   listCategories,
-  listHolidays,
   listObligations,
 } from "@/lib/queries/monthly-events";
 import {
@@ -15,7 +14,7 @@ import {
   minToLabel,
   slotIndexFromMin,
 } from "@/lib/monthly-events/types";
-import type { CalendarEvent, EventCategory, Holiday } from "@/lib/monthly-events/types";
+import type { CalendarEvent, EventCategory } from "@/lib/monthly-events/types";
 
 /**
  * GET /events/export.xlsx?month=YYYY-MM
@@ -77,27 +76,18 @@ export async function GET(request: Request): Promise<Response> {
   const [yr, mo] = month.split("-").map(Number);
   const anchor = new Date(yr!, mo! - 1, 1);
   // FY Apr–Mar: months Jan–Mar belong to the prior FY start year.
-  const fyStartYear = mo! >= 4 ? yr! : yr! - 1;
-
   const gridStart = startOfWeek(startOfMonth(anchor), { weekStartsOn: 1 });
   const gridEnd = endOfWeek(endOfMonth(anchor), { weekStartsOn: 1 });
   const from = format(gridStart, "yyyy-MM-dd");
   const to = format(gridEnd, "yyyy-MM-dd");
 
-  const [categories, events, holidays, obligations] = await Promise.all([
+  const [categories, events, obligations] = await Promise.all([
     listCategories(),
     getMonthEvents(from, to),
-    listHolidays(fyStartYear),
     listObligations(),
   ]);
 
   const catById = new Map<string, EventCategory>(categories.map((c) => [c.id, c]));
-  const holidayByDate = new Map<string, Holiday[]>();
-  for (const h of holidays) {
-    const list = holidayByDate.get(h.holidayDate) ?? [];
-    list.push(h);
-    holidayByDate.set(h.holidayDate, list);
-  }
   const eventsByDate = new Map<string, CalendarEvent[]>();
   for (const e of events) {
     const list = eventsByDate.get(e.eventDate) ?? [];
@@ -160,7 +150,7 @@ export async function GET(request: Request): Promise<Response> {
       cell.border = thinBorder;
     });
 
-    // All-day / holiday banner row
+    // All-day banner row (all-day events)
     const allDayCells: (string | null)[] = ["All-day"];
     const allDayFills: (string | null)[] = [null];
     for (const d of week) {
@@ -168,10 +158,6 @@ export async function GET(request: Request): Promise<Response> {
       const dayEvents = eventsByDate.get(iso) ?? [];
       const banners: string[] = [];
       let fill: string | null = null;
-      for (const h of holidayByDate.get(iso) ?? []) {
-        banners.push(h.name);
-        if (!fill) fill = "#FDE68A";
-      }
       for (const e of dayEvents.filter((x) => x.allDay)) {
         banners.push(e.title);
         if (!fill) fill = eventColor(e);

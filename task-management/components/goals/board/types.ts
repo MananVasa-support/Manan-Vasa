@@ -17,6 +17,11 @@ export interface GoalsBoardData {
    *  one payload feeds the bucket counts, the quick-add's parent resolution
    *  and cross-bucket drag reconciliation without refetching. */
   goals: GoalDTO[];
+  /** The viewed person's weekly cascade rows (from `weekly_goals`) for the FY,
+   *  mapped to period="week" GoalDTOs — the Monthly hierarchy Kanban's week-lane
+   *  cards. Empty on levels/spaces without weekly rows. Re-homing one between
+   *  weeks writes its `week_start` (moveWeeklyToWeek), not the goals-table move. */
+  weekCards: GoalDTO[];
   fyStartYear: number;
   /** The signed-in viewer (tells "mine" from a managed downline's board). */
   myEmployeeId: string;

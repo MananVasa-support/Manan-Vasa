@@ -18,19 +18,17 @@ import {
 } from "lucide-react";
 import { previewTaskImport, commitTaskImport } from "@/app/(app)/tasks/import-actions";
 import type { ImportPreview } from "@/lib/import/task-import";
+import { TASK_TEMPLATE_COLUMNS } from "@/lib/tasks/template-columns";
 import { fireToast } from "@/lib/toast";
 
-const COLUMNS: { name: string; required: boolean }[] = [
-  { name: "Client", required: true },
-  { name: "Subject", required: true },
-  { name: "Doer", required: true },
-  { name: "Initiator", required: true },
-  { name: "Priority", required: false },
-  { name: "Due Date", required: true },
-  { name: "Description", required: true },
-  { name: "Notes", required: false },
-  { name: "Tags", required: false },
-];
+/** Columns REQUIRED for a valid row (mirrors the parser's validation). */
+const REQUIRED_FIELDS = new Set(["client", "subject", "description", "doer", "dueDate"]);
+
+/** Every writable column, straight from the ONE manifest — the template + the
+ *  importer cover each of these, so the "Expected columns" helper never drifts. */
+const COLUMNS: { name: string; required: boolean }[] = TASK_TEMPLATE_COLUMNS.filter(
+  (c) => c.writable,
+).map((c) => ({ name: c.header, required: REQUIRED_FIELDS.has(c.field) }));
 
 /**
  * Admin CSV/XLSX task importer — premium two-step flow. Upload → the server
@@ -99,9 +97,11 @@ export function TaskImport({
   }
 
   function downloadTemplate() {
+    // The enterprise exceljs workbook (branded, validated dropdowns, frozen
+    // panes, Examples + How-to sheets) — every task column, generated server-side.
     const a = document.createElement("a");
-    a.href = "/task-import-template.xlsx";
-    a.download = "task-import-template.xlsx";
+    a.href = "/tasks/template.xlsx";
+    a.download = "altus-tasks-template.xlsx";
     a.click();
   }
 

@@ -52,9 +52,9 @@ export default async function EventsHubPage() {
           <p
             className="mt-1.5 truncate font-medium text-ink-muted"
             style={{ fontSize: 13.5 }}
-            title="One month-at-a-glance grid for every batch, holiday, meeting and obligation — with the same spreadsheet-style facility to type, drag, colour and copy events, plus auto-blocking from schedules and holidays."
+            title="One month-at-a-glance grid for every batch, meeting and obligation — with the same spreadsheet-style facility to type, drag, colour and copy events, plus auto-blocking from batch schedules."
           >
-            One month-at-a-glance grid for every batch, holiday, meeting and obligation — with the same spreadsheet-style facility to type, drag, colour and copy events, plus auto-blocking from schedules and holidays.
+            One month-at-a-glance grid for every batch, meeting and obligation — with the same spreadsheet-style facility to type, drag, colour and copy events, plus auto-blocking from batch schedules.
           </p>
         </header>
 

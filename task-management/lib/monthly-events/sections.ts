@@ -2,7 +2,6 @@ import {
   CalendarDays,
   Palette,
   CalendarClock,
-  PartyPopper,
   Gauge,
   type LucideIcon,
 } from "lucide-react";
@@ -20,8 +19,8 @@ export interface EventsSection {
   title: string;
   blurb: string;
   Icon: LucideIcon;
-  /** Restricted to admins within the module (masters / batches / holidays /
-   *  obligations). The calendar is open to any module viewer. */
+  /** Restricted to admins within the module (masters / batches / obligations).
+   *  The calendar is open to any module viewer. */
   adminOnly?: boolean;
 }
 
@@ -53,17 +52,8 @@ export const EVENTS_SECTIONS: EventsSection[] = [
     adminOnly: true,
   },
   {
-    slug: "holidays",
-    order: 4,
-    title: "Holiday Master",
-    blurb:
-      "FY26 & FY27 company holidays with weekday, religion tags and festival/exam markers. Office-closed days auto-block as all-day banners.",
-    Icon: PartyPopper,
-    adminOnly: true,
-  },
-  {
     slug: "obligations",
-    order: 5,
+    order: 4,
     title: "Obligations Dashboard",
     blurb:
       "Compulsory monthly sessions — a done/target compliance grid across the financial year, auto-counted from tagged calendar events.",

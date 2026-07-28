@@ -40,6 +40,9 @@ import {
   type AppraisalCycleStatus,
   type AppraisalItemStatus,
   type AppraisalScoreStage,
+  type KpiFrequency,
+  type KpiAssignmentStatus,
+  type KpiChangeType,
 } from "./enums";
 import type { DocKind, SignatureStatus } from "@/lib/documents/signing";
 
@@ -3031,6 +3034,9 @@ export const weeklyGoals = pgTable(
     actualAmount: numeric("actual_amount", { precision: 14, scale: 2 }),
     teamInvolved: jsonb("team_involved").$type<Array<{ employeeId?: string; name?: string; weight?: number }>>(),
     teamDependencyPct: integer("team_dependency_pct"),
+    // "Delegate to team" (migration 0171) — mirrors goals.delegated_to so the
+    // column is ready if weekly delegation is wired later. Additive/nullable.
+    delegatedTo: jsonb("delegated_to").$type<Array<{ employeeId: string; name?: string; pct: number }>>(),
     evidenceUrl: text("evidence_url"),
     // Opt-in per week (cross-out = false drops it from the committed set).
     adopted: boolean("adopted").notNull().default(true),
@@ -3281,6 +3287,11 @@ export const goals = pgTable(
     // "Share with team" Yes/No (migration 0149) — when on, the goal is shared
     // with the team_involved members (team_dependency_pct = participation %).
     shareWithTeam: boolean("share_with_team").notNull().default(false),
+    // "Delegate to team" (migration 0171) — accountability hand-off, DISTINCT from
+    // team_involved/share_with_team (participation). Each entry hands `pct`
+    // (default 100) of the goal to a staff member; delegated goals surface on the
+    // delegate's own board (getSharedGoals ORs this in). Additive/nullable.
+    delegatedTo: jsonb("delegated_to").$type<Array<{ employeeId: string; name?: string; pct: number }>>(),
     // owner self-rating 0..100
     pctDone: integer("pct_done").notNull().default(0),
     // reviewer rating; null → effective % falls back to pct_done
@@ -5969,3 +5980,67 @@ export const policyCompliance = pgTable(
 );
 export type PolicyComplianceRow = typeof policyCompliance.$inferSelect;
 export type NewCandidateIntake = typeof candidateIntake.$inferInsert;
+
+// ─── KPI Management (migration 0170) — HR-staff-only ─────────────────────────
+// Per-person KPI assignments that REFERENCE the appraisal KPI dictionary
+// (lib/performance/kpi-dictionary.ts) as the catalog. State columns are `text`
+// with $type overlays from db/enums.ts (house norm — not pgEnums).
+export const kpiAssignments = pgTable(
+  "kpi_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    /** KPI-dictionary line/target key when picked from the catalog; null for a
+     *  manually-entered KPI. */
+    kpiKey: text("kpi_key"),
+    kpiName: text("kpi_name").notNull(),
+    category: text("category").notNull().default(""),
+    frequency: text("frequency").notNull().default("monthly").$type<KpiFrequency>(),
+    weightage: integer("weightage").notNull().default(0),
+    /** e.g. "2026-Q2". */
+    effectiveQuarter: text("effective_quarter").notNull().default(""),
+    /** text so numeric OR descriptive targets both fit; achievement % parses
+     *  the numeric prefix. current_value nullable (may be computed later). */
+    targetValue: text("target_value").notNull().default(""),
+    currentValue: text("current_value"),
+    /** the "Applicable this quarter" toggle. */
+    applicable: boolean("applicable").notNull().default(true),
+    status: text("status").notNull().default("active").$type<KpiAssignmentStatus>(),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedById: uuid("updated_by_id").references(() => employees.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    archived: boolean("archived").notNull().default(false),
+  },
+  (t) => [
+    index("kpi_assignments_employee_idx").on(t.employeeId),
+    index("kpi_assignments_employee_quarter_idx").on(t.employeeId, t.effectiveQuarter),
+  ],
+);
+export type KpiAssignment = typeof kpiAssignments.$inferSelect;
+export type NewKpiAssignment = typeof kpiAssignments.$inferInsert;
+
+/** APPEND-ONLY audit log — one row per KPI change; NEVER updated or deleted. */
+export const kpiAssignmentHistory = pgTable(
+  "kpi_assignment_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    assignmentId: uuid("assignment_id")
+      .notNull()
+      .references(() => kpiAssignments.id, { onDelete: "cascade" }),
+    changeType: text("change_type").notNull().$type<KpiChangeType>(),
+    previous: jsonb("previous"),
+    updated: jsonb("updated"),
+    changedById: uuid("changed_by_id").references(() => employees.id, { onDelete: "set null" }),
+    changedOn: timestamp("changed_on", { withTimezone: true }).notNull().defaultNow(),
+    reason: text("reason"),
+  },
+  (t) => [
+    index("kpi_assignment_history_assignment_idx").on(t.assignmentId),
+    index("kpi_assignment_history_changed_on_idx").on(t.changedOn),
+  ],
+);
+export type KpiAssignmentHistoryRow = typeof kpiAssignmentHistory.$inferSelect;
+export type NewKpiAssignmentHistoryRow = typeof kpiAssignmentHistory.$inferInsert;

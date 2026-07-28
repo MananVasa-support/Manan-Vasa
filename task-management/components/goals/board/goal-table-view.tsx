@@ -29,6 +29,7 @@ import {
   Plus,
   Split,
   Trash2,
+  UserPlus,
   Users,
   X,
 } from "lucide-react";
@@ -47,6 +48,7 @@ import {
   detectCopyCollisions,
 } from "@/app/(app)/goals/cascade/actions";
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
+import { useGoalGridEngine, type GridColumn } from "@/components/goals/board/goal-grid";
 import { Select } from "@/components/ui/select";
 import { ADMIN_TASK_STATUSES, USER_TASK_STATUSES, type TaskStatus } from "@/db/enums";
 import { pctTone, fmtNum, num, periodKeyLabel, periodKeyShort, goalCode, trimDecimal, targetDateStatus, fmtTargetDate, assignmentInfo } from "@/components/goals/cascade/util";
@@ -757,6 +759,269 @@ function BulkMembers({
 }
 
 /* ------------------------------------------------------------------ */
+/* Cell: Delegates — accountability hand-off (mig 0171). Name chips     */
+/* each with an inline % (default 100), + a roster popover to add/drop.  */
+/* Distinct from Members: a delegate is answerable for the goal; picking */
+/* one instantly surfaces the goal on their own board (getSharedGoals).  */
+/* ------------------------------------------------------------------ */
+
+type DelegRef = { employeeId: string; name?: string; pct: number };
+
+function DelegatesCell({
+  delegates,
+  roster,
+  disabled,
+  onCommit,
+}: {
+  delegates: DelegRef[] | null;
+  roster: RosterMember[];
+  disabled: boolean;
+  onCommit: (next: DelegRef[] | null) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const list = delegates ?? [];
+  const picked = React.useMemo(() => new Set(list.map((d) => d.employeeId)), [list]);
+
+  function toggle(member: RosterMember) {
+    const next = picked.has(member.id)
+      ? list.filter((d) => d.employeeId !== member.id)
+      : [...list, { employeeId: member.id, name: member.name, pct: 100 }];
+    onCommit(next.length ? next : null);
+  }
+  function setPct(member: RosterMember, p: number) {
+    onCommit(list.map((d) => (d.employeeId === member.id ? { ...d, pct: p } : d)));
+  }
+
+  const shown = list.slice(0, 2);
+  const extra = list.length - shown.length;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {shown.map((d) => (
+        <span
+          key={d.employeeId}
+          title={`${d.name ?? "—"} · delegated ${d.pct}%`}
+          className="inline-flex max-w-[120px] items-center gap-1 truncate rounded-full border px-1.5 py-0.5 text-[11px] font-semibold text-ink-strong"
+          style={{ borderColor: "var(--color-hairline)", background: "var(--color-surface-soft)" }}
+        >
+          <span
+            aria-hidden
+            className="grid size-3.5 shrink-0 place-items-center rounded-full text-[8px] font-bold text-white"
+            style={{ background: "var(--color-altus-red-deep)" }}
+          >
+            {(d.name ?? "?").trim().charAt(0).toUpperCase()}
+          </span>
+          <span className="truncate">{d.name ?? "—"}</span>
+          <span className="tabular-nums font-bold text-altus-red-deep">·{d.pct}%</span>
+        </span>
+      ))}
+      {extra > 0 && (
+        <span
+          className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-altus-red-deep"
+          style={{ background: redTint(10) }}
+          title={list.slice(2).map((d) => `${d.name ?? "—"} (${d.pct}%)`).join(", ")}
+        >
+          +{extra}
+        </span>
+      )}
+
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            disabled={disabled}
+            aria-label="Delegate to team"
+            className={cn(
+              "inline-flex h-6 items-center gap-1 rounded-full border border-dashed px-2 text-[11px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red",
+              "disabled:cursor-not-allowed disabled:opacity-60",
+              FOCUS_RING,
+            )}
+            style={{ borderColor: "var(--color-hairline-strong)" }}
+          >
+            <UserPlus size={11} strokeWidth={3} /> Delegate
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          sideOffset={6}
+          className="z-[80] w-72 rounded-xl border border-hairline bg-surface-card p-1.5"
+          style={{ boxShadow: "0 18px 44px -18px rgba(15,23,42,0.3)" }}
+        >
+          <p className="flex items-center gap-1.5 px-2.5 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-subtle">
+            <UserPlus size={12} /> Delegate &amp; share %
+          </p>
+          <div className="max-h-64 overflow-auto">
+            {roster.map((r) => {
+              const isSel = picked.has(r.id);
+              const mine = list.find((d) => d.employeeId === r.id);
+              return (
+                <div
+                  key={r.id}
+                  className={cn("flex items-center gap-2 rounded-lg px-2.5 py-1.5 transition-colors", isSel ? "" : "hover:bg-black/[0.04]")}
+                  style={isSel ? { background: redTint(10) } : undefined}
+                >
+                  <button type="button" onClick={() => toggle(r)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                    <span className="inline-flex w-4 shrink-0 justify-center">
+                      {isSel && <Check size={14} strokeWidth={3} className="text-altus-red" />}
+                    </span>
+                    <span className={cn("min-w-0 flex-1 truncate text-[13px]", isSel ? "font-bold text-altus-red-deep" : "text-ink-strong")}>
+                      {r.name}
+                    </span>
+                  </button>
+                  {isSel && (
+                    <label className="flex shrink-0 items-center gap-1">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={mine?.pct ?? 100}
+                        onChange={(e) => {
+                          const raw = e.target.value.trim();
+                          const p = raw === "" ? 0 : Math.max(0, Math.min(100, Math.round(Number(raw) || 0)));
+                          setPct(r, p);
+                        }}
+                        aria-label={`Delegation percent for ${r.name}`}
+                        className={cn(
+                          "h-7 w-[56px] rounded-md border bg-white px-1.5 text-right text-[12.5px] font-bold tabular-nums text-ink-strong focus:border-altus-red",
+                          "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+                          FOCUS_RING,
+                        )}
+                        style={{ borderColor: "var(--color-hairline-strong)", fontFamily: "var(--font-display)" }}
+                      />
+                      <span className="text-[10px] font-bold text-ink-subtle">%</span>
+                    </label>
+                  )}
+                </div>
+              );
+            })}
+            {roster.length === 0 && <p className="px-3 py-4 text-center text-[12.5px] text-ink-subtle">No roster.</p>}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Bulk: + Delegate — pick staff (auto 100%) for every selected goal.   */
+/* Mirrors BulkMembers; the per-row % is then editable in DelegatesCell. */
+/* ------------------------------------------------------------------ */
+
+function BulkDelegate({
+  roster,
+  count,
+  onApply,
+}: {
+  roster: RosterMember[];
+  count: number;
+  onApply: (delegates: DelegRef[]) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [list, setList] = React.useState<DelegRef[]>([]);
+
+  const isPicked = (r: RosterMember) => list.some((d) => d.employeeId === r.id);
+  function toggle(r: RosterMember) {
+    setList((prev) =>
+      prev.some((d) => d.employeeId === r.id)
+        ? prev.filter((d) => d.employeeId !== r.id)
+        : [...prev, { employeeId: r.id, name: r.name, pct: 100 }],
+    );
+  }
+  function setPct(r: RosterMember, p: number) {
+    setList((prev) => prev.map((d) => (d.employeeId === r.id ? { ...d, pct: p } : d)));
+  }
+  function apply() {
+    onApply(list);
+    setOpen(false);
+    setList([]);
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-lg border bg-surface-card px-2.5 py-1.5 text-[12.5px] font-bold text-ink-strong transition-colors hover:border-altus-red hover:text-altus-red",
+            FOCUS_RING,
+          )}
+          style={{ borderColor: "var(--color-hairline-strong)" }}
+        >
+          <UserPlus size={13} /> + Delegate
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        className="z-[80] w-72 rounded-xl border border-hairline bg-surface-card p-1.5"
+        style={{ boxShadow: "0 18px 44px -18px rgba(15,23,42,0.3)" }}
+      >
+        <p className="flex items-center gap-1.5 px-2.5 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-subtle">
+          <UserPlus size={12} /> Delegate to · {count} selected
+        </p>
+        <div className="max-h-64 overflow-auto">
+          {roster.map((r) => {
+            const sel = isPicked(r);
+            const mine = list.find((d) => d.employeeId === r.id);
+            return (
+              <div
+                key={r.id}
+                className={cn("flex items-center gap-2 rounded-lg px-2.5 py-1.5 transition-colors", sel ? "" : "hover:bg-black/[0.04]")}
+                style={sel ? { background: redTint(10) } : undefined}
+              >
+                <button type="button" onClick={() => toggle(r)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                  <span className="inline-flex w-4 shrink-0 justify-center">
+                    {sel && <Check size={14} strokeWidth={3} className="text-altus-red" />}
+                  </span>
+                  <span className={cn("min-w-0 flex-1 truncate text-[13px]", sel ? "font-bold text-altus-red-deep" : "text-ink-strong")}>
+                    {r.name}
+                  </span>
+                </button>
+                {sel && (
+                  <label className="flex shrink-0 items-center gap-1">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={mine?.pct ?? 100}
+                      onChange={(e) => {
+                        const raw = e.target.value.trim();
+                        const p = raw === "" ? 0 : Math.max(0, Math.min(100, Math.round(Number(raw) || 0)));
+                        setPct(r, p);
+                      }}
+                      aria-label={`Delegation percent for ${r.name}`}
+                      className={cn(
+                        "h-7 w-[56px] rounded-md border bg-white px-1.5 text-right text-[12.5px] font-bold tabular-nums text-ink-strong focus:border-altus-red",
+                        "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+                        FOCUS_RING,
+                      )}
+                      style={{ borderColor: "var(--color-hairline-strong)", fontFamily: "var(--font-display)" }}
+                    />
+                    <span className="text-[10px] font-bold text-ink-subtle">%</span>
+                  </label>
+                )}
+              </div>
+            );
+          })}
+          {roster.length === 0 && <p className="px-3 py-4 text-center text-[12.5px] text-ink-subtle">No roster.</p>}
+        </div>
+        <div className="mt-1 flex items-center justify-between gap-2 border-t px-2.5 pt-2" style={{ borderColor: "var(--color-hairline)" }}>
+          <span className="text-[11.5px] font-semibold text-ink-subtle tabular-nums">{list.length} picked</span>
+          <button
+            type="button"
+            onClick={apply}
+            className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-bold text-white", FOCUS_RING)}
+            style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+          >
+            Delegate {count} goal{count === 1 ? "" : "s"}
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Cell: Share-with-team Yes/No pill                                   */
 /* ------------------------------------------------------------------ */
 
@@ -1432,6 +1697,183 @@ export function GoalTableView(props: GoalTableViewProps) {
     [editField],
   );
 
+  /* ------------------------------------------------------------------ */
+  /* Spreadsheet grid engine — the editable columns, in visual order.    */
+  /* Each column is the ONE source of truth for read / editable / parse, */
+  /* so inline typing, paste, fill-down and undo all commit identically  */
+  /* through the SAME `actions` surface (A.editGoal / A.setGoalPctDone).  */
+  /* Members is intentionally NOT a grid column (its JSON team+weights    */
+  /* payload has no sane TSV round-trip) — it stays directly editable.    */
+  /* ------------------------------------------------------------------ */
+  const gridColumns = React.useMemo<GridColumn[]>(() => {
+    const clampInt = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(n)));
+    /** "" → null · valid number → the string · junk → undefined (reject). */
+    const numOrNull = (raw: string): string | null | undefined => {
+      const s = raw.trim();
+      if (s === "") return null;
+      return Number.isFinite(Number(s)) ? s : undefined;
+    };
+    const rosterById = new Map(roster.map((m) => [m.id, m.name]));
+    const rosterByName = new Map(roster.map((m) => [m.name.trim().toLowerCase(), m.id]));
+    const statusBase = (isAdmin ? ADMIN_TASK_STATUSES : USER_TASK_STATUSES) as readonly TaskStatus[];
+
+    const cols: GridColumn[] = [
+      {
+        key: "area",
+        label: "Area",
+        read: (g) => g.area ?? "",
+        editable: () => !locked,
+        parse: (raw, g) => {
+          const v = raw.trim() === "" ? null : raw.trim();
+          return { partial: { area: v }, run: () => A.editGoal({ id: g.id, area: v }) };
+        },
+      },
+      {
+        key: "title",
+        label: "Goal",
+        read: (g) => g.title,
+        editable: () => !locked,
+        parse: (raw, g) => {
+          const t = raw.trim();
+          if (!t) return null; // title is required — never blank it
+          return { partial: { title: t }, run: () => A.editGoal({ id: g.id, title: t }) };
+        },
+      },
+      {
+        key: "measure",
+        label: "Measure",
+        read: (g) => g.uom ?? "",
+        editable: () => !locked,
+        parse: (raw, g) => {
+          const v = raw.trim() === "" ? null : raw.trim();
+          return { partial: { uom: v }, run: () => A.editGoal({ id: g.id, uom: v }) };
+        },
+      },
+      {
+        key: "actual",
+        label: "Actual",
+        read: (g) => trimDecimal(g.actualQty),
+        editable: () => !locked,
+        parse: (raw, g) => {
+          const v = numOrNull(raw);
+          if (v === undefined) return null;
+          return { partial: { actualQty: v }, run: () => A.editGoal({ id: g.id, actualQty: v }) };
+        },
+      },
+      {
+        key: "target",
+        label: "Target",
+        read: (g) => trimDecimal(g.targetQty),
+        editable: () => !locked,
+        parse: (raw, g) => {
+          const v = numOrNull(raw);
+          if (v === undefined) return null;
+          return { partial: { targetQty: v }, run: () => A.editGoal({ id: g.id, targetQty: v }) };
+        },
+      },
+      {
+        key: "pct",
+        label: "% Done",
+        read: (g) => String(autoPctDone(g.targetQty, g.actualQty) ?? g.pctDone),
+        // Read-only when Actual ÷ Target drives it (matches the PctCell auto mode).
+        editable: (g) => !locked && autoPctDone(g.targetQty, g.actualQty) === null,
+        parse: (raw, g) => {
+          const n = Number(raw.trim());
+          if (!Number.isFinite(n)) return null;
+          const p = clampInt(n, 0, 100);
+          return { partial: { pctDone: p }, run: () => A.setGoalPctDone({ id: g.id, pctDone: p }) };
+        },
+      },
+      {
+        key: "teamPct",
+        label: "Team %",
+        read: (g) => (g.teamDependencyPct == null ? "" : String(g.teamDependencyPct)),
+        editable: () => !locked,
+        parse: (raw, g) => {
+          const s = raw.trim();
+          if (s === "") return { partial: { teamDependencyPct: null }, run: () => A.editGoal({ id: g.id, teamDependencyPct: null }) };
+          const n = Number(s);
+          if (!Number.isFinite(n)) return null;
+          const v = clampInt(n, 0, 100);
+          return { partial: { teamDependencyPct: v }, run: () => A.editGoal({ id: g.id, teamDependencyPct: v }) };
+        },
+      },
+    ];
+
+    if (!weekly) {
+      cols.push(
+        {
+          key: "share",
+          label: "Share",
+          read: (g) => (g.shareWithTeam ? "Yes" : "No"),
+          editable: () => !locked,
+          parse: (raw, g) => {
+            const s = raw.trim().toLowerCase();
+            const v = ["yes", "y", "true", "1", "on", "shared", "✓"].includes(s)
+              ? true
+              : ["no", "n", "false", "0", "off"].includes(s)
+                ? false
+                : null;
+            if (v === null) return null;
+            return { partial: { shareWithTeam: v }, run: () => A.editGoal({ id: g.id, shareWithTeam: v }) };
+          },
+        },
+        {
+          key: "type",
+          label: "Type",
+          read: (g) => g.category ?? "",
+          editable: () => !locked,
+          parse: (raw, g) => {
+            const v = raw.trim();
+            return { partial: { category: v }, run: () => A.editGoal({ id: g.id, category: v }) };
+          },
+        },
+        {
+          key: "status",
+          label: "Status",
+          read: (g) => statusLabel(g.status ?? "not_started"),
+          editable: () => !locked,
+          parse: (raw, g) => {
+            const norm = raw.trim().toLowerCase();
+            if (norm === "") return null;
+            const pool = new Set<string>(statusBase);
+            if (g.status) pool.add(g.status);
+            const match = [...pool].find(
+              (s) =>
+                s.toLowerCase() === norm ||
+                s.replace(/_/g, " ").toLowerCase() === norm ||
+                statusLabel(s).toLowerCase() === norm,
+            );
+            if (!match) return null;
+            return { partial: { status: match }, run: () => A.editGoal({ id: g.id, status: match }) };
+          },
+        },
+        {
+          key: "reviewer",
+          label: "Reviewer",
+          read: (g) => (g.reviewedById ? rosterById.get(g.reviewedById) ?? "" : ""),
+          editable: () => !locked,
+          parse: (raw, g) => {
+            const s = raw.trim();
+            if (s === "") return { partial: { reviewedById: null }, run: () => A.editGoal({ id: g.id, reviewedById: null }) };
+            const id = rosterById.has(s) ? s : rosterByName.get(s.toLowerCase());
+            if (!id) return null;
+            return { partial: { reviewedById: id }, run: () => A.editGoal({ id: g.id, reviewedById: id }) };
+          },
+        },
+      );
+    }
+    return cols;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roster, locked, isAdmin, weekly]);
+
+  const grid = useGoalGridEngine({
+    rows,
+    columns: gridColumns,
+    enabled: !locked,
+    applyEdit: editField,
+  });
+
   /* ---------- bulk actions ---------- */
   const ids = React.useMemo(() => [...selected], [selected]);
 
@@ -1455,7 +1897,9 @@ export function GoalTableView(props: GoalTableViewProps) {
   function bulkSetMembers(team: TeamRef[]) {
     const sel = new Set(ids);
     const value = team.length ? team : null;
-    setRows((prev) => prev.map((r) => (sel.has(r.id) ? { ...r, teamInvolved: value } : r)));
+    // #7 — adding members bulk-shares onto their boards (server auto-flips too).
+    const share = (value ?? []).some((m) => m.employeeId);
+    setRows((prev) => prev.map((r) => (sel.has(r.id) ? { ...r, teamInvolved: value, shareWithTeam: share } : r)));
     run(
       async () => {
         for (const id of ids) {
@@ -1465,6 +1909,24 @@ export function GoalTableView(props: GoalTableViewProps) {
         return { ok: true } as ActionRes;
       },
       `Members set on ${ids.length} goal${ids.length === 1 ? "" : "s"}`,
+      clearSelection,
+    );
+  }
+  function bulkSetDelegate(delegates: DelegRef[]) {
+    const sel = new Set(ids);
+    const value = delegates.length ? delegates : null;
+    setRows((prev) => prev.map((r) => (sel.has(r.id) ? { ...r, delegatedTo: value } : r)));
+    run(
+      async () => {
+        for (const id of ids) {
+          const res = await A.editGoal({ id, delegatedTo: value });
+          if (!res.ok) return res;
+        }
+        return { ok: true } as ActionRes;
+      },
+      value
+        ? `Delegated ${ids.length} goal${ids.length === 1 ? "" : "s"}`
+        : `Delegation cleared on ${ids.length} goal${ids.length === 1 ? "" : "s"}`,
       clearSelection,
     );
   }
@@ -1737,6 +2199,7 @@ export function GoalTableView(props: GoalTableViewProps) {
           <span className="mx-0.5 hidden h-5 w-px sm:block" style={{ background: "var(--color-hairline-strong)" }} />
 
           <BulkMembers roster={roster} count={selected.size} onApply={bulkSetMembers} />
+          {!weekly && <BulkDelegate roster={roster} count={selected.size} onApply={bulkSetDelegate} />}
 
           <span className="mx-0.5 hidden h-5 w-px sm:block" style={{ background: "var(--color-hairline-strong)" }} />
           <BulkStatusMenu onPick={bulkStatus} />
@@ -1778,6 +2241,7 @@ export function GoalTableView(props: GoalTableViewProps) {
       {/* ---------- the table ---------- */}
       <div
         className="wg-rise max-h-[74vh] overflow-auto rounded-2xl border"
+        onKeyDown={grid.onKeyDown}
         style={{
           borderColor: "var(--color-hairline-strong)",
           background: "var(--color-surface-card)",
@@ -1804,10 +2268,12 @@ export function GoalTableView(props: GoalTableViewProps) {
               <th className={cn(TH, "min-w-[104px]")}>Area</th>
               <th className={cn(TH, "min-w-[150px]")}>Goal</th>
               <th className={cn(TH, "min-w-[104px]")}>Measure</th>
-              <th className={TH}>Actual / Target</th>
+              <th className={TH}>Actual</th>
+              <th className={TH}>Target</th>
               <th className={cn(TH, "w-[64px] text-center")}>% Done</th>
               <th className={cn(TH, "w-[60px]")}>Team %</th>
               <th className={cn(TH, "min-w-[140px]")}>Members</th>
+              {!weekly && <th className={cn(TH, "min-w-[150px]")}>Delegated</th>}
               {!weekly && <th className={TH}>Share</th>}
               {!weekly && <th className={cn(TH, "min-w-[104px]")}>Type</th>}
               {!weekly && <th className={cn(TH, "min-w-[132px]")}>Status</th>}
@@ -1855,7 +2321,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                   </td>
 
                   {/* Area */}
-                  <td className="px-2 py-4 align-middle">
+                  <td {...grid.cellProps(i, grid.ci("area"), "px-2 py-4 align-middle")}>
                     <div className={cn(locked && "pointer-events-none opacity-60")}>
                       <GoalLookupSelect
                         kind="area"
@@ -1866,22 +2332,21 @@ export function GoalTableView(props: GoalTableViewProps) {
                         options={areaOptions}
                         custom={customLookups.areas}
                         isAdmin={isAdmin}
-                        onChange={(v) => editField(g.id, { area: v }, () => A.editGoal({ id: g.id, area: v }))}
+                        onChange={(v) => grid.commit("area", g, v)}
                       />
                     </div>
                   </td>
 
                   {/* Goal title (inline in BOTH engines now) + Notes/Files expander */}
-                  <td className="px-2.5 py-4 align-middle">
+                  <td {...grid.cellProps(i, grid.ci("title"), "px-2.5 py-4 align-middle")}>
                     <TextCell
                       value={g.title}
                       disabled={locked}
                       ariaLabel="Goal title"
                       placeholder="Goal…"
-                      onCommit={(v) => {
-                        // Title is required — an empty commit reverts (never blanks the row).
-                        if (v && v !== g.title) editField(g.id, { title: v }, () => A.editGoal({ id: g.id, title: v }));
-                      }}
+                      // Title is required — the "title" column's parse rejects a blank
+                      // commit (returns null), so the row is never left without a name.
+                      onCommit={(v) => grid.commit("title", g, v)}
                     />
                     {/* Notes stay inline-editable in the expandable detail row below
                         (a textarea + attachments that commits via editGoal({notes})
@@ -1928,7 +2393,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                   </td>
 
                   {/* Measure */}
-                  <td className="px-2 py-4 align-middle">
+                  <td {...grid.cellProps(i, grid.ci("measure"), "px-2 py-4 align-middle")}>
                     <div className={cn(locked && "pointer-events-none opacity-60")}>
                       <GoalLookupSelect
                         kind="measure"
@@ -1939,53 +2404,47 @@ export function GoalTableView(props: GoalTableViewProps) {
                         options={measureOptions}
                         custom={customLookups.measures}
                         isAdmin={isAdmin}
-                        onChange={(v) => editField(g.id, { uom: v }, () => A.editGoal({ id: g.id, uom: v }))}
+                        onChange={(v) => grid.commit("measure", g, v)}
                       />
                     </div>
                   </td>
 
-                  {/* Actual / Target */}
-                  <td className="px-2 py-4 align-middle">
-                    <div className="flex items-center gap-1">
-                      <NumBox
-                        value={trimDecimal(g.actualQty)}
-                        disabled={locked}
-                        ariaLabel="Actual"
-                        placeholder="Act"
-                        className="w-[54px]"
-                        onCommit={(raw) =>
-                          editField(
-                            g.id,
-                            { actualQty: raw === "" ? null : raw },
-                            () => A.editGoal({ id: g.id, actualQty: raw === "" ? null : raw }),
-                          )
-                        }
-                      />
-                      <span className="text-[13px] font-bold text-ink-subtle">/</span>
-                      <NumBox
-                        value={trimDecimal(g.targetQty)}
-                        disabled={locked}
-                        ariaLabel="Target"
-                        placeholder="Tgt"
-                        className="w-[54px]"
-                        onCommit={(raw) =>
-                          editField(
-                            g.id,
-                            { targetQty: raw === "" ? null : raw },
-                            () => A.editGoal({ id: g.id, targetQty: raw === "" ? null : raw }),
-                          )
-                        }
-                      />
-                    </div>
-                    {(Math.abs(t ?? 0) >= 1000 || Math.abs(a ?? 0) >= 1000) && (
+                  {/* Actual — its own grid cell (was half of "Actual / Target") */}
+                  <td {...grid.cellProps(i, grid.ci("actual"), "px-2 py-4 align-middle")}>
+                    <NumBox
+                      value={trimDecimal(g.actualQty)}
+                      disabled={locked}
+                      ariaLabel="Actual"
+                      placeholder="Act"
+                      className="w-[64px]"
+                      onCommit={(raw) => grid.commit("actual", g, raw)}
+                    />
+                    {Math.abs(a ?? 0) >= 1000 && (
                       <p className="mt-0.5 pl-0.5 text-[10.5px] font-semibold text-ink-subtle tabular-nums">
-                        {fmtNum(g.actualQty)} / {fmtNum(g.targetQty)}
+                        {fmtNum(g.actualQty)}
+                      </p>
+                    )}
+                  </td>
+
+                  {/* Target — its own grid cell */}
+                  <td {...grid.cellProps(i, grid.ci("target"), "px-2 py-4 align-middle")}>
+                    <NumBox
+                      value={trimDecimal(g.targetQty)}
+                      disabled={locked}
+                      ariaLabel="Target"
+                      placeholder="Tgt"
+                      className="w-[64px]"
+                      onCommit={(raw) => grid.commit("target", g, raw)}
+                    />
+                    {Math.abs(t ?? 0) >= 1000 && (
+                      <p className="mt-0.5 pl-0.5 text-[10.5px] font-semibold text-ink-subtle tabular-nums">
+                        {fmtNum(g.targetQty)}
                       </p>
                     )}
                   </td>
 
                   {/* % Done — auto-derived from Target ÷ Actual when both drive it */}
-                  <td className="px-2 py-4 align-middle">
+                  <td {...grid.cellProps(i, grid.ci("pct"), "px-2 py-4 align-middle")}>
                     {(() => {
                       const auto = autoPctDone(g.targetQty, g.actualQty);
                       return (
@@ -1993,14 +2452,14 @@ export function GoalTableView(props: GoalTableViewProps) {
                           pct={auto ?? g.pctDone}
                           disabled={locked}
                           auto={auto !== null}
-                          onCommit={(p) => editField(g.id, { pctDone: p }, () => A.setGoalPctDone({ id: g.id, pctDone: p }))}
+                          onCommit={(p) => grid.commit("pct", g, String(p))}
                         />
                       );
                     })()}
                   </td>
 
                   {/* Team % */}
-                  <td className="px-2 py-4 align-middle">
+                  <td {...grid.cellProps(i, grid.ci("teamPct"), "px-2 py-4 align-middle")}>
                     <NumBox
                       value={g.teamDependencyPct == null ? "" : String(g.teamDependencyPct)}
                       min={0}
@@ -2008,10 +2467,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                       disabled={locked}
                       ariaLabel="Team participation percent"
                       className="w-[56px]"
-                      onCommit={(raw) => {
-                        const n = raw === "" ? null : Math.max(0, Math.min(100, Math.round(Number(raw) || 0)));
-                        editField(g.id, { teamDependencyPct: n }, () => A.editGoal({ id: g.id, teamDependencyPct: n }));
-                      }}
+                      onCommit={(raw) => grid.commit("teamPct", g, raw)}
                     />
                   </td>
 
@@ -2021,24 +2477,45 @@ export function GoalTableView(props: GoalTableViewProps) {
                       team={g.teamInvolved}
                       roster={roster}
                       disabled={locked}
-                      onCommit={(next) => editField(g.id, { teamInvolved: next }, () => A.editGoal({ id: g.id, teamInvolved: next }))}
+                      onCommit={(next) => {
+                        // #7 — instant share: mirror the server's auto-share so the
+                        // Share pill flips the moment a real member is added/removed.
+                        const share = (next ?? []).some((m) => m.employeeId);
+                        editField(
+                          g.id,
+                          { teamInvolved: next, shareWithTeam: share },
+                          () => A.editGoal({ id: g.id, teamInvolved: next }),
+                        );
+                      }}
                     />
                   </td>
 
-                  {/* Share w/ team */}
+                  {/* Delegated — accountability hand-off with per-delegate % */}
                   {!weekly && (
                     <td className="px-2 py-4 align-middle">
+                      <DelegatesCell
+                        delegates={g.delegatedTo ?? null}
+                        roster={roster}
+                        disabled={locked}
+                        onCommit={(next) => editField(g.id, { delegatedTo: next }, () => A.editGoal({ id: g.id, delegatedTo: next }))}
+                      />
+                    </td>
+                  )}
+
+                  {/* Share w/ team */}
+                  {!weekly && (
+                    <td {...grid.cellProps(i, grid.ci("share"), "px-2 py-4 align-middle")}>
                       <SharePill
                         on={g.shareWithTeam}
                         disabled={locked}
-                        onChange={(v) => editField(g.id, { shareWithTeam: v }, () => A.editGoal({ id: g.id, shareWithTeam: v }))}
+                        onChange={(v) => grid.commit("share", g, v ? "Yes" : "No")}
                       />
                     </td>
                   )}
 
                   {/* Type */}
                   {!weekly && (
-                    <td className="px-2 py-4 align-middle">
+                    <td {...grid.cellProps(i, grid.ci("type"), "px-2 py-4 align-middle")}>
                       <div className={cn(locked && "pointer-events-none opacity-60")}>
                         <GoalLookupSelect
                           kind="type"
@@ -2049,7 +2526,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                           options={typeOptions}
                           custom={customLookups.types}
                           isAdmin={isAdmin}
-                          onChange={(v) => editField(g.id, { category: v }, () => A.editGoal({ id: g.id, category: v }))}
+                          onChange={(v) => grid.commit("type", g, v)}
                         />
                       </div>
                     </td>
@@ -2057,24 +2534,24 @@ export function GoalTableView(props: GoalTableViewProps) {
 
                   {/* Status — inline dropdown over the app's Task statuses. */}
                   {!weekly && (
-                    <td className="px-2 py-4 align-middle">
+                    <td {...grid.cellProps(i, grid.ci("status"), "px-2 py-4 align-middle")}>
                       <StatusCell
                         value={g.status ?? "not_started"}
                         isAdmin={isAdmin}
                         disabled={locked}
-                        onCommit={(s) => editField(g.id, { status: s }, () => A.editGoal({ id: g.id, status: s }))}
+                        onCommit={(s) => grid.commit("status", g, s)}
                       />
                     </td>
                   )}
 
                   {/* Reviewer — inline roster dropdown → reviewedById. */}
                   {!weekly && (
-                    <td className="px-2 py-4 align-middle">
+                    <td {...grid.cellProps(i, grid.ci("reviewer"), "px-2 py-4 align-middle")}>
                       <ReviewerCell
                         reviewedById={g.reviewedById}
                         roster={roster}
                         disabled={locked}
-                        onCommit={(id) => editField(g.id, { reviewedById: id }, () => A.editGoal({ id: g.id, reviewedById: id }))}
+                        onCommit={(id) => grid.commit("reviewer", g, id ?? "")}
                       />
                     </td>
                   )}
@@ -2085,7 +2562,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                     goalId={g.id}
                     notes={g.notes}
                     canWrite={!locked}
-                    colSpan={weekly ? 9 : 13}
+                    colSpan={weekly ? 10 : 15}
                     nodeKind={detailKind}
                     assignment={assignmentInfo(g)}
                     onSaveNotes={(n) => patchNotes(g.id, n)}
@@ -2098,11 +2575,21 @@ export function GoalTableView(props: GoalTableViewProps) {
         </table>
       </div>
 
-      {/* footer count */}
-      <p className="mt-2 pl-1 text-[11.5px] font-semibold text-ink-subtle tabular-nums">
-        {rows.length} goal{rows.length === 1 ? "" : "s"}
-        {selected.size > 0 && <> · {selected.size} selected</>}
-      </p>
+      {/* footer count + spreadsheet keyboard hint */}
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 pl-1">
+        <p className="text-[11.5px] font-semibold text-ink-subtle tabular-nums">
+          {rows.length} goal{rows.length === 1 ? "" : "s"}
+          {selected.size > 0 && <> · {selected.size} selected</>}
+        </p>
+        {!locked && (
+          <p className="text-[11px] font-medium text-ink-subtle">
+            <span className="font-bold text-ink-soft">Grid:</span> click a cell · arrows to move ·
+            Shift+arrows to select · Enter/type to edit ·{" "}
+            <span className="tabular-nums">Ctrl/⌘</span>+C/V copy·paste · Ctrl/⌘+D fill down ·
+            Ctrl/⌘+Z undo
+          </p>
+        )}
+      </div>
 
       {editingGoal && (
         <GoalEditDialog

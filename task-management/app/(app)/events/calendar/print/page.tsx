@@ -12,7 +12,6 @@ import { requireEventsAccess } from "@/lib/monthly-events/access";
 import {
   getMonthEvents,
   listCategories,
-  listHolidays,
 } from "@/lib/queries/monthly-events";
 import {
   DAY_START_MIN,
@@ -21,13 +20,13 @@ import {
   SLOTS_PER_DAY,
   minToLabel,
 } from "@/lib/monthly-events/types";
-import type { CalendarEvent, EventCategory, Holiday } from "@/lib/monthly-events/types";
+import type { CalendarEvent, EventCategory } from "@/lib/monthly-events/types";
 import { PrintTrigger } from "./print-trigger";
 
 /**
  * Print-optimised month grid (design §9). A static, non-interactive mirror of
  * the calendar hero — stacked weekly time-grid bands (rows = 30-min slots
- * 07:00–21:00, cols = Mon–Sun) with coloured event blocks, all-day holiday
+ * 07:00–21:00, cols = Mon–Sun) with coloured event blocks, all-day
  * banners and a category legend. The @media print block (inline <style>, scoped
  * to `.me-print`, NOT app/globals.css) sets A4 landscape, `print-color-adjust:
  * exact` so category colours survive, and `break-inside:avoid` per week band.
@@ -110,17 +109,15 @@ export default async function CalendarPrintPage({
   const month = sp.month && /^\d{4}-\d{2}$/.test(sp.month) ? sp.month : currentMonthIST();
   const [yr, mo] = month.split("-").map(Number);
   const anchor = new Date(yr!, mo! - 1, 1);
-  const fyStartYear = mo! >= 4 ? yr! : yr! - 1;
 
   const gridStart = startOfWeek(startOfMonth(anchor), { weekStartsOn: 1 });
   const gridEnd = endOfWeek(endOfMonth(anchor), { weekStartsOn: 1 });
   const from = format(gridStart, "yyyy-MM-dd");
   const to = format(gridEnd, "yyyy-MM-dd");
 
-  const [categories, events, holidays] = await Promise.all([
+  const [categories, events] = await Promise.all([
     listCategories(),
     getMonthEvents(from, to),
-    listHolidays(fyStartYear),
   ]);
 
   const catById = new Map<string, EventCategory>(categories.map((c) => [c.id, c]));
@@ -135,12 +132,6 @@ export default async function CalendarPrintPage({
     const list = eventsByDate.get(e.eventDate) ?? [];
     list.push(e);
     eventsByDate.set(e.eventDate, list);
-  }
-  const holidayByDate = new Map<string, Holiday[]>();
-  for (const h of holidays) {
-    const list = holidayByDate.get(h.holidayDate) ?? [];
-    list.push(h);
-    holidayByDate.set(h.holidayDate, list);
   }
 
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
@@ -247,14 +238,11 @@ export default async function CalendarPrintPage({
           <div className="me-week-head">
             <div className="me-daycol-head" />
             {week.map((d, di) => {
-              const iso = format(d, "yyyy-MM-dd");
-              const hols = holidayByDate.get(iso) ?? [];
               const inMonth = isSameMonth(d, anchor);
               const cls = [
                 "me-daycol-head",
                 isWeekend(d) ? "wknd" : "",
                 !inMonth ? "oob" : "",
-                hols.length ? "hol" : "",
               ]
                 .filter(Boolean)
                 .join(" ");
@@ -262,11 +250,6 @@ export default async function CalendarPrintPage({
                 <div key={di} className={cls}>
                   <div className="me-dow">{WEEKDAYS[di]}</div>
                   <div className="me-dnum">{format(d, "d")}</div>
-                  {hols.slice(0, 2).map((h) => (
-                    <div key={h.id} className="me-holname">
-                      {h.name}
-                    </div>
-                  ))}
                 </div>
               );
             })}

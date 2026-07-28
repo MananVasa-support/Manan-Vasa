@@ -300,19 +300,12 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
   },
   events: {
     // Monthly Events Master — the calendar is the hero; masters/batches/
-    // holidays/obligations are admin surfaces.
+    // obligations are admin surfaces. (Holidays moved to HR.)
     top: [
       { href: "/events" as Route, label: "Overview", Icon: LayoutGrid, exact: true },
       { href: "/events/calendar" as Route, label: "Calendar", Icon: CalendarDays },
       { href: "/events/masters" as Route, label: "Masters", Icon: Palette, adminOnly: true },
       { href: "/events/batches" as Route, label: "Batches", Icon: CalendarClock, adminOnly: true },
-      {
-        href: "/events/holidays" as Route,
-        label: "Holidays",
-        Icon: PartyPopper,
-        adminOnly: true,
-        not: ["/events/holidays/list"],
-      },
       { href: "/events/obligations" as Route, label: "Obligations", Icon: Gauge, adminOnly: true },
     ],
     groups: [],

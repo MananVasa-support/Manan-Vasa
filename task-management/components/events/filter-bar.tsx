@@ -35,7 +35,6 @@ const STATUS_OPTS: { id: EventStatus; label: string }[] = [
 const SOURCE_OPTS: { id: EventSource; label: string }[] = [
   { id: "manual", label: "Manual" },
   { id: "batch", label: "Batch" },
-  { id: "holiday", label: "Holiday" },
   { id: "obligation", label: "Obligation" },
 ];
 

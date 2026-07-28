@@ -9,11 +9,11 @@ import type { Employee } from "@/db/schema";
 /**
  * Access model for the Monthly Events Master module (design §1).
  *
- * The admin surface (calendar, masters, batches, holidays admin, obligations)
- * is for SUPER-ADMINS, admins (`isAdmin`), and — optionally — the Founder Office
+ * The admin surface (calendar, masters, batches, obligations) is for
+ * SUPER-ADMINS, admins (`isAdmin`), and — optionally — the Founder Office
  * department. `isAdmin` in the returned object means "may edit masters / manage
- * schedules & holidays". The read-only, all-employees holiday list is the sole
- * exception and uses `requireHolidayListAccess()` (= `requireUser()`) instead.
+ * schedules". (Holidays were removed from this module — they live in HR; the
+ * employee holiday list at `/holidays` is served by the HR room.)
  */
 export interface EventsAccess {
   me: Employee;
@@ -58,16 +58,10 @@ export async function requireEventsAccess(): Promise<EventsAccess> {
   return access;
 }
 
-/** For admin-only surfaces (masters / batches / holidays admin / obligations):
- *  returns access or redirects viewers back to the events sub-hub. */
+/** For admin-only surfaces (masters / batches / obligations): returns access or
+ *  redirects viewers back to the events sub-hub. */
 export async function requireEventsAdmin(): Promise<EventsAccess> {
   const access = await requireEventsAccess();
   if (!access.isAdmin) redirect("/events" as Route);
   return access;
-}
-
-/** Employee-facing personalised holiday list (`/events/holidays/list`) is
- *  readable by ALL active employees — just requires a signed-in user. */
-export async function requireHolidayListAccess(): Promise<Employee> {
-  return requireUser();
 }

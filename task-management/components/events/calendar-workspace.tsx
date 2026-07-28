@@ -190,7 +190,7 @@ function InnerWorkspace({ initial, todayIso }: CalendarWorkspaceProps) {
     setEditor({ mode: "create", draft: { eventDate, startMin, endMin, allDay } });
 
   const onLockedInteract = (ev: CalendarEvent) => {
-    if (window.confirm("This event is locked (holiday/batch). Unlock it to override?")) {
+    if (window.confirm("This event is locked (batch schedule). Unlock it to override?")) {
       void run(unlockEvent(ev.id), { success: "Unlocked — you can now edit it." });
     }
   };

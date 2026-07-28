@@ -115,6 +115,7 @@ export function WeeklyCascadeBoard({
   canPickPerson,
   people,
   rows,
+  dayGoals,
   roster,
   monthGoalOptions,
   areaOptions,
@@ -136,6 +137,9 @@ export function WeeklyCascadeBoard({
   canPickPerson: boolean;
   people: { id: string; name: string }[];
   rows: CascadeWeeklyGoal[];
+  /** Day goals (goals table, period="day") whose date falls in this week — the
+   *  Week→Day kanban's day-lane cards. */
+  dayGoals: GoalDTO[];
   roster: RosterMember[];
   monthGoalOptions: MonthGoalOption[];
   areaOptions: string[];
@@ -498,7 +502,7 @@ export function WeeklyCascadeBoard({
           weekNo={weekNo}
           weekLabel={weekLabel}
           rows={rows}
-          monthGoalOptions={monthGoalOptions}
+          dayGoals={dayGoals}
           canWrite={canWrite}
         />
       ) : rows.length === 0 ? (
