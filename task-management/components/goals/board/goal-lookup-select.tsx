@@ -42,6 +42,11 @@ export function GoalLookupSelect({
   /** Tighter trigger for dense table cells. */
   compact?: boolean;
 }) {
+  // A lookup field can legitimately be empty (a blank/new row has no Area/Measure
+  // yet), so `value` may arrive null/undefined despite the string type. Normalise
+  // once — an unguarded `value.toLowerCase()` here was crashing the whole Weekly
+  // board render (a null table-cell value) → the "That didn't go through" page.
+  const safeValue = value ?? "";
   const [opts, setOpts] = React.useState<string[]>(options);
   const [deletable, setDeletable] = React.useState<string[]>(custom);
   React.useEffect(() => setOpts(options), [options]);
@@ -184,8 +189,8 @@ export function GoalLookupSelect({
             className,
           )}
         >
-          <span className={cn("truncate", !value && "font-normal text-ink-subtle")}>
-            {value || placeholder || `Choose a ${noun}`}
+          <span className={cn("truncate", !safeValue && "font-normal text-ink-subtle")}>
+            {safeValue || placeholder || `Choose a ${noun}`}
           </span>
           <ChevronDown
             size={15}
@@ -228,7 +233,7 @@ export function GoalLookupSelect({
         </div>
         <div ref={listRef} className="gdd-scroll max-h-72 overflow-auto" role="listbox">
           {filtered.map((o, i) => {
-            const isSel = o.toLowerCase() === value.toLowerCase();
+            const isSel = String(o ?? "").toLowerCase() === safeValue.toLowerCase();
             const isActive = i === active;
             const canDelete = isAdmin && deletableSet.has(o.toLowerCase());
             return (
