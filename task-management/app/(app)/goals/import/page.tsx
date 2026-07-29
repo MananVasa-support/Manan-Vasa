@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type { Route } from "next";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { resolveGoalsView } from "@/app/(app)/goals/cascade/view";
 import { GoalsImport } from "@/components/goals/cascade/goals-import";
@@ -21,7 +22,7 @@ export default async function GoalsImportPage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
+      <PageShell width="full">
         <h1
           className="text-ink-strong"
           style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 32 }}
@@ -36,7 +37,7 @@ export default async function GoalsImportPage() {
         <div className="mt-6">
           <GoalsImport roster={view.roster} />
         </div>
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

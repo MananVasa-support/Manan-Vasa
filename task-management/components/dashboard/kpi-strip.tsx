@@ -7,6 +7,8 @@ import { Plus, Minus, ArrowUpRight } from "lucide-react";
 import type { NeonKey } from "./kpi-card";
 import { KpiDetailPanel } from "./kpi-detail-panel";
 import type { KpiSet, WmsSummary } from "@/lib/types";
+import { PageShell } from "@/components/layout/page-shell";
+import { CardGrid } from "@/components/layout/card-grid";
 
 interface Entry {
   key: keyof KpiSet;
@@ -32,11 +34,9 @@ export function KpiStrip({ kpis, summary }: { kpis: KpiSet; summary: WmsSummary 
   const active = expanded ? ITEMS.find((i) => i.key === expanded) ?? null : null;
 
   return (
-    <section className="mt-10 mx-auto max-w-[1600px] px-12 max-md:px-4" aria-label="Task summary">
-      <div
-        className="grid grid-cols-6 gap-4 max-xl:grid-cols-3 max-md:grid-cols-2"
-        role="list"
-      >
+    <section className="mt-10" aria-label="Task summary">
+     <PageShell as="div" width="full" py={false}>
+      <CardGrid min={210} gap="1rem">
         {ITEMS.map((item) => {
           const kpi = kpis[item.key];
           const delta = kpi.current - kpi.previous;
@@ -53,7 +53,7 @@ export function KpiStrip({ kpis, summary }: { kpis: KpiSet; summary: WmsSummary 
           const neonDeep = `var(--kpi-neon-${item.neonKey}-deep)`;
 
           return (
-            <div role="listitem" key={item.key}>
+            <div key={item.key}>
               <div
                 className="group relative h-full overflow-hidden rounded-2xl transition-all duration-200"
                 style={{
@@ -128,7 +128,7 @@ export function KpiStrip({ kpis, summary }: { kpis: KpiSet; summary: WmsSummary 
             </div>
           );
         })}
-      </div>
+      </CardGrid>
 
       {/* Single per-card detail panel — animates open via the 0fr→1fr grid trick. */}
       <div
@@ -151,6 +151,7 @@ export function KpiStrip({ kpis, summary }: { kpis: KpiSet; summary: WmsSummary 
           )}
         </div>
       </div>
+     </PageShell>
     </section>
   );
 }

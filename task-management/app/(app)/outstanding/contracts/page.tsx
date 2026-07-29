@@ -12,6 +12,7 @@ import {
   listOutstandingPaymentModes,
 } from "@/lib/queries/outstanding-rosters";
 import { listEmployeeOptions } from "@/lib/queries/employees";
+import { PageShell } from "@/components/layout/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export default async function ManageContractsPage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[1600px] px-12 max-md:px-4 pt-8 pb-16">
+      <PageShell width="full">
         <Link
           href={"/outstanding" as Route}
           className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-ink-subtle hover:text-ink-strong transition-colors mb-4"
@@ -60,7 +61,7 @@ export default async function ManageContractsPage() {
           contracts={contracts}
           lookups={{ products, entities, modes, employees }}
         />
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

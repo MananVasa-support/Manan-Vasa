@@ -3,6 +3,7 @@ import type { Route } from "next";
 import type { CSSProperties } from "react";
 import { ArrowLeft, ArrowUpRight, Mail } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
+import { PageShell } from "@/components/layout/page-shell";
 import { lettersByCategory } from "@/lib/hr/letters/registry";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +43,7 @@ export default async function LettersIndexPage() {
         <span aria-hidden className="justify-self-end" />
       </header>
 
-      <main className="mx-auto w-full max-w-[1800px] px-10 max-md:px-4 pt-10 pb-24">
+      <PageShell width="full" py={false} className="pt-10 pb-24">
         <header className="mb-8 wg-rise">
           <span
             className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"
@@ -136,7 +137,7 @@ export default async function LettersIndexPage() {
             ))}
           </div>
         )}
-      </main>
+      </PageShell>
     </div>
   );
 }

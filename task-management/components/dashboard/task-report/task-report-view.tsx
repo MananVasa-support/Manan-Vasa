@@ -22,6 +22,7 @@ import type {
 } from "@/lib/queries/task-report";
 import type { FineBucketCount } from "@/lib/transforms/aging-buckets-fine";
 import type { InitiatorBoard } from "@/lib/types";
+import { PageShell } from "@/components/layout/page-shell";
 
 const GREEN = "var(--color-green-deep, #15803D)";
 const RED = "var(--color-altus-red, #E10600)";
@@ -52,7 +53,7 @@ export function TaskReportView({ data, avatarById, isAdmin, meId }: TaskReportVi
         };
 
   return (
-    <div className="mx-auto max-w-[1600px] px-12 max-md:px-4 pb-20">
+    <PageShell as="div" width="full" py={false} className="pb-20">
       {/* ── Section 1 + 2: the two DONE distributions, side by side ── */}
       <motion.section {...rise(0)} aria-label="Done on time by due-date basis">
         <SectionHeader
@@ -102,7 +103,7 @@ export function TaskReportView({ data, avatarById, isAdmin, meId }: TaskReportVi
           resolveAvatar={resolveAvatar}
         />
       </motion.section>
-    </div>
+    </PageShell>
   );
 }
 

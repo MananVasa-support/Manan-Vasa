@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
+import { PageShell } from "@/components/layout/page-shell";
 import { listCandidateIntakes } from "@/app/(app)/hr/candidate-actions";
 import { BasicDetailsScreen } from "@/components/hr/candidate/basic-details-screen";
 
@@ -46,7 +47,7 @@ export default async function CandidatesPage() {
         <span aria-hidden className="justify-self-end" />
       </header>
 
-      <main className="mx-auto w-full max-w-[1180px] px-6 max-md:px-4 pt-8 pb-16">
+      <PageShell width="standard">
         <div className="mb-6">
           <span
             className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"
@@ -65,7 +66,7 @@ export default async function CandidatesPage() {
           </p>
         </div>
         <BasicDetailsScreen candidates={candidates} />
-      </main>
+      </PageShell>
     </div>
   );
 }

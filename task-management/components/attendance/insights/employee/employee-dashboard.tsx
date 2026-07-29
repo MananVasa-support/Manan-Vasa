@@ -26,6 +26,7 @@ import { Gauge } from "@/components/dashboard/exec/viz/gauge";
 import { Sparkline } from "@/components/charts/sparkline";
 import { ChartCard } from "@/components/hr/candidate/analytics/analytics-charts";
 import { EmployeeMonthSelector } from "@/components/attendance/insights/employee/employee-month-selector";
+import { CardGrid } from "@/components/layout/card-grid";
 
 /**
  * The per-EMPLOYEE attendance dashboard — a personal, context-preserving view
@@ -261,8 +262,10 @@ function PersonalKpiCards({ data }: { data: EmployeeAttendanceAnalytics }) {
   ];
 
   return (
-    <section
-      className="wg-rise grid grid-cols-4 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-2"
+    <CardGrid
+      min={280}
+      gap="0.75rem"
+      className="wg-rise"
       style={{ animationDelay: "40ms" }}
     >
       {tiles.map((t) => (
@@ -304,7 +307,7 @@ function PersonalKpiCards({ data }: { data: EmployeeAttendanceAnalytics }) {
           </div>
         </div>
       ))}
-    </section>
+    </CardGrid>
   );
 }
 

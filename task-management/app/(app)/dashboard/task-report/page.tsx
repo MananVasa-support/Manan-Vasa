@@ -9,6 +9,7 @@ import { TaskReportView } from "@/components/dashboard/task-report/task-report-v
 import { requireUser } from "@/lib/auth/current";
 import { listEmployees } from "@/lib/queries/employees";
 import { loadTaskReportData } from "@/lib/queries/task-report";
+import { PageShell } from "@/components/layout/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,7 @@ export default async function TaskReportPage() {
 
       <main>
         {/* Page masthead + back link */}
-        <section className="mx-auto max-w-[1600px] px-12 max-md:px-4 pt-10 max-md:pt-6 pb-2">
+        <PageShell as="section" width="full" py={false} className="pt-10 max-md:pt-6 pb-2">
           <Link
             href={"/dashboard" as Route}
             className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-subtle transition-colors hover:text-ink-strong"
@@ -96,7 +97,7 @@ export default async function TaskReportPage() {
             Delivery punctuality, sent-back work, and delegation throughput —
             measured the way Manan tracks them, in twelve early/late buckets.
           </p>
-        </section>
+        </PageShell>
 
         <div className="mt-6">
           <TaskReportView

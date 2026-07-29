@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { ArrowLeft, SlidersHorizontal, Eye } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { PageShell } from "@/components/layout/page-shell";
 import { PolicyEditor } from "@/components/hr/policies/policy-editor";
 
 export const dynamic = "force-dynamic";
@@ -57,9 +58,9 @@ export default async function PolicyEditPage({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1400px] px-6 max-md:px-3 pt-8 pb-24">
+      <PageShell width="wide" py={false} className="pt-8 pb-24">
         <PolicyEditor policyKey={key} isSuperAdmin={superAdmin} />
-      </main>
+      </PageShell>
     </div>
   );
 }

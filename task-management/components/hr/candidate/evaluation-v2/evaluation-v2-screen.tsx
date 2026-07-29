@@ -15,6 +15,7 @@ import {
   Share2,
 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
+import { PageShell } from "@/components/layout/page-shell";
 import {
   EVAL_SECTIONS,
   type EvaluationInstance,
@@ -313,7 +314,7 @@ export function EvaluationV2Screen({
   return (
     <>
       <style>{CSS}</style>
-      <main className="mx-auto w-full max-w-[1240px] px-6 pb-28 pt-7 max-md:px-4">
+      <PageShell width="standard" py={false} className="pt-7 pb-28">
         {/* Hero */}
         <div className="ev2-fade mb-5">
           <span
@@ -551,7 +552,7 @@ export function EvaluationV2Screen({
             </div>
           </div>
         ) : null}
-      </main>
+      </PageShell>
     </>
   );
 }

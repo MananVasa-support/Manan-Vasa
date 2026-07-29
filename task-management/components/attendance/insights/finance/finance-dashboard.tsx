@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Donut, type DonutSlice } from "@/components/charts/donut";
 import { HBars, type HBarRow } from "@/components/charts/h-bars";
+import { CardGrid } from "@/components/layout/card-grid";
 import { formatInr } from "@/lib/format";
 import type {
   FinanceAttendanceAnalytics,
@@ -201,7 +202,8 @@ export function FinanceDashboard({ data }: { data: FinanceAttendanceAnalytics })
   return (
     <div className="flex flex-col gap-6">
       {/* ── Money KPI cards ─────────────────────────────────────────── */}
-      <section aria-label="Payroll-impact headline figures" className="grid grid-cols-6 gap-4 max-xl:grid-cols-3 max-md:grid-cols-2">
+      <section aria-label="Payroll-impact headline figures">
+      <CardGrid min={250} gap="1rem">
         <KpiTile
           index={0}
           label="Total salary lost"
@@ -252,6 +254,7 @@ export function FinanceDashboard({ data }: { data: FinanceAttendanceAnalytics })
           accentDeep="var(--color-green-deep)"
           icon={<Wallet size={18} strokeWidth={2.4} />}
         />
+      </CardGrid>
       </section>
 
       {/* ── Charts row: bucket donut + per-dept loss bars ───────────── */}

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useReducedMotion } from "@/lib/motion-utils";
 import { useAnimCount } from "@/components/dashboard/exec/viz/use-anim-count";
+import { CardGrid } from "@/components/layout/card-grid";
 
 /**
  * Shared presentational primitives for the org Workforce-Intelligence dashboard.
@@ -48,20 +49,19 @@ export function KpiGrid({
   onFilter: (key: string | null) => void;
 }) {
   return (
-    <section
-      aria-label="Workforce headline metrics"
-      className="grid grid-cols-6 gap-3.5 max-xl:grid-cols-4 max-md:grid-cols-2"
-    >
-      {tiles.map((t, i) => (
-        <KpiTile
-          key={t.key}
-          tile={t}
-          index={i}
-          active={t.filterKey != null && t.filterKey === activeFilter}
-          filterable={t.filterKey != null}
-          onClick={() => t.filterKey != null && onFilter(t.filterKey === activeFilter ? null : t.filterKey)}
-        />
-      ))}
+    <section aria-label="Workforce headline metrics">
+      <CardGrid min={250} gap="0.875rem">
+        {tiles.map((t, i) => (
+          <KpiTile
+            key={t.key}
+            tile={t}
+            index={i}
+            active={t.filterKey != null && t.filterKey === activeFilter}
+            filterable={t.filterKey != null}
+            onClick={() => t.filterKey != null && onFilter(t.filterKey === activeFilter ? null : t.filterKey)}
+          />
+        ))}
+      </CardGrid>
     </section>
   );
 }

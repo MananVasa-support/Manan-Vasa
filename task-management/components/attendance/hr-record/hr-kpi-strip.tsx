@@ -8,6 +8,7 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import type { AttendanceSheetMonth } from "@/db/schema";
+import { CardGrid } from "@/components/layout/card-grid";
 import { hrNum } from "@/components/attendance/hr-record/hr-codes";
 
 /**
@@ -89,10 +90,8 @@ export function HrKpiStrip({ summary }: { summary: AttendanceSheetMonth }) {
   ];
 
   return (
-    <section
-      aria-label="Month summary"
-      className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7"
-    >
+    <section aria-label="Month summary">
+      <CardGrid min={150} gap="0.75rem">
       {cards.map((c, i) => (
         <div
           key={c.label}
@@ -149,6 +148,7 @@ export function HrKpiStrip({ summary }: { summary: AttendanceSheetMonth }) {
           )}
         </div>
       ))}
+      </CardGrid>
     </section>
   );
 }

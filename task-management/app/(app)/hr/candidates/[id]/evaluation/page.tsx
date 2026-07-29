@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
+import { PageShell } from "@/components/layout/page-shell";
 import { getCandidateBasics, getCandidateEvaluation } from "@/app/(app)/hr/candidate-actions";
 import { EvaluationRecord } from "@/components/hr/candidate/evaluation-record";
 
@@ -36,9 +37,9 @@ export default async function EvaluationRecordPage({ params }: { params: Promise
         <img src="/logo.png" alt="Altus Corp" className="h-9 w-auto justify-self-center max-md:h-8" style={{ display: "block" }} />
         <span aria-hidden className="justify-self-end" />
       </header>
-      <main className="mx-auto w-full max-w-[1000px] px-6 max-md:px-4 pt-8 pb-20">
+      <PageShell width="narrow" py={false} className="pt-8 pb-20">
         <EvaluationRecord name={basics.fullName} position={basics.positionApplied} ratings={ratings} />
-      </main>
+      </PageShell>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { loadCommitData } from "@/components/goals/commit/data";
 import { CommitWorkspace } from "@/components/goals/commit/commit-workspace";
@@ -27,9 +28,9 @@ export default async function GoalsCommitPage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
+      <PageShell width="full">
         <CommitWorkspace data={data} />
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

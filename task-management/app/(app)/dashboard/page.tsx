@@ -13,6 +13,7 @@ import { ExecDashboard } from "@/components/dashboard/exec/exec-dashboard";
 import { AgingHeatmap } from "@/components/dashboard/aging-heatmap";
 import { WelcomeHero } from "@/components/dashboard/welcome-hero";
 import { DashboardLoadError } from "@/components/dashboard/dashboard-load-error";
+import { PageShell } from "@/components/layout/page-shell";
 import { listEmployees } from "@/lib/queries/employees";
 import { listDistinctSubjects } from "@/lib/queries/tasks";
 import { loadDashboardData } from "@/lib/queries/dashboard";
@@ -154,9 +155,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             {/* Pinned "This week's goals" group at the top of My Day (design
                 §10) — visible on mobile Today + desktop. Display-only. */}
             {myGoals.length > 0 && (
-              <section className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-6">
+              <PageShell as="div" width="full" py={false} className="mt-6">
                 <WeeklyGoalTaskGroup goals={myGoals} />
-              </section>
+              </PageShell>
             )}
             {mobileToday && me && (
               <div className="md:hidden">
@@ -174,7 +175,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               {/* Task Analytics deep-dive — on-demand route (load-neutral),
                   surfaced for admins + managers (anyone with a downline). */}
               {(me?.isAdmin || allEmployees.some((e) => e.managerId === me?.id)) && (
-                <section className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-8">
+                <PageShell as="div" width="full" py={false} className="mt-8">
                   <Link
                     href={"/dashboard/task-report" as Route}
                     className="wg-rise group flex items-center justify-between gap-4 rounded-section px-6 py-5 max-md:px-4 max-md:py-4 transition-transform active:scale-[0.997]"
@@ -214,11 +215,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                       className="shrink-0 text-white transition-transform group-hover:translate-x-1"
                     />
                   </Link>
-                </section>
+                </PageShell>
               )}
               {/* Executive Control Room — surfaced above doer-status /
                   top-performers per founder (2026-06-21). */}
-              <section className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-12">
+              <PageShell as="div" width="full" py={false} className="mt-12">
                 <ExecDashboard
                   doneOnTime={data.doneOnTime}
                   initiator={data.initiator}
@@ -227,16 +228,22 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                   isAdmin={Boolean(me?.isAdmin)}
                   meId={me?.id ?? null}
                 />
-              </section>
-              <div className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-12 grid grid-cols-2 max-lg:grid-cols-1 gap-6">
-                <StatusDistributionChart
-                  data={data.statusDistribution}
-                  labels={statusLabels}
-                  tones={statusTones}
-                  isAdmin={Boolean(me?.isAdmin)}
-                />
-                <TopPerformersSection performers={data.topPerformers} avatarById={avatarById} />
-              </div>
+              </PageShell>
+              <PageShell as="div" width="full" py={false} className="mt-12">
+                <div className="grid grid-cols-2 max-lg:grid-cols-1 gap-6">
+                  <div className="min-w-0">
+                    <StatusDistributionChart
+                      data={data.statusDistribution}
+                      labels={statusLabels}
+                      tones={statusTones}
+                      isAdmin={Boolean(me?.isAdmin)}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <TopPerformersSection performers={data.topPerformers} avatarById={avatarById} />
+                  </div>
+                </div>
+              </PageShell>
               <StatusTable rows={data.statusTable} view={filters.view} avatarById={avatarById} />
               <AgingHeatmap rows={data.agingTable} cellTasks={data.agingHeatmapData.byCell} avatarById={avatarById} />
               <CollapsibleVelocity data={data.velocity} />

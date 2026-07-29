@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { listInterviewPositions, listCandidateDrafts, getCandidateDraft } from "@/app/(app)/hr/candidate-actions";
+import { PageShell } from "@/components/layout/page-shell";
 import { listDepartments } from "@/lib/queries/departments";
 import { IntakeFormLauncher } from "@/components/hr/candidate/intake-form-launcher";
 import { IntakeChooser } from "@/components/hr/candidate/intake-chooser";
@@ -69,9 +70,9 @@ export default async function IntakePage({
         <img src="/logo.png" alt="Altus Corp" className="h-9 w-auto justify-self-center max-md:h-8" style={{ display: "block" }} />
         <span aria-hidden className="justify-self-end" />
       </header>
-      <main className="mx-auto w-full max-w-[1080px] px-6 max-md:px-4 pt-10 pb-20">
+      <PageShell width="narrow" py={false} className="pt-10 pb-20">
         <IntakeChooser drafts={drafts} />
-      </main>
+      </PageShell>
     </div>
   );
 }

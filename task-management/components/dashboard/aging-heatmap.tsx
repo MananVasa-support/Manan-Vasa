@@ -8,6 +8,7 @@ import type { Route } from "next";
 import { AGE_BUCKETS, type AgeBucketId } from "@/db/enums";
 import type { AgingRow, HeatmapCellTask } from "@/lib/types";
 import { Avatar } from "@/components/ui/avatar";
+import { PageShell } from "@/components/layout/page-shell";
 
 // Age-coded palette: cool/green for fresh, hot/red for old.
 // Bars use a gradient pair for depth; deep is the saturated label color.
@@ -83,8 +84,11 @@ export function AgingHeatmap({
   );
 
   return (
-    <section
-      className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-12 mb-16"
+    <PageShell
+      as="section"
+      width="full"
+      py={false}
+      className="mt-12 mb-16"
       style={{
         opacity: 0,
         animation: "fadeUp 500ms ease-out 900ms forwards",
@@ -167,7 +171,7 @@ export function AgingHeatmap({
           )}
         </div>
       </div>
-    </section>
+    </PageShell>
   );
 }
 

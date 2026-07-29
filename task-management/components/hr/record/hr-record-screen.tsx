@@ -25,6 +25,7 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
+import { PageShell } from "@/components/layout/page-shell";
 import type { CandidateRow } from "@/app/(app)/hr/candidate-actions";
 import {
   getManagementAssessment,
@@ -239,7 +240,7 @@ export function HrRecordScreen({
   return (
     <>
       <style>{CSS}</style>
-      <main className="mx-auto w-full max-w-[1120px] px-6 max-md:px-4 pt-7 pb-24">
+      <PageShell width="narrow" py={false} className="pt-7 pb-24">
         {/* Hero */}
         <div className="mb-6 rec-fade">
           <span
@@ -506,7 +507,7 @@ export function HrRecordScreen({
             </section>
           </div>
         )}
-      </main>
+      </PageShell>
     </>
   );
 }

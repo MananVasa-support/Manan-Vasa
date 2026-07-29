@@ -22,6 +22,8 @@ import { IncentiveStatusTab } from "@/components/incentive/incentive-status-tab"
 import { withRetry } from "@/lib/db/with-timeout";
 import { formatInr } from "@/lib/format";
 import { IncentiveCatalogDialog } from "@/components/incentive/incentive-catalog-dialog";
+import { PageShell } from "@/components/layout/page-shell";
+import { CardGrid } from "@/components/layout/card-grid";
 
 export const dynamic = "force-dynamic";
 
@@ -115,7 +117,7 @@ export default async function IncentivePage({ searchParams }: PageProps) {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
+      <PageShell width="wide">
         {/* ── Glass hero: eyebrow · title · year pills · incentive table ── */}
         <header
           className="wg-rise relative mb-5 overflow-hidden rounded-[26px] px-7 py-6 max-md:px-4 max-md:py-5"
@@ -192,10 +194,8 @@ export default async function IncentivePage({ searchParams }: PageProps) {
         </header>
 
         {/* ── KPI strip (folded over the loaded dashboard + attainment — zero extra queries) ── */}
-        <section
-          aria-label="Incentive totals"
-          className="mb-6 grid grid-cols-4 gap-3.5 max-lg:grid-cols-2 max-sm:grid-cols-1"
-        >
+        <section aria-label="Incentive totals" className="mb-6">
+         <CardGrid min={240} gap="0.875rem">
           <KpiCard
             icon={<TrendingUp size={17} strokeWidth={2.4} />}
             accent={RED}
@@ -234,6 +234,7 @@ export default async function IncentivePage({ searchParams }: PageProps) {
             progress={attainPct != null ? Math.min(attainPct / 100, 1) : null}
             delay={150}
           />
+         </CardGrid>
         </section>
 
         <IncentiveTabs
@@ -253,7 +254,7 @@ export default async function IncentivePage({ searchParams }: PageProps) {
           showStatus={showStatus}
           statusTab={statusTab}
         />
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

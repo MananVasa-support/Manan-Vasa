@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { requireHrStaff } from "@/lib/hr/access";
 import { getHrStage, hrItemHref } from "@/lib/hr/lifecycle";
 import { HrPageHeader, HrCard, type HrCardDef } from "@/components/hr/hr-chrome";
@@ -33,7 +34,7 @@ export default async function HrStagePage({
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
+      <PageShell width="full">
         <HrPageHeader title={st.title} subtitle={st.blurb} />
         <section
           className="grid gap-4 max-md:gap-3"
@@ -43,7 +44,7 @@ export default async function HrStagePage({
             <HrCard key={c.slug} card={c} delay={i * 40} />
           ))}
         </section>
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

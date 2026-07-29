@@ -4,6 +4,7 @@ import { ArrowLeft, Sparkles } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { loadHiringAnalytics, type HiringAnalytics } from "@/lib/hr/candidate/analytics-data";
 import { HiringAnalyticsDashboard } from "@/components/hr/candidate/analytics/hiring-analytics-dashboard";
 
@@ -32,7 +33,7 @@ export default async function HiringAnalyticsPage() {
   return (
     <>
       <DashboardHeader generatedAt={generatedAt} />
-      <main className="mx-auto w-full max-w-[1280px] px-8 max-md:px-4 pt-8 pb-20">
+      <PageShell width="standard" py={false} className="pt-8 pb-20">
         <Link
           href={"/hr?open=pre-interview" as Route}
           className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink-muted transition hover:text-ink-strong"
@@ -59,7 +60,7 @@ export default async function HiringAnalyticsPage() {
         </header>
 
         <HiringAnalyticsDashboard data={data} />
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

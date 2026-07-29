@@ -1,6 +1,7 @@
 import { FileSpreadsheet, FileText, IndianRupee, Lock } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { requireFinanceAccess } from "@/lib/auth/finance-access";
 import { localDateString } from "@/lib/format";
 import { loadFinanceAttendanceAnalytics } from "@/lib/attendance/analytics/finance";
@@ -61,7 +62,7 @@ export default async function FinanceAttendanceInsightsPage({ searchParams }: Pa
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[1800px] px-8 max-md:px-4 pt-8 pb-16">
+      <PageShell width="full">
         {/* ── Glass hero band ─────────────────────────────────────────── */}
         <section className="admin-section-band wg-rise mb-6 px-8 py-7 max-md:px-5 max-md:py-5">
           <div className="relative flex items-start justify-between gap-6 flex-wrap">
@@ -174,7 +175,7 @@ export default async function FinanceAttendanceInsightsPage({ searchParams }: Pa
         ) : (
           <FinanceDashboard data={data} />
         )}
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

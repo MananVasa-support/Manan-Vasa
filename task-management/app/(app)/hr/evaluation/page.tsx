@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { PageShell } from "@/components/layout/page-shell";
 import { listCandidateIntakes } from "@/app/(app)/hr/candidate-actions";
 import { EvaluationV2Screen } from "@/components/hr/candidate/evaluation-v2/evaluation-v2-screen";
 import { WeightMatrixPanel } from "@/components/hr/candidate/evaluation-v2/weight-matrix-panel";
@@ -58,9 +59,9 @@ export default async function EvaluationPage({
       </header>
 
       {superAdmin && (
-        <div className="mx-auto w-full max-w-[1120px] px-6 max-md:px-4 pt-6">
+        <PageShell as="div" width="narrow" py={false} className="pt-6">
           <WeightMatrixPanel />
-        </div>
+        </PageShell>
       )}
 
       <EvaluationV2Screen

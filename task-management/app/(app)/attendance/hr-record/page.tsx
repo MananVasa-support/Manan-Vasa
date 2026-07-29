@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { Archive, LockKeyhole, UserRoundSearch, FileWarning, Briefcase, Building2, BarChart3 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { requireAdmin } from "@/lib/auth/current";
 import { listEmployees } from "@/lib/queries/employees";
@@ -71,7 +72,7 @@ export default async function HrRecordPage({ searchParams }: PageProps) {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
+      <PageShell width="wide">
         {/* ── Glass hero ── */}
         <header className="wg-rise mb-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -231,7 +232,7 @@ export default async function HrRecordPage({ searchParams }: PageProps) {
             {paidLeave && <HrPaidLeaveCard record={paidLeave} />}
           </div>
         )}
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { HR_STAGES } from "@/lib/hr/lifecycle";
@@ -53,7 +54,7 @@ export default async function HrOverviewPage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
+      <PageShell width="full">
         <HrPageHeader
           title="HR Overview"
           subtitle="Every HR surface in one index — the five lifecycle stages and the cross-cutting record, document and support surfaces."
@@ -72,7 +73,7 @@ export default async function HrOverviewPage() {
             <HrCard key={c.slug} card={c} delay={i * 40} />
           ))}
         </section>
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

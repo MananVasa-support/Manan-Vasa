@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft, FileText, Home } from "lucide-react";
 import { LetterBackButton } from "@/components/hr/letters/letter-back-button";
+import { PageShell } from "@/components/layout/page-shell";
 import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { getLetter } from "@/lib/hr/letters/registry";
@@ -64,7 +65,7 @@ export default async function LetterPage({
         <span aria-hidden className="justify-self-end" />
       </header>
 
-      <main className="mx-auto w-full max-w-[1480px] px-8 max-md:px-3 pt-8 pb-24">
+      <PageShell width="wide" py={false} className="pt-8 pb-24">
         {template ? (
           <LetterEditorLoader
             templateKey={key}
@@ -75,7 +76,7 @@ export default async function LetterPage({
         ) : (
           <ComingSoon />
         )}
-      </main>
+      </PageShell>
     </div>
   );
 }

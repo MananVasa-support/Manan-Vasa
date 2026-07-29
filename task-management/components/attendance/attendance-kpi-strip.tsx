@@ -5,6 +5,7 @@ import { IndianRupee, AlarmClock, LogOut, PieChart, Clock, CalendarCheck } from 
 import type { SelfAttendanceSummary } from "@/lib/queries/attendance-summary";
 import type { AttendanceSummary } from "@/lib/attendance/summary";
 import { WEEK_TARGET_MINUTES } from "@/lib/attendance/summary";
+import { CardGrid } from "@/components/layout/card-grid";
 
 /**
  * Attendance KPIs as one full-width scannable bar with a period toggle. Six
@@ -124,9 +125,10 @@ export function AttendanceKpiStrip({ data }: { data: SelfAttendanceSummary }) {
         </div>
       </div>
 
-      {/* Full-width: all SIX across on a real screen (lg+), wrapping to 3 then 2
-          on tablet/phone. Boxes stay compact so six fit in one row. */}
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+      {/* Width-adaptive: all SIX across on a real screen, reflowing smoothly to
+          5 → 4 → 3 → 2 as the effective width drops (zoom / OS scaling / snapped
+          window) — no hard breakpoint jump that crams six into a tight column. */}
+      <CardGrid min={168} gap="0.625rem">
         {kpis.map((k) => (
           <div
             key={k.label}
@@ -153,7 +155,7 @@ export function AttendanceKpiStrip({ data }: { data: SelfAttendanceSummary }) {
             )}
           </div>
         ))}
-      </div>
+      </CardGrid>
     </section>
   );
 }

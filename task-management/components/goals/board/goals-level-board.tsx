@@ -27,6 +27,7 @@ import {
 } from "@dnd-kit/sortable";
 import { ChevronLeft, ChevronRight, Search, X, Target, Trash2, List, Columns3, LayoutDashboard, Plus, Download, ArrowUpDown } from "lucide-react";
 import { Select } from "@/components/ui/select";
+import { PageShell } from "@/components/layout/page-shell";
 import { BoardQuickChips, type QuickChip } from "@/components/weekly-goals/board-quick-chips";
 import { fireToast } from "@/lib/toast";
 import { goalPolicy } from "@/lib/goals/policy";
@@ -652,8 +653,6 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
     [policy, canWrite, props.roster, areaOptions, measureOptions, typeOptions, customLookups, props.isAdmin, fy, mutation, requestArchive, dragDisabled],
   );
 
-  const isSelf = props.viewedEmployeeId === props.myEmployeeId;
-
   return (
     <div
       className="relative min-h-screen"
@@ -663,7 +662,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
         color: "var(--color-ink-strong)",
       }}
     >
-      <div className="relative mx-auto max-w-[1600px] px-8 max-md:px-4 pt-8 pb-24">
+      <PageShell as="div" width="full" py={false} className="relative pt-8 pb-24 max-md:pt-6 max-md:pb-16">
         {/* ── HEADER — ONE unified command bar: identity + tabs · overview
             (dial + donut) · person + FY, all in a single creative band. ── */}
         <section
@@ -679,13 +678,9 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
           <span aria-hidden className="pointer-events-none absolute left-0 top-0 h-full w-1" style={{ background: "linear-gradient(180deg, var(--color-altus-red), var(--color-altus-red-deep))" }} />
 
           <div className="relative flex min-h-[64px] items-center gap-4 px-6 py-3 max-xl:flex-wrap max-md:gap-3 max-md:px-4">
-            {/* 1 · identity — eyebrow + title only (one short band) */}
+            {/* 1 · identity — title only (eyebrow removed per request) */}
             <div className="min-w-0 flex-1 max-xl:w-full max-xl:flex-none">
-              <div className="text-[10.5px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--color-altus-red-deep)" }}>
-                Goals · {fyLabel(fy)} · {isSelf ? "My goals" : props.viewedName}
-              </div>
               <h1
-                className="mt-0.5"
                 style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, color: "var(--color-ink-strong)", fontSize: "clamp(24px, 2.3vw, 34px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
               >
                 {props.heading}
@@ -1030,7 +1025,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
             </DragOverlay>
           </DndContext>
         )}
-      </div>
+      </PageShell>
 
       {/* One shared archive dialog for the whole board. */}
       <ArchiveGoalDialog

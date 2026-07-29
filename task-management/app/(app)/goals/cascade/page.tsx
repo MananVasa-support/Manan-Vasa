@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { and, eq, gte, lte } from "drizzle-orm";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { db } from "@/lib/db";
 import { weeklyGoals } from "@/db/schema";
 import { requireGoalsAccess } from "@/lib/goals/access";
@@ -116,7 +117,7 @@ export default async function GoalsCascadePage({
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-6 max-md:px-3 pt-6 pb-16">
+      <PageShell width="full" py={false} className="pt-6 pb-16 max-md:pt-5">
         <CascadeWorkspace
           goals={goals}
           weekly={weekly}
@@ -127,7 +128,7 @@ export default async function GoalsCascadePage({
           roster={view.roster}
           canWrite={view.canWrite}
         />
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

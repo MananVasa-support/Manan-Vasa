@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { FileWarning, UserRoundX } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { isHrStaff } from "@/lib/hr/access";
@@ -79,7 +80,7 @@ export default async function EmployeeAttendanceInsightsPage({
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
+      <PageShell width="wide">
         {loadError ? (
           <StateCard
             icon={<FileWarning size={26} strokeWidth={2.2} />}
@@ -95,7 +96,7 @@ export default async function EmployeeAttendanceInsightsPage({
         ) : data ? (
           <EmployeeAttendanceDashboard data={data} />
         ) : null}
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

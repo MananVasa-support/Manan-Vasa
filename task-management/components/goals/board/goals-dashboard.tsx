@@ -32,6 +32,7 @@ import {
   targetDateStatus,
   assignmentInfo,
 } from "@/components/goals/cascade/util";
+import { CardGrid } from "@/components/layout/card-grid";
 import type { GoalPeriod } from "@/lib/goals/types";
 
 /* ── Brand-consistent semantic hues (mirrors cascade/util's palette) ── */
@@ -295,7 +296,7 @@ export function GoalsDashboard({ allGoals, level, fyStartYear }: GoalsDashboardP
       </div>
 
       {/* B · KPI cards */}
-      <div className="grid grid-cols-4 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
+      <CardGrid min={200} gap="0.75rem">
         {kpis.map((k, i) => (
           <KpiCard
             key={k.key}
@@ -306,7 +307,7 @@ export function GoalsDashboard({ allGoals, level, fyStartYear }: GoalsDashboardP
             onSelect={k.drill ? () => toggleDrill(k.drill!) : undefined}
           />
         ))}
-      </div>
+      </CardGrid>
 
       {/* A · Distribution bars (hero) + donut alternative */}
       <div className="grid grid-cols-[1.6fr_1fr] gap-4 max-lg:grid-cols-1">
@@ -811,11 +812,11 @@ function DashboardSkeleton() {
   return (
     <div className="flex flex-col gap-5" aria-hidden aria-busy="true">
       <div className="h-6 w-52 rounded-lg" style={SHIMMER} />
-      <div className="grid grid-cols-4 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
+      <CardGrid min={200} gap="0.75rem">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="h-[104px] rounded-2xl" style={SHIMMER} />
         ))}
-      </div>
+      </CardGrid>
       <div className="grid grid-cols-[1.6fr_1fr] gap-4 max-lg:grid-cols-1">
         <div className="h-[220px] rounded-2xl" style={SHIMMER} />
         <div className="h-[220px] rounded-2xl" style={SHIMMER} />

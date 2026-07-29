@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import type { Route } from "next";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { requireHrStaff } from "@/lib/hr/access";
 import { getHrStage, getHrItem } from "@/lib/hr/lifecycle";
 import { HrPageHeader, HrPlanned } from "@/components/hr/hr-chrome";
@@ -34,10 +35,10 @@ export default async function HrStageItemPage({
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
+      <PageShell width="full">
         <HrPageHeader title={`${st.title} · ${it.label}`} subtitle={it.blurb} />
         <HrPlanned title={it.label} />
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

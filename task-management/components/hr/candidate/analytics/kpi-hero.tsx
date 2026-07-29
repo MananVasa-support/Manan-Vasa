@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { CardGrid } from "@/components/layout/card-grid";
 import { useAnimCount } from "@/components/dashboard/exec/viz/use-anim-count";
 
 /**
@@ -24,10 +25,12 @@ export interface HeroStat {
 
 export function KpiHero({ stats }: { stats: HeroStat[] }) {
   return (
-    <section aria-label="Hiring headline metrics" className="grid grid-cols-6 gap-4 max-xl:grid-cols-3 max-md:grid-cols-2">
-      {stats.map((s, i) => (
-        <HeroTile key={s.key} stat={s} index={i} />
-      ))}
+    <section aria-label="Hiring headline metrics">
+      <CardGrid min={180} gap="1rem">
+        {stats.map((s, i) => (
+          <HeroTile key={s.key} stat={s} index={i} />
+        ))}
+      </CardGrid>
     </section>
   );
 }

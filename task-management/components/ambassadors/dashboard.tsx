@@ -6,6 +6,7 @@ import { STAGE_LABELS, type Stage } from "@/lib/ambassadors/stages";
 import { inrCompact, pct } from "@/lib/ambassadors/format";
 import { TierPill } from "./tier-pill";
 import { Avatar } from "@/components/ui/avatar";
+import { CardGrid } from "@/components/layout/card-grid";
 
 /**
  * Executive Dashboard — KPI tiles, pipeline funnel, and the partner
@@ -27,7 +28,7 @@ export function AmbassadorDashboard({ metrics }: { metrics: DashboardMetrics }) 
   return (
     <div className="space-y-6">
       {/* KPI tiles */}
-      <div className="grid grid-cols-5 gap-3.5 max-lg:grid-cols-3 max-sm:grid-cols-2">
+      <CardGrid min={200} gap="0.875rem">
         {kpis.map((k) => (
           <div
             key={k.label}
@@ -47,7 +48,7 @@ export function AmbassadorDashboard({ metrics }: { metrics: DashboardMetrics }) 
             {k.sub && <div className="text-[11.5px] font-medium text-ink-soft">{k.sub}</div>}
           </div>
         ))}
-      </div>
+      </CardGrid>
 
       <div className="grid grid-cols-[1.1fr_1fr] gap-5 max-lg:grid-cols-1">
         {/* Pipeline funnel */}

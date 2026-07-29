@@ -1,5 +1,6 @@
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { ReviewWorkbench } from "@/components/goals/review/review-workbench";
 import { ReviewControls } from "@/components/goals/review/review-controls";
 import { fyLabel } from "@/components/goals/cascade/util";
@@ -28,7 +29,7 @@ export default async function GoalsReviewPage({
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
+      <PageShell width="full">
         <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <h1
@@ -53,7 +54,7 @@ export default async function GoalsReviewPage({
         </header>
 
         <ReviewWorkbench data={data} />
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

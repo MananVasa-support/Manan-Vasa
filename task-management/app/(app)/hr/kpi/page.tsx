@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
+import { PageShell } from "@/components/layout/page-shell";
 import { loadKpiRoster } from "@/app/(app)/hr/kpi/actions";
 import { KpiWorkbench } from "@/components/hr/kpi/kpi-workbench";
 import { currentQuarter } from "@/lib/hr/kpi/quarter";
@@ -45,13 +46,13 @@ export default async function KpiManagementPage() {
         <span aria-hidden className="justify-self-end" />
       </header>
 
-      <main className="mx-auto w-full max-w-[1180px] px-6 max-md:px-3 pt-8 pb-24">
+      <PageShell width="standard" py={false} className="pt-8 pb-24">
         <KpiWorkbench
           roster={roster}
           initialQuarter={currentQuarter()}
           notificationsOn={kpiNotificationsOn()}
         />
-      </main>
+      </PageShell>
     </div>
   );
 }

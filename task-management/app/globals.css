@@ -77,6 +77,19 @@
   /* container */
   --max-content: 1280px;
 
+  /* ── Adaptive page container (PageShell) ──────────────────────────────
+     Named content widths replace the ~10 ad-hoc max-w-[…px] values that
+     were scattered across 27 pages. The fluid gutter shrinks under browser
+     zoom / Windows display scaling / snapped windows so content keeps its
+     room instead of being eaten by a fixed px-8. Portal-SAFE: this is a
+     max-width + padding system with NO zoom/transform on any ancestor
+     (which is what broke Radix portals before — see the density note below). */
+  --content-narrow:   1120px;
+  --content-standard: 1280px;
+  --content-wide:     1400px;
+  --content-full:     1760px;
+  --page-gutter: clamp(1rem, 4vw, 2rem);
+
   /* Profile v2 — filled-input and subtle-stripe surfaces. Used heavily
      in /profile cards. Override in dark theme for legible inputs. */
   --color-surface-input:   rgba(15, 23, 42, 0.025);

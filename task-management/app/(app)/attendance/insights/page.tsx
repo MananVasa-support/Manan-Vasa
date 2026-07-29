@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { BarChart3, ClipboardList, ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { requireUser } from "@/lib/auth/current";
 import { isFinanceViewer } from "@/lib/auth/finance-access";
 import { isHrStaff } from "@/lib/hr/access";
@@ -58,7 +59,7 @@ export default async function AttendanceInsightsPage({ searchParams }: PageProps
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[1800px] px-8 max-md:px-4 pt-8 pb-16">
+      <PageShell width="full">
         {/* ── Glass hero band ── */}
         <section className="admin-section-band wg-rise mb-6 px-8 py-7 max-md:px-5 max-md:py-5">
           <div className="relative flex items-start justify-between gap-6 flex-wrap">
@@ -115,7 +116,7 @@ export default async function AttendanceInsightsPage({ searchParams }: PageProps
         <Suspense fallback={<OrgDashboardSkeleton />}>
           <DashboardContent year={year} month={month} todayISO={todayISO} />
         </Suspense>
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

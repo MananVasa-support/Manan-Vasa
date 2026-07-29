@@ -5,6 +5,7 @@ import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { getPolicyCard, isComingSoon } from "@/lib/hr/policies/registry";
 import { loadPublishedPolicy } from "@/lib/hr/policies/load-db";
+import { PageShell } from "@/components/layout/page-shell";
 import { PolicyView } from "@/components/hr/policies/policy-view";
 
 export const dynamic = "force-dynamic";
@@ -68,9 +69,9 @@ export default async function PolicyPage({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[900px] px-6 max-md:px-3 pt-8 pb-24">
+      <PageShell width="narrow" py={false} className="pt-8 pb-24" style={{ maxWidth: "900px" }}>
         {showDoc && policy ? <PolicyView doc={policy} /> : <ComingSoon title={card?.title} />}
-      </main>
+      </PageShell>
     </div>
   );
 }

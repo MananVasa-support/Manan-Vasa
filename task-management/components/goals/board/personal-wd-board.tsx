@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { ChevronLeft, ChevronRight, CalendarCheck, CalendarDays } from "lucide-react";
+import { PageShell } from "@/components/layout/page-shell";
 import { useOptimisticGoals } from "@/components/goals/canvas/optimistic";
 import { GoalTableView } from "@/components/goals/board/goal-table-view";
 import { BoardQuickAdd } from "@/components/goals/board/board-quick-add";
@@ -42,7 +43,7 @@ export function PersonalWDBoard({ data }: { data: PersonalWDData }) {
   const bucketLabel = isWeek ? `Week of ${formatWeekShort(data.periodKey)}` : dayLabel(data.periodKey);
 
   return (
-    <main className="mx-auto w-full max-w-[1600px] px-8 max-md:px-4 pt-8 pb-24">
+    <PageShell width="full" py={false} className="pt-8 pb-24 max-md:pt-6 max-md:pb-16">
       {/* Header + period picker */}
       <div className="wg-rise mb-5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -123,6 +124,6 @@ export function PersonalWDBoard({ data }: { data: PersonalWDData }) {
           existingTitles={goals.map((g) => g.title)}
         />
       </div>
-    </main>
+    </PageShell>
   );
 }

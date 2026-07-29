@@ -1,6 +1,7 @@
 import { ShieldCheck } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { MODULE_THEME } from "@/lib/module-theme";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { loadApproveBoard } from "@/components/goals/approve/data";
@@ -40,7 +41,7 @@ export default async function GoalsApprovePage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
+      <PageShell width="full">
         <header className="wg-rise mb-6">
           <span
             className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"
@@ -76,7 +77,7 @@ export default async function GoalsApprovePage() {
           lastWeekLabel={formatWeekLabel(lastWeek)}
           isMonday={monday}
         />
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

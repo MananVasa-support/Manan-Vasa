@@ -30,6 +30,7 @@ import {
 import { listActiveClientNames } from "@/lib/queries/clients";
 import { listEmployeeOptions } from "@/lib/queries/employees";
 import { OUTSTANDING_CYCLES, OUTSTANDING_CYCLE_LABELS } from "@/db/enums";
+import { PageShell } from "@/components/layout/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +90,7 @@ export default async function OutstandingPage({ searchParams }: PageProps) {
     return (
       <>
         <DashboardHeader generatedAt={new Date()} />
-        <main className="mx-auto max-w-[1600px] px-12 max-md:px-4 pt-8 pb-16">
+        <PageShell width="full">
           <div
             className="bg-surface-card rounded-section border border-hairline p-10 text-center"
             style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
@@ -107,7 +108,7 @@ export default async function OutstandingPage({ searchParams }: PageProps) {
               Please refresh in a moment. If it keeps failing, contact support.
             </p>
           </div>
-        </main>
+        </PageShell>
         <DashboardFooter />
       </>
     );
@@ -122,7 +123,7 @@ export default async function OutstandingPage({ searchParams }: PageProps) {
         modes={modes}
         cycles={CYCLE_OPTIONS}
       />
-      <main className="outstanding-print-root mx-auto max-w-[1600px] px-12 max-md:px-4 pt-8 pb-16">
+      <PageShell width="full" className="outstanding-print-root">
         <header className="mb-7 flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1
@@ -204,7 +205,7 @@ export default async function OutstandingPage({ searchParams }: PageProps) {
         <CollectionOverview collections={dashboard.collections} />
 
         <CollectionEntriesTable rows={collectionEntries} />
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

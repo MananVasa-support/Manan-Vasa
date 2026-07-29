@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { PageShell } from "@/components/layout/page-shell";
 import { loadCtcRoster } from "@/app/(app)/hr/ctc/actions";
 import { CtcWorkbench } from "@/components/hr/ctc/ctc-workbench";
 
@@ -43,9 +44,9 @@ export default async function CtcPage() {
         <span aria-hidden className="justify-self-end" />
       </header>
 
-      <main className="mx-auto w-full max-w-[1180px] px-6 max-md:px-3 pt-8 pb-24">
+      <PageShell width="standard" py={false} className="pt-8 pb-24">
         <CtcWorkbench roster={roster} isAdmin={isAdmin} />
-      </main>
+      </PageShell>
     </div>
   );
 }

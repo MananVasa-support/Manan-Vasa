@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Users2, UserRoundX } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { requireUser } from "@/lib/auth/current";
 import { localDateString } from "@/lib/format";
 import { loadManagerTeamAnalytics } from "@/lib/attendance/analytics/manager";
@@ -52,7 +53,7 @@ export default async function TeamAttendanceInsightsPage({ searchParams }: PageP
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[1800px] px-8 max-md:px-4 pt-8 pb-16">
+      <PageShell width="full">
         {/* ── Glass hero band ─────────────────────────────────────────── */}
         <section className="admin-section-band wg-rise mb-6 px-8 py-7 max-md:px-5 max-md:py-5">
           <div className="relative flex items-start gap-4 min-w-0">
@@ -89,7 +90,7 @@ export default async function TeamAttendanceInsightsPage({ searchParams }: PageP
         ) : (
           <ErrorState />
         )}
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

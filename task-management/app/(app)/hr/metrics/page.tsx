@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { hrSupportEnabled } from "@/lib/hr/flag";
 import { resolveViewer } from "@/lib/queries/hr-support";
 import { getHrMetrics } from "@/lib/hr/metrics";
@@ -43,7 +44,7 @@ export default async function HrMetricsPage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto w-full max-w-[960px] px-8 max-md:px-4 pt-8 pb-16">
+      <PageShell width="narrow" style={{ maxWidth: "960px" }}>
         <Link
           href={"/hr" as Route}
           className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink-muted transition hover:text-ink-strong"
@@ -122,7 +123,7 @@ export default async function HrMetricsPage() {
             </ul>
           </section>
         </div>
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

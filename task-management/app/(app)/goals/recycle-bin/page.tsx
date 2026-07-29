@@ -4,6 +4,7 @@ import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { requireUser } from "@/lib/auth/current";
 import { db } from "@/lib/db";
 import { tasks, employees, goals } from "@/db/schema";
@@ -109,7 +110,7 @@ export default async function RecycleBinPage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
+      <PageShell width="full">
         <header className="mb-6 wg-rise">
           <span
             className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"
@@ -144,7 +145,7 @@ export default async function RecycleBinPage() {
           </h2>
           <RecycleBinList items={items} />
         </section>
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

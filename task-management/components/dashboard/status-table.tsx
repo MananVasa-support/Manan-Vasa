@@ -13,6 +13,7 @@ import { Search, X, Users, ChevronRight } from "lucide-react";
 import type { EmployeeStatusRow, ViewMode } from "@/lib/types";
 import { CriticalBadge } from "@/components/ui/critical-badge";
 import { Avatar } from "@/components/ui/avatar";
+import { PageShell } from "@/components/layout/page-shell";
 
 type Tone = "green" | "amber" | "red" | "rose";
 
@@ -173,8 +174,11 @@ export function StatusTable({
   const hasActiveFilter = query.trim().length > 0 || selectedDept !== null;
 
   return (
-    <section
-      className="mx-auto max-w-[1600px] px-12 max-md:px-4 mt-12"
+    <PageShell
+      as="section"
+      width="full"
+      py={false}
+      className="mt-12"
       style={{
         opacity: 0,
         animation: "fadeUp 500ms ease-out 700ms forwards",
@@ -362,7 +366,7 @@ export function StatusTable({
           )}
         </div>
       )}
-    </section>
+    </PageShell>
   );
 }
 

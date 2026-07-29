@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { PunchCard } from "@/components/attendance/punch-card";
 import { AttendanceKpiStrip } from "@/components/attendance/attendance-kpi-strip";
 import { MonthCalendar } from "@/components/attendance/month-calendar";
@@ -213,7 +214,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
+      <PageShell width="wide">
         {/* ── Page header ── */}
         <header className="mb-6 wg-rise flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0">
@@ -329,7 +330,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
             <UpcomingHolidaysPanel holidays={upcomingHolidays} />
           </div>
         </div>
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

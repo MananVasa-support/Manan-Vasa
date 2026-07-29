@@ -4,6 +4,8 @@ import type { CSSProperties } from "react";
 import { ArrowUpRight, Target } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
+import { CardGrid } from "@/components/layout/card-grid";
 import { GOALS_SECTIONS } from "@/lib/goals/sections";
 import { MODULE_THEME } from "@/lib/module-theme";
 import { requireGoalsAccess } from "@/lib/goals/access";
@@ -34,7 +36,7 @@ export default async function GoalsHubPage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
+      <PageShell width="full">
         <header className="mb-9">
           {/* Signature module masthead — animated gradient wordmark + glossy tile. */}
           <div className="module-wordmark flex items-center gap-3.5">
@@ -83,10 +85,7 @@ export default async function GoalsHubPage() {
           </p>
         </header>
 
-        <section
-          className="grid gap-4 max-md:gap-3"
-          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}
-        >
+        <CardGrid min={300} gap="1rem">
           {sections.map((s, i) => {
             const Icon = s.Icon;
             return (
@@ -148,8 +147,8 @@ export default async function GoalsHubPage() {
               </Link>
             );
           })}
-        </section>
-      </main>
+        </CardGrid>
+      </PageShell>
       <DashboardFooter />
     </>
   );

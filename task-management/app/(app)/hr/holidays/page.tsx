@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft, Flag, CalendarDays, Sparkles } from "lucide-react";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { PageShell } from "@/components/layout/page-shell";
 import {
   HOLIDAYS_2026_TITLE,
   HOLIDAYS_2026_INTRO,
@@ -59,7 +60,7 @@ export default async function HolidaysPage() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[980px] px-6 max-md:px-4 pt-10 pb-24 max-md:pt-6">
+      <PageShell width="narrow" py={false} className="pt-10 pb-24 max-md:pt-6" style={{ maxWidth: "980px" }}>
         {/* ── Hero ─────────────────────────────────────────────────── */}
         <section className="hol-hero hol-in">
           <span className="hol-eyebrow">
@@ -144,7 +145,7 @@ export default async function HolidaysPage() {
             <p className="hol-closing">{MANAGEMENT_DISCRETION_CLOSING}</p>
           </div>
         </section>
-      </main>
+      </PageShell>
 
       {/* Keyboard-first: Enter/Space on the print button, and a tiny inline
           handler wired without a client component (window.print via attribute). */}

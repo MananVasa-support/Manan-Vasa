@@ -6,6 +6,7 @@ import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { hrSupportEnabled } from "@/lib/hr/flag";
 import { listRoutes, listAssignableHandlers } from "@/lib/queries/hr-support";
 import { HR_TICKET_CATEGORIES, HR_TICKET_CATEGORY_LABELS } from "@/db/enums";
@@ -35,7 +36,7 @@ export default async function RoutingPage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto w-full max-w-[820px] px-8 max-md:px-4 pt-8 pb-16">
+      <PageShell width="narrow" style={{ maxWidth: "820px" }}>
         <Link
           href={"/hr" as Route}
           className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink-muted transition hover:text-ink-strong"
@@ -56,7 +57,7 @@ export default async function RoutingPage() {
           </p>
         </header>
         <RoutingEditor rows={rows} handlers={handlers} />
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

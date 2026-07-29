@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { goalsCascadeEnabled } from "@/lib/goals/flag";
 import { goalsSpace } from "@/lib/goals/space";
@@ -53,7 +54,7 @@ export default async function GoalsPlanPage({
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full px-6 max-md:px-3 pt-5 pb-12">
+      <PageShell width="full" py={false} className="pt-5 pb-12 max-md:pt-4 max-md:pb-10">
         <header className="mb-4 wg-rise">
           <div className="flex items-start justify-between gap-3">
             <span
@@ -95,7 +96,7 @@ export default async function GoalsPlanPage({
           isManager={payload.isManager}
           initialPhase={payload.initialPhase}
         />
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

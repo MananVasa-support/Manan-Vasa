@@ -1,5 +1,7 @@
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
+import { CardGrid } from "@/components/layout/card-grid";
 
 /** Skeleton while the per-employee attendance analytics load. Mirrors the real
  *  layout (hero → KPI tiles → two-column grid) so the shift is minimal. */
@@ -8,14 +10,14 @@ export default function Loading() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
+      <PageShell width="wide">
         <div className="flex flex-col gap-6">
           <div className={`${block} h-[132px]`} style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }} />
-          <div className="grid grid-cols-4 gap-3 max-lg:grid-cols-2">
+          <CardGrid min={280} gap="0.75rem">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className={`${block} h-[96px]`} />
             ))}
-          </div>
+          </CardGrid>
           <div className="grid grid-cols-3 gap-6 max-xl:grid-cols-1">
             <div className="col-span-2 flex flex-col gap-6 max-xl:col-span-1">
               <div className={`${block} h-[220px]`} />
@@ -28,7 +30,7 @@ export default function Loading() {
             </div>
           </div>
         </div>
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );

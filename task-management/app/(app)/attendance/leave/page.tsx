@@ -1,6 +1,7 @@
 import { CalendarHeart, Inbox, ListChecks } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
+import { PageShell } from "@/components/layout/page-shell";
 import { requireUser } from "@/lib/auth/current";
 import {
   getLeaveBalance,
@@ -30,7 +31,7 @@ export default async function LeavePage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[1060px] px-8 max-md:px-4 pt-8 pb-16">
+      <PageShell width="narrow">
         {/* ——— Glass hero ——— */}
         <header
           className="wg-rise relative mb-6 overflow-hidden rounded-[26px] px-7 py-6 max-md:px-5"
@@ -177,7 +178,7 @@ export default async function LeavePage() {
             </section>
           </div>
         </div>
-      </main>
+      </PageShell>
       <DashboardFooter />
     </>
   );
