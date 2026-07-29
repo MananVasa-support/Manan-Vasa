@@ -1,7 +1,6 @@
 import {
   MapPin,
   ShieldCheck,
-  CalendarCheck,
   LogIn,
   LogOut,
   MoveRight,
@@ -13,11 +12,15 @@ import {
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { PunchCard } from "@/components/attendance/punch-card";
-import { TodayPanel } from "@/components/attendance/today-panel";
 import { AttendanceKpiStrip } from "@/components/attendance/attendance-kpi-strip";
 import { MonthCalendar } from "@/components/attendance/month-calendar";
 import { RemoteCheckInTrigger } from "@/components/attendance/remote-checkin-trigger";
 import { TeamDatePicker } from "@/components/attendance/team-date-picker";
+import { LiveStatusPanel } from "@/components/attendance/live-status-panel";
+import {
+  UpcomingHolidaysPanel,
+  type UpcomingHoliday,
+} from "@/components/attendance/upcoming-holidays-panel";
 import {
   AttTeamRoster,
   type RosterPunch,
@@ -34,6 +37,8 @@ import {
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import { getSelfAttendanceSummary } from "@/lib/queries/attendance-summary";
 import { getEmployeeMonthStatus } from "@/lib/queries/attendance-status";
+import { loadLiveStatus, type LiveStatus } from "@/lib/attendance/analytics/live-status";
+import { listHolidays } from "@/lib/queries/holidays";
 import { withRetry } from "@/lib/db/with-timeout";
 import { formatTimeInTz, localDateString } from "@/lib/format";
 
@@ -102,7 +107,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
 
   const [curYear, curMonth] = today.split("-").map(Number) as [number, number];
 
-  const [myDays, team, settings, selfSummary, monthStatus] = await Promise.all([
+  const [myDays, team, settings, selfSummary, monthStatus, holidaysRaw] = await Promise.all([
     withRetry(() => listMyAttendance(me.id, since), { ...RETRY, label: "att-mydays" }),
     me.isAdmin
       ? withRetry(() => listTeamAttendanceForDate(teamDate), { ...RETRY, label: "att-team" })
@@ -110,7 +115,42 @@ export default async function AttendancePage({ searchParams }: PageProps) {
     withRetry(() => getOrgSettings(), { ...RETRY, label: "att-settings" }),
     withRetry(() => getSelfAttendanceSummary(me.id), { ...RETRY, label: "att-self" }),
     withRetry(() => getEmployeeMonthStatus(me.id, curYear, curMonth, today), { ...RETRY, label: "att-month" }),
+    withRetry(
+      () => Promise.all([listHolidays(curYear), listHolidays(curYear + 1)]).then((r) => r.flat()),
+      { ...RETRY, label: "att-holidays" },
+    ),
   ]);
+
+  // Live "who's where right now" snapshot for admins — one extra scoped read.
+  const liveStatus: LiveStatus | null = me.isAdmin
+    ? await withRetry(
+        () =>
+          loadLiveStatus(today, tz, {
+            lateAfter: settings.attLateAfter,
+            earlyBefore: settings.attEarlyBefore,
+          }),
+        { ...RETRY, label: "att-live" },
+      )
+    : null;
+
+  // Next upcoming holidays (active, today-or-later), soonest first.
+  const upcomingHolidays: UpcomingHoliday[] = holidaysRaw
+    .filter((h) => h.isActive && h.holidayDate >= today)
+    .sort((a, b) => a.holidayDate.localeCompare(b.holidayDate))
+    .slice(0, 5)
+    .map((h) => ({
+      date: h.holidayDate,
+      label: h.label,
+      inDays: Math.round(
+        (Date.UTC(
+          Number(h.holidayDate.slice(0, 4)),
+          Number(h.holidayDate.slice(5, 7)) - 1,
+          Number(h.holidayDate.slice(8, 10)),
+        ) -
+          Date.UTC(curYear, curMonth - 1, Number(today.slice(8, 10)))) /
+          86_400_000,
+      ),
+    }));
 
   // Month calendar cells (client-safe) — colour-coded per graded day.
   const monthCells = monthStatus.days.map((d) => ({
@@ -154,11 +194,6 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   // from anywhere) — the card still captures location but never blocks.
   const geofenceEnabled = settings.officeLat != null && settings.officeLng != null;
 
-  // Today's punches (for the status chip + Today panel).
-  const inLabel = todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : null;
-  const outLabel = todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null;
-  const inISO = todayRow?.in ? todayRow.in.at.toISOString() : null;
-  const outISO = todayRow?.out ? todayRow.out.at.toISOString() : null;
   const monthLabel = new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric" }).format(
     new Date(Date.UTC(curYear, curMonth - 1, 1)),
   );
@@ -182,14 +217,8 @@ export default async function AttendancePage({ searchParams }: PageProps) {
         {/* ── Page header ── */}
         <header className="mb-6 wg-rise flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0">
-            <span
-              className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
-              style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}
-            >
-              <CalendarCheck size={13} strokeWidth={2.6} /> Employees · Attendance
-            </span>
             <h1
-              className="mt-3 text-ink-strong"
+              className="text-ink-strong"
               style={{
                 fontFamily: "var(--font-display), system-ui, sans-serif",
                 fontWeight: 900,
@@ -225,10 +254,9 @@ export default async function AttendancePage({ searchParams }: PageProps) {
           <AttendanceKpiStrip data={selfSummary} />
         </div>
 
-        {/* ── Two balanced halves: attendance box (left) · today/calendar (right) ── */}
-        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
-          {/* FIRST HALF — the attendance box + WFH / on-site log (fills the space
-              under the punch card, per Sir) */}
+        {/* ── Three columns: punch + map (left) · remote + team (mid) · calendar + status (right) ── */}
+        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
+          {/* COLUMN 1 — the punch card (clock · geofence · check-in · live map) */}
           <div className="flex flex-col gap-5">
             <PunchCard
               todayLabel={labelForDate(today)}
@@ -241,62 +269,66 @@ export default async function AttendancePage({ searchParams }: PageProps) {
               radiusM={settings.attendanceRadiusM}
               lastPunchLabel={lastPunchLabel}
             />
-            <RemoteCheckInTrigger hasCheckedIn={!!todayRow?.in} hasCheckedOut={!!todayRow?.out} />
           </div>
 
-          {/* SECOND HALF — Today ring · this month's calendar */}
+          {/* COLUMN 2 — WFH / on-site log · team roster (admins) */}
           <div className="flex flex-col gap-5">
-            <TodayPanel inLabel={inLabel} outLabel={outLabel} inISO={inISO} outISO={outISO} fullDayHours={9} />
+            <RemoteCheckInTrigger hasCheckedIn={!!todayRow?.in} hasCheckedOut={!!todayRow?.out} />
+            {rosterRows && (
+              <section
+                className="wg-rise rounded-[22px] bg-surface-card p-5 max-md:p-4"
+                style={{
+                  boxShadow:
+                    "inset 0 0 0 1px var(--color-hairline), 0 6px 24px -18px rgba(15,23,42,0.25)",
+                  animationDelay: "140ms",
+                }}
+              >
+                <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className="inline-grid size-9 place-items-center rounded-xl"
+                      style={{
+                        background: "color-mix(in srgb, #E10600 10%, transparent)",
+                        color: "#A80400",
+                      }}
+                    >
+                      <Users size={18} strokeWidth={2.3} />
+                    </span>
+                    <div>
+                      <h2
+                        className="text-ink-strong"
+                        style={{
+                          fontFamily: "var(--font-display), system-ui, sans-serif",
+                          fontWeight: 900,
+                          fontSize: 19,
+                          letterSpacing: "-0.02em",
+                          lineHeight: 1.1,
+                        }}
+                      >
+                        Team
+                      </h2>
+                      <p className="text-[12.5px] font-medium text-ink-subtle">{labelForDate(teamDate)}</p>
+                    </div>
+                  </div>
+                  <TeamDatePicker date={teamDate} />
+                </div>
+                <AttTeamRoster
+                  rows={rosterRows}
+                  date={teamDate}
+                  tz={tz}
+                  canQuickPunch={isSuperAdmin(me.email) && teamDate === today}
+                />
+              </section>
+            )}
+          </div>
+
+          {/* COLUMN 3 — this month's calendar · live status · upcoming holidays */}
+          <div className="flex flex-col gap-5">
             <MonthCalendar cells={monthCells} monthLabel={monthLabel} compact />
+            {liveStatus && <LiveStatusPanel status={liveStatus} />}
+            <UpcomingHolidaysPanel holidays={upcomingHolidays} />
           </div>
         </div>
-
-        {rosterRows && (
-          <section
-            className="wg-rise mt-5 rounded-[22px] bg-surface-card p-6 max-md:p-4"
-            style={{
-              boxShadow:
-                "inset 0 0 0 1px var(--color-hairline), 0 6px 24px -18px rgba(15,23,42,0.25)",
-              animationDelay: "160ms",
-            }}
-          >
-            <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2.5">
-                <span
-                  className="inline-grid size-9 place-items-center rounded-xl"
-                  style={{
-                    background: "color-mix(in srgb, #E10600 10%, transparent)",
-                    color: "#A80400",
-                  }}
-                >
-                  <Users size={18} strokeWidth={2.3} />
-                </span>
-                <div>
-                  <h2
-                    className="text-ink-strong"
-                    style={{
-                      fontFamily: "var(--font-display), system-ui, sans-serif",
-                      fontWeight: 900,
-                      fontSize: 21,
-                      letterSpacing: "-0.02em",
-                      lineHeight: 1.1,
-                    }}
-                  >
-                    Team
-                  </h2>
-                  <p className="text-[13px] font-medium text-ink-subtle">{labelForDate(teamDate)}</p>
-                </div>
-              </div>
-              <TeamDatePicker date={teamDate} />
-            </div>
-            <AttTeamRoster
-              rows={rosterRows}
-              date={teamDate}
-              tz={tz}
-              canQuickPunch={isSuperAdmin(me.email) && teamDate === today}
-            />
-          </section>
-        )}
       </main>
       <DashboardFooter />
     </>
