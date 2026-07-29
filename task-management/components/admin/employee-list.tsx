@@ -1,6 +1,8 @@
 "use client";
 
-import { Star } from "lucide-react";
+import Link from "next/link";
+import type { Route } from "next";
+import { Star, BarChart3 } from "lucide-react";
 import type { Employee } from "@/db/schema";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { DataTable } from "@/components/admin/ui/data-table";
@@ -151,8 +153,19 @@ export function EmployeeList({
         },
       ]}
       rowActions={(e) => (
-        <EmployeeRowActions
-          employee={{
+        <div className="flex items-center justify-end gap-1.5">
+          <Link
+            href={`/attendance/insights/employee/${e.id}` as Route}
+            title={`Open ${e.name}'s attendance dashboard`}
+            aria-label={`Attendance dashboard for ${e.name}`}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-bold text-[#A80400] transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_10%,transparent)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1"
+            style={{ background: "color-mix(in srgb, #E10600 7%, transparent)" }}
+          >
+            <BarChart3 size={14} strokeWidth={2.4} />
+            <span className="max-md:hidden">Attendance</span>
+          </Link>
+          <EmployeeRowActions
+            employee={{
             id: e.id,
             name: e.name,
             email: e.email,
@@ -172,11 +185,12 @@ export function EmployeeList({
             attOfficialEnd: e.attOfficialEnd,
             attEarlyBefore: e.attEarlyBefore,
           }}
-          isSelf={e.id === currentEmployeeId}
-          canManageAdmins={canManageAdmins}
-          departmentOptions={departmentOptions}
-          managerOptions={managerOptions}
-        />
+            isSelf={e.id === currentEmployeeId}
+            canManageAdmins={canManageAdmins}
+            departmentOptions={departmentOptions}
+            managerOptions={managerOptions}
+          />
+        </div>
       )}
       emptyState={
         <>

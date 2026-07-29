@@ -8,6 +8,7 @@ import {
   Activity,
   Users,
   ClipboardList,
+  BarChart3,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
@@ -201,13 +202,21 @@ export default async function AttendancePage({ searchParams }: PageProps) {
             </h1>
           </div>
           {me.isAdmin && (
-            <a
-              href="/attendance/dashboard"
-              className="brand-btn wg-btn shrink-0 inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[13.5px] font-bold text-white"
-              style={{ background: "linear-gradient(135deg, #E10600, #A80400)", boxShadow: "0 8px 20px -10px color-mix(in srgb, #A80400 70%, transparent)" }}
-            >
-              <ClipboardList size={15} strokeWidth={2.4} /> Att Report
-            </a>
+            <div className="flex shrink-0 items-center gap-2 flex-wrap">
+              <a
+                href="/attendance/insights"
+                className="pastel-cta wg-btn inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[13.5px] font-bold"
+              >
+                <BarChart3 size={15} strokeWidth={2.4} /> Dashboard
+              </a>
+              <a
+                href="/attendance/dashboard"
+                className="brand-btn wg-btn inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[13.5px] font-bold text-white"
+                style={{ background: "linear-gradient(135deg, #E10600, #A80400)", boxShadow: "0 8px 20px -10px color-mix(in srgb, #A80400 70%, transparent)" }}
+              >
+                <ClipboardList size={15} strokeWidth={2.4} /> Att Report
+              </a>
+            </div>
           )}
         </header>
 

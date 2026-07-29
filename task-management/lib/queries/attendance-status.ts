@@ -73,6 +73,9 @@ export interface MonthSummary {
   paidLeave: number; // code "PL"
   unpaidLeave: number; // code "LWP"
   compOff: number; // code "CO" (redeemed comp-off)
+  /** Total minutes worked across the month (Σ per-day workedMinutes) — powers
+   *  the Workforce Intelligence dashboard's hours analytics org-wide. Additive. */
+  totalWorkedMinutes: number;
 }
 
 export interface EmployeeMonthStatus {
@@ -204,11 +207,13 @@ function emptySummary(): MonthSummary {
     paidLeave: 0,
     unpaidLeave: 0,
     compOff: 0,
+    totalWorkedMinutes: 0,
   };
 }
 
 function tally(summary: MonthSummary, r: DayCodeResult): void {
   summary.payableDays += r.dayValue;
+  summary.totalWorkedMinutes += r.workedMinutes;
   switch (r.code) {
     case "P":
       summary.present += 1;
@@ -472,6 +477,9 @@ export interface DashboardRow {
   employeeId: string;
   name: string;
   designation: string | null;
+  /** Department name for the Workforce Intelligence dashboard's group-by. */
+  department: string | null;
+  managerId: string | null;
   summary: MonthSummary;
 }
 
@@ -509,6 +517,8 @@ export async function getMonthDashboard(
         createdAt: employees.createdAt,
         attLateAfter: employees.attLateAfter,
         attEarlyBefore: employees.attEarlyBefore,
+        department: employees.department,
+        managerId: employees.managerId,
       })
       .from(employees)
       .where(eq(employees.isActive, true))
@@ -575,6 +585,8 @@ export async function getMonthDashboard(
       employeeId: p.id,
       name: p.name,
       designation: null, // Phase B
+      department: p.department ?? null,
+      managerId: p.managerId ?? null,
       summary,
     });
   }

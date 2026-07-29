@@ -1,4 +1,6 @@
-import { Archive, LockKeyhole, UserRoundSearch, FileWarning, Briefcase, Building2 } from "lucide-react";
+import Link from "next/link";
+import type { Route } from "next";
+import { Archive, LockKeyhole, UserRoundSearch, FileWarning, Briefcase, Building2, BarChart3 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
@@ -160,6 +162,13 @@ export default async function HrRecordPage({ searchParams }: PageProps) {
                 </div>
               </div>
               <div className="ml-auto flex items-center gap-2 flex-wrap">
+                <Link
+                  href={`/attendance/insights/employee/${employee.id}` as Route}
+                  className="inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[12.5px] font-black uppercase tracking-[0.08em] text-white transition-transform hover:-translate-y-px outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/50 focus-visible:ring-offset-1"
+                  style={{ background: "linear-gradient(135deg, #E10600, #A80400)", boxShadow: "0 8px 20px -12px rgba(225,6,0,0.6)" }}
+                >
+                  <BarChart3 size={14} strokeWidth={2.6} /> Attendance Dashboard
+                </Link>
                 {summary.fy && (
                   <span
                     className="inline-flex rounded-pill px-3 py-1.5 text-[12px] font-black uppercase tracking-[0.1em]"
