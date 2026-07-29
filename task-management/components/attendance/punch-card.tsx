@@ -284,68 +284,81 @@ export function PunchCard({
         style={{ background: `linear-gradient(90deg, transparent, color-mix(in srgb, ${GREEN} 40%, transparent), transparent)` }}
       />
 
-      {/* ── Light hero: clock + punch disc ── */}
-      <div className="relative px-6 pt-6 pb-5 max-md:px-4 text-center">
-        <p
-          className="uppercase text-ink-subtle"
-          style={{
-            fontFamily: "var(--font-mono-display), var(--font-display)",
-            fontSize: 12,
-            letterSpacing: "0.2em",
-          }}
-        >
-          {todayLabel}
-        </p>
-
-        <LiveClock tz={tz} />
-
-        {coords && (
-          <div className="mt-2.5 flex justify-center">
+      {/* ── Hero: compact clock · punch button (left) + status (right) ── */}
+      <div className="relative px-6 pt-5 pb-5 max-md:px-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <p
+            className="uppercase text-ink-subtle"
+            style={{
+              fontFamily: "var(--font-mono-display), var(--font-display)",
+              fontSize: 11.5,
+              letterSpacing: "0.2em",
+            }}
+          >
+            {todayLabel}
+          </p>
+          {coords && (
             <LocationPill loc={loc} distanceM={distanceM} withinFence={withinFence} radiusM={radiusM} />
-          </div>
-        )}
+          )}
+        </div>
 
-        <div className="mt-4 flex justify-center">
-          <PunchDisc
+        <div className="mt-2.5">
+          <LiveClock tz={tz} />
+        </div>
+
+        {/* Punch button (left) + status block (right) */}
+        <div className="mt-4 flex items-center gap-4 max-sm:flex-col max-sm:items-stretch">
+          <PunchButton
             mode={mode}
             pending={pending}
             disabled={discDisabled}
             onClick={() => punch(mode === "out" ? "out" : "in")}
           />
+          <div className="min-w-0 flex-1 max-sm:text-center">
+            <span className="inline-flex items-center gap-2 text-[16px] font-black text-ink-strong">
+              <span aria-hidden className="relative inline-flex size-2.5">
+                <span
+                  className="absolute inline-flex h-full w-full rounded-full opacity-70 animate-ping motion-reduce:hidden"
+                  style={{ background: status.dot }}
+                />
+                <span className="relative inline-flex size-2.5 rounded-full" style={{ background: status.dot }} />
+              </span>
+              {status.label}
+            </span>
+            <p className="mt-1 text-[13px] font-medium text-ink-muted">{status.sub}</p>
+            {lastPunchLabel && (
+              <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] tabular-nums text-ink-subtle">
+                <History size={12} strokeWidth={2.2} aria-hidden /> Last punch: {lastPunchLabel}
+              </p>
+            )}
+          </div>
         </div>
 
-        <div className="mt-3 flex flex-col items-center gap-1">
-          <span className="inline-flex items-center gap-2 text-[15.5px] font-bold text-ink-strong">
-            <span aria-hidden className="relative inline-flex size-2.5">
-              <span
-                className="absolute inline-flex h-full w-full rounded-full opacity-70 animate-ping motion-reduce:hidden"
-                style={{ background: status.dot }}
-              />
-              <span className="relative inline-flex size-2.5 rounded-full" style={{ background: status.dot }} />
-            </span>
-            {status.label}
-          </span>
-          <span className="text-[12.5px] font-medium text-ink-muted">{status.sub}</span>
-          {!coords && geofenceEnabled && (
-            <button
-              type="button"
-              onClick={requestLocation}
-              disabled={loc.phase === "locating"}
-              className="mt-0.5 inline-flex items-center gap-1 text-[11.5px] font-semibold text-ink-subtle underline-offset-2 transition-colors hover:text-ink-muted hover:underline disabled:opacity-60"
-            >
-              {loc.phase === "locating" ? (
-                <><Loader2 size={11} className="animate-spin" /> Locating…</>
-              ) : (
-                <><LocateFixed size={11} strokeWidth={2.4} /> {loc.phase === "denied" || loc.phase === "error" ? "Location blocked — tap to enable" : "Enable your location to punch"}</>
-              )}
-            </button>
-          )}
-          {lastPunchLabel && (
-            <span className="mt-1 inline-flex items-center gap-1.5 text-[12px] tabular-nums text-ink-subtle">
-              <History size={12} strokeWidth={2.2} aria-hidden /> Last punch: {lastPunchLabel}
-            </span>
-          )}
-        </div>
+        {/* Prominent Enable-location CTA — only until we hold a GPS fix */}
+        {geofenceEnabled && !coords && (
+          <button
+            type="button"
+            onClick={requestLocation}
+            disabled={loc.phase === "locating"}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[14px] font-black text-white outline-none transition-transform active:scale-[0.99] focus-visible:ring-4 disabled:opacity-60 max-sm:w-full"
+            style={{
+              background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`,
+              boxShadow: "0 14px 30px -14px rgba(225,6,0,0.6), inset 0 1px 0 rgba(255,255,255,0.25)",
+              ["--tw-ring-color" as string]: "rgba(225,6,0,0.35)",
+            }}
+          >
+            {loc.phase === "locating" ? (
+              <><Loader2 size={16} strokeWidth={2.5} className="animate-spin" /> Locating you…</>
+            ) : (
+              <>
+                <LocateFixed size={16} strokeWidth={2.6} />
+                {loc.phase === "denied" || loc.phase === "error"
+                  ? "Location blocked — tap to enable"
+                  : "Enable location to punch"}
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* ── Map · today's punches · note ── */}
@@ -526,10 +539,11 @@ const DISC_STYLE: Record<DiscMode, { bg: string; glow: string; halo: string; rin
 };
 
 /**
- * The big circular clock-in control. Purely presentational — the tap calls the
- * same punch("in"/"out") flow the old buttons used.
+ * Compact rounded-rect clock-in control (replaces the old 148px disc). Sits on
+ * the LEFT of the card with the status text to its right. Same punch("in"/"out")
+ * flow — purely presentational.
  */
-function PunchDisc({
+function PunchButton({
   mode,
   pending,
   disabled,
@@ -545,53 +559,41 @@ function PunchDisc({
   const active = !disabled && mode !== "done";
 
   return (
-    <div className="relative flex size-[148px] items-center justify-center max-sm:size-[132px]">
-      {/* concentric rings on the light surface */}
-      <span
-        aria-hidden
-        className="absolute inset-0 rounded-full"
-        style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${s.ring} 55%, transparent)` }}
-      />
-      <span
-        aria-hidden
-        className="absolute inset-[9px] rounded-full"
-        style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${s.ring} 30%, transparent)` }}
-      />
-      {/* slow breathing halo while the dial is armed */}
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={mode === "done" ? "Day complete" : s.label}
+      className={`relative flex w-[132px] shrink-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-[22px] px-3 py-4 text-white outline-none transition-transform duration-200 focus-visible:ring-4 max-sm:w-full max-sm:flex-row max-sm:gap-2.5 max-sm:py-3.5 ${
+        active ? "wg-sheen hover:scale-[1.02] active:scale-[0.98]" : "cursor-not-allowed"
+      } motion-reduce:transition-none motion-reduce:hover:scale-100`}
+      style={{
+        background: s.bg,
+        boxShadow: s.glow,
+        opacity: disabled && mode !== "done" ? 0.5 : 1,
+        ["--tw-ring-color" as string]: s.ring,
+      }}
+    >
+      {/* breathing sheen ring while armed */}
       {active && (
         <span
           aria-hidden
-          className="absolute inset-[12px] rounded-full animate-pulse motion-reduce:animate-none"
-          style={{ boxShadow: s.halo }}
+          className="pointer-events-none absolute inset-[5px] rounded-[17px] animate-pulse motion-reduce:animate-none"
+          style={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.25)" }}
         />
       )}
-
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        aria-label={mode === "done" ? "Day complete" : s.label}
-        className={`relative size-[120px] max-sm:size-[106px] rounded-full ${active ? "wg-sheen" : ""} group flex flex-col items-center justify-center gap-1 overflow-hidden text-white outline-none transition-transform duration-200 focus-visible:ring-4 ${
-          active ? "hover:scale-[1.03] active:scale-[0.98]" : "cursor-not-allowed"
-        } motion-reduce:transition-none motion-reduce:hover:scale-100`}
-        style={{
-          background: s.bg,
-          boxShadow: s.glow,
-          opacity: disabled && mode !== "done" ? 0.45 : 1,
-          ["--tw-ring-color" as string]: s.ring,
-        }}
-      >
-        <Icon
-          size={mode === "done" ? 38 : 42}
-          strokeWidth={2.1}
-          className={pending ? "animate-spin" : ""}
-          aria-hidden
-        />
+      <Icon
+        size={mode === "done" ? 26 : 28}
+        strokeWidth={2.2}
+        className={pending ? "animate-spin" : ""}
+        aria-hidden
+      />
+      <span className="flex flex-col items-center max-sm:items-start">
         <span
           style={{
             fontFamily: "var(--font-display), system-ui, sans-serif",
             fontWeight: 900,
-            fontSize: 19,
+            fontSize: 16.5,
             letterSpacing: "-0.01em",
             lineHeight: 1.1,
           }}
@@ -599,12 +601,12 @@ function PunchDisc({
           {pending ? "Punching…" : s.label}
         </span>
         {!pending && (
-          <span className="text-[11.5px] font-semibold uppercase tracking-[0.14em]" style={{ opacity: 0.8 }}>
+          <span className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ opacity: 0.82 }}>
             {s.sub}
           </span>
         )}
-      </button>
-    </div>
+      </span>
+    </button>
   );
 }
 
@@ -748,14 +750,14 @@ function LiveClock({ tz }: { tz: string }) {
       className="tabular-nums"
       style={{
         fontFamily: "var(--font-display), system-ui, sans-serif",
-        fontSize: seconds ? "clamp(30px, 3.6vw, 42px)" : "clamp(44px, 5.4vw, 62px)",
+        fontSize: seconds ? "clamp(19px, 2vw, 24px)" : "clamp(28px, 3vw, 38px)",
         fontWeight: 900,
         lineHeight: 1,
         letterSpacing: "-0.03em",
         color: seconds ? "#A80400" : "var(--color-ink-strong)",
         alignSelf: seconds ? "flex-end" : undefined,
-        paddingBottom: seconds ? 3 : 0,
-        textShadow: seconds ? "0 2px 14px rgba(225,6,0,0.28)" : "0 3px 22px rgba(225,6,0,0.14)",
+        paddingBottom: seconds ? 2 : 0,
+        textShadow: seconds ? "0 2px 12px rgba(225,6,0,0.26)" : "0 3px 18px rgba(225,6,0,0.12)",
       }}
     >
       {v}
@@ -764,20 +766,20 @@ function LiveClock({ tz }: { tz: string }) {
 
   return (
     <div
-      className="wg-rise mt-2 inline-flex items-center gap-3 rounded-[20px] px-4 py-2.5"
+      className="wg-rise inline-flex items-center gap-2.5 rounded-[16px] px-3.5 py-2"
       style={{
         background: "linear-gradient(135deg, color-mix(in srgb,#E10600 6%,#fff), var(--color-surface-card))",
-        boxShadow: "inset 0 0 0 1px color-mix(in srgb,#E10600 16%,transparent), 0 14px 40px -22px rgba(225,6,0,0.5)",
+        boxShadow: "inset 0 0 0 1px color-mix(in srgb,#E10600 16%,transparent), 0 12px 30px -22px rgba(225,6,0,0.5)",
       }}
       aria-label={`Current time ${fmt}`}
     >
       {/* clock icon with a live pulse ring */}
-      <span className="relative inline-grid size-10 shrink-0 place-items-center rounded-2xl text-white" style={{ background: "linear-gradient(135deg,#E10600,#A80400)", boxShadow: "0 8px 18px -8px rgba(225,6,0,0.6)" }}>
-        <Clock3 size={21} strokeWidth={2.5} />
-        <span aria-hidden className="absolute inset-0 rounded-2xl animate-ping opacity-25 motion-reduce:hidden" style={{ boxShadow: "inset 0 0 0 2px #E10600" }} />
+      <span className="relative inline-grid size-8 shrink-0 place-items-center rounded-xl text-white" style={{ background: "linear-gradient(135deg,#E10600,#A80400)", boxShadow: "0 6px 14px -8px rgba(225,6,0,0.6)" }}>
+        <Clock3 size={17} strokeWidth={2.5} />
+        <span aria-hidden className="absolute inset-0 rounded-xl animate-ping opacity-25 motion-reduce:hidden" style={{ boxShadow: "inset 0 0 0 2px #E10600" }} />
       </span>
 
-      <div className="flex items-baseline gap-1.5">
+      <div className="flex items-baseline gap-1">
         {digit(hh)}
         <BlinkColon />
         {digit(mm)}
@@ -786,8 +788,8 @@ function LiveClock({ tz }: { tz: string }) {
       </div>
 
       <div className="flex flex-col items-center gap-0.5 pl-0.5">
-        <span className="rounded-md px-1.5 py-0.5 text-[11px] font-black" style={{ background: "color-mix(in srgb,#E10600 12%,transparent)", color: "#A80400" }}>{period}</span>
-        <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-ink-subtle">IST</span>
+        <span className="rounded-md px-1.5 py-0.5 text-[10px] font-black" style={{ background: "color-mix(in srgb,#E10600 12%,transparent)", color: "#A80400" }}>{period}</span>
+        <span className="text-[8.5px] font-bold uppercase tracking-[0.14em] text-ink-subtle">IST</span>
       </div>
     </div>
   );
@@ -796,9 +798,9 @@ function LiveClock({ tz }: { tz: string }) {
 /** Two dots that blink together — the ticking colon between clock units. */
 function BlinkColon() {
   return (
-    <span className="mx-0.5 flex flex-col justify-center gap-[7px] self-center pb-1.5 animate-pulse motion-reduce:animate-none">
-      <span className="size-[7px] rounded-full" style={{ background: "#E10600" }} />
-      <span className="size-[7px] rounded-full" style={{ background: "#E10600" }} />
+    <span className="mx-0.5 flex flex-col justify-center gap-[5px] self-center pb-1 animate-pulse motion-reduce:animate-none">
+      <span className="size-[5px] rounded-full" style={{ background: "#E10600" }} />
+      <span className="size-[5px] rounded-full" style={{ background: "#E10600" }} />
     </span>
   );
 }

@@ -50,12 +50,13 @@ export function AttTeamRoster({
 
   const present = rows.filter((r) => r.in).length;
   const pct = rows.length > 0 ? present / rows.length : 0;
+  const presentRows = rows.filter((r) => r.in);
 
   return (
     <div>
-      {/* ── Progress + search header ── */}
-      <div className="mb-4 flex items-end justify-between gap-4 flex-wrap">
-        <div className="min-w-[220px] flex-1">
+      {/* ── Header: count · % · progress · checked-in cluster ── */}
+      <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-[180px] flex-1">
           <div className="flex items-baseline gap-1.5">
             <span
               className="tabular-nums text-ink-strong"
@@ -69,12 +70,16 @@ export function AttTeamRoster({
             >
               {present}
             </span>
-            <span className="text-[13.5px] font-semibold text-ink-subtle">
-              of {rows.length} checked in
+            <span className="text-[13px] font-semibold text-ink-subtle">of {rows.length} in</span>
+            <span
+              className="ml-1 rounded-full px-2 py-0.5 text-[11px] font-black tabular-nums"
+              style={{ background: "var(--color-green-bg)", color: "var(--color-green-deep)" }}
+            >
+              {Math.round(pct * 100)}%
             </span>
           </div>
           <div
-            className="mt-2 h-1.5 w-full max-w-[300px] overflow-hidden rounded-full"
+            className="mt-2 h-1.5 w-full max-w-[280px] overflow-hidden rounded-full"
             style={{ background: "var(--color-surface-soft)" }}
             role="progressbar"
             aria-valuenow={present}
@@ -84,68 +89,94 @@ export function AttTeamRoster({
           >
             <div
               className="h-full rounded-full transition-[width] duration-700"
-              style={{
-                width: `${Math.round(pct * 100)}%`,
-                background: "linear-gradient(90deg, #22c55e, #15803d)",
-              }}
+              style={{ width: `${Math.round(pct * 100)}%`, background: "linear-gradient(90deg, #22c55e, #15803d)" }}
             />
           </div>
         </div>
 
-        <label
-          className="relative flex h-10 w-[240px] items-center max-sm:w-full"
-          aria-label="Search team members"
-        >
-          <Search
-            size={15}
-            strokeWidth={2.4}
-            className="pointer-events-none absolute left-3 text-ink-subtle"
-            aria-hidden
-          />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape" && query) {
-                e.stopPropagation();
-                setQuery("");
-              }
-            }}
-            placeholder="Search people…"
-            className="h-full w-full rounded-xl border-2 border-hairline-strong bg-white pl-9 pr-8 text-[14px] font-medium text-ink-strong outline-none transition-colors placeholder:text-ink-subtle focus:border-[var(--color-altus-red)]"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery("")}
-              aria-label="Clear search"
-              className="absolute right-2 inline-grid size-6 place-items-center rounded-md text-ink-subtle transition-colors hover:bg-surface-soft hover:text-ink-strong"
-            >
-              <X size={14} strokeWidth={2.4} />
-            </button>
-          )}
-        </label>
+        {presentRows.length > 0 && <PresentCluster rows={presentRows} />}
       </div>
 
-      {/* ── Roster rows ── */}
+      {/* ── Search ── */}
+      <label className="relative mb-3 flex h-10 w-full items-center" aria-label="Search team members">
+        <Search size={15} strokeWidth={2.4} className="pointer-events-none absolute left-3 text-ink-subtle" aria-hidden />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && query) {
+              e.stopPropagation();
+              setQuery("");
+            }
+          }}
+          placeholder="Search people…"
+          className="h-full w-full rounded-xl border-2 border-hairline-strong bg-white pl-9 pr-8 text-[14px] font-medium text-ink-strong outline-none transition-colors placeholder:text-ink-subtle focus:border-[var(--color-altus-red)]"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            aria-label="Clear search"
+            className="absolute right-2 inline-grid size-6 place-items-center rounded-md text-ink-subtle transition-colors hover:bg-surface-soft hover:text-ink-strong"
+          >
+            <X size={14} strokeWidth={2.4} />
+          </button>
+        )}
+      </label>
+
+      {/* ── Capped roster — the card stays compact; the list scrolls inside ── */}
       {filtered.length === 0 ? (
-        <p className="py-8 text-center text-[14.5px] text-ink-subtle">
-          No one matches “{query.trim()}”.
-        </p>
+        <p className="py-8 text-center text-[14.5px] text-ink-subtle">No one matches “{query.trim()}”.</p>
       ) : (
-        <ul className="space-y-0.5">
-          {filtered.map((r, i) => (
-            <RosterItem
-              key={r.employeeId}
-              row={r}
-              date={date}
-              tz={tz}
-              canQuickPunch={canQuickPunch}
-              index={i}
+        <div className="relative">
+          <ul
+            className="max-h-[344px] space-y-0.5 overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:var(--color-hairline-strong)_transparent]"
+          >
+            {filtered.map((r, i) => (
+              <RosterItem key={r.employeeId} row={r} date={date} tz={tz} canQuickPunch={canQuickPunch} index={i} />
+            ))}
+          </ul>
+          {/* bottom fade cue when the list overflows */}
+          {filtered.length > 6 && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-9 rounded-b-[18px]"
+              style={{ background: "linear-gradient(to bottom, transparent, var(--color-surface-card))" }}
             />
-          ))}
-        </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Overlapping avatars of the people currently checked in — a compact,
+ *  premium "who's here" glance for the roster header. */
+function PresentCluster({ rows }: { rows: RosterRow[] }) {
+  const shown = rows.slice(0, 6);
+  const extra = rows.length - shown.length;
+  return (
+    <div className="flex items-center" aria-label={`${rows.length} checked in`}>
+      <div className="flex -space-x-2.5">
+        {shown.map((r) => (
+          <span
+            key={r.employeeId}
+            className="inline-grid place-items-center rounded-full ring-2 ring-white"
+            title={r.name}
+            style={{ boxShadow: "0 2px 6px -2px rgba(15,23,42,0.25)" }}
+          >
+            <Avatar name={r.name} avatarUrl={r.avatarUrl} size={30} />
+          </span>
+        ))}
+      </div>
+      {extra > 0 && (
+        <span
+          className="ml-1.5 inline-grid size-[30px] place-items-center rounded-full text-[11.5px] font-black tabular-nums ring-2 ring-white"
+          style={{ background: "var(--color-green-bg)", color: "var(--color-green-deep)" }}
+        >
+          +{extra}
+        </span>
       )}
     </div>
   );
@@ -172,19 +203,19 @@ function RosterItem({
 
   return (
     <li
-      className="wg-rise relative flex items-center gap-3 rounded-xl py-2.5 pl-5 pr-3 transition-colors hover:bg-surface-soft max-md:flex-wrap"
+      className="wg-rise relative flex items-center gap-2.5 rounded-xl py-2 pl-4 pr-2.5 transition-colors hover:bg-surface-soft max-md:flex-wrap"
       style={{ animationDelay: `${Math.min(index, 10) * 20}ms` }}
     >
       {/* status stripe */}
       <span
         aria-hidden
-        className="absolute left-1 top-2 bottom-2 w-[3px] rounded-full"
+        className="absolute left-1 top-1.5 bottom-1.5 w-[3px] rounded-full"
         style={{
           background: `linear-gradient(180deg, ${status.accent}, color-mix(in srgb, ${status.accent} 45%, transparent))`,
         }}
       />
 
-      <Avatar name={r.name} avatarUrl={r.avatarUrl} size={36} />
+      <Avatar name={r.name} avatarUrl={r.avatarUrl} size={32} />
 
       <div className="min-w-0 flex-1">
         <div className="truncate text-[14.5px] font-bold text-ink-strong">{r.name}</div>
