@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Search, ChevronRight, X } from "lucide-react";
 import type { DashboardRow } from "@/lib/queries/attendance-status";
-import { attendanceRatio, punctualityRatio } from "@/lib/attendance/analytics/org";
+import { attendanceRatio, punctualityRatio } from "@/lib/attendance/analytics/ratios";
 import { bandRate } from "./insight-viz";
 
 /**

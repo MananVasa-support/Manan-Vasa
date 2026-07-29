@@ -3,6 +3,7 @@ import { getMonthDashboard, type DashboardRow, type MonthSummary } from "@/lib/q
 import { listTeamAttendanceForDate } from "@/lib/queries/attendance";
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import { computeWorkforceHealth, type WorkforceHealth } from "@/lib/attendance/analytics/health-score";
+import { attendedDays, attendanceRatio, punctualityRatio } from "@/lib/attendance/analytics/ratios";
 
 /**
  * ORG-WIDE attendance analytics — the shared data contract for the Workforce
@@ -123,23 +124,10 @@ export interface OrgAttendanceAnalytics {
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-/** Days a person actually worked (drives per-day rates). */
-function attendedDays(s: MonthSummary): number {
-  return s.present + s.halfDay + s.holidayPresent + s.holidayHalfDay;
-}
-
-/** Effective attendance ratio 0..1 (mirrors the existing report `attendanceRate`). */
-export function attendanceRatio(s: MonthSummary): number {
-  const num = s.present + 0.5 * s.halfDay + s.holidayPresent + s.paidLeave + s.compOff;
-  const den = s.present + s.absent + s.halfDay + s.holidayPresent + s.paidLeave + s.unpaidLeave + s.compOff;
-  return den > 0 ? num / den : 0;
-}
-
-/** On-time ratio 0..1 (1 − unforgiven-late / attended days). */
-export function punctualityRatio(s: MonthSummary): number {
-  const att = attendedDays(s);
-  return att > 0 ? Math.max(0, 1 - s.late / att) : 1;
-}
+// Pure ratio helpers live in ./ratios (client-safe) so client components (the
+// drill table) can import them without pulling this server-only module in.
+// Re-exported here for back-compat with existing server-side importers.
+export { attendanceRatio, punctualityRatio };
 
 /** Sum an array of MonthSummary into one aggregate. */
 function sumSummaries(rows: DashboardRow[]): MonthSummary {
