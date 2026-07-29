@@ -154,7 +154,7 @@ export const employees = pgTable("employees", {
     .notNull()
     .default("system")
     .$type<"light" | "dark" | "system">(),
-  density: text("density").notNull().default("cozy").$type<"cozy" | "compact">(),
+  density: text("density").notNull().default("cozy").$type<"cozy" | "compact" | "dense">(),
   accent: text("accent").notNull().default("#E10600"),
   oooStart: date("ooo_start"),
   oooEnd: date("ooo_end"),

@@ -139,10 +139,25 @@
 }
 
 /* ────────────────────────────────────────────────────────────────────
-   Profile v2 — density swap
-   Light-only theme; the root layout writes data-density on <html>.
-   Components that want to participate read --density-pad-y or
-   --density-line-height; everything else stays cozy.
+   Density scale — Comfortable · Compact · Dense (Slice 2)
+   The root layout writes data-density on <html> from the user's pref
+   (default "cozy" = Comfortable = unchanged, so opt-in only → zero
+   regression for anyone who doesn't pick a tighter mode).
+
+   HOW it fits more on screen: Compact/Dense set a root `font-size`
+   PERCENTAGE. Because Tailwind spacing (p-*, gap-*, m-*, space-*) and all
+   rem units scale with the root font-size, every gutter/pad/gap tightens
+   app-wide — while the app's TEXT is overwhelmingly px-based (~3.8k px vs
+   ~50 rem utilities), so type stays legible ("readability non-negotiable").
+   The % (not px) keeps a user's own larger browser default font honoured
+   for accessibility.
+
+   PORTAL-SAFE: this is font-size + line-height only. It deliberately does
+   NOT use `zoom`/`transform` on any ancestor — that double-applies to
+   Radix/floating-ui portals so dropdowns/popovers mis-position and the
+   opening click reads as an "outside" click, closing them instantly (the
+   old system-wide "dropdowns close in a sec / not scrollable" bug). Keep
+   every rule here zoom-free.
    ──────────────────────────────────────────────────────────────────── */
 
 html[data-density="cozy"] {
@@ -150,16 +165,17 @@ html[data-density="cozy"] {
   --density-line-height: 1.55;
 }
 html[data-density="compact"] {
-  --density-pad-y: 0.78;
-  --density-line-height: 1.45;
+  font-size: 93.75%; /* 15/16 — tighten rem spacing app-wide */
+  --density-pad-y: 0.82;
+  --density-line-height: 1.5;
 }
-/* Compact density tightens line-height (and padding via the --density-* vars).
-   It deliberately does NOT use `zoom` or `transform`: an ancestor zoom/transform
-   breaks Radix's portaled dropdowns & popovers — they mis-position and the click
-   that opened them reads as an "outside" click, so they close instantly (and
-   scroll height mis-computes). This was the system-wide "dropdowns close in a
-   sec / not scrollable" bug. Keep this rule zoom-free. */
-html[data-density="compact"] body {
+html[data-density="dense"] {
+  font-size: 87.5%; /* 14/16 */
+  --density-pad-y: 0.7;
+  --density-line-height: 1.42;
+}
+html[data-density="compact"] body,
+html[data-density="dense"] body {
   line-height: var(--density-line-height);
 }
 

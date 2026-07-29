@@ -20,7 +20,16 @@ function applyAppearanceLive(patch: { density?: Density; accent?: string }) {
   }
 }
 
-type Density = "cozy" | "compact";
+type Density = "cozy" | "compact" | "dense";
+
+/** Density options, roomiest → tightest. `cozy` = the original comfortable
+ *  default (no scaling); compact/dense shrink rem-based SPACING app-wide (px
+ *  text stays legible) so more fits on screen at high zoom / OS scaling. */
+const DENSITY_OPTS: { value: Density; label: string; hint: string }[] = [
+  { value: "cozy", label: "Comfortable", hint: "Roomy — easiest to read" },
+  { value: "compact", label: "Compact", hint: "Tighter — fits more on screen" },
+  { value: "dense", label: "Dense", hint: "Maximum on screen" },
+];
 
 const ACCENT_PRESETS = [
   { label: "Altus red", value: "#E10600" },
@@ -77,26 +86,25 @@ export function AppearanceControls({ initial }: Props) {
       <section style={cardStyle}>
         <SectionHeader
           title="Density"
-          description="Cozy keeps things readable; compact fits more on screen."
+          description="Comfortable keeps things roomy; Compact and Dense tighten spacing to fit more on screen (text stays the same size)."
           savedAt={showSaved ? savedAt : null}
         />
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {(["cozy", "compact"] as Density[]).map((opt) => {
-            const active = density === opt;
+          {DENSITY_OPTS.map((o) => {
+            const active = density === o.value;
             return (
               <button
-                key={opt}
+                key={o.value}
                 type="button"
                 aria-pressed={active}
                 onClick={() => {
-                  if (opt === density) return;
-                  setDensity(opt);
-                  save({ density: opt });
+                  if (o.value === density) return;
+                  setDensity(o.value);
+                  save({ density: o.value });
                 }}
                 style={{
-                  padding: "16px 22px",
-                  fontSize: 15,
-                  fontWeight: 600,
+                  padding: "14px 20px",
+                  textAlign: "left",
                   color: active ? "white" : "#0F172A",
                   background: active
                     ? "linear-gradient(135deg, #0F172A, #1E293B)"
@@ -106,11 +114,21 @@ export function AppearanceControls({ initial }: Props) {
                   }`,
                   borderRadius: 12,
                   cursor: "pointer",
-                  textTransform: "capitalize",
-                  minWidth: 120,
+                  minWidth: 150,
                 }}
               >
-                {opt}
+                <span style={{ display: "block", fontSize: 15, fontWeight: 700 }}>{o.label}</span>
+                <span
+                  style={{
+                    display: "block",
+                    marginTop: 2,
+                    fontSize: 12,
+                    fontWeight: 500,
+                    color: active ? "rgba(255,255,255,0.75)" : "var(--color-ink-subtle)",
+                  }}
+                >
+                  {o.hint}
+                </span>
               </button>
             );
           })}

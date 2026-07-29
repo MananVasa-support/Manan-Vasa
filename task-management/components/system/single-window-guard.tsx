@@ -38,15 +38,36 @@ export function SingleWindowGuard({ enabled = true }: { enabled?: boolean }) {
   const tabIdRef = React.useRef<string>("");
   const hbRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Stable tab id for this window (survives re-renders, unique per tab).
+  // Stable tab id for THIS browser tab. It MUST survive a reload and a hard
+  // `<a href>` navigation (e.g. "Back to Hub"), otherwise a reloaded same-window
+  // gets a brand-new id, fails to recognise its OWN still-fresh heartbeat record
+  // in localStorage, and wrongly locks itself out — the spurious-firing bug.
+  //
+  // sessionStorage is exactly the right scope: it persists across reloads and
+  // same-tab navigations, but a genuinely NEW tab/window starts with an empty
+  // sessionStorage → a fresh id → so a real second window still locks correctly.
   if (!tabIdRef.current) {
-    try {
-      tabIdRef.current =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
+    const newId = () => {
+      try {
+        return typeof crypto !== "undefined" && "randomUUID" in crypto
           ? crypto.randomUUID()
           : `t_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
+      } catch {
+        return `t_${Date.now()}`;
+      }
+    };
+    try {
+      const SS_KEY = "altus_wms_tab_id";
+      let id = sessionStorage.getItem(SS_KEY);
+      if (!id) {
+        id = newId();
+        sessionStorage.setItem(SS_KEY, id);
+      }
+      tabIdRef.current = id;
     } catch {
-      tabIdRef.current = `t_${Date.now()}`;
+      // sessionStorage unavailable (SSR / private mode) → fall back to a
+      // per-mount id; the localStorage probe in the effect still fail-safes.
+      tabIdRef.current = newId();
     }
   }
 
