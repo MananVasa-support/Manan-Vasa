@@ -173,14 +173,22 @@ export default async function HubPage() {
             truly centered on the page regardless of their differing widths. */}
         <header className="flex shrink-0 items-center gap-6 max-md:flex-col max-md:gap-4 max-md:text-center">
           <div className="flex flex-1 justify-start max-md:justify-center">
-            <Image
-              src="/logo.png"
-              alt="Altus Corp"
-              width={170}
-              height={188}
-              priority
-              className="h-[84px] w-auto shrink-0 max-md:h-[64px]"
-            />
+            <a
+              href="https://altuscorp.in"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Altus Corp — altuscorp.in"
+              className="shrink-0 rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]"
+            >
+              <Image
+                src="/logo.png"
+                alt="Altus Corp"
+                width={170}
+                height={188}
+                priority
+                className="h-[84px] w-auto shrink-0 max-md:h-[64px]"
+              />
+            </a>
           </div>
 
           <div className="shrink-0 text-center">

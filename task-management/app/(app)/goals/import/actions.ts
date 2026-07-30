@@ -233,7 +233,12 @@ export async function importGoals(
   try {
     const buf = Buffer.from(await file.arrayBuffer());
     const wb = XLSX.read(buf, { type: "buffer" });
-    const sheetName = wb.SheetNames[0];
+    // The styled template is multi-sheet ("Lists", "Goals", "Examples", "How to
+    // use") — the entry grid we import is the "Goals" sheet, NOT sheet[0] (which
+    // is "Lists"). Prefer a sheet named "Goals" (case-insensitive); fall back to
+    // the first sheet so a plain single-sheet upload still works.
+    const sheetName =
+      wb.SheetNames.find((n) => n.trim().toLowerCase() === "goals") ?? wb.SheetNames[0];
     if (!sheetName) return { ok: false, error: "The file has no sheets" };
     const ws = wb.Sheets[sheetName]!;
     matrix = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false, defval: "" }) as unknown[][];

@@ -250,7 +250,12 @@ export function GoalsBulkUpload(props: Props) {
       try {
         const buf = await file.arrayBuffer();
         const wb = XLSX.read(buf, { type: "array" });
-        const sheetName = wb.SheetNames[0];
+        // The styled template is multi-sheet ("Lists", "Goals", "Examples",
+        // "How to use") — the entry grid is the "Goals" sheet, NOT sheet[0]
+        // (which is "Lists"). Prefer "Goals"; fall back to the first sheet so a
+        // plain single-sheet upload still works.
+        const sheetName =
+          wb.SheetNames.find((n) => n.trim().toLowerCase() === "goals") ?? wb.SheetNames[0];
         if (!sheetName) {
           setError("The file has no sheets.");
           return;

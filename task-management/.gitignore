@@ -109,6 +109,10 @@ Altus Eco System MIS.xlsx
 # or ship.sh's `git add -A` silently drops the route and prod loses it.
 !app/**/*.xlsx/
 !app/**/*.xlsx/**
+# …nor the hand-crafted Goals bulk-import template served by /goals/template.xlsx
+# (bundled into the route via next.config outputFileTracingIncludes — it MUST be
+# tracked or ship.sh drops it and the download 500s in prod).
+!public/templates/*.xlsx
 ALTUS_APP_KNOWLEDGE_BASE.md
 Doc1.docx
 
