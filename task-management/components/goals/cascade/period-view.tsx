@@ -129,7 +129,7 @@ export function PeriodView({
       {/* This period's goals */}
       {goals.length === 0 ? (
         <div
-          className="wg-rise relative overflow-hidden rounded-section border border-dashed border-hairline-strong p-10 text-center"
+          className="wg-rise relative overflow-hidden rounded-section border border-hairline-strong p-10 text-center"
           style={{
             background:
               "radial-gradient(ellipse 80% 130% at 50% 0%, color-mix(in srgb, #E10600 7%, transparent), transparent 60%), var(--color-surface-card)",

@@ -316,7 +316,7 @@ export function RecycleBinGoals({ items }: { items: BinGoal[] }) {
   if (items.length === 0) {
     return (
       <div
-        className="wg-rise grid place-items-center gap-3 rounded-2xl border border-dashed border-hairline-strong bg-surface-card py-16 text-center"
+        className="wg-rise grid place-items-center gap-3 rounded-2xl border border-hairline-strong bg-surface-card py-16 text-center"
       >
         <span
           className="grid size-14 place-items-center rounded-2xl"

@@ -488,7 +488,7 @@ export function CascadeWorkspace(props: Props) {
 
               {/* ── PER-GOAL BLOCKS: editable card + its four quarters ── */}
               {yearGoals.length === 0 ? (
-                <div className="rounded-section border border-dashed p-12 text-center" style={{ borderColor: "var(--color-hairline-strong)" }}>
+                <div className="rounded-section border p-12 text-center" style={{ borderColor: "var(--color-hairline-strong)" }}>
                   <p className="text-[15px] font-bold text-ink-strong">No yearly goals yet for {fyLabel(fyStartYear)}</p>
                   <p className="mt-1 text-[13.5px] text-ink-muted">Add one above, then Auto-divide it into quarters, months and weeks.</p>
                 </div>
@@ -561,7 +561,7 @@ export function CascadeWorkspace(props: Props) {
                 <span className="ml-1.5 text-[14px] font-bold text-ink-muted">{Q_LABEL[selQuarter] ?? ""}</span>
               </div>
               {qGoals.length === 0 ? (
-                <div className="rounded-section border border-dashed p-12 text-center" style={{ borderColor: "var(--color-hairline-strong)" }}>
+                <div className="rounded-section border p-12 text-center" style={{ borderColor: "var(--color-hairline-strong)" }}>
                   <p className="text-[15px] font-bold text-ink-strong">No goals yet for Q{selQuarter}</p>
                   <p className="mt-1 text-[13.5px] text-ink-muted">Add one above, then Auto-divide it into months.</p>
                 </div>
@@ -602,7 +602,7 @@ export function CascadeWorkspace(props: Props) {
                 {canWrite && <div className="ml-auto w-full max-w-[280px] max-md:max-w-none"><QuickAdd busy={busy === `add:${selMonth}`} onAdd={(t) => onAdd("month", selMonth, t)} /></div>}
               </div>
               {mGoals.length === 0 ? (
-                <div className="rounded-section border border-dashed p-14 text-center" style={{ borderColor: "var(--color-hairline-strong)" }}>
+                <div className="rounded-section border p-14 text-center" style={{ borderColor: "var(--color-hairline-strong)" }}>
                   <p className="text-[19px] font-black text-ink-strong">No goals yet for {monLabel(selMonth)}</p>
                   <p className="mt-1.5 text-[15px] text-ink-muted">Add one above, then Auto-divide it into weeks.</p>
                 </div>
@@ -731,7 +731,7 @@ function WeekColumn({ weekStart, items, canWrite, onPct, busy }: { weekStart: st
         {items.map((w) => (
           <WeeklyCard key={w.id} w={w} canWrite={canWrite} onPct={onPct} busy={busy === `wpct:${w.id}`} />
         ))}
-        {items.length === 0 && <div className="rounded-chip border border-dashed border-hairline px-2 py-2 text-center text-[11px] text-ink-muted/70">Drop a week here</div>}
+        {items.length === 0 && <div className="rounded-chip border border-hairline px-2 py-2 text-center text-[11px] text-ink-muted/70">Drop a week here</div>}
       </div>
     </div>
   );
@@ -917,7 +917,7 @@ function GoalCard(props: {
             type="button"
             onPointerDown={stopDrag}
             onClick={() => setTeamOpen((o) => !o)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-dashed px-3 py-1.5 text-[12.5px] font-bold text-ink-muted transition-colors hover:border-hairline-strong hover:text-ink-strong"
+            className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-bold text-ink-muted transition-colors hover:border-hairline-strong hover:text-ink-strong"
             style={{ borderColor: "var(--color-hairline-strong)" }}
           >
             <UserPlus size={15} strokeWidth={2.4} /> {team.length > 0 ? "Edit people" : "Involve people"}
@@ -1128,7 +1128,7 @@ function CockpitGoalCard({
             <button
               type="button"
               onClick={() => setTeamOpen((o) => !o)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-dashed px-3 py-1.5 text-[12.5px] font-bold text-ink-muted transition-colors hover:border-hairline-strong hover:text-ink-strong"
+              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-bold text-ink-muted transition-colors hover:border-hairline-strong hover:text-ink-strong"
               style={{ borderColor: "var(--color-hairline-strong)" }}
             >
               <UserPlus size={15} strokeWidth={2.4} /> {team.length > 0 ? "Edit people" : "Involve people"}
@@ -1359,7 +1359,7 @@ function LevelColumn({ level, label, sub, goals }: { level: string; label: strin
       </div>
       <div className="flex flex-1 flex-col gap-2.5 p-2.5">
         {goals.length === 0 ? (
-          <div className="grid flex-1 place-items-center rounded-lg border border-dashed px-4 py-8 text-center text-[12px] text-ink-muted/70" style={{ borderColor: "var(--color-hairline-strong)" }}>
+          <div className="grid flex-1 place-items-center rounded-lg border px-4 py-8 text-center text-[12px] text-ink-muted/70" style={{ borderColor: "var(--color-hairline-strong)" }}>
             Drop a lower card here to promote
           </div>
         ) : (
@@ -1386,7 +1386,7 @@ function WeekLevelColumn({ weekly, canWrite, onPct, busy }: { weekly: WeeklyDTO[
       </div>
       <div className="flex flex-1 flex-col gap-2.5 p-2.5">
         {items.length === 0 ? (
-          <div className="grid flex-1 place-items-center rounded-lg border border-dashed px-4 py-8 text-center text-[12px] text-ink-muted/70" style={{ borderColor: "var(--color-hairline-strong)" }}>
+          <div className="grid flex-1 place-items-center rounded-lg border px-4 py-8 text-center text-[12px] text-ink-muted/70" style={{ borderColor: "var(--color-hairline-strong)" }}>
             No weekly goals yet.
           </div>
         ) : (

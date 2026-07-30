@@ -138,7 +138,7 @@ export async function GET(request: Request): Promise<Response> {
     status: 200,
     headers: {
       "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename="payroll-${month}.csv"`,
+      "content-disposition": `attachment; filename="Payroll-${month}.csv"`,
       "cache-control": "no-store",
     },
   });

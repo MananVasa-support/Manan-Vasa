@@ -57,6 +57,16 @@ export interface GoalTemplateColumn {
   source: ColumnSource;
   /** Column width (Excel chars). */
   width: number;
+  /**
+   * Position (1-based) in the LEAN bulk-ENTRY template — the sheet users
+   * actually download to add new goals. Only columns with `entry` set are
+   * rendered, in `entry` order, so the template matches the live board table
+   * (and the UI's promise: Area · Goal · Measure · Actual · Target · Type ·
+   * Weight). The full manifest still backs the import PARSER (every alias is
+   * accepted), so nothing that used to import stops importing. Omit → the
+   * column is export/advanced-only and never shown on the entry sheet.
+   */
+  entry?: number;
   /** Levels the field is meaningful at (for notes / conditional rules). */
   levels?: GoalPeriod[];
   /** Extra header spellings accepted on import (normalised). */
@@ -172,7 +182,7 @@ export const GOAL_TEMPLATE_COLUMNS: readonly GoalTemplateColumn[] = [
   },
   {
     field: "title", header: "Goal Title", schemaField: "title",
-    writable: true, persisted: true, locked: false, source: null, width: 42,
+    writable: true, persisted: true, locked: false, source: null, width: 42, entry: 2,
     aliases: ["goal", "title", "objective", "goaltitle", "what"],
     examples: ["Close 12 enterprise deals", "Onboard 4 pilot clients"],
     help: "REQUIRED. The one-line goal statement.",
@@ -224,30 +234,30 @@ export const GOAL_TEMPLATE_COLUMNS: readonly GoalTemplateColumn[] = [
     help: "KPI · Branding · Strategic · Operational · Essential. Decides how the goal is scored in appraisal.",
   },
   {
-    field: "category", header: "Goal Category", schemaField: "category",
-    writable: true, persisted: true, locked: false, source: "category", width: 16,
+    field: "category", header: "Type", schemaField: "category",
+    writable: true, persisted: true, locked: false, source: "category", width: 16, entry: 6,
     aliases: ["category", "goalcategory", "tag", "kind"],
     examples: ["Target", "Operational"],
     help: "Kanban tag — Goal · Target · Milestone · Operational (plus any admin-added Types).",
   },
   {
     field: "area", header: "Area", schemaField: "area",
-    writable: true, persisted: true, locked: false, source: "area", width: 16,
+    writable: true, persisted: true, locked: false, source: "area", width: 16, entry: 1,
     aliases: ["area", "pillar", "function"],
     examples: ["Revenue", "Strategy"],
     help: "Focus area / pillar (admin-extensible list).",
   },
   {
-    field: "uom", header: "KPI Unit (UoM)", schemaField: "uom",
-    writable: true, persisted: true, locked: false, source: "measure", width: 14,
-    aliases: ["uom", "unit", "measure", "unitofmeasure", "kpiunit"],
+    field: "uom", header: "Measure", schemaField: "uom",
+    writable: true, persisted: true, locked: false, source: "measure", width: 14, entry: 3,
+    aliases: ["uom", "unit", "measure", "unitofmeasure", "kpiunit", "kpiunituom"],
     examples: ["Nos.", "Nos."],
     help: "Unit of measure for the target/actual (Rs., Nos., Seats, Yes/No …).",
   },
   // ── Numbers ────────────────────────────────────────────────────────
   {
-    field: "targetQty", header: "Target Value", schemaField: "targetQty",
-    writable: true, persisted: true, locked: false, source: null, width: 12,
+    field: "targetQty", header: "Target", schemaField: "targetQty",
+    writable: true, persisted: true, locked: false, source: null, width: 12, entry: 5,
     aliases: ["target", "targetvalue", "targetqty", "tgt", "quantity", "qty"],
     examples: ["12", "4"],
     help: "Numeric target (quantity). % Done is auto-computed from Actual ÷ Target.",
@@ -260,8 +270,8 @@ export const GOAL_TEMPLATE_COLUMNS: readonly GoalTemplateColumn[] = [
     help: "Money target in ₹ (numeric). Use for revenue/value goals.",
   },
   {
-    field: "actualQty", header: "Actual Value", schemaField: "actualQty",
-    writable: true, persisted: true, locked: false, source: null, width: 12,
+    field: "actualQty", header: "Actual", schemaField: "actualQty",
+    writable: true, persisted: true, locked: false, source: null, width: 12, entry: 4,
     aliases: ["actual", "actualvalue", "actualqty", "achieved", "done"],
     examples: ["0", "0"],
     help: "Numeric actual achieved so far.",
@@ -288,8 +298,8 @@ export const GOAL_TEMPLATE_COLUMNS: readonly GoalTemplateColumn[] = [
     help: "Deadline (YYYY-MM-DD) — MONTH goals only (year/quarter roll up from children).",
   },
   {
-    field: "weight", header: "Weightage", schemaField: "weight",
-    writable: true, persisted: true, locked: false, source: null, width: 11,
+    field: "weight", header: "Weight", schemaField: "weight",
+    writable: true, persisted: true, locked: false, source: null, width: 11, entry: 7,
     aliases: ["weight", "weightage", "wt"],
     examples: ["150", "100"],
     help: "Relative weight 0–1000 (default 100).",

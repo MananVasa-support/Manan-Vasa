@@ -135,6 +135,7 @@ export async function loadBoardData(sp: {
     areaOptions: lookups.areas,
     measureOptions: lookups.measures,
     typeOptions: lookups.types,
+    goaltypeOptions: lookups.goaltypes,
     customLookups: lookups.custom,
   };
 }

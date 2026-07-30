@@ -506,20 +506,21 @@ export type GoalSource = (typeof GOAL_SOURCES)[number];
 //   old goals.category   = 'operational'   → goal_type 'operational'
 //   everything else scored                 → default 'operational'
 //                                            (rows may also be left NULL pre-fill).
-export const GOAL_TYPES = ["kpi", "branding", "strategic", "operational", "essential"] as const;
+// "Branding" was moved to the Area taxonomy (BASE_AREAS) — it is no longer a
+// Goal Type. Existing goals typed 'branding' render a blank Type (handled via
+// GOAL_TYPE_LABELS[…] ?? "") and no longer score in the Non-KPI stream.
+export const GOAL_TYPES = ["kpi", "strategic", "operational", "essential"] as const;
 export type GoalType = (typeof GOAL_TYPES)[number];
 export const GOAL_TYPE_LABELS: Record<GoalType, string> = {
   kpi: "KPI",
-  branding: "Branding",
   strategic: "Strategic",
   operational: "Operational",
   essential: "Essential",
 };
 
-/** The three Non-KPI performance types — scored as weighted goals (Σ weights =
- *  100) that roll up into the appraisal Monthly Goals bucket. */
+/** The Non-KPI performance types — scored as weighted goals (Σ weights = 100)
+ *  that roll up into the appraisal Monthly Goals bucket. */
 export const NON_KPI_GOAL_TYPES = [
-  "branding",
   "strategic",
   "operational",
 ] as const satisfies readonly GoalType[];

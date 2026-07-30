@@ -115,7 +115,7 @@ export function TeamInvolvedEditor({
             <button
               type="button"
               disabled={pending}
-              className="wg-btn inline-flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-hairline-strong text-ink-soft hover:border-ink-soft hover:text-ink-strong"
+              className="wg-btn inline-flex h-7 w-7 items-center justify-center rounded-full border border-hairline-strong text-ink-soft hover:border-ink-soft hover:text-ink-strong"
               aria-label="Add team member"
             >
               <Plus size={14} strokeWidth={2.5} />

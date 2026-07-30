@@ -851,7 +851,7 @@ export function GoalsBoard(): React.JSX.Element {
           >
             {!showLanes ? (
               <div
-                className="flex flex-1 items-center justify-center rounded-section border border-dashed px-5 py-10 text-center"
+                className="flex flex-1 items-center justify-center rounded-section border px-5 py-10 text-center"
                 style={{ borderColor: accentMix(40), background: accentMix(5) }}
               >
                 <p className="text-[15px] italic text-ink-muted" style={{ fontFamily: "var(--font-serif), Georgia, serif" }}>
@@ -1138,7 +1138,7 @@ function LaneQuickAdd(props: {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-0.5 inline-flex h-8 w-full shrink-0 items-center justify-center gap-1 rounded-chip border border-dashed text-[12px] font-bold text-ink-muted transition-colors hover:text-ink-strong"
+        className="mt-0.5 inline-flex h-8 w-full shrink-0 items-center justify-center gap-1 rounded-chip border text-[12px] font-bold text-ink-muted transition-colors hover:text-ink-strong"
         style={{ borderColor: accentMix(40), background: accentMix(4) }}
       >
         <Plus size={13} strokeWidth={2.6} aria-hidden="true" />

@@ -610,7 +610,7 @@ export function ReviewBoard({
       {/* Rows */}
       {shown.length === 0 ? (
         <div
-          className="rounded-3xl border border-dashed border-hairline-strong bg-surface-card p-12 text-center"
+          className="rounded-3xl border border-hairline-strong bg-surface-card p-12 text-center"
           style={{ background: "color-mix(in srgb, #E10600 2%, var(--color-surface-card))" }}
         >
           <span className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl" style={{ background: "color-mix(in srgb, #E10600 10%, transparent)", color: GOALS_ACCENT }}>

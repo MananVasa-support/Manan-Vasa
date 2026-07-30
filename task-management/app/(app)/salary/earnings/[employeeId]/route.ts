@@ -59,7 +59,7 @@ export async function GET(
     status: 200,
     headers: {
       "content-type": "application/pdf",
-      "content-disposition": `attachment; filename="total-earnings-${safeName}-${month}.pdf"`,
+      "content-disposition": `attachment; filename="Total-Earnings-${safeName}-${month}.pdf"`,
       "cache-control": "no-store",
     },
   });

@@ -717,7 +717,7 @@ function SourceSection({
           >
             <div className="flex flex-col gap-1.5 px-2 pb-2.5">
               {items.length === 0 ? (
-                <p className="mx-2 rounded-xl border border-dashed border-hairline-strong px-3 py-3 text-center text-xs text-ink-muted/70">
+                <p className="mx-2 rounded-xl border border-hairline-strong px-3 py-3 text-center text-xs text-ink-muted/70">
                   Nothing here right now.
                 </p>
               ) : (

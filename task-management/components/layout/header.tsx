@@ -59,7 +59,7 @@ export async function DashboardHeader({
           {/* LEFT: Altus Corp logo — returns to the CURRENT module's landing page
               (e.g. Training logo → /training, Employees → /attendance); WMS and
               shared surfaces fall back to /dashboard. */}
-          <a href={ws ? WORKSPACE_LANDING[ws] : "/dashboard"} className="flex items-center shrink-0" aria-label="Go to this module's home">
+          <a href="https://altuscorp.in" target="_blank" rel="noopener noreferrer" className="flex items-center shrink-0" aria-label="Altus Corp — altuscorp.in (opens in a new tab)">
             <img
               src="/logo.png"
               alt="Altus Corp"

@@ -220,9 +220,8 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
 
   return (
     <>
-      {/* The calm dashed "+ Add Goal" tile — deliberately NOT `.brand-btn`
-          (its !important solid-red fill turned this into a giant red bar).
-          Hairline dashed border, muted ink, gentle lift + red-tint on hover. */}
+      {/* The calm "+ Add Goal" tile — solid (no dashed line) with a neutral grey
+          treatment: hairline border, muted grey ink + icon, soft wash on hover. */}
       <button
         type="button"
         onClick={() => {
@@ -231,14 +230,14 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
         }}
         className={
           compact
-            ? `wg-btn cursor-pointer group flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-3 py-2.5 text-[13px] font-bold transition-colors hover:bg-surface-soft hover:border-[color-mix(in_srgb,var(--color-altus-red)_45%,var(--color-hairline-strong))] ${FOCUS_RING}`
-            : `wg-btn cursor-pointer group flex w-full items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed px-4 py-5 text-[15px] font-bold transition-colors hover:bg-surface-soft hover:border-[color-mix(in_srgb,var(--color-altus-red)_45%,var(--color-hairline-strong))] ${FOCUS_RING}`
+            ? `wg-btn cursor-pointer group flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-[13px] font-bold transition-colors hover:bg-surface-soft ${FOCUS_RING}`
+            : `wg-btn cursor-pointer group flex w-full items-center justify-center gap-2.5 rounded-2xl border px-4 py-5 text-[15px] font-bold transition-colors hover:bg-surface-soft ${FOCUS_RING}`
         }
-        style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 40%, transparent)", color: "var(--color-altus-red-deep)", background: "color-mix(in srgb, var(--color-altus-red) 4%, transparent)" }}
+        style={{ borderColor: "var(--color-hairline-strong)", color: "var(--color-ink-soft)", background: "var(--color-surface-soft)" }}
       >
         <span
           className={`inline-flex items-center justify-center rounded-full ${compact ? "size-5" : "size-7"}`}
-          style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red)" }}
+          style={{ background: "color-mix(in srgb, var(--color-ink-strong) 8%, transparent)", color: "var(--color-ink-muted)" }}
         >
           <Plus size={compact ? 13 : 16} strokeWidth={2.8} />
         </span>
@@ -491,7 +490,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className={`flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed bg-white px-2.5 py-2.5 text-[13px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red ${FOCUS_RING}`}
+                className={`flex w-full items-center justify-center gap-1.5 rounded-md border bg-white px-2.5 py-2.5 text-[13px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red ${FOCUS_RING}`}
                 style={{ borderColor: "var(--color-hairline-strong)" }}
               >
                 <Paperclip size={14} strokeWidth={2.4} /> Attach files

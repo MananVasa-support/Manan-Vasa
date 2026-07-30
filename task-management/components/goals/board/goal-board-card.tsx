@@ -49,7 +49,6 @@ import {
   isSpillover,
   categoryStyle,
   originStyle,
-  goalCode,
   fmtNum,
   num,
   periodKeyLabel,
@@ -110,6 +109,15 @@ export interface SharedCardProps {
   onRequestArchive: (g: GoalDTO) => void;
   /** Reorder/bucket drag off while a filter narrows the list (partial-order guard). */
   dragDisabled: boolean;
+  /**
+   * Stable DENSE goal code (Y1 / AQ1 / AprM1) — the goal's rank within its
+   * bucket (sorted by position), NOT the raw stored position. One source for
+   * every view (list · kanban · cards) so numbers stay sequential, gap-free
+   * after deletes, unique, and identical across views.
+   */
+  codeOf: (g: GoalDTO) => string;
+  /** The same stable dense rank as a plain number (the "#N" Sr. No.). */
+  rankOf: (g: GoalDTO) => number;
 }
 
 interface Props extends SharedCardProps {
@@ -140,6 +148,7 @@ function GoalBoardCardImpl({
   mutation,
   onRequestArchive,
   dragDisabled,
+  codeOf,
   childGoals,
   autoFocus = false,
   variant = "row",
@@ -341,7 +350,7 @@ function GoalBoardCardImpl({
           >
             <span className="inline-flex items-center gap-1 font-bold tabular-nums" style={{ color: origin.color }}>
               <Hash size={11} aria-hidden />
-              {goalCode(goal)}
+              {codeOf(goal)}
             </span>
             <span
               className="inline-flex items-center rounded-full px-2 py-[1px] text-[11px] font-bold"
@@ -611,7 +620,7 @@ function GoalBoardCardImpl({
             style={{ color: "var(--color-ink-subtle)" }}
           >
             <span className="font-bold tabular-nums" style={{ color: origin.color }}>
-              {goalCode(goal)}
+              {codeOf(goal)}
             </span>
             <span
               className="inline-flex items-center rounded-full px-1.5 py-[1px] text-[10.5px] font-bold"

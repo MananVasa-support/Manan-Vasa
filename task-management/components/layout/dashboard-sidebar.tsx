@@ -49,7 +49,9 @@ export async function DashboardSidebar() {
       }}
     >
       <MobileMenuServer isAdmin={isAdmin} />
-      <img src="/logo.png" alt="Altus Corp" className="h-8 w-auto" />
+      <a href="https://altuscorp.in" target="_blank" rel="noopener noreferrer" aria-label="Altus Corp — altuscorp.in (opens in a new tab)" className="shrink-0">
+        <img src="/logo.png" alt="Altus Corp" className="h-8 w-auto" />
+      </a>
       <MobileModuleLabel />
     </div>
 

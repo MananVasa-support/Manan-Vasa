@@ -2,11 +2,11 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { workspaceForPath, WORKSPACE_LANDING } from "@/lib/workspaces";
+import { workspaceForPath } from "@/lib/workspaces";
 import { MODULE_THEME } from "@/lib/module-theme";
 
 /**
- * The rail's brand block — logo (linked to the CURRENT module's home) + the big
+ * The rail's brand block — logo (links to altuscorp.in, new tab) + the big
  * animated module wordmark. CLIENT-reactive via usePathname so, like the nav
  * pills, it tracks the current route across soft navigations instead of freezing
  * to the server-rendered `x-pathname` (which the shared layout reads once). See
@@ -17,14 +17,15 @@ export function SidebarBrand() {
   const ws = workspaceForPath(pathname ?? "/");
   const theme = ws ? MODULE_THEME[ws] : null;
   const ModuleIcon = theme?.Icon;
-  const landing = ws ? WORKSPACE_LANDING[ws] : "/dashboard";
 
   return (
     <>
       <a
-        href={landing}
+        href="https://altuscorp.in"
+        target="_blank"
+        rel="noopener noreferrer"
         className="sidebar-logo flex items-center justify-center"
-        aria-label="Go to this module's home"
+        aria-label="Altus Corp — altuscorp.in (opens in a new tab)"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="Altus Corp" className="h-14 w-auto" style={{ display: "block" }} />

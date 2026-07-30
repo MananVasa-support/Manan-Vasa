@@ -287,7 +287,7 @@ function ParentGoalPicker({
       <span className="truncate max-w-[24ch]">{goal.monthGoalTitle}</span>
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1.5 rounded-pill border border-dashed border-hairline-strong px-2.5 py-1 text-[11.5px] font-medium text-ink-muted">
+    <span className="inline-flex items-center gap-1.5 rounded-pill border border-hairline-strong px-2.5 py-1 text-[11.5px] font-medium text-ink-muted">
       <Link2 size={12.5} className="text-ink-soft" />
       <span className="text-ink-soft">Not linked to a monthly goal</span>
     </span>

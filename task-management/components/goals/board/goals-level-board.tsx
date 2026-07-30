@@ -37,6 +37,7 @@ import {
   fyStartYearOf,
   fyStartYearOfKey,
   quarterKeyOfMonthKey,
+  quarterOfKey,
 } from "@/lib/goals/types";
 import {
   type GoalDTO,
@@ -47,6 +48,7 @@ import {
   parentPeriodKeyOf,
   categoryStyle,
   childLevelOf,
+  goalCode,
 } from "@/components/goals/cascade/util";
 import { useOptimisticGoals } from "@/components/goals/canvas/optimistic";
 import {
@@ -152,12 +154,33 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
     [router, props.basePath, props.viewedEmployeeId, props.myEmployeeId, fy],
   );
 
+  // ── Dynamic quarters: on the CURRENT FY's Quarterly board, quarters that
+  //    have already ended are hidden by default (a "Show past" toggle brings
+  //    them back). Past/future FYs show all four (there "past" is meaningless).
+  //    The currently-selected quarter is always kept visible. ──────────────
+  const [showPast, setShowPast] = React.useState(false);
+  const nowQ = React.useMemo(() => {
+    const m = new Date().getMonth(); // 0=Jan
+    const fyMonth = ((m - 3) % 12 + 12) % 12; // Apr=0 … Mar=11
+    return Math.floor(fyMonth / 3) + 1; // 1..4
+  }, []);
+  const isCurrentFy = fy === fyStartYearOf(new Date());
+  const pastQuarterCount =
+    props.level === "quarter" && isCurrentFy
+      ? quartersOfFy(fy).filter((k) => quarterOfKey(k) < nowQ && k !== props.periodKey).length
+      : 0;
+
   // ── Buckets at this level for the FY ────────────────────────────────
   const buckets = React.useMemo<string[]>(() => {
     if (props.level === "year") return [String(fy)];
-    if (props.level === "quarter") return quartersOfFy(fy);
+    if (props.level === "quarter") {
+      const all = quartersOfFy(fy);
+      if (!isCurrentFy || showPast) return all;
+      // Hide fully-past quarters; keep current + upcoming + the selected one.
+      return all.filter((k) => quarterOfKey(k) >= nowQ || k === props.periodKey);
+    }
     return ([1, 2, 3, 4] as const).flatMap((q) => monthKeysOfQuarter(fy, q));
-  }, [props.level, fy]);
+  }, [props.level, fy, isCurrentFy, showPast, nowQ, props.periodKey]);
 
   const levelGoals = React.useMemo(
     () => goals.filter((g) => g.period === props.level),
@@ -363,11 +386,12 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
     const csv = [header, ...body].map((r) => r.map(csvCell).join(",")).join("\r\n");
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const levelSlug = props.level === "year" ? "yearly" : props.level === "quarter" ? "quarterly" : "monthly";
+    // Title-cased export name (capital letters, per Sir): "Yearly-Goals-FY2026-27.csv".
+    const levelSlug = props.level === "year" ? "Yearly" : props.level === "quarter" ? "Quarterly" : "Monthly";
     const fyName = `FY${fy}-${String((fy + 1) % 100).padStart(2, "0")}`;
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${levelSlug}-goals-${fyName}.csv`;
+    a.download = `${levelSlug}-Goals-${fyName}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -401,6 +425,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
   }, [props.areaOptions, goals]);
   const measureOptions = props.measureOptions;
   const typeOptions = props.typeOptions;
+  const goaltypeOptions = props.goaltypeOptions;
   const customLookups = props.customLookups;
 
   /** Direct children of every goal (the payload holds ALL levels) — feeds the
@@ -635,6 +660,36 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
   const [archiveTarget, setArchiveTarget] = React.useState<GoalDTO | null>(null);
   const requestArchive = React.useCallback((g: GoalDTO) => setArchiveTarget(g), []);
 
+  // ── Stable DENSE goal numbering — ONE source for every view ──────────
+  // The code (Y1 / AQ1 / AprM1) and Sr. No. come from the goal's RANK within
+  // its bucket (goals sorted by stored position → 1..N), never the raw stored
+  // `position` (which goes sparse after reorders/deletes — the "16,17,18" and
+  // duplicate-"AQ1" bugs). Computed once over ALL goals so the list, Kanban and
+  // cards always agree, stay sequential, and never gap or collide.
+  const rankById = React.useMemo(() => {
+    const byBucket = new Map<string, GoalDTO[]>();
+    for (const g of goals) {
+      const k = `${g.period}:${g.periodKey}`;
+      let arr = byBucket.get(k);
+      if (!arr) {
+        arr = [];
+        byBucket.set(k, arr);
+      }
+      arr.push(g);
+    }
+    const map = new Map<string, number>();
+    for (const arr of byBucket.values()) {
+      arr.sort((a, b) => a.position - b.position || a.title.localeCompare(b.title));
+      arr.forEach((g, i) => map.set(g.id, i + 1));
+    }
+    return map;
+  }, [goals]);
+  const rankOf = React.useCallback((g: GoalDTO) => rankById.get(g.id) ?? g.position, [rankById]);
+  const codeOf = React.useCallback(
+    (g: GoalDTO) => goalCode({ period: g.period, periodKey: g.periodKey, position: rankById.get(g.id) ?? g.position, id: g.id }),
+    [rankById],
+  );
+
   const sharedCardProps = React.useMemo<SharedCardProps>(
     () => ({
       policy,
@@ -649,20 +704,22 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
       mutation,
       onRequestArchive: requestArchive,
       dragDisabled,
+      codeOf,
+      rankOf,
     }),
-    [policy, canWrite, props.roster, areaOptions, measureOptions, typeOptions, customLookups, props.isAdmin, fy, mutation, requestArchive, dragDisabled],
+    [policy, canWrite, props.roster, areaOptions, measureOptions, typeOptions, customLookups, props.isAdmin, fy, mutation, requestArchive, dragDisabled, codeOf, rankOf],
   );
 
   return (
     <div
-      className="relative min-h-screen"
+      className="relative"
       style={{
         background:
           "linear-gradient(180deg, var(--color-surface-soft) 0%, color-mix(in srgb, var(--color-surface-track) 60%, var(--color-surface-soft)) 100%)",
         color: "var(--color-ink-strong)",
       }}
     >
-      <PageShell as="div" width="full" py={false} className="relative pt-8 pb-24 max-md:pt-6 max-md:pb-16">
+      <PageShell as="div" width="full" py={false} className="relative pt-8 pb-10 max-md:pt-6 max-md:pb-8">
         {/* ── HEADER — ONE unified command bar: identity + tabs · overview
             (dial + donut) · person + FY, all in a single creative band. ── */}
         <section
@@ -674,8 +731,6 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               "0 1px 2px rgba(15,23,42,0.05), 0 18px 44px -30px rgba(15,23,42,0.22)",
           }}
         >
-          {/* subtle left accent rail (brand) — no pink background wash */}
-          <span aria-hidden className="pointer-events-none absolute left-0 top-0 h-full w-1" style={{ background: "linear-gradient(180deg, var(--color-altus-red), var(--color-altus-red-deep))" }} />
 
           <div className="relative flex min-h-[64px] items-center gap-4 px-6 py-3 max-xl:flex-wrap max-md:gap-3 max-md:px-4">
             {/* 1 · identity — title only (eyebrow removed per request) */}
@@ -708,6 +763,19 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               </div>
             )}
 
+            {/* Dynamic-quarter toggle — reveal / re-hide the past quarters. */}
+            {props.level === "quarter" && isCurrentFy && (pastQuarterCount > 0 || showPast) && (
+              <button
+                type="button"
+                onClick={() => setShowPast((v) => !v)}
+                aria-pressed={showPast}
+                className="shrink-0 self-center inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-bold text-ink-muted transition-colors hover:bg-surface-soft hover:text-ink-strong outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/40"
+                style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}
+              >
+                {showPast ? "Hide past" : `Show past${pastQuarterCount ? ` (${pastQuarterCount})` : ""}`}
+              </button>
+            )}
+
             {/* 3 · person + FY — side by side on one horizontal band */}
             <div
               className="flex shrink-0 flex-row items-center gap-2.5 border-l pl-5 max-xl:w-full max-xl:justify-between max-xl:border-l-0 max-xl:pl-0"
@@ -716,7 +784,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               {/* Name selector — a bold, glowing custom pill (avatar + "VIEWING"
                   eyebrow + the unstyled Select as the name). */}
               {props.roster.length > 1 && (
-                <div className="group relative w-[186px] max-md:w-full">
+                <div className="group relative w-[260px] max-xl:w-[240px] max-md:w-full">
                   <span
                     aria-hidden
                     className="pointer-events-none absolute -inset-[2px] rounded-2xl opacity-55 blur-[7px] transition-opacity duration-300 group-hover:opacity-90"
@@ -838,7 +906,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               onValueChange={(v) => setSortKey(v as SortKey)}
               ariaLabel="Sort goals"
               unstyled
-              className="flex min-w-[9rem] cursor-pointer items-center gap-1.5 text-[13px] font-bold text-ink-soft"
+              className="flex min-w-[6.5rem] cursor-pointer items-center gap-1.5 text-[13px] font-bold text-ink-soft"
               options={SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
             />
           </div>
@@ -874,7 +942,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
             className="inline-flex items-center overflow-hidden rounded-full border border-hairline-strong bg-surface-soft"
           >
             <ViewToggleButton
-              active={!kanban}
+              active={!kanban && !dashboard}
               label="List"
               icon={<List size={14} strokeWidth={2.4} />}
               onClick={() => pickView("list")}
@@ -945,7 +1013,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               {inBucket.length === 0 ? (
                 <EmptyState periodLabel={periodKeyLabel(props.periodKey)} />
               ) : displayed.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-hairline-strong bg-surface-card px-6 py-8 text-center">
+                <div className="rounded-2xl border border-hairline-strong bg-surface-card px-6 py-8 text-center">
                   <p className="text-[15px] font-bold text-ink-strong">No goals match these filters</p>
                   <button
                     type="button"
@@ -967,8 +1035,10 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                   areaOptions={areaOptions}
                   measureOptions={measureOptions}
                   typeOptions={typeOptions}
+                  goaltypeOptions={goaltypeOptions}
                   customLookups={customLookups}
                   fyStartYear={fy}
+                  codeOf={codeOf}
                   level={props.level}
                   actions={LEVEL_TABLE_ACTIONS}
                 />
@@ -1068,7 +1138,11 @@ function ViewToggleButton({
       className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-bold transition-colors ${FOCUS_RING}`}
       style={
         active
-          ? { background: "var(--color-surface-card)", color: "var(--color-altus-red-deep)", boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }
+          ? {
+              background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
+              color: "#fff",
+              boxShadow: "0 6px 14px -8px var(--color-altus-red-deep)",
+            }
           : { background: "transparent", color: "var(--color-ink-subtle)" }
       }
     >

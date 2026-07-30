@@ -51,7 +51,7 @@ export async function POST(req: Request): Promise<Response> {
     return new Response(new Uint8Array(pdf), {
       headers: {
         "content-type": "application/pdf",
-        "content-disposition": 'attachment; filename="candidate-resume.pdf"',
+        "content-disposition": 'attachment; filename="Candidate-Resume.pdf"',
       },
     });
   } catch {

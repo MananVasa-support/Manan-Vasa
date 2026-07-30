@@ -515,7 +515,7 @@ export function WeeklyCascadeBoard({
         <motion.div
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-section border border-dashed border-hairline-strong bg-surface-card px-6 py-16 text-center"
+          className="rounded-section border border-hairline-strong bg-surface-card px-6 py-16 text-center"
         >
           <span
             className="mx-auto mb-3 inline-flex h-16 w-16 items-center justify-center rounded-full"
@@ -823,7 +823,7 @@ const WeeklyQuickAdd = React.forwardRef<
           setOpen(true);
           requestAnimationFrame(() => titleRef.current?.focus());
         }}
-        className={`wg-btn group flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed px-4 py-5 text-[15px] font-bold transition-colors hover:bg-surface-soft ${QUICK_ADD_FOCUS_RING}`}
+        className={`wg-btn group flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-2xl border-2 px-4 py-5 text-[15px] font-bold transition-colors hover:bg-surface-soft ${QUICK_ADD_FOCUS_RING}`}
         style={{
           borderColor: "color-mix(in srgb, var(--color-altus-red) 40%, transparent)",
           color: "var(--color-altus-red-deep)",

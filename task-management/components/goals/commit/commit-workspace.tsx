@@ -578,7 +578,7 @@ function CardHeader({
 
 function Empty({ text }: { text: string }) {
   return (
-    <div className="mt-4 rounded-xl border border-dashed border-hairline-strong bg-surface-soft/40 px-4 py-6 text-center text-[13.5px] font-medium text-ink-soft">
+    <div className="mt-4 rounded-xl border border-hairline-strong bg-surface-soft/40 px-4 py-6 text-center text-[13.5px] font-medium text-ink-soft">
       {text}
     </div>
   );

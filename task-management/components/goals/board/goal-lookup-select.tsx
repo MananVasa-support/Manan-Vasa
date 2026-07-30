@@ -29,7 +29,7 @@ export function GoalLookupSelect({
   className,
   compact,
 }: {
-  kind: "area" | "measure" | "type";
+  kind: "area" | "measure" | "type" | "goaltype";
   noun: string;
   value: string;
   onChange: (value: string) => void;
@@ -70,9 +70,10 @@ export function GoalLookupSelect({
   // cell); Esc closes. `active` is the highlighted index into `filtered`.
   const [active, setActive] = React.useState(0);
 
-  // Search box shows once the list gets long enough to warrant it (the input
-  // stays mounted either way so type-ahead + arrow nav work on short lists too).
-  const showSearch = opts.length > 8;
+  // Search box shows once the list gets long enough to warrant it, OR the moment
+  // the user has typed anything (so a type-to-open seed is visible) — the input
+  // stays mounted either way so type-ahead + arrow nav work on short lists too.
+  const showSearch = opts.length > 8 || query.trim().length > 0;
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     return q ? opts.filter((o) => o.toLowerCase().includes(q)) : opts;
@@ -83,9 +84,14 @@ export function GoalLookupSelect({
   }, [adding]);
 
   // Reset query + highlight and focus the search box each time the panel opens.
+  // When the grid opens us via type-to-edit it stamps the typed char on the
+  // trigger as `data-grid-seed` — consume it here so the first keystroke isn't
+  // dropped (it primes the filter), then clear it so a later mouse-open is blank.
   React.useEffect(() => {
     if (open) {
-      setQuery("");
+      const seed = triggerRef.current?.getAttribute("data-grid-seed") ?? "";
+      triggerRef.current?.removeAttribute("data-grid-seed");
+      setQuery(seed);
       setActive(0);
       requestAnimationFrame(() => searchRef.current?.focus());
     }
@@ -109,6 +115,14 @@ export function GoalLookupSelect({
     return true;
   }
 
+  /** Return focus to the owning spreadsheet cell (so arrow-nav resumes) when we
+   *  live inside the Goals grid; fall back to our own trigger in the composer/
+   *  drawer, which has no grid cell. */
+  function focusOwner() {
+    const cell = triggerRef.current?.closest<HTMLElement>('[role="gridcell"]');
+    (cell ?? triggerRef.current)?.focus();
+  }
+
   function onSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -124,7 +138,7 @@ export function GoalLookupSelect({
       setActive(Math.max(0, filtered.length - 1));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (commitAt(active)) requestAnimationFrame(() => triggerRef.current?.focus());
+      if (commitAt(active)) requestAnimationFrame(focusOwner);
     } else if (e.key === "Tab") {
       // Commit the highlight, then let Tab ADVANCE to the next cell (spreadsheet flow).
       e.preventDefault();
@@ -133,7 +147,7 @@ export function GoalLookupSelect({
       requestAnimationFrame(() => focusNextFrom(triggerRef.current, e.shiftKey ? -1 : 1));
     } else if (e.key === "Escape") {
       setOpen(false);
-      requestAnimationFrame(() => triggerRef.current?.focus());
+      requestAnimationFrame(focusOwner);
     }
   }
 
@@ -165,11 +179,25 @@ export function GoalLookupSelect({
   }
 
   function pickList(o: import("@/lib/goals/lookups").GoalLookupOptions): string[] {
-    return kind === "area" ? o.areas : kind === "measure" ? o.measures : o.types;
+    return kind === "area"
+      ? o.areas
+      : kind === "measure"
+        ? o.measures
+        : kind === "goaltype"
+          ? o.goaltypes
+          : o.types;
   }
   function applyOptions(o: import("@/lib/goals/lookups").GoalLookupOptions) {
     setOpts(pickList(o));
-    setDeletable(kind === "area" ? o.custom.areas : kind === "measure" ? o.custom.measures : o.custom.types);
+    setDeletable(
+      kind === "area"
+        ? o.custom.areas
+        : kind === "measure"
+          ? o.custom.measures
+          : kind === "goaltype"
+            ? o.custom.goaltypes
+            : o.custom.types,
+    );
   }
 
   return (
@@ -179,7 +207,7 @@ export function GoalLookupSelect({
           ref={triggerRef}
           type="button"
           className={cn(
-            "group/gdd flex w-full items-center justify-between gap-2 text-left text-ink-strong",
+            "group/gdd flex w-full items-center justify-center gap-1.5 text-center text-ink-strong",
             compact
               ? cn(
                   "h-9 rounded-lg px-2 text-[13px] transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_7%,transparent)] data-[state=open]:bg-[color-mix(in_srgb,var(--color-altus-red)_9%,transparent)]",

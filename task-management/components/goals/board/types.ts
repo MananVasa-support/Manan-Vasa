@@ -42,8 +42,10 @@ export interface GoalsBoardData {
   measureOptions: string[];
   /** Type dropdown options (→ goals.category): base + admin-added. */
   typeOptions: string[];
+  /** Goal-Type taxonomy options (→ goals.goal_type): base + admin-added (#194). */
+  goaltypeOptions: string[];
   /** The admin-added (deletable) subset per kind — base options aren't here. */
-  customLookups: { areas: string[]; measures: string[]; types: string[] };
+  customLookups: { areas: string[]; measures: string[]; types: string[]; goaltypes: string[] };
 }
 
 export interface GoalsLevelBoardProps extends GoalsBoardData {

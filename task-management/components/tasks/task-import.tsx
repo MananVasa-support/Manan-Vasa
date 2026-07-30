@@ -101,7 +101,7 @@ export function TaskImport({
     // panes, Examples + How-to sheets) — every task column, generated server-side.
     const a = document.createElement("a");
     a.href = "/tasks/template.xlsx";
-    a.download = "altus-tasks-template.xlsx";
+    a.download = "Altus-Tasks-Template.xlsx";
     a.click();
   }
 

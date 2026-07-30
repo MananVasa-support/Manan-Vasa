@@ -95,7 +95,7 @@ export async function GET(request: Request): Promise<Response> {
     headers: {
       "content-type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "content-disposition": `attachment; filename="salary-${month}.xlsx"`,
+      "content-disposition": `attachment; filename="Salary-${month}.xlsx"`,
       "cache-control": "no-store",
     },
   });

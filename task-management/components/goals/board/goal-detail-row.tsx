@@ -39,6 +39,7 @@ export function GoalDetailRow({
   nodeKind = "cascade",
   assignment,
   onSaveNotes,
+  onClose,
 }: {
   goalId: string;
   notes: string | null;
@@ -50,11 +51,23 @@ export function GoalDetailRow({
   assignment?: AssignmentInfo;
   /** Persist notes through the parent's optimistic editField. */
   onSaveNotes: (notes: string | null) => void;
+  /** Collapse the row + return focus to the "Notes & Files" toggle (Esc from the
+   *  textarea). Wired by the grid so Notes has a complete keyboard round-trip. */
+  onClose?: () => void;
 }) {
   const [notes, setNotes] = React.useState(initialNotes ?? "");
   const [atts, setAtts] = React.useState<DetailAttachment[] | null>(null); // null = loading
   const [uploading, setUploading] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
+  const notesRef = React.useRef<HTMLTextAreaElement>(null);
+
+  // Auto-focus the notes textarea when the row expands (caret ready — the whole
+  // point of opening it), so the keyboard user lands straight in the field.
+  React.useEffect(() => {
+    if (!canWrite) return;
+    const t = requestAnimationFrame(() => notesRef.current?.focus());
+    return () => cancelAnimationFrame(t);
+  }, [canWrite]);
 
   // Lazy-load the attachment gallery when the row opens.
   React.useEffect(() => {
@@ -132,6 +145,7 @@ export function GoalDetailRow({
               <FileText size={13} className="text-altus-red" /> Notes
             </p>
             <textarea
+              ref={notesRef}
               value={notes}
               disabled={!canWrite}
               onChange={(e) => setNotes(e.target.value)}
@@ -141,9 +155,16 @@ export function GoalDetailRow({
                   e.preventDefault();
                   commitNotes();
                   (e.target as HTMLTextAreaElement).blur();
+                } else if (e.key === "Escape") {
+                  // Esc: save, leave the field, collapse the row and return focus to
+                  // the "Notes & Files" toggle so the grid round-trip is complete.
+                  e.preventDefault();
+                  commitNotes();
+                  (e.target as HTMLTextAreaElement).blur();
+                  onClose?.();
                 }
               }}
-              placeholder="Add context, blockers, links, next steps… (⌘/Ctrl + Enter to save)"
+              placeholder="Add context, blockers, links, next steps… (⌘/Ctrl + Enter to save · Esc to close)"
               rows={4}
               className={cn(
                 "w-full resize-y rounded-lg border bg-white px-3 py-2 text-[13.5px] leading-relaxed text-ink-strong focus:border-altus-red disabled:opacity-60",
@@ -187,7 +208,7 @@ export function GoalDetailRow({
                 <Loader2 size={13} className="animate-spin" /> Loading…
               </p>
             ) : atts.length === 0 ? (
-              <p className="rounded-lg border border-dashed px-3 py-3 text-[12.5px] text-ink-subtle" style={{ borderColor: "var(--color-hairline-strong)" }}>
+              <p className="rounded-lg border px-3 py-3 text-[12.5px] text-ink-subtle" style={{ borderColor: "var(--color-hairline-strong)" }}>
                 No files yet — attach evidence, briefs or screenshots.
               </p>
             ) : (

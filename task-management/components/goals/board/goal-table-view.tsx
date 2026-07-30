@@ -14,6 +14,7 @@
  */
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
@@ -27,6 +28,7 @@ import {
   Minus,
   Pencil,
   Plus,
+  Search,
   Split,
   Trash2,
   UserPlus,
@@ -43,7 +45,6 @@ import {
   divideYearlyGoal,
   moveGoalToPeriod,
   bulkArchiveGoals,
-  bulkSetShareWithTeam,
   bulkCopyGoalsToPeriod,
   detectCopyCollisions,
 } from "@/app/(app)/goals/cascade/actions";
@@ -99,8 +100,15 @@ export interface GoalTableViewProps {
   areaOptions: string[];
   measureOptions: string[];
   typeOptions: string[];
-  customLookups: { areas: string[]; measures: string[]; types: string[] };
+  /** Goal-Type taxonomy options (base + admin-added). When supplied, the inline
+   *  Type cell becomes an add/delete managed dropdown (#194); when omitted it
+   *  falls back to the fixed built-in taxonomy. */
+  goaltypeOptions?: string[];
+  customLookups: { areas: string[]; measures: string[]; types: string[]; goaltypes?: string[] };
   fyStartYear: number;
+  /** Stable dense goal code from the board's single rank source. When omitted
+   *  (e.g. the weekly board) the table falls back to its own row-index code. */
+  codeOf?: (g: GoalDTO) => string;
   level: "year" | "quarter" | "month" | "week" | "day";
   /** "weekly" drives the weekly_goals engine: hides Share/Type + copy/divide,
    *  makes the Goal title inline-editable, uses the weekly detail node kind. */
@@ -213,7 +221,7 @@ function NumBox({
         }
       }}
       className={cn(
-        "h-9 rounded-md border-0 bg-transparent px-2 text-right text-[13.5px] font-semibold text-ink-strong tabular-nums transition-colors hover:bg-black/[0.04] focus:bg-black/[0.06]",
+        "h-9 rounded-md border-0 bg-transparent px-2 text-center text-[13.5px] font-semibold text-ink-strong tabular-nums transition-colors hover:bg-black/[0.04] focus:bg-black/[0.06]",
         "disabled:cursor-not-allowed disabled:opacity-60",
         "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
         FOCUS_RING,
@@ -277,6 +285,65 @@ function TextCell({
       )}
       style={{ borderColor: "var(--color-hairline-strong)" }}
     />
+  );
+}
+
+/** Delayed hover-preview for a Goal title. On a small MacBook the inline cell
+ *  truncates the full text; hovering the cell for ~650ms floats a readable card
+ *  with the complete goal (portaled to <body> so the grid never clips it, and
+ *  pointer-events-none so it never blocks a click). The delay is deliberate — it
+ *  reads as intentional, not a twitchy instant tooltip — and it hides the moment
+ *  you click in to edit or move the mouse away. Only arms for text long enough to
+ *  plausibly clip (short titles show fully already, so no peek needed). */
+function GoalPeek({ text, children }: { text: string; children: React.ReactNode }) {
+  const [box, setBox] = React.useState<{ top: number; left: number; width: number } | null>(null);
+  const ref = React.useRef<HTMLDivElement>(null);
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const arm = text.trim().length > 22;
+
+  const clear = React.useCallback(() => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+  }, []);
+  React.useEffect(() => clear, [clear]);
+
+  function schedule() {
+    if (!arm) return;
+    clear();
+    timer.current = setTimeout(() => {
+      const el = ref.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setBox({ top: r.bottom + 6, left: r.left, width: r.width });
+    }, 650);
+  }
+  function hide() {
+    clear();
+    setBox(null);
+  }
+
+  return (
+    <div ref={ref} onMouseEnter={schedule} onMouseLeave={hide} onFocusCapture={hide}>
+      {children}
+      {box &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            role="tooltip"
+            className="wg-fade-in pointer-events-none fixed z-[9999] rounded-xl border border-hairline-strong bg-white px-3.5 py-2.5 text-[13.5px] font-semibold leading-snug text-ink-strong shadow-xl"
+            style={{
+              top: box.top,
+              left: Math.min(box.left, (typeof window !== "undefined" ? window.innerWidth : 1200) - 380),
+              width: Math.min(Math.max(box.width, 260), 360),
+            }}
+          >
+            {text}
+          </div>,
+          document.body,
+        )}
+    </div>
   );
 }
 
@@ -449,7 +516,7 @@ function PctCell({
   }
 
   return (
-    <div className="flex items-center justify-center gap-1.5">
+    <div className="flex items-center justify-center gap-0.5">
       <NumBox
         value={String(pct)}
         min={0}
@@ -460,7 +527,7 @@ function PctCell({
           const n = Math.max(0, Math.min(100, Math.round(Number(raw) || 0)));
           if (n !== pct) onCommit(n);
         }}
-        className="w-[52px]"
+        className="w-[40px]"
       />
       <span
         className="inline-flex h-6 min-w-7 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums"
@@ -494,8 +561,57 @@ function TeamMembersCell({
   onCommit: (next: TeamRef[] | null) => void;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const [active, setActive] = React.useState(0);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const searchRef = React.useRef<HTMLInputElement>(null);
+  const listRef = React.useRef<HTMLDivElement>(null);
   const list = team ?? [];
   const picked = React.useMemo(() => new Set(list.map(memberKey)), [list]);
+
+  // Type-a-name-to-filter, mirroring DelegatesCell — the search box autofocuses
+  // on open, ↑/↓ + Home/End move the highlight, Enter toggles it, Esc closes. A
+  // grid `data-grid-seed` (if opened via type-to-edit) primes the first char.
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? roster.filter((r) => r.name.toLowerCase().includes(q)) : roster;
+  }, [roster, query]);
+
+  React.useEffect(() => {
+    if (open) {
+      const seed = triggerRef.current?.getAttribute("data-grid-seed") ?? "";
+      triggerRef.current?.removeAttribute("data-grid-seed");
+      setQuery(seed);
+      setActive(0);
+      requestAnimationFrame(() => searchRef.current?.focus());
+    }
+  }, [open]);
+  React.useEffect(() => {
+    setActive((a) => Math.min(Math.max(0, a), Math.max(0, filtered.length - 1)));
+  }, [filtered.length]);
+  React.useEffect(() => {
+    if (open) listRef.current?.querySelector<HTMLElement>(`[data-mem-opt="${active}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [active, open]);
+
+  function focusOwner() {
+    const cell = triggerRef.current?.closest<HTMLElement>('[role="gridcell"]');
+    (cell ?? triggerRef.current)?.focus();
+  }
+  function onSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(filtered.length - 1, a + 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(0, a - 1)); }
+    else if (e.key === "Home") { e.preventDefault(); setActive(0); }
+    else if (e.key === "End") { e.preventDefault(); setActive(Math.max(0, filtered.length - 1)); }
+    else if (e.key === "Enter") {
+      e.preventDefault();
+      const r = filtered[active];
+      if (r) toggle(r);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      requestAnimationFrame(focusOwner);
+    }
+  }
 
   function isPicked(r: RosterMember): boolean {
     return picked.has(r.id) || list.some((m) => !m.employeeId && (m.name ?? "").toLowerCase() === r.name.toLowerCase());
@@ -557,11 +673,12 @@ function TeamMembersCell({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
+            ref={triggerRef}
             type="button"
             disabled={disabled}
             aria-label="Edit team members + weights"
             className={cn(
-              "inline-flex h-6 items-center gap-1 rounded-full border border-dashed px-2 text-[11px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red",
+              "inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red",
               "disabled:cursor-not-allowed disabled:opacity-60",
               FOCUS_RING,
             )}
@@ -573,26 +690,47 @@ function TeamMembersCell({
         <PopoverContent
           align="start"
           sideOffset={6}
+          onCloseAutoFocus={(e) => { e.preventDefault(); focusOwner(); }}
           className="z-[80] w-72 rounded-xl border border-hairline bg-surface-card p-1.5"
           style={{ boxShadow: "0 18px 44px -18px rgba(15,23,42,0.3)" }}
         >
           <p className="flex items-center gap-1.5 px-2.5 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-subtle">
             <Users size={12} /> Members &amp; weights
           </p>
-          <div className="max-h-64 overflow-auto">
-            {roster.map((r) => {
+          {/* Type-a-name-to-filter — autofocused; ↑/↓ move the highlight, Enter toggles. */}
+          <div className="px-1 pb-1.5">
+            <div className="flex items-center gap-2 rounded-lg border border-hairline bg-white/70 px-2.5">
+              <Search size={14} className="shrink-0 text-ink-subtle" />
+              <input
+                ref={searchRef}
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setActive(0); }}
+                onKeyDown={onSearchKeyDown}
+                placeholder="Search people…"
+                aria-label="Search team members"
+                className="h-8 w-full bg-transparent text-[13px] font-medium text-ink-strong outline-none placeholder:text-ink-subtle"
+              />
+            </div>
+          </div>
+          <div ref={listRef} className="max-h-64 overflow-auto" role="listbox">
+            {filtered.map((r, i) => {
               const isSel = isPicked(r);
+              const isActive = i === active;
               const mine = list.find(
                 (m) => m.employeeId === r.id || (!m.employeeId && (m.name ?? "").toLowerCase() === r.name.toLowerCase()),
               );
               return (
                 <div
                   key={r.id}
-                  className={cn("flex items-center gap-2 rounded-lg px-2.5 py-1.5 transition-colors", isSel ? "" : "hover:bg-black/[0.04]")}
-                  style={isSel ? { background: redTint(10) } : undefined}
+                  className={cn("flex items-center gap-2 rounded-lg px-2.5 py-1.5 transition-colors", isSel || isActive ? "" : "hover:bg-black/[0.04]")}
+                  style={isSel ? { background: redTint(10) } : isActive ? { background: redTint(6) } : undefined}
                 >
                   <button
                     type="button"
+                    data-mem-opt={i}
+                    role="option"
+                    aria-selected={isActive}
+                    onMouseEnter={() => setActive(i)}
                     onClick={() => toggle(r)}
                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
@@ -629,7 +767,11 @@ function TeamMembersCell({
                 </div>
               );
             })}
-            {roster.length === 0 && <p className="px-3 py-4 text-center text-[12.5px] text-ink-subtle">No roster.</p>}
+            {filtered.length === 0 && (
+              <p className="px-3 py-4 text-center text-[12.5px] text-ink-subtle">
+                {roster.length === 0 ? "No roster." : "No matches."}
+              </p>
+            )}
           </div>
         </PopoverContent>
       </Popover>
@@ -779,8 +921,59 @@ function DelegatesCell({
   onCommit: (next: DelegRef[] | null) => void;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const [active, setActive] = React.useState(0);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const searchRef = React.useRef<HTMLInputElement>(null);
+  const listRef = React.useRef<HTMLDivElement>(null);
   const list = delegates ?? [];
   const picked = React.useMemo(() => new Set(list.map((d) => d.employeeId)), [list]);
+
+  // Type-a-name-to-filter: the search box always holds focus while open, the
+  // first match is auto-highlighted, ↑/↓ + Home/End move it, Enter toggles the
+  // highlighted person, Esc closes. When the grid opens us via type-to-edit it
+  // stamps the typed char on the trigger as `data-grid-seed` — consume it so the
+  // first keystroke primes the filter instead of being dropped.
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? roster.filter((r) => r.name.toLowerCase().includes(q)) : roster;
+  }, [roster, query]);
+
+  React.useEffect(() => {
+    if (open) {
+      const seed = triggerRef.current?.getAttribute("data-grid-seed") ?? "";
+      triggerRef.current?.removeAttribute("data-grid-seed");
+      setQuery(seed);
+      setActive(0);
+      requestAnimationFrame(() => searchRef.current?.focus());
+    }
+  }, [open]);
+  React.useEffect(() => {
+    setActive((a) => Math.min(Math.max(0, a), Math.max(0, filtered.length - 1)));
+  }, [filtered.length]);
+  React.useEffect(() => {
+    if (open) listRef.current?.querySelector<HTMLElement>(`[data-deleg-opt="${active}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [active, open]);
+
+  function focusOwner() {
+    const cell = triggerRef.current?.closest<HTMLElement>('[role="gridcell"]');
+    (cell ?? triggerRef.current)?.focus();
+  }
+  function onSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(filtered.length - 1, a + 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(0, a - 1)); }
+    else if (e.key === "Home") { e.preventDefault(); setActive(0); }
+    else if (e.key === "End") { e.preventDefault(); setActive(Math.max(0, filtered.length - 1)); }
+    else if (e.key === "Enter") {
+      e.preventDefault();
+      const r = filtered[active];
+      if (r) toggle(r); // toggle keeps the panel open so several can be picked in a row
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      requestAnimationFrame(focusOwner);
+    }
+  }
 
   function toggle(member: RosterMember) {
     const next = picked.has(member.id)
@@ -828,11 +1021,12 @@ function DelegatesCell({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
+            ref={triggerRef}
             type="button"
             disabled={disabled}
             aria-label="Delegate to team"
             className={cn(
-              "inline-flex h-6 items-center gap-1 rounded-full border border-dashed px-2 text-[11px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red",
+              "inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red",
               "disabled:cursor-not-allowed disabled:opacity-60",
               FOCUS_RING,
             )}
@@ -844,23 +1038,49 @@ function DelegatesCell({
         <PopoverContent
           align="start"
           sideOffset={6}
+          // Esc / click-away returns focus to the owning grid cell so arrow-nav resumes.
+          onCloseAutoFocus={(e) => { e.preventDefault(); focusOwner(); }}
           className="z-[80] w-72 rounded-xl border border-hairline bg-surface-card p-1.5"
           style={{ boxShadow: "0 18px 44px -18px rgba(15,23,42,0.3)" }}
         >
           <p className="flex items-center gap-1.5 px-2.5 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-subtle">
             <UserPlus size={12} /> Delegate &amp; share %
           </p>
-          <div className="max-h-64 overflow-auto">
-            {roster.map((r) => {
+          {/* Type-a-name-to-filter — autofocused; ↑/↓ move the highlight, Enter toggles. */}
+          <div className="px-1 pb-1.5">
+            <div className="flex items-center gap-2 rounded-lg border border-hairline bg-white/70 px-2.5">
+              <Search size={14} className="shrink-0 text-ink-subtle" />
+              <input
+                ref={searchRef}
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setActive(0); }}
+                onKeyDown={onSearchKeyDown}
+                placeholder="Search people…"
+                aria-label="Search people to delegate"
+                className="h-8 w-full bg-transparent text-[13px] font-medium text-ink-strong outline-none placeholder:text-ink-subtle"
+              />
+            </div>
+          </div>
+          <div ref={listRef} className="max-h-64 overflow-auto" role="listbox">
+            {filtered.map((r, i) => {
               const isSel = picked.has(r.id);
+              const isActive = i === active;
               const mine = list.find((d) => d.employeeId === r.id);
               return (
                 <div
                   key={r.id}
-                  className={cn("flex items-center gap-2 rounded-lg px-2.5 py-1.5 transition-colors", isSel ? "" : "hover:bg-black/[0.04]")}
-                  style={isSel ? { background: redTint(10) } : undefined}
+                  className={cn("flex items-center gap-2 rounded-lg px-2.5 py-1.5 transition-colors", isSel || isActive ? "" : "hover:bg-black/[0.04]")}
+                  style={isSel ? { background: redTint(10) } : isActive ? { background: redTint(6) } : undefined}
                 >
-                  <button type="button" onClick={() => toggle(r)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                  <button
+                    type="button"
+                    data-deleg-opt={i}
+                    role="option"
+                    aria-selected={isActive}
+                    onMouseEnter={() => setActive(i)}
+                    onClick={() => toggle(r)}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  >
                     <span className="inline-flex w-4 shrink-0 justify-center">
                       {isSel && <Check size={14} strokeWidth={3} className="text-altus-red" />}
                     </span>
@@ -894,7 +1114,11 @@ function DelegatesCell({
                 </div>
               );
             })}
-            {roster.length === 0 && <p className="px-3 py-4 text-center text-[12.5px] text-ink-subtle">No roster.</p>}
+            {filtered.length === 0 && (
+              <p className="px-3 py-4 text-center text-[12.5px] text-ink-subtle">
+                {roster.length === 0 ? "No roster." : "No matches."}
+              </p>
+            )}
           </div>
         </PopoverContent>
       </Popover>
@@ -1021,31 +1245,6 @@ function BulkDelegate({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Cell: Share-with-team Yes/No pill                                   */
-/* ------------------------------------------------------------------ */
-
-function SharePill({
-  on,
-  disabled,
-  onChange,
-}: {
-  on: boolean;
-  disabled: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <div className={cn("inline-flex justify-center", disabled && "cursor-not-allowed opacity-60")}>
-      <BrandCheck
-        checked={on}
-        onToggle={() => {
-          if (!disabled) onChange(!on);
-        }}
-        label="Share with team"
-      />
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /* Cell: Target Date — inline deadline under the goal title (month/week) */
@@ -1553,7 +1752,9 @@ export function GoalTableView(props: GoalTableViewProps) {
     areaOptions,
     measureOptions,
     typeOptions,
+    goaltypeOptions,
     customLookups,
+    codeOf,
     level,
   } = props;
 
@@ -1817,41 +2018,42 @@ export function GoalTableView(props: GoalTableViewProps) {
           return { partial: { weight: v }, run: () => A.editGoal({ id: g.id, weight: v }) };
         },
       },
+      {
+        // Delegate is NOT typeable/pasteable (its {employeeId, name, pct} payload
+        // has no sane TSV round-trip, like Members) — but it IS a navigable grid
+        // column so arrow-nav can land on it and Enter opens the picker. read()
+        // gives Copy a readable summary; editable=false makes paste/fill/delete
+        // skip it; parse=()=>null rejects any typed/pasted write.
+        key: "delegate",
+        label: "Delegated",
+        read: (g) => (g.delegatedTo ?? []).map((d) => `${d.name ?? ""}${d.pct != null ? ` (${d.pct}%)` : ""}`).filter(Boolean).join(", "),
+        editable: () => false,
+        parse: () => null,
+      },
     ];
 
     cols.push(
-      {
-        key: "share",
-        label: "Share",
-        read: (g) => (g.shareWithTeam ? "Yes" : "No"),
-        editable: () => !locked,
-        parse: (raw, g) => {
-          const s = raw.trim().toLowerCase();
-          const v = ["yes", "y", "true", "1", "on", "shared", "✓"].includes(s)
-            ? true
-            : ["no", "n", "false", "0", "off"].includes(s)
-              ? false
-              : null;
-          if (v === null) return null;
-          return { partial: { shareWithTeam: v }, run: () => A.editGoal({ id: g.id, shareWithTeam: v }) };
-        },
-      },
       {
         // #10 — Goal Type taxonomy: KPI / Branding / Strategic / Operational /
         // Essential (goalType enum), NOT the legacy free-text `category`.
         key: "type",
         label: "Type",
-        read: (g) => (g.goalType ? GOAL_TYPE_LABELS[g.goalType as GoalType] ?? "" : ""),
+        // Built-in code → its label; admin-added custom type → its raw value.
+        read: (g) => (g.goalType ? GOAL_TYPE_LABELS[g.goalType as GoalType] ?? g.goalType : ""),
         editable: () => !locked,
         parse: (raw, g) => {
-          const norm = raw.trim().toLowerCase();
+          const trimmed = raw.trim();
+          const norm = trimmed.toLowerCase();
           if (norm === "")
             return { partial: { goalType: null }, run: () => A.editGoal({ id: g.id, goalType: null }) };
+          // A built-in type persists as its canonical code (unchanged behaviour).
           const code = GOAL_TYPES.find(
             (t) => t === norm || GOAL_TYPE_LABELS[t].toLowerCase() === norm,
           );
-          if (!code) return null;
-          return { partial: { goalType: code }, run: () => A.editGoal({ id: g.id, goalType: code }) };
+          if (code)
+            return { partial: { goalType: code }, run: () => A.editGoal({ id: g.id, goalType: code }) };
+          // #194 — an admin-added custom Goal Type is stored as its raw label.
+          return { partial: { goalType: trimmed }, run: () => A.editGoal({ id: g.id, goalType: trimmed }) };
         },
       },
     );
@@ -1874,15 +2076,6 @@ export function GoalTableView(props: GoalTableViewProps) {
       ids,
       () => A.bulkArchiveGoals({ ids }),
       `${ids.length} goal${ids.length === 1 ? "" : "s"} moved to the recycle bin`,
-      clearSelection,
-    );
-  }
-  function bulkShare(share: boolean) {
-    const sel = new Set(ids);
-    setRows((prev) => prev.map((r) => (sel.has(r.id) ? { ...r, shareWithTeam: share } : r)));
-    run(
-      () => bulkSetShareWithTeam({ ids, shareWithTeam: share }),
-      share ? "Now sharing with the team" : "Sharing turned off",
       clearSelection,
     );
   }
@@ -2164,30 +2357,6 @@ export function GoalTableView(props: GoalTableViewProps) {
             </>
           )}
 
-          {!weekly && (
-            <>
-              <span className="mx-0.5 hidden h-5 w-px sm:block" style={{ background: "var(--color-hairline-strong)" }} />
-              <span className="text-[12px] font-bold text-ink-soft">Share with Team</span>
-              <div className="inline-flex overflow-hidden rounded-lg border" style={{ borderColor: "var(--color-hairline-strong)" }}>
-                <button
-                  type="button"
-                  onClick={() => bulkShare(true)}
-                  className={cn("bg-surface-card px-2.5 py-1.5 text-[12.5px] font-bold text-ink-strong transition-colors hover:bg-altus-red hover:text-white", FOCUS_RING)}
-                >
-                  Yes
-                </button>
-                <span className="w-px" style={{ background: "var(--color-hairline-strong)" }} />
-                <button
-                  type="button"
-                  onClick={() => bulkShare(false)}
-                  className={cn("bg-surface-card px-2.5 py-1.5 text-[12.5px] font-bold text-ink-strong transition-colors hover:bg-black/[0.06]", FOCUS_RING)}
-                >
-                  No
-                </button>
-              </div>
-            </>
-          )}
-
           <span className="mx-0.5 hidden h-5 w-px sm:block" style={{ background: "var(--color-hairline-strong)" }} />
 
           <BulkMembers roster={roster} count={selected.size} onApply={bulkSetMembers} />
@@ -2261,18 +2430,17 @@ export function GoalTableView(props: GoalTableViewProps) {
                   label="Select all goals"
                 />
               </th>
-              <th className={cn(TH, "w-px")}>#</th>
-              <th className={cn(TH, "min-w-[104px]")}>Area</th>
+              <th className={cn(TH, "w-px text-center")}>#</th>
+              <th className={cn(TH, "min-w-[104px] text-center")}>Area</th>
               <th className={cn(TH, "min-w-[150px]")}>Goal</th>
-              <th className={cn(TH, "min-w-[104px]")}>Measure</th>
-              <th className={TH}>Actual</th>
-              <th className={TH}>Target</th>
+              <th className={cn(TH, "min-w-[104px] text-center")}>Measure</th>
+              <th className={cn(TH, "text-center")}>Actual</th>
+              <th className={cn(TH, "text-center")}>Target</th>
               <th className={cn(TH, "w-[64px] text-center")}>% Done</th>
-              <th className={cn(TH, "w-[60px]")}>Team %</th>
-              <th className={cn(TH, "w-[64px]")}>Weight</th>
+              <th className={cn(TH, "w-[60px] text-center")}>Team %</th>
+              <th className={cn(TH, "w-[64px] text-center")}>Weight</th>
               <th className={cn(TH, "min-w-[150px]")}>Delegated</th>
-              <th className={TH}>Share</th>
-              <th className={cn(TH, "min-w-[104px]")}>Type</th>
+              <th className={cn(TH, "min-w-[104px] text-center")}>Type</th>
             </tr>
           </thead>
           <tbody>
@@ -2307,7 +2475,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                         className="whitespace-nowrap text-[13px] font-bold text-ink-soft tabular-nums"
                         style={{ fontFamily: "var(--font-display)" }}
                       >
-                        {goalCode({ period: g.period, periodKey: g.periodKey, position: i + 1, id: g.id })}
+                        {codeOf ? codeOf(g) : goalCode({ period: g.period, periodKey: g.periodKey, position: i + 1, id: g.id })}
                       </span>
                       {/* Assignment Type — Self / Assigned (assigned carries a
                           by · on · source tooltip). Every level can be assigned. */}
@@ -2334,15 +2502,17 @@ export function GoalTableView(props: GoalTableViewProps) {
 
                   {/* Goal title (inline in BOTH engines now) + Notes/Files expander */}
                   <td {...grid.cellProps(i, grid.ci("title"), "px-2.5 py-4 align-middle")}>
-                    <TextCell
-                      value={g.title}
-                      disabled={locked}
-                      ariaLabel="Goal title"
-                      placeholder="Goal…"
-                      // Title is required — the "title" column's parse rejects a blank
-                      // commit (returns null), so the row is never left without a name.
-                      onCommit={(v) => grid.commit("title", g, v)}
-                    />
+                    <GoalPeek text={g.title}>
+                      <TextCell
+                        value={g.title}
+                        disabled={locked}
+                        ariaLabel="Goal title"
+                        placeholder="Goal…"
+                        // Title is required — the "title" column's parse rejects a blank
+                        // commit (returns null), so the row is never left without a name.
+                        onCommit={(v) => grid.commit("title", g, v)}
+                      />
+                    </GoalPeek>
                     {/* Notes stay inline-editable in the expandable detail row below
                         (a textarea + attachments that commits via editGoal({notes})
                         through patchNotes) — no separate Notes column needed. */}
@@ -2361,6 +2531,11 @@ export function GoalTableView(props: GoalTableViewProps) {
                       type="button"
                       onClick={() => toggleExpand(g.id)}
                       aria-expanded={expanded.has(g.id)}
+                      // `data-cell-expander` lets the grid open this from the title
+                      // cell via Shift+Enter; `data-notes-toggle` lets the detail
+                      // row return focus here on Esc — both keyboard-only paths.
+                      data-cell-expander
+                      data-notes-toggle={g.id}
                       className={cn(
                         "mt-1.5 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10.5px] font-black uppercase tracking-[0.04em] transition-colors hover:bg-altus-red hover:text-white",
                         FOCUS_RING,
@@ -2388,7 +2563,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                   </td>
 
                   {/* Measure */}
-                  <td {...grid.cellProps(i, grid.ci("measure"), "px-2 py-4 align-middle")}>
+                  <td {...grid.cellProps(i, grid.ci("measure"), "px-2 py-4 align-middle text-center")}>
                     <div className={cn(locked && "pointer-events-none opacity-60")}>
                       <GoalLookupSelect
                         kind="measure"
@@ -2405,12 +2580,12 @@ export function GoalTableView(props: GoalTableViewProps) {
                   </td>
 
                   {/* Actual — its own grid cell (was half of "Actual / Target") */}
-                  <td {...grid.cellProps(i, grid.ci("actual"), "px-2 py-4 align-middle")}>
+                  <td {...grid.cellProps(i, grid.ci("actual"), "px-2 py-4 align-middle text-center")}>
                     <NumBox
                       value={trimDecimal(g.actualQty)}
                       disabled={locked}
                       ariaLabel="Actual"
-                      placeholder="Act"
+                      placeholder="Actual"
                       className="w-[64px]"
                       onCommit={(raw) => grid.commit("actual", g, raw)}
                     />
@@ -2422,12 +2597,12 @@ export function GoalTableView(props: GoalTableViewProps) {
                   </td>
 
                   {/* Target — its own grid cell */}
-                  <td {...grid.cellProps(i, grid.ci("target"), "px-2 py-4 align-middle")}>
+                  <td {...grid.cellProps(i, grid.ci("target"), "px-2 py-4 align-middle text-center")}>
                     <NumBox
                       value={trimDecimal(g.targetQty)}
                       disabled={locked}
                       ariaLabel="Target"
-                      placeholder="Tgt"
+                      placeholder="Target"
                       className="w-[64px]"
                       onCommit={(raw) => grid.commit("target", g, raw)}
                     />
@@ -2439,7 +2614,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                   </td>
 
                   {/* % Done — auto-derived from Target ÷ Actual when both drive it */}
-                  <td {...grid.cellProps(i, grid.ci("pct"), "px-2 py-4 align-middle")}>
+                  <td {...grid.cellProps(i, grid.ci("pct"), "px-2 py-4 align-middle text-center")}>
                     {(() => {
                       const auto = autoPctDone(g.targetQty, g.actualQty);
                       return (
@@ -2454,7 +2629,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                   </td>
 
                   {/* Team % */}
-                  <td {...grid.cellProps(i, grid.ci("teamPct"), "px-2 py-4 align-middle")}>
+                  <td {...grid.cellProps(i, grid.ci("teamPct"), "px-2 py-4 align-middle text-center")}>
                     <NumBox
                       value={g.teamDependencyPct == null ? "" : String(g.teamDependencyPct)}
                       min={0}
@@ -2467,7 +2642,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                   </td>
 
                   {/* Weight — #14: editable inline at every level, incl. inherited */}
-                  <td {...grid.cellProps(i, grid.ci("weight"), "px-2 py-4 align-middle")}>
+                  <td {...grid.cellProps(i, grid.ci("weight"), "px-2 py-4 align-middle text-center")}>
                     <NumBox
                       value={String(g.weight ?? 100)}
                       min={0}
@@ -2479,8 +2654,10 @@ export function GoalTableView(props: GoalTableViewProps) {
                     />
                   </td>
 
-                  {/* Delegated — accountability hand-off with per-delegate % */}
-                  <td className="px-2 py-4 align-middle">
+                  {/* Delegated — accountability hand-off with per-delegate %.
+                      A navigable (non-typeable) grid cell: arrow-nav lands here and
+                      Enter/type opens the picker with its search auto-focused. */}
+                  <td {...grid.cellProps(i, grid.ci("delegate"), "px-2 py-4 align-middle")}>
                     <DelegatesCell
                       delegates={g.delegatedTo ?? null}
                       roster={roster}
@@ -2489,27 +2666,20 @@ export function GoalTableView(props: GoalTableViewProps) {
                     />
                   </td>
 
-                  {/* Share w/ team */}
-                  <td {...grid.cellProps(i, grid.ci("share"), "px-2 py-4 align-middle")}>
-                    <SharePill
-                      on={g.shareWithTeam}
-                      disabled={locked}
-                      onChange={(v) => grid.commit("share", g, v ? "Yes" : "No")}
-                    />
-                  </td>
-
                   {/* Type — fixed Goal Type taxonomy (goalType), not free-text category */}
-                  <td {...grid.cellProps(i, grid.ci("type"), "px-2 py-4 align-middle")}>
+                  <td {...grid.cellProps(i, grid.ci("type"), "px-2 py-4 align-middle text-center")}>
                     <div className={cn(locked && "pointer-events-none opacity-60")}>
                       <GoalLookupSelect
-                        kind="type"
+                        kind="goaltype"
                         noun="Type"
                         compact
                         placeholder="Type"
-                        value={g.goalType ? GOAL_TYPE_LABELS[g.goalType as GoalType] : ""}
-                        options={GOAL_TYPE_OPTIONS}
-                        custom={[]}
-                        isAdmin={false}
+                        // Built-in codes render via their label; an admin-added
+                        // custom type is stored raw, so fall back to the value.
+                        value={g.goalType ? GOAL_TYPE_LABELS[g.goalType as GoalType] ?? g.goalType : ""}
+                        options={goaltypeOptions ?? GOAL_TYPE_OPTIONS}
+                        custom={customLookups.goaltypes ?? []}
+                        isAdmin={isAdmin && goaltypeOptions !== undefined}
                         onChange={(v) => grid.commit("type", g, v)}
                       />
                     </div>
@@ -2525,6 +2695,12 @@ export function GoalTableView(props: GoalTableViewProps) {
                     nodeKind={detailKind}
                     assignment={assignmentInfo(g)}
                     onSaveNotes={(n) => patchNotes(g.id, n)}
+                    onClose={() => {
+                      toggleExpand(g.id);
+                      requestAnimationFrame(() =>
+                        document.querySelector<HTMLElement>(`[data-notes-toggle="${g.id}"]`)?.focus(),
+                      );
+                    }}
                   />
                 )}
                 </React.Fragment>

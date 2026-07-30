@@ -57,7 +57,7 @@ export async function GET(request: Request): Promise<Response> {
     status: 200,
     headers: {
       "content-type": "application/pdf",
-      "content-disposition": `attachment; filename="weekly-goals-${safe}-W${weekNo}.pdf"`,
+      "content-disposition": `attachment; filename="Weekly-Goals-${safe}-W${weekNo}.pdf"`,
       "cache-control": "no-store",
     },
   });

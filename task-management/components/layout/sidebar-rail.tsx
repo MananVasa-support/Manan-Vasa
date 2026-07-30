@@ -35,7 +35,7 @@ export function SidebarRail({
 
   const pathname = usePathname();
   const ws = workspaceForPath(pathname ?? "/");
-  const expandedWidth = ws === "hr" ? "w-[288px]" : ws === "goals" ? "w-[248px]" : "w-[212px]";
+  const expandedWidth = ws === "hr" ? "w-[288px]" : ws === "goals" ? "w-[228px]" : "w-[212px]";
 
   // Once the user hits the toggle we stop auto-managing (never fight a manual choice).
   const userTouchedRef = React.useRef(false);

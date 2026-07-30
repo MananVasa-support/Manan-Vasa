@@ -110,7 +110,7 @@ export async function GET() {
     headers: {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": 'attachment; filename="accounts-task-list-template.xlsx"',
+      "Content-Disposition": 'attachment; filename="Accounts-Task-List-Template.xlsx"',
       "Cache-Control": "no-store",
     },
   });

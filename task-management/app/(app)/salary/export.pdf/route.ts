@@ -41,7 +41,7 @@ export async function GET(request: Request): Promise<Response> {
     status: 200,
     headers: {
       "content-type": "application/pdf",
-      "content-disposition": `attachment; filename="payroll-${month}.pdf"`,
+      "content-disposition": `attachment; filename="Payroll-${month}.pdf"`,
       "cache-control": "no-store",
     },
   });

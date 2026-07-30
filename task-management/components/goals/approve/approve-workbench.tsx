@@ -46,7 +46,7 @@ export function ApproveWorkbench({
 
   if (total === 0) {
     return (
-      <div className="wg-rise rounded-section border border-dashed border-hairline-strong bg-surface-soft/40 p-10 text-center">
+      <div className="wg-rise rounded-section border border-hairline-strong bg-surface-soft/40 p-10 text-center">
         <span
           className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl"
           style={{ background: `${ACCENT}14`, color: ACCENT_DEEP }}

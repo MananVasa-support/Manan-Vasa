@@ -225,7 +225,7 @@ export async function POST(req: Request): Promise<Response> {
   return new Response(new Uint8Array(out), {
     headers: {
       "content-type": "application/pdf",
-      "content-disposition": 'attachment; filename="docket.pdf"',
+      "content-disposition": 'attachment; filename="Docket.pdf"',
     },
   });
 }

@@ -109,8 +109,15 @@ export async function GET(request: Request): Promise<Response> {
     yesno: [...YES_NO_LABELS],
   };
 
-  const cols = GOAL_TEMPLATE_COLUMNS;
+  // LEAN entry template — only the columns users actually fill for a new goal,
+  // in `entry` order, matching the live board table (Area · Goal · Measure ·
+  // Actual · Target · Type · Weight). The full manifest still backs the import
+  // parser, so files with extra/legacy columns keep importing.
+  const cols = [...GOAL_TEMPLATE_COLUMNS]
+    .filter((c) => c.entry != null)
+    .sort((a, b) => (a.entry ?? 0) - (b.entry ?? 0));
   const lastCol = cols.length;
+  const freezeCols = Math.min(2, lastCol); // keep Area + Goal in view
 
   const wb = new ExcelJS.Workbook();
   wb.creator = "ALTUS Corp — Goals";
@@ -138,7 +145,7 @@ export async function GET(request: Request): Promise<Response> {
   /* Sheet 1: "Goals" — the entry grid                                */
   /* ================================================================ */
   const sheet = wb.addWorksheet("Goals", {
-    views: [{ state: "frozen", xSplit: 3, ySplit: HEADER_ROW, showGridLines: false }],
+    views: [{ state: "frozen", xSplit: freezeCols, ySplit: HEADER_ROW, showGridLines: false }],
     pageSetup: {
       orientation: "landscape",
       fitToPage: true,
@@ -180,7 +187,7 @@ export async function GET(request: Request): Promise<Response> {
   // ── Row 2: context sub-banner ──────────────────────────────────────
   sheet.mergeCells(2, 1, 2, lastCol);
   const ctx = sheet.getCell(2, 1);
-  const ctxBits = ["Fill one goal per row below the header.", "Required: Goal Title (+ Level, Year)."];
+  const ctxBits = ["Fill one goal per row below the header.", "Only Goal is required."];
   if (level) ctxBits.unshift(`Level: ${level}`);
   if (periodKey) ctxBits.unshift(`Period: ${periodKey}`);
   ctx.value = ctxBits.join("   ·   ");
@@ -296,7 +303,7 @@ export async function GET(request: Request): Promise<Response> {
   const intro = how.getCell(2, 1);
   how.mergeCells(2, 1, 2, 4);
   intro.value =
-    "Fill the 'Goals' sheet — one goal per row. Only Goal Title is required. Level + Year (+ Quarter/Month) place the goal in its period bucket. Cells marked 🔒 are read-only. Use the dropdowns (they support type-ahead). Re-upload the same file to import.";
+    "Fill the 'Goals' sheet — one goal per row. Only Goal is required. The goal is added to the level & period you launched the import from. Area, Measure and Type have dropdowns (type-ahead supported). Re-upload the same file to import.";
   intro.alignment = { wrapText: true, vertical: "top" };
   intro.font = { name: "Calibri", size: 10.5, color: { argb: INK } };
   how.getRow(2).height = 46;
@@ -330,7 +337,16 @@ export async function GET(request: Request): Promise<Response> {
   void logoEmbedded;
 
   const buffer = await wb.xlsx.writeBuffer();
-  const fname = `altus-goals-template${level ? `-${level}` : ""}${periodKey ? `-${periodKey}` : ""}.xlsx`;
+  // Title-cased download name (capital A·G·T·Y): "Altus-Goals-Template-Yearly-…".
+  const LEVEL_FILE_LABEL: Record<string, string> = {
+    year: "Yearly",
+    quarter: "Quarterly",
+    month: "Monthly",
+    week: "Weekly",
+    day: "Daily",
+  };
+  const levelLabel = level ? LEVEL_FILE_LABEL[level] ?? level.charAt(0).toUpperCase() + level.slice(1) : "";
+  const fname = `Altus-Goals-Template${levelLabel ? `-${levelLabel}` : ""}${periodKey ? `-${periodKey}` : ""}.xlsx`;
   return new Response(buffer as ArrayBuffer, {
     status: 200,
     headers: {

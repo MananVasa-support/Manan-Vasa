@@ -61,7 +61,7 @@ export function RecycleBinList({ items: initial }: { items: BinItem[] }) {
 
   if (items.length === 0) {
     return (
-      <div className="grid place-items-center gap-3 rounded-2xl border border-dashed border-hairline-strong py-16 text-center wg-rise">
+      <div className="grid place-items-center gap-3 rounded-2xl border border-hairline-strong py-16 text-center wg-rise">
         <span className="grid size-14 place-items-center rounded-2xl bg-surface-soft text-ink-muted">
           <Archive size={26} />
         </span>

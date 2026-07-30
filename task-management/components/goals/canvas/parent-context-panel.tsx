@@ -713,7 +713,7 @@ function GoalPanel({ g }: { g: GoalDTO }): React.JSX.Element {
           </span>
           {numericTarget(g) == null && (
             <span
-              className="rounded-chip border border-dashed px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.1em] text-ink-faint"
+              className="rounded-chip border px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.1em] text-ink-faint"
               style={{ borderColor: "var(--color-hairline-strong)" }}
             >
               unmeasured
@@ -746,7 +746,7 @@ function GoalPanel({ g }: { g: GoalDTO }): React.JSX.Element {
               type="button"
               onClick={() => setTeamOpen((o) => !o)}
               aria-expanded={teamOpen}
-              className="inline-flex items-center gap-1.5 rounded-full border border-dashed px-2.5 py-1 text-[11.5px] font-bold text-ink-muted transition-colors hover:text-ink-strong"
+              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-bold text-ink-muted transition-colors hover:text-ink-strong"
               style={{ borderColor: "var(--color-hairline-strong)" }}
             >
               <UserPlus size={13} strokeWidth={2.4} /> {team.length > 0 ? "Edit" : "Involve people"}

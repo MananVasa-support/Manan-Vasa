@@ -66,7 +66,6 @@ import {
   periodKeyShort,
   categoryStyle,
   childLevelOf,
-  goalCode,
   fmtNum,
 } from "@/components/goals/cascade/util";
 import {
@@ -454,7 +453,8 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
                 <ParentCard
                   key={g.id}
                   goal={g}
-                  srNo={i + 1}
+                  srNo={cardProps.rankOf(g)}
+                  code={cardProps.codeOf(g)}
                   ownerName={ownerName(g)}
                   childCount={childrenByParentAug.get(g.id)?.length ?? 0}
                   childLabel={childLabel}
@@ -526,12 +526,15 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
 function ParentCard({
   goal,
   srNo,
+  code,
   ownerName,
   childCount,
   childLabel,
 }: {
   goal: GoalDTO;
   srNo: number;
+  /** Stable dense code (Y1/AQ1/…) from the board's single rank source. */
+  code: string;
   ownerName: string;
   childCount: number;
   childLabel: string;
@@ -569,7 +572,7 @@ function ParentCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] font-black tabular-nums" style={{ color: "var(--color-altus-red-deep)" }}>
-              {goalCode(goal)}
+              {code}
             </span>
             <span className="inline-flex items-center rounded-full px-1.5 py-[1px] text-[10px] font-bold" style={{ background: cat.bg, color: cat.color }}>
               {cat.label}
@@ -772,7 +775,7 @@ function Lane({
                   )}
                   <GoalBoardCard
                     goal={goal}
-                    srNo={i + 1}
+                    srNo={cardProps.rankOf(goal)}
                     variant="kanban"
                     autoFocus={focusId === goal.id}
                     childGoals={childrenByParent.get(goal.id) ?? EMPTY}

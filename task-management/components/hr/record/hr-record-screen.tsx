@@ -220,7 +220,7 @@ export function HrRecordScreen({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `docket-${(selected?.fullName || "person").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.pdf`;
+      a.download = `Docket-${(selected?.fullName || "person").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();

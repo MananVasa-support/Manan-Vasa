@@ -106,7 +106,7 @@ export function ContributionBadge(props: {
   if (isUnmeasured(props.child)) {
     return (
       <span
-        className="inline-flex items-center rounded-chip border border-dashed px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-ink-faint"
+        className="inline-flex items-center rounded-chip border px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-ink-faint"
         style={{ borderColor: "var(--color-hairline-strong)" }}
         title="No numeric target on this goal — excluded from the allocation math."
       >

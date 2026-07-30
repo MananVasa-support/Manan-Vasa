@@ -147,7 +147,7 @@ export function CommitDialog({
 
           <ul className="flex flex-col gap-2">
             {member.nextWeek.length === 0 && (
-              <li className="rounded-xl border border-dashed border-hairline-strong bg-surface-soft/40 px-4 py-6 text-center text-[13px] font-medium text-ink-soft">
+              <li className="rounded-xl border border-hairline-strong bg-surface-soft/40 px-4 py-6 text-center text-[13px] font-medium text-ink-soft">
                 No goals cascaded yet — add what you&apos;ll commit to below.
               </li>
             )}

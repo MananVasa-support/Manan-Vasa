@@ -452,10 +452,18 @@ export function useGoalGridEngine(opts: EngineOpts): GridEngine {
         input.select?.();
       }
     } else {
-      // Dropdown / button cell — open it so the keyboard picker takes over.
+      // Dropdown / button cell — open it so the keyboard picker takes over. If a
+      // char was typed to open it (type-to-edit), stamp it on the trigger button
+      // as `data-grid-seed` BEFORE the click so the popover's open-effect can prime
+      // its own search box with it (GoalLookupSelect / DelegatesCell read + clear
+      // the attribute) — this makes type-to-open seed the first char just like a
+      // text cell, instead of dropping it.
       const btn = el.querySelector<HTMLButtonElement>("button");
-      btn?.focus();
-      btn?.click();
+      if (btn) {
+        if (char != null) btn.setAttribute("data-grid-seed", char);
+        btn.focus();
+        btn.click();
+      }
     }
   }, []);
 
@@ -468,6 +476,12 @@ export function useGoalGridEngine(opts: EngineOpts): GridEngine {
       // as the event bubbles), so by the time this container handler fires the
       // active element has already changed — but e.target is still the input.
       const editing = isTextEditEl(e.target as Element);
+
+      // Editable elements OUTSIDE any grid cell own their keys completely — the
+      // multi-line Notes textarea in the expandable detail row (Enter = newline,
+      // arrows = caret, Esc handled by its own onKeyDown). Portaled popover inputs
+      // never bubble here at all. Bail before any nav/bootstrap can hijack them.
+      if (editing && !(e.target as HTMLElement).closest?.('[role="gridcell"]')) return;
 
       // Clipboard / history — nav mode only, so text inputs keep native copy/paste.
       if (meta) {
@@ -513,6 +527,17 @@ export function useGoalGridEngine(opts: EngineOpts): GridEngine {
       }
 
       // Nav mode (a <td> holds focus).
+      // Shift+Enter opens an in-cell expander (e.g. the title cell's "Notes & Files"
+      // detail row) WITHOUT leaving the grid — any cell can opt in by rendering a
+      // button tagged `data-cell-expander`. Plain Enter still edits the cell's field.
+      if (e.key === "Enter" && e.shiftKey) {
+        const exp = cellEls.current.get(`${cur.r}:${cur.c}`)?.querySelector<HTMLButtonElement>("[data-cell-expander]");
+        if (exp) {
+          e.preventDefault();
+          exp.click();
+          return;
+        }
+      }
       switch (e.key) {
         case "ArrowUp": e.preventDefault(); moveTo(cur.r - 1, cur.c, e.shiftKey); return;
         case "ArrowDown": e.preventDefault(); moveTo(cur.r + 1, cur.c, e.shiftKey); return;

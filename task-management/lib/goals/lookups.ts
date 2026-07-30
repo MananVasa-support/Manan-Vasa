@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { goalLookups } from "@/db/schema";
+import { GOAL_TYPES, GOAL_TYPE_LABELS } from "@/db/enums";
 
 /**
  * Goal composer dropdown options for Area + Measure. A fixed BASE set lives here
@@ -10,10 +11,10 @@ import { goalLookups } from "@/db/schema";
  * deduped lists the board loader hands to the composer + edit drawer.
  */
 
-export type GoalLookupKind = "area" | "measure" | "type";
+export type GoalLookupKind = "area" | "measure" | "type" | "goaltype";
 
 /** Base Area options (order matters — shown first). */
-export const BASE_AREAS = ["Revenue", "Health", "Strategy", "Self", "Family"] as const;
+export const BASE_AREAS = ["Revenue", "Health", "Strategy", "Branding", "Self", "Family"] as const;
 
 /** Base Measure options (unit of measure → stored on goals.uom). */
 export const BASE_MEASURES = ["Rs.", "Seats", "Nos.", "Yes/No", "NA"] as const;
@@ -21,8 +22,18 @@ export const BASE_MEASURES = ["Rs.", "Seats", "Nos.", "Yes/No", "NA"] as const;
 /** Base Type options (→ stored on goals.category, a free-text column). */
 export const BASE_TYPES = ["Goal", "Target", "Milestone", "Operational"] as const;
 
+/** Base Goal-Type taxonomy (→ stored on goals.goal_type as a code for these, or
+ *  as the raw label for any admin-added custom type). Labels, not codes. */
+export const BASE_GOALTYPES = GOAL_TYPES.map((t) => GOAL_TYPE_LABELS[t]) as readonly string[];
+
 function baseFor(kind: GoalLookupKind): readonly string[] {
-  return kind === "area" ? BASE_AREAS : kind === "measure" ? BASE_MEASURES : BASE_TYPES;
+  return kind === "area"
+    ? BASE_AREAS
+    : kind === "measure"
+      ? BASE_MEASURES
+      : kind === "goaltype"
+        ? BASE_GOALTYPES
+        : BASE_TYPES;
 }
 
 /** Case-insensitive de-dupe that keeps the FIRST spelling seen (base wins). */
@@ -42,8 +53,9 @@ export interface GoalLookupOptions {
   areas: string[];
   measures: string[];
   types: string[];
+  goaltypes: string[];
   /** Values that are admin-added (deletable) — base options are NOT here. */
-  custom: { areas: string[]; measures: string[]; types: string[] };
+  custom: { areas: string[]; measures: string[]; types: string[]; goaltypes: string[] };
 }
 
 /** Base options + active admin-added extras, merged. ONE indexed select. */
@@ -57,12 +69,14 @@ export async function listGoalLookups(): Promise<GoalLookupOptions> {
   const customAreas = rows.filter((r) => r.kind === "area").map((r) => r.value);
   const customMeasures = rows.filter((r) => r.kind === "measure").map((r) => r.value);
   const customTypes = rows.filter((r) => r.kind === "type").map((r) => r.value);
+  const customGoaltypes = rows.filter((r) => r.kind === "goaltype").map((r) => r.value);
 
   return {
     areas: mergeUnique(BASE_AREAS, customAreas),
     measures: mergeUnique(BASE_MEASURES, customMeasures),
     types: mergeUnique(BASE_TYPES, customTypes),
-    custom: { areas: customAreas, measures: customMeasures, types: customTypes },
+    goaltypes: mergeUnique(BASE_GOALTYPES, customGoaltypes),
+    custom: { areas: customAreas, measures: customMeasures, types: customTypes, goaltypes: customGoaltypes },
   };
 }
 

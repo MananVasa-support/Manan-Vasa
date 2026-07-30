@@ -43,7 +43,7 @@ export function PersonalWDBoard({ data }: { data: PersonalWDData }) {
   const bucketLabel = isWeek ? `Week of ${formatWeekShort(data.periodKey)}` : dayLabel(data.periodKey);
 
   return (
-    <PageShell width="full" py={false} className="pt-8 pb-24 max-md:pt-6 max-md:pb-16">
+    <PageShell width="full" py={false} className="pt-8 pb-10 max-md:pt-6 max-md:pb-8">
       {/* Header + period picker */}
       <div className="wg-rise mb-5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">

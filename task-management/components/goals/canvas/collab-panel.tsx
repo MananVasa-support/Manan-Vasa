@@ -157,7 +157,7 @@ function GhostButton(props: {
       onClick={props.onClick}
       disabled={props.disabled}
       title={props.title}
-      className="inline-flex items-center gap-1 rounded-chip border border-dashed px-2 py-0.5 text-[11px] font-bold text-ink-muted transition-colors hover:text-ink-strong disabled:opacity-50"
+      className="inline-flex items-center gap-1 rounded-chip border px-2 py-0.5 text-[11px] font-bold text-ink-muted transition-colors hover:text-ink-strong disabled:opacity-50"
       style={{ borderColor: "var(--color-hairline-strong)" }}
     >
       {props.icon}

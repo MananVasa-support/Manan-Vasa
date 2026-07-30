@@ -309,7 +309,7 @@ function CascadeList(): React.JSX.Element {
         />
       ) : children.length === 0 && focus ? (
         <div
-          className="rounded-section border border-dashed px-5 py-8 text-center"
+          className="rounded-section border px-5 py-8 text-center"
           style={{ borderColor: accentMix(40), background: accentMix(5) }}
         >
           <p className="text-[15px] italic text-ink-muted" style={{ fontFamily: "var(--font-serif), Georgia, serif" }}>
@@ -921,7 +921,7 @@ function DayStage(): React.JSX.Element {
         </div>
       ) : state.status === "other" ? (
         <div
-          className="rounded-section border border-dashed px-6 py-10 text-center"
+          className="rounded-section border px-6 py-10 text-center"
           style={{ borderColor: accentMix(40), background: accentMix(5) }}
         >
           <p className="mx-auto max-w-md text-[15px] italic text-ink-muted" style={{ fontFamily: "var(--font-serif), Georgia, serif" }}>
@@ -931,7 +931,7 @@ function DayStage(): React.JSX.Element {
         </div>
       ) : state.status === "error" ? (
         <div
-          className="rounded-section border border-dashed px-6 py-10 text-center"
+          className="rounded-section border px-6 py-10 text-center"
           style={{ borderColor: accentMix(40), background: accentMix(5) }}
         >
           {/* §2.7 error-voice split — failures speak PLAINLY (no serif italics;
@@ -970,7 +970,7 @@ function DayStage(): React.JSX.Element {
 function EmptyPanel({ text, action }: { text: string; action?: React.ReactNode }): React.JSX.Element {
   return (
     <div
-      className="rounded-section border border-dashed px-5 py-8 text-center"
+      className="rounded-section border px-5 py-8 text-center"
       style={{ borderColor: accentMix(40), background: accentMix(5) }}
     >
       <p className="text-[15px] italic text-ink-muted" style={{ fontFamily: "var(--font-serif), Georgia, serif" }}>

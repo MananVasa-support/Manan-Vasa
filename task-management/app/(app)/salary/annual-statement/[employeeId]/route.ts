@@ -57,7 +57,7 @@ export async function GET(
     status: 200,
     headers: {
       "content-type": "application/pdf",
-      "content-disposition": `attachment; filename="annual-statement-${safeName}-FY${startYear}.pdf"`,
+      "content-disposition": `attachment; filename="Annual-Statement-${safeName}-FY${startYear}.pdf"`,
       "cache-control": "no-store",
     },
   });

@@ -301,7 +301,7 @@ export async function GET(): Promise<Response> {
     status: 200,
     headers: {
       "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "content-disposition": `attachment; filename="altus-tasks-template.xlsx"`,
+      "content-disposition": `attachment; filename="Altus-Tasks-Template.xlsx"`,
       "cache-control": "no-store",
     },
   });

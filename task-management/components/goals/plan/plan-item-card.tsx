@@ -54,7 +54,7 @@ export function PlanItemCard({ item, index, onRemove }: Props) {
         className="list-none"
       >
         <div
-          className="flex items-center gap-3 rounded-chip border border-dashed px-3 py-3"
+          className="flex items-center gap-3 rounded-chip border px-3 py-3"
           style={{
             borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 55%, transparent)`,
             background: `color-mix(in srgb, ${GOALS_ACCENT} 6%, transparent)`,

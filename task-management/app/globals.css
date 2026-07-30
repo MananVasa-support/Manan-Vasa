@@ -2387,35 +2387,33 @@ select.nt-input {
   background: color-mix(in srgb, var(--color-altus-red) 55%, transparent);
 }
 
-/* ── Pastel left-rail nav (2026-07-27) ─────────────────────────────────────
-   Module sidebar nav pills: white OUTLINED boxes with near-black text; hover
-   and the SELECTED pill use a soft PASTEL-RED wash (not a hard black/red fill).
-   Applies to every module that uses the left rail; HR has no rail so it's
-   untouched. Scoped to `.sidebar-rail` so the header, hub cards and the mobile
-   drawer keep their own colours. Icons inherit `currentColor`. */
+/* ── Clean borderless left-rail nav (2026-07-29) ───────────────────────────
+   Module sidebar nav items: NO outlined box — just icon + label on quiet slate
+   text (like a plain list). Soft neutral wash on hover; a subtle brand-tint
+   fill (borderless, no ring, no lift) marks the selected item. Applies to every
+   module that uses the left rail. Scoped to `.sidebar-rail` so the header, hub
+   cards and mobile drawer keep their own styling. Icons inherit `currentColor`. */
 .sidebar-rail .sidebar-nav .nav-pill {
-  /* Rounded-rect (matches the "Back to Hub" pill), compact padding — not a
-     full 999px pill. */
-  border-radius: 14px;
-  padding: 7px 12px;
-  background: #ffffff;
-  border: 1.5px solid rgba(0, 0, 0, 0.16);
-  color: #1a1a1a;
+  border-radius: 12px;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  color: var(--color-ink-soft);
   box-shadow: none;
 }
 .sidebar-rail .sidebar-nav .nav-pill:hover {
-  /* Neutral grey hover — no pink wash. */
-  background: rgba(0, 0, 0, 0.035);
-  border-color: rgba(0, 0, 0, 0.26);
-  color: #1a1a1a;
+  background: color-mix(in srgb, var(--color-ink-strong) 5%, transparent);
+  border-color: transparent;
+  color: var(--color-ink-strong);
   transform: none;
   box-shadow: none;
 }
 .sidebar-rail .sidebar-nav .nav-pill-active,
 .sidebar-rail .sidebar-nav .nav-pill-active:hover {
-  /* Selected: white box, red outline + red label — NO pink fill. */
-  background: #ffffff;
-  border-color: color-mix(in srgb, var(--color-altus-red) 60%, #ffffff);
+  /* Selected: subtle brand-tint fill + red label — NO box outline. */
+  background: color-mix(in srgb, var(--color-altus-red) 10%, transparent);
+  border: none;
+  border-color: transparent;
   color: var(--color-altus-red-deep);
   box-shadow: none;
   transform: none;

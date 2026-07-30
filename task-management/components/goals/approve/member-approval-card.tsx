@@ -183,7 +183,7 @@ function Column({
         </button>
       </div>
       {empty ? (
-        <div className="rounded-md border border-dashed border-hairline-strong bg-surface-soft/40 px-4 py-6 text-center text-[13px] font-semibold text-ink-soft">
+        <div className="rounded-md border border-hairline-strong bg-surface-soft/40 px-4 py-6 text-center text-[13px] font-semibold text-ink-soft">
           {emptyLabel}
         </div>
       ) : (

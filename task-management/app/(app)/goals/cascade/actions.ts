@@ -21,6 +21,8 @@ import { goalsCanvasOn } from "@/lib/goals/flag";
 import { setAdopted, generateChildren } from "@/lib/goals/cascade";
 import { logGoalActivity } from "@/lib/goals/activity";
 import { GoalEventTypes } from "@/lib/events/types";
+import { notify } from "@/lib/notifications/dispatch";
+import { afterResponse } from "@/lib/after";
 import { cloneForward, moveTo } from "@/lib/goals/carry";
 import { mondayOf } from "@/lib/weekly-goals/week";
 import { quarterKeyOfMonthKey, fyStartYearOfMonthKey, fyStartYearOfKey, quartersOfFy, monthKeysOfQuarter } from "@/lib/goals/types";
@@ -175,9 +177,12 @@ const GoalFields = {
   area: z.string().max(160).nullish(),
   title: z.string().min(1, "Goal is required").max(400),
   category: CATEGORY.optional(),
-  // Goal Type taxonomy (KPI/Branding/Strategic/Operational/Essential, mig 0168)
-  // — the inline board Type selector edits THIS; supersedes free-text `category`.
-  goalType: z.enum(GOAL_TYPES).nullish(),
+  // Goal Type taxonomy — the inline board Type selector edits THIS; supersedes
+  // free-text `category`. Stores a canonical CODE for the built-in types
+  // (kpi/strategic/operational/essential) OR the raw label of an admin-added
+  // custom type (#194 — super-admins add/delete Goal Types like Area/Measure),
+  // so we validate a bounded string rather than the fixed enum.
+  goalType: z.string().trim().min(1).max(60).nullish(),
   uom: z.string().max(80).nullish(),
   targetQty: MoneyIn,
   targetAmount: MoneyIn,
@@ -631,6 +636,43 @@ export async function editGoal(
 
   const [row] = await db.update(goals).set(patch).where(eq(goals.id, d.id)).returning();
   if (!row) return { ok: false, error: "Goal not found" };
+
+  // #2 — email/notify anyone NEWLY named as a team member or delegate on this
+  // goal. The moment their name is entered they get a "you've been added to a
+  // goal" notification across every channel they've opted into (email included).
+  // Deferred to `afterResponse` so the Resend/channel fan-out never adds latency
+  // to the inline grid edit, and notify() itself swallows any dispatch failure.
+  {
+    const idsOf = (arr: ReadonlyArray<{ employeeId?: string | null }> | null | undefined) =>
+      new Set((arr ?? []).map((m) => m.employeeId).filter((x): x is string => !!x));
+    const added = new Set<string>();
+    if (d.teamInvolved !== undefined) {
+      const before = idsOf(loaded.row.teamInvolved as ReadonlyArray<{ employeeId?: string | null }> | null);
+      for (const id of idsOf(d.teamInvolved)) if (!before.has(id)) added.add(id);
+    }
+    if (d.delegatedTo !== undefined) {
+      const before = idsOf(loaded.row.delegatedTo as ReadonlyArray<{ employeeId?: string | null }> | null);
+      for (const id of idsOf(d.delegatedTo)) if (!before.has(id)) added.add(id);
+    }
+    added.delete(me.id); // never notify yourself for your own edit
+    if (added.size > 0) {
+      const title = row.title;
+      const actor = me.name;
+      const actorId = me.id;
+      afterResponse(async () => {
+        for (const uid of added) {
+          await notify({
+            userId: uid,
+            kind: "weekly_goals_assigned",
+            title: "You've been added to a goal",
+            body: `${actor} added you to the goal "${title}".`,
+            actorId,
+          });
+        }
+      });
+    }
+  }
+
   const changed = Object.keys(patch).filter((k) => k !== "updatedById" && k !== "updatedAt");
   if (changed.length > 0) {
     void logGoalActivity(row.id, GoalEventTypes.CascadeEdited, {
@@ -2104,7 +2146,7 @@ export async function redistributeChildren(
 /* ------------------------------------------------------------------ */
 
 const AddLookupSchema = z.object({
-  kind: z.enum(["area", "measure", "type"]),
+  kind: z.enum(["area", "measure", "type", "goaltype"]),
   value: z.string().trim().min(1, "Enter a value").max(60),
 });
 
@@ -2134,7 +2176,7 @@ export async function addGoalLookup(
 }
 
 const RemoveLookupSchema = z.object({
-  kind: z.enum(["area", "measure", "type"]),
+  kind: z.enum(["area", "measure", "type", "goaltype"]),
   value: z.string().trim().min(1).max(60),
 });
 

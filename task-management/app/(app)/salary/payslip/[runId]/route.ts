@@ -119,7 +119,7 @@ export async function GET(
     status: 200,
     headers: {
       "content-type": "application/pdf",
-      "content-disposition": `attachment; filename="payslip-${safeName}-${run.month}.pdf"`,
+      "content-disposition": `attachment; filename="Payslip-${safeName}-${run.month}.pdf"`,
       "cache-control": "no-store",
     },
   });

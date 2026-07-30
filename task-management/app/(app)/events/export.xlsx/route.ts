@@ -297,7 +297,7 @@ export async function GET(request: Request): Promise<Response> {
     headers: {
       "content-type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "content-disposition": `attachment; filename="monthly-events-${month}.xlsx"`,
+      "content-disposition": `attachment; filename="Monthly-Events-${month}.xlsx"`,
       "cache-control": "no-store",
     },
   });

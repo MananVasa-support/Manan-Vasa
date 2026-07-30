@@ -170,6 +170,10 @@ export function GoalsDashboard({ allGoals, level, fyStartYear }: GoalsDashboardP
   const stats = React.useMemo(() => {
     const total = levelGoals.length;
     let done = 0;
+    let notStarted = 0;
+    let inProgress = 0;
+    let onTrackActive = 0; // incomplete + on pace
+    let offTrack = 0; // incomplete + (overdue OR < 60%)
     let sum = 0;
     let overdue = 0;
     let hasTargetDates = false;
@@ -178,18 +182,26 @@ export function GoalsDashboard({ allGoals, level, fyStartYear }: GoalsDashboardP
     for (const g of levelGoals) {
       const p = pctOf(g);
       sum += p;
-      if (p >= 100) done += 1;
       bucketCount[bucketOf(p)] += 1;
       health[healthOf(p)] += 1;
-      if (g.targetDate) {
-        hasTargetDates = true;
-        if (p < 100 && (targetDateStatus(g.targetDate).daysLeft ?? 0) < 0) overdue += 1;
+      const isOverdue = g.targetDate ? (targetDateStatus(g.targetDate).daysLeft ?? 0) < 0 : false;
+      if (g.targetDate) hasTargetDates = true;
+      if (p >= 100) {
+        done += 1;
+      } else {
+        if (p === 0) notStarted += 1;
+        else inProgress += 1;
+        // On/off track applies only to unfinished goals (confirmed rule):
+        // off = past its target date OR effective % < 60; else on track.
+        if (isOverdue || p < 60) offTrack += 1;
+        else onTrackActive += 1;
+        if (isOverdue) overdue += 1;
       }
     }
     const avg = total ? Math.round(sum / total) : 0;
-    const onTrack = health.green + health.amber; // p ≥ 60
+    const onTrack = health.green + health.amber; // p ≥ 60 (all goals — used by the KPI card)
     const atRisk = health.red;
-    return { total, done, avg, overdue, hasTargetDates, health, bucketCount, onTrack, atRisk };
+    return { total, done, notStarted, inProgress, onTrackActive, offTrack, avg, overdue, hasTargetDates, health, bucketCount, onTrack, atRisk };
   }, [levelGoals, pctOf]);
 
   // Child count — "—" when the child rows aren't in the loaded set (esp.
@@ -200,11 +212,23 @@ export function GoalsDashboard({ allGoals, level, fyStartYear }: GoalsDashboardP
   const assignSplit = React.useMemo(() => {
     let self = 0;
     let assigned = 0;
+    let delegated = 0; // handed to a team member (delegatedTo) — can overlap self/assigned
     for (const g of levelGoals) {
       if (assignmentInfo(g).type === "assigned") assigned += 1;
       else self += 1;
+      if ((g.delegatedTo?.length ?? 0) > 0) delegated += 1;
     }
-    return { self, assigned };
+    return { self, assigned, delegated };
+  }, [levelGoals]);
+
+  // Area-wise distribution — goals per focus Area (biggest first).
+  const byArea = React.useMemo(() => {
+    const m = new Map<string, number>();
+    for (const g of levelGoals) {
+      const a = g.area?.trim() ? g.area.trim() : "Unassigned";
+      m.set(a, (m.get(a) ?? 0) + 1);
+    }
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [levelGoals]);
 
   // ── KPI cards (level-appropriate) ─────────────────────────────────
@@ -288,12 +312,33 @@ export function GoalsDashboard({ allGoals, level, fyStartYear }: GoalsDashboardP
           className="font-bold text-ink-strong"
           style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontSize: 19, letterSpacing: "-0.02em" }}
         >
-          {LEVEL_NOUN[level]} overview
+          {LEVEL_NOUN[level]} Overview
         </h2>
         <span className="text-[13px] font-semibold text-ink-subtle tabular-nums">
           {stats.total} goal{stats.total === 1 ? "" : "s"} · {periodKeyShort(String(fyStartYear))}
         </span>
       </div>
+
+      {/* Status — completed · in progress · not started · on/off track */}
+      <CardGrid min={148} gap="0.625rem">
+        {([
+          { label: "Completed", value: stats.done, tone: GREEN, sub: stats.total ? `${Math.round((stats.done / stats.total) * 100)}% of ${stats.total}` : "—" },
+          { label: "In progress", value: stats.inProgress, tone: "var(--color-altus-red-deep)", sub: "started, < 100%" },
+          { label: "Not started", value: stats.notStarted, tone: "var(--color-ink-subtle)", sub: "at 0%" },
+          { label: "On track", value: stats.onTrackActive, tone: GREEN, sub: "on pace" },
+          { label: "Off track", value: stats.offTrack, tone: RED, sub: "overdue / behind" },
+        ] as const).map((s) => (
+          <div
+            key={s.label}
+            className="wg-rise rounded-2xl bg-surface-card p-3.5"
+            style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}
+          >
+            <div className="text-[10.5px] font-black uppercase tracking-[0.06em]" style={{ color: s.tone }}>{s.label}</div>
+            <div className="mt-1 tabular-nums font-black text-ink-strong" style={{ fontSize: 26, letterSpacing: "-0.02em", lineHeight: 1 }}>{s.value}</div>
+            <div className="mt-0.5 text-[11px] font-semibold text-ink-subtle">{s.sub}</div>
+          </div>
+        ))}
+      </CardGrid>
 
       {/* B · KPI cards */}
       <CardGrid min={200} gap="0.75rem">
@@ -355,6 +400,48 @@ export function GoalsDashboard({ allGoals, level, fyStartYear }: GoalsDashboardP
               })
             }
           />
+        </div>
+      </div>
+
+      {/* Breakdown — assignment (self / assigned / delegated) + area distribution */}
+      <div className="grid grid-cols-2 gap-4 max-lg:grid-cols-1">
+        <div className="wg-rise rounded-2xl bg-surface-card p-4" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>
+          <h3 className="mb-3 text-[12.5px] font-black uppercase tracking-[0.08em] text-ink-subtle">Assignment</h3>
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              { label: "Self", value: assignSplit.self, tone: ASSIGN_SELF, hint: "created by you" },
+              { label: "Assigned", value: assignSplit.assigned, tone: ASSIGN_ASSIGNED, hint: "given to you" },
+              { label: "Delegated", value: assignSplit.delegated, tone: "var(--color-blue-deep)", hint: "handed to a member" },
+            ] as const).map((a) => (
+              <div key={a.label} className="rounded-xl px-3 py-3" style={{ background: `color-mix(in srgb, ${a.tone} 8%, transparent)` }}>
+                <div className="tabular-nums font-black" style={{ fontSize: 24, color: a.tone, lineHeight: 1 }}>{a.value}</div>
+                <div className="mt-1 text-[12.5px] font-bold text-ink-strong">{a.label}</div>
+                <div className="text-[10.5px] font-medium text-ink-subtle">{a.hint}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="wg-rise rounded-2xl bg-surface-card p-4" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>
+          <h3 className="mb-3 text-[12.5px] font-black uppercase tracking-[0.08em] text-ink-subtle">By area</h3>
+          {byArea.length === 0 ? (
+            <p className="text-[13px] text-ink-subtle">No goals yet.</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {byArea.slice(0, 8).map(([area, n]) => {
+                const max = byArea[0]?.[1] ?? 1;
+                return (
+                  <li key={area} className="flex items-center gap-2.5">
+                    <span className="w-[38%] min-w-0 truncate text-[13px] font-bold text-ink-strong" title={area}>{area}</span>
+                    <span className="relative h-2 flex-1 overflow-hidden rounded-full" style={{ background: "var(--color-surface-soft)" }}>
+                      <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.round((n / max) * 100)}%`, background: "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))" }} />
+                    </span>
+                    <span className="w-7 shrink-0 text-right text-[13px] font-black tabular-nums text-ink-strong">{n}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       </div>
 
