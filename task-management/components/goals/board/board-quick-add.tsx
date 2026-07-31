@@ -231,19 +231,19 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
         className={
           compact
             ? `wg-btn cursor-pointer group flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-[13px] font-bold transition-colors hover:bg-surface-soft ${FOCUS_RING}`
-            : `wg-btn cursor-pointer group flex w-full items-center justify-center gap-2.5 rounded-2xl border px-4 py-5 text-[15px] font-bold transition-colors hover:bg-surface-soft ${FOCUS_RING}`
+            : `wg-btn cursor-pointer group inline-flex w-auto items-center justify-center gap-2 self-start rounded-full border px-4 py-2.5 text-[13.5px] font-bold transition-colors hover:bg-surface-soft ${FOCUS_RING}`
         }
         style={{ borderColor: "var(--color-hairline-strong)", color: "var(--color-ink-soft)", background: "var(--color-surface-soft)" }}
       >
         <span
-          className={`inline-flex items-center justify-center rounded-full ${compact ? "size-5" : "size-7"}`}
+          className={`inline-flex items-center justify-center rounded-full ${compact ? "size-5" : "size-6"}`}
           style={{ background: "color-mix(in srgb, var(--color-ink-strong) 8%, transparent)", color: "var(--color-ink-muted)" }}
         >
-          <Plus size={compact ? 13 : 16} strokeWidth={2.8} />
+          <Plus size={compact ? 13 : 15} strokeWidth={2.8} />
         </span>
-        Add Goal
+        {compact ? "Add Goal" : "Add New Goal"}
         {!compact && (
-          <span className="text-[12.5px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
+          <span className="text-[12px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
             · into {bucketLabel}
           </span>
         )}

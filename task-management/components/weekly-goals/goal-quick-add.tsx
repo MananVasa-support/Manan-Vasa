@@ -130,7 +130,7 @@ export function GoalQuickAdd(props: Props) {
   if (atMax) {
     return (
       <div
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed px-4 py-5 text-[13.5px] font-bold"
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-5 text-[13.5px] font-bold"
         style={{ borderColor: "var(--color-hairline-strong)", color: "var(--color-ink-subtle)", background: "var(--color-surface-soft)" }}
       >
         Weekly maximum reached · {MAX_GOALS}/{MAX_GOALS} goals
@@ -149,7 +149,7 @@ export function GoalQuickAdd(props: Props) {
           setOpen(true);
           requestAnimationFrame(() => clientRef.current?.focus());
         }}
-        className={`cursor-pointer group flex w-full items-center justify-center gap-2.5 rounded-2xl border border-dashed px-4 py-5 text-[15px] font-bold transition-colors hover:bg-surface-soft ${FOCUS_RING}`}
+        className={`cursor-pointer group flex w-full items-center justify-center gap-2.5 rounded-2xl border px-4 py-5 text-[15px] font-bold transition-colors hover:bg-surface-soft ${FOCUS_RING}`}
         style={{ borderColor: "var(--color-hairline-strong)", color: "var(--color-ink-soft)" }}
       >
         <span className="inline-flex size-7 items-center justify-center rounded-full" style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red)" }}>

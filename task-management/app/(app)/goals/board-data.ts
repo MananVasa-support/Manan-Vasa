@@ -2,6 +2,7 @@ import "server-only";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { getYearBoard, getSharedGoals, getBoardWeeklyGoals } from "@/lib/goals/queries";
 import { listGoalLookups } from "@/lib/goals/lookups";
+import { goalCaptureEnabled, voiceCaptureEnabled } from "@/lib/goals/flag";
 import { goalsSpace } from "@/lib/goals/space";
 import { fyStartYearOf } from "@/lib/goals/types";
 import type { GoalNode } from "@/lib/goals/types";
@@ -137,5 +138,7 @@ export async function loadBoardData(sp: {
     typeOptions: lookups.types,
     goaltypeOptions: lookups.goaltypes,
     customLookups: lookups.custom,
+    captureEnabled: goalCaptureEnabled(),
+    voiceEnabled: voiceCaptureEnabled(),
   };
 }

@@ -3323,6 +3323,10 @@ export const goals = pgTable(
     scope: text("scope").notNull().default("professional"),
     // 'manual' | 'cascade' (cascade = auto-generated from parent by ÷)
     source: text("source").notNull().default("manual"),
+    // Goal Capture (migration 0173) — the AI-capture batch this goal came from,
+    // so the board's "Undo all" banner can soft-delete (archive) exactly that
+    // batch. Null for manually-created / imported goals.
+    captureBatchId: uuid("capture_batch_id"),
     // Category tag (migration 0139) — 'target' | 'milestone' | 'operational' |
     // 'goal'. Colour-codes the Kanban cards; spillover is derived from clonedFromId.
     category: text("category").notNull().default("goal"),
@@ -3355,10 +3359,33 @@ export const goals = pgTable(
     index("goals_parent_idx").on(t.parentGoalId),
     index("goals_period_key_idx").on(t.periodKey),
     index("goals_cloned_from_idx").on(t.clonedFromId),
+    index("goals_capture_batch_id_idx").on(t.captureBatchId),
   ],
 );
 export type GoalRow = typeof goals.$inferSelect;
 export type NewGoalRow = typeof goals.$inferInsert;
+
+// Goal Capture log (migration 0173) — one row per natural-language capture on
+// any channel (in-app text/voice, WhatsApp text/voice). Audit trail + a corpus
+// for debugging AI-structuring quality. Not on the goal load path.
+export const goalCaptureLog = pgTable(
+  "goal_capture_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    batchId: uuid("batch_id"),
+    channel: text("channel").notNull(), // in_app_text | in_app_voice | whatsapp_text | whatsapp_voice
+    rawText: text("raw_text"),
+    transcript: text("transcript"),
+    model: text("model"),
+    rowCount: integer("row_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("goal_capture_log_employee_idx").on(t.employeeId, t.createdAt)],
+);
+export type GoalCaptureLogRow = typeof goalCaptureLog.$inferSelect;
 
 // Goal reviews (migration 0131) — append-only audit of dual-rating events at any
 // level. Primary state stays on the goal / weekly_goal rows; this is a

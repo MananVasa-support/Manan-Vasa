@@ -341,6 +341,10 @@ const BulkCreateSchema = z.object({
   level: z.enum(GOAL_PERIODS),
   periodKey: z.string().min(4).max(16),
   rows: z.array(BulkRowSchema).min(1).max(200),
+  /** Provenance — 'manual' (default) | 'ai' (Goal Capture) | 'import'. */
+  source: z.string().max(20).optional(),
+  /** Goal Capture batch id, so an AI batch can be undone as a unit. */
+  captureBatchId: z.string().uuid().optional(),
 });
 
 export async function bulkCreateGoals(
@@ -382,7 +386,8 @@ export async function bulkCreateGoals(
           pctDone: auto ?? 0,
           status: auto != null ? statusForPct(auto) : "not_started",
           adopted: true,
-          source: "manual",
+          source: d.source ?? "manual",
+          captureBatchId: d.captureBatchId ?? null,
           category: (r.category ?? "").trim() || "goal",
           createdById: me.id,
           updatedById: me.id,
@@ -2469,6 +2474,7 @@ export async function divideYearlyGoal(
     title: src.title,
     uom: src.uom,
     category: src.category,
+    goalType: src.goalType, // keep the parent's Goal Type on the divided children
     scope: src.scope, // divided children stay in the parent's space
     source: "cascade" as const,
     createdById: me.id,

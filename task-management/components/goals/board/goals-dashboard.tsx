@@ -266,8 +266,9 @@ export function GoalsDashboard({ allGoals, level, fyStartYear }: GoalsDashboardP
       ];
     }
     if (level === "year") {
+      // Health-first (audit #26): lead with goal health, not a quarterly count.
       return [
-        { key: "child", icon: <Layers size={17} strokeWidth={2.4} />, label: `${childNoun} goals`, value: childCountDisplay, sub: "one level down", accent: "var(--color-altus-red-deep)" },
+        { key: "total", icon: <Layers size={17} strokeWidth={2.4} />, label: "Total goals", value: stats.total, sub: "tracked this year", accent: "var(--color-altus-red-deep)" },
         { key: "done", icon: <CheckCircle2 size={17} strokeWidth={2.4} />, label: "Completed", value: stats.done, sub: `${donePctText} at 100%`, accent: GREEN, drill: doneDrill },
         { key: "avg", icon: <TrendingUp size={17} strokeWidth={2.4} />, label: "Avg progress", value: `${stats.avg}%`, sub: "across yearly goals", accent: "var(--color-altus-red-deep)" },
         { key: "ontrack", icon: <Activity size={17} strokeWidth={2.4} />, label: "On-track", value: stats.onTrack, sub: `${stats.atRisk} at risk`, accent: stats.atRisk > stats.onTrack ? RED : GREEN, drill: onTrackDrill },
@@ -298,6 +299,12 @@ export function GoalsDashboard({ allGoals, level, fyStartYear }: GoalsDashboardP
   const drilled = React.useMemo(
     () => (drill ? levelGoals.filter(drill.test).sort((a, b) => pctOf(b) - pctOf(a)) : []),
     [drill, levelGoals, pctOf],
+  );
+
+  // Every goal ranked by score (audit #26: a score per individual goal).
+  const scoredGoals = React.useMemo(
+    () => [...levelGoals].sort((a, b) => pctOf(b) - pctOf(a)),
+    [levelGoals, pctOf],
   );
 
   // ── Empty + skeleton states ───────────────────────────────────────
@@ -444,6 +451,9 @@ export function GoalsDashboard({ allGoals, level, fyStartYear }: GoalsDashboardP
           )}
         </div>
       </div>
+
+      {/* Per-goal scores — health of every individual goal at this level */}
+      <GoalScores goals={scoredGoals} pctOf={pctOf} level={level} />
 
       {/* Drill-down — inline list of the goals behind the clicked segment */}
       {drill && <DrillPanel drill={drill} goals={drilled} pctOf={pctOf} onClose={() => setDrill(null)} />}
@@ -814,6 +824,63 @@ function AssignmentSplit({
           );
         })}
       </div>
+    </section>
+  );
+}
+
+/* ================================================================== */
+/* Per-goal scores — health of every individual goal                   */
+/* ================================================================== */
+
+function GoalScores({
+  goals,
+  pctOf,
+  level,
+}: {
+  goals: GoalDTO[];
+  pctOf: (g: GoalDTO) => number;
+  level: GoalPeriod;
+}) {
+  if (goals.length === 0) return null;
+  return (
+    <section
+      className="wg-rise rounded-2xl px-5 py-4"
+      style={{ background: "var(--color-surface-card)", border: "1px solid var(--color-hairline-strong)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 3px rgba(15,23,42,0.05)" }}
+    >
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-[13px] font-black uppercase tracking-[0.1em] text-ink-soft">
+          {LEVEL_NOUN[level]} goal scores
+        </h3>
+        <span className="text-[11.5px] font-semibold text-ink-subtle tabular-nums">
+          {goals.length} goal{goals.length === 1 ? "" : "s"} · highest first
+        </span>
+      </div>
+      <ul className="flex flex-col divide-y" style={{ borderColor: "var(--color-hairline)" }}>
+        {goals.map((g) => {
+          const p = pctOf(g);
+          const band = healthOf(p);
+          return (
+            <li key={g.id} className="flex items-center gap-3 py-2">
+              <span
+                className="grid size-9 shrink-0 place-items-center rounded-lg text-[12px] font-black tabular-nums"
+                style={{ background: `color-mix(in srgb, ${HEALTH_META[band].color} 12%, transparent)`, color: HEALTH_META[band].color }}
+              >
+                {p}%
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13.5px] font-bold text-ink-strong" title={g.title}>{g.title}</div>
+                <div className="flex items-center gap-2 text-[11.5px] font-semibold text-ink-subtle">
+                  <span>{periodKeyLabel(g.periodKey)}</span>
+                  {g.area && <span className="truncate">· {g.area}</span>}
+                </div>
+              </div>
+              <span className="relative h-1.5 w-24 shrink-0 overflow-hidden rounded-full max-sm:hidden" style={{ background: "var(--color-surface-soft)" }}>
+                <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.min(100, p)}%`, background: HEALTH_META[band].color }} />
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

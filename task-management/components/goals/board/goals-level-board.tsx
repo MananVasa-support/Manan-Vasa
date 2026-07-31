@@ -34,10 +34,12 @@ import { goalPolicy } from "@/lib/goals/policy";
 import {
   quartersOfFy,
   monthKeysOfQuarter,
+  monthKeysOfFy,
   fyStartYearOf,
   fyStartYearOfKey,
   quarterKeyOfMonthKey,
   quarterOfKey,
+  type GoalPeriod,
 } from "@/lib/goals/types";
 import {
   type GoalDTO,
@@ -53,6 +55,7 @@ import {
 import { useOptimisticGoals } from "@/components/goals/canvas/optimistic";
 import {
   moveGoalToPeriod,
+  moveGoalToLevel,
   archiveGoal,
   reorderGoals,
   moveWeeklyToWeek,
@@ -62,6 +65,7 @@ import { GoalTableView } from "./goal-table-view";
 import { LEVEL_TABLE_ACTIONS } from "./level-table-actions";
 import { PersonalStartPrompt } from "./personal-start-prompt";
 import { BoardQuickAdd, type BoardQuickAddHandle } from "./board-quick-add";
+import { GoalCaptureBox } from "@/components/goals/capture/goal-capture-box";
 import { GoalsBulkUpload } from "./goals-bulk-upload";
 import { HierarchyKanban } from "./hierarchy-kanban";
 import { GoalsDashboard } from "./goals-dashboard";
@@ -512,6 +516,43 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
     [mutation, policy.canReQuarter],
   );
 
+  /** Cross-LEVEL drag re-home (roll-up → any quarter / any month). Same-level
+   *  targets fall through to `moveToBucket`; a different level re-parents via
+   *  moveGoalToLevel (server handles parent re-linking + orphan detach), fully
+   *  optimistic with an Undo toast — the same recipe as the "Move to…" drawer. */
+  const rehomeToLevel = React.useCallback(
+    (g: GoalDTO, targetPeriod: GoalPeriod, targetPeriodKey: string) => {
+      if (targetPeriod === g.period) return moveToBucket(g, targetPeriodKey);
+      if (!policy.canRehomeLevel) return;
+      if (targetPeriodKey === g.periodKey) return;
+      const from = { period: g.period, periodKey: g.periodKey, position: g.position };
+      void mutation
+        .mutate(
+          { type: "update", id: g.id, fields: { period: targetPeriod, periodKey: targetPeriodKey, position: 9_999 } },
+          () => moveGoalToLevel({ id: g.id, targetPeriod, targetPeriodKey }),
+        )
+        .then((ok) => {
+          if (!ok) return;
+          fireToast({
+            message: `Moved to ${periodKeyLabel(targetPeriodKey)}`,
+            type: "success",
+            actionLabel: "Undo",
+            action: () => {
+              void mutation
+                .mutate(
+                  { type: "update", id: g.id, fields: { period: from.period, periodKey: from.periodKey, position: from.position } },
+                  () => moveGoalToLevel({ id: g.id, targetPeriod: from.period, targetPeriodKey: from.periodKey }),
+                )
+                .then((undone) => {
+                  if (undone) fireToast({ message: `Moved back to ${periodKeyLabel(from.periodKey)}`, type: "success" });
+                });
+            },
+          });
+        });
+    },
+    [mutation, moveToBucket, policy.canRehomeLevel],
+  );
+
   /** Persist a reordered Sr.-No. line for a hierarchy Kanban LANE (child-level
    *  drag-within-a-lane). Reuses the same reorder path as the list/onDragEnd. */
   const reorderChildIds = React.useCallback(
@@ -719,7 +760,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
         color: "var(--color-ink-strong)",
       }}
     >
-      <PageShell as="div" width="full" py={false} className="relative pt-8 pb-10 max-md:pt-6 max-md:pb-8">
+      <PageShell as="div" width="full" py={false} className="relative pt-8 pb-5 max-md:pt-6 max-md:pb-4">
         {/* ── HEADER — ONE unified command bar: identity + tabs · overview
             (dial + donut) · person + FY, all in a single creative band. ── */}
         <section
@@ -784,7 +825,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               {/* Name selector — a bold, glowing custom pill (avatar + "VIEWING"
                   eyebrow + the unstyled Select as the name). */}
               {props.roster.length > 1 && (
-                <div className="group relative w-[260px] max-xl:w-[240px] max-md:w-full">
+                <div className="group relative w-[300px] max-md:w-full">
                   <span
                     aria-hidden
                     className="pointer-events-none absolute -inset-[2px] rounded-2xl opacity-55 blur-[7px] transition-opacity duration-300 group-hover:opacity-90"
@@ -981,6 +1022,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
           <GoalsDashboard allGoals={goals} level={props.level} fyStartYear={fy} />
         ) : kanban ? (
           <HierarchyKanban
+            onRehomeLevel={rehomeToLevel}
             parentLevel={parentLevel}
             fyStartYear={fy}
             selectedKey={props.periodKey}
@@ -1042,6 +1084,22 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                   level={props.level}
                   actions={LEVEL_TABLE_ACTIONS}
                 />
+              )}
+
+              {canWrite && props.captureEnabled && (
+                <div className="mb-3">
+                  <GoalCaptureBox
+                    employeeId={props.viewedEmployeeId}
+                    level={props.level}
+                    periodKey={props.periodKey}
+                    voiceEnabled={props.voiceEnabled}
+                    levelLabel={
+                      { year: "Yearly", quarter: "Quarterly", month: "Monthly", week: "Weekly", day: "Daily" }[
+                        props.level
+                      ] ?? props.level
+                    }
+                  />
+                </div>
               )}
 
               {canWrite && (

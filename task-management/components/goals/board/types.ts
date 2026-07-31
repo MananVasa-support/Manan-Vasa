@@ -46,6 +46,11 @@ export interface GoalsBoardData {
   goaltypeOptions: string[];
   /** The admin-added (deletable) subset per kind — base options aren't here. */
   customLookups: { areas: string[]; measures: string[]; types: string[]; goaltypes: string[] };
+  /** Goal Capture (mig 0173) available — an OPENROUTER_API_KEY is set and the
+   *  kill-switch is off. Drives whether the "Capture goals with AI" box shows. */
+  captureEnabled: boolean;
+  /** Voice capture available — a WHISPER_API_KEY is also set. Drives the mic. */
+  voiceEnabled: boolean;
 }
 
 export interface GoalsLevelBoardProps extends GoalsBoardData {

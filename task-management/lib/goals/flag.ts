@@ -92,3 +92,17 @@ export function goalsSundayReportOn(): boolean {
 export function goalsCanvasOn(): boolean {
   return true;
 }
+
+/** Goal Capture (migration 0173) — natural-language → structured goals via a
+ *  free OpenAI-compatible LLM (default OpenRouter). Ships ENABLED behind a
+ *  kill-switch, AND requires OPENROUTER_API_KEY to be present (no key → feature
+ *  hidden, never crashes). NOT a login/attendance gate. */
+export function goalCaptureEnabled(): boolean {
+  return process.env.GOAL_CAPTURE_OFF !== "true" && !!process.env.OPENROUTER_API_KEY;
+}
+
+/** Voice capture for Goal Capture — needs a Whisper key (OpenAI or free Groq).
+ *  Gated separately so text capture works without any transcription provider. */
+export function voiceCaptureEnabled(): boolean {
+  return goalCaptureEnabled() && !!process.env.WHISPER_API_KEY;
+}

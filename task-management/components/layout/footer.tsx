@@ -10,7 +10,11 @@ export function DashboardFooter() {
     >
       <div className="mx-auto max-w-[1600px] px-12 py-10 max-md:px-4 text-center">
         <div className="inline-flex items-center justify-center mb-4">
-          <div
+          <a
+            href="https://altuscorp.in"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Altus Corp — altuscorp.in (opens in a new tab)"
             className="inline-flex items-center rounded-lg bg-white px-3 py-2"
             style={{ boxShadow: "0 4px 14px rgba(0, 0, 0, 0.25)" }}
           >
@@ -19,7 +23,7 @@ export function DashboardFooter() {
               alt="Altus Corp"
               style={{ height: 40, width: "auto", display: "block" }}
             />
-          </div>
+          </a>
         </div>
         <p
           className="mt-3 text-xs"

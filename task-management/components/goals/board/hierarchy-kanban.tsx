@@ -66,12 +66,15 @@ import {
   periodKeyShort,
   categoryStyle,
   childLevelOf,
+  periodOfKey,
   fmtNum,
 } from "@/components/goals/cascade/util";
 import {
   quartersOfFy,
   monthKeysOfQuarter,
+  monthKeysOfFy,
   quarterOfKey,
+  type GoalPeriod,
 } from "@/lib/goals/types";
 import { weeksOfMonth } from "@/lib/goals/fy-calendar";
 import { formatWeekShort } from "@/lib/weekly-goals/week";
@@ -87,6 +90,8 @@ const FOCUS_RING =
 
 /** Drop-id contract — a lane droppable is `lane:<childPeriodKey>`. */
 const LANE_DROP_PREFIX = "lane:";
+/** Period-rail droppable — `period:<key>` reaches ANY quarter/month (#8). */
+const PERIOD_DROP_PREFIX = "period:";
 
 /** Stable empty identity so React.memo stays effective for childless cards. */
 const EMPTY: GoalDTO[] = [];
@@ -123,6 +128,8 @@ export interface HierarchyKanbanProps {
   policy: GoalPolicy;
   /** Same-level re-home (Q2→Q4, Jul→Aug…) — the board's shared `moveToBucket`. */
   onRehome: (g: GoalDTO, periodKey: string) => void;
+  /** Cross-LEVEL re-home via the period rail (roll-up → any quarter/any month). */
+  onRehomeLevel?: (g: GoalDTO, targetPeriod: GoalPeriod, targetPeriodKey: string) => void;
   /** Persist a new Sr.-No. order for a lane (drag within a lane). */
   onReorder: (ids: string[]) => void;
   /** Week-lane cards (from weekly_goals) for the Monthly board — populate the
@@ -164,6 +171,7 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
     canWrite,
     policy,
     onRehome,
+    onRehomeLevel,
     onReorder,
     weekCards,
     onRehomeWeek,
@@ -311,6 +319,17 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
         rehome(overId.slice(LANE_DROP_PREFIX.length));
         return;
       }
+      // Dropped on the PERIOD RAIL → move to ANY quarter/month (#8). Same level
+      // = sibling re-home; a different level re-parents via onRehomeLevel.
+      // Weekly cards can't cross levels, so they ignore the rail.
+      if (overId.startsWith(PERIOD_DROP_PREFIX)) {
+        if (isWeekly) return;
+        const key = overId.slice(PERIOD_DROP_PREFIX.length);
+        const lvl = periodOfKey(key);
+        if (lvl === g.period) onRehome(g, key);
+        else onRehomeLevel?.(g, lvl, key);
+        return;
+      }
       if (overId === g.id) return;
       const target = childGoals.find((x) => x.id === overId);
       if (!target) return;
@@ -330,7 +349,7 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
       if (oldIndex < 0 || newIndex < 0) return;
       onReorder(arrayMove(lane, oldIndex, newIndex).map((x) => x.id));
     },
-    [childGoals, childrenByLane, onRehome, onReorder, weeklyIdSet, onRehomeWeek],
+    [childGoals, childrenByLane, onRehome, onRehomeLevel, onReorder, weeklyIdSet, onRehomeWeek],
   );
 
   // ── ARIA-LIVE narration (keyboard parity) ───────────────────────────
@@ -490,6 +509,33 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
         {filtersActive ? " (filtered)" : ""}
       </p>
 
+      {/* Period rail (#8) — appears while dragging a goal card: drop it on ANY
+          quarter or ANY month to move it there (cross-level re-parents server-
+          side). Weekly cards can't cross levels, so the rail hides for them. */}
+      {activeDrag && !weeklyIdSet.has(activeDrag.id) && (
+        <div
+          className="wg-fade-in sticky bottom-2 z-40 mt-3 rounded-2xl border p-2.5"
+          style={{
+            borderColor: "color-mix(in srgb, var(--color-altus-red) 40%, transparent)",
+            background: "color-mix(in oklab, var(--color-altus-red) 5%, var(--color-surface-card))",
+            boxShadow: "0 18px 40px -24px rgba(15,23,42,0.28)",
+          }}
+        >
+          <div className="mb-1.5 px-0.5 text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: "var(--color-altus-red-deep)" }}>
+            Drop on any quarter or month to move it there
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {quartersOfFy(fy).map((k) => (
+              <PeriodDropPill key={k} periodKey={k} label={`Q${quarterOfKey(k)}`} sourceKey={activeDrag.periodKey} />
+            ))}
+            <span className="mx-1 h-4 w-px shrink-0" style={{ background: "var(--color-hairline-strong)" }} />
+            {monthKeysOfFy(fy).map((k) => (
+              <PeriodDropPill key={k} periodKey={k} label={periodKeyShort(k)} sourceKey={activeDrag.periodKey} />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Drag ghost — a lean copy of the carried card. */}
       <DragOverlay
         dropAnimation={{ duration: 220, easing: "cubic-bezier(0.2,0,0,1)" }}
@@ -516,6 +562,31 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
         )}
       </DragOverlay>
     </DndContext>
+  );
+}
+
+/** One droppable pill on the period rail — drop a card here to move it to this
+ *  quarter/month. Dims the card's current bucket; glows on hover-over. */
+function PeriodDropPill({ periodKey, label, sourceKey }: { periodKey: string; label: string; sourceKey: string }) {
+  const { setNodeRef, isOver } = useDroppable({ id: PERIOD_DROP_PREFIX + periodKey });
+  const isSource = periodKey === sourceKey;
+  return (
+    <span
+      ref={setNodeRef}
+      aria-label={`Move to ${periodKeyLabel(periodKey)}`}
+      className="inline-flex shrink-0 items-center rounded-lg border px-2.5 py-1 text-[12px] font-bold transition-all"
+      style={{
+        borderColor: isOver ? "var(--color-altus-red)" : "var(--color-hairline-strong)",
+        background: isOver
+          ? "color-mix(in oklab, var(--color-altus-red) 16%, var(--color-surface-card))"
+          : "var(--color-surface-card)",
+        color: isOver ? "var(--color-altus-red-deep)" : "var(--color-ink-soft)",
+        opacity: isSource ? 0.4 : 1,
+        transform: isOver ? "scale(1.06)" : "none",
+      }}
+    >
+      {label}
+    </span>
   );
 }
 

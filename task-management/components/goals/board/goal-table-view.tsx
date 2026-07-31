@@ -1028,6 +1028,11 @@ function DelegatesCell({
             className={cn(
               "inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red",
               "disabled:cursor-not-allowed disabled:opacity-60",
+              // #30 — no delegate affordance until the goal is actually delegated:
+              // when the list is empty the trigger is hidden, revealed only on row
+              // hover / keyboard focus (or while its own picker is open).
+              list.length === 0 && !open &&
+                "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100",
               FOCUS_RING,
             )}
             style={{ borderColor: "var(--color-hairline-strong)" }}

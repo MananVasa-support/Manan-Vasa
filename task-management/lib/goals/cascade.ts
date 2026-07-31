@@ -84,6 +84,12 @@ export async function generateChildren(goalId: string): Promise<GenerateResult> 
         area: parent.area,
         title: parent.title,
         uom: parent.uom,
+        // Carry the parent's classification down so a split quarter keeps the
+        // yearly goal's type/category and space (was dropped → children fell
+        // back to the 'goal' default and lost the parent's Goal Type).
+        category: parent.category,
+        goalType: parent.goalType,
+        scope: parent.scope,
         targetQty: qty,
         targetAmount: amt,
         weight: parent.weight,
@@ -117,6 +123,9 @@ export async function generateChildren(goalId: string): Promise<GenerateResult> 
         area: parent.area,
         title: parent.title,
         uom: parent.uom,
+        category: parent.category,
+        goalType: parent.goalType,
+        scope: parent.scope,
         targetQty: qty,
         targetAmount: amt,
         weight: parent.weight,
