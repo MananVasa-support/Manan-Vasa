@@ -74,6 +74,7 @@ import {
   monthKeysOfQuarter,
   monthKeysOfFy,
   quarterOfKey,
+  fyStartYearOf,
   type GoalPeriod,
 } from "@/lib/goals/types";
 import { weeksOfMonth } from "@/lib/goals/fy-calendar";
@@ -185,11 +186,19 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
   // ── Lanes (child buckets that fall under the selected parent) ────────
   const lanes = React.useMemo<LaneMeta[]>(() => {
     if (parentLevel === "year") {
-      return quartersOfFy(fy).map((k) => ({
-        key: k,
-        main: `Q${quarterOfKey(k)}`,
-        sub: periodKeyLabel(k).split("·")[1]?.trim() ?? "",
-      }));
+      // #6 — on the CURRENT FY, hide fully-past quarter lanes (Q1 gone once we're
+      // in Q2). Goals in a hidden past quarter stay reachable via the List view's
+      // "Show past" toggle and the drag period-rail, so nothing is lost.
+      const m = new Date().getMonth();
+      const nowQ = Math.floor(((m - 3 + 12) % 12) / 3) + 1; // FY quarter of today
+      const isCurrentFy = fy === fyStartYearOf(new Date());
+      return quartersOfFy(fy)
+        .filter((k) => !isCurrentFy || quarterOfKey(k) >= nowQ)
+        .map((k) => ({
+          key: k,
+          main: `Q${quarterOfKey(k)}`,
+          sub: periodKeyLabel(k).split("·")[1]?.trim() ?? "",
+        }));
     }
     if (parentLevel === "quarter") {
       return monthKeysOfQuarter(fy, quarterOfKey(selectedKey)).map((k) => ({

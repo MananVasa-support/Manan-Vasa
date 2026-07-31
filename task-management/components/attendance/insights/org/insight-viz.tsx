@@ -208,7 +208,7 @@ export function InsightDonut({
 
   if (total === 0) {
     return (
-      <div className="flex min-h-[140px] items-center justify-center rounded-chip border border-dashed border-hairline-strong bg-surface-soft px-4 py-8 text-center">
+      <div className="flex min-h-[140px] items-center justify-center rounded-chip border border-solid border-hairline-strong bg-surface-soft px-4 py-8 text-center">
         <p className="text-[13.5px] font-medium text-ink-muted">No data for this month yet.</p>
       </div>
     );
@@ -359,7 +359,7 @@ export function HBars({ bars, unit = "" }: { bars: HBar[]; unit?: string }) {
   const total = bars.reduce((n, b) => n + b.count, 0);
   if (total === 0) {
     return (
-      <div className="flex min-h-[120px] items-center justify-center rounded-chip border border-dashed border-hairline-strong bg-surface-soft px-4 py-8 text-center">
+      <div className="flex min-h-[120px] items-center justify-center rounded-chip border border-solid border-hairline-strong bg-surface-soft px-4 py-8 text-center">
         <p className="text-[13.5px] font-medium text-ink-muted">No data for this month yet.</p>
       </div>
     );

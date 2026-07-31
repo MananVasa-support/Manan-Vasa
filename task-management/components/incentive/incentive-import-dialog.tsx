@@ -145,7 +145,7 @@ export function IncentiveImportDialog() {
                   setDragging(false);
                   setFile(e.dataTransfer.files?.[0] ?? null);
                 }}
-                className="flex flex-col items-center justify-center gap-2.5 rounded-section border-2 border-dashed px-6 py-9 cursor-pointer transition-all"
+                className="flex flex-col items-center justify-center gap-2.5 rounded-section border-2 border-solid px-6 py-9 cursor-pointer transition-all"
                 style={{
                   borderColor: dragging ? "var(--color-altus-red)" : "var(--color-hairline-strong)",
                   background: dragging ? "var(--color-red-bg, #fef2f2)" : "var(--color-surface-soft)",

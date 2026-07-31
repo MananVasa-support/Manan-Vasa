@@ -136,7 +136,7 @@ export function UploadDialog({
             {/* file */}
             <label className="flex flex-col gap-1.5">
               <span className="text-[12px] font-bold uppercase tracking-[0.1em] text-ink-subtle">File</span>
-              <div className="relative flex items-center gap-2 rounded-xl border border-dashed border-hairline-strong bg-surface-soft px-3.5 py-2.5">
+              <div className="relative flex items-center gap-2 rounded-xl border border-solid border-hairline-strong bg-surface-soft px-3.5 py-2.5">
                 <Paperclip size={15} className="shrink-0 text-ink-subtle" />
                 <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink-muted">{file ? file.name : "Choose PDF / image…"}</span>
                 <input name="file" type="file" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="absolute inset-0 cursor-pointer opacity-0" />

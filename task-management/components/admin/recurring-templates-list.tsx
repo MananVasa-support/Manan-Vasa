@@ -26,7 +26,7 @@ export function RecurringTemplatesList({ rows }: Props) {
       </header>
       {rows.length === 0 ? (
         <div
-          className="rounded-section border border-dashed border-hairline-strong bg-surface-card px-5 py-8 text-center text-[14px] text-ink-subtle"
+          className="rounded-section border border-solid border-hairline-strong bg-surface-card px-5 py-8 text-center text-[14px] text-ink-subtle"
         >
           No active recurring templates.
         </div>

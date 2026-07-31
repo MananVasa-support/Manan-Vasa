@@ -173,7 +173,7 @@ export function TaskImport({
           setDragging(false);
           onPick(e.dataTransfer.files?.[0] ?? null);
         }}
-        className="group flex flex-col items-center justify-center gap-3 rounded-section border-2 border-dashed px-6 py-12 cursor-pointer transition-all"
+        className="group flex flex-col items-center justify-center gap-3 rounded-section border-2 border-solid px-6 py-12 cursor-pointer transition-all"
         style={{
           borderColor: dragging ? "var(--color-altus-red)" : "var(--color-hairline-strong)",
           background: dragging ? "var(--color-red-bg, #fef2f2)" : "var(--color-surface-soft)",

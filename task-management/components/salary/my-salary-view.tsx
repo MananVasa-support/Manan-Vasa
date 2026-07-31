@@ -47,7 +47,7 @@ export function MySalaryView({ months }: { months: MySalaryMonth[] }) {
 
   if (!m) {
     return (
-      <div className="rounded-3xl border border-dashed border-hairline-strong bg-surface-card p-12 text-center">
+      <div className="rounded-3xl border border-solid border-hairline-strong bg-surface-card p-12 text-center">
         <span className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl" style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: RED }}>
           <Wallet size={22} strokeWidth={2.2} />
         </span>
@@ -135,7 +135,7 @@ export function MySalaryView({ months }: { months: MySalaryMonth[] }) {
             {m.previousPending !== 0 && (
               <Line label="Previous pending" value={`${m.previousPending > 0 ? "+ " : "− "}${inr(Math.abs(m.previousPending))}`} Icon={PiggyBank} />
             )}
-            <div className="my-2 border-t border-dashed border-hairline-strong" />
+            <div className="my-2 border-t border-solid border-hairline-strong" />
             <div className="flex items-center justify-between rounded-xl px-3 py-3" style={{ background: "color-mix(in srgb, var(--color-altus-red) 6%, transparent)" }}>
               <span className="text-[14px] font-black text-ink-strong">Final payment</span>
               <span className="text-[18px] font-black tabular-nums" style={{ color: RED_DEEP }}>{inr(m.finalPayment)}</span>

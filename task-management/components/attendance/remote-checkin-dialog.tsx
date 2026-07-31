@@ -152,7 +152,7 @@ export function RemoteCheckInDialog({
           {/* photo */}
           <div>
             <div className="mb-1.5 text-[12px] font-bold uppercase tracking-[0.1em] text-ink-subtle">Photo evidence <span className="text-[color:var(--color-altus-red)]">*</span></div>
-            <label className="relative flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-hairline-strong bg-surface-soft px-3.5 py-3">
+            <label className="relative flex cursor-pointer items-center gap-3 rounded-xl border-2 border-solid border-hairline-strong bg-surface-soft px-3.5 py-3">
               {photoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={photoUrl} alt="evidence" className="h-14 w-14 rounded-lg object-cover" />

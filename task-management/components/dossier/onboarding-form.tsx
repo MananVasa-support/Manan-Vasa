@@ -150,7 +150,7 @@ function Field({
     return (
       <label className="flex flex-col gap-1" style={wrapStyle}>
         {label}
-        <div className="relative flex items-center gap-1.5 rounded-lg border border-dashed border-hairline-strong bg-surface-soft px-2.5 py-2">
+        <div className="relative flex items-center gap-1.5 rounded-lg border border-solid border-hairline-strong bg-surface-soft px-2.5 py-2">
           <Paperclip size={13} className="shrink-0 text-ink-subtle" />
           <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-ink-muted">{hasPicked ? pickedFile!.name : hasExisting ? (existingFile!.isLink ? "Linked" : existingFile!.fileName) : "Choose file…"}</span>
           {hasExisting && existingFile!.signedUrl && (

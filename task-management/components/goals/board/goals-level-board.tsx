@@ -969,6 +969,9 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               employeeId={props.viewedEmployeeId}
               level={props.level}
               periodKey={props.periodKey}
+              areaOptions={areaOptions}
+              measureOptions={measureOptions}
+              typeOptions={typeOptions}
               existingTitles={levelGoals
                 .filter((g) => g.periodKey === props.periodKey)
                 .map((g) => g.title)}

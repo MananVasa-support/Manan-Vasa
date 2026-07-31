@@ -166,7 +166,7 @@ export function AccountsTaskImport() {
                 setDragging(false);
                 onPick(e.dataTransfer.files?.[0] ?? null);
               }}
-              className="group flex flex-col items-center justify-center gap-2.5 rounded-section border-2 border-dashed px-6 py-10 cursor-pointer transition-all"
+              className="group flex flex-col items-center justify-center gap-2.5 rounded-section border-2 border-solid px-6 py-10 cursor-pointer transition-all"
               style={{
                 borderColor: dragging ? "var(--color-altus-red)" : "var(--color-hairline-strong)",
                 background: dragging

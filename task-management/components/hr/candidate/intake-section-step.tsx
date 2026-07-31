@@ -167,7 +167,7 @@ export function IntakeSectionStep({
           {section.repeat.max > instances.length && (
             <button
               onClick={onAdd}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-hairline-strong py-4 text-[14px] font-bold text-ink-muted transition-colors hover:border-altus-red hover:text-altus-red"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-solid border-hairline-strong py-4 text-[14px] font-bold text-ink-muted transition-colors hover:border-altus-red hover:text-altus-red"
             >
               <Plus size={17} /> Add another {section.repeat.itemLabel.toLowerCase()}
             </button>
@@ -325,7 +325,7 @@ function FileTile({
       </label>
       <label
         htmlFor={id}
-        className="flex h-48 cursor-pointer flex-col items-center justify-center gap-2.5 overflow-hidden rounded-2xl border-2 border-dashed bg-white transition-colors hover:border-altus-red"
+        className="flex h-48 cursor-pointer flex-col items-center justify-center gap-2.5 overflow-hidden rounded-2xl border-2 border-solid bg-white transition-colors hover:border-altus-red"
         style={{ borderColor: error ? "var(--color-altus-red)" : "var(--color-hairline-strong)" }}
       >
         {state.preview ? (

@@ -69,7 +69,7 @@ export function TypeBrowse({
 
       {/* rows */}
       {rows.length === 0 ? (
-        <div className="rounded-[20px] border border-dashed border-hairline-strong bg-surface-card px-6 py-10 text-center text-[14px] font-semibold text-ink-subtle">
+        <div className="rounded-[20px] border border-solid border-hairline-strong bg-surface-card px-6 py-10 text-center text-[14px] font-semibold text-ink-subtle">
           No {meta.label.toLowerCase()} uploaded yet.
         </div>
       ) : (

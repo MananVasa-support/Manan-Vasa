@@ -148,7 +148,7 @@ export function BatchWorkspace({
 
 function EmptyState({ onNew, disabled }: { onNew: () => void; disabled: boolean }) {
   return (
-    <div className="wg-rise flex flex-col items-center justify-center rounded-2xl border border-dashed border-hairline-strong bg-surface-card px-6 py-16 text-center">
+    <div className="wg-rise flex flex-col items-center justify-center rounded-2xl border border-solid border-hairline-strong bg-surface-card px-6 py-16 text-center">
       <span
         className="inline-flex size-14 items-center justify-center rounded-2xl"
         style={{ background: `${ACCENT}1a`, color: ACCENT_DEEP }}
@@ -336,7 +336,7 @@ function StatusChip({ status }: { status: BatchScheduleRow["status"] }) {
     <span
       className={cn(
         "shrink-0 rounded-pill px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em]",
-        tentative ? "border border-dashed" : "text-white",
+        tentative ? "border border-solid" : "text-white",
       )}
       style={
         tentative

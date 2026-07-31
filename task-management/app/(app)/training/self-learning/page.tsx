@@ -101,7 +101,7 @@ export default async function SelfLearningPage() {
               <h2 className="text-[15px] font-bold text-ink-strong">This month's learning</h2>
               <p className="mt-0.5 mb-4 text-[13px] font-medium text-ink-subtle">{monthName}</p>
               {rows.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-hairline-strong p-10 text-center">
+                <div className="rounded-xl border border-solid border-hairline-strong p-10 text-center">
                   <p className="text-[15px] font-bold text-ink-strong">Nothing logged yet this month</p>
                   <p className="mt-1 text-[13.5px] font-medium text-ink-muted">Add your first self-learning entry on the left.</p>
                 </div>

@@ -614,7 +614,7 @@ function SaveState({ saving, dirty, loading }: { saving: boolean; dirty: boolean
 
 function EmptyState() {
   return (
-    <div className="ev2-fade mt-2 grid place-items-center rounded-2xl border border-dashed border-hairline-strong bg-white px-6 py-20 text-center">
+    <div className="ev2-fade mt-2 grid place-items-center rounded-2xl border border-solid border-hairline-strong bg-white px-6 py-20 text-center">
       <span className="grid h-14 w-14 place-items-center rounded-2xl" style={{ background: "#E106001a", color: RED_DEEP }}>
         <UserRound size={26} strokeWidth={2.1} />
       </span>

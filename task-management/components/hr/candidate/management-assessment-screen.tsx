@@ -987,7 +987,7 @@ function AttachmentsCard({
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
         onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); if (e.dataTransfer.files) void handleFiles(e.dataTransfer.files); }}
-        className="ma-drop flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-6 py-9 text-center transition-colors"
+        className="ma-drop flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-solid px-6 py-9 text-center transition-colors"
         data-drag={drag ? "true" : undefined}
         style={{ borderColor: drag ? "var(--color-altus-red)" : "var(--color-hairline-strong)", background: drag ? "color-mix(in srgb, var(--color-altus-red) 6%, white)" : "var(--color-surface-soft)" }}
       >
@@ -1582,7 +1582,7 @@ function StatTile({ icon, n, label }: { icon: React.ReactNode; n: number; label:
 
 function EmptyState() {
   return (
-    <div className="ma-fade grid place-items-center rounded-2xl border border-dashed border-hairline-strong bg-white py-24 text-center">
+    <div className="ma-fade grid place-items-center rounded-2xl border border-solid border-hairline-strong bg-white py-24 text-center">
       <span className="grid h-16 w-16 place-items-center rounded-3xl text-white" style={{ background: "linear-gradient(135deg,#E10600,#A80400)", boxShadow: "0 18px 40px -18px rgba(168,4,0,0.7)" }}>
         <UserRound size={30} />
       </span>

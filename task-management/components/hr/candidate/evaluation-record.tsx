@@ -27,7 +27,7 @@ export function EvaluationRecord({ name, position, ratings }: { name: string; po
       </div>
 
       {overall.rated === 0 && (
-        <p className="mb-4 rounded-xl border border-dashed border-hairline-strong bg-surface-card px-4 py-6 text-center text-[14px] text-ink-muted">
+        <p className="mb-4 rounded-xl border border-solid border-hairline-strong bg-surface-card px-4 py-6 text-center text-[14px] text-ink-muted">
           No evaluation recorded yet for this candidate.
         </p>
       )}

@@ -148,7 +148,7 @@ export const SignaturePad = React.forwardRef<
         {/* Baseline the signer draws on */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-6 bottom-9 border-b border-dashed"
+          className="pointer-events-none absolute inset-x-6 bottom-9 border-b border-solid"
           style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 30%, transparent)" }}
         />
         {empty && (

@@ -59,7 +59,7 @@ export function HiringAnalyticsDashboard({ data }: { data: HiringAnalytics }) {
       <KpiHero stats={heroStats} />
 
       {!data.hasEvaluations && (
-        <div className="rounded-section border border-dashed border-hairline-strong bg-surface-soft px-6 py-5">
+        <div className="rounded-section border border-solid border-hairline-strong bg-surface-soft px-6 py-5">
           <p className="text-[14px] font-semibold text-ink-strong">Analytics warm up as interviews are evaluated.</p>
           <p className="mt-1 text-[13px] font-medium text-ink-muted">
             Pipeline and role figures are live from {data.totalCandidates} candidate record{data.totalCandidates === 1 ? "" : "s"}. Score-based charts populate once the Candidate Evaluation is filled.
@@ -157,7 +157,7 @@ function RingStat({ label, value, max, caption }: { label: string; value: number
       {value != null ? (
         <AttainmentRing value={value} max={max} size={150} />
       ) : (
-        <div className="flex size-[150px] items-center justify-center rounded-full border-2 border-dashed border-hairline-strong">
+        <div className="flex size-[150px] items-center justify-center rounded-full border-2 border-solid border-hairline-strong">
           <span className="text-[13px] font-semibold text-ink-muted">No data</span>
         </div>
       )}

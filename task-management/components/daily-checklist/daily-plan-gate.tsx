@@ -187,7 +187,7 @@ export function DailyPlanGate({ greetingName, today, items: pItems, overdue: pOv
           </div>
 
           {committed.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-hairline-strong px-4 py-6 text-center">
+            <div className="rounded-xl border border-solid border-hairline-strong px-4 py-6 text-center">
               <p className="text-[14px] font-semibold text-ink-muted">Nothing planned yet.</p>
               <p className="mt-0.5 text-[13px] text-ink-subtle">Type your first task below, or tap one from your tasks.</p>
             </div>

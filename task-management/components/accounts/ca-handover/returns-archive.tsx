@@ -164,7 +164,7 @@ function DocGroup({
         {fields.map((f) => {
           const val = row[f.key] as string | null;
           return (
-            <li key={String(f.key)} className="flex items-center justify-between gap-2 border-b border-dashed pb-1.5" style={{ borderColor: "var(--color-hairline)" }}>
+            <li key={String(f.key)} className="flex items-center justify-between gap-2 border-b border-solid pb-1.5" style={{ borderColor: "var(--color-hairline)" }}>
               <span className="text-ink-soft font-semibold" style={{ fontSize: 12.5 }}>{f.label}</span>
               {val ? (
                 <a href={val} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-bold text-altus-red hover:underline shrink-0" style={{ fontSize: 12.5 }}>

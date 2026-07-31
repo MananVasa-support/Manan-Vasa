@@ -500,7 +500,7 @@ function RowIconButton({
 
 function EmptyRow({ label }: { label: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-hairline px-4 py-8 text-center text-[13.5px] font-medium text-ink-soft">
+    <div className="rounded-xl border border-solid border-hairline px-4 py-8 text-center text-[13.5px] font-medium text-ink-soft">
       {label}
     </div>
   );

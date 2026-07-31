@@ -68,7 +68,7 @@ export function EmployeeGrid({ employees }: { employees: DossierEmployeeCard[] }
       </div>
 
       {filtered.length === 0 && (
-        <div className="rounded-[20px] border border-dashed border-hairline-strong bg-surface-card px-6 py-10 text-center text-[14px] font-semibold text-ink-subtle">
+        <div className="rounded-[20px] border border-solid border-hairline-strong bg-surface-card px-6 py-10 text-center text-[14px] font-semibold text-ink-subtle">
           No one matches “{q}”.
         </div>
       )}

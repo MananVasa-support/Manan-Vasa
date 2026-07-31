@@ -317,7 +317,7 @@ function AddAdhocRow({
   }
 
   return (
-    <div className="rounded-lg border border-dashed border-[#CBD5E1] p-3.5">
+    <div className="rounded-lg border border-solid border-[#CBD5E1] p-3.5">
       <p className="text-[13px] font-semibold uppercase tracking-wide text-[#64748B] mb-2.5">
         Add ad-hoc installment
       </p>

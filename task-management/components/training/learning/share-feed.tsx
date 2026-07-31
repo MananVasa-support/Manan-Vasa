@@ -112,7 +112,7 @@ function ShareCard({ share, index }: { share: ShareForFeedback; index: number })
 export function ShareFeed({ shares }: { shares: ShareForFeedback[] }) {
   if (shares.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-hairline-strong bg-surface-card p-10 text-center">
+      <div className="rounded-2xl border border-solid border-hairline-strong bg-surface-card p-10 text-center">
         <Video size={28} strokeWidth={1.8} className="mx-auto" style={{ color: "var(--color-ink-subtle)" }} />
         <p className="mt-3 text-[15px] font-bold text-ink-strong">No colleague Shares yet</p>
         <p className="mt-1 text-[13.5px] font-medium text-ink-muted">

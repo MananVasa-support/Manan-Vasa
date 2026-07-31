@@ -51,7 +51,7 @@ export function BasicDetailsScreen({ candidates }: { candidates: CandidateRow[] 
       </div>
 
       {rows.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-hairline-strong bg-surface-card px-6 py-16 text-center">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-solid border-hairline-strong bg-surface-card px-6 py-16 text-center">
           <span className="grid h-14 w-14 place-items-center rounded-2xl" style={{ background: "color-mix(in srgb, var(--color-altus-red) 12%, white)", color: "var(--color-altus-red-deep)" }}>
             <ClipboardList size={26} strokeWidth={2.1} />
           </span>

@@ -204,7 +204,7 @@ export function WeightMatrixPanel() {
               <p className="mt-2 text-[13px] font-medium">Loading weight profiles…</p>
             </div>
           ) : error ? (
-            <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-hairline-strong bg-surface-soft px-6 py-12 text-center">
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-solid border-hairline-strong bg-surface-soft px-6 py-12 text-center">
               <span
                 className="grid h-12 w-12 place-items-center rounded-2xl"
                 style={{ background: "color-mix(in srgb, var(--color-altus-red) 12%, white)", color: RED_DEEP }}

@@ -104,7 +104,7 @@ export function HrCard({ card, delay = 0 }: { card: HrCardDef; delay?: number })
 export function HrPlanned({ title, note }: { title: string; note?: string }) {
   return (
     <section
-      className="wg-rise flex flex-col items-center justify-center rounded-2xl border border-dashed border-hairline-strong bg-surface-card px-6 py-16 text-center"
+      className="wg-rise flex flex-col items-center justify-center rounded-2xl border border-solid border-hairline-strong bg-surface-card px-6 py-16 text-center"
       style={{ animationDelay: "60ms" }}
     >
       <span

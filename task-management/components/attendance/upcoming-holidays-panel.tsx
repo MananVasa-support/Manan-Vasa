@@ -67,7 +67,7 @@ export function UpcomingHolidaysPanel({ holidays }: { holidays: UpcomingHoliday[
       </div>
 
       {holidays.length === 0 ? (
-        <div className="flex min-h-[96px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-hairline-strong bg-surface-soft px-4 py-6 text-center">
+        <div className="flex min-h-[96px] flex-col items-center justify-center gap-2 rounded-2xl border border-solid border-hairline-strong bg-surface-soft px-4 py-6 text-center">
           <PartyPopper size={20} strokeWidth={2} className="text-ink-soft" aria-hidden />
           <p className="text-[13px] font-medium text-ink-muted">No holidays coming up.</p>
         </div>

@@ -207,7 +207,7 @@ export function TicketComposer({ mode = "support" }: { mode?: "support" | "query
               setDragOver(false);
               addFiles(e.dataTransfer.files);
             }}
-            className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-6 text-center transition"
+            className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-solid px-4 py-6 text-center transition"
             style={{ borderColor: dragOver ? RED : "var(--color-hairline, #e5e7eb)", background: dragOver ? `${RED}08` : "transparent" }}
           >
             <Paperclip size={18} className="text-ink-muted" />

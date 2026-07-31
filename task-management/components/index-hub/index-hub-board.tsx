@@ -338,7 +338,7 @@ function AddLink({ sectionId }: { sectionId: string }) {
   }
 
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-hairline p-2.5">
+    <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-solid border-hairline p-2.5">
       <Plus size={15} className="text-ink-muted" />
       <input
         value={label}
@@ -392,7 +392,7 @@ function AddSection() {
   }
 
   return (
-    <div className="mt-6 flex flex-wrap items-center gap-2 rounded-section border border-dashed border-hairline bg-surface-card p-4">
+    <div className="mt-6 flex flex-wrap items-center gap-2 rounded-section border border-solid border-hairline bg-surface-card p-4">
       <FolderPlus size={18} className="text-altus-red" />
       <input
         value={title}

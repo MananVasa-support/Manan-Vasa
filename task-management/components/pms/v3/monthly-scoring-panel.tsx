@@ -422,7 +422,7 @@ function JustifyReview({ justify }: { justify: NonNullable<MonthlyScoreView["fac
   const any = lanes.some(([, v]) => v && (v.given || v.taken));
   if (!any) return null;
   return (
-    <div className="mt-3 space-y-1.5 rounded-xl border border-dashed border-hairline-strong bg-surface-soft p-3 text-[12.5px]">
+    <div className="mt-3 space-y-1.5 rounded-xl border border-solid border-hairline-strong bg-surface-soft p-3 text-[12.5px]">
       <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.1em] text-ink-subtle">
         <Lock size={11} /> Justifications (Manan-only)
       </div>

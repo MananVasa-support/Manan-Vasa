@@ -268,6 +268,9 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
                 employeeId={props.employeeId}
                 level={props.level}
                 periodKey={periodKey}
+                areaOptions={props.areaOptions}
+                measureOptions={props.measureOptions}
+                typeOptions={props.typeOptions}
                 existingTitles={props.existingTitles ?? []}
               />
               <span className="min-w-0 truncate text-[12px] font-medium" style={{ color: "var(--color-ink-subtle)" }}>

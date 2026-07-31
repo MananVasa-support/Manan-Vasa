@@ -210,7 +210,7 @@ export function VasaBalances({
             <button type="button" onClick={() => { setAdding(false); setNewParty(""); }} className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-3 py-2 text-[13.5px] font-bold text-ink-muted"><X size={15} /> Cancel</button>
           </>
         ) : (
-          <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-2 rounded-xl border border-dashed border-hairline-strong bg-white py-2 px-3.5 text-[13.5px] font-bold text-ink-soft transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red">
+          <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-2 rounded-xl border border-solid border-hairline-strong bg-white py-2 px-3.5 text-[13.5px] font-bold text-ink-soft transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red">
             <Plus size={15} strokeWidth={2.6} /> Add party
           </button>
         )}

@@ -209,7 +209,7 @@ export function CalendarBoard({
       <section>
         <h2 className="mb-3 text-[13px] font-bold uppercase tracking-[0.12em] text-ink-subtle">Upcoming</h2>
         {upcoming.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-hairline-strong bg-surface-soft p-8 text-center text-[14.5px] font-semibold text-ink-subtle">
+          <div className="rounded-2xl border border-solid border-hairline-strong bg-surface-soft p-8 text-center text-[14.5px] font-semibold text-ink-subtle">
             No upcoming sessions scheduled.
           </div>
         ) : (

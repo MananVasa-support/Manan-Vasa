@@ -44,7 +44,7 @@ export function GateSection({ ctrl, section }: { ctrl: EvalController; section: 
           <RatingSection ctrl={ctrl} section={section} hideHeaderNote />
         </div>
       ) : answer != null ? (
-        <div className="flex items-center gap-2.5 rounded-2xl border border-dashed border-hairline-strong bg-surface-soft px-4 py-3.5 text-[13px] font-semibold text-ink-muted">
+        <div className="flex items-center gap-2.5 rounded-2xl border border-solid border-hairline-strong bg-surface-soft px-4 py-3.5 text-[13px] font-semibold text-ink-muted">
           <EyeOff size={16} className="shrink-0 text-ink-subtle" />
           Customer-facing ratings are skipped for this answer — the section&apos;s weight is dropped from the overall.
         </div>

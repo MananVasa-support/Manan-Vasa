@@ -125,7 +125,7 @@ export function EmployeeDossierView({
               {/* docs */}
               <div className="mt-3 flex flex-col gap-2">
                 {docs.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-hairline-strong px-3.5 py-3 text-[13px] font-medium text-ink-subtle">
+                  <div className="rounded-xl border border-solid border-hairline-strong px-3.5 py-3 text-[13px] font-medium text-ink-subtle">
                     No document yet.
                   </div>
                 ) : (

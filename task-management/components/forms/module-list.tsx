@@ -172,7 +172,7 @@ function AdminPanel({ row, adminFields, productOptions }: { row: ModuleSubmissio
   }
 
   return (
-    <div className="mt-4 rounded-xl border border-dashed border-hairline p-4 bg-black/[0.015]">
+    <div className="mt-4 rounded-xl border border-solid border-hairline p-4 bg-black/[0.015]">
       <p className="text-[12px] font-black uppercase tracking-[0.05em] text-altus-red mb-3">Admin · Response</p>
       <div className="grid grid-cols-2 max-md:grid-cols-1 gap-3">
         {visible.map((f) => (

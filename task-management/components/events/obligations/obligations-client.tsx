@@ -376,7 +376,7 @@ export function ObligationsClient({
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="grid place-items-center rounded-2xl border border-dashed border-hairline-strong bg-surface-card px-6 py-16 text-center">
+    <div className="grid place-items-center rounded-2xl border border-solid border-hairline-strong bg-surface-card px-6 py-16 text-center">
       <span
         className="mb-4 inline-flex size-14 items-center justify-center rounded-2xl"
         style={{ background: `${ACCENT}14`, color: ACCENT_DEEP }}

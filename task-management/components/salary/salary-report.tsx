@@ -137,7 +137,7 @@ export function SalaryReport({ month, monthLabel, rows }: Props) {
 
       {rows.length === 0 ? (
         <div
-          className="rounded-section border border-dashed border-hairline-strong bg-surface-card px-6 py-14 text-center"
+          className="rounded-section border border-solid border-hairline-strong bg-surface-card px-6 py-14 text-center"
           style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
         >
           <p

@@ -189,7 +189,7 @@ export default async function PmsSignalsPage() {
             </h2>
             {recognitions.length === 0 ? (
               <div
-                className="rounded-2xl border border-dashed border-hairline bg-surface-card p-8 text-center text-[14px] text-ink-muted"
+                className="rounded-2xl border border-solid border-hairline bg-surface-card p-8 text-center text-[14px] text-ink-muted"
               >
                 No recognition suggested yet. As scores cross the recognition threshold, suggestions
                 appear here for you to release.
@@ -260,7 +260,7 @@ export default async function PmsSignalsPage() {
             </h2>
             {promotions.length === 0 ? (
               <div
-                className="rounded-2xl border border-dashed border-hairline bg-surface-card p-8 text-center text-[14px] text-ink-muted"
+                className="rounded-2xl border border-solid border-hairline bg-surface-card p-8 text-center text-[14px] text-ink-muted"
               >
                 No promotion signals. When someone crosses the promotion threshold with enough tenure,
                 they are flagged here for your review.
@@ -364,7 +364,7 @@ export default async function PmsSignalsPage() {
           </p>
 
           {tva.rows.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-hairline bg-surface-card p-8 text-center text-[14px] text-ink-muted">
+            <div className="rounded-2xl border border-solid border-hairline bg-surface-card p-8 text-center text-[14px] text-ink-muted">
               No incentive targets or earnings recorded for {tva.year} yet.
             </div>
           ) : (

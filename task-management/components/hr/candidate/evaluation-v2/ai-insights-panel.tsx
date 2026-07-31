@@ -110,7 +110,7 @@ export function AiInsightsPanel({
       </div>
 
       {!insights ? (
-        <div className="mt-4 grid place-items-center rounded-xl border border-dashed border-hairline-strong bg-white px-6 py-10 text-center">
+        <div className="mt-4 grid place-items-center rounded-xl border border-solid border-hairline-strong bg-white px-6 py-10 text-center">
           <Cpu size={26} strokeWidth={1.8} style={{ color: RED_DEEP }} />
           <p className="mt-2 max-w-[46ch] text-[13px] font-medium text-ink-muted">
             Generate an AI read of the ratings and notes. Every field stays fully editable — the model drafts, you decide.

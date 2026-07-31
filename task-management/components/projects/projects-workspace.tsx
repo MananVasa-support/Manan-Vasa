@@ -1863,7 +1863,7 @@ function MembersPicker({ node }: { node: ProjectTreeNode }) {
             <button
               type="button"
               disabled={pending}
-              className="inline-flex items-center gap-1 rounded-pill border border-dashed px-2.5 py-1 text-[13.5px] font-semibold text-ink-muted hover:text-altus-red hover:border-altus-red transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-pill border border-solid px-2.5 py-1 text-[13.5px] font-semibold text-ink-muted hover:text-altus-red hover:border-altus-red transition-colors disabled:opacity-50"
               style={{ borderColor: "var(--color-hairline-strong)" }}
             >
               <Plus size={13} strokeWidth={2.6} />

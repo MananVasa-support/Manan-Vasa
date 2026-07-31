@@ -17,6 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { bulkCreateGoals } from "@/app/(app)/goals/cascade/actions";
+import { GoalsBulkGrid, type BulkGridRow } from "./goals-bulk-grid";
 import { fireToast } from "@/lib/toast";
 import { periodKeyLabel } from "@/components/goals/cascade/util";
 import { columnForHeader, normKey } from "@/lib/goals/template-columns";
@@ -195,6 +196,10 @@ interface Props {
   periodKey: string;
   /** Titles already in THIS bucket — used to flag duplicate uploads. */
   existingTitles: string[];
+  /** Dropdown options for the in-app grid cells (base + admin-added). */
+  areaOptions: string[];
+  measureOptions: string[];
+  typeOptions: string[];
 }
 
 export function GoalsBulkUpload(props: Props) {
@@ -304,6 +309,32 @@ export function GoalsBulkUpload(props: Props) {
       const next = prev.filter((r) => r.key !== key);
       return next.length ? evaluate(next, existingSet) : null;
     });
+  }
+
+  /** The in-app GRID's "Proceed" — turn the filled cells into preview rows and
+   *  run them through the same duplicate/anomaly evaluation as a file upload. */
+  function onGridProceed(gridRows: BulkGridRow[]) {
+    if (gridRows.length === 0) {
+      setError("Fill at least one goal — a Goal Title is required.");
+      return;
+    }
+    setError(null);
+    setFileName("");
+    const asRows: Row[] = gridRows.map((g, i) => ({
+      key: i + 1,
+      sheetRow: i + 1,
+      area: g.area,
+      title: g.title,
+      uom: g.uom,
+      weight: g.weight,
+      target: g.target,
+      actual: g.actual,
+      category: g.category,
+      errors: [],
+      dup: null,
+      include: true,
+    }));
+    setRows(evaluate(asRows, existingSet));
   }
 
   function doImport() {
@@ -416,6 +447,25 @@ export function GoalsBulkUpload(props: Props) {
 
               {/* Body (scrolls) */}
               <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+                {/* IN-APP GRID — the primary bulk-entry (Excel, in the app). Fill
+                    the boxes/dropdowns (or paste from Excel) → Proceed → review. */}
+                {!rows && (
+                  <div className="mb-4">
+                    <GoalsBulkGrid
+                      areaOptions={props.areaOptions}
+                      measureOptions={props.measureOptions}
+                      typeOptions={props.typeOptions}
+                      levelName={levelName}
+                      onProceed={onGridProceed}
+                    />
+                    <div className="my-4 flex items-center gap-3 text-[11px] font-bold uppercase tracking-wide text-ink-subtle">
+                      <span className="h-px flex-1" style={{ background: "var(--color-hairline)" }} />
+                      or import from a file
+                      <span className="h-px flex-1" style={{ background: "var(--color-hairline)" }} />
+                    </div>
+                  </div>
+                )}
+
                 {/* Template + upload actions */}
                 <div
                   className="flex flex-wrap items-center gap-2.5 rounded-xl p-3.5"

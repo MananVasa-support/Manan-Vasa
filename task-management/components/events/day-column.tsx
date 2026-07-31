@@ -125,7 +125,7 @@ export function DayColumn({
     >
       {sel && (
         <div
-          className="pointer-events-none absolute inset-x-0.5 rounded-md border-2 border-dashed"
+          className="pointer-events-none absolute inset-x-0.5 rounded-md border-2 border-solid"
           style={{
             top: sel.top,
             height: sel.height,

@@ -195,7 +195,7 @@ export function AiInsightsPanel({
 
 function EmptyPrompt({ pending }: { pending: boolean }) {
   return (
-    <div className="flex min-h-[160px] flex-col items-center justify-center gap-3 rounded-chip border border-dashed border-hairline-strong bg-surface-soft px-4 py-10 text-center">
+    <div className="flex min-h-[160px] flex-col items-center justify-center gap-3 rounded-chip border border-solid border-hairline-strong bg-surface-soft px-4 py-10 text-center">
       <span
         className="inline-flex size-11 items-center justify-center rounded-full text-white"
         style={{ background: `linear-gradient(135deg, ${RED}, ${GREEN})` }}

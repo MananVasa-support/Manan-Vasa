@@ -309,7 +309,7 @@ function SectionBar({ score, delta }: { score: SectionScore; delta: number | und
 
   if (!score.applicable) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-dashed border-hairline-strong bg-surface-soft px-3 py-2">
+      <div className="flex items-center gap-2 rounded-lg border border-solid border-hairline-strong bg-surface-soft px-3 py-2">
         <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-white text-[10px] font-black text-ink-subtle">
           {score.code}
         </span>
@@ -421,7 +421,7 @@ function StatTile({
 function RecommendationChip({ value, overridden }: { value: EvaluationInstance["recommendation"]; overridden?: boolean }) {
   if (!value) {
     return (
-      <span className="inline-flex items-center rounded-pill border border-dashed border-hairline-strong px-3 py-1.5 text-[13px] font-semibold text-ink-subtle">
+      <span className="inline-flex items-center rounded-pill border border-solid border-hairline-strong px-3 py-1.5 text-[13px] font-semibold text-ink-subtle">
         No recommendation yet
       </span>
     );

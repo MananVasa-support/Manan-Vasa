@@ -545,7 +545,7 @@ function IconBtn({
 
 function EmptyState({ title, sub }: { title: string; sub: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-hairline bg-white/60 px-6 py-16 text-center">
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-solid border-hairline bg-white/60 px-6 py-16 text-center">
       <span
         className="inline-flex h-14 w-14 items-center justify-center rounded-2xl text-white"
         style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}

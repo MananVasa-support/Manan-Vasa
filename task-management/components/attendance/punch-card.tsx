@@ -381,7 +381,7 @@ export function PunchCard({
           <button
             type="button"
             onClick={() => setNoteOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-pill border border-dashed px-3 py-1.5 text-[12.5px] font-bold text-ink-muted transition-colors hover:text-ink-soft"
+            className="inline-flex items-center gap-1.5 rounded-pill border border-solid px-3 py-1.5 text-[12.5px] font-bold text-ink-muted transition-colors hover:text-ink-soft"
             style={{ borderColor: "var(--color-hairline-strong)" }}
           >
             <Plus size={13} strokeWidth={2.6} /> Add a note or reason {note.trim() ? "· added" : ""}

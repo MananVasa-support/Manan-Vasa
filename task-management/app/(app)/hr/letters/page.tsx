@@ -71,7 +71,7 @@ export default async function LettersIndexPage() {
         </header>
 
         {groups.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-hairline-strong bg-white px-6 py-14 text-center text-[15px] font-medium text-ink-muted">
+          <div className="rounded-2xl border border-solid border-hairline-strong bg-white px-6 py-14 text-center text-[15px] font-medium text-ink-muted">
             No letters authored yet.
           </div>
         ) : (

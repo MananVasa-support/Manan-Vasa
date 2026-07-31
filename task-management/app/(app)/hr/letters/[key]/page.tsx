@@ -118,7 +118,7 @@ async function LetterEditorLoader({
 
 function ComingSoon() {
   return (
-    <div className="mx-auto mt-10 max-w-[560px] rounded-2xl border border-dashed border-hairline-strong bg-white px-8 py-14 text-center">
+    <div className="mx-auto mt-10 max-w-[560px] rounded-2xl border border-solid border-hairline-strong bg-white px-8 py-14 text-center">
       <span
         className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl"
         style={{ background: "#E106001a", color: "#A80400" }}

@@ -137,7 +137,7 @@ export function FormEditorDialog({
             ))}
           </div>
 
-          <button type="button" onClick={add} className="bg-surface-card mt-3 inline-flex items-center gap-1.5 rounded-full border border-dashed border-hairline px-4 py-2 text-[13px] font-bold text-ink-soft hover:text-ink-strong">
+          <button type="button" onClick={add} className="bg-surface-card mt-3 inline-flex items-center gap-1.5 rounded-full border border-solid border-hairline px-4 py-2 text-[13px] font-bold text-ink-soft hover:text-ink-strong">
             <Plus size={14} /> Add field
           </button>
 

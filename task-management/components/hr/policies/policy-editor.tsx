@@ -257,7 +257,7 @@ export function PolicyEditor({ policyKey, isSuperAdmin }: { policyKey: string; i
   if (phase === "error" || !data) {
     const adminsOnly = /admin/i.test(errorMsg);
     return (
-      <div className="mx-auto mt-6 grid max-w-[560px] place-items-center rounded-2xl border border-dashed border-hairline-strong bg-white px-8 py-16 text-center">
+      <div className="mx-auto mt-6 grid max-w-[560px] place-items-center rounded-2xl border border-solid border-hairline-strong bg-white px-8 py-16 text-center">
         <span className="grid h-14 w-14 place-items-center rounded-2xl" style={{ background: "#E106001a", color: RED_DEEP }}>
           <ShieldAlert size={26} strokeWidth={2.1} />
         </span>
@@ -361,7 +361,7 @@ export function PolicyEditor({ policyKey, isSuperAdmin }: { policyKey: string; i
           <Card icon={<Blocks size={18} />} title="Body sections" sub="Edit, reorder, add or remove sections and their content.">
             <div className="flex flex-col gap-4">
               {sections.length === 0 && (
-                <p className="rounded-xl border border-dashed border-hairline-strong bg-surface-soft px-4 py-6 text-center text-[13.5px] font-medium text-ink-subtle">
+                <p className="rounded-xl border border-solid border-hairline-strong bg-surface-soft px-4 py-6 text-center text-[13.5px] font-medium text-ink-subtle">
                   No sections yet — add the first one below.
                 </p>
               )}

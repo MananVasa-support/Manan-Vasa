@@ -479,7 +479,7 @@ function Td({
 
 function EmptyBox({ label }: { label: string }) {
   return (
-    <div className="flex min-h-[160px] items-center justify-center rounded-chip border border-dashed border-hairline-strong bg-surface-soft px-4 py-8 text-center">
+    <div className="flex min-h-[160px] items-center justify-center rounded-chip border border-solid border-hairline-strong bg-surface-soft px-4 py-8 text-center">
       <p className="text-[13.5px] font-medium text-ink-muted">{label}</p>
     </div>
   );

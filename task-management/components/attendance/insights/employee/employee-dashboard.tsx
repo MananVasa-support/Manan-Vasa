@@ -432,7 +432,7 @@ function HoursTrendCard({ data }: { data: EmployeeAttendanceAnalytics }) {
       icon={<TrendingUp size={17} strokeWidth={2.3} />}
     >
       {hours.length < 2 ? (
-        <div className="flex min-h-[110px] items-center justify-center rounded-chip border border-dashed border-hairline-strong bg-surface-soft px-4 py-8 text-center">
+        <div className="flex min-h-[110px] items-center justify-center rounded-chip border border-solid border-hairline-strong bg-surface-soft px-4 py-8 text-center">
           <p className="text-[13px] font-medium text-ink-muted">
             Not enough worked days yet to chart a trend.
           </p>

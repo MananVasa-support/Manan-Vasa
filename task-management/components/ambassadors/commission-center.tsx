@@ -599,7 +599,7 @@ function SectionHeading({
 
 function EmptyState({ icon: Icon, text }: { icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>; text: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-hairline-strong bg-white px-5 py-12 text-center" style={{ boxShadow: CARD_SHADOW }}>
+    <div className="rounded-2xl border border-solid border-hairline-strong bg-white px-5 py-12 text-center" style={{ boxShadow: CARD_SHADOW }}>
       <Icon size={26} strokeWidth={2} className="mx-auto mb-2 text-ink-subtle" />
       <p className="text-[14.5px] font-semibold text-ink-muted">{text}</p>
     </div>

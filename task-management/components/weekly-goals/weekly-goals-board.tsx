@@ -557,7 +557,7 @@ export function WeeklyGoalsBoard(props: Props) {
             {/* Right — the grouped goal sections. */}
             <div className="min-w-0 flex-1">
               {grouped.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-hairline-strong bg-surface-card px-6 py-10 text-center">
+                <div className="rounded-2xl border border-solid border-hairline-strong bg-surface-card px-6 py-10 text-center">
                   <p className="text-[15px] font-bold text-ink-strong">No goals match these filters</p>
                   <p className="mt-1 text-[13.5px] font-medium text-ink-muted">
                     The team is still here — use the list on the left to find anyone.
@@ -656,7 +656,7 @@ export function WeeklyGoalsBoard(props: Props) {
           )}
 
           {displayed.length === 0 && visible.length > 0 && (
-            <div className="rounded-2xl border border-dashed border-hairline-strong bg-surface-card px-6 py-8 text-center">
+            <div className="rounded-2xl border border-solid border-hairline-strong bg-surface-card px-6 py-8 text-center">
               <p className="text-[15px] font-bold text-ink-strong">No goals match these filters</p>
               <button
                 type="button"

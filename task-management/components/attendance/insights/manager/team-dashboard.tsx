@@ -347,7 +347,7 @@ function Stat({ value, tone }: { value: string; tone: string }) {
 
 function EmptyState({ label }: { label: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-hairline-strong px-4 py-10 text-center">
+    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-solid border-hairline-strong px-4 py-10 text-center">
       <Inbox size={22} strokeWidth={2} className="text-ink-subtle" />
       <p className="text-[13.5px] font-semibold text-ink-muted">{label}</p>
     </div>

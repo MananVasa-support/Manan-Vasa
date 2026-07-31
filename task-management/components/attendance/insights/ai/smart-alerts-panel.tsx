@@ -66,7 +66,7 @@ export function SmartAlertsPanel({
       className={className}
     >
       {alerts.length === 0 ? (
-        <div className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-chip border border-dashed border-hairline-strong bg-surface-soft px-4 py-8 text-center">
+        <div className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-chip border border-solid border-hairline-strong bg-surface-soft px-4 py-8 text-center">
           <span
             className="inline-flex size-10 items-center justify-center rounded-full"
             style={{ background: "color-mix(in srgb, var(--color-green) 12%, transparent)", color: "var(--color-green-deep)" }}
