@@ -68,7 +68,9 @@ function sameWeights(a: WeightMap | undefined, b: WeightMap | undefined): boolea
 }
 
 export function WeightMatrixPanel() {
-  const [open, setOpen] = React.useState(true);
+  // Collapsed by default — it's a super-admin tuning panel, not the main task;
+  // the header stays visible and clicking it expands the matrix.
+  const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [model, setModel] = React.useState<Model>({});
