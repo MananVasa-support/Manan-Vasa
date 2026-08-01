@@ -333,6 +333,10 @@ const BulkRowSchema = z.object({
   targetAmount: MoneyIn,
   /** Type tag (Operational / Milestone / … or a custom admin Type). */
   category: z.string().max(60).nullish(),
+  /** Delegate members picked in the bulk grid — auto-shares to their boards. */
+  delegatedTo: z
+    .array(z.object({ employeeId: z.string().uuid(), name: z.string().optional(), pct: z.number().min(0).max(100) }))
+    .optional(),
 });
 
 const BulkCreateSchema = z.object({
@@ -389,6 +393,8 @@ export async function bulkCreateGoals(
           source: d.source ?? "manual",
           captureBatchId: d.captureBatchId ?? null,
           category: (r.category ?? "").trim() || "goal",
+          delegatedTo: r.delegatedTo && r.delegatedTo.length > 0 ? r.delegatedTo : null,
+          shareWithTeam: r.delegatedTo && r.delegatedTo.length > 0 ? true : undefined,
           createdById: me.id,
           updatedById: me.id,
         };

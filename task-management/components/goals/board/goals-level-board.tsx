@@ -972,6 +972,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               areaOptions={areaOptions}
               measureOptions={measureOptions}
               typeOptions={typeOptions}
+              roster={props.roster}
               existingTitles={levelGoals
                 .filter((g) => g.periodKey === props.periodKey)
                 .map((g) => g.title)}

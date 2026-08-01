@@ -1,13 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Trash2, ArrowRight, Sparkles } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Plus, Trash2, ArrowRight, Sparkles, Search, X, UserPlus } from "lucide-react";
+import type { RosterMember } from "@/components/goals/cascade/util";
 
 /**
  * Goals Bulk-entry GRID — an in-app spreadsheet. The user fills typed boxes +
- * dropdowns (no download/upload), pastes straight from Excel if they like, then
- * "Proceed" hands clean rows to the duplicate/anomaly review step. Keyboard-first:
- * Tab across cells; the dropdowns are native <select> for true Excel feel.
+ * dropdowns (no download/upload), can add delegate members per row via a
+ * type-to-search picker, pastes straight from Excel if they like, then
+ * "Proceed" hands clean rows to the duplicate/anomaly review step.
+ * Keyboard-first: Tab across cells; dropdowns are native <select> for Excel feel.
  */
 
 export interface BulkGridRow {
@@ -18,6 +21,12 @@ export interface BulkGridRow {
   target: string | null;
   category: string | null;
   weight: number;
+  delegatedTo: { employeeId: string; name: string; pct: number }[];
+}
+
+interface Person {
+  id: string;
+  name: string;
 }
 
 interface Draft {
@@ -29,29 +38,127 @@ interface Draft {
   target: string;
   category: string;
   weight: string;
+  delegates: Person[];
 }
 
 let _seq = 1;
-const blank = (): Draft => ({ id: _seq++, area: "", title: "", uom: "", actual: "", target: "", category: "", weight: "" });
+const blank = (): Draft => ({ id: _seq++, area: "", title: "", uom: "", actual: "", target: "", category: "", weight: "", delegates: [] });
 
+type CellKey = "area" | "title" | "uom" | "actual" | "target" | "category" | "weight";
 /** Columns in order (matches the xlsx template: Area·Goal·Measure·Actual·Target·Type·Weight). */
-const COLS: { key: keyof Omit<Draft, "id">; label: string; kind: "select-area" | "select-measure" | "select-type" | "text" | "num" }[] = [
-  { key: "area", label: "Area", kind: "select-area" },
-  { key: "title", label: "Goal Title", kind: "text" },
-  { key: "uom", label: "Measure", kind: "select-measure" },
-  { key: "actual", label: "Actual", kind: "num" },
-  { key: "target", label: "Target", kind: "num" },
-  { key: "category", label: "Type", kind: "select-type" },
-  { key: "weight", label: "Weight", kind: "num" },
+const COLS: { key: CellKey; label: string; kind: "select-area" | "select-measure" | "select-type" | "text" | "num"; minW: number }[] = [
+  { key: "area", label: "Area", kind: "select-area", minW: 110 },
+  { key: "title", label: "Goal Title", kind: "text", minW: 300 },
+  { key: "uom", label: "Measure", kind: "select-measure", minW: 100 },
+  { key: "actual", label: "Actual", kind: "num", minW: 78 },
+  { key: "target", label: "Target", kind: "num", minW: 78 },
+  { key: "category", label: "Type", kind: "select-type", minW: 120 },
+  { key: "weight", label: "Weight", kind: "num", minW: 78 },
 ];
 
 const CELL =
   "w-full bg-transparent px-2 py-1.5 text-[13px] text-ink-strong outline-none focus:bg-[color-mix(in_oklab,var(--color-altus-red)_5%,transparent)]";
 
+/** Per-row delegate picker — type-to-search the roster; chips for the picked. */
+function DelegatePicker({ roster, value, onChange }: { roster: RosterMember[]; value: Person[]; onChange: (v: Person[]) => void }) {
+  const [open, setOpen] = React.useState(false);
+  const [q, setQ] = React.useState("");
+  const [box, setBox] = React.useState<{ top: number; left: number; width: number } | null>(null);
+  const btnRef = React.useRef<HTMLButtonElement>(null);
+  const searchRef = React.useRef<HTMLInputElement>(null);
+
+  const picked = new Set(value.map((v) => v.id));
+  const filtered = roster
+    .filter((r) => !picked.has(r.id) && r.name.toLowerCase().includes(q.trim().toLowerCase()))
+    .slice(0, 8);
+
+  function openPop() {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setBox({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 240), width: Math.max(r.width, 220) });
+    setOpen(true);
+    setTimeout(() => searchRef.current?.focus(), 0);
+  }
+  function add(m: RosterMember) {
+    onChange([...value, { id: m.id, name: m.name }]);
+    setQ("");
+    searchRef.current?.focus();
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 px-1.5 py-1">
+      {value.map((v) => (
+        <span key={v.id} className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11.5px] font-semibold text-ink-strong" style={{ borderColor: "var(--color-hairline-strong)" }}>
+          {v.name.split(" ")[0]}
+          <button type="button" onClick={() => onChange(value.filter((x) => x.id !== v.id))} aria-label={`Remove ${v.name}`} className="text-ink-subtle hover:text-altus-red">
+            <X size={11} />
+          </button>
+        </span>
+      ))}
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={openPop}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); openPop(); } }}
+        className="inline-flex items-center gap-1 rounded-md border border-solid px-1.5 py-0.5 text-[11.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red"
+        style={{ borderColor: "var(--color-hairline-strong)" }}
+      >
+        <UserPlus size={12} strokeWidth={2.4} /> {value.length ? "" : "Delegate"}
+      </button>
+
+      {open && box && typeof document !== "undefined" &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-[290]" onClick={() => setOpen(false)} />
+            <div
+              className="wg-fade-in fixed z-[300] overflow-hidden rounded-xl border bg-surface-card shadow-xl"
+              style={{ top: box.top, left: box.left, width: box.width, borderColor: "var(--color-hairline-strong)" }}
+            >
+              <div className="flex items-center gap-1.5 border-b px-2.5 py-2" style={{ borderColor: "var(--color-hairline)" }}>
+                <Search size={13} className="text-ink-subtle" />
+                <input
+                  ref={searchRef}
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && filtered[0]) { e.preventDefault(); add(filtered[0]); }
+                    else if (e.key === "Escape") setOpen(false);
+                  }}
+                  placeholder="Type a name…"
+                  className="w-full bg-transparent text-[13px] text-ink-strong outline-none"
+                />
+              </div>
+              <div className="max-h-52 overflow-y-auto py-1">
+                {filtered.length === 0 ? (
+                  <p className="px-3 py-2 text-[12.5px] font-semibold text-ink-subtle">No matches</p>
+                ) : (
+                  filtered.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => add(m)}
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] font-semibold text-ink-strong hover:bg-surface-soft"
+                    >
+                      <span className="grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}>
+                        {m.name.slice(0, 1).toUpperCase()}
+                      </span>
+                      {m.name}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
 export function GoalsBulkGrid(props: {
   areaOptions: string[];
   measureOptions: string[];
   typeOptions: string[];
+  roster: RosterMember[];
   levelName: string;
   onProceed: (rows: BulkGridRow[]) => void;
 }) {
@@ -60,8 +167,11 @@ export function GoalsBulkGrid(props: {
   const optionsFor = (kind: string): string[] =>
     kind === "select-area" ? props.areaOptions : kind === "select-measure" ? props.measureOptions : props.typeOptions;
 
-  function setCell(id: number, key: keyof Omit<Draft, "id">, value: string) {
+  function setCell(id: number, key: CellKey, value: string) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [key]: value } : r)));
+  }
+  function setDelegates(id: number, delegates: Person[]) {
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, delegates } : r)));
   }
   function addRow() {
     setRows((prev) => [...prev, blank()]);
@@ -70,13 +180,12 @@ export function GoalsBulkGrid(props: {
     setRows((prev) => (prev.length > 1 ? prev.filter((r) => r.id !== id) : prev.map((r) => (r.id === id ? blank() : r))));
   }
 
-  /** Paste-from-Excel: TSV/CSV in the clipboard becomes rows (7 columns, in
-   *  order). Fills blank leading rows first, then appends the rest. */
+  /** Paste-from-Excel: TSV/CSV in the clipboard becomes rows (7 columns, in order). */
   function onPaste(e: React.ClipboardEvent) {
     const text = e.clipboardData.getData("text/plain");
-    if (!text || !/[\t\n]/.test(text)) return; // let normal single-cell paste through
+    if (!text || !/[\t\n]/.test(text)) return;
     e.preventDefault();
-    const order: (keyof Omit<Draft, "id">)[] = ["area", "title", "uom", "actual", "target", "category", "weight"];
+    const order: CellKey[] = ["area", "title", "uom", "actual", "target", "category", "weight"];
     const parsed: Draft[] = text
       .replace(/\r/g, "")
       .split("\n")
@@ -84,19 +193,13 @@ export function GoalsBulkGrid(props: {
       .map((line) => {
         const cells = line.split("\t");
         const d = blank();
-        order.forEach((k, i) => {
-          (d[k] as string) = (cells[i] ?? "").trim();
-        });
+        order.forEach((k, i) => { (d[k] as string) = (cells[i] ?? "").trim(); });
         return d;
       });
     if (parsed.length === 0) return;
     setRows((prev) => {
-      const emptyLead = prev.filter((r) => !r.title.trim() && !r.area.trim());
       const filled = prev.filter((r) => r.title.trim() || r.area.trim());
-      // Reuse leading blank rows, then append extras.
-      const merged = [...filled];
-      for (const p of parsed) merged.push(p);
-      return merged.length ? merged : emptyLead;
+      return [...filled, ...parsed];
     });
   }
 
@@ -105,6 +208,8 @@ export function GoalsBulkGrid(props: {
       .filter((r) => r.title.trim().length > 0)
       .map((r) => {
         const w = Number(String(r.weight).replace(/[^0-9.\-]/g, ""));
+        const n = r.delegates.length;
+        const pct = n > 0 ? Math.round(100 / n) : 0;
         return {
           area: r.area.trim() || null,
           title: r.title.trim(),
@@ -113,6 +218,7 @@ export function GoalsBulkGrid(props: {
           target: r.target.trim() || null,
           category: r.category.trim() || null,
           weight: Number.isFinite(w) && r.weight.trim() ? w : 100,
+          delegatedTo: r.delegates.map((d) => ({ employeeId: d.id, name: d.name, pct })),
         };
       });
     props.onProceed(out);
@@ -122,43 +228,36 @@ export function GoalsBulkGrid(props: {
 
   return (
     <div>
-      <div className="mb-2 flex items-center gap-2">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <Sparkles size={15} className="text-altus-red" strokeWidth={2.4} />
         <span className="text-[13px] font-bold text-ink-strong">Fill your {props.levelName.toLowerCase()} goals below</span>
-        <span className="text-[12px] font-semibold text-ink-subtle">— type, pick from the dropdowns, or paste rows from Excel</span>
+        <span className="text-[12px] font-semibold text-ink-subtle">— type, pick from the dropdowns, delegate, or paste rows from Excel</span>
       </div>
 
       <div className="overflow-x-auto rounded-xl border" style={{ borderColor: "var(--color-hairline-strong)" }} onPaste={onPaste}>
-        <table className="w-full border-collapse text-[13px]">
+        <table className="min-w-max border-collapse text-[13px]">
           <thead>
             <tr style={{ background: "var(--color-surface-soft)" }}>
-              <th className="w-8 border-b px-1 py-2" style={{ borderColor: "var(--color-hairline)" }} />
+              <th className="w-10 border-b px-1 py-2 text-center text-[11px] font-bold uppercase tracking-wide text-ink-subtle" style={{ borderColor: "var(--color-hairline)" }}>#</th>
               {COLS.map((c) => (
                 <th
                   key={c.key}
                   className={`border-b border-l px-2 py-2 text-[11px] font-bold uppercase tracking-wide text-ink-soft ${c.key === "title" ? "text-left" : "text-center"}`}
-                  style={{ borderColor: "var(--color-hairline)" }}
+                  style={{ borderColor: "var(--color-hairline)", minWidth: c.minW }}
                 >
                   {c.label}
                 </th>
               ))}
+              <th className="border-b border-l px-2 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-ink-soft" style={{ borderColor: "var(--color-hairline)", minWidth: 190 }}>Delegated</th>
+              <th className="w-8 border-b border-l px-1 py-2" style={{ borderColor: "var(--color-hairline)" }} />
             </tr>
           </thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={r.id} className="group">
-                <td className="border-b px-1 text-center align-middle" style={{ borderColor: "var(--color-hairline)" }}>
-                  <button
-                    type="button"
-                    onClick={() => removeRow(r.id)}
-                    aria-label={`Remove row ${i + 1}`}
-                    className="grid size-6 place-items-center rounded text-ink-subtle opacity-0 transition-opacity hover:text-altus-red group-hover:opacity-100"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </td>
+                <td className="border-b px-1 text-center align-middle text-[12px] font-bold tabular-nums text-ink-subtle" style={{ borderColor: "var(--color-hairline)" }}>{i + 1}</td>
                 {COLS.map((c) => (
-                  <td key={c.key} className="border-b border-l align-middle" style={{ borderColor: "var(--color-hairline)" }}>
+                  <td key={c.key} className="border-b border-l align-middle" style={{ borderColor: "var(--color-hairline)", minWidth: c.minW }}>
                     {c.kind === "text" ? (
                       <input
                         value={r[c.key]}
@@ -182,14 +281,25 @@ export function GoalsBulkGrid(props: {
                       >
                         <option value="">—</option>
                         {optionsFor(c.kind).map((o) => (
-                          <option key={o} value={o}>
-                            {o}
-                          </option>
+                          <option key={o} value={o}>{o}</option>
                         ))}
                       </select>
                     )}
                   </td>
                 ))}
+                <td className="border-b border-l align-middle" style={{ borderColor: "var(--color-hairline)", minWidth: 190 }}>
+                  <DelegatePicker roster={props.roster} value={r.delegates} onChange={(v) => setDelegates(r.id, v)} />
+                </td>
+                <td className="border-b border-l px-1 text-center align-middle" style={{ borderColor: "var(--color-hairline)" }}>
+                  <button
+                    type="button"
+                    onClick={() => removeRow(r.id)}
+                    aria-label={`Remove row ${i + 1}`}
+                    className="grid size-6 place-items-center rounded text-ink-subtle opacity-0 transition-opacity hover:text-altus-red group-hover:opacity-100"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

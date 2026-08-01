@@ -19,7 +19,7 @@ import {
 import { bulkCreateGoals } from "@/app/(app)/goals/cascade/actions";
 import { GoalsBulkGrid, type BulkGridRow } from "./goals-bulk-grid";
 import { fireToast } from "@/lib/toast";
-import { periodKeyLabel } from "@/components/goals/cascade/util";
+import { periodKeyLabel, type RosterMember } from "@/components/goals/cascade/util";
 import { columnForHeader, normKey } from "@/lib/goals/template-columns";
 import type { GoalPeriod } from "@/lib/goals/types";
 
@@ -94,6 +94,7 @@ interface Row {
   target: string | null;
   actual: string | null;
   category: string | null;
+  delegatedTo: { employeeId: string; name: string; pct: number }[];
   errors: string[];
   dup: Dup;
   include: boolean;
@@ -178,6 +179,7 @@ function parseRows(matrix: unknown[][], existing: Set<string>): { rows: Row[]; m
       target: t.ok ? t.value : null,
       actual: a.ok ? a.value : null,
       category,
+      delegatedTo: [],
       errors: [],
       dup: null,
       include: true,
@@ -200,6 +202,8 @@ interface Props {
   areaOptions: string[];
   measureOptions: string[];
   typeOptions: string[];
+  /** Roster for the in-grid delegate search picker. */
+  roster: RosterMember[];
 }
 
 export function GoalsBulkUpload(props: Props) {
@@ -330,6 +334,7 @@ export function GoalsBulkUpload(props: Props) {
       target: g.target,
       actual: g.actual,
       category: g.category,
+      delegatedTo: g.delegatedTo,
       errors: [],
       dup: null,
       include: true,
@@ -349,6 +354,7 @@ export function GoalsBulkUpload(props: Props) {
         targetQty: r.target,
         actualQty: r.actual,
         category: r.category,
+        delegatedTo: r.delegatedTo.length > 0 ? r.delegatedTo : undefined,
       }));
     if (payload.length === 0) {
       setError("Select at least one valid row to import.");
@@ -455,6 +461,7 @@ export function GoalsBulkUpload(props: Props) {
                       areaOptions={props.areaOptions}
                       measureOptions={props.measureOptions}
                       typeOptions={props.typeOptions}
+                      roster={props.roster}
                       levelName={levelName}
                       onProceed={onGridProceed}
                     />
