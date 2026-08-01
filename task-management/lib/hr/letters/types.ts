@@ -104,6 +104,15 @@ export const CATEGORY_LABELS: Record<HrCategory, string> = {
 /** How a letter is signed / acknowledged (drives the e-sign wiring on issue). */
 export type LetterSignature = "none" | "acknowledge" | "esign";
 
+/**
+ * WHO signs a letter — the authorisation hierarchy:
+ *   · "director" — the Director / Boss signature (CA Manan Vasa). RESERVED for
+ *     the CTC Breakdown and the full/detailed Appointment Letter.
+ *   · "hr"       — the HR desk signature, used for every other operational
+ *     letter, onboarding form and notice (adds the HR email + phone footer).
+ */
+export type LetterSignatory = "director" | "hr";
+
 /* ------------------------------------------------------------------ */
 /* Spans — the atoms of a paragraph / value                             */
 /* ------------------------------------------------------------------ */
@@ -130,6 +139,11 @@ export interface FieldSpan {
   defaultValue?: string;
   /** Render a multi-line textarea instead of a single-line input. */
   multiline?: boolean;
+  /**
+   * Render the field's value in BOLD (editor input, "Edit freely" HTML seed and
+   * the PDF). Used for emphasis fields like the letter Subject line.
+   */
+  bold?: boolean;
 }
 
 /** A paragraph / value is an ordered list of fixed + editable spans. */
@@ -150,7 +164,12 @@ export interface HeadingBlock {
 export interface ParagraphBlock {
   kind: "paragraph";
   spans: Span[];
-  align?: "left" | "center";
+  /**
+   * Paragraph alignment. When omitted the renderers JUSTIFY the prose (the
+   * default for generated letters/documents); `center` and `right` are explicit
+   * overrides (e.g. a right-aligned Designation in the CTC header).
+   */
+  align?: "left" | "center" | "right";
 }
 
 /** A "Label : value" term row — e.g. `Department : <field>`. */
@@ -266,6 +285,12 @@ export interface LetterTemplate {
   entityDefault?: EntityId;
   /** Signing model — drives the e-sign wiring when the letter is issued. */
   signature?: LetterSignature;
+  /**
+   * Who signs it — the Director/Boss or the HR desk. When omitted it is derived
+   * by {@link signatoryOf} (director for the CTC + Appointment letters, HR for
+   * everything else).
+   */
+  signatory?: LetterSignatory;
   /** One-line description for the index card. */
   blurb?: string;
   /** The ordered body content. */
@@ -283,7 +308,7 @@ export const t = (text: string): TextSpan => ({ t: "text", text });
 export const f = (
   id: string,
   label: string,
-  opts?: { placeholder?: string; defaultValue?: string; multiline?: boolean },
+  opts?: { placeholder?: string; defaultValue?: string; multiline?: boolean; bold?: boolean },
 ): FieldSpan => ({ t: "field", id, label, ...opts });
 
 /** A paragraph from a list of spans. */
@@ -294,6 +319,13 @@ export const paraCenter = (...spans: Span[]): ParagraphBlock => ({
   kind: "paragraph",
   spans,
   align: "center",
+});
+
+/** A right-aligned paragraph (e.g. a Designation at the top-right of a header). */
+export const paraRight = (...spans: Span[]): ParagraphBlock => ({
+  kind: "paragraph",
+  spans,
+  align: "right",
 });
 
 /** A heading block. */
@@ -366,6 +398,7 @@ export interface FieldSpec {
   placeholder?: string;
   defaultValue?: string;
   multiline?: boolean;
+  bold?: boolean;
 }
 
 function spansOf(block: Block): Span[] {
@@ -403,6 +436,7 @@ export function collectFields(template: LetterTemplate): FieldSpec[] {
         placeholder: span.placeholder,
         defaultValue: span.defaultValue,
         multiline: span.multiline,
+        bold: span.bold,
       });
     }
   }
@@ -442,4 +476,15 @@ export function isBlankAmount(raw: string | undefined | null): boolean {
 export function tableRowVisible(row: TableRow, values: Record<string, string>): boolean {
   if (!row.amountFieldId) return true;
   return !isBlankAmount(values[row.amountFieldId]);
+}
+
+/**
+ * Resolve which signature block a letter carries. Uses the template's explicit
+ * `signatory` when set; otherwise the Director signs the CTC Breakdown and the
+ * full Appointment Letter, and the HR desk signs every other operational letter.
+ */
+export function signatoryOf(template: LetterTemplate): LetterSignatory {
+  if (template.signatory) return template.signatory;
+  if (template.key === "ctc-breakup" || template.key === "appointment") return "director";
+  return "hr";
 }

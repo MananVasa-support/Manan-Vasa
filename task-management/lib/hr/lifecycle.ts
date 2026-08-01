@@ -117,7 +117,7 @@ export const HR_STAGES: HrStage[] = [
       { slug: "intern-appointment", label: "Intern Appointment Letter", Icon: UserPlus, kind: "doc", typeKey: "intern-appointment", blurb: "The internship offer & appointment letter." },
       { slug: "minor-intern-undertaking", label: "Undertaking — Minor Intern", Icon: ShieldCheck, kind: "doc", typeKey: "minor-internship-undertaking", blurb: "Parental-consent undertaking for a minor intern." },
       { slug: "ctc-breakup", label: "CTC Breakup", Icon: IndianRupee, kind: "link", href: "/hr/ctc", blurb: "Build the structured CTC breakup & compensation letters." },
-      { slug: "all-policies-signatory", label: "Policies Signatory", Icon: ScrollText, kind: "link", href: "/hr?policies=1", blurb: "Every firm policy to acknowledge and sign." },
+      { slug: "all-policies-signatory", label: "Policy Signatures", Icon: ScrollText, kind: "link", href: "/hr?policies=1", blurb: "Every firm policy to acknowledge and sign." },
       { slug: "employment-form", label: "Employment Form", Icon: ClipboardList, kind: "link", href: "/dossier/onboarding", blurb: "The joining data form — the full onboarding intake." },
     ],
   },
@@ -128,7 +128,7 @@ export const HR_STAGES: HrStage[] = [
     blurb: "The settled employee — induction, training, confirmation and appraisal.",
     Icon: Briefcase,
     items: [
-      { slug: "induction", label: "Induction", Icon: GraduationCap, kind: "screen", blurb: "Onboarding & induction flow — to be planned." },
+      { slug: "induction", label: "Induction", Icon: GraduationCap, kind: "link", href: "/hr/induction", blurb: "Confirm the new joiner's details — auto-filled from their onboarding form." },
       { slug: "free-training", label: "Free Training Letter", Icon: Award, kind: "doc", typeKey: "free-training", blurb: "Pre-employment training & evaluation letter." },
       { slug: "birthday-wishes", label: "Birthday Wishes", Icon: Cake, kind: "doc", typeKey: "birthday", blurb: "A warm birthday note from the team." },
       { slug: "appraisal", label: "Appraisal Letter", Icon: Target, kind: "link", href: "/appraisal", blurb: "The live rolling scorecard & appraisal outcome." },

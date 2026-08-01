@@ -49,7 +49,12 @@ export function resumeHeader(data: ResumeData): ResumeHeader {
     age: val(data, "personal", "age") || ageFromDob(dob),
     mobile: val(data, "personal", "mobile"),
     email: val(data, "personal", "email"),
-    location: val(data, "personal", "location"),
+    // Structured address replaced the old single `location` field — compose a
+    // concise "City, State" for the header (the full address lines still render
+    // in the Personal body group).
+    location:
+      [val(data, "personal", "city"), val(data, "personal", "state")].filter(Boolean).join(", ") ||
+      val(data, "personal", "addressLine1"),
   };
 }
 

@@ -3,10 +3,14 @@ import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
-import { PageShell } from "@/components/layout/page-shell";
 import { listCandidateIntakes } from "@/app/(app)/hr/candidate-actions";
 import { EvaluationV2Screen } from "@/components/hr/candidate/evaluation-v2/evaluation-v2-screen";
-import { WeightMatrixPanel } from "@/components/hr/candidate/evaluation-v2/weight-matrix-panel";
+// NOTE: the custom Weight Metrics editor (WeightMatrixPanel) is temporarily
+// disabled — bespoke per-designation weights need a Department → Role →
+// Designation mapping that doesn't exist yet. Scoring falls back to
+// DEFAULT_SECTION_WEIGHTS while the panel is unmounted. Keep the component file
+// for when that hierarchy lands; just re-mount it below to bring it back.
+// import { WeightMatrixPanel } from "@/components/hr/candidate/evaluation-v2/weight-matrix-panel";
 import type { EvaluatorRole } from "@/lib/hr/candidate/evaluation-v2";
 
 export const dynamic = "force-dynamic";
@@ -58,11 +62,9 @@ export default async function EvaluationPage({
         <span aria-hidden className="justify-self-end" />
       </header>
 
-      {superAdmin && (
-        <PageShell as="div" width="narrow" py={false} className="pt-6">
-          <WeightMatrixPanel />
-        </PageShell>
-      )}
+      {/* Weight Metrics editor temporarily disabled — see import note above.
+          Scoring uses DEFAULT_SECTION_WEIGHTS until the Dept → Role → Designation
+          hierarchy exists, so evaluations still score correctly with no panel. */}
 
       <EvaluationV2Screen
         candidates={candidates}

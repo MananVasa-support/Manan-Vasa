@@ -127,6 +127,16 @@ export function EvaluationV2Report({
           profile={prof}
         />
       </div>
+
+      {/* Per-criteria side-by-side table (rows A–K, + L/M for sales) */}
+      <SectionComparisonTable iScores={iScores} mScores={mScores} deltaBySection={deltaBySection} />
+
+      {/* Management can override the recommendation with a reason (surfaced in the
+          column above). Custom weight tuning is DEFERRED — scoring uses the default
+          section weights until the Dept → Role → Designation hierarchy exists. */}
+      <p className="mt-3 text-[11.5px] font-medium leading-snug text-ink-subtle">
+        Management can override the recommendation with a reason. Custom weight tuning is temporarily disabled — every score uses the default section weights.
+      </p>
     </div>
   );
 }
@@ -220,7 +230,7 @@ function RoleColumn({
             </div>
           )}
 
-          {/* Override note */}
+          {/* Override note — the Management score override stays intact here. */}
           {instance.recommendationOverride && (
             <div className="rounded-lg border px-3 py-2" style={{ borderColor: "color-mix(in srgb, #d97706 35%, white)", background: "color-mix(in srgb, #d97706 6%, white)" }}>
               <p className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: "#b45309" }}>
@@ -229,19 +239,126 @@ function RoleColumn({
               <p className="mt-0.5 text-[12.5px] font-medium text-ink-muted">{instance.recommendationOverride.reason}</p>
             </div>
           )}
-
-          {/* Section bars */}
-          <div>
-            <p className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-soft">Section breakdown</p>
-            <div className="flex flex-col gap-2.5">
-              {scores.map((s) => (
-                <SectionBar key={s.sectionId} score={s} delta={deltaBySection.get(s.sectionId)} />
-              ))}
-            </div>
-          </div>
         </div>
       )}
     </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Criteria comparison table (Interviewer | Management | Δ)            */
+/* ------------------------------------------------------------------ */
+
+function SectionComparisonTable({
+  iScores,
+  mScores,
+  deltaBySection,
+}: {
+  iScores: SectionScore[] | null;
+  mScores: SectionScore[] | null;
+  deltaBySection: Map<string, number>;
+}) {
+  // Both instances are scored over the same section set (same profile + ctx),
+  // so either non-null array gives the full, ordered row list.
+  const base = iScores ?? mScores ?? [];
+  const iById = React.useMemo(() => new Map((iScores ?? []).map((s) => [s.sectionId, s])), [iScores]);
+  const mById = React.useMemo(() => new Map((mScores ?? []).map((s) => [s.sectionId, s])), [mScores]);
+
+  if (base.length === 0) return null;
+
+  return (
+    <div className="ev2-cmp mt-5 overflow-hidden rounded-2xl border border-hairline bg-white shadow-[0_10px_30px_-22px_rgba(24,24,27,0.5)]">
+      <div
+        className="flex items-center gap-2 border-b border-hairline px-4 py-3"
+        style={{ background: "color-mix(in srgb, var(--color-altus-red) 4%, white)" }}
+      >
+        <ArrowLeftRight size={14} style={{ color: RED }} />
+        <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-ink-soft">Criteria comparison</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-left">
+          <thead>
+            <tr className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-ink-soft">
+              <th className="px-4 py-2.5 font-bold">Criteria</th>
+              <th className="px-3 py-2.5 text-right font-bold">Interviewer</th>
+              <th className="px-3 py-2.5 text-right font-bold">Management</th>
+              <th className="px-4 py-2.5 text-right font-bold">Δ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {base.map((row) => {
+              const iS = iById.get(row.sectionId) ?? null;
+              const mS = mById.get(row.sectionId) ?? null;
+              const delta = deltaBySection.get(row.sectionId);
+              const flagged = delta !== undefined;
+              return (
+                <tr
+                  key={row.sectionId}
+                  className="border-t border-hairline"
+                  style={flagged ? { background: "color-mix(in srgb, var(--color-altus-red) 5%, white)" } : undefined}
+                >
+                  <td className="px-4 py-2.5">
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="grid h-5 w-5 shrink-0 place-items-center rounded-md text-[10px] font-black text-white"
+                        style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
+                      >
+                        {row.code}
+                      </span>
+                      <span className="text-[13px] font-semibold text-ink-strong">{row.title}</span>
+                    </span>
+                  </td>
+                  <ScoreCell s={iS} />
+                  <ScoreCell s={mS} />
+                  <td className="px-4 py-2.5 text-right">
+                    {flagged ? (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-pill px-1.5 py-0.5 text-[11px] font-black tabular-nums"
+                        style={{ background: "color-mix(in srgb, var(--color-altus-red) 14%, white)", color: RED_DEEP }}
+                        title={`The two roles differ by ${fmt(delta!)} points on this criterion`}
+                      >
+                        <ArrowLeftRight size={10} strokeWidth={2.6} /> {fmt(delta!)}
+                      </span>
+                    ) : (
+                      <span className="text-[12px] font-semibold text-ink-subtle">—</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ScoreCell({ s }: { s: SectionScore | null }) {
+  if (!s) {
+    return (
+      <td className="px-3 py-2.5 text-right">
+        <span className="text-[12px] font-semibold text-ink-subtle">—</span>
+      </td>
+    );
+  }
+  if (!s.applicable) {
+    return (
+      <td className="px-3 py-2.5 text-right">
+        <span className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-ink-subtle">Skipped</span>
+      </td>
+    );
+  }
+  const rated = s.micro !== null;
+  const tone = toneFor(s.micro);
+  return (
+    <td className="px-3 py-2.5 text-right">
+      <span className="inline-flex items-baseline gap-1 tabular-nums">
+        <span className="text-[14px] font-black" style={{ color: rated ? tone.fg : "var(--color-ink-subtle)" }}>
+          {rated ? fmt(s.micro!) : "—"}
+        </span>
+        <span className="text-[10.5px] font-bold text-ink-subtle">/10</span>
+      </span>
+    </td>
   );
 }
 
@@ -295,78 +412,6 @@ function OverallDial({ instance, ctx, interviewScore }: { instance: EvaluationIn
         <p className="mt-0.5 text-[12px] font-medium leading-snug text-ink-muted">
           {overall.ratedSections} / {overall.applicableSections} sections rated
         </p>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Section bar                                                         */
-/* ------------------------------------------------------------------ */
-
-function SectionBar({ score, delta }: { score: SectionScore; delta: number | undefined }) {
-  const flagged = delta !== undefined;
-
-  if (!score.applicable) {
-    return (
-      <div className="flex items-center gap-2 rounded-lg border border-solid border-hairline-strong bg-surface-soft px-3 py-2">
-        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-white text-[10px] font-black text-ink-subtle">
-          {score.code}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-ink-muted">{score.title}</span>
-        <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.08em] text-ink-subtle">Skipped</span>
-      </div>
-    );
-  }
-
-  const rated = score.micro !== null;
-  const tone = toneFor(score.micro);
-  const frac = score.micro === null ? 0 : Math.max(0, Math.min(1, score.micro / 10));
-
-  return (
-    <div
-      className="rounded-lg px-3 py-2"
-      style={
-        flagged
-          ? { borderLeft: `3px solid ${RED}`, background: "color-mix(in srgb, var(--color-altus-red) 5%, white)", paddingLeft: 10 }
-          : undefined
-      }
-    >
-      <div className="mb-1.5 flex items-center gap-2">
-        <span
-          className="grid h-5 w-5 shrink-0 place-items-center rounded-md text-[10px] font-black text-white"
-          style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
-        >
-          {score.code}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-ink-strong">{score.title}</span>
-        {flagged && (
-          <span
-            className="inline-flex shrink-0 items-center gap-1 rounded-pill px-1.5 py-0.5 text-[10px] font-black tabular-nums"
-            style={{ background: "color-mix(in srgb, var(--color-altus-red) 14%, white)", color: RED_DEEP }}
-            title={`The two roles differ by ${fmt(delta!)} points on this section`}
-          >
-            <ArrowLeftRight size={10} strokeWidth={2.6} /> {fmt(delta!)}
-          </span>
-        )}
-        <span className="shrink-0 text-[12px] font-black tabular-nums" style={{ color: rated ? tone.fg : "var(--color-ink-subtle)" }}>
-          {score.x} <span className="text-[11px] font-bold text-ink-subtle">/ {score.weight}</span>
-        </span>
-      </div>
-      <div className="flex items-center gap-2">
-        <div className="h-2 flex-1 overflow-hidden rounded-full" style={{ background: "var(--color-hairline)" }}>
-          <div
-            className="h-full rounded-full"
-            style={{
-              width: `${frac * 100}%`,
-              background: rated ? `linear-gradient(90deg, ${tone.ring}, ${tone.fg})` : "transparent",
-              transition: "width 0.5s cubic-bezier(0.22,1,0.36,1)",
-            }}
-          />
-        </div>
-        <span className="w-[38px] shrink-0 text-right text-[11px] font-bold tabular-nums" style={{ color: rated ? tone.fg : "var(--color-ink-subtle)" }}>
-          {rated ? fmt(score.micro!) : "—"}
-        </span>
       </div>
     </div>
   );
@@ -496,19 +541,21 @@ function EligibilityBadge({ instance }: { instance: EvaluationInstance }) {
 
 function NotFilled() {
   return (
-    <div className="grid flex-1 place-items-center px-6 py-16 text-center">
+    <div className="flex flex-1 items-center gap-3 px-5 py-6">
       <span
-        className="grid h-13 w-13 place-items-center rounded-2xl"
-        style={{ height: 52, width: 52, background: "var(--color-surface-soft)", color: "var(--color-ink-subtle)" }}
+        className="grid shrink-0 place-items-center rounded-xl"
+        style={{ height: 40, width: 40, background: "var(--color-surface-soft)", color: "var(--color-ink-subtle)" }}
       >
-        <FileText size={24} strokeWidth={1.9} />
+        <FileText size={19} strokeWidth={1.9} />
       </span>
-      <p className="mt-3 text-[14.5px] font-bold text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif" }}>
-        Not filled yet
-      </p>
-      <p className="mt-1 max-w-[34ch] text-[12.5px] font-medium text-ink-muted">
-        This assessment hasn&apos;t been completed. Once it&apos;s saved, the scores appear here for comparison.
-      </p>
+      <div className="min-w-0">
+        <p className="text-[13.5px] font-bold text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif" }}>
+          Not filled yet
+        </p>
+        <p className="mt-0.5 text-[12px] font-medium text-ink-muted">
+          Once this pass is saved, its scores appear here for comparison.
+        </p>
+      </div>
     </div>
   );
 }

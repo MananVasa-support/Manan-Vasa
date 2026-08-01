@@ -43,6 +43,11 @@ function profileV2Defaults() {
     payingEntityId: null as string | null,
     // Monthly Events Master (migration 0130).
     religion: null as "hindu" | "christian" | "muslim" | "other" | "unspecified" | null,
+    // Post-joining workflow (migration 0174).
+    officialEmail: null as string | null,
+    personalEmail: null as string | null,
+    emailProvisionedAt: null as Date | null,
+    assetsAllocatedAt: null as Date | null,
   };
 }
 

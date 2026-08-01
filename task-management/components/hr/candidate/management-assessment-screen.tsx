@@ -42,7 +42,6 @@ import { PageShell } from "@/components/layout/page-shell";
 import type { CandidateRow } from "@/app/(app)/hr/candidate-actions";
 import {
   getCandidateEvaluation,
-  saveCandidateEvaluation,
   setCandidateStatus,
 } from "@/app/(app)/hr/candidate-actions";
 import {
@@ -55,7 +54,6 @@ import {
   type MgmtAttachmentView,
   type MgmtOutcome,
 } from "@/app/(app)/hr/management-assessment-actions";
-import { EvaluationChecklistBody } from "@/components/hr/candidate/evaluation-checklist-body";
 import { type SkillSelection } from "@/components/hr/candidate/skill-multiselect";
 import type { SkillLookupOptions } from "@/lib/hr/skills";
 import { type Ratings } from "@/lib/hr/candidate/evaluation-checklist";
@@ -326,23 +324,6 @@ export function ManagementAssessmentScreen({
     }
   }
 
-  // Debounced evaluation autosave (separate table column).
-  function onRate(criterionId: string, value: number) {
-    setRatings((p) => {
-      const next = { ...p };
-      if (value <= 0) delete next[criterionId]; else next[criterionId] = value;
-      ratingsRef.current = next;
-      return next;
-    });
-    if (!cidRef.current) return;
-    if (evalTimer.current) clearTimeout(evalTimer.current);
-    evalTimer.current = setTimeout(() => {
-      void saveCandidateEvaluation(cidRef.current, ratingsRef.current).then((r) => {
-        if (!r.ok) fireToast({ message: r.error, type: "error" });
-      });
-    }, 900);
-  }
-
   async function emailRecruiter() {
     const email = recruiterEmailRef.current.trim();
     const oc = outcomeRef.current;
@@ -523,7 +504,7 @@ export function ManagementAssessmentScreen({
             {noCandidate ? (
               <EmptyState />
             ) : loading ? (
-              <div className="grid place-items-center rounded-2xl border border-hairline bg-white py-24 text-ink-muted">
+              <div className="grid place-items-center rounded-2xl border border-hairline bg-white py-14 text-ink-muted">
                 <Loader2 className="animate-spin" style={{ color: "var(--color-altus-red)" }} />
                 <p className="mt-2 text-[13.5px] font-medium">Loading this candidate&apos;s assessment…</p>
               </div>
@@ -538,7 +519,7 @@ export function ManagementAssessmentScreen({
                   onDoj={updateDoj}
                 />
 
-                <EvaluationCard ratings={ratings} onRate={onRate} score={overall.rated ? overall.avg : null} weights={weights} candidateId={candidateId} />
+                <EvaluationCard candidateId={candidateId} />
 
                 <ScoresCard
                   hrScore={overall.rated ? overall.avg : null}
@@ -1189,53 +1170,41 @@ function OutcomeCard({
 // EVALUATION
 // ─────────────────────────────────────────────────────────────────────────────
 
-function EvaluationCard({
-  ratings, onRate, score, weights, candidateId,
-}: {
-  ratings: Ratings;
-  onRate: (criterionId: string, value: number) => void;
-  score: number | null;
-  weights: EvaluationWeights;
-  candidateId: string;
-}) {
+/**
+ * Evaluation — the old 76-point inline checklist has been retired. The management
+ * round now runs entirely on the v2 A–N "Interview Intelligence" instrument, opened
+ * via this CTA (role=management, locked to this candidate). Scores flow back into
+ * the side-by-side Interviewer × Management comparison automatically.
+ */
+function EvaluationCard({ candidateId }: { candidateId: string }) {
   return (
     <Card>
       <CardHead
         n={2}
         icon={<ClipboardCheck size={17} />}
         title="Evaluation"
-        sub="Rate each criterion — section, weighted overall and summary scores fill in automatically."
-        action={
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-1.5 text-[13px] font-bold tabular-nums" style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, white)", color: "var(--color-altus-red-deep)" }}>
-            <span className="text-[10.5px] uppercase tracking-wide opacity-80">Overall</span>
-            {score != null ? `${Number.isInteger(score) ? score : score.toFixed(1)} / 10` : "— / 10"}
-          </span>
-        }
+        sub="The structured, weighted A–N instrument — filled on the dedicated Interview Intelligence screen."
       />
 
       {/* Full structured Management Evaluation — the weighted A–N instrument. */}
-      {candidateId && (
-        <Link
-          href={`/hr/evaluation?role=management&candidate=${candidateId}` as Route}
-          className="group mb-4 flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all hover:shadow-md"
-          style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 30%, white)", background: "color-mix(in srgb, var(--color-altus-red) 5%, white)" }}
-        >
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-white" style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}>
-            <ClipboardCheck size={16} />
+      <Link
+        href={`/hr/evaluation?role=management&candidate=${candidateId}` as Route}
+        className="group flex items-center gap-4 rounded-2xl border-2 px-5 py-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
+        style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 32%, white)", background: "color-mix(in srgb, var(--color-altus-red) 5%, white)" }}
+      >
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-white" style={{ background: "linear-gradient(135deg, #E10600, #A80400)", boxShadow: "0 10px 22px -12px rgba(168,4,0,0.7)" }}>
+          <ClipboardCheck size={20} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5 text-[15px] font-black text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif" }}>
+            Open the full Management Evaluation
+            <ArrowUpRight size={16} className="text-[color:var(--color-altus-red-deep)] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
           </span>
-          <span className="min-w-0 flex-1">
-            <span className="flex items-center gap-1 text-[14px] font-bold text-ink-strong">
-              Open the full Management Evaluation
-              <ArrowUpRight size={14} className="text-[color:var(--color-altus-red-deep)] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-            </span>
-            <span className="mt-0.5 block text-[12px] font-medium leading-snug text-ink-muted">
-              The weighted A–N instrument — non-negotiables, competency ratings, X-Factor, sales gate &amp; recommendation. Saved as the management pass and compared with the interviewer&apos;s.
-            </span>
+          <span className="mt-1 block text-[12.5px] font-medium leading-snug text-ink-muted">
+            Non-negotiables, competency ratings, X-Factor, sales gate &amp; recommendation. Saved as the management pass and compared side-by-side with the interviewer&apos;s.
           </span>
-        </Link>
-      )}
-
-      <EvaluationChecklistBody ratings={ratings} onRate={onRate} weights={weights} />
+        </span>
+      </Link>
     </Card>
   );
 }
@@ -1264,7 +1233,7 @@ function ScoresCard({
         n={3}
         icon={<Scale size={17} />}
         title="Scores"
-        sub="The HR evaluation score (weighted, from the checklist) alongside your own management-round score."
+        sub="The HR evaluation score (weighted) alongside your own management-round score."
       />
       <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
         {/* HR Evaluation — read-only, mirrors the weighted overall */}
@@ -1280,7 +1249,7 @@ function ScoresCard({
             <span className="text-[16px] font-bold text-ink-subtle"> / 10</span>
           </p>
           <p className="mt-1 text-[12px] font-medium text-ink-muted">
-            {hrRated > 0 ? "Weighted score HR filled in the checklist" : "Not yet rated on the checklist"}
+            {hrRated > 0 ? "Weighted score from the HR evaluation" : "Not yet rated in the HR evaluation"}
           </p>
         </div>
 
@@ -1582,12 +1551,12 @@ function StatTile({ icon, n, label }: { icon: React.ReactNode; n: number; label:
 
 function EmptyState() {
   return (
-    <div className="ma-fade grid place-items-center rounded-2xl border border-solid border-hairline-strong bg-white py-24 text-center">
-      <span className="grid h-16 w-16 place-items-center rounded-3xl text-white" style={{ background: "linear-gradient(135deg,#E10600,#A80400)", boxShadow: "0 18px 40px -18px rgba(168,4,0,0.7)" }}>
-        <UserRound size={30} />
+    <div className="ma-fade grid place-items-center rounded-2xl border border-solid border-hairline-strong bg-white py-14 text-center">
+      <span className="grid h-14 w-14 place-items-center rounded-3xl text-white" style={{ background: "linear-gradient(135deg,#E10600,#A80400)", boxShadow: "0 18px 40px -18px rgba(168,4,0,0.7)" }}>
+        <UserRound size={26} />
       </span>
-      <h3 className="mt-4 text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 21 }}>Pick a candidate to begin</h3>
-      <p className="mt-1 max-w-[42ch] text-[14px] font-medium text-ink-muted">Select who you assessed on the left. The notes, recorder and attachment workspace unlocks here.</p>
+      <h3 className="mt-3 text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 20 }}>Pick a candidate to begin</h3>
+      <p className="mt-1 max-w-[42ch] text-[13.5px] font-medium text-ink-muted">Select who you assessed on the left. The notes, recorder and attachment workspace unlocks here.</p>
     </div>
   );
 }

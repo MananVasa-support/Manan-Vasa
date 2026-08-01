@@ -29,7 +29,10 @@ import rejection from "./templates/rejection";
 import nextRound from "./templates/next-round";
 import assignment from "./templates/assignment";
 // Appointment & Agreements
-import acceptance from "./templates/acceptance";
+// Acceptance Letter is UNREGISTERED per product — it duplicated the Selection
+// Letter. The template file (./templates/acceptance) is left on disk, just not
+// imported/registered so it no longer appears as an option.
+// import acceptance from "./templates/acceptance";
 import appointment from "./templates/appointment";
 import confirmation from "./templates/confirmation";
 import freeTraining from "./templates/free-training";
@@ -70,7 +73,7 @@ export const LETTERS: Record<string, LetterTemplate> = {
   assignment,
   "minor-internship-undertaking": minorInternshipUndertaking,
   // Appointment & Agreements
-  acceptance,
+  // acceptance,  // ← unregistered: duplicated the Selection Letter
   appointment,
   "intern-appointment": internAppointment,
   confirmation,

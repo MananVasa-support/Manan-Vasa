@@ -28,8 +28,15 @@
 
 import { getEntity, type Entity, type EntityId } from "@/lib/hr/entities";
 import { applyPronouns, type Gender } from "@/lib/hr/pronouns";
-import { applyFirm } from "@/lib/hr/firm";
-import { type LetterTemplate, type Block, type Span, tableRowVisible } from "./types";
+import { applyFirm, HR_CONTACT, HR_SIGNATORY } from "@/lib/hr/firm";
+import {
+  type LetterTemplate,
+  type Block,
+  type LetterSignatory,
+  type Span,
+  signatoryOf,
+  tableRowVisible,
+} from "./types";
 
 /* ------------------------------------------------------------------ */
 /* Public types                                                         */
@@ -79,10 +86,11 @@ function spansToHtml(spans: Span[], values: Record<string, string>): string {
     }
     const value = (values[span.id] ?? "").trim();
     if (value) {
-      out += esc(value);
+      out += span.bold ? `<strong>${esc(value)}</strong>` : esc(value);
     } else {
       const label = span.placeholder?.trim() || span.label;
-      out += `<span class="letter-field-empty" data-field-id="${esc(span.id)}">${esc(label)}</span>`;
+      const marker = `<span class="letter-field-empty" data-field-id="${esc(span.id)}">${esc(label)}</span>`;
+      out += span.bold ? `<strong>${marker}</strong>` : marker;
     }
   }
   return out;
@@ -96,7 +104,12 @@ function headingTag(level: 1 | 2 | 3 | undefined): "h1" | "h2" | "h3" {
   return level === 1 ? "h1" : level === 3 ? "h3" : "h2";
 }
 
-function blockToHtml(block: Block, values: Record<string, string>, entity: Entity): string {
+function blockToHtml(
+  block: Block,
+  values: Record<string, string>,
+  entity: Entity,
+  signatory: LetterSignatory,
+): string {
   switch (block.kind) {
     case "heading": {
       const tag = headingTag(block.level);
@@ -104,8 +117,9 @@ function blockToHtml(block: Block, values: Record<string, string>, entity: Entit
     }
     case "paragraph": {
       const inner = spansToHtml(block.spans, values);
-      const style = block.align === "center" ? ' style="text-align:center"' : "";
-      return `<p${style}>${inner || "<br>"}</p>`;
+      const align =
+        block.align === "center" ? "center" : block.align === "right" ? "right" : "justify";
+      return `<p style="text-align:${align}">${inner || "<br>"}</p>`;
     }
     case "term": {
       const value = spansToHtml(block.value, values);
@@ -152,20 +166,30 @@ function blockToHtml(block: Block, values: Record<string, string>, entity: Entit
       return `<table style="width:100%;border-collapse:collapse;margin:10px 0;font-variant-numeric:tabular-nums"><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>`;
     }
     case "signature": {
+      const isHr = signatory === "hr";
       const lines: string[] = [];
       if (block.forEntity) lines.push(`<p><strong>For ${esc(entity.displayName)}</strong></p>`);
       if (block.esign) lines.push(`<p>(E-Sign)</p>`);
       else lines.push("<p><br></p>");
-      const name = spansToHtml(block.name, values);
+      const name = isHr ? esc(HR_SIGNATORY.name) : spansToHtml(block.name, values);
       if (name) lines.push(`<p><strong>${name}</strong></p>`);
-      if (block.designation) {
-        const d = spansToHtml(block.designation, values);
-        if (d) lines.push(`<p>${d}</p>`);
-      }
+      const desig = isHr
+        ? esc(HR_SIGNATORY.designation)
+        : block.designation
+          ? spansToHtml(block.designation, values)
+          : "";
+      if (desig) lines.push(`<p>${desig}</p>`);
       if (block.showDate) lines.push(`<p>Date : ${esc(currentDate())}</p>`);
       if (block.place) {
         const p = spansToHtml(block.place, values);
         if (p) lines.push(`<p>Place : ${p}</p>`);
+      }
+      // HR-signed letters carry the HR desk contact directly under the sign-off.
+      if (isHr) {
+        const phone = HR_CONTACT.phone.trim();
+        lines.push(
+          `<p>HR: ${esc(HR_CONTACT.email)}${phone ? ` · HR Manager: ${esc(phone)}` : ""}</p>`,
+        );
       }
       return lines.join("");
     }
@@ -198,7 +222,10 @@ export function templateToRichHtml(
   gender: Gender = "neutral",
 ): string {
   const resolved = getEntity(entity ?? template.entityDefault ?? null);
-  const html = template.blocks.map((block) => blockToHtml(block, values ?? {}, resolved)).join("\n");
+  const signatory = signatoryOf(template);
+  const html = template.blocks
+    .map((block) => blockToHtml(block, values ?? {}, resolved, signatory))
+    .join("\n");
   // Resolve gendered tokens ({title}/{he}/{his}/… → Mr./Ms., his/her, …) AND the
   // firm-name token ({firm} → the issuing entity) so the "Edit freely" seed
   // already reads correctly for this candidate + paying entity.

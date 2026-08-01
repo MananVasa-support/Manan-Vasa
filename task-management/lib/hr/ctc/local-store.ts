@@ -172,8 +172,8 @@ export function clearCtcLetterPrefill(): void {
  */
 export function ctcComponentsToLetterValues(components: CtcComponents): Record<string, string> {
   const out: Record<string, string> = {};
-  const basicDef = CTC_COMPONENT_BY_ID["basic"];
-  const basicMonthly = basicDef ? monthlyOf(basicDef, num(components["basic"])) : 0;
+  const totals = computeTotals(components);
+  const grossMonthly = totals.grossMonthly;
 
   for (const c of CTC_LETTER_COMPONENTS) {
     if (!c.workbenchId) continue;
@@ -183,13 +183,13 @@ export function ctcComponentsToLetterValues(components: CtcComponents): Record<s
     if (raw <= 0) continue; // skip zero components — do NOT seed 0 rows
     out[c.pmId] = formatINR(monthlyOf(def, raw));
     out[c.paId] = formatINR(annualOf(def, raw));
-    if (c.pctId && basicMonthly > 0) {
-      out[c.pctId] = String(Math.round((monthlyOf(def, raw) / basicMonthly) * 100));
+    // The letter annotates each component as a "% of CTC" (of gross monthly).
+    if (c.pctId && grossMonthly > 0) {
+      out[c.pctId] = String(Math.round((monthlyOf(def, raw) / grossMonthly) * 100));
     }
   }
 
-  const totals = computeTotals(components);
-  if (totals.grossMonthly > 0) {
+  if (grossMonthly > 0) {
     out[CTC_LETTER_TOTALS.subtotalPm] = formatINR(totals.grossMonthly);
     out[CTC_LETTER_TOTALS.subtotalPa] = formatINR(totals.grossAnnual);
     out[CTC_LETTER_TOTALS.netPm] = formatINR(totals.netMonthly);

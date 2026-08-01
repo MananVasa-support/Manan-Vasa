@@ -16,6 +16,8 @@ interface LetterPdfBody {
   contentKind?: ContentKind;
   /** The free-form TipTap HTML for a rich letter (required when rich). */
   bodyHtml?: string;
+  /** Optional uploaded scanned-signature image (data URL) for the sign-off. */
+  signatureImage?: string;
 }
 
 /**
@@ -69,6 +71,7 @@ export async function POST(req: Request): Promise<Response> {
       values: body.values ?? {},
       date: body.date,
       gender: normalizeGender(body.gender),
+      signatureImage: body.signatureImage,
     });
     const filename = `${template.key}.pdf`;
     return new Response(new Uint8Array(pdf), {

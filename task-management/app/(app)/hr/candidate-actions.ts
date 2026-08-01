@@ -13,6 +13,7 @@ import { rateLimitOrError } from "@/lib/rate-limit";
 import { getSupabaseAdmin, DOCUMENTS_BUCKET } from "@/lib/supabase/admin";
 import { ALL_CRITERION_IDS } from "@/lib/hr/candidate/evaluation-checklist";
 import { intakeProgress } from "@/lib/hr/candidate/intake-schema";
+import { sendRecruiterIntakeEmail } from "@/lib/email/hr-recruiter-email";
 
 type Result<T> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -81,6 +82,33 @@ export async function submitCandidateDraft(id: string): Promise<{ ok: true } | {
     .update(candidateIntake)
     .set({ submittedAt: new Date(), updatedAt: new Date() })
     .where(eq(candidateIntake.id, id));
+
+  // Notify the referring recruiter (if a Recruiter Email was captured). Fail-soft:
+  // a lookup or email failure must never block the submit.
+  try {
+    const [row] = await db
+      .select({
+        data: candidateIntake.data,
+        fullName: candidateIntake.fullName,
+        positionApplied: candidateIntake.positionApplied,
+      })
+      .from(candidateIntake)
+      .where(eq(candidateIntake.id, id))
+      .limit(1);
+    const values = (row?.data ?? {}) as Record<string, string>;
+    const to = (values["declaration.recruiterEmail"] ?? "").trim();
+    if (to && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+      await sendRecruiterIntakeEmail({
+        to,
+        recruiterName: values["declaration.name"] || undefined,
+        candidateName: row?.fullName || values["personal.fullName"] || "A candidate",
+        position: row?.positionApplied || values["personal.position"] || undefined,
+      });
+    }
+  } catch {
+    // fail-soft — submission already succeeded.
+  }
+
   revalidatePath("/hr/candidates");
   return { ok: true };
 }

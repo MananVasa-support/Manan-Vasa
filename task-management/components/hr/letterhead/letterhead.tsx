@@ -29,6 +29,7 @@
 
 import type { ReactNode } from "react";
 import { getEntity, DEFAULT_ENTITY_ID, type Entity, type EntityId } from "@/lib/hr/entities";
+import { HR_CONTACT } from "@/lib/hr/firm";
 
 const HEADER_ART = "/letterhead/altus-header.png";
 const FOOTER_ART = "/letterhead/altus-footer.png";
@@ -63,6 +64,20 @@ export function Letterhead({ entity, children, className }: LetterheadProps) {
       )}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="alh-art alh-art-bottom" src={FOOTER_ART} alt="" aria-hidden />
+      {/* Code-rendered HR contact line, laid over the baked footer art so the HR
+          email + HR Manager phone are always current (sourced from HR_CONTACT in
+          lib/hr/firm.ts) without re-baking the PNG. */}
+      <div className="alh-footer-contact" aria-label="HR contact">
+        <span className="alh-fc-item">HR: {HR_CONTACT.email}</span>
+        {HR_CONTACT.phone.trim() && (
+          <>
+            <span className="alh-fc-dot" aria-hidden>
+              ·
+            </span>
+            <span className="alh-fc-item">HR Manager: {HR_CONTACT.phone.trim()}</span>
+          </>
+        )}
+      </div>
 
       {/* ── Page frame ───────────────────────────────────────────
              The thead/tfoot are empty spacer bands the browser repeats
@@ -110,12 +125,22 @@ const LETTERHEAD_CSS = `
   color:#111114;
   box-shadow:0 30px 80px -34px rgba(15,23,42,.35);
   overflow:hidden;
-  border-radius:4px;
+  /* Flat document sheet — no curved/cut-off corners on the letter surface. */
+  border-radius:0;
 }
 /* Header + footer artwork — crisp, full-width, natural aspect */
 .alh-art{position:absolute;left:0;width:100%;height:auto;display:block;z-index:0;pointer-events:none;}
 .alh-art-top{top:0;}
 .alh-art-bottom{bottom:0;}
+/* Code-rendered HR contact line — sits just above the baked footer strip. */
+.alh-footer-contact{
+  position:absolute;left:0;right:0;bottom:78px;z-index:4;
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px;
+  padding:0 24px;pointer-events:none;
+  font-family:var(--font-display, system-ui, sans-serif);
+  font-size:10.5px;font-weight:700;letter-spacing:.02em;color:#A80400;
+}
+.alh-fc-dot{color:#A8040099;font-weight:900;}
 /* Per-entity logo swap (non-Altus): white cover wipes the baked-in Altus logo… */
 .alh-logo-cover{position:absolute;left:0;top:0;width:140px;height:158px;background:#ffffff;z-index:1;}
 /* …then the entity's own logo is pasted in its place. */
@@ -137,7 +162,10 @@ const LETTERHEAD_CSS = `
   font-size:15px;line-height:1.72;color:#111114;
   overflow-wrap:break-word;
 }
-.alh-body p{margin:0 0 14px;}
+/* Generated-letter prose is JUSTIFIED by default (headings/tables/signature
+ * carry their own alignment). Structured paragraphs set an inline text-align
+ * that wins where an explicit override (centre/right) is needed. */
+.alh-body p{margin:0 0 14px;text-align:justify;}
 /* Print / PDF — pin header + footer to every printed page; the thead/tfoot
  * spacers keep the body from ever overlapping them. */
 @media print{
@@ -149,8 +177,9 @@ const LETTERHEAD_CSS = `
   }
   .alh-art-top{position:fixed;top:0;}
   .alh-art-bottom{position:fixed;bottom:0;}
+  .alh-footer-contact{position:fixed;bottom:78px;}
   .alh-frame{width:100%;}
-  .alh-art,.alh-logo-cover,.alh-logo{
+  .alh-art,.alh-logo-cover,.alh-logo,.alh-footer-contact{
     -webkit-print-color-adjust:exact;print-color-adjust:exact;
   }
 }

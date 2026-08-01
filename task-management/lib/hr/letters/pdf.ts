@@ -6,12 +6,14 @@ import PDFDocument from "pdfkit";
 import { format } from "date-fns";
 import { getEntity, type EntityId, type Entity } from "@/lib/hr/entities";
 import { applyPronouns, type Gender } from "@/lib/hr/pronouns";
-import { applyFirm } from "@/lib/hr/firm";
+import { applyFirm, HR_CONTACT, HR_SIGNATORY } from "@/lib/hr/firm";
 import {
   type LetterTemplate,
   type Block,
+  type LetterSignatory,
   type Span,
   resolveSpans,
+  signatoryOf,
   tableRowVisible,
 } from "./types";
 
@@ -64,6 +66,24 @@ export interface RenderLetterInput {
   date?: string;
   /** Candidate gender — resolves pronoun/salutation tokens (Mr./Ms., his/her…). */
   gender?: Gender;
+  /**
+   * An OPTIONAL scanned-signature image (a `data:image/...;base64,…` URL) the HR
+   * desk uploaded for the signatory. When present it replaces the baked-in
+   * proprietor signature in the sign-off. Degrades gracefully when omitted.
+   */
+  signatureImage?: string;
+}
+
+/** Decode a `data:image/...;base64,…` URL into a Buffer pdfkit can embed. */
+function dataUrlToBuffer(dataUrl?: string): Buffer | null {
+  if (!dataUrl) return null;
+  const m = /^data:image\/[a-zA-Z0-9.+-]+;base64,(.+)$/.exec(dataUrl.trim());
+  if (!m || !m[1]) return null;
+  try {
+    return Buffer.from(m[1], "base64");
+  } catch {
+    return null;
+  }
 }
 
 /** Render a filled letter to a print-ready A4 PDF Buffer. */
@@ -128,8 +148,19 @@ export async function renderLetterPdf(input: RenderLetterInput): Promise<Buffer>
   doc.y += 22;
 
   /* ---- Body blocks ---- */
+  const signatory = signatoryOf(input.template);
   for (const block of input.template.blocks) {
-    renderBlock(doc, block, { left, width, values, entity, letterDate, ensure, gender });
+    renderBlock(doc, block, {
+      left,
+      width,
+      values,
+      entity,
+      letterDate,
+      ensure,
+      gender,
+      signatory,
+      signatureImage: input.signatureImage,
+    });
   }
 
   doc.end();
@@ -148,6 +179,10 @@ interface Ctx {
   letterDate: string;
   ensure: (need: number) => void;
   gender: Gender;
+  /** Who signs — drives the signature block (director vs HR desk). */
+  signatory: LetterSignatory;
+  /** Optional uploaded scanned-signature image (data URL). */
+  signatureImage?: string;
 }
 
 function renderBlock(doc: PDFKit.PDFDocument, block: Block, ctx: Ctx): void {
@@ -187,13 +222,21 @@ function renderBlock(doc: PDFKit.PDFDocument, block: Block, ctx: Ctx): void {
         .text(text, left, doc.y, {
           width,
           lineGap: 3,
-          align: block.align === "center" ? "center" : "left",
+          align:
+            block.align === "center"
+              ? "center"
+              : block.align === "right"
+                ? "right"
+                : "justify",
         });
       doc.y += 8;
       return;
     }
     case "term": {
       const value = resolve(block.value);
+      // A term whose value is a bold field (e.g. the Subject line) prints its
+      // value in bold + ink-strong, matching the on-screen editor + rich seed.
+      const valueBold = block.value.some((s) => s.t === "field" && s.bold);
       ctx.ensure(20);
       const top = doc.y;
       const label = applyFirm(applyPronouns(block.label, gender), entity);
@@ -203,9 +246,9 @@ function renderBlock(doc: PDFKit.PDFDocument, block: Block, ctx: Ctx): void {
       doc.text(label, left, top, { width: LABEL_COL - 8, lineBreak: true });
       doc.text(":", left + LABEL_COL, top, { lineBreak: false });
       doc
-        .font("Helvetica")
+        .font(valueBold ? "Helvetica-Bold" : "Helvetica")
         .fontSize(11)
-        .fillColor(INK_MUTED)
+        .fillColor(valueBold ? INK : INK_MUTED)
         .text(value, left + LABEL_COL + 10, top, { width: width - LABEL_COL - 10, lineGap: 2 });
       doc.y = Math.max(doc.y, top + 16);
       return;
@@ -372,29 +415,48 @@ function renderSignature(
     doc.y += opts.gap ?? 15;
   };
 
+  const isHr = ctx.signatory === "hr";
+
   if (block.forEntity) line(`For ${entity.displayName}`, { bold: true, color: RED_DEEP });
-  // The proprietor's signature image (replaces the plain "(E-Sign)" placeholder).
+  // Signature image: an uploaded scanned signature wins; otherwise the baked
+  // proprietor signature is used for Director-signed letters. HR-signed letters
+  // with no upload simply leave the signing space blank.
   void INK_FAINT;
   try {
-    const sigPath = path.join(process.cwd(), "public", "signatures", "proprietor-signature.png");
-    if (existsSync(sigPath)) {
+    const uploaded = dataUrlToBuffer(ctx.signatureImage);
+    if (uploaded) {
       ctx.ensure(62);
-      doc.image(sigPath, left, doc.y, { height: 46 });
+      doc.image(uploaded, left, doc.y, { height: 46 });
       doc.y += 52;
+    } else if (!isHr) {
+      const sigPath = path.join(process.cwd(), "public", "signatures", "proprietor-signature.png");
+      if (existsSync(sigPath)) {
+        ctx.ensure(62);
+        doc.image(sigPath, left, doc.y, { height: 46 });
+        doc.y += 52;
+      } else {
+        doc.y += 8;
+      }
     } else {
-      doc.y += 8;
+      doc.y += 30; // reserve a blank signing space on HR letters
     }
   } catch {
     doc.y += 8;
   }
 
-  const name = resolve(block.name);
+  const name = isHr ? HR_SIGNATORY.name : resolve(block.name);
   line(name, { bold: true });
-  line("Proprietor", { color: INK_MUTED, size: 10 });
+  line(isHr ? HR_SIGNATORY.designation : "Proprietor", { color: INK_MUTED, size: 10 });
   if (block.showDate) line(`Date: ${letterDate}`, { color: INK_MUTED, size: 10 });
   if (block.place) {
     const place = resolve(block.place);
     if (place.trim()) line(`Place: ${place}`, { color: INK_MUTED, size: 10 });
+  }
+  // HR-signed letters print the HR desk email + HR Manager phone under the block.
+  if (isHr) {
+    line(`HR: ${HR_CONTACT.email}`, { color: INK_MUTED, size: 9.5, gap: 12 });
+    const phone = HR_CONTACT.phone.trim();
+    if (phone) line(`HR Manager: ${phone}`, { color: INK_MUTED, size: 9.5, gap: 12 });
   }
 }
 

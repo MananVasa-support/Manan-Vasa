@@ -23,6 +23,12 @@ import {
   LogOut,
   MessagesSquare,
   ClipboardCheck,
+  ClipboardList,
+  Mail,
+  Boxes,
+  Lock,
+  AlertTriangle,
+  ArrowRight,
 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { PageShell } from "@/components/layout/page-shell";
@@ -36,6 +42,12 @@ import { getPolicySigningStatus } from "@/app/(app)/hr/record/policy-status";
 import type { PolicySignStatus } from "@/app/(app)/hr/record/policy-status-types";
 import { getExitStatus } from "@/app/(app)/hr/record/exit-status";
 import type { ExitSummary } from "@/app/(app)/hr/record/exit-status-types";
+import {
+  getWorkflowStatus,
+  createOfficialEmail,
+  allocateAssets,
+  type WorkflowStatus,
+} from "@/app/(app)/hr/record/workflow-status";
 import { SkillMultiSelect, type SkillSelection } from "@/components/hr/candidate/skill-multiselect";
 import type { SkillLookupOptions } from "@/lib/hr/skills";
 
@@ -123,6 +135,10 @@ export function HrRecordScreen({
   const [docketLoading, setDocketLoading] = React.useState(false);
   const [exit, setExit] = React.useState<ExitSummary | null>(null);
   const [exitLoading, setExitLoading] = React.useState(false);
+  const [workflow, setWorkflow] = React.useState<WorkflowStatus | null>(null);
+  const [workflowLoading, setWorkflowLoading] = React.useState(false);
+  const [emailBusy, setEmailBusy] = React.useState(false);
+  const [assetsBusy, setAssetsBusy] = React.useState(false);
 
   const maRef = React.useRef<ManagementAssessmentState | null>(null);
   const skillsRef = React.useRef(skills); skillsRef.current = skills;
@@ -163,8 +179,16 @@ export function HrRecordScreen({
     setDirty(false);
     setPolicy(null); setPolicyLoading(false);
     setExit(null); setExitLoading(false);
+    setWorkflow(null); setWorkflowLoading(false);
     if (!id) return;
     setLoading(true);
+    // Workflow status (onboarding gate + email/asset provisioning) loads in
+    // PARALLEL alongside policy + exit — never blocking the editor.
+    setWorkflowLoading(true);
+    void getWorkflowStatus(id)
+      .then((res) => { if (cidRef.current === id) setWorkflow(res.ok ? res.status : null); })
+      .catch(() => { if (cidRef.current === id) setWorkflow(null); })
+      .finally(() => { if (cidRef.current === id) setWorkflowLoading(false); });
     // Policy-signing + exit records load in PARALLEL (never block the editor).
     setPolicyLoading(true);
     void getPolicySigningStatus(id)
@@ -230,6 +254,38 @@ export function HrRecordScreen({
       fireToast({ message: "Couldn't build the docket.", type: "error" });
     } finally {
       setDocketLoading(false);
+    }
+  }
+
+  async function handleCreateEmail() {
+    const id = cidRef.current;
+    if (!id || emailBusy) return;
+    setEmailBusy(true);
+    try {
+      const res = await createOfficialEmail(id);
+      if (!res.ok) { fireToast({ message: res.error, type: "error" }); return; }
+      if (cidRef.current === id) setWorkflow(res.status);
+      fireToast({ message: `Official email created — welcome mail sent.`, type: "success" });
+    } catch {
+      fireToast({ message: "Couldn't create the official email.", type: "error" });
+    } finally {
+      setEmailBusy(false);
+    }
+  }
+
+  async function handleAllocateAssets() {
+    const id = cidRef.current;
+    if (!id || assetsBusy) return;
+    setAssetsBusy(true);
+    try {
+      const res = await allocateAssets(id);
+      if (!res.ok) { fireToast({ message: res.error, type: "error" }); return; }
+      if (cidRef.current === id) setWorkflow(res.status);
+      fireToast({ message: "Assets marked allocated.", type: "success" });
+    } catch {
+      fireToast({ message: "Couldn't mark assets allocated.", type: "error" });
+    } finally {
+      setAssetsBusy(false);
     }
   }
 
@@ -349,10 +405,61 @@ export function HrRecordScreen({
           </div>
         ) : (
           <div className="mt-6 grid grid-cols-12 gap-5">
+            {/* Pending / action-needed — the very TOP of the panel. */}
+            <section className="col-span-12 rec-fade">
+              <PendingSummary workflow={workflow} policy={policy} loading={workflowLoading || policyLoading} />
+            </section>
+
+            {/* Onboarding form — the HIGHEST-priority dependency: it gates email + assets. */}
+            <section className="col-span-12 lg:col-span-4 rec-fade">
+              <RecordCard
+                n={1}
+                icon={<ClipboardList size={18} />}
+                title="Onboarding Form"
+                sub="The joining data form. It must be submitted before email & assets unlock."
+              >
+                <OnboardingCard workflow={workflow} loading={workflowLoading} />
+              </RecordCard>
+            </section>
+
+            {/* Create Official Email — locked until onboarding submitted. */}
+            <section className="col-span-12 lg:col-span-4 rec-fade">
+              <RecordCard
+                n={2}
+                icon={<Mail size={18} />}
+                title="Create Official Email"
+                sub="Provision firstname.lastname@altuscorp.com & send the welcome mail."
+              >
+                <EmailStepCard
+                  workflow={workflow}
+                  loading={workflowLoading}
+                  busy={emailBusy}
+                  onCreate={() => void handleCreateEmail()}
+                />
+              </RecordCard>
+            </section>
+
+            {/* Allocate Assets — locked until onboarding submitted. */}
+            <section className="col-span-12 lg:col-span-4 rec-fade">
+              <RecordCard
+                n={3}
+                icon={<Boxes size={18} />}
+                title="Allocate Assets"
+                sub="Hand over the laptop, access & kit — mark it done once allocated."
+              >
+                <AssetsStepCard
+                  workflow={workflow}
+                  loading={workflowLoading}
+                  busy={assetsBusy}
+                  onAllocate={() => void handleAllocateAssets()}
+                />
+              </RecordCard>
+            </section>
+
             {/* Letters */}
             <section className="col-span-12 lg:col-span-7 rec-fade">
               <RecordCard
-                n={1}
+                n={4}
                 icon={<FileSignature size={18} />}
                 title="Letters"
                 sub="Compose a letter for this person — their name & gender are pre-filled."
@@ -389,7 +496,7 @@ export function HrRecordScreen({
             {/* Documents */}
             <section className="col-span-12 lg:col-span-5 rec-fade">
               <RecordCard
-                n={3}
+                n={5}
                 icon={<FolderLock size={18} />}
                 title="Documents"
                 sub="Their secure document vault — appointment, CTC, IDs & more."
@@ -432,9 +539,9 @@ export function HrRecordScreen({
             {/* Policies signed record */}
             <section className="col-span-12 rec-fade">
               <RecordCard
-                n={4}
+                n={6}
                 icon={<ScrollText size={18} />}
-                title="Policies Signatory"
+                title="Policy Signatures"
                 sub="How many firm policies this person has signed — and what's still pending."
                 right={
                   <span
@@ -452,7 +559,7 @@ export function HrRecordScreen({
             {/* Exit & Handover record */}
             <section className="col-span-12 rec-fade">
               <RecordCard
-                n={5}
+                n={7}
                 icon={<LogOut size={18} />}
                 title="Exit & Handover"
                 sub="This person's exit interview and handover clearance — populated once their separation begins."
@@ -472,7 +579,7 @@ export function HrRecordScreen({
             {/* Skills requirement checklist */}
             <section className="col-span-12 rec-fade">
               <RecordCard
-                n={2}
+                n={8}
                 icon={<Sparkles size={18} />}
                 title="Skills requirement checklist"
                 sub="The bare-minimum skills this role demands — tick what they can genuinely do. Add or remove options inline."
@@ -729,6 +836,263 @@ function ExitHandover({ status, loading }: { status: ExitSummary | null; loading
       </div>
     </div>
   );
+}
+
+/** A Locked / Ready / Done state chip for the onboarding-gated workflow steps. */
+function StepBadge({ state }: { state: "locked" | "ready" | "done" }) {
+  const map = {
+    locked: { bg: "color-mix(in srgb, #f59e0b 14%, white)", fg: "#b45309", label: "Locked", Icon: Lock },
+    ready: { bg: "color-mix(in srgb, var(--color-altus-red) 12%, white)", fg: RED_DEEP, label: "Ready", Icon: Circle },
+    done: { bg: "color-mix(in srgb, #16a34a 12%, white)", fg: "#15803d", label: "Done", Icon: CircleCheck },
+  }[state];
+  const { Icon } = map;
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[11.5px] font-bold uppercase tracking-[0.06em]" style={{ background: map.bg, color: map.fg }}>
+      <Icon size={12} strokeWidth={2.6} /> {map.label}
+    </span>
+  );
+}
+
+/** The "Pending / Action needed" banner at the very top — the actionable
+ *  worklist for this person, prioritising the onboarding dependency first. */
+function PendingSummary({
+  workflow, policy, loading,
+}: {
+  workflow: WorkflowStatus | null;
+  policy: PolicySignStatus | null;
+  loading: boolean;
+}) {
+  const items: string[] = [];
+  const matched = workflow?.matched ?? false;
+
+  if (matched) {
+    if (!workflow!.onboardingSubmitted) {
+      items.push(workflow!.onboardingExists ? "Onboarding form is a draft — awaiting submission" : "Onboarding form not started");
+    }
+    if (workflow!.onboardingSubmitted && !workflow!.emailProvisionedAt) items.push("Official company email not created");
+    if (workflow!.onboardingSubmitted && !workflow!.assetsAllocatedAt) items.push("Company assets not allocated");
+  }
+  if (policy && policy.matched) {
+    const pending = policy.policies.filter((p) => !p.signed).length;
+    if (pending > 0) items.push(`${pending} ${pending === 1 ? "policy" : "policies"} pending signature`);
+  }
+
+  const allClear = matched && items.length === 0;
+  const border = allClear
+    ? "color-mix(in srgb, #16a34a 34%, white)"
+    : items.length > 0
+      ? "color-mix(in srgb, #f59e0b 40%, white)"
+      : "var(--color-hairline)";
+  const bg = allClear
+    ? "color-mix(in srgb, #16a34a 7%, white)"
+    : items.length > 0
+      ? "color-mix(in srgb, #f59e0b 8%, white)"
+      : "var(--color-surface-soft)";
+
+  return (
+    <div className="rounded-2xl border p-5" style={{ borderColor: border, background: bg }}>
+      <div className="flex items-center gap-3">
+        <span
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white"
+          style={{ background: allClear ? "linear-gradient(135deg,#16a34a,#15803d)" : "linear-gradient(135deg,#f59e0b,#b45309)" }}
+        >
+          {allClear ? <CircleCheck size={18} /> : <AlertTriangle size={18} />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[16px] font-black text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
+            {loading ? "Checking what needs action…" : allClear ? "All clear — nothing pending" : items.length > 0 ? "Pending · action needed" : "Nothing to action yet"}
+          </h2>
+          <p className="mt-0.5 text-[12.5px] font-medium text-ink-muted">
+            {loading
+              ? "Loading this person's workflow status."
+              : allClear
+                ? "Onboarding, email, assets and every policy are complete."
+                : items.length > 0
+                  ? "Clear these first — they sit above the rest of the file for a reason."
+                  : "Not yet linked to an employee account — items appear here once this person joins."}
+          </p>
+        </div>
+      </div>
+      {!loading && items.length > 0 && (
+        <ul className="mt-3.5 grid gap-2 sm:grid-cols-2">
+          {items.map((it) => (
+            <li key={it} className="flex items-center gap-2 rounded-xl border border-hairline bg-white px-3 py-2.5 text-[13px] font-semibold text-ink-strong">
+              <ArrowRight size={14} strokeWidth={2.6} style={{ color: "#b45309" }} className="shrink-0" />
+              {it}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** The onboarding-form status body — the gating dependency for email + assets. */
+function OnboardingCard({ workflow, loading }: { workflow: WorkflowStatus | null; loading: boolean }) {
+  if (loading) return <StepSpinner />;
+  if (!workflow?.matched) return <UnlinkedNote what="onboarding" />;
+  const submitted = workflow.onboardingSubmitted;
+  const draft = workflow.onboardingExists && !submitted;
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <StepBadge state={submitted ? "done" : "ready"} />
+        {submitted && workflow.onboardingSubmittedAt && (
+          <span className="text-[12px] font-semibold text-ink-muted">{fmtDay(workflow.onboardingSubmittedAt)}</span>
+        )}
+      </div>
+      <p className="text-[13.5px] font-semibold text-ink-strong">
+        {submitted ? "Onboarding form submitted." : draft ? "Onboarding form saved as a draft." : "Onboarding form not started yet."}
+      </p>
+      <p className="mt-1 text-[12.5px] leading-relaxed text-ink-subtle">
+        {submitted
+          ? "Email creation and asset allocation are unlocked."
+          : "Email creation and asset allocation stay locked until this is submitted."}
+      </p>
+      {!submitted && (
+        <Link
+          href={"/dossier/onboarding" as Route}
+          className="mt-3 inline-flex items-center gap-1.5 rounded-pill border border-hairline-strong bg-white px-3.5 py-2 text-[12.5px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
+        >
+          Open onboarding form <ArrowUpRight size={13} />
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/** Create-official-email step — locked until onboarding submitted. */
+function EmailStepCard({
+  workflow, loading, busy, onCreate,
+}: {
+  workflow: WorkflowStatus | null;
+  loading: boolean;
+  busy: boolean;
+  onCreate: () => void;
+}) {
+  if (loading) return <StepSpinner />;
+  if (!workflow?.matched) return <UnlinkedNote what="email creation" />;
+
+  const done = Boolean(workflow.emailProvisionedAt);
+  const unlocked = workflow.onboardingSubmitted;
+  const state: "locked" | "ready" | "done" = done ? "done" : unlocked ? "ready" : "locked";
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <StepBadge state={state} />
+        {done && workflow.emailProvisionedAt && (
+          <span className="text-[12px] font-semibold text-ink-muted">{fmtDay(workflow.emailProvisionedAt)}</span>
+        )}
+      </div>
+
+      {done ? (
+        <>
+          <p className="text-[12px] font-bold uppercase tracking-[0.1em] text-ink-soft">Official email</p>
+          <p className="mt-0.5 break-all text-[14px] font-black text-ink-strong">{workflow.officialEmail}</p>
+          <p className="mt-2 flex items-start gap-2 text-[12px] leading-relaxed text-ink-subtle">
+            <Mail size={13} className="mt-0.5 shrink-0" /> Welcome mail sent to their personal inbox with login details.
+          </p>
+        </>
+      ) : unlocked ? (
+        <>
+          <p className="text-[12px] font-bold uppercase tracking-[0.1em] text-ink-soft">Will provision</p>
+          <p className="mt-0.5 break-all text-[14px] font-black text-ink-strong">{workflow.suggestedOfficialEmail}</p>
+          <button
+            type="button"
+            onClick={onCreate}
+            disabled={busy}
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold text-white transition-opacity hover:opacity-95 disabled:opacity-50"
+            style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`, boxShadow: "0 10px 22px -14px rgba(168,4,0,0.8)" }}
+          >
+            {busy ? <><Loader2 size={14} className="animate-spin" /> Creating…</> : <><Mail size={14} /> Create email & welcome</>}
+          </button>
+        </>
+      ) : (
+        <LockedNote>Unlocks once the onboarding form is submitted.</LockedNote>
+      )}
+    </div>
+  );
+}
+
+/** Allocate-assets step — locked until onboarding submitted. */
+function AssetsStepCard({
+  workflow, loading, busy, onAllocate,
+}: {
+  workflow: WorkflowStatus | null;
+  loading: boolean;
+  busy: boolean;
+  onAllocate: () => void;
+}) {
+  if (loading) return <StepSpinner />;
+  if (!workflow?.matched) return <UnlinkedNote what="asset allocation" />;
+
+  const done = Boolean(workflow.assetsAllocatedAt);
+  const unlocked = workflow.onboardingSubmitted;
+  const state: "locked" | "ready" | "done" = done ? "done" : unlocked ? "ready" : "locked";
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <StepBadge state={state} />
+        {done && workflow.assetsAllocatedAt && (
+          <span className="text-[12px] font-semibold text-ink-muted">{fmtDay(workflow.assetsAllocatedAt)}</span>
+        )}
+      </div>
+
+      {done ? (
+        <p className="flex items-start gap-2 text-[13px] leading-relaxed text-ink-strong">
+          <CircleCheck size={15} strokeWidth={2.4} style={{ color: "#15803d" }} className="mt-0.5 shrink-0" />
+          Company assets allocated to this employee.
+        </p>
+      ) : unlocked ? (
+        <>
+          <p className="text-[13px] leading-relaxed text-ink-muted">Hand over the laptop, access and kit, then mark it complete.</p>
+          <button
+            type="button"
+            onClick={onAllocate}
+            disabled={busy}
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold text-white transition-opacity hover:opacity-95 disabled:opacity-50"
+            style={{ background: "linear-gradient(135deg,#3f3f46,#18181b)" }}
+          >
+            {busy ? <><Loader2 size={14} className="animate-spin" /> Marking…</> : <><Boxes size={14} /> Mark assets allocated</>}
+          </button>
+        </>
+      ) : (
+        <LockedNote>Unlocks once the onboarding form is submitted.</LockedNote>
+      )}
+    </div>
+  );
+}
+
+function StepSpinner() {
+  return (
+    <div className="grid place-items-center py-6 text-ink-muted">
+      <Loader2 className="animate-spin" style={{ color: RED }} size={18} />
+    </div>
+  );
+}
+
+function LockedNote({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="flex items-start gap-2 rounded-xl border border-hairline bg-surface-soft px-3 py-2.5 text-[12.5px] font-medium leading-relaxed text-ink-muted">
+      <Lock size={13} className="mt-0.5 shrink-0" style={{ color: "#b45309" }} /> {children}
+    </p>
+  );
+}
+
+function UnlinkedNote({ what }: { what: string }) {
+  return (
+    <p className="flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-subtle">
+      <UserRound size={13} className="mt-0.5 shrink-0" />
+      Not yet linked to an employee account — {what} becomes available once this person joins.
+    </p>
+  );
+}
+
+/** Friendly "12 Aug 2026" for an ISO string. */
+function fmtDay(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function RecordCard({

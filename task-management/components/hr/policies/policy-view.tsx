@@ -88,7 +88,7 @@ export function PolicyView({ doc }: { doc: PolicyDoc }) {
             autoFocus
           >
             {signing ? <Loader2 size={15} className="apv-spin" /> : <PenLine size={15} strokeWidth={2.4} />}
-            {signing ? "Starting…" : "Sign / Acknowledge"}
+            {signing ? "Starting…" : "Read & Sign"}
           </button>
         </div>
       </div>

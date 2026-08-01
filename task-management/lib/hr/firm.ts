@@ -15,6 +15,31 @@
 
 import { getEntity, type Entity, type EntityId } from "@/lib/hr/entities";
 
+/**
+ * HR desk contact — the single source of truth for the HR email + HR Manager
+ * phone rendered in the letterhead footer (code-rendered, beneath the baked
+ * footer art) and used as the CC/BCC on the "Export & Email PDF" flow.
+ *
+ * Spelling confirmed by the user: "altUScorp" (matches the company domain
+ * altuscorp.in), NOT the "altAscorp" that appeared in the spec.
+ */
+export const HR_CONTACT = {
+  /** HR desk email (confirmed spelling: altUScorp). */
+  email: "hr.altuscorp@gmail.com",
+  /** HR Manager phone — placeholder, ready to fill (keep the "+91 " prefix). */
+  phone: "+91 ",
+} as const;
+
+/**
+ * The HR-desk signatory identity — the name + designation printed in the
+ * signature block of every HR-signed letter (see `signatoryOf`). The Director
+ * letters (CTC + Appointment) keep their authored "CA Manan Vasa" block instead.
+ */
+export const HR_SIGNATORY = {
+  name: "HR Team",
+  designation: "Human Resources",
+} as const;
+
 /** Resolve `{firm}` / `{firmLegal}` in `text` against the issuing entity. */
 export function applyFirm(
   text: string,

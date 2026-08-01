@@ -1,19 +1,26 @@
 /**
  * CTC BREAKUP LETTER — the formal "Cost to the Company structure with break-up"
- * on the Altus letterhead, rebuilt to reproduce the real Altus CTC spreadsheet.
+ * on the Altus letterhead.
  *
  * The heart of the letter is a bordered TABLE (COMPONENTS · PER MONTH · PER
- * ANNUM): a "Pay Slip Salary" group of component rows (each an editable ₹ per-
- * month field + editable ₹ per-annum field, with an optional editable "% of
- * Basic" annotation), a SUB-TOTAL row and the grand "Net Salary (Take Home)"
- * row. A fixed PT note, an editable Notes area and an editable Growth Journey
- * area follow, then the e-sign signature block. Every ₹ figure is an editable
- * red field so the letter mirrors the Compensation Workbench numbers exactly —
- * the Workbench pre-fills them (skipping zero components); the prose is frozen.
+ * ANNUM):
+ *   · A. Earnings — Basic + allowances, each a PERCENTAGE of the total CTC
+ *     (defaults Basic 40, HRA 10, Medical 10, Conveyance 20, Uniform 20 → 100),
+ *     with a Gross Salary summary row.
+ *   · B. Deductions — Professional Tax at the TOP (₹2,500/yr → ₹200/month
+ *     Mar–Jan, ₹300 in February), with a Total Deductions summary row.
+ *   · Net Monthly Take-Home — the grand row.
  *
- * The component metadata (`CTC_LETTER_COMPONENTS`) is exported so the Workbench →
- * letter pre-fill (lib/hr/ctc/letter-prefill.ts) maps its numeric components onto
- * the exact field ids used below — one source of truth for the mapping.
+ * The on-screen editor shows a PERCENTAGE-BASED CALCULATOR (in
+ * components/hr/letters/letter-editor.tsx): HR enters the total CTC + each
+ * component's %, and every ₹ figure, the PT, and the Gross / Deductions / Net
+ * summary rows are auto-computed and written into these fields. Zero components
+ * are hidden from the produced document. The Compensation Workbench can also
+ * pre-fill the ₹ figures directly.
+ *
+ * `CTC_LETTER_COMPONENTS` / `CTC_LETTER_TOTALS` / `CTC_LETTER_DEDUCTIONS` are
+ * exported so the calculator + the Workbench pre-fill map onto the exact field
+ * ids — one source of truth for the mapping.
  *
  * PURE + CLIENT-SAFE — imports only ../types. Load-neutral.
  */
@@ -24,6 +31,7 @@ import {
   t,
   f,
   para,
+  paraRight,
   heading,
   term,
   table,
@@ -35,10 +43,10 @@ import {
 } from "../types";
 
 /* ------------------------------------------------------------------ */
-/* Component catalogue — the "Pay Slip Salary" rows                     */
+/* Component catalogue — the "A. Earnings" rows                         */
 /* ------------------------------------------------------------------ */
 
-/** One CTC-letter component row + how it maps to the Workbench (for pre-fill). */
+/** One CTC-letter earning row + how it maps to the calculator / Workbench. */
 export interface CtcLetterComponent {
   /** Row label, e.g. "House Rent Allowance". */
   label: string;
@@ -46,32 +54,27 @@ export interface CtcLetterComponent {
   pmId: string;
   /** Editable per-annum ₹ field id. */
   paId: string;
-  /** Editable "% of Basic" field id (omitted for Basic + statutory lines). */
+  /** Editable "% of CTC" field id. */
   pctId?: string;
-  /** Default percentage seed for `pctId`. */
+  /** Default percentage seed for `pctId` (the five default to 40/10/10/20/20). */
   pctDefault?: string;
   /** Matching CTC-Workbench component id (omitted → no Workbench source). */
   workbenchId?: string;
 }
 
 /**
- * The pay-slip components, in the spreadsheet's order. Allowance rows carry an
- * editable "% of Basic" annotation (default 40%); Basic (the base) and the
- * statutory / travel / catch-all lines do not, to keep the letter uncluttered.
+ * The earning components, in the letter's order. Each carries an editable
+ * "% of CTC" annotation; the five defaults sum to 100.
  */
 export const CTC_LETTER_COMPONENTS: CtcLetterComponent[] = [
-  { label: "Basic Salary", pmId: "basicPm", paId: "basicPa", workbenchId: "basic" },
-  { label: "House Rent Allowance", pmId: "hraPm", paId: "hraPa", pctId: "hraPct", pctDefault: "40", workbenchId: "hra" },
-  { label: "Statutory Bonus", pmId: "bonusPm", paId: "bonusPa", workbenchId: "bonus" },
-  { label: "Medical Allowance", pmId: "medicalPm", paId: "medicalPa", pctId: "medicalPct", pctDefault: "40", workbenchId: "medical" },
-  { label: "Attire Allowance", pmId: "attirePm", paId: "attirePa", pctId: "attirePct", pctDefault: "40" },
-  { label: "Conveyance", pmId: "conveyancePm", paId: "conveyancePa", pctId: "conveyancePct", pctDefault: "40", workbenchId: "conveyance" },
-  { label: "Special Allowance", pmId: "specialPm", paId: "specialPa", pctId: "specialPct", pctDefault: "40", workbenchId: "special" },
-  { label: "Leave Travel Allowance (LTA)", pmId: "ltaPm", paId: "ltaPa", workbenchId: "lta" },
-  { label: "Other Allowances", pmId: "otherPm", paId: "otherPa", workbenchId: "otherEarnings" },
+  { label: "Basic Salary", pmId: "basicPm", paId: "basicPa", pctId: "basicPct", pctDefault: "40", workbenchId: "basic" },
+  { label: "House Rent Allowance", pmId: "hraPm", paId: "hraPa", pctId: "hraPct", pctDefault: "10", workbenchId: "hra" },
+  { label: "Medical Allowance", pmId: "medicalPm", paId: "medicalPa", pctId: "medicalPct", pctDefault: "10", workbenchId: "medical" },
+  { label: "Conveyance", pmId: "conveyancePm", paId: "conveyancePa", pctId: "conveyancePct", pctDefault: "20", workbenchId: "conveyance" },
+  { label: "Uniform Allowance", pmId: "uniformPm", paId: "uniformPa", pctId: "uniformPct", pctDefault: "20" },
 ];
 
-/** The SUB-TOTAL + Net Salary field ids (the Workbench pre-fill targets these). */
+/** The Gross + Net summary field ids (the Workbench pre-fill targets these). */
 export const CTC_LETTER_TOTALS = {
   subtotalPm: "subtotalPm",
   subtotalPa: "subtotalPa",
@@ -79,19 +82,27 @@ export const CTC_LETTER_TOTALS = {
   netPa: "netPa",
 } as const;
 
-/** The component-name cell — label + an optional editable "% of Basic" field. */
+/** The Deductions field ids (Professional Tax + the deductions total). */
+export const CTC_LETTER_DEDUCTIONS = {
+  ptPm: "ptPm",
+  ptPa: "ptPa",
+  totalDedPm: "totalDedPm",
+  totalDedPa: "totalDedPa",
+} as const;
+
+/** The component-name cell — label + its editable "% of CTC" field. */
 function nameCell(c: CtcLetterComponent) {
   if (!c.pctId) return [t(c.label)];
   return [
     t(`${c.label} (`),
-    f(c.pctId, "%", { defaultValue: c.pctDefault, placeholder: "40" }),
-    t("% of Basic)"),
+    f(c.pctId, "%", { defaultValue: c.pctDefault, placeholder: "0" }),
+    t("% of CTC)"),
   ];
 }
 
-/** Build every table row: group header → components → sub-total → net. */
+/** Build every table row: earnings → gross → PT → deductions total → net. */
 function ctcRows(): TableRow[] {
-  const rows: TableRow[] = [tgroup("A. Pay Slip Salary")];
+  const rows: TableRow[] = [tgroup("A. Earnings")];
   for (const c of CTC_LETTER_COMPONENTS) {
     rows.push(
       tcomponent(
@@ -104,14 +115,33 @@ function ctcRows(): TableRow[] {
   }
   rows.push(
     ttotal([
-      [t("SUB-TOTAL")],
+      [t("Gross Salary")],
       [f(CTC_LETTER_TOTALS.subtotalPm, "Per month", { placeholder: "₹0" })],
       [f(CTC_LETTER_TOTALS.subtotalPa, "Per annum", { placeholder: "₹0" })],
     ]),
   );
+
+  rows.push(tgroup("B. Deductions"));
+  // Professional Tax sits at the TOP of the deductions table.
+  rows.push(
+    tcomponent(
+      [t("Professional Tax (PT)")],
+      [f(CTC_LETTER_DEDUCTIONS.ptPm, "Per month", { placeholder: "₹0" })],
+      [f(CTC_LETTER_DEDUCTIONS.ptPa, "Per annum", { placeholder: "₹0" })],
+      CTC_LETTER_DEDUCTIONS.ptPm,
+    ),
+  );
+  rows.push(
+    ttotal([
+      [t("Total Deductions")],
+      [f(CTC_LETTER_DEDUCTIONS.totalDedPm, "Per month", { placeholder: "₹0" })],
+      [f(CTC_LETTER_DEDUCTIONS.totalDedPa, "Per annum", { placeholder: "₹0" })],
+    ]),
+  );
+
   rows.push(
     tgrand([
-      [t("B. Net Salary (Take Home)")],
+      [t("Net Monthly Take-Home")],
       [f(CTC_LETTER_TOTALS.netPm, "Per month", { placeholder: "₹0" })],
       [f(CTC_LETTER_TOTALS.netPa, "Per annum", { placeholder: "₹0" })],
     ]),
@@ -135,12 +165,16 @@ const template: LetterTemplate = {
   category: "compensation",
   entityDefault: "altus-corp",
   signature: "esign",
+  // The Director/Boss signs the CTC Breakdown (authorisation hierarchy).
+  signatory: "director",
   blurb: "The structured Cost-to-Firm annexure — component-wise pay-slip break-up.",
   blocks: [
     heading("COST TO THE FIRM STRUCTURE WITH BREAK-UP", 1),
 
+    // Designation is right-aligned at the top-right of the header; the Name term
+    // sits on the left beneath it.
+    paraRight(t("Designation: "), f("designation", "Designation", { placeholder: "e.g. Business Development Manager" })),
     term("Name", f("employeeName", "Name", { placeholder: "e.g. Ms. Tanisha Shah" })),
-    term("Designation", f("designation", "Designation", { placeholder: "e.g. Business Development Manager" })),
 
     table(["COMPONENTS", "PER MONTH", "PER ANNUM"], ctcRows()),
 
@@ -155,6 +189,14 @@ const template: LetterTemplate = {
 
     heading("Growth Journey", 2),
     para(f("growthJourney", "Growth Journey", { multiline: true, defaultValue: GROWTH_SEED })),
+
+    heading("Custom Perks / Notes", 2),
+    para(
+      f("customPerks", "Custom Perks / Notes", {
+        multiline: true,
+        placeholder: "Add any candidate-specific perks, benefits or notes…",
+      }),
+    ),
 
     signature({
       forEntity: true,

@@ -46,6 +46,8 @@ const IssueSchema = z.object({
   /** candidate recipient (when not attached to an employee) */
   candidateName: z.string().trim().max(200).optional(),
   candidateEmail: z.string().trim().email().max(200).optional(),
+  /** optional uploaded scanned-signature image (data URL) for the sign-off */
+  signatureImage: z.string().max(3_000_000).optional(),
 });
 
 export type IssueLetterInput = z.infer<typeof IssueSchema>;
@@ -70,7 +72,8 @@ export async function issueLetter(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
   }
-  const { key, entity, values, gender, employeeId, candidateName, candidateEmail } = parsed.data;
+  const { key, entity, values, gender, employeeId, candidateName, candidateEmail, signatureImage } =
+    parsed.data;
 
   const template = getLetter(key);
   if (!template) return { ok: false, error: "This letter isn't authored yet." };
@@ -96,6 +99,7 @@ export async function issueLetter(
       values,
       date,
       gender: normalizeGender(gender),
+      signatureImage,
     });
   } catch (err) {
     return { ok: false, error: `Could not render the PDF: ${errorMessage(err)}` };

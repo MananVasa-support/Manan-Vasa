@@ -31,14 +31,16 @@ const template: LetterTemplate = {
       }),
     ),
 
-    term("Subject", [t("Letter of Appointment")]),
+    term("Subject", [
+      f("subject", "Subject Line", { defaultValue: "Letter of Appointment", bold: true }),
+    ]),
 
     para(t("Dear "), f("recipientName", "Recipient Name"), t(",")),
 
     para(
       t("We are pleased to inform you that you are hereby appointed as "),
       f("designation", "Designation", { placeholder: "e.g. Operations Consultant" }),
-      t(" at Altus Corp – Mumbai office, as per the terms and conditions discussed and agreed upon as under:"),
+      t(" at {firm} – Mumbai office, as per the terms and conditions discussed and agreed upon as under:"),
     ),
 
     heading("Terms and Conditions", 2),
@@ -81,7 +83,7 @@ const template: LetterTemplate = {
       ],
       [
         t(
-          "f. Proof of last drawn salary for 3 consecutive months, (1) Bank statement for last 3 months and (2) Latest salary slip from the previous employer or a direct mail from the previous employer to the designated person at Altus Corp, as will be informed at the time of joining.",
+          "f. Proof of last drawn salary for 3 consecutive months, (1) Bank statement for last 3 months and (2) Latest salary slip from the previous employer or a direct mail from the previous employer to the designated person at {firm}, as will be informed at the time of joining.",
         ),
       ],
       [t("g. Relieving Letter")],
@@ -131,7 +133,7 @@ const template: LetterTemplate = {
       ],
       [
         t(
-          "c. Altus Corp will have a right to restructure your total compensation package into various components without adversely affecting the total compensation payable to you under this letter of appointment.",
+          "c. {firm} will have a right to restructure your total compensation package into various components without adversely affecting the total compensation payable to you under this letter of appointment.",
         ),
       ],
       [

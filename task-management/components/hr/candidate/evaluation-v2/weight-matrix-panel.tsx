@@ -69,7 +69,7 @@ function sameWeights(a: WeightMap | undefined, b: WeightMap | undefined): boolea
 
 export function WeightMatrixPanel() {
   // Collapsed by default — it's a super-admin tuning panel, not the main task;
-  // the header stays visible and clicking it expands the matrix.
+  // the header stays visible and clicking it expands the metrics.
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -180,8 +180,8 @@ export function WeightMatrixPanel() {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        aria-label="Weight matrix — tune section weights"
-        title="Weight matrix"
+        aria-label="Weight Metrics — tune section weights"
+        title="Weight Metrics"
         className="grid h-11 w-11 place-items-center rounded-xl text-white shadow-[0_10px_24px_-12px_rgba(168,4,0,0.7)] transition-transform hover:scale-[1.06] active:scale-95"
         style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
       >
@@ -195,7 +195,7 @@ export function WeightMatrixPanel() {
           {/* floating panel — expands to the RIGHT of the button */}
           <div
             role="dialog"
-            aria-label="Weight matrix"
+            aria-label="Weight Metrics"
             className="wm-pop absolute left-[calc(100%+10px)] top-0 z-[90] w-[560px] max-w-[82vw] overflow-hidden rounded-2xl border border-hairline bg-white shadow-[0_28px_70px_-24px_rgba(24,24,27,0.5)]"
           >
             <div className="flex items-center gap-2.5 border-b border-hairline px-5 py-3.5">
@@ -210,7 +210,7 @@ export function WeightMatrixPanel() {
                   className="block text-[15.5px] font-black text-ink-strong"
                   style={{ fontFamily: "var(--font-display), system-ui, sans-serif", letterSpacing: "-0.01em" }}
                 >
-                  Weight matrix
+                  Weight Metrics
                 </span>
                 <span className="block truncate text-[12.5px] font-medium text-ink-muted">
                   Super-admin · tune how much each section counts, per designation.

@@ -24,7 +24,7 @@ const template: LetterTemplate = {
     heading("1. Purpose", 2),
     para(
       t(
-        "The purpose of this policy is to establish a structured pre-employment training and evaluation process that enables both Altus Corp and prospective employees to assess mutual suitability before entering into formal employment.",
+        "The purpose of this policy is to establish a structured pre-employment training and evaluation process that enables both {firm} and prospective employees to assess mutual suitability before entering into formal employment.",
       ),
     ),
 
@@ -146,7 +146,7 @@ const template: LetterTemplate = {
       ],
       [
         t(
-          "In either case, where the candidate is relieved by the firm during the training period or voluntarily withdraws before selection, the training engagement shall conclude without any obligation on the part of Altus Corp to offer employment or make any payment for the training period.",
+          "In either case, where the candidate is relieved by the firm during the training period or voluntarily withdraws before selection, the training engagement shall conclude without any obligation on the part of {firm} to offer employment or make any payment for the training period.",
         ),
       ],
     ),
@@ -161,7 +161,7 @@ const template: LetterTemplate = {
     heading("10. Firm Rights", 2),
     para(
       t(
-        "Altus Corp reserves the right to amend, extend, shorten, suspend, or discontinue this policy or the training program at its sole discretion, subject to applicable laws.",
+        "{firm} reserves the right to amend, extend, shorten, suspend, or discontinue this policy or the training program at its sole discretion, subject to applicable laws.",
       ),
     ),
 

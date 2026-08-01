@@ -17,6 +17,10 @@
 
 import { type LetterTemplate, t, f, para, heading, term, bullets, signature } from "../types";
 
+// NOTE: `term` renders "Subject : <value>" with the label bold; the { bold:true }
+// field below makes the editable value bold too, so the whole Subject line reads
+// in bold on the editor, the "Edit freely" seed and the exported PDF.
+
 const template: LetterTemplate = {
   key: "selection",
   title: "Selection Letter",
@@ -25,6 +29,10 @@ const template: LetterTemplate = {
   signature: "esign",
   blurb: "The full offer letter: position, terms, incentives and onboarding.",
   blocks: [
+    term("Subject", [
+      f("subject", "Subject Line", { defaultValue: "Selection / Offer Letter", bold: true }),
+    ]),
+
     para(t("Dear "), f("candidateName", "Candidate Name", { placeholder: "e.g. Mr. Raj Ragpasare" }), t(",")),
 
     para(

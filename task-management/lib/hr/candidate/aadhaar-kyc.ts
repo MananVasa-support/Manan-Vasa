@@ -232,6 +232,70 @@ export function mapKycResponse(raw: unknown, provider: KycProvider = "generic"):
   };
 }
 
+/** The 28 states + 8 union territories, longest-first so "Andhra Pradesh" wins
+ *  over a bare "Pradesh"-style partial and multi-word names match before short ones. */
+const INDIAN_STATES: readonly string[] = [
+  "Andaman and Nicobar Islands", "Arunachal Pradesh", "Andhra Pradesh",
+  "Dadra and Nagar Haveli and Daman and Diu", "Himachal Pradesh", "Madhya Pradesh",
+  "Uttar Pradesh", "Jammu and Kashmir", "West Bengal", "Tamil Nadu",
+  "Maharashtra", "Chhattisgarh", "Uttarakhand", "Telangana", "Karnataka",
+  "Rajasthan", "Jharkhand", "Nagaland", "Meghalaya", "Mizoram", "Manipur",
+  "Lakshadweep", "Puducherry", "Chandigarh", "Ladakh", "Gujarat", "Haryana",
+  "Tripura", "Kerala", "Punjab", "Sikkim", "Assam", "Bihar", "Delhi", "Odisha", "Goa",
+];
+
+/** Structured address the intake form can auto-fill from a single KYC address line. */
+export interface SplitAddress {
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  pincode: string;
+}
+
+/**
+ * Best-effort split of one flat address string into the intake form's structured
+ * fields. Pulls out a 6-digit pincode and a recognised state name, treats the
+ * comma-segment nearest the end as the city, and keeps the remainder as address
+ * lines. Whatever can't be separated falls back into addressLine1 (never lost).
+ * Pure — safe to call from the client.
+ */
+export function splitAddress(full: string): SplitAddress {
+  const empty: SplitAddress = { addressLine1: "", addressLine2: "", city: "", state: "", pincode: "" };
+  const s = (full ?? "").trim();
+  if (!s) return empty;
+
+  let rest = s;
+  const pin = /(?<!\d)(\d{6})(?!\d)/.exec(rest)?.[1] ?? "";
+  if (pin) rest = rest.replace(pin, " ");
+
+  let state = "";
+  for (const st of INDIAN_STATES) {
+    const re = new RegExp(`(^|[,\\s])${st.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[,\\s])`, "i");
+    if (re.test(rest)) {
+      state = st;
+      rest = rest.replace(re, "$1$2");
+      break;
+    }
+  }
+
+  const parts = rest
+    .split(",")
+    .map((p) => p.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  // Nearest comma-segment to the end = city; everything before it = address lines.
+  let city = "";
+  let lineParts = parts;
+  if (parts.length > 1) {
+    city = parts[parts.length - 1] ?? "";
+    lineParts = parts.slice(0, -1);
+  }
+
+  const addressLine1 = lineParts.length ? lineParts.join(", ") : s;
+  return { addressLine1, addressLine2: "", city, state, pincode: pin };
+}
+
 /** Map a provider gender token to one of the intake form's options. */
 export function normalizeGender(g: string): string {
   const v = g.trim().toLowerCase();

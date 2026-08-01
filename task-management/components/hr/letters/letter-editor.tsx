@@ -11,12 +11,15 @@ import {
   Building2,
   UserPlus2,
   UserRound,
-  Venus,
   SquarePen,
   ArrowLeft,
   ShieldCheck,
   Eye,
   EyeOff,
+  Mail,
+  X,
+  PenLine,
+  Calculator,
 } from "lucide-react";
 import { Letterhead } from "@/components/hr/letterhead/letterhead";
 import { ENTITY_LIST, getEntity, type EntityId } from "@/lib/hr/entities";
@@ -25,18 +28,26 @@ import {
   type Block,
   type Span,
   type LetterSignature,
+  type LetterSignatory,
   collectFields,
   initialValues,
+  signatoryOf,
   tableRowVisible,
 } from "@/lib/hr/letters/types";
 import { templateToRichHtml } from "@/lib/hr/letters/rich";
 import { applyPronouns, normalizeGender, type Gender } from "@/lib/hr/pronouns";
-import { applyFirm } from "@/lib/hr/firm";
+import { applyFirm, HR_CONTACT, HR_SIGNATORY } from "@/lib/hr/firm";
 import {
   readCtcLetterPrefill,
   clearCtcLetterPrefill,
   ctcComponentsToLetterValues,
 } from "@/lib/hr/ctc/local-store";
+import {
+  CTC_LETTER_COMPONENTS,
+  CTC_LETTER_TOTALS,
+  CTC_LETTER_DEDUCTIONS,
+} from "@/lib/hr/letters/templates/ctc-breakup";
+import { formatINR, num } from "@/lib/hr/ctc/model";
 import { fireToast } from "@/lib/toast";
 
 const RED = "#E10600";
@@ -82,13 +93,6 @@ export interface LetterCandidateOption {
   gender: string;
 }
 
-/** Gender options for the toolbar selector. */
-const GENDER_OPTIONS: { value: Gender; label: string }[] = [
-  { value: "neutral", label: "— (Mr./Ms.)" },
-  { value: "male", label: "Male" },
-  { value: "female", label: "Female" },
-];
-
 /**
  * The interactive letter page body. Renders the template on the shared
  * <Letterhead>, lets HR swap the paying entity (which swaps the logo + footer),
@@ -128,9 +132,22 @@ export function LetterEditor({
   const [busyPdf, setBusyPdf] = useState(false);
   const [issuing, setIssuing] = useState(false);
   const [issued, setIssued] = useState(false);
+  const [emailing, setEmailing] = useState(false);
+  // The mandatory Print-Preview gate. "issue" or "email" → the confirm button in
+  // the modal runs the matching action; null → the modal is closed.
+  const [previewMode, setPreviewMode] = useState<null | "issue" | "email">(null);
   // "Hide boxes" — preview the FINISHED letter (no editable input chrome, empty
   // rows/fields dropped). Default OFF so every box is visible + fillable.
   const [clean, setClean] = useState(false);
+  // An uploaded scanned-signature image (data URL) for the sign-off; when set it
+  // replaces the baked/Director signature. Falls back gracefully when null.
+  const [sigImage, setSigImage] = useState<string | null>(null);
+  const sigInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Who signs this letter (Director vs HR desk) + whether it's the CTC letter
+  // (which gets the percentage calculator panel).
+  const signatory = useMemo(() => signatoryOf(template), [template]);
+  const isCtc = template.key === "ctc-breakup";
 
   // ── "Edit freely" (rich / Google-Docs) mode ──────────────────────
   const [richMode, setRichMode] = useState(false);
@@ -159,8 +176,48 @@ export function LetterEditor({
     setIssued(false);
   }, []);
 
+  /** Write several field values at once (used by the CTC calculator). No-ops
+   *  when nothing actually changed, so it is safe to call from an effect. */
+  const setManyValues = useCallback((updates: Record<string, string>) => {
+    setValues((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const [k, v] of Object.entries(updates)) {
+        if (next[k] !== v) {
+          next[k] = v;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, []);
+
+  /** Read an uploaded signature image file into a data URL (graceful on error). */
+  const onSignatureFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      fireToast({ message: "Please choose an image file for the signature.", type: "error" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = typeof reader.result === "string" ? reader.result : null;
+      if (url) {
+        setSigImage(url);
+        setIssued(false);
+        fireToast({ message: "Signature added to the sign-off." });
+      }
+    };
+    reader.onerror = () => fireToast({ message: "Could not read that image.", type: "error" });
+    reader.readAsDataURL(file);
+  }, []);
+
   /** Quick-pick a candidate: seed the recipient-name field + derive the pronoun
-   *  gender from their intake. The manual Gender selector still overrides after. */
+   *  gender (Mr./Ms., his/her, …) PURELY from their candidate-master record. When
+   *  the record has no gender, normalizeGender falls back to "neutral" → the
+   *  inclusive "Mr./Ms." forms. There is no manual gender override. */
   const onPickCandidate = useCallback(
     (id: string) => {
       setCandidateId(id);
@@ -284,7 +341,7 @@ export function LetterEditor({
     try {
       const payload = richMode
         ? { key: template.key, entity, gender, contentKind: "rich" as const, bodyHtml: currentRichHtml() }
-        : { key: template.key, entity, gender, values, date: today };
+        : { key: template.key, entity, gender, values, date: today, signatureImage: sigImage ?? undefined };
       const r = await fetch("/api/hr/letters/pdf", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -310,12 +367,37 @@ export function LetterEditor({
     }
   }
 
-  async function issue() {
+  /** Open the mandatory Print-Preview before ISSUING (validates recipient first). */
+  function requestIssue() {
     if (!isAdmin) return;
     if (!employeeId && !recipientName) {
       fireToast({ message: "Fill the recipient's name, or attach an employee.", type: "error" });
       return;
     }
+    setPreviewMode("issue");
+  }
+
+  /** Open the mandatory Print-Preview before EXPORT & EMAIL (needs a recipient). */
+  function requestEmailPdf() {
+    if (!employeeId && !recipientName) {
+      fireToast({ message: "Fill the recipient's name, or attach an employee.", type: "error" });
+      return;
+    }
+    // When it's a candidate letter (not attached to an employee) we need an email
+    // on the letter to send to. Employee letters resolve the email server-side.
+    if (!employeeId && !recipientEmail) {
+      fireToast({
+        message: "Add the candidate's email on the letter (or attach an employee) to send the PDF.",
+        type: "error",
+      });
+      return;
+    }
+    setPreviewMode("email");
+  }
+
+  /** The confirmed ISSUE — the existing render + archive POST. */
+  async function runIssue() {
+    if (!isAdmin) return;
     setIssuing(true);
     try {
       const url = richMode ? "/api/hr/letters/issue-rich" : "/api/hr/letters/issue";
@@ -338,6 +420,7 @@ export function LetterEditor({
             employeeId: employeeId || undefined,
             candidateName: employeeId ? undefined : recipientName || undefined,
             candidateEmail: employeeId ? undefined : recipientEmail || undefined,
+            signatureImage: sigImage ?? undefined,
           };
       const r = await fetch(url, {
         method: "POST",
@@ -352,6 +435,7 @@ export function LetterEditor({
         return;
       }
       setIssued(true);
+      setPreviewMode(null);
       fireToast({ message: "Letter issued and archived." });
     } catch {
       fireToast({ message: "Could not issue the letter.", type: "error" });
@@ -360,7 +444,67 @@ export function LetterEditor({
     }
   }
 
-  const ctx: RenderCtx = { values, setValue, firstFieldId, entity, today, gender, clean };
+  /** The confirmed EXPORT & EMAIL — render the PDF server-side and email it to the
+   *  candidate (BCC the HR desk) in one shot. */
+  async function runEmailPdf() {
+    setEmailing(true);
+    try {
+      const payload = richMode
+        ? {
+            key: template.key,
+            entity,
+            gender,
+            contentKind: "rich" as const,
+            bodyHtml: currentRichHtml(),
+            employeeId: employeeId || undefined,
+            candidateName: employeeId ? undefined : recipientName || undefined,
+            candidateEmail: employeeId ? undefined : recipientEmail || undefined,
+          }
+        : {
+            key: template.key,
+            entity,
+            gender,
+            values,
+            date: today,
+            employeeId: employeeId || undefined,
+            candidateName: employeeId ? undefined : recipientName || undefined,
+            candidateEmail: employeeId ? undefined : recipientEmail || undefined,
+            signatureImage: sigImage ?? undefined,
+          };
+      const r = await fetch("/api/hr/letters/email-pdf", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const res = (await r.json().catch(() => ({ ok: false }))) as
+        | { ok: true; to?: string }
+        | { ok: false; error?: string };
+      if (!res.ok) {
+        fireToast({ message: res.error ?? "Could not email the PDF.", type: "error" });
+        return;
+      }
+      setPreviewMode(null);
+      fireToast({
+        message: res.to ? `PDF emailed to ${res.to} (HR copied).` : "PDF emailed to the candidate (HR copied).",
+      });
+    } catch {
+      fireToast({ message: "Could not email the PDF.", type: "error" });
+    } finally {
+      setEmailing(false);
+    }
+  }
+
+  const ctx: RenderCtx = {
+    values,
+    setValue,
+    firstFieldId,
+    entity,
+    today,
+    gender,
+    clean,
+    signatory,
+    signatureImage: sigImage,
+  };
 
   return (
     <div className="alw-wrap">
@@ -403,25 +547,6 @@ export function LetterEditor({
             </select>
           </label>
         )}
-
-        <label className="alw-pick">
-          <Venus size={15} strokeWidth={2.2} aria-hidden />
-          <span className="alw-pick-label">Gender</span>
-          <select
-            value={gender}
-            onChange={(e) => {
-              setGender(e.target.value as Gender);
-              setIssued(false);
-            }}
-            aria-label="Gender (resolves his/her, Mr./Ms.)"
-          >
-            {GENDER_OPTIONS.map((g) => (
-              <option key={g.value} value={g.value}>
-                {g.label}
-              </option>
-            ))}
-          </select>
-        </label>
 
         {/* The Attach-employee picker is hidden when we ARRIVED with an employee
             already attached (e.g. from the CTC Workbench) — they're bound, so the
@@ -489,6 +614,27 @@ export function LetterEditor({
               <SquarePen size={15} strokeWidth={2.2} /> Edit freely
             </button>
           )}
+          {!richMode && isAdmin && (
+            <button
+              type="button"
+              className={`alw-btn alw-btn-ghost${sigImage ? " alw-btn-on" : ""}`}
+              onClick={() => sigInputRef.current?.click()}
+              title="Upload a scanned signature for the sign-off"
+            >
+              <PenLine size={15} strokeWidth={2.2} />
+              {sigImage ? "Change signature" : "Add signature"}
+            </button>
+          )}
+          {sigImage && (
+            <button
+              type="button"
+              className="alw-btn alw-btn-ghost"
+              onClick={() => setSigImage(null)}
+              title="Remove the uploaded signature"
+            >
+              <X size={15} strokeWidth={2.2} /> Clear
+            </button>
+          )}
           <button type="button" className="alw-btn alw-btn-ghost" onClick={() => window.print()}>
             <Printer size={15} strokeWidth={2.2} /> Print
           </button>
@@ -504,8 +650,20 @@ export function LetterEditor({
           {isAdmin && (
             <button
               type="button"
+              className="alw-btn alw-btn-ghost"
+              onClick={requestEmailPdf}
+              disabled={emailing}
+              title="Generate the PDF and email it to the candidate (HR copied)"
+            >
+              {emailing ? <Loader2 size={15} className="alw-spin" /> : <Mail size={15} strokeWidth={2.2} />}
+              {emailing ? "Emailing…" : "Export & Email PDF"}
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              type="button"
               className="alw-btn alw-btn-primary"
-              onClick={issue}
+              onClick={requestIssue}
               disabled={issuing || issued}
             >
               {issued ? (
@@ -520,6 +678,21 @@ export function LetterEditor({
           )}
         </div>
       </div>
+
+      {/* Hidden file input for the scanned-signature upload. */}
+      <input
+        ref={sigInputRef}
+        type="file"
+        accept="image/*"
+        onChange={onSignatureFile}
+        className="no-print"
+        style={{ display: "none" }}
+      />
+
+      {/* ── CTC percentage calculator (CTC letter, structured mode) ── */}
+      {isCtc && !richMode && (
+        <CtcCalculator values={values} setManyValues={setManyValues} />
+      )}
 
       {/* ── The letter on its letterhead ─────────────────────────── */}
       {richMode ? (
@@ -541,6 +714,296 @@ export function LetterEditor({
           </Letterhead>
         </div>
       )}
+
+      {/* ── Mandatory Print-Preview gate (Issue / Email) ─────────────── */}
+      {previewMode && (
+        <PrintPreviewModal
+          mode={previewMode}
+          busy={previewMode === "issue" ? issuing : emailing}
+          onCancel={() => setPreviewMode(null)}
+          onConfirm={previewMode === "issue" ? runIssue : runEmailPdf}
+          recipientEmail={employeeId ? undefined : recipientEmail || undefined}
+          attachedEmployee={Boolean(employeeId)}
+        >
+          <Letterhead entity={entity}>
+            <div className="alw-date">{today}</div>
+            {richMode ? (
+              <div
+                className="alw-rich-preview"
+                // The current "Edit freely" HTML, rendered read-only as it will print.
+                dangerouslySetInnerHTML={{ __html: currentRichHtml() }}
+              />
+            ) : (
+              renderBlocks(template.blocks, { ...ctx, clean: true })
+            )}
+          </Letterhead>
+        </PrintPreviewModal>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* CTC percentage calculator — drives the CTC-letter ₹ fields            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The percentage-based CTC calculator shown above the CTC Breakup letter. HR
+ * enters the TOTAL CTC (per annum) and a percentage for each earning component
+ * (defaults Basic 40, HRA 10, Medical 10, Conveyance 20, Uniform 20 → 100). The
+ * panel auto-computes every line's per-month + per-annum ₹ (annual = CTC×%,
+ * monthly = annual/12), the Professional Tax (₹2,500/yr → ₹200/month Mar–Jan,
+ * ₹300 in February) and the Gross / Total-Deductions / Net-take-home summary
+ * rows, writing them straight into the letter's fields. All money math is done
+ * in integer rupees (paise-safe rounding). It only writes once a positive Total
+ * CTC is entered, so a Compensation-Workbench pre-fill is left untouched until
+ * HR chooses to recompute here.
+ */
+function CtcCalculator({
+  values,
+  setManyValues,
+}: {
+  values: Record<string, string>;
+  setManyValues: (updates: Record<string, string>) => void;
+}) {
+  const [totalCtc, setTotalCtc] = useState("");
+  const [pct, setPct] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    for (const c of CTC_LETTER_COMPONENTS) if (c.pctId) init[c.pctId] = c.pctDefault ?? "0";
+    return init;
+  });
+
+  const ctc = num(totalCtc);
+  const pctSum = CTC_LETTER_COMPONENTS.reduce(
+    (s, c) => s + (c.pctId ? num(pct[c.pctId]) : 0),
+    0,
+  );
+  const balanced = Math.round(pctSum) === 100;
+
+  useEffect(() => {
+    if (ctc <= 0) return;
+    const updates: Record<string, string> = {};
+    let grossAnnual = 0;
+    for (const c of CTC_LETTER_COMPONENTS) {
+      const p = c.pctId ? num(pct[c.pctId]) : 0;
+      const annual = Math.round((ctc * p) / 100);
+      const monthly = Math.round(annual / 12);
+      grossAnnual += annual;
+      updates[c.pmId] = annual > 0 ? formatINR(monthly) : "";
+      updates[c.paId] = annual > 0 ? formatINR(annual) : "";
+      if (c.pctId) updates[c.pctId] = p > 0 ? String(p) : "";
+    }
+    const grossMonthly = Math.round(grossAnnual / 12);
+    updates[CTC_LETTER_TOTALS.subtotalPm] = grossAnnual > 0 ? formatINR(grossMonthly) : "";
+    updates[CTC_LETTER_TOTALS.subtotalPa] = grossAnnual > 0 ? formatINR(grossAnnual) : "";
+    // Professional Tax — ₹2,500/yr = ₹200 × 11 (Mar–Jan) + ₹300 (Feb).
+    const ptAnnual = grossAnnual > 0 ? 2500 : 0;
+    const ptMonthly = 200;
+    updates[CTC_LETTER_DEDUCTIONS.ptPm] = ptAnnual > 0 ? formatINR(ptMonthly) : "";
+    updates[CTC_LETTER_DEDUCTIONS.ptPa] = ptAnnual > 0 ? formatINR(ptAnnual) : "";
+    updates[CTC_LETTER_DEDUCTIONS.totalDedPm] = ptAnnual > 0 ? formatINR(ptMonthly) : "";
+    updates[CTC_LETTER_DEDUCTIONS.totalDedPa] = ptAnnual > 0 ? formatINR(ptAnnual) : "";
+    const netAnnual = grossAnnual > 0 ? grossAnnual - ptAnnual : 0;
+    const netMonthly = grossMonthly > 0 ? grossMonthly - ptMonthly : 0;
+    updates[CTC_LETTER_TOTALS.netPm] = netAnnual > 0 ? formatINR(netMonthly) : "";
+    updates[CTC_LETTER_TOTALS.netPa] = netAnnual > 0 ? formatINR(netAnnual) : "";
+    setManyValues(updates);
+  }, [ctc, pct, setManyValues]);
+
+  const grossPa = values[CTC_LETTER_TOTALS.subtotalPa] || "—";
+  const netPm = values[CTC_LETTER_TOTALS.netPm] || "—";
+
+  return (
+    <div className="alw-calc no-print">
+      <div className="alw-calc-head">
+        <Calculator size={16} strokeWidth={2.2} aria-hidden />
+        <span className="alw-calc-title">CTC Calculator</span>
+        <span className="alw-calc-hint">
+          Enter the annual CTC + each component&rsquo;s %; the table fills automatically.
+        </span>
+      </div>
+
+      <div className="alw-calc-body">
+        <label className="alw-calc-total">
+          <span className="alw-calc-lbl">Total CTC (per annum)</span>
+          <div className="alw-calc-rupee">
+            <span aria-hidden>₹</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={totalCtc}
+              onChange={(e) => setTotalCtc(e.target.value)}
+              placeholder="e.g. 600000"
+              aria-label="Total CTC per annum"
+            />
+          </div>
+          {ctc > 0 && <span className="alw-calc-echo">{formatINR(ctc)} / year</span>}
+        </label>
+
+        <div className="alw-calc-pcts">
+          {CTC_LETTER_COMPONENTS.map((c) =>
+            c.pctId ? (
+              <label key={c.pctId} className="alw-calc-pct">
+                <span className="alw-calc-lbl">{c.label}</span>
+                <div className="alw-calc-pctbox">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={pct[c.pctId] ?? ""}
+                    onChange={(e) =>
+                      setPct((prev) => ({ ...prev, [c.pctId as string]: e.target.value }))
+                    }
+                    aria-label={`${c.label} percentage of CTC`}
+                  />
+                  <span aria-hidden>%</span>
+                </div>
+              </label>
+            ) : null,
+          )}
+        </div>
+
+        <div className="alw-calc-foot">
+          <span className={`alw-calc-sum${balanced ? " ok" : " warn"}`}>
+            {balanced ? (
+              <Check size={14} strokeWidth={2.6} />
+            ) : (
+              <span aria-hidden>!</span>
+            )}
+            Total: {Math.round(pctSum)}%
+            {balanced ? " — balanced" : " — must equal 100%"}
+          </span>
+          {ctc > 0 && (
+            <span className="alw-calc-preview">
+              Gross <b>{grossPa}</b> / yr &nbsp;·&nbsp; Net take-home <b>{netPm}</b> / mo
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Print-Preview modal — the mandatory confirm gate before Issue/Email   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A compulsory, keyboard-accessible preview shown BEFORE a letter is issued or
+ * emailed. Renders the letter on its letterhead exactly as it will print, with a
+ * "Looks good" confirm and a "Back / Edit" cancel. Esc cancels; the confirm
+ * button autofocuses; the backdrop click cancels. Body scroll is locked while open.
+ */
+function PrintPreviewModal({
+  mode,
+  busy,
+  onConfirm,
+  onCancel,
+  recipientEmail,
+  attachedEmployee,
+  children,
+}: {
+  mode: "issue" | "email";
+  busy: boolean;
+  onConfirm: () => void | Promise<void>;
+  onCancel: () => void;
+  recipientEmail?: string;
+  attachedEmployee: boolean;
+  children: React.ReactNode;
+}) {
+  const confirmRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !busy) {
+        e.preventDefault();
+        onCancel();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    // Lock body scroll while the modal is open.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    // Focus the confirm button on open (keyboard-first).
+    confirmRef.current?.focus();
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [busy, onCancel]);
+
+  const isIssue = mode === "issue";
+  const title = isIssue ? "Preview before issuing" : "Preview before emailing";
+  const sub = isIssue
+    ? "This is exactly how the letter will print and be archived."
+    : attachedEmployee
+      ? "This PDF will be emailed to the attached employee, with a copy to the HR desk."
+      : recipientEmail
+        ? `This PDF will be emailed to ${recipientEmail}, with a copy to the HR desk.`
+        : "This PDF will be emailed to the candidate, with a copy to the HR desk.";
+  const confirmLabel = busy
+    ? isIssue
+      ? "Issuing…"
+      : "Emailing…"
+    : isIssue
+      ? "Looks good — Issue"
+      : "Looks good — Email PDF";
+
+  return (
+    <div
+      className="alw-modal-backdrop no-print"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !busy) onCancel();
+      }}
+    >
+      <div
+        className="alw-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
+        <div className="alw-modal-head">
+          <div>
+            <p className="alw-modal-title">{title}</p>
+            <p className="alw-modal-sub">{sub}</p>
+          </div>
+          <button
+            type="button"
+            className="alw-modal-x"
+            onClick={onCancel}
+            disabled={busy}
+            aria-label="Close preview"
+          >
+            <X size={18} strokeWidth={2.4} />
+          </button>
+        </div>
+
+        <div className="alw-modal-body">
+          <div className="alw-modal-stage">{children}</div>
+        </div>
+
+        <div className="alw-modal-foot">
+          <button type="button" className="alw-btn alw-btn-ghost" onClick={onCancel} disabled={busy}>
+            <ArrowLeft size={15} strokeWidth={2.2} /> Back / Edit
+          </button>
+          <button
+            ref={confirmRef}
+            type="button"
+            className="alw-btn alw-btn-primary"
+            onClick={() => void onConfirm()}
+            disabled={busy}
+          >
+            {busy ? (
+              <Loader2 size={15} className="alw-spin" />
+            ) : isIssue ? (
+              <Send size={15} strokeWidth={2.2} />
+            ) : (
+              <Mail size={15} strokeWidth={2.2} />
+            )}
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -558,6 +1021,10 @@ interface RenderCtx {
   gender: Gender;
   /** "Hide boxes" preview: render the finished letter, not the editable form. */
   clean: boolean;
+  /** Who signs — drives the signature block (Director vs HR desk). */
+  signatory: LetterSignatory;
+  /** Optional uploaded scanned-signature image (data URL), else null. */
+  signatureImage: string | null;
 }
 
 /**
@@ -622,7 +1089,13 @@ function BlockView({ block, ctx }: { block: Block; ctx: RenderCtx }) {
     }
     case "paragraph":
       return (
-        <p className="alw-p" style={{ textAlign: block.align === "center" ? "center" : "left" }}>
+        <p
+          className="alw-p"
+          style={{
+            textAlign:
+              block.align === "center" ? "center" : block.align === "right" ? "right" : "justify",
+          }}
+        >
           <Spans spans={block.spans} ctx={ctx} />
         </p>
       );
@@ -730,21 +1203,40 @@ function SignatureView({
   ctx: RenderCtx;
 }) {
   const e = getEntity(ctx.entity);
+  const isHr = ctx.signatory === "hr";
   return (
     <div className="alw-sign">
       {block.forEntity && <p className="alw-sign-for">For {e.displayName}</p>}
-      {/* The proprietor's signature + label, used on every HR document. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img className="alw-sign-img" src="/signatures/proprietor-signature.png" alt="Signature" />
+      {/* Signature image: an uploaded scanned signature wins; else the baked
+          proprietor signature for Director letters. HR letters with no upload
+          leave a blank signing space. */}
+      {ctx.signatureImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="alw-sign-img" src={ctx.signatureImage} alt="Signature" />
+      ) : !isHr ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="alw-sign-img" src="/signatures/proprietor-signature.png" alt="Signature" />
+      ) : (
+        <div className="alw-sign-space" aria-hidden />
+      )}
       <p className="alw-sign-name">
-        <Spans spans={block.name} ctx={ctx} />
+        {isHr ? HR_SIGNATORY.name : <Spans spans={block.name} ctx={ctx} />}
       </p>
-      <p className="alw-sign-desig">Proprietor</p>
+      <p className="alw-sign-desig">{isHr ? HR_SIGNATORY.designation : "Proprietor"}</p>
       {block.showDate && <p className="alw-sign-meta">Date: {ctx.today}</p>}
       {block.place && (
         <p className="alw-sign-meta">
           Place: <Spans spans={block.place} ctx={ctx} />
         </p>
+      )}
+      {/* HR-signed letters print the HR desk contact under the sign-off. */}
+      {isHr && (
+        <div className="alw-sign-hr">
+          <p className="alw-sign-meta">HR: {HR_CONTACT.email}</p>
+          {HR_CONTACT.phone.trim() && (
+            <p className="alw-sign-meta">HR Manager: {HR_CONTACT.phone.trim()}</p>
+          )}
+        </div>
       )}
     </div>
   );
@@ -783,11 +1275,8 @@ function Field({
   // ── Clean / preview render ────────────────────────────────────────
   if (ctx.clean) {
     if (!filled) return null;
-    return spec.multiline ? (
-      <span className="alw-clean alw-clean-multi">{value}</span>
-    ) : (
-      <span className="alw-clean">{value}</span>
-    );
+    const cleanCls = `alw-clean${spec.multiline ? " alw-clean-multi" : ""}${spec.bold ? " alw-bold" : ""}`;
+    return <span className={cleanCls}>{value}</span>;
   }
 
   const autoFocus = spec.id === ctx.firstFieldId;
@@ -802,14 +1291,16 @@ function Field({
   };
   // Multiline fields (Notes, Growth Journey) flow full-width and WRAP — never
   // grow to their content length (that overflowed the A4 page + clipped). Single-
-  // line fields size to their content with a small floor.
+  // line fields size to their content with a small floor. A `bold` field (e.g.
+  // the Subject line) renders its input in bold via the .alw-bold modifier.
+  const boldCls = spec.bold ? " alw-bold" : "";
   return spec.multiline ? (
-    <textarea rows={1} {...common} className="alw-input alw-input-multi" />
+    <textarea rows={1} {...common} className={`alw-input alw-input-multi${boldCls}`} />
   ) : (
     <input
       type="text"
       {...common}
-      className="alw-input"
+      className={`alw-input${boldCls}`}
       style={{ minWidth: `${Math.max(spec.label.length, value.length, 3)}ch`, maxWidth: "100%" }}
     />
   );
@@ -913,7 +1404,8 @@ const EDITOR_CSS = `
 .alw-table{
   width:100%;border-collapse:collapse;table-layout:fixed;
   border:1px solid var(--color-hairline-strong, #cbd5e1);
-  border-radius:12px;overflow:hidden;font-variant-numeric:tabular-nums;
+  /* Flat document table — no rounded corners on the letter surface. */
+  border-radius:0;overflow:hidden;font-variant-numeric:tabular-nums;
 }
 .alw-table thead th{
   padding:10px 14px;background:linear-gradient(180deg,#fbfbfd,#f2f3f6);
@@ -956,6 +1448,64 @@ const EDITOR_CSS = `
 .alw-sign-name{margin:0;font-weight:800;font-size:15px;color:var(--color-ink-strong,#0f172a);}
 .alw-sign-desig{margin:2px 0 0;font-size:13.5px;color:var(--color-ink-muted,#475569);}
 .alw-sign-meta{margin:2px 0 0;font-size:13px;color:var(--color-ink-muted,#475569);}
+/* Blank signing space on HR letters with no uploaded signature. */
+.alw-sign-space{height:44px;}
+/* HR desk contact block under an HR-signed sign-off. */
+.alw-sign-hr{margin-top:10px;padding-top:8px;border-top:1px dashed var(--color-hairline,#e2e8f0);}
+
+/* ── CTC percentage calculator ───────────────────────────────────── */
+.alw-calc{
+  max-width:794px;margin:0 auto 20px;
+  background:var(--color-surface, #fff);
+  border:1px solid var(--color-hairline-strong, #cbd5e1);
+  border-radius:0;
+  box-shadow:0 18px 44px -30px rgba(15,23,42,.4);
+  overflow:hidden;
+}
+.alw-calc-head{
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+  padding:12px 16px;border-bottom:1px solid var(--color-hairline,#e2e8f0);
+  background:color-mix(in srgb, ${RED} 4%, #fff);
+}
+.alw-calc-head svg{color:${RED_DEEP};}
+.alw-calc-title{
+  font-family:var(--font-display, system-ui, sans-serif);
+  font-size:14px;font-weight:800;color:var(--color-ink-strong,#0f172a);
+}
+.alw-calc-hint{font-size:12px;color:var(--color-ink-muted,#64748b);}
+.alw-calc-body{padding:14px 16px;display:flex;flex-direction:column;gap:14px;}
+.alw-calc-lbl{
+  display:block;font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--color-ink-muted,#64748b);margin-bottom:5px;
+}
+.alw-calc-total{display:flex;flex-direction:column;}
+.alw-calc-rupee{
+  display:inline-flex;align-items:center;gap:6px;max-width:280px;
+  padding:9px 12px;border:1px solid var(--color-hairline-strong,#cbd5e1);border-radius:10px;background:#fff;
+}
+.alw-calc-rupee span{font-weight:800;color:var(--color-ink-muted,#64748b);}
+.alw-calc-rupee input{flex:1;min-width:0;border:none;outline:none;font-size:16px;font-weight:700;color:var(--color-ink-strong,#0f172a);background:transparent;}
+.alw-calc-echo{margin-top:5px;font-size:12px;font-weight:700;color:${RED_DEEP};}
+.alw-calc-pcts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 14px;}
+.alw-calc-pctbox{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:8px 11px;border:1px solid var(--color-hairline-strong,#cbd5e1);border-radius:10px;background:#fff;
+}
+.alw-calc-pctbox input{width:100%;min-width:0;border:none;outline:none;font-size:15px;font-weight:700;color:var(--color-ink-strong,#0f172a);background:transparent;text-align:right;}
+.alw-calc-pctbox span{font-weight:700;color:var(--color-ink-muted,#64748b);}
+.alw-calc-rupee:focus-within,.alw-calc-pctbox:focus-within{border-color:${RED};box-shadow:0 0 0 3px rgba(225,6,0,.12);}
+.alw-calc-foot{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;
+  padding-top:4px;
+}
+.alw-calc-sum{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:13px;font-weight:800;padding:6px 11px;border-radius:9px;
+}
+.alw-calc-sum.ok{color:#047857;background:#ecfdf5;border:1px solid #a7f3d0;}
+.alw-calc-sum.warn{color:${RED_DEEP};background:rgba(225,6,0,.06);border:1px solid color-mix(in srgb,${RED} 30%,#fff);}
+.alw-calc-preview{font-size:13px;color:var(--color-ink-muted,#475569);}
+.alw-calc-preview b{color:var(--color-ink-strong,#0f172a);font-weight:800;}
 
 /* Inline editable field — grey placeholder when empty, black text when filled */
 .alw-input{
@@ -981,6 +1531,8 @@ const EDITOR_CSS = `
 /* "Hide boxes" clean render — the field's value as plain document text. */
 .alw-clean{font:inherit;color:var(--color-ink-strong,#0f172a);font-weight:600;}
 .alw-clean-multi{display:block;white-space:pre-wrap;}
+/* Bold field modifier — the Subject line renders in bold, editor + preview. */
+.alw-bold{font-weight:800 !important;color:var(--color-ink-strong,#0f172a);}
 .alw-tr-grand .alw-clean{color:#fff;}
 /* Active state for the Hide-boxes toggle */
 .alw-btn-on{border-color:${RED} !important;color:${RED_DEEP};background:rgba(225,6,0,.05);}
@@ -988,6 +1540,58 @@ const EDITOR_CSS = `
 @media (max-width:900px){
   .alw-pick select{min-width:112px;}
 }
+
+/* ── Print-Preview modal ─────────────────────────────────────────── */
+.alw-modal-backdrop{
+  position:fixed;inset:0;z-index:120;
+  display:flex;align-items:center;justify-content:center;padding:24px;
+  background:rgba(15,23,42,.55);backdrop-filter:blur(3px);
+  animation:alw-fade .14s ease;
+}
+@keyframes alw-fade{from{opacity:0;}to{opacity:1;}}
+.alw-modal{
+  display:flex;flex-direction:column;
+  width:min(920px,100%);max-height:92vh;
+  background:var(--color-surface, #fff);
+  border:1px solid var(--color-hairline-strong, #cbd5e1);
+  /* Flat preview surface — minimal corner rounding. */
+  border-radius:4px;overflow:hidden;
+  box-shadow:0 40px 90px -30px rgba(15,23,42,.55);
+  animation:alw-pop .16s ease;
+}
+@keyframes alw-pop{from{transform:translateY(8px) scale(.99);opacity:0;}to{transform:none;opacity:1;}}
+.alw-modal-head{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
+  padding:16px 20px;border-bottom:1px solid var(--color-hairline, #e2e8f0);
+}
+.alw-modal-title{
+  margin:0;font-family:var(--font-display, system-ui, sans-serif);
+  font-size:16px;font-weight:800;color:var(--color-ink-strong, #0f172a);
+}
+.alw-modal-sub{margin:3px 0 0;font-size:12.5px;font-weight:500;color:var(--color-ink-muted, #64748b);}
+.alw-modal-x{
+  flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
+  width:34px;height:34px;border-radius:10px;cursor:pointer;
+  background:#fff;color:var(--color-ink-muted, #64748b);
+  border:1px solid var(--color-hairline-strong, #cbd5e1);
+}
+.alw-modal-x:not(:disabled):hover{border-color:${RED};color:${RED_DEEP};}
+.alw-modal-x:disabled{opacity:.5;cursor:default;}
+.alw-modal-body{
+  overflow:auto;padding:22px;background:var(--color-surface-soft, #f8fafc);
+}
+.alw-modal-stage{display:flex;justify-content:center;}
+/* Shrink the A4 page a touch so it fits comfortably inside the modal. */
+.alw-modal-stage .alh-page{transform:scale(.92);transform-origin:top center;}
+.alw-modal-foot{
+  display:flex;align-items:center;justify-content:flex-end;gap:10px;
+  padding:14px 20px;border-top:1px solid var(--color-hairline, #e2e8f0);
+  background:var(--color-surface, #fff);
+}
+
+/* "Edit freely" HTML rendered read-only inside the preview modal. */
+.alw-rich-preview{font-size:15px;line-height:1.72;color:var(--color-ink-strong,#0f172a);}
+.alw-rich-preview .letter-field-empty{color:#9aa4b2;font-style:italic;}
 
 /* Print — only the paper */
 @media print{

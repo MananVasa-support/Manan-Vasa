@@ -24,6 +24,7 @@ import { requireUser } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { getEntity } from "@/lib/hr/entities";
 import { getPolicy, isPolicyKey } from "./registry";
+import { markPolicyPending } from "./compliance-sync";
 
 type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -124,6 +125,14 @@ export async function acknowledgePolicy(
         })
         .returning({ id: documentSignatures.id });
       signatureId = inserted?.id ?? null;
+    }
+
+    // Mirror: seed a `pending` policy_compliance row so the employee portal
+    // ledger reflects that signing has started. Best-effort — never blocks.
+    try {
+      await markPolicyPending(me.id, key, docId);
+    } catch (err) {
+      console.error("[acknowledgePolicy] policy_compliance pending mirror failed", err);
     }
 
     return { ok: true, docId, signatureId };

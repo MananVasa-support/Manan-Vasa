@@ -3,10 +3,30 @@
 import * as React from "react";
 import { Plus, X, UploadCloud, Search, Loader2, Mic } from "lucide-react";
 import { visibleFields, type FormFieldDef } from "@/lib/forms/field-types";
-import { vkey, ageFromDob, genderForRelationship, type IntakeSection } from "@/lib/hr/candidate/intake-schema";
+import { vkey, ageFromDob, expFromRange, monthlyFromCtc, type IntakeSection } from "@/lib/hr/candidate/intake-schema";
+import { splitAddress } from "@/lib/hr/candidate/aadhaar-kyc";
 import { fireToast } from "@/lib/toast";
 import { IntakePositionSelect } from "@/components/hr/candidate/intake-position-select";
 import { IntakeField, IntakeReadonlyField } from "@/components/hr/candidate/intake-field";
+import { SelfieCapture } from "@/components/hr/candidate/selfie-capture";
+
+/**
+ * Resolve a `compute` field's value from its sibling inputs. `prefix` is the
+ * value-key prefix — `${sectionId}` for flat sections, `${sectionId}.${uid}` for
+ * one repeater instance — so the same computes work in both places.
+ */
+function computeValue(id: NonNullable<FormFieldDef["compute"]>, prefix: string, values: Record<string, string>): string {
+  switch (id) {
+    case "ageFromDob":
+      return ageFromDob(values[`${prefix}.dob`] ?? "");
+    case "expFromRange":
+      return expFromRange(values[`${prefix}.from`] ?? "", values[`${prefix}.to`] ?? "");
+    case "monthlyFromCtc":
+      return monthlyFromCtc(values[`${prefix}.fixedSalary`] ?? "", values[`${prefix}.bonus`] ?? "");
+    default:
+      return "";
+  }
+}
 
 const DISPLAY_FONT = "var(--font-display), system-ui, sans-serif";
 
@@ -51,8 +71,15 @@ export function IntakeSectionStep({
 
   /** Render the control for one non-repeat field (handles the special types). */
   function renderControl(f: FormFieldDef, k: string, autoFocus: boolean, err: boolean) {
-    if (f.compute === "ageFromDob") {
-      return <AgeField dob={values[vkey(section.id, "dob")] ?? ""} value={values[k] ?? ""} onCompute={(v) => set(k, v)} />;
+    if (f.compute) {
+      return (
+        <ComputeField
+          label={f.label}
+          computed={computeValue(f.compute, section.id, values)}
+          value={values[k] ?? ""}
+          onCompute={(v) => set(k, v)}
+        />
+      );
     }
     if (f.optionsFrom === "positions") {
       return <IntakePositionSelect value={values[k] ?? ""} onChange={(v) => set(k, v)} seed={positions} canManage={canManagePositions} autoFocus={autoFocus} error={err} />;
@@ -73,7 +100,16 @@ export function IntakeSectionStep({
             if (filled.dob) set(vkey(section.id, "dob"), filled.dob);
             if (filled.gender) set(vkey(section.id, "gender"), filled.gender);
             if (filled.mobile) set(vkey(section.id, "mobile"), filled.mobile);
-            if (filled.location) set(vkey(section.id, "location"), filled.location);
+            // Aadhaar returns one flat address line — split it into the structured
+            // address fields (the full string always lands in Line 1 as a fallback).
+            if (filled.location) {
+              const a = splitAddress(filled.location);
+              if (a.addressLine1) set(vkey(section.id, "addressLine1"), a.addressLine1);
+              if (a.addressLine2) set(vkey(section.id, "addressLine2"), a.addressLine2);
+              if (a.city) set(vkey(section.id, "city"), a.city);
+              if (a.state) set(vkey(section.id, "state"), a.state);
+              if (a.pincode) set(vkey(section.id, "pincode"), a.pincode);
+            }
           }}
         />
       );
@@ -93,10 +129,17 @@ export function IntakeSectionStep({
 
       {/* Declaration file tiles */}
       {section.declaration && (
-        <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5 max-sm:grid-cols-1">
-          <FileTile label="Passport-size Photograph" state={photo} onPick={(f) => onUpload("photo", f)} accept="image/*" error={invalid.has(`${section.id}.__photo__`)} />
-          <FileTile label="Candidate's Signature" state={sign} onPick={(f) => onUpload("signature", f)} accept="image/*" error={invalid.has(`${section.id}.__sign__`)} />
-        </div>
+        <>
+          <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5 max-sm:grid-cols-1">
+            <div>
+              <FileTile label="Passport-size Photograph" state={photo} onPick={(f) => onUpload("photo", f)} accept="image/*" error={invalid.has(`${section.id}.__photo__`)} />
+              {/* Selfie capture — device camera, with the upload tile above as fallback. */}
+              <SelfieCapture onCapture={(f) => onUpload("photo", f)} />
+            </div>
+            <FileTile label="Candidate's Signature" state={sign} onPick={(f) => onUpload("signature", f)} accept="image/*" error={invalid.has(`${section.id}.__sign__`)} />
+          </div>
+          <DeclarationStatement />
+        </>
       )}
 
       {/* Notes + Dictate section (final step) */}
@@ -137,30 +180,37 @@ export function IntakeSectionStep({
                 )}
               </div>
               <div className="grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 xl:grid-cols-3">
-                {section.fields.map((f) => {
-                  const k = `${section.id}.${uid}.${f.key}`;
-                  const err = invalid.has(k);
-                  const span = fieldSpan(f);
-                  return (
-                    <div key={f.key} data-invalid={err ? "true" : undefined} className={span}>
-                      <IntakeField
-                        field={f}
-                        value={values[k] ?? ""}
-                        onChange={(_, v) => {
-                          set(k, v);
-                          // Family: auto-pick Gender from the Relationship (Brother→Male,
-                          // Sister→Female, …); ambiguous relationships stay manual.
-                          if (section.id === "family" && f.key === "relationship") {
-                            const g = genderForRelationship(v);
-                            if (g) set(`${section.id}.${uid}.gender`, g);
-                          }
-                        }}
-                        error={err}
-                      />
-                      {err && <RequiredMsg />}
-                    </div>
-                  );
-                })}
+                {(() => {
+                  // Per-instance {fieldKey: value} view so showIf gates correctly
+                  // within this row (e.g. computed fields depend on siblings).
+                  const view: Record<string, string> = {};
+                  for (const f of section.fields) view[f.key] = values[`${section.id}.${uid}.${f.key}`] ?? "";
+                  return visibleFields(section.fields, view).map((f) => {
+                    const k = `${section.id}.${uid}.${f.key}`;
+                    const err = invalid.has(k);
+                    const span = fieldSpan(f);
+                    return (
+                      <div key={f.key} data-invalid={err ? "true" : undefined} className={span}>
+                        {f.compute ? (
+                          <ComputeField
+                            label={f.label}
+                            computed={computeValue(f.compute, `${section.id}.${uid}`, values)}
+                            value={values[k] ?? ""}
+                            onCompute={(v) => set(k, v)}
+                          />
+                        ) : (
+                          <IntakeField
+                            field={f}
+                            value={values[k] ?? ""}
+                            onChange={(_, v) => set(k, v)}
+                            error={err}
+                          />
+                        )}
+                        {err && <RequiredMsg />}
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
           ))}
@@ -175,16 +225,31 @@ export function IntakeSectionStep({
         </div>
       ) : (
         <div className="mt-8 grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 xl:grid-cols-3">
-          {nonRepeatVisible.map((f, i) => {
-            const k = vkey(section.id, f.key);
-            const err = invalid.has(k);
-            return (
-              <div key={f.key} data-invalid={err ? "true" : undefined} className={fieldSpan(f)}>
-                {renderControl(f, k, i === 0, err)}
-                {err && <RequiredMsg />}
-              </div>
-            );
-          })}
+          {(() => {
+            const out: React.ReactNode[] = [];
+            let lastGroup: string | undefined;
+            nonRepeatVisible.forEach((f, i) => {
+              // Full-width sub-heading before the first field of a new group run.
+              if (f.groupLabel && f.groupLabel !== lastGroup) {
+                out.push(
+                  <div key={`grp-${f.groupLabel}`} className="sm:col-span-2 xl:col-span-3">
+                    <h4 className="text-[13px] font-bold uppercase tracking-wide text-ink-soft">{f.groupLabel}</h4>
+                    <div className="mt-2 h-px w-full bg-hairline" />
+                  </div>,
+                );
+              }
+              lastGroup = f.groupLabel;
+              const k = vkey(section.id, f.key);
+              const err = invalid.has(k);
+              out.push(
+                <div key={f.key} data-invalid={err ? "true" : undefined} className={fieldSpan(f)}>
+                  {renderControl(f, k, i === 0, err)}
+                  {err && <RequiredMsg />}
+                </div>,
+              );
+            });
+            return out;
+          })()}
         </div>
       )}
     </div>
@@ -198,13 +263,30 @@ function fieldSpan(f: FormFieldDef): string {
   return "";
 }
 
-/** Auto-computed whole-years age from the DOB field — read-only, kept in sync. */
-function AgeField({ dob, value, onCompute }: { dob: string; value: string; onCompute: (v: string) => void }) {
-  const computed = ageFromDob(dob);
+/**
+ * Read-only field for any `compute` value (auto-Age, Total Experience, Monthly
+ * Salary). Renders the derived value and writes it back into the wizard state so
+ * it persists / counts toward progress — same self-syncing pattern as the old
+ * AgeField, now generic over the compute id.
+ */
+function ComputeField({ label, computed, value, onCompute }: { label: string; computed: string; value: string; onCompute: (v: string) => void }) {
   React.useEffect(() => {
     if (computed !== value) onCompute(computed);
   }, [computed, value, onCompute]);
-  return <IntakeReadonlyField label="Age (auto)" value={computed} />;
+  return <IntakeReadonlyField label={label} value={computed} />;
+}
+
+/** Short declaration statement shown above the confirmation chip in the sign-off step. */
+function DeclarationStatement() {
+  return (
+    <div className="mt-6 rounded-2xl border border-hairline bg-[color-mix(in_srgb,var(--color-altus-red)_3%,white)] p-5 text-[13.5px] leading-relaxed text-ink-muted">
+      <span className="font-bold text-ink-strong">Declaration.</span>{" "}
+      I hereby declare that the information furnished in this form is true, complete and
+      correct to the best of my knowledge and belief. I understand that any information
+      found false or incorrect may result in the rejection of my candidature or, if
+      already engaged, termination of my services at any stage.
+    </div>
+  );
 }
 
 /** Fields the Aadhaar lookup can auto-fill back into the Personal section. */
@@ -497,7 +579,7 @@ function NotesSection({
     <div className="mt-8">
       <div className="mb-3 flex items-center justify-between gap-3">
         <label htmlFor="intake-notes" className="text-[15px] font-bold text-ink-strong">
-          Interview Notes
+          Anything you wish to tell us about yourself
         </label>
         <button
           type="button"

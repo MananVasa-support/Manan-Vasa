@@ -4,12 +4,20 @@
 // upload/validation — ONE source of truth. Every field is compulsory; where a
 // field can't apply (no sibling, current = permanent), the person types "NA".
 
-export type OnbFieldType = "text" | "tel" | "number" | "select" | "file";
+export type OnbFieldType = "text" | "tel" | "number" | "select" | "file" | "repeater";
 
 /** Rendered width, sized to the data (keeps the form compact — no full-width
  *  sprawl). sm ≈ short codes/names, md ≈ phones/city, lg ≈ company/refs,
  *  xl ≈ full-row addresses + attachments. */
 export type OnbWidth = "sm" | "md" | "lg" | "xl";
+
+/** One column inside a repeater row (e.g. a single emergency contact's name). */
+export interface OnbSubField {
+  key: string;
+  label: string;
+  type: "text" | "tel";
+  w: OnbWidth;
+}
 
 export interface OnbField {
   key: string;
@@ -19,6 +27,16 @@ export interface OnbField {
   hint?: string;
   options?: string[]; // select
   w: OnbWidth;
+  /** repeater only — the per-row columns; ALL must be filled for a row to count. */
+  sub?: OnbSubField[];
+  /** repeater only — minimum complete rows required to submit. */
+  min?: number;
+  /** repeater only — maximum rows allowed. */
+  max?: number;
+  /** repeater only — how many empty rows to seed a fresh form with. */
+  seed?: number;
+  /** repeater only — singular noun for a row ("Emergency Contact"). */
+  itemLabel?: string;
 }
 
 export interface OnbSection {
@@ -76,6 +94,29 @@ export const ONBOARDING_SECTIONS: OnbSection[] = [
     ],
   },
   {
+    key: "emergency",
+    title: "Emergency Contacts",
+    hint: "At least TWO direct family members we can reach in an emergency — each with Name, Relation and Mobile Number.",
+    fields: [
+      {
+        key: "emergencyContacts",
+        label: "Emergency Contacts",
+        type: "repeater",
+        required: r,
+        w: "xl",
+        min: 2,
+        max: 4,
+        seed: 2,
+        itemLabel: "Emergency Contact",
+        sub: [
+          { key: "name", label: "Name", type: "text", w: "md" },
+          { key: "relation", label: "Relation", type: "text", w: "sm" },
+          { key: "mobile", label: "Mobile Number", type: "tel", w: "md" },
+        ],
+      },
+    ],
+  },
+  {
     key: "permanent",
     title: "Permanent Address",
     fields: [
@@ -104,15 +145,26 @@ export const ONBOARDING_SECTIONS: OnbSection[] = [
     ],
   },
   {
+    key: "native",
+    title: "Native Place (if applicable)",
+    hint: "Your home town / native place, if different from the addresses above. Optional — leave blank if not applicable.",
+    fields: [
+      { key: "nativeAddr", label: "Native Place Address (Village / Town / Area)", type: "text", w: "xl" },
+      { key: "nativeCity", label: "District / City", type: "text", w: "sm" },
+      { key: "nativeState", label: "State", type: "text", w: "sm" },
+      { key: "nativePincode", label: "Pincode", type: "text", w: "sm" },
+    ],
+  },
+  {
     key: "identification",
     title: "Identification Details",
     fields: [
       { key: "latestSelfie", label: "Latest Selfie", type: "file", required: r, w: "lg" },
       { key: "addressProof", label: "Address Proof", type: "file", required: r, w: "lg" },
       { key: "aadharNo", label: "Aadhar Card No", type: "text", required: r, w: "md" },
-      { key: "aadharCopy", label: "Aadhar Card Copy", type: "file", required: r, w: "lg" },
+      { key: "aadharCopy", label: "Aadhaar Card", type: "file", required: r, hint: "Mandatory · clear scan/photo of your Aadhaar card", w: "lg" },
       { key: "panNo", label: "PAN Card No", type: "text", required: r, w: "sm" },
-      { key: "panCopy", label: "PAN Card Copy", type: "file", required: r, w: "lg" },
+      { key: "panCopy", label: "PAN Card", type: "file", required: r, hint: "Mandatory · clear scan/photo of your PAN card", w: "lg" },
     ],
   },
   {
@@ -127,7 +179,21 @@ export const ONBOARDING_SECTIONS: OnbSection[] = [
       { key: "branchAddress", label: "Branch Address", type: "text", required: r, w: "lg" },
       { key: "branchCity", label: "Branch City", type: "text", required: r, w: "sm" },
       { key: "branchPincode", label: "Branch Pincode", type: "text", required: r, w: "sm" },
-      { key: "cancelledCheque", label: "Cancelled Cheque", type: "file", required: r, w: "lg" },
+      {
+        key: "cancelledCheque",
+        label: "Cancelled Cheque / Passbook / Online Banking Screenshot",
+        type: "file",
+        required: r,
+        hint: "Any ONE showing your Name & Account No — cancelled cheque, passbook first page, or a mobile/net-banking screenshot",
+        w: "xl",
+      },
+      {
+        key: "paymentQr",
+        label: "UPI / Bank QR Code",
+        type: "file",
+        hint: "Optional · image of your payment QR (UPI / bank) to speed up stipend/salary payouts",
+        w: "lg",
+      },
     ],
   },
 ];
@@ -136,6 +202,39 @@ export const ONB_ALL_FIELDS: OnbField[] = ONBOARDING_SECTIONS.flatMap((s) => s.f
 export const ONB_FILE_KEYS: string[] = ONB_ALL_FIELDS.filter((f) => f.type === "file").map((f) => f.key);
 export const ONB_TEXT_FIELDS: OnbField[] = ONB_ALL_FIELDS.filter((f) => f.type !== "file");
 export const ONB_FIELD_BY_KEY = new Map<string, OnbField>(ONB_ALL_FIELDS.map((f) => [f.key, f]));
+
+/** Parse a repeater field's stored JSON string into rows (safe — never throws). */
+export function parseRepeaterRows(raw: string | null | undefined): Record<string, string>[] {
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v.filter((x): x is Record<string, string> => !!x && typeof x === "object" && !Array.isArray(x)) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** A repeater row is "complete" only when every sub-column is filled. */
+export function isRepeaterRowComplete(field: OnbField, row: Record<string, string>): boolean {
+  return (field.sub ?? []).every((s) => String(row?.[s.key] ?? "").trim().length > 0);
+}
+
+/** Count how many complete rows a repeater's raw value holds (drives the min gate). */
+export function countCompleteRepeaterRows(field: OnbField, raw: string | null | undefined): number {
+  return parseRepeaterRows(raw).filter((row) => isRepeaterRowComplete(field, row)).length;
+}
+
+/** Normalise a repeater's raw value → trimmed, capped rows re-serialised to JSON. */
+export function normaliseRepeaterValue(field: OnbField, raw: string | null | undefined): string {
+  const rows = parseRepeaterRows(raw)
+    .slice(0, field.max ?? 20)
+    .map((row) => {
+      const o: Record<string, string> = {};
+      for (const s of field.sub ?? []) o[s.key] = String(row?.[s.key] ?? "").trim().slice(0, 200);
+      return o;
+    });
+  return JSON.stringify(rows);
+}
 
 /** Permanent → current field pairs, used when "Same as Permanent" = YES. */
 export const PERM_TO_CURR: [permKey: string, currKey: string][] = [

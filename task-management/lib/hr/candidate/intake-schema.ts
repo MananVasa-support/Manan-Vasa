@@ -39,7 +39,7 @@ export interface IntakeSection {
  * cosmetic hints and are no longer what drives the completion gate.
  */
 export function isRequiredField(f: FormFieldDef): boolean {
-  return !f.readOnly && f.compute == null;
+  return !f.readOnly && f.compute == null && !f.optional;
 }
 
 const YN: string[] = ["Yes", "No"];
@@ -62,7 +62,7 @@ export const DEFAULT_POSITIONS: string[] = [
 ];
 
 const EDU_FIELDS: FormFieldDef[] = [
-  { key: "degree", label: "Degree", type: "text", placeholder: "e.g. 10th / 12th / B.Com" },
+  { key: "degree", label: "Degree / Diploma", type: "text", placeholder: "e.g. 10th / 12th / B.Com" },
   { key: "school", label: "Name of School / College", type: "text" },
   { key: "board", label: "Board / University", type: "text" },
   { key: "mode", label: "Regular / Part-Time", type: "buttons", options: ["Regular", "Part-Time"] },
@@ -77,24 +77,26 @@ const EDU_FIELDS: FormFieldDef[] = [
   },
   { key: "passingYear", label: "Year of Passing", type: "text", placeholder: "e.g. 2019" },
   { key: "attempts", label: "Number of Attempts", type: "number" },
-  { key: "percentage", label: "Percentage", type: "text", placeholder: "e.g. 78%" },
+  { key: "percentage", label: "Percentage / CGPA", type: "text", placeholder: "e.g. 78% / 8.2" },
+  // Academic gap now sits UNDER each qualification (was a separate section).
+  { key: "gap", label: "Academic Gap after this?", type: "buttons", options: YN },
 ];
 
 const FAMILY_FIELDS: FormFieldDef[] = [
   { key: "name", label: "Name", type: "text", required: true },
   { key: "relationship", label: "Relationship", type: "text", required: true },
-  { key: "gender", label: "Gender", type: "buttons", options: ["Male", "Female"], required: true },
-  { key: "age", label: "Age", type: "number", required: true },
-  { key: "occupation", label: "Occupation", type: "text", required: true },
 ];
 
 const PREV_WORK_FIELDS: FormFieldDef[] = [
-  { key: "from", label: "From", type: "date" },
-  { key: "to", label: "To", type: "date" },
-  { key: "org", label: "Organization", type: "text" },
+  { key: "org", label: "Organisation Name", type: "text" },
   { key: "designation", label: "Designation", type: "text" },
+  { key: "reportedTo", label: "Reported To", type: "text" },
+  { key: "reportees", label: "Number of People Reporting to You", type: "number", placeholder: "0" },
+  { key: "from", label: "Date of Joining", type: "date" },
+  { key: "to", label: "Date of Leaving", type: "date" },
+  { key: "totalExp", label: "Total Experience", type: "text", readOnly: true, compute: "expFromRange" },
   { key: "reason", label: "Reason for Leaving", type: "textarea" },
-  { key: "gap", label: "Career Gap (if any)", type: "text" },
+  { key: "gap", label: "Career Gap (if any)", type: "text", optional: true },
 ];
 
 export const INTAKE_SECTIONS: IntakeSection[] = [
@@ -110,24 +112,38 @@ export const INTAKE_SECTIONS: IntakeSection[] = [
       { key: "dob", label: "Date of Birth", type: "date", required: true },
       { key: "age", label: "Age", type: "number", readOnly: true, compute: "ageFromDob" },
       { key: "gender", label: "Gender", type: "buttons", options: ["Male", "Female", "Prefer not to say"], required: true },
-      { key: "marital", label: "Marital Status", type: "buttons", options: ["Single", "Married", "Other"], required: true },
-      { key: "children", label: "Number of Children", type: "text", placeholder: "e.g. 0 / 2" },
+      { key: "marital", label: "Marital Status", type: "buttons", options: ["Single", "Married", "Divorced", "Separated", "Widowed"], required: true },
+      // Hidden for "Single"; shown for every other marital status.
+      { key: "children", label: "Number of Children", type: "text", placeholder: "e.g. 0 / 2", showIf: { key: "marital", value: ["Married", "Divorced", "Separated", "Widowed"] } },
       { key: "ownHouse", label: "Do you own a house?", type: "buttons", options: YN, required: true },
-      { key: "homeLoan", label: "Outstanding Home Loan, if any", type: "text", showIf: { key: "ownHouse", value: "Yes" } },
+      { key: "homeLoan", label: "Outstanding Home Loan, if any", type: "text", showIf: { key: "ownHouse", value: "Yes" }, optional: true },
+      { key: "homeLoanEmi", label: "EMI (Monthly)", type: "text", showIf: { key: "ownHouse", value: "Yes" }, optional: true },
       { key: "monthlyRent", label: "Monthly Rent", type: "text", showIf: { key: "ownHouse", value: "No" } },
       { key: "sizeOfHouse", label: "Size of House", type: "select", options: ["1 RK", "1 BHK", "2 BHK", "3 BHK"] },
       { key: "bathroom", label: "Bathroom", type: "select", options: ["Inside", "Outside"] },
       { key: "nativePlace", label: "Native Place", type: "text", required: true },
       { key: "mobile", label: "Mobile Number", type: "tel", required: true },
-      { key: "location", label: "Location", type: "text", required: true },
       { key: "email", label: "Email Address", type: "email", required: true },
+      // Structured address (replaces the old single "Location"). Aadhaar auto-fill
+      // populates these. Line 1 + City + Pincode + State are mandatory.
+      { key: "addressLine1", label: "Address Line 1", type: "text", required: true },
+      { key: "addressLine2", label: "Address Line 2", type: "text", optional: true },
+      { key: "addressLine3", label: "Address Line 3", type: "text", optional: true },
+      { key: "addressLine4", label: "Address Line 4", type: "text", optional: true },
+      { key: "landmark", label: "Nearby Landmark", type: "text", optional: true },
+      { key: "city", label: "City", type: "text", required: true },
+      { key: "pincode", label: "Pincode", type: "text", required: true, placeholder: "6-digit PIN" },
+      { key: "state", label: "State", type: "text", required: true },
       { key: "interviewed6mo", label: "Interviewed by us in the last six months?", type: "buttons", options: YN, required: true },
-      { key: "smoke", label: "Do you smoke?", type: "buttons", options: YN, required: true },
-      { key: "alcohol", label: "Do you consume alcohol?", type: "buttons", options: YN, required: true },
       { key: "differentlyAbled", label: "Differently abled?", type: "buttons", options: YN, required: true },
-      { key: "policeRecord", label: "Do you have a police record?", type: "buttons", options: YN, required: true },
+      // ── Health & Habits — grouped block (contiguous, shared sub-heading) ──
+      { key: "smoke", label: "Do you smoke?", type: "buttons", options: YN, required: true, groupLabel: "Health & Habits" },
+      { key: "alcohol", label: "Do you consume alcohol?", type: "buttons", options: YN, required: true, groupLabel: "Health & Habits" },
+      { key: "policeRecord", label: "Do you have a police record?", type: "buttons", options: YN, required: true, groupLabel: "Health & Habits" },
       { key: "majorIllness", label: "History of any major illness?", type: "buttons", options: YN, required: true },
-      { key: "source", label: "How did you learn about the opening?", type: "buttons", options: ["Newspaper Advertisement", "Company Website", "Friend or Relative", "Job Portal / HR Agency", "Social Media", "Other"] },
+      { key: "majorIllnessDetails", label: "Please describe the illness", type: "textarea", showIf: { key: "majorIllness", value: "Yes" } },
+      { key: "source", label: "How did you learn about the opening?", type: "buttons", options: ["Company Website", "Friend or Relative", "Job Portal", "HR Agency", "Social Media", "Other"] },
+      { key: "sourceOther", label: "Please specify", type: "text", showIf: { key: "source", value: "Other" } },
     ],
   },
   {
@@ -141,65 +157,69 @@ export const INTAKE_SECTIONS: IntakeSection[] = [
     id: "academic",
     title: "Academic Summary",
     fields: [
-      { key: "gap", label: "Academic Gap", type: "buttons", options: YN, required: true },
       { key: "backlogs", label: "Number of Backlogs / ATKTs, if any", type: "text" },
     ],
   },
   {
     id: "currentWork",
-    title: "Current Work Experience",
-    subtitle: "Every field is required — capture the candidate's current role in full.",
+    title: "Latest Work Experience",
+    subtitle: "Every field is required — capture the candidate's most recent role in full.",
     fields: [
-      { key: "org", label: "Current Organization", type: "text" },
-      { key: "designation", label: "Current Designation", type: "text" },
-      { key: "reportsToDesignation", label: "Reports To (Designation)", type: "text" },
-      { key: "reportsToName", label: "Reports To (Name)", type: "text" },
-      { key: "reportees", label: "Number of People Reporting to You", type: "number" },
+      { key: "org", label: "Organisation Name", type: "text" },
+      { key: "designation", label: "Designation", type: "text" },
+      { key: "reportsToName", label: "Reported To (Name)", type: "text" },
+      { key: "reportsToDesignation", label: "Reported To (Designation)", type: "text" },
+      { key: "reportees", label: "Number of People Reporting to You", type: "number", placeholder: "0" },
       { key: "totalExp", label: "Total Experience", type: "text", placeholder: "e.g. 3 yrs 2 mo" },
-      { key: "fixedSalary", label: "Fixed Salary", type: "text" },
-      { key: "bonus", label: "Bonus / Incentive", type: "text" },
+      { key: "fixedSalary", label: "Fixed Salary (Per-Annum CTC)", type: "text" },
+      { key: "bonus", label: "Bonus / Incentive (Per-Annum CTC)", type: "text" },
+      { key: "monthlySalary", label: "Monthly Salary", type: "text", readOnly: true, compute: "monthlyFromCtc" },
       { key: "totalSalary", label: "Total Salary", type: "text" },
-      { key: "expectedSalary", label: "Expected Salary", type: "text" },
-      { key: "prevTimings", label: "Previous Job Working Timings", type: "text" },
-      { key: "weekendWorking", label: "Saturday or Sunday Working", type: "text" },
+      { key: "startTime", label: "Start Time", type: "text", placeholder: "e.g. 10:00 AM" },
+      { key: "endTime", label: "End Time", type: "text", placeholder: "e.g. 7:00 PM" },
+      { key: "satWorking", label: "Saturday Working", type: "buttons", options: YN },
+      { key: "sunWorking", label: "Sunday Working", type: "buttons", options: YN },
       { key: "openSunday", label: "Open to Work on Sunday", type: "buttons", options: YN },
-      { key: "totalJobs", label: "Total Number of Jobs", type: "number" },
-      { key: "sitTill9", label: "Can you work till 9 PM?", type: "buttons", options: YN },
+      { key: "sitTill9", label: "Open to working till 9 PM?", type: "buttons", options: YN },
       { key: "languages", label: "Languages Known", type: "text" },
+      // Moved to the END of the work-experience block (was mid-section).
+      { key: "totalJobs", label: "Total Number of Jobs", type: "number" },
     ],
   },
   {
     id: "prevWork",
     title: "Previous Work Experience",
     subtitle: "Add each past employer — at least one entry is required.",
-    repeat: { min: 1, max: 6, seed: 1, itemLabel: "Employer" },
+    repeat: { min: 1, max: 3, seed: 1, itemLabel: "Previous" },
     fields: PREV_WORK_FIELDS,
   },
   {
     id: "family",
     title: "Family Details",
     subtitle: "Add each family member.",
-    repeat: { min: 1, max: 8, seed: 2, itemLabel: "Member" },
+    repeat: { min: 2, max: 6, seed: 2, itemLabel: "Member" },
     fields: FAMILY_FIELDS,
+  },
+  {
+    id: "notes",
+    title: "Anything you wish to tell us about yourself",
+    subtitle: "Free-form — type it, or use Dictate to capture it by voice.",
+    notes: true,
+    fields: [
+      { key: "notes", label: "Anything you wish to tell us about yourself", type: "textarea", required: true },
+    ],
   },
   {
     id: "declaration",
     title: "Declaration & Sign-off",
-    subtitle: "Photograph, signature and recruiter remarks.",
+    subtitle: "Photograph, signature, recruiter remarks and confirmation.",
     declaration: true,
     fields: [
       { key: "remarks", label: "Recruiter's Remarks", type: "textarea", required: true },
       { key: "name", label: "Recruiter's Name", type: "text", required: true },
+      { key: "recruiterEmail", label: "Through whom did you come to us? (Recruiter Email)", type: "email", optional: true },
       { key: "date", label: "Date", type: "date", required: true },
-    ],
-  },
-  {
-    id: "notes",
-    title: "Notes",
-    subtitle: "Free-form interview notes — type them, or use Dictate to capture them by voice.",
-    notes: true,
-    fields: [
-      { key: "notes", label: "Interview Notes", type: "textarea", required: true },
+      { key: "declarationAgree", label: "I confirm that the information provided above is true and correct to the best of my knowledge.", type: "buttons", options: ["I Agree"], required: true },
     ],
   },
 ];
@@ -292,6 +312,42 @@ export function ageFromDob(dob: string): string {
   const m = now.getMonth() - d.getMonth();
   if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
   return age >= 0 && age < 130 ? String(age) : "";
+}
+
+/**
+ * Human "X yrs Y mo" span between two yyyy-mm-dd dates (joining → leaving).
+ * "" when either date is missing/unparseable or leaving precedes joining — used
+ * for the read-only "Total Experience" per previous job.
+ */
+export function expFromRange(from: string, to: string): string {
+  if (!from || !to) return "";
+  const a = new Date(from);
+  const b = new Date(to);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime()) || b < a) return "";
+  let months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+  if (b.getDate() < a.getDate()) months--;
+  if (months < 0) months = 0;
+  const y = Math.floor(months / 12);
+  const m = months % 12;
+  const parts: string[] = [];
+  if (y) parts.push(`${y} yr${y === 1 ? "" : "s"}`);
+  if (m) parts.push(`${m} mo`);
+  return parts.length ? parts.join(" ") : "0 mo";
+}
+
+/**
+ * Round((fixedSalary + bonus) / 12) — the read-only "Monthly Salary" derived from
+ * the two per-annum CTC amounts. Tolerates ₹ / commas / spaces in the inputs;
+ * "" when the annual total is zero.
+ */
+export function monthlyFromCtc(fixed: string, bonus: string): string {
+  const num = (s: string): number => {
+    const n = Number((s ?? "").replace(/[^0-9.]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  };
+  const annual = num(fixed) + num(bonus);
+  if (annual <= 0) return "";
+  return String(Math.round(annual / 12));
 }
 
 /**

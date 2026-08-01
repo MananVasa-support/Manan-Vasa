@@ -105,6 +105,15 @@ export const employees = pgTable("employees", {
   isActive: boolean("is_active").notNull().default(true),
   invitedAt: timestamp("invited_at", { withTimezone: true }),
   joinedAt: timestamp("joined_at", { withTimezone: true }),
+  // Post-joining workflow (migration 0174). `officialEmail` is the logged
+  // firstname.lastname@<domain> company address; `personalEmail` is where the
+  // welcome/credentials mail is sent. The two provisioning timestamps gate the
+  // HR control-panel steps (email creation / asset allocation stay locked until
+  // onboarding is submitted, then get stamped when HR completes them).
+  officialEmail: text("official_email"),
+  personalEmail: text("personal_email"),
+  emailProvisionedAt: timestamp("email_provisioned_at", { withTimezone: true }),
+  assetsAllocatedAt: timestamp("assets_allocated_at", { withTimezone: true }),
   // Admin password-reset lockout marker (migration 0043). Set when an admin
   // resets the password (sessions revoked); cleared on next successful login.
   // Non-null => show the "changed by admin" message on a failed sign-in.

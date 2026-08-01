@@ -444,7 +444,7 @@ export function EvaluationV2Screen({
 
           {isSuperAdmin && load && (
             <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-ink-subtle">
-              <ShieldCheck size={12} /> Weight profiles are configurable per designation in Admin.
+              <ShieldCheck size={12} /> Custom weight tuning is temporarily disabled — scoring uses the default section weights (pending the Department → Role → Designation mapping).
             </p>
           )}
         </div>
@@ -608,11 +608,11 @@ function SaveState({ saving, dirty, loading }: { saving: boolean; dirty: boolean
 
 function EmptyState() {
   return (
-    <div className="ev2-fade mt-2 grid place-items-center rounded-2xl border border-solid border-hairline-strong bg-white px-6 py-20 text-center">
+    <div className="ev2-fade mt-2 grid place-items-center rounded-2xl border border-solid border-hairline-strong bg-white px-6 py-14 text-center">
       <span className="grid h-14 w-14 place-items-center rounded-2xl" style={{ background: "#E106001a", color: RED_DEEP }}>
         <UserRound size={26} strokeWidth={2.1} />
       </span>
-      <h2 className="mt-4 text-ink-strong" style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 20 }}>
+      <h2 className="mt-3 text-ink-strong" style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 20 }}>
         Choose a candidate to begin
       </h2>
       <p className="mt-1.5 max-w-[46ch] text-[14px] font-medium text-ink-muted">
@@ -625,7 +625,7 @@ function EmptyState() {
 
 function LoadingState() {
   return (
-    <div className="mt-2 grid place-items-center rounded-2xl border border-hairline bg-white py-24 text-ink-muted">
+    <div className="mt-2 grid place-items-center rounded-2xl border border-hairline bg-white py-16 text-ink-muted">
       <Loader2 className="animate-spin" style={{ color: RED }} />
       <p className="mt-2 text-[13.5px] font-medium">Loading this candidate&apos;s evaluation…</p>
     </div>
@@ -634,7 +634,7 @@ function LoadingState() {
 
 function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="mt-2 grid place-items-center rounded-2xl border px-6 py-16 text-center" style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 30%, white)", background: "color-mix(in srgb, var(--color-altus-red) 5%, white)" }}>
+    <div className="mt-2 grid place-items-center rounded-2xl border px-6 py-12 text-center" style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 30%, white)", background: "color-mix(in srgb, var(--color-altus-red) 5%, white)" }}>
       <span className="grid h-13 w-13 place-items-center rounded-2xl" style={{ background: "color-mix(in srgb, var(--color-altus-red) 12%, white)", color: RED_DEEP }}>
         <AlertTriangle size={24} />
       </span>

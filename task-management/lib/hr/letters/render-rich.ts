@@ -240,7 +240,9 @@ html,body{margin:0;padding:0;background:#ffffff;}
   font-size:15px;line-height:1.72;color:#111114;
   overflow-wrap:break-word;
 }
-.alh-body p{margin:0 0 14px;}
+/* Justify generated-letter prose by default; explicit per-paragraph
+   text-align styles (from the editor) still win. */
+.alh-body p{margin:0 0 14px;text-align:justify;}
 .alh-body h1{font-size:22px;line-height:1.3;margin:0 0 12px;font-weight:700;}
 .alh-body h2{font-size:18px;line-height:1.35;margin:18px 0 10px;font-weight:700;}
 .alh-body h3{font-size:15.5px;line-height:1.4;margin:16px 0 8px;font-weight:700;}

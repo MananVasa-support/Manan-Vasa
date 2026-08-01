@@ -409,6 +409,20 @@ export async function finalizeSignature(input: {
     return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
   }
 
+  // Mirror: when the signed document is a POLICY (a letter-kind instance whose
+  // typeKey is a registered policy), flip its policy_compliance row to `signed`
+  // so the employee portal ledger agrees with this signature (the source of
+  // truth). Best-effort — a mirror failure must never fail a completed signing.
+  if (docKind === "letter") {
+    try {
+      const { policyKeyForInstance, markPolicySigned } = await import("@/lib/hr/policies/compliance-sync");
+      const policyKey = await policyKeyForInstance(row.docId);
+      if (policyKey) await markPolicySigned(signerId, policyKey, row.docId, signedAt);
+    } catch (err) {
+      console.error("[finalizeSignature] policy_compliance signed mirror failed", err);
+    }
+  }
+
   revalidatePath("/documents/sign");
   revalidatePath(docKind === "agreement" ? "/agreements" : "/letters");
   revalidatePath("/hr/letters");

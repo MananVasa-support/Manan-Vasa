@@ -38,7 +38,7 @@ import type {
   PortalSalaryCertificate,
   PortalOnboarding,
 } from "@/app/(app)/portal/portal-types";
-import { ONBOARDING_SECTIONS } from "@/lib/dossier/onboarding-schema";
+import { ONBOARDING_SECTIONS, parseRepeaterRows } from "@/lib/dossier/onboarding-schema";
 import { SalaryCertificate } from "@/components/portal/salary-certificate";
 
 const RED = "#E10600";
@@ -635,6 +635,27 @@ function OnboardingModal({ data, fullName, onClose }: { data: PortalOnboarding; 
                           ) : (
                             <p className="truncate text-[13px] font-semibold text-ink-strong">{file.fileName}</p>
                           )
+                        ) : (
+                          <p className="text-[13px] font-medium text-ink-subtle">Not provided</p>
+                        )}
+                      </div>
+                    );
+                  }
+                  if (f.type === "repeater") {
+                    const rows = parseRepeaterRows(data.fields[f.key]).filter((row) =>
+                      (f.sub ?? []).some((s) => String(row?.[s.key] ?? "").trim().length > 0),
+                    );
+                    return (
+                      <div key={f.key} className="min-w-0 border-b border-hairline pb-1.5 sm:col-span-2">
+                        <p className="text-[11px] font-medium text-ink-soft">{f.label}</p>
+                        {rows.length ? (
+                          <ul className="mt-0.5 flex flex-col gap-0.5">
+                            {rows.map((row, i) => (
+                              <li key={i} className="text-[13px] font-semibold text-ink-strong">
+                                {(f.sub ?? []).map((s) => String(row?.[s.key] ?? "").trim() || "—").join(" · ")}
+                              </li>
+                            ))}
+                          </ul>
                         ) : (
                           <p className="text-[13px] font-medium text-ink-subtle">Not provided</p>
                         )}

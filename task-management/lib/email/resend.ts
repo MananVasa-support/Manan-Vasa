@@ -8,6 +8,7 @@ import type { NotificationKind } from "@/db/schema";
 import { InviteEmail } from "@/emails/invite";
 import { ResetPasswordEmail } from "@/emails/reset-password";
 import { CredentialsInviteEmail } from "@/emails/credentials-invite";
+import { WelcomeOfficialEmail } from "@/emails/welcome-official";
 import { AdminResetPasswordEmail } from "@/emails/admin-reset-password";
 import { TaskAssignedEmail } from "@/emails/notifications/TaskAssigned";
 import { TaskInitiatedEmail } from "@/emails/notifications/TaskInitiated";
@@ -220,6 +221,47 @@ export async function sendCredentialsEmail(args: {
         email: args.email,
         password: args.password,
         loginUrl: args.loginUrl,
+      }),
+    });
+    if (error) return { id: null, error: error.message };
+    return { id: data?.id ?? null, error: null };
+  } catch (err) {
+    return { id: null, error: errorMessage(err) };
+  }
+}
+
+/**
+ * Post-joining WELCOME email — sent to the employee's PERSONAL inbox when HR
+ * provisions their official company email. Carries the official address, their
+ * dashboard login credentials (password only when a fresh one was minted), and
+ * a short induction guide. Fail-soft + no-ops silently when Resend is unset, so
+ * it can never block the provisioning action. Sensitive: the caller must pass
+ * the employee's OWN personal/account email only.
+ */
+export async function sendWelcomeEmail(args: {
+  /** The employee's personal (or account) email — the ONLY recipient. */
+  email: string;
+  employeeName: string;
+  officialEmail: string;
+  loginEmail: string;
+  password?: string | null;
+  loginUrl: string;
+  hrEmail: string;
+}): Promise<{ id: string | null; error: string | null }> {
+  try {
+    const resend = getResend();
+    if (!resend) return { id: null, error: null };
+    const { data, error } = await resend.emails.send({
+      from: FROM,
+      to: args.email,
+      subject: `Welcome to Altus Corp — your official email is ready`,
+      react: WelcomeOfficialEmail({
+        employeeName: args.employeeName,
+        officialEmail: args.officialEmail,
+        loginEmail: args.loginEmail,
+        password: args.password ?? null,
+        loginUrl: args.loginUrl,
+        hrEmail: args.hrEmail,
       }),
     });
     if (error) return { id: null, error: error.message };

@@ -4,11 +4,12 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
-import { Loader2, Send, Save, Paperclip, Eye, Check, ChevronLeft, Link2 } from "lucide-react";
+import { Loader2, Send, Save, Paperclip, Eye, Check, ChevronLeft, Link2, Plus, Trash2 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { fireToast } from "@/lib/toast";
 import {
-  ONBOARDING_SECTIONS, ONB_FILE_KEYS, PERM_TO_CURR, ONB_WIDTH_PX, ONB_ACCEPT, type OnbField,
+  ONBOARDING_SECTIONS, ONB_FILE_KEYS, ONB_ALL_FIELDS, PERM_TO_CURR, ONB_WIDTH_PX, ONB_ACCEPT,
+  parseRepeaterRows, isRepeaterRowComplete, type OnbField,
 } from "@/lib/dossier/onboarding-schema";
 import type { OnboardingView } from "@/lib/queries/onboarding";
 import { submitOnboarding } from "@/app/(app)/dossier/onboarding/actions";
@@ -24,6 +25,46 @@ export function OnboardingForm({ initial, backHref }: { initial: OnboardingView;
   const [picked, setPicked] = React.useState<Record<string, File>>({});
   const [links, setLinks] = React.useState<Record<string, string>>({});
 
+  // Repeater rows (e.g. Emergency Contacts) — seeded from saved JSON, else N empty rows.
+  const repeaterFields = React.useMemo(() => ONB_ALL_FIELDS.filter((f) => f.type === "repeater"), []);
+  const [repeaters, setRepeaters] = React.useState<Record<string, Record<string, string>[]>>(() => {
+    const out: Record<string, Record<string, string>[]> = {};
+    for (const f of repeaterFields) {
+      const saved = parseRepeaterRows(initial.fields[f.key]);
+      const seed = f.seed ?? f.min ?? 1;
+      const rows = saved.length ? saved : [];
+      while (rows.length < seed) rows.push({});
+      out[f.key] = rows.map((r) => ({ ...r }));
+    }
+    return out;
+  });
+
+  function emptyRow(f: OnbField): Record<string, string> {
+    const o: Record<string, string> = {};
+    for (const s of f.sub ?? []) o[s.key] = "";
+    return o;
+  }
+  function setRepeaterCell(fieldKey: string, rowIdx: number, colKey: string, v: string) {
+    setRepeaters((prev) => {
+      const rows = (prev[fieldKey] ?? []).map((r, i) => (i === rowIdx ? { ...r, [colKey]: v } : r));
+      return { ...prev, [fieldKey]: rows };
+    });
+  }
+  function addRepeaterRow(f: OnbField) {
+    setRepeaters((prev) => {
+      const rows = prev[f.key] ?? [];
+      if (rows.length >= (f.max ?? 20)) return prev;
+      return { ...prev, [f.key]: [...rows, emptyRow(f)] };
+    });
+  }
+  function removeRepeaterRow(f: OnbField, rowIdx: number) {
+    setRepeaters((prev) => {
+      const rows = prev[f.key] ?? [];
+      if (rows.length <= (f.min ?? 1)) return prev; // keep the minimum number of rows
+      return { ...prev, [f.key]: rows.filter((_, i) => i !== rowIdx) };
+    });
+  }
+
   const sameAsPerm = values.sameAsPermanent === "YES";
 
   function setVal(key: string, v: string) {
@@ -36,12 +77,27 @@ export function OnboardingForm({ initial, backHref }: { initial: OnboardingView;
 
   async function save(status: "draft" | "submitted") {
     if (busy) return;
+
+    // Client-side gate — mirror the server min-N-complete-rows rule (repeaters).
+    if (status === "submitted") {
+      for (const f of repeaterFields) {
+        const complete = (repeaters[f.key] ?? []).filter((row) => isRepeaterRowComplete(f, row)).length;
+        const need = f.min ?? 1;
+        if (complete < need) {
+          fireToast({ message: `Add at least ${need} complete ${f.itemLabel ?? f.label} (Name, Relation & Mobile each).`, type: "error" });
+          document.getElementById("sec-emergency")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          return;
+        }
+      }
+    }
+
     setBusy(status);
     const fd = new FormData();
     fd.set("employeeId", employeeId);
     fd.set("status", status);
     for (const [k, v] of Object.entries(values)) fd.set(k, v ?? "");
     if (values.sameAsPermanent === "YES") for (const [p, c] of PERM_TO_CURR) fd.set(c, values[p] ?? "");
+    for (const f of repeaterFields) fd.set(f.key, JSON.stringify(repeaters[f.key] ?? []));
     for (const key of ONB_FILE_KEYS) {
       if (picked[key]) fd.set(key, picked[key]!);
       else if (links[key]?.trim()) fd.set(`${key}__link`, links[key]!.trim());
@@ -80,20 +136,31 @@ export function OnboardingForm({ initial, backHref }: { initial: OnboardingView;
             <div><h2 className="text-[16.5px] font-black text-ink-strong">{s.title}</h2>{s.hint && <p className="text-[12px] font-medium text-ink-subtle">{s.hint}</p>}</div>
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-3">
-            {s.fields.map((f) => (
-              <Field
-                key={f.key}
-                field={f}
-                value={values[f.key] ?? ""}
-                onChange={(v) => setVal(f.key, v)}
-                existingFile={initial.files[f.key] ?? null}
-                pickedFile={picked[f.key] ?? null}
-                onPick={(file) => setPicked((p) => ({ ...p, [f.key]: file }))}
-                linkVal={links[f.key] ?? ""}
-                onLink={(v) => setLinks((p) => ({ ...p, [f.key]: v }))}
-                disabled={s.key === "current" && f.key !== "sameAsPermanent" && sameAsPerm}
-              />
-            ))}
+            {s.fields.map((f) =>
+              f.type === "repeater" ? (
+                <RepeaterField
+                  key={f.key}
+                  field={f}
+                  rows={repeaters[f.key] ?? []}
+                  onCell={(rowIdx, colKey, v) => setRepeaterCell(f.key, rowIdx, colKey, v)}
+                  onAdd={() => addRepeaterRow(f)}
+                  onRemove={(rowIdx) => removeRepeaterRow(f, rowIdx)}
+                />
+              ) : (
+                <Field
+                  key={f.key}
+                  field={f}
+                  value={values[f.key] ?? ""}
+                  onChange={(v) => setVal(f.key, v)}
+                  existingFile={initial.files[f.key] ?? null}
+                  pickedFile={picked[f.key] ?? null}
+                  onPick={(file) => setPicked((p) => ({ ...p, [f.key]: file }))}
+                  linkVal={links[f.key] ?? ""}
+                  onLink={(v) => setLinks((p) => ({ ...p, [f.key]: v }))}
+                  disabled={s.key === "current" && f.key !== "sameAsPermanent" && sameAsPerm}
+                />
+              ),
+            )}
           </div>
         </section>
       ))}
@@ -181,5 +248,84 @@ function Field({
         className="rounded-lg border border-hairline bg-surface-soft px-2.5 py-2 text-[13.5px] font-semibold text-ink-strong outline-none focus:border-[color:var(--color-altus-red)] disabled:opacity-50"
       />
     </label>
+  );
+}
+
+function RepeaterField({
+  field, rows, onCell, onAdd, onRemove,
+}: {
+  field: OnbField;
+  rows: Record<string, string>[];
+  onCell: (rowIdx: number, colKey: string, v: string) => void;
+  onAdd: () => void;
+  onRemove: (rowIdx: number) => void;
+}) {
+  const min = field.min ?? 1;
+  const max = field.max ?? 20;
+  const complete = rows.filter((r) => (field.sub ?? []).every((s) => String(r?.[s.key] ?? "").trim().length > 0)).length;
+  const enough = complete >= min;
+  return (
+    <div className="flex w-full flex-col gap-2" style={{ flexBasis: "100%" }}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[11.5px] font-bold text-ink-soft">
+          {field.label}
+          {field.required && <span className="text-[color:var(--color-altus-red)]"> *</span>}
+          <span className="font-medium normal-case text-ink-subtle"> · at least {min} required</span>
+        </span>
+        <span
+          className="inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-[10.5px] font-bold"
+          style={
+            enough
+              ? { background: "color-mix(in srgb, #16a34a 12%, transparent)", color: "#15803d" }
+              : { background: `color-mix(in srgb, ${RED} 12%, transparent)`, color: RED }
+          }
+        >
+          {enough ? <Check size={11} strokeWidth={3} /> : null}
+          {complete}/{min} complete
+        </span>
+      </div>
+      <div className="flex flex-col gap-2">
+        {rows.map((row, rowIdx) => (
+          <div key={rowIdx} className="flex flex-wrap items-end gap-2 rounded-xl bg-surface-soft p-2.5" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>
+            <span className="mb-2 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-black text-ink-soft tabular-nums" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>{rowIdx + 1}</span>
+            {(field.sub ?? []).map((s) => {
+              const wpx = ONB_WIDTH_PX[s.w];
+              return (
+                <label key={s.key} className="flex min-w-[130px] flex-1 flex-col gap-1" style={{ flexBasis: wpx.basis, maxWidth: wpx.max ?? undefined }}>
+                  <span className="text-[11px] font-bold text-ink-soft">{s.label}<span className="text-[color:var(--color-altus-red)]"> *</span></span>
+                  <input
+                    type={s.type === "tel" ? "tel" : "text"}
+                    inputMode={s.type === "tel" ? "tel" : undefined}
+                    value={row[s.key] ?? ""}
+                    onChange={(e) => onCell(rowIdx, s.key, e.target.value)}
+                    maxLength={200}
+                    className="rounded-lg border border-hairline bg-white px-2.5 py-2 text-[13.5px] font-semibold text-ink-strong outline-none focus:border-[color:var(--color-altus-red)]"
+                  />
+                </label>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => onRemove(rowIdx)}
+              disabled={rows.length <= min}
+              aria-label={`Remove ${field.itemLabel ?? "row"} ${rowIdx + 1}`}
+              className="mb-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-ink-subtle hover:bg-white hover:text-[color:var(--color-altus-red)] disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <Trash2 size={15} strokeWidth={2.2} />
+            </button>
+          </div>
+        ))}
+      </div>
+      {rows.length < max && (
+        <button
+          type="button"
+          onClick={onAdd}
+          className="inline-flex w-fit items-center gap-1.5 rounded-pill bg-surface-soft px-3 py-1.5 text-[12.5px] font-bold text-ink-muted hover:text-ink-strong"
+          style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}
+        >
+          <Plus size={13} strokeWidth={2.6} /> Add {field.itemLabel ?? "row"}
+        </button>
+      )}
+    </div>
   );
 }

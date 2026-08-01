@@ -34,7 +34,7 @@ const template: LetterTemplate = {
     para(t("Enjoy your day you truly deserve to be celebrated.")),
     para(t("Wishing you a birthday filled with joy, love, and unforgettable memories!")),
     para(t("With warmest wishes,")),
-    para(t("Your Altus Corp Family")),
+    para(t("Your {firm} Family")),
   ],
 };
 

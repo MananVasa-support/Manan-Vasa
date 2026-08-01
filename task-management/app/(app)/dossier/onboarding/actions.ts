@@ -13,6 +13,8 @@ import {
   ONB_TEXT_FIELDS,
   ONB_FILE_KEYS,
   ONB_ALL_FIELDS,
+  normaliseRepeaterValue,
+  countCompleteRepeaterRows,
   type OnboardingFileRef,
 } from "@/lib/dossier/onboarding-schema";
 import type { Employee } from "@/db/schema";
@@ -49,9 +51,13 @@ export async function submitOnboarding(form: FormData): Promise<Result<{ status:
 
   const status = String(form.get("status") ?? "submitted") === "draft" ? "draft" : "submitted";
 
-  // 1) text/select answers
+  // 1) text/select/repeater answers (repeaters stored as normalised JSON strings)
   const fields: Record<string, string> = {};
   for (const f of ONB_TEXT_FIELDS) {
+    if (f.type === "repeater") {
+      fields[f.key] = normaliseRepeaterValue(f, String(form.get(f.key) ?? ""));
+      continue;
+    }
     fields[f.key] = String(form.get(f.key) ?? "").trim().slice(0, 2000);
   }
 
@@ -60,6 +66,16 @@ export async function submitOnboarding(form: FormData): Promise<Result<{ status:
     for (const f of ONB_ALL_FIELDS) {
       if (!f.required) continue;
       if (f.type === "file") continue; // files checked below
+      if (f.type === "repeater") {
+        // min-N complete rows — enforced server-side so the UI gate can't be bypassed
+        const need = f.min ?? 1;
+        const have = countCompleteRepeaterRows(f, fields[f.key]);
+        if (have < need) {
+          const cols = (f.sub ?? []).map((s) => s.label).join(", ");
+          return { ok: false, error: `Add at least ${need} complete ${f.itemLabel ?? f.label} (each needs ${cols}).` };
+        }
+        continue;
+      }
       if (!fields[f.key]) return { ok: false, error: `“${f.label}” is required.` };
     }
   }
