@@ -20,7 +20,8 @@ export interface BulkGridRow {
   actual: string | null;
   target: string | null;
   category: string | null;
-  weight: number;
+  /** Explicit weight, or null = auto-distribute the bucket's remaining budget. */
+  weight: number | null;
   delegatedTo: { employeeId: string; name: string; pct: number }[];
 }
 
@@ -217,7 +218,8 @@ export function GoalsBulkGrid(props: {
           actual: r.actual.trim() || null,
           target: r.target.trim() || null,
           category: r.category.trim() || null,
-          weight: Number.isFinite(w) && r.weight.trim() ? w : 100,
+          // Blank weight → null (server distributes the remaining ≤100% budget).
+          weight: r.weight.trim() && Number.isFinite(w) ? w : null,
           delegatedTo: r.delegates.map((d) => ({ employeeId: d.id, name: d.name, pct })),
         };
       });
@@ -225,6 +227,10 @@ export function GoalsBulkGrid(props: {
   }
 
   const filledCount = rows.filter((r) => r.title.trim()).length;
+  const explicitWeight = rows
+    .filter((r) => r.title.trim() && r.weight.trim())
+    .reduce((s, r) => s + (Number(r.weight.replace(/[^0-9.]/g, "")) || 0), 0);
+  const overCap = explicitWeight > 100;
 
   return (
     <div>
@@ -270,7 +276,7 @@ export function GoalsBulkGrid(props: {
                         value={r[c.key]}
                         onChange={(e) => setCell(r.id, c.key, e.target.value)}
                         inputMode="decimal"
-                        placeholder={c.key === "weight" ? "100" : "0"}
+                        placeholder={c.key === "weight" ? "auto" : "0"}
                         className={`${CELL} text-center`}
                       />
                     ) : (
@@ -307,14 +313,23 @@ export function GoalsBulkGrid(props: {
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={addRow}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-solid px-3 py-1.5 text-[12.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red"
-          style={{ borderColor: "var(--color-hairline-strong)" }}
-        >
-          <Plus size={14} strokeWidth={2.6} /> Add row
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={addRow}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-solid px-3 py-1.5 text-[12.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red"
+            style={{ borderColor: "var(--color-hairline-strong)" }}
+          >
+            <Plus size={14} strokeWidth={2.6} /> Add row
+          </button>
+          <span
+            className="text-[12px] font-bold tabular-nums"
+            style={{ color: overCap ? "var(--color-altus-red)" : "var(--color-ink-subtle)" }}
+            title="Weights per period must total ≤ 100%. Leave a cell blank to auto-split the remainder."
+          >
+            Weights: {explicitWeight}% {overCap ? "— over 100%!" : "· blanks auto-split the rest"}
+          </span>
+        </div>
         <button
           type="button"
           onClick={proceed}

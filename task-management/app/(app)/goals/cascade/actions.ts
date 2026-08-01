@@ -9,6 +9,7 @@ import { requireGoalsAccess } from "@/lib/goals/access";
 import { listGoalLookups, goalLookupExists, isBaseGoalLookup, type GoalLookupOptions } from "@/lib/goals/lookups";
 import { goalsSpace } from "@/lib/goals/space";
 import { autoPctDone, statusForPct } from "@/lib/goals/auto-pct";
+import { bucketWeightSum, WEIGHT_CAP } from "@/lib/goals/weight";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import {
   loadWritableGoalRow,
@@ -366,6 +367,21 @@ export async function bulkCreateGoals(
     return { ok: false, error: "You can't add goals for that person" };
   }
 
+  // Bucket weights must total ≤ 100. Rows with an EXPLICIT weight are validated
+  // against the remaining budget; rows left unweighted auto-distribute whatever
+  // is left evenly — so a plain "add N goals" / AI-capture never exceeds 100.
+  const existingWeight = await bucketWeightSum(d.employeeId, d.level, d.periodKey);
+  const remaining = Math.max(0, WEIGHT_CAP - existingWeight);
+  const explicitSum = d.rows.reduce((s, r) => s + (r.weight ?? 0), 0);
+  if (explicitSum > remaining) {
+    return {
+      ok: false,
+      error: `These goals' weights total ${explicitSum}% but only ${remaining}% is left in this period (${existingWeight}% already used). Lower them to fit.`,
+    };
+  }
+  const unweightedCount = d.rows.filter((r) => r.weight === undefined).length;
+  const autoEach = unweightedCount > 0 ? Math.floor((remaining - explicitSum) / unweightedCount) : 0;
+
   const start = await nextGoalPosition(d.employeeId, d.level, d.periodKey);
 
   try {
@@ -386,7 +402,7 @@ export async function bulkCreateGoals(
           targetQty: money(r.targetQty),
           actualQty: money(r.actualQty),
           targetAmount: money(r.targetAmount),
-          weight: r.weight ?? 100,
+          weight: r.weight ?? autoEach,
           pctDone: auto ?? 0,
           status: auto != null ? statusForPct(auto) : "not_started",
           adopted: true,
@@ -613,7 +629,22 @@ export async function editGoal(
   if (d.teamInvolved !== undefined && d.shareWithTeam === undefined) {
     patch.shareWithTeam = hasTeamMembers(d.teamInvolved);
   }
-  if (d.weight !== undefined) patch.weight = d.weight;
+  if (d.weight !== undefined) {
+    patch.weight = d.weight;
+    // A bucket's weights must total ≤ 100. Block an INCREASE that would push the
+    // total over; reductions are always allowed (so an over-100 bucket — e.g.
+    // legacy data — can be corrected down).
+    const currentW = loaded.row.weight ?? 0;
+    if (d.weight > currentW) {
+      const others = await bucketWeightSum(loaded.row.employeeId, loaded.row.period, loaded.row.periodKey, d.id);
+      if (others + d.weight > WEIGHT_CAP) {
+        return {
+          ok: false,
+          error: `Total weight for this period would be ${others + d.weight}% — keep all goals' weights at or below 100% combined (${WEIGHT_CAP - others}% left).`,
+        };
+      }
+    }
+  }
   if (d.incentiveEnabled !== undefined) patch.incentiveEnabled = d.incentiveEnabled;
   if (d.incentiveAmount !== undefined) patch.incentiveAmount = money(d.incentiveAmount);
   if (d.incentiveKind !== undefined) patch.incentiveKind = d.incentiveKind ?? null;
@@ -2171,17 +2202,26 @@ export async function addGoalLookup(
   const parsed = AddLookupSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
   const { kind, value } = parsed.data;
+  const v = value.trim();
 
-  // Already a base or custom option → treat as success (idempotent), no dup row.
-  if (await goalLookupExists(kind, value)) {
-    return { ok: true, options: await listGoalLookups() };
+  // If a row already exists (case-insensitive), reactivate it — this also
+  // UN-HIDES a base option an admin removed earlier. An already-active base with
+  // no row is a no-op; otherwise insert the new custom option.
+  const [existing] = await db
+    .select({ id: goalLookups.id, active: goalLookups.active })
+    .from(goalLookups)
+    .where(and(eq(goalLookups.kind, kind), sql`lower(${goalLookups.value}) = ${v.toLowerCase()}`))
+    .limit(1);
+  if (existing) {
+    if (!existing.active) await db.update(goalLookups).set({ active: true }).where(eq(goalLookups.id, existing.id));
+  } else if (!isBaseGoalLookup(kind, v)) {
+    try {
+      await db.insert(goalLookups).values({ kind, value: v, createdById: me.id });
+    } catch {
+      // Race — fine, fall through.
+    }
   }
-
-  try {
-    await db.insert(goalLookups).values({ kind, value, createdById: me.id });
-  } catch {
-    // Unique-index race (someone added the same value) — fine, fall through.
-  }
+  void goalLookupExists;
   revalidateGoals();
   return { ok: true, options: await listGoalLookups() };
 }
@@ -2191,7 +2231,9 @@ const RemoveLookupSchema = z.object({
   value: z.string().trim().min(1).max(60),
 });
 
-/** Soft-delete an admin-added option. BASE options can't be removed. */
+/** Remove an option. An admin-added one is soft-deleted; a BUILT-IN one is
+ *  HIDDEN via an inactive marker row (the value keeps working on existing goals
+ *  but leaves the picker). Admins-only. Re-add un-hides it. */
 export async function removeGoalLookup(
   input: z.infer<typeof RemoveLookupSchema>,
 ): Promise<ActionResult<{ options: GoalLookupOptions }>> {
@@ -2202,14 +2244,19 @@ export async function removeGoalLookup(
   const parsed = RemoveLookupSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
   const { kind, value } = parsed.data;
+  const v = value.trim();
 
-  if (isBaseGoalLookup(kind, value)) {
-    return { ok: false, error: "Built-in options can't be removed." };
+  const [existing] = await db
+    .select({ id: goalLookups.id })
+    .from(goalLookups)
+    .where(and(eq(goalLookups.kind, kind), sql`lower(${goalLookups.value}) = ${v.toLowerCase()}`))
+    .limit(1);
+  if (existing) {
+    await db.update(goalLookups).set({ active: false }).where(eq(goalLookups.id, existing.id));
+  } else if (isBaseGoalLookup(kind, v)) {
+    // Built-in with no row yet → insert an inactive "hidden" marker.
+    await db.insert(goalLookups).values({ kind, value: v, active: false, createdById: me.id });
   }
-  await db
-    .update(goalLookups)
-    .set({ active: false })
-    .where(and(eq(goalLookups.kind, kind), eq(goalLookups.value, value)));
   revalidateGoals();
   return { ok: true, options: await listGoalLookups() };
 }

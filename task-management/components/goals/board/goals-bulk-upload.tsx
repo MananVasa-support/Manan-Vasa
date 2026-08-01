@@ -90,7 +90,8 @@ interface Row {
   area: string | null;
   title: string;
   uom: string | null;
-  weight: number;
+  /** Explicit weight, or null = auto-distribute the bucket's remaining ≤100%. */
+  weight: number | null;
   target: string | null;
   actual: string | null;
   category: string | null;
@@ -121,7 +122,7 @@ function evaluate(rows: Row[], existing: Set<string>): Row[] {
   return rows.map((r) => {
     const errors: string[] = [];
     if (!r.title.trim()) errors.push("Goal is required");
-    if (r.weight < 0 || r.weight > 1000) errors.push("Weight must be 0–1000");
+    if (r.weight != null && (r.weight < 0 || r.weight > 1000)) errors.push("Weight must be 0–1000");
 
     const key = norm(r.title);
     let dup: Dup = null;
@@ -350,7 +351,7 @@ export function GoalsBulkUpload(props: Props) {
         area: r.area,
         title: r.title,
         uom: r.uom,
-        weight: r.weight,
+        weight: r.weight ?? undefined,
         targetQty: r.target,
         actualQty: r.actual,
         category: r.category,
@@ -624,7 +625,7 @@ export function GoalsBulkUpload(props: Props) {
                                 <td className="px-2.5 py-2 align-top tabular-nums text-ink-soft">{r.actual ?? "—"}</td>
                                 <td className="px-2.5 py-2 align-top tabular-nums text-ink-soft">{r.target ?? "—"}</td>
                                 <td className="px-2.5 py-2 align-top text-ink-soft">{r.category ?? "—"}</td>
-                                <td className="px-2.5 py-2 align-top tabular-nums text-ink-soft">{r.weight < 0 ? "—" : r.weight}</td>
+                                <td className="px-2.5 py-2 align-top tabular-nums text-ink-soft">{r.weight == null ? "auto" : r.weight < 0 ? "—" : r.weight}</td>
                                 <td className="px-2.5 py-2 align-top">
                                   {isDup ? (
                                     <span

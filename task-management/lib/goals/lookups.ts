@@ -58,24 +58,28 @@ export interface GoalLookupOptions {
   custom: { areas: string[]; measures: string[]; types: string[]; goaltypes: string[] };
 }
 
-/** Base options + active admin-added extras, merged. ONE indexed select. */
+/** Base options + active admin-added extras, merged, minus HIDDEN base options
+ *  (a base an admin deleted is stored as an inactive row and filtered out). */
 export async function listGoalLookups(): Promise<GoalLookupOptions> {
   const rows = await db
-    .select({ kind: goalLookups.kind, value: goalLookups.value })
+    .select({ kind: goalLookups.kind, value: goalLookups.value, active: goalLookups.active })
     .from(goalLookups)
-    .where(eq(goalLookups.active, true))
     .orderBy(asc(goalLookups.sortOrder), asc(goalLookups.value));
 
-  const customAreas = rows.filter((r) => r.kind === "area").map((r) => r.value);
-  const customMeasures = rows.filter((r) => r.kind === "measure").map((r) => r.value);
-  const customTypes = rows.filter((r) => r.kind === "type").map((r) => r.value);
-  const customGoaltypes = rows.filter((r) => r.kind === "goaltype").map((r) => r.value);
+  const activeOf = (kind: GoalLookupKind) => rows.filter((r) => r.kind === kind && r.active).map((r) => r.value);
+  const hiddenOf = (kind: GoalLookupKind) => new Set(rows.filter((r) => r.kind === kind && !r.active).map((r) => r.value.toLowerCase()));
+  const visibleBase = (base: readonly string[], hidden: Set<string>) => base.filter((b) => !hidden.has(b.toLowerCase()));
+
+  const customAreas = activeOf("area");
+  const customMeasures = activeOf("measure");
+  const customTypes = activeOf("type");
+  const customGoaltypes = activeOf("goaltype");
 
   return {
-    areas: mergeUnique(BASE_AREAS, customAreas),
-    measures: mergeUnique(BASE_MEASURES, customMeasures),
-    types: mergeUnique(BASE_TYPES, customTypes),
-    goaltypes: mergeUnique(BASE_GOALTYPES, customGoaltypes),
+    areas: mergeUnique(visibleBase(BASE_AREAS, hiddenOf("area")), customAreas),
+    measures: mergeUnique(visibleBase(BASE_MEASURES, hiddenOf("measure")), customMeasures),
+    types: mergeUnique(visibleBase(BASE_TYPES, hiddenOf("type")), customTypes),
+    goaltypes: mergeUnique(visibleBase(BASE_GOALTYPES, hiddenOf("goaltype")), customGoaltypes),
     custom: { areas: customAreas, measures: customMeasures, types: customTypes, goaltypes: customGoaltypes },
   };
 }

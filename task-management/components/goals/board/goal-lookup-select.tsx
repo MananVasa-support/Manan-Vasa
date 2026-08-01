@@ -92,7 +92,10 @@ export function GoalLookupSelect({
       const seed = triggerRef.current?.getAttribute("data-grid-seed") ?? "";
       triggerRef.current?.removeAttribute("data-grid-seed");
       setQuery(seed);
-      setActive(0);
+      // Start the highlight on the currently-selected option (not always the
+      // first) so nothing looks "stuck" highlighted when the panel opens.
+      const sel = seed ? 0 : Math.max(0, opts.findIndex((o) => o.toLowerCase() === safeValue.toLowerCase()));
+      setActive(sel);
       requestAnimationFrame(() => searchRef.current?.focus());
     }
   }, [open]);
@@ -263,7 +266,11 @@ export function GoalLookupSelect({
           {filtered.map((o, i) => {
             const isSel = String(o ?? "").toLowerCase() === safeValue.toLowerCase();
             const isActive = i === active;
-            const canDelete = isAdmin && deletableSet.has(o.toLowerCase());
+            // Admins can delete ANY option: an admin-added one is removed; a
+            // built-in one is HIDDEN (server-side), so the value keeps working on
+            // existing goals but disappears from the picker. (mig 0148 + hide.)
+            const canDelete = isAdmin;
+            void deletableSet;
             return (
               <div
                 key={o}
@@ -285,7 +292,6 @@ export function GoalLookupSelect({
                   role="option"
                   aria-selected={isActive}
                   tabIndex={-1}
-                  onMouseEnter={() => setActive(i)}
                   onClick={() => {
                     onChange(o);
                     setOpen(false);
