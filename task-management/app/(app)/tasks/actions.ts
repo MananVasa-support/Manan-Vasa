@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { afterResponse } from "@/lib/after";
@@ -822,6 +823,82 @@ export async function createTask(input: CreateTaskInput): Promise<
 
   revalidateTaskRoutes();
   return result;
+}
+
+/* ------------------------------------------------------------------ */
+/* Bulk create — the in-app Excel grid / paste importer (mirrors the   */
+/* Goals bulkCreateGoals). Each row may name several doers → one task  */
+/* per doer (fan-out via createTasksCore). All rows are already parsed  */
+/* + reviewed on the client; here we re-validate and insert.           */
+/* ------------------------------------------------------------------ */
+
+const uuidStr = z.string().uuid("Must be a UUID");
+
+const BulkTaskRowSchema = z.object({
+  title: z.string().trim().min(1, "Client name is required").max(240),
+  subject: z.string().trim().max(120).nullish(),
+  description: z.string().trim().max(8000).nullish(),
+  priority: z.enum(TASK_PRIORITIES),
+  /** ISO-8601 datetime (the grid sends the picked date at noon UTC). */
+  dueAt: z.string().datetime("Due date is required"),
+  doerIds: z.array(uuidStr).min(1, "Pick at least one Doer").max(50),
+  initiatorId: uuidStr,
+});
+
+const BulkCreateTasksSchema = z.object({
+  rows: z.array(BulkTaskRowSchema).min(1, "Add at least one task").max(200),
+});
+
+export type BulkTaskRowInput = z.input<typeof BulkTaskRowSchema>;
+
+/**
+ * Create many tasks at once from the in-app bulk grid / pasted rows. Applies the
+ * same gate + rate limit as the single create, then fans each row out through
+ * the shared `createTasksCore` (so short-id, audit, notifications and calendar
+ * sync all stay identical). Partial success is reported: `created` = total tasks
+ * inserted (a row with N doers counts N), `failed` carries per-row messages.
+ */
+export async function bulkCreateTasks(
+  input: z.input<typeof BulkCreateTasksSchema>,
+): Promise<
+  | { ok: true; created: number; rows: number; failed: string[] }
+  | { ok: false; error: string }
+> {
+  const me = await requireUser();
+  // Same defense-in-depth weekly-goals gate as the single create.
+  await requireWeeklyGoalsFilled(me);
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const parsed = BulkCreateTasksSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  let created = 0;
+  const failed: string[] = [];
+  for (const [i, r] of parsed.data.rows.entries()) {
+    const res = await createTasksCore(
+      { id: me.id, name: me.name },
+      {
+        title: r.title,
+        subject: r.subject ?? null,
+        description: r.description ?? null,
+        doerIds: r.doerIds,
+        initiatorId: r.initiatorId,
+        priority: r.priority,
+        dueAt: r.dueAt,
+      },
+    );
+    if (res.ok) created += res.ids.length;
+    else failed.push(`Row ${i + 1}: ${res.error}`);
+  }
+
+  revalidateTaskRoutes();
+  if (created === 0) {
+    return { ok: false, error: failed[0] ?? "No tasks were created." };
+  }
+  return { ok: true, created, rows: parsed.data.rows.length, failed };
 }
 
 /**

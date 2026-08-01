@@ -14,7 +14,6 @@
  */
 
 import * as React from "react";
-import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
@@ -242,6 +241,7 @@ function TextCell({
   ariaLabel,
   placeholder,
   className,
+  multiline,
 }: {
   value: string;
   onCommit: (v: string) => void;
@@ -249,9 +249,25 @@ function TextCell({
   ariaLabel: string;
   placeholder?: string;
   className?: string;
+  /** When true, render a wrapping, auto-growing textarea so the FULL goal text
+   *  is always visible (no truncation). Enter still commits; the text wraps on
+   *  its own — no manual newlines needed. */
+  multiline?: boolean;
 }) {
   const [draft, setDraft] = React.useState(value);
   React.useEffect(() => setDraft(value), [value]);
+
+  const taRef = React.useRef<HTMLTextAreaElement | null>(null);
+  // Auto-grow: match the textarea height to its content on every change/mount.
+  const autoGrow = React.useCallback(() => {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+  React.useEffect(() => {
+    if (multiline) autoGrow();
+  }, [multiline, draft, autoGrow]);
 
   function commit() {
     const v = draft.trim();
@@ -259,15 +275,48 @@ function TextCell({
     onCommit(v);
   }
 
+  const shared = {
+    value: draft,
+    disabled,
+    "aria-label": ariaLabel,
+    placeholder,
+    onBlur: commit,
+    style: { borderColor: "var(--color-hairline-strong)" },
+  } as const;
+
+  if (multiline) {
+    return (
+      <textarea
+        {...shared}
+        ref={taRef}
+        rows={1}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          // Enter commits (like the single-line cell); Shift+Enter is ignored so
+          // the value stays a clean single logical line that simply wraps.
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+            (e.target as HTMLTextAreaElement).blur();
+          } else if (e.key === "Escape") {
+            setDraft(value);
+            (e.target as HTMLTextAreaElement).blur();
+          }
+        }}
+        className={cn(
+          "w-full resize-none overflow-hidden rounded-md border bg-white px-2 py-1 text-[14px] font-bold leading-snug text-ink-strong focus:border-altus-red disabled:opacity-60",
+          FOCUS_RING,
+          className,
+        )}
+      />
+    );
+  }
+
   return (
     <input
+      {...shared}
       type="text"
-      value={draft}
-      disabled={disabled}
-      aria-label={ariaLabel}
-      placeholder={placeholder}
       onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           e.preventDefault();
@@ -283,67 +332,7 @@ function TextCell({
         FOCUS_RING,
         className,
       )}
-      style={{ borderColor: "var(--color-hairline-strong)" }}
     />
-  );
-}
-
-/** Delayed hover-preview for a Goal title. On a small MacBook the inline cell
- *  truncates the full text; hovering the cell for ~650ms floats a readable card
- *  with the complete goal (portaled to <body> so the grid never clips it, and
- *  pointer-events-none so it never blocks a click). The delay is deliberate — it
- *  reads as intentional, not a twitchy instant tooltip — and it hides the moment
- *  you click in to edit or move the mouse away. Only arms for text long enough to
- *  plausibly clip (short titles show fully already, so no peek needed). */
-function GoalPeek({ text, children }: { text: string; children: React.ReactNode }) {
-  const [box, setBox] = React.useState<{ top: number; left: number; width: number } | null>(null);
-  const ref = React.useRef<HTMLDivElement>(null);
-  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const arm = text.trim().length > 22;
-
-  const clear = React.useCallback(() => {
-    if (timer.current) {
-      clearTimeout(timer.current);
-      timer.current = null;
-    }
-  }, []);
-  React.useEffect(() => clear, [clear]);
-
-  function schedule() {
-    if (!arm) return;
-    clear();
-    timer.current = setTimeout(() => {
-      const el = ref.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      setBox({ top: r.bottom + 6, left: r.left, width: r.width });
-    }, 650);
-  }
-  function hide() {
-    clear();
-    setBox(null);
-  }
-
-  return (
-    <div ref={ref} onMouseEnter={schedule} onMouseLeave={hide} onFocusCapture={hide}>
-      {children}
-      {box &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            role="tooltip"
-            className="wg-fade-in pointer-events-none fixed z-[9999] rounded-xl border border-hairline-strong bg-white px-3.5 py-2.5 text-[13.5px] font-semibold leading-snug text-ink-strong shadow-xl"
-            style={{
-              top: box.top,
-              left: Math.min(box.left, (typeof window !== "undefined" ? window.innerWidth : 1200) - 380),
-              width: Math.min(Math.max(box.width, 260), 360),
-            }}
-          >
-            {text}
-          </div>,
-          document.body,
-        )}
-    </div>
   );
 }
 
@@ -2437,7 +2426,7 @@ export function GoalTableView(props: GoalTableViewProps) {
               </th>
               <th className={cn(TH, "w-px text-center")}>#</th>
               <th className={cn(TH, "min-w-[104px] text-center")}>Area</th>
-              <th className={cn(TH, "min-w-[150px]")}>Goal</th>
+              <th className={cn(TH, "min-w-[280px]")}>Goal</th>
               <th className={cn(TH, "min-w-[104px] text-center")}>Measure</th>
               <th className={cn(TH, "text-center")}>Actual</th>
               <th className={cn(TH, "text-center")}>Target</th>
@@ -2445,6 +2434,9 @@ export function GoalTableView(props: GoalTableViewProps) {
               <th className={cn(TH, "w-[60px] text-center")}>Team %</th>
               <th className={cn(TH, "w-[64px] text-center")}>Weight</th>
               <th className={cn(TH, "min-w-[150px]")}>Delegated</th>
+              {(level === "month" || level === "week") && (
+                <th className={cn(TH, "min-w-[132px] text-center")}>Target Date</th>
+              )}
               <th className={cn(TH, "min-w-[104px] text-center")}>Type</th>
             </tr>
           </thead>
@@ -2506,32 +2498,23 @@ export function GoalTableView(props: GoalTableViewProps) {
                   </td>
 
                   {/* Goal title (inline in BOTH engines now) + Notes/Files expander */}
-                  <td {...grid.cellProps(i, grid.ci("title"), "px-2.5 py-4 align-middle")}>
-                    <GoalPeek text={g.title}>
-                      <TextCell
-                        value={g.title}
-                        disabled={locked}
-                        ariaLabel="Goal title"
-                        placeholder="Goal…"
-                        // Title is required — the "title" column's parse rejects a blank
-                        // commit (returns null), so the row is never left without a name.
-                        onCommit={(v) => grid.commit("title", g, v)}
-                      />
-                    </GoalPeek>
+                  <td {...grid.cellProps(i, grid.ci("title"), "px-2.5 py-4 align-top")}>
+                    {/* Multiline so the FULL goal is always visible — the cell wraps
+                        and auto-grows instead of truncating (no hover-peek needed). */}
+                    <TextCell
+                      multiline
+                      value={g.title}
+                      disabled={locked}
+                      ariaLabel="Goal title"
+                      placeholder="Goal…"
+                      // Title is required — the "title" column's parse rejects a blank
+                      // commit (returns null), so the row is never left without a name.
+                      onCommit={(v) => grid.commit("title", g, v)}
+                    />
                     {/* Notes stay inline-editable in the expandable detail row below
                         (a textarea + attachments that commits via editGoal({notes})
-                        through patchNotes) — no separate Notes column needed. */}
-                    {/* Target date — month goals (editable) + week goals (chip); never year/quarter. */}
-                    {(level === "month" || level === "week") && (
-                      <TargetDateInline
-                        iso={g.targetDate}
-                        editable={level === "month" && !weekly}
-                        disabled={locked}
-                        onCommit={(v) =>
-                          editField(g.id, { targetDate: v }, () => A.editGoal({ id: g.id, targetDate: v }))
-                        }
-                      />
-                    )}
+                        through patchNotes) — no separate Notes column needed. The
+                        Target Date moved out to its own column (after Delegated). */}
                     <button
                       type="button"
                       onClick={() => toggleExpand(g.id)}
@@ -2671,6 +2654,21 @@ export function GoalTableView(props: GoalTableViewProps) {
                     />
                   </td>
 
+                  {/* Target Date — moved out of the Goal cell into its own column.
+                      Month goals are editable; week goals show a read-only chip. */}
+                  {(level === "month" || level === "week") && (
+                    <td className="px-2 py-4 align-middle text-center">
+                      <TargetDateInline
+                        iso={g.targetDate}
+                        editable={level === "month" && !weekly}
+                        disabled={locked}
+                        onCommit={(v) =>
+                          editField(g.id, { targetDate: v }, () => A.editGoal({ id: g.id, targetDate: v }))
+                        }
+                      />
+                    </td>
+                  )}
+
                   {/* Type — fixed Goal Type taxonomy (goalType), not free-text category */}
                   <td {...grid.cellProps(i, grid.ci("type"), "px-2 py-4 align-middle text-center")}>
                     <div className={cn(locked && "pointer-events-none opacity-60")}>
@@ -2696,7 +2694,7 @@ export function GoalTableView(props: GoalTableViewProps) {
                     goalId={g.id}
                     notes={g.notes}
                     canWrite={!locked}
-                    colSpan={13}
+                    colSpan={level === "month" || level === "week" ? 13 : 12}
                     nodeKind={detailKind}
                     assignment={assignmentInfo(g)}
                     onSaveNotes={(n) => patchNotes(g.id, n)}

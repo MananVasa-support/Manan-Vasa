@@ -31,6 +31,11 @@ export function sectionStatus(section: EvalSection, inst: EvaluationInstance, ct
     const done = inst.recommendation != null;
     return { rated: done ? 1 : 0, total: 1, done, skipped: false };
   }
+  if (section.input === "sellgate") {
+    // The "Responsibility to Sell?" gate is complete once answered Yes/No.
+    const answered = inst.gates?.[section.id] != null;
+    return { rated: answered ? 1 : 0, total: 1, done: answered, skipped: false };
+  }
   // rating / gate
   const applicable = isSectionApplicable(section, inst, ctx);
   const ids = sectionItemIds(section);

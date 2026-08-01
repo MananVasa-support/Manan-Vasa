@@ -43,14 +43,13 @@ export function scoreBand(score: number | null): { tone: string; label: string }
 }
 
 /* ------------------------------------------------------------------ */
-/* Base Expectations                                                   */
+/* Base ("who they are") — Character (D) + Professional Presence (C)    */
 /* ------------------------------------------------------------------ */
 
 export const BASE_IDS = [
-  "base-culture-fit", "base-honesty", "base-integrity", "base-family-bg",
-  "base-family-values", "base-listening", "base-retention", "base-articulation",
-  "base-verbal-english", "base-written-english", "base-explain",
-  "base-presence-of-mind", "base-grooming", "base-hygiene", "base-not-opportunistic",
+  "chr-honesty", "chr-integrity", "chr-family-values", "chr-manners", "chr-humility",
+  "chr-positive-attitude", "chr-loyalty", "chr-long-term", "chr-not-opportunistic", "chr-selfless",
+  "prs-grooming", "prs-hygiene", "prs-confidence-speaking", "prs-presence-of-mind", "prs-customer-facing",
 ];
 
 /** % of RATED base params scoring ≥ 7 (strength) / ≤ 4 (weakness). 0..100. */
@@ -82,41 +81,45 @@ export function baseComposite(inst: EvaluationInstance): BaseComposite {
 }
 
 /* ------------------------------------------------------------------ */
-/* Important Drivers → 5 composites + overall                          */
+/* Drivers → 5 composites + overall (roll-ups over F · G · H · E)       */
 /* ------------------------------------------------------------------ */
 
+/** The "performance drivers" pool — Mindset (F) + Execution (G) + Get-Things-Done (H). */
 export const DRIVER_IDS = [
-  "drv-common-sense", "drv-growth-mindset", "drv-self-confidence", "drv-self-esteem",
-  "drv-humility", "drv-passion", "drv-temperament", "drv-relevant-experience",
-  "drv-work-speed", "drv-flexibility", "drv-manners", "drv-ownership",
-  "drv-independence", "drv-take-pressure", "drv-convince", "drv-positive-attitude",
-  "drv-work-under-pressure", "drv-delegate", "drv-getwork-external",
-  "drv-getwork-subordinates", "drv-getwork-managers", "drv-knowledge-sharing",
-  "drv-problem-solving", "drv-hunger-to-learn", "drv-think", "drv-execute",
-  "drv-creativity", "drv-long-term", "drv-loyalty",
+  // F · Mindset
+  "mnd-common-sense", "mnd-think", "mnd-grasping", "mnd-presence-of-mind",
+  "mnd-hunger-to-learn", "mnd-growth-mindset", "mnd-passion", "mnd-sensitive-feedback",
+  "mnd-maturity", "mnd-self-confidence", "mnd-self-esteem", "mnd-intuition",
+  // G · Execution
+  "exe-problem-solving", "exe-solution-orientation", "exe-problem-solving-ability",
+  "exe-out-of-box", "exe-strategic-thinking", "exe-execute", "exe-common-sense",
+  "exe-work-speed", "exe-ownership", "exe-work-independently", "exe-initiative",
+  "exe-temperament", "exe-under-pressure", "exe-handles-rejection", "exe-takes-feedback",
+  // H · Get Things Done
+  "gtd-convince", "gtd-external", "gtd-peers", "gtd-managers", "gtd-subordinates", "gtd-delegate",
 ];
 
 export const LEADERSHIP_IDS = [
-  "drv-delegate", "drv-getwork-subordinates", "drv-getwork-external",
-  "drv-getwork-managers", "drv-convince", "drv-ownership", "drv-independence",
+  "gtd-convince", "gtd-delegate", "gtd-external", "gtd-managers", "gtd-subordinates",
+  "cul-ownership", "cul-responsibility", "exp-manager-material",
 ];
 export const EXECUTION_IDS = [
-  "drv-work-speed", "drv-execute", "drv-problem-solving", "drv-take-pressure",
-  "drv-work-under-pressure", "drv-ownership",
+  "exe-work-speed", "exe-execute", "exe-problem-solving", "exe-problem-solving-ability",
+  "exe-under-pressure", "exe-initiative", "exe-work-independently", "exe-ownership",
 ];
 export const LEARNING_IDS = [
-  "drv-growth-mindset", "drv-hunger-to-learn", "drv-think", "drv-creativity",
-  "drv-common-sense", "drv-knowledge-sharing",
+  "mnd-growth-mindset", "mnd-hunger-to-learn", "mnd-think", "mnd-grasping",
+  "mnd-common-sense", "mnd-sensitive-feedback", "exe-out-of-box", "exe-strategic-thinking",
 ];
-/** Communication draws from Drivers + the Base language/listening params. */
+/** Communication draws from the Communication section (B) + Presence confidence. */
 export const COMMUNICATION_IDS = [
-  "drv-convince", "drv-manners", "drv-knowledge-sharing",
-  "base-articulation", "base-verbal-english", "base-written-english",
-  "base-explain", "base-listening",
+  "com-listen", "com-retain", "com-articulation", "com-explain",
+  "com-verbal-english", "com-written-english", "com-reserved-outspoken",
+  "com-under-over", "prs-confidence-speaking",
 ];
 export const OWNERSHIP_IDS = [
-  "drv-ownership", "drv-loyalty", "drv-long-term", "drv-positive-attitude",
-  "drv-passion", "drv-independence",
+  "cul-ownership", "cul-responsibility", "chr-loyalty", "chr-long-term",
+  "mnd-passion", "exe-ownership", "exe-initiative",
 ];
 
 export interface DriverComposite {
@@ -145,10 +148,10 @@ export function driverComposite(inst: EvaluationInstance): DriverComposite {
 
 export const TECH_IDS = [
   "tech-typing", "tech-gdrive", "tech-gsheet", "tech-excel-basic", "tech-excel-adv",
-  "tech-ppt", "tech-chatgpt", "tech-claude", "tech-canva", "tech-video", "tech-digital-mktg",
+  "tech-ppt", "tech-chatgpt", "tech-claude", "tech-canva", "tech-video", "tech-digital-mktg", "tech-drafting",
 ];
 export const DIGITAL_LITERACY_IDS = [
-  "tech-gdrive", "tech-gsheet", "tech-excel-basic", "tech-excel-adv", "tech-ppt", "tech-typing",
+  "tech-gdrive", "tech-gsheet", "tech-excel-basic", "tech-excel-adv", "tech-ppt", "tech-typing", "tech-drafting",
 ];
 export const AI_READINESS_IDS = ["tech-chatgpt", "tech-claude"];
 
@@ -171,14 +174,14 @@ export function technicalComposite(inst: EvaluationInstance): TechnicalComposite
 /* ------------------------------------------------------------------ */
 
 export const CUSTOMER_IDS = [
-  "cf-confidence", "cf-communication", "cf-professionalism",
-  "cf-presentation", "cf-listening", "cf-handling-questions",
+  "prs-customer-facing", "prs-confidence-speaking",
+  "com-articulation", "com-explain", "com-listen",
 ];
 export const SALES_IDS = [
-  "sales-call-200", "sales-meetings-5", "sales-convince", "sales-influence",
-  "sales-explain", "sales-collect-money", "sales-persuasion", "sales-references",
-  "sales-verbal-presentation", "sales-demeanour", "sales-rejections",
-  "sales-justify-settle", "sales-stuck-reasons", "sales-creativity",
+  "sl-call", "sl-visit", "sl-references", "sl-persuasion", "sl-convince",
+  "sl-collect-money", "sl-customer-explanation", "sl-presentation", "sl-demeanour",
+  "sl-money-collection", "sl-negotiation", "sl-influence", "sl-handles-rejection",
+  "sl-justify-settle", "sl-not-stuck", "sl-creativity", "sl-closing-instinct",
 ];
 
 /* ------------------------------------------------------------------ */
@@ -221,12 +224,20 @@ export function computeComposites(
   const salesReadiness = avgOf(SALES_IDS, inst);
   const overall = overallScore(inst, profile, ctx);
 
-  // Behavioural = Base average blended with the behavioural drivers.
+  // Behavioural = Character/Presence base blended with temperament + maturity.
   const behavioural = avgOf(
-    [...BASE_IDS, "drv-temperament", "drv-humility", "drv-positive-attitude", "drv-manners"],
+    [...BASE_IDS, "exe-temperament", "mnd-maturity", "mnd-self-confidence"],
     inst,
   );
-  const cultureFit = avgOf(["base-culture-fit", "base-family-values", "drv-loyalty", "drv-long-term"], inst);
+  // Culture fit = the Culture (E) section + family values + loyalty.
+  const cultureFit = avgOf(
+    [
+      "cul-customer-centric", "cul-company-centric", "cul-team-centric", "cul-ownership",
+      "cul-responsibility", "cul-knowledge-sharing", "cul-flexibility", "cul-altus-fit",
+      "chr-family-values", "chr-loyalty",
+    ],
+    inst,
+  );
 
   const scorecard: CompositeScore[] = [
     { key: "behavioural", label: "Behavioural", score: behavioural, tone: scoreBand(behavioural).tone },

@@ -2,15 +2,18 @@
  * CANDIDATE EVALUATION v2 — the declarative instrument definition.
  *
  * The single, PURE, CLIENT-SAFE source of truth for the structured candidate
- * evaluation ("Interview Intelligence Platform"). Eight sections across three
- * buckets, each with a defined input type. No server imports — the client
+ * evaluation ("Interview Intelligence Platform"). Fourteen sections (A–N) across
+ * three buckets, each with a defined input type. No server imports — the client
  * screens, the scoring core, the composite engine and the server actions all
  * read this. Load-neutral.
  *
- * 2026-07-28 — restructured to the 8-section Interview Intelligence spec
- * (Pre-Requisites · Base Expectations · Important Drivers · Technical Skills ·
- * Customer-Facing · Other Factors · Sales · Overall). Section/instance shapes
- * are ADDITIVE-superset of the old A–N model so stored blobs stay readable.
+ * 2026-08-01 — restructured to the A–N "Candidate Evaluation during Interview"
+ * spec: A Eligibility (Yes/No/N-A gate) · B–K weighted 0–10 competency sections
+ * (Communication · Professional Presence · Character · Culture · Mindset ·
+ * Execution · Get-Things-Done · Technical · Experience · X-Factor) · L a Yes/No
+ * "Responsibility to Sell?" gate that skips · M Sales Competency (weighted, only
+ * when L = Yes) · N Overall (recommendation + narrative). The prerequisites /
+ * sales / overall ids are preserved so the scoring gate + stored blobs stay valid.
  */
 
 /* ------------------------------------------------------------------ */
@@ -24,6 +27,7 @@ export type EvalInputKind =
   | "passfail" // Pre-Requisites — Yes / No / N-A rows (deal-breakers)
   | "rating" // 0..10 rows (+ Can't Say + notes, optional confidence)
   | "gate" // a multi-value gate that reveals its own ratings (Customer-Facing)
+  | "sellgate" // a Yes/No gate whose "No" SKIPS the following Sales section (L → M)
   | "overall"; // Overall — recommendation + manual gut 0..10
 
 export interface EvalItem {
@@ -111,229 +115,347 @@ export const gl = (label: string, weight: number, items: [string, string][]): Ev
   weight,
   items: items.map(([id, label]) => ({ id, label })),
 });
+/** Named sub-group, flat (no relative weight) — for a heading-only sub-section. */
+const gn = (label: string, items: [string, string][]): EvalGroup => ({
+  label,
+  items: items.map(([id, label]) => ({ id, label })),
+});
 
 /* ------------------------------------------------------------------ */
-/* The 8 sections                                                      */
+/* The A–N sections                                                    */
 /* ------------------------------------------------------------------ */
 
 export const EVAL_SECTIONS: EvalSection[] = [
-  /* ── 1 · Pre-Requisite Checklist (Pre-Requisites) ───────────────── */
+  /* ── A · Eligibility / Non-Negotiables (Pass / Fail) ────────────── */
   {
     id: "prerequisites",
-    code: "1",
-    title: "Pre-Requisite Confirmation",
+    code: "A",
+    title: "Eligibility / Non-Negotiables",
     bucket: "prerequisites",
     input: "passfail",
-    note: "Confirm each with the candidate. A critical ‘No’ (without a recorded exception) flags them for review.",
+    note: "Confirm each with the candidate — Yes / No / N-A. A critical ‘No’ (without a recorded exception) flags them for review. Notes can be dictated.",
     groups: [
       gc([
-        ["prereq-travel", "Travel Comfort", true],
-        ["prereq-6days", "6 Days Working", true],
-        ["prereq-timing", "10:30 AM – 7:30 PM", true],
-        ["prereq-late", "Late Sitting till 8:30 PM (Twice Weekly)", false],
-        ["prereq-sunday", "One Sunday Per Month", false],
-        ["prereq-probation", "6 Months Probation", true],
-        ["prereq-leave", "7 Days Paid Leave", false],
-        ["prereq-training", "15 Days Pre-Employment Training", true],
-        ["prereq-nonveg", "No Non-Veg Allowed", false],
-        ["prereq-policies", "Policies to Sign", false],
-        ["prereq-ctc", "CTC Only (No PF / Insurance)", true],
-        ["prereq-travel-ctc", "Travel Included in CTC", false],
-        ["prereq-attendance", "Attendance Policy Accepted", true],
-        ["prereq-nowfh", "No Work From Home", true],
-        ["prereq-smallfirm", "Comfortable Working in Small Firm", false],
-        ["prereq-salary10", "Salary Credited on 10th", false],
+        ["prq-policy-acceptance", "Company Policy Acceptance", true],
+        ["prq-travel", "Travel Comfort", true],
+        ["prq-6days", "6 Days Working", true],
+        ["prq-timing", "10:30 – 7:30 Timing", true],
+        ["prq-late", "Late Sitting", false],
+        ["prq-sunday", "Sunday Working (Occasional)", false],
+        ["prq-probation", "6 Months Probation", true],
+        ["prq-leave", "7 Days Leave", false],
+        ["prq-training", "15 Days Training", true],
+        ["prq-nowfh", "No WFH", true],
+        ["prq-smallfirm", "Small Firm Comfort", false],
+        ["prq-salary10", "Salary on 10th", false],
+        ["prq-attendance", "Attendance Policy", true],
+        ["prq-nonveg", "No Non-Veg", false],
+        ["prq-policies-sign", "Policies to Sign", false],
+        ["prq-ctc", "CTC Structure (No PF / Insurance)", true],
       ]),
     ],
   },
 
-  /* ── 2 · Base Expectations (Evaluations) ────────────────────────── */
+  /* ── B · Communication (Evaluations) ────────────────────────────── */
   {
-    id: "base",
-    code: "2",
-    title: "Base Expectations",
+    id: "communication",
+    code: "B",
+    title: "Communication",
     bucket: "evaluations",
     input: "rating",
-    weight: 20,
+    weight: 12,
+    note: "Rate 0–10 (or ‘Can’t Say’). Notes can be dictated.",
+    groups: [
+      g([
+        ["com-listen", "Ability to Listen"],
+        ["com-retain", "Ability to Retain"],
+        ["com-articulation", "Articulation"],
+        ["com-explain", "Ability to Explain"],
+        ["com-verbal-english", "Verbal English"],
+        ["com-written-english", "Written English"],
+        ["com-reserved-outspoken", "Reserved vs Outspoken (Mindha)"],
+        ["com-under-over", "Under vs Over Communication"],
+      ]),
+    ],
+  },
+
+  /* ── C · Professional Presence (Evaluations) ────────────────────── */
+  {
+    id: "presence",
+    code: "C",
+    title: "Professional Presence",
+    bucket: "evaluations",
+    input: "rating",
+    weight: 8,
+    note: "Rate 0–10 each.",
+    groups: [
+      g([
+        ["prs-grooming", "Grooming"],
+        ["prs-hygiene", "Personal Hygiene"],
+        ["prs-confidence-speaking", "Confidence while Speaking"],
+        ["prs-presence-of-mind", "Lost vs Presence of Mind"],
+        ["prs-customer-facing", "Customer Facing Ability"],
+      ]),
+    ],
+  },
+
+  /* ── D · Character Fit (Evaluations) ────────────────────────────── */
+  {
+    id: "character",
+    code: "D",
+    title: "Character Fit",
+    bucket: "evaluations",
+    input: "rating",
+    weight: 15,
+    note: "Rate 0–10 each.",
+    groups: [
+      g([
+        ["chr-honesty", "Honesty"],
+        ["chr-integrity", "Integrity"],
+        ["chr-family-values", "Family Values"],
+        ["chr-manners", "Manners"],
+        ["chr-humility", "Humility"],
+        ["chr-positive-attitude", "Positive Attitude"],
+        ["chr-loyalty", "Loyalty"],
+        ["chr-long-term", "Long-term Player"],
+        ["chr-not-opportunistic", "Not Opportunistic"],
+        ["chr-selfless", "Self Centered vs Selfless"],
+      ]),
+    ],
+  },
+
+  /* ── E · Culture Fit (Evaluations) ──────────────────────────────── */
+  {
+    id: "culture",
+    code: "E",
+    title: "Culture Fit",
+    bucket: "evaluations",
+    input: "rating",
+    weight: 12,
+    note: "Rate 0–10 each.",
+    groups: [
+      g([
+        ["cul-customer-centric", "Customer Centric"],
+        ["cul-company-centric", "Company Centric"],
+        ["cul-team-centric", "Team Centric"],
+        ["cul-ownership", "Ownership"],
+        ["cul-responsibility", "Responsibility"],
+        ["cul-knowledge-sharing", "Knowledge Sharing"],
+        ["cul-flexibility", "Stubborn vs Flexibility"],
+        ["cul-altus-fit", "Altus Corp Value & Culture Fit"],
+      ]),
+    ],
+  },
+
+  /* ── F · Thinking, Learning Agility & Mindset (Evaluations) ─────── */
+  {
+    id: "mindset",
+    code: "F",
+    title: "Thinking, Learning Agility & Mindset",
+    bucket: "evaluations",
+    input: "rating",
+    weight: 12,
     hasConfidence: true,
-    note: "Standardised 0–10 for each. Strength / Weakness indices compute automatically.",
+    note: "Rate 0–10 (or ‘Can’t Say’). Notes can be dictated.",
     groups: [
       g([
-        ["base-culture-fit", "Culture Fit"],
-        ["base-honesty", "Honesty"],
-        ["base-integrity", "Integrity"],
-        ["base-family-bg", "Family Background"],
-        ["base-family-values", "Family Values"],
-        ["base-listening", "Listening"],
-        ["base-retention", "Reproduction / Retention"],
-        ["base-articulation", "Articulation"],
-        ["base-verbal-english", "Verbal English"],
-        ["base-written-english", "Written English"],
-        ["base-explain", "Ability to Explain"],
-        ["base-presence-of-mind", "Presence of Mind"],
-        ["base-grooming", "Grooming"],
-        ["base-hygiene", "Personal Hygiene"],
-        ["base-not-opportunistic", "Not Opportunistic"],
+        ["mnd-common-sense", "Common Sense"],
+        ["mnd-think", "Ability to Think"],
+        ["mnd-grasping", "Grasping"],
+        ["mnd-presence-of-mind", "Presence of Mind"],
+        ["mnd-hunger-to-learn", "Hunger to Learn"],
+        ["mnd-growth-mindset", "Growth Mindset"],
+        ["mnd-passion", "Passion"],
+        ["mnd-sensitive-feedback", "Sensitive to Feedback"],
+        ["mnd-maturity", "Maturity"],
+        ["mnd-self-confidence", "Self Confidence"],
+        ["mnd-self-esteem", "Self Esteem"],
+        ["mnd-intuition", "Intuition"],
       ]),
     ],
   },
 
-  /* ── 3 · Important Drivers (Evaluations) ────────────────────────── */
+  /* ── G · Execution Capability (Evaluations) ─────────────────────── */
   {
-    id: "drivers",
-    code: "3",
-    title: "Important Drivers",
+    id: "execution",
+    code: "G",
+    title: "Execution Capability",
     bucket: "evaluations",
     input: "rating",
-    weight: 25,
-    note: "0–10 each. Leadership / Execution / Learning / Communication / Ownership scores roll up automatically.",
+    weight: 15,
+    note: "Rate 0–10 each.",
     groups: [
       g([
-        ["drv-common-sense", "Common Sense"],
-        ["drv-growth-mindset", "Growth Mindset"],
-        ["drv-self-confidence", "Self Confidence"],
-        ["drv-self-esteem", "Self Esteem"],
-        ["drv-humility", "Humility"],
-        ["drv-passion", "Passion"],
-        ["drv-temperament", "Temperament"],
-        ["drv-relevant-experience", "Relevant Experience"],
-        ["drv-work-speed", "Work Speed"],
-        ["drv-flexibility", "Flexibility"],
-        ["drv-manners", "Manners"],
-        ["drv-ownership", "Ownership"],
-        ["drv-independence", "Independence"],
-        ["drv-take-pressure", "Ability to Take Pressure"],
-        ["drv-convince", "Ability to Convince"],
-        ["drv-positive-attitude", "Positive Attitude"],
-        ["drv-work-under-pressure", "Ability to Work Under Pressure"],
-        ["drv-delegate", "Ability to Delegate"],
-        ["drv-getwork-external", "Get Work Done from External People"],
-        ["drv-getwork-subordinates", "Get Work Done from Subordinates"],
-        ["drv-getwork-managers", "Get Work Done from Managers"],
-        ["drv-knowledge-sharing", "Knowledge Sharing"],
-        ["drv-problem-solving", "Problem Solving"],
-        ["drv-hunger-to-learn", "Hunger to Learn"],
-        ["drv-think", "Ability to Think"],
-        ["drv-execute", "Ability to Execute"],
-        ["drv-creativity", "Creativity"],
-        ["drv-long-term", "Long-Term Player"],
-        ["drv-loyalty", "Loyalty"],
+        ["exe-problem-solving", "Problem Solving"],
+        ["exe-solution-orientation", "Solution to Problem or Problem to Solution"],
+        ["exe-problem-solving-ability", "Problem Solving Ability"],
+        ["exe-out-of-box", "Out of the Box Ideas"],
+        ["exe-strategic-thinking", "Strategic Thinking"],
+        ["exe-execute", "Ability to Execute"],
+        ["exe-common-sense", "Common Sense"],
+        ["exe-work-speed", "Work Speed"],
+        ["exe-ownership", "Ownership"],
+        ["exe-work-independently", "Work Independently"],
+        ["exe-initiative", "Takes Initiative"],
+        ["exe-temperament", "Temperament"],
+        ["exe-under-pressure", "Ability to Work Under Pressure"],
+        ["exe-handles-rejection", "Handles Rejection"],
+        ["exe-takes-feedback", "Ability to take Feedback"],
       ]),
     ],
   },
 
-  /* ── 4 · Technical Skills (Mandatory) ───────────────────────────── */
+  /* ── H · Ability to Get Things Done (Evaluations) ───────────────── */
+  {
+    id: "getdone",
+    code: "H",
+    title: "Ability to Get Things Done",
+    bucket: "evaluations",
+    input: "rating",
+    weight: 8,
+    note: "Rate 0–10 each.",
+    groups: [
+      g([
+        ["gtd-convince", "Ability to Convince"],
+        ["gtd-external", "Get Work Done from External People"],
+        ["gtd-peers", "Get Work Done from Peers"],
+        ["gtd-managers", "Get Work Done from Managers"],
+        ["gtd-subordinates", "Get Work Done from Subordinates"],
+        ["gtd-delegate", "Ability to Delegate"],
+      ]),
+    ],
+  },
+
+  /* ── I · Technical Skills (Mandatory) ───────────────────────────── */
   {
     id: "technical",
-    code: "4",
+    code: "I",
     title: "Technical Skills",
     bucket: "mandatory",
     input: "rating",
-    weight: 15,
+    weight: 8,
     hasPracticalTested: true,
-    note: "Proficiency 0–10 + whether you practically tested it. Technical / Digital-Literacy / AI-Readiness compute automatically.",
+    note: "Proficiency 0–10 + whether you practically tested it.",
     groups: [
       g([
         ["tech-typing", "Typing Speed"],
         ["tech-gdrive", "Google Drive"],
-        ["tech-gsheet", "Google Spreadsheet"],
+        ["tech-gsheet", "Google Sheets"],
         ["tech-excel-basic", "Basic Excel"],
         ["tech-excel-adv", "Advanced Excel"],
-        ["tech-ppt", "Basic PowerPoint"],
-        ["tech-chatgpt", "ChatGPT"],
+        ["tech-ppt", "Power Point"],
+        ["tech-chatgpt", "Chat GPT"],
         ["tech-claude", "Claude"],
         ["tech-canva", "Canva"],
         ["tech-video", "Video Editing"],
         ["tech-digital-mktg", "Digital Marketing"],
+        ["tech-drafting", "Drafting Skills"],
       ]),
     ],
   },
 
-  /* ── 5 · Customer-Facing Ability (Evaluations, gated) ───────────── */
+  /* ── J · Experience & Career Fit (Evaluations) ──────────────────── */
   {
-    id: "customer",
-    code: "5",
-    title: "Customer-Facing Ability",
+    id: "experience",
+    code: "J",
+    title: "Experience & Career Fit",
     bucket: "evaluations",
-    input: "gate",
-    weight: 10,
+    input: "rating",
+    weight: 6,
+    note: "Rate 0–10 each.",
+    groups: [
+      g([
+        ["exp-relevant", "Relevant Experience"],
+        ["exp-stability", "Career Stability"],
+        ["exp-long-term-potential", "Long-Term Potential"],
+        ["exp-salary-expectations", "Salary Expectations"],
+        ["exp-fixed-vs-incentive", "Fixed Salary vs Incentive Preference"],
+        ["exp-manager-material", "Manager Material"],
+      ]),
+    ],
+  },
+
+  /* ── K · X-Factor (Evaluations) ─────────────────────────────────── */
+  {
+    id: "xfactor",
+    code: "K",
+    title: "X-Factor",
+    bucket: "evaluations",
+    input: "rating",
+    weight: 4,
+    note: "The intangible edge — rate 0–10.",
+    groups: [
+      g([
+        ["xf-x-factor", "X-Factor"],
+      ]),
+    ],
+  },
+
+  /* ── L · Responsibility to Sell? (Yes/No gate → skips M) ─────────── */
+  {
+    id: "sell",
+    code: "L",
+    title: "Responsibility to Sell?",
+    bucket: "evaluations",
+    input: "sellgate",
+    note: "Does this role carry a sales responsibility? If ‘No’, the Sales Competency section (M) is skipped.",
     gate: {
-      label: "Can Face Customer?",
+      label: "Responsibility to Sell?",
       options: [
         { value: "yes", label: "Yes" },
         { value: "no", label: "No" },
-        { value: "not-sure", label: "Not Sure" },
-        { value: "na", label: "N/A" },
       ],
       revealWhen: ["yes"],
     },
-    note: "If they can face customers, rate the sub-abilities 0–10.",
-    groups: [
-      g([
-        ["cf-confidence", "Confidence"],
-        ["cf-communication", "Communication"],
-        ["cf-professionalism", "Professionalism"],
-        ["cf-presentation", "Presentation"],
-        ["cf-listening", "Listening"],
-        ["cf-handling-questions", "Handling Questions"],
-      ]),
-    ],
+    groups: [],
   },
 
-  /* ── 6 · Other Factors (Evaluations) ────────────────────────────── */
-  {
-    id: "other",
-    code: "6",
-    title: "Other Factors",
-    bucket: "evaluations",
-    input: "rating",
-    weight: 5,
-    note: "0–10 each, with notes.",
-    groups: [
-      g([
-        ["of-fixed-vs-incentive", "Fixed Salary vs Incentive Preference"],
-        ["of-intuition", "Intuition"],
-        ["of-x-factor", "X Factor"],
-        ["of-wms-compliance", "WMS Compliance"],
-      ]),
-    ],
-  },
-
-  /* ── 7 · Sales Assessment (Evaluations, sales roles only) ───────── */
+  /* ── M · Sales Competency (Evaluations, only when L = Yes) ───────── */
   {
     id: "sales",
-    code: "7",
-    title: "Sales Assessment",
+    code: "M",
+    title: "Sales Competency",
     bucket: "evaluations",
     input: "rating",
-    weight: 25,
+    weight: 20,
     salesOnly: true,
-    note: "Shown for Sales / customer-facing roles. 0–10 each → Sales Readiness score.",
+    note: "Shown only when ‘Responsibility to Sell?’ is Yes. 0–10 each → Sales Readiness score.",
     groups: [
-      g([
-        ["sales-call-200", "Willing to Call 200 People Daily"],
-        ["sales-meetings-5", "Willing to Conduct 5 Physical Meetings Daily"],
-        ["sales-convince", "Ability to Convince"],
-        ["sales-influence", "Ability to Influence"],
-        ["sales-explain", "Ability to Explain Clearly"],
-        ["sales-collect-money", "Ability to Collect Money"],
-        ["sales-persuasion", "Persuasion"],
-        ["sales-references", "Reference Collection"],
-        ["sales-verbal-presentation", "Verbal Presentation"],
-        ["sales-demeanour", "Professional Demeanour"],
-        ["sales-rejections", "Handling Rejections"],
-        ["sales-justify-settle", "Justify vs Settle"],
-        ["sales-stuck-reasons", "Gets Stuck in Reasons"],
-        ["sales-creativity", "Sales Creativity"],
+      gn("Prospecting", [
+        ["sl-call", "Willing to Call"],
+        ["sl-visit", "Willing to Visit Customers"],
+        ["sl-references", "Collect References"],
+      ]),
+      gn("Communication", [
+        ["sl-persuasion", "Persuasion"],
+        ["sl-convince", "Ability to Convince"],
+        ["sl-collect-money", "Ability to Collect Money"],
+        ["sl-customer-explanation", "Customer Explanation"],
+        ["sl-presentation", "Presentation"],
+        ["sl-demeanour", "Demeanour"],
+      ]),
+      gn("Closing", [
+        ["sl-money-collection", "Money Collection"],
+        ["sl-negotiation", "Negotiation"],
+        ["sl-influence", "Influence Customer"],
+      ]),
+      gn("Resilience", [
+        ["sl-handles-rejection", "Handles Rejection"],
+        ["sl-justify-settle", "Justify vs Settle"],
+        ["sl-not-stuck", "Doesn’t Get Stuck in Excuses"],
+      ]),
+      gn("Sales Thinking", [
+        ["sl-creativity", "Sales Creativity"],
+        ["sl-closing-instinct", "Closing Instinct"],
       ]),
     ],
   },
 
-  /* ── 8 · Overall Assessment ─────────────────────────────────────── */
+  /* ── N · Overall Score ──────────────────────────────────────────── */
   {
     id: "overall",
-    code: "8",
-    title: "Overall Recommendation",
+    code: "N",
+    title: "Overall Score",
     bucket: "evaluations",
     input: "overall",
     note: "Composite scores compute automatically. Pick a recommendation — you can override it with a reason.",
@@ -402,22 +524,20 @@ export const DEFAULT_SECTION_WEIGHTS: Record<string, number> = Object.fromEntrie
 export type RecommendationValue =
   | "strong-hire"
   | "hire"
+  | "hire-concerns"
   | "hold"
-  | "borderline"
-  | "reject"
-  | "another-round";
+  | "reject";
 
 export const RECOMMENDATIONS: { value: RecommendationValue; label: string; tone: string }[] = [
   { value: "strong-hire", label: "Strong Hire", tone: "#15803d" },
   { value: "hire", label: "Hire", tone: "#16a34a" },
+  { value: "hire-concerns", label: "Hire with Concerns", tone: "#d97706" },
   { value: "hold", label: "Hold", tone: "#64748b" },
-  { value: "borderline", label: "Borderline", tone: "#d97706" },
   { value: "reject", label: "Reject", tone: "#dc2626" },
-  { value: "another-round", label: "Require Another Round", tone: "#2563eb" },
 ];
 
 export const TEXTBOX_FIELDS = [
-  { id: "justification", label: "Recommendation Justification" },
+  { id: "justification", label: "Recommendation Reason" },
   { id: "strengths", label: "Strengths" },
   { id: "riskAreas", label: "Risk Areas" },
   { id: "concerns", label: "Concerns" },

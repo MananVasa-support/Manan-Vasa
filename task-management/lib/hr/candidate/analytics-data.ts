@@ -293,8 +293,6 @@ export async function loadHiringAnalytics(): Promise<HiringAnalytics> {
     if (status in pipeline) pipeline[status] += 1;
 
     const position = (row.positionApplied ?? "").trim() || "Unspecified";
-    const salesRole = isSalesRole(row.positionApplied);
-    const ctx: ScoreContext = { isSalesRole: salesRole };
 
     // ── Funnel by position ──
     const f = funnelMap.get(position) ?? { position, total: 0, new: 0, shortlisted: 0, rejected: 0, hired: 0, hireRate: null };
@@ -345,6 +343,12 @@ export async function loadHiringAnalytics(): Promise<HiringAnalytics> {
     const inst = pickInstance((row.evaluationV2 as EvaluationV2 | null) ?? null);
     if (!hasSignal(inst) || !inst) continue;
     totalInterviews += 1;
+
+    // Sales applicability: prefer the "Responsibility to Sell?" (L) gate answer;
+    // fall back to a job-title keyword heuristic for evals filled before the gate.
+    const sellAnswer = inst.gates?.["sell"];
+    const salesRole = sellAnswer != null ? sellAnswer === "yes" : isSalesRole(row.positionApplied);
+    const ctx: ScoreContext = { isSalesRole: salesRole };
 
     const composites = computeComposites(inst, null, ctx);
     const overall = overallScore(inst, null, ctx);

@@ -13,8 +13,32 @@ import { GOAL_TYPES, GOAL_TYPE_LABELS } from "@/db/enums";
 
 export type GoalLookupKind = "area" | "measure" | "type" | "goaltype";
 
-/** Base Area options (order matters — shown first). */
-export const BASE_AREAS = ["Revenue", "Health", "Strategy", "Branding", "Self", "Family"] as const;
+/** Base Area options (order matters — shown first). Altus department / pillar
+ *  taxonomy (replaces the old generic Revenue/Branding/Self set). */
+export const BASE_AREAS = [
+  "Sales",
+  "Collection",
+  "Marketing",
+  "Finances",
+  "App Devp",
+  "BSS App",
+  "PS",
+  "BSS",
+  "Altus Conclave",
+  "Handholding",
+  "Systems",
+  "Operations",
+  "Health",
+  "Learning",
+  "Self Devp",
+  "Training",
+  "Finance",
+  "Accounts",
+  "Admin",
+  "Renovation",
+  "Strategy",
+  "Family",
+] as const;
 
 /** Base Measure options (unit of measure → stored on goals.uom). */
 export const BASE_MEASURES = ["Rs.", "Seats", "Nos.", "Yes/No", "NA"] as const;

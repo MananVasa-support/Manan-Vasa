@@ -39,8 +39,8 @@ export function autoRecommendation(
   if (interviewScore === null) return null;
   if (interviewScore >= 85) return "strong-hire";
   if (interviewScore >= 70) return "hire";
-  if (interviewScore >= 62) return "hold";
-  if (interviewScore >= 55) return "borderline";
+  if (interviewScore >= 58) return "hire-concerns";
+  if (interviewScore >= 48) return "hold";
   return "reject";
 }
 
@@ -98,7 +98,7 @@ export function OverallSection({
 
       {/* Index detail: Base indices · driver composites · technical · sales */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <IndexCard title="Base Expectations">
+        <IndexCard title="Character & Presence">
           <div className="grid grid-cols-2 gap-3">
             <IndexStat label="Average" value={composites.base.average} kind="score" />
             <div className="grid grid-cols-2 gap-3 col-span-2 sm:col-span-1 sm:grid-cols-1">

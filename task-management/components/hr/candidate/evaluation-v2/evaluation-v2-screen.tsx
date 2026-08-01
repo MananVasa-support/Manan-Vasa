@@ -43,7 +43,7 @@ import { OverallDial } from "./dial";
 import { SectionShell } from "./layout";
 import { EligibilitySection } from "./eligibility-section";
 import { RatingSection } from "./rating-section";
-import { GateSection } from "./gate-section";
+import { GateSection, SellGateSection } from "./gate-section";
 import { OverallSection } from "./special-sections";
 import { SectionRail, sectionStatus } from "./section-rail";
 import { EvaluationV2Report } from "./evaluation-v2-report";
@@ -62,13 +62,9 @@ const STATUS_TONE: Record<string, { bg: string; fg: string; label: string }> = {
   hired: { bg: "color-mix(in srgb, #2563eb 12%, white)", fg: "#1d4ed8", label: "Hired" },
 };
 
-const SALES_KEYWORDS = ["sales", "business development", "bd", "account executive", "relationship manager", "field officer"];
-
-/** Loose keyword match → is this a sales / customer-facing role? */
-function detectSalesRole(...texts: (string | null | undefined)[]): boolean {
-  const hay = texts.filter(Boolean).join(" ").toLowerCase();
-  return SALES_KEYWORDS.some((k) => new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(hay));
-}
+/** The Sales Competency section (M) applies only when the interviewer answers
+ *  "Yes" to the "Responsibility to Sell?" gate (L) — no keyword guessing. */
+const SELL_GATE_ID = "sell";
 
 function initials(name: string): string {
   const parts = (name || "").trim().split(/\s+/).filter(Boolean);
@@ -110,13 +106,13 @@ export function EvaluationV2Screen({
 
   const selected = candidates.find((c) => c.id === candidateId) ?? null;
 
-  const isSalesRole = React.useMemo(
-    () => detectSalesRole(selected?.positionApplied, designation === "default" ? "" : designation),
-    [selected?.positionApplied, designation],
-  );
+  // Sales applicability is driven by the L "Responsibility to Sell?" gate answer,
+  // not by keyword-matching the job title.
+  const isSalesRole = instance?.gates?.[SELL_GATE_ID] === "yes";
   const ctx: ScoreContext = React.useMemo(() => ({ isSalesRole }), [isSalesRole]);
 
-  /** Sections applicable to this candidate (drop the Sales section for non-sales roles). */
+  /** Sections applicable to this candidate (drop the Sales Competency section unless
+   *  "Responsibility to Sell?" is answered Yes). The gate (L) itself always shows. */
   const visibleSections = React.useMemo(
     () => EVAL_SECTIONS.filter((s) => !(s.salesOnly && !isSalesRole)),
     [isSalesRole],
@@ -576,6 +572,12 @@ function renderSection(
       return (
         <SectionShell code={s.code} title={s.title}>
           <GateSection ctrl={ctrl} section={s} />
+        </SectionShell>
+      );
+    case "sellgate":
+      return (
+        <SectionShell code={s.code} title={s.title}>
+          <SellGateSection ctrl={ctrl} section={s} />
         </SectionShell>
       );
     case "overall":
