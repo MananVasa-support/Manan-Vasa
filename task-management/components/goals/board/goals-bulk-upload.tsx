@@ -408,7 +408,7 @@ export function GoalsBulkUpload(props: Props) {
               role="dialog"
               aria-modal="true"
               aria-label={`Bulk Upload ${levelName.toLowerCase()} goals`}
-              className="wg-rise flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-[22px]"
+              className="wg-rise flex max-h-[88vh] w-full max-w-[1240px] flex-col overflow-hidden rounded-[22px]"
               style={{
                 background: "var(--color-surface-card)",
                 border: "1px solid var(--color-hairline-strong)",

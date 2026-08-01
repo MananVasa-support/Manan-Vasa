@@ -235,7 +235,7 @@ export function GoalsBulkGrid(props: {
       </div>
 
       <div className="overflow-x-auto rounded-xl border" style={{ borderColor: "var(--color-hairline-strong)" }} onPaste={onPaste}>
-        <table className="min-w-max border-collapse text-[13px]">
+        <table className="w-full border-collapse text-[13px]">
           <thead>
             <tr style={{ background: "var(--color-surface-soft)" }}>
               <th className="w-10 border-b px-1 py-2 text-center text-[11px] font-bold uppercase tracking-wide text-ink-subtle" style={{ borderColor: "var(--color-hairline)" }}>#</th>
