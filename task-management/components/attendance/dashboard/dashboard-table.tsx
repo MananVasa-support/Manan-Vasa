@@ -15,6 +15,7 @@ import { animate, useReducedMotion } from "motion/react";
 import type { DashboardRow, MonthSummary } from "@/lib/queries/attendance-status";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { EmployeeDetailDialog } from "./employee-detail";
+import { SheetDailyDialog } from "./sheet-daily-dialog";
 
 /** Shared visible focus ring for keyboard users (brand-red on neutral surfaces). */
 const FOCUS_RING =
@@ -110,10 +111,13 @@ export function AttendanceDashboardTable({
   rows,
   year,
   month,
+  sheetMode = false,
 }: {
   rows: DashboardRow[];
   year: number;
   month: number;
+  /** Sheet-sourced report: row-click opens the SHEET daily log (not the punch drawer). */
+  sheetMode?: boolean;
 }) {
   const [query, setQuery] = React.useState("");
   const [selected, setSelected] = React.useState<{ id: string; name: string } | null>(null);
@@ -406,16 +410,28 @@ export function AttendanceDashboardTable({
         )}
       </section>
 
-      <EmployeeDetailDialog
-        open={selected !== null}
-        onOpenChange={(o) => {
-          if (!o) setSelected(null);
-        }}
-        employeeId={selected?.id ?? null}
-        employeeName={selected?.name ?? ""}
-        year={year}
-        month={month}
-      />
+      {sheetMode ? (
+        <SheetDailyDialog
+          open={selected !== null}
+          onOpenChange={(o) => {
+            if (!o) setSelected(null);
+          }}
+          employeeName={selected?.name ?? ""}
+          year={year}
+          month={month}
+        />
+      ) : (
+        <EmployeeDetailDialog
+          open={selected !== null}
+          onOpenChange={(o) => {
+            if (!o) setSelected(null);
+          }}
+          employeeId={selected?.id ?? null}
+          employeeName={selected?.name ?? ""}
+          year={year}
+          month={month}
+        />
+      )}
     </section>
   );
 }

@@ -314,30 +314,22 @@ export function EvaluationV2Screen({
   return (
     <>
       <style>{CSS}</style>
-      <PageShell width="standard" py={false} className="pt-7 pb-28">
-        {/* Hero */}
-        <div className="ev2-fade mb-5">
-          <span
-            className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"
-            style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
-          >
-            <RoleIcon size={13} strokeWidth={2.6} /> {roleLabel} · Evaluation
-          </span>
+      <PageShell width="standard" py={false} className="pt-5 pb-20">
+        {/* Hero — title only (the eyebrow + long description were removed so the
+            candidate selector and interview content lead on the first viewport). */}
+        <div className="ev2-fade mb-3.5">
           <h1
-            className="mt-2 text-ink-strong"
-            style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: "clamp(28px,3.4vw,44px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
+            className="text-ink-strong"
+            style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: "clamp(24px,2.8vw,36px)", letterSpacing: "-0.03em", lineHeight: 1.03 }}
           >
             Interview Intelligence
           </h1>
-          <p className="mt-1.5 max-w-[74ch] text-[15px] font-medium text-ink-muted">
-            Move through the eight sections from the rail — clear the pre-requisites, rate each competency, and the
-            composite scorecard, interview score and recommendation compute live. Everything autosaves as you go.
-          </p>
         </div>
 
-        {/* Sticky control header */}
-        <div className="ev2-sticky ev2-fade sticky top-[64px] z-30 mb-6 rounded-2xl border border-hairline bg-white/95 p-4 shadow-[0_10px_30px_-22px_rgba(24,24,27,0.5)] backdrop-blur">
-          <div className="flex flex-wrap items-center gap-4">
+        {/* Control + candidate-summary card — NOT sticky, so the Overall Progress
+            donut belongs to this card and scrolls away with it (no floating). */}
+        <div className="ev2-sticky ev2-fade mb-5 rounded-2xl border border-hairline bg-white/95 p-3.5 shadow-[0_10px_30px_-22px_rgba(24,24,27,0.5)]">
+          <div className="flex flex-wrap items-center gap-3.5">
             {!fixedCandidateId && (
               <div className="ev2-select-wrap min-w-[240px] flex-1">
                 <label htmlFor="ev2-candidate" className="mb-1 block text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink-soft">
@@ -472,7 +464,7 @@ export function EvaluationV2Screen({
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr]">
             {/* Sticky rail (desktop) */}
             <aside className={`ev2-noprint max-lg:hidden ${railCollapsed ? "lg:w-[64px]" : ""}`}>
-              <div className="sticky top-[168px]">
+              <div className="ev2-rail-sticky sticky top-[80px] max-h-[calc(100vh-100px)] overflow-y-auto">
                 <SectionRail
                   sections={visibleSections}
                   instance={instance}

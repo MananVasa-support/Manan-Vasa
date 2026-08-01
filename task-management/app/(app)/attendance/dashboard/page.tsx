@@ -4,11 +4,13 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireFinanceAccess } from "@/lib/auth/finance-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
-import { getMonthDashboard } from "@/lib/queries/attendance-status";
+import type { DashboardRow } from "@/lib/queries/attendance-status";
+import { getMonthDashboardFromSheet } from "@/lib/queries/attendance-sheet-report";
 import { localDateString } from "@/lib/format";
 import { AttendanceDashboardTable } from "@/components/attendance/dashboard/dashboard-table";
 import { AttendanceMonthSelector } from "@/components/attendance/dashboard/month-selector";
 import { GenerateSalaryButton } from "@/components/attendance/dashboard/generate-salary-button";
+import { AttendanceSyncButton } from "@/components/attendance/hr-record/attendance-sync-button";
 
 export const dynamic = "force-dynamic";
 
@@ -50,10 +52,10 @@ export default async function AttendanceDashboardPage({ searchParams }: PageProp
   const todayISO = localDateString(DEFAULT_TZ);
   const { year, month } = resolveMonth(sp, todayISO);
 
-  let rows: Awaited<ReturnType<typeof getMonthDashboard>>;
+  let rows: DashboardRow[];
   let loadError = false;
   try {
-    rows = await getMonthDashboard(year, month, todayISO);
+    rows = await getMonthDashboardFromSheet(year, month);
   } catch (err) {
     console.error("[attendance/dashboard] load failed", err);
     rows = [];
@@ -107,8 +109,9 @@ export default async function AttendanceDashboardPage({ searchParams }: PageProp
                   {monthTitle}
                 </h1>
                 <p className="mt-2 text-[15px] font-medium text-ink-muted">
-                  Monthly per-person attendance, leave &amp; payable-day report.
-                  Click any row for the daily log.
+                  Monthly per-person attendance &amp; payable days, imported live from the HR
+                  &ldquo;Attendance log&rdquo; sheet. Click any row for the day-by-day log
+                  (standard timing 10:35&nbsp;AM&nbsp;&ndash;&nbsp;7:30&nbsp;PM).
                 </p>
               </div>
             </div>
@@ -126,6 +129,7 @@ export default async function AttendanceDashboardPage({ searchParams }: PageProp
                   <FileText size={15} strokeWidth={2.2} />
                   Export PDF
                 </a>
+                {canManage && <AttendanceSyncButton />}
                 {canManage && <GenerateSalaryButton year={year} month={month} label={monthTitle} />}
               </div>
             </div>
@@ -180,7 +184,7 @@ export default async function AttendanceDashboardPage({ searchParams }: PageProp
             </p>
           </div>
         ) : (
-          <AttendanceDashboardTable rows={rows} year={year} month={month} />
+          <AttendanceDashboardTable rows={rows} year={year} month={month} sheetMode />
         )}
       </PageShell>
       <DashboardFooter />

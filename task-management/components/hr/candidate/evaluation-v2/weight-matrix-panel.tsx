@@ -5,11 +5,11 @@ import {
   Loader2,
   Save,
   SlidersHorizontal,
-  ChevronDown,
   RotateCcw,
   Copy,
   Check,
   AlertTriangle,
+  X,
 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { listWeightProfiles, saveWeightProfile } from "@/app/(app)/hr/evaluation-v2-actions";
@@ -115,6 +115,16 @@ export function WeightMatrixPanel() {
     void load();
   }, [load]);
 
+  // Esc closes the floating panel.
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
   const current = model[selected] ?? defaultWeights();
   const base = baseline[selected] ?? defaultWeights();
   const total = totalOf(current);
@@ -162,44 +172,61 @@ export function WeightMatrixPanel() {
   }
 
   return (
-    <div className="mb-6 overflow-hidden rounded-2xl border border-hairline bg-white shadow-[0_10px_30px_-22px_rgba(24,24,27,0.5)]">
+    <div className="relative mb-4 w-fit">
       <style>{CSS}</style>
 
-      {/* Collapsible header */}
+      {/* Collapsed = a compact square utility button (finger-sized). */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+        aria-label="Weight matrix — tune section weights"
+        title="Weight matrix"
+        className="grid h-11 w-11 place-items-center rounded-xl text-white shadow-[0_10px_24px_-12px_rgba(168,4,0,0.7)] transition-transform hover:scale-[1.06] active:scale-95"
+        style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
       >
-        <span className="flex min-w-0 items-center gap-2.5">
-          <span
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white"
-            style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
-          >
-            <SlidersHorizontal size={17} />
-          </span>
-          <span className="min-w-0">
-            <span
-              className="block text-[15.5px] font-black text-ink-strong"
-              style={{ fontFamily: "var(--font-display), system-ui, sans-serif", letterSpacing: "-0.01em" }}
-            >
-              Weight matrix
-            </span>
-            <span className="block truncate text-[12.5px] font-medium text-ink-muted">
-              Super-admin · tune how much each section counts, per designation.
-            </span>
-          </span>
-        </span>
-        <ChevronDown
-          size={18}
-          className="shrink-0 text-ink-muted transition-transform"
-          style={{ transform: open ? "rotate(180deg)" : "none" }}
-        />
+        <SlidersHorizontal size={19} strokeWidth={2.3} />
       </button>
 
       {open && (
-        <div className="border-t border-hairline px-5 pb-5 pt-4">
+        <>
+          {/* click-away layer */}
+          <div className="fixed inset-0 z-[80]" onClick={() => setOpen(false)} aria-hidden />
+          {/* floating panel — expands to the RIGHT of the button */}
+          <div
+            role="dialog"
+            aria-label="Weight matrix"
+            className="wm-pop absolute left-[calc(100%+10px)] top-0 z-[90] w-[560px] max-w-[82vw] overflow-hidden rounded-2xl border border-hairline bg-white shadow-[0_28px_70px_-24px_rgba(24,24,27,0.5)]"
+          >
+            <div className="flex items-center gap-2.5 border-b border-hairline px-5 py-3.5">
+              <span
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white"
+                style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
+              >
+                <SlidersHorizontal size={17} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span
+                  className="block text-[15.5px] font-black text-ink-strong"
+                  style={{ fontFamily: "var(--font-display), system-ui, sans-serif", letterSpacing: "-0.01em" }}
+                >
+                  Weight matrix
+                </span>
+                <span className="block truncate text-[12.5px] font-medium text-ink-muted">
+                  Super-admin · tune how much each section counts, per designation.
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Close"
+                className="grid size-8 shrink-0 place-items-center rounded-lg text-ink-subtle transition-colors hover:bg-surface-soft hover:text-ink-strong"
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <div className="max-h-[72vh] overflow-y-auto px-5 pb-5 pt-4">
           {loading ? (
             <div className="grid place-items-center py-14 text-ink-muted">
               <Loader2 className="animate-spin" style={{ color: RED }} />
@@ -358,13 +385,18 @@ export function WeightMatrixPanel() {
               </div>
             </>
           )}
-        </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
 }
 
 const CSS = `
+  @keyframes wmPop { from { opacity: 0; transform: translateX(-8px) scale(0.98); } to { opacity: 1; transform: translateX(0) scale(1); } }
+  .wm-pop { animation: wmPop 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; transform-origin: left center; }
+  @media (prefers-reduced-motion: reduce) { .wm-pop { animation: none; } }
   .wm-select-wrap { position: relative; }
   .wm-select-wrap::after { content: ""; position: absolute; right: 14px; top: 50%; width: 9px; height: 9px; border-right: 2px solid var(--color-ink-subtle); border-bottom: 2px solid var(--color-ink-subtle); transform: translateY(-70%) rotate(45deg); pointer-events: none; }
 `;

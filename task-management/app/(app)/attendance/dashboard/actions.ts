@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { compOffCredits, employeeEvents, employees } from "@/db/schema";
+import { attendanceSheetDay, compOffCredits, employeeEvents, employees } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import {
@@ -22,6 +22,32 @@ import { localDateString } from "@/lib/format";
 type ActionResult<T = unknown> =
   | ({ ok: true } & T)
   | { ok: false; error: string };
+
+export interface SheetDayRow {
+  day: number;
+  statusCode: string;
+  date: string | null;
+}
+
+/** Per-day status codes from the synced HR sheet, for one person's month. */
+export async function fetchSheetEmployeeDays(
+  employeeName: string,
+  year: number,
+  month: number,
+): Promise<SheetDayRow[]> {
+  await requireAdmin();
+  const bucket = `${year}-${String(month).padStart(2, "0")}-01`;
+  const rows = await db
+    .select({
+      day: attendanceSheetDay.day,
+      statusCode: attendanceSheetDay.statusCode,
+      date: attendanceSheetDay.date,
+    })
+    .from(attendanceSheetDay)
+    .where(and(eq(attendanceSheetDay.employeeName, employeeName), eq(attendanceSheetDay.month, bucket)))
+    .orderBy(asc(attendanceSheetDay.day));
+  return rows.map((r) => ({ day: r.day, statusCode: r.statusCode, date: r.date as string | null }));
+}
 
 /** Default reporting timezone for the admin dashboard. The per-employee query
  *  reads each employee's own tz internally; this is only used to derive the
