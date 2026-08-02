@@ -1355,7 +1355,7 @@ export async function convertGoalToWeekly(
     }, me.id);
     revalidateGoals(src.periodKey);
     revalidatePath("/goals/weekly");
-    revalidatePath("/weekly-goals");
+    revalidatePath("/goals/weekly");
     return {
       ok: true,
       sourceRow: toGoalDTO(archivedSrc),
@@ -1610,7 +1610,7 @@ export async function undoConvertGoal(
     }, me.id);
     revalidateGoals(src.periodKey);
     revalidatePath("/goals/weekly");
-    revalidatePath("/weekly-goals");
+    revalidatePath("/goals/weekly");
     return { ok: true, row: toGoalDTO(restored), rows: reattached.map(toGoalDTO) };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -1680,6 +1680,10 @@ const CopyToSchema = z.object({
   targetLevel: z.enum(["year", "quarter", "month", "week", "day"]),
   /** year '2026' · quarter '2026-Q1' · month '2026-07' · week/day 'YYYY-MM-DD'. */
   targetKey: z.string().min(4).max(16),
+  /** When true AND the copy crosses a level, link it as a CHILD of the source
+   *  (roll-up) instead of an independent twin — the Kanban "drag a parent into a
+   *  child lane" cascade (e.g. drag a Year goal onto a Quarter → a linked Q child). */
+  asChild: z.boolean().optional(),
 });
 
 export type CopyGoalResult =
@@ -1721,7 +1725,9 @@ export async function copyGoalToPeriod(
           employeeId: src.employeeId,
           period: targetLevel,
           periodKey: targetKey,
-          parentGoalId: null, // independent — no roll-up to the source
+          // Default = an independent twin (no roll-up). `asChild` on a cross-level
+          // copy links it under the source (Kanban parent→child drag cascade).
+          parentGoalId: parsed.data.asChild && targetLevel !== src.period ? src.id : null,
           position,
           scope: src.scope, // copy stays in the source's space
           area: src.area,
@@ -1805,7 +1811,7 @@ export async function copyGoalToPeriod(
       }, me.id);
       revalidateGoals(src.periodKey);
       revalidatePath("/goals/weekly");
-      revalidatePath("/weekly-goals");
+      revalidatePath("/goals/weekly");
       return { ok: true, kind: "weekly", weeklyId: weeklyRow.id };
     }
 

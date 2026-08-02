@@ -8,6 +8,7 @@ import { fireToast } from "@/lib/toast";
 import type { GoalPeriod } from "@/lib/goals/types";
 import { createGoal, addChildGoal, editGoal } from "@/app/(app)/goals/cascade/actions";
 import { TeamPicker, type TeamMember } from "./team-picker";
+import { MultiSelect } from "@/components/ui/multi-select";
 import {
   GOALS_ACCENT,
   GOALS_ACCENT_DEEP,
@@ -17,6 +18,9 @@ import {
   type GoalDTO,
   type RosterMember,
 } from "./util";
+
+/** Accountability hand-off (mig 0171) — each delegate answerable for their %. */
+type DelegRef = { employeeId: string; name?: string; pct: number };
 
 type Mode =
   | { kind: "create"; employeeId: string; period: GoalPeriod; periodKey: string }
@@ -33,6 +37,7 @@ interface FieldState {
   actualAmount: string;
   teamInvolved: TeamMember[];
   teamDependencyPct: string;
+  delegatedTo: DelegRef[];
   weight: string;
   notes: string;
   targetDate: string;
@@ -51,6 +56,11 @@ function initial(mode: Mode): FieldState {
       actualAmount: g.actualAmount ?? "",
       teamInvolved: g.teamInvolved ?? [],
       teamDependencyPct: g.teamDependencyPct == null ? "" : String(g.teamDependencyPct),
+      delegatedTo: (g.delegatedTo ?? []).map((d) => ({
+        employeeId: d.employeeId,
+        name: d.name,
+        pct: d.pct,
+      })),
       weight: String(g.weight),
       notes: g.notes ?? "",
       targetDate: g.targetDate ?? "",
@@ -59,7 +69,7 @@ function initial(mode: Mode): FieldState {
   return {
     area: "", title: "", uom: "", targetQty: "", targetAmount: "",
     actualQty: "", actualAmount: "", teamInvolved: [], teamDependencyPct: "",
-    weight: "100", notes: "", targetDate: "",
+    delegatedTo: [], weight: "100", notes: "", targetDate: "",
   };
 }
 
@@ -164,6 +174,7 @@ export function GoalEditDialog({
           ...shared,
           actualQty: f.actualQty.trim() === "" ? null : f.actualQty.trim(),
           actualAmount: f.actualAmount.trim() === "" ? null : f.actualAmount.trim(),
+          delegatedTo: f.delegatedTo.length ? f.delegatedTo : null,
         });
       }
       if (!res.ok) {
@@ -294,6 +305,20 @@ export function GoalEditDialog({
             </div>
           </div>
 
+          {isEdit && (
+            <div>
+              <label className={labelCls}>Delegated to</label>
+              <p className="mt-0.5 text-[11.5px] font-medium text-ink-subtle">
+                Accountability hand-off — each delegate answers for their share of this goal.
+              </p>
+              <DelegateField
+                value={f.delegatedTo}
+                roster={roster}
+                onChange={(next) => upd("delegatedTo", next)}
+              />
+            </div>
+          )}
+
           <div className="grid grid-cols-[1fr_auto] gap-3">
             <div>
               <label className={labelCls}>Notes</label>
@@ -323,5 +348,98 @@ export function GoalEditDialog({
       </form>
     </div>,
     document.body,
+  );
+}
+
+/** Delegate picker with per-member % + inline remove — pre-fills from the goal's
+ *  existing delegation so editing a delegated goal shows who already owns it. */
+function DelegateField({
+  value,
+  roster,
+  onChange,
+}: {
+  value: DelegRef[];
+  roster: RosterMember[];
+  onChange: (next: DelegRef[]) => void;
+}) {
+  const nameById = React.useMemo(
+    () => new Map(roster.map((r) => [r.id, r.name])),
+    [roster],
+  );
+  const options = React.useMemo(
+    () => roster.map((r) => ({ value: r.id, label: r.name })),
+    [roster],
+  );
+  const selectedIds = value.map((d) => d.employeeId);
+
+  function setIds(ids: string[]) {
+    // Keep each retained delegate's % (and order); new picks default to 100%.
+    onChange(
+      ids.map(
+        (id) =>
+          value.find((d) => d.employeeId === id) ?? {
+            employeeId: id,
+            name: nameById.get(id),
+            pct: 100,
+          },
+      ),
+    );
+  }
+  function setPct(id: string, raw: string) {
+    const p = Math.round(Math.max(0, Math.min(100, num(raw) ?? 0)));
+    onChange(value.map((d) => (d.employeeId === id ? { ...d, pct: p } : d)));
+  }
+  function remove(id: string) {
+    onChange(value.filter((d) => d.employeeId !== id));
+  }
+
+  return (
+    <div className="mt-1 space-y-2">
+      <MultiSelect
+        options={options}
+        selected={selectedIds}
+        placeholder="Delegate to…"
+        onChange={setIds}
+      />
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {value.map((d) => {
+            const nm = d.name ?? nameById.get(d.employeeId) ?? "—";
+            return (
+              <span
+                key={d.employeeId}
+                className="inline-flex items-center gap-1 rounded-full border border-hairline bg-surface-soft py-1 pl-1 pr-1.5 text-[12px] font-semibold text-ink-strong"
+              >
+                <span
+                  aria-hidden
+                  className="grid size-4 shrink-0 place-items-center rounded-full text-[8px] font-bold text-white"
+                  style={{ background: "var(--color-altus-red-deep)" }}
+                >
+                  {nm.trim().charAt(0).toUpperCase()}
+                </span>
+                <span className="max-w-[110px] truncate">{nm}</span>
+                <input
+                  value={String(d.pct)}
+                  onChange={(e) => setPct(d.employeeId, e.target.value)}
+                  inputMode="numeric"
+                  aria-label={`${nm} share %`}
+                  className="w-8 rounded bg-transparent text-right font-bold tabular-nums text-altus-red-deep outline-none focus:bg-surface-card"
+                />
+                <span className="font-bold text-altus-red-deep">%</span>
+                <button
+                  type="button"
+                  onClick={() => remove(d.employeeId)}
+                  aria-label={`Remove ${nm}`}
+                  title="Remove delegate"
+                  className="ml-0.5 grid size-4 shrink-0 place-items-center rounded-full text-ink-subtle transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_15%,transparent)] hover:text-altus-red"
+                >
+                  <X size={11} strokeWidth={3} />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

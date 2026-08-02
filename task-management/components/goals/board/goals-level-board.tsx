@@ -25,7 +25,7 @@ import {
   rectSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
-import { ChevronLeft, ChevronRight, Search, X, Target, Trash2, List, Columns3, LayoutDashboard, Plus, Download, ArrowUpDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Search, X, Target, Trash2, List, Columns3, LayoutDashboard, Plus, Download, ArrowUpDown } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { PageShell } from "@/components/layout/page-shell";
 import { BoardQuickChips, type QuickChip } from "@/components/weekly-goals/board-quick-chips";
@@ -56,6 +56,7 @@ import { useOptimisticGoals } from "@/components/goals/canvas/optimistic";
 import {
   moveGoalToPeriod,
   moveGoalToLevel,
+  copyGoalToPeriod,
   archiveGoal,
   reorderGoals,
   moveWeeklyToWeek,
@@ -252,6 +253,30 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
       quickAddRef.current?.open();
     }
   }, [view, pickView]);
+
+  // ── Hotkey: press "G" anywhere on a Goals board to open "+ New goal". Never
+  //    hijacks real typing — bails inside form fields, the spreadsheet grid
+  //    (where a letter seeds an inline cell edit), contenteditable, or any open
+  //    dialog/drawer — and ignores modifier combos (⌘G / Ctrl-G stay native). ─
+  React.useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.defaultPrevented || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key !== "g" && e.key !== "G") return;
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.isContentEditable ||
+          /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) ||
+          t.closest('[role="grid"], [role="dialog"], [contenteditable="true"]'))
+      ) {
+        return;
+      }
+      e.preventDefault();
+      openComposer();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [openComposer]);
 
   // ── Filters (search + quick chips) ──────────────────────────────────
   const [search, setSearch] = React.useState("");
@@ -553,6 +578,28 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
     [mutation, moveToBucket, policy.canRehomeLevel],
   );
 
+  /** Kanban parent→child CASCADE: drag a frozen roll-up goal (e.g. a Year goal)
+   *  onto a child lane (a Quarter) → create a NEW linked child goal in that
+   *  bucket, KEEPING the parent. Uses copyGoalToPeriod with `asChild` so the copy
+   *  rolls up to the source; the board re-fetches to surface it. */
+  const cascadeToChild = React.useCallback(
+    (g: GoalDTO, targetPeriod: GoalPeriod, targetPeriodKey: string) => {
+      if (targetPeriod === g.period) return; // only a cross-level (parent→child) cascade
+      if (!policy.canRehomeLevel) return; // same structure gate as move-across
+      void copyGoalToPeriod({ id: g.id, targetLevel: targetPeriod, targetKey: targetPeriodKey, asChild: true })
+        .then((res) => {
+          if (!res.ok) {
+            fireToast({ message: res.error, type: "error" });
+            return;
+          }
+          fireToast({ message: `Cascaded "${g.title}" into ${periodKeyLabel(targetPeriodKey)}`, type: "success" });
+          router.refresh();
+        })
+        .catch(() => fireToast({ message: "Couldn't cascade that goal.", type: "error" }));
+    },
+    [policy.canRehomeLevel, router],
+  );
+
   /** Persist a reordered Sr.-No. line for a hierarchy Kanban LANE (child-level
    *  drag-within-a-lane). Reuses the same reorder path as the list/onDragEnd. */
   const reorderChildIds = React.useCallback(
@@ -774,10 +821,12 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
         >
 
           <div className="relative flex min-h-[64px] items-center gap-4 px-6 py-3 max-xl:flex-wrap max-md:gap-3 max-md:px-4">
-            {/* 1 · identity — title only (eyebrow removed per request) */}
-            <div className="min-w-0 flex-1 max-xl:w-full max-xl:flex-none">
+            {/* 1 · identity — title only (eyebrow removed per request). No min-w-0
+                + whitespace-nowrap ⇒ the heading always stays on ONE line. */}
+            <div className="flex-1 max-xl:w-full max-xl:flex-none">
               <h1
-                style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, color: "var(--color-ink-strong)", fontSize: "clamp(24px, 2.3vw, 34px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
+                className="whitespace-nowrap"
+                style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, color: "var(--color-ink-strong)", fontSize: "clamp(22px, 2vw, 32px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
               >
                 {props.heading}
               </h1>
@@ -825,44 +874,53 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               {/* Name selector — a bold, glowing custom pill (avatar + "VIEWING"
                   eyebrow + the unstyled Select as the name). */}
               {props.roster.length > 1 && (
-                <div className="group relative w-[300px] max-md:w-full">
+                <div className="group relative w-[232px] max-md:w-full">
                   <span
                     aria-hidden
                     className="pointer-events-none absolute -inset-[2px] rounded-2xl opacity-55 blur-[7px] transition-opacity duration-300 group-hover:opacity-90"
                     style={{ background: "linear-gradient(120deg, var(--color-altus-red), #ff5560, var(--color-altus-red-deep))" }}
                   />
                   <div
-                    className="relative flex items-center gap-2 rounded-2xl px-2 py-1"
+                    className="relative flex cursor-pointer items-center gap-2 rounded-2xl px-2 py-1"
                     style={{
                       background: "linear-gradient(135deg, color-mix(in srgb, var(--color-altus-red) 12%, var(--color-surface-card)), var(--color-surface-card) 70%)",
                       border: "1.5px solid color-mix(in srgb, var(--color-altus-red) 32%, transparent)",
                       boxShadow: "inset 0 1px 0 rgba(255,255,255,0.78), 0 9px 24px -13px color-mix(in srgb, var(--color-altus-red) 60%, transparent)",
                     }}
                   >
+                    {/* Static visuals (non-interactive) — the whole pill is the
+                        click target via the invisible full-size Select overlay below. */}
                     <span
-                      className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-[12px] font-black text-white"
+                      className="pointer-events-none grid h-8 w-8 shrink-0 place-items-center rounded-xl text-[12px] font-black text-white"
                       style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 4px 10px -4px var(--color-altus-red)" }}
                     >
                       {props.viewedName.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?"}
                     </span>
-                    <div className="min-w-0 flex-1">
+                    <div className="pointer-events-none min-w-0 flex-1">
                       <div className="text-[8px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--color-altus-red-deep)" }}>
                         Viewing
                       </div>
-                      <Select
-                        value={props.viewedEmployeeId}
-                        onValueChange={(v) => go({ emp: v })}
-                        searchable
-                        searchPlaceholder="Search people…"
-                        ariaLabel="View another person's goals"
-                        unstyled
-                        className="flex w-full cursor-pointer items-center gap-1 text-left text-[12.5px] font-bold text-ink-strong"
-                        options={props.roster.map((r) => ({
-                          value: r.id,
-                          label: r.id === props.myEmployeeId ? `${r.name} (me)` : r.name,
-                        }))}
-                      />
+                      <div className="flex items-center gap-1 text-[12.5px] font-bold text-ink-strong">
+                        <span className="truncate">
+                          {props.viewedEmployeeId === props.myEmployeeId ? `${props.viewedName} (me)` : props.viewedName}
+                        </span>
+                        <ChevronDown size={14} strokeWidth={2.3} className="shrink-0 text-ink-subtle" />
+                      </div>
                     </div>
+                    {/* Whole-pill click target — an invisible, full-size Select trigger. */}
+                    <Select
+                      value={props.viewedEmployeeId}
+                      onValueChange={(v) => go({ emp: v })}
+                      searchable
+                      searchPlaceholder="Search people…"
+                      ariaLabel="View another person's goals"
+                      unstyled
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                      options={props.roster.map((r) => ({
+                        value: r.id,
+                        label: r.id === props.myEmployeeId ? `${r.name} (me)` : r.name,
+                      }))}
+                    />
                   </div>
                 </div>
               )}
@@ -912,9 +970,18 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
             <button
               type="button"
               onClick={openComposer}
+              title="New goal — press G"
+              aria-keyshortcuts="G"
               className={`pastel-cta wg-btn inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13.5px] font-bold transition-all hover:-translate-y-px cursor-pointer ${FOCUS_RING}`}
             >
               <Plus size={16} strokeWidth={2.8} /> New goal
+              <kbd
+                className="ml-0.5 hidden rounded border px-1.5 py-0.5 text-[10px] font-black leading-none opacity-70 sm:inline-block"
+                style={{ borderColor: "currentColor" }}
+                aria-hidden
+              >
+                G
+              </kbd>
             </button>
           )}
 
@@ -1023,10 +1090,22 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
             (its draggables are CHILD-level cards, re-homed via the shared
             moveToBucket); the list keeps the board's period-pill DndContext. ── */}
         {dashboard ? (
-          <GoalsDashboard allGoals={goals} level={props.level} fyStartYear={fy} />
+          <GoalsDashboard
+            allGoals={goals}
+            level={props.level}
+            fyStartYear={fy}
+            roster={props.roster}
+            weekCards={weekCards}
+            viewedName={props.viewedName}
+            viewedEmployeeId={props.viewedEmployeeId}
+            childrenByParent={childrenByParent}
+            managesViewed={props.managesViewed}
+            isAdmin={props.isAdmin}
+          />
         ) : kanban ? (
           <HierarchyKanban
             onRehomeLevel={rehomeToLevel}
+            onCascadeChild={cascadeToChild}
             parentLevel={parentLevel}
             fyStartYear={fy}
             selectedKey={props.periodKey}

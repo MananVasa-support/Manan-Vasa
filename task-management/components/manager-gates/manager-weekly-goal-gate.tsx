@@ -81,7 +81,7 @@ export function ManagerWeeklyGoalGate({
                   </div>
                 </div>
                 <a
-                  href={`/weekly-goals?emp=${r.id}` as Route}
+                  href={`/goals/weekly?emp=${r.id}` as Route}
                   className={`wg-sheen inline-flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2.5 text-[14px] font-bold text-white ${FOCUS}`}
                   style={{ background: done ? "var(--color-ink-soft)" : "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
                 >

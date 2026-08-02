@@ -41,7 +41,7 @@ export default async function MemberChecklistReviewPage({
   // straight back to the team page — the "same page again" dead-end).
   if (id === me.id) redirect("/goals/plan" as Route);
   const allowed = await canReviewChecklist({ id: me.id, isAdmin: me.isAdmin, email: me.email }, id);
-  if (!allowed) redirect("/weekly-goals/team" as Route);
+  if (!allowed) redirect("/goals/weekly/team" as Route);
 
   const { name, days } = await memberChecklistDays(id);
 
@@ -49,7 +49,7 @@ export default async function MemberChecklistReviewPage({
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto w-full max-w-[900px] px-8 max-md:px-4 pt-8 pb-16">
-        <Link href={"/weekly-goals/team" as Route} className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-subtle hover:text-ink-strong">
+        <Link href={"/goals/weekly/team" as Route} className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-subtle hover:text-ink-strong">
           <ArrowLeft size={15} strokeWidth={2.4} /> Team performance
         </Link>
         <header className="mt-3 mb-6 flex items-center gap-4 wg-rise">

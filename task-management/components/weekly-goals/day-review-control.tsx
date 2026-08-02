@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Check, RotateCcw, Loader2 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
-import { reviewChecklistDay } from "@/app/(app)/weekly-goals/team/[id]/actions";
+import { reviewChecklistDay } from "@/app/(app)/goals/weekly/team/[id]/actions";
 
 /** Per-day approve / needs-rework control shown on a member's checklist review. */
 export function DayReviewControl({

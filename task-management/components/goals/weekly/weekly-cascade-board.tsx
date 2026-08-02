@@ -7,8 +7,8 @@ import type { Route } from "next";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   CalendarDays,
-  ArrowRightLeft,
   Target,
   CheckCircle2,
   BadgeCheck,
@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { fireToast } from "@/lib/toast";
-import { addWeekGoal, carryAllUnfinishedForward } from "@/app/(app)/goals/weekly/actions";
+import { addWeekGoal } from "@/app/(app)/goals/weekly/actions";
 import { WeeklyGoalDrawer } from "@/components/weekly-goals/goal-drawer";
 import { WeeklyGoalsImport } from "@/components/weekly-goals/weekly-goals-import";
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
@@ -157,7 +157,6 @@ export function WeeklyCascadeBoard({
   commit: { member: CommitMember; nextWeekLabel: string; weekStart: string } | null;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = React.useTransition();
   const [commitOpen, setCommitOpen] = React.useState(false);
 
   // Resolve a creator id → name from the loaded roster (load-neutral) so an
@@ -204,23 +203,6 @@ export function WeeklyCascadeBoard({
     params.set("week", weekStart);
     if (emp !== me.id) params.set("emp", emp);
     router.push(`/goals/weekly?${params.toString()}`);
-  }
-
-  const unfinishedCount = rows.filter((r) => r.adopted && (r.acceptPct ?? r.pctDone) < 100).length;
-
-  function carryAll() {
-    startTransition(async () => {
-      const res = await carryAllUnfinishedForward({ employeeId: scopeEmp, weekStart });
-      if (res.ok) {
-        fireToast({
-          message: res.carried === 0 ? "Nothing to carry — all done." : `Carried ${res.carried} goal(s) into next week.`,
-          type: "success",
-        });
-        if (res.carried > 0) router.refresh();
-      } else {
-        fireToast({ message: res.error, type: "error" });
-      }
-    });
   }
 
   const adopted = rows.filter((r) => r.adopted);
@@ -287,37 +269,44 @@ export function WeeklyCascadeBoard({
                   style={{ background: "linear-gradient(120deg, var(--color-altus-red), #ff5560, var(--color-altus-red-deep))" }}
                 />
                 <div
-                  className="relative flex items-center gap-2.5 rounded-2xl px-2.5 py-1.5"
+                  className="relative flex cursor-pointer items-center gap-2.5 rounded-2xl px-2.5 py-1.5"
                   style={{
                     background: "linear-gradient(135deg, color-mix(in srgb, var(--color-altus-red) 12%, var(--color-surface-card)), var(--color-surface-card) 70%)",
                     border: "1.5px solid color-mix(in srgb, var(--color-altus-red) 32%, transparent)",
                     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.78), 0 9px 24px -13px color-mix(in srgb, var(--color-altus-red) 60%, transparent)",
                   }}
                 >
+                  {/* Static visuals (non-interactive) — the whole pill is the
+                      click target via the invisible full-size Select overlay below. */}
                   <span
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[13px] font-black text-white"
+                    className="pointer-events-none grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[13px] font-black text-white"
                     style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 4px 10px -4px var(--color-altus-red)" }}
                   >
                     {viewedName.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?"}
                   </span>
-                  <div className="min-w-0 flex-1">
+                  <div className="pointer-events-none min-w-0 flex-1">
                     <div className="text-[8.5px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--color-altus-red-deep)" }}>
                       Viewing
                     </div>
-                    <Select
-                      value={scopeEmp}
-                      onValueChange={(v) => goPerson(v)}
-                      searchable
-                      searchPlaceholder="Search people…"
-                      ariaLabel="View another person's goals"
-                      unstyled
-                      className="flex w-full cursor-pointer items-center gap-1 text-left text-[13.5px] font-bold text-ink-strong"
-                      options={people.map((p) => ({
-                        value: p.id,
-                        label: p.id === me.id ? `${p.name} (me)` : p.name,
-                      }))}
-                    />
+                    <div className="flex items-center gap-1 text-[13.5px] font-bold text-ink-strong">
+                      <span className="truncate">{scopeEmp === me.id ? `${viewedName} (me)` : viewedName}</span>
+                      <ChevronDown size={15} strokeWidth={2.3} className="shrink-0 text-ink-subtle" />
+                    </div>
                   </div>
+                  {/* Whole-pill click target — an invisible, full-size Select trigger. */}
+                  <Select
+                    value={scopeEmp}
+                    onValueChange={(v) => goPerson(v)}
+                    searchable
+                    searchPlaceholder="Search people…"
+                    ariaLabel="View another person's goals"
+                    unstyled
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    options={people.map((p) => ({
+                      value: p.id,
+                      label: p.id === me.id ? `${p.name} (me)` : p.name,
+                    }))}
+                  />
                 </div>
               </div>
             )}
@@ -479,22 +468,6 @@ export function WeeklyCascadeBoard({
           </div>
         )}
 
-        {unfinishedCount > 0 && (
-          <button
-            type="button"
-            onClick={carryAll}
-            disabled={pending}
-            title={`Carry ${unfinishedCount} unfinished goal(s) into next week`}
-            className="wg-btn wg-sheen ml-auto inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill px-3 py-1.5 text-[12px] font-bold text-white disabled:opacity-50"
-            style={{
-              background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
-              boxShadow: "0 8px 20px -10px color-mix(in srgb, var(--goals-accent, #E10600) 65%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)",
-            }}
-          >
-            <ArrowRightLeft size={13} />
-            {pending ? "Carrying…" : `Carry ${unfinishedCount} → next week`}
-          </button>
-        )}
       </div>
 
       {/* Body — analytics dashboard, classic list, or the drag-to-plan Kanban */}

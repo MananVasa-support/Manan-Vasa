@@ -30,7 +30,7 @@ const pct = z.coerce.number().int().min(0).max(100);
 function revalidateApprove() {
   revalidatePath("/goals/approve");
   revalidatePath("/goals/weekly");
-  revalidatePath("/weekly-goals");
+  revalidatePath("/goals/weekly");
   // bug #17 — approval stamps (weekly rows) render on the level pages' canvas
   // (all three share one loadCanvasData payload) + the cascade shell.
   revalidatePath("/goals/yearly"); // yearly rootView shares the same canvas payload

@@ -30,7 +30,7 @@ type ActionResult<T = undefined> =
 
 function revalidate() {
   revalidatePath("/goals/weekly");
-  revalidatePath("/weekly-goals");
+  revalidatePath("/goals/weekly");
   // 5-page restructure level routes (bug #17) — ALL level pages share one
   // canvas payload that includes the weekly rows (loadCanvasData), so every
   // weekly mutation must refresh all three, not just /goals/week.

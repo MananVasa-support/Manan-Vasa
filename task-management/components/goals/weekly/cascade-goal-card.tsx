@@ -10,7 +10,6 @@ import {
   updateWeeklyCascadeFields,
 } from "@/app/(app)/goals/weekly/actions";
 import { TeamInvolvedEditor } from "./team-involved-editor";
-import { CarryForwardControl } from "./carry-forward-control";
 import type { BoardMe, CascadeWeeklyGoal, MonthGoalOption, RosterMember } from "./types";
 
 // Goals module identity (Altus brand red), token-first with a module-theme fallback.
@@ -172,7 +171,6 @@ export function CascadeGoalCard({
                   <ExternalLink size={12.5} /> Evidence
                 </a>
               )}
-              {canEdit && <CarryForwardControl goalId={goal.id} weekStart={goal.weekStart} />}
               {canEdit && (
                 <button
                   type="button"

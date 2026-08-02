@@ -88,9 +88,9 @@ const KIND_META: Record<NotificationKind, { icon: LucideIcon; tone: string }> = 
 const KIND_HREF: Partial<Record<string, string>> = {
   dcc_fill_reminder: "/dcc",
   ambassador_reminder: "/ambassadors",
-  weekly_goals_assigned: "/weekly-goals",
-  weekly_goals_fill_reminder: "/weekly-goals",
-  weekly_goals_incomplete: "/weekly-goals",
+  weekly_goals_assigned: "/goals/weekly",
+  weekly_goals_fill_reminder: "/goals/weekly",
+  weekly_goals_incomplete: "/goals/weekly",
   goals_commit_reminder: "/goals/commit",
   goals_approval_reminder: "/goals/approve",
   goals_committed: "/goals/weekly",

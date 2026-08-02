@@ -8,7 +8,8 @@
  */
 
 import * as React from "react";
-import { Download, FileText, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
+import { Download, FileText, Loader2, Mic, Paperclip, Square, Trash2, Upload } from "lucide-react";
+import { useDictation } from "@/components/ui/use-dictation";
 import {
   goalDetailBundle,
   uploadGoalAttachment,
@@ -19,6 +20,7 @@ import { fireToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { UserCog } from "lucide-react";
 import { AssignmentLine } from "@/components/goals/board/assignment-chip";
+import { VoiceNoteButton } from "@/components/ui/voice-note-button";
 import type { AssignmentInfo } from "@/components/goals/cascade/util";
 
 const FOCUS_RING =
@@ -56,6 +58,17 @@ export function GoalDetailRow({
   onClose?: () => void;
 }) {
   const [notes, setNotes] = React.useState(initialNotes ?? "");
+  // Live voice-typing (Web Speech API): finalised phrases are appended to the
+  // notes as you speak, interim words preview live in the field. No upload, no
+  // silence hallucination (the old record→Whisper pass sometimes wrote "Thank
+  // you." on empty audio). Persists each committed phrase immediately.
+  const dictation = useDictation({
+    value: notes,
+    onChange: (v) => {
+      setNotes(v);
+      onSaveNotes(v.trim() || null);
+    },
+  });
   const [atts, setAtts] = React.useState<DetailAttachment[] | null>(null); // null = loading
   const [uploading, setUploading] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
@@ -85,6 +98,37 @@ export function GoalDetailRow({
     const v = notes.trim();
     if ((initialNotes ?? "").trim() === v) return;
     onSaveNotes(v || null);
+  }
+
+  // Drop a dictated transcript in at the caret (or append to the end), tidy the
+  // spacing, persist immediately, and put the caret after the inserted text so
+  // the user can keep typing or dictate another line.
+  function insertDictation(text: string) {
+    const el = notesRef.current;
+    const prev = notes;
+    let next: string;
+    let caret: number;
+    if (el && typeof el.selectionStart === "number" && document.activeElement === el) {
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const before = prev.slice(0, start);
+      const after = prev.slice(end);
+      const sep = before && !/\s$/.test(before) ? " " : "";
+      next = before + sep + text + after;
+      caret = (before + sep + text).length;
+    } else {
+      const sep = prev && !/\s$/.test(prev) ? " " : "";
+      next = prev + sep + text;
+      caret = next.length;
+    }
+    setNotes(next);
+    onSaveNotes(next.trim() || null);
+    requestAnimationFrame(() => {
+      if (el) {
+        el.focus();
+        try { el.setSelectionRange(caret, caret); } catch { /* noop */ }
+      }
+    });
   }
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -141,13 +185,51 @@ export function GoalDetailRow({
         <div className="grid gap-5 md:grid-cols-2">
           {/* ── Notes ── */}
           <div>
-            <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.07em] text-ink-soft">
-              <FileText size={13} className="text-altus-red" /> Notes
-            </p>
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.07em] text-ink-soft">
+                <FileText size={13} className="text-altus-red" /> Notes
+              </p>
+              {canWrite &&
+                (dictation.supported ? (
+                  <button
+                    type="button"
+                    onClick={dictation.toggle}
+                    aria-pressed={dictation.recording}
+                    aria-label={dictation.recording ? "Stop dictation" : "Dictate notes by voice"}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[12px] font-bold transition-colors",
+                      FOCUS_RING,
+                      dictation.recording
+                        ? "border-altus-red text-white"
+                        : "border-hairline-strong bg-white text-ink-soft hover:border-altus-red hover:text-altus-red",
+                    )}
+                    style={dictation.recording ? { background: "var(--color-altus-red)" } : undefined}
+                  >
+                    {dictation.recording ? (
+                      <>
+                        <span className="size-2 rounded-full bg-white animate-pulse" />
+                        Listening… <Square size={12} strokeWidth={2.8} />
+                      </>
+                    ) : (
+                      <>
+                        <Mic size={13} strokeWidth={2.4} /> Dictate
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  // Firefox / unsupported: fall back to record→transcribe (Whisper).
+                  <VoiceNoteButton onText={insertDictation} label="Dictate" className="!px-2.5 !py-1 !text-[12px]" />
+                ))}
+            </div>
             <textarea
               ref={notesRef}
-              value={notes}
+              value={
+                dictation.recording && dictation.interim
+                  ? notes + (notes && !/\s$/.test(notes) ? " " : "") + dictation.interim
+                  : notes
+              }
               disabled={!canWrite}
+              readOnly={dictation.recording}
               onChange={(e) => setNotes(e.target.value)}
               onBlur={commitNotes}
               onKeyDown={(e) => {
@@ -159,6 +241,7 @@ export function GoalDetailRow({
                   // Esc: save, leave the field, collapse the row and return focus to
                   // the "Notes & Files" toggle so the grid round-trip is complete.
                   e.preventDefault();
+                  if (dictation.recording) dictation.stop();
                   commitNotes();
                   (e.target as HTMLTextAreaElement).blur();
                   onClose?.();
@@ -168,10 +251,16 @@ export function GoalDetailRow({
               rows={4}
               className={cn(
                 "w-full resize-y rounded-lg border bg-white px-3 py-2 text-[13.5px] leading-relaxed text-ink-strong focus:border-altus-red disabled:opacity-60",
+                dictation.recording && "border-altus-red",
                 FOCUS_RING,
               )}
               style={{ borderColor: "var(--color-hairline-strong)" }}
             />
+            {dictation.recording && (
+              <p className="mt-1 text-[11.5px] font-semibold text-altus-red">
+                Speak now — your words appear as you talk. Click <span className="font-black">Listening…</span> to stop.
+              </p>
+            )}
           </div>
 
           {/* ── Attachments ── */}

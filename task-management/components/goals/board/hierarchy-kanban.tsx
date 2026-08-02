@@ -39,6 +39,7 @@ import {
   useSensor,
   useSensors,
   useDroppable,
+  useDraggable,
   closestCorners,
   pointerWithin,
   type CollisionDetection,
@@ -131,6 +132,9 @@ export interface HierarchyKanbanProps {
   onRehome: (g: GoalDTO, periodKey: string) => void;
   /** Cross-LEVEL re-home via the period rail (roll-up → any quarter/any month). */
   onRehomeLevel?: (g: GoalDTO, targetPeriod: GoalPeriod, targetPeriodKey: string) => void;
+  /** Parent→child CASCADE: drag a frozen roll-up card onto a child lane → create
+   *  a linked child goal there (the parent stays). */
+  onCascadeChild?: (g: GoalDTO, targetPeriod: GoalPeriod, targetPeriodKey: string) => void;
   /** Persist a new Sr.-No. order for a lane (drag within a lane). */
   onReorder: (ids: string[]) => void;
   /** Week-lane cards (from weekly_goals) for the Monthly board — populate the
@@ -173,6 +177,7 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
     policy,
     onRehome,
     onRehomeLevel,
+    onCascadeChild,
     onReorder,
     weekCards,
     onRehomeWeek,
@@ -306,8 +311,11 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
   }, []);
 
   const onDragStart = React.useCallback(
-    (e: DragStartEvent) => setActiveDrag(childGoals.find((g) => g.id === String(e.active.id)) ?? null),
-    [childGoals],
+    (e: DragStartEvent) => {
+      const id = String(e.active.id);
+      setActiveDrag(childGoals.find((g) => g.id === id) ?? parents.find((p) => p.id === id) ?? null);
+    },
+    [childGoals, parents],
   );
 
   const onDragEnd = React.useCallback(
@@ -315,9 +323,27 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
       setActiveDrag(null);
       const { active, over } = e;
       if (!over) return;
-      const g = childGoals.find((x) => x.id === String(active.id));
-      if (!g || isAssigned(g)) return; // shared goals aren't re-homed by a non-owner
+      const activeId = String(active.id);
       const overId = String(over.id);
+
+      // ── PARENT (frozen roll-up) dropped onto a CHILD lane → CASCADE a linked
+      //    child goal into that bucket (the parent stays put). ─────────────────
+      const parent = parents.find((x) => x.id === activeId);
+      if (parent) {
+        if (isAssigned(parent)) return;
+        let laneKey: string | null = overId.startsWith(LANE_DROP_PREFIX)
+          ? overId.slice(LANE_DROP_PREFIX.length)
+          : null;
+        if (!laneKey) {
+          const t = childGoals.find((x) => x.id === overId);
+          if (t && laneKeys.has(t.periodKey)) laneKey = t.periodKey;
+        }
+        if (laneKey && laneKeys.has(laneKey)) onCascadeChild?.(parent, childLevel, laneKey);
+        return;
+      }
+
+      const g = childGoals.find((x) => x.id === activeId);
+      if (!g || isAssigned(g)) return; // shared goals aren't re-homed by a non-owner
       // A WEEK-lane card (weekly_goals row) re-homes via its own week-start
       // writer; a goals-table child re-homes via the shared bucket move.
       const isWeekly = weeklyIdSet.has(g.id);
@@ -358,7 +384,7 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
       if (oldIndex < 0 || newIndex < 0) return;
       onReorder(arrayMove(lane, oldIndex, newIndex).map((x) => x.id));
     },
-    [childGoals, childrenByLane, onRehome, onRehomeLevel, onReorder, weeklyIdSet, onRehomeWeek],
+    [childGoals, childrenByLane, parents, laneKeys, childLevel, onCascadeChild, onRehome, onRehomeLevel, onReorder, weeklyIdSet, onRehomeWeek],
   );
 
   // ── ARIA-LIVE narration (keyboard parity) ───────────────────────────
@@ -434,9 +460,13 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
         </div>
       )}
 
-      {/* Horizontal-scroll stage: the frozen roll-up pins left; the lanes scroll. */}
-      <div className="wg-rise relative overflow-x-auto overflow-y-visible pb-4" role="group" aria-label={`${parentLabel} goals with their ${childLabel} — drag a card between lanes to move it`}>
-        <div className="flex min-w-max items-stretch gap-4">
+      {/* Scroll STAGE — its own scroll region (capped height) so the lane +
+          roll-up headers (sticky top) FREEZE as you scroll the cards; the frozen
+          roll-up pins left, lanes scroll horizontally when they overflow. */}
+      <div className="wg-rise relative max-h-[calc(100dvh-210px)] overflow-auto pb-4" role="group" aria-label={`${parentLabel} goals with their ${childLabel} — drag a card between lanes to move it`}>
+        {/* min-w-full = fill the page when there's room; grow past it (→ scroll)
+            only when the lanes' min-widths can't all fit. */}
+        <div className="flex min-w-full items-stretch gap-4">
           {/* ── FROZEN PARENT COLUMN — sticky, dominant, the Vision anchor ── */}
           <aside
             className="sticky left-0 z-30 flex w-[312px] shrink-0 flex-col gap-3 rounded-2xl p-3 max-md:w-[248px]"
@@ -447,7 +477,10 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
                 "0 1px 0 rgba(255,255,255,0.7) inset, 18px 0 26px -22px rgba(15,23,42,0.18), 0 18px 40px -28px rgba(15,23,42,0.20)",
             }}
           >
-            <div className="flex items-center gap-2 px-1 pt-0.5">
+            <div
+              className="sticky top-2 z-40 -mx-3 -mt-3 flex items-center gap-2 rounded-t-2xl px-4 pb-2 pt-3"
+              style={{ background: "var(--color-surface-card)", boxShadow: "0 10px 14px -12px rgba(15,23,42,0.18)" }}
+            >
               <span
                 className="grid size-7 place-items-center rounded-lg text-white"
                 style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
@@ -477,9 +510,10 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
                 </p>
               </div>
             ) : (
-              parents.map((g, i) => (
-                <ParentCard
+              parents.map((g) => (
+                <DraggableParent
                   key={g.id}
+                  draggable={canWrite && policy.canRehomeLevel && !!onCascadeChild && !isAssigned(g)}
                   goal={g}
                   srNo={cardProps.rankOf(g)}
                   code={cardProps.codeOf(g)}
@@ -488,6 +522,27 @@ export function HierarchyKanban(props: HierarchyKanbanProps) {
                   childLabel={childLabel}
                 />
               ))
+            )}
+
+            {/* Add a goal at THIS (parent) level — the roll-up column gets its own
+                "+ Add Goal" tile, matching the child lanes. */}
+            {canWrite && policy.canCreateOwnChildren && (
+              <BoardQuickAdd
+                compact
+                employeeId={viewedEmployeeId}
+                level={parentLevel}
+                periodKey={selectedKey}
+                parent={null}
+                areaOptions={cardProps.areaOptions}
+                measureOptions={cardProps.measureOptions}
+                typeOptions={cardProps.typeOptions}
+                customLookups={cardProps.customLookups}
+                isAdmin={cardProps.isAdmin}
+                roster={cardProps.roster}
+                currentCount={parents.length}
+                mutation={cardProps.mutation}
+                existingTitles={parents.map((g) => g.title)}
+              />
             )}
           </aside>
 
@@ -602,6 +657,36 @@ function PeriodDropPill({ periodKey, label, sourceKey }: { periodKey: string; la
 /* ------------------------------------------------------------------ */
 /* Frozen PARENT card — dominant, roll-up, expand/collapse detail       */
 /* ------------------------------------------------------------------ */
+
+/** Makes a frozen ParentCard draggable so it can be dropped onto a child lane
+ *  (→ cascade a linked child via the board's onCascadeChild). The 5px pointer
+ *  activation constraint means a plain click still hits the card's own buttons. */
+function DraggableParent(props: {
+  draggable: boolean;
+  goal: GoalDTO;
+  srNo: number;
+  code: string;
+  ownerName: string;
+  childCount: number;
+  childLabel: string;
+}) {
+  const { draggable, ...card } = props;
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: card.goal.id,
+    disabled: !draggable,
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      {...(draggable ? attributes : {})}
+      {...(draggable ? listeners : {})}
+      className={draggable ? "cursor-grab active:cursor-grabbing" : undefined}
+      style={{ opacity: isDragging ? 0.4 : 1, touchAction: draggable ? "none" : undefined }}
+    >
+      <ParentCard {...card} />
+    </div>
+  );
+}
 
 function ParentCard({
   goal,
@@ -773,7 +858,7 @@ function Lane({
   return (
     <section
       aria-label={`${lane.main} — ${goals.length} goal${goals.length === 1 ? "" : "s"}`}
-      className="flex w-[274px] shrink-0 flex-col rounded-2xl border transition-all"
+      className="flex min-w-[274px] flex-1 flex-col rounded-2xl border transition-all"
       style={{
         background: isOver
           ? "color-mix(in srgb, var(--color-ink-strong) 5%, var(--color-surface-soft))"

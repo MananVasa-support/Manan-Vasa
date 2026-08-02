@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
@@ -136,9 +136,21 @@ export default async function GoalsWeeklyPage({ searchParams }: PageProps) {
       .leftJoin(parentGoal, eq(weeklyGoals.monthGoalId, parentGoal.id))
       .where(
         and(
-          eq(weeklyGoals.employeeId, scopeEmp),
           eq(weeklyGoals.weekStart, weekStart),
           eq(weeklyGoals.archived, false),
+          // A weekly goal reaches this person's board when they OWN it, when it's
+          // shared with them as a team member (share_with_team + team_involved),
+          // OR when it's delegated to them (delegated_to — accountability hand-off,
+          // mig 0171). This mirrors the cascade board's getSharedGoals so a
+          // delegated weekly goal actually shows on the delegate's list.
+          or(
+            eq(weeklyGoals.employeeId, scopeEmp),
+            and(
+              eq(weeklyGoals.shareWithTeam, true),
+              sql`${weeklyGoals.teamInvolved} @> ${JSON.stringify([{ employeeId: scopeEmp }])}::jsonb`,
+            ),
+            sql`${weeklyGoals.delegatedTo} @> ${JSON.stringify([{ employeeId: scopeEmp }])}::jsonb`,
+          ),
         ),
       )
       .orderBy(asc(weeklyGoals.position)),

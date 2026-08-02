@@ -101,7 +101,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       // tasks daily" rule is REMOVED, per design §4). Set MANAGER_TASK_GATE_ON=
       // true to restore it. The legacy MANAGER_GATES_OFF switch no longer gates
       // this branch.
-      const onDutyRoute = pathname.startsWith("/tasks/new") || pathname.startsWith("/weekly-goals");
+      const onDutyRoute = pathname.startsWith("/tasks/new") || pathname.startsWith("/goals/weekly");
       if (!onDutyRoute && managerTaskGateOn()) {
         const dailyGate = await managerDailyTaskGate(me.id).catch(() => null);
         if (dailyGate && !dailyGate.satisfied) {

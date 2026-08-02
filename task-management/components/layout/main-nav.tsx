@@ -328,7 +328,7 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       // pages (board design) + rituals below are the whole module. Cross-level
       // moves live in each card's "Move to…" drawer (the drag-to-sidebar
       // bridge left with the canvas).
-      { href: "/weekly-goals/team" as Route, label: "Team Dashboard", Icon: Users },
+      { href: "/goals/weekly/team" as Route, label: "Team Dashboard", Icon: Users },
       { href: "/goals/review" as Route, label: "Review", Icon: ClipboardList },
       { href: "/goals/approve" as Route, label: "Approve", Icon: CalendarRange },
       { href: "/goals/recycle-bin" as Route, label: "Recycle Bin", Icon: Trash2, adminOnly: true },

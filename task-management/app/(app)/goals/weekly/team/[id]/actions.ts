@@ -51,6 +51,6 @@ export async function reviewChecklistDay(input: unknown): Promise<Result> {
   } catch (err) {
     return { ok: false, error: `Could not save review: ${(err as Error).message}` };
   }
-  revalidatePath(`/weekly-goals/team/${parsed.data.employeeId}`);
+  revalidatePath(`/goals/weekly/team/${parsed.data.employeeId}`);
   return { ok: true };
 }

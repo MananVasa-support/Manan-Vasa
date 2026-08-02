@@ -983,7 +983,7 @@ function DelegatesCell({
         <span
           key={d.employeeId}
           title={`${d.name ?? "—"} · delegated ${d.pct}%`}
-          className="inline-flex max-w-[120px] items-center gap-1 truncate rounded-full border px-1.5 py-0.5 text-[11px] font-semibold text-ink-strong"
+          className="inline-flex max-w-[132px] items-center gap-1 rounded-full border pl-1.5 pr-1 py-0.5 text-[11px] font-semibold text-ink-strong"
           style={{ borderColor: "var(--color-hairline)", background: "var(--color-surface-soft)" }}
         >
           <span
@@ -994,7 +994,21 @@ function DelegatesCell({
             {(d.name ?? "?").trim().charAt(0).toUpperCase()}
           </span>
           <span className="truncate">{d.name ?? "—"}</span>
-          <span className="tabular-nums font-bold text-altus-red-deep">·{d.pct}%</span>
+          <span className="shrink-0 tabular-nums font-bold text-altus-red-deep">·{d.pct}%</span>
+          {!disabled && (
+            <button
+              type="button"
+              onClick={() => {
+                const next = list.filter((x) => x.employeeId !== d.employeeId);
+                onCommit(next.length ? next : null);
+              }}
+              aria-label={`Remove ${d.name ?? "delegate"}`}
+              title="Remove delegate"
+              className="grid size-3.5 shrink-0 place-items-center rounded-full text-ink-subtle transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_15%,transparent)] hover:text-altus-red"
+            >
+              <X size={10} strokeWidth={3} />
+            </button>
+          )}
         </span>
       ))}
       {extra > 0 && (

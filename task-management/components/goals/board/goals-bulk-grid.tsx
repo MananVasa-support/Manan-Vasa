@@ -30,6 +30,14 @@ interface Person {
   name: string;
 }
 
+/** A delegate carries its OWN accountability weight (%), edited per-member —
+ *  same as the main Goals table's Delegated cell (not just an even auto-split). */
+interface Delegate {
+  id: string;
+  name: string;
+  pct: number;
+}
+
 interface Draft {
   id: number;
   area: string;
@@ -39,7 +47,7 @@ interface Draft {
   target: string;
   category: string;
   weight: string;
-  delegates: Person[];
+  delegates: Delegate[];
 }
 
 let _seq = 1;
@@ -60,8 +68,16 @@ const COLS: { key: CellKey; label: string; kind: "select-area" | "select-measure
 const CELL =
   "w-full bg-transparent px-2 py-1.5 text-[13px] text-ink-strong outline-none focus:bg-[color-mix(in_oklab,var(--color-altus-red)_5%,transparent)]";
 
-/** Per-row delegate picker — type-to-search the roster; chips for the picked. */
-function DelegatePicker({ roster, value, onChange }: { roster: RosterMember[]; value: Person[]; onChange: (v: Person[]) => void }) {
+/** Even-split the 100% across `n` members (last one absorbs the rounding). */
+function evenSplit(n: number): number[] {
+  if (n <= 0) return [];
+  const each = Math.floor(100 / n);
+  return Array.from({ length: n }, (_, i) => (i === n - 1 ? 100 - each * (n - 1) : each));
+}
+
+/** Per-row delegate picker — type-to-search the roster; a chip per picked member
+ *  with an EDITABLE weight-% input (auto-splits evenly on add, then tweak). */
+function DelegatePicker({ roster, value, onChange }: { roster: RosterMember[]; value: Delegate[]; onChange: (v: Delegate[]) => void }) {
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState("");
   const [box, setBox] = React.useState<{ top: number; left: number; width: number } | null>(null);
@@ -80,17 +96,33 @@ function DelegatePicker({ roster, value, onChange }: { roster: RosterMember[]; v
     setTimeout(() => searchRef.current?.focus(), 0);
   }
   function add(m: RosterMember) {
-    onChange([...value, { id: m.id, name: m.name }]);
+    // Adding re-splits evenly (a clean starting point); each % is then editable.
+    const next = [...value, { id: m.id, name: m.name, pct: 0 }];
+    const split = evenSplit(next.length);
+    onChange(next.map((d, i) => ({ ...d, pct: split[i] ?? 0 })));
     setQ("");
     searchRef.current?.focus();
+  }
+  function setPct(id: string, raw: string) {
+    const n = Math.max(0, Math.min(100, Number(raw.replace(/[^0-9]/g, "")) || 0));
+    onChange(value.map((x) => (x.id === id ? { ...x, pct: n } : x)));
   }
 
   return (
     <div className="flex flex-wrap items-center gap-1 px-1.5 py-1">
       {value.map((v) => (
-        <span key={v.id} className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11.5px] font-semibold text-ink-strong" style={{ borderColor: "var(--color-hairline-strong)" }}>
+        <span key={v.id} className="inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-[11.5px] font-semibold text-ink-strong" style={{ borderColor: "var(--color-hairline-strong)" }}>
           {v.name.split(" ")[0]}
-          <button type="button" onClick={() => onChange(value.filter((x) => x.id !== v.id))} aria-label={`Remove ${v.name}`} className="text-ink-subtle hover:text-altus-red">
+          <input
+            value={String(v.pct)}
+            onChange={(e) => setPct(v.id, e.target.value)}
+            inputMode="numeric"
+            aria-label={`${v.name} weight percent`}
+            title="Accountability weight for this member (%)"
+            className="w-6 rounded bg-[color-mix(in_oklab,var(--color-altus-red)_7%,transparent)] text-center text-[11px] font-bold tabular-nums text-altus-red-deep outline-none"
+          />
+          <span className="text-[10px] text-ink-subtle">%</span>
+          <button type="button" onClick={() => onChange(value.filter((x) => x.id !== v.id))} aria-label={`Remove ${v.name}`} className="ml-0.5 text-ink-subtle hover:text-altus-red">
             <X size={11} />
           </button>
         </span>
@@ -163,7 +195,7 @@ export function GoalsBulkGrid(props: {
   levelName: string;
   onProceed: (rows: BulkGridRow[]) => void;
 }) {
-  const [rows, setRows] = React.useState<Draft[]>(() => Array.from({ length: 6 }, blank));
+  const [rows, setRows] = React.useState<Draft[]>(() => Array.from({ length: 5 }, blank));
 
   const optionsFor = (kind: string): string[] =>
     kind === "select-area" ? props.areaOptions : kind === "select-measure" ? props.measureOptions : props.typeOptions;
@@ -171,7 +203,7 @@ export function GoalsBulkGrid(props: {
   function setCell(id: number, key: CellKey, value: string) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [key]: value } : r)));
   }
-  function setDelegates(id: number, delegates: Person[]) {
+  function setDelegates(id: number, delegates: Delegate[]) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, delegates } : r)));
   }
   function addRow() {
@@ -209,8 +241,6 @@ export function GoalsBulkGrid(props: {
       .filter((r) => r.title.trim().length > 0)
       .map((r) => {
         const w = Number(String(r.weight).replace(/[^0-9.\-]/g, ""));
-        const n = r.delegates.length;
-        const pct = n > 0 ? Math.round(100 / n) : 0;
         return {
           area: r.area.trim() || null,
           title: r.title.trim(),
@@ -220,7 +250,8 @@ export function GoalsBulkGrid(props: {
           category: r.category.trim() || null,
           // Blank weight → null (server distributes the remaining ≤100% budget).
           weight: r.weight.trim() && Number.isFinite(w) ? w : null,
-          delegatedTo: r.delegates.map((d) => ({ employeeId: d.id, name: d.name, pct })),
+          // Per-member accountability weight, edited in the Delegate chip.
+          delegatedTo: r.delegates.map((d) => ({ employeeId: d.id, name: d.name, pct: d.pct })),
         };
       });
     props.onProceed(out);
@@ -265,11 +296,15 @@ export function GoalsBulkGrid(props: {
                 {COLS.map((c) => (
                   <td key={c.key} className="border-b border-l align-middle" style={{ borderColor: "var(--color-hairline)", minWidth: c.minW }}>
                     {c.kind === "text" ? (
-                      <input
+                      // Wrapping, auto-growing textarea → the FULL goal is always
+                      // visible (no truncation / clutter), matching the main table.
+                      <textarea
                         value={r[c.key]}
                         onChange={(e) => setCell(r.id, c.key, e.target.value)}
+                        onInput={(e) => { const t = e.currentTarget; t.style.height = "auto"; t.style.height = `${t.scrollHeight}px`; }}
+                        rows={1}
                         placeholder="What does done look like?"
-                        className={`${CELL} font-semibold`}
+                        className={`${CELL} resize-none overflow-hidden font-semibold leading-snug`}
                       />
                     ) : c.kind === "num" ? (
                       <input

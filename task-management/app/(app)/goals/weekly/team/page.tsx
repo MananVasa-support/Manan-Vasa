@@ -151,7 +151,7 @@ export default async function TeamPerformancePage() {
                       <Target size={14} strokeWidth={2.4} /> View goals
                     </Link>
                     <Link
-                      href={`/weekly-goals/team/${m.id}` as Route}
+                      href={`/goals/weekly/team/${m.id}` as Route}
                       className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-bold text-white transition-transform hover:-translate-y-0.5"
                       style={{ background: `linear-gradient(135deg, ${RED}, var(--color-altus-red-deep))` }}
                     >

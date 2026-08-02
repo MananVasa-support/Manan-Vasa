@@ -341,7 +341,7 @@ export function GoalLookupSelect({
                   }}
                   maxLength={60}
                   placeholder={`New ${noun}…`}
-                  className={cn("h-9 flex-1 rounded-lg border bg-white px-2.5 text-[13.5px] font-semibold text-ink-strong focus:border-altus-red", FOCUS_RING)}
+                  className={cn("h-9 min-w-0 flex-1 rounded-lg border bg-white px-2.5 text-[13.5px] font-semibold text-ink-strong focus:border-altus-red", FOCUS_RING)}
                   style={{ borderColor: "var(--color-hairline-strong)" }}
                 />
                 <button

@@ -21,6 +21,11 @@ import { GoalsBulkUpload } from "@/components/goals/board/goals-bulk-upload";
 const FOCUS_RING =
   "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-card)]";
 
+const MONTHS_LONG = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
 interface Props {
   employeeId: string;
   level: GoalPeriod;
@@ -116,6 +121,18 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
         : props.level === "week"
           ? "Week"
           : "Month";
+
+  // Spell the destination out in the header so it's unambiguous which bucket the
+  // goal lands in — "Add Goal for the Month of August", "…for the Quarter Q2", …
+  const composerTitle = React.useMemo(() => {
+    if (props.level === "month") {
+      const name = MONTHS_LONG[Number(periodKey.slice(5, 7)) - 1];
+      return name ? `Add Goal for the Month of ${name}` : "Add Goal for the Month";
+    }
+    if (props.level === "quarter") return `Add Goal for the Quarter ${periodKey.slice(-2)}`;
+    if (props.level === "year") return `Add Goal for the Year ${periodKey}`;
+    return `Add Goal for the ${periodNoun}`;
+  }, [props.level, periodKey, periodNoun]);
   const compact = props.compact ?? false;
 
   function reset() {
@@ -257,7 +274,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
           setAddedCount(0);
         }}
         eyebrow={`New Goal · #${props.currentCount + addedCount + 1} · ${bucketLabel}`}
-        title={`Add Goal for the ${periodNoun}`}
+        title={composerTitle}
         footer={
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2.5">
@@ -279,7 +296,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
                 {props.parent ? ` · files under “${props.parent.title}”` : ""}
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -287,7 +304,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
                   reset();
                   setAddedCount(0);
                 }}
-                className={`inline-flex items-center rounded-full border px-5 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:bg-surface-soft hover:text-ink-strong ${FOCUS_RING}`}
+                className={`inline-flex items-center whitespace-nowrap rounded-full border px-5 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:bg-surface-soft hover:text-ink-strong ${FOCUS_RING}`}
                 style={{ borderColor: "var(--color-hairline-strong)" }}
               >
                 End
@@ -296,7 +313,7 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
                 type="button"
                 onClick={submit}
                 disabled={saving}
-                className={`pastel-cta wg-btn inline-flex items-center gap-1.5 rounded-full px-6 py-2.5 text-[14px] font-bold disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}
+                className={`pastel-cta wg-btn inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-6 py-2.5 text-[14px] font-bold disabled:opacity-60 disabled:cursor-not-allowed ${FOCUS_RING}`}
               >
                 {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.8} />}
                 Add Goal
@@ -306,48 +323,59 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
         }
       >
         <div
-          className="grid gap-5"
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
           }}
         >
           {error && (
             <p
-              className="rounded-lg px-3 py-2 text-[13px] font-semibold text-altus-red"
+              className="mb-4 rounded-lg px-3 py-2 text-[13px] font-semibold text-altus-red"
               style={{ background: "color-mix(in srgb, var(--color-altus-red) 8%, transparent)" }}
             >
               {error}
             </p>
           )}
 
-          {/* Period quick-picker — retarget the bucket (Q1–Q4 / month) without
-              leaving the composer. Standalone goals only (children pin to parent). */}
-          {periodChoices.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {periodChoices.map((p) => {
-                const on = p.key === periodKey;
-                return (
-                  <button
-                    key={p.key}
-                    type="button"
-                    onClick={() => setPeriodKey(p.key)}
-                    aria-pressed={on}
-                    className={`wg-btn inline-flex items-center rounded-full border px-3 py-1.5 text-[12.5px] font-bold transition-colors cursor-pointer ${FOCUS_RING}`}
-                    style={
-                      on
-                        ? { background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", borderColor: "var(--color-altus-red)", color: "#fff" }
-                        : { background: "var(--color-surface-card)", borderColor: "var(--color-hairline-strong)", color: "var(--color-ink-soft)" }
-                    }
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <div className={periodChoices.length > 0 ? "flex gap-4" : ""}>
+            {/* Bucket rail — retarget the goal (Q1–Q4 / all 12 months) without
+                leaving the composer. Vertical + scrollable so every month is
+                reachable, and sticky so it stays in view as the form scrolls.
+                Standalone goals only (a child pins to its parent's bucket). */}
+            {periodChoices.length > 0 && (
+              <aside className="sticky top-0 z-10 shrink-0 self-start">
+                <p className="mb-1.5 px-1 text-[10.5px] font-black uppercase tracking-[0.08em] text-ink-subtle">
+                  Lands in
+                </p>
+                <div
+                  className="wg-scroll flex max-h-[460px] w-[98px] flex-col gap-1 overflow-y-auto rounded-xl border p-1.5"
+                  style={{ borderColor: "var(--color-hairline)", background: "var(--color-surface-soft)" }}
+                >
+                  {periodChoices.map((p) => {
+                    const on = p.key === periodKey;
+                    return (
+                      <button
+                        key={p.key}
+                        type="button"
+                        onClick={() => setPeriodKey(p.key)}
+                        aria-pressed={on}
+                        className={`wg-btn w-full rounded-lg border px-2 py-2 text-[12.5px] font-bold transition-colors cursor-pointer ${FOCUS_RING}`}
+                        style={
+                          on
+                            ? { background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", borderColor: "var(--color-altus-red)", color: "#fff" }
+                            : { background: "var(--color-surface-card)", borderColor: "var(--color-hairline-strong)", color: "var(--color-ink-soft)" }
+                        }
+                      >
+                        {p.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </aside>
+            )}
 
-          {/* 1 · Area · Measure · Type — one row. */}
-          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid min-w-0 flex-1 gap-5">
+              {/* 1 · Area · Measure · Type — one row. */}
+              <div className="grid gap-3 sm:grid-cols-3">
             <div className="block">
               <span className="mb-1 block text-[12px] font-bold text-ink-soft">Area</span>
               <GoalLookupSelect
@@ -524,6 +552,8 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
               <span className="mt-1 block text-[11.5px] font-medium text-ink-subtle">
                 Uploaded to the goal once you add it.
               </span>
+            </div>
+          </div>
             </div>
           </div>
         </div>

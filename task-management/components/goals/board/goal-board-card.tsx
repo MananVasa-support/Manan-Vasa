@@ -186,6 +186,12 @@ function GoalBoardCardImpl({
     () => !crossed && eff < 100 && deriveHealth(eff, goal.periodKey, new Date(), { spillover: spill }).atRisk,
     [crossed, eff, goal.periodKey, spill],
   );
+  /** Full pace-aware health (band label + colour + expected-by-now) — powers the
+   *  kanban card's progress bar + status chip so the card reads at a glance. */
+  const health = React.useMemo(
+    () => deriveHealth(eff, goal.periodKey, new Date(), { spillover: spill }),
+    [eff, goal.periodKey, spill],
+  );
   /** View-only surface (policy) — the drawer still OPENS (read-only affordance)
    *  but every control disables and no save can fire. */
   const ro = !canWrite;
@@ -594,7 +600,7 @@ function GoalBoardCardImpl({
               }
               className={`shrink-0 rounded-full transition-transform hover:scale-105 ${FOCUS_RING}`}
             >
-              <ProgressRing pct={eff} tone={tone} size={36} />
+              <ProgressRing pct={eff} tone={tone} size={40} />
             </button>
             <button
               type="button"
@@ -602,8 +608,20 @@ function GoalBoardCardImpl({
               aria-label={`${canWrite ? "Edit" : "View"} "${goal.title}"`}
               className={`min-w-0 flex-1 cursor-pointer rounded-md text-left ${FOCUS_RING}`}
             >
+              {/* Serial no. + dense code */}
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="inline-flex items-center rounded-md px-1 py-[1px] text-[9.5px] font-black tabular-nums"
+                  style={{ background: "var(--color-surface-soft)", color: "var(--color-ink-soft)" }}
+                >
+                  #{srNo}
+                </span>
+                <span className="text-[11px] font-bold tabular-nums" style={{ color: origin.color }}>
+                  {codeOf(goal)}
+                </span>
+              </div>
               <h3
-                className="overflow-hidden text-[13.5px] font-semibold leading-snug [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]"
+                className="mt-0.5 overflow-hidden text-[13.5px] font-semibold leading-snug [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]"
                 style={{
                   color: "var(--color-ink-strong)",
                   letterSpacing: "-0.004em",
@@ -615,13 +633,38 @@ function GoalBoardCardImpl({
             </button>
           </div>
 
+          {/* Progress bar + % done + pace-aware status — fills the card at a glance */}
+          {!crossed && (
+            <div className="mt-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11.5px] font-black tabular-nums" style={{ color: health.color }}>
+                  {Math.round(eff)}%
+                  <span className="ml-1 text-[10px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>done</span>
+                </span>
+                <span
+                  className="inline-flex items-center rounded-full px-1.5 py-[1px] text-[10px] font-bold"
+                  style={{ background: health.bg, color: health.color }}
+                >
+                  {health.label}
+                </span>
+              </div>
+              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--color-hairline)" }}>
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.min(100, barW)}%`,
+                    background: `linear-gradient(90deg, ${health.color}, color-mix(in srgb, ${health.color} 72%, black))`,
+                    transition: "width 0.5s cubic-bezier(0.22,1,0.36,1)",
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
           <div
             className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11.5px]"
             style={{ color: "var(--color-ink-subtle)" }}
           >
-            <span className="font-bold tabular-nums" style={{ color: origin.color }}>
-              {codeOf(goal)}
-            </span>
             <span
               className="inline-flex items-center rounded-full px-1.5 py-[1px] text-[10.5px] font-bold"
               style={{ background: cat.bg, color: cat.color }}
@@ -634,6 +677,13 @@ function GoalBoardCardImpl({
                 {goal.area}
               </span>
             )}
+            <span
+              className="inline-flex items-center rounded-full px-1.5 py-[1px] text-[10px] font-bold tabular-nums"
+              style={{ background: "var(--color-surface-soft)", color: "var(--color-ink-soft)" }}
+              title="Weight in this bucket"
+            >
+              {goal.weight ?? 100}% wt
+            </span>
             {goalTakesTargetDate(goal.period) && goal.targetDate && (
               <TargetDateChip iso={goal.targetDate} compact />
             )}
@@ -646,13 +696,39 @@ function GoalBoardCardImpl({
           </div>
 
           <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="truncate text-[11.5px] font-medium tabular-nums" style={{ color: "var(--color-ink-subtle)" }}>
-              {goal.targetQty != null
-                ? `Qty ${fmtNum(goal.actualQty ?? 0)} / ${fmtNum(goal.targetQty)}${goal.uom ? ` ${goal.uom}` : ""}`
-                : goal.targetAmount != null
-                  ? `₹ ${fmtNum(goal.actualAmount ?? 0)} / ${fmtNum(goal.targetAmount)}`
-                  : ""}
-            </span>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-[11.5px] font-medium tabular-nums" style={{ color: "var(--color-ink-subtle)" }}>
+                {goal.targetQty != null
+                  ? `Qty ${fmtNum(goal.actualQty ?? 0)} / ${fmtNum(goal.targetQty)}${goal.uom ? ` ${goal.uom}` : ""}`
+                  : goal.targetAmount != null
+                    ? `₹ ${fmtNum(goal.actualAmount ?? 0)} / ${fmtNum(goal.targetAmount)}`
+                    : ""}
+              </span>
+              {goal.delegatedTo && goal.delegatedTo.length > 0 && (
+                <div
+                  className="flex shrink-0 items-center -space-x-1.5"
+                  title={`Delegated → ${goal.delegatedTo.map((d) => `${d.name ?? "—"} ${d.pct}%`).join(" · ")}`}
+                >
+                  {goal.delegatedTo.slice(0, 3).map((d) => (
+                    <span
+                      key={d.employeeId}
+                      className="grid size-5 place-items-center rounded-full text-[8.5px] font-black text-white"
+                      style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 0 0 1.5px var(--color-surface-card)" }}
+                    >
+                      {(d.name ?? "?").split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?"}
+                    </span>
+                  ))}
+                  {goal.delegatedTo.length > 3 && (
+                    <span
+                      className="grid size-5 place-items-center rounded-full text-[8px] font-bold text-white"
+                      style={{ background: "var(--color-ink-subtle)", boxShadow: "0 0 0 1.5px var(--color-surface-card)" }}
+                    >
+                      +{goal.delegatedTo.length - 3}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
             <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 max-md:opacity-100">
               {mutation.pending && (
                 <Loader2 size={12} className="animate-spin" style={{ color: "var(--color-ink-subtle)" }} />

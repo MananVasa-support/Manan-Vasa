@@ -74,7 +74,7 @@ export function WeeklyGoalTaskGroup({
           </span>
         </div>
         <Link
-          href={"/weekly-goals" as Route}
+          href={"/goals/weekly" as Route}
           className="shrink-0 inline-flex items-center gap-1 font-semibold text-altus-red-deep hover:underline"
           style={{ fontSize: 13.5 }}
         >

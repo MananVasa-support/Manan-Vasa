@@ -47,8 +47,8 @@ type ActionOk<T> = T extends undefined ? { ok: true } : { ok: true } & T;
 type ActionResult<T = undefined> = ActionOk<T> | { ok: false; error: string };
 
 function revalidateWeeklyGoals() {
-  revalidatePath("/weekly-goals");
-  revalidatePath("/weekly-goals/dashboard");
+  revalidatePath("/goals/weekly");
+  revalidatePath("/goals/weekly/dashboard");
   updateTag(CACHE_TAGS.weeklyGoals);
 }
 

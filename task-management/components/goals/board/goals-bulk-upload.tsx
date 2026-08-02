@@ -391,7 +391,7 @@ export function GoalsBulkUpload(props: Props) {
           setOpen(true);
           reset();
         }}
-        className={`wg-btn inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-bold transition-colors cursor-pointer ${FOCUS_RING}`}
+        className={`wg-btn inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-[13px] font-bold transition-colors cursor-pointer ${FOCUS_RING}`}
         style={{
           background: "var(--color-surface-card)",
           borderColor: "var(--color-hairline-strong)",
@@ -607,11 +607,14 @@ export function GoalsBulkUpload(props: Props) {
                                   />
                                 </td>
                                 <td className="px-2.5 py-2 align-top">
-                                  <input
+                                  {/* Wrapping textarea → the full goal shows, no truncation. */}
+                                  <textarea
                                     value={r.title}
                                     onChange={(e) => editTitle(r.key, e.target.value)}
+                                    onInput={(e) => { const t = e.currentTarget; t.style.height = "auto"; t.style.height = `${t.scrollHeight}px`; }}
+                                    rows={1}
                                     aria-label={`Goal title row ${r.sheetRow}`}
-                                    className={`w-[240px] max-w-full rounded-md border bg-white px-2 py-1 text-[13px] font-semibold text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
+                                    className={`w-[300px] max-w-full resize-none overflow-hidden rounded-md border bg-white px-2 py-1 text-[13px] font-semibold leading-snug text-ink-strong focus:border-altus-red ${FOCUS_RING}`}
                                     style={{ borderColor: bad ? "var(--color-altus-red)" : "var(--color-hairline-strong)" }}
                                   />
                                   {bad && (

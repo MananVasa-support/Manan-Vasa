@@ -1,474 +1,1112 @@
 "use client";
 
 /**
- * GOALS DASHBOARD — executive analytics view (PHASE 1).
+ * GOALS DASHBOARD — DIRECTOR / EXECUTIVE VIEW.
  *
- * A third board view (alongside List and Kanban) that turns the ALREADY-LOADED
- * `GoalDTO[]` into an at-a-glance executive read of one level (Yearly /
- * Quarterly / Monthly) or the Weekly board. Everything here is a pure,
- * CLIENT-SIDE projection of the goals the board already holds — zero new DB
- * queries, recomputed automatically whenever the goals prop changes.
+ * A pace-aware "control room" for one level (Yearly / Quarterly / Monthly) or
+ * the Weekly board of the currently-viewed person's cascade. EVERYTHING here is
+ * a pure CLIENT-SIDE projection over the goals the board already holds — zero
+ * new DB queries, recomputed whenever the props change.
  *
- * Content (Phase 1):
- *   A · Completion-bucket distribution (0–25 / 26–50 / 51–75 / 76–100) as
- *       animated horizontal bars (hero) + a compact SVG donut alternative.
- *       Click a bucket → inline drill-down of exactly those goals.
- *   B · Level-appropriate headline KPI cards (clickable-to-filter where noted).
- *   C · Goal-health summary (green ≥80 / amber ≥60 / red) as a segmented bar.
+ * The whole point (vs. the old flat card wall): it drives EVERY health / at-risk
+ * / forecast number off the canonical pace engine in `lib/goals/derive.ts`
+ * (`deriveHealth` · `expectedPct` · `rollupPct`), NOT static ≥80/≥60 cutoffs.
  *
- * PHASE 2 seams (NOT built here — see `// PHASE 2:` markers): time-series trend
- * charts, daily activity timeline, department/owner breakdown, workload
- * distribution, live push updates.
+ * Sections:
+ *   1. HERO — weighted OKR attainment gauge + pace read + forecast chip.
+ *   2. KPI row — weighted attainment · on-pace · at-risk · overdue · done ·
+ *      ₹ attainment · cascade coverage. Each clickable → drill.
+ *   3. Pace / health distribution — segmented bar across the 6 derived bands.
+ *   4. At-risk & overdue action list — worst-first, the director's to-do.
+ *   5. Cascade coverage — broken-down vs orphaned + "needs breakdown" list.
+ *   6. By Pillar (goalType) + By Area — weighted attainment per group.
+ *   7. Accountability / delegation — self·assigned·delegated, dependency, review.
+ *   8. ₹ / quantitative attainment — Σ actual vs Σ target (only if measures).
+ *   9. Drill-down panel — the goals behind any clicked KPI / band / group.
+ *  10. Controls — All / At-risk lens + pillar filter.
+ *
+ * Brand laws (altus-premium-ui): Altus-red identity, --font-display numbers,
+ * tabular-nums everywhere, .wg-rise / .wg-sheen + kpi-aurora depth, semantic
+ * status hexes only, all motion reduced-motion-gated.
  */
 
 import * as React from "react";
 import { useReducedMotion } from "motion/react";
-import { Target, CheckCircle2, TrendingUp, CalendarClock, Layers, Activity, X } from "lucide-react";
+import {
+  Target,
+  CheckCircle2,
+  TrendingUp,
+  TrendingDown,
+  CalendarClock,
+  AlertTriangle,
+  X,
+  GitBranch,
+  Users,
+  IndianRupee,
+  Gauge,
+  Sparkles,
+  Network,
+  ShieldCheck,
+  HandCoins,
+  Boxes,
+} from "lucide-react";
 import {
   type GoalDTO,
+  type RosterMember,
   effectiveGoalPct,
   periodKeyLabel,
-  periodKeyShort,
   targetDateStatus,
   assignmentInfo,
+  isSpillover,
+  fmtNum,
+  fyLabel,
 } from "@/components/goals/cascade/util";
+import {
+  deriveHealth,
+  rollupPct,
+  asNum,
+  type DerivedHealth,
+} from "@/lib/goals/derive";
 import { CardGrid } from "@/components/layout/card-grid";
+import { GOAL_TYPE_LABELS, type GoalType } from "@/db/enums";
 import type { GoalPeriod } from "@/lib/goals/types";
 
-/* ── Brand-consistent semantic hues (mirrors cascade/util's palette) ── */
-const RED = "#b91c1c";
-const ORANGE = "#c2410c";
-const GOLD = "#a16207";
-const GREEN = "#15803d";
-const AMBER = "#b45309";
-/* Assignment split hues — Self = neutral slate, Assigned = brand red. */
-const ASSIGN_SELF = "#475569";
-const ASSIGN_ASSIGNED = "#b91c1c";
+/* ── Semantic status hexes (mirror lib/goals/derive HEALTH_STYLE) ──────── */
+const GREEN = "#15803d"; // done / healthy
+const GREEN_BRIGHT = "#16a34a"; // ahead of pace
+const AMBER = "#b45309"; // on-track (slightly behind, within tolerance)
+const RED = "#b91c1c"; // at-risk / behind pace
+const RED_DEEP = "#7f1d1d"; // overdue (past target date)
+const ROSE = "#9f1239"; // spillover (carried + incomplete)
+const SLATE = "#475569"; // self / neutral
+const BLUE = "#1d4ed8"; // delegated / structural
 
 const FOCUS_RING =
   "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-surface-soft)]";
 
-/* ── Completion buckets (A) ─────────────────────────────────────────── */
-type BucketKey = "0-25" | "26-50" | "51-75" | "76-100";
-interface BucketDef {
-  key: BucketKey;
-  label: string;
-  color: string;
-  test: (p: number) => boolean;
-}
-const BUCKETS: BucketDef[] = [
-  { key: "0-25", label: "0–25%", color: RED, test: (p) => p <= 25 },
-  { key: "26-50", label: "26–50%", color: ORANGE, test: (p) => p > 25 && p <= 50 },
-  { key: "51-75", label: "51–75%", color: GOLD, test: (p) => p > 50 && p <= 75 },
-  { key: "76-100", label: "76–100%", color: GREEN, test: (p) => p > 75 },
-];
-function bucketOf(p: number): BucketKey {
-  if (p <= 25) return "0-25";
-  if (p <= 50) return "26-50";
-  if (p <= 75) return "51-75";
-  return "76-100";
-}
-
-/* ── Health bands (C) — green ≥80 / amber ≥60 / red ─────────────────── */
-type HealthBand = "green" | "amber" | "red";
-function healthOf(p: number): HealthBand {
-  if (p >= 80) return "green";
-  if (p >= 60) return "amber";
-  return "red";
-}
-const HEALTH_META: Record<HealthBand, { label: string; color: string }> = {
-  green: { label: "Healthy", color: GREEN },
-  amber: { label: "Watch", color: AMBER },
-  red: { label: "At risk", color: RED },
+const PANEL: React.CSSProperties = {
+  background: "var(--color-surface-card)",
+  border: "1px solid var(--color-hairline-strong)",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 3px rgba(15,23,42,0.05)",
 };
 
-/* ── Level vocabulary ───────────────────────────────────────────────── */
-const CHILD_OF: Record<string, GoalPeriod | null> = {
-  year: "quarter",
-  quarter: "month",
-  month: "week",
-  week: null,
-};
+const DISPLAY = "var(--font-display), system-ui, sans-serif";
+
 const LEVEL_NOUN: Record<string, string> = {
   year: "Yearly",
   quarter: "Quarterly",
   month: "Monthly",
   week: "Weekly",
+  day: "Daily",
 };
 const CHILD_NOUN: Record<string, string> = {
-  year: "Quarter",
-  quarter: "Month",
-  month: "Week",
+  year: "quarter",
+  quarter: "month",
+  month: "week",
   week: "",
+  day: "",
 };
 
-/* ── A single drill-down filter descriptor ──────────────────────────── */
-interface Drill {
-  id: string;
+/* ── The 6 pace-derived display bands (deriveHealth + overdue overlay) ─── */
+type DisplayBand = "done" | "ahead" | "on-track" | "at-risk" | "overdue" | "spillover";
+interface BandMeta {
   label: string;
+  short: string;
   color: string;
-  test: (g: GoalDTO) => boolean;
+}
+const BAND_META: Record<DisplayBand, BandMeta> = {
+  done: { label: "Done", short: "Done", color: GREEN },
+  ahead: { label: "Ahead of pace", short: "Ahead", color: GREEN_BRIGHT },
+  "on-track": { label: "On track", short: "On track", color: AMBER },
+  "at-risk": { label: "At risk", short: "At risk", color: RED },
+  overdue: { label: "Overdue", short: "Overdue", color: RED_DEEP },
+  spillover: { label: "Spillover", short: "Spillover", color: ROSE },
+};
+/* Distribution / legend order: best → worst. */
+const BAND_ORDER: DisplayBand[] = ["done", "ahead", "on-track", "at-risk", "overdue", "spillover"];
+
+/* ── One analysed goal row ─────────────────────────────────────────────── */
+interface Row {
+  g: GoalDTO;
+  eff: number;
+  h: DerivedHealth;
+  band: DisplayBand;
+  /** whole days past its target date (overdue only), else 0. */
+  daysLate: number;
+  /** direct cascade children + week cards under this goal. */
+  childCount: number;
 }
 
-/* ── Small count-up for headline numbers (reduced-motion → instant) ──── */
+function classify(g: GoalDTO, now: Date, childCount: number): Row {
+  const eff = Math.round(effectiveGoalPct(g));
+  const spill = isSpillover(g);
+  const h = deriveHealth(eff, g.periodKey, now, { spillover: spill });
+  const tds = g.targetDate ? targetDateStatus(g.targetDate) : null;
+  const overdue = !!tds && (tds.daysLeft ?? 0) < 0 && eff < 100;
+  const daysLate = overdue && tds ? Math.abs(tds.daysLeft ?? 0) : 0;
+  let band: DisplayBand;
+  if (h.band === "done") band = "done";
+  else if (h.band === "spillover") band = "spillover";
+  else if (overdue) band = "overdue";
+  else band = h.band as DisplayBand; // ahead | on-track | at-risk
+  return { g, eff, h, band, daysLate, childCount };
+}
+
+/** goalType code → human pillar label (base codes map; custom passes through). */
+function pillarOf(g: GoalDTO): string | null {
+  const gt = g.goalType?.trim();
+  if (!gt) return null;
+  return GOAL_TYPE_LABELS[gt as GoalType] ?? gt;
+}
+
+/* ── Count-up (rAF ease-out; renders final state under reduced motion) ─── */
 function useCountUp(target: number, enabled: boolean): number {
   const [val, setVal] = React.useState(enabled ? 0 : target);
+  const fromRef = React.useRef(enabled ? 0 : target);
   React.useEffect(() => {
     if (!enabled) {
+      fromRef.current = target;
       setVal(target);
       return;
     }
+    const from = fromRef.current;
+    if (from === target) return;
     let raf = 0;
     const start = performance.now();
-    const from = 0;
-    const dur = 620;
+    const dur = 680;
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / dur);
       const eased = 1 - Math.pow(1 - t, 3);
       setVal(from + (target - from) * eased);
       if (t < 1) raf = requestAnimationFrame(tick);
+      else fromRef.current = target;
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      fromRef.current = target;
+    };
   }, [target, enabled]);
   return val;
 }
 
+/* ── Drill descriptor (a click → the goals behind a KPI / band / group) ── */
+interface Drill {
+  id: string;
+  label: string;
+  color: string;
+  test: (r: Row) => boolean;
+}
+
+/* ── SVG gauge geometry ────────────────────────────────────────────────── */
+function polar(cx: number, cy: number, r: number, angleDeg: number) {
+  const a = ((angleDeg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+}
+function arcPath(cx: number, cy: number, r: number, startAngle: number, endAngle: number): string {
+  const start = polar(cx, cy, r, startAngle);
+  const end = polar(cx, cy, r, endAngle);
+  const large = endAngle - startAngle <= 180 ? 0 : 1;
+  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y}`;
+}
+
+/* ====================================================================== */
+/* Props                                                                  */
+/* ====================================================================== */
+
 export interface GoalsDashboardProps {
-  /** The FULL loaded cascade set (all levels) for the viewed person + FY. On the
-   *  weekly board this is the adopted week rows mapped to GoalDTO. */
+  /** FULL loaded cascade set (all levels) for the viewed person + FY. */
   allGoals: GoalDTO[];
   /** The level this dashboard summarises. */
   level: GoalPeriod;
   fyStartYear: number;
+  /** Loaded roster (id → name) for delegate / dependency labels — load-neutral.
+   *  OPTIONAL so lighter callers (e.g. the Weekly board) can mount the dashboard
+   *  without the full cascade context; all extras default to inert. */
+  roster?: RosterMember[];
+  /** Weekly execution rows (period="week") — used for month→week coverage. */
+  weekCards?: GoalDTO[];
+  /** The person whose cascade this is. */
+  viewedName?: string;
+  viewedEmployeeId?: string;
+  /** parentGoalId → its direct children (cascade rows, all levels). */
+  childrenByParent?: Map<string, GoalDTO[]>;
+  managesViewed?: boolean;
+  isAdmin?: boolean;
 }
 
-export function GoalsDashboard({ allGoals, level, fyStartYear }: GoalsDashboardProps) {
+const EMPTY_ROWS: GoalDTO[] = [];
+const EMPTY_CHILDREN = new Map<string, GoalDTO[]>();
+
+/* ====================================================================== */
+/* Model                                                                  */
+/* ====================================================================== */
+
+interface Group {
+  label: string;
+  count: number;
+  pct: number;
+}
+interface Model {
+  total: number;
+  weighted: number;
+  avgExpected: number;
+  avgConfidence: number;
+  paceDelta: number;
+  counts: Record<DisplayBand, number>;
+  onPace: number;
+  atRisk: number;
+  overdue: number;
+  done: number;
+  needsAttention: number;
+  rupee: { target: number; actual: number } | null;
+  qty: { target: number; actual: number } | null;
+  coverage: { withChildren: number; orphans: Row[]; pct: number } | null;
+  byPillar: Group[];
+  byArea: Group[];
+  accountability: {
+    self: number;
+    assigned: number;
+    delegated: number;
+    delegatedWeight: number;
+    reviewed: number;
+    selfOnly: number;
+    avgDep: number;
+    maxDep: number;
+    depCount: number;
+  };
+  atRiskRows: Row[];
+}
+
+function buildModel(rows: Row[], level: GoalPeriod): Model {
+  const total = rows.length;
+  const goals = rows.map((r) => r.g);
+  const weighted = rollupPct(goals) ?? 0;
+  const avgExpected = total ? Math.round(rows.reduce((s, r) => s + r.h.expected, 0) / total) : 0;
+  const avgConfidence = total ? Math.round(rows.reduce((s, r) => s + r.h.confidence, 0) / total) : 0;
+
+  const counts: Record<DisplayBand, number> = {
+    done: 0,
+    ahead: 0,
+    "on-track": 0,
+    "at-risk": 0,
+    overdue: 0,
+    spillover: 0,
+  };
+  for (const r of rows) counts[r.band] += 1;
+  const onPace = counts.ahead + counts["on-track"];
+  const atRisk = counts["at-risk"] + counts.spillover;
+  const overdue = counts.overdue;
+  const done = counts.done;
+  const needsAttention = counts["at-risk"] + counts.spillover + counts.overdue;
+
+  // ₹ + quantity — Σ over this level's own goals (siblings, no double count).
+  let rt = 0,
+    ra = 0,
+    hasR = false;
+  let qt = 0,
+    qa = 0,
+    hasQ = false;
+  for (const r of rows) {
+    const t = asNum(r.g.targetAmount);
+    if (t != null && t > 0) {
+      hasR = true;
+      rt += t;
+      ra += asNum(r.g.actualAmount) ?? 0;
+    }
+    const tq = asNum(r.g.targetQty);
+    if (tq != null && tq > 0) {
+      hasQ = true;
+      qt += tq;
+      qa += asNum(r.g.actualQty) ?? 0;
+    }
+  }
+
+  // Cascade coverage — only levels that HAVE a child level (not week).
+  const coverage =
+    level === "week"
+      ? null
+      : (() => {
+          const withChildren = rows.filter((r) => r.childCount > 0).length;
+          const orphans = rows
+            .filter((r) => r.childCount === 0)
+            .sort((a, b) => (b.g.weight || 0) - (a.g.weight || 0));
+          return { withChildren, orphans, pct: total ? Math.round((withChildren / total) * 100) : 0 };
+        })();
+
+  // By pillar (goalType) + by area — weighted attainment per group.
+  const groupBy = (key: (r: Row) => string): Group[] => {
+    const m = new Map<string, Row[]>();
+    for (const r of rows) {
+      const k = key(r);
+      const list = m.get(k);
+      if (list) list.push(r);
+      else m.set(k, [r]);
+    }
+    return [...m.entries()]
+      .map(([label, rs]) => ({
+        label,
+        count: rs.length,
+        pct: rollupPct(rs.map((x) => x.g)) ?? 0,
+      }))
+      .sort((a, b) => b.count - a.count || b.pct - a.pct);
+  };
+  const byPillar = groupBy((r) => pillarOf(r.g) ?? "Unspecified");
+  const byArea = groupBy((r) => (r.g.area?.trim() ? r.g.area.trim() : "Unassigned"));
+
+  // Accountability / delegation.
+  let self = 0,
+    assigned = 0,
+    delegated = 0,
+    delegatedWeight = 0,
+    reviewed = 0,
+    depSum = 0,
+    depCount = 0,
+    depMax = 0;
+  for (const r of rows) {
+    if (assignmentInfo(r.g).type === "assigned") assigned += 1;
+    else self += 1;
+    const dels = r.g.delegatedTo ?? [];
+    if (dels.length > 0) {
+      delegated += 1;
+      delegatedWeight += r.g.weight > 0 ? r.g.weight : 0;
+    }
+    if (r.g.acceptPct != null) reviewed += 1;
+    const dep = r.g.teamDependencyPct;
+    if (dep != null && dep > 0) {
+      depSum += dep;
+      depCount += 1;
+      depMax = Math.max(depMax, dep);
+    }
+  }
+
+  const atRiskRows = rows
+    .filter((r) => r.band === "at-risk" || r.band === "overdue" || r.band === "spillover")
+    .sort((a, b) => b.daysLate - a.daysLate || a.h.delta - b.h.delta);
+
+  return {
+    total,
+    weighted,
+    avgExpected,
+    avgConfidence,
+    paceDelta: weighted - avgExpected,
+    counts,
+    onPace,
+    atRisk,
+    overdue,
+    done,
+    needsAttention,
+    rupee: hasR ? { target: rt, actual: ra } : null,
+    qty: hasQ ? { target: qt, actual: qa } : null,
+    coverage,
+    byPillar,
+    byArea,
+    accountability: {
+      self,
+      assigned,
+      delegated,
+      delegatedWeight,
+      reviewed,
+      selfOnly: total - reviewed,
+      avgDep: depCount ? Math.round(depSum / depCount) : 0,
+      maxDep: depMax,
+      depCount,
+    },
+    atRiskRows,
+  };
+}
+
+/* ====================================================================== */
+/* Root                                                                   */
+/* ====================================================================== */
+
+export function GoalsDashboard(props: GoalsDashboardProps) {
+  const {
+    allGoals,
+    level,
+    fyStartYear,
+    weekCards = EMPTY_ROWS,
+    childrenByParent = EMPTY_CHILDREN,
+    viewedName = "",
+    managesViewed = false,
+    isAdmin = false,
+  } = props;
   const reduce = useReducedMotion() ?? false;
 
-  // Skeleton on the very first client mount → a premium reveal even though the
-  // data is synchronous (props). Flips true one frame in.
+  // Premium reveal even though data is synchronous (props).
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => {
     const raf = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  // ── Derived sets (recompute whenever goals change) ────────────────
-  const levelGoals = React.useMemo(
-    () => allGoals.filter((g) => g.period === level),
-    [allGoals, level],
+  // Stamp `now` once per payload so pace math is stable across the render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const now = React.useMemo(() => new Date(), [allGoals]);
+
+  const childCountOf = React.useCallback(
+    (id: string) => {
+      const direct = childrenByParent.get(id)?.length ?? 0;
+      let weeks = 0;
+      for (const w of weekCards) if (w.parentGoalId === id) weeks += 1;
+      return direct + weeks;
+    },
+    [childrenByParent, weekCards],
   );
-  const childPeriod = CHILD_OF[level] ?? null;
-  const childGoals = React.useMemo(
-    () => (childPeriod ? allGoals.filter((g) => g.period === childPeriod) : []),
-    [allGoals, childPeriod],
+
+  // Analysed rows — adopted goals at this level (crossed-out rows excluded).
+  const allRows = React.useMemo(
+    () =>
+      allGoals
+        .filter((g) => g.period === level && g.adopted)
+        .map((g) => classify(g, now, childCountOf(g.id))),
+    [allGoals, level, now, childCountOf],
   );
 
-  const pctOf = React.useCallback((g: GoalDTO) => Math.round(effectiveGoalPct(g)), []);
-
-  const stats = React.useMemo(() => {
-    const total = levelGoals.length;
-    let done = 0;
-    let notStarted = 0;
-    let inProgress = 0;
-    let onTrackActive = 0; // incomplete + on pace
-    let offTrack = 0; // incomplete + (overdue OR < 60%)
-    let sum = 0;
-    let overdue = 0;
-    let hasTargetDates = false;
-    const health: Record<HealthBand, number> = { green: 0, amber: 0, red: 0 };
-    const bucketCount: Record<BucketKey, number> = { "0-25": 0, "26-50": 0, "51-75": 0, "76-100": 0 };
-    for (const g of levelGoals) {
-      const p = pctOf(g);
-      sum += p;
-      bucketCount[bucketOf(p)] += 1;
-      health[healthOf(p)] += 1;
-      const isOverdue = g.targetDate ? (targetDateStatus(g.targetDate).daysLeft ?? 0) < 0 : false;
-      if (g.targetDate) hasTargetDates = true;
-      if (p >= 100) {
-        done += 1;
-      } else {
-        if (p === 0) notStarted += 1;
-        else inProgress += 1;
-        // On/off track applies only to unfinished goals (confirmed rule):
-        // off = past its target date OR effective % < 60; else on track.
-        if (isOverdue || p < 60) offTrack += 1;
-        else onTrackActive += 1;
-        if (isOverdue) overdue += 1;
-      }
+  // Controls — lens (all / at-risk) + pillar filter.
+  const [lens, setLens] = React.useState<"all" | "risk">("all");
+  const [pillar, setPillar] = React.useState<string | null>(null);
+  const pillarOptions = React.useMemo(() => {
+    const s = new Set<string>();
+    for (const r of allRows) {
+      const p = pillarOf(r.g);
+      if (p) s.add(p);
     }
-    const avg = total ? Math.round(sum / total) : 0;
-    const onTrack = health.green + health.amber; // p ≥ 60 (all goals — used by the KPI card)
-    const atRisk = health.red;
-    return { total, done, notStarted, inProgress, onTrackActive, offTrack, avg, overdue, hasTargetDates, health, bucketCount, onTrack, atRisk };
-  }, [levelGoals, pctOf]);
+    return [...s].sort();
+  }, [allRows]);
+  // A pillar that no longer exists (data changed) resets to All.
+  React.useEffect(() => {
+    if (pillar && !pillarOptions.includes(pillar)) setPillar(null);
+  }, [pillar, pillarOptions]);
 
-  // Child count — "—" when the child rows aren't in the loaded set (esp.
-  // Monthly → Week: weekly-execution rows live on `weekly_goals`, not here).
-  const childCountDisplay = childPeriod && childGoals.length > 0 ? childGoals.length : "—";
+  const viewRows = React.useMemo(() => {
+    let rs = allRows;
+    if (pillar) rs = rs.filter((r) => pillarOf(r.g) === pillar);
+    if (lens === "risk")
+      rs = rs.filter((r) => r.band === "at-risk" || r.band === "overdue" || r.band === "spillover");
+    return rs;
+  }, [allRows, pillar, lens]);
 
-  // Assignment split — Self (owner-created) vs Assigned (created by someone else).
-  const assignSplit = React.useMemo(() => {
-    let self = 0;
-    let assigned = 0;
-    let delegated = 0; // handed to a team member (delegatedTo) — can overlap self/assigned
-    for (const g of levelGoals) {
-      if (assignmentInfo(g).type === "assigned") assigned += 1;
-      else self += 1;
-      if ((g.delegatedTo?.length ?? 0) > 0) delegated += 1;
-    }
-    return { self, assigned, delegated };
-  }, [levelGoals]);
+  const m = React.useMemo(() => buildModel(viewRows, level), [viewRows, level]);
 
-  // Area-wise distribution — goals per focus Area (biggest first).
-  const byArea = React.useMemo(() => {
-    const m = new Map<string, number>();
-    for (const g of levelGoals) {
-      const a = g.area?.trim() ? g.area.trim() : "Unassigned";
-      m.set(a, (m.get(a) ?? 0) + 1);
-    }
-    return [...m.entries()].sort((a, b) => b[1] - a[1]);
-  }, [levelGoals]);
-
-  // ── KPI cards (level-appropriate) ─────────────────────────────────
-  const donePctText = stats.total ? `${Math.round((stats.done / stats.total) * 100)}%` : "—";
-
-  interface Kpi {
-    key: string;
-    icon: React.ReactNode;
-    label: string;
-    value: string | number;
-    sub?: string;
-    accent: string;
-    drill?: Drill;
-  }
-  const kpis: Kpi[] = React.useMemo(() => {
-    const childNoun = CHILD_NOUN[level];
-    const doneDrill: Drill = { id: "done", label: "Completed goals", color: GREEN, test: (g) => pctOf(g) >= 100 };
-    const notDoneDrill: Drill = { id: "notdone", label: "Not-done goals", color: AMBER, test: (g) => pctOf(g) < 100 };
-    const onTrackDrill: Drill = { id: "ontrack", label: "On-track goals", color: GREEN, test: (g) => pctOf(g) >= 60 };
-    const atRiskDrill: Drill = { id: "atrisk", label: "At-risk goals", color: RED, test: (g) => pctOf(g) < 60 };
-    const overdueDrill: Drill = {
-      id: "overdue",
-      label: "Overdue goals",
-      color: RED,
-      test: (g) => !!g.targetDate && pctOf(g) < 100 && (targetDateStatus(g.targetDate).daysLeft ?? 0) < 0,
-    };
-    const overdueDisplay = stats.hasTargetDates ? stats.overdue : "—";
-
-    if (level === "week") {
-      return [
-        { key: "done", icon: <CheckCircle2 size={17} strokeWidth={2.4} />, label: "Done", value: stats.done, sub: `${donePctText} of ${stats.total}`, accent: GREEN, drill: doneDrill },
-        { key: "notdone", icon: <Layers size={17} strokeWidth={2.4} />, label: "Not done", value: stats.total - stats.done, sub: "pending this week", accent: AMBER, drill: notDoneDrill },
-        { key: "rate", icon: <TrendingUp size={17} strokeWidth={2.4} />, label: "Completion rate", value: donePctText, sub: `avg ${stats.avg}%`, accent: "var(--color-altus-red-deep)" },
-        { key: "overdue", icon: <CalendarClock size={17} strokeWidth={2.4} />, label: "Overdue", value: overdueDisplay, sub: "past target date", accent: RED, drill: stats.hasTargetDates ? overdueDrill : undefined },
-      ];
-    }
-    if (level === "year") {
-      // Health-first (audit #26): lead with goal health, not a quarterly count.
-      return [
-        { key: "total", icon: <Layers size={17} strokeWidth={2.4} />, label: "Total goals", value: stats.total, sub: "tracked this year", accent: "var(--color-altus-red-deep)" },
-        { key: "done", icon: <CheckCircle2 size={17} strokeWidth={2.4} />, label: "Completed", value: stats.done, sub: `${donePctText} at 100%`, accent: GREEN, drill: doneDrill },
-        { key: "avg", icon: <TrendingUp size={17} strokeWidth={2.4} />, label: "Avg progress", value: `${stats.avg}%`, sub: "across yearly goals", accent: "var(--color-altus-red-deep)" },
-        { key: "ontrack", icon: <Activity size={17} strokeWidth={2.4} />, label: "On-track", value: stats.onTrack, sub: `${stats.atRisk} at risk`, accent: stats.atRisk > stats.onTrack ? RED : GREEN, drill: onTrackDrill },
-      ];
-    }
-    if (level === "quarter") {
-      return [
-        { key: "child", icon: <Layers size={17} strokeWidth={2.4} />, label: `${childNoun} goals`, value: childCountDisplay, sub: "one level down", accent: "var(--color-altus-red-deep)" },
-        { key: "done", icon: <CheckCircle2 size={17} strokeWidth={2.4} />, label: "Completion", value: donePctText, sub: `${stats.done} of ${stats.total} done`, accent: GREEN, drill: doneDrill },
-        { key: "avg", icon: <TrendingUp size={17} strokeWidth={2.4} />, label: "Avg progress", value: `${stats.avg}%`, sub: "across quarter goals", accent: "var(--color-altus-red-deep)" },
-        { key: "overdue", icon: <CalendarClock size={17} strokeWidth={2.4} />, label: "Delayed", value: overdueDisplay, sub: "overdue by target date", accent: RED, drill: stats.hasTargetDates ? overdueDrill : undefined },
-      ];
-    }
-    // month
-    return [
-      { key: "child", icon: <Layers size={17} strokeWidth={2.4} />, label: `${childNoun} goals`, value: childCountDisplay, sub: childCountDisplay === "—" ? "tracked in Weekly" : "one level down", accent: "var(--color-altus-red-deep)" },
-      { key: "done", icon: <CheckCircle2 size={17} strokeWidth={2.4} />, label: "Done", value: `${stats.done} / ${stats.total}`, sub: `${donePctText} complete`, accent: GREEN, drill: doneDrill },
-      { key: "avg", icon: <TrendingUp size={17} strokeWidth={2.4} />, label: "Avg completion", value: `${stats.avg}%`, sub: "across monthly goals", accent: "var(--color-altus-red-deep)" },
-      { key: "overdue", icon: <CalendarClock size={17} strokeWidth={2.4} />, label: "Overdue", value: overdueDisplay, sub: "past target date", accent: RED, drill: stats.hasTargetDates ? overdueDrill : undefined },
-    ];
-  }, [level, stats, donePctText, childCountDisplay, pctOf]);
-
-  // ── Drill-down state (click a bucket / KPI / health chip) ─────────
+  // Drill state.
   const [drill, setDrill] = React.useState<Drill | null>(null);
   const toggleDrill = React.useCallback((d: Drill) => {
     setDrill((cur) => (cur?.id === d.id ? null : d));
   }, []);
   const drilled = React.useMemo(
-    () => (drill ? levelGoals.filter(drill.test).sort((a, b) => pctOf(b) - pctOf(a)) : []),
-    [drill, levelGoals, pctOf],
+    () => (drill ? viewRows.filter(drill.test).sort((a, b) => b.eff - a.eff) : []),
+    [drill, viewRows],
   );
+  // Drill can go stale when the lens/pillar changes it out of the set.
+  React.useEffect(() => {
+    setDrill(null);
+  }, [lens, pillar]);
 
-  // Every goal ranked by score (audit #26: a score per individual goal).
-  const scoredGoals = React.useMemo(
-    () => [...levelGoals].sort((a, b) => pctOf(b) - pctOf(a)),
-    [levelGoals, pctOf],
-  );
-
-  // ── Empty + skeleton states ───────────────────────────────────────
   if (!mounted) return <DashboardSkeleton />;
-  if (levelGoals.length === 0) return <DashboardEmpty level={level} />;
+  if (allRows.length === 0) return <DashboardEmpty level={level} />;
+
+  const heroTone = m.paceDelta >= 0 ? GREEN : m.paceDelta > -25 ? AMBER : RED;
+  const forecastTone = m.avgConfidence >= 80 ? GREEN : m.avgConfidence >= 60 ? AMBER : RED;
+
+  const viewingNote = (managesViewed || isAdmin) && viewedName ? viewedName : null;
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Eyebrow strip */}
-      <div className="wg-rise flex items-baseline gap-2.5">
-        <h2
-          className="font-bold text-ink-strong"
-          style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontSize: 19, letterSpacing: "-0.02em" }}
-        >
-          {LEVEL_NOUN[level]} Overview
-        </h2>
-        <span className="text-[13px] font-semibold text-ink-subtle tabular-nums">
-          {stats.total} goal{stats.total === 1 ? "" : "s"} · {periodKeyShort(String(fyStartYear))}
-        </span>
-      </div>
+    <div className="flex flex-col gap-4">
+      {/* ── Controls ── */}
+      <Controls
+        lens={lens}
+        onLens={setLens}
+        pillar={pillar}
+        onPillar={setPillar}
+        pillarOptions={pillarOptions}
+        showing={viewRows.length}
+        total={allRows.length}
+        filtered={pillar != null || lens === "risk"}
+      />
 
-      {/* Status — completed · in progress · not started · on/off track */}
-      <CardGrid min={148} gap="0.625rem">
-        {([
-          { label: "Completed", value: stats.done, tone: GREEN, sub: stats.total ? `${Math.round((stats.done / stats.total) * 100)}% of ${stats.total}` : "—" },
-          { label: "In progress", value: stats.inProgress, tone: "var(--color-altus-red-deep)", sub: "started, < 100%" },
-          { label: "Not started", value: stats.notStarted, tone: "var(--color-ink-subtle)", sub: "at 0%" },
-          { label: "On track", value: stats.onTrackActive, tone: GREEN, sub: "on pace" },
-          { label: "Off track", value: stats.offTrack, tone: RED, sub: "overdue / behind" },
-        ] as const).map((s) => (
-          <div
-            key={s.label}
-            className="wg-rise rounded-2xl bg-surface-card p-3.5"
-            style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}
-          >
-            <div className="text-[10.5px] font-black uppercase tracking-[0.06em]" style={{ color: s.tone }}>{s.label}</div>
-            <div className="mt-1 tabular-nums font-black text-ink-strong" style={{ fontSize: 26, letterSpacing: "-0.02em", lineHeight: 1 }}>{s.value}</div>
-            <div className="mt-0.5 text-[11px] font-semibold text-ink-subtle">{s.sub}</div>
-          </div>
-        ))}
-      </CardGrid>
+      {/* ── 1 · HERO ── */}
+      <Hero
+        level={level}
+        fyStartYear={fyStartYear}
+        model={m}
+        heroTone={heroTone}
+        forecastTone={forecastTone}
+        reduce={reduce}
+        viewingNote={viewingNote}
+      />
 
-      {/* B · KPI cards */}
-      <CardGrid min={200} gap="0.75rem">
-        {kpis.map((k, i) => (
-          <KpiCard
-            key={k.key}
-            kpi={k}
-            index={i}
-            reduce={reduce}
-            active={drill?.id === k.drill?.id && !!k.drill}
-            onSelect={k.drill ? () => toggleDrill(k.drill!) : undefined}
-          />
-        ))}
-      </CardGrid>
+      {/* ── 2 · KPI row ── */}
+      <KpiRow model={m} drill={drill} onDrill={toggleDrill} reduce={reduce} level={level} />
 
-      {/* A · Distribution bars (hero) + donut alternative */}
-      <div className="grid grid-cols-[1.6fr_1fr] gap-4 max-lg:grid-cols-1">
-        <BucketBars
-          counts={stats.bucketCount}
-          total={stats.total}
-          activeKey={drill?.id?.startsWith("bucket:") ? (drill.id.slice(7) as BucketKey) : null}
+      {/* ── 3 + 4 · Distribution + at-risk action list ── */}
+      <div className="grid grid-cols-[1.05fr_1.35fr] gap-4 max-xl:grid-cols-1">
+        <Distribution
+          model={m}
           reduce={reduce}
-          onPick={(b) =>
+          activeBand={
+            drill?.id.startsWith("band:") ? (drill.id.slice(5) as DisplayBand) : null
+          }
+          onPick={(band) =>
             toggleDrill({
-              id: `bucket:${b.key}`,
-              label: `Goals at ${b.label}`,
-              color: b.color,
-              test: (g) => b.test(pctOf(g)),
+              id: `band:${band}`,
+              label: BAND_META[band].label,
+              color: BAND_META[band].color,
+              test: (r) => r.band === band,
             })
           }
         />
-        <div className="flex flex-col gap-4">
-          <BucketDonut counts={stats.bucketCount} total={stats.total} reduce={reduce} />
-          {/* C · Goal-health summary */}
-          <HealthBar
-            health={stats.health}
-            total={stats.total}
-            reduce={reduce}
-            activeBand={drill?.id?.startsWith("health:") ? (drill.id.slice(7) as HealthBand) : null}
-            onPick={(band) =>
-              toggleDrill({
-                id: `health:${band}`,
-                label: `${HEALTH_META[band].label} goals`,
-                color: HEALTH_META[band].color,
-                test: (g) => healthOf(pctOf(g)) === band,
-              })
-            }
-          />
-          {/* Self vs Assigned split — click a side to drill into those goals. */}
-          <AssignmentSplit
-            split={assignSplit}
-            activeKind={drill?.id?.startsWith("assign:") ? (drill.id.slice(7) as "self" | "assigned") : null}
-            onPick={(kind) =>
-              toggleDrill({
-                id: `assign:${kind}`,
-                label: kind === "self" ? "Self-created goals" : "Assigned goals",
-                color: kind === "self" ? ASSIGN_SELF : ASSIGN_ASSIGNED,
-                test: (g) => assignmentInfo(g).type === kind,
-              })
-            }
-          />
-        </div>
+        <AtRiskList rows={m.atRiskRows} total={m.total} />
       </div>
 
-      {/* Breakdown — assignment (self / assigned / delegated) + area distribution */}
+      {/* ── 5 · Cascade coverage (year / quarter / month) ── */}
+      {m.coverage && (
+        <CoveragePanel coverage={m.coverage} total={m.total} level={level} reduce={reduce} />
+      )}
+
+      {/* ── 6 · By pillar + by area ── */}
       <div className="grid grid-cols-2 gap-4 max-lg:grid-cols-1">
-        <div className="wg-rise rounded-2xl bg-surface-card p-4" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>
-          <h3 className="mb-3 text-[12.5px] font-black uppercase tracking-[0.08em] text-ink-subtle">Assignment</h3>
-          <div className="grid grid-cols-3 gap-2">
-            {([
-              { label: "Self", value: assignSplit.self, tone: ASSIGN_SELF, hint: "created by you" },
-              { label: "Assigned", value: assignSplit.assigned, tone: ASSIGN_ASSIGNED, hint: "given to you" },
-              { label: "Delegated", value: assignSplit.delegated, tone: "var(--color-blue-deep)", hint: "handed to a member" },
-            ] as const).map((a) => (
-              <div key={a.label} className="rounded-xl px-3 py-3" style={{ background: `color-mix(in srgb, ${a.tone} 8%, transparent)` }}>
-                <div className="tabular-nums font-black" style={{ fontSize: 24, color: a.tone, lineHeight: 1 }}>{a.value}</div>
-                <div className="mt-1 text-[12.5px] font-bold text-ink-strong">{a.label}</div>
-                <div className="text-[10.5px] font-medium text-ink-subtle">{a.hint}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="wg-rise rounded-2xl bg-surface-card p-4" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>
-          <h3 className="mb-3 text-[12.5px] font-black uppercase tracking-[0.08em] text-ink-subtle">By area</h3>
-          {byArea.length === 0 ? (
-            <p className="text-[13px] text-ink-subtle">No goals yet.</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {byArea.slice(0, 8).map(([area, n]) => {
-                const max = byArea[0]?.[1] ?? 1;
-                return (
-                  <li key={area} className="flex items-center gap-2.5">
-                    <span className="w-[38%] min-w-0 truncate text-[13px] font-bold text-ink-strong" title={area}>{area}</span>
-                    <span className="relative h-2 flex-1 overflow-hidden rounded-full" style={{ background: "var(--color-surface-soft)" }}>
-                      <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.round((n / max) * 100)}%`, background: "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))" }} />
-                    </span>
-                    <span className="w-7 shrink-0 text-right text-[13px] font-black tabular-nums text-ink-strong">{n}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
+        <GroupPanel
+          title="By pillar"
+          subtitle="weighted attainment · goal type"
+          icon={<Boxes size={15} strokeWidth={2.4} />}
+          groups={m.byPillar}
+          reduce={reduce}
+          activeLabel={
+            drill?.id.startsWith("pillar:") ? drill.id.slice(7) : null
+          }
+          onPick={(label) =>
+            toggleDrill({
+              id: `pillar:${label}`,
+              label: `Pillar · ${label}`,
+              color: "var(--color-altus-red-deep)",
+              test: (r) => (pillarOf(r.g) ?? "Unspecified") === label,
+            })
+          }
+        />
+        <GroupPanel
+          title="By area"
+          subtitle="weighted attainment · focus area"
+          icon={<Network size={15} strokeWidth={2.4} />}
+          groups={m.byArea}
+          reduce={reduce}
+          activeLabel={drill?.id.startsWith("area:") ? drill.id.slice(5) : null}
+          onPick={(label) =>
+            toggleDrill({
+              id: `area:${label}`,
+              label: `Area · ${label}`,
+              color: "var(--color-altus-red-deep)",
+              test: (r) => (r.g.area?.trim() ? r.g.area.trim() : "Unassigned") === label,
+            })
+          }
+        />
       </div>
 
-      {/* Per-goal scores — health of every individual goal at this level */}
-      <GoalScores goals={scoredGoals} pctOf={pctOf} level={level} />
+      {/* ── 7 + 8 · Accountability + ₹/qty ── */}
+      <div className="grid grid-cols-2 gap-4 max-lg:grid-cols-1">
+        <AccountabilityPanel model={m} />
+        {m.rupee || m.qty ? (
+          <MeasurePanel rupee={m.rupee} qty={m.qty} reduce={reduce} />
+        ) : (
+          <AccountabilityCallout model={m} />
+        )}
+      </div>
 
-      {/* Drill-down — inline list of the goals behind the clicked segment */}
-      {drill && <DrillPanel drill={drill} goals={drilled} pctOf={pctOf} onClose={() => setDrill(null)} />}
-
-      {/* PHASE 2: quarter/month/week progress-over-time trend charts go here. */}
-      {/* PHASE 2: daily activity timeline. */}
-      {/* PHASE 2: department / owner breakdown + workload distribution charts. */}
-      {/* PHASE 2: live push updates (currently recomputes from props on change). */}
+      {/* ── 9 · Drill-down ── */}
+      {drill && <DrillPanel drill={drill} rows={drilled} onClose={() => setDrill(null)} />}
     </div>
   );
 }
 
-/* ================================================================== */
-/* KPI card                                                            */
-/* ================================================================== */
+/* ====================================================================== */
+/* Controls                                                               */
+/* ====================================================================== */
+
+function Controls({
+  lens,
+  onLens,
+  pillar,
+  onPillar,
+  pillarOptions,
+  showing,
+  total,
+  filtered,
+}: {
+  lens: "all" | "risk";
+  onLens: (l: "all" | "risk") => void;
+  pillar: string | null;
+  onPillar: (p: string | null) => void;
+  pillarOptions: string[];
+  showing: number;
+  total: number;
+  filtered: boolean;
+}) {
+  return (
+    <div className="wg-rise flex flex-wrap items-center gap-2.5">
+      {/* Lens toggle */}
+      <div
+        role="tablist"
+        aria-label="Goal lens"
+        className="inline-flex items-center gap-1 rounded-full border p-1"
+        style={{ borderColor: "var(--color-hairline-strong)", background: "var(--color-surface-soft)" }}
+      >
+        {(
+          [
+            { id: "all", label: "All goals" },
+            { id: "risk", label: "At-risk only" },
+          ] as const
+        ).map((o) => {
+          const active = lens === o.id;
+          return (
+            <button
+              key={o.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => onLens(o.id)}
+              className={`rounded-full px-3.5 py-1.5 text-[12.5px] font-bold transition-all ${FOCUS_RING}`}
+              style={{
+                background: active
+                  ? o.id === "risk"
+                    ? "linear-gradient(135deg, #dc2626, #991b1b)"
+                    : "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))"
+                  : "transparent",
+                color: active ? "#fff" : "var(--color-ink-muted)",
+                boxShadow: active ? "0 6px 16px -8px rgba(168,4,0,0.55)" : "none",
+              }}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Pillar filter */}
+      {pillarOptions.length > 0 && (
+        <div className="inline-flex items-center gap-1.5">
+          <span className="text-[11px] font-black uppercase tracking-[0.1em] text-ink-subtle">Pillar</span>
+          <div className="inline-flex flex-wrap items-center gap-1">
+            <FilterChip active={pillar == null} onClick={() => onPillar(null)}>
+              All
+            </FilterChip>
+            {pillarOptions.map((p) => (
+              <FilterChip key={p} active={pillar === p} onClick={() => onPillar(pillar === p ? null : p)}>
+                {p}
+              </FilterChip>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <span className="ml-auto text-[12px] font-semibold text-ink-subtle tabular-nums">
+        {filtered ? (
+          <>
+            showing <span className="font-black text-ink-soft">{showing}</span> of {total}
+          </>
+        ) : (
+          <>
+            <span className="font-black text-ink-soft">{total}</span> adopted goal{total === 1 ? "" : "s"}
+          </>
+        )}
+      </span>
+    </div>
+  );
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`rounded-full border px-2.5 py-1 text-[12px] font-bold transition-colors cursor-pointer ${FOCUS_RING}`}
+      style={{
+        borderColor: active ? "var(--color-altus-red)" : "var(--color-hairline-strong)",
+        background: active ? "color-mix(in srgb, var(--color-altus-red) 10%, transparent)" : "transparent",
+        color: active ? "var(--color-altus-red-deep)" : "var(--color-ink-muted)",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ====================================================================== */
+/* 1 · Hero                                                               */
+/* ====================================================================== */
+
+function Hero({
+  level,
+  fyStartYear,
+  model,
+  heroTone,
+  forecastTone,
+  reduce,
+  viewingNote,
+}: {
+  level: GoalPeriod;
+  fyStartYear: number;
+  model: Model;
+  heroTone: string;
+  forecastTone: string;
+  reduce: boolean;
+  viewingNote: string | null;
+}) {
+  const behind = model.paceDelta < 0;
+  const onPacePct = model.total ? Math.round((model.onPace / model.total) * 100) : 0;
+
+  return (
+    <section
+      className="wg-rise relative isolate overflow-hidden rounded-2xl"
+      style={{
+        background: "linear-gradient(160deg, #FBF7F0 0%, #F4EEE3 56%, #F1E9DB 100%)",
+        border: "1px solid var(--color-hairline)",
+        boxShadow: "0 1px 3px rgba(15,23,42,0.05)",
+      }}
+    >
+      <span aria-hidden className="kpi-strip-mesh" />
+      <span aria-hidden className="kpi-strip-grain" />
+
+      <div className="relative z-[2] flex items-center gap-5 p-4 max-md:flex-col max-md:items-stretch max-md:gap-4">
+        {/* Gauge */}
+        <AttainmentGauge value={model.weighted} expected={model.avgExpected} tone={heroTone} reduce={reduce} />
+
+        {/* Read-out — compact 3 rows: title (w/ inline eyebrow) · sub · chips. */}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span
+              className="inline-flex items-center gap-1 text-[9.5px] font-black uppercase tracking-[0.16em]"
+              style={{ color: "var(--color-altus-red-deep)" }}
+            >
+              <Sparkles size={12} strokeWidth={2.6} />
+              Executive Scorecard
+            </span>
+            <h1
+              className="leading-none text-ink-strong"
+              style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 22, letterSpacing: "-0.02em" }}
+            >
+              {LEVEL_NOUN[level]} Objectives &amp; Key Results
+            </h1>
+          </div>
+          <p className="mt-1 text-[12.5px] font-semibold text-ink-subtle tabular-nums">
+            {model.total} adopted goal{model.total === 1 ? "" : "s"} · {fyLabel(fyStartYear)}
+            {viewingNote && (
+              <>
+                {" · "}
+                <span className="font-bold text-ink-soft">viewing {viewingNote}</span>
+              </>
+            )}
+          </p>
+
+          {/* Pace read + forecast/on-pace chips — one line (wraps only if narrow) */}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-bold tabular-nums"
+              style={{ background: `color-mix(in srgb, ${heroTone} 12%, transparent)`, color: heroTone }}
+            >
+              {behind ? <TrendingDown size={14} strokeWidth={2.8} /> : <TrendingUp size={14} strokeWidth={2.8} />}
+              {Math.abs(model.paceDelta)} pts {behind ? "behind" : "ahead of"} schedule
+            </span>
+            <span className="text-[12px] font-semibold text-ink-subtle tabular-nums">
+              attained <span className="font-black text-ink-soft">{model.weighted}%</span> · expected{" "}
+              <span className="font-black text-ink-soft">{model.avgExpected}%</span> by now
+            </span>
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-bold tabular-nums"
+              style={{
+                borderColor: `color-mix(in srgb, ${forecastTone} 40%, transparent)`,
+                background: `color-mix(in srgb, ${forecastTone} 8%, transparent)`,
+                color: forecastTone,
+              }}
+            >
+              <Gauge size={13} strokeWidth={2.6} />
+              Forecast finish ~{model.avgConfidence}%
+            </span>
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-bold tabular-nums text-ink-soft"
+              style={{ borderColor: "var(--color-hairline-strong)", background: "var(--color-surface-card)" }}
+            >
+              <CheckCircle2 size={13} strokeWidth={2.6} style={{ color: GREEN }} />
+              {model.onPace} on pace · {onPacePct}%
+            </span>
+            {model.needsAttention > 0 && (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-bold tabular-nums"
+                style={{
+                  borderColor: `color-mix(in srgb, ${RED} 38%, transparent)`,
+                  background: `color-mix(in srgb, ${RED} 8%, transparent)`,
+                  color: RED,
+                }}
+              >
+                <AlertTriangle size={13} strokeWidth={2.6} />
+                {model.needsAttention} need attention
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AttainmentGauge({
+  value,
+  expected,
+  tone,
+  reduce,
+}: {
+  value: number;
+  expected: number;
+  tone: string;
+  reduce: boolean;
+}) {
+  const size = 116;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = 48;
+  const START = 135;
+  const SWEEP = 270;
+  const valEnd = START + SWEEP * (Math.min(100, Math.max(0, value)) / 100);
+  const tickA = START + SWEEP * (Math.min(100, Math.max(0, expected)) / 100);
+  const p1 = polar(cx, cy, r - 9, tickA);
+  const p2 = polar(cx, cy, r + 9, tickA);
+  const shown = Math.round(useCountUp(value, !reduce));
+
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} role="img" aria-label={`Weighted attainment ${value}%, expected ${expected}%`}>
+        <defs>
+          <linearGradient id="gauge-fill" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor={tone} />
+            <stop offset="100%" stopColor={`color-mix(in srgb, ${tone} 62%, #fff)`} />
+          </linearGradient>
+        </defs>
+        {/* Track */}
+        <path
+          d={arcPath(cx, cy, r, START, START + SWEEP)}
+          fill="none"
+          stroke="var(--color-surface-soft)"
+          strokeWidth={11}
+          strokeLinecap="round"
+        />
+        {/* Value */}
+        {value > 0 && (
+          <path
+            d={arcPath(cx, cy, r, START, valEnd)}
+            fill="none"
+            stroke="url(#gauge-fill)"
+            strokeWidth={15}
+            strokeLinecap="round"
+            style={reduce ? undefined : { animation: "fadeUp 640ms both" }}
+          />
+        )}
+        {/* Expected-pace tick */}
+        <line
+          x1={p1.x}
+          y1={p1.y}
+          x2={p2.x}
+          y2={p2.y}
+          stroke="var(--color-ink-strong)"
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          opacity={0.55}
+        />
+      </svg>
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+        <span
+          className="tabular-nums leading-none text-ink-strong"
+          style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 28, letterSpacing: "-0.03em" }}
+        >
+          {shown}
+          <span style={{ fontSize: 14 }}>%</span>
+        </span>
+        <span className="mt-0.5 text-[8px] font-black uppercase tracking-[0.1em] text-ink-subtle">
+          Weighted attn.
+        </span>
+        <span className="mt-1 flex items-center gap-1 text-[9px] font-bold text-ink-subtle tabular-nums">
+          <span className="inline-block h-1.5 w-[2px] rounded" style={{ background: "var(--color-ink-strong)", opacity: 0.55 }} />
+          pace {expected}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ====================================================================== */
+/* 2 · KPI row                                                            */
+/* ====================================================================== */
+
+interface Kpi {
+  key: string;
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  numeric: number | null;
+  sub: React.ReactNode;
+  accent: string;
+  drill?: Drill;
+}
+
+function KpiRow({
+  model,
+  drill,
+  onDrill,
+  reduce,
+  level,
+}: {
+  model: Model;
+  drill: Drill | null;
+  onDrill: (d: Drill) => void;
+  reduce: boolean;
+  level: GoalPeriod;
+}) {
+  const rupeePct =
+    model.rupee && model.rupee.target > 0
+      ? Math.round((model.rupee.actual / model.rupee.target) * 100)
+      : null;
+
+  const kpis: Kpi[] = [];
+
+  kpis.push({
+    key: "attn",
+    icon: <Gauge size={16} strokeWidth={2.4} />,
+    label: "Weighted attainment",
+    value: `${model.weighted}%`,
+    numeric: model.weighted,
+    sub:
+      model.paceDelta >= 0 ? (
+        <span style={{ color: GREEN }}>▲ {model.paceDelta} pts ahead of pace</span>
+      ) : (
+        <span style={{ color: model.paceDelta <= -25 ? RED : AMBER }}>
+          ▼ {Math.abs(model.paceDelta)} pts behind pace
+        </span>
+      ),
+    accent: "var(--color-altus-red-deep)",
+  });
+
+  kpis.push({
+    key: "onpace",
+    icon: <TrendingUp size={16} strokeWidth={2.4} />,
+    label: "On pace",
+    value: String(model.onPace),
+    numeric: model.onPace,
+    sub: "ahead + on-track",
+    accent: GREEN,
+    drill: {
+      id: "kpi:onpace",
+      label: "On-pace goals",
+      color: GREEN,
+      test: (r) => r.band === "ahead" || r.band === "on-track",
+    },
+  });
+
+  kpis.push({
+    key: "atrisk",
+    icon: <AlertTriangle size={16} strokeWidth={2.4} />,
+    label: "At risk",
+    value: String(model.atRisk),
+    numeric: model.atRisk,
+    sub: "behind pace / carried",
+    accent: RED,
+    drill: {
+      id: "kpi:atrisk",
+      label: "At-risk goals",
+      color: RED,
+      test: (r) => r.band === "at-risk" || r.band === "spillover",
+    },
+  });
+
+  kpis.push({
+    key: "overdue",
+    icon: <CalendarClock size={16} strokeWidth={2.4} />,
+    label: "Overdue",
+    value: String(model.overdue),
+    numeric: model.overdue,
+    sub: "past target date",
+    accent: RED_DEEP,
+    drill:
+      model.overdue > 0
+        ? { id: "kpi:overdue", label: "Overdue goals", color: RED_DEEP, test: (r) => r.band === "overdue" }
+        : undefined,
+  });
+
+  kpis.push({
+    key: "done",
+    icon: <CheckCircle2 size={16} strokeWidth={2.4} />,
+    label: "Completed",
+    value: String(model.done),
+    numeric: model.done,
+    sub: model.total ? `${Math.round((model.done / model.total) * 100)}% at 100%` : "—",
+    accent: GREEN,
+    drill: { id: "kpi:done", label: "Completed goals", color: GREEN, test: (r) => r.band === "done" },
+  });
+
+  if (model.rupee) {
+    kpis.push({
+      key: "rupee",
+      icon: <IndianRupee size={16} strokeWidth={2.4} />,
+      label: "₹ attainment",
+      value: `₹${fmtNum(model.rupee.actual)}`,
+      numeric: null,
+      sub:
+        rupeePct != null ? (
+          <span style={{ color: rupeePct >= 100 ? GREEN : rupeePct >= 60 ? AMBER : RED }}>
+            {rupeePct}% of ₹{fmtNum(model.rupee.target)}
+          </span>
+        ) : (
+          `of ₹${fmtNum(model.rupee.target)}`
+        ),
+      accent: "var(--color-altus-red-deep)",
+    });
+  }
+
+  if (model.coverage) {
+    kpis.push({
+      key: "coverage",
+      icon: <GitBranch size={16} strokeWidth={2.4} />,
+      label: "Cascade coverage",
+      value: `${model.coverage.pct}%`,
+      numeric: model.coverage.pct,
+      sub: `${model.coverage.orphans.length} need breakdown`,
+      accent: BLUE,
+      drill:
+        model.coverage.orphans.length > 0
+          ? {
+              id: "kpi:coverage",
+              label: `${CHILD_NOUN[level] || "child"}-less goals`,
+              color: BLUE,
+              test: (r) => r.childCount === 0,
+            }
+          : undefined,
+    });
+  }
+
+  return (
+    // One line — every KPI card on a single row, equal width, filling the page;
+    // holds a min-width and scrolls horizontally only if the viewport is narrow.
+    <div className="flex items-stretch gap-3 overflow-x-auto pb-1">
+      {kpis.map((k, i) => (
+        <div key={k.key} className="min-w-[150px] flex-1 [&>*]:h-full">
+          <KpiCard
+            kpi={k}
+            index={i}
+            reduce={reduce}
+            active={!!k.drill && drill?.id === k.drill.id}
+            onSelect={k.drill ? () => onDrill(k.drill!) : undefined}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function KpiCard({
   kpi,
@@ -477,22 +1115,19 @@ function KpiCard({
   active,
   onSelect,
 }: {
-  kpi: {
-    icon: React.ReactNode;
-    label: string;
-    value: string | number;
-    sub?: string;
-    accent: string;
-  };
+  kpi: Kpi;
   index: number;
   reduce: boolean;
   active: boolean;
   onSelect?: () => void;
 }) {
-  // Count-up only when the value is a bare number.
-  const numeric = typeof kpi.value === "number";
-  const animated = useCountUp(numeric ? (kpi.value as number) : 0, !reduce && numeric);
-  const shown = numeric ? Math.round(animated).toString() : String(kpi.value);
+  const animated = useCountUp(kpi.numeric ?? 0, !reduce && kpi.numeric != null);
+  const shown =
+    kpi.numeric != null
+      ? kpi.value.includes("%")
+        ? `${Math.round(animated)}%`
+        : String(Math.round(animated))
+      : kpi.value;
 
   const clickable = !!onSelect;
   const Tag: React.ElementType = clickable ? "button" : "div";
@@ -500,13 +1135,17 @@ function KpiCard({
   return (
     <Tag
       {...(clickable ? { type: "button", onClick: onSelect, "aria-pressed": active } : {})}
-      className={`wg-rise group relative overflow-hidden rounded-2xl px-4 py-3.5 text-left transition-all ${clickable ? `cursor-pointer hover:-translate-y-0.5 ${FOCUS_RING}` : ""}`}
+      className={`wg-rise wg-sheen group relative overflow-hidden rounded-2xl px-4 py-3.5 text-left transition-all ${
+        clickable ? `cursor-pointer hover:-translate-y-0.5 ${FOCUS_RING}` : ""
+      }`}
       style={{
         animationDelay: `${index * 45}ms`,
         background: active
           ? `color-mix(in srgb, ${kpi.accent} 9%, var(--color-surface-card))`
           : "var(--color-surface-card)",
-        border: `1px solid ${active ? `color-mix(in srgb, ${kpi.accent} 45%, transparent)` : "var(--color-hairline-strong)"}`,
+        border: `1px solid ${
+          active ? `color-mix(in srgb, ${kpi.accent} 45%, transparent)` : "var(--color-hairline-strong)"
+        }`,
         boxShadow: active
           ? `inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 26px -16px ${kpi.accent}`
           : "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 3px rgba(15,23,42,0.05)",
@@ -515,7 +1154,7 @@ function KpiCard({
       <span
         aria-hidden
         className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full opacity-60 transition-opacity group-hover:opacity-90"
-        style={{ background: `radial-gradient(circle, color-mix(in srgb, ${kpi.accent} 12%, transparent), transparent 68%)` }}
+        style={{ background: `radial-gradient(circle, color-mix(in srgb, ${kpi.accent} 13%, transparent), transparent 68%)` }}
       />
       <div className="relative flex items-center gap-2">
         <span
@@ -524,423 +1163,737 @@ function KpiCard({
         >
           {kpi.icon}
         </span>
-        <span className="text-[11px] font-black uppercase tracking-[0.1em] text-ink-subtle">{kpi.label}</span>
+        <span className="text-[10.5px] font-black uppercase tracking-[0.09em] text-ink-subtle">{kpi.label}</span>
       </div>
       <div
         className="relative mt-2 font-black tabular-nums leading-none text-ink-strong"
-        style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontSize: 30, letterSpacing: "-0.02em" }}
+        style={{ fontFamily: DISPLAY, fontSize: 29, letterSpacing: "-0.02em" }}
       >
         {shown}
       </div>
-      {kpi.sub && <div className="relative mt-1.5 text-[12px] font-semibold text-ink-subtle">{kpi.sub}</div>}
+      <div className="relative mt-1.5 text-[12px] font-semibold text-ink-subtle tabular-nums">{kpi.sub}</div>
     </Tag>
   );
 }
 
-/* ================================================================== */
-/* A · Distribution bars (hero)                                        */
-/* ================================================================== */
+/* ====================================================================== */
+/* 3 · Pace / health distribution                                        */
+/* ====================================================================== */
 
-function BucketBars({
-  counts,
-  total,
-  activeKey,
+function Distribution({
+  model,
   reduce,
+  activeBand,
   onPick,
 }: {
-  counts: Record<BucketKey, number>;
-  total: number;
-  activeKey: BucketKey | null;
+  model: Model;
   reduce: boolean;
-  onPick: (b: BucketDef) => void;
+  activeBand: DisplayBand | null;
+  onPick: (b: DisplayBand) => void;
 }) {
-  const max = Math.max(1, ...BUCKETS.map((b) => counts[b.key]));
-  // Reveal: render at width 0 on first paint, flip to full one frame later so
-  // the CSS width-transition animates in (skipped under reduced motion).
+  const total = model.total;
+  const present = BAND_ORDER.filter((b) => model.counts[b] > 0);
+  const [reveal, setReveal] = React.useState(reduce);
+  React.useEffect(() => {
+    const raf = requestAnimationFrame(() => setReveal(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return (
+    <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-[12.5px] font-black uppercase tracking-[0.1em] text-ink-soft">Pace distribution</h3>
+        <span className="text-[11px] font-semibold text-ink-subtle">click a band to drill in</span>
+      </div>
+
+      {/* Segmented bar */}
+      <div
+        className="flex h-4 w-full gap-[2px] overflow-hidden rounded-full"
+        style={{ background: "var(--color-surface-soft)", boxShadow: "inset 0 1px 2px rgba(15,23,42,0.06)" }}
+      >
+        {present.map((b) => {
+          const w = total ? (model.counts[b] / total) * 100 : 0;
+          return (
+            <button
+              key={b}
+              type="button"
+              onClick={() => onPick(b)}
+              aria-label={`${BAND_META[b].label}: ${model.counts[b]} goals`}
+              title={`${BAND_META[b].label} · ${model.counts[b]}`}
+              className="h-full cursor-pointer"
+              style={{
+                width: reveal ? `${w}%` : "0%",
+                minWidth: 6,
+                background: BAND_META[b].color,
+                opacity: activeBand && activeBand !== b ? 0.35 : 1,
+                transition: reduce ? "opacity 150ms" : "width 680ms cubic-bezier(0.2,0,0,1), opacity 150ms",
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="mt-3.5 grid grid-cols-2 gap-x-4 gap-y-1.5 max-sm:grid-cols-1">
+        {BAND_ORDER.map((b) => {
+          const c = model.counts[b];
+          const active = activeBand === b;
+          const pct = total ? Math.round((c / total) * 100) : 0;
+          return (
+            <button
+              key={b}
+              type="button"
+              onClick={() => c > 0 && onPick(b)}
+              aria-pressed={active}
+              disabled={c === 0}
+              className={`flex items-center gap-2 rounded-lg px-1.5 py-1 text-left transition-colors ${
+                c > 0 ? `cursor-pointer hover:bg-[color-mix(in_srgb,var(--color-altus-red)_4%,transparent)] ${FOCUS_RING}` : "opacity-45"
+              }`}
+              style={active ? { background: `color-mix(in srgb, ${BAND_META[b].color} 9%, transparent)` } : undefined}
+            >
+              <span className="size-2.5 shrink-0 rounded-full" style={{ background: BAND_META[b].color }} />
+              <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-ink-soft">
+                {BAND_META[b].label}
+              </span>
+              <span className="text-[13px] font-black tabular-nums text-ink-strong">{c}</span>
+              <span className="w-9 text-right text-[11px] font-bold tabular-nums text-ink-subtle">{pct}%</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Read-out — turns the empty lower half into the pace story */}
+      {total > 0 && (() => {
+        const tracking = model.done + model.onPace; // done + ahead + on-track
+        const trackingPct = Math.round((tracking / total) * 100);
+        const gap = model.weighted - model.avgExpected;
+        const gapColor = gap >= 0 ? GREEN : RED;
+        const attention = model.atRisk + model.overdue;
+        return (
+          <div className="mt-5 space-y-3 border-t pt-4" style={{ borderColor: "var(--color-hairline)" }}>
+            {/* Tracking-to-plan bar */}
+            <div>
+              <div className="mb-1.5 flex items-baseline justify-between">
+                <span className="text-[11.5px] font-black uppercase tracking-[0.08em] text-ink-subtle">Tracking to plan</span>
+                <span className="text-[12.5px] font-bold text-ink-soft tabular-nums">
+                  <span className="font-black text-ink-strong">{tracking}</span> of {total} · {trackingPct}%
+                </span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "var(--color-surface-soft)" }}>
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${trackingPct}%`,
+                    background: `linear-gradient(90deg, ${GREEN}, ${GREEN_BRIGHT})`,
+                    transition: reduce ? undefined : "width 680ms cubic-bezier(0.2,0,0,1)",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Attainment vs expected pace */}
+            <div
+              className="grid grid-cols-3 divide-x rounded-xl px-1 py-2.5"
+              style={{ background: "var(--color-surface-soft)", borderColor: "var(--color-hairline)" }}
+            >
+              <div className="px-3 text-center">
+                <p className="text-[10px] font-black uppercase tracking-[0.06em] text-ink-subtle">Attained</p>
+                <p className="text-[18px] font-black tabular-nums text-ink-strong">{model.weighted}%</p>
+              </div>
+              <div className="px-3 text-center" style={{ borderColor: "var(--color-hairline)" }}>
+                <p className="text-[10px] font-black uppercase tracking-[0.06em] text-ink-subtle">Expected</p>
+                <p className="text-[18px] font-black tabular-nums text-ink-soft">{model.avgExpected}%</p>
+              </div>
+              <div className="px-3 text-center" style={{ borderColor: "var(--color-hairline)" }}>
+                <p className="text-[10px] font-black uppercase tracking-[0.06em] text-ink-subtle">Gap</p>
+                <p className="text-[18px] font-black tabular-nums" style={{ color: gapColor }}>
+                  {gap >= 0 ? "+" : "−"}{Math.abs(gap)}
+                </p>
+              </div>
+            </div>
+
+            {/* Attention callout */}
+            <div
+              className="flex items-center gap-2.5 rounded-xl px-3 py-2.5"
+              style={{
+                background: attention > 0
+                  ? `color-mix(in srgb, ${RED} 7%, transparent)`
+                  : `color-mix(in srgb, ${GREEN} 8%, transparent)`,
+              }}
+            >
+              <span
+                className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg"
+                style={{
+                  background: attention > 0 ? `color-mix(in srgb, ${RED} 14%, transparent)` : `color-mix(in srgb, ${GREEN} 14%, transparent)`,
+                  color: attention > 0 ? RED : GREEN,
+                }}
+              >
+                {attention > 0 ? <AlertTriangle size={15} strokeWidth={2.6} /> : <CheckCircle2 size={16} strokeWidth={2.4} />}
+              </span>
+              <p className="text-[12.5px] font-semibold leading-snug text-ink-soft">
+                {attention > 0 ? (
+                  <>
+                    <span className="font-black text-ink-strong tabular-nums">{attention}</span>{" "}
+                    goal{attention === 1 ? "" : "s"} need attention
+                    {model.overdue > 0 && <> · <span className="font-black tabular-nums" style={{ color: RED_DEEP }}>{model.overdue}</span> overdue</>}
+                  </>
+                ) : (
+                  <>All {total} goals are tracking to schedule — nothing behind pace.</>
+                )}
+              </p>
+            </div>
+          </div>
+        );
+      })()}
+    </section>
+  );
+}
+
+/* ====================================================================== */
+/* 4 · At-risk & overdue action list                                     */
+/* ====================================================================== */
+
+function AtRiskList({ rows, total }: { rows: Row[]; total: number }) {
+  return (
+    <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="inline-flex items-center gap-2 text-[12.5px] font-black uppercase tracking-[0.1em]" style={{ color: RED }}>
+          <AlertTriangle size={15} strokeWidth={2.6} />
+          Needs attention
+        </h3>
+        <span className="rounded-full px-2 py-0.5 text-[11.5px] font-black tabular-nums text-white" style={{ background: RED }}>
+          {rows.length}
+        </span>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+          <span
+            className="inline-flex size-11 items-center justify-center rounded-full"
+            style={{ background: `color-mix(in srgb, ${GREEN} 12%, transparent)`, color: GREEN }}
+          >
+            <CheckCircle2 size={22} strokeWidth={2.4} />
+          </span>
+          <p className="text-[13.5px] font-bold text-ink-strong">Everything on pace</p>
+          <p className="text-[12px] font-semibold text-ink-subtle">
+            All {total} goal{total === 1 ? "" : "s"} are ahead of or tracking to schedule.
+          </p>
+        </div>
+      ) : (
+        <ul className="flex max-h-[420px] flex-col divide-y overflow-y-auto" style={{ borderColor: "var(--color-hairline)" }}>
+          {rows.map((r) => (
+            <AtRiskRow key={r.g.id} row={r} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function AtRiskRow({ row }: { row: Row }) {
+  const { g, eff, h, band, daysLate } = row;
+  const meta = BAND_META[band];
+  const expected = h.expected;
+  return (
+    <li className="flex items-center gap-3 py-2.5">
+      <span className="mt-0.5 size-2.5 shrink-0 rounded-full" style={{ background: meta.color }} aria-hidden />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13.5px] font-bold text-ink-strong" title={g.title}>
+          {g.title}
+        </div>
+        <div className="mt-1 flex items-center gap-2">
+          {/* effective vs expected mini bar */}
+          <span className="relative h-1.5 w-28 shrink-0 overflow-hidden rounded-full max-sm:w-20" style={{ background: "var(--color-surface-soft)" }}>
+            <span
+              className="absolute inset-y-0 left-0 rounded-full"
+              style={{ width: `${Math.min(100, eff)}%`, background: meta.color }}
+            />
+            <span
+              className="absolute inset-y-[-2px] w-[2px]"
+              style={{ left: `${Math.min(100, expected)}%`, background: "var(--color-ink-strong)", opacity: 0.5 }}
+              aria-hidden
+            />
+          </span>
+          <span className="text-[11.5px] font-bold tabular-nums" style={{ color: meta.color }}>
+            {eff}%
+          </span>
+          <span className="text-[11px] font-semibold tabular-nums text-ink-subtle">vs {expected}% pace</span>
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <span
+          className="rounded-full px-2 py-0.5 text-[10.5px] font-black uppercase tracking-[0.04em]"
+          style={{ background: `color-mix(in srgb, ${meta.color} 12%, transparent)`, color: meta.color }}
+        >
+          {daysLate > 0 ? `${daysLate}d late` : meta.short}
+        </span>
+        <span className="text-[10.5px] font-semibold tabular-nums text-ink-subtle">~{h.confidence}% forecast</span>
+      </div>
+    </li>
+  );
+}
+
+/* ====================================================================== */
+/* 5 · Cascade coverage                                                   */
+/* ====================================================================== */
+
+function CoveragePanel({
+  coverage,
+  total,
+  level,
+  reduce,
+}: {
+  coverage: NonNullable<Model["coverage"]>;
+  total: number;
+  level: GoalPeriod;
+  reduce: boolean;
+}) {
+  const child = CHILD_NOUN[level] || "child";
+  const [reveal, setReveal] = React.useState(reduce);
+  React.useEffect(() => {
+    const raf = requestAnimationFrame(() => setReveal(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  const tone = coverage.pct >= 80 ? GREEN : coverage.pct >= 50 ? AMBER : RED;
+
+  return (
+    <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="inline-flex items-center gap-2 text-[12.5px] font-black uppercase tracking-[0.1em] text-ink-soft">
+          <GitBranch size={15} strokeWidth={2.4} style={{ color: BLUE }} />
+          Cascade coverage
+        </h3>
+        <span className="text-[11px] font-semibold text-ink-subtle">
+          broken down into {child} goals
+        </span>
+      </div>
+
+      <div className="grid grid-cols-[auto_1fr] items-center gap-5 max-sm:grid-cols-1">
+        <div className="flex items-baseline gap-2">
+          <span
+            className="tabular-nums leading-none"
+            style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: 42, letterSpacing: "-0.03em", color: tone }}
+          >
+            {coverage.pct}%
+          </span>
+          <div className="text-[11.5px] font-semibold text-ink-subtle">
+            <div className="tabular-nums">
+              <span className="font-black text-ink-soft">{coverage.withChildren}</span> of {total}
+            </div>
+            <div>have a breakdown</div>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--color-surface-soft)" }}>
+            <span
+              className="h-full"
+              style={{
+                width: reveal ? `${coverage.pct}%` : "0%",
+                background: `linear-gradient(90deg, ${BLUE}, color-mix(in srgb, ${BLUE} 70%, #fff))`,
+                transition: reduce ? undefined : "width 680ms cubic-bezier(0.2,0,0,1)",
+              }}
+            />
+          </div>
+          <div className="mt-1.5 flex items-center justify-between text-[11px] font-semibold text-ink-subtle tabular-nums">
+            <span>{coverage.withChildren} cascaded</span>
+            <span style={{ color: coverage.orphans.length > 0 ? RED : GREEN }}>
+              {coverage.orphans.length} orphaned
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {coverage.orphans.length > 0 && (
+        <div className="mt-3.5 border-t pt-3" style={{ borderColor: "var(--color-hairline)" }}>
+          <p className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-ink-subtle">
+            Needs breakdown · biggest first
+          </p>
+          <ul className="flex flex-wrap gap-1.5">
+            {coverage.orphans.slice(0, 8).map((r) => (
+              <li
+                key={r.g.id}
+                className="inline-flex max-w-[240px] items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-bold text-ink-soft"
+                style={{ borderColor: "var(--color-hairline-strong)", background: "var(--color-surface-soft)" }}
+                title={r.g.title}
+              >
+                <span className="size-1.5 shrink-0 rounded-full" style={{ background: RED }} />
+                <span className="truncate">{r.g.title}</span>
+                {r.g.weight > 0 && (
+                  <span className="shrink-0 text-[10.5px] tabular-nums text-ink-subtle">w{r.g.weight}</span>
+                )}
+              </li>
+            ))}
+            {coverage.orphans.length > 8 && (
+              <li className="inline-flex items-center px-2 py-1 text-[12px] font-bold tabular-nums text-ink-subtle">
+                +{coverage.orphans.length - 8} more
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ====================================================================== */
+/* 6 · Group panel (pillar / area)                                       */
+/* ====================================================================== */
+
+function GroupPanel({
+  title,
+  subtitle,
+  icon,
+  groups,
+  reduce,
+  activeLabel,
+  onPick,
+}: {
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  groups: Group[];
+  reduce: boolean;
+  activeLabel: string | null;
+  onPick: (label: string) => void;
+}) {
+  const [reveal, setReveal] = React.useState(reduce);
+  React.useEffect(() => {
+    const raf = requestAnimationFrame(() => setReveal(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return (
+    <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
+      <div className="mb-3 flex items-center gap-2">
+        <span className="grid size-6 place-items-center rounded-md" style={{ color: "var(--color-altus-red-deep)" }}>
+          {icon}
+        </span>
+        <h3 className="text-[12.5px] font-black uppercase tracking-[0.1em] text-ink-soft">{title}</h3>
+        <span className="ml-auto text-[11px] font-semibold text-ink-subtle">{subtitle}</span>
+      </div>
+
+      {groups.length === 0 ? (
+        <p className="py-3 text-[13px] font-semibold text-ink-subtle">No goals to group.</p>
+      ) : (
+        <ul className="flex flex-col gap-2.5">
+          {groups.slice(0, 8).map((grp) => {
+            const active = activeLabel === grp.label;
+            const tone = grp.pct >= 100 ? GREEN : grp.pct >= 60 ? AMBER : "var(--color-altus-red-deep)";
+            return (
+              <li key={grp.label}>
+                <button
+                  type="button"
+                  onClick={() => onPick(grp.label)}
+                  aria-pressed={active}
+                  className={`grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-lg px-1.5 py-1 text-left transition-colors cursor-pointer hover:bg-[color-mix(in_srgb,var(--color-altus-red)_4%,transparent)] ${FOCUS_RING}`}
+                  style={active ? { background: "color-mix(in srgb, var(--color-altus-red) 6%, transparent)" } : undefined}
+                >
+                  <span className="min-w-0 truncate text-[13px] font-bold text-ink-strong" title={grp.label}>
+                    {grp.label}
+                  </span>
+                  <span className="flex items-baseline gap-2 justify-self-end">
+                    <span className="text-[14px] font-black tabular-nums" style={{ fontFamily: DISPLAY, color: tone }}>
+                      {grp.pct}%
+                    </span>
+                    <span
+                      className="rounded-full px-1.5 py-0.5 text-[10.5px] font-black tabular-nums text-ink-subtle"
+                      style={{ background: "var(--color-surface-soft)" }}
+                    >
+                      {grp.count}
+                    </span>
+                  </span>
+                  <span
+                    className="relative col-span-2 h-2 overflow-hidden rounded-full"
+                    style={{ background: "var(--color-surface-soft)" }}
+                  >
+                    <span
+                      className="absolute inset-y-0 left-0 rounded-full"
+                      style={{
+                        width: reveal ? `${Math.min(100, grp.pct)}%` : "0%",
+                        minWidth: grp.pct > 0 ? 6 : 0,
+                        background: "linear-gradient(90deg, var(--color-altus-red), var(--color-altus-red-deep))",
+                        transition: reduce ? undefined : "width 640ms cubic-bezier(0.2,0,0,1)",
+                      }}
+                    />
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/* ====================================================================== */
+/* 7 · Accountability / delegation                                       */
+/* ====================================================================== */
+
+function AccountabilityPanel({ model }: { model: Model }) {
+  const a = model.accountability;
+  const total = model.total || 1;
+  const reviewedPct = Math.round((a.reviewed / total) * 100);
+
+  const splits: Array<{ label: string; value: number; color: string; hint: string }> = [
+    { label: "Self", value: a.self, color: SLATE, hint: "created by owner" },
+    { label: "Assigned", value: a.assigned, color: "var(--color-altus-red-deep)", hint: "given by a manager" },
+    { label: "Delegated", value: a.delegated, color: BLUE, hint: "handed to a member" },
+  ];
+
+  return (
+    <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
+      <div className="mb-3 flex items-center gap-2">
+        <span className="grid size-6 place-items-center rounded-md" style={{ color: BLUE }}>
+          <Users size={15} strokeWidth={2.4} />
+        </span>
+        <h3 className="text-[12.5px] font-black uppercase tracking-[0.1em] text-ink-soft">Accountability</h3>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        {splits.map((s) => (
+          <div
+            key={s.label}
+            className="rounded-xl px-3 py-3"
+            style={{ background: `color-mix(in srgb, ${s.color} 8%, transparent)` }}
+          >
+            <div className="tabular-nums font-black leading-none" style={{ fontFamily: DISPLAY, fontSize: 24, color: s.color }}>
+              {s.value}
+            </div>
+            <div className="mt-1 text-[12.5px] font-bold text-ink-strong">{s.label}</div>
+            <div className="text-[10.5px] font-medium text-ink-subtle">{s.hint}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-2 border-t pt-3" style={{ borderColor: "var(--color-hairline)" }}>
+        <MetricPip
+          icon={<HandCoins size={14} strokeWidth={2.4} />}
+          label="Delegated weight"
+          value={a.delegatedWeight > 0 ? String(a.delegatedWeight) : "—"}
+          hint="handed off"
+          color={BLUE}
+        />
+        <MetricPip
+          icon={<Network size={14} strokeWidth={2.4} />}
+          label="Team dependency"
+          value={a.depCount > 0 ? `${a.avgDep}%` : "—"}
+          hint={a.depCount > 0 ? `max ${a.maxDep}%` : "no exposure"}
+          color={a.avgDep >= 50 ? RED : a.avgDep >= 25 ? AMBER : SLATE}
+        />
+        <MetricPip
+          icon={<ShieldCheck size={14} strokeWidth={2.4} />}
+          label="Reviewed"
+          value={`${a.reviewed}`}
+          hint={`${reviewedPct}% · ${a.selfOnly} self-rated`}
+          color={reviewedPct >= 60 ? GREEN : reviewedPct >= 30 ? AMBER : RED}
+        />
+      </div>
+    </section>
+  );
+}
+
+function MetricPip({
+  icon,
+  label,
+  value,
+  hint,
+  color,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  hint: string;
+  color: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.06em] text-ink-subtle">
+        <span style={{ color }}>{icon}</span>
+        <span className="truncate">{label}</span>
+      </div>
+      <div className="mt-0.5 tabular-nums font-black text-ink-strong" style={{ fontSize: 18, color }}>
+        {value}
+      </div>
+      <div className="truncate text-[10.5px] font-semibold text-ink-subtle">{hint}</div>
+    </div>
+  );
+}
+
+/** Fallback second-column card when there are no ₹/qty measures — keep the
+ *  accountability review detail visible so the row never looks lopsided. */
+function AccountabilityCallout({ model }: { model: Model }) {
+  const a = model.accountability;
+  return (
+    <section className="wg-rise flex flex-col justify-center rounded-2xl px-5 py-4" style={PANEL}>
+      <div className="mb-2 flex items-center gap-2">
+        <span className="grid size-6 place-items-center rounded-md" style={{ color: "var(--color-altus-red-deep)" }}>
+          <Target size={15} strokeWidth={2.4} />
+        </span>
+        <h3 className="text-[12.5px] font-black uppercase tracking-[0.1em] text-ink-soft">Measures</h3>
+      </div>
+      <p className="text-[13px] font-semibold text-ink-subtle">
+        No ₹ or quantity targets set on these goals — attainment is tracked by self-rated / reviewed progress
+        only.
+      </p>
+      <div className="mt-3 flex items-center gap-2">
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-bold tabular-nums text-ink-soft"
+          style={{ borderColor: "var(--color-hairline-strong)", background: "var(--color-surface-soft)" }}
+        >
+          <ShieldCheck size={13} strokeWidth={2.6} style={{ color: GREEN }} />
+          {a.reviewed} reviewed · {a.selfOnly} self-rated
+        </span>
+      </div>
+    </section>
+  );
+}
+
+/* ====================================================================== */
+/* 8 · ₹ / quantitative attainment                                       */
+/* ====================================================================== */
+
+function MeasurePanel({
+  rupee,
+  qty,
+  reduce,
+}: {
+  rupee: { target: number; actual: number } | null;
+  qty: { target: number; actual: number } | null;
+  reduce: boolean;
+}) {
+  return (
+    <section className="wg-rise rounded-2xl px-5 py-4" style={PANEL}>
+      <div className="mb-3 flex items-center gap-2">
+        <span className="grid size-6 place-items-center rounded-md" style={{ color: "var(--color-altus-red-deep)" }}>
+          <IndianRupee size={15} strokeWidth={2.4} />
+        </span>
+        <h3 className="text-[12.5px] font-black uppercase tracking-[0.1em] text-ink-soft">Measured attainment</h3>
+      </div>
+      <div className="flex flex-col gap-3.5">
+        {rupee && (
+          <MeasureBar label="₹ value" actual={rupee.actual} target={rupee.target} format={(n) => `₹${fmtNum(n)}`} reduce={reduce} />
+        )}
+        {qty && (
+          <MeasureBar label="Quantity" actual={qty.actual} target={qty.target} format={(n) => fmtNum(n)} reduce={reduce} />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function MeasureBar({
+  label,
+  actual,
+  target,
+  format,
+  reduce,
+}: {
+  label: string;
+  actual: number;
+  target: number;
+  format: (n: number) => string;
+  reduce: boolean;
+}) {
+  const pct = target > 0 ? Math.round((actual / target) * 100) : 0;
+  const tone = pct >= 100 ? GREEN : pct >= 60 ? AMBER : "var(--color-altus-red-deep)";
   const [reveal, setReveal] = React.useState(reduce);
   React.useEffect(() => {
     const raf = requestAnimationFrame(() => setReveal(true));
     return () => cancelAnimationFrame(raf);
   }, []);
   return (
-    <section
-      className="wg-rise rounded-2xl px-5 py-4"
-      style={{ animationDelay: "120ms", background: "var(--color-surface-card)", border: "1px solid var(--color-hairline-strong)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 3px rgba(15,23,42,0.05)" }}
-    >
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-[13px] font-black uppercase tracking-[0.1em] text-ink-soft">Completion spread</h3>
-        <span className="text-[11.5px] font-semibold text-ink-subtle">click a band to drill in</span>
-      </div>
-      <div className="flex flex-col gap-2.5">
-        {BUCKETS.map((b) => {
-          const c = counts[b.key];
-          const pctTotal = total ? Math.round((c / total) * 100) : 0;
-          const w = reveal ? (c / max) * 100 : 0;
-          const active = activeKey === b.key;
-          return (
-            <button
-              key={b.key}
-              type="button"
-              onClick={() => onPick(b)}
-              aria-pressed={active}
-              aria-label={`${b.label}: ${c} goal${c === 1 ? "" : "s"}, ${pctTotal}% of total`}
-              title={`${c} goal${c === 1 ? "" : "s"} · ${pctTotal}% of ${total}`}
-              className={`group grid grid-cols-[52px_1fr_auto] items-center gap-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_4%,transparent)] cursor-pointer ${FOCUS_RING}`}
-              style={active ? { background: `color-mix(in srgb, ${b.color} 8%, transparent)` } : undefined}
-            >
-              <span className="text-[12px] font-bold tabular-nums text-ink-soft text-right">{b.label}</span>
-              <span className="relative h-6 overflow-hidden rounded-full" style={{ background: "var(--color-surface-soft)", boxShadow: "inset 0 1px 2px rgba(15,23,42,0.06)" }}>
-                <span
-                  className="absolute inset-y-0 left-0 rounded-full"
-                  style={{
-                    width: `${w}%`,
-                    minWidth: c > 0 ? 8 : 0,
-                    background: `linear-gradient(90deg, ${b.color}, color-mix(in srgb, ${b.color} 72%, #fff))`,
-                    boxShadow: active ? `0 0 0 1.5px color-mix(in srgb, ${b.color} 55%, transparent)` : "inset 0 1px 0 rgba(255,255,255,0.3)",
-                    transition: reduce ? undefined : "width 720ms cubic-bezier(0.2,0,0,1)",
-                  }}
-                />
-              </span>
-              <span className="flex items-baseline gap-1.5 justify-end min-w-[64px]">
-                <span className="text-[15px] font-black tabular-nums text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif" }}>{c}</span>
-                <span className="text-[11.5px] font-bold tabular-nums text-ink-subtle">{pctTotal}%</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-/* ================================================================== */
-/* A · Distribution donut (compact alternative)                        */
-/* ================================================================== */
-
-function polar(cx: number, cy: number, r: number, deg: number) {
-  const rad = ((deg - 90) * Math.PI) / 180;
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-}
-function arcPath(cx: number, cy: number, rO: number, rI: number, start: number, end: number): string {
-  const large = end - start > 180 ? 1 : 0;
-  const a = polar(cx, cy, rO, end);
-  const b = polar(cx, cy, rO, start);
-  const c = polar(cx, cy, rI, start);
-  const d = polar(cx, cy, rI, end);
-  return `M ${a.x} ${a.y} A ${rO} ${rO} 0 ${large} 0 ${b.x} ${b.y} L ${c.x} ${c.y} A ${rI} ${rI} 0 ${large} 1 ${d.x} ${d.y} Z`;
-}
-
-function BucketDonut({ counts, total, reduce }: { counts: Record<BucketKey, number>; total: number; reduce: boolean }) {
-  const size = 132;
-  const cx = size / 2;
-  const cy = size / 2;
-  const rO = size / 2 - 2;
-  const rI = Math.round(rO * 0.6);
-  const segs = BUCKETS.map((b) => ({ ...b, value: counts[b.key] })).filter((s) => s.value > 0);
-  let cursor = 0;
-  return (
-    <section
-      className="wg-rise rounded-2xl px-4 py-4"
-      style={{ animationDelay: "160ms", background: "var(--color-surface-card)", border: "1px solid var(--color-hairline-strong)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 3px rgba(15,23,42,0.05)" }}
-    >
-      <h3 className="mb-2 text-[13px] font-black uppercase tracking-[0.1em] text-ink-soft">By band</h3>
-      <div className="flex items-center gap-3">
-        <div className="relative shrink-0" style={{ width: size, height: size }}>
-          <svg width={size} height={size} role="img" aria-label="Completion distribution donut">
-            {segs.length === 0 ? (
-              <circle cx={cx} cy={cy} r={(rO + rI) / 2} fill="none" stroke="var(--color-surface-soft)" strokeWidth={rO - rI} />
-            ) : (
-              segs.map((s) => {
-                const sweep = (s.value / total) * 360;
-                const start = cursor;
-                const end = cursor + sweep;
-                cursor = end;
-                // Full-circle guard (single non-zero band).
-                if (sweep >= 359.99) {
-                  return <circle key={s.key} cx={cx} cy={cy} r={(rO + rI) / 2} fill="none" stroke={s.color} strokeWidth={rO - rI} />;
-                }
-                return (
-                  <path
-                    key={s.key}
-                    d={arcPath(cx, cy, rO, rI, start, end)}
-                    fill={s.color}
-                    stroke="var(--color-surface-card)"
-                    strokeWidth={1.5}
-                    style={reduce ? undefined : { animation: "fadeUp 480ms both" }}
-                  >
-                    <title>{`${s.label}: ${s.value} · ${Math.round((s.value / total) * 100)}%`}</title>
-                  </path>
-                );
-              })
-            )}
-          </svg>
-          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="font-black tabular-nums leading-none text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontSize: 22 }}>{total}</span>
-            <span className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-ink-subtle">goals</span>
-          </div>
-        </div>
-        <ul className="flex min-w-0 flex-1 flex-col gap-1">
-          {BUCKETS.map((b) => (
-            <li key={b.key} className="flex items-center gap-1.5 text-[11.5px]">
-              <span className="size-2.5 shrink-0 rounded-full" style={{ background: b.color }} />
-              <span className="font-semibold text-ink-soft">{b.label}</span>
-              <span className="ml-auto font-bold tabular-nums text-ink-strong">{counts[b.key]}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  );
-}
-
-/* ================================================================== */
-/* C · Goal-health segmented bar                                       */
-/* ================================================================== */
-
-function HealthBar({
-  health,
-  total,
-  reduce,
-  activeBand,
-  onPick,
-}: {
-  health: Record<HealthBand, number>;
-  total: number;
-  reduce: boolean;
-  activeBand: HealthBand | null;
-  onPick: (b: HealthBand) => void;
-}) {
-  const order: HealthBand[] = ["green", "amber", "red"];
-  return (
-    <section
-      className="wg-rise rounded-2xl px-4 py-4"
-      style={{ animationDelay: "200ms", background: "var(--color-surface-card)", border: "1px solid var(--color-hairline-strong)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 3px rgba(15,23,42,0.05)" }}
-    >
-      <h3 className="mb-2.5 text-[13px] font-black uppercase tracking-[0.1em] text-ink-soft">Goal health</h3>
-      <div className="flex h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--color-surface-soft)" }}>
-        {order.map((band) => {
-          const c = health[band];
-          const w = total ? (c / total) * 100 : 0;
-          if (w === 0) return null;
-          return (
-            <span
-              key={band}
-              className="h-full"
-              style={{
-                width: `${w}%`,
-                background: HEALTH_META[band].color,
-                transition: reduce ? undefined : "width 640ms cubic-bezier(0.2,0,0,1)",
-                opacity: activeBand && activeBand !== band ? 0.4 : 1,
-              }}
-            />
-          );
-        })}
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {order.map((band) => {
-          const c = health[band];
-          const active = activeBand === band;
-          return (
-            <button
-              key={band}
-              type="button"
-              onClick={() => onPick(band)}
-              aria-pressed={active}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-bold tabular-nums transition-colors cursor-pointer ${FOCUS_RING}`}
-              style={{
-                borderColor: active ? HEALTH_META[band].color : "var(--color-hairline-strong)",
-                background: active ? `color-mix(in srgb, ${HEALTH_META[band].color} 12%, transparent)` : "transparent",
-                color: "var(--color-ink-soft)",
-              }}
-            >
-              <span className="size-2.5 rounded-full" style={{ background: HEALTH_META[band].color }} />
-              {HEALTH_META[band].label}
-              <span className="text-ink-strong">{c}</span>
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-/* ================================================================== */
-/* Assignment split — Self vs Assigned (counts + click-to-drill)       */
-/* ================================================================== */
-
-function AssignmentSplit({
-  split,
-  activeKind,
-  onPick,
-}: {
-  split: { self: number; assigned: number };
-  activeKind: "self" | "assigned" | null;
-  onPick: (kind: "self" | "assigned") => void;
-}) {
-  const total = split.self + split.assigned;
-  const rows: Array<{ kind: "self" | "assigned"; label: string; count: number; color: string }> = [
-    { kind: "self", label: "Self", count: split.self, color: ASSIGN_SELF },
-    { kind: "assigned", label: "Assigned", count: split.assigned, color: ASSIGN_ASSIGNED },
-  ];
-  return (
-    <section
-      className="wg-rise rounded-2xl px-4 py-4"
-      style={{ animationDelay: "240ms", background: "var(--color-surface-card)", border: "1px solid var(--color-hairline-strong)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 3px rgba(15,23,42,0.05)" }}
-    >
-      <h3 className="mb-2.5 text-[13px] font-black uppercase tracking-[0.1em] text-ink-soft">Assignment</h3>
-      <div className="flex h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--color-surface-soft)" }}>
-        {rows.map((r) => {
-          const w = total ? (r.count / total) * 100 : 0;
-          if (w === 0) return null;
-          return (
-            <span
-              key={r.kind}
-              className="h-full"
-              style={{ width: `${w}%`, background: r.color, opacity: activeKind && activeKind !== r.kind ? 0.4 : 1 }}
-            />
-          );
-        })}
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {rows.map((r) => {
-          const active = activeKind === r.kind;
-          return (
-            <button
-              key={r.kind}
-              type="button"
-              onClick={() => onPick(r.kind)}
-              aria-pressed={active}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-bold tabular-nums transition-colors cursor-pointer ${FOCUS_RING}`}
-              style={{
-                borderColor: active ? r.color : "var(--color-hairline-strong)",
-                background: active ? `color-mix(in srgb, ${r.color} 12%, transparent)` : "transparent",
-                color: "var(--color-ink-soft)",
-              }}
-            >
-              <span className="size-2.5 rounded-full" style={{ background: r.color }} />
-              {r.label}
-              <span className="text-ink-strong">{r.count}</span>
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-/* ================================================================== */
-/* Per-goal scores — health of every individual goal                   */
-/* ================================================================== */
-
-function GoalScores({
-  goals,
-  pctOf,
-  level,
-}: {
-  goals: GoalDTO[];
-  pctOf: (g: GoalDTO) => number;
-  level: GoalPeriod;
-}) {
-  if (goals.length === 0) return null;
-  return (
-    <section
-      className="wg-rise rounded-2xl px-5 py-4"
-      style={{ background: "var(--color-surface-card)", border: "1px solid var(--color-hairline-strong)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 3px rgba(15,23,42,0.05)" }}
-    >
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-[13px] font-black uppercase tracking-[0.1em] text-ink-soft">
-          {LEVEL_NOUN[level]} goal scores
-        </h3>
-        <span className="text-[11.5px] font-semibold text-ink-subtle tabular-nums">
-          {goals.length} goal{goals.length === 1 ? "" : "s"} · highest first
+    <div>
+      <div className="mb-1.5 flex items-baseline justify-between gap-2">
+        <span className="text-[11.5px] font-black uppercase tracking-[0.06em] text-ink-subtle">{label}</span>
+        <span className="text-[12.5px] font-semibold text-ink-subtle tabular-nums">
+          <span className="font-black" style={{ color: tone }}>
+            {format(actual)}
+          </span>{" "}
+          of {format(target)} · <span className="font-black" style={{ color: tone }}>{pct}%</span>
         </span>
       </div>
-      <ul className="flex flex-col divide-y" style={{ borderColor: "var(--color-hairline)" }}>
-        {goals.map((g) => {
-          const p = pctOf(g);
-          const band = healthOf(p);
-          return (
-            <li key={g.id} className="flex items-center gap-3 py-2">
-              <span
-                className="grid size-9 shrink-0 place-items-center rounded-lg text-[12px] font-black tabular-nums"
-                style={{ background: `color-mix(in srgb, ${HEALTH_META[band].color} 12%, transparent)`, color: HEALTH_META[band].color }}
-              >
-                {p}%
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13.5px] font-bold text-ink-strong" title={g.title}>{g.title}</div>
-                <div className="flex items-center gap-2 text-[11.5px] font-semibold text-ink-subtle">
-                  <span>{periodKeyLabel(g.periodKey)}</span>
-                  {g.area && <span className="truncate">· {g.area}</span>}
-                </div>
-              </div>
-              <span className="relative h-1.5 w-24 shrink-0 overflow-hidden rounded-full max-sm:hidden" style={{ background: "var(--color-surface-soft)" }}>
-                <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.min(100, p)}%`, background: HEALTH_META[band].color }} />
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
+      <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: "var(--color-surface-soft)", boxShadow: "inset 0 1px 2px rgba(15,23,42,0.06)" }}>
+        <span
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{
+            width: reveal ? `${Math.min(100, pct)}%` : "0%",
+            background: `linear-gradient(90deg, ${tone}, color-mix(in srgb, ${tone} 70%, #fff))`,
+            transition: reduce ? undefined : "width 700ms cubic-bezier(0.2,0,0,1)",
+          }}
+        />
+      </div>
+    </div>
   );
 }
 
-/* ================================================================== */
-/* Drill-down panel                                                    */
-/* ================================================================== */
+/* ====================================================================== */
+/* 9 · Drill-down panel                                                   */
+/* ====================================================================== */
 
-function DrillPanel({
-  drill,
-  goals,
-  pctOf,
-  onClose,
-}: {
-  drill: Drill;
-  goals: GoalDTO[];
-  pctOf: (g: GoalDTO) => number;
-  onClose: () => void;
-}) {
+function DrillPanel({ drill, rows, onClose }: { drill: Drill; rows: Row[]; onClose: () => void }) {
   return (
     <section
       className="wg-rise rounded-2xl px-5 py-4"
-      style={{ background: "var(--color-surface-card)", border: `1px solid color-mix(in srgb, ${drill.color} 40%, var(--color-hairline-strong))`, boxShadow: `0 10px 30px -20px ${drill.color}` }}
+      style={{
+        background: "var(--color-surface-card)",
+        border: `1px solid color-mix(in srgb, ${drill.color} 40%, var(--color-hairline-strong))`,
+        boxShadow: `0 12px 34px -22px ${drill.color}`,
+      }}
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="size-3 rounded-full" style={{ background: drill.color }} />
           <h3 className="text-[14px] font-bold text-ink-strong">{drill.label}</h3>
-          <span className="rounded-full px-2 py-0.5 text-[11.5px] font-black tabular-nums text-white" style={{ background: drill.color }}>{goals.length}</span>
+          <span className="rounded-full px-2 py-0.5 text-[11.5px] font-black tabular-nums text-white" style={{ background: drill.color }}>
+            {rows.length}
+          </span>
         </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close drill-down"
-          className={`inline-flex items-center gap-1 rounded-full border border-hairline-strong px-2.5 py-1 text-[12px] font-bold text-ink-soft hover:text-ink-strong transition-colors cursor-pointer ${FOCUS_RING}`}
+          className={`inline-flex items-center gap-1 rounded-full border border-hairline-strong px-2.5 py-1 text-[12px] font-bold text-ink-soft transition-colors hover:text-ink-strong cursor-pointer ${FOCUS_RING}`}
         >
           <X size={13} strokeWidth={2.6} /> Clear
         </button>
       </div>
-      {goals.length === 0 ? (
+
+      {rows.length === 0 ? (
         <p className="py-4 text-center text-[13px] font-semibold text-ink-subtle">No goals in this segment.</p>
       ) : (
         <ul className="flex flex-col divide-y" style={{ borderColor: "var(--color-hairline)" }}>
-          {goals.map((g) => {
-            const p = pctOf(g);
-            const band = healthOf(p);
+          {rows.map((r) => {
+            const meta = BAND_META[r.band];
             return (
-              <li key={g.id} className="flex items-center gap-3 py-2">
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg text-[12px] font-black tabular-nums" style={{ background: `color-mix(in srgb, ${HEALTH_META[band].color} 12%, transparent)`, color: HEALTH_META[band].color }}>
-                  {p}%
+              <li key={r.g.id} className="flex items-center gap-3 py-2">
+                <span
+                  className="grid size-9 shrink-0 place-items-center rounded-lg text-[12px] font-black tabular-nums"
+                  style={{ background: `color-mix(in srgb, ${meta.color} 12%, transparent)`, color: meta.color }}
+                >
+                  {r.eff}%
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13.5px] font-bold text-ink-strong">{g.title}</div>
+                  <div className="truncate text-[13.5px] font-bold text-ink-strong" title={r.g.title}>
+                    {r.g.title}
+                  </div>
                   <div className="flex items-center gap-2 text-[11.5px] font-semibold text-ink-subtle">
-                    <span>{periodKeyLabel(g.periodKey)}</span>
-                    {g.area && <span className="truncate">· {g.area}</span>}
+                    <span>{periodKeyLabel(r.g.periodKey)}</span>
+                    {r.g.area && <span className="truncate">· {r.g.area}</span>}
+                    <span style={{ color: meta.color }}>· {meta.short}</span>
                   </div>
                 </div>
-                <span className="relative h-1.5 w-24 shrink-0 overflow-hidden rounded-full max-sm:hidden" style={{ background: "var(--color-surface-soft)" }}>
-                  <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.min(100, p)}%`, background: HEALTH_META[band].color }} />
+                <span
+                  className="relative h-1.5 w-24 shrink-0 overflow-hidden rounded-full max-sm:hidden"
+                  style={{ background: "var(--color-surface-soft)" }}
+                >
+                  <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.min(100, r.eff)}%`, background: meta.color }} />
+                  <span
+                    className="absolute inset-y-[-2px] w-[2px]"
+                    style={{ left: `${Math.min(100, r.h.expected)}%`, background: "var(--color-ink-strong)", opacity: 0.5 }}
+                    aria-hidden
+                  />
                 </span>
               </li>
             );
@@ -951,9 +1904,9 @@ function DrillPanel({
   );
 }
 
-/* ================================================================== */
-/* Skeleton + empty                                                    */
-/* ================================================================== */
+/* ====================================================================== */
+/* Skeleton + empty                                                       */
+/* ====================================================================== */
 
 const SHIMMER: React.CSSProperties = {
   background: "linear-gradient(90deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.09) 50%, rgba(15,23,42,0.05) 100%)",
@@ -964,16 +1917,17 @@ const SHIMMER: React.CSSProperties = {
 
 function DashboardSkeleton() {
   return (
-    <div className="flex flex-col gap-5" aria-hidden aria-busy="true">
-      <div className="h-6 w-52 rounded-lg" style={SHIMMER} />
-      <CardGrid min={200} gap="0.75rem">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-[104px] rounded-2xl" style={SHIMMER} />
+    <div className="flex flex-col gap-4" aria-hidden aria-busy="true">
+      <div className="h-8 w-72 rounded-full" style={SHIMMER} />
+      <div className="h-[196px] rounded-2xl" style={SHIMMER} />
+      <CardGrid min={190} gap="0.7rem">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-[108px] rounded-2xl" style={SHIMMER} />
         ))}
       </CardGrid>
-      <div className="grid grid-cols-[1.6fr_1fr] gap-4 max-lg:grid-cols-1">
-        <div className="h-[220px] rounded-2xl" style={SHIMMER} />
-        <div className="h-[220px] rounded-2xl" style={SHIMMER} />
+      <div className="grid grid-cols-[1.05fr_1.35fr] gap-4 max-xl:grid-cols-1">
+        <div className="h-[240px] rounded-2xl" style={SHIMMER} />
+        <div className="h-[240px] rounded-2xl" style={SHIMMER} />
       </div>
     </div>
   );
@@ -992,10 +1946,11 @@ function DashboardEmpty({ level }: { level: GoalPeriod }) {
         <Target size={30} strokeWidth={2.2} />
       </span>
       <h3 className="font-bold text-ink-strong" style={{ fontSize: 22, letterSpacing: "-0.01em" }}>
-        No goals yet at this level
+        No adopted {(LEVEL_NOUN[level] ?? "").toLowerCase()} goals yet
       </h3>
-      <p className="mx-auto mt-2 max-w-[46ch] font-medium" style={{ fontSize: 14.5, lineHeight: 1.5, color: "var(--color-ink-muted)" }}>
-        Add {(LEVEL_NOUN[level] ?? "new").toLowerCase()} goals to light up completion spread, headline KPIs and goal-health analytics here.
+      <p className="mx-auto mt-2 max-w-[48ch] font-medium" style={{ fontSize: 14.5, lineHeight: 1.5, color: "var(--color-ink-muted)" }}>
+        Adopt {(LEVEL_NOUN[level] ?? "new").toLowerCase()} goals to light up the OKR gauge, pace distribution,
+        the at-risk action list and cascade coverage analytics here.
       </p>
     </div>
   );
