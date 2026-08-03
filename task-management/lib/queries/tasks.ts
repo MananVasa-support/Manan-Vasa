@@ -681,6 +681,10 @@ export type TaskDetail = {
   recurrenceParentId: string | null;
   recurrenceOccurrenceDate: string | null;
   projectNodeId: string | null;
+  // Task-detail redesign (mig 0176)
+  estimatedMinutes: number | null;
+  doerAvatarUrl: string | null;
+  creatorAvatarUrl: string | null;
 };
 
 export async function getTaskById(taskId: string): Promise<TaskDetail | null> {
@@ -722,6 +726,9 @@ export async function getTaskById(taskId: string): Promise<TaskDetail | null> {
       recurrenceParentId: tasks.recurrenceParentId,
       recurrenceOccurrenceDate: tasks.recurrenceOccurrenceDate,
       projectNodeId: tasks.projectNodeId,
+      estimatedMinutes: tasks.estimatedMinutes,
+      doerAvatarUrl: doerEmp.avatarUrl,
+      creatorAvatarUrl: creatorEmp.avatarUrl,
     })
     .from(tasks)
     .leftJoin(doerEmp,    eq(tasks.doerId,      doerEmp.id))

@@ -974,6 +974,9 @@ export const tasks = pgTable(
     // Backlink to the Ambassadors referral that spawned this follow-up task
     // (mig 0092). FK-in-migration only (avoids a circular type with amb_referrals).
     ambReferralId: uuid("amb_referral_id"),
+    // Task-detail redesign (mig 0176) — planned effort in minutes, shown as
+    // "Estimated Time" next to the auto-computed Actual Time.
+    estimatedMinutes: integer("estimated_minutes"),
   },
   (t) => [
     index("tasks_doer_created_idx").on(t.doerId, t.createdAt),
@@ -1159,6 +1162,47 @@ export const taskTimeConsent = pgTable("task_time_consent", {
   policyVersion: text("policy_version").notNull(),
 });
 export type TaskTimeConsent = typeof taskTimeConsent.$inferSelect;
+
+// ── Task detail redesign (migration 0176) — checklist sub-items + attachments ──
+
+/** Per-task checklist sub-items (the "2/5 completed" card). */
+export const taskChecklistItems = pgTable(
+  "task_checklist_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    done: boolean("done").notNull().default(false),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+    doneById: uuid("done_by_id").references(() => employees.id, { onDelete: "set null" }),
+    doneAt: timestamp("done_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("task_checklist_task_idx").on(t.taskId, t.sortOrder)],
+);
+export type TaskChecklistItem = typeof taskChecklistItems.$inferSelect;
+
+/** Per-task file attachments (Supabase private documents bucket). */
+export const taskAttachments = pgTable(
+  "task_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    storagePath: text("storage_path").notNull(),
+    fileName: text("file_name").notNull(),
+    mime: text("mime"),
+    sizeBytes: integer("size_bytes"),
+    uploadedById: uuid("uploaded_by_id").references(() => employees.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("task_attachments_task_idx").on(t.taskId, t.createdAt)],
+);
+export type TaskAttachment = typeof taskAttachments.$inferSelect;
 
 /**
  * M2.3 — frozen contract for the `kind` column on notifications.

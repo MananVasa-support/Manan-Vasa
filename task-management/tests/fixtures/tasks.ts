@@ -139,6 +139,7 @@ function task(partial: Partial<Task>): Task {
     id: id(),
     title: partial.title ?? "Test task",
     description: null,
+    estimatedMinutes: null,
     doerId: partial.doerId ?? ANKIT,
     initiatorId: partial.initiatorId ?? RAVI,
     priority: partial.priority ?? "not_imp_urgent",

@@ -9,6 +9,7 @@ function task(p: Partial<Task>): Task {
     id: crypto.randomUUID(),
     title: "t",
     description: null,
+    estimatedMinutes: null,
     doerId: "d",
     initiatorId: "i",
     priority: "not_imp_urgent",

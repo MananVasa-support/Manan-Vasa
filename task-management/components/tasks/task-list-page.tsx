@@ -140,12 +140,12 @@ export function TaskListPage({
   }
 
   return (
-    <main className="relative mx-auto max-w-[1600px] px-12 max-md:px-4 pt-5 max-md:pt-3 pb-16">
-      <header className="wg-rise relative mb-3.5 flex items-end justify-between gap-4 flex-wrap">
+    <main className="wms-compact relative mx-auto max-w-[1560px] px-7 max-md:px-4 pt-4 max-md:pt-3 pb-16">
+      <header className="wg-rise relative mb-3 flex items-end justify-between gap-4 flex-wrap">
         <div>
           <p
             className="mb-1 uppercase font-bold"
-            style={{ fontSize: 11, letterSpacing: "0.14em", color: "var(--color-ink-subtle)" }}
+            style={{ fontSize: 10, letterSpacing: "0.14em", color: "var(--color-ink-subtle)" }}
           >
             WMS · Task Management
           </p>
@@ -154,7 +154,7 @@ export function TaskListPage({
             style={{
               fontFamily: "var(--font-display), system-ui, sans-serif",
               fontWeight: 900,
-              fontSize: "clamp(26px, 2.4vw, 34px)",
+              fontSize: "clamp(21px, 1.9vw, 27px)",
               letterSpacing: "-0.028em",
               lineHeight: 1,
             }}
@@ -162,8 +162,8 @@ export function TaskListPage({
             {title}
           </h1>
           <p
-            className="mt-1.5 font-medium tabular-nums"
-            style={{ fontSize: 13, color: "var(--color-ink-subtle)" }}
+            className="mt-1 font-medium tabular-nums"
+            style={{ fontSize: 12, color: "var(--color-ink-subtle)" }}
           >
             {rows.length === 1 ? "1 task" : `${rows.length} tasks`} in the current view
           </p>
@@ -171,13 +171,13 @@ export function TaskListPage({
         {me.isAdmin && (
           <Link
             href={"/tasks/kanban" as Route}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[14px] font-bold transition-colors hover:bg-surface-soft"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-[12.5px] font-bold transition-colors hover:bg-surface-soft"
             style={{
               color: "var(--color-altus-red-deep)",
               boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)",
             }}
           >
-            <LayoutGrid size={15} strokeWidth={2.4} />
+            <LayoutGrid size={14} strokeWidth={2.4} />
             Kanban View
           </Link>
         )}
@@ -296,9 +296,9 @@ function StatChip({
   return (
     <div
       title={spec.sublabel}
-      className="group inline-flex items-center gap-2.5 rounded-xl transition-colors"
+      className="group inline-flex items-center gap-2 rounded-xl transition-colors"
       style={{
-        padding: "8px 13px",
+        padding: "5px 10px",
         background: active
           ? `color-mix(in srgb, var(--color-${spec.tone}) 8%, var(--color-surface-card))`
           : "var(--color-surface-card)",
@@ -317,7 +317,7 @@ function StatChip({
         style={{
           fontFamily: "var(--font-display), system-ui, sans-serif",
           fontWeight: 900,
-          fontSize: 20,
+          fontSize: 16,
           letterSpacing: "-0.02em",
         }}
       >
@@ -325,7 +325,7 @@ function StatChip({
       </span>
       <span
         className="font-semibold leading-none"
-        style={{ fontSize: 12.5, color: active ? `var(--color-${spec.tone}-deep)` : "var(--color-ink-soft)" }}
+        style={{ fontSize: 11.5, color: active ? `var(--color-${spec.tone}-deep)` : "var(--color-ink-soft)" }}
       >
         {spec.label.charAt(0) + spec.label.slice(1).toLowerCase()}
       </span>

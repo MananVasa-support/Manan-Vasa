@@ -720,7 +720,7 @@ export function TaskTable({
                           ? "descending"
                           : undefined
                     }
-                    className={`sticky top-0 px-5 py-4 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : "z-20"}`}
+                    className={`sticky top-0 px-4 py-2.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : "z-20"}`}
                     style={{
                       // Crisp glass header strip — a near-opaque frosted
                       // gradient (blur catches the rows scrolling beneath)
@@ -861,7 +861,7 @@ export function TaskTable({
                 return (
                   <td
                     key={cell.id}
-                    className={`px-3 py-4 whitespace-nowrap overflow-hidden text-ellipsis max-md:px-3 max-md:py-3 ${maxW} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "sticky right-0 z-10 bg-surface-card" : ""}`}
+                    className={`px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis max-md:px-3 max-md:py-3 ${maxW} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "sticky right-0 z-10 bg-surface-card" : ""}`}
                     style={isActions ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" } : undefined}
                   >
                     {flexRender(

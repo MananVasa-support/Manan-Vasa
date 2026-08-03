@@ -1,7 +1,9 @@
 import "server-only";
 import { notFound } from "next/navigation";
-import { TaskDetailView } from "@/components/tasks/task-detail-view";
+import { TaskDetailRedesign } from "@/components/tasks/detail/task-detail-redesign";
 import { getTaskById } from "@/lib/queries/tasks";
+import { getTaskChecklist, getTaskAttachments } from "@/lib/queries/task-detail-extras";
+import { computeTaskInsight } from "@/lib/tasks/insight";
 import { listTaskEvents } from "@/lib/queries/audit";
 import { listEmployees } from "@/lib/queries/employees";
 import { listActiveClientNames } from "@/lib/queries/clients";
@@ -49,7 +51,7 @@ export async function TaskDetailLoader({ taskId, me }: Props) {
   if (!task) notFound();
 
   const timeOn = timeIntelEnabled();
-  const [events, all, statusDisplay, clients, subjects, projectNodes, timeState, myConsent, snapshots] =
+  const [events, all, statusDisplay, clients, subjects, projectNodes, timeState, myConsent, snapshots, checklist, attachments] =
     await Promise.all([
       listTaskEvents(taskId),
       listEmployees(),
@@ -62,6 +64,8 @@ export async function TaskDetailLoader({ taskId, me }: Props) {
         ? db.select({ id: taskTimeConsent.employeeId }).from(taskTimeConsent).where(eq(taskTimeConsent.employeeId, me.id)).limit(1)
         : Promise.resolve([] as { id: string }[]),
       timeOn && me.isSuperAdmin ? getTaskSnapshots(taskId) : Promise.resolve([]),
+      getTaskChecklist(taskId),
+      getTaskAttachments(taskId),
     ]);
   const employeeOptions = all.map((e) => ({ id: e.id, name: e.name }));
   const statusLabels = Object.fromEntries(
@@ -112,22 +116,31 @@ export async function TaskDetailLoader({ taskId, me }: Props) {
         }
       : null;
 
+  const insight = computeTaskInsight({
+    status: task.status,
+    approvalStatus: task.approvalStatus,
+    dueAt: task.dueAt,
+    totalActiveSeconds: timeState?.rollup.totalActiveSeconds ?? 0,
+    estimatedMinutes: task.estimatedMinutes,
+    rejectionCount: timeState?.rollup.rejectionCount ?? 0,
+    now: new Date(),
+  });
+
   return (
-    <TaskDetailView
+    <TaskDetailRedesign
       task={task}
+      me={{ id: me.id, name: me.name, avatarUrl: me.avatarUrl, department: me.department, isAdmin: me.isAdmin }}
       canEdit={canEditTaskFields(permInput)}
-      canApproveTask={showApproveCard}
-      canReassignTask={canReassign(permInput)}
-      canCommentOnTask={canComment(permInput)}
+      canManageContent={me.isAdmin || isDoer || isDoersManager}
       events={events}
-      employees={employeeOptions}
       clients={clients}
       subjects={subjects}
       projectNodes={projectNodes}
-      me={me}
       statusLabels={statusLabels}
-      statusTones={statusTones}
       timePanel={timePanel}
+      checklist={checklist}
+      attachments={attachments}
+      insight={insight}
     />
   );
 }
