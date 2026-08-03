@@ -123,11 +123,20 @@ export async function renderLetterPdf(input: RenderLetterInput): Promise<Buffer>
   const width = right - left;
 
   const paintFrame = (): void => {
+    // Collapse the page margins while stamping the FIXED header/footer. Their
+    // text is absolutely positioned near the page edges (the footer sits BELOW
+    // the body's bottom margin); pdfkit 0.18 runs a vertical-overflow check on
+    // it even with lineBreak:false, auto-adds a page to "make room", which
+    // re-fires `pageAdded` → repaints → overflows → … infinite recursion
+    // ("Maximum call stack size exceeded"). Zeroing the margins during the paint
+    // removes the overflow check; we restore the real body margins right after.
+    doc.page.margins.top = 0;
+    doc.page.margins.bottom = 0;
     drawHeaderBand(doc, entity);
     drawFooter(doc, entity);
+    setMargins();
   };
   doc.on("pageAdded", () => {
-    setMargins();
     paintFrame();
     doc.y = TOP;
   });
