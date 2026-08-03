@@ -220,11 +220,12 @@ export function FilterBar({
         boxShadow: "0 10px 26px -22px rgba(15, 23, 42, 0.20)",
       }}
     >
-      <div className="mx-auto max-w-[1600px] px-12 py-2.5 max-md:px-4 flex flex-col gap-2">
-        {/* Row 1 — filter pill-cards. Single line (never wrap). No overflow
-            container here on purpose: a scroll ancestor would mis-anchor the
-            filter popovers. */}
-        <div className="flex items-center gap-2.5 flex-nowrap min-w-0">
+      <div className="mx-auto max-w-[1600px] px-6 py-2.5 max-md:px-4 flex flex-col gap-2">
+        {/* Row 1 — filter pill-cards. WRAPS to a second line when they don't fit
+            (instead of cutting off the last filter). Wrapping is popover-safe:
+            the filter popovers portal to <body>, so — unlike a scroll/overflow
+            ancestor — a wrapped trigger row never mis-anchors them. */}
+        <div className="flex items-center gap-x-1.5 gap-y-2 flex-wrap min-w-0">
           {/* Date range */}
           <Popover.Root>
             <Popover.Trigger asChild>
@@ -314,7 +315,7 @@ export function FilterBar({
                     type="button"
                     aria-label="Import and export"
                     title="Import / export"
-                    className="inline-flex items-center justify-center h-10 w-10 rounded-2xl border border-hairline bg-surface-card text-ink-soft hover:text-ink-strong hover:border-altus-red transition-colors"
+                    className="inline-flex items-center justify-center h-9 w-9 rounded-xl border border-hairline bg-surface-card text-ink-soft hover:text-ink-strong hover:border-altus-red transition-colors"
                     style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)" }}
                   >
                     <MoreHorizontal size={16} strokeWidth={2.4} />
@@ -412,13 +413,13 @@ export function FilterBar({
 
 function SegGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="inline-flex items-center gap-2">
-      <span className="text-[11.5px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-subtle)" }}>
+    <div className="inline-flex items-center gap-1.5">
+      <span className="text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-subtle)" }}>
         {label}
       </span>
       <div
         className="inline-flex items-center bg-surface-card border border-hairline rounded-chip relative"
-        style={{ padding: 4, boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)" }}
+        style={{ padding: 3, boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)" }}
       >
         {children}
       </div>
@@ -441,7 +442,7 @@ function SegButton({
     <button
       type="button"
       onClick={onClick}
-      className="relative text-[14px] px-2.5 py-1.5 rounded-pill transition-colors"
+      className="relative text-[12.5px] px-2 py-1 rounded-pill transition-colors"
       style={{
         color: active ? "var(--color-ink-strong)" : "var(--color-ink-subtle)",
         fontWeight: active ? 600 : 500,

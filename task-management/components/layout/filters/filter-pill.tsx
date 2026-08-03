@@ -37,10 +37,10 @@ export const FilterPill = React.forwardRef<
       {...props}
     >
       <span
-        className="inline-flex items-center justify-center rounded-[9px] shrink-0"
+        className="inline-flex items-center justify-center rounded-[7px] shrink-0"
         style={{
-          width: 30,
-          height: 30,
+          width: 23,
+          height: 23,
           background: active
             ? `color-mix(in srgb, ${tint} 14%, transparent)`
             : "var(--color-hairline)",
@@ -49,10 +49,10 @@ export const FilterPill = React.forwardRef<
       >
         {icon}
       </span>
-      <span className="text-[14.5px] font-semibold truncate max-w-[160px] text-ink-strong">
+      <span className="text-[12.5px] font-semibold truncate max-w-[130px] text-ink-strong">
         {value}
       </span>
-      <ChevronDown size={15} className="text-ink-subtle shrink-0" />
+      <ChevronDown size={13} className="text-ink-subtle shrink-0" />
     </button>
   );
 });

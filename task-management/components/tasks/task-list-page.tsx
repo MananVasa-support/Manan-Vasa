@@ -141,37 +141,54 @@ export function TaskListPage({
 
   return (
     <main className="wms-compact relative mx-auto max-w-[1560px] px-7 max-md:px-4 pt-4 max-md:pt-3 pb-16">
-      <header className="wg-rise relative mb-3 flex items-end justify-between gap-4 flex-wrap">
-        <div>
-          <p
-            className="mb-1 uppercase font-bold"
-            style={{ fontSize: 10, letterSpacing: "0.14em", color: "var(--color-ink-subtle)" }}
-          >
-            WMS · Task Management
-          </p>
+      {/* Header — the "Tasks" title with the KPI stat chips inline beside it, and
+          Kanban View on the right. (Eyebrow + "N tasks in the current view"
+          subtitle removed per design.) */}
+      <header className="wg-rise relative mb-3 flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-x-4 gap-y-2 flex-wrap min-w-0">
           <h1
-            className="text-ink-strong"
+            className="text-ink-strong shrink-0"
             style={{
               fontFamily: "var(--font-display), system-ui, sans-serif",
               fontWeight: 900,
-              fontSize: "clamp(21px, 1.9vw, 27px)",
+              fontSize: "clamp(20px, 1.8vw, 25px)",
               letterSpacing: "-0.028em",
               lineHeight: 1,
             }}
           >
             {title}
           </h1>
-          <p
-            className="mt-1 font-medium tabular-nums"
-            style={{ fontSize: 12, color: "var(--color-ink-subtle)" }}
-          >
-            {rows.length === 1 ? "1 task" : `${rows.length} tasks`} in the current view
-          </p>
+          {/* KPI stat chips — inline. Clickable ones toggle the matching
+              status/priority filter; `notRead` is display-only. */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {KPI_SPECS.map((spec, i) => {
+              if (!CARD_FILTER[spec.key]) {
+                return (
+                  <div key={spec.key} className="wg-rise" style={{ animationDelay: `${i * 30}ms` }}>
+                    <StatChip spec={spec} value={counts[spec.key]} active={false} />
+                  </div>
+                );
+              }
+              const on = cardActive(spec.key);
+              return (
+                <Link
+                  key={spec.key}
+                  href={cardHref(spec.key)}
+                  aria-pressed={on}
+                  aria-label={`${on ? "Remove" : "Add"} ${spec.label.toLowerCase()} filter`}
+                  className="wg-rise block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
+                  style={{ animationDelay: `${i * 30}ms` }}
+                >
+                  <StatChip spec={spec} value={counts[spec.key]} active={on} />
+                </Link>
+              );
+            })}
+          </div>
         </div>
         {me.isAdmin && (
           <Link
             href={"/tasks/kanban" as Route}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-[12.5px] font-bold transition-colors hover:bg-surface-soft"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-[12.5px] font-bold transition-colors hover:bg-surface-soft shrink-0"
             style={{
               color: "var(--color-altus-red-deep)",
               boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)",
@@ -182,34 +199,6 @@ export function TaskListPage({
           </Link>
         )}
       </header>
-
-      {/* KPI summary — a LIGHT inline strip of stat chips (flat, mostly white,
-          tiny tone dot). Clickable ones toggle the matching status/priority
-          filter; `notRead` is display-only. */}
-      <div className="relative mb-3.5 flex flex-wrap gap-2">
-        {KPI_SPECS.map((spec, i) => {
-          if (!CARD_FILTER[spec.key]) {
-            return (
-              <div key={spec.key} className="wg-rise" style={{ animationDelay: `${i * 30}ms` }}>
-                <StatChip spec={spec} value={counts[spec.key]} active={false} />
-              </div>
-            );
-          }
-          const on = cardActive(spec.key);
-          return (
-            <Link
-              key={spec.key}
-              href={cardHref(spec.key)}
-              aria-pressed={on}
-              aria-label={`${on ? "Remove" : "Add"} ${spec.label.toLowerCase()} filter`}
-              className="wg-rise block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
-              style={{ animationDelay: `${i * 30}ms` }}
-            >
-              <StatChip spec={spec} value={counts[spec.key]} active={on} />
-            </Link>
-          );
-        })}
-      </div>
 
       {/* Pinned "This week's goals" group above the table (design §10). Admins
           viewing the unscoped "all" list see each goal's doer name. Excluded

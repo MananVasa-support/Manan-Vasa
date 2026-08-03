@@ -45,7 +45,11 @@ export interface LetterheadProps {
 
 export function Letterhead({ entity, children, className }: LetterheadProps) {
   const e = getEntity(entity ?? null);
-  const overlayLogo = e.id !== DEFAULT_ENTITY_ID;
+  // Each non-Altus entity has its logo BAKED into its own header strip (exactly
+  // like the Altus one), so the letterhead reads identically clean for every
+  // entity — no white-cover / overlay hack.
+  const headerArt =
+    e.id === DEFAULT_ENTITY_ID ? HEADER_ART : `/letterhead/header-${e.id}.png`;
 
   return (
     <div className={`alh-page${className ? ` ${className}` : ""}`}>
@@ -54,14 +58,7 @@ export function Letterhead({ entity, children, className }: LetterheadProps) {
       {/* ── Header + footer artwork (crisp strips) — absolute on screen,
              FIXED in print so they repeat on every printed page. ─────── */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img className="alh-art alh-art-top" src={HEADER_ART} alt="" aria-hidden />
-      {overlayLogo && (
-        <>
-          <span className="alh-logo-cover" aria-hidden />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="alh-logo" src={e.logo} alt={`${e.displayName} logo`} />
-        </>
-      )}
+      <img className="alh-art alh-art-top" src={headerArt} alt="" aria-hidden />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="alh-art alh-art-bottom" src={FOOTER_ART} alt="" aria-hidden />
       {/* Code-rendered HR contact line, laid over the baked footer art so the HR

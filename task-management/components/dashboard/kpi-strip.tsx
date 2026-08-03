@@ -36,7 +36,7 @@ export function KpiStrip({ kpis, summary }: { kpis: KpiSet; summary: WmsSummary 
   return (
     <section className="mt-10" aria-label="Task summary">
      <PageShell as="div" width="full" py={false}>
-      <CardGrid min={210} gap="1rem">
+      <CardGrid min={165} gap="0.7rem">
         {ITEMS.map((item) => {
           const kpi = kpis[item.key];
           const delta = kpi.current - kpi.previous;
@@ -70,7 +70,7 @@ export function KpiStrip({ kpis, summary }: { kpis: KpiSet; summary: WmsSummary 
                   className="absolute inset-x-0 top-0 h-[3px]"
                   style={{ background: `linear-gradient(90deg, rgb(${neon}), rgb(${neonDeep}))` }}
                 />
-                <div className="flex items-start justify-between gap-2 px-4 pt-4 pb-3.5">
+                <div className="flex items-start justify-between gap-1.5 px-3.5 pt-3.5 pb-3">
                   <Link
                     href={item.href}
                     className="group/link min-w-0 flex-1 outline-none"
@@ -81,7 +81,7 @@ export function KpiStrip({ kpis, summary }: { kpis: KpiSet; summary: WmsSummary 
                         the same baseline. */}
                     <span
                       className="flex items-start gap-1 uppercase font-black tracking-[0.07em] leading-[1.15]"
-                      style={{ fontSize: 12.5, color: `rgb(${neonDeep})`, minHeight: 29 }}
+                      style={{ fontSize: 11.5, color: `rgb(${neonDeep})`, minHeight: 24 }}
                     >
                       <span className="min-w-0">{item.label}</span>
                       <ArrowUpRight
@@ -91,11 +91,11 @@ export function KpiStrip({ kpis, summary }: { kpis: KpiSet; summary: WmsSummary 
                       />
                     </span>
                     <span
-                      className="block tabular-nums leading-none mt-2.5 text-ink-strong"
+                      className="block tabular-nums leading-none mt-2 text-ink-strong"
                       style={{
                         fontFamily: "var(--font-display), system-ui, sans-serif",
                         fontWeight: 900,
-                        fontSize: 38,
+                        fontSize: 32,
                         letterSpacing: "-0.02em",
                       }}
                     >

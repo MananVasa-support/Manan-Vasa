@@ -27,7 +27,7 @@ const DEFAULT_PAGE_SIZE = 25;
 // page + last, with an ellipsis wherever the window detaches from an end —
 // e.g. 1 2 3 4 5 6 7 8 9 10 11 … 18, or 1 … 4 5 6 7 8 9 10 11 12 13 … 18.
 function pageWindow(current: number, total: number): (number | "ellipsis")[] {
-  const WINDOW = 10;
+  const WINDOW = 5;
   if (total <= WINDOW + 2) return Array.from({ length: total }, (_, i) => i + 1);
   let end = Math.min(total - 1, Math.max(current + 4, WINDOW + 1));
   const start = Math.max(2, end - WINDOW + 1);
@@ -645,7 +645,7 @@ export function TaskTable({
           lives up here so the table gets the vertical space below. A quiet
           glass strip so the controls read as one instrument panel. */}
       <div
-        className="wg-rise mb-3 flex items-center gap-3 flex-wrap rounded-section border border-hairline px-3.5 py-2.5 max-md:px-3"
+        className="wg-rise mb-3 flex items-center gap-2 flex-wrap rounded-section border border-hairline px-3 py-2 max-md:px-3"
         style={{
           background:
             "linear-gradient(180deg, rgba(255,255,255,0.82), rgba(250,251,252,0.72))",
@@ -655,9 +655,9 @@ export function TaskTable({
             "0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 26px -20px rgba(15, 23, 42, 0.18)",
         }}
       >
-        <div className="flex items-center gap-3 flex-wrap min-w-0">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
           <GroupByControl value={groupBy} onChange={setGroupBy} />
-          <div className="w-full sm:w-[340px] md:w-[400px] min-w-[200px]">
+          <div className="w-full sm:w-[220px] md:w-[260px] min-w-[150px]">
             <SearchBox value={query} onChange={setQuery} resultCount={visibleRows.length} />
           </div>
           <CompactPager
@@ -668,7 +668,7 @@ export function TaskTable({
             onGoto={goToPage}
           />
         </div>
-        <div className="ml-auto flex items-center gap-3 flex-wrap">
+        <div className="ml-auto flex items-center gap-2 flex-wrap">
           <div className="flex items-center max-md:hidden">
             <RowsPerPageSelect value={pageSize} onChange={setPageSize} />
           </div>
@@ -972,7 +972,7 @@ function CompactPager({
             type="button"
             onClick={() => onGoto(p - 1)}
             aria-current={p - 1 === pageIndex ? "page" : undefined}
-            className={`inline-flex items-center justify-center min-w-9 h-9 px-2.5 rounded-lg text-[13.5px] font-bold tabular-nums border transition-all ${
+            className={`inline-flex items-center justify-center min-w-7 h-7 px-2 rounded-md text-[12px] font-bold tabular-nums border transition-all ${
               p - 1 === pageIndex
                 ? "text-white border-transparent"
                 : "bg-surface-card text-ink-strong border-hairline hover:border-altus-red hover:text-altus-red"
@@ -996,7 +996,7 @@ function CompactPager({
         onClick={() => onGoto(pageIndex + 1)}
         disabled={!canNext}
         aria-label="Next page"
-        className="inline-flex items-center gap-1 h-9 px-3 rounded-lg text-[13.5px] font-bold border border-hairline bg-surface-card text-ink-strong transition-all enabled:hover:border-altus-red enabled:hover:text-altus-red disabled:opacity-40 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-[12px] font-bold border border-hairline bg-surface-card text-ink-strong transition-all enabled:hover:border-altus-red enabled:hover:text-altus-red disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Next
         <ChevronRight size={15} strokeWidth={2.4} />
@@ -1006,7 +1006,7 @@ function CompactPager({
         onClick={() => onGoto(pageCount - 1)}
         disabled={!canNext}
         aria-label="Last page"
-        className="inline-flex items-center gap-1 h-9 px-3 rounded-lg text-[13.5px] font-bold border border-hairline bg-surface-card text-ink-strong transition-all enabled:hover:border-altus-red enabled:hover:text-altus-red disabled:opacity-40 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-[12px] font-bold border border-hairline bg-surface-card text-ink-strong transition-all enabled:hover:border-altus-red enabled:hover:text-altus-red disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Last
         <ChevronsRight size={15} strokeWidth={2.4} />

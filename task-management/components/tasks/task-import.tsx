@@ -278,7 +278,7 @@ export function TaskImport({
               <table className="min-w-full text-[13.5px]">
                 <thead className="sticky top-0 z-10" style={{ background: "var(--color-surface-soft)" }}>
                   <tr className="text-left text-ink-subtle">
-                    {["#", "Client", "Subject", "Doer", "Initiator", "Priority", "Due", "Status"].map((h) => (
+                    {["#", "Client", "Subject", "Description", "Notes", "Doer", "Initiator", "Priority", "Due", "Status"].map((h) => (
                       <th key={h} className="px-3.5 py-3 font-bold whitespace-nowrap border-b border-hairline">
                         {h}
                       </th>
@@ -301,6 +301,12 @@ export function TaskImport({
                       <td className="px-3.5 py-2.5 tabular-nums text-ink-subtle">{r.rowNumber}</td>
                       <td className="px-3.5 py-2.5 text-ink-strong font-semibold whitespace-nowrap">{r.client || "—"}</td>
                       <td className="px-3.5 py-2.5 text-ink-muted whitespace-nowrap">{r.subject || "—"}</td>
+                      <td className="px-3.5 py-2.5 text-ink-strong max-w-[260px] truncate" title={r.description || ""}>
+                        {r.description || "—"}
+                      </td>
+                      <td className="px-3.5 py-2.5 text-ink-muted max-w-[180px] truncate" title={r.notes || ""}>
+                        {r.notes || "—"}
+                      </td>
                       <td className="px-3.5 py-2.5 whitespace-nowrap">
                         <span className="inline-flex items-center gap-1.5">
                           <Users size={13} className="text-ink-subtle shrink-0" />
