@@ -9,10 +9,11 @@ import {
   Printer,
   Check,
   Building2,
-  UserPlus2,
   UserRound,
   SquarePen,
   ArrowLeft,
+  Save,
+  Undo2,
   ShieldCheck,
   Eye,
   EyeOff,
@@ -163,6 +164,15 @@ export function LetterEditor({
   const richHtmlRef = useRef<string>("");
   const richGetHtmlRef = useRef<(() => string) | null>(null);
   const [richDirty, setRichDirty] = useState(false);
+  // SAVED free-edit override for THIS letter instance. When set, it is the
+  // content used in the preview + on export/issue, and re-entering "Edit freely"
+  // resumes from it (instead of regenerating from the fields). It is a per-letter
+  // override only — the shared template / MAIN content is never modified. Lives
+  // for the editing session; "Discard" clears it back to the field-driven letter.
+  const [savedRichHtml, setSavedRichHtml] = useState<string | null>(null);
+  // The content the free-edit is "clean" against (updated on Save) — drives the
+  // unsaved-changes warning.
+  const richSavedRef = useRef<string>("");
   const [signingModel, setSigningModel] = useState<LetterSignature>(
     () => template.signature ?? "none",
   );
@@ -288,29 +298,49 @@ export function LetterEditor({
     onSeedEmployee(initialEmployeeId);
   }, [initialEmployeeId, roster, onSeedEmployee]);
 
-  /** The current rich HTML — prefer the editor's live getter, else the ref. */
-  const currentRichHtml = useCallback(
-    () => richGetHtmlRef.current?.() ?? richHtmlRef.current,
-    [],
-  );
+  /** The EFFECTIVE rich HTML for preview / export / issue: the live editor HTML
+   *  in rich mode, else the saved free-edit override (empty when neither). */
+  const currentRichHtml = useCallback(() => {
+    if (richMode) return richGetHtmlRef.current?.() ?? richHtmlRef.current;
+    return savedRichHtml ?? "";
+  }, [richMode, savedRichHtml]);
 
-  /** Enter "Edit freely": seed the TipTap editor from the current fields. */
+  /** True when the letter should render/export from rich HTML rather than the
+   *  structured fields: either we're actively free-editing, or a saved override
+   *  exists for this letter instance. */
+  const usingRich = richMode || savedRichHtml != null;
+
+  /** Enter "Edit freely": resume from the saved override if there is one, else
+   *  seed the TipTap editor fresh from the current fields. */
   const enterRichMode = useCallback(() => {
-    const seed = templateToRichHtml(template, values, entity, gender);
+    const seed = savedRichHtml ?? templateToRichHtml(template, values, entity, gender);
     setRichSeed(seed);
     richHtmlRef.current = seed;
+    richSavedRef.current = seed;
     richGetHtmlRef.current = null;
     setRichDirty(false);
     setSigningModel(template.signature ?? "none");
     setIssued(false);
     setRichMode(true);
-  }, [template, values, entity, gender]);
+  }, [template, values, entity, gender, savedRichHtml]);
 
-  /** Return to the structured field editor — confirm if there are free edits. */
+  /** Save the current free-edit as this letter's override (does NOT touch the
+   *  shared template / main content). Keeps you in the editor. */
+  const saveRichEdits = useCallback(() => {
+    const html = currentRichHtml();
+    setSavedRichHtml(html);
+    richSavedRef.current = html;
+    setRichDirty(false);
+    setIssued(false);
+    fireToast({ message: "Free-edit changes saved to this letter." });
+  }, [currentRichHtml]);
+
+  /** Return to the structured field view — warn only when there are UNSAVED
+   *  free edits (a saved override is kept and shown in the field view). */
   const backToFields = useCallback(() => {
     if (
       richDirty &&
-      !window.confirm("Discard your free-edit changes and return to the field editor?")
+      !window.confirm("You have unsaved free-edit changes. Leave without saving? (Click Save first to keep them.)")
     ) {
       return;
     }
@@ -319,14 +349,23 @@ export function LetterEditor({
     setIssued(false);
   }, [richDirty]);
 
-  const onRichChange = useCallback(
-    (html: string) => {
-      richHtmlRef.current = html;
-      setIssued(false);
-      setRichDirty((d) => d || html !== richSeed);
-    },
-    [richSeed],
-  );
+  /** Drop the saved free-edit override → the letter reverts to the field-driven
+   *  MAIN content. */
+  const discardFreeEdit = useCallback(() => {
+    if (!window.confirm("Discard the saved free-edit and go back to the field version of this letter?")) return;
+    setSavedRichHtml(null);
+    richSavedRef.current = "";
+    richHtmlRef.current = "";
+    setRichDirty(false);
+    setIssued(false);
+    fireToast({ message: "Free-edit discarded — using the field version." });
+  }, []);
+
+  const onRichChange = useCallback((html: string) => {
+    richHtmlRef.current = html;
+    setIssued(false);
+    setRichDirty(html !== richSavedRef.current);
+  }, []);
 
   const onRichReady = useCallback((getHtml: () => string) => {
     richGetHtmlRef.current = getHtml;
@@ -344,7 +383,7 @@ export function LetterEditor({
   async function exportPdf() {
     setBusyPdf(true);
     try {
-      const payload = richMode
+      const payload = usingRich
         ? { key: template.key, entity, gender, contentKind: "rich" as const, bodyHtml: currentRichHtml() }
         : { key: template.key, entity, gender, values, date: today, signatureImage: sigImage ?? undefined };
       const r = await fetch("/api/hr/letters/pdf", {
@@ -405,8 +444,8 @@ export function LetterEditor({
     if (!isAdmin) return;
     setIssuing(true);
     try {
-      const url = richMode ? "/api/hr/letters/issue-rich" : "/api/hr/letters/issue";
-      const payload = richMode
+      const url = usingRich ? "/api/hr/letters/issue-rich" : "/api/hr/letters/issue";
+      const payload = usingRich
         ? {
             key: template.key,
             entity,
@@ -454,7 +493,7 @@ export function LetterEditor({
   async function runEmailPdf() {
     setEmailing(true);
     try {
-      const payload = richMode
+      const payload = usingRich
         ? {
             key: template.key,
             entity,
@@ -533,39 +572,27 @@ export function LetterEditor({
           </select>
         </label>
 
-        {isAdmin && candidates.length > 0 && (
+        {/* Recipient picker — OUR employee list (roster). Quick-fills the name +
+            designation (and CTC ₹ figures for CTC letters) and attaches the
+            letter to that employee. Replaces the old Candidate + Attach-Employee
+            dropdowns. */}
+        {isAdmin && roster.length > 0 && (
           <label className="alw-pick">
             <UserRound size={15} strokeWidth={2.2} aria-hidden />
-            <span className="alw-pick-label">Candidate</span>
-            <select
-              value={candidateId}
-              onChange={(e) => onPickCandidate(e.target.value)}
-              aria-label="Quick-pick a candidate (seeds name + gender)"
-            >
-              <option value="">— pick a candidate —</option>
-              {candidates.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                  {c.gender ? ` · ${c.gender}` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-
-        {/* The Attach-employee picker is hidden when we ARRIVED with an employee
-            already attached (e.g. from the CTC Workbench) — they're bound, so the
-            dropdown would be redundant. */}
-        {isAdmin && roster.length > 0 && !initialEmployeeId && (
-          <label className="alw-pick">
-            <UserPlus2 size={15} strokeWidth={2.2} aria-hidden />
-            <span className="alw-pick-label">Attach Employee</span>
+            <span className="alw-pick-label">Employee</span>
             <select
               value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value)}
-              aria-label="Attach to employee (optional)"
+              onChange={(e) => {
+                const id = e.target.value;
+                if (id) onSeedEmployee(id);
+                else {
+                  setEmployeeId("");
+                  setIssued(false);
+                }
+              }}
+              aria-label="Pick the employee this letter is for"
             >
-              <option value="">— none (candidate letter) —</option>
+              <option value="">— pick an employee —</option>
               {roster.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
@@ -598,7 +625,7 @@ export function LetterEditor({
         )}
 
         <div className="alw-actions">
-          {!richMode && (
+          {!usingRich && (
             <button
               type="button"
               className={`alw-btn alw-btn-ghost${clean ? " alw-btn-on" : ""}`}
@@ -611,15 +638,33 @@ export function LetterEditor({
             </button>
           )}
           {richMode ? (
-            <button type="button" className="alw-btn alw-btn-ghost" onClick={backToFields}>
-              <ArrowLeft size={15} strokeWidth={2.2} /> Back to fields
-            </button>
+            <>
+              <button
+                type="button"
+                className="alw-btn alw-btn-edit"
+                onClick={saveRichEdits}
+                disabled={!richDirty}
+                title={richDirty ? "Save your free-edit changes to this letter" : "No unsaved changes"}
+              >
+                <Save size={15} strokeWidth={2.2} /> {richDirty ? "Save" : "Saved"}
+              </button>
+              <button type="button" className="alw-btn alw-btn-ghost" onClick={backToFields}>
+                <ArrowLeft size={15} strokeWidth={2.2} /> Back to fields
+              </button>
+            </>
           ) : (
-            <button type="button" className="alw-btn alw-btn-edit" onClick={enterRichMode}>
-              <SquarePen size={15} strokeWidth={2.2} /> Edit freely
-            </button>
+            <>
+              <button type="button" className="alw-btn alw-btn-edit" onClick={enterRichMode}>
+                <SquarePen size={15} strokeWidth={2.2} /> {savedRichHtml ? "Resume free edit" : "Edit freely"}
+              </button>
+              {savedRichHtml && (
+                <button type="button" className="alw-btn alw-btn-ghost" onClick={discardFreeEdit} title="Revert to the field version of this letter">
+                  <Undo2 size={15} strokeWidth={2.2} /> Discard free edit
+                </button>
+              )}
+            </>
           )}
-          {!richMode && isAdmin && (
+          {!usingRich && isAdmin && (
             <button
               type="button"
               className={`alw-btn alw-btn-ghost${sigImage ? " alw-btn-on" : ""}`}
@@ -695,7 +740,7 @@ export function LetterEditor({
       />
 
       {/* ── CTC percentage calculator (CTC letter, structured mode) ── */}
-      {isCtc && !richMode && (
+      {isCtc && !usingRich && (
         <CtcCalculator values={values} setManyValues={setManyValues} />
       )}
 
@@ -711,6 +756,33 @@ export function LetterEditor({
           onChange={onRichChange}
           onReady={onRichReady}
         />
+      ) : savedRichHtml ? (
+        // A saved free-edit override exists — show it (read-only) so the changes
+        // are visible in the field view. The MAIN field-driven content is kept
+        // intact underneath; "Discard free edit" reverts to it.
+        <div className="alw-stage">
+          <div
+            className="no-print"
+            style={{
+              margin: "0 auto 12px",
+              maxWidth: 794,
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: "var(--color-altus-red-deep)",
+              background: "color-mix(in srgb, var(--color-altus-red) 6%, white)",
+              border: "1px solid color-mix(in srgb, var(--color-altus-red) 25%, transparent)",
+              borderRadius: 10,
+              padding: "8px 12px",
+            }}
+          >
+            ✎ Showing your saved free-edit for this letter. The field version (main content) is untouched — use
+            &ldquo;Resume free edit&rdquo; to keep editing, or &ldquo;Discard free edit&rdquo; to revert.
+          </div>
+          <Letterhead entity={entity}>
+            <div className="alw-date">{today}</div>
+            <div className="alw-rich-preview" dangerouslySetInnerHTML={{ __html: savedRichHtml }} />
+          </Letterhead>
+        </div>
       ) : (
         <div className="alw-stage">
           <Letterhead entity={entity}>
@@ -732,7 +804,7 @@ export function LetterEditor({
         >
           <Letterhead entity={entity}>
             <div className="alw-date">{today}</div>
-            {richMode ? (
+            {usingRich ? (
               <div
                 className="alw-rich-preview"
                 // The current "Edit freely" HTML, rendered read-only as it will print.
@@ -1269,6 +1341,24 @@ function Spans({ spans, ctx }: { spans: Span[]; ctx: RenderCtx }) {
  *
  *  In "Hide boxes" (clean) mode it renders as plain document text: the value with
  *  no input chrome, and an empty field simply disappears — the finished letter. */
+/** ISO "2026-08-15" → "15 August 2026" (what the letter body shows). */
+function isoToDisplayDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+}
+
+/** "15 August 2026" (or any parseable date) → ISO "2026-08-15" for <input type=date>. */
+function displayDateToIso(display: string): string {
+  if (!display.trim()) return "";
+  const d = new Date(display);
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function Field({
   spec,
   ctx,
@@ -1301,6 +1391,22 @@ function Field({
   // line fields size to their content with a small floor. A `bold` field (e.g.
   // the Subject line) renders its input in bold via the .alw-bold modifier.
   const boldCls = spec.bold ? " alw-bold" : "";
+  // Date field → native calendar. Stored value is the human date ("15 August
+  // 2026"); the picker shows/edits it via an ISO shadow.
+  if (spec.date) {
+    return (
+      <input
+        type="date"
+        autoFocus={autoFocus}
+        aria-label={spec.label}
+        data-filled={filled || undefined}
+        value={displayDateToIso(value)}
+        onChange={(e) => ctx.setValue(spec.id, e.target.value ? isoToDisplayDate(e.target.value) : "")}
+        className={`alw-input alw-input-date${boldCls}`}
+        style={{ maxWidth: "100%" }}
+      />
+    );
+  }
   return spec.multiline ? (
     <textarea rows={1} {...common} className={`alw-input alw-input-multi${boldCls}`} />
   ) : (

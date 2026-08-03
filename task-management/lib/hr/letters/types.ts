@@ -144,6 +144,12 @@ export interface FieldSpan {
    * the PDF). Used for emphasis fields like the letter Subject line.
    */
   bold?: boolean;
+  /**
+   * Render a native date picker (calendar) in the editor. The stored value is the
+   * human-formatted date (e.g. "15 August 2026") — so the preview/PDF read it
+   * verbatim like any other field. Used for the Joining Date.
+   */
+  date?: boolean;
 }
 
 /** A paragraph / value is an ordered list of fixed + editable spans. */
@@ -308,7 +314,7 @@ export const t = (text: string): TextSpan => ({ t: "text", text });
 export const f = (
   id: string,
   label: string,
-  opts?: { placeholder?: string; defaultValue?: string; multiline?: boolean; bold?: boolean },
+  opts?: { placeholder?: string; defaultValue?: string; multiline?: boolean; bold?: boolean; date?: boolean },
 ): FieldSpan => ({ t: "field", id, label, ...opts });
 
 /** A paragraph from a list of spans. */

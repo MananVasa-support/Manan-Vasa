@@ -47,6 +47,7 @@ const template: LetterTemplate = {
 
     para(t("Please find below the key terms of your employment:")),
 
+    term("Joining Date", f("joiningDate", "Joining Date", { placeholder: "Select a date", date: true })),
     term("Department", f("department", "Department", { placeholder: "e.g. Solutions Architecture" })),
     term("Reporting Manager", f("reportingManager", "Reporting Manager", { placeholder: "e.g. Mr. Rohan Choudhary" })),
     term("Designation", f("designation", "Designation", { placeholder: "e.g. Business Development Manager" })),
