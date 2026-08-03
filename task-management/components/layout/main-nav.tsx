@@ -187,10 +187,11 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
         href: "/tasks" as Route,
         label: "Tasks",
         Icon: ListTodo,
-        not: ["/tasks/agenda", "/tasks/kanban"],
+        not: ["/tasks/agenda", "/tasks/kanban", "/tasks/time"],
         countKey: "activeTasks",
       },
       { href: "/tasks/kanban" as Route, label: "Kanban", Icon: SquareKanban, adminOnly: true },
+      { href: "/tasks/time" as Route, label: "Time Intelligence", Icon: Timer },
       { href: "/projects" as Route, label: "Projects", Icon: FolderKanban },
       // Important Links — the curated directory (was the Marketing room's only
       // surface; Marketing retired as a workspace 2026-07).

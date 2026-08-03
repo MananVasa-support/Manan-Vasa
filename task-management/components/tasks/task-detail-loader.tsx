@@ -15,6 +15,12 @@ import {
   canReassign,
   canComment,
 } from "@/lib/auth/task-permissions";
+import { db } from "@/lib/db";
+import { eq } from "drizzle-orm";
+import { taskTimeConsent } from "@/db/schema";
+import { getTaskTimeState } from "@/lib/queries/task-time";
+import { getTaskSnapshots } from "@/lib/queries/work-snapshots";
+import { timeIntelEnabled, workCameraEnabled, snapshotIntervalMinutes } from "@/lib/tasks/time/flags";
 
 interface Props {
   taskId: string;
@@ -24,6 +30,7 @@ interface Props {
     avatarUrl: string | null;
     department: string | null;
     isAdmin: boolean;
+    isSuperAdmin: boolean;
   };
 }
 
@@ -41,14 +48,21 @@ export async function TaskDetailLoader({ taskId, me }: Props) {
   const task = await getTaskById(taskId);
   if (!task) notFound();
 
-  const [events, all, statusDisplay, clients, subjects, projectNodes] = await Promise.all([
-    listTaskEvents(taskId),
-    listEmployees(),
-    getStatusDisplayMap(),
-    listActiveClientNames(),
-    listActiveSubjectNames(),
-    listProjectNodeOptions(),
-  ]);
+  const timeOn = timeIntelEnabled();
+  const [events, all, statusDisplay, clients, subjects, projectNodes, timeState, myConsent, snapshots] =
+    await Promise.all([
+      listTaskEvents(taskId),
+      listEmployees(),
+      getStatusDisplayMap(),
+      listActiveClientNames(),
+      listActiveSubjectNames(),
+      listProjectNodeOptions(),
+      timeOn ? getTaskTimeState(taskId) : Promise.resolve(null),
+      timeOn
+        ? db.select({ id: taskTimeConsent.employeeId }).from(taskTimeConsent).where(eq(taskTimeConsent.employeeId, me.id)).limit(1)
+        : Promise.resolve([] as { id: string }[]),
+      timeOn && me.isSuperAdmin ? getTaskSnapshots(taskId) : Promise.resolve([]),
+    ]);
   const employeeOptions = all.map((e) => ({ id: e.id, name: e.name }));
   const statusLabels = Object.fromEntries(
     Object.entries(statusDisplay).map(([k, v]) => [k, v.label]),
@@ -76,6 +90,28 @@ export async function TaskDetailLoader({ taskId, me }: Props) {
   const showApproveCard =
     canApprove({ ...permInput, isDoersManager }) && task.status === "done";
 
+  // Task Time Intelligence gating: the doer + their manager (+ admins) operate the
+  // timer; managers + admins issue verdicts; super-admins see the camera gallery.
+  const isDoer = me.id === task.doerId;
+  const timePanel =
+    timeOn && timeState
+      ? {
+          state: timeState,
+          isDoer,
+          canOperate: me.isAdmin || isDoer || isDoersManager,
+          canApprove: me.isAdmin || isDoersManager,
+          approvalStatus: task.approvalStatus,
+          taskStatus: task.status,
+          isSuperAdmin: me.isSuperAdmin,
+          snapshots,
+          camera: {
+            enabled: workCameraEnabled(),
+            hasConsent: myConsent.length > 0,
+            intervalMin: snapshotIntervalMinutes(),
+          },
+        }
+      : null;
+
   return (
     <TaskDetailView
       task={task}
@@ -91,6 +127,7 @@ export async function TaskDetailLoader({ taskId, me }: Props) {
       me={me}
       statusLabels={statusLabels}
       statusTones={statusTones}
+      timePanel={timePanel}
     />
   );
 }

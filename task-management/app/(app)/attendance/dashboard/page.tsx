@@ -108,11 +108,6 @@ export default async function AttendanceDashboardPage({ searchParams }: PageProp
                 >
                   {monthTitle}
                 </h1>
-                <p className="mt-2 text-[15px] font-medium text-ink-muted">
-                  Monthly per-person attendance &amp; payable days, imported live from the HR
-                  &ldquo;Attendance log&rdquo; sheet. Click any row for the day-by-day log
-                  (standard timing 10:35&nbsp;AM&nbsp;&ndash;&nbsp;7:30&nbsp;PM).
-                </p>
               </div>
             </div>
 
@@ -120,7 +115,7 @@ export default async function AttendanceDashboardPage({ searchParams }: PageProp
               <AttendanceMonthSelector year={year} month={month} />
               {/* Task A7 — month-scoped report exports. Plain links: the routes
                   respond with an attachment Content-Disposition. */}
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-nowrap [&>*]:shrink-0 [&>*]:whitespace-nowrap">
                 <a href={`/attendance/export.xlsx?y=${year}&m=${month}`} className={exportBtnCls}>
                   <FileSpreadsheet size={15} strokeWidth={2.2} />
                   Export Excel

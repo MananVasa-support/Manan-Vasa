@@ -45,6 +45,7 @@ import { fireToast } from "@/lib/toast";
 import { STATUS_TONES_FALLBACK } from "@/lib/format";
 import { LateBadge } from "@/components/ui/late-badge";
 import { isDoneLate } from "@/lib/task-late";
+import { TaskTimePanel, type TaskTimePanelData } from "@/components/tasks/time/task-time-panel";
 
 interface Props {
   task: TaskDetailModel;
@@ -69,6 +70,8 @@ interface Props {
     department: string | null;
     isAdmin: boolean;
   };
+  /** Task Time Intelligence panel payload (null when the feature is off). */
+  timePanel?: TaskTimePanelData | null;
   /** Admin-overridable status labels (forwarded to AuditFeed). The hero
    *  status pill keeps its internal STATUS_TONE map for now; full rewiring
    *  is M5.2 follow-up work. */
@@ -223,6 +226,7 @@ export function TaskDetailView({
   me,
   statusLabels,
   statusTones,
+  timePanel,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [approveOpen, setApproveOpen] = useState(false);
@@ -338,6 +342,13 @@ export function TaskDetailView({
       <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-10 max-lg:grid-cols-1 max-lg:gap-6 max-md:grid-cols-1 max-md:gap-5">
         {/* LEFT COLUMN — discussion & history (read) / edit form (edit) */}
         <div className="min-w-0">
+          {/* Task Time Intelligence — active-effort engine (timer, sessions,
+              timeline, revisions, camera). Leads the column when enabled. */}
+          {timePanel && !editing && (
+            <div className="mb-6">
+              <TaskTimePanel taskId={task.id} {...timePanel} />
+            </div>
+          )}
           <AnimatePresence mode="wait" initial={false}>
             {editing ? (
               <motion.div
@@ -565,7 +576,7 @@ export function TaskDetailView({
                   currentDoerId={task.doerId}
                   employees={employees}
                   canEdit={canEdit && !editing}
-                  canApproveTask={canApproveTask}
+                  canApproveTask={canApproveTask && !timePanel}
                   canReassignTask={canReassignTask}
                   onStartEdit={() => setEditing(true)}
                   approveOpen={approveOpen}

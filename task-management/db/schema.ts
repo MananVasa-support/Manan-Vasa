@@ -1025,6 +1025,141 @@ export const taskEvents = pgTable(
   ],
 );
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Task Time Intelligence (migration 0175) — measure ACTUAL active working time
+// on a task across its full lifecycle (start→pause→resume→done→approve), incl.
+// every rejection→revision cycle. Event-sourced: `task_time_events` is the
+// append-only source of truth; `task_work_sessions` + `task_time_rollup` are
+// projections rebuilt from it for fast reads. Nothing is ever overwritten.
+// See docs/superpowers/specs/2026-08-03-task-time-intelligence-design.md
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The immutable event log — the single source of truth for all time actions. */
+export const taskTimeEvents = pgTable(
+  "task_time_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    // Who performed the action (doer or their manager acting on their behalf).
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "restrict" }),
+    // Whose working time this session belongs to (always the task's doer).
+    doerId: uuid("doer_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "restrict" }),
+    // work_started | work_paused | work_resumed | work_done | sent_back |
+    // approved | revision_started | auto_closed
+    kind: text("kind").notNull(),
+    revision: integer("revision").notNull().default(1),
+    // Server-authoritative moment the action happened.
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+    // Links the work_started/work_resumed → work_paused/work_done/auto_closed of
+    // the same continuous session.
+    sessionId: uuid("session_id"),
+    // { endReason, comment, autoReason, ... }
+    meta: jsonb("meta"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("task_time_events_task_at_idx").on(t.taskId, t.at),
+    index("task_time_events_doer_at_idx").on(t.doerId, t.at),
+    index("task_time_events_kind_idx").on(t.kind),
+    index("task_time_events_session_idx").on(t.sessionId),
+  ],
+);
+export type TaskTimeEvent = typeof taskTimeEvents.$inferSelect;
+
+/** Session ledger (projection) — one row per continuous work session. Frozen
+ *  once ended: duration_seconds is written exactly once and never changes. */
+export const taskWorkSessions = pgTable(
+  "task_work_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    doerId: uuid("doer_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "restrict" }),
+    revision: integer("revision").notNull().default(1),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    // null = live (still running).
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    durationSeconds: integer("duration_seconds"),
+    // paused | done | auto_idle | auto_daily
+    endReason: text("end_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("task_work_sessions_task_started_idx").on(t.taskId, t.startedAt),
+    index("task_work_sessions_doer_started_idx").on(t.doerId, t.startedAt),
+    // Fast lookup of live sessions (for the auto-close cron + timer restore).
+    index("task_work_sessions_live_idx").on(t.doerId).where(sql`${t.endedAt} is null`),
+  ],
+);
+export type TaskWorkSession = typeof taskWorkSessions.$inferSelect;
+
+/** Per-task rollup (projection) — recomputed inside the same transaction as each
+ *  time event so task lists + reports stay fast without folding the event log. */
+export const taskTimeRollup = pgTable("task_time_rollup", {
+  taskId: uuid("task_id")
+    .primaryKey()
+    .references(() => tasks.id, { onDelete: "cascade" }),
+  totalActiveSeconds: integer("total_active_seconds").notNull().default(0),
+  originalSeconds: integer("original_seconds").notNull().default(0),
+  revisionSeconds: integer("revision_seconds").notNull().default(0),
+  sessionCount: integer("session_count").notNull().default(0),
+  pauseCount: integer("pause_count").notNull().default(0),
+  rejectionCount: integer("rejection_count").notNull().default(0),
+  currentRevision: integer("current_revision").notNull().default(1),
+  longestSessionSec: integer("longest_session_sec").notNull().default(0),
+  shortestSessionSec: integer("shortest_session_sec"),
+  firstStartedAt: timestamp("first_started_at", { withTimezone: true }),
+  lastDoneAt: timestamp("last_done_at", { withTimezone: true }),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  openSessionCount: integer("open_session_count").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type TaskTimeRollup = typeof taskTimeRollup.$inferSelect;
+
+/** Camera captures taken during a live session (private, super-admin-only). */
+export const taskWorkSnapshots = pgTable(
+  "task_work_snapshots",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => taskWorkSessions.id, { onDelete: "cascade" }),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    doerId: uuid("doer_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "restrict" }),
+    storagePath: text("storage_path").notNull(),
+    capturedAt: timestamp("captured_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("task_work_snapshots_session_idx").on(t.sessionId, t.capturedAt),
+    index("task_work_snapshots_doer_idx").on(t.doerId, t.capturedAt),
+  ],
+);
+export type TaskWorkSnapshot = typeof taskWorkSnapshots.$inferSelect;
+
+/** Per-employee consent to camera monitoring during work sessions. */
+export const taskTimeConsent = pgTable("task_time_consent", {
+  employeeId: uuid("employee_id")
+    .primaryKey()
+    .references(() => employees.id, { onDelete: "cascade" }),
+  consentedAt: timestamp("consented_at", { withTimezone: true }).notNull().defaultNow(),
+  policyVersion: text("policy_version").notNull(),
+});
+export type TaskTimeConsent = typeof taskTimeConsent.$inferSelect;
+
 /**
  * M2.3 — frozen contract for the `kind` column on notifications.
  *

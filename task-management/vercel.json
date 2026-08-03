@@ -26,6 +26,7 @@
     { "path": "/api/cron/monthly-slips",                 "schedule": "0 5 12 * *" },
     { "path": "/api/cron/goals-spillover",               "schedule": "0 3 1 * *" },
     { "path": "/api/cron/goals-sunday-report",           "schedule": "30 3 * * 0" },
-    { "path": "/api/cron/hr-confirmations",              "schedule": "0 4 * * *" }
+    { "path": "/api/cron/hr-confirmations",              "schedule": "0 4 * * *" },
+    { "path": "/api/cron/time-autoclose",                "schedule": "0 * * * *" }
   ]
 }

@@ -4,6 +4,7 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { TaskDetailLoader } from "@/components/tasks/task-detail-loader";
 import { BufferingState } from "@/components/ui/spinner";
 import { requireUser } from "@/lib/auth/current";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { markTaskRead } from "@/app/(app)/tasks/read-actions";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +56,7 @@ export default async function TaskDetailPage({ params }: PageProps) {
               avatarUrl: me.avatarUrl,
               department: me.department,
               isAdmin: me.isAdmin,
+              isSuperAdmin: isSuperAdmin(me.email),
             }}
           />
         </Suspense>
