@@ -66,7 +66,7 @@ export function PromotionActions({ id, employeeName }: { id: string; employeeNam
         }}
       >
         {busy === "action" ? <Loader2 size={15} className="animate-spin" /> : <TrendingUp size={15} strokeWidth={2.8} />}
-        Action promotion
+        Action Promotion
       </button>
       <button
         type="button"

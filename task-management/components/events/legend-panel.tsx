@@ -93,7 +93,7 @@ export function LegendPanel({
               className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-altus-red"
               style={{ color: "var(--color-altus-red, #c8102e)" }}
             >
-              <X size={11} /> Clear filter ({active.size})
+              <X size={11} /> Clear Filter ({active.size})
             </button>
           )}
 
@@ -223,7 +223,7 @@ export function LegendDrawer({ categories, events, active, onToggle, onClear }: 
                 </div>
                 {active.size > 0 && (
                   <button type="button" onClick={onClear} className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold" style={{ color: "var(--color-altus-red)" }}>
-                    <X size={11} /> Clear filter ({active.size})
+                    <X size={11} /> Clear Filter ({active.size})
                   </button>
                 )}
                 <ul className="max-h-[56vh] space-y-0.5 overflow-y-auto">

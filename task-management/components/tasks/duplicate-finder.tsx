@@ -96,7 +96,7 @@ export function DuplicateFinder({
           style={{ fontFamily: "var(--font-display)", fontSize: 27, fontWeight: 600 }}
         >
           <CopyMinus size={24} strokeWidth={2} style={{ color: "var(--color-altus-red)" }} />
-          Duplicate tasks
+          Duplicate Tasks
         </h1>
       </div>
       <p className="text-ink-soft mb-7" style={{ fontSize: 15, maxWidth: "70ch" }}>
@@ -137,14 +137,14 @@ export function DuplicateFinder({
               onClick={() => setSelected(new Set(extras))}
               className="text-[13.5px] font-bold text-altus-red hover:underline"
             >
-              Select all extras
+              Select All Extras
             </button>
             <button
               type="button"
               onClick={() => setSelected(new Set())}
               className="text-[13.5px] font-bold text-ink-subtle hover:text-ink-strong hover:underline"
             >
-              Clear selection
+              Clear Selection
             </button>
           </div>
 
@@ -181,7 +181,7 @@ export function DuplicateFinder({
                 ) : (
                   <Trash2 size={16} strokeWidth={2.4} />
                 )}
-                Delete selected
+                Delete Selected
               </button>
             </div>
           </div>

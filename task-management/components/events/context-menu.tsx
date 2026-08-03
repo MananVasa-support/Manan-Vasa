@@ -117,14 +117,14 @@ export function ContextMenu(props: ContextMenuProps) {
       <div className="my-1 h-px bg-hairline" />
       <Item icon={Copy} label="Copy" kbd="⌘C" onClick={props.onCopy} />
       <Item icon={Scissors} label="Cut" kbd="⌘X" onClick={props.onCut} />
-      <Item icon={ClipboardPaste} label="Paste here" kbd="⌘V" disabled={!canPaste} onClick={props.onPaste} />
+      <Item icon={ClipboardPaste} label="Paste Here" kbd="⌘V" disabled={!canPaste} onClick={props.onPaste} />
       <Item icon={CopyPlus} label="Duplicate" onClick={props.onDuplicate} />
 
       <div className="my-1 h-px bg-hairline" />
 
       <Item
         icon={Palette}
-        label="Change colour"
+        label="Change Colour"
         hasSub
         onClick={() => setSub((s) => (s === "colour" ? null : "colour"))}
       />
@@ -145,14 +145,14 @@ export function ContextMenu(props: ContextMenuProps) {
             onClick={() => props.onSetColour(null)}
             className="col-span-8 mt-1 rounded-md px-2 py-1 text-left text-[11.5px] font-medium text-ink-muted hover:bg-surface-soft"
           >
-            Reset to category colour
+            Reset to Category Colour
           </button>
         </div>
       )}
 
       <Item
         icon={Tag}
-        label="Change category"
+        label="Change Category"
         hasSub
         onClick={() => setSub((s) => (s === "category" ? null : "category"))}
       />
@@ -177,19 +177,19 @@ export function ContextMenu(props: ContextMenuProps) {
             onClick={() => props.onSetCategory(null)}
             className="w-full rounded-md px-2 py-1 text-left text-[11.5px] font-medium text-ink-muted hover:bg-surface-soft"
           >
-            Clear category
+            Clear Category
           </button>
         </div>
       )}
 
       <Item
         icon={CircleDot}
-        label={event.status === "confirmed" ? "Mark tentative" : "Mark confirmed"}
+        label={event.status === "confirmed" ? "Mark Tentative" : "Mark Confirmed"}
         onClick={props.onToggleStatus}
       />
       <Item
         icon={event.isLocked ? LockOpen : Lock}
-        label={event.isLocked ? "Unlock (override)" : "Lock"}
+        label={event.isLocked ? "Unlock (Override)" : "Lock"}
         onClick={props.onToggleLock}
       />
 

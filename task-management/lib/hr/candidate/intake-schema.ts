@@ -78,6 +78,9 @@ const EDU_FIELDS: FormFieldDef[] = [
   { key: "passingYear", label: "Year of Passing", type: "text", placeholder: "e.g. 2019" },
   { key: "attempts", label: "Number of Attempts", type: "number" },
   { key: "percentage", label: "Percentage / CGPA", type: "text", placeholder: "e.g. 78% / 8.2" },
+  // Backlogs / ATKTs now sit UNDER each qualification (was the "Academic Summary"
+  // section). Optional — many qualifications have none.
+  { key: "backlogs", label: "Backlogs / ATKTs (if any)", type: "text", optional: true, placeholder: "e.g. 0 / None / 2" },
   // Academic gap now sits UNDER each qualification (was a separate section).
   { key: "gap", label: "Academic Gap after this?", type: "buttons", options: YN },
 ];
@@ -105,14 +108,18 @@ export const INTAKE_SECTIONS: IntakeSection[] = [
     title: "Personal Details",
     subtitle: "The candidate's core information.",
     fields: [
-      { key: "position", label: "Position Applied For", type: "select", optionsFrom: "positions", required: true },
-      { key: "department", label: "Department", type: "select", optionsFrom: "departments", required: true },
-      { key: "aadhaar", label: "Aadhaar Card Number", type: "text", placeholder: "12-digit Aadhaar number", aadhaarLookup: true, required: true },
-      { key: "fullName", label: "Full Name", type: "text", required: true },
-      { key: "dob", label: "Date of Birth", type: "date", required: true },
-      { key: "age", label: "Age", type: "number", readOnly: true, compute: "ageFromDob" },
-      { key: "gender", label: "Gender", type: "buttons", options: ["Male", "Female", "Prefer not to say"], required: true },
-      { key: "marital", label: "Marital Status", type: "buttons", options: ["Single", "Married", "Divorced", "Separated", "Widowed"], required: true },
+      // Row 1 — Position · Department · Aadhaar (three across).
+      { key: "position", label: "Position Applied For", type: "select", optionsFrom: "positions", required: true, span: 4 },
+      { key: "department", label: "Department", type: "select", optionsFrom: "departments", required: true, span: 4 },
+      { key: "aadhaar", label: "Aadhaar Card Number", type: "text", placeholder: "12-digit Aadhaar number", aadhaarLookup: true, required: true, span: 4 },
+      // Row 2 — Full Name (wide) · Date of Birth · Age.
+      { key: "fullName", label: "Full Name", type: "text", required: true, span: 6 },
+      { key: "dob", label: "Date of Birth", type: "date", required: true, span: 3 },
+      { key: "age", label: "Age", type: "number", readOnly: true, compute: "ageFromDob", span: 3 },
+      // Row 3 — Gender (span 5) · Marital Status (span 7) side by side; both force
+      // their chips onto ONE line (nowrap).
+      { key: "gender", label: "Gender", type: "buttons", options: ["Male", "Female", "Prefer not to say"], required: true, span: 5, nowrap: true },
+      { key: "marital", label: "Marital Status", type: "buttons", options: ["Single", "Married", "Divorced", "Separated", "Widowed"], required: true, span: 7, nowrap: true },
       // Hidden for "Single"; shown for every other marital status.
       { key: "children", label: "Number of Children", type: "text", placeholder: "e.g. 0 / 2", showIf: { key: "marital", value: ["Married", "Divorced", "Separated", "Widowed"] } },
       { key: "ownHouse", label: "Do you own a house?", type: "buttons", options: YN, required: true },
@@ -152,13 +159,6 @@ export const INTAKE_SECTIONS: IntakeSection[] = [
     subtitle: "Add each qualification — 10th, 12th and beyond.",
     repeat: { min: 1, max: 5, seed: 2, itemLabel: "Qualification" },
     fields: EDU_FIELDS,
-  },
-  {
-    id: "academic",
-    title: "Academic Summary",
-    fields: [
-      { key: "backlogs", label: "Number of Backlogs / ATKTs, if any", type: "text" },
-    ],
   },
   {
     id: "currentWork",

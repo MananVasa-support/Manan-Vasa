@@ -139,7 +139,7 @@ export function IntroductionForm({
     <form onSubmit={onSubmit} className="flex flex-col gap-5">
       <Section title="Introduction" hint="When and where this introduction came from.">
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-          <Field label="Received on">
+          <Field label="Received On">
             <div
               className={FIELD + " flex items-center"}
               style={{ background: "var(--color-surface-soft)", color: "var(--color-ink-muted)", cursor: "not-allowed" }}
@@ -148,7 +148,7 @@ export function IntroductionForm({
               {todayLabel}
             </div>
           </Field>
-          <Field label="Reference source">
+          <Field label="Reference Source">
             <ManagedSelect
               kind="reference_source"
               label="reference source"
@@ -163,13 +163,13 @@ export function IntroductionForm({
 
       <Section title="Introducer" hint="The person who can make the introduction.">
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-          <Field label="First name" required htmlFor="introFirst">
+          <Field label="First Name" required htmlFor="introFirst">
             <input id="introFirst" autoFocus className={FIELD} value={introFirst} maxLength={120} onChange={(e) => setIntroFirst(e.target.value)} placeholder="First name" />
           </Field>
-          <Field label="Last name" required htmlFor="introLast">
+          <Field label="Last Name" required htmlFor="introLast">
             <input id="introLast" className={FIELD} value={introLast} maxLength={120} onChange={(e) => setIntroLast(e.target.value)} placeholder="Last name" />
           </Field>
-          <Field label="Cell number" htmlFor="introCell" className="col-span-2 max-md:col-span-1">
+          <Field label="Cell Number" htmlFor="introCell" className="col-span-2 max-md:col-span-1">
             <input id="introCell" className={FIELD} value={introCell} maxLength={40} onChange={(e) => setIntroCell(e.target.value)} placeholder="Optional" inputMode="tel" />
           </Field>
         </div>
@@ -180,19 +180,19 @@ export function IntroductionForm({
           <Field label="Company" required htmlFor="company" className="col-span-2 max-md:col-span-1">
             <input id="company" className={FIELD} value={company} maxLength={200} onChange={(e) => setCompany(e.target.value)} placeholder="Prospect company" />
           </Field>
-          <Field label="First name" required htmlFor="pFirst">
+          <Field label="First Name" required htmlFor="pFirst">
             <input id="pFirst" className={FIELD} value={prospectFirst} maxLength={120} onChange={(e) => setProspectFirst(e.target.value)} placeholder="First name" />
           </Field>
-          <Field label="Last name" required htmlFor="pLast">
+          <Field label="Last Name" required htmlFor="pLast">
             <input id="pLast" className={FIELD} value={prospectLast} maxLength={120} onChange={(e) => setProspectLast(e.target.value)} placeholder="Last name" />
           </Field>
           <Field label="Designation">
             <ManagedSelect kind="designation" label="designation" value={designationId} onChange={setDesignationId} options={lookups.designations} className={FIELD} />
           </Field>
-          <Field label="Business category">
+          <Field label="Business Category">
             <ManagedSelect kind="business_category" label="business category" value={businessCategoryId} onChange={setBusinessCategoryId} options={lookups.businessCategories} className={FIELD} />
           </Field>
-          <Field label="Nature of business" required htmlFor="nature" className="col-span-2 max-md:col-span-1">
+          <Field label="Nature of Business" required htmlFor="nature" className="col-span-2 max-md:col-span-1">
             <textarea id="nature" className={FIELD + " min-h-[88px] resize-y"} value={nature} maxLength={2000} onChange={(e) => setNature(e.target.value)} placeholder="What the prospect's business is" />
           </Field>
         </div>
@@ -200,10 +200,10 @@ export function IntroductionForm({
 
       <Section title="Follow-up" hint="Routing and reminders.">
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-          <Field label="Next reminder date" htmlFor="reminder">
+          <Field label="Next Reminder Date" htmlFor="reminder">
             <input id="reminder" type="date" className={FIELD} value={reminder} onChange={(e) => setReminder(e.target.value)} />
           </Field>
-          <Field label="Assign salesperson">
+          <Field label="Assign Salesperson">
             <ManagedSelect kind="sales_person" label="salesperson" value={salesPersonId} onChange={setSalesPersonId} options={lookups.salesPeople} className={FIELD} />
           </Field>
           <Field label="Notes" htmlFor="notes" className="col-span-2 max-md:col-span-1">
@@ -238,7 +238,7 @@ export function IntroductionForm({
           style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}
         >
           {submitting ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} strokeWidth={2.4} />}
-          Save introduction
+          Save Introduction
         </button>
       </div>
     </form>

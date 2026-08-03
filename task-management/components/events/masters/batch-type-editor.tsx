@@ -59,7 +59,7 @@ export function BatchTypeEditor({
 
   return (
     <ModalShell
-      title={editing ? "Edit batch type" : "New batch type"}
+      title={editing ? "Edit Batch Type" : "New Batch Type"}
       subtitle="Batch types (PS / BSS / Conclave …) drive the auto-blocking schedules."
       onClose={onClose}
       accent={ACCENT}
@@ -70,7 +70,7 @@ export function BatchTypeEditor({
           </Button>
           <Button variant="primary" onClick={save} disabled={saving} style={{ background: ACCENT }}>
             {saving ? <Spinner size={16} className="text-white" /> : null}
-            {editing ? "Save changes" : "Add batch type"}
+            {editing ? "Save Changes" : "Add Batch Type"}
           </Button>
         </>
       }

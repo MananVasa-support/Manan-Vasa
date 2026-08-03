@@ -92,8 +92,8 @@ export function TodayPanel({
         </div>
 
         <div className="min-w-0 flex-1">
-          <Row icon={<LogIn size={14} strokeWidth={2.4} />} label="Checked in" value={inLabel ?? "—"} on={!!inLabel} />
-          <Row icon={<LogOut size={14} strokeWidth={2.4} />} label="Checked out" value={outLabel ?? "—"} on={!!outLabel} />
+          <Row icon={<LogIn size={14} strokeWidth={2.4} />} label="Checked In" value={inLabel ?? "—"} on={!!inLabel} />
+          <Row icon={<LogOut size={14} strokeWidth={2.4} />} label="Checked Out" value={outLabel ?? "—"} on={!!outLabel} />
         </div>
       </div>
 

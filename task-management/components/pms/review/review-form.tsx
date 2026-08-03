@@ -327,7 +327,7 @@ export function ReviewForm({
               }}
             >
               {pending ? <Loader2 size={17} className="animate-spin" /> : <Check size={17} strokeWidth={2.6} />}
-              {selected.done ? "Update review" : "Save review"}
+              {selected.done ? "Update Review" : "Save Review"}
             </button>
           </div>
         </>

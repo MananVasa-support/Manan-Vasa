@@ -1,16 +1,12 @@
 /**
- * KPI Management notification kill-switch — INVERTED from the usual `*_OFF`
- * convention: notifications are OPT-IN and default OFF. The KPI Management
- * module itself is always available to HR staff; only the *live email send* is
- * gated. Mirrors the opt-in flags already in the house (INCENTIVE_PAYOUT,
- * COMMANDS_VIA_LEDGER): read straight off process.env, default off.
- *
- * When OFF (the default), the notify engine still COMPOSES every message and
- * records the history row — it just logs a "would notify" line instead of
- * dispatching. Set `KPI_NOTIFICATIONS_ON=true` in the env to actually send.
+ * KPI Management notifications — ON by default. Whenever anyone creates or
+ * changes an employee's KPI, that employee is emailed (subject to Resend being
+ * configured). A single explicit off-switch remains for emergencies: set
+ * `KPI_NOTIFICATIONS_ON=false` to silence the live email send (history rows +
+ * in-app notifications still record).
  */
 export function kpiNotificationsOn(): boolean {
-  return process.env.KPI_NOTIFICATIONS_ON === "true";
+  return process.env.KPI_NOTIFICATIONS_ON !== "false";
 }
 
 /** The env var name, surfaced for logs / admin copy. */

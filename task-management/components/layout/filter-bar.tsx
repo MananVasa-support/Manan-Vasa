@@ -183,7 +183,7 @@ export function FilterBar({
     emp.length > 0
       ? summarizeSelection(emp.map(empLabel), "All Employees")
       : showScopeChip && assigneeMode === "default"
-        ? "My tasks"
+        ? "My Tasks"
         : "All Employees";
   const assigneeActive = emp.length > 0 || (showScopeChip && assigneeMode === "all");
 
@@ -197,7 +197,7 @@ export function FilterBar({
   for (const id of emp)
     activePills.push({ key: `e-${id}`, label: empLabel(id), color: TINT.assignee, remove: () => handleEmpChange(emp.filter((x) => x !== id)) });
   if (showScopeChip && assigneeMode === "all" && emp.length === 0)
-    activePills.push({ key: "scope-all", label: "All tasks", color: TINT.assignee, remove: () => setAssigneeMode("default") });
+    activePills.push({ key: "scope-all", label: "All Tasks", color: TINT.assignee, remove: () => setAssigneeMode("default") });
   for (const c of client)
     activePills.push({ key: `c-${c}`, label: c, color: TINT.client, remove: () => setClient(client.filter((x) => x !== c)) });
   for (const d of dept)
@@ -205,7 +205,7 @@ export function FilterBar({
   for (const s of subj)
     activePills.push({ key: `subj-${s}`, label: s, color: TINT.subject, remove: () => setSubj(subj.filter((x) => x !== s)) });
   if (view !== "doer")
-    activePills.push({ key: "view", label: "Initiator view", color: TINT.view, remove: () => setView("doer") });
+    activePills.push({ key: "view", label: "Initiator View", color: TINT.view, remove: () => setView("doer") });
 
   return (
     <div
@@ -230,7 +230,7 @@ export function FilterBar({
             <Popover.Trigger asChild>
               <FilterPill
                 icon={<Calendar size={16} strokeWidth={2} />}
-                name="Date range"
+                name="Date Range"
                 value={formattedRange}
                 tint="var(--color-altus-red)"
                 active
@@ -290,8 +290,8 @@ export function FilterBar({
           {/* Scope (non-admins) + View — always shown */}
           {showScopeChip && (
             <SegGroup label="Scope">
-              <SegButton active={assigneeMode === "default" && emp.length === 0} onClick={() => { setAssigneeMode("default"); setEmp([]); }}>My tasks</SegButton>
-              <SegButton active={assigneeMode === "all" && emp.length === 0} onClick={() => { setAssigneeMode("all"); setEmp([]); }}>All tasks</SegButton>
+              <SegButton active={assigneeMode === "default" && emp.length === 0} onClick={() => { setAssigneeMode("default"); setEmp([]); }}>My Tasks</SegButton>
+              <SegButton active={assigneeMode === "all" && emp.length === 0} onClick={() => { setAssigneeMode("all"); setEmp([]); }}>All Tasks</SegButton>
             </SegGroup>
           )}
           <SegGroup label="View">
@@ -324,13 +324,13 @@ export function FilterBar({
                   <DropdownMenuItem asChild>
                     <Link href={"/tasks/import" as Route}>
                       <Upload size={14} strokeWidth={2} style={{ color: "var(--color-altus-red)" }} />
-                      Import tasks
+                      Import Tasks
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href={"/tasks/duplicates" as Route}>
                       <CopyMinus size={14} strokeWidth={2} style={{ color: "var(--color-amber-deep, #b45309)" }} />
-                      Find duplicates
+                      Find Duplicates
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -401,7 +401,7 @@ export function FilterBar({
               className="text-[13px] font-semibold transition-colors hover:underline shrink-0"
               style={{ color: "var(--color-altus-red)" }}
             >
-              Clear all
+              Clear All
             </button>
           </div>
         )}

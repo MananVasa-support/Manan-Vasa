@@ -158,7 +158,7 @@ export function OutstandingFilterBar({ employees, entities, modes, cycles }: Pro
             className="hidden max-sm:inline-flex items-center gap-1.5 filter-chip ml-auto"
             aria-expanded={sheetOpen}
           >
-            {sheetOpen ? "Hide" : "Show"} filters
+            {sheetOpen ? "Hide" : "Show"} Filters
           </button>
         </div>
 

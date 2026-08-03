@@ -332,7 +332,7 @@ function CreateRosterDialog({
               />
             </RosterField>
             <RosterField
-              label="Sort order"
+              label="Sort Order"
               hint="Lower numbers appear first in the picker when names tie. Default 100."
             >
               <input
@@ -450,7 +450,7 @@ function EditRosterDialog({
                 className="w-full rounded-md border border-[#CBD5E1] px-3.5 py-2.5 text-[15px]"
               />
             </RosterField>
-            <RosterField label="Sort order">
+            <RosterField label="Sort Order">
               <input
                 type="number"
                 min={0}

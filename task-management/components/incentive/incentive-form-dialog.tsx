@@ -74,7 +74,7 @@ export function IncentiveFormDialog() {
           }}
         >
           <Award size={17} strokeWidth={2.4} aria-hidden />
-          New request
+          New Request
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>
@@ -113,7 +113,7 @@ export function IncentiveFormDialog() {
                     className="text-ink-strong"
                     style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 800, lineHeight: 1.15 }}
                   >
-                    New incentive request
+                    New Incentive Request
                   </Dialog.Title>
                   <Dialog.Description className="mt-1 text-[14.5px] text-ink-muted" style={{ lineHeight: 1.5 }}>
                     Pick the incentive type — the form adapts to what it needs. An
@@ -134,7 +134,7 @@ export function IncentiveFormDialog() {
             </div>
 
             <form onSubmit={onSubmit} className="space-y-4">
-              <Field label="Incentive type" required>
+              <Field label="Incentive Type" required>
                 <Select
                   options={INCENTIVE_TYPES.map((t) => ({
                     value: t,
@@ -186,7 +186,7 @@ export function IncentiveFormDialog() {
                   className="rounded-pill py-2.5 px-6 text-[15px] font-bold text-white shadow-sm transition-transform enabled:hover:-translate-y-0.5 disabled:opacity-50"
                   style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
                 >
-                  {pending ? "Submitting…" : "Submit request"}
+                  {pending ? "Submitting…" : "Submit Request"}
                 </button>
               </div>
             </form>

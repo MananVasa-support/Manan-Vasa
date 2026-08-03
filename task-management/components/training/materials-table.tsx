@@ -108,7 +108,7 @@ export function MaterialsTable({
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search materials…" className="w-full bg-transparent py-2.5 outline-none text-[15px] font-medium text-ink-strong placeholder:text-ink-subtle placeholder:font-normal" />
         </div>
         <select className={CHIP} value={subject} onChange={(e) => setSubject(e.target.value)} aria-label="Filter by subject">
-          <option value="">All subjects</option>
+          <option value="">All Subjects</option>
           {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         {/* Induction toggle pill — one tap to see only induction sessions. */}

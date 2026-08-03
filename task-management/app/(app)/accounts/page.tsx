@@ -62,13 +62,13 @@ export default async function AccountsIndexPage() {
               className="inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[13.5px] font-bold text-white transition-opacity hover:opacity-90"
               style={{ background: `linear-gradient(135deg, ${"#E10600"}, ${ACCENT})` }}
             >
-              <Wallet size={15} strokeWidth={2.4} /> Salary module
+              <Wallet size={15} strokeWidth={2.4} /> Salary Module
             </Link>
             <Link
               href={"/attendance/dashboard" as Route}
               className="inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-3.5 py-1.5 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-hairline-strong"
             >
-              <CalendarCheck2 size={15} strokeWidth={2.4} /> Attendance report
+              <CalendarCheck2 size={15} strokeWidth={2.4} /> Attendance Report
             </Link>
           </div>
         </header>

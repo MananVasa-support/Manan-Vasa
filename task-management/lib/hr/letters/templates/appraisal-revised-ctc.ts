@@ -9,7 +9,8 @@
  * PURE + CLIENT-SAFE — imports only ../types. Load-neutral.
  */
 
-import { type LetterTemplate, t, f, para, heading, term, signature } from "../types";
+import { type LetterTemplate, t, f, para, heading, term, table, signature } from "../types";
+import { ctcRows } from "./ctc-breakup";
 
 const template: LetterTemplate = {
   key: "appraisal-revised-ctc",
@@ -35,14 +36,18 @@ const template: LetterTemplate = {
     term("Increment", f("increment", "Increment", { placeholder: "e.g. ₹1,20,000 (18%)" })),
     term("Effective From", f("effectiveDate", "Effective Date", { placeholder: "e.g. 1 April 2026" })),
 
-    heading("Revised Monthly Structure", 2),
-    term("Gross Monthly Salary", f("grossMonthly", "Gross (per month)", { placeholder: "₹0" })),
-    term("Net Take-Home (per month)", f("netMonthly", "Net Take-Home (per month)", { placeholder: "₹0" })),
-    term("Revised Cost to Firm (per month)", f("ctcMonthly", "CTC (per month)", { placeholder: "₹0" })),
+    heading("Revised CTC Structure with Break-up", 2),
+    table(["COMPONENTS", "PER MONTH", "PER ANNUM"], ctcRows()),
 
     para(
       t(
-        "The detailed component-wise breakup of your revised CTC is enclosed as an annexure. All other terms and conditions of your employment remain unchanged.",
+        "In February the PT will be Rs. 300/- as per govt PT rules; the rest of the months Rs. 200/-.",
+      ),
+    ),
+
+    para(
+      t(
+        "All other terms and conditions of your employment remain unchanged.",
       ),
     ),
 

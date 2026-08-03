@@ -201,6 +201,46 @@ export async function setCandidateStatus(
   return { ok: true };
 }
 
+/**
+ * Permanently delete a candidate — the candidate's ENTIRE record and evaluation
+ * history (intake data, the Pre-Interview checklist, and the structured
+ * evaluation-v2 blob) all live inline on this one row, so dropping it wipes
+ * everything at once. Best-effort also removes the uploaded photo/signature from
+ * storage. HR admins only; irreversible (the UI guards this behind a warning).
+ */
+export async function deleteCandidateIntake(
+  id: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const me = await requireWorkspaceAdmin("hr");
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  if (!z.string().uuid().safeParse(id).success) return { ok: false, error: "Invalid candidate." };
+
+  // Capture storage paths before the row is gone, so we can clean the bucket.
+  const [row] = await db
+    .select({ photoPath: candidateIntake.photoPath, signaturePath: candidateIntake.signaturePath })
+    .from(candidateIntake)
+    .where(eq(candidateIntake.id, id))
+    .limit(1);
+  if (!row) return { ok: false, error: "Candidate not found." };
+
+  await db.delete(candidateIntake).where(eq(candidateIntake.id, id));
+
+  const paths = [row.photoPath, row.signaturePath].filter((p): p is string => !!p);
+  if (paths.length) {
+    try {
+      await getSupabaseAdmin().storage.from(DOCUMENTS_BUCKET).remove(paths);
+    } catch {
+      // Best-effort — the record is already gone; orphaned files are harmless.
+    }
+  }
+
+  revalidatePath("/hr/candidates");
+  revalidatePath("/hr/evaluation");
+  revalidatePath("/hr/pre-interview/basic-details");
+  return { ok: true };
+}
+
 /** Upload a candidate file (passport photo / signature) → returns storage path. */
 export async function uploadCandidateFile(fd: FormData): Promise<Result<{ path: string }>> {
   const me = await requireUser();

@@ -50,7 +50,7 @@ export function LeaveBalanceCard({ balance }: { balance: LeaveBalance }) {
               letterSpacing: "-0.02em",
             }}
           >
-            Paid leave balance
+            Paid Leave Balance
           </h2>
         </div>
         {!balance.beforeProbation && !noAnchor && (

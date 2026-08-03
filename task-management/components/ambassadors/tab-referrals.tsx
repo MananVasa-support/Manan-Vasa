@@ -44,7 +44,7 @@ export function TabReferrals({ referrals }: { referrals: ReferralRow[] }) {
         <div className="mx-auto mb-3 inline-grid h-12 w-12 place-items-center rounded-2xl" style={{ background: "rgba(225,6,0,0.08)" }}>
           <GitBranch size={20} strokeWidth={2.4} className="text-ink-strong" />
         </div>
-        <p className="text-[15px] font-bold text-ink-strong">No referrals yet</p>
+        <p className="text-[15px] font-bold text-ink-strong">No Referrals Yet</p>
         <p className="mx-auto mt-1 max-w-sm text-[13px] font-medium text-ink-muted">
           When this partner sends a prospect, it shows here as a deal moving through the pipeline.
         </p>
@@ -53,7 +53,7 @@ export function TabReferrals({ referrals }: { referrals: ReferralRow[] }) {
           className="mt-4 inline-flex items-center gap-2 rounded-xl py-2.5 px-4 text-[14px] font-bold text-white transition-transform active:scale-[0.99]"
           style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 12px 30px -14px rgba(225,6,0,0.6)" }}
         >
-          Go to pipeline
+          Go to Pipeline
           <ArrowUpRight size={16} strokeWidth={2.6} />
         </Link>
       </div>

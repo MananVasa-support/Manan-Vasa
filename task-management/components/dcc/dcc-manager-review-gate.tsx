@@ -77,7 +77,7 @@ export function DccManagerReviewGate({ greetingName, state }: { greetingName: st
         <div className="mt-7 flex items-center justify-between gap-3 rounded-2xl border border-hairline-strong bg-white px-5 py-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
           <span className="text-[15px] font-bold text-ink-muted">{remaining === 0 ? "Everyone reviewed" : `${remaining} of ${state.reports.length} left`}</span>
           <button onClick={approveAll} disabled={bulk || remaining === 0} className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red disabled:opacity-40">
-            {bulk ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />} Approve all
+            {bulk ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />} Approve All
           </button>
         </div>
 
@@ -94,7 +94,7 @@ export function DccManagerReviewGate({ greetingName, state }: { greetingName: st
                 </div>
                 <button onClick={() => openDetail(r)} className="bg-surface-card inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong px-3 py-2 text-[13.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red" title="View their DCC"><Eye size={15} /> View</button>
                 <button onClick={() => review(r.id, "approved")} className="rounded-xl px-4 py-2.5 text-[14.5px] font-bold transition-colors" style={v === "approved" ? { background: "var(--color-green)", color: "white" } : { background: "white", color: "var(--color-green-deep)", border: "1px solid var(--color-hairline-strong)" }}>✓ Approve</button>
-                <button onClick={() => review(r.id, "needs_rework")} className="rounded-xl px-4 py-2.5 text-[14.5px] font-bold transition-colors" style={v === "needs_rework" ? { background: "var(--color-altus-red)", color: "white" } : { background: "white", color: "var(--color-altus-red-deep)", border: "1px solid var(--color-hairline-strong)" }}>Needs rework</button>
+                <button onClick={() => review(r.id, "needs_rework")} className="rounded-xl px-4 py-2.5 text-[14.5px] font-bold transition-colors" style={v === "needs_rework" ? { background: "var(--color-altus-red)", color: "white" } : { background: "white", color: "var(--color-altus-red-deep)", border: "1px solid var(--color-hairline-strong)" }}>Needs Rework</button>
                 {busy === r.id && <Loader2 size={16} className="animate-spin text-ink-subtle" />}
               </div>
             );
@@ -148,7 +148,7 @@ export function DccManagerReviewGate({ greetingName, state }: { greetingName: st
             </div>
 
             <div className="flex items-center justify-end gap-2.5 border-t border-hairline-strong px-5 py-4">
-              <button onClick={() => { review(detail.id, "needs_rework"); setDetail(null); }} className="rounded-xl border border-hairline-strong px-4 py-2.5 text-[14.5px] font-bold transition-colors hover:border-altus-red" style={{ color: "var(--color-altus-red-deep)" }}>Needs rework</button>
+              <button onClick={() => { review(detail.id, "needs_rework"); setDetail(null); }} className="rounded-xl border border-hairline-strong px-4 py-2.5 text-[14.5px] font-bold transition-colors hover:border-altus-red" style={{ color: "var(--color-altus-red-deep)" }}>Needs Rework</button>
               <button onClick={() => { review(detail.id, "approved"); setDetail(null); }} className="rounded-xl px-5 py-2.5 text-[14.5px] font-bold text-white transition-opacity hover:opacity-90" style={{ background: "var(--color-green)" }}>✓ Approve</button>
             </div>
           </div>

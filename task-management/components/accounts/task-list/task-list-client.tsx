@@ -526,13 +526,13 @@ export function TaskListTable({
           />
         </div>
         <select className={CHIP} value={fStatus} onChange={(e) => setFStatus(e.target.value)} aria-label="Filter by status">
-          <option value="">All statuses</option>
+          <option value="">All Statuses</option>
           {statusValues.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
         <select className={CHIP} value={fGear} onChange={(e) => setFGear(e.target.value)} aria-label="Filter by gear">
-          <option value="">All gear</option>
+          <option value="">All Gear</option>
           {gearValues.map((g) => (
             <option key={g} value={g}>{g}</option>
           ))}
@@ -553,7 +553,7 @@ export function TaskListTable({
             boxShadow: "0 10px 26px -12px rgba(225,6,0,0.6)",
           }}
         >
-          <Plus size={16} strokeWidth={2.6} /> Add task
+          <Plus size={16} strokeWidth={2.6} /> Add Task
         </button>
       </div>
 
@@ -598,7 +598,7 @@ export function TaskListTable({
                   </p>
                   {!hasFilters && (
                     <button type="button" onClick={startAdd} className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red">
-                      <Plus size={15} strokeWidth={2.6} /> Add the first task
+                      <Plus size={15} strokeWidth={2.6} /> Add the First Task
                     </button>
                   )}
                 </td>
@@ -870,7 +870,7 @@ export function ScreenshotsTable({
           onClick={startAdd}
           className="ml-auto inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2.5 px-4 text-[14.5px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)]"
         >
-          <Plus size={16} strokeWidth={2.6} /> Add screenshot
+          <Plus size={16} strokeWidth={2.6} /> Add Screenshot
         </button>
       </div>
 
@@ -907,7 +907,7 @@ export function ScreenshotsTable({
                   <p className="text-[15px] font-semibold text-ink-muted">{q ? "No screenshots match." : "No screenshots to post yet."}</p>
                   {!q && (
                     <button type="button" onClick={startAdd} className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red">
-                      <Plus size={15} strokeWidth={2.6} /> Add the first one
+                      <Plus size={15} strokeWidth={2.6} /> Add the First One
                     </button>
                   )}
                 </td>

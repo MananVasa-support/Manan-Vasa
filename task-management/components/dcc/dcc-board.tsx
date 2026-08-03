@@ -315,7 +315,7 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
           <button onClick={() => shiftDay(1)} disabled={selectedDate >= today} className="grid h-10 w-10 place-items-center rounded-lg text-ink-soft transition-colors hover:bg-surface-soft disabled:opacity-30" aria-label="Next day"><ChevronRight size={20} /></button>
         </div>
         {selectedDate !== today && (
-          <button onClick={() => setSelectedDate(today)} className="rounded-lg px-2.5 py-2 text-[14px] font-bold transition-colors hover:underline" style={{ color: GREEN_DEEP }}>Back to today</button>
+          <button onClick={() => setSelectedDate(today)} className="rounded-lg px-2.5 py-2 text-[14px] font-bold transition-colors hover:underline" style={{ color: GREEN_DEEP }}>Back to Today</button>
         )}
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -323,10 +323,10 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
             <Trophy size={16} style={{ color: AMBER }} /> Ranking
           </Link>
           <button onClick={summarize} disabled={aiBusy} className="wg-btn inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:text-[#15803d] disabled:opacity-50" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>
-            {aiBusy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} style={{ color: RED }} />} Summarize my day
+            {aiBusy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} style={{ color: RED }} />} Summarize My Day
           </button>
           <button onClick={() => setShowAll((v) => !v)} className="wg-btn rounded-xl bg-white px-3.5 py-2.5 text-[14px] font-bold text-ink-soft transition-colors hover:text-[#15803d]" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}>
-            {showAll ? "Due today only" : `Show all (${items.length})`}
+            {showAll ? "Due Today Only" : `Show all (${items.length})`}
           </button>
           {canManage && <ItemEditor ownerId={ownerId} mode="add" allItems={items} clients={clients} />}
         </div>
@@ -339,7 +339,7 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
             <span className="inline-grid size-8 place-items-center rounded-[10px]" style={{ background: "color-mix(in srgb, #16a34a 10%, transparent)", color: GREEN_DEEP }}>
               <CalendarDays size={16} strokeWidth={2.4} />
             </span>
-            <span className="text-[13px] font-black tracking-tight text-ink-strong">Last 21 days</span>
+            <span className="text-[13px] font-black tracking-tight text-ink-strong">Last 21 Days</span>
           </div>
           <div className="flex items-center gap-3 text-[11px] font-bold text-ink-subtle max-md:hidden">
             <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: GREEN }} /> ≥80%</span>
@@ -452,9 +452,9 @@ export function DccBoard({ ownerId, ownerName, meId, canFill, canReview, canMana
         ))}
 
         {/* Period + adhoc trays — never in the daily count, never block a punch. */}
-        <Tray title="This week" icon={<CalendarClock size={15} strokeWidth={2.4} />} items={weeklyItems} map={map} selectedDate={selectedDate} busy={busy} canFill={canFill} canManage={canManage} onCommit={commit} />
-        <Tray title="This month" icon={<CalendarDays size={15} strokeWidth={2.4} />} items={monthlyItems} map={map} selectedDate={selectedDate} busy={busy} canFill={canFill} canManage={canManage} onCommit={commit} />
-        <Tray title="When it happens" icon={<Sparkles size={15} strokeWidth={2.4} />} items={otherItems} map={map} selectedDate={selectedDate} busy={busy} canFill={canFill} canManage={canManage} onCommit={commit} />
+        <Tray title="This Week" icon={<CalendarClock size={15} strokeWidth={2.4} />} items={weeklyItems} map={map} selectedDate={selectedDate} busy={busy} canFill={canFill} canManage={canManage} onCommit={commit} />
+        <Tray title="This Month" icon={<CalendarDays size={15} strokeWidth={2.4} />} items={monthlyItems} map={map} selectedDate={selectedDate} busy={busy} canFill={canFill} canManage={canManage} onCommit={commit} />
+        <Tray title="When It Happens" icon={<Sparkles size={15} strokeWidth={2.4} />} items={otherItems} map={map} selectedDate={selectedDate} busy={busy} canFill={canFill} canManage={canManage} onCommit={commit} />
       </div>
     </section>
   );
@@ -771,11 +771,11 @@ function ReviewBar({ ownerId, date, canReview, review }: { ownerId: string; date
       {canReview ? (
         <>
           <button onClick={() => save(status === "approved" ? null : "approved")} className="wg-btn rounded-xl px-4 py-2.5 text-[14px] font-bold transition-colors" style={status === "approved" ? { background: GREEN, color: "white" } : { background: "white", color: GREEN_DEEP, boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }} aria-pressed={status === "approved"}>✓ Approved</button>
-          <button onClick={() => save(status === "needs_rework" ? null : "needs_rework")} className="wg-btn rounded-xl px-4 py-2.5 text-[14px] font-bold transition-colors" style={status === "needs_rework" ? { background: "var(--color-altus-red)", color: "white" } : { background: "white", color: "var(--color-altus-red-deep)", boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }} aria-pressed={status === "needs_rework"}>Needs rework</button>
+          <button onClick={() => save(status === "needs_rework" ? null : "needs_rework")} className="wg-btn rounded-xl px-4 py-2.5 text-[14px] font-bold transition-colors" style={status === "needs_rework" ? { background: "var(--color-altus-red)", color: "white" } : { background: "white", color: "var(--color-altus-red-deep)", boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }} aria-pressed={status === "needs_rework"}>Needs Rework</button>
           <input value={note} onChange={(e) => setNote(e.target.value)} onBlur={() => save(status)} placeholder="Review note…" className="flex-1 min-w-[180px] rounded-xl border border-hairline-strong bg-white px-3.5 py-2.5 text-[14.5px] font-medium text-ink-strong outline-none transition-colors focus:border-[#16a34a]" aria-label="Review note" />
         </>
       ) : (
-        <span className="text-[14.5px] font-bold" style={{ color: status === "approved" ? GREEN_DEEP : tone }}>{status === "approved" ? "Approved" : status === "needs_rework" ? "Needs rework" : "Not yet reviewed"}{review?.note ? ` — ${review.note}` : ""}</span>
+        <span className="text-[14.5px] font-bold" style={{ color: status === "approved" ? GREEN_DEEP : tone }}>{status === "approved" ? "Approved" : status === "needs_rework" ? "Needs Rework" : "Not Yet Reviewed"}{review?.note ? ` — ${review.note}` : ""}</span>
       )}
     </div>
   );
@@ -891,7 +891,7 @@ function ItemEditor({ ownerId, mode, item, compact, allItems, presetSection, sec
               </div>
               {clients && clients.length > 0 && (
                 <select value={form.clientId} onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))} className={INPUT}>
-                  <option value="">No client</option>
+                  <option value="">No Client</option>
                   {clients.map((c) => <option key={c.id} value={c.id}>{c.section} · {c.name}</option>)}
                 </select>
               )}

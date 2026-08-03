@@ -73,7 +73,7 @@ export default async function AmbassadorsPage() {
               }}
             >
               <Plus size={17} strokeWidth={2.6} />
-              New ambassador
+              New Ambassador
             </Link>
           </div>
         </header>

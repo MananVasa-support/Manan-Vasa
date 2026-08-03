@@ -196,9 +196,9 @@ function RosterItem({
   index: number;
 }) {
   const status = r.in && r.out
-    ? { label: "Checked out", accent: "#334155", live: false }
+    ? { label: "Checked Out", accent: "#334155", live: false }
     : r.in
-      ? { label: "In office", accent: "#16a34a", live: true }
+      ? { label: "In Office", accent: "#16a34a", live: true }
       : { label: "Absent", accent: "var(--color-altus-red)", live: false };
 
   return (

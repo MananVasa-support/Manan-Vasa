@@ -90,7 +90,7 @@ export function DocViewer({ doc, onClose }: { doc: ViewerDoc; onClose: () => voi
                 download={doc.fileName}
                 className="mt-4 inline-flex items-center gap-2 rounded-pill bg-white px-4 py-2 text-[13.5px] font-bold text-ink-strong"
               >
-                <ExternalLink size={15} strokeWidth={2.4} /> Open / download
+                <ExternalLink size={15} strokeWidth={2.4} /> Open / Download
               </a>
             </CenterCard>
           )}

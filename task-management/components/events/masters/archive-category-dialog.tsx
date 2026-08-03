@@ -65,7 +65,7 @@ export function ArchiveCategoryDialog({
 
   return (
     <ModalShell
-      title="Archive category"
+      title="Archive Category"
       subtitle={`“${category.name}” is used by ${category.usage} item${category.usage === 1 ? "" : "s"}.`}
       onClose={onClose}
       accent={ACCENT}
@@ -111,7 +111,7 @@ export function ArchiveCategoryDialog({
             className="mt-1 accent-[var(--color-altus-red)]"
           />
           <div className="flex-1">
-            <span className="text-[14px] font-bold text-ink-strong">Reassign to another category</span>
+            <span className="text-[14px] font-bold text-ink-strong">Reassign to Another Category</span>
             <p className="mt-0.5 text-[12.5px] font-medium text-ink-soft">
               Move every referencing item to the category you pick.
             </p>
@@ -149,7 +149,7 @@ export function ArchiveCategoryDialog({
             className="mt-1 accent-[var(--color-altus-red)]"
           />
           <div>
-            <span className="text-[14px] font-bold text-ink-strong">Clear the category</span>
+            <span className="text-[14px] font-bold text-ink-strong">Clear the Category</span>
             <p className="mt-0.5 text-[12.5px] font-medium text-ink-soft">
               Leave the items but remove this colour (they fall back to no category).
             </p>

@@ -936,7 +936,7 @@ function ArchiveToggle({ taskId, archived }: { taskId: string; archived: boolean
         ) : (
           <Archive size={15} strokeWidth={2.2} />
         )}
-        {archived ? "Restore from archive" : "Archive task"}
+        {archived ? "Restore from Archive" : "Archive Task"}
       </button>
     </div>
   );
@@ -976,7 +976,7 @@ function DeleteTask({ taskId, taskTitle }: { taskId: string; taskTitle: string }
           className="inline-flex w-full items-center justify-center gap-2 rounded-chip border border-altus-red/30 bg-surface-card px-3.5 py-2.5 text-[14px] font-semibold text-altus-red transition-colors hover:bg-altus-red/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
         >
           <Trash2 size={15} strokeWidth={2.2} />
-          Delete task permanently
+          Delete Task Permanently
         </button>
       </div>
     );
@@ -999,7 +999,7 @@ function DeleteTask({ taskId, taskTitle }: { taskId: string; taskTitle: string }
           className="inline-flex flex-1 items-center justify-center gap-2 rounded-chip bg-altus-red px-3 py-2 text-[13.5px] font-semibold text-white transition-colors hover:bg-altus-red-deep disabled:opacity-60"
         >
           {pending ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} strokeWidth={2.2} />}
-          Confirm delete
+          Confirm Delete
         </button>
         <button
           type="button"

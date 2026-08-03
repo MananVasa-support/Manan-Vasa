@@ -107,7 +107,7 @@ export function WeeklyGoalsFillForm({ goals, weekLabel, greetingName }: Props) {
               lineHeight: 1.02,
             }}
           >
-            Fill your weekly goals
+            Fill Your Weekly Goals
           </h1>
           <p
             className="mx-auto mt-3 max-w-[52ch] text-ink-muted font-medium"

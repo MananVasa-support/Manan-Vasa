@@ -820,12 +820,12 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
           }}
         >
 
-          <div className="relative flex min-h-[64px] items-center gap-4 px-6 py-3 max-xl:flex-wrap max-md:gap-3 max-md:px-4">
-            {/* 1 · identity — title only (eyebrow removed per request). No min-w-0
-                + whitespace-nowrap ⇒ the heading always stays on ONE line. */}
-            <div className="flex-1 max-xl:w-full max-xl:flex-none">
+          <div className="relative flex min-h-[64px] flex-wrap items-center gap-4 px-6 py-3 max-md:gap-3 max-md:px-4">
+            {/* 1 · identity — the title. It holds a sensible min width and WRAPS
+                (never overflows) so it can't collide with the period pills; when
+                the band is tight, the pills/person wrap to the next line instead. */}
+            <div className="min-w-[200px] flex-1">
               <h1
-                className="whitespace-nowrap"
                 style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, color: "var(--color-ink-strong)", fontSize: "clamp(22px, 2vw, 32px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
               >
                 {props.heading}

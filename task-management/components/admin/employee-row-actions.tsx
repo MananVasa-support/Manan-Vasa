@@ -216,7 +216,7 @@ export function EmployeeRowActions({
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
             <Pencil size={14} />
-            Edit employee
+            Edit Employee
           </DropdownMenuItem>
           {showSeparator && <DropdownMenuSeparator />}
           {isInvited && (
@@ -234,7 +234,7 @@ export function EmployeeRowActions({
           {canResetPassword && (
             <DropdownMenuItem onClick={() => setResetOpen(true)}>
               <KeyRound size={14} />
-              Reset password
+              Reset Password
             </DropdownMenuItem>
           )}
           {canDeactivate && (
@@ -253,7 +253,7 @@ export function EmployeeRowActions({
           {canDelete && (
             <DropdownMenuItem danger onClick={() => setDeleteOpen(true)}>
               <Trash2 size={14} />
-              Delete permanently…
+              Delete Permanently…
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>

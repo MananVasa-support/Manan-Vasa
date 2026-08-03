@@ -84,7 +84,7 @@ export function MondayConfirmQueueView({ queue }: { queue: MondayConfirmQueue })
           style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
         >
           {bulk ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.8} />}
-          Confirm all
+          Confirm All
         </button>
       </div>
 

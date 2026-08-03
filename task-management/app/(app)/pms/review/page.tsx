@@ -167,7 +167,7 @@ export default async function PmsReviewPage() {
                 boxShadow: `0 10px 24px -12px color-mix(in srgb, ${ACCENT_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
               }}
             >
-              <Target size={16} strokeWidth={2.4} /> View scores
+              <Target size={16} strokeWidth={2.4} /> View Scores
             </Link>
           </div>
         </header>

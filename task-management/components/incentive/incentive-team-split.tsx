@@ -191,7 +191,7 @@ export function IncentiveTeamSplit({
                 className="text-ink-strong"
                 style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 20, letterSpacing: "-0.02em" }}
               >
-                Divide incentive among the team
+                Divide Incentive Among the Team
               </Dialog.Title>
               <Dialog.Description className="text-ink-subtle font-semibold" style={{ fontSize: 13 }}>
                 {row?.incentiveName}
@@ -252,7 +252,7 @@ export function IncentiveTeamSplit({
                   className="bg-surface-card wg-btn inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-2 font-bold text-ink-soft transition-colors hover:text-ink-strong"
                   style={{ fontSize: 13, boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}
                 >
-                  <Plus size={15} strokeWidth={2.6} /> Add participant
+                  <Plus size={15} strokeWidth={2.6} /> Add Participant
                 </button>
                 <div className="flex items-center gap-3 tabular-nums" style={{ fontSize: 12.5 }}>
                   <span className="inline-flex items-center gap-1.5 font-bold" style={{ color: AMBER }}>
@@ -271,7 +271,7 @@ export function IncentiveTeamSplit({
                     disabled={pending}
                     className="cursor-pointer text-[13px] font-bold text-[var(--color-red-deep)] disabled:opacity-50"
                   >
-                    Remove split
+                    Remove Split
                   </button>
                 ) : (
                   <span />
@@ -293,7 +293,7 @@ export function IncentiveTeamSplit({
                     }}
                   >
                     {pending ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.6} />}
-                    {pending ? "Saving…" : "Save split"}
+                    {pending ? "Saving…" : "Save Split"}
                   </button>
                 </div>
               </div>

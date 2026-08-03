@@ -232,7 +232,7 @@ export function BatchScheduleForm({
                     className="text-ink-strong"
                     style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 800, lineHeight: 1.15 }}
                   >
-                    {isEdit ? "Edit batch schedule" : "New batch schedule"}
+                    {isEdit ? "Edit Batch Schedule" : "New Batch Schedule"}
                   </Dialog.Title>
                   <Dialog.Description className="mt-1 text-[14.5px] text-ink-muted" style={{ lineHeight: 1.5 }}>
                     The calendar auto-blocks locked events across the range × days ×
@@ -254,7 +254,7 @@ export function BatchScheduleForm({
 
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-                <Field label="Batch type" required>
+                <Field label="Batch Type" required>
                   <Select
                     options={typeOptions}
                     value={form.batchTypeId}
@@ -275,7 +275,7 @@ export function BatchScheduleForm({
               </div>
 
               <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-                <Field label="Start date" required>
+                <Field label="Start Date" required>
                   <input
                     type="date"
                     value={form.startDate}
@@ -291,7 +291,7 @@ export function BatchScheduleForm({
                     className={INPUT}
                   />
                 </Field>
-                <Field label="End date" required>
+                <Field label="End Date" required>
                   <input
                     type="date"
                     value={form.endDate}
@@ -347,7 +347,7 @@ export function BatchScheduleForm({
                 )}
               </div>
 
-              <Field label="Days of week" hint="Leave empty to block every day in the range.">
+              <Field label="Days of Week" hint="Leave empty to block every day in the range.">
                 <div className="flex flex-wrap gap-1.5">
                   {DAY_LABELS.map((lbl, i) => {
                     const on = form.daysOfWeek.includes(i);
@@ -457,7 +457,7 @@ export function BatchScheduleForm({
                   className="brand-btn rounded-pill py-2.5 px-6 text-[15px] font-bold text-white shadow-sm transition-transform enabled:hover:-translate-y-0.5 disabled:opacity-50"
                   style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
                 >
-                  {pending ? "Saving…" : isEdit ? "Save changes" : "Create schedule"}
+                  {pending ? "Saving…" : isEdit ? "Save Changes" : "Create Schedule"}
                 </button>
               </div>
             </form>

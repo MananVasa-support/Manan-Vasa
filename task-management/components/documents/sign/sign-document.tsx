@@ -95,7 +95,9 @@ export function SignDocument({
             Sign this {label}
           </h2>
           <p className="text-[12px] text-ink-soft">
-            Identity verified via DigiLocker · Aadhaar e-KYC
+            {state.method === "self" || !state.digilockerConfigured
+              ? "Self-attested signature · identity not DigiLocker-verified"
+              : "Identity verified via DigiLocker · Aadhaar e-KYC"}
           </p>
         </div>
       </header>
@@ -114,6 +116,15 @@ export function SignDocument({
           missingEnv={state.digilockerMissingEnv}
           busy={busy}
           setBusy={setBusy}
+          onSelfVerified={(signatureId, name) =>
+            setState((s) => ({
+              ...s,
+              status: "verified",
+              method: "self",
+              signatureId,
+              identity: { ...s.identity, name, verifiedAt: new Date().toISOString() },
+            }))
+          }
         />
       )}
 
@@ -154,6 +165,7 @@ function PendingStep({
   missingEnv,
   busy,
   setBusy,
+  onSelfVerified,
 }: {
   docKind: DocKind;
   docId: string;
@@ -161,8 +173,11 @@ function PendingStep({
   missingEnv: string[];
   busy: boolean;
   setBusy: (v: boolean) => void;
+  /** Self-attested path (DigiLocker off): moves straight to the signature step. */
+  onSelfVerified: (signatureId: string, name: string | null) => void;
 }) {
   const [agreed, setAgreed] = React.useState(false);
+  const label = DOC_KIND_LABELS[docKind].toLowerCase();
 
   async function verify() {
     if (!agreed || busy) return;
@@ -173,44 +188,66 @@ function PendingStep({
       fireToast({ message: res.error, type: "error" });
       return;
     }
+    // DigiLocker off → self-attested: proceed straight to drawing the signature.
     if (!res.configured || !res.authUrl) {
       setBusy(false);
-      fireToast({
-        message: "Identity verification isn't configured yet.",
-        type: "error",
-      });
+      onSelfVerified(res.signatureId, res.verifiedName ?? null);
       return;
     }
     // Hand off to DigiLocker's authorize page; the callback returns us here.
     window.location.assign(res.authUrl);
   }
 
+  // ── DigiLocker not configured → self-attested signing ──
   if (!configured) {
     return (
-      <Notice tone="info" icon={<Lock size={15} strokeWidth={2.2} />}>
-        <span className="font-semibold text-ink-strong">
-          Identity verification isn&apos;t configured yet.
-        </span>{" "}
-        DigiLocker sign-in hasn&apos;t been switched on for this workspace. Ask an
-        admin to add the DigiLocker credentials, then reload this page to sign.
-        {missingEnv.length > 0 && (
-          <>
-            <span className="mt-2.5 block text-[12px] font-semibold text-ink-subtle">
-              Missing environment variable{missingEnv.length === 1 ? "" : "s"}:
-            </span>
-            <ul className="mt-1 flex flex-wrap gap-1.5">
-              {missingEnv.map((name) => (
-                <li
-                  key={name}
-                  className="rounded-md border border-hairline bg-surface-card px-2 py-0.5 font-mono text-[11.5px] text-ink-strong"
-                >
-                  {name}
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </Notice>
+      <div>
+        <Notice tone="info" icon={<Lock size={15} strokeWidth={2.2} />}>
+          <span className="font-semibold text-ink-strong">
+            DigiLocker verification isn&apos;t set up yet.
+          </span>{" "}
+          You can still e-sign this {label} as a{" "}
+          <span className="font-semibold text-ink-strong">self-attested</span>{" "}
+          signature — your identity won&apos;t be Aadhaar-verified, and the signed
+          PDF will clearly say so. It upgrades to full DigiLocker verification
+          automatically once an admin adds the credentials
+          {missingEnv.length > 0 ? ` (${missingEnv.join(", ")})` : ""}.
+        </Notice>
+
+        <label className="mb-5 flex cursor-pointer items-start gap-2.5 rounded-xl border border-hairline bg-surface-soft p-3.5 text-[13px] leading-snug text-ink-strong">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="mt-0.5 size-4 shrink-0"
+            style={{ accentColor: "var(--color-altus-red)" }}
+          />
+          <span>
+            I have read this document and I willingly e-sign it. I understand this
+            is a <span className="font-semibold">self-attested</span> signature, not
+            DigiLocker-verified.
+          </span>
+        </label>
+
+        <button
+          type="button"
+          onClick={verify}
+          disabled={!agreed || busy}
+          className="wg-btn wg-sheen inline-flex w-full items-center justify-center gap-2 rounded-pill px-4 py-3 text-[14px] font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-55"
+          style={{
+            background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`,
+            boxShadow:
+              "0 8px 20px -10px color-mix(in srgb, var(--color-altus-red-deep) 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)",
+          }}
+        >
+          {busy ? (
+            <Loader2 size={16} className="animate-spin" strokeWidth={2.4} />
+          ) : (
+            <PenLine size={16} strokeWidth={2.4} />
+          )}
+          {busy ? "Preparing…" : "I agree · Read & Self-Sign"}
+        </button>
+      </div>
     );
   }
 
@@ -279,6 +316,7 @@ function VerifiedStep({
   onSigned: (pdfPath: string) => void;
 }) {
   const id = state.identity;
+  const selfAttested = state.method === "self";
   const [mode, setMode] = React.useState<"drawn" | "typed">("drawn");
   const [typedName, setTypedName] = React.useState(id.name ?? "");
   const [hasInk, setHasInk] = React.useState(false);
@@ -329,9 +367,15 @@ function VerifiedStep({
 
   return (
     <div>
-      {justVerified && (
+      {justVerified && !selfAttested && (
         <Notice tone="success" icon={<BadgeCheck size={15} strokeWidth={2.2} />}>
           Identity verified with DigiLocker. Review the details below, then sign.
+        </Notice>
+      )}
+      {selfAttested && (
+        <Notice tone="info" icon={<UserRound size={15} strokeWidth={2.2} />}>
+          You&apos;re signing as a <span className="font-semibold text-ink-strong">self-attested</span> signer
+          — your identity isn&apos;t DigiLocker-verified. The signed PDF records this.
         </Notice>
       )}
 
@@ -339,10 +383,14 @@ function VerifiedStep({
       <div className="mb-5 overflow-hidden rounded-2xl border border-hairline bg-surface-soft">
         <div
           className="flex items-center gap-2 px-4 py-2.5 text-[11.5px] font-bold uppercase tracking-wider text-white"
-          style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
+          style={{
+            background: selfAttested
+              ? "linear-gradient(135deg, #475569, #1e293b)"
+              : `linear-gradient(135deg, ${RED}, ${RED_DEEP})`,
+          }}
         >
-          <ShieldCheck size={14} strokeWidth={2.4} />
-          Verified identity · DigiLocker e-KYC
+          {selfAttested ? <UserRound size={14} strokeWidth={2.4} /> : <ShieldCheck size={14} strokeWidth={2.4} />}
+          {selfAttested ? "Signatory · Self-attested" : "Verified identity · DigiLocker e-KYC"}
         </div>
         <div className="flex flex-col gap-4 p-4 sm:flex-row">
           <div className="shrink-0">
@@ -360,20 +408,29 @@ function VerifiedStep({
             )}
           </div>
           <dl className="grid flex-1 grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2">
-            <Field label="Name" value={id.name} />
-            <Field label="Date of birth" value={id.dob} />
-            <Field label="Gender" value={id.gender} />
-            <Field label="Aadhaar (masked)" value={id.maskedAadhaar} mono />
-            <Field label="Address" value={id.address} full />
-            <Field label="Verified at" value={fmt(id.verifiedAt)} />
-            <Field label="DigiLocker ref" value={id.ref} mono />
+            {selfAttested ? (
+              <>
+                <Field label="Name" value={id.name} />
+                <Field label="Identity" value="Self-attested — not DigiLocker-verified" full />
+              </>
+            ) : (
+              <>
+                <Field label="Name" value={id.name} />
+                <Field label="Date of birth" value={id.dob} />
+                <Field label="Gender" value={id.gender} />
+                <Field label="Aadhaar (masked)" value={id.maskedAadhaar} mono />
+                <Field label="Address" value={id.address} full />
+                <Field label="Verified at" value={fmt(id.verifiedAt)} />
+                <Field label="DigiLocker ref" value={id.ref} mono />
+              </>
+            )}
           </dl>
         </div>
       </div>
 
       {/* Signature step */}
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-[13.5px] font-bold text-ink-strong">Add your signature</h3>
+        <h3 className="text-[13.5px] font-bold text-ink-strong">Add Your Signature</h3>
         <div className="inline-flex rounded-pill border border-hairline bg-surface-soft p-0.5">
           <ModeTab active={mode === "drawn"} onClick={() => setMode("drawn")}>
             Draw
@@ -392,7 +449,7 @@ function VerifiedStep({
             htmlFor="typed-signature"
             className="mb-1.5 block text-[12.5px] font-semibold text-ink-soft"
           >
-            Type your full legal name
+            Type Your Full Legal Name
           </label>
           <input
             id="typed-signature"
@@ -408,9 +465,9 @@ function VerifiedStep({
       )}
 
       <p className="mb-4 mt-4 text-[12px] leading-relaxed text-ink-soft">
-        By signing, you confirm your DigiLocker-verified identity above is yours and
-        you willingly e-sign this document. This signature is legally attributable
-        to you.
+        {selfAttested
+          ? "By signing, you confirm you have read this document and willingly e-sign it. This is a self-attested signature — your identity is not DigiLocker-verified — and is legally attributable to you."
+          : "By signing, you confirm your DigiLocker-verified identity above is yours and you willingly e-sign this document. This signature is legally attributable to you."}
       </p>
 
       <button
@@ -506,7 +563,7 @@ function SignedStep({
         ) : (
           <Download size={15} strokeWidth={2.4} />
         )}
-        Download signed PDF
+        Download Signed PDF
       </button>
     </div>
   );

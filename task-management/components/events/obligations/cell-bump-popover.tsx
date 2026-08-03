@@ -147,7 +147,7 @@ export function CellBumpPopover({
         <div className="space-y-3 p-3.5">
           <div className="flex items-center justify-between rounded-lg bg-surface-soft px-3 py-2">
             <span className="text-[13px] font-semibold text-ink-muted">
-              Auto-count (tagged events)
+              Auto-count (Tagged Events)
             </span>
             <span className="text-[15px] font-bold tabular-nums text-ink-strong">
               {cell.auto}
@@ -156,7 +156,7 @@ export function CellBumpPopover({
 
           <div>
             <label className="mb-1 block text-[13px] font-bold text-ink-strong">
-              Manual override
+              Manual Override
             </label>
             <input
               type="number"
@@ -206,7 +206,7 @@ export function CellBumpPopover({
                 disabled={pending}
                 className="bg-surface-card text-[13px] font-semibold text-ink-soft transition-colors hover:text-altus-red disabled:opacity-50"
               >
-                Clear override
+                Clear Override
               </button>
             ) : (
               <span />

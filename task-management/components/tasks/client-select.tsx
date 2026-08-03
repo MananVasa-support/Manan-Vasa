@@ -378,7 +378,7 @@ export function ClientSelect({
             }}
           >
             <Plus size={16} strokeWidth={2.6} />
-            Add new client…
+            Add New Client…
           </li>
         </ul>
       </PopoverContent>

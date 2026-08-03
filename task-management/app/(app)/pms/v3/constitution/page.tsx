@@ -63,7 +63,7 @@ export default async function PmsV3ConstitutionPage({
           href={"/pms/v3" as Route}
           className="mb-4 inline-flex items-center gap-1.5 text-[13.5px] font-bold text-ink-muted transition-colors hover:text-ink-strong"
         >
-          <ArrowLeft size={15} strokeWidth={2.6} /> Monthly scoring
+          <ArrowLeft size={15} strokeWidth={2.6} /> Monthly Scoring
         </Link>
 
         <header className="mb-6">
@@ -88,7 +88,7 @@ export default async function PmsV3ConstitutionPage({
         {!seeded ? (
           <div className="rounded-2xl border border-hairline bg-surface-card p-8 text-center">
             <ScrollText size={28} className="mx-auto mb-3 text-ink-subtle" />
-            <p className="mb-1 text-[15px] font-bold text-ink-strong">Constitution not seeded yet</p>
+            <p className="mb-1 text-[15px] font-bold text-ink-strong">Constitution Not Seeded Yet</p>
             <p className="mx-auto mb-4 max-w-[52ch] text-[13.5px] text-ink-muted">
               The 29 paragraphs were captured verbatim from the source Doc. An admin seeds them once; then everyone
               can score.

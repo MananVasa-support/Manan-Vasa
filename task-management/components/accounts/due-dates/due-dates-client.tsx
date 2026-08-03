@@ -184,11 +184,11 @@ export function DueDatesChecklist({
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search bills, area, notes…" className="w-full bg-transparent py-2.5 text-[15px] font-medium text-ink-strong outline-none placeholder:font-normal placeholder:text-ink-subtle" />
         </div>
         <select className={CHIP} value={fArea} onChange={(e) => setFArea(e.target.value)} aria-label="Filter by area">
-          <option value="">All areas</option>
+          <option value="">All Areas</option>
           {areas.map((a) => (<option key={a} value={a}>{a}</option>))}
         </select>
         <select className={CHIP} value={fFreq} onChange={(e) => setFFreq(e.target.value)} aria-label="Filter by frequency">
-          <option value="">All frequencies</option>
+          <option value="">All Frequencies</option>
           {freqs.map((f) => (<option key={f} value={f}>{f}</option>))}
         </select>
         {hasFilters && (
@@ -197,7 +197,7 @@ export function DueDatesChecklist({
           </button>
         )}
         <button type="button" onClick={startAdd} className="ml-auto inline-flex items-center gap-2 rounded-xl py-2.5 px-4 text-[14.5px] font-bold text-white transition-transform active:scale-[0.99]" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 10px 26px -12px rgba(225,6,0,0.6)" }}>
-          <Plus size={16} strokeWidth={2.6} /> Add item
+          <Plus size={16} strokeWidth={2.6} /> Add Item
         </button>
       </div>
 
@@ -223,7 +223,7 @@ export function DueDatesChecklist({
                   <p className="text-[15px] font-semibold text-ink-muted">{hasFilters ? "No items match these filters." : "No due-date items yet."}</p>
                   {!hasFilters && (
                     <button type="button" onClick={startAdd} className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red">
-                      <Plus size={15} strokeWidth={2.6} /> Add the first item
+                      <Plus size={15} strokeWidth={2.6} /> Add the First Item
                     </button>
                   )}
                 </td>
@@ -382,7 +382,7 @@ function EditorRow({
             <X size={16} strokeWidth={2.4} /> Cancel
           </button>
           <button type="button" onClick={onSave} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[14px] font-bold text-white disabled:opacity-50" style={{ background: "var(--color-altus-red)" }}>
-            {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.6} />} {adding ? "Add item" : "Save changes"}
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.6} />} {adding ? "Add Item" : "Save Changes"}
           </button>
         </div>
       </td>

@@ -43,7 +43,7 @@ export default async function PoliciesPage() {
             className="mt-1.5 text-ink-strong"
             style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(26px,3vw,40px)", letterSpacing: "-0.025em", lineHeight: 1.05 }}
           >
-            The company handbook
+            The Company Handbook
           </h1>
           <p className="mt-1.5 max-w-[70ch] text-[13.5px] font-medium text-ink-muted">
             Every company policy in one place. {isAdmin ? "Upload and organise policies by category — everyone can read them." : "Read the latest policies that apply to you."}

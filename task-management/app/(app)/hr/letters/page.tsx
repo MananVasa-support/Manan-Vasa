@@ -35,7 +35,7 @@ export default async function LettersIndexPage() {
             }}
           >
             <ArrowLeft size={15} strokeWidth={2.6} className="transition-transform group-hover:-translate-x-0.5" />
-            <span className="max-md:hidden">HR home</span>
+            <span className="max-md:hidden">HR Home</span>
             <span className="md:hidden">Back</span>
           </Link>
         </div>

@@ -119,7 +119,7 @@ export function SalaryReport({ month, monthLabel, rows }: Props) {
             className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card py-2.5 px-4 text-[14px] font-medium text-ink-strong hover:border-hairline-strong transition-colors disabled:opacity-50"
           >
             <Users size={15} strokeWidth={2.2} />
-            {generatingAll ? "Generating all…" : "Generate for all"}
+            {generatingAll ? "Generating all…" : "Generate for All"}
           </button>
           <button
             type="button"

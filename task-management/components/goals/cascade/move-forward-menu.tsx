@@ -95,7 +95,7 @@ export function MoveForwardMenu({
             onChange={(e) => setRetain(e.target.checked)}
             className="size-4 accent-[#E10600]"
           />
-          Retain progress
+          Retain Progress
         </label>
 
         <div className="mt-3 flex items-center gap-2">

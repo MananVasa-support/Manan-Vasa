@@ -151,7 +151,7 @@ export function AccountsTaskImport() {
               className="inline-flex items-center gap-2 rounded-pill border border-hairline bg-surface-soft px-4 h-10 text-[13.5px] font-bold text-ink-strong hover:border-hairline-strong transition-colors mb-5"
             >
               <Download size={15} strokeWidth={2.2} />
-              Download template
+              Download Template
             </a>
 
             {/* Dropzone */}

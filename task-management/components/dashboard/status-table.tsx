@@ -246,7 +246,7 @@ export function StatusTable({
               }}
               className="bg-surface-card mt-3 text-cta text-altus-red hover:underline"
             >
-              Clear filters
+              Clear Filters
             </button>
           )}
         </div>
@@ -352,7 +352,7 @@ export function StatusTable({
               >
                 {showAll ? (
                   <>
-                    Show less
+                    Show Less
                     <ChevronRight size={16} strokeWidth={2.6} className="-rotate-90" />
                   </>
                 ) : (
@@ -449,7 +449,7 @@ function FilterBar({
           className="bg-surface-card ml-auto inline-flex items-center gap-1.5 text-[14px] font-bold text-ink-muted hover:text-altus-red transition-colors"
         >
           <X className="size-3.5" />
-          Clear filters
+          Clear Filters
         </button>
       )}
     </div>

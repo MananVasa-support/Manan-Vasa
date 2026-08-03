@@ -31,7 +31,7 @@ export default async function TrainingPage() {
               Training Centre
             </span>
             <h1 className="text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(30px, 3.4vw, 44px)", letterSpacing: "-0.025em", lineHeight: 1.04, marginTop: 6 }}>
-              Material library
+              Material Library
             </h1>
             <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 15.5 }}>
               Watch the material and take its tests. {canManage ? "Add and manage material here." : ""}
@@ -39,7 +39,7 @@ export default async function TrainingPage() {
           </div>
           {canManage && (
             <Link href={"/training/new" as Route} className="inline-flex items-center gap-2 rounded-xl py-3 px-5 text-[15px] font-bold text-white transition-transform active:scale-[0.99]" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}>
-              <Plus size={17} strokeWidth={2.6} /> Add material
+              <Plus size={17} strokeWidth={2.6} /> Add Material
             </Link>
           )}
         </header>

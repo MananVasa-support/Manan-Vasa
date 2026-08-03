@@ -120,7 +120,7 @@ export function DataExportCard({ recent }: Props) {
       }}
     >
       <SectionHeader
-        title="Download your data"
+        title="Download Your Data"
         description="Get a copy of everything we have on you: tasks, comments, audit events, and preferences. Required by DPDP."
         savedAt={null}
       />
@@ -142,7 +142,7 @@ export function DataExportCard({ recent }: Props) {
           cursor: busy ? "not-allowed" : "pointer",
         }}
       >
-        {busy ? "Requesting…" : "Request my data"}
+        {busy ? "Requesting…" : "Request My Data"}
       </button>
 
       {merged.length > 0 && (

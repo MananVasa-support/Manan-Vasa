@@ -253,7 +253,7 @@ export function FeedbackForm({
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-5">
       {/* Type selector — segmented, drives the questions below */}
-      <Section title="Feedback type" hint="The questions below adapt to what you pick." delay={0}>
+      <Section title="Feedback Type" hint="The questions below adapt to what you pick." delay={0}>
         <div className="grid grid-cols-3 gap-2 max-sm:grid-cols-1">
           {FEEDBACK_TYPES.map((t) => {
             const active = type === t;
@@ -267,7 +267,7 @@ export function FeedbackForm({
         </div>
       </Section>
 
-      <Section title="Who & what" delay={40}>
+      <Section title="Who & What" delay={40}>
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
           <div>
             <label className={LABEL}>{tpl.ratedLabel}</label>
@@ -288,7 +288,7 @@ export function FeedbackForm({
         </div>
       </Section>
 
-      <Section title="Rating & questions" delay={80}>
+      <Section title="Rating & Questions" delay={80}>
         <div className="rounded-xl border border-hairline bg-surface-soft p-5">
           <p className="text-[15.5px] font-semibold text-ink-strong" style={{ lineHeight: 1.45 }}>{fillTemplate(tpl.ratingQuestion, displayName)}</p>
           <div className="mt-3"><StarRating value={rating} onChange={setRating} /></div>
@@ -354,7 +354,7 @@ export function FeedbackForm({
               </div>
             ) : (
               <button type="button" onClick={() => picInputRef.current?.click()} disabled={uploadingPic} className={FIELD + " flex items-center justify-center gap-2 text-ink-subtle"}>
-                {uploadingPic ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />} Add picture
+                {uploadingPic ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />} Add Picture
               </button>
             )}
           </div>
@@ -368,7 +368,7 @@ export function FeedbackForm({
       <Section title="Escalation" delay={160}>
         <label className="flex items-center gap-3 cursor-pointer">
           <input type="checkbox" checked={escalate} onChange={(e) => setEscalate(e.target.checked)} className="size-5 rounded accent-[var(--color-altus-red)]" />
-          <span className="text-[15px] font-semibold text-ink-strong">Escalate this case</span>
+          <span className="text-[15px] font-semibold text-ink-strong">Escalate This Case</span>
         </label>
         {escalate && (
           <div className="mt-4 flex flex-col gap-3">
@@ -388,7 +388,7 @@ export function FeedbackForm({
       <div className="flex items-center justify-end gap-3 border-t border-hairline pt-5">
         <button type="button" onClick={() => router.push("/training/feedback" as Route)} className="inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-5 py-3 text-[15px] font-bold text-ink-strong hover:border-hairline-strong"><ArrowLeft size={16} /> Cancel</button>
         <button type="submit" disabled={submitting} className="wg-sheen inline-flex items-center gap-2 rounded-xl py-3 px-7 text-[15px] font-bold text-white disabled:opacity-60" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}>
-          {submitting ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} strokeWidth={2.4} />} Submit feedback
+          {submitting ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} strokeWidth={2.4} />} Submit Feedback
         </button>
       </div>
     </form>

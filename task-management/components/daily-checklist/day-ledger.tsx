@@ -167,7 +167,7 @@ export function DayLedger({ today, items: pItems, overdue: pOverdue, pullable: p
             <HeroChip label="Committed" value={total} />
             <HeroChip label="Done" value={doneCount} tone="green" />
             <HeroChip label="Pending" value={pendingCount} tone="amber" />
-            {goalCount > 0 && <HeroChip label="Goal-linked" value={goalCount} tone="red" />}
+            {goalCount > 0 && <HeroChip label="Goal-Linked" value={goalCount} tone="red" />}
           </div>
         </header>
 
@@ -191,7 +191,7 @@ export function DayLedger({ today, items: pItems, overdue: pOverdue, pullable: p
               style={{ background: "linear-gradient(135deg, var(--color-amber), var(--color-amber-deep))" }}
             >
               {busyId === "overdue" ? <Loader2 size={14} className="animate-spin" /> : <CornerUpRight size={14} strokeWidth={2.6} />}
-              Carry forward to today
+              Carry Forward to Today
             </button>
           </div>
         )}
@@ -211,7 +211,7 @@ export function DayLedger({ today, items: pItems, overdue: pOverdue, pullable: p
                 className="font-bold text-ink-strong"
                 style={{ fontSize: 24, letterSpacing: "-0.015em" }}
               >
-                Today&apos;s commitments
+                Today&apos;s Commitments
               </h2>
               {total > 0 && (
                 <span
@@ -293,7 +293,7 @@ export function DayLedger({ today, items: pItems, overdue: pOverdue, pullable: p
                 className="wg-rise rounded-section bg-surface-card border border-hairline p-5"
                 style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)", animationDelay: "200ms" }}
               >
-                <h3 className="font-bold text-ink-strong mb-1" style={{ fontSize: 17 }}>Pull from weekly goals</h3>
+                <h3 className="font-bold text-ink-strong mb-1" style={{ fontSize: 17 }}>Pull from Weekly Goals</h3>
                 <p className="text-ink-subtle mb-3" style={{ fontSize: 13.5, lineHeight: 1.45 }}>
                   Commit a goal to today — it joins as a goal-related item.
                 </p>
@@ -329,7 +329,7 @@ export function DayLedger({ today, items: pItems, overdue: pOverdue, pullable: p
                         className={`wg-btn cursor-pointer mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card py-1.5 px-3 text-[13px] font-semibold text-ink-strong hover:border-altus-red hover:text-altus-red disabled:opacity-50 ${FOCUS_RING}`}
                       >
                         {busyId === g.id ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} strokeWidth={2.4} />}
-                        Move to today
+                        Move to Today
                       </button>
                     </li>
                   ))}
@@ -393,7 +393,7 @@ function AtAGlance({ committed, done, pending, goalCount }: { committed: number;
     { label: "Committed", value: committed, tone: "slate" },
     { label: "Done", value: done, tone: "green" },
     { label: "Pending", value: pending, tone: "amber" },
-    { label: "Goal-linked", value: goalCount, tone: "red" },
+    { label: "Goal-Linked", value: goalCount, tone: "red" },
   ];
   const max = Math.max(committed, 1);
   const pct = committed > 0 ? (done / committed) * 100 : 0;
@@ -407,7 +407,7 @@ function AtAGlance({ committed, done, pending, goalCount }: { committed: number;
           <ScoreRing value={pct} size={56} label={`${Math.round(pct)}% of today done`} />
         </div>
         <div className="min-w-0">
-          <h3 className="font-bold text-ink-strong" style={{ fontSize: 17 }}>Today at a glance</h3>
+          <h3 className="font-bold text-ink-strong" style={{ fontSize: 17 }}>Today at a Glance</h3>
           <p className="font-semibold text-ink-subtle" style={{ fontSize: 13 }}>
             {done}/{committed} done · {Math.round(pct)}%
           </p>
@@ -438,14 +438,14 @@ function HowItWorks() {
   const steps = [
     { n: "1", t: "Plan", d: `Plan at least ${MIN_DAILY_ITEMS} things you'll get done today — pulled from goals or your own.` },
     { n: "2", t: "Do", d: "Work through them — this is your checklist for the day." },
-    { n: "3", t: "Close out", d: "Tonight, tick what's done and note what slipped." },
+    { n: "3", t: "Close Out", d: "Tonight, tick what's done and note what slipped." },
   ];
   return (
     <section
       className="wg-rise rounded-section border p-5"
       style={{ background: "linear-gradient(135deg, #1C1511, #0E0B09)", borderColor: "rgba(255,255,255,0.08)", animationDelay: "320ms" }}
     >
-      <h3 className="font-bold mb-3.5" style={{ fontSize: 16, color: "#F7F4ED" }}>The daily ritual</h3>
+      <h3 className="font-bold mb-3.5" style={{ fontSize: 16, color: "#F7F4ED" }}>The Daily Ritual</h3>
       <ol className="space-y-3.5">
         {steps.map((s) => (
           <li key={s.n} className="flex gap-3">

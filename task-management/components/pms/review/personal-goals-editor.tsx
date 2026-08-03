@@ -142,7 +142,7 @@ export function PersonalGoalsEditor({
           }}
         >
           {pending ? <Loader2 size={17} className="animate-spin" /> : <Check size={17} strokeWidth={2.6} />}
-          Save goals
+          Save Goals
         </button>
       </div>
     </div>

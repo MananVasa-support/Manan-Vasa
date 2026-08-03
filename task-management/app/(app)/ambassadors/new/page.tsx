@@ -37,7 +37,7 @@ export default async function NewAmbassadorPage() {
                 lineHeight: 1.04,
               }}
             >
-              New ambassador
+              New Ambassador
             </h1>
             <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 15.5 }}>
               Register a referral partner and set their commission terms.

@@ -58,7 +58,7 @@ export function SalarySyncButton() {
       ) : (
         <RefreshCw size={15} strokeWidth={2.4} />
       )}
-      {busy ? "Syncing…" : "Sync from sheet"}
+      {busy ? "Syncing…" : "Sync from Sheet"}
     </button>
   );
 }

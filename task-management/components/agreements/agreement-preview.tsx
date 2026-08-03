@@ -123,7 +123,7 @@ export function AgreementPreview({
               <>
                 <div className="mb-1 h-6" />
                 <div className="border-t border-solid border-ink-soft pt-1 text-ink-soft" style={{ minWidth: 180 }}>
-                  Employee signature
+                  Employee Signature
                 </div>
                 <div className="text-[11.5px] text-ink-soft">Date: ____________</div>
               </>

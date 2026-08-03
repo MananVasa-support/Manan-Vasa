@@ -64,7 +64,7 @@ export default async function HolidayListPage({
             className="mt-1.5 text-ink-strong"
             style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(26px,3vw,40px)", letterSpacing: "-0.025em", lineHeight: 1.05 }}
           >
-            Company holidays this year
+            Company Holidays This Year
           </h1>
         </header>
 

@@ -82,7 +82,7 @@ export function IncentiveStatusTab({
                     letterSpacing: "-0.02em",
                   }}
                 >
-                  Set status & team split
+                  Set Status & Team Split
                 </h2>
                 <p className="text-[13px] font-medium text-ink-subtle">
                   Set each incentive’s Booked / Accrued / Paid, or divide it among the team · {year}

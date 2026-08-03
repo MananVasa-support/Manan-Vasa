@@ -186,7 +186,7 @@ function PersonTable({ report }: { report: IncentiveStatusReport }) {
               letterSpacing: "-0.02em",
             }}
           >
-            Per-person · Year to date
+            Per-Person · Year to Date
           </h2>
           <p className="text-[13px] font-medium text-ink-subtle">
             Target vs Booked · Accrued · Paid — the <b>Attain</b> column is Paid ÷ Target (what PMS reads).

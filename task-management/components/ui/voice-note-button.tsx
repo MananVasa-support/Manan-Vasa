@@ -22,7 +22,7 @@ export function VoiceNoteButton({
   onText,
   prefer = "transcript",
   className,
-  label = "Voice note",
+  label = "Voice Note",
 }: {
   onText: (text: string) => void;
   /** Kept for API compatibility; the endpoint now returns one faithful transcript. */
@@ -199,7 +199,7 @@ export function VoiceNoteButton({
         className={base + " cursor-not-allowed border-hairline text-ink-subtle"}
         title="Voice notes need a browser that can record audio (Chrome, Edge, or Safari)."
       >
-        <AlertCircle size={14} strokeWidth={2.2} /> Voice unavailable
+        <AlertCircle size={14} strokeWidth={2.2} /> Voice Unavailable
       </span>
     );
   }

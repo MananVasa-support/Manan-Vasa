@@ -33,7 +33,7 @@ export default async function NewMaterialPage() {
           </Link>
           <header className="mt-3 mb-6">
             <h1 className="text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(28px, 3vw, 40px)", letterSpacing: "-0.025em", lineHeight: 1.04 }}>
-              Add training material
+              Add Training Material
             </h1>
             <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 15.5 }}>
               Upload material, credit contributors, and flag induction.

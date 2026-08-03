@@ -158,7 +158,7 @@ function RingStat({ label, value, max, caption }: { label: string; value: number
         <AttainmentRing value={value} max={max} size={150} />
       ) : (
         <div className="flex size-[150px] items-center justify-center rounded-full border-2 border-solid border-hairline-strong">
-          <span className="text-[13px] font-semibold text-ink-muted">No data</span>
+          <span className="text-[13px] font-semibold text-ink-muted">No Data</span>
         </div>
       )}
       <span className="font-bold text-ink-strong" style={{ fontSize: 14 }}>{label}</span>

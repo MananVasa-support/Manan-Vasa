@@ -23,10 +23,10 @@ import {
 import { CredentialDialog } from "./credential-dialog";
 
 const FLAGS: { key: keyof CaCredentialRow; label: string }[] = [
-  { key: "emailUpdated", label: "Email updated" },
-  { key: "passwordReset", label: "Password reset" },
-  { key: "primaryPhoneUpdated", label: "Primary phone updated" },
-  { key: "secondaryPhoneUpdated", label: "Secondary phone updated" },
+  { key: "emailUpdated", label: "Email Updated" },
+  { key: "passwordReset", label: "Password Reset" },
+  { key: "primaryPhoneUpdated", label: "Primary Phone Updated" },
+  { key: "secondaryPhoneUpdated", label: "Secondary Phone Updated" },
 ];
 
 export function CredentialsVault({ groups }: { groups: CaCredentialGroup[] }) {
@@ -47,7 +47,7 @@ export function CredentialsVault({ groups }: { groups: CaCredentialGroup[] }) {
               letterSpacing: "-0.02em",
             }}
           >
-            Credentials vault
+            Credentials Vault
           </h2>
           <p className="mt-0.5 text-ink-muted font-medium" style={{ fontSize: 13.5 }}>
             {total} login{total === 1 ? "" : "s"} across {groups.filter((g) => g.rows.length).length} portal
@@ -113,7 +113,7 @@ function PortalGroup({
           onClick={onAdd}
           className="wg-btn cursor-pointer inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-bold border border-hairline bg-surface-card text-ink-strong hover:border-hairline-strong"
         >
-          <Plus size={14} strokeWidth={2.6} /> Add login
+          <Plus size={14} strokeWidth={2.6} /> Add Login
         </button>
       </div>
 

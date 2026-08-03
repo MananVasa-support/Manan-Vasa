@@ -11,15 +11,14 @@ import {
   Save,
   Loader2,
   Check,
-  Eye,
-  EyeOff,
   Plus,
   Trash2,
   CalendarDays,
   FileText,
   TrendingUp,
 } from "lucide-react";
-import { ENTITY_LIST, type EntityId } from "@/lib/hr/entities";
+import { ENTITY_LIST, getEntity, type EntityId } from "@/lib/hr/entities";
+import { LookupSelect } from "@/components/ui/lookup-select";
 import {
   CTC_REASONS,
   REASON_LABELS,
@@ -133,12 +132,18 @@ export function CtcWorkbench({ roster, isAdmin }: { roster: CtcRosterOption[]; i
   const history = useHistory<CtcComponents>({});
   const components = history.present;
 
-  const [hideZeros, setHideZeros] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
   const selectedEmployee = roster.find((r) => r.id === employeeId);
   const totals = useMemo(() => computeTotals(components), [components]);
+
+  /* The employee's FIXED paying entity → resolve their stored payingEntityName
+   * to a letterhead EntityId (falls back to the default when unset/unknown). */
+  const entityForEmployeeId = useCallback(
+    (id: string): EntityId => getEntity(roster.find((r) => r.id === id)?.payingEntityName ?? null).id,
+    [roster],
+  );
 
   /* ── load an employee's history ─────────────────────────── */
   const loadVersionInto = useCallback(
@@ -155,10 +160,11 @@ export function CtcWorkbench({ roster, isAdmin }: { roster: CtcRosterOption[]; i
   );
 
   const startNewRevision = useCallback(
-    (existing: CtcVersion[]) => {
+    (existing: CtcVersion[], forEntity?: EntityId) => {
       const latest = existing[existing.length - 1];
       setActiveId(null);
-      setEntity(latest?.entity ?? "altus-corp");
+      // Paying entity is FIXED per employee → auto-pick theirs (not carried-forward).
+      setEntity(forEntity ?? latest?.entity ?? "altus-corp");
       setReason(existing.length ? "appraisal" : "initial");
       setEffectiveDate("");
       setGrowth([]);
@@ -195,7 +201,7 @@ export function CtcWorkbench({ roster, isAdmin }: { roster: CtcRosterOption[]; i
         } else if (vs.length) {
           loadVersionInto(vs[vs.length - 1]!);
         } else {
-          startNewRevision([]);
+          startNewRevision([], entityForEmployeeId(id));
         }
       } catch {
         fireToast({ message: "Could not load this employee's CTC.", type: "error" });
@@ -203,7 +209,7 @@ export function CtcWorkbench({ roster, isAdmin }: { roster: CtcRosterOption[]; i
         setLoading(false);
       }
     },
-    [history, loadVersionInto, startNewRevision],
+    [history, loadVersionInto, startNewRevision, entityForEmployeeId],
   );
 
   /* ── restore the last in-progress edit on mount (Back from a letter) ─── */
@@ -334,28 +340,25 @@ export function CtcWorkbench({ roster, isAdmin }: { roster: CtcRosterOption[]; i
 
       {/* ── Pickers ─────────────────────────────────────────── */}
       <div className="ctcw-pickers">
-        <label className="ctcw-pick">
+        <div className="ctcw-pick">
           <UserRound size={15} strokeWidth={2.2} aria-hidden />
           <span className="ctcw-pick-label">Employee</span>
-          <select
-            value={employeeId}
-            onChange={(e) => void selectEmployee(e.target.value)}
-            aria-label="Employee"
-            autoFocus
-          >
-            <option value="">— select an employee —</option>
-            {roster.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-                {r.designation ? ` · ${r.designation}` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
+          <LookupSelect
+            label="employee"
+            value={employeeId || null}
+            onChange={(id) => void selectEmployee(id ?? "")}
+            options={roster.map((r) => ({
+              id: r.id,
+              name: r.designation ? `${r.name} · ${r.designation}` : r.name,
+            }))}
+            placeholder="— Select an employee —"
+            className="ctcw-lookup-trigger"
+          />
+        </div>
 
         <label className="ctcw-pick">
           <Building2 size={15} strokeWidth={2.2} aria-hidden />
-          <span className="ctcw-pick-label">Paying entity</span>
+          <span className="ctcw-pick-label">Paying Entity</span>
           <select
             value={entity}
             onChange={(e) => {
@@ -375,7 +378,7 @@ export function CtcWorkbench({ roster, isAdmin }: { roster: CtcRosterOption[]; i
 
         <label className="ctcw-pick">
           <TrendingUp size={15} strokeWidth={2.2} aria-hidden />
-          <span className="ctcw-pick-label">Revision reason</span>
+          <span className="ctcw-pick-label">Revision Reason</span>
           <select
             value={reason}
             onChange={(e) => {
@@ -395,7 +398,7 @@ export function CtcWorkbench({ roster, isAdmin }: { roster: CtcRosterOption[]; i
 
         <label className="ctcw-pick">
           <CalendarDays size={15} strokeWidth={2.2} aria-hidden />
-          <span className="ctcw-pick-label">Effective date</span>
+          <span className="ctcw-pick-label">Effective Date</span>
           <input
             type="date"
             value={effectiveDate}
@@ -424,7 +427,7 @@ export function CtcWorkbench({ roster, isAdmin }: { roster: CtcRosterOption[]; i
               <button
                 type="button"
                 className="ctcw-newrev"
-                onClick={() => startNewRevision(versions)}
+                onClick={() => startNewRevision(versions, entityForEmployeeId(employeeId))}
                 title="Start a new CTC revision (carries the current numbers forward)"
               >
                 <Plus size={14} strokeWidth={2.6} /> New revision
@@ -483,7 +486,7 @@ export function CtcWorkbench({ roster, isAdmin }: { roster: CtcRosterOption[]; i
             {/* Journey notes for this version */}
             <div className="ctcw-notes">
               <div className="ctcw-notes-head">
-                <span>Journey notes</span>
+                <span>Journey Notes</span>
                 <button type="button" className="ctcw-note-add" onClick={addGrowthNote}>
                   <Plus size={13} strokeWidth={2.6} /> Add
                 </button>
@@ -551,15 +554,6 @@ export function CtcWorkbench({ roster, isAdmin }: { roster: CtcRosterOption[]; i
                 <button
                   type="button"
                   className="ctcw-tbtn"
-                  onClick={() => setHideZeros((h) => !h)}
-                  title={hideZeros ? "Show all rows" : "Hide zero rows"}
-                >
-                  {hideZeros ? <Eye size={15} strokeWidth={2.2} /> : <EyeOff size={15} strokeWidth={2.2} />}
-                  {hideZeros ? "Show all" : "Hide 0s"}
-                </button>
-                <button
-                  type="button"
-                  className="ctcw-tbtn"
                   onClick={() => {
                     history.undo();
                     setDirty(true);
@@ -604,7 +598,6 @@ export function CtcWorkbench({ roster, isAdmin }: { roster: CtcRosterOption[]; i
               components={components}
               onChange={onChangeComponent}
               onCommit={history.commit}
-              hideZeros={hideZeros}
             />
 
             {/* Compensation letters that quote these numbers */}
@@ -640,7 +633,7 @@ function EmptyState() {
       <span className="ctcw-empty-badge">
         <TrendingUp size={26} strokeWidth={2.1} />
       </span>
-      <h2 className="ctcw-empty-title">Build a structured CTC</h2>
+      <h2 className="ctcw-empty-title">Build a Structured CTC</h2>
       <p className="ctcw-empty-text">
         Pick an employee to open their compensation. Enter the earnings, deductions and employer contributions —
         the gross, net take-home and total Cost to Firm recompute live. Every save adds a version to their
@@ -685,6 +678,16 @@ const WORKBENCH_CSS = `
   background-repeat:no-repeat;background-position:right 9px center;}
 .ctcw-pick select:focus,.ctcw-pick input:focus{outline:none;border-color:${RED};box-shadow:0 0 0 3px rgba(225,6,0,.14);}
 .ctcw-pick select:disabled,.ctcw-pick input:disabled{background:var(--color-surface-soft, #f1f5f9);color:var(--color-ink-muted, #94a3b8);cursor:default;}
+/* The searchable employee combobox trigger — matched to the native selects. */
+.ctcw-pick .ctcw-lookup-trigger{
+  width:100%;padding:9px 12px;border-radius:10px;
+  font-size:14px;font-weight:600;color:var(--color-ink-strong, #0f172a);
+  background:#fff;border:1.5px solid var(--color-hairline-strong, #cbd5e1);
+}
+.ctcw-pick .ctcw-lookup-trigger:hover{border-color:var(--color-ink-muted, #94a3b8);}
+.ctcw-pick .ctcw-lookup-trigger:focus-visible,.ctcw-pick .ctcw-lookup-trigger[aria-expanded="true"]{
+  outline:none;border-color:${RED};box-shadow:0 0 0 3px rgba(225,6,0,.14);
+}
 
 /* Body layout */
 .ctcw-body{display:grid;grid-template-columns:288px 1fr;gap:22px;align-items:start;}

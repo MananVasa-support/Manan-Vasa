@@ -129,7 +129,7 @@ export default async function SalaryPolicyPage() {
 
                 <section className="rounded-section border border-hairline bg-surface-card overflow-hidden">
                   <div className="px-6 py-4 border-b border-hairline">
-                    <h2 className="text-[16px] font-bold text-ink-strong">Consent overview</h2>
+                    <h2 className="text-[16px] font-bold text-ink-strong">Consent Overview</h2>
                     <p className="text-[13px] text-ink-subtle mt-0.5">
                       {consentStatus.filter((r) => r.consented).length} of {consentStatus.length}{" "}
                       active employees have acknowledged {policy.version}.

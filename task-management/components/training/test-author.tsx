@@ -84,7 +84,7 @@ export function TestAuthor({
     <section className="rounded-section border border-hairline bg-surface-card p-6 max-md:p-5" style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}>
       <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="font-bold text-ink-strong" style={{ fontSize: 18 }}>Test {kind} · {isMcq ? "MCQ" : "Fill in the blank"}</h2>
+          <h2 className="font-bold text-ink-strong" style={{ fontSize: 18 }}>Test {kind} · {isMcq ? "MCQ" : "Fill in the Blank"}</h2>
           <p className="text-[13px] font-medium text-ink-subtle">Pass mark {passMark}%. {isMcq ? "Pick the one correct option." : "Type all acceptable answers (one per line); matching is case-insensitive."}</p>
         </div>
       </div>
@@ -109,7 +109,7 @@ export function TestAuthor({
                     {q.options.length > 2 && <button type="button" onClick={() => update(i, { options: q.options.filter((_, j) => j !== oi), correctIndex: Math.min(q.correctIndex, q.options.length - 2) })} className="text-ink-subtle hover:text-altus-red"><Trash2 size={14} /></button>}
                   </div>
                 ))}
-                <button type="button" onClick={() => update(i, { options: [...q.options, ""] })} className="inline-flex w-fit items-center gap-1.5 text-[13px] font-bold text-altus-red"><Plus size={14} /> Add option</button>
+                <button type="button" onClick={() => update(i, { options: [...q.options, ""] })} className="inline-flex w-fit items-center gap-1.5 text-[13px] font-bold text-altus-red"><Plus size={14} /> Add Option</button>
               </div>
             ) : (
               <div className="ml-8">
@@ -125,7 +125,7 @@ export function TestAuthor({
         ))}
       </div>
 
-      <button type="button" onClick={addQ} className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-4 py-2.5 text-[14px] font-bold text-ink-strong hover:border-altus-red"><Plus size={16} /> Add question</button>
+      <button type="button" onClick={addQ} className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-4 py-2.5 text-[14px] font-bold text-ink-strong hover:border-altus-red"><Plus size={16} /> Add Question</button>
 
       {error && <p className="mt-3 text-[14px] font-semibold" style={{ color: "var(--color-altus-red-deep)" }}>{error}</p>}
 

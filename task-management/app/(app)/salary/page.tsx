@@ -137,22 +137,22 @@ export default async function SalaryPage({ searchParams }: PageProps) {
                   lineHeight: 1.02,
                 }}
               >
-                {month ? `${monthLabel(month)} payroll` : "Salary breakup"}
+                {month ? `${monthLabel(month)} payroll` : "Salary Breakup"}
               </h1>
               <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5">
                 {process.env.SALARY_DOCS_UI !== "false" && (
                   <Link href={"/salary/documents" as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: GREEN_DEEP }}>
-                    Exit documents &amp; signatory letters →
+                    Exit Documents &amp; Signatory Letters →
                   </Link>
                 )}
                 {process.env.SALARY_ANALYTICS !== "false" && (
                   <Link href={`/salary/analytics${month ? `?month=${month}` : ""}` as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: GREEN_DEEP }}>
-                    Attendance analytics →
+                    Attendance Analytics →
                   </Link>
                 )}
                 {process.env.INCENTIVE_PAYOUT === "true" && (
                   <Link href={"/salary/incentive-payout" as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: GREEN_DEEP }}>
-                    Pay incentives with salary →
+                    Pay Incentives with Salary →
                   </Link>
                 )}
               </div>

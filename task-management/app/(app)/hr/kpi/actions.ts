@@ -19,7 +19,8 @@ import {
   type KpiChangeType,
 } from "@/db/enums";
 import { dispatchKpiNotification } from "@/lib/hr/kpi/notify";
-import { isQuarterLabel } from "@/lib/hr/kpi/quarter";
+import { isQuarterLabel, currentQuarter } from "@/lib/hr/kpi/quarter";
+import { kpiTargetForName } from "@/lib/performance/kpi-dictionary";
 
 type Result<T> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -64,6 +65,9 @@ export interface KpiAssignmentDTO {
   applicable: boolean;
   status: string;
   updatedAt: string;
+  /** "assigned" = a real saved KPI; "dictionary" = inherited from the appraisal
+   *  KPI dictionary (not yet saved here) — shown read-only until adopted. */
+  source: "assigned" | "dictionary";
 }
 
 function toDTO(r: KpiAssignment): KpiAssignmentDTO {
@@ -81,6 +85,7 @@ function toDTO(r: KpiAssignment): KpiAssignmentDTO {
     applicable: r.applicable,
     status: r.status,
     updatedAt: r.updatedAt.toISOString(),
+    source: "assigned",
   };
 }
 
@@ -104,7 +109,45 @@ export async function loadKpiAssignments(
     .from(kpiAssignments)
     .where(and(...conds))
     .orderBy(desc(kpiAssignments.updatedAt));
-  return rows.map(toDTO);
+  const assigned = rows.map(toDTO);
+
+  // Surface the person's EXISTING appraisal-dictionary KPIs as inherited rows so
+  // HR sees what's already set (even before adopting them here). Any dictionary
+  // line already represented by a saved KPI (by key or name) is skipped, so
+  // partial adoption keeps the rest visible. Adopting one saves it into
+  // kpi_assignments, which then drives appraisal scoring.
+  const [emp] = await db
+    .select({ name: employees.name })
+    .from(employees)
+    .where(eq(employees.id, employeeId))
+    .limit(1);
+  const target = kpiTargetForName(emp?.name);
+  if (target) {
+    const coveredKeys = new Set(assigned.map((a) => a.kpiKey).filter(Boolean) as string[]);
+    const coveredNames = new Set(assigned.map((a) => a.kpiName.trim().toLowerCase()));
+    const q = quarter && isQuarterLabel(quarter) ? quarter : currentQuarter();
+    const now = new Date().toISOString();
+    for (const line of target.lines) {
+      if (coveredKeys.has(line.id) || coveredNames.has(line.label.trim().toLowerCase())) continue;
+      assigned.push({
+        id: `dict:${line.id}`,
+        employeeId,
+        kpiKey: line.id,
+        kpiName: line.label,
+        category: line.unit ?? "",
+        frequency: line.period === "week" ? "weekly" : "monthly",
+        weightage: Math.round(line.intraWeight),
+        effectiveQuarter: q,
+        targetValue: String(line.target),
+        currentValue: null,
+        applicable: true,
+        status: "active",
+        updatedAt: now,
+        source: "dictionary",
+      });
+    }
+  }
+  return assigned;
 }
 
 export interface KpiHistoryDTO {

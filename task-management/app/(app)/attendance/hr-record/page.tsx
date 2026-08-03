@@ -209,7 +209,7 @@ export default async function HrRecordPage({ searchParams }: PageProps) {
         ) : !employee ? (
           <EmptyState
             icon={<UserRoundSearch size={26} strokeWidth={2.2} />}
-            title="Pick an employee"
+            title="Pick an Employee"
             body="Choose a teammate above to open their imported HR attendance record — months, day-by-day codes, and paid-leave entitlement."
           />
         ) : months.length === 0 && !paidLeave ? (

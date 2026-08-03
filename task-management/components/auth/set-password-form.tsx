@@ -172,14 +172,14 @@ export function SetPasswordForm() {
             href={"/forgot-password" as Route}
             className="auth-link font-semibold"
           >
-            Request a new reset link →
+            Request a New Reset Link →
           </Link>
           <Link
             href={"/login" as Route}
             className="auth-link"
             style={{ fontSize: 13 }}
           >
-            Back to sign in
+            Back to Sign In
           </Link>
         </div>
       </div>
@@ -216,7 +216,7 @@ export function SetPasswordForm() {
         transition={{ duration: 0.42, delay: 0.25 }}
       >
         <AuthField
-          label="New password"
+          label="New Password"
           type={showPw ? "text" : "password"}
           autoComplete="new-password"
           required
@@ -247,7 +247,7 @@ export function SetPasswordForm() {
         transition={{ duration: 0.42, delay: 0.32 }}
       >
         <AuthField
-          label="Confirm password"
+          label="Confirm Password"
           type={showConfirm ? "text" : "password"}
           autoComplete="new-password"
           required

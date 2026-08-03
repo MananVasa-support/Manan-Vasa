@@ -13,9 +13,13 @@ import {
   ShieldCheck,
   Printer,
   Share2,
+  Trash2,
 } from "lucide-react";
+import { createPortal } from "react-dom";
 import { fireToast } from "@/lib/toast";
 import { PageShell } from "@/components/layout/page-shell";
+import { LookupSelect } from "@/components/ui/lookup-select";
+import { deleteCandidateIntake } from "@/app/(app)/hr/candidate-actions";
 import {
   EVAL_SECTIONS,
   type EvaluationInstance,
@@ -90,6 +94,13 @@ export function EvaluationV2Screen({
   fixedCandidateId?: string;
 }) {
   const [candidateId, setCandidateId] = React.useState("");
+  // Local, mutable copy so a deleted candidate drops out of the picker instantly.
+  const [candList, setCandList] = React.useState<Candidate[]>(candidates);
+  React.useEffect(() => setCandList(candidates), [candidates]);
+  // Destructive-delete confirmation (super-admins only). Resolves the LookupSelect
+  // confirmDelete promise via a ref so Cancel aborts silently.
+  const [confirmCand, setConfirmCand] = React.useState<{ id: string; name: string } | null>(null);
+  const confirmResolve = React.useRef<((go: boolean) => void) | null>(null);
   const [instance, setInstance] = React.useState<EvaluationInstance | null>(null);
   const [load, setLoad] = React.useState<EvaluationV2Load | null>(null);
   const [designation, setDesignation] = React.useState<string>("default");
@@ -104,7 +115,29 @@ export function EvaluationV2Screen({
   const instRef = React.useRef(instance); instRef.current = instance;
   const saveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const selected = candidates.find((c) => c.id === candidateId) ?? null;
+  const selected = candList.find((c) => c.id === candidateId) ?? null;
+
+  const candidateLabel = React.useCallback(
+    (c: Candidate) => `${c.fullName || "Unnamed"}${c.positionApplied ? ` · ${c.positionApplied}` : ""}`,
+    [],
+  );
+
+  /** Opens the warning dialog and resolves true/false when the user chooses. */
+  const requestDelete = React.useCallback(
+    (id: string) =>
+      new Promise<boolean>((resolve) => {
+        const c = candList.find((x) => x.id === id);
+        confirmResolve.current = resolve;
+        setConfirmCand({ id, name: c ? candidateLabel(c) : "this candidate" });
+      }),
+    [candList, candidateLabel],
+  );
+  const closeConfirm = React.useCallback((go: boolean) => {
+    const r = confirmResolve.current;
+    confirmResolve.current = null;
+    setConfirmCand(null);
+    r?.(go);
+  }, []);
 
   // Sales applicability is driven by the L "Responsibility to Sell?" gate answer,
   // not by keyword-matching the job title.
@@ -331,21 +364,27 @@ export function EvaluationV2Screen({
                 <label htmlFor="ev2-candidate" className="mb-1 block text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink-soft">
                   Candidate
                 </label>
-                <select
-                  id="ev2-candidate"
-                  data-autofocus
-                  autoFocus
-                  value={candidateId}
-                  onChange={(e) => void selectCandidate(e.target.value)}
-                  className="w-full appearance-none rounded-xl border border-hairline-strong bg-white px-3.5 py-2.5 pr-9 text-[14px] font-semibold text-ink-strong outline-none transition-colors focus:border-altus-red"
-                >
-                  <option value="">— Select candidate —</option>
-                  {candidates.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.fullName || "Unnamed"}{c.positionApplied ? ` · ${c.positionApplied}` : ""}
-                    </option>
-                  ))}
-                </select>
+                <LookupSelect
+                  label="candidate"
+                  value={candidateId || null}
+                  onChange={(id) => void selectCandidate(id ?? "")}
+                  options={candList.map((c) => ({ id: c.id, name: candidateLabel(c) }))}
+                  placeholder="— Select candidate —"
+                  className="w-full rounded-xl border border-hairline-strong bg-white px-3.5 py-2.5 text-[14px] font-semibold text-ink-strong outline-none transition-colors focus:border-altus-red"
+                  {...(isSuperAdmin
+                    ? {
+                        confirmDelete: (opt) => requestDelete(opt.id),
+                        onDelete: async (id) => {
+                          const res = await deleteCandidateIntake(id);
+                          if (res.ok) {
+                            setCandList((prev) => prev.filter((c) => c.id !== id));
+                            if (cidRef.current === id) void selectCandidate("");
+                          }
+                          return res;
+                        },
+                      }
+                    : {})}
+                />
               </div>
             )}
 
@@ -370,7 +409,7 @@ export function EvaluationV2Screen({
                   className="w-full appearance-none rounded-xl border border-hairline-strong bg-white px-3.5 py-2.5 pr-9 text-[13.5px] font-semibold text-ink-strong outline-none transition-colors focus:border-altus-red"
                   title="Chooses the weight profile used for every score"
                 >
-                  <option value="default">Default profile</option>
+                  <option value="default">Default Profile</option>
                   {load.designations.map((d) => (
                     <option key={d} value={d}>{d}</option>
                   ))}
@@ -541,6 +580,62 @@ export function EvaluationV2Screen({
           </div>
         ) : null}
       </PageShell>
+
+      {confirmCand &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] grid place-items-center bg-black/45 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ev2-del-title"
+            onClick={() => closeConfirm(false)}
+          >
+            <div
+              className="w-full max-w-[440px] rounded-2xl bg-white p-6 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.55)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-4 flex items-start gap-3.5">
+                <span
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full"
+                  style={{ background: "color-mix(in srgb, var(--color-altus-red) 12%, white)", color: RED_DEEP }}
+                >
+                  <AlertTriangle size={22} strokeWidth={2.4} />
+                </span>
+                <div className="min-w-0">
+                  <h2 id="ev2-del-title" className="text-[17px] font-black text-ink-strong" style={{ fontFamily: DISPLAY }}>
+                    Delete this candidate?
+                  </h2>
+                  <p className="mt-1 text-[13.5px] leading-relaxed text-ink-muted">
+                    You&apos;re about to permanently delete{" "}
+                    <span className="font-bold text-ink-strong">{confirmCand.name}</span>. Their entire record and
+                    interview history — intake form, checklist and all evaluation scores — will be erased. This cannot be
+                    undone.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => closeConfirm(false)}
+                  className="rounded-lg border border-hairline bg-white px-4 py-2.5 text-[13px] font-bold text-ink-muted transition-colors hover:bg-surface-soft"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={() => closeConfirm(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-[13px] font-bold text-white transition-colors"
+                  style={{ background: RED }}
+                >
+                  <Trash2 size={14} strokeWidth={2.5} /> Delete Permanently
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

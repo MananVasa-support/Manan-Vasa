@@ -49,7 +49,7 @@ export function HrPaidLeaveCard({ record }: { record: HrPaidLeaveRecord }) {
                 lineHeight: 1.1,
               }}
             >
-              Paid leave
+              Paid Leave
             </h2>
             <p className="text-[13px] font-medium text-ink-subtle">
               Entitlement cycles from the HR sheet

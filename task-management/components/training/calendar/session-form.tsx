@@ -245,7 +245,7 @@ export function SessionForm({
                     color: active ? ACCENT_DEEP : "var(--color-ink-soft)",
                   }}
                 >
-                  {m === "in_person" ? "In person" : "Online"}
+                  {m === "in_person" ? "In Person" : "Online"}
                 </button>
               );
             })}
@@ -314,7 +314,7 @@ export function SessionForm({
           className="size-[18px] accent-[var(--tc-accent)]"
         />
         <span className="flex items-center gap-1.5 text-[14px] font-bold text-ink-strong">
-          <Star size={15} fill={v.inManual ? ACCENT : "transparent"} style={{ color: ACCENT }} /> Add to the training manual
+          <Star size={15} fill={v.inManual ? ACCENT : "transparent"} style={{ color: ACCENT }} /> Add to the Training Manual
         </span>
         <span className="text-[12.5px] font-semibold text-ink-subtle">— curate this high-value session</span>
       </label>
@@ -336,7 +336,7 @@ export function SessionForm({
           style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: `0 12px 30px -12px ${ACCENT}99` }}
         >
           {pending ? <Loader2 size={17} className="animate-spin" /> : <Calendar size={17} strokeWidth={2.6} />}
-          {mode === "create" ? "Schedule training" : "Save changes"}
+          {mode === "create" ? "Schedule Training" : "Save Changes"}
         </button>
       </div>
     </form>

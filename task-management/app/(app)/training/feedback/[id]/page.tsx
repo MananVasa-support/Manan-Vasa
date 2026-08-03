@@ -27,7 +27,7 @@ export default async function FeedbackDetailPage({ params }: PageProps) {
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
-        <Link href={"/training/feedback" as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-ink-soft hover:text-altus-red"><ArrowLeft size={15} /> Feedback desk</Link>
+        <Link href={"/training/feedback" as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-ink-soft hover:text-altus-red"><ArrowLeft size={15} /> Feedback Desk</Link>
         <header className="mt-3 mb-6">
           <h1 className="text-ink-strong" style={{ fontFamily: "var(--font-serif), serif", fontWeight: 800, fontSize: "clamp(26px, 2.8vw, 38px)", letterSpacing: "-0.025em" }}>{fb.ratedName}</h1>
           <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 15 }}>{fb.feedbackDate}{fb.clientName ? ` · ${fb.clientName}` : ""}</p>

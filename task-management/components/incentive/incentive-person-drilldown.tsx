@@ -168,7 +168,7 @@ function DetailBody({ detail }: { detail: IncentivePersonDetail }) {
 
       {/* Permanent entries */}
       <section>
-        <SectionHead icon={<BadgeIndianRupee size={15} strokeWidth={2.3} />} label="Permanent incentives" />
+        <SectionHead icon={<BadgeIndianRupee size={15} strokeWidth={2.3} />} label="Permanent Incentives" />
         {entries.length === 0 ? (
           <Empty>No permanent incentives this year.</Empty>
         ) : (
@@ -203,7 +203,7 @@ function DetailBody({ detail }: { detail: IncentivePersonDetail }) {
 
       {/* Project legs */}
       <section>
-        <SectionHead icon={<FolderKanban size={15} strokeWidth={2.3} />} label="Project incentives" />
+        <SectionHead icon={<FolderKanban size={15} strokeWidth={2.3} />} label="Project Incentives" />
         {projects.length === 0 ? (
           <Empty>No project incentives this year.</Empty>
         ) : (

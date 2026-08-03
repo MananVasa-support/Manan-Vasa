@@ -20,8 +20,8 @@ export const IT_DOC_FIELDS: { key: keyof CaReturnRow; label: string }[] = [
   { key: "form26as", label: "26AS" },
   { key: "ais", label: "AIS" },
   { key: "assessmentOrder", label: "Assessment Order" },
-  { key: "refundAsPerReturn", label: "Refund as per return" },
-  { key: "refundReceived", label: "Refund received" },
+  { key: "refundAsPerReturn", label: "Refund as per Return" },
+  { key: "refundReceived", label: "Refund Received" },
 ];
 
 export const GST_DOC_FIELDS: { key: keyof CaReturnRow; label: string }[] = [
@@ -49,7 +49,7 @@ export function ReturnsArchive({ rows }: { rows: CaReturnRow[] }) {
               letterSpacing: "-0.02em",
             }}
           >
-            Returns archive
+            Returns Archive
           </h2>
           <p className="mt-0.5 text-ink-muted font-medium" style={{ fontSize: 13.5 }}>
             Filed income-tax &amp; GST documents per financial year and entity — {rows.length} record{rows.length === 1 ? "" : "s"}.
@@ -61,7 +61,7 @@ export function ReturnsArchive({ rows }: { rows: CaReturnRow[] }) {
           className="wg-btn wg-sheen cursor-pointer inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13.5px] font-bold text-white"
           style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
         >
-          <Plus size={15} strokeWidth={2.6} /> Add FY record
+          <Plus size={15} strokeWidth={2.6} /> Add FY Record
         </button>
       </div>
 

@@ -197,7 +197,7 @@ export function LoginFormGlass() {
         className="mt-10 space-y-6"
       >
         <GlassField
-          label="Work email"
+          label="Work Email"
           type="email"
           autoComplete="email"
           required
@@ -254,7 +254,7 @@ export function LoginFormGlass() {
             }}
             className="hover:text-white transition-colors"
           >
-            Forgot password?
+            Forgot Password?
           </Link>
         </div>
 
@@ -276,7 +276,7 @@ export function LoginFormGlass() {
           }}
         >
           <span className="relative z-10">
-            {isPending ? "Signing you in…" : "Sign in"}
+            {isPending ? "Signing you in…" : "Sign In"}
           </span>
           {!isPending && (
             <ArrowRight

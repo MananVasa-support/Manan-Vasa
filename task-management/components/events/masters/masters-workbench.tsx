@@ -127,11 +127,11 @@ function CategoryPanel({ categories }: { categories: CategoryVM[] }) {
     <section className="wg-rise overflow-hidden rounded-2xl border border-hairline bg-surface-card">
       <PanelHeader
         Icon={Palette}
-        title="Event categories"
+        title="Event Categories"
         count={active.length}
         note={savingOrder ? "Saving order…" : "Drag to reorder — the legend follows this order."}
         onAdd={() => setEditing("new")}
-        addLabel="Add category"
+        addLabel="Add Category"
       />
 
       <div className="p-3">
@@ -324,11 +324,11 @@ function BatchTypePanel({
     <section className="wg-rise overflow-hidden rounded-2xl border border-hairline bg-surface-card" style={{ animationDelay: "60ms" }}>
       <PanelHeader
         Icon={CalendarClock}
-        title="Batch types"
+        title="Batch Types"
         count={active.length}
         note="The section types that auto-block the calendar from schedules."
         onAdd={() => setEditing("new")}
-        addLabel="Add batch type"
+        addLabel="Add Batch Type"
       />
 
       <div className="p-3">

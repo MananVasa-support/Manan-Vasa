@@ -193,7 +193,7 @@ export function ReferralDrawer({
               className="text-ink-strong"
               style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em", lineHeight: 1.1 }}
             >
-              {isEdit ? prospectName || "Referral" : "Add a referral"}
+              {isEdit ? prospectName || "Referral" : "Add a Referral"}
             </h2>
           </div>
           <button
@@ -221,7 +221,7 @@ export function ReferralDrawer({
               </Field>
             )}
 
-            <Field label="Prospect name" required htmlFor="amb-prospect">
+            <Field label="Prospect Name" required htmlFor="amb-prospect">
               <input
                 id="amb-prospect"
                 ref={nameRef}
@@ -270,7 +270,7 @@ export function ReferralDrawer({
             </div>
 
             <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-              <Field label="Deal amount (₹)" htmlFor="amb-amount">
+              <Field label="Deal Amount (₹)" htmlFor="amb-amount">
                 <div className="relative">
                   <IndianRupee
                     size={16}
@@ -300,7 +300,7 @@ export function ReferralDrawer({
             </div>
 
             <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-              <Field label="Assigned to">
+              <Field label="Assigned To">
                 <LookupSelect
                   label="owner"
                   value={assignedToId}
@@ -329,7 +329,7 @@ export function ReferralDrawer({
             </div>
 
             <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-              <Field label="Received on" htmlFor="amb-received">
+              <Field label="Received On" htmlFor="amb-received">
                 <input
                   id="amb-received"
                   type="date"
@@ -338,7 +338,7 @@ export function ReferralDrawer({
                   onChange={(e) => setReceivedOn(e.target.value)}
                 />
               </Field>
-              <Field label="Expected close" htmlFor="amb-close">
+              <Field label="Expected Close" htmlFor="amb-close">
                 <input
                   id="amb-close"
                   type="date"
@@ -392,7 +392,7 @@ export function ReferralDrawer({
               }}
             >
               {submitting ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} strokeWidth={2.4} />}
-              {isEdit ? "Save changes" : "Add referral"}
+              {isEdit ? "Save Changes" : "Add Referral"}
             </button>
           </div>
         </form>

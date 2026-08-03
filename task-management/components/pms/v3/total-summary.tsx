@@ -123,7 +123,7 @@ export function TotalSummary({
                 letterSpacing: "-0.02em",
               }}
             >
-              Overall monthly score
+              Overall Monthly Score
             </h2>
             <span
               className="rounded-pill px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.1em]"
@@ -136,7 +136,7 @@ export function TotalSummary({
                 className="inline-flex items-center gap-1 rounded-pill px-2.5 py-0.5 text-[11px] font-bold"
                 style={{ background: "color-mix(in srgb, #d97706 14%, transparent)", color: "#b45309" }}
               >
-                <TriangleAlert size={11} strokeWidth={2.6} /> In progress
+                <TriangleAlert size={11} strokeWidth={2.6} /> In Progress
               </span>
             )}
           </div>
@@ -266,7 +266,7 @@ export function TotalBadge({
         style={{ background: "color-mix(in srgb, #d97706 12%, transparent)", color: "#b45309" }}
         title={total.pendingReasons.join(" · ")}
       >
-        <TriangleAlert size={11} strokeWidth={2.6} /> In progress
+        <TriangleAlert size={11} strokeWidth={2.6} /> In Progress
         {total.bandResolved && <span className="tabular-nums opacity-70">· {total.total.toFixed(0)}</span>}
       </span>
     );

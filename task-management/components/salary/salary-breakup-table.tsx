@@ -370,7 +370,7 @@ function PaidToggle({ row }: { row: SalaryRow }) {
       }
     >
       {busy ? <Loader2 size={12} className="animate-spin" /> : paid ? <Check size={12} strokeWidth={3} /> : null}
-      {paid ? "Paid" : "Mark paid"}
+      {paid ? "Paid" : "Mark Paid"}
     </button>
   );
 }
@@ -798,7 +798,7 @@ export function SalaryBreakupTable({
                 aria-label="Filter by company"
                 className="admin-filter-select"
               >
-                <option value="__all">All companies</option>
+                <option value="__all">All Companies</option>
                 {companies.map((c) => (
                   <option key={c} value={c}>
                     {c}

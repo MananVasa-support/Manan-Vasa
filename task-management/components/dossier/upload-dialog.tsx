@@ -79,7 +79,7 @@ export function UploadDialog({
         <div className="flex items-center gap-3 px-6 py-5" style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}>
           <UploadCloud size={20} strokeWidth={2.2} className="text-white" />
           <div className="min-w-0 flex-1">
-            <div className="text-[16px] font-black text-white">Add a document</div>
+            <div className="text-[16px] font-black text-white">Add a Document</div>
             <div className="truncate text-[12.5px] font-semibold text-white/80">to {employeeName}&apos;s dossier</div>
           </div>
           <button type="button" onClick={() => !busy && onClose()} className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25" aria-label="Close">
@@ -159,7 +159,7 @@ export function UploadDialog({
               style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`, boxShadow: `0 8px 20px -10px ${RED_DEEP}` }}
             >
               {busy ? <Loader2 size={15} className="animate-spin" /> : <UploadCloud size={15} strokeWidth={2.4} />}
-              {busy ? "Uploading…" : "Add document"}
+              {busy ? "Uploading…" : "Add Document"}
             </button>
           </div>
         </form>

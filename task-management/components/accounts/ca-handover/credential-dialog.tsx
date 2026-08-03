@@ -133,7 +133,7 @@ export function CredentialDialog({
           <div className="shrink-0 flex items-center justify-between gap-4 px-6 py-4 border-b border-hairline">
             <div>
               <Dialog.Title className="font-serif italic text-ink-strong" style={{ fontSize: 22, fontWeight: 600 }}>
-                {isEdit ? "Edit login" : "Add login"}
+                {isEdit ? "Edit Login" : "Add Login"}
               </Dialog.Title>
               <Dialog.Description className="text-ink-subtle font-medium" style={{ fontSize: 13 }}>
                 Credential is stored encrypted at rest{isEdit ? " · leave password blank to keep the current one" : ""}.
@@ -157,7 +157,7 @@ export function CredentialDialog({
           >
             <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
               <label className="block">
-                <span className="mb-1 block text-[12px] font-bold text-ink-soft">Portal type</span>
+                <span className="mb-1 block text-[12px] font-bold text-ink-soft">Portal Type</span>
                 <LookupSelect
                   label="portal"
                   value={draft.portalType}
@@ -167,7 +167,7 @@ export function CredentialDialog({
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-[12px] font-bold text-ink-soft">Entity name</span>
+                <span className="mb-1 block text-[12px] font-bold text-ink-soft">Entity Name</span>
                 <input ref={firstRef} value={draft.entityName} onChange={(e) => set({ entityName: e.target.value })} placeholder="e.g. Altus Corp Pvt Ltd" className={field} />
               </label>
 
@@ -195,16 +195,16 @@ export function CredentialDialog({
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-[12px] font-bold text-ink-soft">Phone no.</span>
+                <span className="mb-1 block text-[12px] font-bold text-ink-soft">Phone No.</span>
                 <input value={draft.phone} onChange={(e) => set({ phone: e.target.value })} placeholder="Registered mobile" className={field} inputMode="tel" />
               </label>
               <label className="block">
-                <span className="mb-1 block text-[12px] font-bold text-ink-soft">Default email</span>
+                <span className="mb-1 block text-[12px] font-bold text-ink-soft">Default Email</span>
                 <input value={draft.defaultEmail} onChange={(e) => set({ defaultEmail: e.target.value })} placeholder="Registered email" className={field} inputMode="email" autoComplete="off" />
               </label>
 
               <label className="block col-span-2 max-md:col-span-1">
-                <span className="mb-1 block text-[12px] font-bold text-ink-soft">Website link</span>
+                <span className="mb-1 block text-[12px] font-bold text-ink-soft">Website Link</span>
                 <input value={draft.websiteLink} onChange={(e) => set({ websiteLink: e.target.value })} placeholder="https://…" className={field} inputMode="url" />
               </label>
 
@@ -217,10 +217,10 @@ export function CredentialDialog({
             <div className="mt-4 rounded-xl border border-hairline p-4">
               <p className="mb-2 text-[12px] font-bold text-ink-soft uppercase tracking-[0.06em]">Handover status</p>
               <div className="grid grid-cols-2 gap-2.5 max-md:grid-cols-1">
-                <Toggle label="Email updated" checked={draft.emailUpdated} onChange={(v) => set({ emailUpdated: v })} />
-                <Toggle label="Password reset" checked={draft.passwordReset} onChange={(v) => set({ passwordReset: v })} />
-                <Toggle label="Primary phone updated" checked={draft.primaryPhoneUpdated} onChange={(v) => set({ primaryPhoneUpdated: v })} />
-                <Toggle label="Secondary phone updated" checked={draft.secondaryPhoneUpdated} onChange={(v) => set({ secondaryPhoneUpdated: v })} />
+                <Toggle label="Email Updated" checked={draft.emailUpdated} onChange={(v) => set({ emailUpdated: v })} />
+                <Toggle label="Password Reset" checked={draft.passwordReset} onChange={(v) => set({ passwordReset: v })} />
+                <Toggle label="Primary Phone Updated" checked={draft.primaryPhoneUpdated} onChange={(v) => set({ primaryPhoneUpdated: v })} />
+                <Toggle label="Secondary Phone Updated" checked={draft.secondaryPhoneUpdated} onChange={(v) => set({ secondaryPhoneUpdated: v })} />
               </div>
             </div>
           </div>
@@ -237,7 +237,7 @@ export function CredentialDialog({
               style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
             >
               {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} strokeWidth={2.6} />}
-              {isEdit ? "Save changes" : "Add login"}
+              {isEdit ? "Save Changes" : "Add Login"}
             </button>
           </div>
         </Dialog.Content>

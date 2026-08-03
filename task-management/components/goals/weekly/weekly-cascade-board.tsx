@@ -359,7 +359,7 @@ export function WeeklyCascadeBoard({
                 className="wg-btn shrink-0 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold text-altus-red outline-none transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)] focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60"
                 style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 30%, transparent)" }}
               >
-                This week
+                This Week
               </button>
             )}
           </div>
@@ -382,7 +382,7 @@ export function WeeklyCascadeBoard({
           }}
         >
           <Plus size={14} strokeWidth={2.8} />
-          Add weekly goal
+          Add Weekly Goal
         </button>
         <div className="shrink-0">
           <WeeklyGoalsImport
@@ -809,7 +809,7 @@ const WeeklyQuickAdd = React.forwardRef<
         >
           <Plus size={16} strokeWidth={2.8} />
         </span>
-        Add weekly goal
+        Add Weekly Goal
       </button>
 
       <WeeklyGoalDrawer
@@ -998,7 +998,7 @@ const WeeklyQuickAdd = React.forwardRef<
 
           {/* Link up to a monthly cascade goal (optional parent). */}
           <label className="block">
-            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Monthly goal</span>
+            <span className="mb-1 block text-[12px] font-bold text-ink-soft">Monthly Goal</span>
             <Select
               value={monthGoalId}
               onValueChange={setMonthGoalId}

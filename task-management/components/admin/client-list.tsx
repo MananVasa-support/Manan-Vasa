@@ -340,7 +340,7 @@ function EditClientDialog({
         <Dialog.Overlay className="fixed inset-0 bg-black/30 z-[90]" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-[100] -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-xl bg-white border border-[#E2E8F0] p-6 shadow-lg max-h-[calc(100dvh-32px)] overflow-y-auto">
           <Dialog.Title className="font-serif text-xl text-[#0F172A] mb-1">
-            Edit client
+            Edit Client
           </Dialog.Title>
           <Dialog.Description className="text-[15px] text-[#64748B] mb-4">
             Renaming updates the Client Name on every task filed under the old
@@ -434,7 +434,7 @@ function DeleteClientDialog({
         <Dialog.Overlay className="fixed inset-0 bg-black/30 z-[90]" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-[100] -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-xl bg-white border border-[#E2E8F0] p-6 shadow-lg">
           <Dialog.Title className="font-serif text-xl text-[#0F172A] mb-1">
-            Delete client
+            Delete Client
           </Dialog.Title>
           <Dialog.Description className="text-[15px] text-[#64748B] mb-4">
             Remove <strong className="text-ink-strong">“{client?.name}”</strong>{" "}

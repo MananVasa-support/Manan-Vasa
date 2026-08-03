@@ -118,7 +118,7 @@ export function ConstitutionScorer({
             style={{ background: `linear-gradient(135deg, ${accent}, ${accentDeep})` }}
           >
             {savingWeights ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} strokeWidth={2.6} />}
-            Save weights
+            Save Weights
           </button>
         </div>
       )}

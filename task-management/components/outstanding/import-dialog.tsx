@@ -261,7 +261,7 @@ export function OutstandingImportDialog() {
             <div className="mt-4 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-4 space-y-3">
               <div>
                 <label className="block text-[13px] font-semibold text-[#0F172A] mb-1">
-                  Outstanding sheet URL
+                  Outstanding Sheet URL
                 </label>
                 <input
                   type="url"
@@ -273,7 +273,7 @@ export function OutstandingImportDialog() {
               </div>
               <div>
                 <label className="block text-[13px] font-semibold text-[#0F172A] mb-1">
-                  Collection sheet URL{" "}
+                  Collection Sheet URL{" "}
                   <span className="font-normal text-[#94A3B8]">(optional)</span>
                 </label>
                 <input
@@ -388,7 +388,7 @@ export function OutstandingImportDialog() {
                   style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}
                 >
                   <CheckCircle2 size={15} strokeWidth={2.2} />
-                  {pending ? "Importing…" : "Confirm import"}
+                  {pending ? "Importing…" : "Confirm Import"}
                 </button>
               </div>
             </div>

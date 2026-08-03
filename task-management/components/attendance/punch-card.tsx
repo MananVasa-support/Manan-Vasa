@@ -244,7 +244,7 @@ export function PunchCard({
   const mode: DiscMode = checkedIn && checkedOut ? "done" : checkedIn ? "out" : "in";
   const status =
     mode === "done"
-      ? { label: "Day complete", sub: `In ${inLabel} · Out ${outLabel}`, dot: "#94a3b8" }
+      ? { label: "Day Complete", sub: `In ${inLabel} · Out ${outLabel}`, dot: "#94a3b8" }
       : mode === "out"
         ? { label: `Checked in · since ${inLabel}`, sub: "Tap the dial when you're heading out", dot: "var(--color-green)" }
         : { label: "Ready to check in", sub: "One tap when you reach the office", dot: GREEN };
@@ -384,7 +384,7 @@ export function PunchCard({
             className="inline-flex items-center gap-1.5 rounded-pill border border-solid px-3 py-1.5 text-[12.5px] font-bold text-ink-muted transition-colors hover:text-ink-soft"
             style={{ borderColor: "var(--color-hairline-strong)" }}
           >
-            <Plus size={13} strokeWidth={2.6} /> Add a note or reason {note.trim() ? "· added" : ""}
+            <Plus size={13} strokeWidth={2.6} /> Add a Note or Reason {note.trim() ? "· added" : ""}
           </button>
         ) : (
           <>
@@ -516,7 +516,7 @@ const DISC_STYLE: Record<DiscMode, { bg: string; glow: string; halo: string; rin
     glow: "0 26px 60px -18px rgba(225,6,0,0.55), inset 0 2px 0 rgba(255,255,255,0.30), inset 0 -10px 24px rgba(0,0,0,0.22)",
     halo: "0 0 44px 4px rgba(225,6,0,0.30)",
     ring: "rgba(225,6,0,0.35)",
-    label: "Check in",
+    label: "Check In",
     sub: "Tap to punch",
   },
   // Check OUT = red (leaving).
@@ -525,7 +525,7 @@ const DISC_STYLE: Record<DiscMode, { bg: string; glow: string; halo: string; rin
     glow: "0 26px 60px -18px rgba(225,6,0,0.5), inset 0 2px 0 rgba(255,255,255,0.28), inset 0 -10px 24px rgba(0,0,0,0.24)",
     halo: "0 0 44px 4px rgba(225,6,0,0.28)",
     ring: "rgba(225,6,0,0.30)",
-    label: "Check out",
+    label: "Check Out",
     sub: "Tap to punch",
   },
   done: {
@@ -533,7 +533,7 @@ const DISC_STYLE: Record<DiscMode, { bg: string; glow: string; halo: string; rin
     glow: "0 18px 44px -20px rgba(51,65,85,0.5), inset 0 2px 0 rgba(255,255,255,0.2), inset 0 -10px 24px rgba(0,0,0,0.22)",
     halo: "none",
     ring: "rgba(51,65,85,0.30)",
-    label: "Day complete",
+    label: "Day Complete",
     sub: "See you tomorrow",
   },
 };

@@ -113,21 +113,21 @@ export function CommissionCenter({ owed, paid }: { owed: ReferralRow[]; paid: Re
           icon={Wallet}
           tint="rgba(214,138,20,0.12)"
           value={inrCompact(totalOwed)}
-          label="Commission owed"
+          label="Commission Owed"
           sub={`${owed.length} ${owed.length === 1 ? "referral" : "referrals"} awaiting payout`}
         />
         <KpiTile
           icon={Check}
           tint="rgba(20,140,80,0.12)"
           value={inrCompact(totalPaid)}
-          label="Commission paid"
+          label="Commission Paid"
           sub={`${paid.length} ${paid.length === 1 ? "referral" : "referrals"} settled`}
         />
         <KpiTile
           icon={Receipt}
           tint="rgba(225,6,0,0.10)"
           value={String(owedAmbassadors)}
-          label={owedAmbassadors === 1 ? "Partner owed money" : "Partners owed money"}
+          label={owedAmbassadors === 1 ? "Partner Owed Money" : "Partners Owed Money"}
           sub="Ready to settle"
         />
       </div>
@@ -259,7 +259,7 @@ export function CommissionCenter({ owed, paid }: { owed: ReferralRow[]; paid: Re
 
       {/* ── Payment history ── */}
       <section>
-        <SectionHeading title="Payment history" hint="Commissions already settled, newest first." icon={History} />
+        <SectionHeading title="Payment History" hint="Commissions already settled, newest first." icon={History} />
         {paid.length === 0 ? (
           <EmptyState icon={History} text="No payouts recorded yet." />
         ) : (
@@ -325,7 +325,7 @@ export function CommissionCenter({ owed, paid }: { owed: ReferralRow[]; paid: Re
                 className="inline-flex items-center gap-2 rounded-xl py-2.5 px-5 text-[15px] font-bold text-white transition-transform active:scale-[0.99]"
                 style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}
               >
-                <Wallet size={16} strokeWidth={2.6} /> Record payout
+                <Wallet size={16} strokeWidth={2.6} /> Record Payout
               </button>
             </div>
           </div>
@@ -467,7 +467,7 @@ function PayoutModal({
             />
           </Field>
           <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-            <Field label="Paid on">
+            <Field label="Paid On">
               <input type="date" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} className={INPUT} aria-label="Paid on date" />
             </Field>
             <Field label="Method">
@@ -526,7 +526,7 @@ function PayoutModal({
             className="inline-flex items-center gap-2 rounded-xl py-2.5 px-5 text-[15px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-60"
             style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}
           >
-            <Check size={16} strokeWidth={2.6} /> {busy ? "Recording…" : "Record payout"}
+            <Check size={16} strokeWidth={2.6} /> {busy ? "Recording…" : "Record Payout"}
           </button>
         </div>
       </div>

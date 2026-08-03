@@ -1722,7 +1722,7 @@ function DupCollisionDialog({
               className={cn("rounded-lg border px-3.5 py-2 text-[13px] font-bold text-ink-strong transition-colors hover:border-altus-red hover:text-altus-red", FOCUS_RING)}
               style={{ borderColor: "var(--color-hairline-strong)" }}
             >
-              Skip duplicates
+              Skip Duplicates
             </button>
             <button
               type="button"

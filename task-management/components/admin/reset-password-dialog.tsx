@@ -81,7 +81,7 @@ export function ResetPasswordDialog({ open, onOpenChange, employee }: Props) {
           <div className="space-y-3 mt-4">
             <label className="block">
               <span className="block text-[13px] font-semibold text-[#334155] mb-1.5">
-                New password
+                New Password
               </span>
               <div className="relative">
                 <input
@@ -110,7 +110,7 @@ export function ResetPasswordDialog({ open, onOpenChange, employee }: Props) {
 
             <label className="block">
               <span className="block text-[13px] font-semibold text-[#334155] mb-1.5">
-                Confirm password
+                Confirm Password
               </span>
               <input
                 type={show ? "text" : "password"}
@@ -134,7 +134,7 @@ export function ResetPasswordDialog({ open, onOpenChange, employee }: Props) {
               className="brand-btn inline-flex items-center gap-1.5 text-[13px] font-medium text-[#A80400] hover:underline"
             >
               <Sparkles size={14} />
-              Generate strong password
+              Generate Strong Password
             </button>
           </div>
 
@@ -155,7 +155,7 @@ export function ResetPasswordDialog({ open, onOpenChange, employee }: Props) {
               className="rounded-md py-2.5 px-5 text-[14px] font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}
             >
-              {pending ? "Resetting…" : "Reset password"}
+              {pending ? "Resetting…" : "Reset Password"}
             </button>
           </div>
         </Dialog.Content>

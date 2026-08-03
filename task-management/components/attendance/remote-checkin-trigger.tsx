@@ -22,7 +22,7 @@ export function RemoteCheckInTrigger({ hasCheckedIn, hasCheckedOut }: { hasCheck
           <span className="block text-[14.5px] font-black text-ink-strong">Working from home or on-site?</span>
           <span className="block text-[12.5px] font-medium text-ink-subtle">Log attendance with location, reason & a photo</span>
         </span>
-        <span className="shrink-0 rounded-pill px-3 py-1.5 text-[12.5px] font-bold text-white" style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}>Log it →</span>
+        <span className="shrink-0 rounded-pill px-3 py-1.5 text-[12.5px] font-bold text-white" style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}>Log It →</span>
       </button>
       {open && <RemoteCheckInDialog hasCheckedIn={hasCheckedIn} hasCheckedOut={hasCheckedOut} onClose={() => setOpen(false)} />}
     </>

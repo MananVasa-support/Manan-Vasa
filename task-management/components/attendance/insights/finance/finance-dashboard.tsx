@@ -26,9 +26,9 @@ import type {
 
 const BUCKETS = [
   { key: "absence", label: "Absence", color: "var(--color-altus-red)", deep: "var(--color-altus-red-deep)" },
-  { key: "unpaidLeave", label: "Unpaid leave", color: "var(--color-orange)", deep: "var(--color-orange-deep)" },
-  { key: "halfDay", label: "Half-days", color: "var(--color-amber)", deep: "var(--color-amber-deep)" },
-  { key: "latePenalty", label: "Late penalty", color: "var(--color-slate)", deep: "var(--color-slate-deep)" },
+  { key: "unpaidLeave", label: "Unpaid Leave", color: "var(--color-orange)", deep: "var(--color-orange-deep)" },
+  { key: "halfDay", label: "Half-Days", color: "var(--color-amber)", deep: "var(--color-amber-deep)" },
+  { key: "latePenalty", label: "Late Penalty", color: "var(--color-slate)", deep: "var(--color-slate-deep)" },
 ] as const;
 
 /** Compact ₹ for hero tiles: crore / lakh / grouped. */
@@ -260,7 +260,7 @@ export function FinanceDashboard({ data }: { data: FinanceAttendanceAnalytics })
       {/* ── Charts row: bucket donut + per-dept loss bars ───────────── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <Card
-          title="Where the money goes"
+          title="Where the Money Goes"
           subtitle="Salary lost, split by reason"
           icon={<PieIcon size={18} strokeWidth={2.4} />}
         >
@@ -301,7 +301,7 @@ export function FinanceDashboard({ data }: { data: FinanceAttendanceAnalytics })
         </Card>
 
         <Card
-          title="Payroll loss by department"
+          title="Payroll Loss by Department"
           subtitle="Total ₹ lost per department (top 12)"
           icon={<BadgeIndianRupee size={18} strokeWidth={2.4} />}
         >
@@ -315,7 +315,7 @@ export function FinanceDashboard({ data }: { data: FinanceAttendanceAnalytics })
 
       {/* ── Per-department table ────────────────────────────────────── */}
       <Card
-        title="Department breakdown"
+        title="Department Breakdown"
         subtitle={`Loss is ${lossPct.toFixed(1)}% of ${compactInr(data.totalMonthlyCtc)} monthly CTC`}
         icon={<BadgeIndianRupee size={18} strokeWidth={2.4} />}
       >
@@ -357,7 +357,7 @@ export function FinanceDashboard({ data }: { data: FinanceAttendanceAnalytics })
 
       {/* ── Per-employee ₹ table ────────────────────────────────────── */}
       <Card
-        title="Salary lost by person"
+        title="Salary Lost by Person"
         subtitle="Highest loss first · click a row for the daily log"
         icon={<TrendingDown size={18} strokeWidth={2.4} />}
       >

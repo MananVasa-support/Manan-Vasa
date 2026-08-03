@@ -430,7 +430,7 @@ function KpiSection({ data }: { data: ScorecardData }) {
             style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`, boxShadow: `0 8px 20px -12px ${RED_DEEP}` }}
           >
             {busy ? <Loader2 size={14} className="animate-spin" /> : ok ? <Check size={14} strokeWidth={2.6} /> : <Save size={14} strokeWidth={2.4} />}
-            {busy ? "Saving…" : ok ? "Saved" : "Save actuals"}
+            {busy ? "Saving…" : ok ? "Saved" : "Save Actuals"}
           </button>
         </div>
       ) : (
@@ -642,7 +642,7 @@ function Scorecard({ data, isAdmin }: { data: ScorecardData; isAdmin: boolean })
                 }}
               >
                 {finalized ? <ShieldCheck size={13} strokeWidth={2.6} /> : <Loader2 size={13} />}
-                {finalized ? "Finalized" : "In progress"}
+                {finalized ? "Finalized" : "In Progress"}
               </span>
             </div>
           </div>

@@ -40,7 +40,7 @@ export function SalaryCertificate({ cert, issuedOn }: SalaryCertificateProps) {
     ["Annual CTC", inr(cert.annualCtc)],
     ["Monthly CTC", inr(cert.monthlyCtc)],
     [
-      single ? "Salary month" : "Records on file",
+      single ? "Salary Month" : "Records on File",
       single
         ? cert.latestMonthLabel
         : `${cert.firstMonthLabel} – ${cert.latestMonthLabel} (${cert.monthsCount} months)`,

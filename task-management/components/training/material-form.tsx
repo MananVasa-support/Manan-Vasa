@@ -145,7 +145,7 @@ export function MaterialForm({
 
       <Section title="Content" hint="Upload a file (PDF / xls / short video) or paste a video URL.">
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-          <Field label="Material file">
+          <Field label="Material File">
             <input ref={fileInputRef} type="file" accept=".mp4,.webm,.mov,.mkv,.pdf,.xls,.xlsx" className="hidden" onChange={onPickFile} />
             {file ? (
               <div className="flex items-center gap-2 rounded-lg border border-hairline-strong bg-surface-soft px-3 py-3">
@@ -157,7 +157,7 @@ export function MaterialForm({
             ) : (
               <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className={FIELD + " flex items-center gap-2 text-ink-subtle disabled:opacity-60"}>
                 {uploading ? <Loader2 size={17} className="animate-spin" /> : <Upload size={17} strokeWidth={2.2} />}
-                {uploading ? "Uploading…" : "Choose file (≤100MB)"}
+                {uploading ? "Uploading…" : "Choose File (≤100MB)"}
               </button>
             )}
           </Field>
@@ -170,18 +170,18 @@ export function MaterialForm({
         </div>
       </Section>
 
-      <Section title="Credits & version">
+      <Section title="Credits & Version">
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-          <Field label="Created by">
+          <Field label="Created By">
             <MultiSelect options={employeeOptions} selected={createdByIds} onChange={setCreatedByIds} placeholder="Select people…" className={FIELD} />
           </Field>
-          <Field label="Assisted by">
+          <Field label="Assisted By">
             <MultiSelect options={employeeOptions} selected={assistedByIds} onChange={setAssistedByIds} placeholder="Select people…" className={FIELD} />
           </Field>
           <Field label="Version" htmlFor="version">
             <input id="version" className={FIELD} value={version} maxLength={50} onChange={(e) => setVersion(e.target.value)} placeholder="e.g. v1.0" />
           </Field>
-          <Field label="Version notes" htmlFor="vnotes">
+          <Field label="Version Notes" htmlFor="vnotes">
             <input id="vnotes" className={FIELD} value={versionNotes} maxLength={2000} onChange={(e) => setVersionNotes(e.target.value)} placeholder="What changed in this version" />
           </Field>
         </div>
@@ -190,11 +190,11 @@ export function MaterialForm({
       <Section title="Induction" hint="Flag this as induction material and choose which departments' new hires get it automatically.">
         <label className="flex items-center gap-3 cursor-pointer">
           <input type="checkbox" checked={partOfInduction} onChange={(e) => setPartOfInduction(e.target.checked)} className="size-5 rounded accent-[var(--color-altus-red)]" />
-          <span className="text-[15px] font-semibold text-ink-strong">Part of induction</span>
+          <span className="text-[15px] font-semibold text-ink-strong">Part of Induction</span>
         </label>
         {partOfInduction && (
           <div className="mt-4">
-            <label className={LABEL}>Applies to departments</label>
+            <label className={LABEL}>Applies to Departments</label>
             <MultiSelect options={departmentOptions} selected={inductionDeptIds} onChange={setInductionDeptIds} placeholder="Select departments…" className={FIELD} />
           </div>
         )}
@@ -212,7 +212,7 @@ export function MaterialForm({
         </button>
         <button type="submit" disabled={submitting || uploading} className="inline-flex items-center gap-2 rounded-xl py-3 px-7 text-[15px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-60" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}>
           {submitting ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} strokeWidth={2.4} />}
-          Add material
+          Add Material
         </button>
       </div>
     </form>

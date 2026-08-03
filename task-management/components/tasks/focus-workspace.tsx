@@ -932,7 +932,7 @@ function QuickActions({
           </span>
           <span className="flex-1 min-w-0">
             <span className="block text-white" style={{ fontSize: 15, fontWeight: 700, letterSpacing: "-0.005em" }}>
-              {task.status === "done" ? "Already done" : "Mark as done"}
+              {task.status === "done" ? "Already Done" : "Mark as Done"}
             </span>
             <span className="block mt-0.5" style={{ color: "rgba(255,255,255,0.85)", fontSize: 12.5 }}>
               Lock the work as complete
@@ -1136,7 +1136,7 @@ function ShortcutsOverlay({ onClose }: { onClose: () => void }) {
                 letterSpacing: "0.04em",
               }}
             >
-              Keyboard shortcuts
+              Keyboard Shortcuts
             </span>
           </div>
           <button

@@ -51,7 +51,7 @@ export function GoalsImport({ roster }: { roster: RosterMember[] }) {
         >
           <FileSpreadsheet size={20} strokeWidth={2.2} />
         </span>
-        <h2 className="text-[18px] font-black text-ink-strong">Import cascade goals</h2>
+        <h2 className="text-[18px] font-black text-ink-strong">Import Cascade Goals</h2>
       </div>
       <p className="mt-3 text-[14px] font-semibold text-ink-soft">
         Upload a CSV or Excel file. First row = headers; each row becomes a goal at the

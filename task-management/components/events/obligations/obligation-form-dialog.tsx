@@ -155,7 +155,7 @@ export function ObligationFormDialog({
                       lineHeight: 1.15,
                     }}
                   >
-                    {isEdit ? "Edit obligation" : "New obligation"}
+                    {isEdit ? "Edit Obligation" : "New Obligation"}
                   </Dialog.Title>
                   <Dialog.Description
                     className="mt-1 text-[14.5px] text-ink-muted"
@@ -202,7 +202,7 @@ export function ObligationFormDialog({
                     style={{ ["--tw-ring-color" as string]: `${ACCENT}33` }}
                   />
                 </Field>
-                <Field label="Monthly target" required>
+                <Field label="Monthly Target" required>
                   <input
                     type="number"
                     min={1}
@@ -247,7 +247,7 @@ export function ObligationFormDialog({
                 </span>
               </label>
 
-              <Field label="Penalty note">
+              <Field label="Penalty Note">
                 <textarea
                   value={form.penaltyNote}
                   onChange={(e) => set("penaltyNote", e.target.value)}
@@ -289,7 +289,7 @@ export function ObligationFormDialog({
                   className="brand-btn rounded-pill px-6 py-2.5 text-[15px] font-bold text-white shadow-sm transition-transform enabled:hover:-translate-y-0.5 disabled:opacity-50"
                   style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
                 >
-                  {pending ? "Saving…" : isEdit ? "Save changes" : "Add obligation"}
+                  {pending ? "Saving…" : isEdit ? "Save Changes" : "Add Obligation"}
                 </button>
               </div>
             </form>

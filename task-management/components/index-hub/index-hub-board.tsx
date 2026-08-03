@@ -80,7 +80,7 @@ export function IndexHubBoard({ sections, isAdmin }: Props) {
             }
           >
             {editing ? <Check size={16} strokeWidth={2.4} /> : <Pencil size={16} strokeWidth={2.4} />}
-            {editing ? "Done editing" : "Edit"}
+            {editing ? "Done Editing" : "Edit"}
           </button>
         )}
       </header>
@@ -361,7 +361,7 @@ function AddLink({ sectionId }: { sectionId: string }) {
         style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
       >
         {pending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-        Add button
+        Add Button
       </button>
       {error && <span className="w-full text-[12.5px] font-semibold text-altus-red">{error}</span>}
     </div>
@@ -409,7 +409,7 @@ function AddSection() {
         style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
       >
         {pending ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
-        Add section
+        Add Section
       </button>
       {error && <span className="w-full text-[13px] font-semibold text-altus-red">{error}</span>}
     </div>

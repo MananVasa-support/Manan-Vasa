@@ -47,7 +47,7 @@ export function ActivityFeed({ rows }: { rows: ActivityRowProp[] }) {
       }}
     >
       <SectionHeader
-        title="Recent activity"
+        title="Recent Activity"
         description="Everything you did in the last 30 days. Updates as you work."
         savedAt={null}
       />

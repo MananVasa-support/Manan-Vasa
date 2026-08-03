@@ -234,7 +234,7 @@ export function CcMaster({
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search cards, entity…" className="w-full bg-transparent py-2.5 text-[15px] font-medium text-ink-strong outline-none placeholder:font-normal placeholder:text-ink-subtle" />
         </div>
         <select className="rounded-lg border border-hairline-strong bg-white px-3 py-2 text-[14px] font-semibold text-ink-strong outline-none focus:border-[color:var(--color-altus-red)]" value={fEntity} onChange={(e) => setFEntity(e.target.value)} aria-label="Filter by entity">
-          <option value="">All entities</option>
+          <option value="">All Entities</option>
           {entities.map((a) => (<option key={a} value={a}>{a}</option>))}
         </select>
         {hasFilters && (
@@ -253,7 +253,7 @@ export function CcMaster({
             <Download size={15} strokeWidth={2.4} /> Export
           </a>
           <button type="button" onClick={startAdd} className="inline-flex items-center gap-2 rounded-xl py-2.5 px-4 text-[14.5px] font-bold text-white transition-transform active:scale-[0.99]" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 10px 26px -12px rgba(225,6,0,0.6)" }}>
-            <Plus size={16} strokeWidth={2.6} /> Add card
+            <Plus size={16} strokeWidth={2.6} /> Add Card
           </button>
         </div>
       </div>
@@ -280,7 +280,7 @@ export function CcMaster({
                   <p className="text-[15px] font-semibold text-ink-muted">{hasFilters ? "No cards match these filters." : "No cards for this financial year yet."}</p>
                   {!hasFilters && (
                     <button type="button" onClick={startAdd} className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red">
-                      <Plus size={15} strokeWidth={2.6} /> Add the first card
+                      <Plus size={15} strokeWidth={2.6} /> Add the First Card
                     </button>
                   )}
                 </td>
@@ -330,7 +330,7 @@ export function CcMaster({
           <button type="button" onClick={() => setShowArchived((s) => !s)} className="flex w-full items-center gap-2 px-4 py-3 text-left">
             {showArchived ? <ChevronDown size={16} className="text-ink-subtle" /> : <ChevronRight size={16} className="text-ink-subtle" />}
             <Archive size={15} className="text-ink-subtle" strokeWidth={2.2} />
-            <span className="text-[13.5px] font-bold text-ink-soft">Archived cards</span>
+            <span className="text-[13.5px] font-bold text-ink-soft">Archived Cards</span>
             <span className="rounded-full bg-surface-soft px-2 py-0.5 text-[11.5px] font-bold text-ink-subtle">{archivedCards.length}</span>
           </button>
           {showArchived && (
@@ -567,7 +567,7 @@ function CardEditorRow({ colSpan, draft, setDraft, entityOptions, onSave, onCanc
             <X size={16} strokeWidth={2.4} /> Cancel
           </button>
           <button type="button" onClick={onSave} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[14px] font-bold text-white disabled:opacity-50" style={{ background: "var(--color-altus-red)" }}>
-            {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.6} />} {adding ? "Add card" : "Save changes"}
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.6} />} {adding ? "Add Card" : "Save Changes"}
           </button>
         </div>
       </td>

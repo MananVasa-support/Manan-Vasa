@@ -34,11 +34,11 @@ export default async function AppraisalConfigPage() {
             <Settings size={13} strokeWidth={2.6} /> Appraisal · Config
           </span>
           <h1 className="mt-3 text-[30px] font-black text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", letterSpacing: "-0.02em" }}>
-            Appraisal configuration
+            Appraisal Configuration
           </h1>
           <p className="mt-1 text-[14px] text-ink-muted">Dimension weights, rating terms and the auto-dimension knobs. The scoring engine reads only this.</p>
           <Link href={"/appraisal/culture" as Route} className="mt-3 inline-flex items-center gap-1.5 rounded-pill border-2 bg-white/70 px-3.5 py-1.5 text-[13px] font-bold" style={{ borderColor: `color-mix(in srgb, ${ACCENT} 40%, transparent)`, color: ACCENT_DEEP }}>
-            <BookOpen size={14} /> Manage Culture rotation
+            <BookOpen size={14} /> Manage Culture Rotation
           </Link>
         </header>
 

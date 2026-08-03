@@ -409,7 +409,7 @@ export function AllocationBanner(props: {
                       style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
                     >
                       {busy && <Loader2 size={12} className="animate-spin" aria-hidden="true" />}
-                      Apply rebalance
+                      Apply Rebalance
                     </button>
                   </div>
                 </div>

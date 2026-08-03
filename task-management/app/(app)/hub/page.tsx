@@ -77,13 +77,14 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
           <h3 className="text-[22px] font-extrabold leading-none tracking-tight max-md:text-[20px]" style={{ color: p.ink }}>
             {m.label}
           </h3>
-          {/* Clamp to 2 lines so the tagline can never push the button off-card. */}
-          <p className="mt-1.5 line-clamp-2 text-[12.5px] font-medium leading-snug" style={{ color: p.inkSoft }}>
+          {/* Cards grow to fit (min-h + grid stretch equalises the row), so the
+              full tagline shows without ever being clipped mid-line. */}
+          <p className="mt-1.5 line-clamp-3 text-[12.5px] font-medium leading-snug" style={{ color: p.inkSoft }}>
             {m.tagline}
           </p>
           {locked ? (
             <span className="mt-2.5 inline-flex items-center gap-1.5 rounded-pill bg-black/10 px-3 py-1 text-[12.5px] font-bold" style={{ color: p.ink }}>
-              <Lock size={13} strokeWidth={2.5} /> No access
+              <Lock size={13} strokeWidth={2.5} /> No Access
             </span>
           ) : (
             <span className="mt-2.5 inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-[13px] font-bold text-white" style={{ background: p.ink }}>
@@ -97,7 +98,7 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
   );
 
   const base =
-    "wg-rise group relative block h-[236px] overflow-hidden rounded-[28px] shadow-md max-md:h-[204px]";
+    "wg-rise group relative block h-full min-h-[236px] overflow-hidden rounded-[28px] shadow-md max-md:min-h-[204px]";
   const bg = { background: `linear-gradient(145deg, ${p.from}, ${p.to})` };
 
   if (locked) {

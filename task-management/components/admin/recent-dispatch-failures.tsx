@@ -27,7 +27,7 @@ export function RecentDispatchFailures({ rows, totals }: Props) {
     <section className="mt-10 max-w-5xl">
       <header className="mb-4 flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h3 className="text-display-xs">Recent dispatch failures</h3>
+          <h3 className="text-display-xs">Recent Dispatch Failures</h3>
           <p className="text-body text-ink-subtle mt-1">
             Sends that didn't land. The retry cron picks `failed` rows up
             every 5 minutes; `terminal` rows have hit the 3-attempt cap and

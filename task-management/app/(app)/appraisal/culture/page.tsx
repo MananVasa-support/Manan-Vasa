@@ -36,7 +36,7 @@ export default async function AppraisalCulturePage() {
             <BookOpen size={13} strokeWidth={2.6} /> Appraisal · Culture pool
           </span>
           <h1 className="mt-3 text-[30px] font-black text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", letterSpacing: "-0.02em" }}>
-            Culture rotation
+            Culture Rotation
           </h1>
           <p className="mt-1 max-w-[70ch] text-[14px] text-ink-muted">
             The Altus Corp Constitution items, in rotation order. Each month the next {config.culturePerMonth} are auto-assigned serial-wise (in sequence, never random) and rated together as one Culture item. Reorder here to change which items the rotation reaches first.

@@ -23,7 +23,7 @@ const TYPE_META: Record<string, { icon: LucideIcon; tint: string; ink: string; l
   meeting: { icon: Users2, tint: "rgba(59,130,246,0.12)", ink: "#1d4ed8", label: "Meeting" },
   email: { icon: Mail, tint: "rgba(168,85,247,0.12)", ink: "#7c3aed", label: "Email" },
   whatsapp: { icon: MessageCircle, tint: "rgba(20,140,80,0.12)", ink: "var(--color-green-deep, #0f7a47)", label: "WhatsApp" },
-  stage_change: { icon: GitBranch, tint: "rgba(214,138,20,0.14)", ink: "#9a5a00", label: "Stage change" },
+  stage_change: { icon: GitBranch, tint: "rgba(214,138,20,0.14)", ink: "#9a5a00", label: "Stage Change" },
   commission: { icon: Wallet, tint: "rgba(20,140,80,0.12)", ink: "var(--color-green-deep, #0f7a47)", label: "Commission" },
   reminder: { icon: Sparkles, tint: "rgba(225,6,0,0.10)", ink: "var(--color-altus-red-deep)", label: "Reminder" },
   system: { icon: Sparkles, tint: "rgba(80,80,100,0.10)", ink: "#4a4a57", label: "System" },

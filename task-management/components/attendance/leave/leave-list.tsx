@@ -284,7 +284,7 @@ function LeaveCard({ row, mode }: { row: LeaveRow; mode: "mine" | "pending" }) {
                 className="bg-surface-card wg-btn rounded-lg px-3.5 py-2 text-[13px] font-bold text-ink-soft hover:text-ink-strong disabled:opacity-50"
                 style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}
               >
-                Cancel request
+                Cancel Request
               </button>
             )}
           </div>

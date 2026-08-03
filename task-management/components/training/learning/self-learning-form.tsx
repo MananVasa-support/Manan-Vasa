@@ -134,7 +134,7 @@ export function SelfLearningForm() {
           />
         </div>
         <div>
-          <label className={LABEL}>Source link (optional)</label>
+          <label className={LABEL}>Source Link (optional)</label>
           <input
             type="url"
             inputMode="url"
@@ -164,7 +164,7 @@ export function SelfLearningForm() {
         </div>
         <div className="col-span-2 max-md:col-span-1">
           <label className={LABEL}>
-            Evidence link <span style={{ color: ACCENT_DEEP }}>· required</span>
+            Evidence Link <span style={{ color: ACCENT_DEEP }}>· required</span>
           </label>
           <input
             type="url"
@@ -212,7 +212,7 @@ export function SelfLearningForm() {
           className="brand-btn inline-flex items-center gap-2 rounded-xl py-3 px-7 text-[15px] font-bold text-white transition-transform active:scale-[0.99] disabled:opacity-60"
           style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}
         >
-          {submitting ? <Loader2 size={17} className="animate-spin" /> : <Plus size={17} strokeWidth={2.6} />} Log learning
+          {submitting ? <Loader2 size={17} className="animate-spin" /> : <Plus size={17} strokeWidth={2.6} />} Log Learning
         </button>
       </div>
     </form>

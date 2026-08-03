@@ -147,7 +147,12 @@ export function LetterEditor({
   // Who signs this letter (Director vs HR desk) + whether it's the CTC letter
   // (which gets the percentage calculator panel).
   const signatory = useMemo(() => signatoryOf(template), [template]);
-  const isCtc = template.key === "ctc-breakup";
+  // The percentage calculator drives the structured CTC table — shown for every
+  // letter that embeds it: CTC Breakup + Appraisal/Promotion revised-CTC.
+  const isCtc =
+    template.key === "ctc-breakup" ||
+    template.key === "appraisal-revised-ctc" ||
+    template.key === "promotion-revised-ctc";
 
   // ── "Edit freely" (rich / Google-Docs) mode ──────────────────────
   const [richMode, setRichMode] = useState(false);
@@ -514,7 +519,7 @@ export function LetterEditor({
       <div className="alw-toolbar no-print">
         <label className="alw-pick">
           <Building2 size={15} strokeWidth={2.2} aria-hidden />
-          <span className="alw-pick-label">Paying entity</span>
+          <span className="alw-pick-label">Paying Entity</span>
           <select
             value={entity}
             onChange={(e) => setEntity(e.target.value as EntityId)}
@@ -554,7 +559,7 @@ export function LetterEditor({
         {isAdmin && roster.length > 0 && !initialEmployeeId && (
           <label className="alw-pick">
             <UserPlus2 size={15} strokeWidth={2.2} aria-hidden />
-            <span className="alw-pick-label">Attach employee</span>
+            <span className="alw-pick-label">Attach Employee</span>
             <select
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
@@ -824,6 +829,7 @@ function CtcCalculator({
       </div>
 
       <div className="alw-calc-body">
+        <div className="alw-calc-inputs">
         <label className="alw-calc-total">
           <span className="alw-calc-lbl">Total CTC (per annum)</span>
           <div className="alw-calc-rupee">
@@ -860,6 +866,7 @@ function CtcCalculator({
               </label>
             ) : null,
           )}
+        </div>
         </div>
 
         <div className="alw-calc-foot">
@@ -1301,7 +1308,9 @@ function Field({
       type="text"
       {...common}
       className={`alw-input${boldCls}`}
-      style={{ minWidth: `${Math.max(spec.label.length, value.length, 3)}ch`, maxWidth: "100%" }}
+      // Size to the ACTUAL content when filled (so "40% of CTC" reads tight, no
+      // trailing gap); fall back to the placeholder width only while empty.
+      style={{ minWidth: `${Math.max(value.length || spec.label.length, 2)}ch`, maxWidth: "100%" }}
     />
   );
 }
@@ -1478,7 +1487,12 @@ const EDITOR_CSS = `
   display:block;font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
   color:var(--color-ink-muted,#64748b);margin-bottom:5px;
 }
-.alw-calc-total{display:flex;flex-direction:column;}
+.alw-calc-inputs{display:flex;align-items:stretch;gap:12px;flex-wrap:nowrap;}
+.alw-calc-total{display:flex;flex-direction:column;justify-content:flex-end;flex:0 0 180px;min-width:150px;}
+.alw-calc-total .alw-calc-rupee{max-width:none;width:100%;}
+.alw-calc-inputs .alw-calc-pcts{flex:1 1 0;min-width:0;}
+.alw-calc-pct{display:flex;flex-direction:column;justify-content:flex-end;}
+@media (max-width:820px){.alw-calc-inputs{flex-wrap:wrap;}.alw-calc-total{flex:1 1 100%;}}
 .alw-calc-rupee{
   display:inline-flex;align-items:center;gap:6px;max-width:280px;
   padding:9px 12px;border:1px solid var(--color-hairline-strong,#cbd5e1);border-radius:10px;background:#fff;
@@ -1486,7 +1500,8 @@ const EDITOR_CSS = `
 .alw-calc-rupee span{font-weight:800;color:var(--color-ink-muted,#64748b);}
 .alw-calc-rupee input{flex:1;min-width:0;border:none;outline:none;font-size:16px;font-weight:700;color:var(--color-ink-strong,#0f172a);background:transparent;}
 .alw-calc-echo{margin-top:5px;font-size:12px;font-weight:700;color:${RED_DEEP};}
-.alw-calc-pcts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 14px;}
+.alw-calc-pcts{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:10px 12px;}
+@media (max-width:760px){.alw-calc-pcts{grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr));}}
 .alw-calc-pctbox{
   display:inline-flex;align-items:center;gap:4px;
   padding:8px 11px;border:1px solid var(--color-hairline-strong,#cbd5e1);border-radius:10px;background:#fff;

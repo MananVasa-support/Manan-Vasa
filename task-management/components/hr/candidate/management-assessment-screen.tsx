@@ -395,26 +395,7 @@ export function ManagementAssessmentScreen({
     <>
       <style>{CSS}</style>
 
-      <PageShell width="standard" py={false} className="pt-7 pb-24">
-        {/* Hero */}
-        <div className="mb-6 ma-fade">
-          <span
-            className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"
-            style={{ background: "linear-gradient(135deg,#E10600,#A80400)" }}
-          >
-            <Gauge size={13} strokeWidth={2.6} /> Pre-Interview · Management Round
-          </span>
-          <h1
-            className="mt-2 text-ink-strong"
-            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(28px,3.4vw,44px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
-          >
-            Management Assessment
-          </h1>
-          <p className="mt-1.5 max-w-[76ch] text-[15px] font-medium text-ink-muted">
-            The management-round verdict, captured richly — dictate your notes, record the conversation, and attach anything that matters. Everything saves onto the candidate&apos;s record automatically.
-          </p>
-        </div>
-
+      <PageShell width="standard" py={false} className="pt-6 pb-24">
         {/* Two-pane */}
         <div className="grid grid-cols-[340px_1fr] gap-6 max-lg:grid-cols-1">
           {/* LEFT — candidate context */}
@@ -480,11 +461,11 @@ export function ManagementAssessmentScreen({
                   {saving ? (
                     <><Loader2 size={14} className="animate-spin" style={{ color: "var(--color-altus-red)" }} /> Saving…</>
                   ) : dirty ? (
-                    <><span className="ma-dot inline-block h-2 w-2 rounded-full" style={{ background: "var(--color-altus-red)" }} /> Unsaved changes</>
+                    <><span className="ma-dot inline-block h-2 w-2 rounded-full" style={{ background: "var(--color-altus-red)" }} /> Unsaved Changes</>
                   ) : candidateId ? (
-                    <><Check size={14} strokeWidth={3} style={{ color: "#15803d" }} /> All changes saved</>
+                    <><Check size={14} strokeWidth={3} style={{ color: "#15803d" }} /> All Changes Saved</>
                   ) : (
-                    <>Nothing to save yet</>
+                    <>Nothing to Save Yet</>
                   )}
                 </span>
                 <button
@@ -832,7 +813,7 @@ function RecordingsCard({
             className="inline-flex items-center gap-2.5 rounded-pill px-5 py-3 text-[14px] font-bold text-white transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50"
             style={{ background: "linear-gradient(135deg,#E10600,#A80400)", boxShadow: "0 14px 30px -14px rgba(168,4,0,0.75)" }}
           >
-            {uploading ? <><Loader2 size={17} className="animate-spin" /> Saving…</> : <><span className="grid h-4 w-4 place-items-center rounded-full bg-white"><span className="block h-2 w-2 rounded-full" style={{ background: "var(--color-altus-red)" }} /></span> Start recording</>}
+            {uploading ? <><Loader2 size={17} className="animate-spin" /> Saving…</> : <><span className="grid h-4 w-4 place-items-center rounded-full bg-white"><span className="block h-2 w-2 rounded-full" style={{ background: "var(--color-altus-red)" }} /></span> Start Recording</>}
           </button>
         ) : (
           <>
@@ -881,7 +862,7 @@ function RecordingsCard({
               {r.url ? (
                 <audio controls src={r.url} className="h-9 max-w-[260px] max-sm:w-full" style={{ minWidth: 200 }} />
               ) : (
-                <span className="text-[12px] italic text-ink-subtle">Playback unavailable</span>
+                <span className="text-[12px] italic text-ink-subtle">Playback Unavailable</span>
               )}
               <button type="button" onClick={() => onRemove(r.path)} title="Delete recording" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ink-muted transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_10%,white)] hover:text-altus-red">
                 <Trash2 size={16} />
@@ -890,7 +871,7 @@ function RecordingsCard({
           ))}
         </ul>
       ) : (
-        <p className="mt-4 text-[13px] text-ink-subtle">No recordings yet — press <span className="font-semibold text-ink-muted">Start recording</span> to capture the conversation.</p>
+        <p className="mt-4 text-[13px] text-ink-subtle">No recordings yet — press <span className="font-semibold text-ink-muted">Start Recording</span> to capture the conversation.</p>
       )}
     </Card>
   );
@@ -1399,7 +1380,7 @@ function RecruiterCard({
             style={{ background: "linear-gradient(135deg,#E10600,#A80400)" }}
             title={outcome === "shortlisted" ? "Available for Selected or Rejected outcomes" : undefined}
           >
-            {emailing ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} Email recruiter the outcome
+            {emailing ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} Email Recruiter the Outcome
           </button>
         </div>
       ) : (
@@ -1443,7 +1424,7 @@ function AssignmentCard({
               href={`/hr/letters/assignment?candidate=${candidateId}` as Route}
               className="inline-flex items-center gap-2 rounded-pill border border-hairline-strong bg-white px-4 py-2 text-[13px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
             >
-              <FileText size={15} /> Compose Assignment letter <ArrowUpRight size={14} />
+              <FileText size={15} /> Compose Assignment Letter <ArrowUpRight size={14} />
             </Link>
             <button
               type="button"

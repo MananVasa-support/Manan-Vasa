@@ -156,7 +156,7 @@ export function DailyPlanGate({ greetingName, today, items: pItems, overdue: pOv
             <Sparkles size={13} strokeWidth={2.6} /> {today.weekday} · {today.date}
           </span>
           <h1 className="mt-3 text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui", fontWeight: 900, fontSize: "clamp(26px,4vw,38px)", letterSpacing: "-0.03em", lineHeight: 1.05 }}>
-            Plan your day{greetingName ? `, ${greetingName}` : ""}
+            Plan Your Day{greetingName ? `, ${greetingName}` : ""}
           </h1>
           <p className="mt-1.5 text-[15px] font-medium text-ink-muted">
             Add <b className="text-ink-strong">at least {MIN} things</b>{" "}you&apos;ll work on today — type your own or tap a task. Then start.
@@ -183,7 +183,7 @@ export function DailyPlanGate({ greetingName, today, items: pItems, overdue: pOv
         <section className="wg-rise mb-4 rounded-[20px] bg-surface-card p-5 max-md:p-4" style={{ animationDelay: "80ms", boxShadow: "inset 0 0 0 1px var(--color-hairline), 0 10px 30px -22px rgba(15,23,42,0.3)" }}>
           <div className="mb-3 flex items-center gap-2.5">
             <span className="inline-grid size-9 place-items-center rounded-xl text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}><ListChecks size={18} strokeWidth={2.3} /></span>
-            <h2 className="text-[16px] font-black text-ink-strong">Today&apos;s plan</h2>
+            <h2 className="text-[16px] font-black text-ink-strong">Today&apos;s Plan</h2>
           </div>
 
           {committed.length === 0 ? (
@@ -231,10 +231,10 @@ export function DailyPlanGate({ greetingName, today, items: pItems, overdue: pOv
           <section className="wg-rise mb-4 rounded-[20px] bg-surface-card p-5 max-md:p-4" style={{ animationDelay: "120ms", boxShadow: "inset 0 0 0 1px var(--color-hairline), 0 10px 30px -22px rgba(15,23,42,0.3)" }}>
             <div className="mb-3 flex items-center gap-2.5">
               <span className="inline-grid size-9 place-items-center rounded-xl" style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: RED_DEEP }}><ClipboardList size={18} strokeWidth={2.3} /></span>
-              <h2 className="text-[16px] font-black text-ink-strong">Pull from your tasks</h2>
+              <h2 className="text-[16px] font-black text-ink-strong">Pull from Your Tasks</h2>
               {pool.length > 0 && count < MIN && (
                 <button type="button" disabled={!!busyId} onClick={fillFromTasks} className="ml-auto inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12px] font-bold text-white disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}>
-                  {busyId === "autofill" ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} strokeWidth={2.4} />} Quick-fill
+                  {busyId === "autofill" ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} strokeWidth={2.4} />} Quick-Fill
                 </button>
               )}
             </div>
@@ -243,7 +243,7 @@ export function DailyPlanGate({ greetingName, today, items: pItems, overdue: pOv
               <button type="button" disabled={!!busyId} onClick={bringOverdue} className="mb-2.5 flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-left disabled:opacity-50" style={{ background: "color-mix(in srgb, var(--color-altus-red) 6%, transparent)", boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--color-altus-red) 25%, transparent)" }}>
                 <Clock3 size={16} className="text-[color:var(--color-altus-red)]" strokeWidth={2.3} />
                 <span className="flex-1 text-[13.5px] font-bold text-ink-strong">{overdue.length} unfinished from before</span>
-                <span className="text-[12.5px] font-bold text-[color:var(--color-altus-red-deep)]">{busyId === "overdue" ? "Adding…" : "Bring forward →"}</span>
+                <span className="text-[12.5px] font-bold text-[color:var(--color-altus-red-deep)]">{busyId === "overdue" ? "Adding…" : "Bring Forward →"}</span>
               </button>
             )}
 
@@ -281,7 +281,7 @@ export function DailyPlanGate({ greetingName, today, items: pItems, overdue: pOv
             {entering ? (
               <><Loader2 size={19} className="animate-spin" /> Starting your day…</>
             ) : ready ? (
-              <>Start my day <ArrowRight size={19} strokeWidth={2.8} /></>
+              <>Start My Day <ArrowRight size={19} strokeWidth={2.8} /></>
             ) : (
               <>Add {remaining} more to start</>
             )}

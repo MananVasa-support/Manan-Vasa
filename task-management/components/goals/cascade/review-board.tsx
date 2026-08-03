@@ -619,7 +619,7 @@ export function ReviewBoard({
           <p className="text-[14.5px] font-semibold text-ink-muted">No goals to review at this level.</p>
           {filter !== "all" && (
             <button type="button" onClick={() => setFilter("all")} className="mt-2 text-[13px] font-bold text-altus-red hover:underline">
-              Show all levels
+              Show All Levels
             </button>
           )}
         </div>

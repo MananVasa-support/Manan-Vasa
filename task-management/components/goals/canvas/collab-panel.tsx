@@ -365,7 +365,7 @@ function ReviewScorecard({ g, bundle, node }: { g: GoalDTO; bundle: GoalDetailBu
               style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
             >
               {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} strokeWidth={2.8} />}
-              Save review
+              Save Review
             </button>
             <button
               type="button"
@@ -584,7 +584,7 @@ function LinksSection({ node, bundle, loading }: { node: CollabNode; bundle: Goa
               style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
             >
               {busy === "add" ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} strokeWidth={2.8} />}
-              Add link
+              Add Link
             </button>
             <button type="button" onClick={() => setAdding(false)} className="rounded-md px-2.5 py-1.5 text-[12px] font-bold text-ink-muted hover:bg-surface-soft">
               Cancel
@@ -920,7 +920,7 @@ function EvidenceSection({ node, bundle, loading }: { node: CollabNode; bundle: 
                 rel="noreferrer"
                 className="min-w-0 truncate text-[12.5px] font-bold text-ink-strong hover:underline"
               >
-                Evidence link
+                Evidence Link
               </a>
               <span
                 className="shrink-0 rounded-chip px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-ink-subtle"

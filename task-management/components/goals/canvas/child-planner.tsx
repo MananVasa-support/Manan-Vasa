@@ -901,7 +901,7 @@ function DayStage(): React.JSX.Element {
             className="inline-flex items-center gap-1 rounded-chip border px-2.5 py-1 text-[11.5px] font-bold transition-transform duration-150 hover:-translate-y-0.5"
             style={{ borderColor: accentMix(35), color: ACCENT_DEEP, background: accentMix(6) }}
           >
-            Full page
+            Full Page
             <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
         </span>
@@ -943,7 +943,7 @@ function DayStage(): React.JSX.Element {
             className="mt-3 inline-flex items-center gap-1.5 rounded-chip px-4 py-2 text-[13px] font-bold text-white transition-transform duration-150 hover:-translate-y-0.5"
             style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
           >
-            Try again
+            Try Again
           </button>
         </div>
       ) : (

@@ -135,7 +135,7 @@ export function DisciplineNote({
           className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-bold text-white disabled:opacity-40"
           style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
         >
-          {busy ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} strokeWidth={2.6} />} Save note
+          {busy ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} strokeWidth={2.6} />} Save Note
         </button>
         <span className="text-[12px] font-medium text-ink-subtle">
           {busy ? "Saving…" : dirty ? "Unsaved changes" : saved ? "Saved" : "Nothing saved yet"}

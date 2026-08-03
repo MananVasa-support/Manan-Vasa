@@ -79,6 +79,9 @@ const IW_CSS = `
 }
 .iwf--area .iwf-control { min-height: 132px; padding-top: 26px; resize: vertical; line-height: 1.55; }
 .iwf select.iwf-control { -webkit-appearance: none; appearance: none; cursor: pointer; padding-right: 42px; }
+/* Searchable combobox trigger inside the floating box — value left, chevron right. */
+.iwf .iwf-lookup { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; text-align: left; }
+.iwf .iwf-lookup[aria-expanded="true"] { border-color: var(--color-altus-red); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-altus-red) 13%, transparent); }
 .iwf.is-readonly .iwf-control { background: var(--color-surface-soft, #f5f5f7); color: var(--color-ink-strong); cursor: default; }
 
 .iwf-label {
@@ -117,10 +120,12 @@ const IW_CSS = `
 .iwc-legend { display: block; font-size: 12.5px; font-weight: 700; letter-spacing: .01em; color: var(--color-ink-muted); margin-bottom: 9px; }
 .iwc.is-error .iwc-legend { color: var(--color-altus-red); }
 .iwc-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.iwc-nowrap .iwc-opts { flex-wrap: nowrap; }
+.iwc-nowrap .iwc-chip { white-space: nowrap; }
 .iwc-chip {
   display: inline-flex; align-items: center; gap: 6px;
   border-radius: 999px;
-  padding: 8px 15px;
+  padding: 8px 13px;
   font-size: 13.5px; font-weight: 700;
   border: 1.5px solid var(--color-hairline);
   background: #fff; color: var(--color-ink-soft);

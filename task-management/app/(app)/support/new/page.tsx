@@ -36,7 +36,7 @@ export default async function NewTicketPage() {
             className="mt-1.5 text-ink-strong"
             style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(24px,2.6vw,34px)", letterSpacing: "-0.025em" }}
           >
-            Raise a ticket
+            Raise a Ticket
           </h1>
           <p className="mt-1 text-[14px] font-medium text-ink-muted">
             Pick a category, tell us what you need, and we&apos;ll route it to the right person.

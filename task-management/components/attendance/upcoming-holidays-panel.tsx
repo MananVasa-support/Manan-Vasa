@@ -110,7 +110,7 @@ export function UpcomingHolidaysPanel({ holidays }: { holidays: UpcomingHoliday[
         href="/holidays"
         className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-pill py-2 text-[13px] font-bold text-ink-muted transition-colors hover:text-[var(--color-altus-red-deep)] hover:bg-surface-soft outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/40"
       >
-        View all <ArrowRight size={14} strokeWidth={2.6} />
+        View All <ArrowRight size={14} strokeWidth={2.6} />
       </a>
     </section>
   );

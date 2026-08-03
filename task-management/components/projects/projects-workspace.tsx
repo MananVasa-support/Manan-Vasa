@@ -636,7 +636,7 @@ function ProjectDetail({ project }: { project: ProjectTreeNode }) {
                 <AddChildButton
                   kind="milestone"
                   parentId={project.id}
-                  label="Add milestone"
+                  label="Add Milestone"
                 />
               </div>
             </div>
@@ -648,7 +648,7 @@ function ProjectDetail({ project }: { project: ProjectTreeNode }) {
                 <AddChildButton
                   kind="milestone"
                   parentId={project.id}
-                  label="Add milestone"
+                  label="Add Milestone"
                 />
               }
             />
@@ -1513,7 +1513,7 @@ function DeleteNodeDialog({
                       "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
                   }}
                 >
-                  {pending ? "Deleting…" : `Permanently delete`}
+                  {pending ? "Deleting…" : `Permanently Delete`}
                 </button>
               </div>
             </>
@@ -2080,7 +2080,7 @@ function NotesEditor({ node, big }: { node: ProjectTreeNode; big: boolean }) {
             }}
           >
             <Check size={13} strokeWidth={3} />
-            Save notes
+            Save Notes
           </button>
         )}
       </div>

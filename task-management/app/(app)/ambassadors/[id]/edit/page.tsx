@@ -69,7 +69,7 @@ export default async function EditAmbassadorPage({
                 lineHeight: 1.04,
               }}
             >
-              Edit ambassador
+              Edit Ambassador
             </h1>
             <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 15.5 }}>
               Update {a.name}&rsquo;s details and commission terms.

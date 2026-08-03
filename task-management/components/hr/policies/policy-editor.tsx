@@ -311,7 +311,7 @@ export function PolicyEditor({ policyKey, isSuperAdmin }: { policyKey: string; i
       <div className="pce-grid">
         <div className="pce-left">
           {/* Identity fields */}
-          <Card icon={<Type size={18} />} title="Policy identity" sub="Shown at the top of the document and on the card.">
+          <Card icon={<Type size={18} />} title="Policy Identity" sub="Shown at the top of the document and on the card.">
             <Field label="Title" icon={<Type size={13} strokeWidth={2.4} />}>
               <input className="pce-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Policy title" />
             </Field>
@@ -324,7 +324,7 @@ export function PolicyEditor({ policyKey, isSuperAdmin }: { policyKey: string; i
           </Card>
 
           {/* Version history + compliance */}
-          <Card icon={<History size={18} />} title="Versions & compliance" sub="Each publish mints a new version and requests a fresh re-sign.">
+          <Card icon={<History size={18} />} title="Versions & Compliance" sub="Each publish mints a new version and requests a fresh re-sign.">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
               <ComplianceDial signed={data.compliance.signed} total={data.compliance.total} />
               <div className="min-w-0 flex-1">
@@ -358,7 +358,7 @@ export function PolicyEditor({ policyKey, isSuperAdmin }: { policyKey: string; i
           </Card>
 
           {/* Sections editor */}
-          <Card icon={<Blocks size={18} />} title="Body sections" sub="Edit, reorder, add or remove sections and their content.">
+          <Card icon={<Blocks size={18} />} title="Body Sections" sub="Edit, reorder, add or remove sections and their content.">
             <div className="flex flex-col gap-4">
               {sections.length === 0 && (
                 <p className="rounded-xl border border-solid border-hairline-strong bg-surface-soft px-4 py-6 text-center text-[13.5px] font-medium text-ink-subtle">
@@ -528,7 +528,7 @@ function SectionEditor({
       <div className="pce-addnode">
         <span className="pce-addnode-label">Add</span>
         <button type="button" className="pce-chipbtn" onClick={() => onAddNode("p")}><Pilcrow size={13} strokeWidth={2.4} /> Paragraph</button>
-        <button type="button" className="pce-chipbtn" onClick={() => onAddNode("ul")}><List size={13} strokeWidth={2.4} /> Bullet list</button>
+        <button type="button" className="pce-chipbtn" onClick={() => onAddNode("ul")}><List size={13} strokeWidth={2.4} /> Bullet List</button>
         <button type="button" className="pce-chipbtn" onClick={() => onAddNode("sub")}><Heading size={13} strokeWidth={2.4} /> Sub-heading</button>
       </div>
     </div>

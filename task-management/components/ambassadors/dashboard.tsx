@@ -16,11 +16,11 @@ import { CardGrid } from "@/components/layout/card-grid";
 export function AmbassadorDashboard({ metrics }: { metrics: DashboardMetrics }) {
   const m = metrics;
   const kpis = [
-    { label: "Active partners", value: String(m.activeAmbassadors), icon: Users, tint: "rgba(225,6,0,0.10)" },
+    { label: "Active Partners", value: String(m.activeAmbassadors), icon: Users, tint: "rgba(225,6,0,0.10)" },
     { label: "Referrals", value: String(m.totalReferrals), sub: `${m.convertedReferrals} converted`, icon: TrendingUp, tint: "rgba(225,6,0,0.08)" },
     { label: "Conversion", value: pct(m.conversionRate), icon: Trophy, tint: "rgba(20,140,80,0.10)" },
-    { label: "Revenue driven", value: inrCompact(m.revenue), icon: ArrowUpRight, tint: "rgba(20,140,80,0.10)" },
-    { label: "Commission owed", value: inrCompact(m.commissionPending), sub: `${inrCompact(m.commissionPaid)} paid`, icon: Wallet, tint: "rgba(214,138,20,0.12)" },
+    { label: "Revenue Driven", value: inrCompact(m.revenue), icon: ArrowUpRight, tint: "rgba(20,140,80,0.10)" },
+    { label: "Commission Owed", value: inrCompact(m.commissionPending), sub: `${inrCompact(m.commissionPaid)} paid`, icon: Wallet, tint: "rgba(214,138,20,0.12)" },
   ];
 
   const maxFunnel = Math.max(1, ...m.funnel.filter((f) => f.stage !== "lost").map((f) => f.count));
@@ -53,7 +53,7 @@ export function AmbassadorDashboard({ metrics }: { metrics: DashboardMetrics }) 
       <div className="grid grid-cols-[1.1fr_1fr] gap-5 max-lg:grid-cols-1">
         {/* Pipeline funnel */}
         <section className="rounded-2xl border border-hairline bg-white p-5" style={{ boxShadow: "0 10px 30px -24px rgba(0,0,0,0.4)" }}>
-          <h2 className="mb-3 text-[15px] font-bold text-ink-strong">Referral pipeline</h2>
+          <h2 className="mb-3 text-[15px] font-bold text-ink-strong">Referral Pipeline</h2>
           <div className="space-y-1.5">
             {m.funnel
               .filter((f) => f.stage !== "lost")
@@ -73,7 +73,7 @@ export function AmbassadorDashboard({ metrics }: { metrics: DashboardMetrics }) 
 
         {/* Leaderboard */}
         <section className="rounded-2xl border border-hairline bg-white p-5" style={{ boxShadow: "0 10px 30px -24px rgba(0,0,0,0.4)" }}>
-          <h2 className="mb-3 text-[15px] font-bold text-ink-strong">Top partners</h2>
+          <h2 className="mb-3 text-[15px] font-bold text-ink-strong">Top Partners</h2>
           {m.leaderboard.length === 0 ? (
             <p className="text-[13.5px] text-ink-muted">No ambassadors yet.</p>
           ) : (

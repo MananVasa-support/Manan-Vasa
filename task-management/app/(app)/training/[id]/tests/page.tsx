@@ -38,7 +38,7 @@ export default async function AuthorTestsPage({ params }: PageProps) {
           </Link>
           <header className="mt-3 mb-6">
             <h1 className="text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(26px, 2.8vw, 38px)", letterSpacing: "-0.025em" }}>
-              Manage tests
+              Manage Tests
             </h1>
             <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 15.5 }}>
               Test 1 is multiple-choice (pass 80%). Test 2 is fill-in-the-blank (pass 75%). Each save replaces that test's questions.

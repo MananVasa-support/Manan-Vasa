@@ -113,7 +113,7 @@ export default async function TrainingObligationsPage() {
               className="mt-3 text-ink-strong"
               style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(28px,3.4vw,44px)", letterSpacing: "-0.025em", lineHeight: 1.04 }}
             >
-              Skill-Upgrade obligations
+              Skill-Upgrade Obligations
             </h1>
             <p className="mt-2 font-medium text-ink-muted" style={{ fontSize: 15.5, maxWidth: "70ch" }}>
               {monthLabel(period.period)} · everyone&rsquo;s give / attend / self-learn / share against monthly
@@ -126,7 +126,7 @@ export default async function TrainingObligationsPage() {
             className="inline-flex items-center gap-2 rounded-xl border-2 px-4 py-2.5 text-[14px] font-bold transition-colors"
             style={{ borderColor: `color-mix(in srgb, ${ACCENT} 40%, transparent)`, color: ACCENT_DEEP }}
           >
-            Performance scores
+            Performance Scores
           </Link>
         </header>
 
@@ -198,7 +198,7 @@ export default async function TrainingObligationsPage() {
                       expectedPct={expectedPct}
                     />
                     <ObligationBar
-                      label="Self-learn"
+                      label="Self-Learn"
                       actual={r?.selfLearnHours ?? 0}
                       target={targets.selfLearnHours}
                       unit="h"

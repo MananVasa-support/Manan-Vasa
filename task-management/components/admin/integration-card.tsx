@@ -48,7 +48,7 @@ export function IntegrationCard({ status }: { status: IntegrationStatus }) {
               status.connected ? "bg-emerald-500" : "bg-zinc-400"
             }`}
           />
-          {status.connected ? "Connected" : "Not configured"}
+          {status.connected ? "Connected" : "Not Configured"}
         </span>
       </div>
 
@@ -58,11 +58,11 @@ export function IntegrationCard({ status }: { status: IntegrationStatus }) {
           <dd className="font-mono">{status.maskedKey ?? "—"}</dd>
         </div>
         <div className="flex justify-between">
-          <dt className="text-ink-subtle">Last 24h success</dt>
+          <dt className="text-ink-subtle">Last 24h Success</dt>
           <dd className="font-mono">{status.successLast24h}</dd>
         </div>
         <div className="flex justify-between">
-          <dt className="text-ink-subtle">Last sent</dt>
+          <dt className="text-ink-subtle">Last Sent</dt>
           <dd className="font-mono">
             {/* Deterministic format — bare toLocaleString() differs between
                 server and browser locales and hydration-crashed the whole
@@ -90,7 +90,7 @@ export function IntegrationCard({ status }: { status: IntegrationStatus }) {
           className="inline-flex items-center gap-1.5 rounded-md border border-[rgba(15,23,42,0.10)] bg-white px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
         >
           {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          {pending ? "Sending…" : "Send test to me"}
+          {pending ? "Sending…" : "Send Test to Me"}
         </button>
         {result === "ok" && (
           <span className="inline-flex items-center gap-1 text-sm text-emerald-700">

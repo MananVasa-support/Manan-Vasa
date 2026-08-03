@@ -59,7 +59,7 @@ export default async function PeopleGivesPage() {
               }}
             >
               <Plus size={17} strokeWidth={2.6} />
-              New introduction
+              New Introduction
             </Link>
           </div>
         </header>

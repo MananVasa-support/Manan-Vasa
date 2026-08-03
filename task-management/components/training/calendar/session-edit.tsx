@@ -54,7 +54,7 @@ export function SessionEdit({
     return (
       <div className="rounded-2xl border border-hairline bg-surface-card p-5 shadow-sm max-md:p-4">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-[16px] font-bold text-ink-strong">Edit session</h3>
+          <h3 className="text-[16px] font-bold text-ink-strong">Edit Session</h3>
           <button type="button" onClick={() => setEditing(false)} aria-label="Close" className="rounded-lg p-1.5 text-ink-subtle hover:bg-surface-soft">
             <X size={18} />
           </button>
@@ -80,7 +80,7 @@ export function SessionEdit({
         className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[14px] font-bold transition-colors"
         style={{ borderColor: ACCENT, color: ACCENT }}
       >
-        <Pencil size={15} /> Edit session
+        <Pencil size={15} /> Edit Session
       </button>
       {status === "scheduled" && (
         <button
@@ -89,7 +89,7 @@ export function SessionEdit({
           disabled={busy !== null}
           className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white px-4 py-2.5 text-[14px] font-bold text-ink-soft hover:border-ink-subtle disabled:opacity-50"
         >
-          {busy === "done" ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Mark done
+          {busy === "done" ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Mark Done
         </button>
       )}
       {status !== "cancelled" && (

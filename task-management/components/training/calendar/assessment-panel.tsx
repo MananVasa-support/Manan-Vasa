@@ -94,7 +94,7 @@ export function AssessmentPanel({
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12.5px] font-bold" style={{ background: "color-mix(in srgb, var(--color-altus-red) 12%, transparent)", color: "var(--color-altus-red-deep)" }}>
-                    <AlertTriangle size={13} /> Fail — redo
+                    <AlertTriangle size={13} /> Fail — Redo
                   </span>
                 )}
 

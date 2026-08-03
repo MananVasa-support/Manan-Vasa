@@ -54,7 +54,7 @@ export function HrDayGrid({ month, days }: { month: string; days: HrSheetDayCell
               lineHeight: 1.1,
             }}
           >
-            Daily record
+            Daily Record
           </h2>
           <p className="text-[13px] font-medium text-ink-subtle">
             {hrMonthLabel(month)} · sheet codes, verbatim

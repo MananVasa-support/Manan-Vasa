@@ -30,6 +30,7 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { computeScorecard } from "@/lib/appraisal2/engine";
 import { kpiTargetForName } from "@/lib/performance/kpi-dictionary";
+import { loadKpiTargetsForEmployees } from "@/lib/performance/kpi-from-assignments";
 import type { DimensionScoreRow, KpiActuals, RoleClass } from "@/lib/appraisal2/types";
 
 type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string };
@@ -211,6 +212,12 @@ export async function listByDepartment(
 
   const cfgByEmp = new Map(configs.map((c) => [c.employeeId, c]));
   const cardByEmp = new Map(cards.map((c) => [c.employeeId, c]));
+  // KPI targets HR configured in KPI Management take precedence over the hardcoded
+  // dictionary — so the KPIs assigned there actually drive appraisal scoring.
+  const kpiByEmp = await loadKpiTargetsForEmployees(
+    ids,
+    new Map(empRows.map((e) => [e.id, e.name])),
+  );
   const dimByEmp = new Map<string, DimensionScoreRow[]>();
   for (const s of dimScores) {
     const arr = dimByEmp.get(s.employeeId) ?? [];
@@ -237,7 +244,7 @@ export async function listByDepartment(
     const { scorecard } = computeScorecard({
       employeeId: e.id,
       role,
-      kpiTarget: kpiTargetForName(e.name),
+      kpiTarget: kpiByEmp.get(e.id) ?? kpiTargetForName(e.name),
       kpiActuals: actuals,
       dimScores: dimByEmp.get(e.id) ?? [],
       status: card?.status ?? "in_progress",

@@ -55,11 +55,11 @@ export function SignPanel({
     >
       <div className="mb-4 flex items-center gap-2">
         <PenLine size={16} strokeWidth={2.2} className="text-ink-soft" />
-        <h2 className="text-[14px] font-bold tracking-tight text-ink-strong">Sign this document</h2>
+        <h2 className="text-[14px] font-bold tracking-tight text-ink-strong">Sign This Document</h2>
       </div>
 
       <label className="mb-1.5 block text-[12.5px] font-semibold text-ink-soft" htmlFor="sign-name">
-        Type your full legal name
+        Type Your Full Legal Name
       </label>
       <input
         id="sign-name"
@@ -97,7 +97,7 @@ export function SignPanel({
         }}
       >
         {busy ? <Loader2 size={16} className="animate-spin" strokeWidth={2.4} /> : <PenLine size={16} strokeWidth={2.4} />}
-        {busy ? "Signing…" : "Sign & accept"}
+        {busy ? "Signing…" : "Sign & Accept"}
       </button>
     </form>
   );

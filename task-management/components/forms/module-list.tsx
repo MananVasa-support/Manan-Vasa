@@ -185,7 +185,7 @@ function AdminPanel({ row, adminFields, productOptions }: { row: ModuleSubmissio
       <button type="button" onClick={save} disabled={pending}
         className="mt-3 inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-[13px] font-bold text-white disabled:opacity-50"
         style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}>
-        <Check size={14} /> {pending ? "Saving…" : "Save response"}
+        <Check size={14} /> {pending ? "Saving…" : "Save Response"}
       </button>
     </div>
   );

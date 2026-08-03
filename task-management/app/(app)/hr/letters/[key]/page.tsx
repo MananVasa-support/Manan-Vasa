@@ -55,7 +55,7 @@ export default async function LetterPage({
             }}
           >
             <ArrowLeft size={15} strokeWidth={2.6} className="transition-transform group-hover:-translate-x-0.5" />
-            <span className="max-md:hidden">All letters</span>
+            <span className="max-md:hidden">All Letters</span>
             <span className="md:hidden">Back</span>
           </Link>
         </div>

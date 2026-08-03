@@ -109,7 +109,7 @@ export function SessionsCard({ sessions }: Props) {
       }}
     >
       <SectionHeader
-        title="Active sessions"
+        title="Active Sessions"
         description="Each device you've signed in from. Revoke any session you don't recognise."
         savedAt={null}
       />
@@ -242,7 +242,7 @@ export function SessionsCard({ sessions }: Props) {
             cursor: busy ? "not-allowed" : "pointer",
           }}
         >
-          Sign out everywhere
+          Sign Out Everywhere
         </button>
         <p
           style={{

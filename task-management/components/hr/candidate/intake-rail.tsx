@@ -81,7 +81,7 @@ export function IntakeRail({
                   )}
                   <RailChip status={s.status} index={i} isLast={isLast} />
                   <span
-                    className={`min-w-0 flex-1 truncate text-[14px] ${
+                    className={`min-w-0 flex-1 line-clamp-2 text-[14px] leading-snug ${
                       s.status === "active" ? "font-bold" : "font-semibold"
                     }`}
                     style={{

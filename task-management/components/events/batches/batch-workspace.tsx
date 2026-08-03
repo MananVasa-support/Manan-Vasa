@@ -103,7 +103,7 @@ export function BatchWorkspace({
           }}
         >
           <Plus size={17} strokeWidth={2.6} />
-          New schedule
+          New Schedule
         </button>
       </header>
 
@@ -159,7 +159,7 @@ function EmptyState({ onNew, disabled }: { onNew: () => void; disabled: boolean 
         className="mt-4 text-ink-strong"
         style={{ fontFamily: "var(--font-display), system-ui", fontWeight: 800, fontSize: 20 }}
       >
-        No batch schedules yet
+        No Batch Schedules Yet
       </h2>
       <p className="mt-1.5 max-w-[42ch] text-[14.5px] text-ink-muted">
         Create one and the calendar blocks it automatically across every date and

@@ -40,7 +40,7 @@ export function TabCommissions({ referrals, payouts }: { referrals: ReferralRow[
           <div className="text-ink-strong tabular-nums" style={{ fontFamily: "var(--font-display), system-ui", fontWeight: 800, fontSize: "clamp(22px,2.2vw,30px)", letterSpacing: "-0.02em" }}>
             {inr(owed)}
           </div>
-          <div className="mt-0.5 text-[12.5px] font-semibold text-ink-muted">Commission owed</div>
+          <div className="mt-0.5 text-[12.5px] font-semibold text-ink-muted">Commission Owed</div>
         </div>
         <div className="rounded-2xl border border-hairline bg-white p-4" style={{ boxShadow: "0 10px 30px -24px rgba(0,0,0,0.4)" }}>
           <div className="mb-2 inline-grid h-9 w-9 place-items-center rounded-xl" style={{ background: "rgba(20,140,80,0.14)" }}>
@@ -49,7 +49,7 @@ export function TabCommissions({ referrals, payouts }: { referrals: ReferralRow[
           <div className="text-ink-strong tabular-nums" style={{ fontFamily: "var(--font-display), system-ui", fontWeight: 800, fontSize: "clamp(22px,2.2vw,30px)", letterSpacing: "-0.02em" }}>
             {inr(paidLedger)}
           </div>
-          <div className="mt-0.5 text-[12.5px] font-semibold text-ink-muted">Total paid out</div>
+          <div className="mt-0.5 text-[12.5px] font-semibold text-ink-muted">Total Paid Out</div>
         </div>
       </div>
 
@@ -58,7 +58,7 @@ export function TabCommissions({ referrals, payouts }: { referrals: ReferralRow[
         <div className="flex items-center justify-between gap-3 border-b border-hairline px-5 py-3.5">
           <h2 className="text-[15px] font-bold text-ink-strong">Commissions</h2>
           <Link href={"/ambassadors/commissions" as Route} className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-muted hover:text-[color:var(--color-altus-red)] transition-colors">
-            Commission center
+            Commission Center
             <ArrowUpRight size={15} strokeWidth={2.6} />
           </Link>
         </div>
@@ -96,7 +96,7 @@ export function TabCommissions({ referrals, payouts }: { referrals: ReferralRow[
       {/* payout ledger */}
       <section className="rounded-2xl border border-hairline bg-white overflow-hidden" style={{ boxShadow: "0 10px 30px -24px rgba(0,0,0,0.4)" }}>
         <div className="border-b border-hairline px-5 py-3.5">
-          <h2 className="text-[15px] font-bold text-ink-strong">Payout history</h2>
+          <h2 className="text-[15px] font-bold text-ink-strong">Payout History</h2>
         </div>
         {payouts.length === 0 ? (
           <p className="px-5 py-8 text-center text-[13.5px] font-medium text-ink-muted">No payouts recorded yet.</p>

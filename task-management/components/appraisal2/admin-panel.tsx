@@ -128,7 +128,7 @@ function RoleEditor({ config }: { config: EmployeeConfig }) {
 
   return (
     <Section
-      title="Role class"
+      title="Role Class"
       hint="Manager or Non-Manager — this selects the scorecard's dimension set and weights."
     >
       <form
@@ -212,7 +212,7 @@ function AssigneesEditor({ config, people }: { config: EmployeeConfig; people: A
         }}
       >
         <label className="flex flex-col gap-1.5">
-          <Label>Manager (advisory)</Label>
+          <Label>Manager (Advisory)</Label>
           <select className={INPUT} value={managerId} onChange={(e) => setManagerId(e.target.value)}>
             <option value="">— None —</option>
             {options.map((p) => (
@@ -223,7 +223,7 @@ function AssigneesEditor({ config, people }: { config: EmployeeConfig; people: A
           </select>
         </label>
         <label className="flex flex-col gap-1.5">
-          <Label>Management (final)</Label>
+          <Label>Management (Final)</Label>
           <select className={INPUT} value={managementId} onChange={(e) => setManagementId(e.target.value)}>
             <option value="">— None —</option>
             {options.map((p) => (

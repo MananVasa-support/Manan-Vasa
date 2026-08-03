@@ -227,13 +227,13 @@ export function EditEmployeeDialog({
         <Dialog.Overlay className="fixed inset-0 bg-black/30 z-[90]" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-[100] -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-xl bg-white border border-[#E2E8F0] p-6 shadow-lg max-h-[calc(100dvh-32px)] overflow-y-auto">
           <Dialog.Title className="font-serif text-xl text-[#0F172A] mb-1">
-            Edit employee
+            Edit Employee
           </Dialog.Title>
           <Dialog.Description className="text-[15px] text-[#64748B] mb-4">
             {employee.email}
           </Dialog.Description>
           <form onSubmit={onSubmit} className="space-y-4">
-            <Field label="Full name">
+            <Field label="Full Name">
               <input
                 required
                 value={name}
@@ -242,7 +242,7 @@ export function EditEmployeeDialog({
                 className="w-full rounded-md border border-[#CBD5E1] px-3.5 py-2.5 text-[15px]"
               />
             </Field>
-            <Field label="Task role">
+            <Field label="Task Role">
               <Select
                 value={role}
                 onValueChange={(v) => setRole(v as Role)}
@@ -287,7 +287,7 @@ export function EditEmployeeDialog({
                 }}
               />
             </Field>
-            <Field label="WhatsApp phone (E.164, optional)">
+            <Field label="WhatsApp Phone (E.164, optional)">
               <input
                 value={waPhone}
                 onChange={(e) => setWaPhone(e.target.value)}
@@ -356,14 +356,14 @@ export function EditEmployeeDialog({
                 identity fields. */}
             <div className="pt-4 mt-2 border-t border-[#E2E8F0]">
               <div className="text-[14px] font-semibold text-[#0F172A]">
-                Attendance schedule
+                Attendance Schedule
               </div>
               <p className="text-[13px] text-[#64748B] mt-0.5" style={{ lineHeight: 1.5 }}>
                 Leave the times blank to use the company defaults
                 (late after 10:50, leave before 19:20).
               </p>
               <div className="mt-3 space-y-4">
-                <Field label="Weekly off">
+                <Field label="Weekly Off">
                   <Select
                     value={String(weeklyOff)}
                     onValueChange={(v) => setWeeklyOff(Number(v))}
@@ -371,16 +371,16 @@ export function EditEmployeeDialog({
                   />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Official start">
+                  <Field label="Official Start">
                     <TimeInput value={offStart} onChange={setOffStart} placeholder="10:00" />
                   </Field>
-                  <Field label="Late after">
+                  <Field label="Late After">
                     <TimeInput value={lateAfter} onChange={setLateAfter} placeholder="10:50" />
                   </Field>
-                  <Field label="Official end">
+                  <Field label="Official End">
                     <TimeInput value={offEnd} onChange={setOffEnd} placeholder="19:00" />
                   </Field>
-                  <Field label="Early before">
+                  <Field label="Early Before">
                     <TimeInput value={earlyBefore} onChange={setEarlyBefore} placeholder="19:20" />
                   </Field>
                 </div>
@@ -399,7 +399,7 @@ export function EditEmployeeDialog({
                     disabled={schedPending}
                     className="rounded-md py-2 px-4 text-[14px] font-medium text-[#0F172A] border border-[#CBD5E1] bg-white hover:border-[#94A3B8] transition-colors disabled:opacity-50"
                   >
-                    {schedPending ? "Saving…" : "Save schedule"}
+                    {schedPending ? "Saving…" : "Save Schedule"}
                   </button>
                 </div>
               </div>
@@ -421,7 +421,7 @@ export function EditEmployeeDialog({
                 className="rounded-md py-2.5 px-5 text-[14px] font-medium text-white disabled:opacity-50"
                 style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}
               >
-                {pending ? "Saving…" : "Save changes"}
+                {pending ? "Saving…" : "Save Changes"}
               </button>
             </div>
           </form>

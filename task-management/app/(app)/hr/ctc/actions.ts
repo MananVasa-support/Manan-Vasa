@@ -1,13 +1,12 @@
 "use server";
 
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { ctcBreakups } from "@/db/schema";
+import { ctcBreakups, employees, designations, payingEntities } from "@/db/schema";
 import { requireHrStaff } from "@/lib/hr/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
-import { loadLetterRoster } from "@/lib/hr/letters/roster";
 import {
   CTC_REASONS,
   parseFields,
@@ -27,17 +26,35 @@ export interface CtcRosterOption {
   name: string;
   designation: string;
   department: string;
+  /** The employee's FIXED paying entity (payingEntities.name) — the workbench
+   *  auto-selects the matching letterhead entity from it. Null when unset. */
+  payingEntityName: string | null;
 }
 
-/** Active employees for the workbench's employee picker. Read-only, query-light. */
+/** Active employees for the workbench's employee picker, each with their fixed
+ *  paying entity so the entity auto-fills on pick. Read-only, query-light. */
 export async function loadCtcRoster(): Promise<CtcRosterOption[]> {
   await requireHrStaff();
-  const rows = await loadLetterRoster().catch(() => []);
+  const rows = await db
+    .select({
+      id: employees.id,
+      name: employees.name,
+      designation: designations.name,
+      department: employees.department,
+      payingEntityName: payingEntities.name,
+    })
+    .from(employees)
+    .leftJoin(designations, eq(designations.id, employees.designationId))
+    .leftJoin(payingEntities, eq(payingEntities.id, employees.payingEntityId))
+    .where(eq(employees.isActive, true))
+    .orderBy(sql`lower(${employees.name})`)
+    .catch(() => []);
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
-    designation: r.designation,
-    department: r.department,
+    designation: r.designation ?? "",
+    department: r.department ?? "",
+    payingEntityName: r.payingEntityName ?? null,
   }));
 }
 

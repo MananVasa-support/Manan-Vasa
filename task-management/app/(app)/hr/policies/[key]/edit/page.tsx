@@ -37,13 +37,13 @@ export default async function PolicyEditPage({
             }}
           >
             <ArrowLeft size={15} strokeWidth={2.6} className="transition-transform group-hover:-translate-x-0.5" />
-            <span className="max-md:hidden">Back to policy</span>
+            <span className="max-md:hidden">Back to Policy</span>
             <span className="md:hidden">Back</span>
           </Link>
         </div>
         <span className="justify-self-center inline-flex items-center gap-1.5 truncate text-[15px] font-extrabold tracking-tight text-ink-strong">
           <SlidersHorizontal size={15} strokeWidth={2.4} style={{ color: "#A80400" }} aria-hidden />
-          <span className="truncate">Policy editor</span>
+          <span className="truncate">Policy Editor</span>
         </span>
         <div className="justify-self-end">
           <Link
@@ -52,7 +52,7 @@ export default async function PolicyEditPage({
             style={{ boxShadow: "0 10px 24px -16px rgba(24,24,27,0.55)" }}
           >
             <Eye size={15} strokeWidth={2.4} style={{ color: "#A80400" }} />
-            <span className="max-md:hidden">View live</span>
+            <span className="max-md:hidden">View Live</span>
             <span className="md:hidden">View</span>
           </Link>
         </div>

@@ -56,7 +56,7 @@ export default async function HrMetricsPage() {
             className="text-ink-strong"
             style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(24px,3vw,34px)", letterSpacing: "-0.02em" }}
           >
-            HR support metrics
+            HR Support Metrics
           </h1>
           <p className="mt-1.5 text-[13.5px] font-medium text-ink-muted">
             Last {m.windowDays} days. Confidential grievances are counted only in
@@ -82,7 +82,7 @@ export default async function HrMetricsPage() {
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           {/* By status */}
           <section className="rounded-2xl border border-hairline bg-surface-card p-5">
-            <h2 className="mb-3 text-[15px] font-bold text-ink-strong">By status</h2>
+            <h2 className="mb-3 text-[15px] font-bold text-ink-strong">By Status</h2>
             {m.byStatus.length === 0 ? (
               <p className="text-[13px] text-ink-soft">No tickets in this window.</p>
             ) : (
@@ -107,7 +107,7 @@ export default async function HrMetricsPage() {
 
           {/* By category */}
           <section className="rounded-2xl border border-hairline bg-surface-card p-5">
-            <h2 className="mb-3 text-[15px] font-bold text-ink-strong">By category</h2>
+            <h2 className="mb-3 text-[15px] font-bold text-ink-strong">By Category</h2>
             <ul className="space-y-2.5">
               {m.byCategory.map((c) => (
                 <li key={c.category}>

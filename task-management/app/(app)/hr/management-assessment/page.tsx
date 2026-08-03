@@ -71,7 +71,12 @@ export default async function ManagementAssessmentPage() {
           </Link>
         </div>
         <img src="/logo.png" alt="Altus Corp" className="h-9 w-auto justify-self-center max-md:h-8" style={{ display: "block" }} />
-        <span aria-hidden className="justify-self-end" />
+        <span
+          className="justify-self-end text-right text-[17px] font-black tracking-[-0.02em] text-ink-strong max-md:text-[14px]"
+          style={{ fontFamily: "var(--font-display), system-ui, sans-serif" }}
+        >
+          Management Assessment
+        </span>
       </header>
 
       <ManagementAssessmentScreen candidates={candidates} skillOptions={skillOptions} isAdmin={isAdmin} weights={weights} />

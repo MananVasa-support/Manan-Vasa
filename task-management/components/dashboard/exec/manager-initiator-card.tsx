@@ -334,7 +334,7 @@ export function ManagerInitiatorCard({
                 className="text-[12.5px] font-black"
                 style={{ color: "var(--color-ink-strong)" }}
               >
-                Show per-report breakdown
+                Show Per-Report Breakdown
                 <span
                   className="ml-2 font-bold tabular-nums"
                   style={{ color: "var(--color-ink-subtle)" }}

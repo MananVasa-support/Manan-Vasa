@@ -100,13 +100,13 @@ export function MaterialViewer({
             <div className="flex flex-col items-center gap-3 py-14">
               <Table2Icon />
               <a href={material.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-surface-track px-5 py-3 text-[15px] font-bold text-ink-strong hover:bg-surface-soft">
-                <Download size={17} strokeWidth={2.4} /> Download spreadsheet
+                <Download size={17} strokeWidth={2.4} /> Download Spreadsheet
               </a>
             </div>
           ) : material.videoUrl ? (
             <div className="flex flex-col items-center gap-3 py-14">
               <a href={material.videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-surface-track px-5 py-3 text-[15px] font-bold text-ink-strong hover:bg-surface-soft">
-                <ExternalLink size={17} strokeWidth={2.4} /> Open video
+                <ExternalLink size={17} strokeWidth={2.4} /> Open Video
               </a>
             </div>
           ) : (
@@ -128,7 +128,7 @@ export function MaterialViewer({
             </span>
           ) : (
             <button type="button" onClick={onMarkWatched} disabled={marking} className="inline-flex items-center gap-2 rounded-xl py-2.5 px-5 text-[14.5px] font-bold text-white disabled:opacity-60" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}>
-              {marking ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.6} />} Mark as watched
+              {marking ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.6} />} Mark as Watched
             </button>
           )}
         </div>

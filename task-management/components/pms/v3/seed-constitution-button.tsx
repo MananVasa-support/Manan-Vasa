@@ -25,7 +25,7 @@ export function SeedConstitutionButton({ accent, accentDeep }: { accent: string;
       style={{ background: `linear-gradient(135deg, ${accent}, ${accentDeep})` }}
     >
       {pending ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} strokeWidth={2.4} />}
-      Seed Constitution paragraphs
+      Seed Constitution Paragraphs
     </button>
   );
 }

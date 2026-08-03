@@ -260,7 +260,7 @@ export function PortalScreen({ firstName, fullName }: { firstName: string; fullN
                           onChange={(e) => setYear(e.target.value)}
                           className="bg-transparent text-[13.5px] font-bold text-ink-strong focus:outline-none"
                         >
-                          <option value={ALL_YEARS}>All years</option>
+                          <option value={ALL_YEARS}>All Years</option>
                           {fyOptions.map((fy) => (
                             <option key={fy} value={fy}>{fy}</option>
                           ))}
@@ -276,7 +276,7 @@ export function PortalScreen({ firstName, fullName }: { firstName: string; fullN
                         onClick={() =>
                           setPrintTarget({
                             kind: "year",
-                            fy: year === ALL_YEARS ? "All years" : year,
+                            fy: year === ALL_YEARS ? "All Years" : year,
                             rows: visibleRows,
                             total: visibleTotal,
                           })
@@ -370,7 +370,7 @@ export function PortalScreen({ firstName, fullName }: { firstName: string; fullN
                       className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-bold text-white"
                       style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
                     >
-                      <Award size={14} /> Generate certificate
+                      <Award size={14} /> Generate Certificate
                     </button>
                   </div>
                 ) : (
@@ -381,7 +381,7 @@ export function PortalScreen({ firstName, fullName }: { firstName: string; fullN
 
             {/* Forms you submitted */}
             <section className="portal-fade col-span-12 lg:col-span-6">
-              <Card n={5} icon={<ClipboardList size={18} />} title="Forms you submitted" sub="The details you filled during onboarding — view or update them.">
+              <Card n={5} icon={<ClipboardList size={18} />} title="Forms You Submitted" sub="The details you filled during onboarding — view or update them.">
                 <div className="rounded-xl border border-hairline bg-surface-soft p-4">
                   {onboarding?.exists ? (
                     <>
@@ -390,7 +390,7 @@ export function PortalScreen({ firstName, fullName }: { firstName: string; fullN
                           <ClipboardList size={16} />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[13.5px] font-bold text-ink-strong">Onboarding form</p>
+                          <p className="text-[13.5px] font-bold text-ink-strong">Onboarding Form</p>
                           <p className="text-[12px] font-medium capitalize text-ink-muted">
                             {onboarding.status === "submitted"
                               ? `Submitted${onboarding.submittedAt ? " · " + new Date(onboarding.submittedAt).toLocaleDateString("en-GB") : ""}`
@@ -405,13 +405,13 @@ export function PortalScreen({ firstName, fullName }: { firstName: string; fullN
                           className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-bold text-white"
                           style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
                         >
-                          <FileText size={13} /> View your answers
+                          <FileText size={13} /> View Your Answers
                         </button>
                         <Link
                           href={"/dossier/onboarding" as Route}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-3.5 py-2 text-[12.5px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
                         >
-                          Update form <ArrowUpRight size={13} />
+                          Update Form <ArrowUpRight size={13} />
                         </Link>
                       </div>
                     </>
@@ -426,7 +426,7 @@ export function PortalScreen({ firstName, fullName }: { firstName: string; fullN
                         className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-bold text-white"
                         style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
                       >
-                        Fill your onboarding form <ArrowUpRight size={13} />
+                        Fill Your Onboarding Form <ArrowUpRight size={13} />
                       </Link>
                     </>
                   )}
@@ -499,11 +499,11 @@ function slipRows(slip: PortalPayslip, fullName: string): [string, string][] {
   return [
     ["Employee", fullName],
     ["Designation", slip.designation ?? "—"],
-    ["Paying entity", slip.companyName ?? "—"],
-    ["Pay month", `${slip.monthLabel}  (${slip.fy})`],
+    ["Paying Entity", slip.companyName ?? "—"],
+    ["Pay Month", `${slip.monthLabel}  (${slip.fy})`],
     ["Monthly CTC", inr(slip.monthlyCtc)],
-    ["Net take-home", inr(slip.net)],
-    ["Payment status", slip.paid ? `Paid${slip.paidAt ? " · " + new Date(slip.paidAt).toLocaleDateString("en-GB") : ""}` : "Pending"],
+    ["Net Take-Home", inr(slip.net)],
+    ["Payment Status", slip.paid ? `Paid${slip.paidAt ? " · " + new Date(slip.paidAt).toLocaleDateString("en-GB") : ""}` : "Pending"],
   ];
 }
 
@@ -571,7 +571,7 @@ function CertificateModal({ cert, onClose, onPrint }: { cert: PortalSalaryCertif
     >
       <div className="my-auto w-full max-w-[860px]">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <span className="text-[13px] font-bold text-white/90">Salary Certificate preview</span>
+          <span className="text-[13px] font-bold text-white/90">Salary Certificate Preview</span>
           <div className="flex items-center gap-2.5">
             <button type="button" onClick={onPrint} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}>
               <Printer size={14} /> Print / Save PDF
@@ -677,7 +677,7 @@ function OnboardingModal({ data, fullName, onClose }: { data: PortalOnboarding; 
         <div className="flex justify-end gap-2.5 border-t border-hairline px-6 py-4">
           <button type="button" onClick={onClose} className="rounded-lg border border-hairline-strong bg-white px-4 py-2 text-[13px] font-bold text-ink-strong hover:bg-surface-soft">Close</button>
           <Link href={"/dossier/onboarding" as Route} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}>
-            Update form <ArrowUpRight size={14} />
+            Update Form <ArrowUpRight size={14} />
           </Link>
         </div>
       </div>
@@ -731,7 +731,7 @@ function PrintYear({ fy, rows, total, fullName }: { fy: string; rows: PortalPays
           <tr>
             <th>Month</th>
             <th>Entity</th>
-            <th style={{ textAlign: "right" }}>Net take-home</th>
+            <th style={{ textAlign: "right" }}>Net Take-Home</th>
             <th style={{ textAlign: "center" }}>Status</th>
           </tr>
         </thead>

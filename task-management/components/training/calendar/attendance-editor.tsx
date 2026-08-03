@@ -16,7 +16,7 @@ type AttStatus = SessionAttendeeRow["status"];
 const STATUS_META: Record<AttStatus, { label: string; color: string; bg: string }> = {
   invited: { label: "Invited", color: "var(--color-ink-soft)", bg: "var(--color-surface-track)" },
   attended: { label: "Attended", color: "var(--color-green-deep)", bg: "color-mix(in srgb, var(--color-green) 14%, transparent)" },
-  left_halfway: { label: "Left halfway", color: "#b45309", bg: "rgba(245,158,11,0.16)" },
+  left_halfway: { label: "Left Halfway", color: "#b45309", bg: "rgba(245,158,11,0.16)" },
   absent: { label: "Absent", color: "var(--color-altus-red-deep)", bg: "color-mix(in srgb, var(--color-altus-red) 12%, transparent)" },
 };
 
@@ -164,7 +164,7 @@ export function AttendanceEditor({
             style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
           >
             {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.6} />}
-            Save attendance
+            Save Attendance
           </button>
         </div>
       )}

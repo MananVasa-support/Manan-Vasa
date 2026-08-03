@@ -109,7 +109,7 @@ export function UserMenu({
             <span className="sidebar-collapsible-hide min-w-0 flex-1">
               <span className="block truncate text-[13px] font-semibold text-ink-strong">{name}</span>
               <span className="block truncate text-[11px] text-ink-soft">
-                {isAdmin ? "Administrator" : "Team member"}
+                {isAdmin ? "Administrator" : "Team Member"}
               </span>
             </span>
             <ChevronUp className="sidebar-collapsible-hide shrink-0 text-ink-soft" size={16} strokeWidth={2.4} />
@@ -201,7 +201,7 @@ export function UserMenu({
                   }}
                 >
                   <UserIcon size={11} strokeWidth={2.4} />
-                  Team member
+                  Team Member
                 </span>
               )}
             </div>
@@ -225,7 +225,7 @@ export function UserMenu({
                     strokeWidth={2.2}
                     style={{ color: "var(--color-altus-red)" }}
                   />
-                  <span className="font-medium">Admin panel</span>
+                  <span className="font-medium">Admin Panel</span>
                 </span>
                 <ChevronRight
                   size={14}
@@ -248,7 +248,7 @@ export function UserMenu({
             >
               <span className="inline-flex items-center gap-2">
                 <UserCog size={14} strokeWidth={2.2} style={{ color: "#475569" }} />
-                <span className="font-medium">Profile &amp; preferences</span>
+                <span className="font-medium">Profile &amp; Preferences</span>
               </span>
               <ChevronRight
                 size={14}
@@ -319,7 +319,7 @@ export function UserMenu({
             className="flex items-center gap-2.5 px-3.5 py-2.5 text-[15px] rounded-lg cursor-pointer outline-none text-[#A80400] data-[highlighted]:bg-[#FEF2F2]"
           >
             <LogOut size={14} strokeWidth={2.2} style={{ color: "#A80400" }} />
-            <span className="font-medium">Sign out</span>
+            <span className="font-medium">Sign Out</span>
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>

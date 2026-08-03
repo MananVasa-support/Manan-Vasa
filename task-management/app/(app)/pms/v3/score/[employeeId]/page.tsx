@@ -81,7 +81,7 @@ export default async function PmsV3ScorePage({
           href={"/pms/v3" as Route}
           className="mb-4 inline-flex items-center gap-1.5 text-[13.5px] font-bold text-ink-muted transition-colors hover:text-ink-strong"
         >
-          <ArrowLeft size={15} strokeWidth={2.6} /> Monthly scoring
+          <ArrowLeft size={15} strokeWidth={2.6} /> Monthly Scoring
         </Link>
 
         <header className="mb-6 flex flex-wrap items-center gap-4">

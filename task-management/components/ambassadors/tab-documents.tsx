@@ -76,7 +76,7 @@ export function TabDocuments({ detail }: { detail: AmbassadorDetail }) {
           <span className="inline-grid h-8 w-8 place-items-center rounded-lg" style={{ background: "rgba(225,6,0,0.08)" }}>
             <FolderOpen size={16} strokeWidth={2.4} style={{ color: "var(--color-altus-red-deep)" }} />
           </span>
-          <h2 className="text-[15px] font-bold text-ink-strong">Document center</h2>
+          <h2 className="text-[15px] font-bold text-ink-strong">Document Center</h2>
         </div>
         <input
           ref={fileRef}

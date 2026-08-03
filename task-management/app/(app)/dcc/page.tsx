@@ -81,7 +81,7 @@ export default async function DccPage({ searchParams }: PageProps) {
               style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong), 0 6px 18px -14px rgba(15,23,42,0.4)" }}
             >
               <LayoutDashboard size={18} strokeWidth={2.2} style={{ color: "#16a34a" }} />
-              {scope.isSuper ? "Dashboard" : "My team"}
+              {scope.isSuper ? "Dashboard" : "My Team"}
             </Link>
           )}
         </header>

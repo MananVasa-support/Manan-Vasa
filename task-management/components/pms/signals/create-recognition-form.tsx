@@ -91,7 +91,7 @@ export function CreateRecognitionForm({
           boxShadow: `0 10px 24px -12px color-mix(in srgb, ${ACCENT_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
         }}
       >
-        <Plus size={16} strokeWidth={2.6} /> Add recognition
+        <Plus size={16} strokeWidth={2.6} /> Add Recognition
       </button>
     );
   }
@@ -113,7 +113,7 @@ export function CreateRecognitionForm({
     >
       <div className="mb-4 flex items-center justify-between gap-3">
         <span className="inline-flex items-center gap-2 text-[15px] font-bold text-ink-strong">
-          <Award size={17} strokeWidth={2.4} style={{ color: ACCENT }} /> New recognition
+          <Award size={17} strokeWidth={2.4} style={{ color: ACCENT }} /> New Recognition
         </span>
         <button
           type="button"
@@ -198,7 +198,7 @@ export function CreateRecognitionForm({
           }}
         >
           {pending ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} strokeWidth={2.6} />}
-          Add as suggested
+          Add as Suggested
         </button>
         <button
           type="button"

@@ -83,7 +83,7 @@ export default async function GoalsPlanPage({
               marginTop: 4,
             }}
           >
-            Plan my day
+            Plan My Day
           </h1>
           <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 13.5, maxWidth: "70ch" }}>
             Line up today from your goals and tasks — drag a card into the plan, or tap +. Hit your minimum to start a focused day.

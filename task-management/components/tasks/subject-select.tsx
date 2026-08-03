@@ -362,7 +362,7 @@ export function SubjectSelect({
             }}
           >
             <Plus size={16} strokeWidth={2.6} />
-            Add new subject…
+            Add New Subject…
           </li>
         </ul>
       </PopoverContent>

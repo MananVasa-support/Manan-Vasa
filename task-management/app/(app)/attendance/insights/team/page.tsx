@@ -113,7 +113,7 @@ function NoReportsState() {
       </span>
       <div>
         <p className="font-bold text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontSize: 20 }}>
-          No direct reports yet
+          No Direct Reports Yet
         </p>
         <p className="mt-2 font-medium text-ink-muted mx-auto max-w-md" style={{ fontSize: 15 }}>
           This team dashboard appears once people report to you. In the meantime,
@@ -124,7 +124,7 @@ function NoReportsState() {
         href={"/attendance" as Route}
         className="pastel-cta inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-[14px] font-bold"
       >
-        Go to my attendance
+        Go to My Attendance
       </Link>
     </div>
   );

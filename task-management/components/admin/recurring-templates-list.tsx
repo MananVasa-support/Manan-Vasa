@@ -18,7 +18,7 @@ export function RecurringTemplatesList({ rows }: Props) {
   return (
     <section className="mt-10 max-w-5xl">
       <header className="mb-4">
-        <h3 className="text-display-xs">Recurring task templates</h3>
+        <h3 className="text-display-xs">Recurring Task Templates</h3>
         <p className="text-body text-ink-subtle mt-1">
           Templates whose schedule rule spawns child instances daily at 02:00 UTC.
           Disable a template by clearing its recurrence in the task editor.

@@ -115,7 +115,7 @@ export function EventEditor({ target, categories, obligations, onClose, onSave }
       <div className="wg-modal-in relative w-full max-w-lg overflow-hidden rounded-2xl border border-hairline bg-surface-card shadow-2xl">
         <div className="flex items-center justify-between border-b border-hairline px-5 py-3.5">
           <h3 className="text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui", fontWeight: 800, fontSize: 17 }}>
-            {target.mode === "edit" ? "Edit event" : "New event"}
+            {target.mode === "edit" ? "Edit Event" : "New Event"}
           </h3>
           <button type="button" onClick={onClose} className="text-ink-soft hover:text-ink-strong" aria-label="Close">
             <X size={18} />
@@ -190,7 +190,7 @@ export function EventEditor({ target, categories, obligations, onClose, onSave }
                 onClick={() => set("colorOverride", null)}
                 className="ml-1 rounded-chip border border-hairline px-2 py-1 text-[11.5px] font-medium text-ink-muted hover:bg-surface-soft"
               >
-                Use category
+                Use Category
               </button>
             </div>
           </div>

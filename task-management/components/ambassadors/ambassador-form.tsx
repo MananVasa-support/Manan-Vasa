@@ -322,7 +322,7 @@ export function AmbassadorForm({ mode, initial, products, employees }: Props) {
 
       <Section title="Relationship" hint="Who manages this partner, and where they came from.">
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-          <Field label="Relationship owner">
+          <Field label="Relationship Owner">
             <LookupSelect
               label="owner"
               value={ownerId}
@@ -344,7 +344,7 @@ export function AmbassadorForm({ mode, initial, products, employees }: Props) {
               ]}
             />
           </Field>
-          <Field label="Joined on" htmlFor="joinedOn">
+          <Field label="Joined On" htmlFor="joinedOn">
             <input
               id="joinedOn"
               type="date"
@@ -366,9 +366,9 @@ export function AmbassadorForm({ mode, initial, products, employees }: Props) {
         </div>
       </Section>
 
-      <Section title="Commission terms" hint="What this partner earns on a won referral.">
+      <Section title="Commission Terms" hint="What this partner earns on a won referral.">
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-          <Field label="Payout type">
+          <Field label="Payout Type">
             <Segmented<PayoutType>
               ariaLabel="Payout type"
               value={payoutType}
@@ -380,7 +380,7 @@ export function AmbassadorForm({ mode, initial, products, employees }: Props) {
             />
           </Field>
           <Field
-            label={payoutType === "percent" ? "Payout value (%)" : "Payout value (₹)"}
+            label={payoutType === "percent" ? "Payout Value (%)" : "Payout Value (₹)"}
             htmlFor="payoutValue"
           >
             <div className="relative">
@@ -400,7 +400,7 @@ export function AmbassadorForm({ mode, initial, products, employees }: Props) {
               />
             </div>
           </Field>
-          <Field label="Payout terms notes" htmlFor="payoutTermsNotes" className="col-span-2 max-md:col-span-1">
+          <Field label="Payout Terms Notes" htmlFor="payoutTermsNotes" className="col-span-2 max-md:col-span-1">
             <textarea
               id="payoutTermsNotes"
               className={FIELD + " min-h-[72px] resize-y"}
@@ -413,9 +413,9 @@ export function AmbassadorForm({ mode, initial, products, employees }: Props) {
         </div>
       </Section>
 
-      <Section title="Monthly target" hint="What you expect from this partner each month.">
+      <Section title="Monthly Target" hint="What you expect from this partner each month.">
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-          <Field label="Revenue target (₹)" htmlFor="monthlyTarget">
+          <Field label="Revenue Target (₹)" htmlFor="monthlyTarget">
             <div className="relative">
               <span
                 className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] font-bold text-ink-subtle"
@@ -433,7 +433,7 @@ export function AmbassadorForm({ mode, initial, products, employees }: Props) {
               />
             </div>
           </Field>
-          <Field label="Referrals / month (#)" htmlFor="monthlyTargetCount">
+          <Field label="Referrals / Month (#)" htmlFor="monthlyTargetCount">
             <input
               id="monthlyTargetCount"
               className={FIELD + " tabular-nums"}
@@ -446,7 +446,7 @@ export function AmbassadorForm({ mode, initial, products, employees }: Props) {
         </div>
       </Section>
 
-      <Section title="Products to pitch" hint="What this partner refers us for.">
+      <Section title="Products to Pitch" hint="What this partner refers us for.">
         {productList.length > 0 && (
           <div className="mb-4 flex flex-wrap gap-2">
             {productList.map((p) => {
@@ -482,7 +482,7 @@ export function AmbassadorForm({ mode, initial, products, employees }: Props) {
           </div>
         )}
         <div className="max-w-[420px]">
-          <span className={LABEL}>Add a product</span>
+          <span className={LABEL}>Add a Product</span>
           <LookupSelect
             label="product"
             value={pickProduct}
@@ -533,7 +533,7 @@ export function AmbassadorForm({ mode, initial, products, employees }: Props) {
           }}
         >
           {submitting ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} strokeWidth={2.4} />}
-          {mode === "create" ? "Add ambassador" : "Save changes"}
+          {mode === "create" ? "Add Ambassador" : "Save Changes"}
         </button>
       </div>
     </form>

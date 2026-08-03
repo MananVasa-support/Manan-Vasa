@@ -336,10 +336,10 @@ export function EmployeeDetailDialog({
                               <FlagPill label="Late" tone="red" />
                             )}
                             {d.lateWaived && (
-                              <FlagPill label="Late · waived" tone="amber" />
+                              <FlagPill label="Late · Waived" tone="amber" />
                             )}
                             {d.leftEarly && (
-                              <FlagPill label="Left early" tone="blue" />
+                              <FlagPill label="Left Early" tone="blue" />
                             )}
                           </span>
                         </td>
@@ -753,7 +753,7 @@ function LeaveCompOffPanel({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Mark leave */}
         <div>
-          <p className="text-[13px] font-bold text-ink-strong mb-2">Mark leave</p>
+          <p className="text-[13px] font-bold text-ink-strong mb-2">Mark Leave</p>
           <div className="flex flex-wrap items-end gap-2">
             <label className="block">
               <span className={labelCls}>Type</span>
@@ -809,13 +809,13 @@ function LeaveCompOffPanel({
             onClick={markLeave}
             className={`mt-2.5 inline-flex items-center gap-1.5 rounded-md bg-altus-red py-1.5 px-3 text-[12px] font-bold text-white disabled:opacity-60 transition-opacity ${FOCUS_RING}`}
           >
-            <Check size={13} strokeWidth={2.6} /> Mark leave
+            <Check size={13} strokeWidth={2.6} /> Mark Leave
           </button>
         </div>
 
         {/* Redeem comp-off */}
         <div>
-          <p className="text-[13px] font-bold text-ink-strong mb-2">Redeem comp-off</p>
+          <p className="text-[13px] font-bold text-ink-strong mb-2">Redeem Comp-Off</p>
           {openCredits.length === 0 ? (
             <p className="text-[13px] text-ink-subtle font-semibold">
               No open comp-off credits. Convert a worked holiday / weekly-off above to earn one.
@@ -865,7 +865,7 @@ function LeaveCompOffPanel({
         {/* Manage / remove comp-off credits */}
         {credits.length > 0 && (
           <div>
-            <p className="text-[13px] font-bold text-ink-strong mb-2">Comp-off credits</p>
+            <p className="text-[13px] font-bold text-ink-strong mb-2">Comp-Off Credits</p>
             <div className="flex flex-col gap-1.5">
               {credits.map((c) => (
                 <div key={c.id} className="flex items-center gap-2 rounded-md border border-hairline px-2.5 py-1.5">

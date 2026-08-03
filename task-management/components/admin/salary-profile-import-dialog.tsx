@@ -110,12 +110,12 @@ export function SalaryProfileImportDialog() {
           {preview && (
             <div className="mt-2 rounded-lg border border-[#E2E8F0] p-4">
               <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-2">
-                <Stat label="Sheet employees" value={String(preview.sheetEmployees)} />
+                <Stat label="Sheet Employees" value={String(preview.sheetEmployees)} />
                 <Stat label="Matched" value={String(preview.matched.length)} />
-                <Stat label="Will change" value={String(changed.length)} />
-                <Stat label="New designations" value={String(preview.newDesignations.length)} />
-                <Stat label="New entities" value={String(preview.newEntities.length)} />
-                <Stat label="Unmatched names" value={String(preview.unmatchedNames.length)} />
+                <Stat label="Will Change" value={String(changed.length)} />
+                <Stat label="New Designations" value={String(preview.newDesignations.length)} />
+                <Stat label="New Entities" value={String(preview.newEntities.length)} />
+                <Stat label="Unmatched Names" value={String(preview.unmatchedNames.length)} />
               </div>
 
               {preview.unmatchedNames.length > 0 && (

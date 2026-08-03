@@ -85,7 +85,7 @@ export function ManagerWeeklyGoalGate({
                   className={`wg-sheen inline-flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2.5 text-[14px] font-bold text-white ${FOCUS}`}
                   style={{ background: done ? "var(--color-ink-soft)" : "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
                 >
-                  <Target size={15} strokeWidth={2.4} /> Set goals
+                  <Target size={15} strokeWidth={2.4} /> Set Goals
                 </a>
               </div>
             );

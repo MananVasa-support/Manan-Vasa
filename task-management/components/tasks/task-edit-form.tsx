@@ -587,7 +587,7 @@ export function TaskEditForm({
             boxShadow: "0 8px 20px -10px rgba(225, 6, 0, 0.55)",
           }}
         >
-          {pending ? "Saving…" : "Save changes"}
+          {pending ? "Saving…" : "Save Changes"}
         </button>
       </div>
     </motion.form>

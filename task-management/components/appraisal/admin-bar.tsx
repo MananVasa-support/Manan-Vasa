@@ -18,8 +18,8 @@ export interface CycleLite {
 }
 
 const NEXT: Partial<Record<AppraisalCycleStatus, { to: AppraisalCycleStatus; label: string; icon: React.ReactNode }>> = {
-  draft: { to: "open", label: "Open self-scoring", icon: <Play size={14} /> },
-  open: { to: "review", label: "Move to review", icon: <ClipboardCheck size={14} /> },
+  draft: { to: "open", label: "Open Self-Scoring", icon: <Play size={14} /> },
+  open: { to: "review", label: "Move to Review", icon: <ClipboardCheck size={14} /> },
   review: { to: "finalized", label: "Finalize", icon: <Lock size={14} /> },
 };
 
@@ -100,7 +100,7 @@ export function AdminCycleBar({ cycle }: { cycle: CycleLite | null }) {
           className="inline-flex items-center gap-1.5 rounded-pill border-2 bg-white/70 px-4 py-2 text-[13px] font-bold"
           style={{ borderColor: `color-mix(in srgb, ${ACCENT} 40%, transparent)`, color: ACCENT_DEEP }}
         >
-          <Plus size={14} /> New cycle
+          <Plus size={14} /> New Cycle
         </button>
       ) : (
         <form onSubmit={doCreate} className="flex flex-wrap items-center gap-2 rounded-pill bg-white/80 px-2 py-1.5" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>

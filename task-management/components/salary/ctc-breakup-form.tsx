@@ -181,7 +181,7 @@ export function CtcBreakupForm({ emp }: { emp: CtcFormEmployee }) {
             className="justify-self-start rounded-lg px-3 py-1.5 text-[12px] font-bold"
             style={{ color: GREEN_DEEP, background: "color-mix(in srgb, #E10600 10%, transparent)" }}
           >
-            + Add component
+            + Add Component
           </button>
         </div>
 
@@ -218,7 +218,7 @@ export function CtcBreakupForm({ emp }: { emp: CtcFormEmployee }) {
           className="mt-3 rounded-lg px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
           style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}
         >
-          Save CTC breakup
+          Save CTC Breakup
         </button>
       </Card>
 
@@ -280,7 +280,7 @@ export function CtcBreakupForm({ emp }: { emp: CtcFormEmployee }) {
           className="brand-btn mt-3 rounded-lg px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
           style={{ background: "linear-gradient(135deg, #7c3aed, #6d28d9)" }}
         >
-          Save retention bonus
+          Save Retention Bonus
         </button>
       </Card>
 
@@ -378,7 +378,7 @@ export function CtcBreakupForm({ emp }: { emp: CtcFormEmployee }) {
           className="mt-3 rounded-lg px-4 py-2 text-[13px] font-bold text-white disabled:opacity-50"
           style={{ background: `linear-gradient(135deg, ${RED}, #a80400)` }}
         >
-          Add adjustment
+          Add Adjustment
         </button>
         {adjReason.trim().length > 0 && adjReason.trim().length < 3 && (
           <p className="mt-1 text-[12px] font-semibold" style={{ color: RED }}>

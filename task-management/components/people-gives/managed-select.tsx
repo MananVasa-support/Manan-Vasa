@@ -303,7 +303,7 @@ export function ManagedSelect({
               className="mx-1.5 px-3 py-2 rounded-lg cursor-pointer text-[13.5px] font-semibold"
               style={{ color: "var(--color-ink-subtle)" }}
             >
-              Clear selection
+              Clear Selection
             </li>
           )}
           {filtered.length === 0 && (

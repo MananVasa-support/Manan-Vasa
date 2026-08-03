@@ -659,7 +659,7 @@ function AssignedStrip({ items, reduce }: { items: AssignedGoal[]; reduce: boole
     >
       <div className="mb-2 flex items-center gap-2 px-1">
         <Users2 size={15} style={{ color: ACCENT_DEEP }} />
-        <span className="text-[13px] font-black text-ink-strong">Also on you</span>
+        <span className="text-[13px] font-black text-ink-strong">Also on You</span>
         <span className="text-[11.5px] font-medium text-ink-muted">— goals others made you responsible for</span>
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1">

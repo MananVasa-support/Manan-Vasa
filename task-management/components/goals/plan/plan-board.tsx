@@ -325,11 +325,11 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
 
         {/* 2 — Weekly Goals */}
         <SourceWindow
-          title="Weekly goals"
+          title="Weekly Goals"
           subtitle="What your manager set this week"
           icon={<Layers size={16} />}
           delay={60}
-          sections={[{ key: "weekly", label: "This week", items: src.weekly }]}
+          sections={[{ key: "weekly", label: "This Week", items: src.weekly }]}
           onAdd={onAddSource}
         />
 
@@ -339,14 +339,14 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
           subtitle="Carried over from earlier days"
           icon={<History size={16} />}
           delay={100}
-          sections={[{ key: "unfinished", label: "Not done yet", items: src.unfinished }]}
+          sections={[{ key: "unfinished", label: "Not Done Yet", items: src.unfinished }]}
           onAdd={onAddSource}
           onAbandon={onAbandon}
         />
 
         {/* 4 — To-Do list (overdue + due within 7 days), with a filter */}
         <SourceWindow
-          title="To-do list"
+          title="To-Do List"
           subtitle="Overdue + due within 7 days"
           icon={<ListTodo size={16} />}
           delay={140}

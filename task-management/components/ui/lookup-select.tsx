@@ -23,6 +23,12 @@ interface Props {
   onAdd?: (name: string) => Promise<AddResult>;
   /** Optional soft-delete. Omit to hide the per-row trash control. */
   onDelete?: (id: string) => Promise<DeleteResult>;
+  /**
+   * Optional confirmation gate run BEFORE `onDelete`. Resolve `true` to proceed,
+   * `false` to silently abort (no toast). Lets a caller show a warning dialog for
+   * destructive deletes (e.g. wiping a candidate's whole record).
+   */
+  confirmDelete?: (opt: LookupOption) => Promise<boolean>;
   className?: string;
   placeholder?: string;
 }
@@ -39,6 +45,7 @@ export function LookupSelect({
   options: seed,
   onAdd,
   onDelete,
+  confirmDelete,
   className,
   placeholder,
 }: Props) {
@@ -125,6 +132,10 @@ export function LookupSelect({
     e.stopPropagation();
     e.preventDefault();
     if (!onDelete || deletingId) return;
+    if (confirmDelete) {
+      const go = await confirmDelete(opt);
+      if (!go) return; // user cancelled — abort silently, no toast
+    }
     setDeletingId(opt.id);
     const res = await onDelete(opt.id);
     setDeletingId(null);
@@ -216,7 +227,7 @@ export function LookupSelect({
         <ul ref={listRef} id={listId} role="listbox" className="max-h-[300px] overflow-y-auto py-1.5">
           {value && (
             <li onClick={() => { onChange(null); setOpen(false); }} className="mx-1.5 px-3 py-2 rounded-lg cursor-pointer text-[13.5px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
-              Clear selection
+              Clear Selection
             </li>
           )}
           {filtered.length === 0 && (

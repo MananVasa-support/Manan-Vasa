@@ -1105,7 +1105,7 @@ function RowsPerPageSelect({
   );
 }
 
-// "Group by" control — a single compact pill that reflects the current
+// "Group By" control — a single compact pill that reflects the current
 // grouping (red-tinted + "Group: Client" when active), opening a rich menu
 // with a leading icon per field and the active one checked in red. Grouping
 // clusters the rows under that field and shows a count per section; the
@@ -1132,12 +1132,12 @@ function GroupByControl({
           }`}
         >
           <GroupIcon size={15} strokeWidth={2.3} />
-          {grouped ? `Group: ${active.label}` : "Group by"}
+          {grouped ? `Group: ${active.label}` : "Group By"}
           <ChevronDown size={14} strokeWidth={2.4} className="opacity-60" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
-        <DropdownMenuLabel>Group by</DropdownMenuLabel>
+        <DropdownMenuLabel>Group By</DropdownMenuLabel>
         {GROUP_OPTIONS.map((opt) => {
           const sel = opt.key === value;
           const Icon = opt.Icon;
@@ -1282,7 +1282,7 @@ function MobileSortControl({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+          <DropdownMenuLabel>Sort By</DropdownMenuLabel>
           {sortable.map((c) => {
             const sorted = c.getIsSorted();
             return (
@@ -1329,7 +1329,7 @@ function ColumnsMenu({ table }: { table: TableInstance<TaskListRow> }) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuLabel>Show columns</DropdownMenuLabel>
+        <DropdownMenuLabel>Show Columns</DropdownMenuLabel>
         {cols.map((c) => (
           <DropdownMenuItem
             key={c.id}

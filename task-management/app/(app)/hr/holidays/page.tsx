@@ -54,7 +54,7 @@ export default async function HolidaysPage() {
             data-print-trigger
           >
             <CalendarDays size={15} strokeWidth={2.4} />
-            <span className="max-md:hidden">Print calendar</span>
+            <span className="max-md:hidden">Print Calendar</span>
             <span className="md:hidden">Print</span>
           </button>
         </div>
@@ -233,12 +233,16 @@ const HOL_CSS = `
     border-radius:9999px; min-width:24px; text-align:center; padding:2px 8px;
   }
 
-  .hol-list{ display:flex; flex-direction:column; gap:9px; margin:0; padding:0; list-style:none; }
+  .hol-list{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(268px, 1fr));
+    gap:12px; margin:0; padding:0; list-style:none;
+  }
   .hol-row{
-    position:relative;
-    display:flex; align-items:center; gap:16px;
+    position:relative; height:100%;
+    display:flex; align-items:center; gap:14px;
     background:#fff; border:1px solid var(--color-hairline, rgba(15,23,42,.06));
-    border-radius:16px; padding:12px 16px;
+    border-radius:16px; padding:14px 16px;
     box-shadow: 0 12px 30px -26px rgba(15,23,42,.5);
     transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
   }
@@ -267,6 +271,8 @@ const HOL_CSS = `
   .is-national .hol-badge-day{ color:#fff; }
 
   .hol-row-body{ display:flex; flex-direction:column; gap:3px; min-width:0; flex:1; }
+  /* National rows carry a corner flag → reserve room so the name never runs under it. */
+  .is-national .hol-row-body{ padding-right:66px; }
   .hol-name{ font-weight:700; font-size:15.5px; letter-spacing:-.005em; color: var(--color-ink-strong, #0f172a); }
   .hol-meta{ display:flex; align-items:center; gap:8px; font-size:13px; color: var(--color-ink-muted, #475569); }
   .hol-date{ font-weight:600; }
@@ -274,9 +280,10 @@ const HOL_CSS = `
   .hol-weekday{ font-weight:600; }
 
   .hol-flag{
-    flex:0 0 auto; display:inline-flex; align-items:center; gap:5px;
-    font-size:11.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase;
-    color:#fff; padding:5px 11px; border-radius:9999px;
+    position:absolute; top:11px; right:11px;
+    display:inline-flex; align-items:center; gap:5px;
+    font-size:10.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase;
+    color:#fff; padding:4px 9px; border-radius:9999px;
     background: linear-gradient(120deg, var(--color-altus-red, #E10600), var(--color-altus-red-deep, #A80400));
     box-shadow: 0 8px 18px -12px rgba(168,4,0,.7);
   }

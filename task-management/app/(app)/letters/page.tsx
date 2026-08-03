@@ -91,7 +91,7 @@ export default async function LettersPage() {
             className="mt-1.5 text-ink-strong"
             style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(26px,3vw,40px)", letterSpacing: "-0.025em", lineHeight: 1.05 }}
           >
-            {isAdmin ? "HR letters" : "My letters"}
+            {isAdmin ? "HR Letters" : "My Letters"}
           </h1>
           <p className="mt-1.5 max-w-[70ch] text-[13.5px] font-medium text-ink-muted">
             {isAdmin
@@ -129,7 +129,7 @@ export default async function LettersPage() {
                   lineHeight: 1.05,
                 }}
               >
-                Exit documents
+                Exit Documents
               </h2>
               <p className="mt-1.5 max-w-[76ch] text-[13.5px] font-medium text-ink-muted">
                 Generate the Full &amp; Final Settlement, Return of Company Assets and Handover

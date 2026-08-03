@@ -96,7 +96,7 @@ export function TabTimeline({
       <div className="space-y-5">
         {/* composer */}
         <section className="rounded-2xl border border-hairline bg-white p-5" style={{ boxShadow: "0 10px 30px -24px rgba(0,0,0,0.4)" }}>
-          <h2 className="mb-3 text-[15px] font-bold text-ink-strong">Log activity</h2>
+          <h2 className="mb-3 text-[15px] font-bold text-ink-strong">Log Activity</h2>
 
           {/* type selector */}
           <div role="radiogroup" aria-label="Activity type" className="mb-3 flex flex-wrap gap-2">
@@ -162,7 +162,7 @@ export function TabTimeline({
                 className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2.5 px-3.5 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] disabled:opacity-60"
               >
                 <ListTodo size={15} strokeWidth={2.6} />
-                Follow-up task
+                Follow-up Task
               </button>
               <button
                 type="button"
@@ -172,7 +172,7 @@ export function TabTimeline({
                 style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 12px 30px -14px rgba(225,6,0,0.6)" }}
               >
                 <Send size={15} strokeWidth={2.6} />
-                {pending ? "Logging…" : "Log activity"}
+                {pending ? "Logging…" : "Log Activity"}
               </button>
             </div>
           </div>

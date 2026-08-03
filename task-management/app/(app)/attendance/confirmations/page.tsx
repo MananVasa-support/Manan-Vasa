@@ -62,7 +62,7 @@ export default async function ConfirmationsPage() {
               lineHeight: 1.02,
             }}
           >
-            {queue.mode === "accountant" ? "Confirm managers' week" : "Confirm your team's week"}
+            {queue.mode === "accountant" ? "Confirm Managers' Week" : "Confirm Your Team's Week"}
           </h1>
           <p className="mt-1.5 text-[15.5px] font-medium text-ink-muted">
             {queue.mode === "accountant"
@@ -85,7 +85,7 @@ function BackLink() {
       href={"/attendance" as Route}
       className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-muted transition-colors hover:text-[color:var(--color-altus-red-deep)]"
     >
-      <ArrowLeft size={15} /> Back to attendance
+      <ArrowLeft size={15} /> Back to Attendance
     </Link>
   );
 }

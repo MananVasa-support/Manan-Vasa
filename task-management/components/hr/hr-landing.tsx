@@ -127,7 +127,7 @@ export function HrLanding({ isHrStaff }: { isHrStaff: boolean }) {
   const cards = isHrStaff ? CARDS : LIMITED_CARDS;
 
   return (
-    <div className="hr-land relative min-h-[calc(100dvh-64px)] w-full overflow-hidden">
+    <div className="hr-land relative flex h-[calc(100dvh-64px)] w-full flex-col overflow-hidden max-md:h-auto max-md:min-h-[calc(100dvh-64px)] max-md:overflow-visible">
       {/* Aurora canvas */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
         <div className="hr-aurora hr-aurora-a" />
@@ -146,8 +146,9 @@ export function HrLanding({ isHrStaff }: { isHrStaff: boolean }) {
         Back to Hub
       </Link>
 
-      {/* Hero */}
-      <div className="mx-auto max-w-[1180px] px-8 max-md:px-5 pt-14 max-md:pt-10 text-center">
+      {/* Content — vertically centred so the whole page holds still (no scroll) */}
+      <div className="relative z-10 mx-auto flex w-full max-w-[1180px] flex-1 flex-col items-center justify-center px-8 py-8 text-center max-md:px-5 max-md:py-10">
+        {/* Hero */}
         <span
           className="hr-in inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.22em]"
           style={{ color: ACCENT_DEEP, background: "color-mix(in srgb, var(--color-altus-red) 10%, white)", boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--color-altus-red) 22%, transparent)" }}
@@ -156,47 +157,30 @@ export function HrLanding({ isHrStaff }: { isHrStaff: boolean }) {
         </span>
 
         <h1
-          className="hr-in mx-auto mt-5 max-w-[16ch] text-ink-strong"
-          style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(30px, 4.4vw, 56px)", letterSpacing: "-0.035em", lineHeight: 1.0, animationDelay: "60ms" }}
+          className="hr-in mx-auto mt-4 max-w-[16ch] text-ink-strong"
+          style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(30px, 4.2vw, 52px)", letterSpacing: "-0.035em", lineHeight: 1.0, animationDelay: "60ms" }}
         >
           Welcome to{" "}
           <span className="hr-shine relative whitespace-nowrap">HR</span>
         </h1>
 
-        <p
-          className="hr-in mx-auto mt-4 max-w-[54ch] font-medium text-ink-muted"
-          style={{ fontSize: "clamp(15px, 1.6vw, 18px)", lineHeight: 1.5, animationDelay: "140ms" }}
-        >
-          {isHrStaff
-            ? "The complete employee journey in one room — from the first hello to a warm goodbye. Pick a stage to step inside."
-            : "Your HR home — view your own record, check the holiday calendar, and reach the Help Desk whenever you need a hand."}
-        </p>
-      </div>
-
-      {/* Cards — staff see the full deck (4 on top, 4 centred below); a normal
-          employee sees three centred cards (Holiday · Help Desk · My HR Record). */}
-      <div className="mx-auto mt-10 max-md:mt-8 flex w-full max-w-[1010px] flex-col items-center gap-5 px-6 max-md:px-5 pb-16">
-        {(isHrStaff ? [cards.slice(0, 4), cards.slice(4)] : [cards]).map((row, r) => (
-          <div key={r} className="flex flex-wrap justify-center gap-5 max-md:gap-4">
-            {row.map((c, i) => {
-              const idx = r === 0 ? i : i + 4;
-              return (
-                <div key={c.slug} className="hr-card-in" style={{ animationDelay: `${120 + idx * 60}ms` }}>
-                  <DeckCard
-                    card={c}
-                    onOpen={
-                      c.stage
-                        ? () => setOpenStage(c.stage!)
-                        : c.popup === "help-desk"
-                          ? () => setHelpDeskOpen(true)
-                          : undefined
-                    }
-                  />
-                </div>
-              );
-            })}
-          </div>
-        ))}
+        {/* Cards — one wrapping deck: staff 10 → 5×2, a normal employee 3 → centred. */}
+        <div className="mt-8 flex w-full max-w-[1050px] flex-wrap justify-center gap-5 max-md:mt-6 max-md:gap-4">
+          {cards.map((c, idx) => (
+            <div key={c.slug} className="hr-card-in" style={{ animationDelay: `${120 + idx * 50}ms` }}>
+              <DeckCard
+                card={c}
+                onOpen={
+                  c.stage
+                    ? () => setOpenStage(c.stage!)
+                    : c.popup === "help-desk"
+                      ? () => setHelpDeskOpen(true)
+                      : undefined
+                }
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Stage / intake / policies pop-ups are STAFF-ONLY — never mount for a
@@ -248,7 +232,7 @@ function DeckCard({ card, onOpen }: { card: Card; onOpen?: () => void }) {
   const cls = "hr-deck group relative flex flex-col overflow-hidden rounded-[16px] bg-white text-left transition-transform duration-200 hover:-translate-y-2";
   const style: React.CSSProperties = {
     width: 194,
-    minHeight: 138,
+    minHeight: 122,
     border: "2px solid color-mix(in srgb, #E10600 55%, white)",
     boxShadow: "0 10px 26px -14px rgba(24,24,27,0.20), 0 2px 6px -2px rgba(24,24,27,0.10)",
   };
@@ -308,9 +292,8 @@ function StagePopup({ stage, onClose, onOpenChooser, onOpenPolicies }: { stage: 
             className="mt-2.5 text-ink-strong"
             style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: "-0.02em", lineHeight: 1.05 }}
           >
-            Choose a step
+            Choose a Step
           </h2>
-          <p className="mt-1 max-w-[44ch] text-[13.5px] font-medium leading-snug text-ink-muted">{stage.blurb}</p>
         </div>
 
         {/* options */}
@@ -390,8 +373,8 @@ interface HelpDeskOption {
 }
 
 const HELP_DESK_OPTIONS: HelpDeskOption[] = [
-  { slug: "raise", label: "Raise a ticket", blurb: "Ask HR for help — a question, request or escalation.", href: "/support/new", Icon: Plus },
-  { slug: "my-requests", label: "My requests", blurb: "Track everything you've raised and its status.", href: "/support", Icon: Inbox },
+  { slug: "raise", label: "Raise a Ticket", blurb: "Ask HR for help — a question, request or escalation.", href: "/support/new", Icon: Plus },
+  { slug: "my-requests", label: "My Requests", blurb: "Track everything you've raised and its status.", href: "/support", Icon: Inbox },
 ];
 
 function HelpDeskPopup({ onClose }: { onClose: () => void }) {
@@ -433,7 +416,7 @@ function HelpDeskPopup({ onClose }: { onClose: () => void }) {
             className="mt-2.5 text-ink-strong"
             style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: "-0.02em", lineHeight: 1.05 }}
           >
-            Choose a step
+            Choose a Step
           </h2>
           <p className="mt-1 max-w-[44ch] text-[13.5px] font-medium leading-snug text-ink-muted">
             Get help from the HR desk — questions, requests and escalations, all tracked in one place.

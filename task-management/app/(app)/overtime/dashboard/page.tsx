@@ -214,7 +214,7 @@ export default async function OvertimeDashboardPage() {
             className="mb-1 font-bold text-ink-strong"
             style={{ fontSize: 18, letterSpacing: "-0.01em" }}
           >
-            Overtime by person
+            Overtime by Person
           </h2>
           <p className="mb-5 text-[13px] font-medium text-ink-subtle">
             All-time hours per person. Filled bar = approved; lighter = pending /

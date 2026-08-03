@@ -81,7 +81,7 @@ export function IncentiveCatalogDialog({ rows, isAdmin }: { rows: CatalogRow[]; 
           }}
         >
           <BookOpen size={16} strokeWidth={2.4} />
-          Incentive table
+          Incentive Table
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>
@@ -93,7 +93,7 @@ export function IncentiveCatalogDialog({ rows, isAdmin }: { rows: CatalogRow[]; 
           <div className="shrink-0 flex items-center justify-between gap-4 px-6 py-4 border-b border-hairline">
             <div>
               <Dialog.Title className="font-serif italic text-ink-strong" style={{ fontSize: 24, fontWeight: 600 }}>
-                Incentive table
+                Incentive Table
               </Dialog.Title>
               <Dialog.Description className="text-ink-subtle font-medium" style={{ fontSize: 13.5 }}>
                 What each incentive earns · who&apos;s eligible{isAdmin ? " · click a row to edit" : ""}.
@@ -111,7 +111,7 @@ export function IncentiveCatalogDialog({ rows, isAdmin }: { rows: CatalogRow[]; 
                       "0 8px 20px -10px rgba(168,4,0,0.7), inset 0 1px 0 rgba(255,255,255,0.25)",
                   }}
                 >
-                  <Plus size={15} strokeWidth={2.6} /> Add incentive
+                  <Plus size={15} strokeWidth={2.6} /> Add Incentive
                 </button>
               )}
               <Dialog.Close asChild>
@@ -205,7 +205,7 @@ function CatalogEditor({
     <div className="mb-5 rounded-xl border-2 border-altus-red/40 bg-altus-red/[0.02] p-4">
       <div className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
         <label className="col-span-2 block">
-          <span className="mb-1 block text-[12px] font-bold text-ink-soft">Incentive name</span>
+          <span className="mb-1 block text-[12px] font-bold text-ink-soft">Incentive Name</span>
           <input autoFocus value={draft.name} onChange={(e) => set({ name: e.target.value })} placeholder="e.g. PS Sold in 30 Days" className={field} />
         </label>
         <label className="block">
@@ -224,10 +224,10 @@ function CatalogEditor({
       <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-4">
           <label className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-ink-soft cursor-pointer">
-            <input type="checkbox" checked={draft.salesEligible} onChange={(e) => set({ salesEligible: e.target.checked })} /> Sales eligible
+            <input type="checkbox" checked={draft.salesEligible} onChange={(e) => set({ salesEligible: e.target.checked })} /> Sales Eligible
           </label>
           <label className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-ink-soft cursor-pointer">
-            <input type="checkbox" checked={draft.internsEligible} onChange={(e) => set({ internsEligible: e.target.checked })} /> Interns eligible
+            <input type="checkbox" checked={draft.internsEligible} onChange={(e) => set({ internsEligible: e.target.checked })} /> Interns Eligible
           </label>
         </div>
         <div className="flex items-center gap-2">
@@ -244,7 +244,7 @@ function CatalogEditor({
             }}
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} strokeWidth={2.6} />}
-            {draft.id ? "Save changes" : "Add incentive"}
+            {draft.id ? "Save Changes" : "Add Incentive"}
           </button>
         </div>
       </div>

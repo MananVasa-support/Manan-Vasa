@@ -77,7 +77,7 @@ export function ItemBuilder({ cycleId, employeeId }: { cycleId: string; employee
           style={{ borderColor: `color-mix(in srgb, ${ACCENT} 40%, transparent)`, color: ACCENT_DEEP }}
           title="Create the standard Incentive, Knowledge-Sharing, Culture + manager one-liners"
         >
-          <Wand2 size={13} /> Seed standard dimensions
+          <Wand2 size={13} /> Seed Standard Dimensions
         </button>
       </div>
       <form onSubmit={add} className="flex flex-wrap items-center gap-2">

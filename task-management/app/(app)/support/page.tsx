@@ -75,7 +75,7 @@ export default async function SupportPage({ searchParams }: PageProps) {
               className="mt-1.5 text-ink-strong"
               style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(26px,3vw,38px)", letterSpacing: "-0.025em" }}
             >
-              {v.handler ? "Help desk" : "Help Desk"}
+              {v.handler ? "Help Desk" : "Help Desk"}
             </h1>
             <p className="mt-1 text-[14px] font-medium text-ink-muted">
               {v.handler
@@ -88,7 +88,7 @@ export default async function SupportPage({ searchParams }: PageProps) {
             className="inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[14px] font-bold text-white transition hover:brightness-110"
             style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
           >
-            <Plus size={16} /> Raise a ticket
+            <Plus size={16} /> Raise a Ticket
           </Link>
         </header>
 

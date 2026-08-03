@@ -29,17 +29,17 @@ interface Metric {
 }
 
 const METRICS: Metric[] = [
-  { key: "late", label: "Days late", icon: <Clock size={15} strokeWidth={2.4} />, goodHigh: false },
-  { key: "lateWaived", label: "Late waived", icon: <Clock size={15} strokeWidth={2.4} />, goodHigh: true },
-  { key: "startedEarly", label: "Started on-time / early", icon: <Sunrise size={15} strokeWidth={2.4} />, goodHigh: true },
-  { key: "leftEarly", label: "Left early", icon: <LogOut size={15} strokeWidth={2.4} />, goodHigh: false },
+  { key: "late", label: "Days Late", icon: <Clock size={15} strokeWidth={2.4} />, goodHigh: false },
+  { key: "lateWaived", label: "Late Waived", icon: <Clock size={15} strokeWidth={2.4} />, goodHigh: true },
+  { key: "startedEarly", label: "Started On-Time / Early", icon: <Sunrise size={15} strokeWidth={2.4} />, goodHigh: true },
+  { key: "leftEarly", label: "Left Early", icon: <LogOut size={15} strokeWidth={2.4} />, goodHigh: false },
 ];
 
 export function AttendanceAnalyticsBlock({ data }: { data: AttendanceAnalytics }) {
   const cols: { label: string; sub: string; m: AttendanceMetrics }[] = [
-    { label: "This month", sub: "selected", m: data.thisMonth },
-    { label: "Last 3 months", sub: "rolling", m: data.last3Months },
-    { label: "Year to date", sub: data.fyLabel, m: data.ytd },
+    { label: "This Month", sub: "selected", m: data.thisMonth },
+    { label: "Last 3 Months", sub: "rolling", m: data.last3Months },
+    { label: "Year to Date", sub: data.fyLabel, m: data.ytd },
   ];
 
   return (

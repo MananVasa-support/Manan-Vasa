@@ -221,7 +221,7 @@ export function TaskRowActions({ row, employees, me }: Props) {
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>Change Priority</DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
-                <DropdownMenuLabel>Eisenhower priority</DropdownMenuLabel>
+                <DropdownMenuLabel>Eisenhower Priority</DropdownMenuLabel>
                 {TASK_PRIORITIES.map((p) => (
                   <DropdownMenuItem
                     key={p}
@@ -286,7 +286,7 @@ export function TaskRowActions({ row, employees, me }: Props) {
             <DropdownMenuSeparator />
             <DropdownMenuItem danger onClick={handleDelete}>
               <Trash2 size={14} />
-              Delete task…
+              Delete Task…
             </DropdownMenuItem>
           </>
         )}

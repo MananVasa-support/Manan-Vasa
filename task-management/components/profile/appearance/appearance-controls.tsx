@@ -137,7 +137,7 @@ export function AppearanceControls({ initial }: Props) {
 
       <section style={cardStyle}>
         <SectionHeader
-          title="Accent colour"
+          title="Accent Colour"
           description="Tints buttons, focus rings, and the streak flame. Pick a preset or paste a custom hex."
           savedAt={showSaved ? savedAt : null}
         />

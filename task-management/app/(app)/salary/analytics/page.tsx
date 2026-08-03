@@ -65,7 +65,7 @@ export default async function SalaryAnalyticsPage({ searchParams }: PageProps) {
             href={`/salary?month=${month}` as Route}
             className="inline-flex items-center gap-1 text-[13px] font-bold text-ink-subtle hover:text-ink-strong"
           >
-            <ChevronLeft size={15} strokeWidth={2.6} /> Salary sheet
+            <ChevronLeft size={15} strokeWidth={2.6} /> Salary Sheet
           </Link>
           <span
             className="mt-3 inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-white"
@@ -83,7 +83,7 @@ export default async function SalaryAnalyticsPage({ searchParams }: PageProps) {
               lineHeight: 1.02,
             }}
           >
-            Discipline &amp; attendance read-out
+            Discipline &amp; Attendance Read-Out
           </h1>
           <p className="mt-1.5 max-w-[70ch] text-[15px] font-medium text-ink-muted">
             Late / waived / early-start ratios (X of N, with %) across this month, the last three

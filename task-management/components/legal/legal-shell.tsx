@@ -68,7 +68,7 @@ export function LegalShell({ eyebrow, title, lastUpdated, intro, children }: Pro
             className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-ink-soft hover:text-ink-strong transition-colors"
           >
             <ArrowLeft size={15} strokeWidth={2.2} />
-            Back to sign in
+            Back to Sign In
           </Link>
         </div>
       </header>

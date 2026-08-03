@@ -408,15 +408,15 @@ export function MonthlyChecklist({
           />
         </div>
         <select className={CHIP} value={fType} onChange={(e) => setFType(e.target.value)} aria-label="Filter by type">
-          <option value="">All types</option>
+          <option value="">All Types</option>
           {types.map((c) => (<option key={c} value={c}>{c}</option>))}
         </select>
         <select className={CHIP} value={fFrequency} onChange={(e) => setFFrequency(e.target.value)} aria-label="Filter by frequency">
-          <option value="">All frequencies</option>
+          <option value="">All Frequencies</option>
           {frequencies.map((f) => (<option key={f} value={f}>{f}</option>))}
         </select>
         <select className={CHIP} value={fResponsible} onChange={(e) => setFResponsible(e.target.value)} aria-label="Filter by responsible">
-          <option value="">All people</option>
+          <option value="">All People</option>
           {responsibles.map((p) => (<option key={p} value={p}>{p}</option>))}
         </select>
         {hasFilters && (
@@ -433,7 +433,7 @@ export function MonthlyChecklist({
             boxShadow: "0 10px 26px -12px rgba(225,6,0,0.6)",
           }}
         >
-          <Plus size={16} strokeWidth={2.6} /> Add item
+          <Plus size={16} strokeWidth={2.6} /> Add Item
         </button>
       </div>
 
@@ -498,7 +498,7 @@ export function MonthlyChecklist({
                   </p>
                   {!hasFilters && (
                     <button type="button" onClick={startAdd} className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red">
-                      <Plus size={15} strokeWidth={2.6} /> Add the first item
+                      <Plus size={15} strokeWidth={2.6} /> Add the First Item
                     </button>
                   )}
                 </td>
@@ -694,7 +694,7 @@ function EditorRow({
             <X size={16} strokeWidth={2.4} /> Cancel
           </button>
           <button type="button" onClick={onSave} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[14px] font-bold text-white disabled:opacity-50" style={{ background: "var(--color-altus-red)" }}>
-            {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.6} />} {adding ? "Add item" : "Save changes"}
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.6} />} {adding ? "Add Item" : "Save Changes"}
           </button>
         </div>
       </td>

@@ -127,15 +127,15 @@ export function IntroductionsTable({ rows }: { rows: PgIntroductionRow[] }) {
           />
         </div>
         <select className={CHIP} value={source} onChange={(e) => setSource(e.target.value)} aria-label="Filter by reference source">
-          <option value="">All sources</option>
+          <option value="">All Sources</option>
           {sources.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         <select className={CHIP} value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Filter by business category">
-          <option value="">All categories</option>
+          <option value="">All Categories</option>
           {categories.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
         <select className={CHIP} value={salesPerson} onChange={(e) => setSalesPerson(e.target.value)} aria-label="Filter by salesperson">
-          <option value="">All salespeople</option>
+          <option value="">All Salespeople</option>
           {salesPeople.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
         <input type="date" className={CHIP} value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Received from" title="Received on — from" />
@@ -175,7 +175,7 @@ export function IntroductionsTable({ rows }: { rows: PgIntroductionRow[] }) {
                   <p className="text-[15px] font-semibold text-ink-muted">No introductions match.</p>
                   {!hasFilters && (
                     <Link href={"/people-gives/new" as Route} className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red">
-                      <Plus size={15} strokeWidth={2.6} /> Add the first one
+                      <Plus size={15} strokeWidth={2.6} /> Add the First One
                     </Link>
                   )}
                 </td>

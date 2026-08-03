@@ -146,7 +146,7 @@ export default async function AmbassadorWorkspacePage({
                   style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}
                 >
                   <Plus size={16} strokeWidth={2.6} />
-                  New referral
+                  New Referral
                 </Link>
                 <ArchiveButton id={a.id} archived={a.archived} />
               </div>

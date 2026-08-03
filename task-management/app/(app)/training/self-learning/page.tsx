@@ -89,7 +89,7 @@ export default async function SelfLearningPage() {
             </div>
 
             <div className="wg-rise rounded-2xl border border-hairline bg-surface-card p-5 shadow-sm" style={{ animationDelay: "35ms" }}>
-              <h2 className="text-[15px] font-bold text-ink-strong">Log an entry</h2>
+              <h2 className="text-[15px] font-bold text-ink-strong">Log an Entry</h2>
               <p className="mt-0.5 mb-4 text-[13px] font-medium text-ink-subtle">Evidence (a link) is required.</p>
               <SelfLearningForm />
             </div>
@@ -98,7 +98,7 @@ export default async function SelfLearningPage() {
           {/* This-month list */}
           <section className="col-span-2 max-lg:col-span-1">
             <div className="wg-rise rounded-2xl border border-hairline bg-surface-card p-5 shadow-sm" style={{ animationDelay: "70ms" }}>
-              <h2 className="text-[15px] font-bold text-ink-strong">This month's learning</h2>
+              <h2 className="text-[15px] font-bold text-ink-strong">This Month's Learning</h2>
               <p className="mt-0.5 mb-4 text-[13px] font-medium text-ink-subtle">{monthName}</p>
               {rows.length === 0 ? (
                 <div className="rounded-xl border border-solid border-hairline-strong p-10 text-center">

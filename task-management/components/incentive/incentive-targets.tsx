@@ -395,7 +395,7 @@ function SetTargetDialog({
                 className="text-ink-strong"
                 style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 21, letterSpacing: "-0.02em" }}
               >
-                Set {year} target
+                Set {year} Target
               </Dialog.Title>
               <Dialog.Description className="text-ink-subtle font-semibold" style={{ fontSize: 13.5 }}>
                 {empName} · whole-year incentive target
@@ -405,7 +405,7 @@ function SetTargetDialog({
           <form onSubmit={submit} className="space-y-4">
             <label className="block">
               <span className="block font-semibold text-ink-strong mb-1.5" style={{ fontSize: 13.5 }}>
-                Target amount (₹)
+                Target Amount (₹)
               </span>
               <input
                 autoFocus
@@ -435,7 +435,7 @@ function SetTargetDialog({
                 }}
               >
                 {pending ? <Loader2 size={15} className="animate-spin" /> : <Target size={15} strokeWidth={2.4} />}
-                {pending ? "Saving…" : "Save target"}
+                {pending ? "Saving…" : "Save Target"}
               </button>
             </div>
           </form>

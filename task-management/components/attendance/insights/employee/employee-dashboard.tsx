@@ -319,7 +319,7 @@ function HealthScoreCard({ data }: { data: EmployeeAttendanceAnalytics }) {
   const { score, band, components } = data.health;
   return (
     <ChartCard
-      title="Attendance health"
+      title="Attendance Health"
       subtitle="Blended 0–100 score across six weighted signals"
       icon={<Sparkles size={17} strokeWidth={2.3} />}
     >
@@ -427,7 +427,7 @@ function HoursTrendCard({ data }: { data: EmployeeAttendanceAnalytics }) {
 
   return (
     <ChartCard
-      title="Working hours"
+      title="Working Hours"
       subtitle={`Per-day worked hours · ${data.monthLabel}`}
       icon={<TrendingUp size={17} strokeWidth={2.3} />}
     >
@@ -511,7 +511,7 @@ function CompOffCard({ data }: { data: EmployeeAttendanceAnalytics }) {
             letterSpacing: "-0.02em",
           }}
         >
-          Comp-off
+          Comp-Off
         </h2>
       </div>
 

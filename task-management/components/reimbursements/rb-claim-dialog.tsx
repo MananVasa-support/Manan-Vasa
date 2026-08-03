@@ -146,7 +146,7 @@ export function RbClaimDialog({
                   boxShadow: `0 10px 24px -12px color-mix(in srgb, ${GREEN_DEEP} 75%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
                 }}
               >
-                {pending ? "Submitting…" : "Submit claim"}
+                {pending ? "Submitting…" : "Submit Claim"}
               </button>
             </div>
           </form>

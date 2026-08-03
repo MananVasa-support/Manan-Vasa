@@ -133,7 +133,7 @@ export default async function SessionDetailPage({ params }: PageProps) {
             </span>
             {session.inManual && (
               <span className="inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-[11px] font-bold" style={{ background: `color-mix(in srgb, ${ACCENT} 12%, transparent)`, color: ACCENT_DEEP }}>
-                <Star size={11} fill={ACCENT} style={{ color: ACCENT }} /> In manual
+                <Star size={11} fill={ACCENT} style={{ color: ACCENT }} /> In Manual
               </span>
             )}
           </div>
@@ -147,14 +147,14 @@ export default async function SessionDetailPage({ params }: PageProps) {
           {/* LEFT column */}
           <div className="flex flex-col gap-6">
             {/* Overview */}
-            <Card title="Session details" icon={<Clock size={16} />}>
+            <Card title="Session Details" icon={<Clock size={16} />}>
               <dl className="grid grid-cols-2 gap-x-6 gap-y-4 max-sm:grid-cols-1">
                 <Meta label="When">{fmtWhen(session.scheduledAt)}</Meta>
                 <Meta label="Duration">{session.durationMin} minutes</Meta>
                 <Meta label="Mode">
                   <span className="inline-flex items-center gap-1.5">
                     {session.mode === "online" ? <Video size={15} className="text-ink-subtle" /> : <MapPin size={15} className="text-ink-subtle" />}
-                    {session.mode === "online" ? "Online" : "In person"}
+                    {session.mode === "online" ? "Online" : "In Person"}
                   </span>
                 </Meta>
                 {session.mode === "online" && session.meetingUrl ? (
@@ -186,12 +186,12 @@ export default async function SessionDetailPage({ params }: PageProps) {
                 <div className="mt-4 flex flex-wrap gap-2 border-t border-hairline pt-4">
                   {session.videoPath && (
                     <span className="inline-flex items-center gap-1.5 rounded-lg bg-surface-track px-3 py-2 text-[13px] font-bold text-ink-soft">
-                      <Video size={14} /> Video attached
+                      <Video size={14} /> Video Attached
                     </span>
                   )}
                   {session.pptPath && (
                     <span className="inline-flex items-center gap-1.5 rounded-lg bg-surface-track px-3 py-2 text-[13px] font-bold text-ink-soft">
-                      <FileText size={14} /> PPT attached
+                      <FileText size={14} /> PPT Attached
                     </span>
                   )}
                 </div>
@@ -227,7 +227,7 @@ export default async function SessionDetailPage({ params }: PageProps) {
           <div className="flex flex-col gap-6">
             {/* My feedback */}
             {isAttendee && (
-              <Card title="Your feedback" icon={<MessageSquareHeart size={16} />}>
+              <Card title="Your Feedback" icon={<MessageSquareHeart size={16} />}>
                 <SessionFeedbackForm sessionId={session.id} mine={myFeedback} />
               </Card>
             )}
@@ -270,7 +270,7 @@ export default async function SessionDetailPage({ params }: PageProps) {
             {session.inManual && (
               <div className="rounded-2xl border p-4" style={{ borderColor: `color-mix(in srgb, ${ACCENT} 35%, transparent)`, background: `color-mix(in srgb, ${ACCENT} 6%, transparent)` }}>
                 <p className="flex items-center gap-2 text-[13.5px] font-bold" style={{ color: ACCENT_DEEP }}>
-                  <GraduationCap size={16} /> In the training manual
+                  <GraduationCap size={16} /> In the Training Manual
                 </p>
                 <p className="mt-1 text-[13px] font-semibold text-ink-soft">A curated, high-criticality session kept for reference.</p>
               </div>

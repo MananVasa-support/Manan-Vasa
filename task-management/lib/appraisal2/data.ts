@@ -12,6 +12,7 @@ import {
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { computeScorecard } from "@/lib/appraisal2/engine";
 import { kpiTargetForName } from "@/lib/performance/kpi-dictionary";
+import { loadKpiTargetForEmployee } from "@/lib/performance/kpi-from-assignments";
 import { deterministicNarrative, type PerfNarrative } from "@/lib/performance/narrative";
 import type { ScorecardResult } from "@/lib/performance/scoring";
 import type { KpiTarget } from "@/lib/performance/kpi-dictionary";
@@ -177,7 +178,9 @@ export async function getScorecardData(
   const role: RoleClass = config?.roleClass ?? "non-manager";
   const dimensionScores = dimRows.map(toDimScore);
   const kpiActuals = toActuals(cardRow?.kpiActuals);
-  const kpiTarget = kpiTargetForName(emp.name);
+  // HR-configured KPIs (KPI Management) drive scoring when present; else the
+  // hardcoded dictionary (non-breaking for anyone without configured KPIs).
+  const kpiTarget = (await loadKpiTargetForEmployee(employeeId, emp.name)) ?? kpiTargetForName(emp.name);
 
   const { scorecard, result } = computeScorecard({
     employeeId,

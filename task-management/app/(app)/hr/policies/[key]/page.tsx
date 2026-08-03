@@ -46,7 +46,7 @@ export default async function PolicyPage({
             }}
           >
             <ArrowLeft size={15} strokeWidth={2.6} className="transition-transform group-hover:-translate-x-0.5" />
-            <span className="max-md:hidden">All policies</span>
+            <span className="max-md:hidden">All Policies</span>
             <span className="md:hidden">Back</span>
           </Link>
         </div>
@@ -62,7 +62,7 @@ export default async function PolicyPage({
               style={{ boxShadow: "0 10px 24px -16px rgba(24,24,27,0.55)" }}
             >
               <PencilLine size={15} strokeWidth={2.4} style={{ color: "#A80400" }} />
-              <span className="max-md:hidden">Edit policy</span>
+              <span className="max-md:hidden">Edit Policy</span>
               <span className="md:hidden">Edit</span>
             </Link>
           )}

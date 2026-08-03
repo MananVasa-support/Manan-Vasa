@@ -33,7 +33,7 @@ export function MarkAllButton({ hasUnread }: Props) {
         color: "var(--color-ink-strong)",
       }}
     >
-      {isPending ? "Marking…" : "Mark all read"}
+      {isPending ? "Marking…" : "Mark All Read"}
     </button>
   );
 }

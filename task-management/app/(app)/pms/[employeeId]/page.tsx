@@ -52,9 +52,9 @@ function band(score: number): { color: string; label: string } {
 const SUB_LABELS: Record<string, string> = {
   weekly: "Weekly Goals",
   incentive: "Incentive",
-  attended: "Training attended",
-  given: "Training given",
-  selfLearn: "Self-learning",
+  attended: "Training Attended",
+  given: "Training Given",
+  selfLearn: "Self-Learning",
   share: "Weekly Share",
   dcc: "DCC",
   checklist: "Daily Checklist",
@@ -70,10 +70,10 @@ function subSignalsFrom(detail?: Record<string, number | null>): SubSignal[] {
 }
 
 const RELATION_LABEL: Record<ReviewRelation, string> = {
-  manager: "Manager review",
-  subordinate: "Subordinate (upward) review",
-  peer: "Peer / colleague review",
-  self: "Self review",
+  manager: "Manager Review",
+  subordinate: "Subordinate (Upward) Review",
+  peer: "Peer / Colleague Review",
+  self: "Self Review",
 };
 
 function fmtDate(d: Date | null): string {
@@ -163,7 +163,7 @@ export default async function PmsDetailPage({
             href={"/pms" as Route}
             className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-muted transition-colors hover:text-ink-strong"
           >
-            <ArrowLeft size={15} strokeWidth={2.6} /> Back to roster
+            <ArrowLeft size={15} strokeWidth={2.6} /> Back to Roster
           </Link>
         </div>
 
@@ -291,7 +291,7 @@ export default async function PmsDetailPage({
           </span>
           <div className="min-w-0">
             <div className="text-[15px] font-bold text-ink-strong">
-              {scoreResult.promotion.eligible ? "Eligible for a promotion review" : "Not yet promotion-eligible"}
+              {scoreResult.promotion.eligible ? "Eligible for a Promotion Review" : "Not Yet Promotion-Eligible"}
             </div>
             <p className="mt-0.5 text-[13.5px] leading-snug text-ink-muted">{scoreResult.promotion.rationale}</p>
           </div>

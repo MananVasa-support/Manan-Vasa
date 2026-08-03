@@ -33,7 +33,7 @@ export default async function TakeTestPage({ params }: PageProps) {
       <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
         <div className="mx-auto w-full max-w-[860px]">
           <Link href={`/training/${id}` as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
-            <ArrowLeft size={15} strokeWidth={2.4} /> Back to material
+            <ArrowLeft size={15} strokeWidth={2.4} /> Back to Material
           </Link>
           <header className="mt-3 mb-6">
             <h1 className="text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(26px, 2.8vw, 38px)", letterSpacing: "-0.025em" }}>

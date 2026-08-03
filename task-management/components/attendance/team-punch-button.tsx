@@ -31,7 +31,7 @@ export function TeamPunchButton({
   const [time, setTime] = React.useState("");
   const [pending, startTransition] = React.useTransition();
 
-  const label = kind === "in" ? "Check in" : "Check out";
+  const label = kind === "in" ? "Check In" : "Check Out";
   const Icon = kind === "in" ? LogIn : LogOut;
   const accent = kind === "in" ? "#16a34a" : "var(--color-altus-red)";
 

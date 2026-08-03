@@ -47,7 +47,7 @@ function PassRing({ pct }: { pct: number | null }) {
         </div>
       </div>
       <div>
-        <h2 className="font-bold text-ink-strong" style={{ fontSize: 22, letterSpacing: "-0.01em" }}>Test performance</h2>
+        <h2 className="font-bold text-ink-strong" style={{ fontSize: 22, letterSpacing: "-0.01em" }}>Test Performance</h2>
         <p className="mt-1 font-medium text-ink-muted" style={{ fontSize: 15 }}>Across all test attempts taken in the Training Centre.</p>
       </div>
     </div>
@@ -69,7 +69,7 @@ export function TrainingStats({ stats }: { stats: TrainingDashboardStats }) {
 
       {stats.bySubject.length > 0 && (
         <div className="wg-rise rounded-section border border-hairline bg-surface-card p-6" style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)", animationDelay: "200ms" }}>
-          <h2 className="mb-4 font-bold text-ink-strong" style={{ fontSize: 18 }}>Material by subject</h2>
+          <h2 className="mb-4 font-bold text-ink-strong" style={{ fontSize: 18 }}>Material by Subject</h2>
           <div className="flex flex-col gap-2.5">
             {stats.bySubject.map((s) => (
               <div key={s.subject} className="flex items-center gap-3">

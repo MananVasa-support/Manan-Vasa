@@ -137,7 +137,7 @@ export function NotificationList({ rows, hasMore, loadOlderHref }: Props) {
                   </p>
                 )}
                 <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1 mt-3 text-[12.5px]">
-                  <dt className="text-ink-subtle">Recipient email</dt>
+                  <dt className="text-ink-subtle">Recipient Email</dt>
                   <dd className="font-mono text-ink-strong">
                     {n.recipientEmail || "—"}
                   </dd>
@@ -172,7 +172,7 @@ export function NotificationList({ rows, hasMore, loadOlderHref }: Props) {
             href={loadOlderHref}
             className="inline-flex items-center gap-1.5 text-altus-red text-chip font-semibold hover:underline"
           >
-            Load older
+            Load Older
             <span aria-hidden>→</span>
           </a>
         </li>

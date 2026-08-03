@@ -36,7 +36,7 @@ export default async function ManageContractsPage() {
           className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-ink-subtle hover:text-ink-strong transition-colors mb-4"
         >
           <ArrowLeft size={15} strokeWidth={2.2} />
-          Outstanding dashboard
+          Outstanding Dashboard
         </Link>
         <header className="mb-7">
           <h1

@@ -83,7 +83,7 @@ export function StatusTracker({
           className="text-ink-strong"
           style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 18, letterSpacing: "-0.02em" }}
         >
-          Agreement tracker
+          Agreement Tracker
         </h2>
         <div className="flex flex-wrap gap-1.5">
           {tabs.map((t) => {
@@ -121,7 +121,7 @@ export function StatusTracker({
                 <th className="pb-2 pr-3">Employee</th>
                 <th className="pb-2 pr-3">Type</th>
                 <th className="pb-2 pr-3">Status</th>
-                <th className="pb-2 pr-3">Verified e-sign</th>
+                <th className="pb-2 pr-3">Verified E-Sign</th>
                 <th className="pb-2 pr-3">Signed</th>
                 <th className="pb-2 pr-3 text-right">Links</th>
               </tr>

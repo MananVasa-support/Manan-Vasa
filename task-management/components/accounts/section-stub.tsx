@@ -18,7 +18,7 @@ export function SectionStub({ section }: { section: AccountsSection }) {
         href={"/accounts" as Route}
         className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-soft hover:text-ink-strong transition-colors"
       >
-        <ArrowLeft size={15} strokeWidth={2.6} aria-hidden /> Back to Accounts index
+        <ArrowLeft size={15} strokeWidth={2.6} aria-hidden /> Back to Accounts Index
       </Link>
 
       <header className="mt-4 mb-7 wg-rise">

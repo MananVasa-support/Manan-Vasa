@@ -160,7 +160,7 @@ function KpiCard({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 text-[15px] font-bold text-ink-strong">
-              <Gauge size={16} strokeWidth={2.4} style={{ color: accentDeep }} /> KPI attainment %
+              <Gauge size={16} strokeWidth={2.4} style={{ color: accentDeep }} /> KPI Attainment %
             </span>
             {kpi.blockWeight != null && (
               <span
@@ -362,7 +362,7 @@ function FactorCard({
           <div className="grid grid-cols-2 gap-2 max-md:grid-cols-1">
             <label className="block">
               <span className="mb-1 flex items-center gap-1 text-[11.5px] font-bold text-ink-soft">
-                Q1 · Justify points GIVEN <Lock size={10} className="text-ink-subtle" />
+                Q1 · Justify Points GIVEN <Lock size={10} className="text-ink-subtle" />
               </span>
               <textarea
                 value={given}
@@ -375,7 +375,7 @@ function FactorCard({
             </label>
             <label className="block">
               <span className="mb-1 flex items-center gap-1 text-[11.5px] font-bold text-ink-soft">
-                Q2 · Justify points TAKEN <Lock size={10} className="text-ink-subtle" />
+                Q2 · Justify Points TAKEN <Lock size={10} className="text-ink-subtle" />
               </span>
               <textarea
                 value={taken}

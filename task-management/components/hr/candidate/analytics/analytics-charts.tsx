@@ -557,11 +557,11 @@ export function MonthlyTrend({ points }: { points: TrendPoint[] }) {
       <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 px-1">
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-3 rounded-[2px]" style={{ background: "var(--color-altus-red)" }} />
-          <span className="text-[12px] font-semibold text-ink-muted">Interviews / month</span>
+          <span className="text-[12px] font-semibold text-ink-muted">Interviews / Month</span>
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block h-0.5 w-4 rounded-full" style={{ background: "var(--color-green-deep)" }} />
-          <span className="text-[12px] font-semibold text-ink-muted">Avg score (0–100)</span>
+          <span className="text-[12px] font-semibold text-ink-muted">Avg Score (0–100)</span>
         </span>
       </div>
     </div>

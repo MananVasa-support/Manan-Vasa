@@ -174,7 +174,15 @@ export async function startSignature(input: {
   docKind: string;
   docId: string;
 }): Promise<
-  Result<{ signatureId: string; authUrl: string | null; configured: boolean }>
+  Result<{
+    signatureId: string;
+    authUrl: string | null;
+    configured: boolean;
+    /** true → DigiLocker isn't set up and this row was self-attested (no e-KYC). */
+    selfAttested?: boolean;
+    /** the self-attested signer's own name (for the identity card). */
+    verifiedName?: string | null;
+  }>
 > {
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
@@ -216,7 +224,30 @@ export async function startSignature(input: {
     }
 
     if (!configured) {
-      return { ok: true, signatureId: row.id, authUrl: null, configured: false };
+      // Self-attested fallback (DigiLocker not set up): the signer e-signs with
+      // their OWN logged-in identity, clearly marked NOT DigiLocker-verified.
+      // Flip a fresh 'pending' row straight to a 'self' verified state so they
+      // can draw/type their mark. Auto-upgrades to DigiLocker once keys land.
+      if (row.status === "pending") {
+        await db
+          .update(documentSignatures)
+          .set({
+            status: "verified",
+            method: "self",
+            verifiedName: me.name,
+            verifiedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(documentSignatures.id, row.id));
+      }
+      return {
+        ok: true,
+        signatureId: row.id,
+        authUrl: null,
+        configured: false,
+        selfAttested: true,
+        verifiedName: me.name,
+      };
     }
 
     // PKCE: generate a verifier now, stash it in a short-lived HttpOnly cookie
@@ -337,9 +368,12 @@ export async function finalizeSignature(input: {
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
   const userAgent = h.get("user-agent")?.slice(0, 400) || null;
 
+  const selfAttested = row.method === "self";
   const signedAt = new Date();
   const verifiedNameForConsent = row.verifiedName ?? doc.employeeName;
-  const consentText = `I, ${verifiedNameForConsent}, confirm my identity was verified via DigiLocker (Aadhaar e-KYC) and I willingly e-sign the ${DOC_KIND_LABELS[docKind]} "${doc.title}". This signature and the identity block below are legally attributable to me.`;
+  const consentText = selfAttested
+    ? `I, ${verifiedNameForConsent}, confirm I have read and willingly e-sign the ${DOC_KIND_LABELS[docKind]} "${doc.title}". This is a SELF-ATTESTED electronic signature — my identity was NOT verified via DigiLocker (Aadhaar e-KYC). This signature is legally attributable to me.`
+    : `I, ${verifiedNameForConsent}, confirm my identity was verified via DigiLocker (Aadhaar e-KYC) and I willingly e-sign the ${DOC_KIND_LABELS[docKind]} "${doc.title}". This signature and the identity block below are legally attributable to me.`;
 
   // ── Render the signed PDF ──
   let pdfBuffer: Buffer;
@@ -349,6 +383,7 @@ export async function finalizeSignature(input: {
       title: doc.title,
       docId: row.docId,
       employeeName: doc.employeeName,
+      selfAttested,
       identity: {
         name: row.verifiedName,
         dob: row.verifiedDob,
@@ -604,6 +639,8 @@ interface SignedPdfInput {
   title: string;
   docId: string;
   employeeName: string;
+  /** true → self-attested (no DigiLocker); the PDF drops the verified-identity claims. */
+  selfAttested: boolean;
   identity: {
     name: string | null;
     dob: string | null;
@@ -631,7 +668,7 @@ async function buildSignedPdf(input: SignedPdfInput): Promise<Buffer> {
     info: {
       Title: `${input.title} — Signed`,
       Author: "Altus Corp Dashboard",
-      Subject: `DigiLocker-verified e-signature · ${input.docKindLabel}`,
+      Subject: `${input.selfAttested ? "Self-attested e-signature" : "DigiLocker-verified e-signature"} · ${input.docKindLabel}`,
     },
   });
 
@@ -698,7 +735,7 @@ async function buildSignedPdf(input: SignedPdfInput): Promise<Buffer> {
     .font("Helvetica")
     .fontSize(8.5)
     .fillColor(COLORS.inkSoft)
-    .text("DIGITALLY SIGNED · DIGILOCKER VERIFIED", left, headerTop + 22, {
+    .text(input.selfAttested ? "DIGITALLY SIGNED · SELF-ATTESTED" : "DIGITALLY SIGNED · DIGILOCKER VERIFIED", left, headerTop + 22, {
       width,
       align: "right",
       characterSpacing: 1.2,
@@ -748,16 +785,22 @@ async function buildSignedPdf(input: SignedPdfInput): Promise<Buffer> {
   doc.y += 20;
 
   // ── VERIFIED IDENTITY block ──
-  drawSectionHeading(doc, "Verified Identity — DigiLocker e-KYC");
-  const idRows: Array<[string, string]> = [
-    ["Name", input.identity.name ?? "—"],
-    ["Date of Birth", input.identity.dob ?? "—"],
-    ["Gender", input.identity.gender ?? "—"],
-    ["Address", input.identity.address ?? "—"],
-    ["Aadhaar (masked)", input.identity.maskedAadhaar ?? "—"],
-    ["DigiLocker Ref", input.identity.ref ?? "—"],
-    ["Verified At", input.identity.verifiedAt ? fmtStamp(input.identity.verifiedAt) : "—"],
-  ];
+  drawSectionHeading(doc, input.selfAttested ? "Signatory — Self-Attested" : "Verified Identity — DigiLocker e-KYC");
+  const idRows: Array<[string, string]> = input.selfAttested
+    ? [
+        ["Name", input.identity.name ?? input.employeeName],
+        ["Identity", "Self-attested — NOT DigiLocker-verified"],
+        ["Signed At", fmtStamp(input.identity.verifiedAt ?? input.signedAt)],
+      ]
+    : [
+        ["Name", input.identity.name ?? "—"],
+        ["Date of Birth", input.identity.dob ?? "—"],
+        ["Gender", input.identity.gender ?? "—"],
+        ["Address", input.identity.address ?? "—"],
+        ["Aadhaar (masked)", input.identity.maskedAadhaar ?? "—"],
+        ["DigiLocker Ref", input.identity.ref ?? "—"],
+        ["Verified At", input.identity.verifiedAt ? fmtStamp(input.identity.verifiedAt) : "—"],
+      ];
   const labelW = 130;
   for (const [label, value] of idRows) {
     const rowTop = doc.y;
@@ -851,7 +894,7 @@ async function buildSignedPdf(input: SignedPdfInput): Promise<Buffer> {
     .fontSize(8.5)
     .fillColor(COLORS.inkSoft)
     .text(
-      `Signed on ${fmtStamp(input.signedAt)} · IP ${input.ip ?? "unavailable"} · Method: DigiLocker-verified e-signature`,
+      `Signed on ${fmtStamp(input.signedAt)} · IP ${input.ip ?? "unavailable"} · Method: ${input.selfAttested ? "Self-attested e-signature (identity not DigiLocker-verified)" : "DigiLocker-verified e-signature"}`,
       left,
       doc.y,
       { width, lineGap: 2 },
@@ -872,7 +915,7 @@ async function buildSignedPdf(input: SignedPdfInput): Promise<Buffer> {
     .fontSize(8)
     .fillColor(COLORS.inkFaint)
     .text(
-      `${input.docKindLabel} · ${input.employeeName} · DigiLocker-verified e-signature · Generated ${fmtStamp(new Date())}`,
+      `${input.docKindLabel} · ${input.employeeName} · ${input.selfAttested ? "Self-attested e-signature" : "DigiLocker-verified e-signature"} · Generated ${fmtStamp(new Date())}`,
       left,
       footerY,
       { width, lineBreak: false },

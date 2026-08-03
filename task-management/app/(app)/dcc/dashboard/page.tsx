@@ -49,7 +49,7 @@ export default async function DccDashboardPage() {
         {/* ── Page header ── */}
         <header className="wg-rise mb-6">
           <Link href={"/dcc" as Route} className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-muted transition-colors hover:text-[#15803d]">
-            <ArrowLeft size={15} /> Back to my DCC
+            <ArrowLeft size={15} /> Back to My DCC
           </Link>
           <div className="mt-3">
             <span

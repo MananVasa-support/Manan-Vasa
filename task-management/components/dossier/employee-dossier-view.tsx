@@ -118,7 +118,7 @@ export function EmployeeDossierView({
                   className="mt-3 inline-flex w-fit items-center gap-2 rounded-pill px-3.5 py-2 text-[12.5px] font-bold text-white"
                   style={{ background: `linear-gradient(135deg, ${meta.accent}, color-mix(in srgb, ${meta.accent} 70%, black))` }}
                 >
-                  <ClipboardList size={14} strokeWidth={2.4} /> Open onboarding form
+                  <ClipboardList size={14} strokeWidth={2.4} /> Open Onboarding Form
                 </Link>
               )}
 

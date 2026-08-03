@@ -43,7 +43,7 @@ export default async function MaterialPage({ params }: PageProps) {
       <DashboardHeader generatedAt={new Date()} />
       <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
         <Link href={"/training" as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
-          <ArrowLeft size={15} strokeWidth={2.4} /> Material library
+          <ArrowLeft size={15} strokeWidth={2.4} /> Material Library
         </Link>
         <header className="mt-3 mb-6">
           <h1 className="text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(26px, 2.6vw, 36px)", letterSpacing: "-0.02em", lineHeight: 1.06, overflowWrap: "anywhere" }}>

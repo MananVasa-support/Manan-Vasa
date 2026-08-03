@@ -98,12 +98,12 @@ export function SharesRegister({ rows, entityOptions }: { rows: ShareRow[]; enti
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search company, entity, folio…" className="w-full bg-transparent py-2.5 text-[15px] font-medium text-ink-strong outline-none placeholder:font-normal placeholder:text-ink-subtle" />
         </div>
         <select className={CHIP} value={fEntity} onChange={(e) => setFEntity(e.target.value)} aria-label="Filter by entity">
-          <option value="">All entities</option>
+          <option value="">All Entities</option>
           {entities.map((a) => (<option key={a} value={a}>{a}</option>))}
         </select>
         {hasFilters && <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red"><X size={15} strokeWidth={2.4} /> Clear</button>}
         <button type="button" onClick={startAdd} className="ml-auto inline-flex items-center gap-2 rounded-xl py-2.5 px-4 text-[14.5px] font-bold text-white transition-transform active:scale-[0.99]" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 10px 26px -12px rgba(225,6,0,0.6)" }}>
-          <Plus size={16} strokeWidth={2.6} /> Add holding
+          <Plus size={16} strokeWidth={2.6} /> Add Holding
         </button>
       </div>
 
@@ -119,7 +119,7 @@ export function SharesRegister({ rows, entityOptions }: { rows: ShareRow[]; enti
           <tbody>
             {(adding || (editingId && filtered.every((r) => r.id !== editingId))) && <EditorRow colSpan={totalCols} draft={draft} setDraft={setDraft} entityOptions={entityOptions} onSave={save} onCancel={cancel} busy={busy} adding={adding} />}
             {filtered.length === 0 && !adding ? (
-              <tr><td colSpan={totalCols} className="px-5 py-16 text-center"><p className="text-[15px] font-semibold text-ink-muted">{hasFilters ? "No holdings match." : "No shareholdings recorded yet."}</p>{!hasFilters && <button type="button" onClick={startAdd} className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red"><Plus size={15} strokeWidth={2.6} /> Add the first holding</button>}</td></tr>
+              <tr><td colSpan={totalCols} className="px-5 py-16 text-center"><p className="text-[15px] font-semibold text-ink-muted">{hasFilters ? "No holdings match." : "No shareholdings recorded yet."}</p>{!hasFilters && <button type="button" onClick={startAdd} className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-bold text-altus-red"><Plus size={15} strokeWidth={2.6} /> Add the First Holding</button>}</td></tr>
             ) : (
               filtered.map((r) => editingId === r.id ? (
                 <EditorRow key={r.id} colSpan={totalCols} draft={draft} setDraft={setDraft} entityOptions={entityOptions} onSave={save} onCancel={cancel} busy={busy} adding={false} />
@@ -185,7 +185,7 @@ function EditorRow({ colSpan, draft, setDraft, entityOptions, onSave, onCancel, 
         </div>
         <div className="mt-4 flex items-center justify-end gap-2">
           <button type="button" onClick={onCancel} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-4 py-2 text-[14px] font-bold text-ink-muted hover:bg-surface-soft disabled:opacity-50"><X size={16} strokeWidth={2.4} /> Cancel</button>
-          <button type="button" onClick={onSave} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[14px] font-bold text-white disabled:opacity-50" style={{ background: "var(--color-altus-red)" }}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.6} />} {adding ? "Add holding" : "Save changes"}</button>
+          <button type="button" onClick={onSave} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[14px] font-bold text-white disabled:opacity-50" style={{ background: "var(--color-altus-red)" }}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.6} />} {adding ? "Add Holding" : "Save Changes"}</button>
         </div>
       </td>
     </tr>

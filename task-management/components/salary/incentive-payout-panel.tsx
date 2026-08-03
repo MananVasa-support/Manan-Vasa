@@ -170,7 +170,7 @@ export function IncentivePayoutPanel({
                         ) : (
                           <HandCoins size={13} strokeWidth={2.5} />
                         )}
-                        {busy ? "Paying…" : "Pay with salary"}
+                        {busy ? "Paying…" : "Pay with Salary"}
                       </button>
                     </td>
                   </tr>

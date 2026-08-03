@@ -92,7 +92,7 @@ export default async function IncentivePayoutPage({ searchParams }: PageProps) {
                   lineHeight: 1.02,
                 }}
               >
-                Pay incentive with salary
+                Pay Incentive with Salary
               </h1>
               <p className="mt-1.5 max-w-[76ch] text-[15px] font-medium text-ink-muted">
                 {monthLabel(month)} — pay each person&apos;s incentive from the same place as
@@ -104,7 +104,7 @@ export default async function IncentivePayoutPage({ searchParams }: PageProps) {
                 className="mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-bold"
                 style={{ color: GREEN_DEEP }}
               >
-                ← Back to salary
+                ← Back to Salary
               </Link>
             </div>
 

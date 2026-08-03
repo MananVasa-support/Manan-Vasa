@@ -137,7 +137,7 @@ function SessionCard({ s, index, canManage }: { s: SessionListRow; index: number
               style={{ borderColor: s.inManual ? ACCENT : "var(--color-hairline)", color: s.inManual ? ACCENT_DEEP : "var(--color-ink-soft)" }}
             >
               {busy === "manual" ? <Loader2 size={12} className="animate-spin" /> : <Star size={12} fill={s.inManual ? ACCENT : "transparent"} style={{ color: ACCENT }} />}
-              {s.inManual ? "In manual" : "Manual"}
+              {s.inManual ? "In Manual" : "Manual"}
             </button>
           )}
         </div>
@@ -181,7 +181,7 @@ export function CalendarBoard({
               className="inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[15px] font-bold text-white transition-transform active:scale-[0.99]"
               style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: `0 12px 30px -12px ${ACCENT}99` }}
             >
-              <Plus size={17} strokeWidth={2.6} /> Schedule training
+              <Plus size={17} strokeWidth={2.6} /> Schedule Training
             </button>
           ) : null}
         </div>
@@ -190,7 +190,7 @@ export function CalendarBoard({
       {creating && (
         <section ref={panelRef} className="rounded-2xl border border-hairline bg-surface-card p-6 shadow-sm max-md:p-4">
           <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-[19px] font-bold text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif" }}>Schedule a training session</h2>
+            <h2 className="text-[19px] font-bold text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif" }}>Schedule a Training Session</h2>
             <button type="button" onClick={() => setCreating(false)} aria-label="Close" className="rounded-lg p-1.5 text-ink-subtle hover:bg-surface-soft">
               <X size={18} />
             </button>

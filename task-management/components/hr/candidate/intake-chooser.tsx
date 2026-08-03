@@ -51,7 +51,7 @@ export function IntakeChooser({ drafts }: { drafts: CandidateDraft[] }) {
           <UserPlus size={26} strokeWidth={2.2} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[18px] font-bold text-ink-strong">Start a new candidate</span>
+          <span className="block text-[18px] font-bold text-ink-strong">Start a New Candidate</span>
           <span className="mt-0.5 block text-[14px] text-ink-muted">Open a blank Candidate Interview Form.</span>
         </span>
         <ArrowRight size={20} className="shrink-0 transition-transform group-hover:translate-x-1" style={{ color: RED_DEEP }} />

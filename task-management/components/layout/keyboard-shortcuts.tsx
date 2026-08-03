@@ -101,7 +101,7 @@ export function KeyboardShortcuts() {
         >
           <div className="flex items-center justify-between gap-3 px-6 py-5 border-b border-hairline">
             <Dialog.Title className="text-display-2xs text-ink-strong">
-              Keyboard shortcuts
+              Keyboard Shortcuts
             </Dialog.Title>
             <Dialog.Close asChild>
               <button

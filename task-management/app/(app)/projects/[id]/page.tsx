@@ -41,7 +41,7 @@ export default async function ProjectNodePage({ params }: PageProps) {
           className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-ink-soft hover:text-ink-strong mb-5"
         >
           <ArrowLeft size={16} strokeWidth={2.2} />
-          All projects
+          All Projects
         </Link>
         <div className="text-[12px] font-bold uppercase tracking-wider text-ink-subtle">
           {ctx.path.length > 0 ? ctx.path.join(" / ") + " · " : ""}

@@ -86,7 +86,7 @@ export function IncentiveStatusEditor({
                 className="text-ink-strong"
                 style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 20, letterSpacing: "-0.02em" }}
               >
-                Set status amounts
+                Set Status Amounts
               </Dialog.Title>
               <Dialog.Description className="text-ink-subtle font-semibold" style={{ fontSize: 13 }}>
                 {row?.empName} · {row?.incentiveName}
@@ -114,7 +114,7 @@ export function IncentiveStatusEditor({
             <MoneyField label="Paid" hint="paid to employee" color={GREEN_DEEP} icon={<BadgeCheck size={14} strokeWidth={2.5} />} value={paid} onChange={setPaid} />
             <div>
               <label className="block font-semibold text-ink-strong mb-1.5" style={{ fontSize: 13 }}>
-                Paid date
+                Paid Date
               </label>
               <input
                 type="date"
@@ -142,7 +142,7 @@ export function IncentiveStatusEditor({
                 }}
               >
                 {pending ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.6} />}
-                {pending ? "Saving…" : "Save amounts"}
+                {pending ? "Saving…" : "Save Amounts"}
               </button>
             </div>
           </form>

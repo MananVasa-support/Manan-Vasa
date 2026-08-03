@@ -136,7 +136,7 @@ export default async function PmsPage() {
                 className="wg-btn inline-flex items-center gap-2 rounded-pill border-2 bg-white/70 px-4 py-2.5 text-[14px] font-bold whitespace-nowrap transition-colors"
                 style={{ borderColor: `color-mix(in srgb, ${ACCENT} 40%, transparent)`, color: ACCENT_DEEP }}
               >
-                <ClipboardCheck size={16} strokeWidth={2.4} /> Monthly review
+                <ClipboardCheck size={16} strokeWidth={2.4} /> Monthly Review
               </Link>
               {process.env.PMS_V3 !== "false" && (
                 <Link
@@ -144,7 +144,7 @@ export default async function PmsPage() {
                   className="wg-btn inline-flex items-center gap-2 rounded-pill border-2 bg-white/70 px-4 py-2.5 text-[14px] font-bold whitespace-nowrap transition-colors"
                   style={{ borderColor: `color-mix(in srgb, ${ACCENT} 40%, transparent)`, color: ACCENT_DEEP }}
                 >
-                  <Sparkles size={16} strokeWidth={2.4} /> New scoring (v3)
+                  <Sparkles size={16} strokeWidth={2.4} /> New Scoring (v3)
                 </Link>
               )}
               {admin && (
@@ -164,7 +164,7 @@ export default async function PmsPage() {
                       boxShadow: `0 10px 24px -12px color-mix(in srgb, ${ACCENT_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
                     }}
                   >
-                    <Settings size={16} strokeWidth={2.4} /> Score settings
+                    <Settings size={16} strokeWidth={2.4} /> Score Settings
                   </Link>
                 </>
               )}

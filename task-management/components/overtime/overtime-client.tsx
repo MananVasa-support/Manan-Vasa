@@ -293,7 +293,7 @@ export function OvertimeClient({
               className="font-bold text-ink-strong"
               style={{ fontSize: 18, letterSpacing: "-0.01em", lineHeight: 1.1 }}
             >
-              Log overtime
+              Log Overtime
             </h2>
             <p className="text-[12.5px] font-medium text-ink-subtle">
               Lands as pending until reviewed.
@@ -395,7 +395,7 @@ export function OvertimeClient({
             ) : (
               <Plus size={17} strokeWidth={2.6} />
             )}
-            Log overtime
+            Log Overtime
           </button>
         </div>
       </form>

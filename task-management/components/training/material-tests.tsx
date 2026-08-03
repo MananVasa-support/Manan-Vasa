@@ -17,7 +17,7 @@ export function MaterialTests({
       <h2 className="mb-3 font-bold text-ink-strong" style={{ fontSize: 18, letterSpacing: "-0.01em" }}>Tests</h2>
       <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
         {tests.map((t) => {
-          const kindLabel = t.kind === 1 ? "MCQ" : "Fill in the blank";
+          const kindLabel = t.kind === 1 ? "MCQ" : "Fill in the Blank";
           const hasQuestions = t.questionCount > 0;
           return (
             <div key={t.kind} className="rounded-section border border-hairline bg-surface-card p-5" style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}>
@@ -39,14 +39,14 @@ export function MaterialTests({
               <div className="mt-4 flex items-center gap-2 flex-wrap">
                 {hasQuestions ? (
                   <Link href={`/training/${materialId}/test/${t.kind}` as Route} className="inline-flex items-center gap-1.5 rounded-lg py-2 px-4 text-[14px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}>
-                    {t.latest ? "Retake test" : "Take test"}
+                    {t.latest ? "Retake Test" : "Take Test"}
                   </Link>
                 ) : (
                   <span className="text-[13.5px] font-semibold text-ink-subtle">No test set yet.</span>
                 )}
                 {canManage && (
                   <Link href={`/training/${materialId}/tests` as Route} className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white py-2 px-3.5 text-[13.5px] font-bold text-ink-strong hover:border-altus-red">
-                    <Pencil size={14} /> {hasQuestions ? "Edit" : "Add questions"}
+                    <Pencil size={14} /> {hasQuestions ? "Edit" : "Add Questions"}
                   </Link>
                 )}
               </div>

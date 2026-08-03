@@ -68,7 +68,7 @@ export function AttendanceSyncButton() {
       ) : (
         <RefreshCw size={15} strokeWidth={2.4} />
       )}
-      {busy ? "Syncing…" : "Sync attendance from sheet"}
+      {busy ? "Syncing…" : "Sync Attendance from Sheet"}
     </button>
   );
 }

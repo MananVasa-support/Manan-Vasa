@@ -135,14 +135,14 @@ export function VasaBalances({
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-[13px] font-bold text-ink-soft">
-          As on
+          As On
           <select value={asOn} onChange={(e) => setAsOn(e.target.value)} className="rounded-lg border border-hairline-strong bg-white px-3 py-2 text-[14px] font-bold text-ink-strong outline-none focus:border-[color:var(--color-altus-red)]">
-            {snapshots.length === 0 && <option value="">No snapshots</option>}
+            {snapshots.length === 0 && <option value="">No Snapshots</option>}
             {snapshots.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </label>
         <button type="button" onClick={newSnapshot} disabled={busy} className="inline-flex items-center gap-2 rounded-xl border border-hairline-strong bg-white py-2 px-3.5 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red disabled:opacity-50">
-          <CalendarPlus size={15} strokeWidth={2.4} /> New snapshot
+          <CalendarPlus size={15} strokeWidth={2.4} /> New Snapshot
         </button>
         {asOn && (
           <button type="button" onClick={removeSnapshot} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl border border-hairline-strong bg-white py-2 px-3 text-[13.5px] font-bold text-ink-soft transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red disabled:opacity-50" title="Delete this snapshot">
@@ -211,7 +211,7 @@ export function VasaBalances({
           </>
         ) : (
           <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-2 rounded-xl border border-solid border-hairline-strong bg-white py-2 px-3.5 text-[13.5px] font-bold text-ink-soft transition-colors hover:border-[color:var(--color-altus-red)] hover:text-altus-red">
-            <Plus size={15} strokeWidth={2.6} /> Add party
+            <Plus size={15} strokeWidth={2.6} /> Add Party
           </button>
         )}
       </div>

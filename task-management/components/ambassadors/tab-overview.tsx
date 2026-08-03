@@ -29,9 +29,9 @@ export function TabOverview({
   const commissionPaid = payouts.reduce((a, p) => a + p.amount, 0);
 
   const tiles = [
-    { label: "Total referrals", value: String(total), sub: `${converted} converted`, icon: TrendingUp, tint: "rgba(225,6,0,0.10)" },
+    { label: "Total Referrals", value: String(total), sub: `${converted} converted`, icon: TrendingUp, tint: "rgba(225,6,0,0.10)" },
     { label: "Conversion", value: pct(conversion), icon: Trophy, tint: "rgba(20,140,80,0.12)" },
-    { label: "Revenue driven", value: inrCompact(revenue), icon: ArrowUpRight, tint: "rgba(20,140,80,0.10)" },
+    { label: "Revenue Driven", value: inrCompact(revenue), icon: ArrowUpRight, tint: "rgba(20,140,80,0.10)" },
     { label: "Commission", value: inrCompact(commissionOwed), sub: `${inrCompact(commissionPaid)} paid`, icon: Wallet, tint: "rgba(214,138,20,0.14)" },
   ];
 
@@ -60,7 +60,7 @@ export function TabOverview({
         <section className="rounded-2xl border border-hairline bg-white p-5" style={{ boxShadow: "0 10px 30px -24px rgba(0,0,0,0.4)" }}>
           <h2 className="mb-3 flex items-center gap-2 text-[15px] font-bold text-ink-strong">
             <Package size={16} strokeWidth={2.6} style={{ color: "var(--color-altus-red)" }} />
-            Products to pitch
+            Products to Pitch
           </h2>
           {products.length === 0 ? (
             <p className="text-[13px] font-medium text-ink-muted">No products assigned yet.</p>
@@ -82,7 +82,7 @@ export function TabOverview({
         {/* recent activity preview */}
         <section className="rounded-2xl border border-hairline bg-white p-5" style={{ boxShadow: "0 10px 30px -24px rgba(0,0,0,0.4)" }}>
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-[15px] font-bold text-ink-strong">Recent activity</h2>
+            <h2 className="text-[15px] font-bold text-ink-strong">Recent Activity</h2>
             {onOpenTimeline && (
               <button
                 type="button"

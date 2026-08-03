@@ -58,7 +58,7 @@ export function CategoryEditor({
 
   return (
     <ModalShell
-      title={editing ? "Edit category" : "New category"}
+      title={editing ? "Edit Category" : "New Category"}
       subtitle="Set the legend name and colour. Text colour is auto-chosen for contrast."
       onClose={onClose}
       accent={ACCENT}
@@ -74,7 +74,7 @@ export function CategoryEditor({
             style={{ background: ACCENT }}
           >
             {saving ? <Spinner size={16} className="text-white" /> : null}
-            {editing ? "Save changes" : "Add category"}
+            {editing ? "Save Changes" : "Add Category"}
           </Button>
         </>
       }
@@ -135,7 +135,7 @@ export function CategoryEditor({
           </div>
 
           <div className="mt-3 flex items-center gap-3">
-            <span className="text-[12.5px] font-semibold text-ink-soft">Custom hex</span>
+            <span className="text-[12.5px] font-semibold text-ink-soft">Custom Hex</span>
             <input
               value={color}
               onChange={(e) => {

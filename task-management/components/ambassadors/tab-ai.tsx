@@ -52,7 +52,7 @@ export function TabAi({ detail }: { detail: AmbassadorDetail }) {
                 <Sparkles size={17} strokeWidth={2.5} style={{ color: "var(--color-altus-red-deep)" }} />
               </span>
               <div>
-                <h2 className="text-[15px] font-bold text-ink-strong">AI relationship summary</h2>
+                <h2 className="text-[15px] font-bold text-ink-strong">AI Relationship Summary</h2>
                 {at && <span className="text-[11.5px] font-medium text-ink-soft">Generated {fmtWhen(at)}</span>}
               </div>
             </div>
@@ -92,7 +92,7 @@ export function TabAi({ detail }: { detail: AmbassadorDetail }) {
           <Sparkles size={24} strokeWidth={2.2} style={{ color: "var(--color-altus-red-deep)" }} />
         </div>
         <h2 className="text-[18px] font-extrabold text-ink-strong" style={{ fontFamily: "var(--font-serif), Georgia, serif" }}>
-          No AI summary yet
+          No AI Summary Yet
         </h2>
         <p className="mx-auto mt-1.5 max-w-md text-[13.5px] font-medium leading-relaxed text-ink-muted">
           Generate a crisp narrative of this partner&apos;s referrals, conversion, revenue, and momentum —
@@ -106,7 +106,7 @@ export function TabAi({ detail }: { detail: AmbassadorDetail }) {
           style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
         >
           {pending ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} strokeWidth={2.6} />}
-          {pending ? "Generating…" : "Generate AI summary"}
+          {pending ? "Generating…" : "Generate AI Summary"}
         </button>
       </div>
     </div>

@@ -142,7 +142,7 @@ export function TaskImport({
                 className="text-ink-strong"
                 style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontWeight: 500, fontSize: 32, letterSpacing: "-0.02em", lineHeight: 1.1 }}
               >
-                Import tasks
+                Import Tasks
               </h1>
               <p className="mt-1.5 text-ink-soft" style={{ fontSize: 15, maxWidth: "60ch" }}>
                 Upload a CSV or Excel file — each row becomes one task. Doer &amp;
@@ -157,7 +157,7 @@ export function TaskImport({
           className="inline-flex items-center gap-2 rounded-pill border border-hairline bg-surface-card px-4 h-11 text-[14px] font-semibold text-ink-strong hover:bg-surface-soft hover:border-hairline-strong transition-colors shrink-0"
         >
           <Download size={16} strokeWidth={2.2} />
-          Download template
+          Download Template
         </button>
       </div>
 
@@ -256,19 +256,19 @@ export function TaskImport({
               icon={<Check size={16} strokeWidth={2.6} />}
               tone="green"
               value={preview.validCount}
-              label="Ready to import"
+              label="Ready to Import"
             />
             <SummaryCard
               icon={<AlertTriangle size={16} strokeWidth={2.4} />}
               tone="red"
               value={preview.errorCount}
-              label="With errors (skipped)"
+              label="With Errors (Skipped)"
             />
             <SummaryCard
               icon={<ListChecks size={16} strokeWidth={2.4} />}
               tone="slate"
               value={preview.totalRows}
-              label="Rows in file"
+              label="Rows in File"
             />
           </div>
 
@@ -347,7 +347,7 @@ export function TaskImport({
                 onClick={reset}
                 className="px-5 py-2.5 rounded-chip text-[14px] font-semibold border border-hairline bg-surface-card text-ink-strong hover:bg-surface-soft transition-colors"
               >
-                Choose another file
+                Choose Another File
               </button>
               <button
                 type="button"

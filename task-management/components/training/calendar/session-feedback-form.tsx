@@ -102,7 +102,7 @@ export function SessionFeedbackForm({
           style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: `0 12px 30px -12px ${ACCENT}99` }}
         >
           {pending ? <Loader2 size={16} className="animate-spin" /> : mine ? <Check size={16} strokeWidth={2.6} /> : <MessageSquareHeart size={16} strokeWidth={2.4} />}
-          {mine ? "Update feedback" : "Submit feedback"}
+          {mine ? "Update Feedback" : "Submit Feedback"}
         </button>
       </div>
     </form>

@@ -149,7 +149,7 @@ export function EnablePushButton() {
       className="rounded-md py-2 px-4 text-sm font-medium text-white disabled:opacity-70"
       style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}
     >
-      {pending ? "Enabling…" : "Enable push notifications"}
+      {pending ? "Enabling…" : "Enable Push Notifications"}
     </button>
   );
 }

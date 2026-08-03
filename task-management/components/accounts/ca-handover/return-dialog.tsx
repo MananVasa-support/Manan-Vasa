@@ -94,7 +94,7 @@ export function ReturnDialog({ row, onClose }: { row: CaReturnRow | null; onClos
           <div className="shrink-0 flex items-center justify-between gap-4 px-6 py-4 border-b border-hairline">
             <div>
               <Dialog.Title className="font-serif italic text-ink-strong" style={{ fontSize: 22, fontWeight: 600 }}>
-                {isEdit ? "Edit FY record" : "Add FY record"}
+                {isEdit ? "Edit FY Record" : "Add FY Record"}
               </Dialog.Title>
               <Dialog.Description className="text-ink-subtle font-medium" style={{ fontSize: 13 }}>
                 Paste a document link for each filed return. Blank fields are left out.
@@ -118,11 +118,11 @@ export function ReturnDialog({ row, onClose }: { row: CaReturnRow | null; onClos
           >
             <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
               <label className="block">
-                <span className="mb-1 block text-[12px] font-bold text-ink-soft">Financial year</span>
+                <span className="mb-1 block text-[12px] font-bold text-ink-soft">Financial Year</span>
                 <input ref={firstRef} value={draft.fy} onChange={(e) => setDraft((d) => ({ ...d, fy: e.target.value }))} placeholder="e.g. 2024-25" className={field} />
               </label>
               <label className="block">
-                <span className="mb-1 block text-[12px] font-bold text-ink-soft">Entity name</span>
+                <span className="mb-1 block text-[12px] font-bold text-ink-soft">Entity Name</span>
                 <input value={draft.entityName} onChange={(e) => setDraft((d) => ({ ...d, entityName: e.target.value }))} placeholder="e.g. Altus Corp Pvt Ltd" className={field} />
               </label>
             </div>
@@ -148,7 +148,7 @@ export function ReturnDialog({ row, onClose }: { row: CaReturnRow | null; onClos
               style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
             >
               {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} strokeWidth={2.6} />}
-              {isEdit ? "Save changes" : "Add record"}
+              {isEdit ? "Save Changes" : "Add Record"}
             </button>
           </div>
         </Dialog.Content>

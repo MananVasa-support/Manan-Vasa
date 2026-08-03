@@ -290,7 +290,7 @@ function CustomDialog({
         <Dialog.Overlay className="fixed inset-0 bg-black/30 z-[110]" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-[120] -translate-x-1/2 -translate-y-1/2 w-full max-w-[460px] rounded-xl bg-white border border-[#E2E8F0] p-6 shadow-lg max-h-[calc(100dvh-32px)] overflow-y-auto">
           <Dialog.Title className="font-serif text-xl text-ink-strong mb-5">
-            Custom recurrence
+            Custom Recurrence
           </Dialog.Title>
 
           {/* Repeat every N [unit] */}

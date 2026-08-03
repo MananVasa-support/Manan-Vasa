@@ -35,7 +35,7 @@ export default async function WeeklySharePage() {
             className="text-ink-strong"
             style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(28px, 3.4vw, 44px)", letterSpacing: "-0.025em", lineHeight: 1.04, marginTop: 8 }}
           >
-            Share & learn
+            Share & Learn
           </h1>
           <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 15.5 }}>
             Once a week, share 10 minutes of what you know — and rate what colleagues share. Both feed your Skill-Upgrade score.
@@ -46,7 +46,7 @@ export default async function WeeklySharePage() {
           {/* This week's Share form */}
           <section className="col-span-2 max-lg:col-span-1">
             <div className="wg-rise rounded-2xl border border-hairline bg-surface-card p-5 shadow-sm" style={{ animationDelay: "0ms" }}>
-              <h2 className="text-[15px] font-bold text-ink-strong">Your Share this week</h2>
+              <h2 className="text-[15px] font-bold text-ink-strong">Your Share This Week</h2>
               <p className="mt-0.5 mb-4 text-[13px] font-medium text-ink-subtle">{weekLabel}</p>
               <ShareForm existing={mine} weekLabel={weekLabel} />
             </div>
@@ -57,7 +57,7 @@ export default async function WeeklySharePage() {
             <div className="mb-3 flex items-end justify-between gap-3">
               <div>
                 <h2 className="text-[17px] font-bold text-ink-strong" style={{ letterSpacing: "-0.01em" }}>
-                  Recent colleague Shares
+                  Recent Colleague Shares
                 </h2>
                 <p className="text-[13px] font-medium text-ink-subtle">Rate each 1–5 and leave a line of feedback.</p>
               </div>

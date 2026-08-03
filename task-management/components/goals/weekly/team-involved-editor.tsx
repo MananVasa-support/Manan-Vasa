@@ -124,7 +124,7 @@ export function TeamInvolvedEditor({
           <PopoverContent className="w-64 p-0" align="start">
             <div className="flex items-center gap-2 border-b border-hairline px-3 py-2">
               <Users size={14} className="text-ink-soft" />
-              <span className="text-[12px] font-semibold text-ink-strong">Team involved</span>
+              <span className="text-[12px] font-semibold text-ink-strong">Team Involved</span>
             </div>
             <div className="max-h-64 overflow-y-auto py-1">
               {roster.filter((r) => r.isActive).length === 0 && (

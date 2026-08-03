@@ -658,7 +658,7 @@ function CommitMemberSection(props: {
                 style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
               >
                 {busy ? <Loader2 size={13} className="animate-spin" /> : <Snowflake size={13} strokeWidth={2.6} />}
-                Freeze next week
+                Freeze Next Week
               </button>
             )}
           </div>

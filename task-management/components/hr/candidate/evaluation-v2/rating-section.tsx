@@ -36,31 +36,11 @@ export function RatingSection({
 
   return (
     <div>
-      {/* Section header: title + weight + live dial */}
-      <div className="mb-4 flex items-center gap-4">
-        <Dial
-          size={72}
-          stroke={7}
-          fill={score.micro === null ? 0 : score.micro / 10}
-          tone={tone}
-          ariaLabel={score.micro === null ? `${section.title} not yet rated` : `${section.title} scores ${fmt(score.micro)} out of 10`}
-          main={score.micro === null ? <span className="text-ink-subtle">—</span> : fmt(score.micro)}
-        />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[13px] font-bold tabular-nums"
-              style={{ background: tone.soft, color: tone.fg }}
-            >
-              {score.x} / {score.weight}
-              <span className="text-[10px] font-bold uppercase tracking-wide opacity-70">pts</span>
-            </span>
-            {!hideHeaderNote && section.note && (
-              <span className="text-[12.5px] font-medium text-ink-muted">{section.note}</span>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Instructional note only — the live score dial now sits at the END of the
+          section (below) so the result reads naturally after every item is rated. */}
+      {!hideHeaderNote && section.note && (
+        <p className="mb-4 text-[12.5px] font-medium text-ink-muted">{section.note}</p>
+      )}
 
       {/* Groups + rows */}
       <div className="space-y-5">
@@ -108,6 +88,29 @@ export function RatingSection({
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Section score — shown at the END so the reviewer sees the resulting
+          weighted score after rating every item in the section. */}
+      <div className="mt-5 flex items-center gap-4 rounded-2xl border border-hairline bg-surface-soft px-4 py-3.5">
+        <Dial
+          size={64}
+          stroke={7}
+          fill={score.micro === null ? 0 : score.micro / 10}
+          tone={tone}
+          ariaLabel={score.micro === null ? `${section.title} not yet rated` : `${section.title} scores ${fmt(score.micro)} out of 10`}
+          main={score.micro === null ? <span className="text-ink-subtle">—</span> : fmt(score.micro)}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] font-black uppercase tracking-[0.14em] text-ink-subtle">Section score</div>
+          <span
+            className="mt-1 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[13px] font-bold tabular-nums"
+            style={{ background: tone.soft, color: tone.fg }}
+          >
+            {score.x} / {score.weight}
+            <span className="text-[10px] font-bold uppercase tracking-wide opacity-70">pts</span>
+          </span>
+        </div>
       </div>
     </div>
   );

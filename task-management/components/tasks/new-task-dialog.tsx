@@ -421,7 +421,7 @@ export function NewTaskDialog({ defaultInitiatorId }: Props) {
                 style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(26px, 2.6vw, 36px)", letterSpacing: "-0.02em", lineHeight: 1.05 }}
               >
                 <Upload size={26} strokeWidth={2.4} style={{ color: "var(--color-altus-red)" }} />
-                Bulk add tasks
+                Bulk Add Tasks
               </Dialog.Title>
               <Dialog.Description className="mt-1 font-semibold" style={{ fontSize: 14.5, color: "var(--color-ink-muted)" }}>
                 Fill the grid (or paste from Excel), review duplicates &amp; anomalies, then create — or import a file.

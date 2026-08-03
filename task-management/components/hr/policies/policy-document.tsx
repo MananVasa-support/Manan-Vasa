@@ -246,7 +246,7 @@ function WorkflowView({ node, fx }: { node: Extract<PolicyNode, { kind: "workflo
           </span>
           <span className="apd-flow-body">
             <span className="apd-flow-text">{fx(node.closure)}</span>
-            <span className="apd-flow-note">Case closure</span>
+            <span className="apd-flow-note">Case Closure</span>
           </span>
         </li>
       )}

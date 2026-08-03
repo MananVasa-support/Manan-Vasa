@@ -78,7 +78,7 @@ export default async function AgreementsPage() {
               lineHeight: 1.02,
             }}
           >
-            {isAdmin ? "Agreements" : "My agreements"}
+            {isAdmin ? "Agreements" : "My Agreements"}
           </h1>
           <p className="mt-1.5 max-w-[76ch] text-[15px] font-medium text-ink-muted">
             {isAdmin
@@ -202,7 +202,7 @@ function EmployeeAgreements({
                   className="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-[13px] font-semibold text-white"
                   style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}
                 >
-                  <PenLine size={13} strokeWidth={2.4} /> Review &amp; sign
+                  <PenLine size={13} strokeWidth={2.4} /> Review &amp; Sign
                 </a>
               )}
             </div>

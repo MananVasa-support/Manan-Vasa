@@ -109,7 +109,7 @@ export function ActivityList({ events, hasMore, loadOlderHref, statusLabels }: P
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-chip bg-surface-card border border-hairline-strong text-chip text-ink-strong hover:border-ink-subtle transition-colors"
             style={{ boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}
           >
-            Load older
+            Load Older
             <span aria-hidden>↓</span>
           </Link>
         </div>

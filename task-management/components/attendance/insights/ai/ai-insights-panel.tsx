@@ -106,7 +106,7 @@ export function AiInsightsPanel({
           ) : (
             <>
               <RefreshCw size={14} strokeWidth={2.4} />
-              {insights ? "Regenerate" : "Generate insights"}
+              {insights ? "Regenerate" : "Generate Insights"}
             </>
           )}
         </button>

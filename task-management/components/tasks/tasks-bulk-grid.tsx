@@ -390,7 +390,7 @@ export function TasksBulkGrid(props: {
           className="inline-flex items-center gap-1.5 rounded-lg border border-solid px-3 py-1.5 text-[12.5px] font-bold text-ink-soft transition-colors hover:border-altus-red hover:text-altus-red"
           style={{ borderColor: "var(--color-hairline-strong)" }}
         >
-          <Plus size={14} strokeWidth={2.6} /> Add row
+          <Plus size={14} strokeWidth={2.6} /> Add Row
         </button>
         <button
           type="button"
@@ -399,7 +399,7 @@ export function TasksBulkGrid(props: {
           className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-bold text-white disabled:opacity-50"
           style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
         >
-          Proceed to review {filledCount > 0 ? `(${filledCount})` : ""} <ArrowRight size={15} strokeWidth={2.6} />
+          Proceed to Review {filledCount > 0 ? `(${filledCount})` : ""} <ArrowRight size={15} strokeWidth={2.6} />
         </button>
       </div>
     </div>

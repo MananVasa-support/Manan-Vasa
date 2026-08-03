@@ -76,7 +76,7 @@ export function QueueFilters({
         fallback="open"
         pills={[
           { key: "open", label: "Open", count: counts.open },
-          { key: "waiting_on_employee", label: "Waiting on employee" },
+          { key: "waiting_on_employee", label: "Waiting on Employee" },
           { key: "resolved", label: "Resolved" },
           { key: "all", label: "All" },
         ]}
@@ -95,7 +95,7 @@ export function QueueFilters({
           param="source"
           fallback="all"
           pills={[
-            { key: "all", label: "All sources" },
+            { key: "all", label: "All Sources" },
             { key: "support", label: "Tickets" },
             { key: "query", label: "Ask HR" },
           ]}

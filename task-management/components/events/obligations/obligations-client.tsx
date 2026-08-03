@@ -42,8 +42,8 @@ interface Props {
 
 const LEGEND: Array<{ status: CellStatus; label: string }> = [
   { status: "met", label: "Met" },
-  { status: "partial", label: "Partial / in progress" },
-  { status: "missed", label: "Missed (compulsory)" },
+  { status: "partial", label: "Partial / In Progress" },
+  { status: "missed", label: "Missed (Compulsory)" },
   { status: "future", label: "Future" },
 ];
 
@@ -134,7 +134,7 @@ export function ObligationsClient({
           }}
         >
           <Plus size={17} strokeWidth={2.6} aria-hidden />
-          New obligation
+          New Obligation
         </button>
       </header>
 
@@ -225,7 +225,7 @@ export function ObligationsClient({
         })}
         <span className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-ink-muted">
           <span className="inline-block size-1.5 rounded-full" style={{ background: ACCENT_DEEP }} />
-          Manual override
+          Manual Override
         </span>
       </div>
 
@@ -387,7 +387,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         className="text-ink-strong"
         style={{ fontFamily: "var(--font-display), system-ui", fontWeight: 800, fontSize: 20 }}
       >
-        No obligations yet
+        No Obligations Yet
       </h2>
       <p className="mt-1.5 max-w-md text-[14.5px] text-ink-muted">
         Add a compulsory monthly session (like AICL sessions) and track it against

@@ -83,8 +83,8 @@ function Shell({ children, isAdmin, tab }: { children: React.ReactNode; isAdmin:
 
           {isAdmin && (
             <div className="mt-5 flex flex-wrap gap-2">
-              <TabPill href="/dossier" active={tab === "employee"} Icon={Users} label="By employee" />
-              <TabPill href="/dossier?tab=type" active={tab === "type"} Icon={LayoutGrid} label="By document type" />
+              <TabPill href="/dossier" active={tab === "employee"} Icon={Users} label="By Employee" />
+              <TabPill href="/dossier?tab=type" active={tab === "type"} Icon={LayoutGrid} label="By Document Type" />
             </div>
           )}
         </header>

@@ -15,9 +15,9 @@ const CARD_SHADOW =
   "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.7), 0 10px 28px -20px rgba(15,23,42,0.35)";
 
 const WEIGHTS: [keyof PmsScoreConfig["weights"], string][] = [
-  ["kpi", "KPI (weekly + incentive)"], ["skillUpgrade", "Skill upgrade (training)"],
-  ["compliance", "Compliance (DCC + checklist)"], ["attitude", "Attitude & mindset"],
-  ["teamwork", "Team work (peers)"],
+  ["kpi", "KPI (Weekly + Incentive)"], ["skillUpgrade", "Skill Upgrade (Training)"],
+  ["compliance", "Compliance (DCC + Checklist)"], ["attitude", "Attitude & Mindset"],
+  ["teamwork", "Team Work (Peers)"],
 ];
 const WEIGHT_SHORT: Record<keyof PmsScoreConfig["weights"], string> = {
   kpi: "KPI",
@@ -27,26 +27,26 @@ const WEIGHT_SHORT: Record<keyof PmsScoreConfig["weights"], string> = {
   teamwork: "Team",
 };
 const THRESHOLDS: [keyof PmsScoreConfig["thresholds"], string, string][] = [
-  ["promotionScore", "Promotion score", "Score ≥ this flags a promotion review"],
-  ["recognitionScore", "Recognition score", "Score ≥ this suggests recognition"],
-  ["minTenureDays", "Min tenure (days)", "Days employed before promotion-eligible"],
-  ["trainGiveHoursPerMonth", "Give hrs / mo", "Hours managers must train others"],
-  ["trainAttendHoursPerMonth", "Attend hrs / mo", "Hours everyone must attend training"],
-  ["selfLearnHoursPerMonth", "Self-learn hrs / mo", "Hours of self-learning required"],
-  ["shareMinPerWeek", "Share mins / wk", "Weekly Share minutes (compulsory)"],
-  ["assessmentPassPct", "Assessment pass %", "Below this = fail → redo (waivable)"],
-  ["noScheduleAlertDays", "No-schedule alert (days)", "Alert if no training scheduled in N days"],
-  ["noAttendPromptDays", "No-attend prompt (days)", "Prompt to pick a training after N days"],
-  ["maxSessionMinutes", "Max session (mins)", "No single session longer than this"],
-  ["lateGraceDays", "Late grace (days)", "Allowed late arrivals before it counts"],
-  ["onTimeRateFloor", "On-time floor (0–1)", "Min punctual share for full credit"],
+  ["promotionScore", "Promotion Score", "Score ≥ this flags a promotion review"],
+  ["recognitionScore", "Recognition Score", "Score ≥ this suggests recognition"],
+  ["minTenureDays", "Min Tenure (Days)", "Days employed before promotion-eligible"],
+  ["trainGiveHoursPerMonth", "Give Hrs / Mo", "Hours managers must train others"],
+  ["trainAttendHoursPerMonth", "Attend Hrs / Mo", "Hours everyone must attend training"],
+  ["selfLearnHoursPerMonth", "Self-Learn Hrs / Mo", "Hours of self-learning required"],
+  ["shareMinPerWeek", "Share Mins / Wk", "Weekly Share minutes (compulsory)"],
+  ["assessmentPassPct", "Assessment Pass %", "Below this = fail → redo (waivable)"],
+  ["noScheduleAlertDays", "No-Schedule Alert (Days)", "Alert if no training scheduled in N days"],
+  ["noAttendPromptDays", "No-Attend Prompt (Days)", "Prompt to pick a training after N days"],
+  ["maxSessionMinutes", "Max Session (Mins)", "No single session longer than this"],
+  ["lateGraceDays", "Late Grace (Days)", "Allowed late arrivals before it counts"],
+  ["onTimeRateFloor", "On-Time Floor (0–1)", "Min punctual share for full credit"],
 ];
 const FORMULA: [keyof PmsScoreConfig["formula"], string][] = [
-  ["kpiWeeklyWeight", "KPI · weekly goals"], ["kpiIncentiveWeight", "KPI · incentive"],
-  ["skillAttendWeight", "Skill · attended"], ["skillGiveWeight", "Skill · given"],
-  ["skillSelfLearnWeight", "Skill · self-learn"], ["skillShareWeight", "Skill · share"],
-  ["compDccWeight", "Compliance · DCC"], ["compChecklistWeight", "Compliance · checklist"],
-  ["ratingFloor", "Rating floor (1–5)"], ["ratingCeil", "Rating ceiling (1–5)"],
+  ["kpiWeeklyWeight", "KPI · Weekly Goals"], ["kpiIncentiveWeight", "KPI · Incentive"],
+  ["skillAttendWeight", "Skill · Attended"], ["skillGiveWeight", "Skill · Given"],
+  ["skillSelfLearnWeight", "Skill · Self-Learn"], ["skillShareWeight", "Skill · Share"],
+  ["compDccWeight", "Compliance · DCC"], ["compChecklistWeight", "Compliance · Checklist"],
+  ["ratingFloor", "Rating Floor (1–5)"], ["ratingCeil", "Rating Ceiling (1–5)"],
 ];
 
 export function ScoreConfigEditor({ initial }: { initial: PmsScoreConfig }) {
@@ -86,7 +86,7 @@ export function ScoreConfigEditor({ initial }: { initial: PmsScoreConfig }) {
               className="text-[19px] text-ink-strong"
               style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, letterSpacing: "-0.01em" }}
             >
-              Pillar weights
+              Pillar Weights
             </h2>
           </div>
           <span
@@ -199,7 +199,7 @@ export function ScoreConfigEditor({ initial }: { initial: PmsScoreConfig }) {
             className="text-[19px] text-ink-strong"
             style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, letterSpacing: "-0.01em" }}
           >
-            Pillar curves
+            Pillar Curves
           </h2>
         </div>
         <p className="mt-2 text-[13.5px] text-ink-muted">A multiplier on each pillar&apos;s raw rate (1.0 = as-is). Tune how steep each pillar rewards.</p>
@@ -223,7 +223,7 @@ export function ScoreConfigEditor({ initial }: { initial: PmsScoreConfig }) {
             boxShadow: `0 10px 24px -12px color-mix(in srgb, ${ACCENT_DEEP} 70%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
           }}>
           {pending ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} strokeWidth={2.4} />}
-          {pending ? "Saving…" : "Save scoring policy"}
+          {pending ? "Saving…" : "Save Scoring Policy"}
         </button>
       </div>
     </div>

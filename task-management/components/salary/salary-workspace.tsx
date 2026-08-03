@@ -92,7 +92,7 @@ export function SalaryWorkspace({
                 className="appearance-none rounded-lg border border-hairline bg-surface-card py-2 pl-3.5 pr-9 text-[13.5px] font-semibold text-ink-strong transition-colors hover:border-hairline-strong focus-visible:outline-none focus-visible:ring-2"
                 style={{ "--tw-ring-color": GREEN } as React.CSSProperties}
               >
-                <option value={ALL}>All companies</option>
+                <option value={ALL}>All Companies</option>
                 {companies.map((c) => (
                   <option key={c} value={c}>
                     {c}

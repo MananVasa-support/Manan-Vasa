@@ -91,7 +91,7 @@ export function FeedbackDetailView({ fb, canManage, employees }: { fb: FD; canMa
                 <p className="mt-1 text-[14px] font-semibold text-ink-strong" style={{ overflowWrap: "anywhere" }}>{ai.summary || "—"}</p>
                 {ai.transcript && (
                   <details className="mt-2">
-                    <summary className="cursor-pointer text-[12.5px] font-bold text-ink-soft">Full transcript</summary>
+                    <summary className="cursor-pointer text-[12.5px] font-bold text-ink-soft">Full Transcript</summary>
                     <p className="mt-1 whitespace-pre-wrap text-[13.5px] font-medium text-ink-soft" style={{ overflowWrap: "anywhere" }}>{ai.transcript}</p>
                   </details>
                 )}
@@ -123,7 +123,7 @@ export function FeedbackDetailView({ fb, canManage, employees }: { fb: FD; canMa
           {!fb.resolution && (
             <>
               {!resolveOpen ? (
-                <button type="button" onClick={() => setResolveOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-xl py-3 text-[15px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-green), var(--color-green-deep))" }}><Check size={16} strokeWidth={2.6} /> Mark resolved</button>
+                <button type="button" onClick={() => setResolveOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-xl py-3 text-[15px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-green), var(--color-green-deep))" }}><Check size={16} strokeWidth={2.6} /> Mark Resolved</button>
               ) : (
                 <div className="flex flex-col gap-2">
                   <textarea className="w-full rounded-lg border border-hairline-strong bg-white px-3 py-2.5 text-[14.5px] outline-none focus:border-[color:var(--color-altus-red)] min-h-[72px]" value={how} onChange={(e) => setHow(e.target.value)} placeholder="How was it resolved?" />
@@ -150,7 +150,7 @@ export function FeedbackDetailView({ fb, canManage, employees }: { fb: FD; canMa
           )}
 
           {fb.resolution && !fb.signedOff && canManage && (
-            <button type="button" disabled={busy === "sign"} onClick={() => run("sign", () => signOffFeedback(fb.id), "Signed off.")} className="inline-flex items-center justify-center gap-2 rounded-xl py-3 text-[15px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-green), var(--color-green-deep))" }}>{busy === "sign" ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={16} />} Manager sign-off</button>
+            <button type="button" disabled={busy === "sign"} onClick={() => run("sign", () => signOffFeedback(fb.id), "Signed off.")} className="inline-flex items-center justify-center gap-2 rounded-xl py-3 text-[15px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-green), var(--color-green-deep))" }}>{busy === "sign" ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={16} />} Manager Sign-off</button>
           )}
 
           {canManage && (

@@ -62,7 +62,7 @@ export function SelfView({ data }: { data: SelfAttendanceSummary }) {
                 lineHeight: 1.1,
               }}
             >
-              My attendance
+              My Attendance
             </h2>
             <p className="text-[13px] font-medium text-ink-subtle">
               Present, late, early &amp; the salary it costs

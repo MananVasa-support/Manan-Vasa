@@ -59,7 +59,7 @@ export default async function DocumentSignPage({
             className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"
             style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
           >
-            <ShieldCheck size={13} strokeWidth={2.6} /> Verified e-signing
+            <ShieldCheck size={13} strokeWidth={2.6} /> {state.digilockerConfigured ? "Verified e-signing" : "Self-attested e-signing"}
           </span>
           <h1
             className="mt-1.5 text-ink-strong"
@@ -74,9 +74,9 @@ export default async function DocumentSignPage({
             Sign your {label.toLowerCase()}
           </h1>
           <p className="mt-1.5 max-w-[60ch] text-[13.5px] font-medium text-ink-muted">
-            Confirm your identity with DigiLocker (Aadhaar e-KYC — masked last-4
-            only), then draw or type your signature. We archive a signed PDF to
-            your private document vault.
+            {state.digilockerConfigured
+              ? "Confirm your identity with DigiLocker (Aadhaar e-KYC — masked last-4 only), then draw or type your signature. We archive a signed PDF to your private document vault."
+              : "Read the document, then draw or type your signature to self-attest it (identity not DigiLocker-verified). We archive a signed PDF to your private document vault."}
           </p>
         </header>
 

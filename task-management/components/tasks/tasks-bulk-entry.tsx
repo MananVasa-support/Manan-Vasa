@@ -288,7 +288,7 @@ export function TasksBulkEntry({
             disabled={pending}
             className={`inline-flex items-center gap-1.5 rounded-full border border-hairline-strong px-4 py-2 text-[13.5px] font-semibold text-ink-soft hover:text-ink-strong hover:bg-surface-soft disabled:opacity-60 ${FOCUS_RING}`}
           >
-            <ArrowLeft size={15} /> Back to grid
+            <ArrowLeft size={15} /> Back to Grid
           </button>
           <button
             type="button"

@@ -179,7 +179,7 @@ export function IntakeSectionStep({
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-x-5 gap-y-6 md:grid-cols-12">
                 {(() => {
                   // Per-instance {fieldKey: value} view so showIf gates correctly
                   // within this row (e.g. computed fields depend on siblings).
@@ -219,12 +219,12 @@ export function IntakeSectionStep({
               onClick={onAdd}
               className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-solid border-hairline-strong py-4 text-[14px] font-bold text-ink-muted transition-colors hover:border-altus-red hover:text-altus-red"
             >
-              <Plus size={17} /> Add another {section.repeat.itemLabel.toLowerCase()}
+              <Plus size={17} /> Add Another {section.repeat.itemLabel}
             </button>
           )}
         </div>
       ) : (
-        <div className="mt-8 grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-8 grid grid-cols-1 gap-x-5 gap-y-6 md:grid-cols-12">
           {(() => {
             const out: React.ReactNode[] = [];
             let lastGroup: string | undefined;
@@ -232,7 +232,7 @@ export function IntakeSectionStep({
               // Full-width sub-heading before the first field of a new group run.
               if (f.groupLabel && f.groupLabel !== lastGroup) {
                 out.push(
-                  <div key={`grp-${f.groupLabel}`} className="sm:col-span-2 xl:col-span-3">
+                  <div key={`grp-${f.groupLabel}`} className="md:col-span-12">
                     <h4 className="text-[13px] font-bold uppercase tracking-wide text-ink-soft">{f.groupLabel}</h4>
                     <div className="mt-2 h-px w-full bg-hairline" />
                   </div>,
@@ -256,11 +256,24 @@ export function IntakeSectionStep({
   );
 }
 
-/** Full-width for textareas + the Aadhaar row; wide (2/3) for larger chip groups. */
+/** 12-column grid width. Explicit `span` wins; else a sensible default so fields
+ *  pack onto one line (three span-4 fields fill a row). Literal classes so
+ *  Tailwind's scanner keeps them. */
+const SPAN12: Record<number, string> = {
+  3: "md:col-span-3",
+  4: "md:col-span-4",
+  5: "md:col-span-5",
+  6: "md:col-span-6",
+  7: "md:col-span-7",
+  8: "md:col-span-8",
+  12: "md:col-span-12",
+};
 function fieldSpan(f: FormFieldDef): string {
-  if (f.type === "textarea" || f.aadhaarLookup) return "sm:col-span-2 xl:col-span-3";
-  if (f.type === "buttons" && (f.options?.length ?? 0) > 3) return "sm:col-span-2 xl:col-span-2";
-  return "";
+  if (f.span && SPAN12[f.span]) return SPAN12[f.span]!;
+  if (f.type === "textarea") return "md:col-span-12";
+  if (f.aadhaarLookup) return "md:col-span-12";
+  if (f.type === "buttons" && (f.options?.length ?? 0) > 3) return "md:col-span-8";
+  return "md:col-span-4";
 }
 
 /**

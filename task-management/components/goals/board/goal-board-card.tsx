@@ -371,7 +371,7 @@ function GoalBoardCardImpl({
                 style={{ background: "color-mix(in srgb, var(--color-altus-red) 14%, transparent)", color: "var(--color-altus-red-deep)" }}
               >
                 <AlertTriangle size={11} aria-hidden />
-                At risk
+                At Risk
               </span>
             )}
             {goal.area && (
@@ -844,7 +844,7 @@ function GoalBoardCardImpl({
               </div>
               {/* Target date — MONTH goals only (year/quarter roll up from children). */}
               {goal.period === "month" && (
-                <Field label="Target date">
+                <Field label="Target Date">
                   <div className="flex flex-wrap items-center gap-2">
                     <input
                       type="date"
@@ -908,7 +908,7 @@ function GoalBoardCardImpl({
                 disabled={ro}
                 onCommit={(team) => save({ teamInvolved: team.length ? team : null }, () => setGoalTeam({ id: goal.id, team }))}
               />
-              <Field label="Dependency on the team (%)">
+              <Field label="Dependency on the Team (%)">
                 <input
                   type="number"
                   min={0}
@@ -1316,7 +1316,7 @@ export function IncentiveField({
 
       {enabled && (
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="How much (₹)">
+          <Field label="How Much (₹)">
             <MoneyInput
               value={amount}
               disabled={disabled}

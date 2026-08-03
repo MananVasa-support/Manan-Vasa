@@ -65,7 +65,7 @@ export function ConfigForm({ initial }: { initial: ConfigInitial }) {
     <div className="flex flex-col gap-4">
       <section className="rounded-2xl bg-surface-card p-5" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[15px] font-bold text-ink-strong">Dimension weights</h2>
+          <h2 className="text-[15px] font-bold text-ink-strong">Dimension Weights</h2>
           <span className="text-[13px] font-bold tabular-nums" style={{ color: sum === 100 ? "#16a34a" : "#dc2626" }}>
             Total {sum}% {sum === 100 ? "✓" : "(should be 100)"}
           </span>
@@ -91,7 +91,7 @@ export function ConfigForm({ initial }: { initial: ConfigInitial }) {
 
       <section className="rounded-2xl bg-surface-card p-5" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[15px] font-bold text-ink-strong">Rating terms</h2>
+          <h2 className="text-[15px] font-bold text-ink-strong">Rating Terms</h2>
           <button
             type="button"
             onClick={() => setTerms((t) => [...t, { min: 0, label: "New band" }])}
@@ -130,22 +130,22 @@ export function ConfigForm({ initial }: { initial: ConfigInitial }) {
       </section>
 
       <section className="rounded-2xl bg-surface-card p-5" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>
-        <h2 className="mb-3 text-[15px] font-bold text-ink-strong">Auto-dimension knobs</h2>
+        <h2 className="mb-3 text-[15px] font-bold text-ink-strong">Auto-Dimension Knobs</h2>
         <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
           <label className="flex flex-col gap-1">
-            <span className="text-[12px] font-semibold text-ink-subtle">Incentive target (% of base salary)</span>
+            <span className="text-[12px] font-semibold text-ink-subtle">Incentive Target (% of Base Salary)</span>
             <input type="number" value={target} onChange={(e) => setTarget(e.target.value)} className={inputCls} />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[12px] font-semibold text-ink-subtle">Culture items / month</span>
+            <span className="text-[12px] font-semibold text-ink-subtle">Culture Items / Month</span>
             <input type="number" value={culture} onChange={(e) => setCulture(e.target.value)} className={inputCls} />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[12px] font-semibold text-ink-subtle">Knowledge: sessions to attend</span>
+            <span className="text-[12px] font-semibold text-ink-subtle">Knowledge: Sessions to Attend</span>
             <input type="number" value={doN} onChange={(e) => setDoN(e.target.value)} className={inputCls} />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[12px] font-semibold text-ink-subtle">Knowledge: sessions to deliver</span>
+            <span className="text-[12px] font-semibold text-ink-subtle">Knowledge: Sessions to Deliver</span>
             <input type="number" value={giveN} onChange={(e) => setGiveN(e.target.value)} className={inputCls} />
           </label>
         </div>
@@ -160,7 +160,7 @@ export function ConfigForm({ initial }: { initial: ConfigInitial }) {
           className="inline-flex items-center gap-2 rounded-pill px-5 py-2.5 text-[14px] font-bold text-white disabled:opacity-60 disabled:cursor-not-allowed"
           style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
         >
-          {pending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save configuration
+          {pending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Configuration
         </button>
         {!sumOk && (
           <p className="mt-2 text-[12.5px] font-semibold text-rose-600">

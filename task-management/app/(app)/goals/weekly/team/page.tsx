@@ -77,7 +77,7 @@ export default async function TeamPerformancePage() {
             className="mt-3 text-ink-strong"
             style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(28px,3.4vw,44px)", letterSpacing: "-0.025em", lineHeight: 1.04 }}
           >
-            Team performance
+            Team Performance
           </h1>
           <p className="mt-2 font-medium text-ink-muted" style={{ fontSize: 15.5, maxWidth: "72ch" }}>
             Who&apos;s working, who&apos;s blocked, who has no plan, and who&apos;s behind — live, today. Open
@@ -148,14 +148,14 @@ export default async function TeamPerformancePage() {
                       className="brand-btn inline-flex items-center gap-1.5 rounded-xl border-2 px-3.5 py-2 text-[13px] font-bold transition-colors"
                       style={{ borderColor: `color-mix(in srgb, ${RED} 35%, transparent)`, color: "var(--color-altus-red-deep)" }}
                     >
-                      <Target size={14} strokeWidth={2.4} /> View goals
+                      <Target size={14} strokeWidth={2.4} /> View Goals
                     </Link>
                     <Link
                       href={`/goals/weekly/team/${m.id}` as Route}
                       className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-bold text-white transition-transform hover:-translate-y-0.5"
                       style={{ background: `linear-gradient(135deg, ${RED}, var(--color-altus-red-deep))` }}
                     >
-                      <ClipboardList size={14} strokeWidth={2.4} /> Daily checklist <ArrowRight size={13} strokeWidth={2.6} />
+                      <ClipboardList size={14} strokeWidth={2.4} /> Daily Checklist <ArrowRight size={13} strokeWidth={2.6} />
                     </Link>
                   </div>
                 </article>

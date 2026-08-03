@@ -135,7 +135,7 @@ export function SalaryProfileList({
           },
           {
             key: "probation",
-            label: "Probation end",
+            label: "Probation End",
             sortValue: (r) => r.probationEnd ?? "",
             render: (r) => (
               <span className="text-ink-soft tabular-nums">
@@ -391,7 +391,7 @@ function AdvancesDialog({
                   className="rounded-md py-2.5 px-5 text-[14px] font-medium text-white disabled:opacity-50"
                   style={{ background: "linear-gradient(135deg, #E10600, #A80400)" }}
                 >
-                  {pending ? "Saving…" : "Add advance"}
+                  {pending ? "Saving…" : "Add Advance"}
                 </button>
               </div>
             </form>

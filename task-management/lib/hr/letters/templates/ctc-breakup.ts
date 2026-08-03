@@ -100,8 +100,10 @@ function nameCell(c: CtcLetterComponent) {
   ];
 }
 
-/** Build every table row: earnings → gross → PT → deductions total → net. */
-function ctcRows(): TableRow[] {
+/** Build every table row: earnings → gross → PT → deductions total → net.
+ *  Exported so other compensation letters (e.g. Appraisal — Revised CTC) reuse
+ *  the exact same structured table + calculator field ids. */
+export function ctcRows(): TableRow[] {
   const rows: TableRow[] = [tgroup("A. Earnings")];
   for (const c of CTC_LETTER_COMPONENTS) {
     rows.push(

@@ -108,7 +108,7 @@ export function DirectoryTable({ rows }: { rows: AmbassadorListRow[] }) {
           />
         </div>
         <select className={CHIP} value={tier} onChange={(e) => setTier(e.target.value)} aria-label="Filter by tier">
-          <option value="">All tiers</option>
+          <option value="">All Tiers</option>
           {TIERS.map((t) => (
             <option key={t} value={t} className="capitalize">
               {t[0]!.toUpperCase() + t.slice(1)}
@@ -116,7 +116,7 @@ export function DirectoryTable({ rows }: { rows: AmbassadorListRow[] }) {
           ))}
         </select>
         <select className={CHIP} value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter by status">
-          <option value="">All statuses</option>
+          <option value="">All Statuses</option>
           {STATUSES.map((s) => (
             <option key={s} value={s}>
               {s[0]!.toUpperCase() + s.slice(1)}
@@ -157,7 +157,7 @@ export function DirectoryTable({ rows }: { rows: AmbassadorListRow[] }) {
                   <Th label="Owner" />
                   <Th label="Referrals" sortKey="referrals" sort={sort} onSort={toggleSort} />
                   <Th label="Revenue" sortKey="revenue" sort={sort} onSort={toggleSort} align="right" />
-                  <Th label="Commission owed" sortKey="commission" sort={sort} onSort={toggleSort} align="right" />
+                  <Th label="Commission Owed" sortKey="commission" sort={sort} onSort={toggleSort} align="right" />
                   <Th label="Status" />
                 </tr>
               </thead>
@@ -288,7 +288,7 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
             boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)",
           }}
         >
-          <Plus size={16} strokeWidth={2.6} /> New ambassador
+          <Plus size={16} strokeWidth={2.6} /> New Ambassador
         </Link>
       )}
     </div>

@@ -38,7 +38,7 @@ export default async function BankBalancePage({ searchParams }: PageProps) {
       <DashboardHeader generatedAt={new Date()} />
       <main className="w-full px-8 max-md:px-4 pt-8 pb-20">
         <Link href={"/accounts" as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-ink-soft hover:text-altus-red">
-          <ArrowLeft size={15} strokeWidth={2.4} /> Back to Accounts index
+          <ArrowLeft size={15} strokeWidth={2.4} /> Back to Accounts Index
         </Link>
 
         <header className="mt-3 mb-7 flex items-start gap-3">

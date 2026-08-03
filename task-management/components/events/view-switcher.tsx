@@ -111,7 +111,7 @@ export function ViewSwitcher({
           className="inline-flex h-9 items-center gap-1.5 rounded-chip px-3.5 text-[13px] font-semibold text-white"
           style={{ background: "var(--color-altus-red, #c8102e)" }}
         >
-          <Plus size={16} /> New event
+          <Plus size={16} /> New Event
         </button>
       </div>
     </div>

@@ -259,7 +259,7 @@ export function PipelineBoard({ referrals, ambassadors, products, employees }: P
           }}
         >
           <Plus size={17} strokeWidth={2.6} />
-          New referral
+          New Referral
         </button>
       </div>
 

@@ -45,7 +45,7 @@ function StatusBadge({ row }: { row: FeedbackRow }) {
     open: { bg: "var(--color-surface-track)", fg: "var(--color-ink-soft)", label: "Open" },
     escalated: { bg: "color-mix(in srgb, var(--color-amber) 16%, transparent)", fg: "var(--color-amber-deep)", label: "Escalated" },
     resolved: { bg: "color-mix(in srgb, var(--color-green) 16%, transparent)", fg: "var(--color-green-deep)", label: "Resolved" },
-    signed_off: { bg: "color-mix(in srgb, var(--color-green) 22%, transparent)", fg: "var(--color-green-deep)", label: "Signed off" },
+    signed_off: { bg: "color-mix(in srgb, var(--color-green) 22%, transparent)", fg: "var(--color-green-deep)", label: "Signed Off" },
     archived: { bg: "var(--color-surface-track)", fg: "var(--color-ink-subtle)", label: "Archived" },
   };
   const s = map[row.status] ?? map.open;
@@ -90,16 +90,16 @@ export function FeedbackDashboard({ rows, stats, canNew }: { rows: FeedbackRow[]
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search feedback…" className="w-full bg-transparent py-2.5 outline-none text-[15px] font-medium text-ink-strong placeholder:text-ink-subtle placeholder:font-normal" />
         </div>
         <select className="rounded-lg border border-hairline-strong bg-white px-3 py-2 text-[14px] font-semibold text-ink-strong outline-none" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">All status</option>
-          <option value="open">Open</option><option value="escalated">Escalated</option><option value="resolved">Resolved</option><option value="signed_off">Signed off</option>
+          <option value="">All Status</option>
+          <option value="open">Open</option><option value="escalated">Escalated</option><option value="resolved">Resolved</option><option value="signed_off">Signed Off</option>
         </select>
         <select className="rounded-lg border border-hairline-strong bg-white px-3 py-2 text-[14px] font-semibold text-ink-strong outline-none" value={type} onChange={(e) => setType(e.target.value)}>
-          <option value="">All types</option>
+          <option value="">All Types</option>
           {(Object.keys(FEEDBACK_TEMPLATES) as FeedbackType[]).map((t) => <option key={t} value={t}>{FEEDBACK_TEMPLATES[t].label}</option>)}
         </select>
         {hasFilters && <button type="button" onClick={() => { setQ(""); setStatus(""); setType(""); }} className="inline-flex items-center gap-1.5 rounded-lg bg-surface-card px-3 py-2 text-[13.5px] font-bold text-ink-soft hover:text-altus-red"><X size={15} /> Clear</button>}
         <div className="ml-auto" />
-        {canNew && <Link href={"/training/feedback/new" as Route} className="inline-flex items-center gap-2 rounded-xl py-2.5 px-5 text-[15px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}><Plus size={17} /> New feedback</Link>}
+        {canNew && <Link href={"/training/feedback/new" as Route} className="inline-flex items-center gap-2 rounded-xl py-2.5 px-5 text-[15px] font-bold text-white" style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}><Plus size={17} /> New Feedback</Link>}
       </div>
 
       <div className="overflow-x-auto rounded-section border border-hairline bg-surface-card" style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}>

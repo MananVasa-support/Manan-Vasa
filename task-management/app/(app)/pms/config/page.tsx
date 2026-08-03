@@ -31,7 +31,7 @@ export default async function PmsConfigPage() {
             href={"/pms" as Route}
             className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink-muted transition-colors hover:text-ink-strong"
           >
-            <ArrowLeft size={15} strokeWidth={2.6} /> Back to roster
+            <ArrowLeft size={15} strokeWidth={2.6} /> Back to Roster
           </Link>
         </div>
 
@@ -66,7 +66,7 @@ export default async function PmsConfigPage() {
               lineHeight: 1.02,
             }}
           >
-            Scoring policy
+            Scoring Policy
           </h1>
           <p className="mt-1.5 max-w-[76ch] text-[15px] font-medium text-ink-muted">
             You define exactly how performance is measured — every weight, threshold and curve lives

@@ -131,7 +131,7 @@ export function ForgotPasswordForm() {
             transition={{ duration: 0.42, delay: 0.22 }}
           >
             <AuthField
-              label="Work email"
+              label="Work Email"
               type="email"
               autoComplete="email"
               required
@@ -161,7 +161,7 @@ export function ForgotPasswordForm() {
             className="pt-1"
           >
             <AuthSubmit pending={isPending} pendingLabel="Sending link">
-              Send reset link
+              Send Reset Link
             </AuthSubmit>
           </motion.div>
 

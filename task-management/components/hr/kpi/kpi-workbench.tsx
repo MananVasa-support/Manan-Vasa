@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   Plus,
@@ -26,7 +27,14 @@ import {
   suggestedKpisForName,
   type KpiCatalogEntry,
 } from "@/lib/hr/kpi/catalog";
+import { LookupSelect } from "@/components/ui/lookup-select";
 import { quarterWindow } from "@/lib/hr/kpi/quarter";
+
+/** Options for the searchable KPI picker: "Manual entry" + every dictionary KPI. */
+const CATALOG_OPTIONS = [
+  { id: "__manual__", name: "Manual entry (type below)" },
+  ...KPI_CATALOG.map((e) => ({ id: e.key, name: `${e.owner} — ${e.name}` })),
+];
 import {
   loadKpiAssignments,
   loadKpiHistory,
@@ -51,6 +59,8 @@ const CSS = `
   @keyframes kpiSlide { from { transform: translateX(100%); } to { transform: translateX(0); } }
   .kpi-switch { transition: background 0.18s ease; }
   .kpi-knob { transition: transform 0.18s cubic-bezier(0.22,1,0.36,1); }
+  .kpi-lookup-trigger:hover { border-color: var(--color-ink-muted, #94a3b8); }
+  .kpi-lookup-trigger[aria-expanded="true"] { border-color: var(--color-altus-red); box-shadow: 0 0 0 3px rgba(225,6,0,.13); outline: none; }
   @media (prefers-reduced-motion: reduce) { .kpi-in { animation: none !important; } }
 `;
 
@@ -102,6 +112,10 @@ export function KpiWorkbench({
     [roster, employeeId],
   );
   const quarters = React.useMemo(() => quarterWindow(6, 2), []);
+  const years = React.useMemo(
+    () => [...new Set(quarters.map((q) => q.split("-")[0]!))].sort((a, b) => b.localeCompare(a)),
+    [quarters],
+  );
 
   const refresh = React.useCallback(() => {
     if (!employeeId) {
@@ -125,45 +139,27 @@ export function KpiWorkbench({
 
   return (
     <div className="kpi-in">
-      {/* Intro */}
-      <div className="mb-6">
+      {/* Intro — just the centered brand badge (the top bar already titles the page) */}
+      <div className="mb-6 flex justify-center">
         <span
-          className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10.5px] font-bold uppercase tracking-[0.2em] text-white"
+          className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.2em] text-white"
           style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
         >
           <Target size={12} strokeWidth={2.6} /> Altus · Performance
         </span>
-        <h1
-          className="mt-3 text-ink-strong"
-          style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(24px, 3vw, 34px)", letterSpacing: "-0.03em", lineHeight: 1.05 }}
-        >
-          KPI Management
-        </h1>
-        <p className="mt-2 max-w-[64ch] text-[14.5px] font-medium leading-relaxed text-ink-muted">
-          Assign and maintain each person&apos;s KPIs, quarter by quarter. Every change is logged to
-          an append-only history and composes an employee email.
-        </p>
-        {!notificationsOn && (
-          <div
-            className="mt-3 inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold"
-            style={{ background: "color-mix(in srgb, #f59e0b 12%, white)", color: "#92600a", boxShadow: "inset 0 0 0 1px color-mix(in srgb, #f59e0b 30%, transparent)" }}
-          >
-            <Info size={14} strokeWidth={2.4} />
-            Notifications are OFF — changes are recorded &amp; composed, but no email is sent (set
-            KPI_NOTIFICATIONS_ON=true to enable).
-          </div>
-        )}
       </div>
 
-      {/* Controls */}
-      <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto_auto] items-end gap-3 max-md:grid-cols-1">
-        <EmployeePicker roster={roster} value={employeeId} onChange={setEmployeeId} />
-        <QuarterSelect value={quarter} options={quarters} onChange={setQuarter} />
+      {/* Controls — a compact toolbar card (employee squeezed, year-filtered quarter) */}
+      <div className="mb-6 flex flex-wrap items-end gap-3 rounded-2xl border border-hairline bg-white p-3.5 shadow-[0_10px_30px_-24px_rgba(24,24,27,0.5)]">
+        <div className="min-w-[240px] max-w-[440px] flex-1">
+          <EmployeePicker roster={roster} value={employeeId} onChange={setEmployeeId} />
+        </div>
+        <QuarterSelect value={quarter} years={years} onChange={setQuarter} />
         <button
           type="button"
           disabled={!employeeId}
           onClick={() => { setError(null); setEditing("new"); }}
-          className="inline-flex h-[46px] items-center gap-2 rounded-xl px-5 text-[14px] font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+          className="ml-auto inline-flex h-[46px] items-center gap-2 rounded-xl px-5 text-[14px] font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 max-md:ml-0 max-md:w-full max-md:justify-center"
           style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`, boxShadow: "0 12px 26px -12px rgba(168,4,0,0.55)" }}
         >
           <Plus size={17} strokeWidth={2.6} /> Assign KPI
@@ -342,29 +338,41 @@ function EmployeePicker({
   );
 }
 
+/** Year filter + Quarter — two compact selects that compose the "YYYY-Qn" value. */
 function QuarterSelect({
   value,
-  options,
+  years,
   onChange,
 }: {
   value: string;
-  options: string[];
+  years: string[];
   onChange: (q: string) => void;
 }) {
+  const parts = value.split("-");
+  const year = parts[0] ?? years[0] ?? "";
+  const qtr = parts[1] ?? "Q1";
+  const yearOpts = years.includes(year) ? years : [year, ...years];
+  const selCls =
+    "h-[46px] appearance-none rounded-xl border border-hairline bg-white pl-4 pr-9 text-[14px] font-semibold text-ink-strong outline-none transition-colors hover:border-hairline-strong focus:border-[var(--color-altus-red)]";
   return (
-    <div>
-      <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-ink-soft">Quarter</label>
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-[46px] appearance-none rounded-xl border border-hairline bg-white pl-4 pr-10 text-[14px] font-semibold text-ink-strong outline-none transition-colors hover:border-hairline-strong focus:border-[var(--color-altus-red)]"
-        >
-          {options.map((q) => (
-            <option key={q} value={q}>{q}</option>
-          ))}
-        </select>
-        <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft" />
+    <div className="flex items-end gap-2">
+      <div>
+        <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-ink-soft">Year</label>
+        <div className="relative">
+          <select value={year} onChange={(e) => onChange(`${e.target.value}-${qtr}`)} className={`${selCls} w-[100px]`}>
+            {yearOpts.map((y) => (<option key={y} value={y}>{y}</option>))}
+          </select>
+          <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-soft" />
+        </div>
+      </div>
+      <div>
+        <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-ink-soft">Quarter</label>
+        <div className="relative">
+          <select value={qtr} onChange={(e) => onChange(`${year}-${e.target.value}`)} className={`${selCls} w-[92px]`}>
+            {["Q1", "Q2", "Q3", "Q4"].map((qq) => (<option key={qq} value={qq}>{qq}</option>))}
+          </select>
+          <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-soft" />
+        </div>
       </div>
     </div>
   );
@@ -392,12 +400,17 @@ function AssignmentCard({
   const [confirmRemove, setConfirmRemove] = React.useState(false);
   const pct = achievement(row.currentValue, row.targetValue);
   const inactive = row.status !== "active";
+  const isDict = row.source === "dictionary";
 
   return (
     <div
       className="group relative overflow-hidden rounded-2xl border bg-white p-4 transition-shadow hover:shadow-md"
       style={{
-        borderColor: inactive ? "color-mix(in srgb, #71717a 25%, white)" : "color-mix(in srgb, #E10600 28%, white)",
+        borderColor: isDict
+          ? "color-mix(in srgb, #f59e0b 32%, white)"
+          : inactive
+            ? "color-mix(in srgb, #71717a 25%, white)"
+            : "color-mix(in srgb, #E10600 28%, white)",
         opacity: inactive ? 0.72 : 1,
       }}
     >
@@ -405,25 +418,36 @@ function AssignmentCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-[16px] font-extrabold tracking-tight text-ink-strong">{row.kpiName}</h3>
-            {row.kpiKey ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-black/[0.04] px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider text-ink-soft">
-                <Sparkles size={10} /> Dictionary
+            {isDict ? (
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider"
+                style={{ background: "color-mix(in srgb, #f59e0b 16%, white)", color: "#b45309" }}
+              >
+                <Sparkles size={10} /> From appraisal
               </span>
             ) : (
-              <span className="inline-flex items-center rounded-full bg-black/[0.04] px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider text-ink-soft">
-                Manual
-              </span>
+              <>
+                {row.kpiKey ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-black/[0.04] px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider text-ink-soft">
+                    <Sparkles size={10} /> Dictionary
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-black/[0.04] px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider text-ink-soft">
+                    Manual
+                  </span>
+                )}
+                <span
+                  className="inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider"
+                  style={
+                    inactive
+                      ? { background: "color-mix(in srgb, #71717a 14%, white)", color: "#52525b" }
+                      : { background: "color-mix(in srgb, #16a34a 14%, white)", color: "#15803d" }
+                  }
+                >
+                  {inactive ? "Inactive" : "Active"}
+                </span>
+              </>
             )}
-            <span
-              className="inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider"
-              style={
-                inactive
-                  ? { background: "color-mix(in srgb, #71717a 14%, white)", color: "#52525b" }
-                  : { background: "color-mix(in srgb, #16a34a 14%, white)", color: "#15803d" }
-              }
-            >
-              {inactive ? "Inactive" : "Active"}
-            </span>
           </div>
 
           <dl className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-x-4 gap-y-2.5">
@@ -441,34 +465,50 @@ function AssignmentCard({
           </dl>
         </div>
 
-        {/* right rail — applicable + actions */}
-        <div className="flex shrink-0 flex-col items-end gap-3 max-md:w-full max-md:flex-row max-md:items-center max-md:justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-[12px] font-bold text-ink-muted">Applicable this quarter</span>
-            <Toggle on={row.applicable} onClick={() => onToggleApplicable(!row.applicable)} />
-            <span className="w-7 text-[12px] font-bold" style={{ color: row.applicable ? RED_DEEP : "#a1a1aa" }}>
-              {row.applicable ? "Yes" : "No"}
+        {/* right rail — inherited rows adopt; saved rows toggle/edit/remove */}
+        {isDict ? (
+          <div className="flex shrink-0 flex-col items-end gap-2 max-md:w-full max-md:items-stretch">
+            <button
+              type="button"
+              onClick={onEdit}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-4 text-[13px] font-bold text-white transition-transform hover:-translate-y-0.5"
+              style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`, boxShadow: "0 10px 22px -14px rgba(168,4,0,0.7)" }}
+            >
+              <Pencil size={14} /> Adopt &amp; edit
+            </button>
+            <span className="max-w-[190px] text-right text-[11px] font-medium leading-snug text-ink-subtle max-md:max-w-none">
+              Set in the appraisal — adopt to manage &amp; track it here.
             </span>
           </div>
-          <div className="flex items-center gap-1">
-            <IconBtn label="Edit" onClick={onEdit}><Pencil size={15} /></IconBtn>
-            <IconBtn label="History" onClick={onHistory}><HistoryIcon size={15} /></IconBtn>
-            <IconBtn label={inactive ? "Activate" : "Deactivate"} onClick={onToggleStatus}><Power size={15} /></IconBtn>
-            {confirmRemove ? (
-              <button
-                type="button"
-                onClick={onRemove}
-                className="inline-flex h-8 items-center gap-1 rounded-lg bg-red-600 px-2.5 text-[12px] font-bold text-white"
-              >
-                <Trash2 size={14} /> Confirm
-              </button>
-            ) : (
-              <IconBtn label="Remove" danger onClick={() => { setConfirmRemove(true); setTimeout(() => setConfirmRemove(false), 3500); }}>
-                <Trash2 size={15} />
-              </IconBtn>
-            )}
+        ) : (
+          <div className="flex shrink-0 flex-col items-end gap-3 max-md:w-full max-md:flex-row max-md:items-center max-md:justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] font-bold text-ink-muted">Applicable This Quarter</span>
+              <Toggle on={row.applicable} onClick={() => onToggleApplicable(!row.applicable)} />
+              <span className="w-7 text-[12px] font-bold" style={{ color: row.applicable ? RED_DEEP : "#a1a1aa" }}>
+                {row.applicable ? "Yes" : "No"}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <IconBtn label="Edit" onClick={onEdit}><Pencil size={15} /></IconBtn>
+              <IconBtn label="History" onClick={onHistory}><HistoryIcon size={15} /></IconBtn>
+              <IconBtn label={inactive ? "Activate" : "Deactivate"} onClick={onToggleStatus}><Power size={15} /></IconBtn>
+              {confirmRemove ? (
+                <button
+                  type="button"
+                  onClick={onRemove}
+                  className="inline-flex h-8 items-center gap-1 rounded-lg bg-red-600 px-2.5 text-[12px] font-bold text-white"
+                >
+                  <Trash2 size={14} /> Confirm
+                </button>
+              ) : (
+                <IconBtn label="Remove" danger onClick={() => { setConfirmRemove(true); setTimeout(() => setConfirmRemove(false), 3500); }}>
+                  <Trash2 size={15} />
+                </IconBtn>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* achievement bar */}
@@ -578,7 +618,10 @@ function EditorModal({
   onError: (msg: string) => void;
 }) {
   const suggested = React.useMemo(() => suggestedKpisForName(employee.name), [employee.name]);
-  const [kpiKey, setKpiKey] = React.useState<string | null>(existing?.kpiKey ?? null);
+  // A dictionary-inherited row is ADOPTED (created), not edited in place — its
+  // synthetic "dict:" id must never be sent to the update path.
+  const isEdit = existing != null && existing.source !== "dictionary";
+  const [kpiKey, setKpiKey] = React.useState<string | null>(isEdit ? existing!.kpiKey ?? null : null);
   const [kpiName, setKpiName] = React.useState(existing?.kpiName ?? "");
   const [category, setCategory] = React.useState(existing?.category ?? "");
   const [frequency, setFrequency] = React.useState<KpiFrequency>(
@@ -618,7 +661,7 @@ function EditorModal({
     if (!kpiName.trim()) { onError("KPI name is required."); return; }
     setSaving(true);
     const res = await saveKpiAssignment({
-      id: existing?.id,
+      id: isEdit ? existing!.id : undefined,
       employeeId: employee.id,
       kpiKey,
       kpiName: kpiName.trim(),
@@ -635,7 +678,11 @@ function EditorModal({
     onSaved();
   };
 
-  return (
+  // Portal to <body> so the fixed overlay escapes the transformed `.kpi-in`
+  // ancestor (its entrance animation leaves a transform that would otherwise
+  // become the containing block and clip the modal's header).
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div
       className="fixed inset-0 z-[120] flex items-center justify-center p-4"
       style={{ background: "rgba(10,10,12,0.5)", backdropFilter: "blur(3px)", animation: "kpiOverlay 0.18s ease-out both" }}
@@ -648,13 +695,13 @@ function EditorModal({
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-hairline bg-white/95 px-6 py-4 backdrop-blur">
           <div>
             <span className="text-[10.5px] font-bold uppercase tracking-[0.2em]" style={{ color: RED_DEEP }}>
-              {existing ? "Edit KPI" : "Assign KPI"} · {employee.name}
+              {isEdit ? "Edit KPI" : "Assign KPI"} · {employee.name}
             </span>
             <h2
               className="mt-1 text-ink-strong"
               style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 22, letterSpacing: "-0.02em", lineHeight: 1.05 }}
             >
-              {existing ? kpiName || "KPI" : "New KPI assignment"}
+              {isEdit ? kpiName || "KPI" : "New KPI assignment"}
             </h2>
           </div>
           <button
@@ -668,30 +715,16 @@ function EditorModal({
         </div>
 
         <div className="grid gap-4 p-6">
-          {/* catalog picker */}
+          {/* catalog picker — searchable premium combobox */}
           <FieldWrap label="KPI (from appraisal dictionary, or manual)">
-            <div className="relative">
-              <select
-                value={kpiKey ?? "__manual__"}
-                onChange={(e) => onPickCatalog(e.target.value)}
-                className="h-[44px] w-full appearance-none rounded-xl border border-hairline bg-white pl-4 pr-10 text-[14px] font-semibold text-ink-strong outline-none focus:border-[var(--color-altus-red)]"
-              >
-                <option value="__manual__">Manual entry (type below)</option>
-                {suggested.length > 0 && (
-                  <optgroup label={`Suggested for ${employee.name}`}>
-                    {suggested.map((e) => (
-                      <option key={`s-${e.key}`} value={e.key}>{e.name}</option>
-                    ))}
-                  </optgroup>
-                )}
-                <optgroup label="All KPIs">
-                  {KPI_CATALOG.map((e) => (
-                    <option key={e.key} value={e.key}>{e.owner} — {e.name}</option>
-                  ))}
-                </optgroup>
-              </select>
-              <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft" />
-            </div>
+            <LookupSelect
+              label="KPI"
+              value={kpiKey ?? "__manual__"}
+              onChange={(id) => onPickCatalog(id ?? "__manual__")}
+              options={CATALOG_OPTIONS}
+              placeholder="Search KPIs…"
+              className="kpi-lookup-trigger h-[44px] w-full rounded-xl border border-hairline bg-white px-4 text-[14px] font-semibold text-ink-strong"
+            />
           </FieldWrap>
 
           <FieldWrap label="KPI name">
@@ -802,7 +835,8 @@ function EditorModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -838,7 +872,8 @@ function HistoryDrawer({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div
       className="fixed inset-0 z-[130] flex justify-end"
       style={{ background: "rgba(10,10,12,0.5)", backdropFilter: "blur(3px)", animation: "kpiOverlay 0.18s ease-out both" }}
@@ -902,7 +937,8 @@ function HistoryDrawer({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

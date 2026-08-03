@@ -175,7 +175,7 @@ export function ExitInterviewForm({
       <div className="flex flex-col gap-7">
         {/* Q1 */}
         <Question n={EXIT_TEXT_QUESTIONS.q1!.n} prompt={EXIT_TEXT_QUESTIONS.q1!.prompt}>
-          <FloatingTextarea label="Your answer" value={fields.q1 ?? ""} onChange={(v) => setF("q1", v)} />
+          <FloatingTextarea label="Your Answer" value={fields.q1 ?? ""} onChange={(v) => setF("q1", v)} />
         </Question>
 
         {/* Q2–Q5, Q8 interleaved with the text questions in document order */}
@@ -186,12 +186,12 @@ export function ExitInterviewForm({
 
         {/* Q6 */}
         <Question n={EXIT_TEXT_QUESTIONS.q6!.n} prompt={EXIT_TEXT_QUESTIONS.q6!.prompt}>
-          <FloatingTextarea label="Your answer" value={fields.q6 ?? ""} onChange={(v) => setF("q6", v)} />
+          <FloatingTextarea label="Your Answer" value={fields.q6 ?? ""} onChange={(v) => setF("q6", v)} />
         </Question>
 
         {/* Q7 */}
         <Question n={EXIT_TEXT_QUESTIONS.q7!.n} prompt={EXIT_TEXT_QUESTIONS.q7!.prompt}>
-          <FloatingTextarea label="Your answer" value={fields.q7 ?? ""} onChange={(v) => setF("q7", v)} />
+          <FloatingTextarea label="Your Answer" value={fields.q7 ?? ""} onChange={(v) => setF("q7", v)} />
         </Question>
 
         {/* Q8 */}
@@ -199,7 +199,7 @@ export function ExitInterviewForm({
 
         {/* Q9 */}
         <Question n={EXIT_TEXT_QUESTIONS.q9!.n} prompt={EXIT_TEXT_QUESTIONS.q9!.prompt}>
-          <FloatingTextarea label="Your answer" value={fields.q9 ?? ""} onChange={(v) => setF("q9", v)} />
+          <FloatingTextarea label="Your Answer" value={fields.q9 ?? ""} onChange={(v) => setF("q9", v)} />
         </Question>
 
         {/* About the Firm — standardized 5-point ratings + open feedback */}

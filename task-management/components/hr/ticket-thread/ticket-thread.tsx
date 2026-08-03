@@ -237,7 +237,7 @@ export function TicketThread(props: TicketThreadProps) {
                 <StatusBtn label="Start" onClick={() => run(() => changeStatus(ticket.id, "in_progress"), "Now in progress")} busy={busy} />
               )}
               {ticket.status !== "waiting_on_employee" && ticket.status !== "closed" && ticket.status !== "resolved" && (
-                <StatusBtn label="Wait on employee" onClick={() => run(() => changeStatus(ticket.id, "waiting_on_employee"), "Waiting on employee")} busy={busy} />
+                <StatusBtn label="Wait on Employee" onClick={() => run(() => changeStatus(ticket.id, "waiting_on_employee"), "Waiting on employee")} busy={busy} />
               )}
               {ticket.status !== "resolved" && ticket.status !== "closed" && (
                 <StatusBtn label="Resolve" primary onClick={() => run(() => changeStatus(ticket.id, "resolved"), "Marked resolved")} busy={busy} />
@@ -338,8 +338,8 @@ export function TicketThread(props: TicketThreadProps) {
         <form onSubmit={submitMessage} className="rounded-2xl border border-hairline bg-surface-card p-4">
           {canHandle && (
             <div className="mb-3 inline-flex rounded-lg border border-hairline p-0.5">
-              <ForkTab active={tab === "reply"} onClick={() => setTab("reply")} icon={<MessageSquare size={13} />} label="Reply to employee" />
-              <ForkTab active={tab === "note"} onClick={() => setTab("note")} icon={<StickyNote size={13} />} label="Internal note" />
+              <ForkTab active={tab === "reply"} onClick={() => setTab("reply")} icon={<MessageSquare size={13} />} label="Reply to Employee" />
+              <ForkTab active={tab === "note"} onClick={() => setTab("note")} icon={<StickyNote size={13} />} label="Internal Note" />
             </div>
           )}
           <textarea

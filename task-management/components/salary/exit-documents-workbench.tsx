@@ -303,7 +303,7 @@ export function ExitDocumentsWorkbench({
             className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface-card px-4 py-2.5 text-[14px] font-medium text-ink-strong hover:border-hairline-strong"
           >
             <Printer size={15} strokeWidth={2.2} />
-            Print preview
+            Print Preview
           </button>
         </div>
 
@@ -325,7 +325,7 @@ export function ExitDocumentsWorkbench({
                 style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}
               >
                 <PenLine size={14} strokeWidth={2.4} />
-                Open signing
+                Open Signing
               </a>
             </div>
           ) : (
@@ -347,7 +347,7 @@ export function ExitDocumentsWorkbench({
                 ) : (
                   <ShieldCheck size={14} strokeWidth={2.4} />
                 )}
-                {saving ? "Archiving…" : "Save & enable e-signing"}
+                {saving ? "Archiving…" : "Save & Enable E-Signing"}
               </button>
             </div>
           )}

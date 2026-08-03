@@ -124,7 +124,7 @@ export default async function PmsSignalsPage() {
                   lineHeight: 1.02,
                 }}
               >
-                Recognition &amp; promotions
+                Recognition &amp; Promotions
               </h1>
               <p className="mt-1.5 max-w-[76ch] text-[15px] font-medium text-ink-muted">
                 The score engine only <em>suggests</em> recognition and <em>flags</em> promotions — nothing is
@@ -255,7 +255,7 @@ export default async function PmsSignalsPage() {
           {/* ── Promotion signals ── */}
           <section>
             <h2 className="mb-3 flex items-center gap-2 text-[17px] font-bold text-ink-strong">
-              <TrendingUp size={18} strokeWidth={2.4} style={{ color: ACCENT }} /> Promotion signals
+              <TrendingUp size={18} strokeWidth={2.4} style={{ color: ACCENT }} /> Promotion Signals
               <span className="text-[13px] font-semibold text-ink-subtle">{flaggedPromotions} flagged</span>
             </h2>
             {promotions.length === 0 ? (

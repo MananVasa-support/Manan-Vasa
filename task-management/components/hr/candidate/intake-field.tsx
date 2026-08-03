@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import type { FormFieldDef } from "@/lib/forms/field-types";
 import { isRequiredField } from "@/lib/hr/candidate/intake-schema";
+import { LookupSelect } from "@/components/ui/lookup-select";
 
 /**
  * Intake-only floating-label field renderer. This is the premium, OPT-IN variant
@@ -77,22 +78,19 @@ export function IntakeField({
   } as const;
 
   if (field.type === "select") {
+    // Standardised: the professional searchable combobox (same one used across
+    // the app), styled to sit inside the floating-label box.
     return (
       <div className={wrapCls}>
-        <select
-          {...common}
-          onChange={(e) => onChange(field.key, e.target.value)}
-          aria-label={field.label}
-        >
-          <option value="">— Select —</option>
-          {opts.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
+        <LookupSelect
+          label={field.label.toLowerCase()}
+          value={value || null}
+          onChange={(v) => onChange(field.key, v ?? "")}
+          options={opts.map((o) => ({ id: o, name: o }))}
+          placeholder="— Select —"
+          className="iwf-control iwf-lookup"
+        />
         {labelEl}
-        <ChevronDown size={18} className="iwf-caret" aria-hidden />
       </div>
     );
   }
@@ -203,7 +201,7 @@ function IntakeChipField({
   }
 
   return (
-    <div className={`iwc${error ? " is-error" : ""}`} role="radiogroup" aria-label={field.label}>
+    <div className={`iwc${error ? " is-error" : ""}${field.nowrap ? " iwc-nowrap" : ""}`} role="radiogroup" aria-label={field.label}>
       <span className="iwc-legend">
         {field.label}
         {req && <span className="iwf-req" aria-hidden>*</span>}

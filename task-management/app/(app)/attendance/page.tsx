@@ -436,7 +436,7 @@ function MyTimeline({ days, tz, today }: { days: DayPunches[]; tz: string; today
               lineHeight: 1.1,
             }}
           >
-            Recent activity
+            Recent Activity
           </h2>
           <p className="text-[13px] font-medium text-ink-subtle">Last 14 days</p>
         </div>

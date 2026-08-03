@@ -42,7 +42,7 @@ export default async function NewIntroductionPage() {
                 lineHeight: 1.04,
               }}
             >
-              New introduction
+              New Introduction
             </h1>
             <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 15.5 }}>
               Record who can introduce us, and to whom.

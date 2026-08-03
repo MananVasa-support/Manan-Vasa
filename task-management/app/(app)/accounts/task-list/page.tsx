@@ -36,7 +36,7 @@ export default async function AccountsTaskListPage() {
           className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-ink-soft hover:text-altus-red"
         >
           <ArrowLeft size={15} strokeWidth={2.4} />
-          Back to Accounts index
+          Back to Accounts Index
         </Link>
 
         <header className="mt-3 mb-8 flex items-start justify-between gap-4 flex-wrap">
@@ -74,7 +74,7 @@ export default async function AccountsTaskListPage() {
             <ListChecks size={18} strokeWidth={2.4} />
           </span>
           <h2 className="text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 22, letterSpacing: "-0.02em" }}>
-            Task list
+            Task List
           </h2>
         </div>
 

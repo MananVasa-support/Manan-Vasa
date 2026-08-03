@@ -59,7 +59,7 @@ export function PolicyView({ doc }: { doc: PolicyDoc }) {
       <div className="apv-toolbar no-print">
         <label className="apv-pick">
           <Building2 size={15} strokeWidth={2.2} aria-hidden />
-          <span className="apv-pick-label">Issuing entity</span>
+          <span className="apv-pick-label">Issuing Entity</span>
           <select
             value={entity}
             onChange={(e) => setEntity(e.target.value as EntityId)}

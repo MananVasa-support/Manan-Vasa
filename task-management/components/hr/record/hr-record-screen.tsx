@@ -29,6 +29,8 @@ import {
   Lock,
   AlertTriangle,
   ArrowRight,
+  ArrowLeft,
+  Search,
 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { PageShell } from "@/components/layout/page-shell";
@@ -139,6 +141,7 @@ export function HrRecordScreen({
   const [workflowLoading, setWorkflowLoading] = React.useState(false);
   const [emailBusy, setEmailBusy] = React.useState(false);
   const [assetsBusy, setAssetsBusy] = React.useState(false);
+  const [query, setQuery] = React.useState("");
 
   const maRef = React.useRef<ManagementAssessmentState | null>(null);
   const skillsRef = React.useRef(skills); skillsRef.current = skills;
@@ -311,10 +314,6 @@ export function HrRecordScreen({
           >
             HR Record
           </h1>
-          <p className="mt-1.5 max-w-[74ch] text-[15px] font-medium text-ink-muted">
-            One room for a person&apos;s whole file — compose their letters, judge the bare-minimum
-            skills they must have, and reach their documents. Pick who you&apos;re working on to begin.
-          </p>
         </div>
 
         {/* Person picker + header */}
@@ -391,13 +390,25 @@ export function HrRecordScreen({
                   {selected.mobile}
                 </span>
               )}
+              <button
+                type="button"
+                onClick={() => void selectCandidate("")}
+                className="inline-flex items-center gap-1.5 rounded-pill border border-hairline-strong bg-white px-3 py-1.5 text-[12px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
+              >
+                <ArrowLeft size={13} /> All people
+              </button>
             </div>
           )}
         </div>
 
         {/* Body */}
         {!candidateId ? (
-          <EmptyState />
+          <Roster
+            candidates={candidates}
+            query={query}
+            onQuery={setQuery}
+            onSelect={(id) => void selectCandidate(id)}
+          />
         ) : loading ? (
           <div className="mt-6 grid place-items-center rounded-2xl border border-hairline bg-white py-24 text-ink-muted">
             <Loader2 className="animate-spin" style={{ color: RED }} />
@@ -488,7 +499,7 @@ export function HrRecordScreen({
                   href={"/hr/letters" as Route}
                   className="mt-3 inline-flex items-center gap-2 rounded-pill border border-hairline-strong bg-white px-4 py-2 text-[13px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
                 >
-                  <Library size={15} /> Browse all letters <ArrowUpRight size={14} />
+                  <Library size={15} /> Browse All Letters <ArrowUpRight size={14} />
                 </Link>
               </RecordCard>
             </section>
@@ -509,7 +520,7 @@ export function HrRecordScreen({
                     <FolderLock size={18} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[14.5px] font-bold text-ink-strong">Open dossier</span>
+                    <span className="block text-[14.5px] font-bold text-ink-strong">Open Dossier</span>
                     <span className="block text-[12.5px] font-medium text-ink-muted">Every document on file, in one secure place.</span>
                   </span>
                   <ArrowUpRight size={17} className="shrink-0 text-ink-subtle transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
@@ -525,7 +536,7 @@ export function HrRecordScreen({
                     {docketLoading ? (
                       <><Loader2 size={15} className="animate-spin" /> Building docket…</>
                     ) : (
-                      <><FileDown size={15} /> Download docket (PDF)</>
+                      <><FileDown size={15} /> Download Docket (PDF)</>
                     )}
                   </button>
                 )}
@@ -803,7 +814,7 @@ function ExitHandover({ status, loading }: { status: ExitSummary | null; loading
         {status.interviewUpdatedAt ? (
           <p className="text-[13.5px] font-bold" style={{ color: "#15803d" }}>Completed · {fmtDate(status.interviewUpdatedAt)}</p>
         ) : (
-          <p className="text-[13.5px] font-medium text-ink-subtle">Not done yet</p>
+          <p className="text-[13.5px] font-medium text-ink-subtle">Not Done Yet</p>
         )}
       </div>
 
@@ -831,7 +842,7 @@ function ExitHandover({ status, loading }: { status: ExitSummary | null; loading
             <p className="mt-1 text-[11px] font-medium text-ink-subtle">Updated {fmtDate(status.handoverUpdatedAt)}</p>
           </>
         ) : (
-          <p className="text-[13.5px] font-medium text-ink-subtle">Not started</p>
+          <p className="text-[13.5px] font-medium text-ink-subtle">Not Started</p>
         )}
       </div>
     </div>
@@ -1005,7 +1016,7 @@ function EmailStepCard({
             className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold text-white transition-opacity hover:opacity-95 disabled:opacity-50"
             style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`, boxShadow: "0 10px 22px -14px rgba(168,4,0,0.8)" }}
           >
-            {busy ? <><Loader2 size={14} className="animate-spin" /> Creating…</> : <><Mail size={14} /> Create email & welcome</>}
+            {busy ? <><Loader2 size={14} className="animate-spin" /> Creating…</> : <><Mail size={14} /> Create Email & Welcome</>}
           </button>
         </>
       ) : (
@@ -1055,7 +1066,7 @@ function AssetsStepCard({
             className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold text-white transition-opacity hover:opacity-95 disabled:opacity-50"
             style={{ background: "linear-gradient(135deg,#3f3f46,#18181b)" }}
           >
-            {busy ? <><Loader2 size={14} className="animate-spin" /> Marking…</> : <><Boxes size={14} /> Mark assets allocated</>}
+            {busy ? <><Loader2 size={14} className="animate-spin" /> Marking…</> : <><Boxes size={14} /> Mark Assets Allocated</>}
           </button>
         </>
       ) : (
@@ -1127,18 +1138,124 @@ function RecordCard({
   );
 }
 
-function EmptyState() {
+/**
+ * The roster — every person on file as a card grid (searchable). Opening any card
+ * loads their full A–Z record below (onboarding · email · assets · letters ·
+ * documents · policies · exit · skills), each with a jump-to-fill link. This is
+ * the "see everyone, then go fill whatever's missing" front door.
+ */
+function Roster({
+  candidates,
+  query,
+  onQuery,
+  onSelect,
+}: {
+  candidates: CandidateRow[];
+  query: string;
+  onQuery: (q: string) => void;
+  onSelect: (id: string) => void;
+}) {
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? candidates.filter((c) =>
+        `${c.fullName ?? ""} ${c.positionApplied ?? ""} ${c.position ?? ""} ${c.department ?? ""}`
+          .toLowerCase()
+          .includes(q),
+      )
+    : candidates;
+
   return (
-    <div className="mt-6 grid place-items-center rounded-2xl border border-solid border-hairline-strong bg-white px-6 py-20 text-center">
-      <span className="grid h-14 w-14 place-items-center rounded-2xl" style={{ background: "#E106001a", color: RED_DEEP }}>
-        <IdCard size={26} strokeWidth={2.1} />
-      </span>
-      <h2 className="mt-4 text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 20 }}>
-        Choose a person to open their record
-      </h2>
-      <p className="mt-1.5 max-w-[46ch] text-[14px] font-medium text-ink-muted">
-        Their letters, skills checklist and documents unlock the moment you pick someone above.
-      </p>
+    <div className="mt-6 rec-fade">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2
+            className="flex items-center gap-2 text-ink-strong"
+            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 20, letterSpacing: "-0.01em" }}
+          >
+            All people
+            <span className="rounded-pill px-2.5 py-0.5 text-[12px] font-black" style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, white)", color: RED_DEEP }}>
+              {candidates.length}
+            </span>
+          </h2>
+          <p className="mt-0.5 text-[13px] font-medium text-ink-muted">
+            Open anyone to work their whole file A–Z — letters, email, assets, policies, documents and exit.
+          </p>
+        </div>
+        <div className="relative w-full max-w-[320px]">
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => onQuery(e.target.value)}
+            placeholder="Search name, role or department…"
+            className="w-full rounded-xl border border-hairline-strong bg-white py-2.5 pl-9 pr-3 text-[13.5px] font-medium text-ink-strong outline-none transition-colors focus:border-altus-red"
+          />
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="grid place-items-center rounded-2xl border border-hairline-strong bg-white px-6 py-16 text-center">
+          <span className="grid h-14 w-14 place-items-center rounded-2xl" style={{ background: "#E106001a", color: RED_DEEP }}>
+            <IdCard size={26} strokeWidth={2.1} />
+          </span>
+          <p className="mt-3 text-[15px] font-bold text-ink-strong">
+            {candidates.length === 0 ? "No people on file yet" : "No one matches that search"}
+          </p>
+          <p className="mt-1 text-[13px] font-medium text-ink-muted">
+            {candidates.length === 0 ? "People appear here as candidates are entered." : "Try a different name, role or department."}
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((c) => (
+            <RosterCard key={c.id} c={c} onSelect={onSelect} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RosterCard({ c, onSelect }: { c: CandidateRow; onSelect: (id: string) => void }) {
+  const tone = STATUS_TONE[c.status ?? "new"] ?? STATUS_TONE.new!;
+  const role = c.positionApplied || c.position;
+  const roleLine = [role, c.department].filter(Boolean).join(" · ") || "Position not set";
+  const incomplete = !role || !c.fullName;
+  return (
+    <div className="group flex h-full flex-col rounded-2xl border border-hairline bg-white p-4 shadow-[0_10px_30px_-24px_rgba(24,24,27,0.5)] transition-all hover:-translate-y-0.5 hover:border-hairline-strong hover:shadow-md">
+      <button type="button" onClick={() => onSelect(c.id)} className="flex items-center gap-3 text-left">
+        <span
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-[15px] font-black text-white"
+          style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`, boxShadow: "0 10px 22px -14px rgba(168,4,0,0.7)" }}
+        >
+          {initials(c.fullName)}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[15px] font-black leading-tight text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif" }}>
+            {c.fullName || "Unnamed"}
+          </span>
+          <span className="block truncate text-[12.5px] font-medium text-ink-muted">{roleLine}</span>
+        </span>
+        <span className="shrink-0 rounded-pill px-2.5 py-1 text-[11.5px] font-bold" style={{ background: tone.bg, color: tone.fg }}>
+          {tone.label}
+        </span>
+      </button>
+
+      <div className="mt-3 flex items-center gap-2 border-t border-hairline pt-3">
+        {incomplete && (
+          <span className="inline-flex items-center gap-1 rounded-pill px-2 py-1 text-[11px] font-bold" style={{ background: "color-mix(in srgb, #f59e0b 14%, white)", color: "#b45309" }}>
+            <AlertTriangle size={11} strokeWidth={2.6} /> Details missing
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => onSelect(c.id)}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12.5px] font-bold text-white transition-opacity hover:opacity-95"
+          style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
+        >
+          Open record <ArrowRight size={13} strokeWidth={2.6} />
+        </button>
+      </div>
     </div>
   );
 }

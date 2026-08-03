@@ -324,7 +324,7 @@ function AddAdhocRow({
       <div className="flex items-end gap-2.5 flex-wrap">
         <div>
           <label className="block text-[12px] font-semibold text-[#0F172A] mb-1">
-            Due date
+            Due Date
           </label>
           <input
             type="date"

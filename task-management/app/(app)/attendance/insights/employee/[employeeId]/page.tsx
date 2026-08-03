@@ -90,7 +90,7 @@ export default async function EmployeeAttendanceInsightsPage({
         ) : data?.notFound ? (
           <StateCard
             icon={<UserRoundX size={26} strokeWidth={2.2} />}
-            title="Employee not found"
+            title="Employee Not Found"
             body="This person no longer exists or the link is stale. Head back and pick a teammate from the list."
           />
         ) : data ? (

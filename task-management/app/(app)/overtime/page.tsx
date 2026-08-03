@@ -113,7 +113,7 @@ export default async function OvertimePage() {
                 }}
               >
                 <BarChart3 size={16} strokeWidth={2.4} />
-                Team dashboard
+                Team Dashboard
                 {pendingCount > 0 && (
                   <span
                     className="grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold tabular-nums"

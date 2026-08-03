@@ -177,7 +177,7 @@ function ItemRow({ item, caps }: { item: ClientItem; caps: ViewerCaps }) {
             <span className="text-[14px] font-semibold text-ink-strong">{item.title}</span>
             {item.isTechnical != null && (
               <span className="rounded-pill bg-white px-2 py-0.5 text-[10px] font-bold text-ink-subtle" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>
-                {item.isTechnical ? "Technical" : "Non-technical"}
+                {item.isTechnical ? "Technical" : "Non-Technical"}
               </span>
             )}
           </div>
@@ -205,7 +205,7 @@ function ItemRow({ item, caps }: { item: ClientItem; caps: ViewerCaps }) {
         {item.manager.score != null && <StageChip label="Manager" v={item.manager.score} note={item.manager.note} />}
         {item.management.score != null && <StageChip label="Mgmt" v={item.management.score} note={item.management.note} />}
         {item.adminApproved === false && (
-          <span className="rounded-pill bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700">Not approved</span>
+          <span className="rounded-pill bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700">Not Approved</span>
         )}
       </div>
 
@@ -310,7 +310,7 @@ function StageForm({ item, stage, isOneLiner }: { item: ClientItem; stage: "self
   const [note, setNote] = React.useState<string>(existing.note ?? "");
   const [pending, start] = React.useTransition();
 
-  const label = stage === "self" ? "Save self score" : stage === "manager" ? "Save manager score" : "Save management score";
+  const label = stage === "self" ? "Save Self Score" : stage === "manager" ? "Save Manager Score" : "Save Management Score";
   const noteRequired = stage === "manager";
 
   function onSubmit(e: React.FormEvent) {
@@ -436,7 +436,7 @@ function KpiAdminForm({ item }: { item: ClientItem }) {
           {pending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Approve
         </button>
         <button type="button" onClick={() => save(false)} disabled={pending} className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-[13px] font-bold text-rose-700 disabled:opacity-60" style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>
-          <X size={14} /> Not approved
+          <X size={14} /> Not Approved
         </button>
       </div>
     </div>
@@ -533,7 +533,7 @@ function AttachmentUpload({ item, isSelf }: { item: ClientItem; isSelf: boolean 
         className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12px] font-semibold text-ink-strong disabled:opacity-60"
         style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}
       >
-        {pending ? <Loader2 size={12} className="animate-spin" /> : <Paperclip size={12} />} Attach evidence
+        {pending ? <Loader2 size={12} className="animate-spin" /> : <Paperclip size={12} />} Attach Evidence
       </button>
     </div>
   );

@@ -14,9 +14,9 @@ const GREEN = "#E10600";
 const GREEN_DEEP = "#A80400";
 
 const MODES: { key: string; label: string; Icon: LucideIcon }[] = [
-  { key: "wfh", label: "Work from home", Icon: Home },
-  { key: "client_site", label: "Client site", Icon: Building2 },
-  { key: "field", label: "Field visit", Icon: MapPinned },
+  { key: "wfh", label: "Work from Home", Icon: Home },
+  { key: "client_site", label: "Client Site", Icon: Building2 },
+  { key: "field", label: "Field Visit", Icon: MapPinned },
   { key: "other", label: "Other", Icon: MoreHorizontal },
 ];
 
@@ -90,7 +90,7 @@ export function RemoteCheckInDialog({
         <div className="flex items-center gap-3 px-6 py-4" style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}>
           <MapPinned size={19} className="text-white" strokeWidth={2.3} />
           <div className="min-w-0 flex-1">
-            <div className="text-[15.5px] font-black text-white">Remote / on-site check-in</div>
+            <div className="text-[15.5px] font-black text-white">Remote / On-Site Check-In</div>
             <div className="text-[12px] font-semibold text-white/80">Log attendance from anywhere — with evidence</div>
           </div>
           <button type="button" onClick={() => !busy && onClose()} className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25" aria-label="Close"><X size={17} strokeWidth={2.4} /></button>
@@ -104,7 +104,7 @@ export function RemoteCheckInDialog({
               return (
                 <button key={k} type="button" disabled={disabled} onClick={() => setKind(k)} className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl py-2.5 text-[13.5px] font-bold transition disabled:opacity-40"
                   style={on ? { background: `color-mix(in srgb, ${GREEN} 14%, transparent)`, color: GREEN_DEEP, boxShadow: `inset 0 0 0 1.5px ${GREEN}` } : { background: "var(--color-surface-soft)", color: "var(--color-ink-muted)", boxShadow: "inset 0 0 0 1px var(--color-hairline)" }}>
-                  {k === "in" ? <LogIn size={15} /> : <LogOut size={15} />}{k === "in" ? "Check in" : "Check out"}
+                  {k === "in" ? <LogIn size={15} /> : <LogOut size={15} />}{k === "in" ? "Check In" : "Check Out"}
                 </button>
               );
             })}

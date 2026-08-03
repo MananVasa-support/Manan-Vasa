@@ -521,7 +521,7 @@ export function SmartToolbar(props: SmartToolbarProps) {
               }}
             >
               <Plus className="h-4 w-4" />
-              New goal
+              New Goal
             </button>
           )
         ) : null}

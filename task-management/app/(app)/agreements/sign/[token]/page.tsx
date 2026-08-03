@@ -115,7 +115,7 @@ export default async function SignAgreementPage({
                 }}
               >
                 <Download size={15} strokeWidth={2.4} />
-                Download signed PDF
+                Download Signed PDF
               </a>
             </div>
           ) : sigState ? (

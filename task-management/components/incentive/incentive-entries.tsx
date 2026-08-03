@@ -67,7 +67,7 @@ export function IncentiveEntries({
             }}
           >
             <Plus size={16} strokeWidth={2.6} />
-            Add entry
+            Add Entry
           </button>
         </div>
       </div>
@@ -263,14 +263,14 @@ function EntryDialog({
             className="text-ink-strong mb-1"
             style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 21 }}
           >
-            {editing ? "Edit incentive entry" : "Add incentive entry"}
+            {editing ? "Edit Incentive Entry" : "Add Incentive Entry"}
           </Dialog.Title>
           <Dialog.Description className="text-ink-subtle font-semibold mb-4" style={{ fontSize: 13.5 }}>
             Pick an employee from the roster, or type a name for someone not listed.
           </Dialog.Description>
 
           <form onSubmit={submit} className="space-y-3.5">
-            <Field label="Employee (roster)">
+            <Field label="Employee (Roster)">
               <Select
                 options={empOptions}
                 value={empId}
@@ -280,13 +280,13 @@ function EntryDialog({
                 searchable
               />
             </Field>
-            <Field label="Employee name" required>
+            <Field label="Employee Name" required>
               <Input value={empName} onChange={setEmpName} placeholder="Name (free text)" />
             </Field>
-            <Field label="Incentive name" required>
+            <Field label="Incentive Name" required>
               <Input value={incentiveName} onChange={setIncentiveName} placeholder="e.g. New Client" />
             </Field>
-            <Field label="Period month">
+            <Field label="Period Month">
               <input
                 type="month"
                 value={periodMonth}
@@ -298,10 +298,10 @@ function EntryDialog({
               <Field label="Amount (₹)">
                 <Input value={amount} onChange={setAmount} placeholder="0" numeric />
               </Field>
-              <Field label="Approved amt (₹)">
+              <Field label="Approved Amt (₹)">
                 <Input value={approvedAmt} onChange={setApprovedAmt} placeholder="0" numeric />
               </Field>
-              <Field label="Paid amt (₹)">
+              <Field label="Paid Amt (₹)">
                 <Input value={paidAmt} onChange={setPaidAmt} placeholder="0" numeric />
               </Field>
             </div>
@@ -337,7 +337,7 @@ function EntryDialog({
                 }}
               >
                 {pending ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={2.6} />}
-                {pending ? "Saving…" : editing ? "Save changes" : "Create entry"}
+                {pending ? "Saving…" : editing ? "Save Changes" : "Create Entry"}
               </button>
             </div>
           </form>

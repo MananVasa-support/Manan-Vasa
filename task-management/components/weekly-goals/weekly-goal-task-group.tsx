@@ -59,7 +59,7 @@ export function WeeklyGoalTaskGroup({
             className="font-bold text-ink-strong truncate"
             style={{ fontSize: 16 }}
           >
-            This week&apos;s goals
+            This Week&apos;s Goals
           </h2>
           <span
             className="shrink-0 tabular-nums font-bold rounded-pill px-2 py-0.5"

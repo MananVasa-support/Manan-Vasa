@@ -107,7 +107,7 @@ export function ShareForm({
           <p className="mt-1 text-[12.5px] font-medium text-ink-subtle">Minimum {SHARE_MIN} minutes.</p>
         </div>
         <div>
-          <label className={LABEL}>Video link</label>
+          <label className={LABEL}>Video Link</label>
           <input
             type="url"
             inputMode="url"
@@ -153,7 +153,7 @@ export function ShareForm({
           style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`, boxShadow: "0 12px 30px -12px rgba(225,6,0,0.6)" }}
         >
           {submitting ? <Loader2 size={17} className="animate-spin" /> : <Video size={17} strokeWidth={2.4} />}
-          {existing ? "Update Share" : "Log this week's Share"}
+          {existing ? "Update Share" : "Log This Week's Share"}
         </button>
       </div>
     </form>

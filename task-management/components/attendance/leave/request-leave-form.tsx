@@ -87,7 +87,7 @@ export function RequestLeaveForm({ today }: { today: string }) {
             letterSpacing: "-0.02em",
           }}
         >
-          Request leave
+          Request Leave
         </h2>
       </div>
       <p className="mb-5 text-[13.5px] text-ink-subtle" style={{ lineHeight: 1.55 }}>
@@ -211,7 +211,7 @@ export function RequestLeaveForm({ today }: { today: string }) {
             }}
           >
             <Send size={15} strokeWidth={2.4} />
-            {pending ? "Submitting…" : "Submit request"}
+            {pending ? "Submitting…" : "Submit Request"}
           </button>
         </div>
       </form>

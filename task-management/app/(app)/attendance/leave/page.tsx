@@ -117,7 +117,7 @@ export default async function LeavePage() {
                       letterSpacing: "-0.02em",
                     }}
                   >
-                    Pending approvals
+                    Pending Approvals
                   </h2>
                   {pending.length > 0 && (
                     <span
@@ -160,7 +160,7 @@ export default async function LeavePage() {
                     letterSpacing: "-0.02em",
                   }}
                 >
-                  My requests
+                  My Requests
                 </h2>
                 {pendingMine > 0 && (
                   <span

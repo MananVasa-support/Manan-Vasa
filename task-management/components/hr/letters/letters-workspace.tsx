@@ -216,7 +216,7 @@ function IssueDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="w-full max-w-[460px] rounded-2xl border border-hairline bg-surface-card p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-[16px] font-bold text-ink-strong">Issue letter</h3>
+          <h3 className="text-[16px] font-bold text-ink-strong">Issue Letter</h3>
           <button onClick={onClose} aria-label="Close" className="text-ink-muted hover:text-ink-strong"><X size={18} /></button>
         </div>
         <form onSubmit={submit} className="space-y-3">
@@ -228,7 +228,7 @@ function IssueDialog({
               ))}
             </select>
           </Field>
-          <Field label="Letter type">
+          <Field label="Letter Type">
             <select name="letterType" required defaultValue="letter_offer" className={inputCls}>
               {LETTER_TYPES.map((t) => (
                 <option key={t.key} value={t.key}>{t.label}</option>
@@ -238,7 +238,7 @@ function IssueDialog({
           <Field label="Title">
             <input name="title" required maxLength={200} placeholder="e.g. Offer Letter — Jul 2026" className={inputCls} />
           </Field>
-          <Field label="Effective date (optional)">
+          <Field label="Effective Date (optional)">
             <input name="effectiveDate" type="date" className={inputCls} />
           </Field>
           <Field label="Notes (optional)">

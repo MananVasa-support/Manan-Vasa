@@ -43,7 +43,7 @@ export function PunctualityCard({
           <CalendarCheck size={17} strokeWidth={2.4} />
         </span>
         <div>
-          <h2 className="text-[15px] font-black tracking-tight text-ink-strong leading-none">Delivered on time</h2>
+          <h2 className="text-[15px] font-black tracking-tight text-ink-strong leading-none">Delivered on Time</h2>
           <p className="mt-1 text-[12px] font-semibold text-ink-subtle leading-none">
             Done tasks · measured against the revised due date
           </p>

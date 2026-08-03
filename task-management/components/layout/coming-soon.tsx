@@ -43,7 +43,7 @@ export function ComingSoon({
             }}
           >
             <Sparkles size={13} strokeWidth={2.4} />
-            Coming soon
+            Coming Soon
           </span>
         </div>
 

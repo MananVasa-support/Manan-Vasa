@@ -66,10 +66,10 @@ const STATUS_META: Record<DerivedStatus, { label: string; fg: string; bg: string
 };
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: "newest", label: "Newest first" },
-  { value: "oldest", label: "Oldest first" },
-  { value: "amount-desc", label: "Amount · high → low" },
-  { value: "amount-asc", label: "Amount · low → high" },
+  { value: "newest", label: "Newest First" },
+  { value: "oldest", label: "Oldest First" },
+  { value: "amount-desc", label: "Amount · High → Low" },
+  { value: "amount-asc", label: "Amount · Low → High" },
 ];
 
 /** Claim ₹ as a number — fields are stored as strings. */
@@ -501,7 +501,7 @@ function AdminPanel({ row, adminFields, productOptions }: { row: ModuleSubmissio
           boxShadow: `0 8px 20px -12px color-mix(in srgb, ${GREEN_DEEP} 75%, transparent)`,
         }}
       >
-        <Check size={14} strokeWidth={2.8} /> {pending ? "Saving…" : "Save response"}
+        <Check size={14} strokeWidth={2.8} /> {pending ? "Saving…" : "Save Response"}
       </button>
     </div>
   );

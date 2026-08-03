@@ -115,7 +115,7 @@ export function MySalaryView({ months }: { months: MySalaryMonth[] }) {
             }
           >
             {m.paid ? <CheckCircle2 size={15} strokeWidth={2.6} /> : <Clock size={15} strokeWidth={2.6} />}
-            {m.paid ? `Paid · ${inr(paidAmount)}` : "Payment pending"}
+            {m.paid ? `Paid · ${inr(paidAmount)}` : "Payment Pending"}
           </span>
         </div>
       </div>
@@ -129,15 +129,15 @@ export function MySalaryView({ months }: { months: MySalaryMonth[] }) {
           </h2>
           <div className="space-y-0.5">
             <Line label="Monthly CTC" value={inr(m.monthlyCtc)} />
-            <Line label="Payable (after leave/attendance)" value={inr(m.payableAfterLeave)} muted />
-            {m.pt > 0 && <Line label="Professional tax (PT)" value={`− ${inr(m.pt)}`} deduct Icon={TrendingDown} />}
-            {m.advance > 0 && <Line label="Advance adjusted" value={`− ${inr(m.advance)}`} deduct Icon={TrendingDown} />}
+            <Line label="Payable (After Leave/Attendance)" value={inr(m.payableAfterLeave)} muted />
+            {m.pt > 0 && <Line label="Professional Tax (PT)" value={`− ${inr(m.pt)}`} deduct Icon={TrendingDown} />}
+            {m.advance > 0 && <Line label="Advance Adjusted" value={`− ${inr(m.advance)}`} deduct Icon={TrendingDown} />}
             {m.previousPending !== 0 && (
-              <Line label="Previous pending" value={`${m.previousPending > 0 ? "+ " : "− "}${inr(Math.abs(m.previousPending))}`} Icon={PiggyBank} />
+              <Line label="Previous Pending" value={`${m.previousPending > 0 ? "+ " : "− "}${inr(Math.abs(m.previousPending))}`} Icon={PiggyBank} />
             )}
             <div className="my-2 border-t border-solid border-hairline-strong" />
             <div className="flex items-center justify-between rounded-xl px-3 py-3" style={{ background: "color-mix(in srgb, var(--color-altus-red) 6%, transparent)" }}>
-              <span className="text-[14px] font-black text-ink-strong">Final payment</span>
+              <span className="text-[14px] font-black text-ink-strong">Final Payment</span>
               <span className="text-[18px] font-black tabular-nums" style={{ color: RED_DEEP }}>{inr(m.finalPayment)}</span>
             </div>
           </div>

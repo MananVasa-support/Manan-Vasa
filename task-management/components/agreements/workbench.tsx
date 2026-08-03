@@ -312,7 +312,7 @@ export function Workbench({
               className="inline-flex items-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card px-4 py-2.5 text-[14px] font-semibold text-ink-strong hover:border-ink-soft disabled:opacity-50"
             >
               <Save size={15} strokeWidth={2.3} />
-              {busy === "save" ? "Saving…" : "Save draft"}
+              {busy === "save" ? "Saving…" : "Save Draft"}
             </button>
             <button
               type="button"
@@ -332,7 +332,7 @@ export function Workbench({
               style={{ color: GREEN_DEEP, borderColor: `color-mix(in srgb, ${GREEN} 40%, transparent)` }}
             >
               <Send size={15} strokeWidth={2.3} />
-              {busy === "send" ? "Sending…" : "Send to employee"}
+              {busy === "send" ? "Sending…" : "Send to Employee"}
             </button>
           </div>
         </section>

@@ -62,24 +62,24 @@ export function TeamAttendanceDashboard({ data }: { data: ManagerTeamAnalytics }
 
         <HealthCard health={data.health} />
 
-        <ChartCard title="Day-type mix" subtitle={`${data.monthLabel} · whole team`} icon={<CalendarClock size={18} strokeWidth={2.2} />}>
+        <ChartCard title="Day-Type Mix" subtitle={`${data.monthLabel} · whole team`} icon={<CalendarClock size={18} strokeWidth={2.2} />}>
           <DistributionBars slices={data.distribution} />
         </ChartCard>
       </div>
 
       {/* Needs attention: late + absent */}
       <div className="grid grid-cols-2 gap-6 max-lg:grid-cols-1">
-        <ChartCard title="Late this month" subtitle="Un-waived late marks, most first" icon={<AlertTriangle size={18} strokeWidth={2.2} />}>
+        <ChartCard title="Late This Month" subtitle="Un-waived late marks, most first" icon={<AlertTriangle size={18} strokeWidth={2.2} />}>
           <AttentionList rows={data.lateEmployees} metric="late" emptyLabel="No late marks — the whole team is on time." />
         </ChartCard>
-        <ChartCard title="Absences this month" subtitle="Absent days, most first" icon={<UserX size={18} strokeWidth={2.2} />}>
+        <ChartCard title="Absences This Month" subtitle="Absent days, most first" icon={<UserX size={18} strokeWidth={2.2} />}>
           <AttentionList rows={data.absentEmployees} metric="absent" emptyLabel="No absences recorded this month." />
         </ChartCard>
       </div>
 
       {/* Pending approvals */}
       <ChartCard
-        title="Pending leave approvals"
+        title="Pending Leave Approvals"
         subtitle={data.pendingLeave.length > 0 ? `${data.pendingLeave.length} awaiting your decision` : "Approval queue"}
         icon={<Inbox size={18} strokeWidth={2.2} />}
       >
@@ -88,7 +88,7 @@ export function TeamAttendanceDashboard({ data }: { data: ManagerTeamAnalytics }
 
       {/* Per-member table */}
       <ChartCard
-        title="Team roster"
+        title="Team Roster"
         subtitle="Attendance & productivity per member — open anyone for their full record"
         icon={<Users size={18} strokeWidth={2.2} />}
       >
@@ -126,7 +126,7 @@ function TodayStrip({ data }: { data: ManagerTeamAnalytics }) {
 
 function HealthCard({ health }: { health: WorkforceHealth }) {
   return (
-    <ChartCard title="Team health" subtitle="Composite workforce score" icon={<HeartPulse size={18} strokeWidth={2.2} />}>
+    <ChartCard title="Team Health" subtitle="Composite workforce score" icon={<HeartPulse size={18} strokeWidth={2.2} />}>
       <div className="flex items-center gap-4">
         <div className="flex flex-col items-center justify-center rounded-2xl px-5 py-3 shrink-0" style={{ background: `color-mix(in srgb, ${health.band.tone} 12%, transparent)` }}>
           <span className="tabular-nums leading-none" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 40, letterSpacing: "-0.03em", color: health.band.tone }}>
@@ -240,7 +240,7 @@ function PendingLeaveQueue({ rows }: { rows: LeaveRow[] }) {
           <span className="text-[13.5px] font-semibold text-ink-strong">No pending leave requests from your team.</span>
         </span>
         <Link href={"/attendance/leave" as Route} className="pastel-cta inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-bold">
-          Leave centre <ArrowUpRight size={14} strokeWidth={2.4} />
+          Leave Centre <ArrowUpRight size={14} strokeWidth={2.4} />
         </Link>
       </div>
     );

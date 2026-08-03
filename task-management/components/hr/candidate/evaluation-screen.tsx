@@ -210,7 +210,7 @@ function SectionWeightsEditor({
             <SlidersHorizontal size={16} />
           </span>
           <span>
-            <span className="block text-[15px] font-black text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif" }}>Section weights</span>
+            <span className="block text-[15px] font-black text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif" }}>Section Weights</span>
             <span className="block text-[12.5px] font-medium text-ink-muted">Super-admin · set how much each section counts toward the overall (must total 100).</span>
           </span>
         </span>

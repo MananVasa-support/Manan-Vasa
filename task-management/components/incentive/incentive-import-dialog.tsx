@@ -85,7 +85,7 @@ export function IncentiveImportDialog() {
             className="text-ink-strong mb-1"
             style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 21 }}
           >
-            Import incentive entries
+            Import Incentive Entries
           </Dialog.Title>
           <Dialog.Description className="text-ink-subtle font-semibold mb-4" style={{ fontSize: 13.5 }}>
             Upload a .xlsx or .csv — each row becomes one incentive entry. Columns are
@@ -119,7 +119,7 @@ export function IncentiveImportDialog() {
                   className="rounded-chip border border-hairline bg-surface-card px-4 py-2.5 font-semibold text-ink-strong hover:bg-surface-soft transition-colors"
                   style={{ fontSize: 14 }}
                 >
-                  Import another
+                  Import Another
                 </button>
                 <Dialog.Close asChild>
                   <button

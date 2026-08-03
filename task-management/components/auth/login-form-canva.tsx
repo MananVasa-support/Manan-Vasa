@@ -138,7 +138,7 @@ export function LoginFormCanva() {
       </p>
 
       <div className="mt-7 space-y-4">
-        <Field label="Work email" type="email" autoComplete="email" required value={email} onChange={setEmail} placeholder="you@altuscorp.com" />
+        <Field label="Work Email" type="email" autoComplete="email" required value={email} onChange={setEmail} placeholder="you@altuscorp.com" />
         <Field
           label="Password"
           type={showPw ? "text" : "password"}
@@ -184,7 +184,7 @@ export function LoginFormCanva() {
             boxShadow: "0 12px 30px -12px rgba(225,6,0,0.7), 0 1px 0 rgba(255,255,255,0.22) inset",
           }}
         >
-          <span className="relative z-10">{isPending ? "Signing you in…" : "Sign in"}</span>
+          <span className="relative z-10">{isPending ? "Signing you in…" : "Sign In"}</span>
           {!isPending && <ArrowRight size={17} className="relative z-10 transition-transform group-hover:translate-x-0.5" />}
           <span
             aria-hidden
@@ -199,7 +199,7 @@ export function LoginFormCanva() {
             className="transition-colors hover:text-white"
             style={{ fontSize: 13.5, color: "rgba(255,255,255,0.6)", textDecoration: "underline", textUnderlineOffset: 3 }}
           >
-            Forgot password?
+            Forgot Password?
           </Link>
         </div>
       </div>

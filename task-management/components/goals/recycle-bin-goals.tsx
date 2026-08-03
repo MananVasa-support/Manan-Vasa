@@ -210,7 +210,7 @@ function ConfirmPurgeModal({
             }}
           >
             {busy ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
-            Delete forever
+            Delete Forever
           </button>
         </div>
       </div>
@@ -406,7 +406,7 @@ export function RecycleBinGoals({ items }: { items: BinGoal[] }) {
             }}
           >
             {pending ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-            Restore selected
+            Restore Selected
           </button>
           <button
             type="button"

@@ -58,7 +58,7 @@ export default async function AmbassadorDirectoryPage() {
             }}
           >
             <Plus size={17} strokeWidth={2.6} />
-            New ambassador
+            New Ambassador
           </Link>
         </header>
 
