@@ -474,6 +474,21 @@ function renderSignature(
 /* ------------------------------------------------------------------ */
 
 function drawHeaderBand(doc: PDFKit.PDFDocument, entity: Entity): void {
+  // Preferred: embed the SAME baked header strip the on-screen <Letterhead>
+  // renders (public/letterhead/header-<id>.jpg — opaque JPEG, pdfkit-safe), at
+  // full page width, so the exported/issued PDF matches the preview pixel-for-
+  // pixel. The strip carries the entity's own logo + the angular red ribbon.
+  const strip = path.join(process.cwd(), "public", "letterhead", `header-${entity.id}.jpg`);
+  if (existsSync(strip)) {
+    try {
+      doc.image(strip, 0, 0, { width: PAGE_W });
+      return;
+    } catch {
+      /* bad strip → fall through to the code-drawn band below */
+    }
+  }
+
+  // Fallback (strip missing/unreadable): the original code-drawn red header.
   doc.save();
   // Base red band.
   doc.rect(0, 0, PAGE_W, HEADER_H).fill(RED);

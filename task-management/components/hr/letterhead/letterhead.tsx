@@ -28,10 +28,9 @@
  */
 
 import type { ReactNode } from "react";
-import { getEntity, DEFAULT_ENTITY_ID, type Entity, type EntityId } from "@/lib/hr/entities";
+import { getEntity, type Entity, type EntityId } from "@/lib/hr/entities";
 import { HR_CONTACT } from "@/lib/hr/firm";
 
-const HEADER_ART = "/letterhead/altus-header.png";
 const FOOTER_ART = "/letterhead/altus-footer.png";
 
 export interface LetterheadProps {
@@ -45,11 +44,11 @@ export interface LetterheadProps {
 
 export function Letterhead({ entity, children, className }: LetterheadProps) {
   const e = getEntity(entity ?? null);
-  // Each non-Altus entity has its logo BAKED into its own header strip (exactly
-  // like the Altus one), so the letterhead reads identically clean for every
-  // entity — no white-cover / overlay hack.
-  const headerArt =
-    e.id === DEFAULT_ENTITY_ID ? HEADER_ART : `/letterhead/header-${e.id}.png`;
+  // EVERY entity — Altus included — has its logo baked into its own header strip
+  // (opaque JPEG, the SAME image the PDF renderer embeds), so the on-screen
+  // letterhead and the exported/issued PDF match pixel-for-pixel. No white-cover
+  // / overlay hack, and no divergence between preview and PDF.
+  const headerArt = `/letterhead/header-${e.id}.jpg`;
 
   return (
     <div className={`alh-page${className ? ` ${className}` : ""}`}>

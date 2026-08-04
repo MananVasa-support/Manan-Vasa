@@ -171,6 +171,16 @@ async function recomputeRollup(tx: Tx, taskId: string) {
   };
   const currentRevision = r.rejection_count + 1;
 
+  // Raw `tx.execute(sql)` returns timestamp columns as ISO STRINGS (not Date),
+  // and Drizzle's `timestamp` mapper calls `.toISOString()` on the value it's
+  // given — so inserting the raw string crashes with "toISOString is not a
+  // function" and rolls back the whole session write. Coerce back to Date first.
+  const toDate = (v: Date | string | null): Date | null =>
+    v == null ? null : v instanceof Date ? v : new Date(v);
+  const firstStartedAt = toDate(r.first_started_at);
+  const lastDoneAt = toDate(r.last_done_at);
+  const approvedAt = toDate(r.approved_at);
+
   await tx
     .insert(taskTimeRollup)
     .values({
@@ -184,9 +194,9 @@ async function recomputeRollup(tx: Tx, taskId: string) {
       currentRevision,
       longestSessionSec: r.longest_session_sec,
       shortestSessionSec: r.shortest_session_sec,
-      firstStartedAt: r.first_started_at,
-      lastDoneAt: r.last_done_at,
-      approvedAt: r.approved_at,
+      firstStartedAt,
+      lastDoneAt,
+      approvedAt,
       openSessionCount: r.open_session_count,
       updatedAt: new Date(),
     })
@@ -202,9 +212,9 @@ async function recomputeRollup(tx: Tx, taskId: string) {
         currentRevision,
         longestSessionSec: r.longest_session_sec,
         shortestSessionSec: r.shortest_session_sec,
-        firstStartedAt: r.first_started_at,
-        lastDoneAt: r.last_done_at,
-        approvedAt: r.approved_at,
+        firstStartedAt,
+        lastDoneAt,
+        approvedAt,
         openSessionCount: r.open_session_count,
         updatedAt: new Date(),
       },

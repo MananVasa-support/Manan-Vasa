@@ -1430,39 +1430,40 @@ const EDITOR_CSS = `
 /* Toolbar */
 .alw-toolbar{
   position:sticky;top:60px;z-index:20;
-  display:flex;flex-wrap:nowrap;overflow-x:auto;align-items:center;justify-content:safe center;gap:10px 14px;
-  padding:11px 16px;margin-bottom:20px;
+  display:flex;flex-wrap:nowrap;overflow-x:auto;align-items:center;justify-content:safe center;gap:5px 7px;
+  padding:9px 12px;margin-bottom:20px;
   background:color-mix(in srgb, var(--color-surface-soft, #f8fafc) 92%, transparent);
   backdrop-filter:blur(8px);
   border:1px solid var(--color-hairline, #e2e8f0);
   border-radius:16px;
 }
-.alw-pick{display:flex;flex-direction:column;gap:4px;position:relative;padding-left:22px;flex-shrink:0;}
-.alw-pick svg{position:absolute;left:0;top:26px;color:${RED_DEEP};}
+.alw-pick{display:flex;flex-direction:column;gap:3px;position:relative;padding-left:17px;flex-shrink:1;min-width:0;}
+.alw-pick svg{position:absolute;left:0;top:22px;width:13px;height:13px;color:${RED_DEEP};}
 .alw-pick-label{
   font-family:var(--font-display, system-ui, sans-serif);
-  font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  font-size:9.5px;font-weight:800;letter-spacing:.10em;text-transform:uppercase;
   color:var(--color-ink-muted, #64748b);
 }
 .alw-pick select{
   appearance:none;-webkit-appearance:none;
-  min-width:128px;max-width:180px;
-  padding:8px 28px 8px 11px;
-  font-size:14px;font-weight:600;color:var(--color-ink-strong, #0f172a);
-  background:#fff;border:1px solid var(--color-hairline-strong, #cbd5e1);border-radius:10px;
+  min-width:96px;max-width:152px;width:100%;
+  padding:6px 22px 6px 9px;
+  font-size:12px;font-weight:600;color:var(--color-ink-strong, #0f172a);
+  background:#fff;border:1px solid var(--color-hairline-strong, #cbd5e1);border-radius:8px;
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.4'><path d='M6 9l6 6 6-6'/></svg>");
-  background-repeat:no-repeat;background-position:right 8px center;
+  background-repeat:no-repeat;background-position:right 6px center;
   cursor:pointer;
 }
 .alw-pick select:focus{outline:none;border-color:${RED};box-shadow:0 0 0 3px rgba(225,6,0,.14);}
-.alw-actions{margin-left:16px;display:flex;flex-wrap:nowrap;flex-shrink:0;gap:8px;align-items:center;}
+.alw-actions{margin-left:8px;display:flex;flex-wrap:nowrap;flex-shrink:0;gap:5px;align-items:center;}
 .alw-btn{
-  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
-  padding:8px 12px;border-radius:11px;
+  display:inline-flex;align-items:center;gap:4px;white-space:nowrap;
+  padding:6px 8px;border-radius:9px;
   font-family:var(--font-display, system-ui, sans-serif);
-  font-size:13px;font-weight:700;cursor:pointer;
+  font-size:11.5px;font-weight:700;cursor:pointer;
   border:1px solid transparent;transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
 }
+.alw-btn svg{width:13px;height:13px;flex-shrink:0;}
 .alw-btn:disabled{opacity:.55;cursor:default;}
 .alw-btn-ghost{background:#fff;color:var(--color-ink-strong, #0f172a);border-color:var(--color-hairline-strong, #cbd5e1);}
 .alw-btn-ghost:not(:disabled):hover{border-color:var(--color-ink-muted, #94a3b8);transform:translateY(-1px);}

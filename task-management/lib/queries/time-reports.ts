@@ -25,6 +25,14 @@ import {
 } from "@/db/schema";
 import type { TaskPriority } from "@/db/enums";
 
+/**
+ * Coerce a DB timestamp to ISO — the time-intel tables can read back as strings
+ * (not Date) depending on column/driver, so never assume `.toISOString()` exists.
+ */
+function toIsoOrNull(v: Date | string | null | undefined): string | null {
+  return v == null ? null : v instanceof Date ? v.toISOString() : String(v);
+}
+
 /** Filters shared by every report. All optional — omit for an unfiltered view. */
 export interface TimeReportFilters {
   /** tasks.doer_id */
@@ -213,10 +221,10 @@ export async function taskTimeReport(
     client: r.client,
     subject: r.subject,
     priority: r.priority,
-    createdAt: r.createdAt.toISOString(),
-    firstStartedAt: r.firstStartedAt ? r.firstStartedAt.toISOString() : null,
-    lastDoneAt: r.lastDoneAt ? r.lastDoneAt.toISOString() : null,
-    approvedAt: r.approvedAt ? r.approvedAt.toISOString() : null,
+    createdAt: toIsoOrNull(r.createdAt) ?? "",
+    firstStartedAt: toIsoOrNull(r.firstStartedAt),
+    lastDoneAt: toIsoOrNull(r.lastDoneAt),
+    approvedAt: toIsoOrNull(r.approvedAt),
     sessionCount: r.sessionCount,
     rejectionCount: r.rejectionCount,
     totalActiveSeconds: r.totalActiveSeconds,

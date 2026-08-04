@@ -68,6 +68,19 @@ export interface TaskTimeState {
   revisions: RevisionSummary[];
 }
 
+/**
+ * Coerce a DB timestamp to an ISO string. Drizzle's `timestamp` columns SHOULD
+ * yield `Date`, but the time-intel tables (created via raw idempotent-SQL migs)
+ * can read back as ISO strings depending on the column/driver — so never assume
+ * `.toISOString()` exists. Handles Date, string, and null uniformly.
+ */
+function toIso(v: Date | string): string {
+  return v instanceof Date ? v.toISOString() : String(v);
+}
+function toIsoOrNull(v: Date | string | null | undefined): string | null {
+  return v == null ? null : toIso(v);
+}
+
 export async function getTaskTimeState(taskId: string): Promise<TaskTimeState | null> {
   const [task] = await db
     .select({
@@ -116,8 +129,8 @@ export async function getTaskTimeState(taskId: string): Promise<TaskTimeState | 
   const sessions: SessionRow[] = sessionRows.map((s) => ({
     id: s.id,
     revision: s.revision,
-    startedAt: s.startedAt.toISOString(),
-    endedAt: s.endedAt ? s.endedAt.toISOString() : null,
+    startedAt: toIso(s.startedAt),
+    endedAt: toIsoOrNull(s.endedAt),
     durationSeconds: s.durationSeconds,
     endReason: (s.endReason as SessionEndReason | null) ?? null,
     live: s.endedAt === null,
@@ -129,7 +142,7 @@ export async function getTaskTimeState(taskId: string): Promise<TaskTimeState | 
     {
       id: `created:${taskId}`,
       kind: "created" as const,
-      at: task.createdAt.toISOString(),
+      at: toIso(task.createdAt),
       actorName: creator?.name ?? "—",
       revision: 1,
       sessionId: null,
@@ -141,7 +154,7 @@ export async function getTaskTimeState(taskId: string): Promise<TaskTimeState | 
       return {
         id: e.id,
         kind: e.kind as TimeEventKind,
-        at: e.at.toISOString(),
+        at: toIso(e.at),
         actorName: e.actorName ?? "—",
         revision: e.revision,
         sessionId: e.sessionId,
@@ -165,7 +178,7 @@ export async function getTaskTimeState(taskId: string): Promise<TaskTimeState | 
     const meta = (e.meta ?? {}) as { comment?: string };
     if (e.kind === "work_done") {
       const r = revMap.get(e.revision) ?? { revision: e.revision, totalSeconds: 0, sessionCount: 0, doneAt: null, verdict: null, comment: null };
-      r.doneAt = e.at.toISOString();
+      r.doneAt = toIso(e.at);
       revMap.set(e.revision, r);
     } else if (e.kind === "approved" || e.kind === "sent_back") {
       const r = revMap.get(e.revision) ?? { revision: e.revision, totalSeconds: 0, sessionCount: 0, doneAt: null, verdict: null, comment: null };
