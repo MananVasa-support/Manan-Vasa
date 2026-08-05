@@ -260,14 +260,14 @@ export default async function AttendancePage({ searchParams }: PageProps) {
       <DashboardHeader generatedAt={new Date()} />
       <PageShell width="wide">
         {/* ── Page header ── */}
-        <header className="mb-6 wg-rise flex items-start justify-between gap-4 flex-wrap">
+        <header className="mb-4 wg-rise flex items-center justify-between gap-4 flex-wrap">
           <div className="min-w-0">
             <h1
               className="text-ink-strong"
               style={{
                 fontFamily: "var(--font-display), system-ui, sans-serif",
                 fontWeight: 900,
-                fontSize: "clamp(30px,3.6vw,46px)",
+                fontSize: "clamp(22px,2.6vw,32px)",
                 letterSpacing: "-0.03em",
                 lineHeight: 1.02,
               }}
@@ -304,14 +304,14 @@ export default async function AttendancePage({ searchParams }: PageProps) {
         {isSA ? (
           <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
             <div className="flex flex-col gap-5">{teamBox}</div>
-            <div className="flex flex-col gap-5">{punchCard}{wfhBox}</div>
+            <div className="flex flex-col gap-5">{wfhBox}{punchCard}</div>
             <div className="flex flex-col gap-5">{calendar}{liveBox}{holidays}</div>
           </div>
         ) : (
           <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
-            <div className="flex flex-col gap-5">{punchCard}</div>
-            <div className="flex flex-col gap-5">{wfhBox}{holidays}</div>
+            <div className="flex flex-col gap-5">{wfhBox}{punchCard}</div>
             <div className="flex flex-col gap-5">{calendar}{liveBox}</div>
+            <div className="flex flex-col gap-5">{holidays}</div>
           </div>
         )}
       </PageShell>

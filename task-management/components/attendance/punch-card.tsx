@@ -286,7 +286,9 @@ export function PunchCard({
 
       {/* ── Hero: compact clock · punch button (left) + status (right) ── */}
       <div className="relative px-6 pt-5 pb-5 max-md:px-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+        {/* Centered day/date + clock (top distance pill removed — distance still
+            shows on the map below). */}
+        <div className="flex flex-col items-center gap-2.5 text-center">
           <p
             className="uppercase text-ink-subtle"
             style={{
@@ -297,24 +299,75 @@ export function PunchCard({
           >
             {todayLabel}
           </p>
-          {coords && (
-            <LocationPill loc={loc} distanceM={distanceM} withinFence={withinFence} radiusM={radiusM} />
-          )}
-        </div>
-
-        <div className="mt-2.5">
           <LiveClock tz={tz} />
         </div>
 
-        {/* Punch button (left) + status block (right) */}
-        <div className="mt-4 flex items-center gap-4 max-sm:flex-col max-sm:items-stretch">
-          <PunchButton
-            mode={mode}
-            pending={pending}
-            disabled={discDisabled}
-            onClick={() => punch(mode === "out" ? "out" : "in")}
-          />
-          <div className="min-w-0 flex-1 max-sm:text-center">
+        {/* Check-in/out + a prominent "Add a Note or Reason" button right beside
+            it; the status line and the note editor sit below. */}
+        <div className="mt-5 flex flex-col gap-3.5">
+          <div className="flex items-stretch gap-3 max-sm:flex-col">
+            <PunchButton
+              mode={mode}
+              pending={pending}
+              disabled={discDisabled}
+              onClick={() => punch(mode === "out" ? "out" : "in")}
+            />
+            {!noteOpen && (
+              <button
+                type="button"
+                onClick={() => setNoteOpen(true)}
+                className="flex flex-1 items-center justify-center gap-2 rounded-[22px] px-4 py-4 text-[14.5px] font-black transition-transform active:scale-[0.98] max-sm:py-3.5"
+                style={{
+                  color: GREEN_DEEP,
+                  background: "color-mix(in srgb, #E10600 7%, #fff)",
+                  boxShadow: "inset 0 0 0 1.5px color-mix(in srgb, #E10600 34%, transparent), 0 12px 26px -16px rgba(225,6,0,0.45)",
+                }}
+              >
+                <Plus size={19} strokeWidth={2.8} /> Add a Note or Reason{note.trim() ? " · added" : ""}
+              </button>
+            )}
+          </div>
+
+          {/* Note / reason editor — expands here (moved up from below the map). */}
+          {noteOpen && (
+            <div>
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <label htmlFor="punch-note" className="block text-[12.5px] font-bold uppercase tracking-wide text-ink-subtle">
+                  Note / reason <span className="font-medium normal-case text-ink-subtle">(optional)</span>
+                </label>
+                {voiceSupported && (
+                  <button
+                    type="button"
+                    onClick={toggleVoice}
+                    title={listening ? "Stop recording" : "Dictate your note"}
+                    className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[12px] font-bold transition"
+                    style={
+                      listening
+                        ? { background: "var(--color-altus-red)", color: "#fff", boxShadow: "0 0 0 4px color-mix(in srgb, var(--color-altus-red) 20%, transparent)" }
+                        : { background: "color-mix(in srgb, #E10600 10%, transparent)", color: "#A80400" }
+                    }
+                  >
+                    {listening ? <Square size={12} strokeWidth={2.6} className="animate-pulse" /> : <Mic size={13} strokeWidth={2.4} />}
+                    {listening ? "Recording…" : "Voice"}
+                  </button>
+                )}
+              </div>
+              <textarea
+                id="punch-note"
+                autoFocus
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={500}
+                rows={2}
+                placeholder="e.g. client visit in the morning — or tap Voice to dictate"
+                className="w-full resize-y rounded-xl px-3.5 py-2.5 text-[14.5px] font-medium text-ink-strong bg-white outline-none transition-colors focus:border-[#E10600]"
+                style={{ border: "2px solid var(--color-hairline-strong)", boxShadow: "inset 0 1px 3px rgba(15,23,42,0.05)" }}
+              />
+            </div>
+          )}
+
+          {/* Status */}
+          <div className="min-w-0">
             <span className="inline-flex items-center gap-2 text-[16px] font-black text-ink-strong">
               <span aria-hidden className="relative inline-flex size-2.5">
                 <span
@@ -361,68 +414,17 @@ export function PunchCard({
         )}
       </div>
 
-      {/* ── Map · today's punches · note ── */}
-      <div className="relative px-6 pb-5 max-md:px-4">
-        <div
-          aria-hidden
-          className="mb-4 h-px w-full"
-          style={{ background: "linear-gradient(90deg, transparent, var(--color-hairline-strong), transparent)" }}
-        />
-
-        {coords && (
-          <div className="mb-5">
-            <MapPanel coords={coords} distanceM={distanceM} withinFence={withinFence} radiusM={radiusM} />
-          </div>
-        )}
-
-        {/* Note / reason — collapsed by default to save space (today's in/out
-            already shows in the "Today" panel). Tap to add one. */}
-        {!noteOpen ? (
-          <button
-            type="button"
-            onClick={() => setNoteOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-pill border border-solid px-3 py-1.5 text-[12.5px] font-bold text-ink-muted transition-colors hover:text-ink-soft"
-            style={{ borderColor: "var(--color-hairline-strong)" }}
-          >
-            <Plus size={13} strokeWidth={2.6} /> Add a Note or Reason {note.trim() ? "· added" : ""}
-          </button>
-        ) : (
-          <>
-            <div className="mb-1.5 flex items-center justify-between gap-2">
-              <label htmlFor="punch-note" className="block text-[12.5px] font-bold uppercase tracking-wide text-ink-subtle">
-                Note / reason <span className="font-medium normal-case text-ink-subtle">(optional)</span>
-              </label>
-              {voiceSupported && (
-                <button
-                  type="button"
-                  onClick={toggleVoice}
-                  title={listening ? "Stop recording" : "Dictate your note"}
-                  className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[12px] font-bold transition"
-                  style={
-                    listening
-                      ? { background: "var(--color-altus-red)", color: "#fff", boxShadow: "0 0 0 4px color-mix(in srgb, var(--color-altus-red) 20%, transparent)" }
-                      : { background: "color-mix(in srgb, #E10600 10%, transparent)", color: "#A80400" }
-                  }
-                >
-                  {listening ? <Square size={12} strokeWidth={2.6} className="animate-pulse" /> : <Mic size={13} strokeWidth={2.4} />}
-                  {listening ? "Recording…" : "Voice"}
-                </button>
-              )}
-            </div>
-            <textarea
-              id="punch-note"
-              autoFocus
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              maxLength={500}
-              rows={2}
-              placeholder="e.g. client visit in the morning — or tap Voice to dictate"
-              className="w-full resize-y rounded-xl px-3.5 py-2.5 text-[14.5px] font-medium text-ink-strong bg-white outline-none transition-colors focus:border-[#E10600]"
-              style={{ border: "2px solid var(--color-hairline-strong)", boxShadow: "inset 0 1px 3px rgba(15,23,42,0.05)" }}
-            />
-          </>
-        )}
-      </div>
+      {/* ── Live map (only once we hold a GPS fix; the distance pill lives here) ── */}
+      {coords && (
+        <div className="relative px-6 pb-5 max-md:px-4">
+          <div
+            aria-hidden
+            className="mb-4 h-px w-full"
+            style={{ background: "linear-gradient(90deg, transparent, var(--color-hairline-strong), transparent)" }}
+          />
+          <MapPanel coords={coords} distanceM={distanceM} withinFence={withinFence} radiusM={radiusM} />
+        </div>
+      )}
     </section>
   );
 }

@@ -198,8 +198,8 @@ export default async function SalaryPage({ searchParams }: PageProps) {
             </p>
             <p className="mt-2 text-[14px] text-ink-subtle">
               {months.length > 0
-                ? "Pick another month above, or import the sheet for this one."
-                : "Import the salary sheet to see the monthly breakup here."}
+                ? "Pick another month above, or generate salary for this one from attendance."
+                : "Generate salary to compute the monthly breakup from attendance."}
             </p>
           </section>
         ) : (

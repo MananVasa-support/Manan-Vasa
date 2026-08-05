@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AdminHeader } from "./admin-header";
+import { AdminSidebar } from "./admin-sidebar";
 import { AdminMobileBar } from "./admin-mobile-bar";
 
 type Props = {
@@ -12,10 +12,10 @@ type Props = {
 };
 
 /**
- * Admin panel shell. The nav lives in a light frosted TOP header
- * (`AdminHeader`, desktop) — matching the main app header — with the phone
- * layout handled by the sticky `AdminMobileBar` + drawer. The soft body
- * gradients from globals.css show through the main column.
+ * Admin panel shell. The nav lives in a LEFT SIDEBAR (`AdminSidebar`, desktop) —
+ * matching the vertical rail every other module uses — with the phone layout
+ * handled by the sticky `AdminMobileBar` + drawer. The soft body gradients from
+ * globals.css show through the main column.
  */
 export async function AdminShell({
   children,
@@ -25,22 +25,20 @@ export async function AdminShell({
   canSeeAccounts,
 }: Props) {
   // Consistent with every other module: the back button returns to the Hub
-  // (the workspace switchboard). The logo still goes to the admin home (/admin).
+  // (the workspace switchboard). The logo still goes to the WMS home.
   const backHref = "/hub";
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <AdminHeader
-        adminName={adminName}
-        adminEmail={adminEmail}
-        avatarUrl={avatarUrl}
-        backHref={backHref}
-        canSeeAccounts={canSeeAccounts}
-      />
+    <div className="min-h-screen">
+      {/* Phone-only top bar + drawer (unchanged) */}
       <AdminMobileBar adminName={adminName} adminEmail={adminEmail} backHref={backHref} canSeeAccounts={canSeeAccounts} />
-      <main className="flex-1 min-w-0 px-8 py-8 max-md:px-4 max-md:py-6">
-        <div className="mx-auto max-w-[1400px]">{children}</div>
-      </main>
+      {/* Desktop: left rail + main column */}
+      <div className="flex min-h-screen">
+        <AdminSidebar adminName={adminName} adminEmail={adminEmail} avatarUrl={avatarUrl} backHref={backHref} />
+        <main className="min-w-0 flex-1 px-8 py-8 max-md:px-4 max-md:py-6">
+          <div className="mx-auto max-w-[1400px]">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }

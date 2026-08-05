@@ -95,28 +95,23 @@ export function AttendanceKpiStrip({ data }: { data: SelfAttendanceSummary }) {
 
   return (
     <section
-      className="wg-rise w-full rounded-[22px] bg-surface-card p-5 max-md:p-4"
+      className="wg-rise w-full rounded-[20px] bg-surface-card p-3.5 max-md:p-3"
       style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline), 0 6px 24px -18px rgba(15,23,42,0.25)" }}
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2
-            className="text-ink-strong"
-            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 19, letterSpacing: "-0.02em" }}
-          >
-            How am I doing
-          </h2>
-          <p className="text-[12.5px] font-medium text-ink-subtle">
-            Salary lost, punctuality, hours vs {period === "thisWeek" ? "your 54h weekly" : "the"} target &amp; effective days
-          </p>
-        </div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2
+          className="text-ink-strong"
+          style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 16, letterSpacing: "-0.02em" }}
+        >
+          How am I doing
+        </h2>
         <div className="inline-flex rounded-chip border border-hairline bg-surface-soft p-0.5">
           {PERIODS.map((p) => (
             <button
               key={p.key}
               type="button"
               onClick={() => setPeriod(p.key)}
-              className="rounded-[10px] px-3 py-1.5 text-[12px] font-bold transition-colors"
+              className="rounded-[9px] px-2.5 py-1 text-[11.5px] font-bold transition-colors"
               style={period === p.key ? { background: "linear-gradient(135deg,#E10600,#A80400)", color: "#fff" } : { color: "var(--color-ink-muted)" }}
             >
               {p.label}
@@ -128,22 +123,22 @@ export function AttendanceKpiStrip({ data }: { data: SelfAttendanceSummary }) {
       {/* Width-adaptive: all SIX across on a real screen, reflowing smoothly to
           5 → 4 → 3 → 2 as the effective width drops (zoom / OS scaling / snapped
           window) — no hard breakpoint jump that crams six into a tight column. */}
-      <CardGrid min={168} gap="0.625rem">
+      <CardGrid min={150} gap="0.5rem">
         {kpis.map((k) => (
           <div
             key={k.label}
-            className="min-w-0 rounded-2xl border p-3"
+            className="min-w-0 rounded-xl border p-2.5"
             style={{
               borderColor: k.warn ? `color-mix(in srgb, ${k.tone} 30%, transparent)` : "var(--color-hairline)",
               background: k.warn ? `color-mix(in srgb, ${k.tone} 5%, transparent)` : undefined,
             }}
           >
-            <div className="flex items-start gap-1 text-[10px] font-bold uppercase leading-tight tracking-wide" style={{ color: k.tone }}>
+            <div className="flex items-start gap-1 text-[9.5px] font-bold uppercase leading-tight tracking-wide" style={{ color: k.tone }}>
               <span className="mt-px shrink-0">{k.icon}</span>
               <span className="min-w-0">{k.label}</span>
             </div>
-            <div className="mt-1.5 flex items-baseline gap-1">
-              <span className="text-[22px] font-black tabular-nums text-ink-strong" style={{ letterSpacing: "-0.02em" }}>
+            <div className="mt-1 flex items-baseline gap-1">
+              <span className="text-[19px] font-black tabular-nums text-ink-strong" style={{ letterSpacing: "-0.02em" }}>
                 {k.value}
               </span>
               {k.sub && <span className="text-[11.5px] font-semibold text-ink-subtle">{k.sub}</span>}

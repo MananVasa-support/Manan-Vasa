@@ -52,7 +52,7 @@ export async function listSalaryBreakup(ym: string): Promise<SalaryBreakup[]> {
   const rows = await withRetry(
     () =>
       db
-        .select({ row: salaryBreakup, isActive: employees.isActive })
+        .select({ row: salaryBreakup, isActive: employees.isActive, empName: employees.name })
         .from(salaryBreakup)
         .leftJoin(employees, eq(employees.id, salaryBreakup.employeeId))
         .where(eq(salaryBreakup.month, `${ym}-01`))
@@ -70,7 +70,9 @@ export async function listSalaryBreakup(ym: string): Promise<SalaryBreakup[]> {
     const key = r.row.employeeId ?? `name:${normName(r.row.employeeName)}`;
     if (seen.has(key)) continue; // first (lowest sr_no) wins
     seen.add(key);
-    out.push(r.row);
+    // Prefer the REAL employee name over the sheet spelling when the row is
+    // linked to an employee (fixes "Hitesh Sandeep Vichare" → "Hetesh Vichare").
+    out.push(r.empName ? { ...r.row, employeeName: r.empName } : r.row);
   }
   return out;
 }

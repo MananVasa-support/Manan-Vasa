@@ -9,6 +9,7 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { computeSalary } from "@/lib/salary/compute";
 import { assembleMonthInputs } from "@/lib/salary/generate";
+import { syncBreakupFromApp } from "@/lib/salary/breakup-from-app";
 import { getRun, listRunsForMonth } from "@/lib/queries/salary";
 import { GenerateSalarySchema, RunEditSchema } from "@/lib/validators/salary";
 
@@ -102,12 +103,18 @@ export async function generateSalary(input: unknown): Promise<ActionResult<{ gen
         });
       generated += 1;
     }
+    // Mirror the app-computed payroll into the on-page `salary_breakup` rows so
+    // the salary MODULE reflects this generation (names + attendance + pay),
+    // preserving the paid/wave-off/adjustment overlays. Without this the page
+    // (which reads salary_breakup) keeps showing the old imported Excel values.
+    await syncBreakupFromApp(month);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return { ok: false, error: `DB: ${msg}` };
   }
 
   revalidatePath(PATH);
+  revalidatePath("/salary");
   return { ok: true, generated };
 }
 
