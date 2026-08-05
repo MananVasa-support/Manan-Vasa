@@ -19,6 +19,7 @@ import { getEntity } from "@/lib/hr/entities";
 import { normalizeGender } from "@/lib/hr/pronouns";
 import { getLetter } from "./registry";
 import { letterDate } from "./roster";
+import { sendLetterPdfEmail } from "@/lib/email/hr-letter-email";
 import type { DocKind } from "@/lib/documents/signing";
 
 type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string };
@@ -62,7 +63,7 @@ export type IssueLetterInput = z.infer<typeof IssueSchema>;
  */
 export async function issueLetter(
   input: IssueLetterInput,
-): Promise<Result<{ instanceId: string; pdfPath: string; signatureId: string | null }>> {
+): Promise<Result<{ instanceId: string; pdfPath: string; signatureId: string | null; emailed: boolean; emailedTo: string | null }>> {
   const me = await requireUser();
   if (!isAdmin(me)) return { ok: false, error: "Forbidden" };
   const limited = rateLimitOrError(me.id, "write");
@@ -79,11 +80,14 @@ export async function issueLetter(
   if (!template) return { ok: false, error: "This letter isn't authored yet." };
 
   // A recipient: either an employee (for filing + e-sign) or a candidate name.
+  // Capture the recipient EMAIL too — the issued letter is emailed to them below.
   let recipientName = candidateName ?? "";
+  let recipientEmail = (candidateEmail ?? "").trim();
   if (employeeId) {
     const emp = await db.query.employees.findFirst({ where: eq(employees.id, employeeId) });
     if (!emp) return { ok: false, error: "Employee not found." };
     recipientName = emp.name;
+    recipientEmail = (emp.email ?? "").trim();
   }
 
   const resolvedEntity = getEntity(entity ?? template.entityDefault ?? null);
@@ -161,7 +165,26 @@ export async function issueLetter(
     }
   }
 
-  return { ok: true, instanceId, pdfPath, signatureId };
+  // ── Deliver: EMAIL the issued letter PDF to its recipient. Issue used to only
+  //    archive the letter — recipients never actually received it. Best-effort:
+  //    the letter stays issued/archived even if the mail can't go out, and we
+  //    report `emailed`/`emailedTo` so the caller can tell the user the truth. ──
+  let emailed = false;
+  let emailedTo: string | null = null;
+  if (recipientEmail) {
+    const sent = await sendLetterPdfEmail({
+      to: recipientEmail,
+      recipientName,
+      letterTitle: template.title,
+      entityName: resolvedEntity.displayName,
+      pdf: pdfBuffer,
+      filename: `${key}.pdf`,
+    });
+    emailed = sent.ok;
+    if (sent.ok) emailedTo = recipientEmail;
+  }
+
+  return { ok: true, instanceId, pdfPath, signatureId, emailed, emailedTo };
 }
 
 /**

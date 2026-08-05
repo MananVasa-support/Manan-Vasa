@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { attendanceSheetDay, compOffCredits, employeeEvents, employees } from "@/db/schema";
+import { attendanceLogs, attendanceSheetDay, compOffCredits, employeeEvents, employees } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import {
@@ -27,10 +27,20 @@ export interface SheetDayRow {
   day: number;
   statusCode: string;
   date: string | null;
+  /** REAL first-in / last-out for that date (IST, "h:mm AM"), or null when the
+   *  person didn't punch. The HR sheet itself carries no times. */
+  inTime: string | null;
+  outTime: string | null;
 }
 
-/** Per-day status codes from the synced HR sheet, for one person's month. */
+/**
+ * Per-day status codes from the synced HR sheet for one person's month, with the
+ * REAL punch times overlaid from `attendance_logs` (first-in / last-out per day).
+ * `employeeId` drives the punch join; pass null for an unresolved sheet name
+ * (then every day shows no time).
+ */
 export async function fetchSheetEmployeeDays(
+  employeeId: string | null,
   employeeName: string,
   year: number,
   month: number,
@@ -46,7 +56,33 @@ export async function fetchSheetEmployeeDays(
     .from(attendanceSheetDay)
     .where(and(eq(attendanceSheetDay.employeeName, employeeName), eq(attendanceSheetDay.month, bucket)))
     .orderBy(asc(attendanceSheetDay.day));
-  return rows.map((r) => ({ day: r.day, statusCode: r.statusCode, date: r.date as string | null }));
+
+  // Overlay real punches: earliest `in` and latest `out` per date, in IST.
+  const times = new Map<string, { inTime: string | null; outTime: string | null }>();
+  if (employeeId) {
+    const res = (await db.execute(sql`
+      select log_date::text as d,
+        to_char((min(logged_at) filter (where kind = 'in'))  at time zone 'Asia/Kolkata', 'FMHH12:MI AM') as in_t,
+        to_char((max(logged_at) filter (where kind = 'out')) at time zone 'Asia/Kolkata', 'FMHH12:MI AM') as out_t
+      from ${attendanceLogs}
+      where employee_id = ${employeeId}
+        and date_trunc('month', log_date) = ${bucket}::date
+      group by log_date
+    `)) as unknown as { rows?: Array<{ d: string; in_t: string | null; out_t: string | null }> };
+    const list = res.rows ?? (res as unknown as Array<{ d: string; in_t: string | null; out_t: string | null }>);
+    for (const p of list) times.set(p.d, { inTime: p.in_t ?? null, outTime: p.out_t ?? null });
+  }
+
+  return rows.map((r) => {
+    const t = r.date ? times.get(r.date as string) : undefined;
+    return {
+      day: r.day,
+      statusCode: r.statusCode,
+      date: r.date as string | null,
+      inTime: t?.inTime ?? null,
+      outTime: t?.outTime ?? null,
+    };
+  });
 }
 
 /** Default reporting timezone for the admin dashboard. The per-employee query

@@ -4,12 +4,6 @@ import * as React from "react";
 import { X, Loader2, Clock } from "lucide-react";
 import { fetchSheetEmployeeDays, type SheetDayRow } from "@/app/(app)/attendance/dashboard/actions";
 
-// Standard office timing applied to every worked day (the HR sheet carries only
-// P/A codes, no times).
-const IN_TIME = "10:35 AM";
-const OUT_FULL = "7:30 PM";
-const OUT_HALF = "2:30 PM";
-
 interface CodeInfo {
   label: string;
   bg: string;
@@ -41,12 +35,14 @@ function codeInfo(raw: string): CodeInfo {
 export function SheetDailyDialog({
   open,
   onOpenChange,
+  employeeId,
   employeeName,
   year,
   month,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
+  employeeId: string | null;
   employeeName: string;
   year: number;
   month: number;
@@ -57,11 +53,11 @@ export function SheetDailyDialog({
     if (!open || !employeeName) return;
     setDays(null);
     let alive = true;
-    fetchSheetEmployeeDays(employeeName, year, month)
+    fetchSheetEmployeeDays(employeeId, employeeName, year, month)
       .then((d) => { if (alive) setDays(d); })
       .catch(() => { if (alive) setDays([]); });
     return () => { alive = false; };
-  }, [open, employeeName, year, month]);
+  }, [open, employeeId, employeeName, year, month]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -90,7 +86,7 @@ export function SheetDailyDialog({
         </div>
 
         <div className="flex items-center gap-2 border-b border-hairline bg-surface-muted/50 px-5 py-2 text-[12.5px] font-semibold text-ink-muted">
-          <Clock size={13} /> Standard working hours — {IN_TIME} to {OUT_FULL}
+          <Clock size={13} /> Actual in / out times, from app punches
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -102,7 +98,7 @@ export function SheetDailyDialog({
             <div className="space-y-1.5">
               {days.map((d) => {
                 const info = codeInfo(d.statusCode);
-                const outT = info.worked === "full" ? OUT_FULL : info.worked === "half" ? OUT_HALF : null;
+                const hasPunch = !!(d.inTime || d.outTime);
                 return (
                   <div key={d.day} className="flex items-center gap-3 rounded-xl border border-hairline px-3 py-2">
                     <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[13px] font-black" style={{ background: info.bg, color: info.fg }}>{d.day}</span>
@@ -113,9 +109,13 @@ export function SheetDailyDialog({
                       </span>
                     </span>
                     {info.worked ? (
-                      <span className="shrink-0 text-right text-[12.5px] font-semibold tabular-nums text-ink-strong">
-                        {IN_TIME} <span className="text-ink-subtle">–</span> {outT}
-                      </span>
+                      hasPunch ? (
+                        <span className="shrink-0 text-right text-[12.5px] font-semibold tabular-nums text-ink-strong">
+                          {d.inTime ?? "—"} <span className="text-ink-subtle">–</span> {d.outTime ?? "—"}
+                        </span>
+                      ) : (
+                        <span className="shrink-0 text-[12px] font-semibold text-ink-subtle">— no punch logged</span>
+                      )
                     ) : (
                       <span className="shrink-0 text-[13px] font-semibold text-ink-subtle">—</span>
                     )}

@@ -481,6 +481,12 @@ export interface DashboardRow {
   department: string | null;
   managerId: string | null;
   summary: MonthSummary;
+  /**
+   * Which record this row's summary came from — "sheet" (frozen HR-sheet month,
+   * counts locked) or "app" (graded from real punches). Drives which drill-down
+   * dialog opens. Undefined on pure app-native months → treated as "app".
+   */
+  source?: "sheet" | "app";
 }
 
 export interface MonthDashboardFilters {

@@ -4,13 +4,12 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireFinanceAccess } from "@/lib/auth/finance-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
-import type { DashboardRow } from "@/lib/queries/attendance-status";
-import { getMonthDashboardFromSheet } from "@/lib/queries/attendance-sheet-report";
+import { getMonthDashboard, type DashboardRow } from "@/lib/queries/attendance-status";
+import { getMonthDashboardMerged } from "@/lib/queries/attendance-sheet-report";
 import { localDateString } from "@/lib/format";
 import { AttendanceDashboardTable } from "@/components/attendance/dashboard/dashboard-table";
 import { AttendanceMonthSelector } from "@/components/attendance/dashboard/month-selector";
 import { GenerateSalaryButton } from "@/components/attendance/dashboard/generate-salary-button";
-import { AttendanceSyncButton } from "@/components/attendance/hr-record/attendance-sync-button";
 
 export const dynamic = "force-dynamic";
 
@@ -52,10 +51,16 @@ export default async function AttendanceDashboardPage({ searchParams }: PageProp
   const todayISO = localDateString(DEFAULT_TZ);
   const { year, month } = resolveMonth(sp, todayISO);
 
+  // Months through July 2026 came from the HR sheet — show the MERGED view
+  // (locked sheet counts + real punch times + app-native joiners). From August
+  // 2026 the app's own punches are the sole source of truth.
+  const isSheetEra = year < 2026 || (year === 2026 && month <= 7);
   let rows: DashboardRow[];
   let loadError = false;
   try {
-    rows = await getMonthDashboardFromSheet(year, month);
+    rows = isSheetEra
+      ? await getMonthDashboardMerged(year, month, todayISO)
+      : await getMonthDashboard(year, month, todayISO);
   } catch (err) {
     console.error("[attendance/dashboard] load failed", err);
     rows = [];
@@ -124,7 +129,6 @@ export default async function AttendanceDashboardPage({ searchParams }: PageProp
                   <FileText size={15} strokeWidth={2.2} />
                   Export PDF
                 </a>
-                {canManage && <AttendanceSyncButton />}
                 {canManage && <GenerateSalaryButton year={year} month={month} label={monthTitle} />}
               </div>
             </div>
@@ -179,7 +183,7 @@ export default async function AttendanceDashboardPage({ searchParams }: PageProp
             </p>
           </div>
         ) : (
-          <AttendanceDashboardTable rows={rows} year={year} month={month} sheetMode />
+          <AttendanceDashboardTable rows={rows} year={year} month={month} />
         )}
       </PageShell>
       <DashboardFooter />

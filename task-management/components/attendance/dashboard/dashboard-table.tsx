@@ -111,16 +111,15 @@ export function AttendanceDashboardTable({
   rows,
   year,
   month,
-  sheetMode = false,
 }: {
   rows: DashboardRow[];
   year: number;
   month: number;
-  /** Sheet-sourced report: row-click opens the SHEET daily log (not the punch drawer). */
-  sheetMode?: boolean;
 }) {
   const [query, setQuery] = React.useState("");
-  const [selected, setSelected] = React.useState<{ id: string; name: string } | null>(null);
+  // `source` decides the drill-down: "sheet" rows open the SHEET daily log (sheet
+  // statuses + real punch times); "app" rows open the punch drawer.
+  const [selected, setSelected] = React.useState<{ id: string; name: string; source: "sheet" | "app" } | null>(null);
   const [sortKey, setSortKey] = React.useState<SummaryKey | "name" | "rate" | "payableDays">("name");
   const [sortDir, setSortDir] = React.useState<SortDir>("asc");
   const [legendOpen, setLegendOpen] = React.useState(false);
@@ -337,11 +336,11 @@ export function AttendanceDashboardTable({
                       role="button"
                       tabIndex={0}
                       title={`Open ${r.name}'s daily log`}
-                      onClick={() => setSelected({ id: r.employeeId, name: r.name })}
+                      onClick={() => setSelected({ id: r.employeeId, name: r.name, source: r.source ?? "app" })}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          setSelected({ id: r.employeeId, name: r.name });
+                          setSelected({ id: r.employeeId, name: r.name, source: r.source ?? "app" });
                         }
                       }}
                       className={`group cursor-pointer ${FOCUS_RING}`}
@@ -410,12 +409,13 @@ export function AttendanceDashboardTable({
         )}
       </section>
 
-      {sheetMode ? (
+      {selected?.source === "sheet" ? (
         <SheetDailyDialog
           open={selected !== null}
           onOpenChange={(o) => {
             if (!o) setSelected(null);
           }}
+          employeeId={selected?.id ?? null}
           employeeName={selected?.name ?? ""}
           year={year}
           month={month}

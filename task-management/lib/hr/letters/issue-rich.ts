@@ -23,6 +23,7 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { getSupabaseAdmin, DOCUMENTS_BUCKET } from "@/lib/supabase/admin";
 import { getEntity } from "@/lib/hr/entities";
 import { getLetter } from "./registry";
+import { sendLetterPdfEmail } from "@/lib/email/hr-letter-email";
 import type { DocKind } from "@/lib/documents/signing";
 import type { LetterSignature } from "./types";
 
@@ -67,7 +68,7 @@ export type IssueRichLetterInput = z.infer<typeof IssueRichSchema>;
  */
 export async function issueRichLetter(
   input: IssueRichLetterInput,
-): Promise<Result<{ instanceId: string; pdfPath: string; signatureId: string | null }>> {
+): Promise<Result<{ instanceId: string; pdfPath: string; signatureId: string | null; emailed: boolean; emailedTo: string | null }>> {
   const me = await requireUser();
   if (!isAdmin(me)) return { ok: false, error: "Forbidden" };
 
@@ -83,11 +84,14 @@ export async function issueRichLetter(
   const template = getLetter(key);
 
   // A recipient: either an employee (for filing + e-sign) or a candidate name.
+  // Capture the recipient EMAIL too — the issued letter is emailed to them below.
   let recipientName = candidateName ?? "";
+  let recipientEmail = (candidateEmail ?? "").trim();
   if (employeeId) {
     const emp = await db.query.employees.findFirst({ where: eq(employees.id, employeeId) });
     if (!emp) return { ok: false, error: "Employee not found." };
     recipientName = emp.name;
+    recipientEmail = (emp.email ?? "").trim();
   }
 
   const resolvedEntity = getEntity(entity ?? template?.entityDefault ?? null);
@@ -161,5 +165,22 @@ export async function issueRichLetter(
     }
   }
 
-  return { ok: true, instanceId, pdfPath, signatureId };
+  // ── Deliver: EMAIL the issued letter PDF to its recipient. Issue used to only
+  //    archive the letter — recipients never actually received it. Best-effort. ──
+  let emailed = false;
+  let emailedTo: string | null = null;
+  if (recipientEmail) {
+    const sent = await sendLetterPdfEmail({
+      to: recipientEmail,
+      recipientName,
+      letterTitle: template?.title ?? key,
+      entityName: resolvedEntity.displayName,
+      pdf: Buffer.from(pdfBuffer),
+      filename: `${key}.pdf`,
+    });
+    emailed = sent.ok;
+    if (sent.ok) emailedTo = recipientEmail;
+  }
+
+  return { ok: true, instanceId, pdfPath, signatureId, emailed, emailedTo };
 }

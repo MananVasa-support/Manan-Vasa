@@ -26,8 +26,8 @@ import { getEntity, type Entity, type EntityId } from "@/lib/hr/entities";
 export const HR_CONTACT = {
   /** HR desk email (confirmed spelling: altUScorp). */
   email: "hr.altuscorp@gmail.com",
-  /** HR Manager phone — placeholder, ready to fill (keep the "+91 " prefix). */
-  phone: "+91 ",
+  /** HR Manager phone. */
+  phone: "+91 99877 41410",
 } as const;
 
 /**

@@ -472,7 +472,7 @@ export function LetterEditor({
         body: JSON.stringify(payload),
       });
       const res = (await r.json().catch(() => ({ ok: false }))) as
-        | { ok: true }
+        | { ok: true; emailed?: boolean; emailedTo?: string | null }
         | { ok: false; error?: string };
       if (!res.ok) {
         fireToast({ message: res.error ?? "Could not issue the letter.", type: "error" });
@@ -480,7 +480,15 @@ export function LetterEditor({
       }
       setIssued(true);
       setPreviewMode(null);
-      fireToast({ message: "Letter issued and archived." });
+      if (res.emailed && res.emailedTo) {
+        fireToast({ message: `Letter issued, archived & emailed to ${res.emailedTo}.` });
+      } else {
+        fireToast({
+          message:
+            "Letter issued & archived — but it was NOT emailed. Add a recipient email (or attach an employee with an email on file), then use “Export & Email PDF”.",
+          type: "error",
+        });
+      }
     } catch {
       fireToast({ message: "Could not issue the letter.", type: "error" });
     } finally {

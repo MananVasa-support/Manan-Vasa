@@ -18,7 +18,6 @@ import { HrRecordSelectors } from "@/components/attendance/hr-record/hr-selector
 import { HrKpiStrip } from "@/components/attendance/hr-record/hr-kpi-strip";
 import { HrDayGrid } from "@/components/attendance/hr-record/hr-day-grid";
 import { HrPaidLeaveCard } from "@/components/attendance/hr-record/hr-paid-leave-card";
-import { AttendanceSyncButton } from "@/components/attendance/hr-record/attendance-sync-button";
 import { hrMonthLabel } from "@/components/attendance/hr-record/hr-codes";
 
 export const dynamic = "force-dynamic";
@@ -90,7 +89,6 @@ export default async function HrRecordPage({ searchParams }: PageProps) {
                 <LockKeyhole size={12} strokeWidth={2.6} /> Read-only
               </span>
             </div>
-            <AttendanceSyncButton />
           </div>
           <h1
             className="mt-3 text-ink-strong"
