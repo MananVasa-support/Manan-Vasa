@@ -439,6 +439,65 @@ async function upsertPunchCore(
   return { ok: true };
 }
 
+const SuperAdminSetPunch = z.object({
+  employeeId: z.string().uuid(),
+  logDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Bad date"),
+  kind: z.enum(["in", "out"]),
+  /** "HH:mm" to set/replace the punch, or null to CLEAR it. */
+  timeHHmm: z.string().regex(/^\d{2}:\d{2}$/, "Bad time").nullable(),
+});
+
+/**
+ * SUPER-ADMIN attendance edit — set/replace or CLEAR an in/out punch for any
+ * employee on ANY day (past or today). Powers the self-calendar day popup (own
+ * attendance) and the Team roster rows (others). Set reuses the audited admin
+ * upsert; clear deletes that day+kind row. Frozen months are still refused
+ * (assertMonthEditable) — no override, per Sir. Recorded with `recordedById`
+ * for a full audit trail.
+ */
+export async function superAdminSetPunch(input: unknown): Promise<ActionResult> {
+  const me = await requireAdmin();
+  if (!isSuperAdmin(me.email)) {
+    return { ok: false, error: "Only super-admins can edit attendance." };
+  }
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const parsed = SuperAdminSetPunch.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { employeeId, logDate, kind, timeHHmm } = parsed.data;
+
+  // SET → the audited admin upsert (respects the month freeze internally).
+  if (timeHHmm) {
+    const res = await upsertPunchCore(me.id, { employeeId, logDate, kind, timeHHmm, reason: "correction" });
+    if (res.ok) revalidatePath("/attendance");
+    return res;
+  }
+
+  // CLEAR → delete that day+kind punch (still respect the freeze).
+  const editable = await assertMonthEditable(logDate);
+  if (!editable.ok) return editable;
+  try {
+    await db
+      .delete(attendanceLogs)
+      .where(
+        and(
+          eq(attendanceLogs.employeeId, employeeId),
+          eq(attendanceLogs.logDate, logDate),
+          eq(attendanceLogs.kind, kind),
+        ),
+      );
+  } catch (err) {
+    return { ok: false, error: `DB: ${err instanceof Error ? err.message : String(err)}` };
+  }
+  await auditPunch(me.id, employeeId, "attendance_punch_clear", { logDate, kind });
+  revalidateAttendanceAdmin();
+  revalidatePath("/attendance");
+  return { ok: true };
+}
+
 /**
  * Inline team-list quick punch — super-admins (Hetesh / Manan) only, TODAY
  * only. Stamps an employee's in/out for the current day at a super-admin-typed

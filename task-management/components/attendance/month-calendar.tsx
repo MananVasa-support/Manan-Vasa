@@ -1,10 +1,17 @@
-import { CalendarDays } from "lucide-react";
+"use client";
+
+import * as React from "react";
+import { CalendarDays, LogIn, LogOut, Clock, AlertTriangle } from "lucide-react";
+import { PunchEditControl } from "@/components/attendance/punch-edit-control";
 
 /**
  * Current-month attendance calendar — one colour-coded cell per graded day
  * (P / H·D / A / W-O / holiday / leave), with late/early markers and a per-week
- * worked-hours bar toward the 54h weekly target (Sir's rule). Pure display; the
- * grading comes pre-computed from `getEmployeeMonthStatus` so it never re-derives.
+ * worked-hours bar toward the 54h weekly target (Sir's rule). Grading comes
+ * pre-computed from `getEmployeeMonthStatus` so it never re-derives.
+ *
+ * Each day reveals an ANIMATED popover on hover (pointer) / tap (touch) / focus
+ * (keyboard) showing the real check-in, check-out, total hours and status.
  */
 
 export interface MonthCell {
@@ -35,7 +42,7 @@ interface CellStyle {
   label: string;
 }
 function codeStyle(c: MonthCell): CellStyle {
-  if (c.future) return { bg: "transparent", fg: "var(--color-ink-subtle)", label: "" };
+  if (c.future) return { bg: "transparent", fg: "var(--color-ink-subtle)", label: "Upcoming" };
   switch (c.code) {
     case "P":
       return { bg: "color-mix(in srgb, #15803d 12%, #fff)", fg: "#15803d", label: "Present" };
@@ -57,7 +64,7 @@ function codeStyle(c: MonthCell): CellStyle {
     case "incomplete":
       return { bg: "color-mix(in srgb, #b45309 8%, #fff)", fg: "#b45309", label: "Incomplete (no check-out)" };
     default:
-      return { bg: "transparent", fg: "var(--color-ink-subtle)", label: "" };
+      return { bg: "transparent", fg: "var(--color-ink-subtle)", label: "No record" };
   }
 }
 
@@ -67,7 +74,15 @@ function fmtHrs(min: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-export function MonthCalendar({ cells, monthLabel, compact }: { cells: MonthCell[]; monthLabel: string; compact?: boolean }) {
+/** "2026-08-05" → "Wed, 5 Aug 2026" (no tz drift). */
+function fmtFullDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(
+    new Date(Date.UTC(y ?? 2026, (m ?? 1) - 1, d ?? 1, 12)),
+  );
+}
+
+export function MonthCalendar({ cells, monthLabel, compact, canEdit, employeeId }: { cells: MonthCell[]; monthLabel: string; compact?: boolean; canEdit?: boolean; employeeId?: string }) {
   if (cells.length === 0) {
     return null;
   }
@@ -80,9 +95,10 @@ export function MonthCalendar({ cells, monthLabel, compact }: { cells: MonthCell
 
   return (
     <section
-      className={`wg-rise bg-surface-card ${compact ? "rounded-[20px] p-4" : "rounded-[22px] p-6 max-md:p-4"}`}
+      className={`wg-rise att-cal bg-surface-card ${compact ? "rounded-[20px] p-4" : "rounded-[22px] p-6 max-md:p-4"}`}
       style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline), 0 6px 24px -18px rgba(15,23,42,0.25)", animationDelay: "120ms" }}
     >
+      <style>{POPOVER_CSS}</style>
       <div className="mb-3 flex items-center gap-2">
         <span className="inline-grid size-7 place-items-center rounded-lg" style={{ background: "color-mix(in srgb, #E10600 10%, transparent)", color: "#A80400" }}>
           <CalendarDays size={15} strokeWidth={2.3} />
@@ -112,30 +128,10 @@ export function MonthCalendar({ cells, monthLabel, compact }: { cells: MonthCell
             <div key={wi} className="grid gap-1" style={{ gridTemplateColumns: `repeat(7,minmax(0,1fr)) ${wkCol}` }}>
               {week.map((c, ci) => {
                 if (!c) return <div key={ci} className={`${compact ? "h-9" : "aspect-square"} rounded-md`} />;
-                const st = codeStyle(c);
-                const title = c.future
-                  ? `${c.date} · upcoming`
-                  : `${c.date} · ${st.label}${c.inAt ? ` · in ${c.inAt}` : ""}${c.outAt ? ` · out ${c.outAt}` : ""}${c.late ? " · late" : ""}${c.leftEarly ? " · left early" : ""}`;
-                return (
-                  <div
-                    key={ci}
-                    title={title}
-                    className={`relative flex ${compact ? "h-9" : "aspect-square"} items-center justify-center rounded-md border text-center`}
-                    style={{
-                      background: st.bg,
-                      borderColor: c.future ? "var(--color-hairline)" : "color-mix(in srgb, " + st.fg + " 22%, transparent)",
-                      opacity: c.future ? 0.5 : 1,
-                    }}
-                  >
-                    <span className="text-[11px] font-bold tabular-nums" style={{ color: c.future ? "var(--color-ink-subtle)" : st.fg }}>{c.day}</span>
-                    {(c.late || c.leftEarly) && !c.future && (
-                      <span className="absolute right-0.5 top-0.5 flex gap-px">
-                        {c.late && <span className="size-1 rounded-full" style={{ background: "#b45309" }} title="Late" />}
-                        {c.leftEarly && <span className="size-1 rounded-full" style={{ background: "#be123c" }} title="Left early" />}
-                      </span>
-                    )}
-                  </div>
-                );
+                // Anchor the popover so it never spills off the card at edge columns.
+                const anchor = ci <= 1 ? "left" : ci >= 5 ? "right" : "center";
+                const place = wi === 0 ? "below" : "above";
+                return <DayCell key={ci} c={c} compact={compact} anchor={anchor} place={place} canEdit={canEdit} employeeId={employeeId} />;
               })}
               {/* week 54h bar */}
               <div className="flex flex-col justify-center gap-0.5 pl-0.5">
@@ -162,6 +158,121 @@ export function MonthCalendar({ cells, monthLabel, compact }: { cells: MonthCell
   );
 }
 
+/** One calendar day — coloured tile + an animated in/out/hours popover. For a
+ *  super-admin viewing their own month (`canEdit` + `employeeId`), clicking a day
+ *  PINS the popover and turns the times into inline editors. */
+function DayCell({
+  c,
+  compact,
+  anchor,
+  place,
+  canEdit,
+  employeeId,
+}: {
+  c: MonthCell;
+  compact?: boolean;
+  anchor: "left" | "center" | "right";
+  place: "above" | "below";
+  canEdit?: boolean;
+  employeeId?: string;
+}) {
+  const [hover, setHover] = React.useState(false);
+  const [pinned, setPinned] = React.useState(false);
+  const editable = !!(canEdit && employeeId && !c.future);
+  const open = hover || pinned;
+  const st = codeStyle(c);
+  const total = c.workedMinutes > 0 ? fmtHrs(c.workedMinutes) : null;
+
+  return (
+    <div
+      className="att-day relative"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setHover(true)}
+      onBlur={() => setHover(false)}
+    >
+      <button
+        type="button"
+        aria-label={`${fmtFullDate(c.date)} — ${st.label}`}
+        aria-expanded={open}
+        onClick={() => setPinned((p) => !p)}
+        onKeyDown={(e) => e.key === "Escape" && (setPinned(false), setHover(false))}
+        className={`relative flex w-full ${compact ? "h-9" : "aspect-square"} items-center justify-center rounded-md border text-center outline-none transition-transform focus-visible:ring-2 focus-visible:ring-altus-red/50 hover:scale-[1.06]`}
+        style={{
+          background: st.bg,
+          borderColor: c.future ? "var(--color-hairline)" : "color-mix(in srgb, " + st.fg + " 22%, transparent)",
+          opacity: c.future ? 0.5 : 1,
+        }}
+      >
+        <span className="text-[11px] font-bold tabular-nums" style={{ color: c.future ? "var(--color-ink-subtle)" : st.fg }}>{c.day}</span>
+        {(c.late || c.leftEarly) && !c.future && (
+          <span className="absolute right-0.5 top-0.5 flex gap-px">
+            {c.late && <span className="size-1 rounded-full" style={{ background: "#b45309" }} />}
+            {c.leftEarly && <span className="size-1 rounded-full" style={{ background: "#be123c" }} />}
+          </span>
+        )}
+      </button>
+
+      {/* click-away catcher while pinned (below the popover) */}
+      {pinned && <span className="fixed inset-0 z-[45]" aria-hidden onClick={() => setPinned(false)} />}
+
+      {open && (
+        <div
+          role="tooltip"
+          className={`att-pop att-pop-${place} att-pop-${anchor}${pinned ? " att-pop-pinned" : ""}`}
+          style={{ ["--pop-fg" as string]: st.fg }}
+        >
+          <div className="att-pop-head">
+            <span className="att-pop-date">{fmtFullDate(c.date)}</span>
+            <span className="att-pop-status" style={{ color: st.fg, background: `color-mix(in srgb, ${st.fg} 12%, transparent)` }}>{st.label}</span>
+          </div>
+          {c.future ? (
+            <p className="att-pop-empty">Upcoming day — not graded yet.</p>
+          ) : editable && pinned ? (
+            <>
+              <div className="att-pop-erow">
+                <span className="att-pop-k"><LogIn size={12} strokeWidth={2.4} style={{ color: "#15803d" }} /> Check-in</span>
+                <PunchEditControl employeeId={employeeId!} logDate={c.date} kind="in" current={c.inAt} compact />
+              </div>
+              <div className="att-pop-erow">
+                <span className="att-pop-k"><LogOut size={12} strokeWidth={2.4} style={{ color: "#b91c1c" }} /> Check-out</span>
+                <PunchEditControl employeeId={employeeId!} logDate={c.date} kind="out" current={c.outAt} compact />
+              </div>
+              <div className="att-pop-row att-pop-total">
+                <span className="att-pop-k"><Clock size={12} strokeWidth={2.4} /> Total hours</span>
+                <span className="att-pop-v">{total ?? "—"}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="att-pop-row">
+                <span className="att-pop-k"><LogIn size={12} strokeWidth={2.4} style={{ color: "#15803d" }} /> Check-in</span>
+                <span className="att-pop-v">{c.inAt ?? "— no punch"}</span>
+              </div>
+              <div className="att-pop-row">
+                <span className="att-pop-k"><LogOut size={12} strokeWidth={2.4} style={{ color: "#b91c1c" }} /> Check-out</span>
+                <span className="att-pop-v">{c.outAt ?? "— no punch"}</span>
+              </div>
+              <div className="att-pop-row att-pop-total">
+                <span className="att-pop-k"><Clock size={12} strokeWidth={2.4} /> Total hours</span>
+                <span className="att-pop-v">{total ?? "—"}</span>
+              </div>
+              {(c.late || c.leftEarly) && (
+                <div className="att-pop-flags">
+                  {c.late && <span className="att-pop-flag" style={{ color: "#b45309", background: "color-mix(in srgb,#b45309 12%,transparent)" }}><AlertTriangle size={10} strokeWidth={2.6} /> Late arrival</span>}
+                  {c.leftEarly && <span className="att-pop-flag" style={{ color: "#be123c", background: "color-mix(in srgb,#be123c 12%,transparent)" }}><AlertTriangle size={10} strokeWidth={2.6} /> Left early</span>}
+                </div>
+              )}
+              {editable && <p className="att-pop-hint">Click the day to edit times</p>}
+            </>
+          )}
+          <span className={`att-pop-caret att-pop-caret-${place}`} aria-hidden />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LegendDot({ c, label }: { c: string; label: string }) {
   return (
     <span className="inline-flex items-center gap-1.5">
@@ -170,3 +281,45 @@ function LegendDot({ c, label }: { c: string; label: string }) {
     </span>
   );
 }
+
+const POPOVER_CSS = `
+.att-cal{position:relative;overflow:visible;}
+.att-day{z-index:0;}
+.att-day:hover,.att-day:focus-within{z-index:40;}
+.att-pop{
+  position:absolute;left:50%;width:210px;z-index:50;
+  padding:12px 13px;border-radius:14px;pointer-events:none;
+  background:var(--color-surface-card,#fff);
+  box-shadow:0 1px 0 0 color-mix(in srgb,var(--pop-fg) 26%,transparent) inset, 0 18px 44px -20px rgba(15,23,42,.55), 0 0 0 1px var(--color-hairline);
+  transform-origin:center bottom;
+  animation:attPopIn .17s cubic-bezier(.16,1.2,.3,1) both;
+}
+.att-pop-above{bottom:calc(100% + 9px);transform-origin:center bottom;}
+.att-pop-below{top:calc(100% + 9px);transform-origin:center top;}
+.att-pop-center{transform:translateX(-50%);}
+.att-pop-left{left:0;transform:none;}
+.att-pop-right{left:auto;right:0;transform:none;}
+@keyframes attPopIn{from{opacity:0;transform:translateX(var(--tx,-50%)) translateY(6px) scale(.9);}to{opacity:1;transform:translateX(var(--tx,-50%)) translateY(0) scale(1);}}
+.att-pop-center{--tx:-50%;}
+.att-pop-left,.att-pop-right{--tx:0;}
+.att-pop-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px;}
+.att-pop-date{font-size:12.5px;font-weight:800;letter-spacing:-.01em;color:var(--color-ink-strong);}
+.att-pop-status{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:999px;white-space:nowrap;}
+.att-pop-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:3px 0;}
+.att-pop-k{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--color-ink-muted);}
+.att-pop-v{font-size:12.5px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--color-ink-strong);}
+.att-pop-total{margin-top:4px;padding-top:7px;border-top:1px solid var(--color-hairline);}
+.att-pop-total .att-pop-v{color:var(--pop-fg);}
+.att-pop-empty{font-size:12px;color:var(--color-ink-subtle);margin:2px 0 0;}
+.att-pop-pinned{pointer-events:auto;width:224px;}
+.att-pop-erow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 0;}
+.att-pop-hint{font-size:10.5px;font-weight:600;color:var(--color-ink-subtle);margin:8px 0 0;text-align:center;}
+.att-pop-flags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+.att-pop-flag{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:999px;}
+.att-pop-caret{position:absolute;left:50%;width:10px;height:10px;transform:translateX(-50%) rotate(45deg);background:var(--color-surface-card,#fff);}
+.att-pop-left .att-pop-caret{left:22px;}
+.att-pop-right .att-pop-caret{left:auto;right:17px;transform:rotate(45deg);}
+.att-pop-caret-above{bottom:-5px;box-shadow:2px 2px 0 0 color-mix(in srgb,var(--color-hairline) 100%,transparent);}
+.att-pop-caret-below{top:-5px;box-shadow:-1px -1px 0 0 color-mix(in srgb,var(--color-hairline) 100%,transparent);}
+@media (prefers-reduced-motion:reduce){.att-pop{animation:none;}.att-day button{transition:none;}}
+`;

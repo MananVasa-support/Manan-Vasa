@@ -43,7 +43,7 @@ const template: LetterTemplate = {
       t("This letter is an official acknowledgement that your resignation from your position as "),
       f("position", "Position", { placeholder: "e.g. Sales Manager" }),
       t(" at {firm} was received on "),
-      f("resignationReceivedDate", "Resignation Received Date", { placeholder: "e.g. 21st March 2026" }),
+      f("resignationReceivedDate", "Resignation Received Date", { placeholder: "e.g. 21st March 2026", date: true }),
       t(". This also certifies that you have successfully completed your tenure with the firm from"),
       f("tenureFrom", "Tenure From", { placeholder: "e.g. 8th December 2025" }),
       t(" to "),
@@ -69,7 +69,7 @@ const template: LetterTemplate = {
     // Sign-off -------------------------------------------------------------
     spacer("lg"),
     para(t("CA Manan Vasa")),
-    para(f("signDate", "Date", { placeholder: "e.g. 21st March 2026" })),
+    para(f("signDate", "Date", { placeholder: "e.g. 21st March 2026", date: true })),
   ],
 };
 

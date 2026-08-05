@@ -28,7 +28,7 @@ const template: LetterTemplate = {
   blocks: [
     para(
       t("Date: "),
-      f("letterDate", "Date", { placeholder: "e.g. 25 July 2026" }),
+      f("letterDate", "Date", { placeholder: "e.g. 25 July 2026", date: true }),
       t("     Place: Mumbai"),
     ),
     spacer("sm"),
@@ -186,10 +186,11 @@ const template: LetterTemplate = {
     ),
     term("Proposed Date of Joining", f("proposedJoiningDate", "Proposed Date of Joining", {
       placeholder: "e.g. 5 August 2026",
+      date: true,
     })),
     term("Candidate Name", f("candidateName", "Candidate Name", { placeholder: "Full name" })),
     term("Candidate Signature", t("____")),
-    term("Date", f("candidateSignDate", "Date", { placeholder: "Signed on" })),
+    term("Date", f("candidateSignDate", "Date", { placeholder: "Signed on", date: true })),
   ],
 };
 

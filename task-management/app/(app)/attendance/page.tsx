@@ -99,6 +99,9 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   const me = await requireUser();
   const tz = me.timezone || "Asia/Kolkata";
   const today = localDateString(tz);
+  // The Team roster + attendance editing are SUPER-ADMIN only. Admins keep the
+  // report buttons but no longer see the (editable) Team box.
+  const isSA = isSuperAdmin(me.email);
 
   // My last 14 calendar days.
   const since = localDateString(tz, new Date(Date.now() - 13 * 86_400_000));
@@ -110,7 +113,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
 
   const [myDays, team, settings, selfSummary, monthStatus, holidaysRaw] = await Promise.all([
     withRetry(() => listMyAttendance(me.id, since), { ...RETRY, label: "att-mydays" }),
-    me.isAdmin
+    isSA
       ? withRetry(() => listTeamAttendanceForDate(teamDate), { ...RETRY, label: "att-team" })
       : Promise.resolve(null),
     withRetry(() => getOrgSettings(), { ...RETRY, label: "att-settings" }),
@@ -211,6 +214,47 @@ export default async function AttendancePage({ searchParams }: PageProps) {
       }))
     : null;
 
+  // ── Column pieces — arranged differently for super-admins vs everyone else ──
+  const punchCard = (
+    <PunchCard
+      todayLabel={labelForDate(today)}
+      inLabel={todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : null}
+      outLabel={todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null}
+      tz={tz}
+      geofenceEnabled={geofenceEnabled}
+      officeLat={settings.officeLat}
+      officeLng={settings.officeLng}
+      radiusM={settings.attendanceRadiusM}
+      lastPunchLabel={lastPunchLabel}
+    />
+  );
+  const wfhBox = <RemoteCheckInTrigger hasCheckedIn={!!todayRow?.in} hasCheckedOut={!!todayRow?.out} />;
+  const calendar = <MonthCalendar cells={monthCells} monthLabel={monthLabel} compact canEdit={isSA} employeeId={me.id} />;
+  const liveBox = liveStatus ? <LiveStatusPanel status={liveStatus} /> : null;
+  const holidays = <UpcomingHolidaysPanel holidays={upcomingHolidays} />;
+  const teamBox = rosterRows ? (
+    <section
+      className="wg-rise rounded-[22px] bg-surface-card p-5 max-md:p-4"
+      style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline), 0 6px 24px -18px rgba(15,23,42,0.25)", animationDelay: "140ms" }}
+    >
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5">
+          <span className="inline-grid size-9 place-items-center rounded-xl" style={{ background: "color-mix(in srgb, #E10600 10%, transparent)", color: "#A80400" }}>
+            <Users size={18} strokeWidth={2.3} />
+          </span>
+          <div>
+            <h2 className="text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 19, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
+              Team
+            </h2>
+            <p className="text-[12.5px] font-medium text-ink-subtle">{labelForDate(teamDate)}</p>
+          </div>
+        </div>
+        <TeamDatePicker date={teamDate} />
+      </div>
+      <AttTeamRoster rows={rosterRows} date={teamDate} tz={tz} canEdit={isSA} />
+    </section>
+  ) : null;
+
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
@@ -255,91 +299,37 @@ export default async function AttendancePage({ searchParams }: PageProps) {
           <AttendanceKpiStrip data={selfSummary} />
         </div>
 
-        {/* ── Three columns: punch + map (left) · remote + team (mid) · calendar + status (right) ── */}
-        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
-          {/* COLUMN 1 — the punch card (clock · geofence · check-in · live map) */}
-          <div className="flex flex-col gap-5">
-            <PunchCard
-              todayLabel={labelForDate(today)}
-              inLabel={todayRow?.in ? formatTimeInTz(todayRow.in.at, tz) : null}
-              outLabel={todayRow?.out ? formatTimeInTz(todayRow.out.at, tz) : null}
-              tz={tz}
-              geofenceEnabled={geofenceEnabled}
-              officeLat={settings.officeLat}
-              officeLng={settings.officeLng}
-              radiusM={settings.attendanceRadiusM}
-              lastPunchLabel={lastPunchLabel}
-            />
+        {/* ── Columns ── Super-admins get a Team-first layout (Team · Punch · Calendar);
+             admins + employees get a compact, no-Team layout that fits one desktop screen. */}
+        {isSA ? (
+          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
+            <div className="flex flex-col gap-5">{teamBox}</div>
+            <div className="flex flex-col gap-5">{punchCard}{wfhBox}</div>
+            <div className="flex flex-col gap-5">{calendar}{liveBox}{holidays}</div>
           </div>
-
-          {/* COLUMN 2 — WFH / on-site log · team roster (admins) */}
-          <div className="flex flex-col gap-5">
-            <RemoteCheckInTrigger hasCheckedIn={!!todayRow?.in} hasCheckedOut={!!todayRow?.out} />
-            {rosterRows && (
-              <section
-                className="wg-rise rounded-[22px] bg-surface-card p-5 max-md:p-4"
-                style={{
-                  boxShadow:
-                    "inset 0 0 0 1px var(--color-hairline), 0 6px 24px -18px rgba(15,23,42,0.25)",
-                  animationDelay: "140ms",
-                }}
-              >
-                <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex items-center gap-2.5">
-                    <span
-                      className="inline-grid size-9 place-items-center rounded-xl"
-                      style={{
-                        background: "color-mix(in srgb, #E10600 10%, transparent)",
-                        color: "#A80400",
-                      }}
-                    >
-                      <Users size={18} strokeWidth={2.3} />
-                    </span>
-                    <div>
-                      <h2
-                        className="text-ink-strong"
-                        style={{
-                          fontFamily: "var(--font-display), system-ui, sans-serif",
-                          fontWeight: 900,
-                          fontSize: 19,
-                          letterSpacing: "-0.02em",
-                          lineHeight: 1.1,
-                        }}
-                      >
-                        Team
-                      </h2>
-                      <p className="text-[12.5px] font-medium text-ink-subtle">{labelForDate(teamDate)}</p>
-                    </div>
-                  </div>
-                  <TeamDatePicker date={teamDate} />
-                </div>
-                <AttTeamRoster
-                  rows={rosterRows}
-                  date={teamDate}
-                  tz={tz}
-                  canQuickPunch={isSuperAdmin(me.email) && teamDate === today}
-                />
-              </section>
-            )}
+        ) : (
+          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
+            <div className="flex flex-col gap-5">{punchCard}</div>
+            <div className="flex flex-col gap-5">{wfhBox}{holidays}</div>
+            <div className="flex flex-col gap-5">{calendar}{liveBox}</div>
           </div>
-
-          {/* COLUMN 3 — this month's calendar · live status · upcoming holidays */}
-          <div className="flex flex-col gap-5">
-            <MonthCalendar cells={monthCells} monthLabel={monthLabel} compact />
-            {liveStatus && <LiveStatusPanel status={liveStatus} />}
-            <UpcomingHolidaysPanel holidays={upcomingHolidays} />
-          </div>
-        </div>
+        )}
       </PageShell>
       <DashboardFooter />
     </>
   );
 }
 
+/** "HH:mm" (24h) in the given tz — prefills the super-admin punch editor. */
+function hhmmInTz(d: Date, tz: string): string {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+}
+
 function toRosterPunch(p: PunchDetail | null, tz: string): RosterPunch | null {
   if (!p) return null;
   return {
     label: formatTimeInTz(p.at, tz),
+    hhmm: hhmmInTz(p.at, tz),
     verify: p.verifyMethod,
     distanceM: p.distanceM,
   };

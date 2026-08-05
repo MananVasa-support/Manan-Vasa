@@ -22,7 +22,7 @@ const template: LetterTemplate = {
   blocks: [
     heading("FULL AND FINAL SETTLEMENT LETTER", 1),
 
-    para(t("Date: "), f("date", "Date", { placeholder: "DD/MM/YYYY" })),
+    para(t("Date: "), f("date", "Date", { placeholder: "DD/MM/YYYY", date: true })),
 
     para(t("To:")),
     para(t("Employee Name: "), f("employeeName", "Employee Name", { placeholder: "Full name" })),
@@ -34,7 +34,7 @@ const template: LetterTemplate = {
       t("This letter confirms that you have been relieved from the services of "),
       f("company", "Firm Name", { defaultValue: "Altus Corp" }),
       t(" effective "),
-      f("lastWorkingDate", "Last Working Date", { placeholder: "e.g. 31 July 2026" }),
+      f("lastWorkingDate", "Last Working Date", { placeholder: "e.g. 31 July 2026", date: true }),
       t(", following the completion of all exit formalities."),
     ),
 
@@ -64,7 +64,7 @@ const template: LetterTemplate = {
       t(" has been paid to you through "),
       f("paymentMethod", "Payment Method", { placeholder: "Bank Transfer/Cheque/Other" }),
       t(" on "),
-      f("paymentDate", "Payment Date", { placeholder: "DD/MM/YYYY" }),
+      f("paymentDate", "Payment Date", { placeholder: "DD/MM/YYYY", date: true }),
       t("."),
     ),
 

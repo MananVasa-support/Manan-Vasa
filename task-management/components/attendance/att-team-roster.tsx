@@ -11,11 +11,13 @@ import {
   MoveRight,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
-import { TeamPunchButton } from "@/components/attendance/team-punch-button";
+import { PunchEditControl } from "@/components/attendance/punch-edit-control";
 
 /** One punch, pre-formatted on the server so the roster stays render-only. */
 export interface RosterPunch {
   label: string; // "09:42"
+  /** "HH:mm" (24h) — prefills the super-admin edit control. */
+  hhmm: string;
   verify: "biometric" | "gps_only" | "none";
   distanceM: number | null;
 }
@@ -37,12 +39,13 @@ export function AttTeamRoster({
   rows,
   date,
   tz,
-  canQuickPunch,
+  canEdit,
 }: {
   rows: RosterRow[];
   date: string;
   tz: string;
-  canQuickPunch: boolean;
+  /** Super-admin: each row's in/out becomes editable for the selected date. */
+  canEdit: boolean;
 }) {
   const [query, setQuery] = React.useState("");
   const q = query.trim().toLowerCase();
@@ -134,7 +137,7 @@ export function AttTeamRoster({
             className="max-h-[344px] space-y-0.5 overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:var(--color-hairline-strong)_transparent]"
           >
             {filtered.map((r, i) => (
-              <RosterItem key={r.employeeId} row={r} date={date} tz={tz} canQuickPunch={canQuickPunch} index={i} />
+              <RosterItem key={r.employeeId} row={r} date={date} tz={tz} canEdit={canEdit} index={i} />
             ))}
           </ul>
           {/* bottom fade cue when the list overflows */}
@@ -186,13 +189,13 @@ function RosterItem({
   row: r,
   date,
   tz,
-  canQuickPunch,
+  canEdit,
   index,
 }: {
   row: RosterRow;
   date: string;
   tz: string;
-  canQuickPunch: boolean;
+  canEdit: boolean;
   index: number;
 }) {
   const status = r.in && r.out
@@ -245,12 +248,12 @@ function RosterItem({
         )}
       </div>
 
-      {/* in → out */}
+      {/* in → out — editable (super-admin) or read-only chips */}
       <div className="flex shrink-0 items-center gap-2 max-md:w-full max-md:justify-end">
-        {r.in ? (
+        {canEdit ? (
+          <PunchEditControl employeeId={r.employeeId} logDate={date} kind="in" current={r.in?.hhmm ?? null} compact />
+        ) : r.in ? (
           <RosterChip kind="in" punch={r.in} />
-        ) : canQuickPunch ? (
-          <TeamPunchButton employeeId={r.employeeId} logDate={date} kind="in" name={r.name} tz={tz} />
         ) : (
           <span
             className="inline-flex items-center rounded-pill px-2.5 py-1 text-[12px] font-bold"
@@ -265,10 +268,10 @@ function RosterItem({
 
         <MoveRight aria-hidden size={13} strokeWidth={2.2} className="text-ink-subtle max-sm:hidden" />
 
-        {r.out ? (
+        {canEdit ? (
+          <PunchEditControl employeeId={r.employeeId} logDate={date} kind="out" current={r.out?.hhmm ?? null} compact />
+        ) : r.out ? (
           <RosterChip kind="out" punch={r.out} />
-        ) : canQuickPunch && r.in ? (
-          <TeamPunchButton employeeId={r.employeeId} logDate={date} kind="out" name={r.name} tz={tz} />
         ) : (
           <span
             className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-[12.5px] font-semibold text-ink-subtle"

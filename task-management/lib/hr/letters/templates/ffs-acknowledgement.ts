@@ -22,7 +22,7 @@ const template: LetterTemplate = {
   signature: "acknowledge",
   blurb: "Employee acknowledges receipt of their Full & Final Settlement and confirms no further claims.",
   blocks: [
-    para(t("Date: "), f("date", "Date", { placeholder: "e.g. 25 July 2026" })),
+    para(t("Date: "), f("date", "Date", { placeholder: "e.g. 25 July 2026", date: true })),
 
     para(t("To")),
     para(t("The HR Department")),
@@ -42,7 +42,7 @@ const template: LetterTemplate = {
       ),
       f("company", "Firm Name", { defaultValue: "Altus Corp" }),
       t(" in respect of my employment, which ended on "),
-      f("lastWorkingDate", "Last Working Date", { placeholder: "e.g. 30 June 2026" }),
+      f("lastWorkingDate", "Last Working Date", { placeholder: "e.g. 30 June 2026", date: true }),
       t("."),
     ),
 
@@ -75,7 +75,7 @@ const template: LetterTemplate = {
     term("Employee Name", f("employeeName", "Employee Name", { placeholder: "Full name" })),
     term("Employee ID", f("employeeId", "Employee ID", { placeholder: "e.g. ALT-0042" })),
     term("Signature", [t("")]),
-    term("Date", f("signDate", "Date", { placeholder: "e.g. 25 July 2026" })),
+    term("Date", f("signDate", "Date", { placeholder: "e.g. 25 July 2026", date: true })),
   ],
 };
 
