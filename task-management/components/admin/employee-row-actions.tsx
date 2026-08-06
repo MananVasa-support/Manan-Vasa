@@ -58,6 +58,13 @@ type RowEmployee = {
   attLateAfter: string | null;
   attOfficialEnd: string | null;
   attEarlyBefore: string | null;
+  workerType: string;
+  attFullDayMinutes: number | null;
+  attHalfDayMinutes: number | null;
+  weeklyTargetMinutes: number | null;
+  monthlyPayAtTarget: string | null;
+  weeklyTargetHours: string | null;
+  monthlyFee: string | null;
 };
 
 interface Props {
@@ -279,6 +286,13 @@ export function EmployeeRowActions({
           attLateAfter: employee.attLateAfter,
           attOfficialEnd: employee.attOfficialEnd,
           attEarlyBefore: employee.attEarlyBefore,
+          workerType: employee.workerType,
+          attFullDayMinutes: employee.attFullDayMinutes,
+          attHalfDayMinutes: employee.attHalfDayMinutes,
+          weeklyTargetMinutes: employee.weeklyTargetMinutes,
+          monthlyPayAtTarget: employee.monthlyPayAtTarget,
+          weeklyTargetHours: employee.weeklyTargetHours,
+          monthlyFee: employee.monthlyFee,
         }}
         isSelf={isSelf}
         canManageAdmins={canManageAdmins}

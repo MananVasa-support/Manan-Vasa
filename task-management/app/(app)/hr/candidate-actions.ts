@@ -326,6 +326,8 @@ export interface CandidateRow {
   gender: string | null;
   position: string | null;
   recruiterName: string | null;
+  /** Character avatar (employees.avatar_url) — null for candidate-intake rows. */
+  avatarUrl: string | null;
 }
 
 /** Recent candidate records for the list view (drafts + completed). */
@@ -366,6 +368,7 @@ export async function listCandidateIntakes(): Promise<CandidateRow[]> {
       gender: values["personal.gender"] ?? null,
       position: values["personal.position"] ?? null,
       recruiterName: values["declaration.name"] ?? null,
+      avatarUrl: null,
     };
   });
 }

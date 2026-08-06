@@ -13,10 +13,12 @@ import {
   employees,
   notifications,
   outstandingFollowups,
+  salaryProfiles,
   settingsEvents,
   taskEvents,
   tasks,
 } from "@/db/schema";
+import { payBasisFor } from "@/lib/attendance/worker-type";
 import { requireAdmin } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import {
@@ -498,7 +500,7 @@ export async function updateEmployeeAttendanceSchedule(
   const norm = (v: string | null | undefined): string | null =>
     v == null || v === "" ? null : v;
 
-  const patch = {
+  const patch: Record<string, unknown> = {
     weeklyOff: parsed.data.weeklyOff,
     attOfficialStart: norm(parsed.data.attOfficialStart),
     attLateAfter: norm(parsed.data.attLateAfter),
@@ -506,10 +508,58 @@ export async function updateEmployeeAttendanceSchedule(
     attEarlyBefore: norm(parsed.data.attEarlyBefore),
   };
 
+  // Worker classification + minute overrides (only when the client sent them).
+  if (parsed.data.workerType !== undefined) patch.workerType = parsed.data.workerType;
+  if (parsed.data.attFullDayMinutes !== undefined) {
+    patch.attFullDayMinutes = parsed.data.attFullDayMinutes;
+  }
+  if (parsed.data.attHalfDayMinutes !== undefined) {
+    patch.attHalfDayMinutes = parsed.data.attHalfDayMinutes;
+  }
+  if (parsed.data.weeklyTargetMinutes !== undefined) {
+    patch.weeklyTargetMinutes = parsed.data.weeklyTargetMinutes;
+  }
+
   try {
     await db.update(employees).set(patch).where(eq(employees.id, emp.id));
   } catch (err: any) {
     return { ok: false, error: `DB: ${err?.message ?? err}` };
+  }
+
+  // Upsert the pay profile when a worker type was chosen. `pay_type` is derived
+  // from the worker type (never hand-set); the rate columns are numeric, so we
+  // stringify. salary_profiles has a UNIQUE(employee_id), so onConflict updates
+  // in place and leaves annual_ctc / tds / pt_exempt untouched.
+  if (parsed.data.workerType !== undefined) {
+    const payType = payBasisFor(parsed.data.workerType);
+    const numStr = (v: number | null | undefined): string | null =>
+      v == null ? null : String(v);
+    const monthlyPayAtTarget = numStr(parsed.data.monthlyPayAtTarget);
+    const weeklyTargetHours = numStr(parsed.data.weeklyTargetHours);
+    const monthlyFee = numStr(parsed.data.monthlyFee);
+    try {
+      await db
+        .insert(salaryProfiles)
+        .values({
+          employeeId: emp.id,
+          payType,
+          monthlyPayAtTarget,
+          weeklyTargetHours,
+          monthlyFee,
+        })
+        .onConflictDoUpdate({
+          target: salaryProfiles.employeeId,
+          set: {
+            payType,
+            monthlyPayAtTarget,
+            weeklyTargetHours,
+            monthlyFee,
+            updatedAt: new Date(),
+          },
+        });
+    } catch (err: any) {
+      return { ok: false, error: `DB: ${err?.message ?? err}` };
+    }
   }
 
   try {

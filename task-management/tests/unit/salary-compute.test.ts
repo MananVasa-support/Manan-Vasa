@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeSalary } from "@/lib/salary/compute";
+import { computeSalary, computeHourlySalary, computeFixedFeeSalary } from "@/lib/salary/compute";
 
 const base = {
   annualCtc: 1_200_000, // ₹12L/yr → ₹1L/mo
@@ -59,5 +59,47 @@ describe("computeSalary", () => {
     const r = computeSalary({ ...base, annualCtc: 1_000_000, payableDays: 7, daysInMonth: 31 });
     expect(Number.isInteger(r.gross * 100)).toBe(true);
     expect(Number.isInteger(r.net * 100)).toBe(true);
+  });
+  it("tags the monthly_ctc basis", () => {
+    expect(computeSalary(base).basis).toBe("monthly_ctc");
+  });
+});
+
+describe("computeHourlySalary (part-time)", () => {
+  const h = {
+    monthlyPayAtTarget: 3500, weeklyTargetHours: 27, daysInMonth: 31,
+    ptExempt: true, tdsMonthly: 0, advances: 0, pendingBalanceIn: 0,
+  };
+  const target = 27 * (31 / 7); // ≈ 119.57h
+  it("target = 27 × days/7; full target → capped at ₹3,500", () => {
+    const r = computeHourlySalary({ ...h, workedMinutes: target * 60 });
+    expect(r.targetHours).toBeCloseTo(target, 2);
+    expect(r.gross).toBe(3500);
+    expect(r.basis).toBe("hourly");
+  });
+  it("half the hours → half the pay", () => {
+    const r = computeHourlySalary({ ...h, workedMinutes: (target / 2) * 60 });
+    expect(r.gross).toBeCloseTo(1750, 2);
+  });
+  it("over target is CAPPED at ₹3,500", () => {
+    expect(computeHourlySalary({ ...h, workedMinutes: 300 * 60 }).gross).toBe(3500);
+  });
+  it("zero hours → zero gross", () => {
+    expect(computeHourlySalary({ ...h, workedMinutes: 0 }).gross).toBe(0);
+  });
+  it("deductions flow into net; non-exempt charges PT", () => {
+    const r = computeHourlySalary({ ...h, workedMinutes: target * 60, ptExempt: false, tdsMonthly: 100, advances: 200, pendingBalanceIn: 50 });
+    expect(r.net).toBe(3500 - 200 - 100 - 200 + 50); // 3050
+  });
+});
+
+describe("computeFixedFeeSalary (project)", () => {
+  it("gross = fee, net = fee − tds − advances + pending, no PT", () => {
+    const r = computeFixedFeeSalary({ monthlyFee: 20000, tdsMonthly: 1000, advances: 2000, pendingBalanceIn: 500 });
+    expect(r.gross).toBe(20000);
+    expect(r.pt).toBe(0);
+    expect(r.net).toBe(17500);
+    expect(r.basis).toBe("fixed_fee");
+    expect(r.fee).toBe(20000);
   });
 });

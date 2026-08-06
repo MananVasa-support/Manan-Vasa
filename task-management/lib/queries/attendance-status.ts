@@ -147,15 +147,26 @@ export function companyDefaults(org: OrgSettings): AttendanceSchedule {
   };
 }
 
-/** Resolve an employee's effective schedule. Phase A only exposes the two
- *  time overrides on `employees` (lateAfter / earlyBefore); hour overrides are
- *  org-wide, so we never pass fullDayHours/halfDayHours here. */
+/** Resolve an employee's effective schedule. Per-employee overrides (all
+ *  nullable → org default): late-after / early-before times AND the full/half
+ *  day minute thresholds (0177, worker types) — so a shift worker (e.g. an
+ *  afternoon 5h day) grades against their own hours, not the org-wide 9h/5h. */
 export function employeeSchedule(
-  emp: { attLateAfter: string | null; attEarlyBefore: string | null },
+  emp: {
+    attLateAfter: string | null;
+    attEarlyBefore: string | null;
+    attFullDayMinutes?: number | null;
+    attHalfDayMinutes?: number | null;
+  },
   defaults: AttendanceSchedule,
 ): AttendanceSchedule {
   return resolveSchedule(
-    { lateAfter: emp.attLateAfter, earlyBefore: emp.attEarlyBefore },
+    {
+      lateAfter: emp.attLateAfter,
+      earlyBefore: emp.attEarlyBefore,
+      fullDayHours: emp.attFullDayMinutes != null ? emp.attFullDayMinutes / 60 : null,
+      halfDayHours: emp.attHalfDayMinutes != null ? emp.attHalfDayMinutes / 60 : null,
+    },
     defaults,
   );
 }
@@ -298,6 +309,8 @@ interface EmpSlice {
   createdAt: Date;
   attLateAfter: string | null;
   attEarlyBefore: string | null;
+  attFullDayMinutes: number | null;
+  attHalfDayMinutes: number | null;
 }
 
 /**
@@ -428,6 +441,8 @@ export async function getEmployeeMonthStatus(
         createdAt: employees.createdAt,
         attLateAfter: employees.attLateAfter,
         attEarlyBefore: employees.attEarlyBefore,
+        attFullDayMinutes: employees.attFullDayMinutes,
+        attHalfDayMinutes: employees.attHalfDayMinutes,
       })
       .from(employees)
       .where(eq(employees.id, employeeId))
@@ -523,6 +538,8 @@ export async function getMonthDashboard(
         createdAt: employees.createdAt,
         attLateAfter: employees.attLateAfter,
         attEarlyBefore: employees.attEarlyBefore,
+        attFullDayMinutes: employees.attFullDayMinutes,
+        attHalfDayMinutes: employees.attHalfDayMinutes,
         department: employees.department,
         managerId: employees.managerId,
       })

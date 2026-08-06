@@ -31,9 +31,16 @@ import {
   ArrowRight,
   ArrowLeft,
   Search,
+  ChevronsUpDown,
+  ChevronDown,
+  FileText,
+  Contact,
+  PenLine,
+  X,
 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { PageShell } from "@/components/layout/page-shell";
+import { Avatar } from "@/components/ui/avatar";
 import type { CandidateRow } from "@/app/(app)/hr/candidate-actions";
 import {
   getManagementAssessment,
@@ -50,6 +57,11 @@ import {
   allocateAssets,
   type WorkflowStatus,
 } from "@/app/(app)/hr/record/workflow-status";
+import {
+  getPersonRecords,
+  type PersonRecords,
+  type RecordSection,
+} from "@/app/(app)/hr/record/person-records";
 import { SkillMultiSelect, type SkillSelection } from "@/components/hr/candidate/skill-multiselect";
 import type { SkillLookupOptions } from "@/lib/hr/skills";
 
@@ -87,15 +99,16 @@ const RECORD_LETTERS: { key: string; title: string; blurb: string }[] = [
 
 const STATUS_TONE: Record<string, { bg: string; fg: string; label: string }> = {
   new: { bg: "var(--color-surface-soft)", fg: "var(--color-ink-subtle)", label: "New" },
-  shortlisted: { bg: "color-mix(in srgb, #16a34a 12%, white)", fg: "#15803d", label: "Shortlisted" },
+  shortlisted: { bg: "var(--color-green-bg)", fg: "var(--color-green-deep)", label: "Shortlisted" },
   rejected: { bg: "color-mix(in srgb, var(--color-altus-red) 12%, white)", fg: "var(--color-altus-red-deep)", label: "Rejected" },
-  hired: { bg: "color-mix(in srgb, #2563eb 12%, white)", fg: "#1d4ed8", label: "Hired" },
+  hired: { bg: "var(--color-blue-bg)", fg: "var(--color-blue-deep)", label: "Hired" },
+  active: { bg: "var(--color-green-bg)", fg: "var(--color-green-deep)", label: "Active" },
 };
 
-function initials(name: string): string {
-  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  return (parts[0]![0]! + (parts[1]?.[0] ?? "")).toUpperCase();
+/** Onboarding completeness — `pct` 100 = fully filled; anything less is "details
+ *  missing" (drives the picker + roster chips). */
+function isIncomplete(c: CandidateRow): boolean {
+  return (c.pct ?? 0) < 100;
 }
 
 /** Map a loaded MA state back to the save-action input, so re-saving skills keeps
@@ -141,6 +154,8 @@ export function HrRecordScreen({
   const [workflowLoading, setWorkflowLoading] = React.useState(false);
   const [emailBusy, setEmailBusy] = React.useState(false);
   const [assetsBusy, setAssetsBusy] = React.useState(false);
+  const [records, setRecords] = React.useState<PersonRecords | null>(null);
+  const [recordsLoading, setRecordsLoading] = React.useState(false);
   const [query, setQuery] = React.useState("");
 
   const maRef = React.useRef<ManagementAssessmentState | null>(null);
@@ -183,6 +198,7 @@ export function HrRecordScreen({
     setPolicy(null); setPolicyLoading(false);
     setExit(null); setExitLoading(false);
     setWorkflow(null); setWorkflowLoading(false);
+    setRecords(null); setRecordsLoading(false);
     if (!id) return;
     setLoading(true);
     // Workflow status (onboarding gate + email/asset provisioning) loads in
@@ -203,6 +219,12 @@ export function HrRecordScreen({
       .then((res) => { if (cidRef.current === id) setExit(res.ok ? res.status : null); })
       .catch(() => { if (cidRef.current === id) setExit(null); })
       .finally(() => { if (cidRef.current === id) setExitLoading(false); });
+    // Filled-form records (onboarding + candidate intake) — parallel, non-blocking.
+    setRecordsLoading(true);
+    void getPersonRecords(id)
+      .then((res) => { if (cidRef.current === id) setRecords(res); })
+      .catch(() => { if (cidRef.current === id) setRecords(null); })
+      .finally(() => { if (cidRef.current === id) setRecordsLoading(false); });
     try {
       const state = await getManagementAssessment(id);
       maRef.current = state;
@@ -318,25 +340,16 @@ export function HrRecordScreen({
 
         {/* Person picker + header */}
         <div className="rec-fade rounded-2xl border border-hairline bg-white p-5 shadow-[0_10px_30px_-22px_rgba(24,24,27,0.5)]">
-          <label htmlFor="rec-candidate" className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.16em] text-ink-soft">
+          <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.16em] text-ink-soft">
             Person
-          </label>
+          </span>
           <div className="flex flex-wrap items-center gap-4">
-            <div className="rec-select-wrap min-w-[280px] flex-1">
-              <select
-                id="rec-candidate"
-                data-autofocus
-                value={candidateId}
-                onChange={(e) => void selectCandidate(e.target.value)}
-                className="w-full appearance-none rounded-xl border border-hairline-strong bg-white px-3.5 py-3 pr-9 text-[14.5px] font-semibold text-ink-strong outline-none transition-colors focus:border-altus-red"
-              >
-                <option value="">— Select a person —</option>
-                {candidates.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.fullName || "Unnamed"}{c.positionApplied ? ` · ${c.positionApplied}` : ""}
-                  </option>
-                ))}
-              </select>
+            <div className="min-w-[280px] flex-1">
+              <PersonPicker
+                candidates={candidates}
+                selectedId={candidateId}
+                onSelect={(id) => void selectCandidate(id)}
+              />
             </div>
 
             {/* Save status */}
@@ -348,7 +361,7 @@ export function HrRecordScreen({
                   ) : dirty ? (
                     <><span className="inline-block h-2 w-2 rounded-full" style={{ background: RED }} /> Unsaved</>
                   ) : (
-                    <><Check size={14} strokeWidth={3} style={{ color: "#15803d" }} /> Saved</>
+                    <><Check size={14} strokeWidth={3} style={{ color: "var(--color-green-deep)" }} /> Saved</>
                   )}
                 </span>
                 <button
@@ -365,12 +378,7 @@ export function HrRecordScreen({
 
           {selected && (
             <div className="mt-4 flex flex-wrap items-center gap-3 rec-fade">
-              <span
-                className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-[16px] font-black text-white"
-                style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`, boxShadow: "0 10px 22px -12px rgba(168,4,0,0.7)" }}
-              >
-                {initials(selected.fullName)}
-              </span>
+              <Avatar name={selected.fullName} avatarUrl={selected.avatarUrl} size={48} />
               <div className="min-w-0">
                 <p className="truncate text-[17px] font-black leading-tight text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif" }}>
                   {selected.fullName || "Unnamed"}
@@ -415,7 +423,7 @@ export function HrRecordScreen({
             <p className="mt-2 text-[13.5px] font-medium">Loading this person&apos;s record…</p>
           </div>
         ) : (
-          <div className="mt-6 grid grid-cols-12 gap-5">
+          <div className="rec-grid mt-6 grid grid-cols-12 gap-5">
             {/* Pending / action-needed — the very TOP of the panel. */}
             <section className="col-span-12 rec-fade">
               <PendingSummary workflow={workflow} policy={policy} loading={workflowLoading || policyLoading} />
@@ -621,6 +629,18 @@ export function HrRecordScreen({
                 <p className="mt-3 text-[12px] leading-relaxed text-ink-subtle">
                   Saved onto the person&apos;s record — the same skills the Management Assessment shows.
                 </p>
+              </RecordCard>
+            </section>
+
+            {/* Records — the already-filled Onboarding + Candidate details. */}
+            <section className="col-span-12 rec-fade">
+              <RecordCard
+                n={9}
+                icon={<Contact size={18} />}
+                title="Records"
+                sub="The details this person has already filled — their onboarding form and candidate interview."
+              >
+                <RecordsPanel records={records} loading={recordsLoading} />
               </RecordCard>
             </section>
           </div>
@@ -880,7 +900,7 @@ function PendingSummary({
     if (!workflow!.onboardingSubmitted) {
       items.push(workflow!.onboardingExists ? "Onboarding form is a draft — awaiting submission" : "Onboarding form not started");
     }
-    if (workflow!.onboardingSubmitted && !workflow!.emailProvisionedAt) items.push("Official company email not created");
+    if (workflow!.onboardingSubmitted && !workflow!.officialEmail) items.push("Official company email not created");
     if (workflow!.onboardingSubmitted && !workflow!.assetsAllocatedAt) items.push("Company assets not allocated");
   }
   if (policy && policy.matched) {
@@ -984,7 +1004,9 @@ function EmailStepCard({
   if (loading) return <StepSpinner />;
   if (!workflow?.matched) return <UnlinkedNote what="email creation" />;
 
-  const done = Boolean(workflow.emailProvisionedAt);
+  // "Done" = the person already has a company email (existing staff all do —
+  // it's their login), whether or not it went through the provisioning stamp.
+  const done = Boolean(workflow.officialEmail);
   const unlocked = workflow.onboardingSubmitted;
   const state: "locked" | "ready" | "done" = done ? "done" : unlocked ? "ready" : "locked";
 
@@ -1002,7 +1024,10 @@ function EmailStepCard({
           <p className="text-[12px] font-bold uppercase tracking-[0.1em] text-ink-soft">Official email</p>
           <p className="mt-0.5 break-all text-[14px] font-black text-ink-strong">{workflow.officialEmail}</p>
           <p className="mt-2 flex items-start gap-2 text-[12px] leading-relaxed text-ink-subtle">
-            <Mail size={13} className="mt-0.5 shrink-0" /> Welcome mail sent to their personal inbox with login details.
+            <Mail size={13} className="mt-0.5 shrink-0" />
+            {workflow.emailProvisionedAt
+              ? "Welcome mail sent to their personal inbox with login details."
+              : "Already has a company email — nothing to provision."}
           </p>
         </>
       ) : unlocked ? (
@@ -1106,6 +1131,154 @@ function fmtDay(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
+/**
+ * The "Records" body — the person's already-filled details from the two
+ * self-service forms, side by side: the Onboarding Form and the Candidate
+ * Interview. Each shows its status + date and the grouped, answered-only fields
+ * (collapsible sections); when a form isn't on file, a gentle empty state with a
+ * jump-to-fill button takes its place.
+ */
+function RecordsPanel({ records, loading }: { records: PersonRecords | null; loading: boolean }) {
+  if (loading) return <StepSpinner />;
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <FormRecordBlock
+        icon={<ClipboardList size={15} />}
+        title="Onboarding Form"
+        status={records?.onboarding?.status ?? null}
+        submittedAt={records?.onboarding?.submittedAt ?? null}
+        sections={records?.onboarding?.sections ?? null}
+        emptyHint="This person hasn't filled their onboarding joining form yet."
+        fillLabel="Fill Onboarding Form"
+        fillHref="/dossier/onboarding"
+        openLabel="Open onboarding form"
+      />
+      <FormRecordBlock
+        icon={<Contact size={15} />}
+        title="Candidate Record"
+        status={records?.candidate?.status ?? null}
+        submittedAt={records?.candidate?.submittedAt ?? null}
+        sections={records?.candidate?.sections ?? null}
+        emptyHint="No candidate interview form is on file for this person."
+        fillLabel="Fill Candidate Interview Form"
+        fillHref="/hr/intake?new=1"
+        openLabel="Open candidate form"
+      />
+    </div>
+  );
+}
+
+/** Tone for an onboarding status ('submitted' | 'draft'); candidate statuses reuse
+ *  the page-level STATUS_TONE map. */
+function recordStatusTone(status: string): { bg: string; fg: string; label: string } {
+  if (STATUS_TONE[status]) return STATUS_TONE[status]!;
+  if (status === "submitted") return { bg: "color-mix(in srgb, #16a34a 12%, white)", fg: "#15803d", label: "Submitted" };
+  if (status === "draft") return { bg: "color-mix(in srgb, #f59e0b 14%, white)", fg: "#b45309", label: "Draft" };
+  return { bg: "var(--color-surface-soft)", fg: "var(--color-ink-subtle)", label: status };
+}
+
+/** One filled-form block — status header, collapsible answered sections, and a
+ *  jump-to-fill empty state when nothing is on file. */
+function FormRecordBlock({
+  icon, title, status, submittedAt, sections, emptyHint, fillLabel, fillHref, openLabel,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  status: string | null;
+  submittedAt: string | null;
+  sections: RecordSection[] | null;
+  emptyHint: string;
+  fillLabel: string;
+  fillHref: string;
+  openLabel: string;
+}) {
+  const exists = status !== null;
+  const filled = sections ?? [];
+  const tone = exists ? recordStatusTone(status!) : null;
+
+  return (
+    <div className="flex h-full flex-col rounded-xl border border-hairline bg-surface-card p-4">
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white" style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}>
+          {icon}
+        </span>
+        <h3 className="text-[14.5px] font-black text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
+          {title}
+        </h3>
+        {tone && (
+          <span className="ml-auto inline-flex items-center rounded-pill px-2.5 py-1 text-[11.5px] font-bold" style={{ background: tone.bg, color: tone.fg }}>
+            {tone.label}
+          </span>
+        )}
+      </div>
+
+      {!exists ? (
+        <div className="flex flex-1 flex-col items-start justify-center rounded-xl border border-dashed border-hairline-strong bg-surface-soft px-4 py-6">
+          <p className="flex items-start gap-2 text-[12.5px] font-medium leading-relaxed text-ink-muted">
+            <FileText size={14} className="mt-0.5 shrink-0 text-ink-subtle" />
+            {emptyHint}
+          </p>
+          <Link
+            href={fillHref as Route}
+            className="mt-3 inline-flex items-center gap-2 rounded-pill px-3.5 py-2 text-[12.5px] font-bold text-white transition-opacity hover:opacity-95"
+            style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`, boxShadow: "0 10px 22px -14px rgba(168,4,0,0.8)" }}
+          >
+            <PenLine size={13} /> {fillLabel}
+          </Link>
+        </div>
+      ) : (
+        <>
+          {submittedAt && (
+            <p className="mb-2 text-[11.5px] font-semibold tabular-nums text-ink-subtle">
+              {status === "submitted" || STATUS_TONE[status ?? ""] ? "Submitted" : "Updated"} {fmtDay(submittedAt)}
+            </p>
+          )}
+          {filled.length === 0 ? (
+            <p className="rounded-xl border border-hairline bg-surface-soft px-3 py-3 text-[12.5px] font-medium text-ink-muted">
+              Started, but no details captured yet.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {filled.map((sec, i) => (
+                <RecordSectionDetails key={sec.title} section={sec} defaultOpen={i === 0} />
+              ))}
+            </div>
+          )}
+          <Link
+            href={fillHref as Route}
+            className="mt-3 inline-flex items-center gap-1.5 self-start rounded-pill border border-hairline-strong bg-white px-3 py-1.5 text-[12px] font-bold text-ink-strong transition-colors hover:bg-surface-soft"
+          >
+            {openLabel} <ArrowUpRight size={13} />
+          </Link>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** A collapsible section of answered label/value pairs. */
+function RecordSectionDetails({ section, defaultOpen }: { section: RecordSection; defaultOpen: boolean }) {
+  return (
+    <details className="rec-details group rounded-xl border border-hairline bg-white" open={defaultOpen}>
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5">
+        <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold text-ink-strong">{section.title}</span>
+        <span className="inline-flex items-center rounded-pill px-2 py-0.5 text-[11px] font-bold tabular-nums" style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, white)", color: RED_DEEP }}>
+          {section.items.length}
+        </span>
+        <ChevronDown size={15} strokeWidth={2.4} className="rec-chevron shrink-0 text-ink-subtle transition-transform" />
+      </summary>
+      <dl className="grid gap-x-4 gap-y-2 border-t border-hairline px-3 py-3 sm:grid-cols-2">
+        {section.items.map((it) => (
+          <div key={it.label} className="min-w-0">
+            <dt className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-ink-soft">{it.label}</dt>
+            <dd className="mt-0.5 break-words text-[13px] font-semibold tabular-nums text-ink-strong">{it.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
+  );
+}
+
 function RecordCard({
   n, icon, title, sub, right, children,
 }: {
@@ -1195,7 +1368,7 @@ function Roster({
 
       {filtered.length === 0 ? (
         <div className="grid place-items-center rounded-2xl border border-hairline-strong bg-white px-6 py-16 text-center">
-          <span className="grid h-14 w-14 place-items-center rounded-2xl" style={{ background: "#E106001a", color: RED_DEEP }}>
+          <span className="grid h-14 w-14 place-items-center rounded-2xl" style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, white)", color: RED_DEEP }}>
             <IdCard size={26} strokeWidth={2.1} />
           </span>
           <p className="mt-3 text-[15px] font-bold text-ink-strong">
@@ -1216,20 +1389,217 @@ function Roster({
   );
 }
 
+/**
+ * The centrepiece person picker — a premium, command-style searchable combobox
+ * that replaces the raw native `<select>`. The trigger shows the selected
+ * person's character Avatar + name + designation; clicking (or ArrowDown) opens
+ * a glass panel with a search box and a keyboard-navigable list. Type to filter
+ * by name / role / department, ↑/↓ to move, Enter to pick, Esc to close. Each
+ * row carries a character Avatar and a "Complete / Details missing" chip driven
+ * by onboarding `pct`.
+ */
+function PersonPicker({
+  candidates,
+  selectedId,
+  onSelect,
+}: {
+  candidates: CandidateRow[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const [active, setActive] = React.useState(0);
+  const wrapRef = React.useRef<HTMLDivElement>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const listRef = React.useRef<HTMLUListElement>(null);
+
+  const selected = candidates.find((c) => c.id === selectedId) ?? null;
+  const q = query.trim().toLowerCase();
+  const filtered = React.useMemo(
+    () =>
+      q
+        ? candidates.filter((c) =>
+            `${c.fullName ?? ""} ${c.positionApplied ?? ""} ${c.position ?? ""} ${c.department ?? ""}`
+              .toLowerCase()
+              .includes(q),
+          )
+        : candidates,
+    [candidates, q],
+  );
+
+  // Reset the active row whenever the filter changes.
+  React.useEffect(() => { setActive(0); }, [q]);
+
+  // Focus the search box on open; clear the query on close.
+  React.useEffect(() => {
+    if (open) {
+      const t = setTimeout(() => inputRef.current?.focus(), 0);
+      return () => clearTimeout(t);
+    }
+    setQuery("");
+    return undefined;
+  }, [open]);
+
+  // Close on outside click.
+  React.useEffect(() => {
+    if (!open) return undefined;
+    function onDown(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  // Keep the active option scrolled into view.
+  React.useEffect(() => {
+    if (!open) return;
+    listRef.current?.querySelector<HTMLElement>(`[data-idx="${active}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [active, open]);
+
+  function choose(id: string) {
+    onSelect(id);
+    setOpen(false);
+  }
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) { setOpen(true); return; }
+      setActive((a) => Math.min(a + 1, Math.max(0, filtered.length - 1)));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((a) => Math.max(a - 1, 0));
+    } else if (e.key === "Enter") {
+      if (open && filtered[active]) { e.preventDefault(); choose(filtered[active]!.id); }
+    } else if (e.key === "Escape") {
+      if (open) { e.preventDefault(); e.stopPropagation(); setOpen(false); }
+    }
+  }
+
+  return (
+    <div ref={wrapRef} className="relative">
+      {/* Trigger */}
+      <button
+        type="button"
+        data-autofocus
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={onKeyDown}
+        className="rec-trigger flex w-full items-center gap-3 rounded-xl border border-hairline-strong bg-white px-3 py-2.5 text-left transition-colors hover:border-altus-red focus:border-altus-red focus:outline-none"
+      >
+        {selected ? (
+          <>
+            <Avatar name={selected.fullName} avatarUrl={selected.avatarUrl} size={34} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[14.5px] font-bold text-ink-strong">{selected.fullName || "Unnamed"}</span>
+              <span className="block truncate text-[12px] font-medium text-ink-muted">
+                {[selected.positionApplied || selected.position, selected.department].filter(Boolean).join(" · ") || "Position not set"}
+              </span>
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full text-white" style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}>
+              <UserRound size={17} />
+            </span>
+            <span className="flex-1 text-[14.5px] font-semibold text-ink-muted">Select a person…</span>
+          </>
+        )}
+        <ChevronsUpDown size={16} strokeWidth={2.2} className="shrink-0 text-ink-subtle" />
+      </button>
+
+      {/* Panel */}
+      {open && (
+        <div className="rec-panel absolute left-0 right-0 top-[calc(100%+8px)] z-40 overflow-hidden rounded-2xl border border-hairline-strong bg-white shadow-[0_24px_60px_-24px_rgba(24,24,27,0.5)]">
+          <div className="border-b border-hairline p-2.5">
+            <div className="relative">
+              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder="Search name, role or department…"
+                className="w-full rounded-lg border border-hairline-strong bg-surface-soft py-2.5 pl-9 pr-8 text-[13.5px] font-medium text-ink-strong outline-none transition-colors focus:border-altus-red focus:bg-white"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => { setQuery(""); inputRef.current?.focus(); }}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 inline-grid size-6 -translate-y-1/2 place-items-center rounded-md text-ink-subtle transition-colors hover:bg-white hover:text-ink-strong"
+                >
+                  <X size={14} strokeWidth={2.4} />
+                </button>
+              )}
+            </div>
+          </div>
+          {filtered.length === 0 ? (
+            <p className="px-4 py-10 text-center text-[13px] font-medium text-ink-muted">
+              No one matches &ldquo;{query.trim()}&rdquo;.
+            </p>
+          ) : (
+            <ul ref={listRef} role="listbox" className="rec-scroll max-h-[320px] overflow-y-auto p-1.5">
+              {filtered.map((c, i) => {
+                const isSel = c.id === selectedId;
+                const isActive = i === active;
+                const roleLine = [c.positionApplied || c.position, c.department].filter(Boolean).join(" · ") || "Position not set";
+                const incomplete = isIncomplete(c);
+                return (
+                  <li key={c.id} data-idx={i} role="option" aria-selected={isSel}>
+                    <button
+                      type="button"
+                      onMouseEnter={() => setActive(i)}
+                      onClick={() => choose(c.id)}
+                      className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors"
+                      style={isActive ? { background: "color-mix(in srgb, var(--color-altus-red) 8%, white)" } : undefined}
+                    >
+                      <Avatar name={c.fullName} avatarUrl={c.avatarUrl} size={34} />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-1.5 text-[14px] font-bold text-ink-strong">
+                          <span className="truncate">{c.fullName || "Unnamed"}</span>
+                          {isSel && <Check size={13} strokeWidth={3} className="shrink-0" style={{ color: "var(--color-green-deep)" }} />}
+                        </span>
+                        <span className="block truncate text-[12px] font-medium text-ink-muted">{roleLine}</span>
+                      </span>
+                      <span
+                        className="inline-flex shrink-0 items-center gap-1 rounded-pill px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.04em]"
+                        style={
+                          incomplete
+                            ? { background: "var(--color-amber-bg)", color: "var(--color-amber-deep)" }
+                            : { background: "var(--color-green-bg)", color: "var(--color-green-deep)" }
+                        }
+                      >
+                        {incomplete ? (
+                          <><AlertTriangle size={10} strokeWidth={2.6} /> Details missing</>
+                        ) : (
+                          <><CircleCheck size={10} strokeWidth={2.6} /> Complete</>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RosterCard({ c, onSelect }: { c: CandidateRow; onSelect: (id: string) => void }) {
   const tone = STATUS_TONE[c.status ?? "new"] ?? STATUS_TONE.new!;
   const role = c.positionApplied || c.position;
   const roleLine = [role, c.department].filter(Boolean).join(" · ") || "Position not set";
-  const incomplete = !role || !c.fullName;
+  const incomplete = isIncomplete(c);
   return (
-    <div className="group flex h-full flex-col rounded-2xl border border-hairline bg-white p-4 shadow-[0_10px_30px_-24px_rgba(24,24,27,0.5)] transition-all hover:-translate-y-0.5 hover:border-hairline-strong hover:shadow-md">
+    <div className="wg-sheen group flex h-full flex-col rounded-2xl border border-hairline bg-white p-4 shadow-[0_10px_30px_-24px_rgba(24,24,27,0.5)] transition-all hover:-translate-y-0.5 hover:border-hairline-strong hover:shadow-md">
       <button type="button" onClick={() => onSelect(c.id)} className="flex items-center gap-3 text-left">
-        <span
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-[15px] font-black text-white"
-          style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})`, boxShadow: "0 10px 22px -14px rgba(168,4,0,0.7)" }}
-        >
-          {initials(c.fullName)}
-        </span>
+        <Avatar name={c.fullName} avatarUrl={c.avatarUrl} size={44} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[15px] font-black leading-tight text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif" }}>
             {c.fullName || "Unnamed"}
@@ -1263,7 +1633,33 @@ function RosterCard({ c, onSelect }: { c: CandidateRow; onSelect: (id: string) =
 const CSS = `
   .rec-fade { animation: recFade 0.5s cubic-bezier(0.22,1,0.36,1) both; }
   @keyframes recFade { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-  .rec-select-wrap { position: relative; }
-  .rec-select-wrap::after { content: ""; position: absolute; right: 14px; top: 50%; width: 9px; height: 9px; border-right: 2px solid var(--color-ink-subtle); border-bottom: 2px solid var(--color-ink-subtle); transform: translateY(-70%) rotate(45deg); pointer-events: none; }
-  @media (prefers-reduced-motion: reduce) { .rec-fade { animation: none !important; } }
+
+  /* Body grid — a gentle staggered cascade as the person's file loads. */
+  .rec-grid > section { animation: recFade 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+  .rec-grid > section:nth-child(1) { animation-delay: 0ms; }
+  .rec-grid > section:nth-child(2) { animation-delay: 45ms; }
+  .rec-grid > section:nth-child(3) { animation-delay: 90ms; }
+  .rec-grid > section:nth-child(4) { animation-delay: 135ms; }
+  .rec-grid > section:nth-child(5) { animation-delay: 180ms; }
+  .rec-grid > section:nth-child(6) { animation-delay: 225ms; }
+  .rec-grid > section:nth-child(7) { animation-delay: 270ms; }
+  .rec-grid > section:nth-child(8) { animation-delay: 315ms; }
+  .rec-grid > section:nth-child(n+9) { animation-delay: 360ms; }
+
+  /* Person picker */
+  .rec-trigger:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-altus-red) 16%, transparent); }
+  .rec-panel { animation: recPop 0.16s cubic-bezier(0.22,1,0.36,1) both; transform-origin: top center; }
+  @keyframes recPop { from { opacity: 0; transform: translateY(-6px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  .rec-scroll { scrollbar-width: thin; scrollbar-color: var(--color-hairline-strong) transparent; }
+  .rec-scroll::-webkit-scrollbar { width: 8px; }
+  .rec-scroll::-webkit-scrollbar-thumb { background: var(--color-hairline-strong); border-radius: 9999px; border: 2px solid transparent; background-clip: content-box; }
+
+  /* Records — collapsible section chevron */
+  .rec-details summary::-webkit-details-marker { display: none; }
+  .rec-details[open] .rec-chevron { transform: rotate(180deg); }
+  .rec-details summary:hover { background: color-mix(in srgb, var(--color-altus-red) 4%, white); border-radius: 0.75rem; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rec-fade, .rec-panel, .rec-grid > section { animation: none !important; }
+  }
 `;

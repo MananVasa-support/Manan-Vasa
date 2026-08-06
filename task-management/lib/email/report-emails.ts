@@ -1,4 +1,5 @@
 import { getResend, FROM, companyBcc, clampSubject, errorMessage } from "./resend";
+import { HR_CONTACT } from "@/lib/hr/firm";
 
 /**
  * Scheduled REPORTING emails (Sir's ruleset): the Sunday weekly attendance
@@ -116,6 +117,73 @@ export async function sendWeeklyAttendanceReportEmail(args: {
       to: args.recipient.email,
       subject: clampSubject(`Your week's attendance — ${args.weekLabel} — Altus Corp`),
       html: shell("Weekly attendance report", args.weekLabel, inner, args.siteUrl),
+      ...companyBcc(),
+    });
+    if (error) return { id: null, error: error.message };
+    return { id: data?.id ?? null, error: null };
+  } catch (err) {
+    return { id: null, error: errorMessage(err) };
+  }
+}
+
+/** One processed employee's line in the HR roster email. */
+export interface RosterRow {
+  name: string;
+  totals: AttnTotals;
+}
+
+/** (a2) COMBINED weekly roster → HR desk: one table of everyone + grand-total ₹ lost. */
+export async function sendWeeklyAttendanceRosterEmail(args: {
+  weekLabel: string;
+  rows: RosterRow[];
+  totalLost: number;
+  siteUrl?: string;
+}): Promise<SendResult> {
+  try {
+    const resend = getResend();
+    if (!resend) return { id: null, error: null };
+    const th = (label: string, align: "left" | "right" = "right") =>
+      `<th align="${align}" style="padding:8px 10px;border-bottom:2px solid #eee;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px">${label}</th>`;
+    const numCell = (val: number, tone?: string) =>
+      `<td align="right" style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:600;color:${tone ?? "#1a1a1a"}">${val}</td>`;
+    const bodyRows = args.rows
+      .map((r) => {
+        const t = r.totals;
+        return `<tr>
+          <td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:600">${r.name}</td>
+          ${numCell(t.presentDays)}
+          ${numCell(t.absentDays, t.absentDays ? BRAND : "#1a1a1a")}
+          ${numCell(t.lateDays, t.lateDays ? "#b45309" : "#1a1a1a")}
+          ${numCell(t.earlyDays, t.earlyDays ? "#b45309" : "#1a1a1a")}
+          <td align="right" style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:800;color:${t.salaryReduced ? BRAND : "#059669"}">${inr(t.salaryReduced)}</td>
+        </tr>`;
+      })
+      .join("");
+    const table = args.rows.length === 0
+      ? `<p style="color:#888;font-size:13px">No employees had a working day in this period.</p>`
+      : `<table style="width:100%;border-collapse:collapse;margin-top:6px">
+          <thead><tr>
+            ${th("Employee", "left")}
+            ${th("Present")}
+            ${th("Absent")}
+            ${th("Late")}
+            ${th("Early leave")}
+            ${th("₹ Money lost")}
+          </tr></thead>
+          <tbody>${bodyRows}</tbody>
+          <tfoot><tr>
+            <td style="padding:10px;border-top:2px solid #eee;font-size:13px;font-weight:800">Grand total</td>
+            <td colspan="4" style="border-top:2px solid #eee"></td>
+            <td align="right" style="padding:10px;border-top:2px solid #eee;font-size:15px;font-weight:800;color:${args.totalLost ? BRAND : "#059669"}">${inr(args.totalLost)}</td>
+          </tr></tfoot>
+        </table>`;
+    const inner = `<p style="font-size:14px;margin:0 0 14px">Weekly attendance roster for <b>${args.weekLabel}</b> — every processed employee with a working day this week, their present/absent/late/early-leave counts, and the ₹ money impact of their attendance.</p>
+      ${table}`;
+    const { data, error } = await resend.emails.send({
+      from: FROM,
+      to: HR_CONTACT.email,
+      subject: clampSubject(`Weekly attendance roster — ${args.weekLabel} — Altus Corp`),
+      html: shell("Weekly attendance roster", args.weekLabel, inner, args.siteUrl),
       ...companyBcc(),
     });
     if (error) return { id: null, error: error.message };

@@ -10,10 +10,19 @@ import { EmployeeRowActions } from "@/components/admin/employee-row-actions";
 import type { EmployeeDepartmentMembership } from "@/components/admin/edit-employee-dialog";
 import type { DepartmentOption } from "@/components/admin/department-multi-select";
 
+/** salary_profiles rate fields (numeric columns read back as string | null). */
+export type SalaryProfileRates = {
+  monthlyPayAtTarget: string | null;
+  weeklyTargetHours: string | null;
+  monthlyFee: string | null;
+};
+
 interface Props {
   employees: Employee[];
   /** employeeId → the departments they belong to (primary flagged). */
   membershipsByEmployee: Record<string, EmployeeDepartmentMembership[]>;
+  /** employeeId → their salary_profiles pay rates (absent when no row yet). */
+  salaryProfileByEmployee: Record<string, SalaryProfileRates>;
   currentEmployeeId: string;
   /** True only for super-admins (Hetesh / Manan) — gates the admin toggle. */
   canManageAdmins: boolean;
@@ -76,6 +85,7 @@ function RoleChip({ role }: { role: "doer" | "initiator" | "both" }) {
 export function EmployeeList({
   employees,
   membershipsByEmployee,
+  salaryProfileByEmployee,
   currentEmployeeId,
   canManageAdmins,
   departmentOptions,
@@ -184,6 +194,13 @@ export function EmployeeList({
             attLateAfter: e.attLateAfter,
             attOfficialEnd: e.attOfficialEnd,
             attEarlyBefore: e.attEarlyBefore,
+            workerType: e.workerType,
+            attFullDayMinutes: e.attFullDayMinutes,
+            attHalfDayMinutes: e.attHalfDayMinutes,
+            weeklyTargetMinutes: e.weeklyTargetMinutes,
+            monthlyPayAtTarget: salaryProfileByEmployee[e.id]?.monthlyPayAtTarget ?? null,
+            weeklyTargetHours: salaryProfileByEmployee[e.id]?.weeklyTargetHours ?? null,
+            monthlyFee: salaryProfileByEmployee[e.id]?.monthlyFee ?? null,
           }}
             isSelf={e.id === currentEmployeeId}
             canManageAdmins={canManageAdmins}

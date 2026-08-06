@@ -1,9 +1,10 @@
 "use server";
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { candidateIntake, employees, documentInstances, documentSignatures } from "@/db/schema";
+import { documentInstances, documentSignatures } from "@/db/schema";
 import { requireHrStaff } from "@/lib/hr/access";
+import { resolvePersonEmployee } from "./resolve-person";
 import { POLICY_CARDS, isPolicyKey } from "@/lib/hr/policies/registry";
 import type { PolicySignRow, PolicySignStatus } from "./policy-status-types";
 
@@ -39,20 +40,8 @@ export async function getPolicySigningStatus(
   if (policyKeys.length === 0) return { ok: true, status: { matched: false, policies: [] } };
 
   try {
-    // Person (candidate) → email → employee account.
-    const [cand] = await db
-      .select({ email: candidateIntake.email })
-      .from(candidateIntake)
-      .where(eq(candidateIntake.id, candidateId))
-      .limit(1);
-    const email = (cand?.email ?? "").trim().toLowerCase();
-    if (!email) return { ok: true, status: { matched: false, policies: emptyRows } };
-
-    const [emp] = await db
-      .select({ id: employees.id })
-      .from(employees)
-      .where(eq(sql`lower(${employees.email})`, email))
-      .limit(1);
+    // Person id → employee account (employee-id first, candidate-email fallback).
+    const emp = await resolvePersonEmployee(candidateId);
     if (!emp) return { ok: true, status: { matched: false, policies: emptyRows } };
 
     // Which of those policies does this employee have a SIGNED signature on?

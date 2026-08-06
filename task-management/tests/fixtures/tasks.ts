@@ -38,6 +38,11 @@ function profileV2Defaults() {
     attEarlyBefore: null as string | null,
     // Attendance Phase B (migration 0060).
     probationEnd: null as string | null,
+    // Worker types (migration 0177).
+    workerType: "full_time" as "full_time" | "afternoon_shift" | "part_time" | "project_remote",
+    attFullDayMinutes: null as number | null,
+    attHalfDayMinutes: null as number | null,
+    weeklyTargetMinutes: null as number | null,
     // Salary module (migration 0062).
     designationId: null as string | null,
     payingEntityId: null as string | null,

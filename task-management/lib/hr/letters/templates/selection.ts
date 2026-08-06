@@ -105,12 +105,14 @@ const template: LetterTemplate = {
     ),
 
     para(
-      t("Kindly fill the Onboarding Form in 2 working days from receipt of this email using the link below."),
+      t("Kindly complete your Onboarding Form within 2 working days of receiving this letter. Sign in to the Altus WMS and open the Onboarding Form at:"),
     ),
 
     para(
       f("joiningDocsLink", "Onboarding Form Link", {
-        defaultValue: "https://forms.gle/eLsQ8rWLg9MQEEfQ6",
+        // The public production URL of the in-app Onboarding Form (never a dev /
+        // localhost host — this is a document link that goes out to recipients).
+        defaultValue: "https://wms.mananvasa.com/dossier/onboarding",
       }),
     ),
 

@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
 import { listSalaryProfiles } from "@/lib/queries/salary";
 import { weekReportFor } from "@/lib/reports/attendance-report-data";
-import { sendWeeklyAttendanceReportEmail } from "@/lib/email/report-emails";
-import { weeklyAttendanceReportOn } from "@/lib/reports/flags";
+import {
+  sendWeeklyAttendanceReportEmail,
+  sendWeeklyAttendanceRosterEmail,
+  type RosterRow,
+} from "@/lib/email/report-emails";
 
 /**
  * Sunday WEEKLY attendance report (Sir's rule 6) — each active employee gets
- * their week's login/logout, late marks, early-leaves, and the ₹ money impact.
+ * their OWN week's login/logout, late marks, early-leaves, and the ₹ money
+ * impact; the HR desk gets ONE combined roster of everyone + grand-total ₹ lost.
  *
- * Registered Sunday (`0 12 * * 0`, ~17:30 IST). DEFAULT OFF via
- * `WEEKLY_ATTENDANCE_REPORT_ON` — a no-op until flipped. Auth: Bearer CRON_SECRET.
- * Per-recipient try/catch. Node runtime (postgres-js).
+ * Registered Sunday (`0 12 * * 0`, ~17:30 IST). LIVE — no feature flag. Auth:
+ * Bearer CRON_SECRET. Per-recipient try/catch (roster send also wrapped). Node
+ * runtime (postgres-js).
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,9 +34,6 @@ async function run(request: Request): Promise<NextResponse> {
   if (!expected || request.headers.get("authorization") !== `Bearer ${expected}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!weeklyAttendanceReportOn()) {
-    return NextResponse.json({ ok: true, skipped: "WEEKLY_ATTENDANCE_REPORT_ON is off" });
-  }
 
   const now = new Date();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -41,6 +42,12 @@ async function run(request: Request): Promise<NextResponse> {
   let processed = 0;
   let sent = 0;
   let skipped = 0;
+
+  // Collected once during the per-employee loop (reuses each report, no recompute)
+  // → the single HR roster email. Only employees with a working day this week land
+  // here, matching the per-employee skip below (no all-zero rows cluttering HR's table).
+  const rosterRows: RosterRow[] = [];
+  let rosterLabel = "";
 
   for (const p of profiles) {
     processed++;
@@ -51,9 +58,11 @@ async function run(request: Request): Promise<NextResponse> {
         skipped++;
         continue;
       }
+      rosterLabel = weekLabel(report.weekStart, report.weekEnd);
+      rosterRows.push({ name: p.name, totals: report.totals });
       const res = await sendWeeklyAttendanceReportEmail({
         recipient: { email: p.email, name: p.name },
-        weekLabel: weekLabel(report.weekStart, report.weekEnd),
+        weekLabel: rosterLabel,
         totals: report.totals,
         days: report.days,
         siteUrl,
@@ -70,7 +79,29 @@ async function run(request: Request): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.json({ ok: true, processed, sent, skipped });
+  // ONE combined roster email to the HR desk — wrapped so a failure never masks
+  // the per-employee sends that already went out.
+  let rosterSent = false;
+  if (rosterRows.length > 0) {
+    try {
+      const totalLost = rosterRows.reduce((sum, r) => sum + r.totals.salaryReduced, 0);
+      const res = await sendWeeklyAttendanceRosterEmail({
+        weekLabel: rosterLabel,
+        rows: rosterRows,
+        totalLost,
+        siteUrl,
+      });
+      if (res.error) {
+        console.error(`[cron/attendance-weekly] HR roster send failed:`, res.error);
+      } else {
+        rosterSent = true;
+      }
+    } catch (err) {
+      console.error(`[cron/attendance-weekly] HR roster threw`, err);
+    }
+  }
+
+  return NextResponse.json({ ok: true, processed, sent, skipped, rosterRows: rosterRows.length, rosterSent });
 }
 
 export async function GET(request: Request): Promise<NextResponse> {

@@ -149,6 +149,26 @@ export type TaskSubject = (typeof TASK_SUBJECTS)[number];
 export const EMPLOYEE_ROLES = ["doer", "initiator", "both"] as const;
 export type EmployeeRole = (typeof EMPLOYEE_ROLES)[number];
 
+// Worker type — the employment archetype that drives BOTH attendance grading
+// and pay. Source of truth for `employees.worker_type`. `full_time` is the
+// back-compat default (every existing employee = full-time, no behaviour change).
+export const WORKER_TYPES = ["full_time", "afternoon_shift", "part_time", "project_remote"] as const;
+export type WorkerType = (typeof WORKER_TYPES)[number];
+// Pay basis — how salary is computed for a worker type.
+export const PAY_BASES = ["monthly_ctc", "hourly", "fixed_fee"] as const;
+export type PayBasis = (typeof PAY_BASES)[number];
+// Grading mode — how attendance is measured for a worker type.
+export const GRADING_MODES = ["day", "hours", "session"] as const;
+export type GradingMode = (typeof GRADING_MODES)[number];
+
+// Project-remote work sessions (0178). Source = where the session was captured:
+//  'meet' → Google Meet join/leave (Workspace Events API); 'capture' → our own
+//  getDisplayMedia screen-share page. Status tracks the ingest lifecycle.
+export const WORK_SESSION_SOURCES = ["meet", "capture"] as const;
+export type WorkSessionSource = (typeof WORK_SESSION_SOURCES)[number];
+export const WORK_SESSION_STATUSES = ["open", "closed", "reconciled"] as const;
+export type WorkSessionStatus = (typeof WORK_SESSION_STATUSES)[number];
+
 export const TASK_PRIORITIES = [
   "imp_urgent",
   "imp_not_urgent",

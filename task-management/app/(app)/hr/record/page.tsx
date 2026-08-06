@@ -3,7 +3,8 @@ import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
-import { listCandidateIntakes } from "@/app/(app)/hr/candidate-actions";
+import type { CandidateRow } from "@/app/(app)/hr/candidate-actions";
+import { listEmployeeRecords } from "@/app/(app)/hr/record/people";
 import { listSkillLookups, type SkillLookupOptions } from "@/lib/hr/skills";
 import { HrRecordScreen } from "@/components/hr/record/hr-record-screen";
 
@@ -21,11 +22,13 @@ export default async function HrRecordPage() {
   const me = await requireHrStaff();
   const isAdmin = me.isAdmin || isSuperAdmin(me.email);
 
-  let candidates: Awaited<ReturnType<typeof listCandidateIntakes>> = [];
+  // The person list is now the CURRENT EMPLOYEES (active roster), not candidate
+  // intake records. Each id is an employees.id, resolved directly downstream.
+  let candidates: CandidateRow[] = [];
   try {
     candidates = await Promise.race([
-      listCandidateIntakes(),
-      new Promise<typeof candidates>((resolve) => setTimeout(() => resolve([]), 3500)),
+      listEmployeeRecords(),
+      new Promise<CandidateRow[]>((resolve) => setTimeout(() => resolve([]), 3500)),
     ]);
   } catch {
     candidates = [];

@@ -6,7 +6,7 @@ import PDFDocument from "pdfkit";
 import { format } from "date-fns";
 import { getEntity, type EntityId, type Entity } from "@/lib/hr/entities";
 import { applyPronouns, type Gender } from "@/lib/hr/pronouns";
-import { applyFirm, HR_CONTACT, HR_SIGNATORY } from "@/lib/hr/firm";
+import { applyFirm, HR_SIGNATORY } from "@/lib/hr/firm";
 import {
   type LetterTemplate,
   type Block,
@@ -236,30 +236,38 @@ function renderBlock(doc: PDFKit.PDFDocument, block: Block, ctx: Ctx): void {
               ? "center"
               : block.align === "right"
                 ? "right"
-                : "justify",
+                : "left",
         });
       doc.y += 8;
       return;
     }
     case "term": {
+      // Employment terms print as a professional bordered 2-column table row
+      // (Field | Detail). Consecutive terms stack into one visual table.
       const value = resolve(block.value);
-      // A term whose value is a bold field (e.g. the Subject line) prints its
-      // value in bold + ink-strong, matching the on-screen editor + rich seed.
-      const valueBold = block.value.some((s) => s.t === "field" && s.bold);
-      ctx.ensure(20);
-      const top = doc.y;
       const label = applyFirm(applyPronouns(block.label, gender), entity);
-      // Fixed label column so every term's colon aligns vertically.
-      const LABEL_COL = 150;
-      doc.font("Helvetica-Bold").fontSize(11).fillColor(INK);
-      doc.text(label, left, top, { width: LABEL_COL - 8, lineBreak: true });
-      doc.text(":", left + LABEL_COL, top, { lineBreak: false });
-      doc
-        .font(valueBold ? "Helvetica-Bold" : "Helvetica")
-        .fontSize(11)
-        .fillColor(valueBold ? INK : INK_MUTED)
-        .text(value, left + LABEL_COL + 10, top, { width: width - LABEL_COL - 10, lineGap: 2 });
-      doc.y = Math.max(doc.y, top + 16);
+      const LABEL_W = Math.round(width * 0.38);
+      const VAL_W = width - LABEL_W;
+      const PAD = 7;
+      doc.font("Helvetica-Bold").fontSize(10.5);
+      const lh = doc.heightOfString(label, { width: LABEL_W - PAD * 2 });
+      doc.font("Helvetica").fontSize(10.5);
+      const vh = doc.heightOfString(value || " ", { width: VAL_W - PAD * 2 });
+      const rowH = Math.max(lh, vh) + PAD * 2;
+      ctx.ensure(rowH);
+      const top = doc.y;
+      // Label cell background + both cell borders.
+      doc.save();
+      doc.rect(left, top, LABEL_W, rowH).fill("#f6f5f7");
+      doc.restore();
+      doc.lineWidth(0.7).strokeColor("#d4d4d8");
+      doc.rect(left, top, LABEL_W, rowH).stroke();
+      doc.rect(left + LABEL_W, top, VAL_W, rowH).stroke();
+      doc.font("Helvetica-Bold").fontSize(10.5).fillColor(INK)
+        .text(label, left + PAD, top + PAD, { width: LABEL_W - PAD * 2 });
+      doc.font("Helvetica").fontSize(10.5).fillColor(INK)
+        .text(value, left + LABEL_W + PAD, top + PAD, { width: VAL_W - PAD * 2 });
+      doc.y = top + rowH;
       return;
     }
     case "bullets": {
@@ -461,12 +469,8 @@ function renderSignature(
     const place = resolve(block.place);
     if (place.trim()) line(`Place: ${place}`, { color: INK_MUTED, size: 10 });
   }
-  // HR-signed letters print the HR desk email + HR Manager phone under the block.
-  if (isHr) {
-    line(`HR: ${HR_CONTACT.email}`, { color: INK_MUTED, size: 9.5, gap: 12 });
-    const phone = HR_CONTACT.phone.trim();
-    if (phone) line(`HR Manager: ${phone}`, { color: INK_MUTED, size: 9.5, gap: 12 });
-  }
+  // HR desk contact (email + HR Manager) already prints in the red letterhead
+  // footer — no greyed duplicate under the sign-off.
 }
 
 /* ------------------------------------------------------------------ */

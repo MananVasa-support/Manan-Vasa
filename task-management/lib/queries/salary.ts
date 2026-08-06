@@ -10,6 +10,7 @@ import {
   salaryProfiles,
   salaryRuns,
 } from "@/db/schema";
+import { type WorkerType, asWorkerType } from "@/lib/attendance/worker-type";
 
 /** Drizzle `date` columns come back as strings (YYYY-MM-DD), but guard for Date. */
 function toISODate(v: string | Date | null): string | null {
@@ -29,6 +30,13 @@ export interface SalaryProfileRow {
   tdsMonthly: number;
   ptExempt: boolean;
   probationEnd: string | null;
+  // Worker types (0177). `workerType` drives the pay basis; the rate fields
+  // are read only for their basis (hourly → payAtTarget/weeklyTargetHours;
+  // fixed_fee → monthlyFee). `weeklyTargetMinutes` is the part-time hours target.
+  workerType: WorkerType;
+  monthlyPayAtTarget: number;   // hourly: ₹ at full target (default 3500)
+  weeklyTargetHours: number;    // hourly: default 27
+  monthlyFee: number;           // fixed_fee retainer
 }
 
 /**
@@ -51,6 +59,10 @@ export async function listSalaryProfiles(): Promise<SalaryProfileRow[]> {
       tdsMonthly: salaryProfiles.tdsMonthly,
       ptExempt: salaryProfiles.ptExempt,
       probationEnd: employees.probationEnd,
+      workerType: employees.workerType,
+      monthlyPayAtTarget: salaryProfiles.monthlyPayAtTarget,
+      weeklyTargetHours: salaryProfiles.weeklyTargetHours,
+      monthlyFee: salaryProfiles.monthlyFee,
     })
     .from(employees)
     .leftJoin(salaryProfiles, eq(salaryProfiles.employeeId, employees.id))
@@ -71,6 +83,10 @@ export async function listSalaryProfiles(): Promise<SalaryProfileRow[]> {
     tdsMonthly: r.tdsMonthly == null ? 0 : Number(r.tdsMonthly),
     ptExempt: r.ptExempt ?? false,
     probationEnd: toISODate(r.probationEnd),
+    workerType: asWorkerType(r.workerType),
+    monthlyPayAtTarget: r.monthlyPayAtTarget == null ? 3500 : Number(r.monthlyPayAtTarget),
+    weeklyTargetHours: r.weeklyTargetHours == null ? 27 : Number(r.weeklyTargetHours),
+    monthlyFee: r.monthlyFee == null ? 0 : Number(r.monthlyFee),
   }));
 }
 

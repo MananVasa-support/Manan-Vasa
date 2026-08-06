@@ -1,7 +1,8 @@
 import { desc } from "drizzle-orm";
 import { Download, Users } from "lucide-react";
 import { db } from "@/lib/db";
-import { employees } from "@/db/schema";
+import { employees, salaryProfiles } from "@/db/schema";
+import type { SalaryProfileRates } from "@/components/admin/employee-list";
 import { requireAdmin } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import {
@@ -15,11 +16,30 @@ import type { EmployeeDepartmentMembership } from "@/components/admin/edit-emplo
 
 export default async function EmployeesPage() {
   const me = await requireAdmin();
-  const [all, activeDepartments, departmentMap] = await Promise.all([
+  const [all, activeDepartments, departmentMap, profileRows] = await Promise.all([
     db.select().from(employees).orderBy(desc(employees.createdAt)),
     listActiveDepartments(),
     getEmployeeDepartmentMap(),
+    db
+      .select({
+        employeeId: salaryProfiles.employeeId,
+        monthlyPayAtTarget: salaryProfiles.monthlyPayAtTarget,
+        weeklyTargetHours: salaryProfiles.weeklyTargetHours,
+        monthlyFee: salaryProfiles.monthlyFee,
+      })
+      .from(salaryProfiles),
   ]);
+  const salaryProfileByEmployee: Record<string, SalaryProfileRates> =
+    Object.fromEntries(
+      profileRows.map((p) => [
+        p.employeeId,
+        {
+          monthlyPayAtTarget: p.monthlyPayAtTarget,
+          weeklyTargetHours: p.weeklyTargetHours,
+          monthlyFee: p.monthlyFee,
+        },
+      ]),
+    );
   const departmentOptions = activeDepartments.map((d) => ({
     id: d.id,
     name: d.name,
@@ -68,6 +88,7 @@ export default async function EmployeesPage() {
       <EmployeeList
         employees={all}
         membershipsByEmployee={membershipsByEmployee}
+        salaryProfileByEmployee={salaryProfileByEmployee}
         currentEmployeeId={me.id}
         canManageAdmins={canManageAdmins}
         departmentOptions={departmentOptions}

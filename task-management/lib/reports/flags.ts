@@ -8,10 +8,10 @@
  * flag. Read straight off process.env — no I/O, safe to import anywhere.
  */
 
-/** Sunday weekly attendance report (login/logout + late/early + ₹ impact). OFF. */
-export function weeklyAttendanceReportOn(): boolean {
-  return process.env.WEEKLY_ATTENDANCE_REPORT_ON === "true";
-}
+/**
+ * NOTE: the Sunday weekly attendance report is now LIVE (no flag) — its cron
+ * `app/api/cron/attendance-weekly` runs unconditionally behind Bearer CRON_SECRET.
+ */
 
 /** Monthly attendance statement emailed on the 1st. OFF. */
 export function monthlyAttendanceStatementOn(): boolean {

@@ -101,7 +101,7 @@ async function LetterEditorLoader({
       loadLetterRoster().catch(() => []),
       loadLetterCandidates().catch(() => []),
     ]);
-    roster = rows.map((r) => ({ id: r.id, name: r.name, designation: r.designation }));
+    roster = rows.map((r) => ({ id: r.id, name: r.name, designation: r.designation, payingEntity: r.payingEntity }));
     candidates = cands.map((c) => ({ id: c.id, name: c.name, gender: c.gender }));
   }
   return (

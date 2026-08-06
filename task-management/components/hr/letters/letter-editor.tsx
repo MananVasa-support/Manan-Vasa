@@ -37,7 +37,7 @@ import {
 } from "@/lib/hr/letters/types";
 import { templateToRichHtml } from "@/lib/hr/letters/rich";
 import { applyPronouns, normalizeGender, type Gender } from "@/lib/hr/pronouns";
-import { applyFirm, HR_CONTACT, HR_SIGNATORY } from "@/lib/hr/firm";
+import { applyFirm, HR_SIGNATORY } from "@/lib/hr/firm";
 import {
   readCtcLetterPrefill,
   clearCtcLetterPrefill,
@@ -84,6 +84,9 @@ export interface LetterRosterOption {
   id: string;
   name: string;
   designation: string;
+  /** The employee's paying entity (from their salary profile) as an EntityId —
+   *  picking them auto-selects the matching letterhead. Null → keep the default. */
+  payingEntity?: EntityId | null;
 }
 
 /** A submitted candidate the editor can quick-pick to seed the recipient name +
@@ -280,6 +283,9 @@ export function LetterEditor({
         }
         return next;
       });
+      // Auto-select the letterhead from the employee's paying entity (set on
+      // their salary profile). A CTC-letter prefill, if present, overrides below.
+      if (emp.payingEntity) setEntity(emp.payingEntity);
       if (applyPrefill && prefill) {
         setEntity(prefill.entity);
         clearCtcLetterPrefill();
@@ -1148,7 +1154,6 @@ function TermTable({ terms, ctx }: { terms: Extract<Block, { kind: "term" }>[]; 
         {terms.map((t, i) => (
           <tr key={i}>
             <th className="alw-tt-label">{applyFirm(applyPronouns(t.label, ctx.gender), ctx.entity)}</th>
-            <td className="alw-tt-colon">:</td>
             <td className="alw-tt-val">
               <Spans spans={t.value} ctx={ctx} />
             </td>
@@ -1180,7 +1185,7 @@ function BlockView({ block, ctx }: { block: Block; ctx: RenderCtx }) {
           className="alw-p"
           style={{
             textAlign:
-              block.align === "center" ? "center" : block.align === "right" ? "right" : "justify",
+              block.align === "center" ? "center" : block.align === "right" ? "right" : "left",
           }}
         >
           <Spans spans={block.spans} ctx={ctx} />
@@ -1316,15 +1321,8 @@ function SignatureView({
           Place: <Spans spans={block.place} ctx={ctx} />
         </p>
       )}
-      {/* HR-signed letters print the HR desk contact under the sign-off. */}
-      {isHr && (
-        <div className="alw-sign-hr">
-          <p className="alw-sign-meta">HR: {HR_CONTACT.email}</p>
-          {HR_CONTACT.phone.trim() && (
-            <p className="alw-sign-meta">HR Manager: {HR_CONTACT.phone.trim()}</p>
-          )}
-        </div>
-      )}
+      {/* HR desk contact (email + HR Manager) already appears in the red
+          letterhead footer — no greyed duplicate under the sign-off. */}
     </div>
   );
 }
@@ -1514,11 +1512,10 @@ const EDITOR_CSS = `
 .alw-term-colon{font-weight:700;margin-right:6px;}
 @media (max-width:640px){.alw-term{grid-template-columns:130px 1fr;}}
 /* Grouped term rows as a real table — colons aligned in a shared column. */
-.alw-termtable{border-collapse:collapse;margin:4px 0 16px;width:100%;font-variant-numeric:tabular-nums;}
-.alw-termtable th.alw-tt-label{text-align:left;vertical-align:top;font-weight:700;padding:4px 10px 4px 0;white-space:nowrap;color:var(--color-ink-strong,#0f172a);}
-.alw-termtable td.alw-tt-colon{vertical-align:top;font-weight:700;padding:4px 10px 4px 0;width:1px;color:var(--color-ink-strong,#0f172a);}
-.alw-termtable td.alw-tt-val{vertical-align:top;padding:4px 0;color:var(--color-ink-strong,#0f172a);width:100%;overflow-wrap:break-word;}
-@media (max-width:640px){.alw-termtable th.alw-tt-label{white-space:normal;}}
+.alw-termtable{border-collapse:collapse;margin:8px 0 18px;width:100%;font-variant-numeric:tabular-nums;border:1px solid #d4d4d8;}
+.alw-termtable th.alw-tt-label{text-align:left;vertical-align:top;font-weight:700;padding:7px 12px;width:38%;white-space:normal;background:#f6f5f7;border:1px solid #d4d4d8;color:var(--color-ink-strong,#0f172a);}
+.alw-termtable td.alw-tt-val{vertical-align:top;padding:7px 12px;border:1px solid #d4d4d8;color:var(--color-ink-strong,#0f172a);overflow-wrap:break-word;}
+@media (max-width:640px){.alw-termtable th.alw-tt-label{width:44%;}}
 .alw-ul{margin:0 0 14px;padding-left:4px;list-style:none;}
 .alw-ul li{position:relative;padding-left:20px;margin-bottom:7px;font-size:15px;line-height:1.9;color:var(--color-ink-strong,#0f172a);}
 .alw-ul li::before{content:"";position:absolute;left:2px;top:.72em;width:6px;height:6px;border-radius:9999px;background:${RED};}

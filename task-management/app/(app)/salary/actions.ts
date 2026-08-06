@@ -7,8 +7,7 @@ import { salaryRuns, salaryBreakup } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
-import { computeSalary } from "@/lib/salary/compute";
-import { assembleMonthInputs } from "@/lib/salary/generate";
+import { assembleMonthInputs, computeForRow } from "@/lib/salary/generate";
 import { syncBreakupFromApp } from "@/lib/salary/breakup-from-app";
 import { getRun, listRunsForMonth } from "@/lib/queries/salary";
 import { GenerateSalarySchema, RunEditSchema } from "@/lib/validators/salary";
@@ -60,8 +59,8 @@ export async function generateSalary(input: unknown): Promise<ActionResult<{ gen
   try {
     const rows = await assembleMonthInputs(month);
     for (const row of rows) {
-      if (!row.hasProfile) continue; // no CTC → skip (don't materialize a ₹0 run)
-      const b = computeSalary(row.input);
+      if (!row.hasProfile) continue; // no pay config for this basis → skip (don't materialize a ₹0 run)
+      const b = computeForRow(row); // routes by pay basis (monthly_ctc | hourly | fixed_fee)
 
       const computed = {
         month,
@@ -77,6 +76,10 @@ export async function generateSalary(input: unknown): Promise<ActionResult<{ gen
         advances: b.advances.toFixed(2),
         pendingBalanceIn: b.pendingBalanceIn.toFixed(2),
         netPayable: b.net.toFixed(2),
+        // Worker types (0177) — pay basis + hourly figures for the payslip.
+        payType: row.payBasis,
+        workedHours: b.workedHours != null ? b.workedHours.toFixed(2) : null,
+        hourlyRate: b.hourlyRate != null ? b.hourlyRate.toFixed(2) : null,
       };
 
       await db
@@ -172,7 +175,7 @@ export async function generateSalaryAll(
     }
 
     try {
-      const b = computeSalary(row.input);
+      const b = computeForRow(row); // routes by pay basis (monthly_ctc | hourly | fixed_fee)
       await db.insert(salaryRuns).values({
         employeeId: row.employeeId,
         month,
@@ -188,6 +191,9 @@ export async function generateSalaryAll(
         advances: b.advances.toFixed(2),
         pendingBalanceIn: b.pendingBalanceIn.toFixed(2),
         netPayable: b.net.toFixed(2),
+        payType: row.payBasis,
+        workedHours: b.workedHours != null ? b.workedHours.toFixed(2) : null,
+        hourlyRate: b.hourlyRate != null ? b.hourlyRate.toFixed(2) : null,
         source: "generated",
         generatedById: me.id,
       });

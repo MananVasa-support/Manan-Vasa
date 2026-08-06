@@ -43,6 +43,10 @@ import {
   type KpiFrequency,
   type KpiAssignmentStatus,
   type KpiChangeType,
+  type WorkerType,
+  type PayBasis,
+  type WorkSessionSource,
+  type WorkSessionStatus,
 } from "./enums";
 import type { DocKind, SignatureStatus } from "@/lib/documents/signing";
 
@@ -198,6 +202,14 @@ export const employees = pgTable("employees", {
   attLateAfter: time("att_late_after"),
   attOfficialEnd: time("att_official_end"),
   attEarlyBefore: time("att_early_before"),
+  // Worker types (0177) — employment archetype + per-employee grading overrides.
+  // worker_type drives pay basis + grading mode (see lib/attendance/worker-type.ts);
+  // full/half-day minutes let a shift (e.g. afternoon 5h) grade per-person instead
+  // of org-wide; weekly_target_minutes is the part-time hours target (default 27h).
+  workerType: text("worker_type").notNull().default("full_time").$type<WorkerType>(),
+  attFullDayMinutes: integer("att_full_day_minutes"),
+  attHalfDayMinutes: integer("att_half_day_minutes"),
+  weeklyTargetMinutes: integer("weekly_target_minutes"),
   // Attendance Phase B (0060) — probation-end anchor for the paid-leave cycle.
   // Pulled forward from Phase C (salary): the leave allowance accrues from this
   // date and nothing accrues before it. Null => no anchor yet (0 paid leaves).
@@ -2124,6 +2136,13 @@ export const salaryProfiles = pgTable("salary_profiles", {
   annualCtc: numeric("annual_ctc", { precision: 14, scale: 2 }).notNull().default("0"),
   tdsMonthly: numeric("tds_monthly", { precision: 14, scale: 2 }).notNull().default("0"),
   ptExempt: boolean("pt_exempt").notNull().default(false),
+  // Worker types (0177) — non-CTC pay bases. `pay_type` mirrors the employee's
+  // worker_type resolution; the rate fields are used only for their basis:
+  //  hourly → monthly_pay_at_target (₹) over weekly_target_hours; fixed_fee → monthly_fee.
+  payType: text("pay_type").notNull().default("monthly_ctc").$type<PayBasis>(),
+  monthlyPayAtTarget: numeric("monthly_pay_at_target", { precision: 14, scale: 2 }),
+  weeklyTargetHours: numeric("weekly_target_hours", { precision: 6, scale: 2 }),
+  monthlyFee: numeric("monthly_fee", { precision: 14, scale: 2 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -2170,6 +2189,10 @@ export const salaryRuns = pgTable(
       .notNull()
       .default("0"),
     netPayable: numeric("net_payable", { precision: 14, scale: 2 }).notNull(),
+    // Worker types (0177) — pay basis + hourly figures (null for monthly_ctc).
+    payType: text("pay_type").notNull().default("monthly_ctc").$type<PayBasis>(),
+    workedHours: numeric("worked_hours", { precision: 8, scale: 2 }),
+    hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }),
     disbursed: boolean("disbursed").notNull().default(false),
     disbursedAmount: numeric("disbursed_amount", { precision: 14, scale: 2 }),
     approvedById: uuid("approved_by_id").references(() => employees.id, { onDelete: "set null" }),
@@ -4710,6 +4733,9 @@ export const salaryBreakup = pgTable(
     setOff: numeric("set_off", { precision: 6, scale: 2 }),
     cf: numeric("cf", { precision: 6, scale: 2 }),
     finalWorkingDays: numeric("final_working_days", { precision: 6, scale: 2 }).default("0"),
+    // Worker types (0177) — pay basis + worked hours (null/0 for monthly_ctc rows).
+    payType: text("pay_type").notNull().default("monthly_ctc").$type<PayBasis>(),
+    workedHours: numeric("worked_hours", { precision: 8, scale: 2 }),
     annualCtc: numeric("annual_ctc", { precision: 14, scale: 2 }).default("0"),
     monthlyCtc: numeric("monthly_ctc", { precision: 14, scale: 2 }).default("0"),
     payableAfterLeave: numeric("payable_after_leave", { precision: 14, scale: 2 }).default("0"),
@@ -4881,6 +4907,55 @@ export const attendanceSheetDay = pgTable(
   ],
 );
 export type AttendanceSheetDay = typeof attendanceSheetDay.$inferSelect;
+
+/**
+ * Project-remote WORK SESSIONS (0178, worker types Phase 2). One row per remote
+ * working session — either auto-logged from Google Meet join/leave (source
+ * 'meet', fed by the Workspace Events webhook + reconcile) or captured by our own
+ * screen-share page (source 'capture'). Used for ACCOUNTABILITY only: project
+ * workers are paid a fixed fee, so sessions never feed payroll. The capture path
+ * is live; the Meet path is naturally inert until Google Workspace keys land.
+ */
+export const workSessions = pgTable(
+  "work_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    source: text("source").notNull().$type<WorkSessionSource>(),
+    meetSpaceId: text("meet_space_id"),
+    meetConferenceRecord: text("meet_conference_record"),
+    meetParticipant: text("meet_participant"),
+    totalMinutes: numeric("total_minutes", { precision: 8, scale: 2 }),
+    screenshotCount: integer("screenshot_count").notNull().default(0),
+    status: text("status").notNull().default("open").$type<WorkSessionStatus>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("ws_emp_started_idx").on(t.employeeId, t.startedAt),
+    index("ws_status_idx").on(t.status),
+  ],
+);
+export type WorkSession = typeof workSessions.$inferSelect;
+
+/** Periodic screen-share screenshots proving a `capture` session was active. */
+export const workSessionShots = pgTable(
+  "work_session_shots",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => workSessions.id, { onDelete: "cascade" }),
+    path: text("path").notNull(),
+    takenAt: timestamp("taken_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("wss_session_idx").on(t.sessionId)],
+);
+export type WorkSessionShot = typeof workSessionShots.$inferSelect;
 
 /**
  * One row per (employee_name, period) from the employee-blocked

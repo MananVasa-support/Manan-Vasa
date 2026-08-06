@@ -12,6 +12,12 @@ import {
   DepartmentMultiSelect,
   type DepartmentOption,
 } from "@/components/admin/department-multi-select";
+import {
+  WORKER_TYPE_LABELS,
+  WORKER_TYPES,
+  asWorkerType,
+  type WorkerType,
+} from "@/lib/attendance/worker-type";
 
 type Role = "doer" | "initiator" | "both";
 
@@ -41,6 +47,15 @@ export interface EditEmployeeDialogProps {
     attLateAfter: string | null;
     attOfficialEnd: string | null;
     attEarlyBefore: string | null;
+    // Worker classification + type-specific overrides.
+    workerType: string;
+    attFullDayMinutes: number | null;
+    attHalfDayMinutes: number | null;
+    weeklyTargetMinutes: number | null;
+    // From salary_profiles (numeric → string | null over the wire).
+    monthlyPayAtTarget: string | null;
+    weeklyTargetHours: string | null;
+    monthlyFee: string | null;
   };
   isSelf: boolean;
   /** True only for super-admins (Hetesh / Manan) — gates the admin toggle. */
@@ -73,6 +88,40 @@ function toHHmm(v: string | null): string {
   return v.slice(0, 5);
 }
 
+const WORKER_TYPE_OPTIONS = WORKER_TYPES.map((w) => ({
+  value: w,
+  label: WORKER_TYPE_LABELS[w],
+}));
+
+/** Minutes int → hours string for the number inputs. 300 → "5". Null → "". */
+function minutesToHours(v: number | null): string {
+  if (v == null) return "";
+  return String(v / 60);
+}
+
+/** numeric-column string → plain number string for inputs. "3500.00" → "3500". */
+function numToInput(v: string | null): string {
+  if (v == null || v === "") return "";
+  const n = Number(v);
+  return Number.isFinite(n) ? String(n) : "";
+}
+
+/** Hours string → minutes int (rounded), blank/invalid → null. */
+function hoursToMinutes(s: string): number | null {
+  const t = s.trim();
+  if (t === "") return null;
+  const n = Number(t);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 60) : null;
+}
+
+/** Non-negative number string → number, blank/invalid → null. */
+function toMoney(s: string): number | null {
+  const t = s.trim();
+  if (t === "") return null;
+  const n = Number(t);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 export function EditEmployeeDialog({
   open,
   onOpenChange,
@@ -102,6 +151,15 @@ export function EditEmployeeDialog({
   const [lateAfter, setLateAfter] = useState(toHHmm(employee.attLateAfter));
   const [offEnd, setOffEnd]       = useState(toHHmm(employee.attOfficialEnd));
   const [earlyBefore, setEarlyBefore] = useState(toHHmm(employee.attEarlyBefore));
+  // Worker type + type-specific fields (see WORKER_TYPE_LABELS).
+  const [workerType, setWorkerType] = useState<WorkerType>(asWorkerType(employee.workerType));
+  const [fullDayHours, setFullDayHours] = useState(minutesToHours(employee.attFullDayMinutes));
+  const [halfDayHours, setHalfDayHours] = useState(minutesToHours(employee.attHalfDayMinutes));
+  const [weeklyHours, setWeeklyHours] = useState(
+    numToInput(employee.weeklyTargetHours) || minutesToHours(employee.weeklyTargetMinutes),
+  );
+  const [monthlyPayAtTarget, setMonthlyPayAtTarget] = useState(numToInput(employee.monthlyPayAtTarget));
+  const [monthlyFee, setMonthlyFee] = useState(numToInput(employee.monthlyFee));
   const [error, setError]       = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [schedError, setSchedError] = useState<string | null>(null);
@@ -128,6 +186,14 @@ export function EditEmployeeDialog({
       setLateAfter(toHHmm(employee.attLateAfter));
       setOffEnd(toHHmm(employee.attOfficialEnd));
       setEarlyBefore(toHHmm(employee.attEarlyBefore));
+      setWorkerType(asWorkerType(employee.workerType));
+      setFullDayHours(minutesToHours(employee.attFullDayMinutes));
+      setHalfDayHours(minutesToHours(employee.attHalfDayMinutes));
+      setWeeklyHours(
+        numToInput(employee.weeklyTargetHours) || minutesToHours(employee.weeklyTargetMinutes),
+      );
+      setMonthlyPayAtTarget(numToInput(employee.monthlyPayAtTarget));
+      setMonthlyFee(numToInput(employee.monthlyFee));
       setError(null);
       setSchedError(null);
     }
@@ -147,7 +213,27 @@ export function EditEmployeeDialog({
     employee.attLateAfter,
     employee.attOfficialEnd,
     employee.attEarlyBefore,
+    employee.workerType,
+    employee.attFullDayMinutes,
+    employee.attHalfDayMinutes,
+    employee.weeklyTargetMinutes,
+    employee.monthlyPayAtTarget,
+    employee.weeklyTargetHours,
+    employee.monthlyFee,
   ]);
+
+  /** Seed sensible defaults when switching worker type and the field is blank
+   *  (afternoon → late 15:30 / full-day 5h; part-time → 27h / ₹3500). */
+  function onWorkerTypeChange(next: WorkerType) {
+    setWorkerType(next);
+    if (next === "afternoon_shift") {
+      setLateAfter((v) => v || "15:30");
+      setFullDayHours((v) => v || "5");
+    } else if (next === "part_time") {
+      setWeeklyHours((v) => v || "27");
+      setMonthlyPayAtTarget((v) => v || "3500");
+    }
+  }
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -212,6 +298,20 @@ export function EditEmployeeDialog({
         attLateAfter: lateAfter || null,
         attOfficialEnd: offEnd || null,
         attEarlyBefore: earlyBefore || null,
+        workerType,
+        // Afternoon-shift day/half thresholds; null for every other type.
+        attFullDayMinutes:
+          workerType === "afternoon_shift" ? hoursToMinutes(fullDayHours) : null,
+        attHalfDayMinutes:
+          workerType === "afternoon_shift" ? hoursToMinutes(halfDayHours) : null,
+        // Part-time hours target (mirrored to employees.weekly_target_minutes).
+        weeklyTargetMinutes:
+          workerType === "part_time" ? hoursToMinutes(weeklyHours) : null,
+        // salary_profiles pay rates.
+        monthlyPayAtTarget:
+          workerType === "part_time" ? toMoney(monthlyPayAtTarget) : null,
+        weeklyTargetHours: workerType === "part_time" ? toMoney(weeklyHours) : null,
+        monthlyFee: workerType === "project_remote" ? toMoney(monthlyFee) : null,
       });
       if (!res.ok) {
         setSchedError(res.error ?? "Could not save schedule.");
@@ -363,6 +463,13 @@ export function EditEmployeeDialog({
                 (late after 10:50, leave before 19:20).
               </p>
               <div className="mt-3 space-y-4">
+                <Field label="Worker Type">
+                  <Select
+                    value={workerType}
+                    onValueChange={(v) => onWorkerTypeChange(asWorkerType(v))}
+                    options={WORKER_TYPE_OPTIONS}
+                  />
+                </Field>
                 <Field label="Weekly Off">
                   <Select
                     value={String(weeklyOff)}
@@ -370,20 +477,80 @@ export function EditEmployeeDialog({
                     options={WEEKDAY_OPTIONS}
                   />
                 </Field>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Official Start">
-                    <TimeInput value={offStart} onChange={setOffStart} placeholder="10:00" />
+                {/* Full-time + afternoon share the same in/out schedule grid. */}
+                {(workerType === "full_time" || workerType === "afternoon_shift") && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Official Start">
+                      <TimeInput value={offStart} onChange={setOffStart} placeholder="10:00" />
+                    </Field>
+                    <Field label="Late After">
+                      <TimeInput
+                        value={lateAfter}
+                        onChange={setLateAfter}
+                        placeholder={workerType === "afternoon_shift" ? "15:30" : "10:50"}
+                      />
+                    </Field>
+                    <Field label="Official End">
+                      <TimeInput value={offEnd} onChange={setOffEnd} placeholder="19:00" />
+                    </Field>
+                    <Field label="Early Before">
+                      <TimeInput value={earlyBefore} onChange={setEarlyBefore} placeholder="19:20" />
+                    </Field>
+                  </div>
+                )}
+                {/* Afternoon / college shift — day-length thresholds (hours). */}
+                {workerType === "afternoon_shift" && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Full-day hours">
+                      <NumberInput
+                        value={fullDayHours}
+                        onChange={setFullDayHours}
+                        placeholder="5"
+                        step="0.5"
+                      />
+                    </Field>
+                    <Field label="Half-day hours">
+                      <NumberInput
+                        value={halfDayHours}
+                        onChange={setHalfDayHours}
+                        placeholder="off"
+                        step="0.5"
+                      />
+                    </Field>
+                  </div>
+                )}
+                {/* Part-time (hourly) — weekly target + monthly pay at that target. */}
+                {workerType === "part_time" && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Weekly target hours">
+                      <NumberInput
+                        value={weeklyHours}
+                        onChange={setWeeklyHours}
+                        placeholder="27"
+                        step="0.5"
+                      />
+                    </Field>
+                    <Field label="Monthly pay at target ₹">
+                      <NumberInput
+                        value={monthlyPayAtTarget}
+                        onChange={setMonthlyPayAtTarget}
+                        placeholder="3500"
+                        step="1"
+                      />
+                    </Field>
+                  </div>
+                )}
+                {/* Project / remote — flat monthly fee. */}
+                {workerType === "project_remote" && (
+                  <Field label="Monthly fee ₹">
+                    <NumberInput
+                      value={monthlyFee}
+                      onChange={setMonthlyFee}
+                      placeholder="e.g. 15000"
+                      step="1"
+                    />
                   </Field>
-                  <Field label="Late After">
-                    <TimeInput value={lateAfter} onChange={setLateAfter} placeholder="10:50" />
-                  </Field>
-                  <Field label="Official End">
-                    <TimeInput value={offEnd} onChange={setOffEnd} placeholder="19:00" />
-                  </Field>
-                  <Field label="Early Before">
-                    <TimeInput value={earlyBefore} onChange={setEarlyBefore} placeholder="19:20" />
-                  </Field>
-                </div>
+                )}
                 {schedError && (
                   <div
                     role="alert"
@@ -452,6 +619,31 @@ function TimeInput({
   return (
     <input
       type="time"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full rounded-md border border-[#CBD5E1] px-3 py-2.5 text-[15px] tabular-nums"
+    />
+  );
+}
+
+function NumberInput({
+  value,
+  onChange,
+  placeholder,
+  step = "1",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  step?: string;
+}) {
+  return (
+    <input
+      type="number"
+      min={0}
+      step={step}
+      inputMode="decimal"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}

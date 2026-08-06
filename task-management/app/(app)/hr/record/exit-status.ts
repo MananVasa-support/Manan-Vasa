@@ -1,10 +1,10 @@
 "use server";
 
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { candidateIntake, employees } from "@/db/schema";
 import { exitRecords, type ExitHandoverData } from "@/lib/hr/exit/schema";
 import { requireHrStaff } from "@/lib/hr/access";
+import { resolvePersonEmployee } from "./resolve-person";
 import { CLEARANCE_ROWS } from "@/lib/hr/exit/content";
 import type { ExitSummary } from "./exit-status-types";
 
@@ -38,19 +38,7 @@ export async function getExitStatus(
   };
 
   try {
-    const [cand] = await db
-      .select({ email: candidateIntake.email })
-      .from(candidateIntake)
-      .where(eq(candidateIntake.id, candidateId))
-      .limit(1);
-    const email = (cand?.email ?? "").trim().toLowerCase();
-    if (!email) return { ok: true, status: empty };
-
-    const [emp] = await db
-      .select({ id: employees.id })
-      .from(employees)
-      .where(eq(sql`lower(${employees.email})`, email))
-      .limit(1);
+    const emp = await resolvePersonEmployee(candidateId);
     if (!emp) return { ok: true, status: empty };
 
     const rows = await db

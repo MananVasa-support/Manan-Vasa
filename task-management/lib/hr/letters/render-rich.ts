@@ -242,13 +242,17 @@ html,body{margin:0;padding:0;background:#ffffff;}
 }
 /* Justify generated-letter prose by default; explicit per-paragraph
    text-align styles (from the editor) still win. */
-.alh-body p{margin:0 0 14px;text-align:justify;}
+.alh-body p{margin:0 0 14px;text-align:left;}
 .alh-body h1{font-size:22px;line-height:1.3;margin:0 0 12px;font-weight:700;}
 .alh-body h2{font-size:18px;line-height:1.35;margin:18px 0 10px;font-weight:700;}
 .alh-body h3{font-size:15.5px;line-height:1.4;margin:16px 0 8px;font-weight:700;}
 .alh-body ul,.alh-body ol{margin:0 0 14px;padding-left:24px;}
 .alh-body li{margin:0 0 6px;}
 .alh-body strong{font-weight:700;}
+/* Employment-terms as a professional bordered 2-column table (was colon text). */
+.alh-body .alw-termtable{border-collapse:collapse;margin:8px 0 18px;width:100%;border:1px solid #d4d4d8;}
+.alh-body .alw-termtable th.alw-tt-label{text-align:left;vertical-align:top;font-weight:700;padding:7px 12px;width:38%;background:#f6f5f7;border:1px solid #d4d4d8;}
+.alh-body .alw-termtable td.alw-tt-val{vertical-align:top;padding:7px 12px;border:1px solid #d4d4d8;}
 .alh-body a{color:#A80400;text-decoration:underline;}
 .alh-body img{max-width:100%;height:auto;}
 .alh-body table{border-collapse:collapse;width:100%;margin:0 0 14px;}

@@ -2,8 +2,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { salaryBreakup } from "@/db/schema";
-import { assembleMonthInputs } from "./generate";
-import { computeSalary } from "./compute";
+import { assembleMonthInputs, computeForRow } from "./generate";
 import { listSalaryProfiles } from "@/lib/queries/salary";
 import { getMonthDashboard } from "@/lib/queries/attendance-status";
 import { getMonthDashboardMerged, getMonthDashboardFromSheet } from "@/lib/queries/attendance-sheet-report";
@@ -57,8 +56,8 @@ export async function syncBreakupFromApp(month: string): Promise<number> {
   const f = (n: number) => n.toFixed(2);
   let n = 0;
   for (const row of inputs) {
-    if (!row.hasProfile) continue; // no CTC → nothing to compute
-    const b = computeSalary(row.input);
+    if (!row.hasProfile) continue; // no pay config for this basis → nothing to compute
+    const b = computeForRow(row); // routes by pay basis (monthly_ctc | hourly | fixed_fee)
     const s = sumById.get(row.employeeId);
     const p = profById.get(row.employeeId);
     const computed = {
@@ -84,6 +83,9 @@ export async function syncBreakupFromApp(month: string): Promise<number> {
       previousPending: f(b.pendingBalanceIn),
       finalPayment: f(b.net),
       fy: row.fy,
+      // Worker types (0177) — persist the basis + hourly figure for the payslip.
+      payType: row.payBasis,
+      workedHours: b.workedHours != null ? f(b.workedHours) : null,
     };
     // Match an existing row by employee id, else by normalized name — this
     // updates (and LINKS via employee_id) an unlinked or name-drifted sheet row

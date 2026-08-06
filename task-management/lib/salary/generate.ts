@@ -1,5 +1,12 @@
 import "server-only";
-import type { SalaryInput } from "@/lib/salary/compute";
+import {
+  type SalaryInput,
+  type SalaryBreakdown,
+  computeSalary,
+  computeHourlySalary,
+  computeFixedFeeSalary,
+} from "@/lib/salary/compute";
+import { type WorkerType, type PayBasis, payBasisFor } from "@/lib/attendance/worker-type";
 import { daysInMonth, fyForMonth } from "@/lib/salary/period";
 import {
   listSalaryProfiles,
@@ -28,8 +35,39 @@ export interface MonthInputRow {
   month: string; // YYYY-MM
   daysInMonth: number;
   annualCtc: number;
-  hasProfile: boolean; // false → no CTC set; caller flags "attendance-only"
-  input: SalaryInput; // ready for computeSalary
+  hasProfile: boolean; // false → no pay config for this basis; caller flags "attendance-only"
+  input: SalaryInput; // ready for computeSalary (monthly_ctc path)
+  // Worker types (0177) — which pay basis to compute + the basis-specific inputs.
+  workerType: WorkerType;
+  payBasis: PayBasis;
+  workedMinutes: number; // actual worked minutes this month (hourly basis)
+  hourlyProfile: { monthlyPayAtTarget: number; weeklyTargetHours: number };
+  feeProfile: { monthlyFee: number };
+}
+
+/** Route a MonthInputRow to the correct pure pay function by its basis. */
+export function computeForRow(r: MonthInputRow): SalaryBreakdown {
+  if (r.payBasis === "hourly") {
+    return computeHourlySalary({
+      monthlyPayAtTarget: r.hourlyProfile.monthlyPayAtTarget,
+      weeklyTargetHours: r.hourlyProfile.weeklyTargetHours,
+      daysInMonth: r.daysInMonth,
+      workedMinutes: r.workedMinutes,
+      ptExempt: r.input.ptExempt,
+      tdsMonthly: r.input.tdsMonthly,
+      advances: r.input.advances,
+      pendingBalanceIn: r.input.pendingBalanceIn,
+    });
+  }
+  if (r.payBasis === "fixed_fee") {
+    return computeFixedFeeSalary({
+      monthlyFee: r.feeProfile.monthlyFee,
+      tdsMonthly: r.input.tdsMonthly,
+      advances: r.input.advances,
+      pendingBalanceIn: r.input.pendingBalanceIn,
+    });
+  }
+  return computeSalary(r.input);
 }
 
 /** Assemble per-employee salary-compute inputs for a YYYY-MM month from the
@@ -65,24 +103,28 @@ export async function assembleMonthInputs(month: string): Promise<MonthInputRow[
   // attendance PAYABLE the user compares against. For July, FINAL DAYS == PAYABLE.
   const applyLate = month >= "2026-08";
   const profiles = await listSalaryProfiles();
-  let payableFor: (id: string) => { payableDays: number; late: number };
+  // payableDays + late for day-based pay, plus workedMinutes for hourly (part-
+  // time) pay — both come from the same attendance summary.
+  let payableFor: (id: string) => { payableDays: number; late: number; workedMinutes: number };
   if (month >= "2026-08") {
     const dash = await getMonthDashboard(y, m, today);
     const byId = new Map(dash.map((r) => [r.employeeId, r.summary]));
-    payableFor = (id) => ({ payableDays: byId.get(id)?.payableDays ?? 0, late: byId.get(id)?.late ?? 0 });
+    payableFor = (id) => ({ payableDays: byId.get(id)?.payableDays ?? 0, late: byId.get(id)?.late ?? 0, workedMinutes: byId.get(id)?.totalWorkedMinutes ?? 0 });
   } else if (month === "2026-07") {
     const dash = await getMonthDashboardMerged(y, m, today);
     const byId = new Map(dash.map((r) => [r.employeeId, r.summary]));
-    payableFor = (id) => ({ payableDays: byId.get(id)?.payableDays ?? 0, late: byId.get(id)?.late ?? 0 });
+    payableFor = (id) => ({ payableDays: byId.get(id)?.payableDays ?? 0, late: byId.get(id)?.late ?? 0, workedMinutes: byId.get(id)?.totalWorkedMinutes ?? 0 });
   } else {
     const sheet = await getAttendanceSheetPayableMap(month);
-    payableFor = (id) => ({ payableDays: sheet.get(id)?.totalDaysWorked ?? 0, late: 0 });
+    payableFor = (id) => ({ payableDays: sheet.get(id)?.totalDaysWorked ?? 0, late: 0, workedMinutes: 0 });
   }
 
   const rows: MonthInputRow[] = [];
   for (const p of profiles) {
-    const { payableDays, late } = payableFor(p.employeeId);
-    const ptExempt = isPtExempt({
+    const { payableDays, late, workedMinutes } = payableFor(p.employeeId);
+    const payBasis = payBasisFor(p.workerType);
+    // part-timers are hourly and earn below the PT threshold → PT-exempt.
+    const ptExempt = payBasis === "hourly" ? true : isPtExempt({
       employeeId: p.employeeId,
       designationName: p.designationName,
     });
@@ -90,6 +132,11 @@ export async function assembleMonthInputs(month: string): Promise<MonthInputRow[
       sumAdvances(p.employeeId, month),
       lastDisbursedRemainder(p.employeeId, month),
     ]);
+    // "hasProfile" = there's enough pay config to compute for THIS basis.
+    const hasProfile =
+      payBasis === "hourly" ? p.monthlyPayAtTarget > 0
+      : payBasis === "fixed_fee" ? p.monthlyFee > 0
+      : p.annualCtc > 0;
     rows.push({
       employeeId: p.employeeId,
       name: p.name,
@@ -97,7 +144,7 @@ export async function assembleMonthInputs(month: string): Promise<MonthInputRow[
       month,
       daysInMonth: dim,
       annualCtc: p.annualCtc,
-      hasProfile: p.annualCtc > 0,
+      hasProfile,
       input: {
         annualCtc: p.annualCtc,
         payableDays,
@@ -108,6 +155,11 @@ export async function assembleMonthInputs(month: string): Promise<MonthInputRow[
         advances,
         pendingBalanceIn,
       },
+      workerType: p.workerType,
+      payBasis,
+      workedMinutes,
+      hourlyProfile: { monthlyPayAtTarget: p.monthlyPayAtTarget, weeklyTargetHours: p.weeklyTargetHours },
+      feeProfile: { monthlyFee: p.monthlyFee },
     });
   }
   return rows;

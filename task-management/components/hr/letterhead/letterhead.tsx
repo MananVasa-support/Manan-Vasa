@@ -161,7 +161,7 @@ const LETTERHEAD_CSS = `
 /* Generated-letter prose is JUSTIFIED by default (headings/tables/signature
  * carry their own alignment). Structured paragraphs set an inline text-align
  * that wins where an explicit override (centre/right) is needed. */
-.alh-body p{margin:0 0 14px;text-align:justify;}
+.alh-body p{margin:0 0 14px;text-align:left;}
 /* Print / PDF — pin header + footer to every printed page; the thead/tfoot
  * spacers keep the body from ever overlapping them. */
 @media print{

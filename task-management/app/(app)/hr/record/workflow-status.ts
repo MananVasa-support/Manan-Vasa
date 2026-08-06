@@ -1,9 +1,10 @@
 "use server";
 
-import { eq, isNotNull, sql } from "drizzle-orm";
+import { eq, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { candidateIntake, employees, employeeEvents, onboardingSubmissions } from "@/db/schema";
+import { employees, employeeEvents, onboardingSubmissions } from "@/db/schema";
 import { requireHrStaff } from "@/lib/hr/access";
+import { resolvePersonEmployee } from "./resolve-person";
 import { deriveOfficialEmail } from "@/lib/hr/official-email";
 import { HR_CONTACT } from "@/lib/hr/firm";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
@@ -51,29 +52,10 @@ export interface WorkflowStatus {
 
 type StatusResult = { ok: true; status: WorkflowStatus } | { ok: false; error: string };
 
+// The HR-Record person id is an employee id (candidate id still works as a
+// fallback) — resolved centrally in ./resolve-person.
 async function resolveEmployeeByCandidate(candidateId: string) {
-  const [cand] = await db
-    .select({ email: candidateIntake.email })
-    .from(candidateIntake)
-    .where(eq(candidateIntake.id, candidateId))
-    .limit(1);
-  const email = (cand?.email ?? "").trim().toLowerCase();
-  if (!email) return null;
-  const [emp] = await db
-    .select({
-      id: employees.id,
-      name: employees.name,
-      email: employees.email,
-      officialEmail: employees.officialEmail,
-      personalEmail: employees.personalEmail,
-      emailProvisionedAt: employees.emailProvisionedAt,
-      assetsAllocatedAt: employees.assetsAllocatedAt,
-      firebaseUid: employees.firebaseUid,
-    })
-    .from(employees)
-    .where(eq(sql`lower(${employees.email})`, email))
-    .limit(1);
-  return emp ?? null;
+  return resolvePersonEmployee(candidateId);
 }
 
 async function loadOnboarding(employeeId: string) {
@@ -133,7 +115,11 @@ export async function getWorkflowStatus(candidateId: string): Promise<StatusResu
         onboardingExists: !!sub,
         onboardingSubmitted: submitted,
         onboardingSubmittedAt: sub?.submittedAt ? sub.submittedAt.toISOString() : null,
-        officialEmail: emp.officialEmail,
+        // Every current employee already has their company address as their
+        // LOGIN email ({namesurname}.altuscorp@gmail.com), so that IS their
+        // official email — no re-provisioning. The dedicated official_email
+        // column only matters for a brand-new hire provisioned from scratch.
+        officialEmail: emp.officialEmail ?? emp.email,
         emailProvisionedAt: emp.emailProvisionedAt ? emp.emailProvisionedAt.toISOString() : null,
         suggestedOfficialEmail: emp.officialEmail
           ? emp.officialEmail
