@@ -22,7 +22,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Extension, type CommandProps } from "@tiptap/core";
+import { Extension, Mark, mergeAttributes, type CommandProps } from "@tiptap/core";
 import { useEditor, useEditorState, EditorContent, type Editor } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Underline } from "@tiptap/extension-underline";
@@ -32,6 +32,12 @@ import { FontFamily } from "@tiptap/extension-font-family";
 import { TextAlign } from "@tiptap/extension-text-align";
 import { Link } from "@tiptap/extension-link";
 import { Image } from "@tiptap/extension-image";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { Subscript } from "@tiptap/extension-subscript";
+import { Superscript } from "@tiptap/extension-superscript";
 import {
   Undo2,
   Redo2,
@@ -55,6 +61,18 @@ import {
   Minus,
   Plus,
   Loader2,
+  Subscript as SubscriptIcon,
+  Superscript as SuperscriptIcon,
+  Quote,
+  SeparatorHorizontal,
+  Table as TableIcon,
+  Trash2,
+  ArrowUpToLine,
+  ArrowDownToLine,
+  ArrowLeftToLine,
+  ArrowRightToLine,
+  PanelTopClose,
+  Rows3 as LineHeightIcon,
 } from "lucide-react";
 
 import { Letterhead } from "@/components/hr/letterhead/letterhead";
@@ -201,6 +219,98 @@ const Indent = Extension.create({
   },
 });
 
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    altusLineHeight: {
+      /** Set a `line-height` on the selected paragraphs / headings. */
+      setLineHeight: (value: string) => ReturnType;
+      /** Clear the `line-height` (back to the frame default). */
+      unsetLineHeight: () => ReturnType;
+    };
+  }
+}
+
+/**
+ * Line spacing via a numeric `line-height` node attribute on paragraphs +
+ * headings — mirrors the `Indent` extension pattern (a global attribute whose
+ * renderHTML emits an inline `style`, which `mergeAttributes` concatenates with
+ * indent's margin-left + text-align cleanly). The toolbar offers 1.0 / 1.15 /
+ * 1.5 / 2.0.
+ */
+const LineHeight = Extension.create({
+  name: "altusLineHeight",
+  addOptions() {
+    return { types: ["paragraph", "heading"] as string[] };
+  },
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          lineHeight: {
+            default: null as string | null,
+            parseHTML: (el: HTMLElement) => el.style.lineHeight || null,
+            renderHTML: (attrs: Record<string, unknown>) =>
+              attrs.lineHeight ? { style: `line-height: ${attrs.lineHeight}` } : {},
+          },
+        },
+      },
+    ];
+  },
+  addCommands() {
+    const types = this.options.types;
+    const apply =
+      (value: string | null) =>
+      ({ state, tr, dispatch }: CommandProps) => {
+        const { from, to } = state.selection;
+        let changed = false;
+        state.doc.nodesBetween(from, to, (node, pos) => {
+          if (!types.includes(node.type.name)) return;
+          if ((node.attrs.lineHeight ?? null) !== value) {
+            tr.setNodeMarkup(pos, undefined, { ...node.attrs, lineHeight: value });
+            changed = true;
+          }
+        });
+        if (changed && dispatch) dispatch(tr);
+        return changed;
+      };
+    return {
+      setLineHeight: (value: string) => apply(value),
+      unsetLineHeight: () => apply(null),
+    };
+  },
+});
+
+/**
+ * A mark that PRESERVES the empty-field placeholder spans carried over from the
+ * structured → rich seed (`<span class="letter-field-empty" data-field-id="…">`).
+ * Without it, TipTap's DOM parser would drop the unknown class-only span on
+ * `setContent`, so the highlighted "[Field]" marker (styled by `.rle-prose
+ * .letter-field-empty` here, and by the matching CSS on every preview + PDF
+ * surface) would silently flatten into plain body text. Non-inclusive so typing
+ * immediately after a marker does NOT extend the placeholder styling.
+ */
+const FieldPlaceholder = Mark.create({
+  name: "fieldPlaceholder",
+  inclusive: false,
+  addAttributes() {
+    return {
+      fieldId: {
+        default: null as string | null,
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-field-id"),
+        renderHTML: (attrs: Record<string, unknown>) =>
+          attrs.fieldId ? { "data-field-id": String(attrs.fieldId) } : {},
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "span.letter-field-empty" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["span", mergeAttributes(HTMLAttributes, { class: "letter-field-empty" }), 0];
+  },
+});
+
 /** Image node that also persists a `data-path` attribute (the stored value). */
 const ImageWithPath = Image.extend({
   addAttributes() {
@@ -239,6 +349,22 @@ const TEXT_COLORS = [
 
 const HIGHLIGHTS = [
   "#fef08a", "#bbf7d0", "#bfdbfe", "#fbcfe8", "#fed7aa", "#e9d5ff",
+];
+
+/** Block-type (paragraph vs heading) options for the Style dropdown. */
+const BLOCK_TYPES: { label: string; value: string }[] = [
+  { label: "Normal text", value: "p" },
+  { label: "Heading 1", value: "h1" },
+  { label: "Heading 2", value: "h2" },
+  { label: "Heading 3", value: "h3" },
+];
+
+/** Line-spacing options for the line-height dropdown. */
+const LINE_HEIGHTS: { label: string; value: string }[] = [
+  { label: "Single", value: "" }, // "" → unset → the frame default
+  { label: "1.15", value: "1.15" },
+  { label: "1.5", value: "1.5" },
+  { label: "Double", value: "2" },
 ];
 
 interface ToolButtonProps {
@@ -295,6 +421,7 @@ export function RichLetterEditor({
   const [uploading, setUploading] = useState(false);
   const [colorOpen, setColorOpen] = useState(false);
   const [hlOpen, setHlOpen] = useState(false);
+  const [tableOpen, setTableOpen] = useState(false);
   const seededRef = useRef<string>("");
 
   const editor = useEditor({
@@ -311,9 +438,17 @@ export function RichLetterEditor({
       FontFamily,
       TextStyleExtras,
       Indent,
+      LineHeight,
+      FieldPlaceholder,
+      Subscript,
+      Superscript,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { rel: "noopener noreferrer" } }),
       ImageWithPath.configure({ inline: false, allowBase64: false }),
+      Table.configure({ resizable: true, HTMLAttributes: { class: "rle-table" } }),
+      TableRow,
+      TableHeader,
+      TableCell,
     ],
     content: initialHtml,
     editorProps: {
@@ -348,13 +483,30 @@ export function RichLetterEditor({
     selector: ({ editor: ed }) => {
       if (!ed) return null;
       const ts = ed.getAttributes("textStyle");
+      const blockType = ed.isActive("heading", { level: 1 })
+        ? "h1"
+        : ed.isActive("heading", { level: 2 })
+          ? "h2"
+          : ed.isActive("heading", { level: 3 })
+            ? "h3"
+            : "p";
+      const lineHeight =
+        (ed.getAttributes("paragraph").lineHeight as string) ||
+        (ed.getAttributes("heading").lineHeight as string) ||
+        "";
       return {
         bold: ed.isActive("bold"),
         italic: ed.isActive("italic"),
         underline: ed.isActive("underline"),
+        subscript: ed.isActive("subscript"),
+        superscript: ed.isActive("superscript"),
+        blockquote: ed.isActive("blockquote"),
         bulletList: ed.isActive("bulletList"),
         orderedList: ed.isActive("orderedList"),
         link: ed.isActive("link"),
+        inTable: ed.isActive("table"),
+        blockType,
+        lineHeight,
         alignLeft: ed.isActive({ textAlign: "left" }),
         alignCenter: ed.isActive({ textAlign: "center" }),
         alignRight: ed.isActive({ textAlign: "right" }),
@@ -439,6 +591,25 @@ export function RichLetterEditor({
     [editor],
   );
 
+  const setBlockType = useCallback(
+    (value: string) => {
+      if (!editor) return;
+      const chain = editor.chain().focus();
+      if (value === "p") chain.setParagraph().run();
+      else chain.setHeading({ level: Number(value.slice(1)) as 1 | 2 | 3 }).run();
+    },
+    [editor],
+  );
+
+  const setLineHeight = useCallback(
+    (value: string) => {
+      if (!editor) return;
+      if (value === "") editor.chain().focus().unsetLineHeight().run();
+      else editor.chain().focus().setLineHeight(value).run();
+    },
+    [editor],
+  );
+
   const clearFormatting = useCallback(() => {
     if (!editor) return;
     editor
@@ -478,6 +649,20 @@ export function RichLetterEditor({
         </ToolButton>
 
         <Sep />
+
+        {/* Paragraph style (Normal / Heading 1–3) */}
+        <select
+          className="rle-select rle-select--style"
+          aria-label="Paragraph style"
+          value={state?.blockType ?? "p"}
+          onChange={(e) => setBlockType(e.target.value)}
+        >
+          {BLOCK_TYPES.map((b) => (
+            <option key={b.value} value={b.value}>
+              {b.label}
+            </option>
+          ))}
+        </select>
 
         {/* Font family */}
         <select
@@ -542,6 +727,20 @@ export function RichLetterEditor({
           onClick={() => editor?.chain().focus().toggleUnderline().run()}
         >
           <UnderlineIcon size={17} />
+        </ToolButton>
+        <ToolButton
+          label="Subscript (Ctrl+,)"
+          active={state?.subscript}
+          onClick={() => editor?.chain().focus().toggleSubscript().run()}
+        >
+          <SubscriptIcon size={17} />
+        </ToolButton>
+        <ToolButton
+          label="Superscript (Ctrl+.)"
+          active={state?.superscript}
+          onClick={() => editor?.chain().focus().toggleSuperscript().run()}
+        >
+          <SuperscriptIcon size={17} />
         </ToolButton>
 
         {/* Text colour */}
@@ -674,6 +873,23 @@ export function RichLetterEditor({
           <AlignJustify size={17} />
         </ToolButton>
 
+        {/* Line spacing */}
+        <div className="rle-lh" role="group" aria-label="Line spacing">
+          <LineHeightIcon size={16} aria-hidden />
+          <select
+            className="rle-select rle-select--lh"
+            aria-label="Line spacing"
+            value={state?.lineHeight ?? ""}
+            onChange={(e) => setLineHeight(e.target.value)}
+          >
+            {LINE_HEIGHTS.map((l) => (
+              <option key={l.label} value={l.value}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <Sep />
 
         <ToolButton
@@ -710,6 +926,87 @@ export function RichLetterEditor({
         >
           <IndentIncrease size={17} />
         </ToolButton>
+
+        <Sep />
+
+        <ToolButton
+          label="Block quote"
+          active={state?.blockquote}
+          onClick={() => editor?.chain().focus().toggleBlockquote().run()}
+        >
+          <Quote size={17} />
+        </ToolButton>
+        <ToolButton
+          label="Horizontal line"
+          onClick={() => editor?.chain().focus().setHorizontalRule().run()}
+        >
+          <SeparatorHorizontal size={17} />
+        </ToolButton>
+
+        {/* Table insert + editing menu */}
+        <div className="rle-pop-wrap">
+          <ToolButton
+            label={state?.inTable ? "Table tools" : "Insert table"}
+            active={tableOpen || state?.inTable}
+            onClick={() => {
+              setTableOpen((v) => !v);
+              setColorOpen(false);
+              setHlOpen(false);
+            }}
+          >
+            <TableIcon size={17} />
+          </ToolButton>
+          {tableOpen && (
+            <div className="rle-pop rle-pop--menu" role="menu" aria-label="Table">
+              {!state?.inTable ? (
+                <button
+                  type="button"
+                  className="rle-menu-item"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    editor
+                      ?.chain()
+                      .focus()
+                      .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+                      .run();
+                    setTableOpen(false);
+                  }}
+                >
+                  <TableIcon size={15} /> Insert 3 × 3 table
+                </button>
+              ) : (
+                <>
+                  <button type="button" className="rle-menu-item" onMouseDown={(e) => e.preventDefault()} onClick={() => editor?.chain().focus().addRowBefore().run()}>
+                    <ArrowUpToLine size={15} /> Insert row above
+                  </button>
+                  <button type="button" className="rle-menu-item" onMouseDown={(e) => e.preventDefault()} onClick={() => editor?.chain().focus().addRowAfter().run()}>
+                    <ArrowDownToLine size={15} /> Insert row below
+                  </button>
+                  <button type="button" className="rle-menu-item" onMouseDown={(e) => e.preventDefault()} onClick={() => editor?.chain().focus().addColumnBefore().run()}>
+                    <ArrowLeftToLine size={15} /> Insert column left
+                  </button>
+                  <button type="button" className="rle-menu-item" onMouseDown={(e) => e.preventDefault()} onClick={() => editor?.chain().focus().addColumnAfter().run()}>
+                    <ArrowRightToLine size={15} /> Insert column right
+                  </button>
+                  <div className="rle-menu-div" aria-hidden />
+                  <button type="button" className="rle-menu-item" onMouseDown={(e) => e.preventDefault()} onClick={() => editor?.chain().focus().toggleHeaderRow().run()}>
+                    <PanelTopClose size={15} /> Toggle header row
+                  </button>
+                  <button type="button" className="rle-menu-item" onMouseDown={(e) => e.preventDefault()} onClick={() => editor?.chain().focus().deleteRow().run()}>
+                    <Trash2 size={15} /> Delete row
+                  </button>
+                  <button type="button" className="rle-menu-item" onMouseDown={(e) => e.preventDefault()} onClick={() => editor?.chain().focus().deleteColumn().run()}>
+                    <Trash2 size={15} /> Delete column
+                  </button>
+                  <div className="rle-menu-div" aria-hidden />
+                  <button type="button" className="rle-menu-item rle-menu-item--danger" onMouseDown={(e) => e.preventDefault()} onClick={() => { editor?.chain().focus().deleteTable().run(); setTableOpen(false); }}>
+                    <Trash2 size={15} /> Delete table
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
         <Sep />
 
@@ -800,6 +1097,18 @@ const RLE_CSS = `
 .rle-pop-clear{margin-top:8px;width:100%;padding:6px 8px;font-size:12px;
   border:1px solid var(--rle-line);border-radius:8px;background:#fafafa;color:#374151;cursor:pointer;}
 .rle-pop-clear:hover{background:#f0f0f1;}
+.rle-select--style{min-width:112px;max-width:132px;font-weight:600;}
+.rle-select--lh{min-width:78px;max-width:96px;padding:0 6px;}
+.rle-lh{display:inline-flex;align-items:center;gap:4px;color:#374151;}
+/* Popover menu (table tools) */
+.rle-pop--menu{padding:6px;min-width:186px;}
+.rle-menu-item{display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;
+  font-size:13px;color:var(--rle-ink);background:transparent;border:0;border-radius:8px;cursor:pointer;text-align:left;}
+.rle-menu-item:hover{background:rgba(15,23,42,.06);}
+.rle-menu-item:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px color-mix(in srgb,var(--rle-red) 55%,transparent);}
+.rle-menu-item--danger{color:var(--rle-red);}
+.rle-menu-item--danger:hover{background:color-mix(in srgb,var(--rle-red) 10%,transparent);}
+.rle-menu-div{height:1px;margin:5px 4px;background:var(--rle-line);}
 .rle-hidden-file{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);border:0;}
 .rle-spin{animation:rle-spin 1s linear infinite;}
 @keyframes rle-spin{to{transform:rotate(360deg);}}
@@ -821,12 +1130,40 @@ const RLE_CSS = `
 .rle-prose a{color:var(--rle-red);text-decoration:underline;}
 .rle-prose img{max-width:100%;height:auto;border-radius:4px;}
 .rle-prose img.ProseMirror-selectednode{outline:2px solid var(--rle-red);outline-offset:2px;}
-/* Empty fillable markers carried over from the structured seed */
+.rle-prose sub,.rle-prose sup{font-size:.72em;line-height:0;}
+.rle-prose hr{border:0;border-top:1px solid var(--rle-line);margin:16px 0;}
+/* Tables — match the bordered/padded letter-body term-table look */
+.rle-prose .rle-table,.rle-prose table{
+  border-collapse:collapse;width:100%;margin:12px 0;
+  font-variant-numeric:tabular-nums;table-layout:fixed;overflow:hidden;
+}
+.rle-prose .rle-table td,.rle-prose .rle-table th,
+.rle-prose table td,.rle-prose table th{
+  border:1px solid #cbd5e1;padding:7px 11px;vertical-align:top;position:relative;
+  box-sizing:border-box;min-width:1em;
+}
+.rle-prose .rle-table th,.rle-prose table th{
+  background:#f2f3f6;font-weight:700;text-align:left;color:#334155;
+}
+.rle-prose .rle-table p,.rle-prose table p{margin:0;}
+.rle-prose .selectedCell:after{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:2;
+  background:color-mix(in srgb,var(--rle-red) 12%,transparent);
+}
+.rle-prose .column-resize-handle{
+  position:absolute;right:-2px;top:0;bottom:-2px;width:4px;z-index:20;
+  background:color-mix(in srgb,var(--rle-red) 60%,transparent);pointer-events:none;
+}
+.rle-prose.ProseMirror .tableWrapper{overflow-x:auto;margin:12px 0;}
+.rle-prose .resize-cursor{cursor:col-resize;}
+/* Empty fillable markers carried over from the structured seed. The
+   FieldPlaceholder mark preserves the class through TipTap so this styling —
+   a subtly highlighted, red-underlined "[Field]" chip — survives free-edit. */
 .rle-prose .letter-field-empty{
   background:color-mix(in srgb,var(--rle-red) 8%,transparent);
   border-bottom:1px dashed color-mix(in srgb,var(--rle-red) 55%,transparent);
   color:color-mix(in srgb,var(--rle-red) 88%,#333);
-  border-radius:2px;padding:0 2px;cursor:text;
+  border-radius:2px;padding:0 2px;cursor:text;white-space:nowrap;
 }
 /* Placeholder-ish look when empty */
 .rle-prose p.is-editor-empty:first-child::before{

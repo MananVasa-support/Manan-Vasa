@@ -1713,7 +1713,15 @@ const EDITOR_CSS = `
 
 /* "Edit freely" HTML rendered read-only inside the preview modal. */
 .alw-rich-preview{font-size:15px;line-height:1.72;color:var(--color-ink-strong,#0f172a);}
-.alw-rich-preview .letter-field-empty{color:#9aa4b2;font-style:italic;}
+.alw-rich-preview table{border-collapse:collapse;width:100%;margin:12px 0;font-variant-numeric:tabular-nums;}
+.alw-rich-preview th,.alw-rich-preview td{border:1px solid #cbd5e1;padding:7px 11px;text-align:left;vertical-align:top;}
+.alw-rich-preview th{background:#f2f3f6;font-weight:700;color:#334155;}
+.alw-rich-preview hr{border:none;border-top:1px solid var(--color-hairline,#e2e8f0);margin:16px 0;}
+.alw-rich-preview sub,.alw-rich-preview sup{font-size:.72em;line-height:0;}
+.alw-rich-preview blockquote{margin:0 0 14px;padding-left:14px;border-left:3px solid color-mix(in srgb, var(--color-altus-red,#E10600) 55%, transparent);color:#374151;}
+.alw-rich-preview .letter-field-empty{
+  color:#A80400;background:#FCE9E8;border-radius:3px;padding:0 3px;white-space:nowrap;
+}
 
 /* Print — only the paper */
 @media print{

@@ -89,7 +89,13 @@ function spansToHtml(spans: Span[], values: Record<string, string>): string {
     if (value) {
       out += span.bold ? `<strong>${esc(value)}</strong>` : esc(value);
     } else {
-      const label = span.placeholder?.trim() || span.label;
+      // EMPTY field → a visible, self-labelling "[Field]" placeholder chip so the
+      // gap never silently vanishes when the user ejects to free editing. The
+      // brackets survive as plain text on every surface; the `letter-field-empty`
+      // class (preserved through TipTap by the FieldPlaceholder mark, and styled
+      // on the read-only preview + PDF surfaces) paints the red-underlined chip.
+      const raw = span.placeholder?.trim() || span.label;
+      const label = /^\[.*\]$/.test(raw) ? raw : `[${raw}]`;
       const marker = `<span class="letter-field-empty" data-field-id="${esc(span.id)}">${esc(label)}</span>`;
       out += span.bold ? `<strong>${marker}</strong>` : marker;
     }

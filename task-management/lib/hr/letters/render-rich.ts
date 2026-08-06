@@ -255,8 +255,10 @@ html,body{margin:0;padding:0;background:#ffffff;}
 .alh-body .alw-termtable td.alw-tt-val{vertical-align:top;padding:7px 12px;border:1px solid #d4d4d8;}
 .alh-body a{color:#A80400;text-decoration:underline;}
 .alh-body img{max-width:100%;height:auto;}
-.alh-body table{border-collapse:collapse;width:100%;margin:0 0 14px;}
-.alh-body th,.alh-body td{border:1px solid #E2E8F0;padding:6px 10px;text-align:left;vertical-align:top;}
+.alh-body table{border-collapse:collapse;width:100%;margin:0 0 14px;font-variant-numeric:tabular-nums;}
+.alh-body th,.alh-body td{border:1px solid #cbd5e1;padding:6px 10px;text-align:left;vertical-align:top;}
+.alh-body th{background:#f2f3f6;font-weight:700;color:#334155;}
+.alh-body sub,.alh-body sup{font-size:.72em;line-height:0;}
 .alh-body hr{border:none;border-top:1px solid #E2E8F0;margin:18px 0;}
 /* Empty-field markers survive an eject; render them subtly instead of raw. */
 .alh-body .letter-field-empty{color:#A80400;background:#FCE9E8;border-radius:3px;padding:0 3px;}
