@@ -119,7 +119,7 @@ function MemberPicker({
   const picked = new Set(value.map((v) => v.id));
   const filtered = roster
     .filter((r) => !picked.has(r.id) && r.name.toLowerCase().includes(q.trim().toLowerCase()))
-    .slice(0, 8);
+    .slice(0, 100); // show the FULL roster (the list is scrollable) — not just the first few
 
   function openPop() {
     const r = btnRef.current?.getBoundingClientRect();

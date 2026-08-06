@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { formatDate } from "@/lib/format";
 
 const RED = "#E10600";
 const RED_DEEP = "#A80400";
@@ -42,11 +43,6 @@ export interface ReviewSession {
   shots: ReviewShot[];
 }
 
-const DATE_FMT = new Intl.DateTimeFormat("en-IN", {
-  weekday: "short",
-  day: "2-digit",
-  month: "short",
-});
 const TIME_FMT = new Intl.DateTimeFormat("en-IN", {
   hour: "2-digit",
   minute: "2-digit",
@@ -54,7 +50,7 @@ const TIME_FMT = new Intl.DateTimeFormat("en-IN", {
 });
 
 function fmtDate(iso: string): string {
-  return DATE_FMT.format(new Date(iso));
+  return formatDate(new Date(iso));
 }
 function fmtTime(iso: string): string {
   return TIME_FMT.format(new Date(iso));

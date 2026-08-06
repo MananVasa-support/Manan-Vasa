@@ -9,6 +9,7 @@ import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { DayReviewControl } from "@/components/weekly-goals/day-review-control";
 import { canReviewChecklist, memberChecklistDays } from "@/lib/queries/checklist-review";
 import { TZ } from "@/lib/weekly-goals/week";
+import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +17,11 @@ const RED = "var(--color-altus-red)";
 
 function prettyDate(ymd: string): string {
   const [y, m, d] = ymd.split("-").map(Number);
-  return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1)).toLocaleDateString("en-GB", {
+  const weekday = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1)).toLocaleDateString("en-GB", {
     weekday: "short",
-    day: "numeric",
-    month: "short",
     timeZone: "UTC",
   });
+  return `${weekday}, ${formatDate(ymd)}`;
 }
 
 const REVIEW_BADGE: Record<string, { label: string; color: string; bg: string }> = {

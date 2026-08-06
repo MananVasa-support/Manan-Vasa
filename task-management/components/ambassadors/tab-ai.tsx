@@ -6,12 +6,13 @@ import { Sparkles, Wand2, Loader2, RefreshCw } from "lucide-react";
 import type { AmbassadorDetail } from "@/lib/queries/ambassadors";
 import { summarizeAmbassador } from "@/app/(app)/ambassadors/doc-ai-actions";
 import { fireToast } from "@/lib/toast";
+import { formatDate } from "@/lib/format";
 
 function fmtWhen(iso: string | Date | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return "";
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  return formatDate(d);
 }
 
 export function TabAi({ detail }: { detail: AmbassadorDetail }) {

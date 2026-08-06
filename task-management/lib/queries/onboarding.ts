@@ -2,11 +2,67 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { onboardingSubmissions, employees, designations } from "@/db/schema";
+import { getCurrentEmployee } from "@/lib/auth/current";
 import { getSupabaseAdmin, DOCUMENTS_BUCKET } from "@/lib/supabase/admin";
 import { withRetry } from "@/lib/db/with-timeout";
 import type { OnboardingFileRef } from "@/lib/dossier/onboarding-schema";
 
 const RETRY = { attempts: 3, timeoutMs: [6000, 10000, 14000] as number[] };
+
+/**
+ * Has THIS employee's onboarding been submitted? One indexed lookup by the
+ * unique `employee_id` — cheap enough to sit on the app-shell path. Fail-open:
+ * any DB hiccup returns `submitted: false` (never traps the banner logic, and a
+ * spurious banner is a soft nudge, not a gate).
+ */
+export async function isOnboardingSubmitted(employeeId: string): Promise<boolean> {
+  try {
+    const row = await db
+      .select({ status: onboardingSubmissions.status })
+      .from(onboardingSubmissions)
+      .where(eq(onboardingSubmissions.employeeId, employeeId))
+      .limit(1);
+    return row[0]?.status === "submitted";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The current signed-in user's onboarding status, for the soft in-app nudge.
+ * Resolves the user internally (React-cached) so callers pass nothing. Returns
+ * `submitted: true` for signed-out / error states so the banner stays hidden.
+ */
+export async function getMyOnboardingStatus(): Promise<{ submitted: boolean }> {
+  const me = await getCurrentEmployee();
+  if (!me) return { submitted: true };
+  return { submitted: await isOnboardingSubmitted(me.id) };
+}
+
+/**
+ * Active employees who still need to complete their onboarding (status is not
+ * 'submitted' — i.e. no row, or a 'draft' row) AND have an email on file. The
+ * recipient set for `sendOnboardingInvites`.
+ */
+export async function listOnboardingInviteTargets(): Promise<
+  Array<{ id: string; name: string; email: string }>
+> {
+  const rows = await db
+    .select({
+      id: employees.id,
+      name: employees.name,
+      email: employees.email,
+      status: onboardingSubmissions.status,
+    })
+    .from(employees)
+    .leftJoin(onboardingSubmissions, eq(onboardingSubmissions.employeeId, employees.id))
+    .where(eq(employees.isActive, true));
+
+  return rows
+    .filter((r) => r.status !== "submitted")
+    .filter((r) => !!r.email && r.email.includes("@"))
+    .map((r) => ({ id: r.id, name: r.name, email: r.email }));
+}
 
 export interface OnboardingFileView {
   fileName: string;

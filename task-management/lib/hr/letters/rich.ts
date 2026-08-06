@@ -26,6 +26,7 @@
  * paying-entity display name from the pure `@/lib/hr/entities` registry only.
  */
 
+import { formatDate } from "@/lib/format";
 import { getEntity, type Entity, type EntityId } from "@/lib/hr/entities";
 import { applyPronouns, type Gender } from "@/lib/hr/pronouns";
 import { applyFirm, HR_CONTACT, HR_SIGNATORY } from "@/lib/hr/firm";
@@ -196,13 +197,9 @@ function blockToHtml(
   }
 }
 
-/** Today's date formatted like the PDF renderer's letter date (e.g. "25 July 2026"). */
+/** Today's date in the canonical Altus letter format (e.g. "25 JUL 2026"). */
 function currentDate(): string {
-  return new Date().toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  return formatDate(new Date());
 }
 
 /* ------------------------------------------------------------------ */

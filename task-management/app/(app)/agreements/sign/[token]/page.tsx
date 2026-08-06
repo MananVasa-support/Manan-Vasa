@@ -9,11 +9,12 @@ import { SignPanel } from "@/components/agreements/sign-panel";
 import { getSignatureState } from "@/app/(app)/documents/sign/actions";
 import { SignDocument } from "@/components/documents/sign/sign-document";
 import type { SignatureState } from "@/lib/documents/signing";
+import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 function fmtDate(d: Date): string {
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+  return formatDate(d);
 }
 
 /**

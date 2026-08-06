@@ -5,6 +5,7 @@ import { Info, Clock, Globe, Lock, ShieldCheck, MapPin, LocateFixed } from "luci
 import { fireToast } from "@/lib/toast";
 import { updateOrgSettings } from "@/app/(admin)/admin/settings/actions";
 import type { OrgSettings } from "@/db/schema";
+import { formatDate, localDateString } from "@/lib/format";
 
 const DAYS = [
   { value: 1, label: "Mon" },
@@ -162,15 +163,12 @@ export function SettingsForm({ current }: Props) {
   // a hydration mismatch that re-rendered (and could wipe) the whole form.
   const updatedAtLabel =
     current.updatedAt instanceof Date && current.updatedAt.getTime() > 0
-      ? new Intl.DateTimeFormat("en-IN", {
+      ? `${formatDate(localDateString("Asia/Kolkata", current.updatedAt))}, ${new Intl.DateTimeFormat("en-IN", {
           timeZone: "Asia/Kolkata",
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
           hour: "2-digit",
           minute: "2-digit",
           hour12: true,
-        }).format(current.updatedAt)
+        }).format(current.updatedAt)}`
       : "never";
 
   return (

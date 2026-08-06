@@ -1,7 +1,7 @@
 import "server-only";
 import { eq, sql, desc } from "drizzle-orm";
-import { format } from "date-fns";
 import { db } from "@/lib/db";
+import { formatDate } from "@/lib/format";
 import { employees, designations, payingEntities, candidateIntake } from "@/db/schema";
 import { getEntity, type EntityId } from "@/lib/hr/entities";
 
@@ -91,7 +91,7 @@ export async function loadLetterCandidates(): Promise<LetterCandidateOption[]> {
     .filter((c) => c.name.length > 0);
 }
 
-/** Format a date the way letters read: "25 July 2026". */
+/** Canonical Altus date for letters — "25 JUL 2026" (dd MMM yyyy, uppercase). */
 export function letterDate(d: Date = new Date()): string {
-  return format(d, "d MMMM yyyy");
+  return formatDate(d);
 }

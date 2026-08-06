@@ -9,6 +9,7 @@ import { useOptimisticGoals } from "@/components/goals/canvas/optimistic";
 import { GoalTableView } from "@/components/goals/board/goal-table-view";
 import { BoardQuickAdd } from "@/components/goals/board/board-quick-add";
 import { formatWeekShort, nextWeekStart, prevWeekStart } from "@/lib/weekly-goals/week";
+import { formatDate } from "@/lib/format";
 import type { PersonalWDData } from "@/app/(app)/goals/personal-wd-data";
 
 const FOCUS_RING =
@@ -21,7 +22,8 @@ function shiftDay(day: string, delta: number): string {
 }
 function dayLabel(day: string): string {
   const d = new Date(`${day}T00:00:00Z`);
-  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+  const weekday = d.toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" });
+  return `${weekday}, ${formatDate(day)}`;
 }
 
 /**

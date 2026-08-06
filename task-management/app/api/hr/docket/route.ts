@@ -1,5 +1,6 @@
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { formatDate } from "@/lib/format";
 import { candidateIntake, documentInstances, documentSignatures, employees } from "@/db/schema";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { getSupabaseAdmin, DOCUMENTS_BUCKET } from "@/lib/supabase/admin";
@@ -187,7 +188,7 @@ export async function POST(req: Request): Promise<Response> {
     color: ink,
   });
   cover.drawText(
-    `${included.length} document${included.length === 1 ? "" : "s"} · generated ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`,
+    `${included.length} document${included.length === 1 ? "" : "s"} · generated ${formatDate(new Date())}`,
     { x: marginX, y: height - 146, size: 11, font, color: muted },
   );
   cover.drawLine({

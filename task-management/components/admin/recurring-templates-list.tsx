@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { Repeat, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
+import { formatDate } from "@/lib/format";
 import type { RecurringTemplateRow } from "@/lib/queries/recurring-templates";
 
 interface Props {
@@ -73,7 +74,7 @@ export function RecurringTemplatesList({ rows }: Props) {
                     {r.childCount}
                   </td>
                   <td className="px-4 py-3 text-ink-subtle tabular-nums">
-                    {r.nextChildDueAt ? format(r.nextChildDueAt, "d MMM, EEE") : "—"}
+                    {r.nextChildDueAt ? `${formatDate(r.nextChildDueAt)}, ${format(r.nextChildDueAt, "EEE")}` : "—"}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link

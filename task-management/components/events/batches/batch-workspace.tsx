@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { parseISO, format } from "date-fns";
+import { formatDate } from "@/lib/format";
 import {
   CalendarClock,
   Plus,
@@ -33,11 +33,7 @@ const ACCENT_DEEP = "#A80400";
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
 function fmtDate(iso: string): string {
-  try {
-    return format(parseISO(iso), "d MMM yyyy");
-  } catch {
-    return iso;
-  }
+  return formatDate(iso);
 }
 
 export function BatchWorkspace({

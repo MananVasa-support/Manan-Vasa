@@ -40,6 +40,7 @@ import type {
 } from "@/app/(app)/portal/portal-types";
 import { ONBOARDING_SECTIONS, parseRepeaterRows } from "@/lib/dossier/onboarding-schema";
 import { SalaryCertificate } from "@/components/portal/salary-certificate";
+import { formatDate } from "@/lib/format";
 
 const RED = "#E10600";
 const RED_DEEP = "#A80400";
@@ -393,7 +394,7 @@ export function PortalScreen({ firstName, fullName }: { firstName: string; fullN
                           <p className="text-[13.5px] font-bold text-ink-strong">Onboarding Form</p>
                           <p className="text-[12px] font-medium capitalize text-ink-muted">
                             {onboarding.status === "submitted"
-                              ? `Submitted${onboarding.submittedAt ? " · " + new Date(onboarding.submittedAt).toLocaleDateString("en-GB") : ""}`
+                              ? `Submitted${onboarding.submittedAt ? " · " + formatDate(onboarding.submittedAt) : ""}`
                               : "Draft — not yet submitted"}
                           </p>
                         </div>
@@ -503,7 +504,7 @@ function slipRows(slip: PortalPayslip, fullName: string): [string, string][] {
     ["Pay Month", `${slip.monthLabel}  (${slip.fy})`],
     ["Monthly CTC", inr(slip.monthlyCtc)],
     ["Net Take-Home", inr(slip.net)],
-    ["Payment Status", slip.paid ? `Paid${slip.paidAt ? " · " + new Date(slip.paidAt).toLocaleDateString("en-GB") : ""}` : "Pending"],
+    ["Payment Status", slip.paid ? `Paid${slip.paidAt ? " · " + formatDate(slip.paidAt) : ""}` : "Pending"],
   ];
 }
 
@@ -611,7 +612,7 @@ function OnboardingModal({ data, fullName, onClose }: { data: PortalOnboarding; 
           <h2 className="mt-1 text-[22px] font-black text-ink-strong" style={{ fontFamily: DISPLAY }}>{fullName}</h2>
           <p className="text-[12px] font-medium text-ink-muted">
             {data.status === "submitted"
-              ? `Submitted${data.submittedAt ? " · " + new Date(data.submittedAt).toLocaleDateString("en-GB") : ""}`
+              ? `Submitted${data.submittedAt ? " · " + formatDate(data.submittedAt) : ""}`
               : "Draft — not yet submitted"} · read-only
           </p>
         </div>

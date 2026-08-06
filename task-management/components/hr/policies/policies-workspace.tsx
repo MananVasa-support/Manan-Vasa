@@ -6,6 +6,7 @@ import { Loader2, Upload, FileText, Download, Trash2, X, ScrollText } from "luci
 import { fireToast } from "@/lib/toast";
 import { POLICY_CATEGORIES } from "@/lib/hr/policy-types";
 import { uploadPolicy, deletePolicy } from "@/app/(app)/policies/actions";
+import { formatDate } from "@/lib/format";
 
 const RED = "var(--color-altus-red)";
 const RED_DEEP = "var(--color-altus-red-deep)";
@@ -35,7 +36,7 @@ function fmtSize(n: number | null): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  return formatDate(iso);
 }
 
 export function PoliciesWorkspace({ groups, isAdmin }: { groups: Group[]; isAdmin: boolean }) {

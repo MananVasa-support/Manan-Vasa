@@ -62,6 +62,7 @@ import {
   rupeeRollup,
 } from "@/lib/goals/derive";
 import { editGoal, setGoalCategory, setGoalPctDone, setGoalTeam } from "@/app/(app)/goals/cascade/actions";
+import { formatDate } from "@/lib/format";
 import { AiInsightSection } from "./ai-insight";
 import { AnimatedNumber, RollupProjection } from "./allocation";
 import { CollabSections } from "./collab-panel";
@@ -176,7 +177,7 @@ function useNarrowViewport(): boolean {
 /** "Jul 1 → Sep 30 · 42 days left" from a periodKey. */
 function timelineOf(periodKey: string, now: Date): { label: string; leftLabel: string; elapsedPct: number } {
   const { start, end } = periodBounds(periodKey);
-  const fmt = (d: Date) => `${d.toLocaleString("en-IN", { month: "short" })} ${d.getDate()}`;
+  const fmt = (d: Date) => formatDate(d);
   const endShown = new Date(end.getTime() - 86_400_000); // inclusive end
   const total = end.getTime() - start.getTime();
   const elapsed = Math.min(Math.max(now.getTime() - start.getTime(), 0), total);

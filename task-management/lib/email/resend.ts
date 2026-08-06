@@ -3,6 +3,7 @@ import type { ReactElement } from "react";
 import { eq } from "drizzle-orm";
 import { Resend } from "resend";
 import { db } from "@/lib/db";
+import { formatDate } from "@/lib/format";
 import { employees, notifications, tasks } from "@/db/schema";
 import type { NotificationKind } from "@/db/schema";
 import { InviteEmail } from "@/emails/invite";
@@ -613,13 +614,8 @@ function attendanceDateLabel(ymd: string | undefined): string {
   if (!ymd) return "—";
   const d = new Date(`${ymd}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return ymd;
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "UTC",
-    weekday: "short",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(d);
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short" }).format(d);
+  return `${weekday}, ${formatDate(ymd)}`;
 }
 
 function renderNotificationTemplate(ctx: RenderContext): ReactElement | null {

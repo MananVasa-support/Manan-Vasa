@@ -7,6 +7,7 @@ import type { EvaluatorRole, InterviewAiInsights } from "@/lib/hr/candidate/eval
 // The insights server action is built in parallel (other agent). Written against
 // its published signature; see interview-insights-actions.ts.
 import { generateInterviewInsights } from "@/app/(app)/hr/interview-insights-actions";
+import { formatDate } from "@/lib/format";
 import type { EvalController } from "./controller";
 
 const RED = "var(--color-altus-red)";
@@ -141,7 +142,7 @@ export function AiInsightsPanel({
             ))}
           </div>
           <p className="text-[11.5px] font-medium text-ink-subtle">
-            Generated {new Date(insights.generatedAt).toLocaleString()}. Lists take one item per line.
+            Generated {formatDate(insights.generatedAt)}, {new Date(insights.generatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}. Lists take one item per line.
           </p>
         </div>
       )}

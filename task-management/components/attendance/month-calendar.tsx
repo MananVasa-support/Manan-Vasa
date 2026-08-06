@@ -3,6 +3,7 @@
 import * as React from "react";
 import { CalendarDays, LogIn, LogOut, Clock, AlertTriangle } from "lucide-react";
 import { PunchEditControl } from "@/components/attendance/punch-edit-control";
+import { formatDate } from "@/lib/format";
 
 /**
  * Current-month attendance calendar — one colour-coded cell per graded day
@@ -74,12 +75,9 @@ function fmtHrs(min: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-/** "2026-08-05" → "Wed, 5 Aug 2026" (no tz drift). */
+/** "2026-08-05" → "05 AUG 2026" (canonical, no tz drift). */
 function fmtFullDate(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(
-    new Date(Date.UTC(y ?? 2026, (m ?? 1) - 1, d ?? 1, 12)),
-  );
+  return formatDate(iso);
 }
 
 export function MonthCalendar({ cells, monthLabel, compact, canEdit, employeeId }: { cells: MonthCell[]; monthLabel: string; compact?: boolean; canEdit?: boolean; employeeId?: string }) {

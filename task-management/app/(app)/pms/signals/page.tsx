@@ -15,6 +15,7 @@ import {
   type RecognitionRow,
   type PromotionSignalRow,
 } from "@/lib/queries/pms-signals";
+import { formatDate } from "@/lib/format";
 import { RecognitionActions } from "@/components/pms/signals/recognition-actions";
 import { PromotionActions } from "@/components/pms/signals/promotion-actions";
 import { CreateRecognitionForm } from "@/components/pms/signals/create-recognition-form";
@@ -240,7 +241,7 @@ export default async function PmsSignalsPage() {
                             {st.label}
                             {r.releasedByName ? ` by ${r.releasedByName}` : ""}
                             {r.releasedAt
-                              ? ` · ${new Date(r.releasedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`
+                              ? ` · ${formatDate(r.releasedAt)}`
                               : ""}
                           </p>
                         )}
@@ -301,7 +302,7 @@ export default async function PmsSignalsPage() {
                             {p.eligibleSince && (
                               <span className="text-[12.5px] font-semibold text-ink-subtle">
                                 eligible since{" "}
-                                {new Date(p.eligibleSince).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                                {formatDate(p.eligibleSince)}
                               </span>
                             )}
                           </div>
@@ -318,7 +319,7 @@ export default async function PmsSignalsPage() {
                             {st.label}
                             {p.decidedByName ? ` by ${p.decidedByName}` : ""}
                             {p.decidedAt
-                              ? ` · ${new Date(p.decidedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`
+                              ? ` · ${formatDate(p.decidedAt)}`
                               : ""}
                           </p>
                         )}

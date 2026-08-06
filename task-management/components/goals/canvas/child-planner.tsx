@@ -42,6 +42,7 @@ import {
 } from "@/components/goals/cascade/util";
 import { ACCENT, ACCENT_DEEP, DUR, EASE_OUT, SPRING, accentMix } from "./tokens";
 import { allocation, numericTarget, rollupPct } from "@/lib/goals/derive";
+import { formatDate } from "@/lib/format";
 import { fireToast } from "@/lib/toast";
 import {
   addChildGoal,
@@ -869,13 +870,10 @@ function DayStage(): React.JSX.Element {
     [stage],
   );
 
-  const todayLabel = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "long" }).format(
-        stage.now,
-      ),
-    [stage.now],
-  );
+  const todayLabel = React.useMemo(() => {
+    const weekday = new Intl.DateTimeFormat("en-IN", { weekday: "long" }).format(stage.now);
+    return `${weekday}, ${formatDate(stage.now)}`;
+  }, [stage.now]);
 
   return (
     <section

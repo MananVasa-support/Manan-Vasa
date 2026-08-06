@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { Wallet, ArrowUpRight, ReceiptText } from "lucide-react";
 import type { ReferralRow, PayoutRow } from "@/lib/queries/ambassadors";
 import { inr } from "@/lib/ambassadors/format";
+import { formatDate } from "@/lib/format";
 
 /**
  * Commission view for one ambassador: (a) referrals carrying a commission with
@@ -19,7 +20,7 @@ function fmtDate(d: string | null): string {
   if (!d) return "—";
   const dt = new Date(d);
   if (!Number.isFinite(dt.getTime())) return d;
-  return dt.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  return formatDate(dt);
 }
 
 export function TabCommissions({ referrals, payouts }: { referrals: ReferralRow[]; payouts: PayoutRow[] }) {

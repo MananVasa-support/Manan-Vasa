@@ -7,6 +7,7 @@ import { fireToast } from "@/lib/toast";
 import { LETTER_TYPES } from "@/lib/hr/letter-types";
 import { uploadLetter, deleteLetter } from "@/app/(app)/letters/actions";
 import { SignatureStatusPill } from "@/components/documents/signature-status-pill";
+import { formatDate } from "@/lib/format";
 import type { SignatureStatus } from "@/lib/documents/signing";
 
 const RED = "var(--color-altus-red)";
@@ -35,7 +36,7 @@ function fmtSize(n: number | null): string {
 }
 function fmtDate(iso: string | null): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  return formatDate(iso);
 }
 
 interface SignatureLite {

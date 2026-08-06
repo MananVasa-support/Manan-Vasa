@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { RotateCcw, Trash2, Loader2, Archive, X, AlertTriangle } from "lucide-react";
 import { fireToast } from "@/lib/toast";
+import { formatDate } from "@/lib/format";
 import { restoreGoal, purgeGoals } from "@/app/(app)/goals/cascade/actions";
 
 /* ------------------------------------------------------------------ */
@@ -36,11 +37,7 @@ function relativeLabel(iso: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.round(hours / 24);
   if (days < 30) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    timeZone: "Asia/Kolkata",
-  });
+  return formatDate(iso);
 }
 
 function DeletedWhen({ iso }: { iso: string }) {

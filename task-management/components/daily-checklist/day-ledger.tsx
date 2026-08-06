@@ -30,6 +30,7 @@ import {
   setAssignedTaskDone,
 } from "@/app/(app)/daily-checklist/actions";
 import { MIN_DAILY_ITEMS } from "@/lib/daily-checklist/constants";
+import { formatDate, localDateString } from "@/lib/format";
 import type { DailyItem, OverdueItem, PullableGoal } from "@/lib/queries/daily-checklist";
 
 /** Shared visible focus ring for keyboard users (brand-red on neutral surfaces). */
@@ -517,7 +518,7 @@ function SectionGroup({
 
 /** Deterministic IST date label (same on server + client → no hydration drift). */
 function dueLabel(d: Date): string {
-  return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
+  return formatDate(localDateString("Asia/Kolkata", new Date(d)));
 }
 
 /* ── one ledger row (assigned task OR personal item) ── */

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { format } from "date-fns";
+import { formatDate } from "@/lib/format";
 import {
   ChevronLeft,
   ChevronRight,
@@ -275,9 +275,9 @@ export function TaskDetailRedesign(props: Props) {
           {/* Meta row */}
           <div className="mb-6 grid grid-cols-4 gap-3 rounded-2xl border border-hairline bg-surface-card p-4 max-md:grid-cols-2">
             <Meta icon={<Building2 size={16} />} label="Client" value={task.client ?? "—"} />
-            <MetaPerson label="Created By" name={task.creatorName} url={task.creatorAvatarUrl} sub={format(task.createdAt, "d MMM")} />
+            <MetaPerson label="Created By" name={task.creatorName} url={task.creatorAvatarUrl} sub={formatDate(task.createdAt)} />
             <MetaPerson label="Assigned To" name={task.doerName} url={task.doerAvatarUrl} dot />
-            <Meta icon={<Calendar size={16} />} label="Due Date" value={format(task.dueAt, "MMM d, yyyy")} />
+            <Meta icon={<Calendar size={16} />} label="Due Date" value={formatDate(task.dueAt)} />
           </div>
 
           {/* Tabs */}

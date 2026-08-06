@@ -7,6 +7,7 @@ import type { ActivityRow } from "@/lib/queries/ambassadors";
 import { logActivity, completeReminder } from "@/app/(app)/ambassadors/actions";
 import { createFollowUpTask } from "@/app/(app)/ambassadors/doc-ai-actions";
 import { fireToast } from "@/lib/toast";
+import { formatDate } from "@/lib/format";
 import { ActivityFeed } from "./activity-feed";
 import { ListTodo } from "lucide-react";
 
@@ -196,7 +197,7 @@ export function TabTimeline({
                     <span className="block truncate text-[13.5px] font-semibold text-ink-strong">{a.title || "Reminder"}</span>
                     {a.remindAt && (
                       <span className="block text-[12px] font-medium text-ink-muted tabular-nums">
-                        {new Date(a.remindAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        {formatDate(new Date(a.remindAt))} · {new Date(a.remindAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     )}
                   </div>

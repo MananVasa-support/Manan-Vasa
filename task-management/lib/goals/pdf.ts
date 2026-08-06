@@ -3,6 +3,7 @@ import PDFDocument from "pdfkit";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { format } from "date-fns";
+import { formatDate } from "@/lib/format";
 import type { WeeklyGoal } from "@/db/schema";
 import type { GoalsDashboard } from "./queries";
 import { weekNoOf } from "./fy-calendar";
@@ -186,7 +187,7 @@ function masthead(doc: Doc, left: number, right: number, width: number, name: st
     .font("Helvetica")
     .fontSize(8.5)
     .fillColor(COLORS.inkFaint)
-    .text(format(new Date(), "EEE, MMM d, yyyy · HH:mm"), left, headerTop + 4, {
+    .text(`${formatDate(new Date())} · ${format(new Date(), "HH:mm")}`, left, headerTop + 4, {
       width,
       align: "right",
       lineBreak: false,

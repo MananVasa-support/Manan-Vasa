@@ -4,6 +4,7 @@ import { notifications, type NotificationKind } from "@/db/schema";
 import { getResend, FROM, companyBcc, clampSubject } from "@/lib/email/resend";
 import { sendFcmToEmployee } from "@/lib/push/fcm";
 import { KPI_CHANGE_TYPE_LABELS, type KpiChangeType } from "@/db/enums";
+import { formatDate, localDateString } from "@/lib/format";
 import { kpiNotificationsOn, KPI_NOTIFICATIONS_FLAG } from "./flag";
 
 /**
@@ -98,11 +99,13 @@ function esc(s: string): string {
 }
 
 function fmtWhen(d: Date): string {
-  return new Intl.DateTimeFormat("en-IN", {
+  const time = new Intl.DateTimeFormat("en-IN", {
     timeZone: "Asia/Kolkata",
-    dateStyle: "medium",
-    timeStyle: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
   }).format(d);
+  return `${formatDate(localDateString("Asia/Kolkata", d))}, ${time}`;
 }
 
 /**

@@ -1,8 +1,7 @@
 "use client";
 import * as React from "react";
-import { format } from "date-fns";
 import { Search, X, ChevronRight, ChevronsRight } from "lucide-react";
-import { formatInr } from "@/lib/format";
+import { formatInr, formatDate } from "@/lib/format";
 import { OUTSTANDING_CYCLE_LABELS } from "@/db/enums";
 import type { OutstandingCycle } from "@/db/enums";
 import type { DerivedInstallment } from "@/lib/outstanding/types";
@@ -10,12 +9,11 @@ import { SectionHeading } from "./section-heading";
 
 const PAGE_SIZE = 20;
 
-// date-fns `format()` throws on an invalid date; guard so one bad row degrades
-// to "—" instead of crashing the whole table.
+// Guard invalid dates so one bad row degrades to "—" instead of blanking.
 function fmtDue(iso: string): string {
   if (!iso) return "—";
   const d = new Date(`${iso}T00:00:00`);
-  return Number.isNaN(d.getTime()) ? "—" : format(d, "dd-MMM-yyyy · EEE");
+  return Number.isNaN(d.getTime()) ? "—" : formatDate(d);
 }
 
 function cycleLabel(cycle: string | undefined): string {

@@ -4,6 +4,7 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { PolicyUploadForm } from "@/components/salary/policy-upload-form";
 import { SignaturePad } from "@/components/salary/signature-pad";
 import { requireUser } from "@/lib/auth/current";
+import { formatDate, formatTimeInTz, localDateString } from "@/lib/format";
 import {
   getCurrentPolicy,
   getMyConsent,
@@ -13,11 +14,7 @@ import {
 export const dynamic = "force-dynamic";
 
 const fmtDate = (d: Date) =>
-  d.toLocaleString("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Kolkata",
-  });
+  `${formatDate(localDateString("Asia/Kolkata", d))} · ${formatTimeInTz(d, "Asia/Kolkata")}`;
 
 export default async function SalaryPolicyPage() {
   const me = await requireUser();

@@ -38,6 +38,7 @@ import {
   Scale,
 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
+import { formatDate } from "@/lib/format";
 import { PageShell } from "@/components/layout/page-shell";
 import type { CandidateRow } from "@/app/(app)/hr/candidate-actions";
 import {
@@ -856,7 +857,7 @@ function RecordingsCard({
               <div className="min-w-0 flex-1">
                 <p className="text-[13.5px] font-bold text-ink-strong">Recording {i + 1}</p>
                 <p className="text-[12px] font-medium text-ink-muted tabular-nums">
-                  {mmss(r.durationSec)} · {new Date(r.createdAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                  {mmss(r.durationSec)} · {formatDate(r.createdAt)}, {new Date(r.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                 </p>
               </div>
               {r.url ? (

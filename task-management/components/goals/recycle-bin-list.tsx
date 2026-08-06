@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { RotateCcw, Trash2, Loader2, Archive } from "lucide-react";
 import { fireToast } from "@/lib/toast";
+import { formatDate } from "@/lib/format";
 import { restoreTask, purgeTask } from "@/app/(app)/goals/recycle-bin/actions";
 
 const THEME_ACCENT = "#E10600";
@@ -21,7 +22,7 @@ export interface BinItem {
 /** Deterministic IST date label (same on server + client → no hydration drift). */
 function whenLabel(iso: string | null): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
+  return formatDate(iso);
 }
 
 export function RecycleBinList({ items: initial }: { items: BinItem[] }) {

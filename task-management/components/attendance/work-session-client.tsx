@@ -12,6 +12,7 @@ import {
   Clock,
 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
+import { formatDate } from "@/lib/format";
 import {
   startWorkSession,
   addWorkSessionShot,
@@ -43,14 +44,14 @@ function fmtElapsed(totalSeconds: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 
+const DT_TIME_FMT = new Intl.DateTimeFormat("en-IN", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: true,
+});
 function fmtDateTime(iso: string): string {
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).format(new Date(iso));
+  const d = new Date(iso);
+  return `${formatDate(d)} · ${DT_TIME_FMT.format(d)}`;
 }
 
 function fmtMinutes(min: number | null): string {

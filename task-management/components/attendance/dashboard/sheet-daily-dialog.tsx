@@ -3,6 +3,7 @@
 import * as React from "react";
 import { X, Loader2, Clock } from "lucide-react";
 import { fetchSheetEmployeeDays, type SheetDayRow } from "@/app/(app)/attendance/dashboard/actions";
+import { formatDate } from "@/lib/format";
 
 interface CodeInfo {
   label: string;
@@ -105,7 +106,7 @@ export function SheetDailyDialog({
                     <span className="min-w-0 flex-1">
                       <span className="block text-[13.5px] font-bold text-ink-strong">{info.label}</span>
                       <span className="block text-[12px] text-ink-subtle">
-                        {d.date ? new Date(`${d.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" }) : `Day ${d.day}`}
+                        {d.date ? formatDate(d.date) : `Day ${d.day}`}
                       </span>
                     </span>
                     {info.worked ? (

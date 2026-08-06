@@ -64,6 +64,7 @@ import {
 } from "@/app/(app)/hr/record/person-records";
 import { SkillMultiSelect, type SkillSelection } from "@/components/hr/candidate/skill-multiselect";
 import type { SkillLookupOptions } from "@/lib/hr/skills";
+import { formatDate } from "@/lib/format";
 
 const EMPTY_SKILLS: SkillSelection = { technical: [], nonTechnical: [] };
 
@@ -813,8 +814,7 @@ function ExitHandover({ status, loading }: { status: ExitSummary | null; loading
       </p>
     );
   }
-  const fmtDate = (iso: string) =>
-    new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const fmtDate = (iso: string) => formatDate(iso);
   const pct = status.handoverTotal > 0 ? Math.round((status.handoverCleared / status.handoverTotal) * 100) : 0;
   const handoverDone = status.handoverTotal > 0 && status.handoverCleared === status.handoverTotal;
   return (
@@ -1128,7 +1128,7 @@ function UnlinkedNote({ what }: { what: string }) {
 
 /** Friendly "12 Aug 2026" for an ISO string. */
 function fmtDay(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return formatDate(iso); // canonical "01 JAN 2026"
 }
 
 /**

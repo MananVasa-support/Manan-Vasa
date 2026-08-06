@@ -12,6 +12,8 @@
  * can render both the on-screen preview and the pdfkit PDF from one source.
  */
 
+import { formatDate } from "@/lib/format";
+
 export type ExitLetterType =
   | "full-and-final"
   | "return-of-assets"
@@ -88,13 +90,7 @@ const BLANK = "____________________";
 
 function fmtDate(iso?: string | null): string {
   if (!iso) return BLANK;
-  const d = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  return formatDate(iso);
 }
 
 function lines(text?: string | null): string[] {

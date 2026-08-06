@@ -8,16 +8,13 @@ import { StarRating } from "@/components/ui/star-rating";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { rateShare } from "@/app/(app)/training/share/actions";
 import type { ShareForFeedback } from "@/lib/queries/learning";
+import { formatDate } from "@/lib/format";
 
 const ACCENT = "#E10600";
 const ACCENT_DEEP = "#A80400";
 
 function weekLabel(weekStart: string): string {
-  return new Date(`${weekStart}T00:00:00Z`).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+  return formatDate(weekStart);
 }
 
 function ShareCard({ share, index }: { share: ShareForFeedback; index: number }) {

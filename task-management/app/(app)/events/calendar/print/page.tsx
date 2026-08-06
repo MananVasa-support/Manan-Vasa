@@ -9,6 +9,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import { requireEventsAccess } from "@/lib/monthly-events/access";
+import { formatDate } from "@/lib/format";
 import {
   getMonthEvents,
   listCategories,
@@ -208,7 +209,7 @@ export default async function CalendarPrintPage({
         <div>
           <div className="me-title">Monthly Events Master</div>
           <div className="me-sub">
-            {format(anchor, "MMMM yyyy")} · Altus Corp · generated {format(new Date(), "d MMM yyyy, h:mm a")}
+            {format(anchor, "MMMM yyyy")} · Altus Corp · generated {formatDate(new Date())}, {format(new Date(), "h:mm a")}
           </div>
         </div>
         <div className="me-no-print">
@@ -233,7 +234,7 @@ export default async function CalendarPrintPage({
 
       {weeks.map((week, wi) => (
         <div key={wi} className="me-band">
-          <div className="me-band-label">Week of {format(week[0]!, "d MMM yyyy")}</div>
+          <div className="me-band-label">Week of {formatDate(week[0]!)}</div>
 
           <div className="me-week-head">
             <div className="me-daycol-head" />

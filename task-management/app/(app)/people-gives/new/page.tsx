@@ -6,18 +6,14 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { listPgLookups } from "@/lib/queries/people-gives";
 import { IntroductionForm } from "@/components/people-gives/introduction-form";
+import { formatDate, localDateString } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewIntroductionPage() {
   await requireWorkspace("sales");
   const lookups = await listPgLookups();
-  const todayLabel = new Date().toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "Asia/Kolkata",
-  });
+  const todayLabel = formatDate(localDateString("Asia/Kolkata"));
 
   return (
     <>

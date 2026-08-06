@@ -3,7 +3,7 @@ import "server-only";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import PDFDocument from "pdfkit";
-import { format } from "date-fns";
+import { formatDate } from "@/lib/format";
 import { getEntity, type EntityId, type Entity } from "@/lib/hr/entities";
 import { applyPronouns, type Gender } from "@/lib/hr/pronouns";
 import { applyFirm, HR_SIGNATORY } from "@/lib/hr/firm";
@@ -91,7 +91,7 @@ export async function renderLetterPdf(input: RenderLetterInput): Promise<Buffer>
   const entity = getEntity(input.entity ?? input.template.entityDefault ?? null);
   const values = input.values ?? {};
   const gender: Gender = input.gender ?? "neutral";
-  const letterDate = input.date?.trim() || format(new Date(), "d MMMM yyyy");
+  const letterDate = input.date?.trim() || formatDate(new Date());
 
   const doc = new PDFDocument({
     size: "A4",
@@ -446,7 +446,7 @@ function renderSignature(
       doc.image(uploaded, left, doc.y, { height: 46 });
       doc.y += 52;
     } else if (!isHr) {
-      const sigPath = path.join(process.cwd(), "public", "signatures", "proprietor-signature.png");
+      const sigPath = path.join(process.cwd(), "public", "signatures", "proprietor-signature.jpg");
       if (existsSync(sigPath)) {
         ctx.ensure(62);
         doc.image(sigPath, left, doc.y, { height: 46 });

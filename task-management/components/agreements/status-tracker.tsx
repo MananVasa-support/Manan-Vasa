@@ -11,6 +11,7 @@ import {
 import type { AgreementRow } from "@/lib/agreements/types";
 import type { SignatureStatus } from "@/lib/documents/signing";
 import { SignatureStatusPill } from "@/components/documents/signature-status-pill";
+import { formatDate } from "@/lib/format";
 
 /** Latest DigiLocker-signature status per agreement id (from the server page). */
 export type AgreementSignatures = Record<
@@ -31,9 +32,7 @@ const STATUS_STYLE: Record<AgreementStatus, { bg: string; fg: string }> = {
 function fmt(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? "—"
-    : d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return Number.isNaN(d.getTime()) ? "—" : formatDate(d);
 }
 
 function StatusChip({ status }: { status: AgreementStatus }) {

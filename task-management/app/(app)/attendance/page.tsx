@@ -41,7 +41,7 @@ import { getEmployeeMonthStatus } from "@/lib/queries/attendance-status";
 import { loadLiveStatus, type LiveStatus } from "@/lib/attendance/analytics/live-status";
 import { listHolidays } from "@/lib/queries/holidays";
 import { withRetry } from "@/lib/db/with-timeout";
-import { formatTimeInTz, localDateString } from "@/lib/format";
+import { formatTimeInTz, localDateString, formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -54,19 +54,9 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-const DAY_LABEL_FMT: Intl.DateTimeFormatOptions = {
-  weekday: "short",
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-};
-
-/** "2026-06-10" → "Wed, 10 Jun 2026" without timezone drift. */
+/** "2026-06-10" → "10 JUN 2026" (canonical, no timezone drift). */
 function labelForDate(date: string): string {
-  const [y, m, d] = date.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-IN", DAY_LABEL_FMT).format(
-    new Date(Date.UTC(y ?? 2026, (m ?? 1) - 1, d ?? 1, 12)),
-  );
+  return formatDate(date);
 }
 
 /** "2026-06-10" → { dow: "Wed", dm: "10 Jun" } for the timeline rail. */

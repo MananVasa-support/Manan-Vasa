@@ -5,6 +5,8 @@
  * H-P | H-H/D | H/D | -  — anything unknown falls back to neutral slate so
  * a new sheet code can never crash the page.
  */
+import { formatDate } from "@/lib/format";
+
 export interface HrCodeStyle {
   code: string;
   label: string;
@@ -41,15 +43,9 @@ export function hrMonthLabel(month: string): string {
   );
 }
 
-/** "2026-06-04" → "Wed, 4 Jun 2026" (drift-free). */
+/** "2026-06-04" → "04 JUN 2026" (canonical, drift-free). */
 export function hrDateLabel(date: string): string {
-  const [y, m, d] = date.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-IN", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(Date.UTC(y ?? 2026, (m ?? 1) - 1, d ?? 1, 12)));
+  return formatDate(date);
 }
 
 /** Numeric-string → tidy display: integers bare, otherwise one decimal. */

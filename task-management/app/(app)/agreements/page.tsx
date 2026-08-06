@@ -16,6 +16,7 @@ import { Workbench } from "@/components/agreements/workbench";
 import { signatureStatusMap } from "@/lib/documents/status";
 import type { SignatureStatus } from "@/lib/documents/signing";
 import { SignatureStatusPill } from "@/components/documents/signature-status-pill";
+import { formatDate } from "@/lib/format";
 
 type AgreementSignatureRecord = Record<
   string,
@@ -114,9 +115,7 @@ export default async function AgreementsPage() {
 function fmt(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? ""
-    : d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return Number.isNaN(d.getTime()) ? "" : formatDate(d);
 }
 
 function EmployeeAgreements({

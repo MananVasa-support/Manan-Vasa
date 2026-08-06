@@ -18,6 +18,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { ENTITY_LIST, getEntity, type EntityId } from "@/lib/hr/entities";
+import { formatDate } from "@/lib/format";
 import { LookupSelect } from "@/components/ui/lookup-select";
 import {
   CTC_REASONS,
@@ -646,7 +647,7 @@ function EmptyState() {
 function fmtDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return formatDate(d);
 }
 
 const WORKBENCH_CSS = `

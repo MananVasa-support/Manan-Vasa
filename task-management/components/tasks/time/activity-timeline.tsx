@@ -13,6 +13,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import type { TimelineEntry } from "@/lib/queries/task-time";
+import { formatDate } from "@/lib/format";
 
 const META: Record<
   TimelineEntry["kind"],
@@ -30,9 +31,11 @@ const META: Record<
 };
 
 function fullTime(iso: string): string {
-  return new Date(iso).toLocaleString("en-IN", {
-    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata",
+  const d = new Date(iso);
+  const time = d.toLocaleString("en-IN", {
+    hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata",
   });
+  return `${formatDate(d)}, ${time}`;
 }
 
 /** Modern vertical activity timeline. Click any event to expand its details. */

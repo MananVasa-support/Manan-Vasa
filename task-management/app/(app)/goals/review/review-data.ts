@@ -9,6 +9,7 @@ import { fyStartYearOf } from "@/lib/goals/types";
 import type { GoalNode } from "@/lib/goals/types";
 import { toGoalDTO, periodKeyLabel, num, type RosterMember } from "@/components/goals/cascade/util";
 import { listGoalLookups } from "@/lib/goals/lookups";
+import { formatDate } from "@/lib/format";
 import { weekNoOf } from "@/lib/goals/fy-calendar";
 import { formatWeekShort } from "@/lib/weekly-goals/week";
 import { resolveGoalsView } from "../cascade/view";
@@ -91,12 +92,7 @@ const LEVEL_OF_PERIOD: Record<string, ReviewLevel> = {
 
 /** A short day label: "22 Jul". */
 function dayLabel(ymd: string): string {
-  const [y, m, d] = ymd.split("-").map(Number);
-  return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1)).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
+  return formatDate(ymd);
 }
 
 export async function loadReviewData(sp: { emp?: string; fy?: string }): Promise<ReviewData> {

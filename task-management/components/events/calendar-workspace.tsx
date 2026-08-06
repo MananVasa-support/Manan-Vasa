@@ -31,6 +31,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import { fireToast } from "@/lib/toast";
+import { formatDate } from "@/lib/format";
 import type { CalendarEvent } from "@/lib/monthly-events/types";
 import type { CalendarBundle } from "@/lib/queries/monthly-events-calendar";
 import {
@@ -330,7 +331,7 @@ function InnerWorkspace({ initial, todayIso }: CalendarWorkspaceProps) {
   };
   const title =
     view === "week"
-      ? `${format(weeks[0]!, "MMM d")} – ${format(addDays(weeks[0]!, 6), "d, yyyy")}`
+      ? `${formatDate(weeks[0]!)} – ${formatDate(addDays(weeks[0]!, 6))}`
       : format(focus, "MMMM yyyy");
 
   const inMonth = React.useCallback(

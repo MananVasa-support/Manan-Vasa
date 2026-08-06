@@ -9,6 +9,7 @@
  */
 import type { AgreementType } from "@/db/enums";
 import { AGREEMENT_TYPE_LABELS } from "@/db/enums";
+import { formatDate } from "@/lib/format";
 
 export interface AgreementInput {
   type: AgreementType;
@@ -63,7 +64,7 @@ function fmtDate(iso?: string | null): string {
   if (!iso) return BLANK;
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+  return formatDate(d);
 }
 
 function lines(text?: string | null): string[] {

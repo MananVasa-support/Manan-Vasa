@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import * as Popover from "@radix-ui/react-popover";
 import { ChevronDown, Check, Loader2, Search } from "lucide-react";
 import { format, differenceInCalendarDays } from "date-fns";
+import { formatDate } from "@/lib/format";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { CriticalBadge } from "@/components/ui/critical-badge";
 import { fireToast } from "@/lib/toast";
@@ -40,10 +41,10 @@ function dueColor(dueAt: Date | null, status: TaskStatus): { color: string; labe
   return { color: "var(--color-ink-muted)", label: "", strong: false };
 }
 
-function safeDate(value: Date | null, pattern: string): string {
+function safeDate(value: Date | null): string {
   if (!value) return "—";
   const d = value instanceof Date ? value : new Date(value as unknown as string);
-  return Number.isNaN(d.getTime()) ? "—" : format(d, pattern);
+  return Number.isNaN(d.getTime()) ? "—" : formatDate(d);
 }
 function toYmd(value: Date | null): string {
   if (!value) return "";
@@ -289,7 +290,7 @@ export function InlineDueCell({
   const display = (
     <span className="inline-flex flex-col items-center leading-tight">
       <span className="text-body-lg tabular-nums" style={{ color: u.color, fontWeight: u.strong ? 700 : undefined }}>
-        {safeDate(shown, "MMM d")}
+        {safeDate(shown)}
       </span>
       {u.label && (
         <span className="text-[11px] font-bold tabular-nums" style={{ color: u.color }}>{u.label}</span>

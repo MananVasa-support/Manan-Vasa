@@ -15,14 +15,31 @@ export function formatTime(d: Date): string {
   return timeFmt.format(d);
 }
 
-const dateFmt = new Intl.DateTimeFormat("en-IN", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-});
+const MONTHS_UPPER = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
-export function formatDate(d: Date): string {
-  return dateFmt.format(d);
+/**
+ * CANONICAL Altus date format — the ONE way every user-facing date renders,
+ * across all modules: `dd MMM yyyy` with an UPPERCASE 3-letter month, e.g.
+ * `01 JAN 2026`, `07 AUG 2026`. (Permanent rule — never dd-mm-yyyy or slashes.)
+ *
+ * Accepts a Date, an ISO / `YYYY-MM-DD` string, or ms. A `YYYY-MM-DD` string is
+ * parsed as a LOCAL calendar day (no UTC-midnight day-shift). Empty / invalid
+ * input returns "" (or the original string if it wasn't a parseable date).
+ */
+export function formatDate(input: Date | string | number | null | undefined): string {
+  if (input == null || input === "") return "";
+  let date: Date;
+  if (input instanceof Date) {
+    date = input;
+  } else if (typeof input === "string") {
+    const m = input.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    date = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(input);
+  } else {
+    date = new Date(input);
+  }
+  if (Number.isNaN(date.getTime())) return typeof input === "string" ? input : "";
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${dd} ${MONTHS_UPPER[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 /**

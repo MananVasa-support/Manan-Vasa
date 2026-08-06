@@ -6,7 +6,7 @@ import { accessFor } from "@/lib/auth/workspace-access";
 import { canAccessWorkspace, WORKSPACE_LANDING, type WorkspaceId } from "@/lib/workspaces";
 import { MODULE_THEME, MODULE_ORDER, type ModuleTheme } from "@/lib/module-theme";
 import { EnterWorkspaceLink } from "@/components/hub/enter-workspace-link";
-import { HubSignOut } from "@/components/hub/hub-signout";
+import { UserMenuServer } from "@/components/header/user-menu-server";
 import { ModuleLogo } from "@/components/hub/module-logos";
 import { GlobalSearch } from "@/components/header/global-search";
 import type { ReactNode } from "react";
@@ -204,13 +204,9 @@ export default async function HubPage() {
 
           <div className="flex flex-1 items-center justify-end gap-3 max-md:justify-center">
             <GlobalSearch />
-            {/* "Hi, Hetesh" stacked directly above a compact Sign out button. */}
-            <div className="flex flex-col items-end gap-1 max-md:items-center">
-              <span className="text-[14px] text-ink-soft">
-                Hi, <strong className="font-bold text-ink-strong">{firstName}</strong>
-              </span>
-              <HubSignOut />
-            </div>
+            {/* Profile avatar → the full account/workspace menu (Admin Panel,
+                Profile & Preferences, Documents, Inbox, Archived, Sign Out). */}
+            <UserMenuServer />
           </div>
         </header>
 

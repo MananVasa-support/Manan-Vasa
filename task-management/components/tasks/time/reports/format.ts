@@ -5,45 +5,30 @@
  * report tables need. IST throughout (the org's reporting timezone).
  */
 import { PRIORITY_LABELS, type TaskPriority } from "@/db/enums";
+import { formatDate } from "@/lib/format";
 
 const IST = "Asia/Kolkata";
 
-/** "03 Aug 2026" — a date, IST. */
+/** Canonical "03 AUG 2026". */
 export function fmtDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-IN", {
-    timeZone: IST,
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return iso ? formatDate(iso) : "—";
 }
 
-/** "03 Aug 2026, 4:12 PM" — a date + time, IST. */
+/** "03 AUG 2026, 4:12 PM" — canonical date + time, IST. */
 export function fmtDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("en-IN", {
+  const time = new Date(iso).toLocaleTimeString("en-IN", {
     timeZone: IST,
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
   });
+  return `${formatDate(iso)}, ${time}`;
 }
 
-/** "03 Aug 2026" from a bare YYYY-MM-DD (already IST — no parsing to UTC). */
+/** Canonical "03 AUG 2026" from a bare YYYY-MM-DD (parsed as a local day). */
 export function fmtDayLabel(day: string): string {
-  const [y, m, d] = day.split("-").map(Number);
-  if (!y || !m || !d) return day;
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-IN", {
-    timeZone: "UTC",
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    weekday: "short",
-  });
+  return formatDate(day);
 }
 
 /** A 0..1 ratio as a rounded whole-percent string. */

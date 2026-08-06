@@ -24,6 +24,7 @@ import {
   deleteOvertime,
 } from "@/app/(app)/overtime/actions";
 import type { OvertimeRow, OvertimeStatus } from "@/lib/queries/overtime";
+import { formatDate } from "@/lib/format";
 
 const GREEN = "#16a34a";
 const GREEN_DEEP = "#15803d";
@@ -61,12 +62,7 @@ const STATUS_META: Record<
 };
 
 function fmtDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return formatDate(iso);
 }
 
 function fmtHours(n: number): string {

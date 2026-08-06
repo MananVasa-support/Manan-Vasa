@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import PDFDocument from "pdfkit";
 import { format } from "date-fns";
+import { formatDate } from "@/lib/format";
 import { resumeHeader, resumeGroups } from "./resume-model";
 import type { ResumeData, ResumeInstances, ResumeGroup, ResumeRow } from "./resume-model";
 
@@ -36,7 +37,7 @@ const COMPANY = "Altus Corp";
 const SUBTITLE = "Candidate Interview Form";
 
 function fmtStamp(d: Date): string {
-  return format(d, "dd MMM yyyy · HH:mm");
+  return `${formatDate(d)} · ${format(d, "HH:mm")}`;
 }
 
 interface RenderInput {

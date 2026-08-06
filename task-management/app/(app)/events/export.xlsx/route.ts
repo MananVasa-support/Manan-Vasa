@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import { eachDayOfInterval, endOfMonth, endOfWeek, format, startOfMonth, startOfWeek } from "date-fns";
 import { eventsAccess } from "@/lib/monthly-events/access";
+import { formatDate } from "@/lib/format";
 import { monthlyEventsEnabled } from "@/lib/monthly-events/flag";
 import {
   getMonthEvents,
@@ -129,7 +130,7 @@ export async function GET(request: Request): Promise<Response> {
   const weeks = chunkWeeks(eachDayOfInterval({ start: gridStart, end: gridEnd }));
 
   for (const week of weeks) {
-    const weekLabel = `Week of ${format(week[0]!, "d MMM")}`;
+    const weekLabel = `Week of ${formatDate(week[0]!)}`;
     const wl = grid.addRow([weekLabel]);
     grid.mergeCells(wl.number, 1, wl.number, 8);
     wl.getCell(1).font = { bold: true, size: 11, color: { argb: "FF334155" } };
@@ -142,7 +143,7 @@ export async function GET(request: Request): Promise<Response> {
     // Header: Time + 7 dated day columns
     const header = grid.addRow([
       "Time",
-      ...week.map((d, i) => `${WEEKDAYS[i]} ${format(d, "d MMM")}`),
+      ...week.map((d, i) => `${WEEKDAYS[i]} ${formatDate(d)}`),
     ]);
     header.eachCell((cell) => {
       cell.font = { bold: true, size: 10, color: { argb: "FF475569" } };

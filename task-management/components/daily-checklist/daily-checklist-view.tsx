@@ -6,6 +6,7 @@ import {
   listGoalsForPlanner,
 } from "@/lib/queries/daily-checklist";
 import { TZ } from "@/lib/weekly-goals/week";
+import { formatDate, localDateString } from "@/lib/format";
 import { DayLedger } from "./day-ledger";
 import { DailyPlanGate } from "./daily-plan-gate";
 
@@ -53,12 +54,7 @@ export async function DailyChecklistView({
   // toLocaleString → avoids the hydration-wipe gotcha).
   const now = new Date();
   const weekday = now.toLocaleDateString("en-US", { weekday: "long", timeZone: TZ });
-  const date = now.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: TZ,
-  });
+  const date = formatDate(localDateString(TZ, now));
 
   // The compulsory login gate gets the authored "Day Ledger" experience;
   // the in-app /daily-checklist page keeps the working DayLedger surface.

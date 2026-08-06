@@ -18,6 +18,7 @@ import {
 import { db, employees } from "@/lib/db";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { formatDate } from "@/lib/format";
 import { getDownlineIds } from "@/lib/weekly-goals/hierarchy";
 import { scoreFor } from "@/lib/queries/pms";
 import {
@@ -78,7 +79,7 @@ const RELATION_LABEL: Record<ReviewRelation, string> = {
 
 function fmtDate(d: Date | null): string {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return formatDate(d);
 }
 
 function statusChip(status: string): { color: string; bg: string } {

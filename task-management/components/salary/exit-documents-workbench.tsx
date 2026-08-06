@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Download, FileText, Printer, ShieldCheck, PenLine, Loader2 } from "lucide-react";
 import { fireToast } from "@/lib/toast";
+import { formatDate } from "@/lib/format";
 import { SignatoryBlock } from "@/components/salary/signatory-block";
 import { signatoryForEntity } from "@/lib/salary/signatories";
 import { saveExitDocForSigning } from "@/app/(app)/letters/actions";
@@ -97,9 +98,7 @@ export function ExitDocumentsWorkbench({
   const dateLabel = useMemo(() => {
     if (!letterDate) return "";
     const d = new Date(`${letterDate}T00:00:00`);
-    return Number.isNaN(d.getTime())
-      ? letterDate
-      : d.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+    return Number.isNaN(d.getTime()) ? letterDate : formatDate(d);
   }, [letterDate]);
 
   async function onDownload() {

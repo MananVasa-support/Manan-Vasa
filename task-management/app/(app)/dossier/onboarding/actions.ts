@@ -7,6 +7,10 @@ import { db } from "@/lib/db";
 import { onboardingSubmissions, employees } from "@/db/schema";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { isHrStaff } from "@/lib/hr/access";
+import { listOnboardingInviteTargets, getMyOnboardingStatus } from "@/lib/queries/onboarding";
+import { sendOnboardingInviteEmail } from "@/lib/email/onboarding-email";
+import { siteUrl } from "@/lib/site-url";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { getSupabaseAdmin, DOCUMENTS_BUCKET } from "@/lib/supabase/admin";
 import {
@@ -160,4 +164,57 @@ export async function submitOnboarding(form: FormData): Promise<Result<{ status:
 
   revalidatePath("/dossier");
   return { ok: true, status };
+}
+
+/**
+ * Email EVERY active employee whose onboarding is NOT yet submitted a warm
+ * branded "Complete your Onboarding Form" invite (button → the hardcoded public
+ * prod URL + the document checklist). HR-staff / admin gated. Per-recipient
+ * try/catch so one bad address never aborts the run; employees with no email are
+ * skipped upstream. Safe to re-run (idempotent nudge).
+ */
+export async function sendOnboardingInvites(): Promise<{
+  ok: boolean;
+  sent: number;
+  skipped: number;
+  error?: string;
+}> {
+  const me = await requireUser();
+  if (!(await isHrStaff(me)) && !isAdmin(me)) {
+    return { ok: false, sent: 0, skipped: 0, error: "Forbidden" };
+  }
+
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return { ok: false, sent: 0, skipped: 0, error: limited.error };
+
+  let targets: Array<{ id: string; name: string; email: string }>;
+  try {
+    targets = await listOnboardingInviteTargets();
+  } catch (err) {
+    return { ok: false, sent: 0, skipped: 0, error: err instanceof Error ? err.message : "Could not load recipients." };
+  }
+
+  const base = siteUrl();
+  let sent = 0;
+  let skipped = 0;
+  for (const t of targets) {
+    try {
+      const res = await sendOnboardingInviteEmail({ recipient: { email: t.email, name: t.name }, siteUrl: base });
+      if (res.error) skipped += 1;
+      else sent += 1;
+    } catch {
+      skipped += 1;
+    }
+  }
+
+  return { ok: true, sent, skipped };
+}
+
+/**
+ * Client-callable status for the app-wide onboarding nudge banner. Kept OFF the
+ * SSR/dashboard load path — the banner calls this after mount (and only when the
+ * session isn't dismissed), so it never adds a blocking query to page render.
+ */
+export async function getMyOnboardingStatusAction(): Promise<{ submitted: boolean }> {
+  return getMyOnboardingStatus();
 }

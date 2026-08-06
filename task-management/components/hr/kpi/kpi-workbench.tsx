@@ -28,6 +28,7 @@ import {
   type KpiCatalogEntry,
 } from "@/lib/hr/kpi/catalog";
 import { LookupSelect } from "@/components/ui/lookup-select";
+import { formatDate, localDateString } from "@/lib/format";
 import { quarterWindow } from "@/lib/hr/kpi/quarter";
 
 /** Options for the searchable KPI picker: "Manual entry" + every dictionary KPI. */
@@ -78,11 +79,13 @@ function achievement(current: string | null, target: string): number | null {
 function fmtWhen(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return new Intl.DateTimeFormat("en-IN", {
+  const time = new Intl.DateTimeFormat("en-IN", {
     timeZone: "Asia/Kolkata",
-    dateStyle: "medium",
-    timeStyle: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
   }).format(d);
+  return `${formatDate(localDateString("Asia/Kolkata", d))}, ${time}`;
 }
 
 /* ------------------------------------------------------------------ */

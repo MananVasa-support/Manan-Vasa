@@ -42,7 +42,7 @@ import {
 } from "@/db/enums";
 import { setTaskStatus, archiveTask, unarchiveTask, deleteTask } from "@/app/(app)/tasks/actions";
 import { fireToast } from "@/lib/toast";
-import { STATUS_TONES_FALLBACK } from "@/lib/format";
+import { STATUS_TONES_FALLBACK, formatDate } from "@/lib/format";
 import { LateBadge } from "@/components/ui/late-badge";
 import { isDoneLate } from "@/lib/task-late";
 import { TaskTimePanel, type TaskTimePanelData } from "@/components/tasks/time/task-time-panel";
@@ -522,13 +522,13 @@ export function TaskDetailView({
                   icon={<Clock size={13} strokeWidth={2.4} />}
                   label="Created"
                   value={`${formatDistanceToNow(task.createdAt, { addSuffix: true })}`}
-                  title={format(task.createdAt, "MMM d, yyyy 'at' h:mm a")}
+                  title={`${formatDate(task.createdAt)} at ${format(task.createdAt, "h:mm a")}`}
                 />
                 <MetaRow
                   icon={<History size={13} strokeWidth={2.4} />}
                   label="Updated"
                   value={formatDistanceToNow(task.updatedAt, { addSuffix: true })}
-                  title={format(task.updatedAt, "MMM d, yyyy 'at' h:mm a")}
+                  title={`${formatDate(task.updatedAt)} at ${format(task.updatedAt, "h:mm a")}`}
                 />
                 <MetaRow
                   icon={<CheckCircle2 size={13} strokeWidth={2.4} />}

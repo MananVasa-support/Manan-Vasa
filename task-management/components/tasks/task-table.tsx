@@ -16,7 +16,7 @@ import {
   type Updater,
   type Table as TableInstance,
 } from "@tanstack/react-table";
-import { format, differenceInCalendarDays } from "date-fns";
+import { differenceInCalendarDays } from "date-fns";
 
 // Classic numbered pagination: a rows-per-page selector (default 25) with
 // First « · Prev · 1 2 3 … N · Next · Last » controls.
@@ -43,10 +43,10 @@ function pageWindow(current: number, total: number): (number | "ellipsis")[] {
 // date-fns `format()` throws RangeError on a null/invalid Date — which would
 // crash the ENTIRE table render. Guard every cell so one bad row degrades to
 // "—" instead of taking down the whole list.
-function safeFormat(value: unknown, pattern: string): string {
+function safeFormat(value: unknown): string {
   if (!value) return "—";
   const d = value instanceof Date ? value : new Date(value as string);
-  return Number.isNaN(d.getTime()) ? "—" : format(d, pattern);
+  return Number.isNaN(d.getTime()) ? "—" : formatDate(d);
 }
 
 // Due-date urgency for the list. Terminal/finished tasks never read as overdue
@@ -166,6 +166,7 @@ import {
 import {
   STATUS_LABELS_FALLBACK,
   STATUS_TONES_FALLBACK,
+  formatDate,
 } from "@/lib/format";
 
 // Friendly labels for the column show/hide menu (#11).
@@ -339,7 +340,7 @@ function buildColumns(
       meta: { mobileHide: true, align: "center" },
       cell: (info) => (
         <span className="text-body-lg text-ink-muted tabular-nums">
-          {safeFormat(info.getValue<Date>(), "MMM d")}
+          {safeFormat(info.getValue<Date>())}
         </span>
       ),
     },
@@ -1471,13 +1472,13 @@ function TaskCard({
               className="tabular-nums"
               style={{ color, fontWeight: strong ? 700 : undefined }}
             >
-              Due {safeFormat(row.dueAt, "MMM d")}
+              Due {safeFormat(row.dueAt)}
               {u.label ? ` · ${u.label}` : ""}
             </span>
           );
         })()}
         <span aria-hidden>·</span>
-        <span className="tabular-nums">Created {safeFormat(row.createdAt, "MMM d")}</span>
+        <span className="tabular-nums">Created {safeFormat(row.createdAt)}</span>
         <span aria-hidden>·</span>
         <span className="tabular-nums">{row.ageDays}d old</span>
       </div>

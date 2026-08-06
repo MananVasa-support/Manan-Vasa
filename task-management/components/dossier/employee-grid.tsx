@@ -6,12 +6,13 @@ import type { Route } from "next";
 import { Search, FolderOpen, FileText } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import type { DossierEmployeeCard } from "@/lib/queries/dossier";
+import { formatDate } from "@/lib/format";
 
 function fmtDate(iso: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  return formatDate(iso);
 }
 
 export function EmployeeGrid({ employees }: { employees: DossierEmployeeCard[] }) {

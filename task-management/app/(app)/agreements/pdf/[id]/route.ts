@@ -8,6 +8,7 @@ import { getAgreement } from "@/lib/agreements/queries";
 import { renderAgreement, type AgreementInput } from "@/lib/agreements/templates";
 import { signatoryForEntity } from "@/lib/salary/signatories";
 import { COLORS, SIG_DIR } from "@/lib/salary/pdf-house-style";
+import { formatDate } from "@/lib/format";
 
 /**
  * GET /agreements/pdf/[id]
@@ -31,7 +32,7 @@ const LOGO_PATH = path.join(process.cwd(), "public", "logo.png");
 const MARK_PATH = path.join(process.cwd(), "public", "logo-mark.png");
 
 function fmtLongDate(d: Date): string {
-  return format(d, "dd MMMM yyyy");
+  return formatDate(d);
 }
 
 export async function GET(

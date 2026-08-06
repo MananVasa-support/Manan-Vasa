@@ -6,6 +6,7 @@ import { BookOpen, Video, PlaySquare, Sparkles, Loader2, Plus, Trash2, BookText,
 import type { LucideIcon } from "lucide-react";
 import { fireToast } from "@/lib/toast";
 import { logSelfLearning, deleteSelfLearning } from "@/app/(app)/training/self-learning/actions";
+import { formatDate } from "@/lib/format";
 
 const ACCENT = "#E10600";
 const ACCENT_DEEP = "#A80400";
@@ -260,11 +261,7 @@ export function SelfLearningItem({
     router.refresh();
   }
 
-  const dateLabel = new Date(`${learnDate}T00:00:00Z`).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+  const dateLabel = formatDate(learnDate);
 
   return (
     <div className="flex items-start gap-3 rounded-xl border border-hairline bg-white p-3.5">

@@ -2,7 +2,7 @@ import PDFDocument from "pdfkit";
 import { format } from "date-fns";
 import { requireUser } from "@/lib/auth/current";
 import { isFinanceViewer } from "@/lib/auth/finance-access";
-import { localDateString } from "@/lib/format";
+import { localDateString, formatDate } from "@/lib/format";
 import {
   getMonthDashboard,
   type DashboardRow,
@@ -207,7 +207,7 @@ function drawMasthead(
       lineBreak: false,
     });
 
-  const generated = format(new Date(), "EEE, MMM d, yyyy · HH:mm");
+  const generated = `${formatDate(new Date())} · ${format(new Date(), "HH:mm")}`;
   doc
     .font("Helvetica")
     .fontSize(8)

@@ -4,6 +4,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { FileText, UserPlus, Settings as SettingsIcon } from "lucide-react";
 import type { ComponentType } from "react";
 import { Avatar } from "@/components/ui/avatar";
+import { formatDate } from "@/lib/format";
 import { AuditEvent } from "@/components/tasks/audit-event";
 import { dotColorFor } from "@/components/tasks/audit-event-meta";
 import type { ActivityRow, ActivitySource } from "@/lib/transforms/activity";
@@ -132,7 +133,7 @@ function ActivityListItem({
   statusLabels?: Record<TaskStatus, string>;
 }) {
   const relative = formatDistanceToNow(row.createdAt, { addSuffix: true });
-  const exact = format(row.createdAt, "MMM d, h:mm a");
+  const exact = `${formatDate(row.createdAt)}, ${format(row.createdAt, "h:mm a")}`;
 
   return (
     <li

@@ -38,6 +38,7 @@ import {
 import { templateToRichHtml } from "@/lib/hr/letters/rich";
 import { applyPronouns, normalizeGender, type Gender } from "@/lib/hr/pronouns";
 import { applyFirm, HR_SIGNATORY } from "@/lib/hr/firm";
+import { formatDate } from "@/lib/format";
 import {
   readCtcLetterPrefill,
   clearCtcLetterPrefill,
@@ -377,11 +378,7 @@ export function LetterEditor({
     richGetHtmlRef.current = getHtml;
   }, []);
 
-  const today = useMemo(
-    () =>
-      new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
-    [],
-  );
+  const today = useMemo(() => formatDate(new Date()), []);
 
   const recipientName = (values.candidateName ?? values.name ?? "").trim();
   const recipientEmail = (values.candidateEmail ?? values.email ?? "").trim();
@@ -1307,7 +1304,7 @@ function SignatureView({
         <img className="alw-sign-img" src={ctx.signatureImage} alt="Signature" />
       ) : !isHr ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img className="alw-sign-img" src="/signatures/proprietor-signature.png" alt="Signature" />
+        <img className="alw-sign-img" src="/signatures/proprietor-signature.jpg" alt="Signature" />
       ) : (
         <div className="alw-sign-space" aria-hidden />
       )}
@@ -1349,9 +1346,7 @@ function Spans({ spans, ctx }: { spans: Span[]; ctx: RenderCtx }) {
  *  no input chrome, and an empty field simply disappears — the finished letter. */
 /** ISO "2026-08-15" → "15 August 2026" (what the letter body shows). */
 function isoToDisplayDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  return formatDate(iso); // canonical "07 AUG 2026" — stored + printed on the letter
 }
 
 /** "15 August 2026" (or any parseable date) → ISO "2026-08-15" for <input type=date>. */

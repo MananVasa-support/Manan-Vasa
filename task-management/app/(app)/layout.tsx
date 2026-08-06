@@ -19,6 +19,7 @@ import { ManagerDailyTaskGate } from "@/components/manager-gates/manager-daily-t
 import { dccGateTarget, dccManagerReviewState } from "@/lib/dcc/gate";
 import { DccGateView } from "@/components/dcc/dcc-gate-view";
 import { DccManagerReviewGate } from "@/components/dcc/dcc-manager-review-gate";
+import { OnboardingNudge } from "@/components/onboarding/onboarding-nudge";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   // Load directly (no timeout wrapper). A slow read completes; wrapping auth in
@@ -135,10 +136,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // navigation, so deciding here from the server `x-pathname` left the sidebar stuck
   // to the first-landed route (showing on the hub, missing on modules, only fixed by
   // a reload/HMR). ChromeShell re-evaluates on every client navigation.
+  // Soft onboarding nudge — fixed-position + session-dismissible, fetches its own
+  // status CLIENT-SIDE after mount (never a query on this SSR/dashboard load
+  // path). Floats over any route without touching the chrome/layout branching.
   return (
     <>
       <KeyboardShortcuts />
       <IdleTimerClient timeoutMinutes={15} />
+      <OnboardingNudge />
       <ChromeShell sidebar={<DashboardSidebar />}>{children}</ChromeShell>
     </>
   );
