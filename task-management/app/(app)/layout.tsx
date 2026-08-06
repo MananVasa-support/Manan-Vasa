@@ -20,6 +20,8 @@ import { dccGateTarget, dccManagerReviewState } from "@/lib/dcc/gate";
 import { DccGateView } from "@/components/dcc/dcc-gate-view";
 import { DccManagerReviewGate } from "@/components/dcc/dcc-manager-review-gate";
 import { OnboardingNudge } from "@/components/onboarding/onboarding-nudge";
+import { pendingLockBroadcastForEmployee } from "@/lib/ecos/queries";
+import { BroadcastLockGate } from "@/components/communications/broadcast-lock-gate";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   // Load directly (no timeout wrapper). A slow read completes; wrapping auth in
@@ -119,6 +121,41 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           return withSkip(<DccManagerReviewGate greetingName={firstName} state={dccReview} />);
         }
       }
+    }
+  }
+
+  // ── ECOS "Compliance Lock Mode" — mandatory-broadcast APP-LOCK gate. ──
+  // The LAST gate in the chain: after every daily ritual passes, if this
+  // employee has an unacknowledged Critical/Emergency broadcast published with
+  // `requireLock=true`, replace the whole app with a full-screen lock until they
+  // acknowledge it. Acknowledging (in the gate) → router.refresh() → this layout
+  // re-runs → the query no longer returns the broadcast → the lock clears.
+  //
+  // TRIPLE FAIL-OPEN so a DB hiccup can NEVER trap anyone (the app's gates were
+  // once disabled after wrongly blocking attendance — we do not repeat that):
+  //   1. kill-switch — ECOS_LOCK_OFF=true disables locking entirely. Default OFF
+  //      (unset) = locking ACTIVE, since enforcement is the whole point; but it
+  //      is trivially disableable if it ever misbehaves in prod.
+  //   2. super-admin skip — the SAME `gateSkipActive` helper the manager/DCC
+  //      gates use (sa_gate_skip cookie), so a super-admin is never locked out.
+  //   3. `pendingLockBroadcastForEmployee` is itself fail-open (returns null on
+  //      any error), and we .catch(() => null) on top for a second guarantee.
+  if (process.env.ECOS_LOCK_OFF !== "true" && !(await gateSkipActive(me).catch(() => false))) {
+    const lock = await pendingLockBroadcastForEmployee(me.id).catch(() => null);
+    if (lock) {
+      return (
+        <BroadcastLockGate
+          broadcast={{
+            id: lock.id,
+            title: lock.title,
+            bodyHtml: lock.bodyHtml,
+            priority: lock.priority,
+            category: lock.category,
+            senderName: lock.senderName,
+            authorIdentity: lock.authorIdentity,
+          }}
+        />
+      );
     }
   }
 

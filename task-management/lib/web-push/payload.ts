@@ -60,6 +60,9 @@ const TITLES: Record<NotificationKind, (actor: string) => string> = {
   appraisal_manager_pending: () => `Appraisal scores await your review`,
   appraisal_management_pending: () => `Appraisal scores await management review`,
   appraisal_finalized: () => `Your appraisal is finalized`,
+  // Enterprise Communications (mig 0179) — ECOS owns its own delivery; generic
+  // push copy placeholder to satisfy the exhaustive map.
+  broadcast: () => `New company communication`,
 };
 
 export interface PushCtx {

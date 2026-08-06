@@ -1,5 +1,10 @@
 import type { NextConfig } from "next";
 
+// The @sparticuz/chromium binary pack (pnpm-hoisted, any version) — traced into
+// the rich-letter PDF routes so executablePath() finds it at runtime on Vercel.
+const CHROMIUM_BIN =
+  "./node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**";
+
 const nextConfig: NextConfig = {
   typedRoutes: true,
   devIndicators: false,
@@ -8,6 +13,15 @@ const nextConfig: NextConfig = {
   // to be on the function filesystem, so a bare readFile would 500 in prod).
   outputFileTracingIncludes: {
     "/goals/template.xlsx": ["./public/templates/Altus-Goals-Template.xlsx"],
+    // @sparticuz/chromium's binary lives in its `bin/` dir and is unpacked at
+    // RUNTIME by executablePath() — nothing statically imports it, so Vercel's
+    // file-tracing drops it from the function ("input directory …/bin does not
+    // exist"). Force-include it into every route that renders a RICH letter PDF
+    // with headless Chromium. The @* matches whatever pnpm-hoisted version is
+    // installed (currently @sparticuz/chromium@149).
+    "/api/hr/letters/issue-rich": [CHROMIUM_BIN],
+    "/api/hr/letters/pdf": [CHROMIUM_BIN],
+    "/api/hr/letters/email-pdf": [CHROMIUM_BIN],
   },
   // Externalize heavy server packages so the bundler does NOT compile their huge
   // trees into every route (the Sentry + OpenTelemetry + Prisma-instrumentation

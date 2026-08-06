@@ -15,6 +15,7 @@ import {
   Plus,
   Target,
   Send,
+  Megaphone,
   Loader2,
   type LucideIcon,
 } from "lucide-react";
@@ -69,6 +70,7 @@ const CARDS: Card[] = [
   { slug: "/support", title: "Help Desk", Icon: LifeBuoy, popup: "help-desk" as const },
   { slug: "/hr/record", title: "HR Record", Icon: IdCard },
   { slug: "/hr/kpi", title: "KPI Management", Icon: Target },
+  { slug: "/communications", title: "Enterprise Communications", Icon: Megaphone },
 ];
 
 // The limited deck a NORMAL employee sees: only their own HR record (the /portal

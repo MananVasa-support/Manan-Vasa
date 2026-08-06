@@ -63,6 +63,9 @@ const EMOJI: Record<NotificationKind, string> = {
   appraisal_manager_pending: ":memo:",
   appraisal_management_pending: ":memo:",
   appraisal_finalized: ":trophy:",
+  // Enterprise Communications (mig 0179) — delivered in-app + email by the
+  // ECOS publish flow, never via Slack; placeholder to satisfy the exhaustive map.
+  broadcast: ":mega:",
 };
 
 const VERB: Record<NotificationKind, (actor: string, statusLabel?: string) => string> = {
@@ -112,6 +115,8 @@ const VERB: Record<NotificationKind, (actor: string, statusLabel?: string) => st
   appraisal_manager_pending: () => `Appraisal scores await your review`,
   appraisal_management_pending: () => `Appraisal scores await management review`,
   appraisal_finalized: () => `Your appraisal is finalized`,
+  // Enterprise Communications (mig 0179) — not sent via Slack; placeholder.
+  broadcast: () => `New company communication`,
 };
 
 export interface SlackCtx {

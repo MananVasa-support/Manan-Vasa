@@ -47,6 +47,12 @@ import {
   type PayBasis,
   type WorkSessionSource,
   type WorkSessionStatus,
+  type BroadcastPriority,
+  type BroadcastCategory,
+  type BroadcastStatus,
+  type BroadcastAckMode,
+  type BroadcastAuthorIdentity,
+  type BroadcastRecipientStatus,
 } from "./enums";
 import type { DocKind, SignatureStatus } from "@/lib/documents/signing";
 
@@ -1292,6 +1298,13 @@ export const NOTIFICATION_KINDS = [
   "appraisal_manager_pending",  // → manager when a downline self score lands
   "appraisal_management_pending",// → management when a manager score lands
   "appraisal_finalized",        // → the employee when final scores lock
+  // Enterprise Communications (ECOS, migration 0179) — an official broadcast
+  // delivered to a targeted employee. The in-app inbox row is created via
+  // notify(); the broadcast email is sent by lib/email/resend.ts →
+  // sendBroadcastEmail (notify's per-task email arm renders no template for
+  // this kind, so it's inbox-only through the dispatcher). Deep-links to
+  // /communications/<broadcastId>.
+  "broadcast",
 ] as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
@@ -4956,6 +4969,65 @@ export const workSessionShots = pgTable(
   (t) => [index("wss_session_idx").on(t.sessionId)],
 );
 export type WorkSessionShot = typeof workSessionShots.$inferSelect;
+
+/**
+ * ENTERPRISE COMMUNICATIONS (ECOS, migration 0179). A `broadcasts` row is one
+ * official communication (announcement, policy/compliance notice, emergency
+ * alert, recognition, …). On PUBLISH its audience rule is resolved to a snapshot
+ * of `broadcast_recipients` (one row per targeted employee) that tracks
+ * delivery + read + acknowledge. Delivery reuses the existing notification
+ * fan-out (in-app + email); Critical/Emergency + acknowledge-required messages
+ * can raise the app-lock gate until acknowledged.
+ */
+export const broadcasts = pgTable(
+  "broadcasts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    bodyHtml: text("body_html").notNull().default(""),
+    bodyText: text("body_text").notNull().default(""),
+    category: text("category").notNull().default("announcement").$type<BroadcastCategory>(),
+    priority: text("priority").notNull().default("normal").$type<BroadcastPriority>(),
+    ackMode: text("ack_mode").notNull().default("read").$type<BroadcastAckMode>(),
+    // Hard app-lock (blur+freeze) until acknowledged — only for critical/emergency.
+    requireLock: boolean("require_lock").notNull().default(false),
+    status: text("status").notNull().default("draft").$type<BroadcastStatus>(),
+    authorId: uuid("author_id").references(() => employees.id, { onDelete: "set null" }),
+    authorIdentity: text("author_identity").notNull().default("hr").$type<BroadcastAuthorIdentity>(),
+    senderName: text("sender_name"), // display name for a CEO/Founder identity
+    attachments: jsonb("attachments").notNull().default(sql`'[]'::jsonb`), // [{path,name,mime,size}]
+    audience: jsonb("audience").notNull().default(sql`'{}'::jsonb`),        // the targeting rule
+    channels: jsonb("channels").notNull().default(sql`'["in_app","email"]'::jsonb`),
+    recipientCount: integer("recipient_count").notNull().default(0),
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("broadcasts_status_idx").on(t.status), index("broadcasts_published_idx").on(t.publishedAt)],
+);
+export type Broadcast = typeof broadcasts.$inferSelect;
+
+/** Per-employee delivery + read + acknowledge for a published broadcast. */
+export const broadcastRecipients = pgTable(
+  "broadcast_recipients",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    broadcastId: uuid("broadcast_id").notNull().references(() => broadcasts.id, { onDelete: "cascade" }),
+    employeeId: uuid("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("pending").$type<BroadcastRecipientStatus>(),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+    deliveredChannels: jsonb("delivered_channels").notNull().default(sql`'[]'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("broadcast_recipient_uq").on(t.broadcastId, t.employeeId),
+    index("broadcast_recipient_emp_idx").on(t.employeeId, t.status),
+  ],
+);
+export type BroadcastRecipient = typeof broadcastRecipients.$inferSelect;
 
 /**
  * One row per (employee_name, period) from the employee-blocked

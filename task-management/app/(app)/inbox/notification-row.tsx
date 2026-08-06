@@ -82,6 +82,8 @@ const KIND_META: Record<NotificationKind, { icon: LucideIcon; tone: string }> = 
   appraisal_manager_pending: { icon: Users, tone: "amber" },
   appraisal_management_pending: { icon: Users, tone: "amber" },
   appraisal_finalized: { icon: CheckCircle2, tone: "green" },
+  // Enterprise Communications (mig 0179) — official broadcast.
+  broadcast: { icon: Bell, tone: "blue" },
 };
 
 // Kinds that deep-link somewhere other than the related task / inbox.
@@ -107,6 +109,8 @@ const KIND_HREF: Partial<Record<string, string>> = {
   appraisal_manager_pending: "/appraisal",
   appraisal_management_pending: "/appraisal",
   appraisal_finalized: "/appraisal",
+  // Enterprise Communications (mig 0179) — the employee's broadcast inbox.
+  broadcast: "/communications",
 };
 
 /**

@@ -169,6 +169,24 @@ export type WorkSessionSource = (typeof WORK_SESSION_SOURCES)[number];
 export const WORK_SESSION_STATUSES = ["open", "closed", "reconciled"] as const;
 export type WorkSessionStatus = (typeof WORK_SESSION_STATUSES)[number];
 
+// Enterprise Communications (ECOS, 0179) — broadcast domain.
+export const BROADCAST_PRIORITIES = ["normal", "important", "high", "critical", "emergency"] as const;
+export type BroadcastPriority = (typeof BROADCAST_PRIORITIES)[number];
+export const BROADCAST_CATEGORIES = [
+  "announcement", "ceo", "policy", "compliance", "emergency",
+  "department", "event", "holiday", "recognition", "it", "payroll", "other",
+] as const;
+export type BroadcastCategory = (typeof BROADCAST_CATEGORIES)[number];
+export const BROADCAST_STATUSES = ["draft", "scheduled", "published", "paused", "archived"] as const;
+export type BroadcastStatus = (typeof BROADCAST_STATUSES)[number];
+// none → informational; read → auto read-receipt only; acknowledge → explicit "I acknowledge".
+export const BROADCAST_ACK_MODES = ["none", "read", "acknowledge"] as const;
+export type BroadcastAckMode = (typeof BROADCAST_ACK_MODES)[number];
+export const BROADCAST_AUTHOR_IDENTITIES = ["hr", "ceo", "founder"] as const;
+export type BroadcastAuthorIdentity = (typeof BROADCAST_AUTHOR_IDENTITIES)[number];
+export const BROADCAST_RECIPIENT_STATUSES = ["pending", "read", "acknowledged"] as const;
+export type BroadcastRecipientStatus = (typeof BROADCAST_RECIPIENT_STATUSES)[number];
+
 export const TASK_PRIORITIES = [
   "imp_urgent",
   "imp_not_urgent",

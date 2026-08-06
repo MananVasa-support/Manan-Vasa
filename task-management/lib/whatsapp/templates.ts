@@ -54,6 +54,9 @@ const NAMES: Record<NotificationKind, string> = {
   appraisal_manager_pending: "vp_appraisal_manager",
   appraisal_management_pending: "vp_appraisal_management",
   appraisal_finalized: "vp_appraisal_finalized",
+  // Enterprise Communications (mig 0179) — no registered WhatsApp template;
+  // placeholder to satisfy the exhaustive map (routed away from WhatsApp).
+  broadcast: "vp_broadcast",
 };
 
 export function templateNameForKind(kind: NotificationKind): string {
@@ -171,6 +174,8 @@ const VARS: Record<NotificationKind, (ctx: TemplateCtx) => Param[]> = {
   appraisal_manager_pending: (c) => [t(c.body ?? "")],
   appraisal_management_pending: (c) => [t(c.body ?? "")],
   appraisal_finalized: (c) => [t(c.body ?? "")],
+  // Enterprise Communications (mig 0179) — placeholder single-body builder.
+  broadcast: (c) => [t(c.body ?? "")],
 };
 
 /**

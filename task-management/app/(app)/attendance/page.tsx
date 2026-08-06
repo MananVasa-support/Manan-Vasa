@@ -8,6 +8,7 @@ import {
   Users,
   ClipboardList,
   BarChart3,
+  MonitorPlay,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { DashboardFooter } from "@/components/layout/footer";
@@ -29,6 +30,7 @@ import {
 } from "@/components/attendance/att-team-roster";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { asWorkerType } from "@/lib/attendance/worker-type";
 import {
   listMyAttendance,
   listTeamAttendanceForDate,
@@ -92,6 +94,9 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   // The Team roster + attendance editing are SUPER-ADMIN only. Admins keep the
   // report buttons but no longer see the (editable) Team box.
   const isSA = isSuperAdmin(me.email);
+  // Project / remote staff clock in by starting a screen-share Work Session
+  // (session grading) instead of a punch — surface it as their headline action.
+  const isProjectRemote = asWorkerType(me.workerType) === "project_remote";
 
   // My last 14 calendar days.
   const since = localDateString(tz, new Date(Date.now() - 13 * 86_400_000));
@@ -265,24 +270,78 @@ export default async function AttendancePage({ searchParams }: PageProps) {
               Good to see you, {firstName}
             </h1>
           </div>
-          {me.isAdmin && (
+          {(me.isAdmin || isSA) && (
             <div className="flex shrink-0 items-center gap-2 flex-wrap">
               <a
-                href="/attendance/insights"
+                href="/attendance/work-session/review"
                 className="pastel-cta wg-btn inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[13.5px] font-bold"
               >
-                <BarChart3 size={15} strokeWidth={2.4} /> Dashboard
+                <MonitorPlay size={15} strokeWidth={2.4} /> Work Sessions
               </a>
-              <a
-                href="/attendance/dashboard"
-                className="brand-btn wg-btn inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[13.5px] font-bold text-white"
-                style={{ background: "linear-gradient(135deg, #E10600, #A80400)", boxShadow: "0 8px 20px -10px color-mix(in srgb, #A80400 70%, transparent)" }}
-              >
-                <ClipboardList size={15} strokeWidth={2.4} /> Att Report
-              </a>
+              {me.isAdmin && (
+                <>
+                  <a
+                    href="/attendance/insights"
+                    className="pastel-cta wg-btn inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[13.5px] font-bold"
+                  >
+                    <BarChart3 size={15} strokeWidth={2.4} /> Dashboard
+                  </a>
+                  <a
+                    href="/attendance/dashboard"
+                    className="brand-btn wg-btn inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[13.5px] font-bold text-white"
+                    style={{ background: "linear-gradient(135deg, #E10600, #A80400)", boxShadow: "0 8px 20px -10px color-mix(in srgb, #A80400 70%, transparent)" }}
+                  >
+                    <ClipboardList size={15} strokeWidth={2.4} /> Att Report
+                  </a>
+                </>
+              )}
             </div>
           )}
         </header>
+
+        {/* ── Project / remote staff: starting a screen-share Work Session IS
+             their check-in (session grading), so make it the headline action. ── */}
+        {isProjectRemote && (
+          <a
+            href="/attendance/work-session"
+            className="wg-rise wg-btn group mb-5 flex items-center gap-4 rounded-[22px] px-6 py-5 text-white max-sm:flex-col max-sm:items-start max-sm:gap-3"
+            style={{
+              background: "linear-gradient(135deg, #E10600, #A80400)",
+              boxShadow: "0 14px 34px -16px color-mix(in srgb, #A80400 75%, transparent)",
+            }}
+          >
+            <span
+              className="inline-grid size-12 shrink-0 place-items-center rounded-2xl"
+              style={{ background: "rgba(255,255,255,0.16)" }}
+            >
+              <MonitorPlay size={24} strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div
+                style={{
+                  fontFamily: "var(--font-display), system-ui, sans-serif",
+                  fontWeight: 900,
+                  fontSize: 20,
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1.1,
+                }}
+              >
+                Start Work Session
+              </div>
+              <p className="mt-0.5 text-[13.5px] font-medium text-white/85">
+                Share your screen so your work time is captured and reviewed — this is how you check in.
+              </p>
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-pill bg-white/15 px-4 py-2 text-[13.5px] font-bold max-sm:w-full max-sm:justify-center">
+              Begin
+              <MoveRight
+                size={16}
+                strokeWidth={2.4}
+                className="transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
+              />
+            </span>
+          </a>
+        )}
 
         {/* ── How am I doing — full-width KPI bar across the top ── */}
         <div className="mb-5">

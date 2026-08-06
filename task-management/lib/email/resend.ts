@@ -596,6 +596,115 @@ export async function sendIncentiveMonthlyDigestEmail(args: {
 }
 
 /* ------------------------------------------------------------------ */
+/* Enterprise Communications (ECOS, mig 0179) — broadcast email         */
+/* ------------------------------------------------------------------ */
+
+/** Escape a raw string for safe interpolation into our HTML shell. */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+const BROADCAST_PRIORITY_BANNER: Record<
+  string,
+  { label: string; bg: string; fg: string } | undefined
+> = {
+  high: { label: "High priority", bg: "#FEF3C7", fg: "#92400E" },
+  critical: { label: "Critical — action required", bg: "#FEE2E2", fg: "#991B1B" },
+  emergency: { label: "Emergency", bg: "#7F1D1D", fg: "#FFFFFF" },
+};
+
+/**
+ * Sends ONE official broadcast email. Unlike `sendNotificationEmail` (which
+ * renders a per-task template and returns null for the `broadcast` kind), this
+ * ships the broadcast's OWN authored HTML wrapped in a minimal branded shell.
+ *
+ * Best-effort: never throws; returns `{ error }` so the ECOS publish flow can
+ * log per-recipient failures without aborting the fan-out. No-ops (returns
+ * `{ id: null, error: null }`) when Resend is unconfigured (dev without a key).
+ *
+ * The email goes to the recipient's WORK inbox (the caller resolves and passes
+ * `to`) — broadcasts are official company communications, so we do NOT fall
+ * back to a personal address the way the onboarding welcome mail does.
+ */
+export async function sendBroadcastEmail(args: {
+  /** The recipient's work email address (already resolved by the caller). */
+  to: string;
+  /** The broadcast title — becomes the subject line. */
+  subject: string;
+  /** The author-composed HTML body (sanitised upstream at compose time). */
+  bodyHtml: string;
+  /** Fallback plain text used when bodyHtml is empty. */
+  bodyText?: string | null;
+  /** Display name for the sender identity ("Altus HR", a CEO/Founder name). */
+  senderLabel: string;
+  /** One of BROADCAST_PRIORITIES — drives the optional priority banner. */
+  priority?: string;
+  /** Whether recipients must explicitly acknowledge (adds a CTA nudge). */
+  requireAck?: boolean;
+  broadcastId: string;
+  siteUrl?: string | undefined;
+}): Promise<{ id: string | null; error: string | null }> {
+  try {
+    const resend = getResend();
+    if (!resend) return { id: null, error: null };
+
+    const site = (args.siteUrl ?? process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
+    const viewUrl = site ? `${site}/communications/${args.broadcastId}` : "";
+    const banner = args.priority ? BROADCAST_PRIORITY_BANNER[args.priority] : undefined;
+    const inner =
+      args.bodyHtml && args.bodyHtml.trim().length > 0
+        ? args.bodyHtml
+        : `<p>${escapeHtml(args.bodyText ?? "").replace(/\n/g, "<br/>")}</p>`;
+
+    const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#F3F4F6;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4F6;padding:24px 0;">
+      <tr><td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#FFFFFF;border-radius:12px;overflow:hidden;border:1px solid #E5E7EB;">
+          <tr><td style="background:#0B1220;padding:18px 28px;">
+            <div style="font-family:Georgia,'Times New Roman',serif;color:#FFFFFF;font-size:18px;font-weight:700;letter-spacing:.2px;">Altus Corp</div>
+            <div style="font-family:Arial,Helvetica,sans-serif;color:#9CA3AF;font-size:12px;margin-top:2px;">Official communication from ${escapeHtml(args.senderLabel)}</div>
+          </td></tr>
+          ${banner ? `<tr><td style="background:${banner.bg};color:${banner.fg};padding:10px 28px;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;">${escapeHtml(banner.label)}</td></tr>` : ""}
+          <tr><td style="padding:28px;">
+            <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:22px;line-height:1.3;color:#111827;margin:0 0 16px;">${escapeHtml(args.subject)}</h1>
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#374151;">${inner}</div>
+            ${
+              viewUrl
+                ? `<div style="margin-top:28px;"><a href="${viewUrl}" style="display:inline-block;background:#E10600;color:#FFFFFF;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;padding:11px 22px;border-radius:8px;">${args.requireAck ? "Read &amp; acknowledge" : "View in dashboard"}</a></div>`
+                : ""
+            }
+          </td></tr>
+          <tr><td style="padding:16px 28px;border-top:1px solid #E5E7EB;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#9CA3AF;">
+            You are receiving this because it was sent to your team at Altus Corp.${args.requireAck ? " This message requires your acknowledgement." : ""}
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+
+    const { data, error } = await resend.emails.send({
+      from: FROM,
+      to: args.to,
+      subject: clampSubject(args.subject),
+      html,
+      ...companyBcc(),
+    });
+    if (error) return { id: null, error: error.message };
+    return { id: data?.id ?? null, error: null };
+  } catch (err) {
+    return { id: null, error: errorMessage(err) };
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* internal — template selection + DB resolvers                         */
 /* ------------------------------------------------------------------ */
 
