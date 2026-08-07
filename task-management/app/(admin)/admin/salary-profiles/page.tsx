@@ -8,6 +8,7 @@ import {
 import { AdminSection } from "@/components/admin/ui/section-shell";
 import { SalaryProfileList } from "@/components/admin/salary-profile-list";
 import { SalaryProfileImportDialog } from "@/components/admin/salary-profile-import-dialog";
+import { payBasisFor } from "@/lib/attendance/worker-type";
 
 export const dynamic = "force-dynamic";
 
@@ -28,17 +29,20 @@ export default async function SalaryProfilesPage() {
     .filter((e) => e.isActive)
     .map((e) => ({ id: e.id, name: e.name }));
 
-  const withCtc = rows.filter((r) => r.annualCtc > 0).length;
+  const withPay = rows.filter((r) => {
+    const b = payBasisFor(r.workerType);
+    return b === "hourly" ? r.monthlyPayAtTarget > 0 : b === "fixed_fee" ? r.monthlyFee > 0 : r.annualCtc > 0;
+  }).length;
 
   return (
     <AdminSection
       eyebrow="Admin · Salary"
       title="Salary Profiles"
-      subtitle={`${rows.length} active employees · ${withCtc} with a CTC set · Set each person's CTC, TDS, PT-exemption, designation, paying entity and probation, and record monthly advances.`}
+      subtitle={`${rows.length} active employees · ${withPay} with pay set · Set each person's worker type & pay (CTC, hourly or fixed-fee), TDS, PT-exemption, designation, paying entity and probation, and record monthly advances.`}
       icon={Wallet}
       stats={[
         { label: "Active employees", value: rows.length },
-        { label: "With CTC set", value: withCtc, tone: "green" },
+        { label: "With pay set", value: withPay, tone: "green" },
       ]}
       actions={<SalaryProfileImportDialog />}
     >

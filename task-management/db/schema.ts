@@ -53,6 +53,7 @@ import {
   type BroadcastAckMode,
   type BroadcastAuthorIdentity,
   type BroadcastRecipientStatus,
+  type BroadcastRecurrence,
 } from "./enums";
 import type { DocKind, SignatureStatus } from "@/lib/documents/signing";
 
@@ -5000,6 +5001,15 @@ export const broadcasts = pgTable(
     channels: jsonb("channels").notNull().default(sql`'["in_app","email"]'::jsonb`),
     recipientCount: integer("recipient_count").notNull().default(0),
     scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
+    // Scheduling / recurrence (0180). recurrence: none|daily|weekly|monthly.
+    recurrence: text("recurrence").notNull().default("none").$type<BroadcastRecurrence>(),
+    recurrenceUntil: date("recurrence_until"),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+    // Reminder / escalation policy (0180). reminderAfterDays null = off.
+    reminderAfterDays: integer("reminder_after_days"),
+    escalateToManager: boolean("escalate_to_manager").notNull().default(false),
+    // Optional inline poll / quiz (0180). See BroadcastPoll.
+    poll: jsonb("poll").$type<BroadcastPoll | null>(),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -5007,6 +5017,15 @@ export const broadcasts = pgTable(
   (t) => [index("broadcasts_status_idx").on(t.status), index("broadcasts_published_idx").on(t.publishedAt)],
 );
 export type Broadcast = typeof broadcasts.$inferSelect;
+
+/** Inline poll / quiz attached to a broadcast (stored in broadcasts.poll). */
+export interface BroadcastPoll {
+  question: string;
+  options: string[];
+  mode: "poll" | "quiz";
+  correctIndex?: number; // quiz only — the right option
+  anonymous?: boolean; // poll only — hide who voted from HR
+}
 
 /** Per-employee delivery + read + acknowledge for a published broadcast. */
 export const broadcastRecipients = pgTable(
@@ -5020,6 +5039,9 @@ export const broadcastRecipients = pgTable(
     readAt: timestamp("read_at", { withTimezone: true }),
     acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
     deliveredChannels: jsonb("delivered_channels").notNull().default(sql`'[]'::jsonb`),
+    // Reminder / escalation tracking (0180).
+    lastRemindedAt: timestamp("last_reminded_at", { withTimezone: true }),
+    reminderCount: integer("reminder_count").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -5028,6 +5050,47 @@ export const broadcastRecipients = pgTable(
   ],
 );
 export type BroadcastRecipient = typeof broadcastRecipients.$inferSelect;
+
+/** Saved, reusable audience (name + AudienceRule) for the composer (0180). */
+export const broadcastSegments = pgTable("broadcast_segments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  rule: jsonb("rule").notNull(),
+  createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type BroadcastSegment = typeof broadcastSegments.$inferSelect;
+
+/** One employee's answer to a broadcast's inline poll / quiz (0180). */
+export const broadcastPollResponses = pgTable(
+  "broadcast_poll_responses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    broadcastId: uuid("broadcast_id").notNull().references(() => broadcasts.id, { onDelete: "cascade" }),
+    employeeId: uuid("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+    optionIndex: integer("option_index").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("broadcast_poll_response_uq").on(t.broadcastId, t.employeeId)],
+);
+export type BroadcastPollResponse = typeof broadcastPollResponses.$inferSelect;
+
+/** Reusable broadcast template (0180). */
+export const broadcastTemplates = pgTable("broadcast_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  title: text("title").notNull().default(""),
+  bodyHtml: text("body_html").notNull().default(""),
+  category: text("category").notNull().default("announcement").$type<BroadcastCategory>(),
+  priority: text("priority").notNull().default("normal").$type<BroadcastPriority>(),
+  ackMode: text("ack_mode").notNull().default("read").$type<BroadcastAckMode>(),
+  channels: jsonb("channels").notNull().default(sql`'["in_app","email"]'::jsonb`),
+  createdById: uuid("created_by_id").references(() => employees.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type BroadcastTemplate = typeof broadcastTemplates.$inferSelect;
 
 /**
  * One row per (employee_name, period) from the employee-blocked

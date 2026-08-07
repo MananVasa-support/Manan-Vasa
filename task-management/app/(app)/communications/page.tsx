@@ -14,7 +14,7 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireUser } from "@/lib/auth/current";
 import { isHrStaff } from "@/lib/hr/access";
-import { listBroadcasts, listMyBroadcasts } from "@/lib/ecos/queries";
+import { listBroadcasts, listMyBroadcasts, getEcosOrgStats } from "@/lib/ecos/queries";
 import { formatDate } from "@/lib/format";
 import { Pill, MiniBar } from "@/components/ecos/pills";
 import {
@@ -94,7 +94,7 @@ export default async function CommunicationsHomePage() {
 /* ------------------------------------------------------------------ */
 
 async function AuthorList() {
-  const rows = await listBroadcasts();
+  const [rows, org] = await Promise.all([listBroadcasts(), getEcosOrgStats()]);
 
   if (rows.length === 0) {
     return (
@@ -107,8 +107,32 @@ async function AuthorList() {
     );
   }
 
+  const orgTiles: Array<{ label: string; value: string; tone?: string }> = [
+    { label: "Broadcasts", value: String(org.totalBroadcasts) },
+    { label: "Published", value: String(org.published) },
+    { label: "Scheduled", value: String(org.scheduled), tone: "#b45309" },
+    { label: "Avg read", value: `${org.avgReadPct}%`, tone: "#16a34a" },
+    { label: "Avg ack", value: `${org.avgAckPct}%`, tone: ACCENT },
+  ];
+
   return (
-    <div className="grid gap-3.5">
+    <>
+      {/* Org BI strip */}
+      <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+        {orgTiles.map((t) => (
+          <div key={t.label} className="rounded-2xl border border-hairline bg-surface-card px-3.5 py-3">
+            <div
+              className="text-[24px] font-black leading-none tabular-nums"
+              style={{ color: t.tone ?? "#334155", fontFamily: "var(--font-display), system-ui, sans-serif" }}
+            >
+              {t.value}
+            </div>
+            <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-ink-soft">{t.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-3.5">
       {rows.map((b, i) => {
         const pTone = BROADCAST_PRIORITY_TONE[b.priority];
         const sTone = BROADCAST_STATUS_TONE[b.status];
@@ -155,7 +179,8 @@ async function AuthorList() {
           </Link>
         );
       })}
-    </div>
+      </div>
+    </>
   );
 }
 

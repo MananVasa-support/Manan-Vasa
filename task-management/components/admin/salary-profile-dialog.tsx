@@ -8,6 +8,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { fireToast } from "@/lib/toast";
 import { upsertSalaryProfile } from "@/app/(admin)/admin/salary-profiles/actions";
 import type { SalaryProfileRow } from "@/lib/queries/salary";
+import { WORKER_TYPES } from "@/db/enums";
+import { WORKER_TYPE_LABELS, payBasisFor, asWorkerType } from "@/lib/attendance/worker-type";
+
+const inr = (n: number) => n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
 export interface RosterOption {
   id: string;
@@ -44,6 +48,10 @@ export function SalaryProfileDialog({
   const [designationId, setDesignationId] = useState("");
   const [payingEntityId, setPayingEntityId] = useState("");
   const [probationEnd, setProbationEnd] = useState("");
+  const [workerType, setWorkerType] = useState<string>("full_time");
+  const [monthlyPayAtTarget, setMonthlyPayAtTarget] = useState("");
+  const [weeklyTargetHours, setWeeklyTargetHours] = useState("");
+  const [monthlyFee, setMonthlyFee] = useState("");
 
   // Re-seed the form whenever a different row is opened.
   useEffect(() => {
@@ -54,8 +62,15 @@ export function SalaryProfileDialog({
     setDesignationId(row.designationId ?? "");
     setPayingEntityId(row.payingEntityId ?? "");
     setProbationEnd(row.probationEnd ?? "");
+    setWorkerType(row.workerType ?? "full_time");
+    setMonthlyPayAtTarget(row.monthlyPayAtTarget ? String(row.monthlyPayAtTarget) : "3500");
+    setWeeklyTargetHours(row.weeklyTargetHours ? String(row.weeklyTargetHours) : "27");
+    setMonthlyFee(row.monthlyFee ? String(row.monthlyFee) : "");
     setError(null);
   }, [row]);
+
+  // Pay basis drives which money fields matter (see lib/attendance/worker-type).
+  const basis = payBasisFor(asWorkerType(workerType));
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,18 +79,34 @@ export function SalaryProfileDialog({
 
     const ctc = Number(annualCtc || 0);
     const tds = Number(tdsMonthly || 0);
-    if (!Number.isFinite(ctc) || ctc < 0) return setError("Enter a valid annual CTC.");
+    const pat = Number(monthlyPayAtTarget || 0);
+    const wth = Number(weeklyTargetHours || 0);
+    const fee = Number(monthlyFee || 0);
     if (!Number.isFinite(tds) || tds < 0) return setError("Enter a valid monthly TDS.");
+    if (basis === "monthly_ctc" && (!Number.isFinite(ctc) || ctc < 0)) {
+      return setError("Enter a valid annual CTC.");
+    }
+    if (basis === "hourly") {
+      if (!(pat > 0)) return setError("Enter the monthly pay at full target (the cap).");
+      if (!(wth > 0)) return setError("Enter the weekly target hours (e.g. 27).");
+    }
+    if (basis === "fixed_fee" && (!Number.isFinite(fee) || fee < 0)) {
+      return setError("Enter a valid monthly fee.");
+    }
 
     startTransition(async () => {
       const res = await upsertSalaryProfile({
         employeeId: row.employeeId,
         annualCtc: ctc,
         tdsMonthly: tds,
-        ptExempt,
+        ptExempt: basis === "fixed_fee" ? true : ptExempt, // fixed_fee never charges PT
         designationId: designationId || null,
         payingEntityId: payingEntityId || null,
         probationEnd: probationEnd || null,
+        workerType,
+        monthlyPayAtTarget: pat,
+        weeklyTargetHours: wth,
+        monthlyFee: fee,
       });
       if (!res.ok) {
         setError(res.error);
@@ -89,6 +120,14 @@ export function SalaryProfileDialog({
 
   const designationOptions = designations.map((d) => ({ value: d.id, label: d.name }));
   const entityOptions = entities.map((en) => ({ value: en.id, label: en.name }));
+  const workerTypeOptions = WORKER_TYPES.map((w) => ({ value: w, label: WORKER_TYPE_LABELS[w] }));
+
+  // Live hourly-rate preview (uses an average 30-day month; the payslip uses the
+  // real calendar days). Pay = min(rate × hours, monthlyPayAtTarget).
+  const previewRate =
+    Number(weeklyTargetHours) > 0
+      ? Number(monthlyPayAtTarget) / (Number(weeklyTargetHours) * (30 / 7))
+      : 0;
 
   return (
     <Dialog.Root open={row !== null} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -103,39 +142,135 @@ export function SalaryProfileDialog({
           </Dialog.Description>
 
           <form onSubmit={onSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-              <Field label="Annual CTC (₹)">
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step="0.01"
-                  value={annualCtc}
-                  onChange={(e) => setAnnualCtc(e.target.value)}
-                  placeholder="0"
-                  className={INPUT_CLASS}
-                />
-              </Field>
-              <Field label="Monthly TDS (₹)">
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step="0.01"
-                  value={tdsMonthly}
-                  onChange={(e) => setTdsMonthly(e.target.value)}
-                  placeholder="0"
-                  className={INPUT_CLASS}
-                />
-              </Field>
-            </div>
+            <Field label="Worker Type" hint="Drives how pay is computed and attendance is graded.">
+              <Select
+                options={workerTypeOptions}
+                value={workerType}
+                onValueChange={setWorkerType}
+                ariaLabel="Worker type"
+              />
+            </Field>
 
-            <label className="flex items-center gap-2.5 cursor-pointer select-none">
-              <Checkbox checked={ptExempt} onChange={setPtExempt} ariaLabel="PT exempt" />
-              <span className="text-[14px] font-medium text-[#0F172A]">
-                Professional-tax exempt (skip the ₹200/mo PT)
-              </span>
-            </label>
+            {basis === "monthly_ctc" && (
+              <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+                <Field label="Annual CTC (₹)">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="0.01"
+                    value={annualCtc}
+                    onChange={(e) => setAnnualCtc(e.target.value)}
+                    placeholder="0"
+                    className={INPUT_CLASS}
+                  />
+                </Field>
+                <Field label="Monthly TDS (₹)">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="0.01"
+                    value={tdsMonthly}
+                    onChange={(e) => setTdsMonthly(e.target.value)}
+                    placeholder="0"
+                    className={INPUT_CLASS}
+                  />
+                </Field>
+              </div>
+            )}
+
+            {basis === "hourly" && (
+              <>
+                <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+                  <Field label="Monthly pay at target (₹)" hint="The pay CAP at full hours (e.g. 3500).">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="0.01"
+                      value={monthlyPayAtTarget}
+                      onChange={(e) => setMonthlyPayAtTarget(e.target.value)}
+                      placeholder="3500"
+                      className={INPUT_CLASS}
+                    />
+                  </Field>
+                  <Field label="Weekly target hours" hint="e.g. 27">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="0.5"
+                      value={weeklyTargetHours}
+                      onChange={(e) => setWeeklyTargetHours(e.target.value)}
+                      placeholder="27"
+                      className={INPUT_CLASS}
+                    />
+                  </Field>
+                </div>
+                <Field label="Monthly TDS (₹)">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="0.01"
+                    value={tdsMonthly}
+                    onChange={(e) => setTdsMonthly(e.target.value)}
+                    placeholder="0"
+                    className={INPUT_CLASS}
+                  />
+                </Field>
+                {previewRate > 0 && (
+                  <p className="rounded-md border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-[13px] text-[#475569]" style={{ lineHeight: 1.5 }}>
+                    ≈ <b className="tabular-nums text-[#0F172A]">₹{inr(previewRate)}/hr</b> (30-day month) · pay is capped at{" "}
+                    <b className="tabular-nums text-[#0F172A]">₹{inr(Number(monthlyPayAtTarget) || 0)}/mo</b>. Hours come from attendance.
+                  </p>
+                )}
+              </>
+            )}
+
+            {basis === "fixed_fee" && (
+              <>
+                <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+                  <Field label="Monthly fee (₹)" hint="Flat retainer, unaffected by attendance.">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="0.01"
+                      value={monthlyFee}
+                      onChange={(e) => setMonthlyFee(e.target.value)}
+                      placeholder="0"
+                      className={INPUT_CLASS}
+                    />
+                  </Field>
+                  <Field label="Monthly TDS (₹)">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="0.01"
+                      value={tdsMonthly}
+                      onChange={(e) => setTdsMonthly(e.target.value)}
+                      placeholder="0"
+                      className={INPUT_CLASS}
+                    />
+                  </Field>
+                </div>
+                <p className="rounded-md border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-[13px] text-[#475569]" style={{ lineHeight: 1.5 }}>
+                  Project / remote: flat monthly fee — no professional tax, and attendance is measured by work sessions.
+                </p>
+              </>
+            )}
+
+            {basis !== "fixed_fee" && (
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <Checkbox checked={ptExempt} onChange={setPtExempt} ariaLabel="PT exempt" />
+                <span className="text-[14px] font-medium text-[#0F172A]">
+                  Professional-tax exempt (skip the ₹200/mo PT)
+                </span>
+              </label>
+            )}
 
             <Field label="Designation">
               <Select

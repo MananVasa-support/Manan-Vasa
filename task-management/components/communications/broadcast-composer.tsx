@@ -34,6 +34,16 @@ import {
   ShieldAlert,
   Mail,
   MonitorSmartphone,
+  Smartphone,
+  Bookmark,
+  BookmarkPlus,
+  Trash2,
+  CalendarClock,
+  Repeat,
+  ListChecks,
+  Plus,
+  BellRing,
+  FileText,
   Search,
   Check,
 } from "lucide-react";
@@ -42,14 +52,17 @@ import {
   BROADCAST_PRIORITIES,
   BROADCAST_ACK_MODES,
   BROADCAST_AUTHOR_IDENTITIES,
+  BROADCAST_RECURRENCES,
   WORKER_TYPES,
   EMPLOYEE_ROLES,
   type BroadcastCategory,
   type BroadcastPriority,
   type BroadcastAckMode,
   type BroadcastAuthorIdentity,
+  type BroadcastRecurrence,
 } from "@/db/enums";
 import type { AudienceRule } from "@/lib/ecos/audience";
+import type { BroadcastPoll } from "@/db/schema";
 import type {
   SaveBroadcastDraftInput,
   BroadcastAttachment,
@@ -59,7 +72,14 @@ import {
   publishBroadcast,
   previewAudienceCount,
   aiComposeAssistant,
+  saveBroadcastSegment,
+  deleteBroadcastSegment,
+  scheduleBroadcast,
+  saveBroadcastTemplate,
+  deleteBroadcastTemplate,
 } from "@/app/(app)/hr/communications/actions";
+import type { SegmentRow } from "@/lib/ecos/queries";
+import type { BroadcastTemplate } from "@/db/schema";
 import { uploadBroadcastAttachment } from "@/app/(app)/communications/attachment-actions";
 import { Avatar } from "@/components/ui/avatar";
 import { fireToast } from "@/lib/toast";
@@ -158,6 +178,12 @@ export interface ComposerDraft {
   attachments: BroadcastAttachment[];
   audience: AudienceRule;
   channels: string[];
+  scheduledFor?: string | null; // ISO string
+  recurrence?: BroadcastRecurrence;
+  recurrenceUntil?: string | null; // YYYY-MM-DD
+  poll?: BroadcastPoll | null;
+  reminderAfterDays?: number | null;
+  escalateToManager?: boolean;
 }
 
 export interface BroadcastComposerProps {
@@ -165,6 +191,8 @@ export interface BroadcastComposerProps {
   departments: ComposerOption[];
   designations: ComposerOption[];
   draft?: ComposerDraft | null;
+  segments?: SegmentRow[];
+  templates?: BroadcastTemplate[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -176,6 +204,12 @@ function escapeHtml(s: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+/** A Date → the local "YYYY-MM-DDTHH:mm" value a datetime-local input expects. */
+function toLocalInput(d: Date): string {
+  const off = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - off).toISOString().slice(0, 16);
 }
 
 /** Convert a plain-text AI reply into simple paragraph HTML for the editor. */
@@ -201,6 +235,8 @@ export function BroadcastComposer({
   departments,
   designations,
   draft,
+  segments = [],
+  templates = [],
 }: BroadcastComposerProps) {
   const router = useRouter();
 
@@ -224,6 +260,30 @@ export function BroadcastComposer({
   const [emailChannel, setEmailChannel] = useState(
     draft ? draft.channels.includes("email") : true,
   );
+  const [pushChannel, setPushChannel] = useState(
+    draft ? draft.channels.includes("push") : false,
+  );
+  const [segName, setSegName] = useState("");
+  const [savingSeg, setSavingSeg] = useState(false);
+  const [tplName, setTplName] = useState("");
+  const [savingTpl, setSavingTpl] = useState(false);
+  // Scheduling. `scheduledFor` is a datetime-local string ("YYYY-MM-DDTHH:mm").
+  const [scheduledFor, setScheduledFor] = useState(
+    draft?.scheduledFor ? toLocalInput(new Date(draft.scheduledFor)) : "",
+  );
+  const [recurrence, setRecurrence] = useState<BroadcastRecurrence>(draft?.recurrence ?? "none");
+  const [recurrenceUntil, setRecurrenceUntil] = useState(draft?.recurrenceUntil ?? "");
+  // Inline poll / quiz
+  const [pollEnabled, setPollEnabled] = useState(Boolean(draft?.poll));
+  const [pollMode, setPollMode] = useState<"poll" | "quiz">(draft?.poll?.mode ?? "poll");
+  const [pollQuestion, setPollQuestion] = useState(draft?.poll?.question ?? "");
+  const [pollOptions, setPollOptions] = useState<string[]>(
+    draft?.poll?.options && draft.poll.options.length >= 2 ? draft.poll.options : ["", ""],
+  );
+  const [pollCorrect, setPollCorrect] = useState<number>(draft?.poll?.correctIndex ?? 0);
+  // Reminders / escalation
+  const [reminderAfterDays, setReminderAfterDays] = useState<number>(draft?.reminderAfterDays ?? 0);
+  const [escalateToManager, setEscalateToManager] = useState(draft?.escalateToManager ?? false);
 
   const [attachments, setAttachments] = useState<BroadcastAttachment[]>(draft?.attachments ?? []);
   const [uploading, setUploading] = useState(false);
@@ -399,7 +459,26 @@ export function BroadcastComposer({
       senderName: authorIdentity === "hr" ? undefined : senderName.trim() || undefined,
       attachments,
       audience,
-      channels: emailChannel ? ["in_app", "email"] : ["in_app"],
+      channels: [
+        "in_app",
+        ...(emailChannel ? ["email"] : []),
+        ...(pushChannel ? ["push"] : []),
+      ],
+      // datetime-local is client-local; toISOString normalises to UTC for the server.
+      scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : null,
+      recurrence,
+      recurrenceUntil: recurrence !== "none" ? recurrenceUntil || null : null,
+      poll:
+        pollEnabled && pollQuestion.trim() && pollOptions.filter((o) => o.trim()).length >= 2
+          ? {
+              question: pollQuestion.trim(),
+              options: pollOptions.map((o) => o.trim()).filter(Boolean),
+              mode: pollMode,
+              ...(pollMode === "quiz" ? { correctIndex: pollCorrect } : {}),
+            }
+          : null,
+      reminderAfterDays: reminderAfterDays > 0 ? reminderAfterDays : null,
+      escalateToManager,
     }),
     [
       draftId,
@@ -416,7 +495,125 @@ export function BroadcastComposer({
       attachments,
       audience,
       emailChannel,
+      pushChannel,
+      scheduledFor,
+      recurrence,
+      recurrenceUntil,
+      pollEnabled,
+      pollMode,
+      pollQuestion,
+      pollOptions,
+      pollCorrect,
+      reminderAfterDays,
+      escalateToManager,
     ],
+  );
+
+  // Whether this broadcast is set to go out later (a valid future datetime).
+  const isScheduled = Boolean(scheduledFor) && new Date(scheduledFor).getTime() > Date.now();
+
+  /* ---- Saved segments ---- */
+  const applySegment = useCallback((rule: AudienceRule) => {
+    setScope(rule.scope);
+    setDepartmentIds(rule.departmentIds ?? []);
+    setDesignationIds(rule.designationIds ?? []);
+    setWorkerTypes(rule.workerTypes ?? []);
+    setRoles(rule.roles ?? []);
+    setEmployeeIds(rule.employeeIds ?? []);
+  }, []);
+
+  const onSaveSegment = useCallback(async () => {
+    const name = segName.trim();
+    if (!name) return;
+    setSavingSeg(true);
+    try {
+      const res = await saveBroadcastSegment(name, audience);
+      if (!res.ok) {
+        fireToast({ message: res.error, type: "error" });
+        return;
+      }
+      setSegName("");
+      fireToast({ message: `Segment "${name}" saved.`, type: "success" });
+      router.refresh();
+    } finally {
+      setSavingSeg(false);
+    }
+  }, [segName, audience, router]);
+
+  const onDeleteSegment = useCallback(
+    async (id: string, name: string) => {
+      const res = await deleteBroadcastSegment(id);
+      if (!res.ok) {
+        fireToast({ message: res.error, type: "error" });
+        return;
+      }
+      fireToast({ message: `Segment "${name}" deleted.`, type: "success" });
+      router.refresh();
+    },
+    [router],
+  );
+
+  /* ---- Templates ---- */
+  const curChannels = useCallback(
+    () => ["in_app", ...(emailChannel ? ["email"] : []), ...(pushChannel ? ["push"] : [])],
+    [emailChannel, pushChannel],
+  );
+
+  const applyTemplate = useCallback((t: BroadcastTemplate) => {
+    setTitle(t.title);
+    setBodyHtml(t.bodyHtml);
+    setBodyText(t.bodyHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+    setSeed((s) => ({ html: t.bodyHtml, key: s.key + 1 }));
+    setCategory(t.category);
+    setPriority(t.priority);
+    setAckMode(t.ackMode);
+    const ch = Array.isArray(t.channels) ? (t.channels as string[]) : [];
+    setEmailChannel(ch.includes("email"));
+    setPushChannel(ch.includes("push"));
+    fireToast({ message: `Loaded template "${t.name}".`, type: "success" });
+  }, []);
+
+  const onSaveTemplate = useCallback(async () => {
+    const name = tplName.trim();
+    if (!name) return;
+    if (!title.trim()) {
+      fireToast({ message: "Give the broadcast a title before saving a template.", type: "info" });
+      return;
+    }
+    setSavingTpl(true);
+    try {
+      const res = await saveBroadcastTemplate({
+        name,
+        title: title.trim(),
+        bodyHtml,
+        category,
+        priority,
+        ackMode,
+        channels: curChannels(),
+      });
+      if (!res.ok) {
+        fireToast({ message: res.error, type: "error" });
+        return;
+      }
+      setTplName("");
+      fireToast({ message: `Template "${name}" saved.`, type: "success" });
+      router.refresh();
+    } finally {
+      setSavingTpl(false);
+    }
+  }, [tplName, title, bodyHtml, category, priority, ackMode, curChannels, router]);
+
+  const onDeleteTemplate = useCallback(
+    async (id: string, name: string) => {
+      const res = await deleteBroadcastTemplate(id);
+      if (!res.ok) {
+        fireToast({ message: res.error, type: "error" });
+        return;
+      }
+      fireToast({ message: `Template "${name}" deleted.`, type: "success" });
+      router.refresh();
+    },
+    [router],
   );
 
   const onSaveDraft = useCallback(async () => {
@@ -467,6 +664,26 @@ export function BroadcastComposer({
         return;
       }
       setDraftId(saved.id);
+
+      // Send later → move it into the scheduled queue instead of publishing now.
+      if (isScheduled) {
+        const res = await scheduleBroadcast(saved.id);
+        if (!res.ok) {
+          fireToast({ message: res.error, type: "error" });
+          return;
+        }
+        fireToast({
+          message:
+            recurrence !== "none"
+              ? `Scheduled to recur ${recurrence}.`
+              : "Scheduled — it'll publish automatically.",
+          type: "success",
+        });
+        setConfirmOpen(false);
+        router.push("/communications" as Route);
+        return;
+      }
+
       const res = await publishBroadcast(saved.id);
       if (!res.ok) {
         fireToast({ message: res.error, type: "error" });
@@ -478,7 +695,7 @@ export function BroadcastComposer({
     } finally {
       setPublishing(false);
     }
-  }, [buildInput, router]);
+  }, [buildInput, router, isScheduled, recurrence]);
 
   // Esc closes the confirm dialog.
   useEffect(() => {
@@ -509,6 +726,40 @@ export function BroadcastComposer({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Templates bar — load a saved template, or save the current draft as one */}
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-hairline bg-white/70 px-4 py-3">
+        <span className="inline-flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.1em] text-ink-subtle">
+          <FileText size={14} /> Templates
+        </span>
+        {templates.map((t) => (
+          <span key={t.id} className="inline-flex items-center gap-1 rounded-full border border-hairline bg-white pl-2.5 pr-1 py-1 text-[12.5px] font-semibold text-ink-strong">
+            <button type="button" onClick={() => applyTemplate(t)} className="hover:text-[color:var(--color-altus-red-deep)]" title={`Load "${t.name}"`}>
+              {t.name}
+            </button>
+            <button type="button" onClick={() => onDeleteTemplate(t.id, t.name)} aria-label={`Delete ${t.name}`} className="rounded-full p-0.5 text-ink-subtle transition hover:bg-[color:color-mix(in_srgb,var(--color-altus-red)_12%,transparent)] hover:text-[color:var(--color-altus-red-deep)]">
+              <Trash2 size={12} />
+            </button>
+          </span>
+        ))}
+        <div className="ml-auto flex items-center gap-1.5">
+          <input
+            value={tplName}
+            onChange={(e) => setTplName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onSaveTemplate(); } }}
+            placeholder="Save as template…"
+            className="rounded-xl border border-hairline bg-white px-3 py-1.5 text-[13px] font-medium text-ink-strong outline-none focus:border-[color:var(--color-altus-red)]"
+          />
+          <button
+            type="button"
+            onClick={onSaveTemplate}
+            disabled={!tplName.trim() || savingTpl}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-1.5 text-[13px] font-bold text-ink-strong transition hover:border-hairline-strong disabled:opacity-50"
+          >
+            {savingTpl ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Save
+          </button>
+        </div>
+      </div>
+
       {/* Two-column grid: compose (left) · settings + audience + AI (right) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         {/* ── LEFT: compose ─────────────────────────────────────── */}
@@ -856,8 +1107,202 @@ export function BroadcastComposer({
                   <Mail size={15} /> Email
                   {emailChannel && <Check size={14} className="opacity-70" />}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setPushChannel((v) => !v)}
+                  aria-pressed={pushChannel}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-[13px] font-semibold transition ${
+                    pushChannel
+                      ? "border-[color:var(--color-altus-red)] bg-[color:color-mix(in_srgb,var(--color-altus-red)_10%,transparent)] text-[color:var(--color-altus-red-deep)]"
+                      : "border-hairline text-ink-strong hover:border-hairline-strong"
+                  }`}
+                  title="Also push to registered mobile devices (best-effort)"
+                >
+                  <Smartphone size={15} /> Push
+                  {pushChannel && <Check size={14} className="opacity-70" />}
+                </button>
               </div>
             </div>
+
+            {/* Schedule */}
+            <div className="mt-4">
+              <span className={LABEL}>Schedule</span>
+              <div className="flex items-center gap-2">
+                <CalendarClock size={15} className="shrink-0 text-ink-subtle" />
+                <input
+                  type="datetime-local"
+                  value={scheduledFor}
+                  onChange={(e) => setScheduledFor(e.target.value)}
+                  className={`${FIELD} !py-2`}
+                />
+                {scheduledFor && (
+                  <button
+                    type="button"
+                    onClick={() => { setScheduledFor(""); setRecurrence("none"); setRecurrenceUntil(""); }}
+                    className="shrink-0 rounded-lg border border-hairline px-2.5 py-2 text-[12px] font-semibold text-ink-soft transition hover:border-hairline-strong"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              {scheduledFor && (
+                <div className="mt-2 flex items-center gap-2">
+                  <Repeat size={15} className="shrink-0 text-ink-subtle" />
+                  <select
+                    value={recurrence}
+                    onChange={(e) => setRecurrence(e.target.value as BroadcastRecurrence)}
+                    className={`${FIELD} !py-2`}
+                  >
+                    {BROADCAST_RECURRENCES.map((r) => (
+                      <option key={r} value={r}>
+                        {r === "none" ? "One-time" : r[0]!.toUpperCase() + r.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                  {recurrence !== "none" && (
+                    <input
+                      type="date"
+                      value={recurrenceUntil}
+                      onChange={(e) => setRecurrenceUntil(e.target.value)}
+                      title="Repeat until (optional)"
+                      className={`${FIELD} !py-2`}
+                    />
+                  )}
+                </div>
+              )}
+              <p className="mt-1.5 text-[12px] text-ink-subtle">
+                {scheduledFor
+                  ? "Publishes automatically on the daily run once it's due."
+                  : "Leave blank to publish immediately."}
+              </p>
+            </div>
+
+            {/* Reminders / escalation */}
+            <div className="mt-4">
+              <span className={LABEL}>Reminders</span>
+              <div className="flex items-center gap-2">
+                <BellRing size={15} className="shrink-0 text-ink-subtle" />
+                <input
+                  type="number"
+                  min={0}
+                  max={30}
+                  value={reminderAfterDays || ""}
+                  onChange={(e) => setReminderAfterDays(Math.max(0, Math.min(30, Number(e.target.value) || 0)))}
+                  placeholder="0"
+                  className={`${FIELD} !py-2 max-w-[86px]`}
+                />
+                <span className="text-[12.5px] text-ink-soft">days unread → nudge (0 = off)</span>
+              </div>
+              {reminderAfterDays > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setEscalateToManager((v) => !v)}
+                  aria-pressed={escalateToManager}
+                  className="mt-2 flex w-full items-center justify-between gap-3 rounded-xl border border-hairline px-3.5 py-2.5 text-left transition hover:border-hairline-strong"
+                >
+                  <span className="text-[13px] font-semibold text-ink-strong">Also alert their manager if still unread</span>
+                  <span aria-hidden className="relative h-6 w-11 shrink-0 rounded-full transition" style={{ background: escalateToManager ? "var(--color-altus-red)" : "color-mix(in srgb, var(--color-ink-subtle, #64748b) 34%, transparent)" }}>
+                    <span className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all" style={{ left: escalateToManager ? "22px" : "2px" }} />
+                  </span>
+                </button>
+              )}
+            </div>
+          </section>
+
+          {/* Poll / quiz */}
+          <section className={`${CARD} wg-rise`}>
+            <button
+              type="button"
+              onClick={() => setPollEnabled((v) => !v)}
+              className="flex w-full items-center justify-between gap-3"
+            >
+              <span className="flex items-center gap-2">
+                <ListChecks size={16} className="text-ink-subtle" />
+                <span className={`${LABEL} !mb-0`}>Attach a poll / quiz</span>
+              </span>
+              <span
+                aria-hidden
+                className="relative h-6 w-11 shrink-0 rounded-full transition"
+                style={{ background: pollEnabled ? "var(--color-altus-red)" : "color-mix(in srgb, var(--color-ink-subtle, #64748b) 34%, transparent)" }}
+              >
+                <span className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all" style={{ left: pollEnabled ? "22px" : "2px" }} />
+              </span>
+            </button>
+
+            {pollEnabled && (
+              <div className="mt-4 flex flex-col gap-3">
+                <div className="flex gap-2">
+                  {(["poll", "quiz"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setPollMode(m)}
+                      aria-pressed={pollMode === m}
+                      className={`flex-1 rounded-xl border px-3 py-2 text-[13px] font-semibold capitalize transition ${
+                        pollMode === m
+                          ? "border-[color:var(--color-altus-red)] bg-[color:color-mix(in_srgb,var(--color-altus-red)_10%,transparent)] text-[color:var(--color-altus-red-deep)]"
+                          : "border-hairline text-ink-strong hover:border-hairline-strong"
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  value={pollQuestion}
+                  onChange={(e) => setPollQuestion(e.target.value)}
+                  placeholder="Question"
+                  className={FIELD}
+                />
+                {pollOptions.map((o, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    {pollMode === "quiz" && (
+                      <input
+                        type="radio"
+                        name="poll-correct"
+                        checked={pollCorrect === i}
+                        onChange={() => setPollCorrect(i)}
+                        title="Correct answer"
+                        className="h-4 w-4 shrink-0 accent-[color:var(--color-altus-red)]"
+                      />
+                    )}
+                    <input
+                      value={o}
+                      onChange={(e) => setPollOptions((prev) => prev.map((x, idx) => (idx === i ? e.target.value : x)))}
+                      placeholder={`Option ${i + 1}`}
+                      className={`${FIELD} !py-2`}
+                    />
+                    {pollOptions.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPollOptions((prev) => prev.filter((_, idx) => idx !== i));
+                          setPollCorrect((c) => (c >= i && c > 0 ? c - 1 : c));
+                        }}
+                        aria-label={`Remove option ${i + 1}`}
+                        className="shrink-0 rounded-lg border border-hairline p-2 text-ink-soft transition hover:border-hairline-strong"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {pollOptions.length < 8 && (
+                  <button
+                    type="button"
+                    onClick={() => setPollOptions((prev) => [...prev, ""])}
+                    className="inline-flex items-center gap-1.5 self-start rounded-xl border border-dashed border-hairline px-3 py-2 text-[13px] font-semibold text-ink-soft transition hover:border-hairline-strong hover:text-ink-strong"
+                  >
+                    <Plus size={14} /> Add option
+                  </button>
+                )}
+                <p className="text-[12px] text-ink-subtle">
+                  {pollMode === "quiz"
+                    ? "Employees answer inline and instantly see if they were right."
+                    : "Employees vote inline; you see the tally live."}
+                </p>
+              </div>
+            )}
           </section>
 
           {/* Audience */}
@@ -865,6 +1310,45 @@ export function BroadcastComposer({
             <div className="mb-3 flex items-center gap-2">
               <Users size={16} className="text-ink-subtle" />
               <span className={`${LABEL} !mb-0`}>Audience</span>
+            </div>
+
+            {/* Saved segments — apply a reusable audience, or save the current one */}
+            <div className="mb-4 rounded-xl border border-hairline bg-surface-muted/40 p-3">
+              <div className="flex items-center gap-2">
+                <Bookmark size={14} className="text-ink-subtle" />
+                <span className="text-[12px] font-bold uppercase tracking-[0.1em] text-ink-subtle">Saved segments</span>
+              </div>
+              {segments.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {segments.map((s) => (
+                    <span key={s.id} className="group inline-flex items-center gap-1 rounded-full border border-hairline bg-white pl-2.5 pr-1 py-1 text-[12.5px] font-semibold text-ink-strong">
+                      <button type="button" onClick={() => applySegment(s.rule)} className="hover:text-[color:var(--color-altus-red-deep)]" title={`Apply "${s.name}"`}>
+                        {s.name}
+                      </button>
+                      <button type="button" onClick={() => onDeleteSegment(s.id, s.name)} aria-label={`Delete ${s.name}`} className="rounded-full p-0.5 text-ink-subtle transition hover:bg-[color:color-mix(in_srgb,var(--color-altus-red)_12%,transparent)] hover:text-[color:var(--color-altus-red-deep)]">
+                        <Trash2 size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="mt-2 flex gap-1.5">
+                <input
+                  value={segName}
+                  onChange={(e) => setSegName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onSaveSegment(); } }}
+                  placeholder="Save current audience as…"
+                  className={`${FIELD} !py-1.5 !text-[13px]`}
+                />
+                <button
+                  type="button"
+                  onClick={onSaveSegment}
+                  disabled={!segName.trim() || savingSeg}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-1.5 text-[13px] font-bold text-ink-strong transition hover:border-hairline-strong disabled:opacity-50"
+                >
+                  {savingSeg ? <Loader2 size={14} className="animate-spin" /> : <BookmarkPlus size={14} />} Save
+                </button>
+              </div>
             </div>
 
             <div className="mb-4 grid grid-cols-2 gap-2">
@@ -1051,8 +1535,14 @@ export function BroadcastComposer({
               boxShadow: "0 14px 30px -14px rgba(168,4,0,0.6)",
             }}
           >
-            {publishing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-            Publish
+            {publishing ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : isScheduled ? (
+              <CalendarClock size={16} />
+            ) : (
+              <Send size={16} />
+            )}
+            {isScheduled ? "Schedule" : "Publish"}
           </button>
         </div>
       </div>
@@ -1072,7 +1562,9 @@ export function BroadcastComposer({
           >
             <div className="mb-2 flex items-center gap-2">
               <Megaphone size={20} className="text-[color:var(--color-altus-red)]" />
-              <h2 className="text-[18px] font-extrabold text-ink-strong">Publish this broadcast?</h2>
+              <h2 className="text-[18px] font-extrabold text-ink-strong">
+                {isScheduled ? "Schedule this broadcast?" : "Publish this broadcast?"}
+              </h2>
             </div>
             <p className="text-[14px] leading-relaxed text-ink-muted">
               &ldquo;{title.trim() || "Untitled"}&rdquo; will be delivered{" "}
@@ -1082,8 +1574,10 @@ export function BroadcastComposer({
               </span>{" "}
               {recipientCount === 1 ? "person" : "people"}
               {ackMode === "acknowledge" ? ", who must acknowledge it" : ""}
-              {requireLock && lockAllowed ? " and the app will lock until they do" : ""}. This
-              can&rsquo;t be undone.
+              {requireLock && lockAllowed ? " and the app will lock until they do" : ""}.{" "}
+              {isScheduled
+                ? `It will publish automatically on ${new Date(scheduledFor).toLocaleString()}${recurrence !== "none" ? `, recurring ${recurrence}` : ""}.`
+                : "This can’t be undone."}
             </p>
             <div className="mt-5 flex items-center justify-end gap-2.5">
               <button
@@ -1106,8 +1600,14 @@ export function BroadcastComposer({
                   boxShadow: "0 14px 30px -14px rgba(168,4,0,0.6)",
                 }}
               >
-                {publishing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                Publish now
+                {publishing ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : isScheduled ? (
+                  <CalendarClock size={16} />
+                ) : (
+                  <Send size={16} />
+                )}
+                {isScheduled ? "Schedule it" : "Publish now"}
               </button>
             </div>
           </div>

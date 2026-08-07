@@ -10,7 +10,7 @@
  *
  *   heading   → <h1|h2|h3>            (by level, default h2)
  *   paragraph → <p> (align-aware)
- *   term      → <p><strong>Label</strong> : value</p>
+ *   term      → grouped into <table class="alw-termtable"> (Label | value rows)
  *   bullets   → <ul><li>…</li></ul>
  *   signature → "For <entity>" / (E-Sign) / name / designation / Date / Place
  *   spacer    → empty <p></p>
@@ -226,9 +226,37 @@ export function templateToRichHtml(
 ): string {
   const resolved = getEntity(entity ?? template.entityDefault ?? null);
   const signatory = signatoryOf(template);
-  const html = template.blocks
-    .map((block) => blockToHtml(block, values ?? {}, resolved, signatory))
-    .join("\n");
+  const vals = values ?? {};
+  const blocks = template.blocks;
+
+  // Group CONSECUTIVE `term` blocks into ONE bordered 2-column table
+  // (Label | value) — identical structure/classes to the structured field
+  // view's <TermTable> so the professional table survives an "Edit freely"
+  // eject AND its save. (Previously each term became a colon <p>, so entering
+  // free-edit silently flattened the table into "Label : value" text lines.)
+  const parts: string[] = [];
+  let i = 0;
+  while (i < blocks.length) {
+    const b = blocks[i]!;
+    if (b.kind === "term") {
+      const rows: string[] = [];
+      let j = i;
+      while (j < blocks.length) {
+        const tb = blocks[j]!;
+        if (tb.kind !== "term") break;
+        rows.push(
+          `<tr><th class="alw-tt-label">${esc(tb.label)}</th><td class="alw-tt-val">${spansToHtml(tb.value, vals) || "&nbsp;"}</td></tr>`,
+        );
+        j += 1;
+      }
+      parts.push(`<table class="alw-termtable"><tbody>${rows.join("")}</tbody></table>`);
+      i = j;
+    } else {
+      parts.push(blockToHtml(b, vals, resolved, signatory));
+      i += 1;
+    }
+  }
+  const html = parts.join("\n");
   // Resolve gendered tokens ({title}/{he}/{his}/… → Mr./Ms., his/her, …) AND the
   // firm-name token ({firm} → the issuing entity) so the "Edit freely" seed
   // already reads correctly for this candidate + paying entity.

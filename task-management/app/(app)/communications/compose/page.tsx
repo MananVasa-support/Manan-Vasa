@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { employees, designations, broadcasts } from "@/db/schema";
 import { requireHrStaff } from "@/lib/hr/access";
 import { listActiveDepartments } from "@/lib/queries/departments";
+import { listBroadcastSegments, listBroadcastTemplates } from "@/lib/ecos/queries";
 import { PageShell } from "@/components/layout/page-shell";
 import { BroadcastComposer, type ComposerDraft } from "@/components/communications/broadcast-composer";
 import type { AudienceRule } from "@/lib/ecos/audience";
@@ -29,7 +30,7 @@ export default async function ComposeBroadcastPage({
   await requireHrStaff();
   const { draft: draftId } = await searchParams;
 
-  const [roster, desigRows, deptRows] = await Promise.all([
+  const [roster, desigRows, deptRows, segments, templates] = await Promise.all([
     db
       .select({
         id: employees.id,
@@ -48,6 +49,8 @@ export default async function ComposeBroadcastPage({
       .where(eq(designations.isActive, true))
       .orderBy(asc(designations.sortOrder), asc(designations.name)),
     listActiveDepartments(),
+    listBroadcastSegments(),
+    listBroadcastTemplates(),
   ]);
 
   const departments = deptRows.map((d) => ({ id: d.id, name: d.name }));
@@ -73,6 +76,12 @@ export default async function ComposeBroadcastPage({
         attachments: (row.attachments as BroadcastAttachment[]) ?? [],
         audience: (row.audience as AudienceRule) ?? { scope: "org" },
         channels: (row.channels as string[]) ?? ["in_app", "email"],
+        scheduledFor: row.scheduledFor ? row.scheduledFor.toISOString() : null,
+        recurrence: row.recurrence,
+        recurrenceUntil: row.recurrenceUntil,
+        poll: row.poll ?? null,
+        reminderAfterDays: row.reminderAfterDays,
+        escalateToManager: row.escalateToManager,
       };
     }
   }
@@ -130,6 +139,8 @@ export default async function ComposeBroadcastPage({
           departments={departments}
           designations={desigRows}
           draft={draft}
+          segments={segments}
+          templates={templates}
         />
       </PageShell>
     </div>

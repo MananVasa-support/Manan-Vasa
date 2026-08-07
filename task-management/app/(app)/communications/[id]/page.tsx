@@ -17,7 +17,9 @@ import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireUser } from "@/lib/auth/current";
 import { isHrStaff } from "@/lib/hr/access";
-import { getBroadcastForEmployee, getBroadcastWithStats } from "@/lib/ecos/queries";
+import { getBroadcastForEmployee, getBroadcastWithStats, getPollResults, getMyPollResponse } from "@/lib/ecos/queries";
+import { PollCard } from "@/components/ecos/poll-card";
+import type { BroadcastPoll } from "@/db/schema";
 import { getSupabaseAdmin, DOCUMENTS_BUCKET } from "@/lib/supabase/admin";
 import { formatDate } from "@/lib/format";
 import { Pill, MiniBar } from "@/components/ecos/pills";
@@ -83,6 +85,17 @@ export default async function BroadcastReadPage({ params }: PageProps) {
 
   // Author analytics (HR-staff / SA only). getBroadcastWithStats is HR-gated.
   const stats = viewerIsHr ? await getBroadcastWithStats(id) : null;
+
+  // Inline poll / quiz (Phase 2) — tally + this viewer's own vote.
+  const poll = (b.poll ?? null) as BroadcastPoll | null;
+  let pollResults: { counts: number[]; total: number } | null = null;
+  let myPollResponse: number | null = null;
+  if (poll) {
+    [pollResults, myPollResponse] = await Promise.all([
+      getPollResults(b.id, poll.options.length),
+      isRecipient ? getMyPollResponse(b.id, me.id) : Promise.resolve(null),
+    ]);
+  }
 
   const pTone = BROADCAST_PRIORITY_TONE[b.priority];
   const sTone = BROADCAST_STATUS_TONE[b.status];
@@ -152,6 +165,19 @@ export default async function BroadcastReadPage({ params }: PageProps) {
                 className="ecos-body mt-6 text-[15px] leading-relaxed text-ink-strong"
                 dangerouslySetInnerHTML={{ __html: b.bodyHtml || `<p>${escapeText(b.bodyText)}</p>` }}
               />
+
+              {/* Inline poll / quiz */}
+              {poll && pollResults && (
+                <PollCard
+                  broadcastId={b.id}
+                  poll={poll}
+                  initialCounts={pollResults.counts}
+                  initialTotal={pollResults.total}
+                  myResponse={myPollResponse}
+                  canVote={isRecipient && myPollResponse === null}
+                  hrView={viewerIsHr}
+                />
+              )}
 
               {/* Attachments */}
               {attachments.length > 0 && (
@@ -257,13 +283,35 @@ function AnalyticsPanel({
     { label: "Pending", value: pending, color: "#b45309" },
   ];
 
+  // Avg time from publish → first open (read or acknowledge), for opened recipients.
+  const pubAt = stats.broadcast.publishedAt;
+  const openedRows = stats.recipients.filter((r) => r.readAt || r.acknowledgedAt);
+  const avgOpenMins =
+    pubAt && openedRows.length
+      ? Math.round(
+          openedRows.reduce((s, r) => {
+            const t = r.readAt ?? r.acknowledgedAt;
+            return s + (t ? (t.getTime() - pubAt.getTime()) / 60000 : 0);
+          }, 0) / openedRows.length,
+        )
+      : null;
+
   return (
     <aside className="wg-rise flex flex-col gap-4 self-start rounded-2xl border border-hairline bg-surface-card p-5 lg:sticky lg:top-6">
-      <div className="flex items-center gap-2">
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: "color-mix(in srgb, #E10600 9%, white)", color: ACCENT_DEEP }}>
-          <Users size={16} strokeWidth={2.3} />
-        </span>
-        <h2 className="text-[15px] font-bold text-ink-strong">Delivery analytics</h2>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: "color-mix(in srgb, #E10600 9%, white)", color: ACCENT_DEEP }}>
+            <Users size={16} strokeWidth={2.3} />
+          </span>
+          <h2 className="text-[15px] font-bold text-ink-strong">Delivery analytics</h2>
+        </div>
+        <a
+          href={`/communications/${id}/export`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white px-2.5 py-1.5 text-[12px] font-bold text-ink-strong transition hover:border-hairline-strong"
+          title="Download the per-recipient delivery breakdown as CSV"
+        >
+          <Download size={13} strokeWidth={2.4} /> CSV
+        </a>
       </div>
 
       <div className="grid grid-cols-2 gap-2.5">
@@ -281,6 +329,13 @@ function AnalyticsPanel({
         <MiniBar label="Read" value={readPct} color="#16a34a" />
         <MiniBar label="Acknowledged" value={ackPct} color={ACCENT} />
       </div>
+
+      {avgOpenMins != null && (
+        <div className="flex items-center justify-between rounded-xl border border-hairline bg-white px-3 py-2 text-[12.5px]">
+          <span className="font-semibold text-ink-soft">Avg time to open</span>
+          <span className="font-bold tabular-nums text-ink-strong">{humanizeMins(avgOpenMins)}</span>
+        </div>
+      )}
 
       <div className="border-t border-hairline pt-4">
         <AdminActions broadcastId={id} status={status} pendingCount={pending} />
@@ -312,6 +367,20 @@ function AnalyticsPanel({
 /* ------------------------------------------------------------------ */
 /* Helpers                                                              */
 /* ------------------------------------------------------------------ */
+
+/** "2h 15m" / "45m" / "3d 4h" from a minute count (delivery latency display). */
+function humanizeMins(mins: number): string {
+  if (mins < 1) return "< 1m";
+  if (mins < 60) return `${mins}m`;
+  if (mins < 60 * 24) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m ? `${h}h ${m}m` : `${h}h`;
+  }
+  const d = Math.floor(mins / (60 * 24));
+  const h = Math.floor((mins % (60 * 24)) / 60);
+  return h ? `${d}d ${h}h` : `${d}d`;
+}
 
 /** Escape plain-text fallback (used only when a broadcast has no bodyHtml). */
 function escapeText(s: string): string {

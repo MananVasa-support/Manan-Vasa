@@ -1,16 +1,14 @@
 "use server";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { broadcasts, broadcastRecipients, employees } from "@/db/schema";
-import type { BroadcastAuthorIdentity } from "@/db/enums";
+import { broadcasts, broadcastRecipients, broadcastSegments, broadcastPollResponses, broadcastTemplates, type BroadcastPoll } from "@/db/schema";
+import type { BroadcastCategory, BroadcastPriority, BroadcastAckMode } from "@/db/enums";
 import { requireUser } from "@/lib/auth/current";
 import { isHrStaff } from "@/lib/hr/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
-import { notify } from "@/lib/notifications/dispatch";
-import { sendBroadcastEmail } from "@/lib/email/resend";
-import { emit } from "@/lib/events/emit";
 import { resolveAudience, type AudienceRule } from "@/lib/ecos/audience";
+import { publishBroadcastCore, deliverBroadcast } from "@/lib/ecos/publish";
 import type { SaveBroadcastDraftInput } from "./actions-types";
 
 type Ok<T> = { ok: true } & T;
@@ -24,31 +22,6 @@ async function requireAuthor(): Promise<{ me: Awaited<ReturnType<typeof requireU
   const me = await requireUser();
   if (!(await isHrStaff(me))) return { ok: false, error: "Communications is HR-staff only." };
   return { me };
-}
-
-/** Normalise the stored `channels` JSONB into a clean string[] (with defaults). */
-function normChannels(raw: unknown): string[] {
-  if (Array.isArray(raw)) {
-    const out = raw.filter((x): x is string => typeof x === "string");
-    return out.length > 0 ? out : ["in_app", "email"];
-  }
-  return ["in_app", "email"];
-}
-
-/** Human sender label for the email header / display identity. */
-function senderLabelFor(b: {
-  authorIdentity: BroadcastAuthorIdentity;
-  senderName: string | null;
-}): string {
-  if (b.senderName && b.senderName.trim()) return b.senderName.trim();
-  switch (b.authorIdentity) {
-    case "ceo":
-      return "The CEO";
-    case "founder":
-      return "The Founder";
-    default:
-      return "Altus HR";
-  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -77,6 +50,7 @@ export async function saveBroadcastDraft(
     };
   }
 
+  const sched = input.scheduledFor ? new Date(input.scheduledFor) : null;
   const values = {
     title,
     bodyHtml: input.bodyHtml ?? "",
@@ -90,6 +64,13 @@ export async function saveBroadcastDraft(
     attachments: input.attachments ?? [],
     audience: input.audience ?? { scope: "org" },
     channels: input.channels && input.channels.length > 0 ? input.channels : ["in_app", "email"],
+    scheduledFor: sched && !Number.isNaN(sched.getTime()) ? sched : null,
+    recurrence: input.recurrence ?? "none",
+    recurrenceUntil: input.recurrenceUntil || null,
+    reminderAfterDays:
+      input.reminderAfterDays && input.reminderAfterDays > 0 ? input.reminderAfterDays : null,
+    escalateToManager: input.escalateToManager ?? false,
+    poll: input.poll ?? null,
     updatedAt: new Date(),
   };
 
@@ -135,156 +116,39 @@ export async function publishBroadcast(
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
-  const broadcast = await db.query.broadcasts.findFirst({ where: eq(broadcasts.id, id) });
-  if (!broadcast) return { ok: false, error: "That broadcast no longer exists." };
-  if (broadcast.status === "published") {
-    return { ok: false, error: "This broadcast is already published." };
-  }
-  if (broadcast.status === "archived") {
-    return { ok: false, error: "An archived broadcast can't be published." };
-  }
-  if (!broadcast.title.trim()) return { ok: false, error: "Give the broadcast a title first." };
-
-  // Resolve the target set from the stored rule.
-  let targetIds: string[] = [];
-  try {
-    const resolved = await resolveAudience((broadcast.audience ?? { scope: "org" }) as AudienceRule);
-    targetIds = resolved.employeeIds;
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Could not resolve the audience." };
-  }
-  if (targetIds.length === 0) {
-    return { ok: false, error: "This audience resolves to zero active employees." };
-  }
-
-  const publishedAt = broadcast.publishedAt ?? new Date();
-
-  // Snapshot recipients + flip status + emit the audit event atomically.
-  try {
-    await db.transaction(async (tx) => {
-      await tx
-        .insert(broadcastRecipients)
-        .values(
-          targetIds.map((employeeId) => ({
-            broadcastId: id,
-            employeeId,
-            status: "pending" as const,
-          })),
-        )
-        .onConflictDoNothing();
-
-      await tx
-        .update(broadcasts)
-        .set({
-          status: "published",
-          publishedAt,
-          recipientCount: targetIds.length,
-          updatedAt: new Date(),
-        })
-        .where(eq(broadcasts.id, id));
-
-      await emit(tx, {
-        aggregateType: "broadcast",
-        aggregateId: id,
-        eventType: "BroadcastPublished",
-        eventVersion: 1,
-        payload: {
-          title: broadcast.title,
-          category: broadcast.category,
-          priority: broadcast.priority,
-          ackMode: broadcast.ackMode,
-          requireLock: broadcast.requireLock,
-          recipientCount: targetIds.length,
-        },
-        actorId: me.id,
-      });
-    });
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Could not publish the broadcast." };
-  }
-
-  // Deliver (best-effort, per-recipient). Runs after the snapshot so a slow
-  // mailer never holds the publish transaction open.
-  await deliverToRecipients(id, targetIds);
-
-  return { ok: true, recipientCount: targetIds.length };
+  return publishBroadcastCore(id, me.id);
 }
 
 /**
- * Fan a broadcast out to a set of employees. In-app row via notify() (kind
- * "broadcast", forceChannels: [] so the generic dispatcher does the inbox row
- * ONLY — the broadcast email is sent separately). Email via sendBroadcastEmail
- * when the broadcast's channels include "email". Stamps deliveredAt +
- * deliveredChannels per recipient. Per-recipient try/catch.
+ * Queue a saved broadcast for later — sets status "scheduled". The daily
+ * `/api/cron/ecos-publish` job publishes it once `scheduled_for` is due, and
+ * re-arms it for the next occurrence when it recurs.
  */
-async function deliverToRecipients(broadcastId: string, employeeIds: string[]): Promise<void> {
-  const broadcast = await db.query.broadcasts.findFirst({ where: eq(broadcasts.id, broadcastId) });
-  if (!broadcast) return;
+export async function scheduleBroadcast(id: string): Promise<VoidResult> {
+  const gate = await requireAuthor();
+  if ("ok" in gate) return gate;
+  const limited = rateLimitOrError(gate.me.id, "write");
+  if (limited) return limited;
 
-  const channels = normChannels(broadcast.channels);
-  const wantInApp = channels.includes("in_app");
-  const wantEmail = channels.includes("email");
-  const title = broadcast.title;
-  const senderLabel = senderLabelFor(broadcast);
-  const requireAck = broadcast.ackMode === "acknowledge";
-  const body = JSON.stringify({ broadcastId });
-
-  // Contact info for the target set — re-check isActive at delivery time so a
-  // just-deactivated employee is dropped even though they were in the snapshot.
-  const targets = employeeIds.length
-    ? await db
-        .select({ id: employees.id, email: employees.email })
-        .from(employees)
-        .where(and(eq(employees.isActive, true), inArray(employees.id, employeeIds)))
-    : [];
-
-  await Promise.allSettled(
-    targets.map(async (c) => {
-      try {
-        const deliveredChannels: string[] = [];
-
-        if (wantInApp) {
-          // forceChannels: [] → notify() writes ONLY the in-app inbox row and
-          // skips its own email/slack/whatsapp/push arms (which have no
-          // broadcast template). The broadcast email is sent below.
-          await notify({
-            userId: c.id,
-            kind: "broadcast",
-            title,
-            body,
-            forceChannels: [],
-          });
-          deliveredChannels.push("in_app");
-        }
-
-        if (wantEmail && c.email) {
-          const res = await sendBroadcastEmail({
-            to: c.email,
-            subject: title,
-            bodyHtml: broadcast.bodyHtml,
-            bodyText: broadcast.bodyText,
-            senderLabel,
-            priority: broadcast.priority,
-            requireAck,
-            broadcastId,
-          });
-          if (!res.error) deliveredChannels.push("email");
-        }
-
-        await db
-          .update(broadcastRecipients)
-          .set({ deliveredAt: new Date(), deliveredChannels })
-          .where(
-            and(
-              eq(broadcastRecipients.broadcastId, broadcastId),
-              eq(broadcastRecipients.employeeId, c.id),
-            ),
-          );
-      } catch {
-        // Best-effort — a single recipient's failure never aborts the fan-out.
-      }
-    }),
-  );
+  const b = await db.query.broadcasts.findFirst({ where: eq(broadcasts.id, id) });
+  if (!b) return { ok: false, error: "That broadcast no longer exists." };
+  if (b.status === "published" || b.status === "archived") {
+    return { ok: false, error: "Only a draft can be scheduled." };
+  }
+  if (!b.title.trim()) return { ok: false, error: "Give the broadcast a title first." };
+  if (!b.scheduledFor) return { ok: false, error: "Pick a date & time to schedule for." };
+  if (b.recurrence === "none" && b.scheduledFor.getTime() <= Date.now()) {
+    return { ok: false, error: "That time is in the past — publish now instead." };
+  }
+  try {
+    await db
+      .update(broadcasts)
+      .set({ status: "scheduled", updatedAt: new Date() })
+      .where(eq(broadcasts.id, id));
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not schedule the broadcast." };
+  }
 }
 
 /** Archive a broadcast (hides it from the active list; receipts are kept). */
@@ -344,7 +208,7 @@ export async function resendToUnread(id: string): Promise<Ok<{ resent: number }>
   const ids = pending.map((p) => p.employeeId);
   if (ids.length === 0) return { ok: true, resent: 0 };
 
-  await deliverToRecipients(id, ids);
+  await deliverBroadcast(id, ids);
   return { ok: true, resent: ids.length };
 }
 
@@ -440,4 +304,147 @@ export async function aiComposeAssistant(input: {
   const result = await composeWithAI(input);
   if (!result.ok) return { ok: false, error: result.error };
   return { ok: true, text: result.text };
+}
+
+/* ------------------------------------------------------------------ */
+/* Saved audience segments (Phase 2)                                    */
+/* ------------------------------------------------------------------ */
+
+/** Save the current audience rule as a reusable named segment. HR-only. */
+export async function saveBroadcastSegment(
+  name: string,
+  rule: AudienceRule,
+): Promise<Ok<{ id: string }> | Err> {
+  const gate = await requireAuthor();
+  if ("ok" in gate) return gate;
+  const limited = rateLimitOrError(gate.me.id, "write");
+  if (limited) return limited;
+  const clean = name.trim();
+  if (!clean) return { ok: false, error: "Name the segment first." };
+  try {
+    const [row] = await db
+      .insert(broadcastSegments)
+      .values({ name: clean, rule, createdById: gate.me.id })
+      .returning({ id: broadcastSegments.id });
+    return { ok: true, id: row!.id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not save the segment." };
+  }
+}
+
+/** Delete a saved segment. HR-only. */
+export async function deleteBroadcastSegment(id: string): Promise<VoidResult> {
+  const gate = await requireAuthor();
+  if ("ok" in gate) return gate;
+  const limited = rateLimitOrError(gate.me.id, "write");
+  if (limited) return limited;
+  try {
+    await db.delete(broadcastSegments).where(eq(broadcastSegments.id, id));
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not delete the segment." };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Inline poll / quiz (Phase 2)                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * An employee answers a broadcast's inline poll/quiz. Must be a recipient. One
+ * response per person (first answer stands — matters for quiz integrity).
+ * Returns whether the choice was correct when the broadcast is a quiz.
+ */
+export async function submitPollResponse(
+  broadcastId: string,
+  optionIndex: number,
+): Promise<Ok<{ correct: boolean | null }> | Err> {
+  const me = await requireUser();
+
+  const receipt = await db.query.broadcastRecipients.findFirst({
+    where: and(
+      eq(broadcastRecipients.broadcastId, broadcastId),
+      eq(broadcastRecipients.employeeId, me.id),
+    ),
+  });
+  if (!receipt) return { ok: false, error: "This isn't addressed to you." };
+
+  const b = await db.query.broadcasts.findFirst({ where: eq(broadcasts.id, broadcastId) });
+  const poll = (b?.poll ?? null) as BroadcastPoll | null;
+  if (!poll) return { ok: false, error: "This broadcast has no poll." };
+  if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= poll.options.length) {
+    return { ok: false, error: "Pick a valid option." };
+  }
+
+  try {
+    await db
+      .insert(broadcastPollResponses)
+      .values({ broadcastId, employeeId: me.id, optionIndex })
+      .onConflictDoNothing();
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not record your answer." };
+  }
+
+  const correct = poll.mode === "quiz" && typeof poll.correctIndex === "number"
+    ? optionIndex === poll.correctIndex
+    : null;
+  return { ok: true, correct };
+}
+
+/* ------------------------------------------------------------------ */
+/* Reusable templates (Phase 3)                                         */
+/* ------------------------------------------------------------------ */
+
+export interface SaveTemplateInput {
+  name: string;
+  title: string;
+  bodyHtml: string;
+  category: BroadcastCategory;
+  priority: BroadcastPriority;
+  ackMode: BroadcastAckMode;
+  channels: string[];
+}
+
+/** Save the current composer content as a reusable template. HR-only. */
+export async function saveBroadcastTemplate(
+  input: SaveTemplateInput,
+): Promise<Ok<{ id: string }> | Err> {
+  const gate = await requireAuthor();
+  if ("ok" in gate) return gate;
+  const limited = rateLimitOrError(gate.me.id, "write");
+  if (limited) return limited;
+  const name = input.name.trim();
+  if (!name) return { ok: false, error: "Name the template first." };
+  try {
+    const [row] = await db
+      .insert(broadcastTemplates)
+      .values({
+        name,
+        title: input.title.trim(),
+        bodyHtml: input.bodyHtml,
+        category: input.category,
+        priority: input.priority,
+        ackMode: input.ackMode,
+        channels: input.channels.length ? input.channels : ["in_app", "email"],
+        createdById: gate.me.id,
+      })
+      .returning({ id: broadcastTemplates.id });
+    return { ok: true, id: row!.id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not save the template." };
+  }
+}
+
+/** Delete a saved template. HR-only. */
+export async function deleteBroadcastTemplate(id: string): Promise<VoidResult> {
+  const gate = await requireAuthor();
+  if ("ok" in gate) return gate;
+  const limited = rateLimitOrError(gate.me.id, "write");
+  if (limited) return limited;
+  try {
+    await db.delete(broadcastTemplates).where(eq(broadcastTemplates.id, id));
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not delete the template." };
+  }
 }

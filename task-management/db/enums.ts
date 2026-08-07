@@ -186,6 +186,8 @@ export const BROADCAST_AUTHOR_IDENTITIES = ["hr", "ceo", "founder"] as const;
 export type BroadcastAuthorIdentity = (typeof BROADCAST_AUTHOR_IDENTITIES)[number];
 export const BROADCAST_RECIPIENT_STATUSES = ["pending", "read", "acknowledged"] as const;
 export type BroadcastRecipientStatus = (typeof BROADCAST_RECIPIENT_STATUSES)[number];
+export const BROADCAST_RECURRENCES = ["none", "daily", "weekly", "monthly"] as const;
+export type BroadcastRecurrence = (typeof BROADCAST_RECURRENCES)[number];
 
 export const TASK_PRIORITIES = [
   "imp_urgent",

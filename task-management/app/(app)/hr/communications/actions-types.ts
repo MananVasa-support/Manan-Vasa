@@ -3,8 +3,10 @@ import type {
   BroadcastPriority,
   BroadcastAckMode,
   BroadcastAuthorIdentity,
+  BroadcastRecurrence,
 } from "@/db/enums";
 import type { AudienceRule } from "@/lib/ecos/audience";
+import type { BroadcastPoll } from "@/db/schema";
 
 /**
  * Shared input contracts for the ECOS Server Actions. Kept in a plain module
@@ -35,6 +37,16 @@ export interface SaveBroadcastDraftInput {
   senderName?: string;
   attachments: BroadcastAttachment[];
   audience: AudienceRule;
-  /** Delivery channels — subset of ["in_app","email"]. Defaults applied if empty. */
+  /** Delivery channels — subset of ["in_app","email","push"]. Defaults applied if empty. */
   channels: string[];
+  /** Scheduling (Phase 2). ISO datetime string, or null to send immediately. */
+  scheduledFor?: string | null;
+  recurrence?: BroadcastRecurrence;
+  /** YYYY-MM-DD inclusive stop for a recurring schedule (null = open-ended). */
+  recurrenceUntil?: string | null;
+  /** Reminders / escalation (Phase 3). null/0 = off. */
+  reminderAfterDays?: number | null;
+  escalateToManager?: boolean;
+  /** Inline poll / quiz (Phase 2). null = none. */
+  poll?: BroadcastPoll | null;
 }

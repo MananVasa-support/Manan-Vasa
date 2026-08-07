@@ -14,6 +14,7 @@ import {
 } from "@/app/(admin)/admin/salary-profiles/actions";
 import type { SalaryAdvanceRow, SalaryProfileRow } from "@/lib/queries/salary";
 import { monthLabel } from "@/lib/salary/period";
+import { payBasisFor, WORKER_TYPE_LABELS } from "@/lib/attendance/worker-type";
 import {
   SalaryProfileDialog,
   type RosterOption,
@@ -80,7 +81,19 @@ export function SalaryProfileList({
               <div className="flex items-center gap-3 min-w-0">
                 <EmployeeAvatar name={r.name} size="md" />
                 <div className="min-w-0">
-                  <div className="text-ink-strong font-semibold truncate">{r.name}</div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-ink-strong font-semibold truncate">{r.name}</span>
+                    {r.workerType !== "full_time" && (
+                      <span className="shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium tabular-nums"
+                        style={{
+                          borderColor: "color-mix(in srgb, var(--color-altus-red) 22%, transparent)",
+                          background: "color-mix(in srgb, var(--color-altus-red) 8%, transparent)",
+                          color: "var(--color-altus-red-deep)",
+                        }}>
+                        {WORKER_TYPE_LABELS[r.workerType]}
+                      </span>
+                    )}
+                  </div>
                   <div className="text-[12px] text-ink-subtle truncate">{r.email}</div>
                 </div>
               </div>
@@ -104,14 +117,35 @@ export function SalaryProfileList({
           },
           {
             key: "ctc",
-            label: "Annual CTC",
+            label: "Pay",
             align: "right",
-            sortValue: (r) => r.annualCtc,
-            render: (r) => (
-              <span className="tabular-nums text-ink-strong font-medium">
-                {r.annualCtc > 0 ? `₹${inr(r.annualCtc)}` : "—"}
-              </span>
-            ),
+            sortValue: (r) => {
+              const b = payBasisFor(r.workerType);
+              return b === "hourly" ? r.monthlyPayAtTarget * 12 : b === "fixed_fee" ? r.monthlyFee * 12 : r.annualCtc;
+            },
+            render: (r) => {
+              const b = payBasisFor(r.workerType);
+              if (b === "hourly") {
+                return (
+                  <span className="tabular-nums text-ink-strong font-medium">
+                    ₹{inr(r.monthlyPayAtTarget)}
+                    <span className="text-[11px] text-ink-subtle font-normal"> /mo cap</span>
+                  </span>
+                );
+              }
+              if (b === "fixed_fee") {
+                return (
+                  <span className="tabular-nums text-ink-strong font-medium">
+                    {r.monthlyFee > 0 ? <>₹{inr(r.monthlyFee)}<span className="text-[11px] text-ink-subtle font-normal"> /mo fee</span></> : "—"}
+                  </span>
+                );
+              }
+              return (
+                <span className="tabular-nums text-ink-strong font-medium">
+                  {r.annualCtc > 0 ? `₹${inr(r.annualCtc)}` : "—"}
+                </span>
+              );
+            },
           },
           {
             key: "tds",

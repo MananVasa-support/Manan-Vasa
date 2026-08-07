@@ -770,8 +770,11 @@ export function LetterEditor({
       ) : savedRichHtml ? (
         // A saved free-edit override exists — show it (read-only) so the changes
         // are visible in the field view. The MAIN field-driven content is kept
-        // intact underneath; "Discard free edit" reverts to it.
-        <div className="alw-stage">
+        // intact underneath; "Discard free edit" reverts to it. The notice sits
+        // ABOVE the stage (not inside it) — `.alw-stage` is a flex ROW, so a
+        // sibling there rendered the notice and the letter side-by-side, leaving
+        // a big empty half.
+        <>
           <div
             className="no-print"
             style={{
@@ -789,11 +792,13 @@ export function LetterEditor({
             ✎ Showing your saved free-edit for this letter. The field version (main content) is untouched — use
             &ldquo;Resume free edit&rdquo; to keep editing, or &ldquo;Discard free edit&rdquo; to revert.
           </div>
-          <Letterhead entity={entity}>
-            <div className="alw-date">{today}</div>
-            <div className="alw-rich-preview" dangerouslySetInnerHTML={{ __html: savedRichHtml }} />
-          </Letterhead>
-        </div>
+          <div className="alw-stage">
+            <Letterhead entity={entity}>
+              <div className="alw-date">{today}</div>
+              <div className="alw-rich-preview" dangerouslySetInnerHTML={{ __html: savedRichHtml }} />
+            </Letterhead>
+          </div>
+        </>
       ) : (
         <div className="alw-stage">
           <Letterhead entity={entity}>
