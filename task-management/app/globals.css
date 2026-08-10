@@ -1712,6 +1712,48 @@ html[data-density="dense"] body {
   box-shadow: inset 3px 0 0 rgb(var(--vp-cyan));
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   Frozen "Manage" column (components/tasks/task-table.tsx).
+
+   The cell is `position: sticky; right: 0`, so the other columns slide UNDER it
+   during horizontal scroll. That only looks right if the cell paints an opaque
+   background of its own — but an opaque background would also mask the row's
+   hover / focus tints, leaving a mismatched pale block at the right edge. So the
+   background lives here and repeats each row state, rather than being a fixed
+   `bg-surface-card` utility on the cell.
+   ────────────────────────────────────────────────────────────────────────── */
+.task-row > .task-actions-cell {
+  background: var(--color-surface-card);
+}
+
+/* The row tints are deliberately TRANSLUCENT (`--vp-cyan-tint` is 8% alpha),
+   which is fine for a normal row but NOT for this one: anything translucent
+   here lets the scrolled-under columns show straight through the frozen cell.
+   So the tint is painted as a gradient layer ON TOP of the opaque card surface
+   — visually identical to the row, but with no transparency. */
+.task-row:hover > .task-actions-cell {
+  background:
+    linear-gradient(var(--vp-cyan-tint), var(--vp-cyan-tint)),
+    var(--color-surface-card);
+}
+
+/* Keyboard/deep-link focus tint — matches the row's `bg-altus-red/[0.06]`,
+   composited over the card surface so the cell stays fully opaque. */
+.task-row.is-focused > .task-actions-cell {
+  background: color-mix(
+    in srgb,
+    var(--color-altus-red) 6%,
+    var(--color-surface-card)
+  );
+}
+
+/* Hover wins over the focus tint, matching the row's own precedence. */
+.task-row.is-focused:hover > .task-actions-cell {
+  background:
+    linear-gradient(var(--vp-cyan-tint), var(--vp-cyan-tint)),
+    var(--color-surface-card);
+}
+
 /* New Task dialog — shared input chrome. Cyan focus ring + smooth
    transitions so every input/select/textarea reads as one family. */
 /* Professional skeuomorphic field: subtle top-lit gradient, crisp bevel,

@@ -140,7 +140,15 @@ export function TaskListPage({
   }
 
   return (
-    <main className="wms-compact relative mx-auto max-w-[1560px] px-7 max-md:px-4 pt-4 max-md:pt-3 pb-16">
+    // `w-full min-w-0` matter now that the table scrolls sideways. This <main>
+    // is a flex item with `mx-auto`, and auto cross-axis margins DISABLE flex
+    // stretch — so without an explicit width it sizes to its CONTENT. The wide
+    // table then pushed <main> to its 1560px max, overflowing the content column
+    // and shoving the sticky Manage column off the right of the screen (the page
+    // can't scroll to it: body is `overflow-x: hidden`). Pinning the width to the
+    // column keeps the overflow INSIDE the table's own scroll container, which is
+    // what the frozen column pins against.
+    <main className="wms-compact relative mx-auto w-full min-w-0 max-w-[1560px] px-7 max-md:px-4 pt-4 max-md:pt-3 pb-16">
       {/* Header — the "Tasks" title with the KPI stat chips inline beside it, and
           Kanban View on the right. (Eyebrow + "N tasks in the current view"
           subtitle removed per design.) */}

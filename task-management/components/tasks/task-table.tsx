@@ -691,9 +691,16 @@ export function TaskTable({
       )}
 
       <div
-        // Cap the table to the viewport and scroll it internally so the
-        // sticky header row below stays frozen while you page through rows.
-        className="wg-rise bg-surface-card rounded-section border border-hairline overflow-auto max-h-[calc(100vh-260px)] max-md:hidden"
+        // The scroll container for BOTH axes:
+        //   overflow-x-auto — columns size to their content, so wide data scrolls
+        //     sideways instead of being truncated. The Manage column is pinned
+        //     with `sticky right-0`, which only works because the sticky ancestor
+        //     is THIS element (an overflow container), not the page.
+        //   overflow-y-auto + max-h — caps the table to the viewport so the
+        //     sticky header row stays frozen while you page through rows.
+        // `overscroll-x-contain` stops a sideways fling from also triggering the
+        // browser's back-navigation gesture.
+        className="wg-rise bg-surface-card rounded-section border border-hairline overflow-x-auto overflow-y-auto overscroll-x-contain max-h-[calc(100vh-260px)] max-md:hidden"
         style={{
           animationDelay: "60ms",
           boxShadow:
@@ -830,8 +837,11 @@ export function TaskTable({
               )}
             <tr
               data-task-row={row.original.id}
+              // `is-focused` is mirrored in CSS onto the sticky Manage cell —
+              // that cell paints its own opaque background, so it has to repeat
+              // the row's tints or it reads as a mismatched block at the edge.
               className={`task-row border-b border-hairline last:border-b-0 transition-colors ${
-                row.original.id === focusedId ? "bg-altus-red/[0.06]" : ""
+                row.original.id === focusedId ? "is-focused bg-altus-red/[0.06]" : ""
               }`}
               style={{
                 boxShadow:
@@ -849,20 +859,21 @@ export function TaskTable({
                 const col = cell.column.columnDef as TaskCol;
                 const hide = col.meta?.mobileHide;
                 const isActions = cell.column.id === "actions";
-                // max-w + ellipsis caps long values (title, names) so they
-                // don't push the actions kebab off-screen. Subject is capped
-                // tighter (narrow). Centered columns get text-center. The
-                // actions cell pins to the right edge (#6) so the ⋯ menu is
-                // always reachable during horizontal scroll.
-                const maxW = isActions
-                  ? ""
-                  : col.meta?.narrow
-                    ? "max-w-[16ch]"
-                    : "max-w-[32ch] max-md:max-w-[20ch]";
+                // Columns now size to their CONTENT and the table scrolls
+                // sideways, rather than every value being squeezed to ~32ch and
+                // truncated. The ONE exception is the free-text Task title: a
+                // single 250-character title would otherwise stretch that column
+                // past 2000px and make the horizontal scroll unusable, so it
+                // keeps a generous cap — its full text is still available in the
+                // cell's rich hover popover.
+                //
+                // Only a capped cell needs overflow/ellipsis; uncapped cells must
+                // NOT clip, or the sideways scroll would reveal cut-off values.
+                const maxW = isActions ? "" : col.meta?.wide ? "max-w-[52ch]" : "";
                 return (
                   <td
                     key={cell.id}
-                    className={`px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis max-md:px-3 max-md:py-3 ${maxW} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "sticky right-0 z-10 bg-surface-card" : ""}`}
+                    className={`px-3 py-2.5 whitespace-nowrap max-md:px-3 max-md:py-3 ${maxW} ${maxW ? "overflow-hidden text-ellipsis" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""}`}
                     style={isActions ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" } : undefined}
                   >
                     {flexRender(
