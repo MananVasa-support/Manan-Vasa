@@ -12,8 +12,6 @@ import { goalScopeFor } from "@/lib/weekly-goals/hierarchy";
 import {
   currentWeekStart,
   mondayOf,
-  nextWeekStart,
-  prevWeekStart,
   weekEnd,
   formatWeekLabel,
 } from "@/lib/weekly-goals/week";
@@ -298,9 +296,6 @@ export default async function GoalsWeeklyPage({ searchParams }: PageProps) {
         weekStart={weekStart}
         weekNo={weekNoOf(weekStart)}
         weekLabel={formatWeekLabel(weekStart)}
-        isCurrentWeek={weekStart === thisWeek}
-        prevWeek={prevWeekStart(weekStart)}
-        nextWeek={nextWeekStart(weekStart)}
         thisWeek={thisWeek}
         scopeEmp={scopeEmp}
         canPickPerson={canPickPerson}

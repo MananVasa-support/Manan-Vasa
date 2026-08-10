@@ -25,27 +25,32 @@ import {
   rectSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
-import { ChevronLeft, ChevronRight, ChevronDown, Search, X, Target, Trash2, List, Columns3, LayoutDashboard, Plus, Download, ArrowUpDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X, Target, Trash2, List, Columns3, LayoutDashboard, Plus, Download, ArrowUpDown } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { PageShell } from "@/components/layout/page-shell";
+import { ViewingSelect } from "@/components/goals/shared/viewing-select";
+import { QuarterWindowNav } from "./quarter-window-nav";
+import { MonthWindowNav, monthWindowQuarters } from "./month-window-nav";
 import { BoardQuickChips, type QuickChip } from "@/components/weekly-goals/board-quick-chips";
 import { fireToast } from "@/lib/toast";
 import { goalPolicy } from "@/lib/goals/policy";
 import {
   quartersOfFy,
-  monthKeysOfQuarter,
-  monthKeysOfFy,
   fyStartYearOf,
   fyStartYearOfKey,
+  fyStartYearOfMonthKey,
+  quarterKey,
+  quarterWindow,
   quarterKeyOfMonthKey,
-  quarterOfKey,
+  monthKey,
+  monthsOfQuarterKey,
+  shiftQuarterKey,
   type GoalPeriod,
 } from "@/lib/goals/types";
 import {
   type GoalDTO,
   effectiveGoalPct,
   periodKeyLabel,
-  periodKeyShort,
   fyLabel,
   parentPeriodKeyOf,
   categoryStyle,
@@ -85,6 +90,10 @@ const VIEW_STORE_KEY = "goals-board-view";
  *  (majority of) cards that have no children. */
 const EMPTY_CHILDREN: GoalDTO[] = [];
 
+/** Stable empty period-key list — a fresh `[]` in a memo dep would rebuild the
+ *  quarter buckets on every render. */
+const EMPTY_KEYS: string[] = [];
+
 /** Sort modes for the rendered list. Sr. No. keeps the drag-reorder line alive;
  *  every other key is a read-only projection (drag is paused while it's on). */
 type SortKey = "position" | "score-desc" | "score-asc" | "weight" | "risk" | "az";
@@ -119,6 +128,22 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
   const router = useRouter();
   const { goals, mutation } = useOptimisticGoals(props.goals);
   const fy = props.fyStartYear;
+
+  // PER-LEVEL layout switch. `props.level` maps 1:1 onto a route — "year" only
+  // ever arrives from /goals/yearly, "quarter" from /goals/quarterly, "month"
+  // from /goals/monthly — so gating on it re-skins one page at a time.
+  //
+  // ALL THREE levels now share one shape: the band is just
+  // `heading · [FY] [Viewing]`, and whatever bucket nav a level has renders on
+  // its OWN row under the band (quarters for Quarterly, quarter-grouped months
+  // for Monthly; Yearly has no buckets at all). That is why the former
+  // `bandOnly` switch is gone — the "pills inside the band" layout it guarded
+  // was Monthly's twelve-chip row, and nothing renders it any more. The board is
+  // also a growing flex column, which is what pins the footer: otherwise its
+  // gradient surface stops at the last row and leaves a strip of bare page
+  // background above the bar.
+  const isQuarterly = props.level === "quarter";
+  const isMonthly = props.level === "month";
 
   // Option-A policy for the VIEWED person's board (one owner per board view).
   const policy = React.useMemo(
@@ -156,36 +181,106 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
       const qs = sp.toString();
       router.push(`${props.basePath}${qs ? `?${qs}` : ""}` as Route);
     },
-    [router, props.basePath, props.viewedEmployeeId, props.myEmployeeId, fy],
+    // `props.periodKey` and `props.level` are READ above, so they must be
+    // deps: without them the callback keeps the closure from the render that
+    // first created it, and a person hop after a quarter change re-sends the
+    // PREVIOUS quarter — silently snapping the board back to it.
+    [
+      router,
+      props.basePath,
+      props.viewedEmployeeId,
+      props.myEmployeeId,
+      props.level,
+      props.periodKey,
+      fy,
+    ],
   );
 
-  // ── Dynamic quarters: on the CURRENT FY's Quarterly board, quarters that
-  //    have already ended are hidden by default (a "Show past" toggle brings
-  //    them back). Past/future FYs show all four (there "past" is meaningless).
-  //    The currently-selected quarter is always kept visible. ──────────────
+  // ── Quarter navigation: a ROLLING WINDOW of the live quarter plus the next
+  //    three, which crosses the FY boundary by design (in Aug 2026 that reads
+  //    FY 2026–27 · Q2 Q3 Q4, then FY 2027–28 · Q1). Replaces the old "Q1–Q4 of
+  //    the viewed FY, past ones hidden" row, which in August led with a quarter
+  //    that ended in June and pushed next year's Q1 behind the FY stepper.
+  //
+  //    Nothing below names a month, a quarter or a year: the anchor comes from
+  //    `quarterKey(new Date())` and the window from `shiftQuarterKey`, whose
+  //    absolute-quarter arithmetic owns the FY rollover. ──────────────────────
   const [showPast, setShowPast] = React.useState(false);
-  const nowQ = React.useMemo(() => {
-    const m = new Date().getMonth(); // 0=Jan
-    const fyMonth = ((m - 3) % 12 + 12) % 12; // Apr=0 … Mar=11
-    return Math.floor(fyMonth / 3) + 1; // 1..4
-  }, []);
-  const isCurrentFy = fy === fyStartYearOf(new Date());
-  const pastQuarterCount =
-    props.level === "quarter" && isCurrentFy
-      ? quartersOfFy(fy).filter((k) => quarterOfKey(k) < nowQ && k !== props.periodKey).length
-      : 0;
+  const currentQuarterKey = React.useMemo(() => quarterKey(new Date()), []);
 
-  // ── Buckets at this level for the FY ────────────────────────────────
+  // The window normally sits on the LIVE quarter, and re-anchors only when the
+  // selection lands outside it — an FY hop, or a `?period=` deep link. So
+  // clicking a quarter inside the window never reshuffles the row under the
+  // pointer, while a quarter reached any other way is still shown and selected.
+  const quarterAnchorKey = React.useMemo(
+    () =>
+      quarterWindow(currentQuarterKey).includes(props.periodKey)
+        ? currentQuarterKey
+        : props.periodKey,
+    [currentQuarterKey, props.periodKey],
+  );
+
+  // Quarters of the LOADED FY that sit behind the window. The window only looks
+  // forward, so without this the FY's earlier quarters would be unreachable
+  // except by stepping the FY — the "Show past" reveal adds them back in place.
+  const hiddenPastQuarters = React.useMemo(() => {
+    if (!isQuarterly) return EMPTY_KEYS;
+    const inWindow = new Set(quarterWindow(quarterAnchorKey));
+    return quartersOfFy(fy).filter((k) => k < quarterAnchorKey && !inWindow.has(k));
+  }, [isQuarterly, fy, quarterAnchorKey]);
+  const revealedQuarters = showPast ? hiddenPastQuarters : EMPTY_KEYS;
+
+  // ── Month navigation: the SAME rolling-window idea one level down — the live
+  //    quarter and the next one, six months, each under the quarter that owns
+  //    it. Replaces the strip of twelve identical chips, where the month you
+  //    actually work in had to be found by reading every label and half the row
+  //    was already closed.
+  //
+  //    Only the ANCHOR is a clock read (`monthKey`/`quarterKey` of today); the
+  //    window, its months and their FYs are all derived from the keys, so a
+  //    January board renders `FY 2026–27 · Q4` beside `FY 2027–28 · Q1` without
+  //    anything here knowing where a financial year starts or ends. ───────────
+  const currentMonthKey = React.useMemo(() => monthKey(new Date()), []);
+
+  // Anchored on the LIVE quarter, re-anchored only when the selected month sits
+  // outside the window (an FY hop or a `?m=`/`?period=` deep link) — so clicking
+  // a month inside the window never reshuffles the row under the pointer.
+  const monthAnchorQuarterKey = React.useMemo(() => {
+    if (!isMonthly) return currentQuarterKey;
+    const selectedQuarter = quarterKeyOfMonthKey(props.periodKey);
+    return monthWindowQuarters(currentQuarterKey).includes(selectedQuarter)
+      ? currentQuarterKey
+      : selectedQuarter;
+  }, [isMonthly, currentQuarterKey, props.periodKey]);
+
+  // The single quarter behind the window — what "Show past" reveals. Unlike the
+  // quarterly row this isn't clipped to the loaded FY: stepping back from April
+  // is a legitimate look at the closing year, and picking one of its months hops
+  // the FY with it.
+  const pastQuarterKeys = React.useMemo(
+    () => (isMonthly ? [shiftQuarterKey(monthAnchorQuarterKey, -1)] : EMPTY_KEYS),
+    [isMonthly, monthAnchorQuarterKey],
+  );
+  const revealedPastQuarters = showPast ? pastQuarterKeys : EMPTY_KEYS;
+
+  // ── Buckets at this level: what the nav row shows, which is also what the
+  //    Kanban lays out in columns. ──────────────────────────────────────
   const buckets = React.useMemo<string[]>(() => {
     if (props.level === "year") return [String(fy)];
     if (props.level === "quarter") {
-      const all = quartersOfFy(fy);
-      if (!isCurrentFy || showPast) return all;
-      // Hide fully-past quarters; keep current + upcoming + the selected one.
-      return all.filter((k) => quarterOfKey(k) >= nowQ || k === props.periodKey);
+      return Array.from(new Set([...quarterWindow(quarterAnchorKey), ...revealedQuarters])).sort();
     }
-    return ([1, 2, 3, 4] as const).flatMap((q) => monthKeysOfQuarter(fy, q));
-  }, [props.level, fy, isCurrentFy, showPast, nowQ, props.periodKey]);
+    return [...revealedPastQuarters, ...monthWindowQuarters(monthAnchorQuarterKey)]
+      .sort()
+      .flatMap(monthsOfQuarterKey);
+  }, [
+    props.level,
+    fy,
+    quarterAnchorKey,
+    revealedQuarters,
+    monthAnchorQuarterKey,
+    revealedPastQuarters,
+  ]);
 
   const levelGoals = React.useMemo(
     () => goals.filter((g) => g.period === props.level),
@@ -196,6 +291,23 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
     for (const g of levelGoals) m.set(g.periodKey, (m.get(g.periodKey) ?? 0) + 1);
     return m;
   }, [levelGoals]);
+
+  // The board loads ONE FY of goals, so a quarter from the window's other FY has
+  // no count here — report `null` (unknown) rather than a confident 0, which the
+  // pill would otherwise announce as "0 goals" for a quarter that may be full.
+  const quarterCountOf = React.useCallback(
+    (periodKey: string): number | null =>
+      fyStartYearOfKey(periodKey) === fy ? countByBucket.get(periodKey) ?? 0 : null,
+    [countByBucket, fy],
+  );
+
+  /** Same rule for the month window, which straddles FYs the same way — a month
+   *  the loader never fetched reports `null` (unknown), not 0. */
+  const monthCountOf = React.useCallback(
+    (monthKeyStr: string): number | null =>
+      fyStartYearOfMonthKey(monthKeyStr) === fy ? countByBucket.get(monthKeyStr) ?? 0 : null,
+    [countByBucket, fy],
+  );
 
   /** This bucket's goals in Sr.-No. order — the list the board renders. */
   const inBucket = React.useMemo(
@@ -800,18 +912,23 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
 
   return (
     <div
-      className="relative"
+      className="relative flex flex-1 flex-col"
       style={{
         background:
           "linear-gradient(180deg, var(--color-surface-soft) 0%, color-mix(in srgb, var(--color-surface-track) 60%, var(--color-surface-soft)) 100%)",
         color: "var(--color-ink-strong)",
       }}
     >
-      <PageShell as="div" width="full" py={false} className="relative pt-8 pb-5 max-md:pt-6 max-md:pb-4">
+      <PageShell
+        as="div"
+        width="full"
+        py={false}
+        className="relative flex flex-1 flex-col pt-6 pb-8 max-md:pt-5 max-md:pb-6"
+      >
         {/* ── HEADER — ONE unified command bar: identity + tabs · overview
             (dial + donut) · person + FY, all in a single creative band. ── */}
         <section
-          className="wg-rise relative mb-5 overflow-hidden rounded-[20px]"
+          className="wg-rise relative mb-4 overflow-hidden rounded-[20px]"
           style={{
             background: "var(--color-surface-card)",
             border: "1px solid var(--color-hairline)",
@@ -820,10 +937,15 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
           }}
         >
 
-          <div className="relative flex min-h-[64px] flex-wrap items-center gap-4 px-6 py-3 max-md:gap-3 max-md:px-4">
+          {/* No level carries period pills inside the band any more — Yearly has
+              none, Quarterly's and Monthly's live on the row below — so the band
+              is just `<heading> · [FY] [Viewing]`. A shorter band and a smaller
+              gap keep the two ends of one line visually related instead of
+              stranded at opposite edges. */}
+          <div className="relative flex min-h-[56px] flex-wrap items-center gap-3 px-5 py-2.5 max-md:gap-2.5 max-md:px-4">
             {/* 1 · identity — the title. It holds a sensible min width and WRAPS
-                (never overflows) so it can't collide with the period pills; when
-                the band is tight, the pills/person wrap to the next line instead. */}
+                (never overflows) so it can't collide with the controls; when the
+                band is tight, the person/FY pair wraps to the next line instead. */}
             <div className="min-w-[200px] flex-1">
               <h1
                 style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, color: "var(--color-ink-strong)", fontSize: "clamp(22px, 2vw, 32px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
@@ -832,117 +954,28 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
               </h1>
             </div>
 
-            {/* 2 · period pills — Q1–Q4 as a compact 2×2 grid, in the header */}
-            {props.level !== "year" && (
+            {/* 2 · person + FY — side by side on one horizontal band. No rule
+                between title and controls: with the pills gone the divider would
+                float in the middle of empty space, reading as a stray mark
+                rather than a separator. The pair is narrow (stepper + picker),
+                so it only drops to its own full-width row on genuinely small
+                screens. */}
+            <div className="flex shrink-0 flex-row items-center gap-2.5 max-sm:w-full max-sm:justify-between">
+              {/* FY stepper FIRST — the period control leads the band, the
+                  person picker follows: [ FY ] [ Viewing ]. */}
               <div
-                className={`grid shrink-0 self-center border-l pl-5 ${props.level === "quarter" ? "grid-cols-4 gap-2" : "grid-cols-12 gap-1.5"} max-xl:w-full max-xl:border-l-0 max-xl:pl-0`}
-                style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 16%, var(--color-hairline))" }}
-                role="tablist"
-                aria-label="Pick a period"
-              >
-                {buckets.map((k) => (
-                  <HeaderPill
-                    key={k}
-                    label={props.level === "quarter" ? periodKeyLabel(k) : periodKeyShort(k)}
-                    count={countByBucket.get(k) ?? 0}
-                    active={k === props.periodKey}
-                    onPick={() => go({ period: k })}
-                    compact={props.level === "month"}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Dynamic-quarter toggle — reveal / re-hide the past quarters. */}
-            {props.level === "quarter" && isCurrentFy && (pastQuarterCount > 0 || showPast) && (
-              <button
-                type="button"
-                onClick={() => setShowPast((v) => !v)}
-                aria-pressed={showPast}
-                className="shrink-0 self-center inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-bold text-ink-muted transition-colors hover:bg-surface-soft hover:text-ink-strong outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/40"
-                style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}
-              >
-                {showPast ? "Hide past" : `Show past${pastQuarterCount ? ` (${pastQuarterCount})` : ""}`}
-              </button>
-            )}
-
-            {/* 3 · person + FY — side by side on one horizontal band */}
-            <div
-              className="flex shrink-0 flex-row items-center gap-2.5 border-l pl-5 max-xl:w-full max-xl:justify-between max-xl:border-l-0 max-xl:pl-0"
-              style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 16%, var(--color-hairline))" }}
-            >
-              {/* Name selector — a bold, glowing custom pill (avatar + "VIEWING"
-                  eyebrow + the unstyled Select as the name). */}
-              {props.roster.length > 1 && (
-                <div className="group relative w-[232px] max-md:w-full">
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute -inset-[2px] rounded-2xl opacity-55 blur-[7px] transition-opacity duration-300 group-hover:opacity-90"
-                    style={{ background: "linear-gradient(120deg, var(--color-altus-red), #ff5560, var(--color-altus-red-deep))" }}
-                  />
-                  <div
-                    className="relative flex cursor-pointer items-center gap-2 rounded-2xl px-2 py-1"
-                    style={{
-                      background: "linear-gradient(135deg, color-mix(in srgb, var(--color-altus-red) 12%, var(--color-surface-card)), var(--color-surface-card) 70%)",
-                      border: "1.5px solid color-mix(in srgb, var(--color-altus-red) 32%, transparent)",
-                      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.78), 0 9px 24px -13px color-mix(in srgb, var(--color-altus-red) 60%, transparent)",
-                    }}
-                  >
-                    {/* Static visuals (non-interactive) — the whole pill is the
-                        click target via the invisible full-size Select overlay below. */}
-                    <span
-                      className="pointer-events-none grid h-8 w-8 shrink-0 place-items-center rounded-xl text-[12px] font-black text-white"
-                      style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 4px 10px -4px var(--color-altus-red)" }}
-                    >
-                      {props.viewedName.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?"}
-                    </span>
-                    <div className="pointer-events-none min-w-0 flex-1">
-                      <div className="text-[8px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--color-altus-red-deep)" }}>
-                        Viewing
-                      </div>
-                      <div className="flex items-center gap-1 text-[12.5px] font-bold text-ink-strong">
-                        <span className="truncate">
-                          {props.viewedEmployeeId === props.myEmployeeId ? `${props.viewedName} (me)` : props.viewedName}
-                        </span>
-                        <ChevronDown size={14} strokeWidth={2.3} className="shrink-0 text-ink-subtle" />
-                      </div>
-                    </div>
-                    {/* Whole-pill click target — an invisible, full-size Select trigger. */}
-                    <Select
-                      value={props.viewedEmployeeId}
-                      onValueChange={(v) => go({ emp: v })}
-                      searchable
-                      searchPlaceholder="Search people…"
-                      ariaLabel="View another person's goals"
-                      unstyled
-                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                      options={props.roster.map((r) => ({
-                        value: r.id,
-                        label: r.id === props.myEmployeeId ? `${r.name} (me)` : r.name,
-                      }))}
-                    />
-                  </div>
-                </div>
-              )}
-              <div
-                className="inline-flex items-center overflow-hidden rounded-full"
-                style={{
-                  background: "var(--color-surface-card)",
-                  border: "1px solid color-mix(in srgb, var(--color-altus-red) 20%, var(--color-hairline))",
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(15,23,42,0.05)",
-                }}
+                className="inline-flex items-center overflow-hidden rounded-lg border border-hairline-strong bg-surface-card"
               >
                 <button
                   type="button"
                   aria-label="Previous financial year"
                   onClick={() => go({ fy: fy - 1 })}
-                  className={`cursor-pointer px-2 py-1 text-ink-subtle transition-colors hover:text-altus-red hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)] ${FOCUS_RING}`}
+                  className={`cursor-pointer px-2 py-1.5 text-ink-subtle transition-colors hover:bg-surface-soft hover:text-altus-red ${FOCUS_RING}`}
                 >
                   <ChevronLeft size={15} strokeWidth={2.4} />
                 </button>
                 <span
-                  className="px-2.5 py-1 text-[12px] tabular-nums text-ink-strong"
-                  style={{ fontFamily: "var(--font-display)", fontWeight: 800, borderInline: "1px solid color-mix(in srgb, var(--color-altus-red) 14%, var(--color-hairline))" }}
+                  className="border-x border-hairline-strong px-2.5 py-1.5 text-[12.5px] font-bold tabular-nums text-ink-strong"
                 >
                   {fyLabel(fy)}
                 </span>
@@ -950,20 +983,83 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                   type="button"
                   aria-label="Next financial year"
                   onClick={() => go({ fy: fy + 1 })}
-                  className={`cursor-pointer px-2 py-1 text-ink-subtle transition-colors hover:text-altus-red hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)] ${FOCUS_RING}`}
+                  className={`cursor-pointer px-2 py-1.5 text-ink-subtle transition-colors hover:bg-surface-soft hover:text-altus-red ${FOCUS_RING}`}
                 >
                   <ChevronRight size={15} strokeWidth={2.4} />
                 </button>
               </div>
+
+              {props.roster.length > 1 && (
+                <ViewingSelect
+                  people={props.roster}
+                  value={props.viewedEmployeeId}
+                  viewedName={props.viewedName}
+                  onChange={(v) => go({ emp: v })}
+                  myEmployeeId={props.myEmployeeId}
+                />
+              )}
             </div>
           </div>
+
+          {/* ── BUCKET NAV — the level's rolling window, on its own row under the
+              band. Both navigators need two lines (an FY label over its groups),
+              so neither can sit inline the way the old month chips did. Divided
+              from the band by a hairline rather than a card of its own: it is
+              part of the same header object, not a second one. ── */}
+          {(isQuarterly || isMonthly) && (
+            <div className="border-t border-hairline px-5 py-3 max-md:px-4">
+              <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
+                {isQuarterly ? (
+                  <QuarterWindowNav
+                    anchorKey={quarterAnchorKey}
+                    extraKeys={revealedQuarters}
+                    selectedKey={props.periodKey}
+                    currentKey={currentQuarterKey}
+                    countOf={quarterCountOf}
+                    onPick={(k) => go({ fy: fyStartYearOfKey(k), period: k })}
+                  />
+                ) : (
+                  <MonthWindowNav
+                    anchorQuarterKey={monthAnchorQuarterKey}
+                    extraQuarterKeys={revealedPastQuarters}
+                    selectedKey={props.periodKey}
+                    currentMonthKey={currentMonthKey}
+                    countOf={monthCountOf}
+                    // A month in the window's other FY (Apr, viewed from a
+                    // January board) needs the LOADER moved with it, not just
+                    // the selection — the fy hop is what fetches its goals.
+                    onPick={(k) => go({ fy: fyStartYearOfMonthKey(k), period: k })}
+                  />
+                )}
+
+                {/* The reveal. Everything before the window is off-screen by
+                    design, and on Quarterly this is the only way back to the
+                    loaded FY's earlier quarters without stepping the FY. */}
+                {(isMonthly ? pastQuarterKeys : hiddenPastQuarters).length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPast((v) => !v)}
+                    aria-pressed={showPast}
+                    className={`mt-3.5 shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-bold text-ink-muted transition-colors hover:bg-surface-soft hover:text-ink-strong ${FOCUS_RING}`}
+                    style={{ boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }}
+                  >
+                    {showPast
+                      ? "Hide past"
+                      : isMonthly
+                        ? "Show past"
+                        : `Show past (${hiddenPastQuarters.length})`}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
         </section>
 
         {/* ── Feature toolbar — New goal · Search · Sort · Export · Bulk upload.
             One compact row, shown on ALL levels (Yearly included). ────── */}
         <div
-          className="wg-rise mb-5 flex items-center gap-2.5 flex-wrap"
+          className="wg-rise mb-4 flex flex-wrap items-center gap-2.5"
           style={{ animationDelay: "30ms" }}
         >
           {canWrite && (
@@ -1292,55 +1388,6 @@ function ViewToggleButton({
     </button>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/* Period pill — nav button + always-on drop target                    */
-/* ------------------------------------------------------------------ */
-
-/** Non-droppable period pill for the HEADER bar (click to switch bucket). */
-function HeaderPill({
-  label,
-  count,
-  active,
-  onPick,
-  compact = false,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onPick: () => void;
-  /** Month picker packs 12 pills on one row — a tighter pad + smaller type. */
-  compact?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onPick}
-      aria-pressed={active}
-      aria-label={`${label} — ${count} goal${count === 1 ? "" : "s"}`}
-      className={`wg-btn inline-flex items-center justify-center rounded-full border font-bold transition-all cursor-pointer ${
-        compact ? "px-1.5 py-1 text-[11.5px]" : "px-3 py-1.5 text-[13.5px]"
-      } ${FOCUS_RING}`}
-      style={
-        active
-          ? {
-              background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))",
-              borderColor: "var(--color-altus-red)",
-              color: "#fff",
-              boxShadow: "0 8px 20px -10px rgba(225,6,0,0.5)",
-            }
-          : {
-              background: "var(--color-surface-card)",
-              borderColor: "var(--color-hairline-strong)",
-              color: "var(--color-ink-soft)",
-            }
-      }
-    >
-      {label}
-    </button>
-  );
-}
-
 
 /* ------------------------------------------------------------------ */
 /* Empty state                                                         */

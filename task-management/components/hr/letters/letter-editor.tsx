@@ -1718,6 +1718,20 @@ const EDITOR_CSS = `
 
 /* "Edit freely" HTML rendered read-only inside the preview modal. */
 .alw-rich-preview{font-size:15px;line-height:1.72;color:var(--color-ink-strong,#0f172a);}
+/* Lists — restore the markers Tailwind v4 preflight blanks app-wide
+ * ("ol, ul, menu { list-style: none }"). Without this the preview drops the
+ * bullets the editor just showed; see the note at .rle-prose ul in
+ * components/hr/letters/rich-letter-editor.tsx. */
+.alw-rich-preview ul,.alw-rich-preview ol{margin:0 0 14px;padding-left:26px;}
+.alw-rich-preview ul{list-style:disc outside;}
+.alw-rich-preview ul ul{list-style-type:circle;}
+.alw-rich-preview ul ul ul{list-style-type:square;}
+.alw-rich-preview ol{list-style:decimal outside;}
+.alw-rich-preview ol ol{list-style-type:lower-alpha;}
+.alw-rich-preview ol ol ol{list-style-type:lower-roman;}
+.alw-rich-preview li{margin:0 0 4px;}
+.alw-rich-preview li p{margin:0;}
+.alw-rich-preview li>ul,.alw-rich-preview li>ol{margin:4px 0 0;}
 .alw-rich-preview table{border-collapse:collapse;width:100%;margin:12px 0;font-variant-numeric:tabular-nums;}
 .alw-rich-preview th,.alw-rich-preview td{border:1px solid #cbd5e1;padding:7px 11px;text-align:left;vertical-align:top;}
 .alw-rich-preview th{background:#f2f3f6;font-weight:700;color:#334155;}

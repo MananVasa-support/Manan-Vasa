@@ -7,10 +7,20 @@ import { motion } from "motion/react";
  * re-mounts on every navigation, so each page fades in for a smooth, premium
  * feel. Intentionally OPACITY-ONLY — a transform here would create a
  * containing block and break the sticky header's `position: sticky`.
+ *
+ * MUST STAY A FLEX COLUMN THAT GROWS. This wrapper sits between ChromeShell's
+ * full-height flex column and every page's `header → main → footer` fragment.
+ * As a plain block box it silently broke the sticky footer app-wide: the
+ * footer's `mt-auto` had no flex parent to push against, so on short pages the
+ * bar floated directly under the content mid-viewport instead of sitting at the
+ * bottom. `flex flex-1 flex-col` re-links the chain — the wrapper fills the
+ * viewport and the footer becomes a flex child again. No `min-h-0`: a column
+ * item's automatic min-height is what lets long pages grow past the fold.
  */
 export default function AppTemplate({ children }: { children: React.ReactNode }) {
   return (
     <motion.div
+      className="flex flex-1 flex-col"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.22, ease: [0.2, 0.7, 0.3, 1] }}

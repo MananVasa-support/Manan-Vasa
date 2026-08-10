@@ -9,6 +9,7 @@ import {
   monthKeysOfFy,
   quarterKey,
   monthKey,
+  fyStartYearOfMonthKey,
 } from "@/lib/goals/types";
 import { loadBoardData } from "./board-data";
 
@@ -54,13 +55,28 @@ export async function LevelPageShell({
   if (!goalsCascadeEnabled()) notFound();
   if (!goalsCanvasOn()) redirect("/goals");
 
-  const data = await loadBoardData(sp);
+  // A MONTH deep-link carries its own financial year. `?m=2027-05` alone would
+  // otherwise load the current FY, fail the `buckets.includes` test below and
+  // silently open today's month instead of the linked one — the shared link
+  // quietly lies. Derive the FY from the month key when the URL doesn't say.
+  // (The board's own picks always send `fy` explicitly; this is for pasted
+  // links, and only where the key itself pins the year.)
+  const spEffective = { ...sp, fy: sp.fy ?? fyOfMonthParam(level, sp) };
+
+  const data = await loadBoardData(spEffective);
   const periodKey = resolveBucket(level, data.fyStartYear, sp);
 
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="w-full">
+      {/* `<main>` is a GROWING flex column on every level page. The sticky-footer
+          chain — ChromeShell's `min-h-dvh` column → `(app)/template.tsx` → this
+          fragment's `mt-auto` footer — already pinned the bar to the bottom, but
+          a plain `w-full` main did not grow, so on a short board the board's
+          gradient surface ended at the last table row and left a strip of bare
+          page background between it and the footer. `flex-1` hands that leftover
+          space to the board, which fills it with its own surface. */}
+      <main className="flex w-full flex-1 flex-col">
         <GoalsLevelBoard
           {...data}
           level={level}
@@ -74,6 +90,17 @@ export async function LevelPageShell({
       <DashboardFooter />
     </>
   );
+}
+
+/** The FY (as the `?fy=` string the loader parses) that owns a MONTH deep-link
+ *  on the Monthly page — `?m=2027-05` / `?period=2027-05` → "2026" if the FY
+ *  starts in April. `undefined` for every other level or a malformed key, which
+ *  leaves the loader on its own default (today's FY). */
+function fyOfMonthParam(level: GoalPeriod, sp: LevelPageSearchParams): string | undefined {
+  if (level !== "month") return undefined;
+  const key = sp.period ?? sp.m;
+  if (!key || !/^\d{4}-(0[1-9]|1[0-2])$/.test(key)) return undefined;
+  return String(fyStartYearOfMonthKey(key));
 }
 
 /** Pick the selected bucket at `level` inside the viewed FY: an explicit

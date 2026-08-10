@@ -96,6 +96,56 @@ export function quarterOfKey(periodKey: string): 1 | 2 | 3 | 4 {
   return (m ? Number(m[1]) : 1) as 1 | 2 | 3 | 4;
 }
 
+/**
+ * Step a quarter key by `delta` quarters, ROLLING OVER the financial year.
+ * '2026-Q4' +1 → '2027-Q1' (Jan–Mar 2027 → Apr–Jun 2027); '2026-Q1' -1 →
+ * '2025-Q4'. Negative deltas work too.
+ *
+ * Counts in absolute quarters (`fy * 4 + q - 1`) rather than branching on the
+ * boundary, so a caller can walk any distance in either direction and every FY
+ * rollover falls out of the arithmetic — nothing about "which quarter ends the
+ * year" is written down twice.
+ */
+export function shiftQuarterKey(periodKey: string, delta: number): string {
+  const absolute = fyStartYearOfKey(periodKey) * 4 + (quarterOfKey(periodKey) - 1) + delta;
+  // Floor-divide so negative deltas walk backwards correctly (JS `%` keeps the
+  // dividend's sign, which would produce a quarter 0 or a negative index).
+  const fy = Math.floor(absolute / 4);
+  const q = absolute - fy * 4 + 1;
+  return `${fy}-Q${q}`;
+}
+
+/**
+ * The Quarterly board's ROLLING WINDOW: `anchorKey` plus the next `size - 1`
+ * quarters, crossing the financial-year boundary wherever it falls.
+ *
+ * `quarterWindow('2026-Q2')` → Q2, Q3, Q4 of FY 2026-27 then Q1 of FY 2027-28.
+ * Every step goes through `shiftQuarterKey`, so no month, quarter or year is
+ * named here and the rollover is never encoded a second time.
+ */
+export function quarterWindow(anchorKey: string, size = 4): string[] {
+  return Array.from({ length: size }, (_, i) => shiftQuarterKey(anchorKey, i));
+}
+
+/**
+ * Split an ordered list of quarter keys into consecutive runs sharing an FY —
+ * the groups the board draws its FY brackets around.
+ *
+ * Runs are CONSECUTIVE, not bucketed by year: the input is chronological, so a
+ * scan preserves that order and a hypothetical repeat of an FY would open a new
+ * bracket rather than teleport quarters backwards into an earlier one.
+ */
+export function groupQuarterKeysByFy(keys: string[]): { fy: number; keys: string[] }[] {
+  const groups: { fy: number; keys: string[] }[] = [];
+  for (const key of keys) {
+    const fy = fyStartYearOfKey(key);
+    const last = groups[groups.length - 1];
+    if (last && last.fy === fy) last.keys.push(key);
+    else groups.push({ fy, keys: [key] });
+  }
+  return groups;
+}
+
 /** The FY start year that owns a month key ('2026-07'). */
 export function fyStartYearOfMonthKey(monthKeyStr: string): number {
   const year = Number(monthKeyStr.slice(0, 4));
@@ -107,4 +157,17 @@ export function fyStartYearOfMonthKey(monthKeyStr: string): number {
 export function quarterKeyOfMonthKey(monthKeyStr: string): string {
   const monthIndex = Number(monthKeyStr.slice(5, 7)) - 1;
   return `${fyStartYearOfMonthKey(monthKeyStr)}-Q${fyQuarterOfMonthIndex(monthIndex)}`;
+}
+
+/**
+ * The three month keys owned by a quarter KEY — '2026-Q3' → Oct/Nov/Dec 2026,
+ * '2026-Q4' → Jan/Feb/Mar 2027. The inverse of `quarterKeyOfMonthKey`.
+ *
+ * The key-taking twin of `monthKeysOfQuarter(fy, q)`: the Monthly nav walks the
+ * calendar in quarter KEYS (that is what `shiftQuarterKey`/`quarterWindow`
+ * speak), so unpacking one back into its months anywhere else would mean
+ * re-deriving the FY and quarter number by hand at every call site.
+ */
+export function monthsOfQuarterKey(quarterKeyStr: string): string[] {
+  return monthKeysOfQuarter(fyStartYearOfKey(quarterKeyStr), quarterOfKey(quarterKeyStr));
 }

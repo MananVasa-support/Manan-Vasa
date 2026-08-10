@@ -162,6 +162,14 @@ const LETTERHEAD_CSS = `
  * carry their own alignment). Structured paragraphs set an inline text-align
  * that wins where an explicit override (centre/right) is needed. */
 .alh-body p{margin:0 0 14px;text-align:left;}
+/* DELIBERATELY no ul/ol rule here. Every list that reaches this frame is either
+ * a component's own bullet (.alw-ul in letter-editor.tsx, .apd-ul in
+ * policy-document.tsx — both list-style:none plus a red ::before dot) or the
+ * rich editor's content, which carries its own markers via .rle-prose /
+ * .alw-rich-preview. Setting .alh-body ul to disc here would outrank those
+ * single-class rules (0,1,1 beats 0,1,0) and print a disc NEXT TO every red
+ * dot. If a plain list ever needs markers in this frame, scope it to the
+ * surface that owns the content, not to the shared letterhead. */
 /* Print / PDF — pin header + footer to every printed page; the thead/tfoot
  * spacers keep the body from ever overlapping them. */
 @media print{

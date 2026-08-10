@@ -1,7 +1,19 @@
+/**
+ * The app footer bar. Every page renders it as the LAST sibling of its top-level
+ * fragment (header → main → footer), and ChromeShell makes that fragment's parent
+ * a full-height flex column — so `mt-auto` eats all leftover vertical space and
+ * pins the bar to the bottom of the viewport on short pages, while still sitting
+ * directly under the content on long ones. (Not `fixed`: it must scroll away, not
+ * overlay the page.)
+ *
+ * That chain runs THROUGH `app/(app)/template.tsx`, which must stay a growing
+ * flex column — as a plain block wrapper it silently strands `mt-auto` and the
+ * bar floats mid-viewport on short pages. Change the two together.
+ */
 export function DashboardFooter() {
   return (
     <footer
-      className="mt-6"
+      className="mt-auto"
       style={{
         background:
           "linear-gradient(180deg, var(--color-ink-strong) 0%, #020617 100%)",

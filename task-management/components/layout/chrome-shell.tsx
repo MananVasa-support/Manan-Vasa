@@ -47,12 +47,19 @@ export function ChromeShell({
     (pathname?.startsWith("/support/") ?? false);
   const showSidebar = Boolean(ws) && !isHrFullBleed;
 
-  if (!showSidebar) return <>{children}</>;
+  // Sticky-footer frame (both branches): the page column is a FULL-HEIGHT flex
+  // column, so the footer — which every page renders as the last sibling of its
+  // top-level fragment — can `mt-auto` itself down to the bottom of the viewport
+  // instead of floating mid-screen on short pages. Content above it keeps its
+  // natural height and simply grows past the fold on long pages.
+  if (!showSidebar) {
+    return <div className="flex min-h-dvh flex-col">{children}</div>;
+  }
 
   return (
     <div className="flex min-h-dvh">
       {sidebar}
-      <div className="min-w-0 flex-1 max-md:pt-14">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col max-md:pt-14">{children}</div>
     </div>
   );
 }

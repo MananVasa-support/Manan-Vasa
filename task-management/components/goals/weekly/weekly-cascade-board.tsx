@@ -5,10 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  CalendarDays,
   Target,
   CheckCircle2,
   BadgeCheck,
@@ -28,6 +24,9 @@ import { WeeklyGoalDrawer } from "@/components/weekly-goals/goal-drawer";
 import { WeeklyGoalsImport } from "@/components/weekly-goals/weekly-goals-import";
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
 import { Select } from "@/components/ui/select";
+import { PageShell } from "@/components/layout/page-shell";
+import { ViewingSelect } from "@/components/goals/shared/viewing-select";
+import { WeekSelect, formatWeekRangeShort } from "./week-select";
 import { TeamWeightsField, type TeamMemberWeight } from "@/components/goals/board/team-weights-field";
 import { CascadeGoalCard } from "./cascade-goal-card";
 import { GoalTableView } from "@/components/goals/board/goal-table-view";
@@ -113,9 +112,6 @@ export function WeeklyCascadeBoard({
   weekStart,
   weekNo,
   weekLabel,
-  isCurrentWeek,
-  prevWeek,
-  nextWeek,
   thisWeek,
   scopeEmp,
   canPickPerson,
@@ -135,9 +131,8 @@ export function WeeklyCascadeBoard({
   weekStart: string;
   weekNo: number;
   weekLabel: string;
-  isCurrentWeek: boolean;
-  prevWeek: string;
-  nextWeek: string;
+  /** The LIVE week's Monday — the pivot the week popover's list is built around
+   *  (and the week the page defaults to when the URL carries no `?week=`). */
   thisWeek: string;
   scopeEmp: string;
   canPickPerson: boolean;
@@ -221,146 +216,53 @@ export function WeeklyCascadeBoard({
     people.find((p) => p.id === scopeEmp)?.name ?? rows[0]?.employeeName ?? (isSelf ? "My goals" : "Teammate");
 
   return (
-    <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
-      {/* ── HEADER — level-board style: one compact pastel-red command band.
-          LEFT = identity (eyebrow + "Weekly Goals"); RIGHT = week stepper +
-          person selector (moved out of the toolbar). Mirrors goals-level-board. ── */}
+    <PageShell as="main" width="full" py={false} className="pt-8 pb-5 max-md:pt-6 max-md:pb-4">
+      {/* ── HEADER — the SAME quiet command band the level boards use: a plain
+          card, hairline border, one soft shadow. The red gradient wash, the two
+          aurora radials and the left accent rail were dropped so Weekly reads as
+          the same product as Yearly/Quarterly/Monthly.
+          LEFT = identity; RIGHT = [ Week ] [ Viewing ]. ── */}
       <section
-        className="wg-rise relative mb-5 overflow-hidden rounded-[26px]"
+        className="wg-rise relative mb-5 overflow-hidden rounded-[20px]"
         style={{
-          background:
-            "linear-gradient(105deg, color-mix(in srgb, var(--color-altus-red) 8%, var(--color-surface-card)) 0%, var(--color-surface-card) 44%, color-mix(in srgb, var(--color-altus-red) 5%, var(--color-surface-card)) 100%)",
-          border: "1px solid color-mix(in srgb, var(--color-altus-red) 18%, var(--color-hairline))",
+          background: "var(--color-surface-card)",
+          border: "1px solid var(--color-hairline)",
           boxShadow:
-            "inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 6px rgba(15,23,42,0.05), 0 26px 60px -34px color-mix(in srgb, var(--color-altus-red) 44%, transparent)",
+            "0 1px 2px rgba(15,23,42,0.05), 0 18px 44px -30px rgba(15,23,42,0.22)",
         }}
       >
-        {/* aurora washes + left accent rail */}
-        <span aria-hidden className="pointer-events-none absolute -right-12 -top-24 h-64 w-64 rounded-full" style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--color-altus-red) 15%, transparent), transparent 66%)" }} />
-        <span aria-hidden className="pointer-events-none absolute -left-24 -bottom-28 h-60 w-60 rounded-full" style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--color-altus-red) 8%, transparent), transparent 70%)" }} />
-        <span aria-hidden className="pointer-events-none absolute left-0 top-0 h-full w-1.5" style={{ background: "linear-gradient(180deg, var(--color-altus-red), var(--color-altus-red-deep))" }} />
-
-        <div className="relative flex min-h-[68px] items-center gap-6 px-7 py-3.5 max-xl:flex-wrap max-md:gap-4 max-md:px-4">
+        <div className="relative flex min-h-[64px] flex-wrap items-center gap-4 px-6 py-3 max-md:gap-3 max-md:px-4">
           {/* 1 · identity — eyebrow + compact title only */}
-          <div className="min-w-0 flex-1 max-xl:w-full max-xl:flex-none">
-            <div className="text-[10.5px] font-black uppercase tracking-[0.18em]" style={{ color: "var(--color-altus-red-deep)" }}>
-              Goals · {weekLabel} · {isSelf ? "My goals" : viewedName}
+          <div className="min-w-[200px] flex-1">
+            <div className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-subtle">
+              Goals · W{weekNo} · {isSelf ? "My goals" : viewedName}
             </div>
             <h1
               className="mt-0.5"
-              style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, color: "var(--color-ink-strong)", fontSize: "clamp(24px, 2.3vw, 34px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
+              style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, color: "var(--color-ink-strong)", fontSize: "clamp(22px, 2vw, 32px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
             >
               Weekly Goals
             </h1>
           </div>
 
-          {/* 2 · person + week — side by side on one horizontal band */}
-          <div
-            className="flex shrink-0 flex-row items-center gap-3 border-l pl-6 max-xl:w-full max-xl:justify-between max-xl:border-l-0 max-xl:pl-0"
-            style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 16%, var(--color-hairline))" }}
-          >
-            {/* Person selector — glowing "VIEWING" avatar pill wrapping the
-                existing native select (goPerson). */}
+          {/* 2 · week + person — one horizontal band, same divider as the level boards */}
+          <div className="flex shrink-0 flex-row items-center gap-2.5 border-l border-hairline pl-5 max-xl:w-full max-xl:justify-between max-xl:border-l-0 max-xl:pl-0">
+            {/* Week selector FIRST — the period control leads the band, the
+                person picker follows: [ W19 · 10 Aug – 16 Aug ▾ ] [ Viewing ].
+                Same box as the level boards' FY stepper; the centre opens the
+                grouped week popover rather than jumping a fixed step. The old
+                separate "This Week" button is gone — the popover's CURRENT group
+                is the way back, so the band stays two controls wide. */}
+            <WeekSelect value={weekStart} thisWeek={thisWeek} onPick={goWeek} />
+
             {canPickPerson && people.length > 0 && (
-              <div className="group relative w-[236px] max-md:w-full">
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute -inset-[2px] rounded-2xl opacity-55 blur-[7px] transition-opacity duration-300 group-hover:opacity-90"
-                  style={{ background: "linear-gradient(120deg, var(--color-altus-red), #ff5560, var(--color-altus-red-deep))" }}
-                />
-                <div
-                  className="relative flex cursor-pointer items-center gap-2.5 rounded-2xl px-2.5 py-1.5"
-                  style={{
-                    background: "linear-gradient(135deg, color-mix(in srgb, var(--color-altus-red) 12%, var(--color-surface-card)), var(--color-surface-card) 70%)",
-                    border: "1.5px solid color-mix(in srgb, var(--color-altus-red) 32%, transparent)",
-                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.78), 0 9px 24px -13px color-mix(in srgb, var(--color-altus-red) 60%, transparent)",
-                  }}
-                >
-                  {/* Static visuals (non-interactive) — the whole pill is the
-                      click target via the invisible full-size Select overlay below. */}
-                  <span
-                    className="pointer-events-none grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[13px] font-black text-white"
-                    style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 4px 10px -4px var(--color-altus-red)" }}
-                  >
-                    {viewedName.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?"}
-                  </span>
-                  <div className="pointer-events-none min-w-0 flex-1">
-                    <div className="text-[8.5px] font-black uppercase tracking-[0.16em]" style={{ color: "var(--color-altus-red-deep)" }}>
-                      Viewing
-                    </div>
-                    <div className="flex items-center gap-1 text-[13.5px] font-bold text-ink-strong">
-                      <span className="truncate">{scopeEmp === me.id ? `${viewedName} (me)` : viewedName}</span>
-                      <ChevronDown size={15} strokeWidth={2.3} className="shrink-0 text-ink-subtle" />
-                    </div>
-                  </div>
-                  {/* Whole-pill click target — an invisible, full-size Select trigger. */}
-                  <Select
-                    value={scopeEmp}
-                    onValueChange={(v) => goPerson(v)}
-                    searchable
-                    searchPlaceholder="Search people…"
-                    ariaLabel="View another person's goals"
-                    unstyled
-                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                    options={people.map((p) => ({
-                      value: p.id,
-                      label: p.id === me.id ? `${p.name} (me)` : p.name,
-                    }))}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Week stepper — mirrors the level board's FY stepper pill. */}
-            <div
-              className="inline-flex items-center overflow-hidden rounded-full"
-              style={{
-                background: "var(--color-surface-card)",
-                border: "1px solid color-mix(in srgb, var(--color-altus-red) 20%, var(--color-hairline))",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(15,23,42,0.05)",
-              }}
-            >
-              <button
-                type="button"
-                aria-label="Previous week"
-                onClick={() => goWeek(prevWeek)}
-                className="cursor-pointer px-2.5 py-1.5 text-ink-subtle transition-colors outline-none hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)] hover:text-altus-red focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60"
-              >
-                <ChevronLeft size={17} strokeWidth={2.4} />
-              </button>
-              <span
-                className="flex items-center gap-1.5 px-3 py-1.5"
-                style={{ borderInline: "1px solid color-mix(in srgb, var(--color-altus-red) 14%, var(--color-hairline))" }}
-              >
-                <CalendarDays size={13} style={{ color: "var(--color-altus-red)" }} />
-                <span
-                  className="rounded-chip px-1.5 py-0.5 text-[10.5px] font-black tabular-nums text-white"
-                  style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.28)" }}
-                >
-                  W{weekNo}
-                </span>
-                <span className="text-[13px] font-bold tabular-nums text-ink-strong">{weekLabel}</span>
-              </span>
-              <button
-                type="button"
-                aria-label="Next week"
-                onClick={() => goWeek(nextWeek)}
-                className="cursor-pointer px-2.5 py-1.5 text-ink-subtle transition-colors outline-none hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)] hover:text-altus-red focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60"
-              >
-                <ChevronRight size={17} strokeWidth={2.4} />
-              </button>
-            </div>
-
-            {!isCurrentWeek && (
-              <button
-                type="button"
-                onClick={() => goWeek(thisWeek)}
-                title="Jump to this week"
-                className="wg-btn shrink-0 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold text-altus-red outline-none transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_8%,transparent)] focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60"
-                style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 30%, transparent)" }}
-              >
-                This Week
-              </button>
+              <ViewingSelect
+                people={people}
+                value={scopeEmp}
+                viewedName={viewedName}
+                onChange={(v) => goPerson(v)}
+                myEmployeeId={me.id}
+              />
             )}
           </div>
         </div>
@@ -488,18 +390,22 @@ export function WeeklyCascadeBoard({
         <motion.div
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-section border border-hairline-strong bg-surface-card px-6 py-16 text-center"
+          // Compact by design: the dashed "Add Weekly Goal" tile sits directly
+          // below, so this panel only has to say WHERE you are and what fills it
+          // — a tall hero here would push the actual next step off the fold.
+          className="rounded-section border border-hairline-strong bg-surface-card px-5 py-8 text-center"
         >
           <span
-            className="mx-auto mb-3 inline-flex h-16 w-16 items-center justify-center rounded-full"
+            className="mx-auto mb-2 inline-flex size-9 items-center justify-center rounded-full"
             style={{ background: ACCENT_TINT, color: ACCENT_DEEP }}
           >
-            <Target size={28} strokeWidth={2.2} />
+            <Target size={17} strokeWidth={2.4} />
           </span>
-          <p className="text-[15px] font-semibold text-ink-strong">No weekly goals for W{weekNo}</p>
-          <p className="mx-auto mt-1 max-w-[46ch] text-[13px] text-ink-muted">
-            Adopt a monthly goal from the cascade to generate this week&apos;s rows, or add one on the
-            main weekly board.
+          <p className="text-[13.5px] font-bold text-ink-strong">
+            No goals for W{weekNo} · {formatWeekRangeShort(weekStart)}
+          </p>
+          <p className="mx-auto mt-0.5 max-w-[44ch] text-[12px] text-ink-muted">
+            Add one below, or adopt a monthly goal from the cascade.
           </p>
         </motion.div>
       ) : (
@@ -571,7 +477,7 @@ export function WeeklyCascadeBoard({
           weekStart={commit.weekStart}
         />
       )}
-    </main>
+    </PageShell>
   );
 }
 

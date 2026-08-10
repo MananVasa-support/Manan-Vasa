@@ -1124,8 +1124,35 @@ const RLE_CSS = `
 .rle-prose h1{font-size:26px;line-height:1.25;margin:0 0 12px;font-weight:700;}
 .rle-prose h2{font-size:21px;line-height:1.3;margin:0 0 10px;font-weight:700;}
 .rle-prose h3{font-size:17px;line-height:1.35;margin:0 0 8px;font-weight:700;}
+/* Lists — the marker MUST be restored explicitly.
+ *
+ * Tailwind v4's preflight (pulled in by the tailwindcss import in globals.css)
+ * ships "ol, ul, menu { list-style: none }". So Bullet list / Numbered list were
+ * never broken: TipTap toggled real ul/ol markup and the buttons lit up, but
+ * every marker was blanked by a global reset and the items looked like plain
+ * indented paragraphs — indistinguishable from "the button does nothing".
+ *
+ * The PDF path (lib/hr/letters/render-rich.ts) renders in a standalone Chromium
+ * document with no Tailwind, so UA defaults applied and the SAME letter printed
+ * with correct bullets. That asymmetry is the fingerprint of a preflight reset,
+ * not an editor bug.
+ *
+ * The nested levels are spelled out because one ul rule set to disc beats the
+ * UA's depth-based defaults at equal specificity and would flatten every nested
+ * list to the same marker — losing the visual step that Increase indent
+ * (sinkListItem) exists to create. */
 .rle-prose ul,.rle-prose ol{margin:0 0 14px;padding-left:26px;}
+.rle-prose ul{list-style:disc outside;}
+.rle-prose ul ul{list-style-type:circle;}
+.rle-prose ul ul ul{list-style-type:square;}
+.rle-prose ol{list-style:decimal outside;}
+.rle-prose ol ol{list-style-type:lower-alpha;}
+.rle-prose ol ol ol{list-style-type:lower-roman;}
 .rle-prose li{margin:0 0 4px;}
+/* TipTap wraps each item's content in a <p>, which would otherwise inherit the
+ * 14px paragraph gap and space a tight list like loose paragraphs. */
+.rle-prose li p{margin:0;}
+.rle-prose li>ul,.rle-prose li>ol{margin:4px 0 0;}
 .rle-prose blockquote{margin:0 0 14px;padding-left:14px;border-left:3px solid color-mix(in srgb,var(--rle-red) 55%,transparent);color:#374151;}
 .rle-prose a{color:var(--rle-red);text-decoration:underline;}
 .rle-prose img{max-width:100%;height:auto;border-radius:4px;}

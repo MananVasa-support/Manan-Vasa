@@ -246,8 +246,22 @@ html,body{margin:0;padding:0;background:#ffffff;}
 .alh-body h1{font-size:22px;line-height:1.3;margin:0 0 12px;font-weight:700;}
 .alh-body h2{font-size:18px;line-height:1.35;margin:18px 0 10px;font-weight:700;}
 .alh-body h3{font-size:15.5px;line-height:1.4;margin:16px 0 8px;font-weight:700;}
+/* Lists — this document is standalone (no Tailwind preflight), so markers came
+ * from the UA defaults and already printed correctly. Stated explicitly anyway
+ * so the PDF matches the in-app editor rule for rule: this file drifting from
+ * the screen is exactly how the bug hid — the same letter printed with bullets
+ * while the editor showed none. Nested levels mirror the UA sequence, so this
+ * is a no-op on today's output, not a restyle. */
 .alh-body ul,.alh-body ol{margin:0 0 14px;padding-left:24px;}
+.alh-body ul{list-style:disc outside;}
+.alh-body ul ul{list-style-type:circle;}
+.alh-body ul ul ul{list-style-type:square;}
+.alh-body ol{list-style:decimal outside;}
+.alh-body ol ol{list-style-type:lower-alpha;}
+.alh-body ol ol ol{list-style-type:lower-roman;}
 .alh-body li{margin:0 0 6px;}
+.alh-body li p{margin:0;}
+.alh-body li>ul,.alh-body li>ol{margin:6px 0 0;}
 .alh-body strong{font-weight:700;}
 /* Employment-terms as a professional bordered 2-column table (was colon text). */
 .alh-body .alw-termtable{border-collapse:collapse;margin:8px 0 18px;width:100%;border:1px solid #d4d4d8;}
