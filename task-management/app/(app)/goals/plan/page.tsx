@@ -64,26 +64,26 @@ export default async function GoalsPlanPage({
         {/* One title bar for BOTH doors into this page (Goals › Plan My Day and
             WMS › My Day) — deliberately room-neutral, because it is literally
             the same surface and the same daily state either way. */}
-        <header className="mb-5 flex items-end justify-between gap-4 wg-rise max-sm:flex-col max-sm:items-start max-sm:gap-2">
+        <header className="mb-6 flex items-end justify-between gap-4 wg-rise max-sm:flex-col max-sm:items-start max-sm:gap-2">
           <div className="min-w-0">
             <h1
               className="text-ink-strong"
               style={{
                 fontFamily: "var(--font-display), system-ui, sans-serif",
                 fontWeight: 900,
-                fontSize: "clamp(22px, 2.3vw, 30px)",
+                fontSize: "clamp(27px, 2.6vw, 32px)",
                 letterSpacing: "-0.025em",
-                lineHeight: 1.04,
+                lineHeight: 1.05,
               }}
             >
               My Day
             </h1>
-            <p className="mt-1 font-medium text-ink-muted" style={{ fontSize: 13.5, maxWidth: "70ch" }}>
+            <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 14, maxWidth: "70ch" }}>
               Plan your day around your goals and work.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
-            <span className="text-[12.5px] font-bold text-ink-soft">
+            <span className="text-[13.5px] font-bold text-ink-soft">
               Today · <span className="tabular-nums">{longDay(payload.ymd)}</span>
             </span>
             {isManager && (

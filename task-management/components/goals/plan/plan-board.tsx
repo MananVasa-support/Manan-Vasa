@@ -20,8 +20,7 @@ import {
   sortableKeyboardCoordinates,
   arrayMove,
 } from "@dnd-kit/sortable";
-import { AnimatePresence, motion } from "motion/react";
-import { ChevronDown, Loader2, Plus, Sunrise } from "lucide-react";
+import { Loader2, Plus, Sunrise } from "lucide-react";
 import { PRIORITY_LABELS, TASK_PRIORITIES } from "@/db/enums";
 import { fireToast } from "@/lib/toast";
 import { SourceCard } from "./source-card";
@@ -80,10 +79,14 @@ const nonGhost = (items: PlanItem[]) => items.filter((i) => i.id !== GHOST_ID);
  * Plan My Day — one daily command centre, rendered identically at
  * `/goals/plan` (Goals › Plan My Day) and `/my-day` (WMS › My Day).
  *
- * The board answers two questions and keeps them visually apart:
- *   RIGHT — AVAILABLE WORK: everything you COULD work on, grouped by where it
- *           comes from (Goals · Goal Tasks · WMS Tasks · Carryover).
- *   LEFT  — TODAY'S PLAN: what you've COMMITTED to, ordered, completable.
+ *   LEFT  (40%) — TODAY'S PLAN: what you've committed to, ordered, completable.
+ *   RIGHT (60%) — AVAILABLE WORK: everything you could pick up, ONE source
+ *                 category at a time behind tabs.
+ *
+ * The tabs are the readability fix: the four sources used to stack as four
+ * dense lists competing for the same eye, so the column read as a data table.
+ * Showing one at a time cuts what's on screen by roughly three quarters and
+ * lets every remaining row breathe.
  *
  * Adding always REFERENCES the original row (goal id / weekly goal id / task
  * id / prior checklist row) through the existing server actions — the board
@@ -144,7 +147,7 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
     }));
   }, []);
 
-  /** Shared add path — used by BOTH drag-drop and the "+ Add" buttons. */
+  /** Shared add path — used by BOTH drag-drop and the "+ Add to Today" buttons. */
   const commitAdd = React.useCallback(
     async (kind: SourceKind, sourceId: string, title: string, subtitle: string | null, atIndex?: number) => {
       const tempId = `temp:${crypto.randomUUID()}`;
@@ -349,7 +352,10 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
       onDragEnd={onDragEnd}
       onDragCancel={onDragCancel}
     >
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+      {/* ~40 / 60. The plan needs room to read a full commitment on one line;
+          Available Work needs more, because its rows carry a title plus one or
+          two metadata lines and a persistent action. */}
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,0.68fr)_minmax(0,1fr)] max-xl:gap-5">
         <PlanColumn
           plan={plan}
           count={count}
@@ -369,9 +375,9 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
 
       <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(0.2,0,0,1)" }}>
         {active ? (
-          <div className="flex items-center gap-2 rounded-lg border border-hairline-strong bg-surface-card px-3 py-2.5 shadow-[0_16px_40px_rgba(15,23,42,0.2)]">
+          <div className="flex items-center gap-2.5 rounded-lg border border-hairline-strong bg-surface-card px-4 py-3 shadow-[0_16px_40px_rgba(15,23,42,0.2)]">
             <SourceTagChip kind={active.type === "source" ? active.kind : active.item.kind} />
-            <span className="text-[13.5px] font-semibold text-ink-strong">
+            <span className="text-[14.5px] font-semibold text-ink-strong">
               {active.type === "source" ? active.title : active.item.title}
             </span>
           </div>
@@ -393,16 +399,16 @@ function Panel({
   children,
 }: {
   label: string;
-  caption: string;
+  caption?: string;
   aside?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-section border border-hairline bg-surface-card p-5 max-md:p-4">
-      <header className="mb-4 flex items-start justify-between gap-4">
+    <section className="rounded-section border border-hairline bg-surface-card p-6 max-md:p-4">
+      <header className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-ink-strong">{label}</h2>
-          <p className="mt-1 text-[12.5px] text-ink-muted">{caption}</p>
+          <h2 className="text-[14px] font-black uppercase tracking-[0.11em] text-ink-strong">{label}</h2>
+          {caption ? <p className="mt-1.5 text-[13px] text-ink-muted">{caption}</p> : null}
         </div>
         {aside}
       </header>
@@ -452,20 +458,19 @@ function PlanColumn(props: {
       aside={
         <span className="shrink-0 text-right">
           <span
-            className="block text-[15px] font-black tabular-nums leading-none"
+            className="block text-[22px] font-black tabular-nums leading-none"
             style={{ color: allDone ? "var(--color-green-deep)" : "var(--color-ink-strong)" }}
           >
             {doneCount} / {count}
           </span>
-          <span className="mt-1 block text-[10.5px] font-bold uppercase tracking-[0.1em] text-ink-muted">
+          <span className="mt-1.5 block text-[11px] font-bold uppercase tracking-[0.1em] text-ink-muted">
             Complete
           </span>
         </span>
       }
     >
-      {/* Completion bar — the one piece of chrome that earns its pixels here. */}
       {count > 0 ? (
-        <div className="mb-4 h-1 w-full overflow-hidden rounded-full bg-surface-track">
+        <div className="mt-5 h-1 w-full overflow-hidden rounded-full bg-surface-track">
           <div
             className="h-full rounded-full transition-[width] duration-300"
             style={{ width: `${pct}%`, background: allDone ? "var(--color-green-deep)" : GRADIENT }}
@@ -475,16 +480,15 @@ function PlanColumn(props: {
 
       <div
         ref={setNodeRef}
-        className="rounded-lg transition-colors"
+        className={"rounded-lg transition-colors " + (count > 0 ? "mt-2" : "mt-5")}
         style={{
           outline: isOver ? `2px dashed color-mix(in srgb, ${ACCENT} 45%, transparent)` : "none",
-          outlineOffset: 4,
+          outlineOffset: 6,
           background: isOver ? `color-mix(in srgb, ${ACCENT} 4%, transparent)` : undefined,
-          minHeight: isEmpty ? undefined : 40,
         }}
       >
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-          <ul className="flex flex-col divide-y divide-hairline/50">
+          <ul className="flex flex-col divide-y divide-hairline/60">
             {plan.map((item, i) => (
               <PlanItemCard
                 key={item.id}
@@ -500,40 +504,40 @@ function PlanColumn(props: {
 
         {isEmpty ? (
           <div
-            className="rounded-lg border border-dashed px-4 py-8 text-center"
-            style={{ borderColor: `color-mix(in srgb, ${ACCENT} 26%, transparent)` }}
+            className="rounded-lg border border-dashed px-5 py-10 text-center"
+            style={{ borderColor: `color-mix(in srgb, ${ACCENT} 24%, transparent)` }}
           >
-            <p className="text-[13px] font-semibold text-ink-soft">Nothing planned yet</p>
-            <p className="mx-auto mt-1 max-w-[34ch] text-[12px] text-ink-muted">
+            <p className="text-[14.5px] font-semibold text-ink-soft">Nothing planned yet</p>
+            <p className="mx-auto mt-1.5 max-w-[36ch] text-[13px] leading-[19px] text-ink-muted">
               Add work from Available Work, drag a row across, or type a commitment below.
             </p>
           </div>
         ) : null}
       </div>
 
-      <form onSubmit={submitDraft} className="mt-4 flex items-center gap-2">
+      <form onSubmit={submitDraft} className="mt-5 flex items-center gap-2">
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Add your own commitment…"
           aria-label="Add a commitment for today"
           maxLength={280}
-          className="h-9 flex-1 rounded-lg border border-hairline bg-surface-card px-3 text-[13px] text-ink-strong placeholder:text-ink-muted/60 focus-visible:outline-2"
+          className="h-10 flex-1 rounded-lg border border-hairline bg-surface-card px-3.5 text-[13.5px] text-ink-strong placeholder:text-ink-muted/60 focus-visible:outline-2"
           style={{ outlineColor: ACCENT }}
         />
         <button
           type="submit"
           disabled={draft.trim().length < 2}
           aria-label="Add commitment"
-          className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-ink-strong text-white transition-opacity disabled:opacity-30 focus-visible:outline-2"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-ink-strong text-white transition-opacity disabled:opacity-30 focus-visible:outline-2"
           style={{ outlineColor: ACCENT }}
         >
-          <Plus size={16} />
+          <Plus size={17} />
         </button>
       </form>
 
-      <div className="mt-4 flex items-center justify-between gap-3 border-t border-hairline pt-4 max-sm:flex-col max-sm:items-stretch">
-        <p className="text-[11.5px] text-ink-muted">
+      <div className="mt-6 flex items-center justify-between gap-4 border-t border-hairline pt-5 max-sm:flex-col max-sm:items-stretch">
+        <p className="text-[12.5px] leading-[18px] text-ink-muted">
           {met ? (
             <span className="font-semibold" style={{ color: "var(--color-green-deep)" }}>
               Minimum met — you&apos;re ready to start.
@@ -549,10 +553,10 @@ function PlanColumn(props: {
           type="button"
           onClick={onStart}
           disabled={!met || starting}
-          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg px-4 text-[13px] font-bold text-white transition-opacity disabled:opacity-35 focus-visible:outline-2"
+          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg px-5 text-[14px] font-bold text-white transition-opacity disabled:opacity-35 focus-visible:outline-2"
           style={{ background: GRADIENT, outlineColor: ACCENT }}
         >
-          {starting ? <Loader2 size={15} className="animate-spin" /> : <Sunrise size={15} />} Start My Day
+          {starting ? <Loader2 size={16} className="animate-spin" /> : <Sunrise size={16} />} Start My Day
         </button>
       </div>
     </Panel>
@@ -566,6 +570,20 @@ function nonGhostIndex(plan: PlanItem[], id: string): number {
 /* ----------------------------------------------------------------------- */
 /* Right — Available Work                                                  */
 /* ----------------------------------------------------------------------- */
+
+type TabKey = "goals" | "goalTasks" | "wms" | "carryover";
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "goals", label: "Goals" },
+  { key: "goalTasks", label: "Goal Tasks" },
+  { key: "wms", label: "WMS Tasks" },
+  { key: "carryover", label: "Carryover" },
+];
+
+/** How many rows one tab shows before "Show all". Generous, because only one
+ *  category is on screen at a time now. */
+const CAP = 8;
+
 function AvailableWork({
   sources,
   today,
@@ -578,6 +596,7 @@ function AvailableWork({
   onAbandon: (item: SourceItem) => void;
 }) {
   const [filter, setFilter] = React.useState<WmsFilter>(DEFAULT_WMS_FILTER);
+  const [showAll, setShowAll] = React.useState(false);
 
   // Cascade goals (year / quarter / month) are ONE list — nearest horizon
   // first, so the month you're actually executing leads.
@@ -592,139 +611,93 @@ function AvailableWork({
     [sources.task, filter, today],
   );
 
-  const available = (items: SourceItem[]) => items.filter((i) => !i.added).length;
+  const counts: Record<TabKey, number> = {
+    goals: goals.filter((i) => !i.added).length,
+    goalTasks: sources.weekly.filter((i) => !i.added).length,
+    wms: sources.task.filter((i) => !i.added).length,
+    carryover: sources.unfinished.filter((i) => !i.added).length,
+  };
 
-  return (
-    <Panel
-      label="Available Work"
-      caption="Everything you could pick up today — add what you'll commit to"
-      aside={
-        <span className="shrink-0 text-right">
-          <span className="block text-[15px] font-black tabular-nums leading-none text-ink-strong">
-            {available(goals) + available(sources.weekly) + available(sources.task) + available(sources.unfinished)}
-          </span>
-          <span className="mt-1 block text-[10.5px] font-bold uppercase tracking-[0.1em] text-ink-muted">
-            Available
-          </span>
-        </span>
-      }
-    >
-      <div className="flex flex-col">
-        <WorkSection label="Goals" tagKind="monthly" items={goals} today={today} onAdd={onAdd} />
-        <WorkSection label="Goal Tasks" tagKind="weekly" items={sources.weekly} today={today} onAdd={onAdd} />
-        <WorkSection
-          label="WMS Tasks"
-          tagKind="task"
-          items={wmsTasks}
-          totalBeforeFilter={sources.task.length}
-          today={today}
-          onAdd={onAdd}
-          onAbandon={onAbandon}
-          filters={<WmsFilters filter={filter} onChange={setFilter} />}
-        />
-        <WorkSection
-          label="Carryover"
-          tagKind="unfinished"
-          items={sources.unfinished}
-          today={today}
-          onAdd={onAdd}
-          onAbandon={onAbandon}
-        />
-      </div>
-    </Panel>
+  // Open on the first category that actually has something in it, so the panel
+  // never greets you with an empty list when work is waiting one tab over.
+  const [tab, setTab] = React.useState<TabKey>(
+    () => TABS.find((t) => counts[t.key] > 0)?.key ?? "goals",
   );
-}
 
-/**
- * One source group inside Available Work. Sections are separated by a hairline
- * rule rather than being cards of their own — the panel is already a card, and
- * a card inside a card inside a card is exactly what this page had before.
- */
-function WorkSection({
-  label,
-  tagKind,
-  items,
-  totalBeforeFilter,
-  today,
-  filters,
-  onAdd,
-  onAbandon,
-}: {
-  label: string;
-  tagKind: SourceKind;
-  items: SourceItem[];
-  totalBeforeFilter?: number;
-  today: string;
-  filters?: React.ReactNode;
-  onAdd: (item: SourceItem) => void;
-  onAbandon?: (item: SourceItem) => void;
-}) {
-  const [open, setOpen] = React.useState(true);
-  const [showAll, setShowAll] = React.useState(false);
-  const CAP = 6;
+  const items = tab === "goals" ? goals : tab === "goalTasks" ? sources.weekly : tab === "wms" ? wmsTasks : sources.unfinished;
   const shown = showAll ? items : items.slice(0, CAP);
   const hidden = items.length - shown.length;
-  const remaining = items.filter((i) => !i.added).length;
-  const filtered = totalBeforeFilter != null && totalBeforeFilter !== items.length;
+  const isWms = tab === "wms";
+  const narrowed = isWms && sources.task.length !== wmsTasks.length;
+
+  function selectTab(key: TabKey) {
+    setTab(key);
+    setShowAll(false);
+  }
 
   return (
-    <div className="border-b border-hairline last:border-b-0">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="flex w-full items-center gap-2 rounded-md py-3 text-left focus-visible:outline-2"
-        style={{ outlineColor: ACCENT }}
-      >
-        <motion.span animate={{ rotate: open ? 0 : -90 }} transition={{ duration: 0.15 }} className="text-ink-muted/60">
-          <ChevronDown size={14} />
-        </motion.span>
-        <span className="text-[12.5px] font-bold text-ink-strong">{label}</span>
-        <SourceTagChip kind={tagKind} />
-        <span className="ml-auto text-[11px] font-semibold tabular-nums text-ink-muted">
-          {filtered ? `${items.length} of ${totalBeforeFilter}` : remaining}
-        </span>
-      </button>
+    <Panel label="Available Work" caption="Everything you could pick up today">
+      {/* Tabs — one source category visible at a time. */}
+      <div role="tablist" aria-label="Available work source" className="mt-5 flex gap-1 border-b border-hairline max-sm:flex-wrap">
+        {TABS.map((t) => {
+          const on = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              role="tab"
+              type="button"
+              aria-selected={on}
+              // The visual label and its count sit in separate elements, so the
+              // computed name would run together as "Goals1". Spell it out.
+              aria-label={`${t.label}, ${counts[t.key]} available`}
+              onClick={() => selectTab(t.key)}
+              className="relative -mb-px px-3.5 py-2.5 text-[13.5px] font-bold transition-colors focus-visible:outline-2"
+              style={{ color: on ? ACCENT_DEEP : "var(--color-ink-muted)", outlineColor: ACCENT }}
+            >
+              {t.label}
+              <span className={"ml-1.5 text-[12.5px] font-semibold tabular-nums " + (on ? "" : "text-ink-muted/70")}>
+                {counts[t.key]}
+              </span>
+              {on ? (
+                <span aria-hidden className="absolute inset-x-0 bottom-0 h-[2px] rounded-full" style={{ background: ACCENT }} />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
 
-      <AnimatePresence initial={false}>
-        {open ? (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
-            className="overflow-hidden"
-          >
-            <div className="pb-3">
-              {filters}
-              {items.length === 0 ? (
-                <p className="px-1 py-3 text-[12px] text-ink-muted">
-                  {filtered ? "No tasks match these filters." : "Nothing here right now."}
-                </p>
-              ) : (
-                <>
-                  <div className="flex flex-col divide-y divide-hairline/40">
-                    {shown.map((item) => (
-                      <SourceCard key={item.id} item={item} today={today} onAdd={onAdd} onAbandon={onAbandon} />
-                    ))}
-                  </div>
-                  {items.length > CAP ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowAll((v) => !v)}
-                      className="mt-1.5 inline-flex items-center gap-1 rounded-md px-1 py-1 text-[11.5px] font-bold transition-colors focus-visible:outline-2"
-                      style={{ color: ACCENT_DEEP, outlineColor: ACCENT }}
-                    >
-                      {showAll ? "Show less" : `Show ${hidden} more`}
-                    </button>
-                  ) : null}
-                </>
-              )}
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
+      {isWms ? <WmsFilters filter={filter} onChange={setFilter} /> : null}
+
+      {items.length === 0 ? (
+        <p className="px-1 py-8 text-center text-[13px] text-ink-muted">
+          {narrowed ? "No tasks match these filters." : "Nothing here right now."}
+        </p>
+      ) : (
+        <>
+          <div className={"flex flex-col divide-y divide-hairline/60 " + (isWms ? "mt-1" : "mt-2")}>
+            {shown.map((item) => (
+              <SourceCard
+                key={item.id}
+                item={item}
+                today={today}
+                onAdd={onAdd}
+                onAbandon={isWms || tab === "carryover" ? onAbandon : undefined}
+              />
+            ))}
+          </div>
+          {items.length > CAP ? (
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              className="mt-3 inline-flex items-center rounded-md px-1 py-1 text-[12.5px] font-bold transition-colors focus-visible:outline-2"
+              style={{ color: ACCENT_DEEP, outlineColor: ACCENT }}
+            >
+              {showAll ? "Show less" : `Show ${hidden} more`}
+            </button>
+          ) : null}
+        </>
+      )}
+    </Panel>
   );
 }
 
@@ -733,79 +706,75 @@ function WorkSection({
 /* ----------------------------------------------------------------------- */
 
 const SELECT_CLASS =
-  "h-[30px] w-full rounded-md border border-hairline bg-surface-card px-1.5 text-[11.5px] font-semibold text-ink-soft focus-visible:outline-2";
+  "h-8 rounded-lg border border-hairline bg-surface-card px-2 text-[12.5px] font-semibold text-ink-soft focus-visible:outline-2";
 
 const DUE_OPTIONS: DueFilter[] = ["all", "overdue", "today", "tomorrow", "week", "custom"];
 const STATUS_OPTIONS: StatusFilter[] = ["all", "open", "in_progress", "blocked", "completed"];
 
 /**
- * Compact due-date / priority / status filters over the LIVE WMS task list.
+ * Compact horizontal filters over the LIVE WMS task list.
  *
  * Priority options are the app's real four-point scale (Critical · Important ·
  * Urgent · Normal — the `TASK_PRIORITIES` Eisenhower enum), not an invented
  * High/Medium/Low, so a filter always names a value the data actually holds.
- * Status options group the real statuses into the four plain-language buckets
- * (see `STATUS_GROUP`).
+ * Status options group the real statuses into four plain-language buckets.
  */
 function WmsFilters({ filter, onChange }: { filter: WmsFilter; onChange: (f: WmsFilter) => void }) {
   const set = <K extends keyof WmsFilter>(key: K, value: WmsFilter[K]) => onChange({ ...filter, [key]: value });
-  const active = isFilterActive(filter);
 
   return (
-    <div className="mb-1 rounded-lg bg-surface-soft/60 p-2">
-      <div className="grid grid-cols-3 gap-2">
-        <label className="min-w-0">
-          <span className="mb-1 block text-[9.5px] font-bold uppercase tracking-[0.1em] text-ink-muted">Due</span>
-          <select
-            value={filter.due}
-            onChange={(e) => set("due", e.target.value as DueFilter)}
-            className={SELECT_CLASS}
-            style={{ outlineColor: ACCENT }}
-          >
-            {DUE_OPTIONS.map((d) => (
-              <option key={d} value={d}>
-                {DUE_FILTER_LABEL[d]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="min-w-0">
-          <span className="mb-1 block text-[9.5px] font-bold uppercase tracking-[0.1em] text-ink-muted">Priority</span>
-          <select
-            value={filter.priority}
-            onChange={(e) => set("priority", e.target.value as PriorityFilter)}
-            className={SELECT_CLASS}
-            style={{ outlineColor: ACCENT }}
-          >
-            <option value="all">All</option>
-            {TASK_PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                {PRIORITY_LABELS[p]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="min-w-0">
-          <span className="mb-1 block text-[9.5px] font-bold uppercase tracking-[0.1em] text-ink-muted">Status</span>
-          <select
-            value={filter.status}
-            onChange={(e) => set("status", e.target.value as StatusFilter)}
-            className={SELECT_CLASS}
-            style={{ outlineColor: ACCENT }}
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {STATUS_FILTER_LABEL[s]}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+    <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2.5">
+      <label className="flex items-center gap-2">
+        <span className="text-[12.5px] font-semibold text-ink-muted">Due</span>
+        <select
+          value={filter.due}
+          onChange={(e) => set("due", e.target.value as DueFilter)}
+          className={SELECT_CLASS}
+          style={{ outlineColor: ACCENT }}
+        >
+          {DUE_OPTIONS.map((d) => (
+            <option key={d} value={d}>
+              {DUE_FILTER_LABEL[d]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex items-center gap-2">
+        <span className="text-[12.5px] font-semibold text-ink-muted">Priority</span>
+        <select
+          value={filter.priority}
+          onChange={(e) => set("priority", e.target.value as PriorityFilter)}
+          className={SELECT_CLASS}
+          style={{ outlineColor: ACCENT }}
+        >
+          <option value="all">All</option>
+          {TASK_PRIORITIES.map((p) => (
+            <option key={p} value={p}>
+              {PRIORITY_LABELS[p]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex items-center gap-2">
+        <span className="text-[12.5px] font-semibold text-ink-muted">Status</span>
+        <select
+          value={filter.status}
+          onChange={(e) => set("status", e.target.value as StatusFilter)}
+          className={SELECT_CLASS}
+          style={{ outlineColor: ACCENT }}
+        >
+          {STATUS_OPTIONS.map((s) => (
+            <option key={s} value={s}>
+              {STATUS_FILTER_LABEL[s]}
+            </option>
+          ))}
+        </select>
+      </label>
 
       {filter.due === "custom" ? (
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <label className="min-w-0">
-            <span className="mb-1 block text-[9.5px] font-bold uppercase tracking-[0.1em] text-ink-muted">From</span>
+        <>
+          <label className="flex items-center gap-2">
+            <span className="text-[12.5px] font-semibold text-ink-muted">From</span>
             <input
               type="date"
               value={filter.from}
@@ -814,8 +783,8 @@ function WmsFilters({ filter, onChange }: { filter: WmsFilter; onChange: (f: Wms
               style={{ outlineColor: ACCENT }}
             />
           </label>
-          <label className="min-w-0">
-            <span className="mb-1 block text-[9.5px] font-bold uppercase tracking-[0.1em] text-ink-muted">To</span>
+          <label className="flex items-center gap-2">
+            <span className="text-[12.5px] font-semibold text-ink-muted">To</span>
             <input
               type="date"
               value={filter.to}
@@ -824,17 +793,17 @@ function WmsFilters({ filter, onChange }: { filter: WmsFilter; onChange: (f: Wms
               style={{ outlineColor: ACCENT }}
             />
           </label>
-        </div>
+        </>
       ) : null}
 
-      {active ? (
+      {isFilterActive(filter) ? (
         <button
           type="button"
           onClick={() => onChange(DEFAULT_WMS_FILTER)}
-          className="mt-2 text-[11px] font-bold transition-colors focus-visible:outline-2"
+          className="text-[12.5px] font-bold transition-colors focus-visible:outline-2"
           style={{ color: ACCENT_DEEP, outlineColor: ACCENT }}
         >
-          Clear filters
+          Clear
         </button>
       ) : null}
     </div>

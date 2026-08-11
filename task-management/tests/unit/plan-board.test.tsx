@@ -37,7 +37,7 @@ function emptySources(): PlanSources {
 function sources(): PlanSources {
   return {
     ...emptySources(),
-    monthly: [src({ id: "g1", kind: "monthly", title: "Grow retainer revenue" })],
+    monthly: [src({ id: "g1", kind: "monthly", title: "Grow retainer revenue", subtitle: "Health" })],
     weekly: [src({ id: "w1", kind: "weekly", title: "Ship the pricing page" })],
     task: [
       src({
@@ -61,7 +61,15 @@ function sources(): PlanSources {
         status: "not_started",
       }),
     ],
-    unfinished: [src({ id: "u1", kind: "unfinished", title: "Reconcile petty cash", originKind: "task" })],
+    unfinished: [
+      src({
+        id: "u1",
+        kind: "unfinished",
+        title: "Reconcile petty cash",
+        originKind: "task",
+        dueLabel: "From 29 Jul",
+      }),
+    ],
   };
 }
 
@@ -90,17 +98,22 @@ function renderBoard(over: Partial<React.ComponentProps<typeof PlanBoard>> = {})
 /**
  * Scope queries to one half of the board. A task that has been planned shows on
  * BOTH sides by design (left as a commitment, right as "On Today"), so an
- * unscoped getByText is genuinely ambiguous — that duplication is the feature,
- * not a bug in the fixture.
+ * unscoped getByText is genuinely ambiguous — that duplication is the feature.
  */
 function panel(name: RegExp): HTMLElement {
   return screen.getByRole("heading", { name }).closest("section") as HTMLElement;
 }
-const availableWork = () => panel(/available work/i);
+const availableWork = () => within(panel(/available work/i));
+const todaysPlan = () => within(panel(/today's plan/i));
+
+/** Switch the Available Work panel to a source category. */
+function openTab(name: RegExp) {
+  fireEvent.click(availableWork().getByRole("tab", { name }));
+}
 
 /** The three compact filter selects, in render order: Due · Priority · Status. */
 function filterSelects() {
-  const [due, priority, status] = within(availableWork()).getAllByRole("combobox");
+  const [due, priority, status] = availableWork().getAllByRole("combobox");
   return { due: due!, priority: priority!, status: status! };
 }
 
@@ -113,93 +126,129 @@ describe("PlanBoard — the two halves", () => {
 
   it("shows completion progress as done / total", () => {
     renderBoard();
-    // One of the three planned items is done.
-    expect(screen.getByText("1 / 3")).toBeDefined();
+    expect(todaysPlan().getByText("1 / 3")).toBeDefined();
   });
 
-  it("groups Available Work into Goals, Goal Tasks, WMS Tasks and Carryover", () => {
+  it("tags each planned item with its source", () => {
     renderBoard();
-    for (const label of ["Goals", "Goal Tasks", "WMS Tasks", "Carryover"]) {
-      expect(screen.getByRole("button", { name: new RegExp(`^${label}`, "i") })).toBeDefined();
-    }
-  });
-});
-
-describe("PlanBoard — explicit source tags", () => {
-  it("labels every source family in words, not colour", () => {
-    renderBoard();
-    // GOAL appears for the cascade goal, GOAL TASK for the weekly, WMS TASK for
-    // the tasks, CARRYOVER for the unfinished row — on both sides of the board.
-    expect(screen.getAllByText("GOAL").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("GOAL TASK").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("WMS TASK").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("CARRYOVER").length).toBeGreaterThan(0);
-  });
-
-  it("tags a planned ad-hoc commitment as AD-HOC", () => {
-    renderBoard();
-    expect(screen.getAllByText("AD-HOC").length).toBe(1);
-  });
-
-  it("shows a carryover's ORIGINAL source alongside the carryover tag", () => {
-    renderBoard();
-    const carryoverRow = screen.getByText("Reconcile petty cash").closest("div.group");
-    expect(carryoverRow).not.toBeNull();
-    expect(within(carryoverRow as HTMLElement).getByText("CARRYOVER")).toBeDefined();
-    expect(within(carryoverRow as HTMLElement).getByText("WMS TASK")).toBeDefined();
+    expect(todaysPlan().getByText("GOAL TASK")).toBeDefined();
+    expect(todaysPlan().getByText("WMS TASK")).toBeDefined();
+    expect(todaysPlan().getByText("AD-HOC")).toBeDefined();
   });
 });
 
-describe("PlanBoard — WMS task detail", () => {
-  it("shows task id, project, due state, priority and status on the row", () => {
+describe("PlanBoard — Available Work tabs", () => {
+  it("offers one tab per source, each with its available count", () => {
     renderBoard();
-    const row = within(availableWork())
-      .getByText("Chase the Acme invoice")
-      .closest("div.group") as HTMLElement;
+    const work = availableWork();
+    expect(work.getByRole("tab", { name: "Goals, 1 available" })).toBeDefined();
+    expect(work.getByRole("tab", { name: "Goal Tasks, 1 available" })).toBeDefined();
+    expect(work.getByRole("tab", { name: "WMS Tasks, 2 available" })).toBeDefined();
+    expect(work.getByRole("tab", { name: "Carryover, 1 available" })).toBeDefined();
+    // The count is visible, not only announced.
+    expect(work.getByText("2")).toBeDefined();
+  });
+
+  it("shows only the active category, not all four at once", () => {
+    renderBoard();
+    const work = availableWork();
+    // Opens on Goals (the first non-empty tab).
+    expect(work.getByText("Grow retainer revenue")).toBeDefined();
+    expect(work.queryByText("Ship the pricing page")).toBeNull();
+    expect(work.queryByText("Chase the Acme invoice")).toBeNull();
+    expect(work.queryByText("Reconcile petty cash")).toBeNull();
+  });
+
+  it("switches category on tab click", () => {
+    renderBoard();
+    openTab(/Goal Tasks/);
+    expect(availableWork().getByText("Ship the pricing page")).toBeDefined();
+    expect(availableWork().queryByText("Grow retainer revenue")).toBeNull();
+
+    openTab(/WMS Tasks/);
+    expect(availableWork().getByText("Chase the Acme invoice")).toBeDefined();
+    expect(availableWork().queryByText("Ship the pricing page")).toBeNull();
+  });
+
+  it("opens on the first category that has work, not a blank list", () => {
+    renderBoard({ sources: { ...emptySources(), task: sources().task } });
+    expect(availableWork().getByText("Chase the Acme invoice")).toBeDefined();
+  });
+});
+
+describe("PlanBoard — row readability", () => {
+  it("shows a goal as title + source line", () => {
+    renderBoard();
+    const row = availableWork().getByText("Grow retainer revenue").closest("div.group") as HTMLElement;
+    expect(within(row).getByText("GOAL")).toBeDefined();
+    expect(within(row).getByText("Monthly")).toBeDefined();
+    expect(within(row).getByText("Health")).toBeDefined();
+  });
+
+  it("shows task id, project, due state, priority and status on a WMS row", () => {
+    renderBoard();
+    openTab(/WMS Tasks/);
+    const row = availableWork().getByText("Chase the Acme invoice").closest("div.group") as HTMLElement;
+    expect(within(row).getByText("WMS TASK")).toBeDefined();
     expect(within(row).getByText("#1023")).toBeDefined();
     expect(within(row).getByText("Acme Corp")).toBeDefined();
-    expect(within(row).getByText(/Overdue · 5 Aug/)).toBeDefined();
+    expect(within(row).getByText("Overdue")).toBeDefined();
+    expect(within(row).getByText("5 Aug")).toBeDefined();
     expect(within(row).getByText("Critical")).toBeDefined();
     expect(within(row).getByText("On Hold")).toBeDefined();
   });
 
-  it("offers Add to Today on every available row", () => {
+  it("names a carryover's original source and the day it came from", () => {
     renderBoard();
-    expect(screen.getAllByRole("button", { name: /add .* to today's plan/i }).length).toBe(5);
+    openTab(/Carryover/);
+    const row = availableWork().getByText("Reconcile petty cash").closest("div.group") as HTMLElement;
+    expect(within(row).getByText("WMS TASK")).toBeDefined();
+    expect(within(row).getByText("Carryover from 29 Jul")).toBeDefined();
+  });
+
+  it("offers Add to Today on every row of the active category", () => {
+    renderBoard();
+    openTab(/WMS Tasks/);
+    expect(availableWork().getAllByRole("button", { name: /add .* to today's plan/i }).length).toBe(2);
   });
 });
 
 describe("PlanBoard — WMS filters", () => {
-  it("narrows the WMS list by due date and reports the narrowing", () => {
+  it("narrows the WMS list by due date", () => {
     renderBoard();
+    openTab(/WMS Tasks/);
     fireEvent.change(filterSelects().due, { target: { value: "overdue" } });
-    const work = within(availableWork());
-    // Only the overdue task survives; the section header states "1 of 2".
-    expect(work.queryByText("Draft the Q3 deck")).toBeNull();
-    expect(work.getByText("Chase the Acme invoice")).toBeDefined();
-    expect(work.getByText("1 of 2")).toBeDefined();
+    expect(availableWork().queryByText("Draft the Q3 deck")).toBeNull();
+    expect(availableWork().getByText("Chase the Acme invoice")).toBeDefined();
   });
 
-  it("filters by priority without touching the other source groups", () => {
+  it("filters by priority without touching the other categories", () => {
     renderBoard();
+    openTab(/WMS Tasks/);
     fireEvent.change(filterSelects().priority, { target: { value: "imp_urgent" } });
-    const work = within(availableWork());
-    expect(work.queryByText("Draft the Q3 deck")).toBeNull();
-    expect(work.getByText("Chase the Acme invoice")).toBeDefined();
-    // Goals / Goal Tasks / Carryover are untouched by the WMS filter.
-    expect(work.getByText("Grow retainer revenue")).toBeDefined();
-    expect(work.getByText("Ship the pricing page")).toBeDefined();
-    expect(work.getByText("Reconcile petty cash")).toBeDefined();
+    expect(availableWork().queryByText("Draft the Q3 deck")).toBeNull();
+    expect(availableWork().getByText("Chase the Acme invoice")).toBeDefined();
+
+    // Other tabs are untouched by the WMS filter.
+    openTab(/Goals/);
+    expect(availableWork().getByText("Grow retainer revenue")).toBeDefined();
   });
 
   it("can empty the list and says so, then clears back", () => {
     renderBoard();
-    // Status → Completed. No open task is completed, so the list empties.
+    openTab(/WMS Tasks/);
     fireEvent.change(filterSelects().status, { target: { value: "completed" } });
-    expect(within(availableWork()).getByText(/no tasks match these filters/i)).toBeDefined();
+    expect(availableWork().getByText(/no tasks match these filters/i)).toBeDefined();
 
-    fireEvent.click(within(availableWork()).getByRole("button", { name: /clear filters/i }));
-    expect(within(availableWork()).getByText("Chase the Acme invoice")).toBeDefined();
+    fireEvent.click(availableWork().getByRole("button", { name: /^clear$/i }));
+    expect(availableWork().getByText("Chase the Acme invoice")).toBeDefined();
+  });
+
+  it("only shows filters on the WMS tab", () => {
+    renderBoard();
+    expect(availableWork().queryAllByRole("combobox")).toHaveLength(0);
+    openTab(/WMS Tasks/);
+    expect(availableWork().getAllByRole("combobox")).toHaveLength(3);
   });
 });
 

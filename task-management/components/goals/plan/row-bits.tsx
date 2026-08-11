@@ -6,45 +6,52 @@ import { STATUS_LABELS_FALLBACK } from "@/lib/format";
 import { KIND_TAG, KIND_PERIOD_LABEL, type PlanKind } from "./types";
 
 /**
- * The small shared pieces every row on the board is built from — one definition
- * each, so a line reads identically in Today's Plan and in Available Work.
+ * The shared pieces every row on the board is built from.
  *
- * Colour is ALWAYS a second signal here, never the only one: every chip states
- * its meaning in words (`OVERDUE`, `Critical`, `On Hold`), so the board is
- * readable in greyscale and to anyone who can't separate the hues.
+ * TWO RULES, because the earlier version turned every value into a pill and the
+ * result read as a compressed data table:
+ *   1. A BADGE is reserved for a semantic state you scan for — the source tag
+ *      and "overdue". Everything else is plain text separated by a middot.
+ *   2. Nothing that a user actually reads drops below 12px. Only the two badge
+ *      types use the 10.5px micro size.
+ *
+ * Colour is always a second signal, never the only one: "Overdue", "Critical"
+ * and "On Hold" are spelled out, so the row survives greyscale.
  */
 
-/** Semantic colours (design §8): red = overdue/risk · amber = warning ·
- *  green = done · neutral = normal. */
+/** Semantic colours: red = overdue/risk · amber = warning · green = done. */
 const RISK = "var(--color-red-deep)";
 const WARN = "var(--color-amber-deep)";
 const DONE = "var(--color-green-deep)";
 
-/* ── source tag ───────────────────────────────────────────────────────────── */
+/* ── badges (the only two) ────────────────────────────────────────────────── */
 
-/**
- * The explicit `[GOAL]` / `[GOAL TASK]` / `[WMS TASK]` / `[CARRYOVER]` label.
- * Deliberately monochrome — the tag is the thing you read, not a colour you
- * have to decode, and keeping every tag the same weight stops the board from
- * turning into a pill parade.
- */
-export function SourceTagChip({ kind, className = "" }: { kind: PlanKind; className?: string }) {
+/** The explicit `GOAL` / `GOAL TASK` / `WMS TASK` / `CARRYOVER` / `AD-HOC`
+ *  label. Monochrome on purpose — it identifies, it doesn't shout. */
+export function SourceTagChip({ kind }: { kind: PlanKind }) {
   return (
-    <span
-      className={
-        "inline-flex shrink-0 items-center rounded-[4px] bg-surface-soft px-1.5 py-[1px] text-[9.5px] font-bold uppercase leading-[15px] tracking-[0.07em] text-ink-muted " +
-        className
-      }
-    >
+    <span className="inline-flex shrink-0 items-center rounded-[4px] bg-surface-soft px-1.5 py-[2px] text-[10.5px] font-bold uppercase leading-[14px] tracking-[0.06em] text-ink-soft">
       {KIND_TAG[kind]}
     </span>
   );
 }
 
-/* ── meta line ────────────────────────────────────────────────────────────── */
+/** The one state worth interrupting a scan for. */
+export function OverdueBadge() {
+  return (
+    <span
+      className="inline-flex shrink-0 items-center rounded-[4px] px-1.5 py-[2px] text-[10.5px] font-bold uppercase leading-[14px] tracking-[0.06em]"
+      style={{ background: "var(--color-red-bg)", color: RISK }}
+    >
+      Overdue
+    </span>
+  );
+}
 
-/** A neutral dot separator for the sub-line. */
-export function Dot() {
+/* ── text lines ───────────────────────────────────────────────────────────── */
+
+/** The middot separator between plain metadata values. */
+export function Sep() {
   return (
     <span aria-hidden className="text-ink-muted/40">
       ·
@@ -53,13 +60,16 @@ export function Dot() {
 }
 
 /**
- * The one-line "everything else about this row" strip: source tag first, then
- * whatever detail exists. Children are laid out with consistent spacing so
- * rows line up down the column even when their detail differs.
+ * A metadata line under a row title. 12.5px — readable prose, not a caption.
+ * `wrap` lets a long line fold instead of clipping.
  */
-export function MetaLine({ children }: { children: React.ReactNode }) {
+export function MetaLine({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] leading-[15px] text-ink-muted">
+    <div
+      className={
+        "mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12.5px] leading-[18px] text-ink-muted " + className
+      }
+    >
       {children}
     </div>
   );
@@ -78,25 +88,22 @@ export function formatYmd(ymd: string | null | undefined): string | null {
   return `${Number(d)} ${MONTH_ABBR[mi]}`;
 }
 
-/**
- * Due-date chip. Overdue is the only state that earns colour (red + the word
- * "OVERDUE"); "Today" reads amber as a soft nudge; everything else is neutral
- * text so a long list stays calm.
- */
-export function DueChip({ dueYmd, today }: { dueYmd: string | null | undefined; today: string }) {
+/** Due state as a badge (overdue only) plus plain date text beside it. */
+export function DueParts({ dueYmd, today }: { dueYmd: string | null | undefined; today: string }) {
   if (!dueYmd) return <span className="text-ink-muted/70">No due date</span>;
-  const overdue = dueYmd < today;
-  const isToday = dueYmd === today;
-  if (overdue) {
+  if (dueYmd < today) {
     return (
-      <span className="font-bold" style={{ color: RISK }}>
-        Overdue · {formatYmd(dueYmd)}
-      </span>
+      <>
+        <OverdueBadge />
+        <span className="font-semibold" style={{ color: RISK }}>
+          {formatYmd(dueYmd)}
+        </span>
+      </>
     );
   }
-  if (isToday) {
+  if (dueYmd === today) {
     return (
-      <span className="font-bold" style={{ color: WARN }}>
+      <span className="font-semibold" style={{ color: WARN }}>
         Due today
       </span>
     );
@@ -104,10 +111,8 @@ export function DueChip({ dueYmd, today }: { dueYmd: string | null | undefined; 
   return <span>Due {formatYmd(dueYmd)}</span>;
 }
 
-/* ── priority + status ────────────────────────────────────────────────────── */
+/* ── priority + status, as plain coloured text ────────────────────────────── */
 
-/** Critical is risk-red, the two mid quadrants are amber, Normal stays neutral —
- *  but the label is always spelled out, so the rank never depends on the hue. */
 const PRIORITY_COLOR: Record<TaskPriority, string | undefined> = {
   imp_urgent: RISK,
   imp_not_urgent: WARN,
@@ -115,22 +120,17 @@ const PRIORITY_COLOR: Record<TaskPriority, string | undefined> = {
   not_imp_not_urgent: undefined,
 };
 
-export function PriorityChip({ priority }: { priority: TaskPriority | null | undefined }) {
+export function PriorityText({ priority }: { priority: TaskPriority | null | undefined }) {
   if (!priority) return null;
   const color = PRIORITY_COLOR[priority];
   return (
-    <span className="inline-flex items-center gap-1" style={color ? { color } : undefined}>
-      <span
-        aria-hidden
-        className="size-1.5 rounded-full"
-        style={{ background: color ?? "var(--color-ink-muted)", opacity: color ? 1 : 0.45 }}
-      />
-      <span className={color ? "font-semibold" : undefined}>{PRIORITY_LABELS[priority]}</span>
+    <span className={color ? "font-semibold" : undefined} style={color ? { color } : undefined}>
+      {PRIORITY_LABELS[priority]}
     </span>
   );
 }
 
-export function StatusChip({ status }: { status: TaskStatus | null | undefined }) {
+export function StatusText({ status }: { status: TaskStatus | null | undefined }) {
   if (!status) return null;
   const isDone = status === "done" || status === "approved";
   const isBlocked = status === "on_hold" || status === "need_info" || status === "need_help";
@@ -146,9 +146,7 @@ export function StatusChip({ status }: { status: TaskStatus | null | undefined }
 
 /* ── goal period ──────────────────────────────────────────────────────────── */
 
-/** "Monthly" / "Quarterly" / "Yearly" beside a [GOAL] tag — the cascade level is
- *  meaningful context that the tag alone doesn't carry. */
-export function PeriodLabel({ kind }: { kind: PlanKind }) {
-  const label = KIND_PERIOD_LABEL[kind];
-  return label ? <span>{label}</span> : null;
+/** "Monthly" / "Quarterly" / "Yearly" — plain text beside the GOAL tag. */
+export function periodLabel(kind: PlanKind): string | null {
+  return KIND_PERIOD_LABEL[kind] ?? null;
 }
