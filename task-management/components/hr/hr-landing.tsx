@@ -12,6 +12,7 @@ import {
   X,
   IdCard,
   Inbox,
+  ClipboardList,
   Plus,
   Target,
   Send,
@@ -71,6 +72,11 @@ const CARDS: Card[] = [
   { slug: "/hr/record", title: "HR Record", Icon: IdCard },
   { slug: "/hr/kpi", title: "KPI Management", Icon: Target },
   { slug: "/communications", title: "Enterprise Communications", Icon: Megaphone },
+  // Saved form submissions. These MUST live on this deck: the HR module is
+  // rail-less (see the Help Desk note below), so a sidebar entry is never shown
+  // and this grid is the only way into a surface.
+  { slug: "/hr/my-forms", title: "My Filled Forms", Icon: Inbox },
+  { slug: "/hr/all-forms", title: "All Filled Forms", Icon: ClipboardList },
 ];
 
 // The limited deck a NORMAL employee sees: only their own HR record (the /portal
@@ -81,6 +87,10 @@ const LIMITED_CARDS: Card[] = [
   { slug: "/hr/holidays", title: "Holiday List", Icon: PartyPopper },
   { slug: "/support", title: "Help Desk", Icon: LifeBuoy, popup: "help-desk" as const },
   { slug: "/portal", title: "My HR Record", Icon: IdCard },
+  // A normal employee's own submissions. `/hr/my-forms` is hard-scoped to the
+  // signed-in employee, so this deck never exposes anyone else's forms — the
+  // staff-only "All Filled Forms" is deliberately absent here.
+  { slug: "/hr/my-forms", title: "My Filled Forms", Icon: Inbox },
 ];
 
 const ACCENT = "#E10600";
