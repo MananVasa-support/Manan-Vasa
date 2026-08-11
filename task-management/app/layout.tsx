@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Roboto, Bricolage_Grotesque, JetBrains_Mono, Fraunces } from "next/font/google";
+import localFont from "next/font/local";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
@@ -13,10 +13,35 @@ import { SingleWindowGuard } from "@/components/system/single-window-guard";
 import { getCurrentEmployee } from "@/lib/auth/current";
 import { accentVars, resolveAccent } from "@/lib/appearance";
 
-const roboto = Roboto({
+/**
+ * Fonts are SELF-HOSTED from `app/fonts/*.woff2` via `next/font/local`.
+ *
+ * They used to come from `next/font/google`, which downloads the files from
+ * fonts.gstatic.com AT BUILD TIME. That makes every deploy depend on Google
+ * being reachable from the build machine, and when it is not the build does not
+ * degrade — it FAILS: `NextFontError: Failed to fetch 'JetBrains Mono' from
+ * Google Fonts` after three retries, taking the whole deployment down. That is
+ * exactly what happened on commit b50e9e2.
+ *
+ * `next/font/local` reads the bytes from the repo, so the build is hermetic and
+ * no font can ever break a deploy again. Runtime behaviour is unchanged: the
+ * Google loader already self-hosted the files it downloaded, so the browser was
+ * never talking to Google either way — only the build was.
+ *
+ * Each file is the LATIN subset of the family's VARIABLE font, so one file spans
+ * the whole weight range the design uses (that is why `weight` is a range like
+ * "300 900" rather than a list). Total cost: ~152 KB for all four.
+ *
+ * To refresh or add a weight axis, re-download the latin `src` from
+ * `https://fonts.googleapis.com/css2?family=<Family>:wght@<min>..<max>` with a
+ * browser User-Agent (the API serves woff2 only to modern UAs) and drop the file
+ * in `app/fonts/`. Do NOT reintroduce `next/font/google`.
+ */
+
+const roboto = localFont({
+  src: "./fonts/roboto-latin.woff2",
   variable: "--font-roboto",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "700", "900"],
+  weight: "300 900",
   display: "swap",
 });
 
@@ -24,10 +49,10 @@ const roboto = Roboto({
 // weight + optical sizing means it holds up at 160px without looking
 // stretched. Picked over Inter / system-ui so the dashboard has a
 // recognisable typographic voice instead of generic-sans aesthetics.
-const bricolage = Bricolage_Grotesque({
+const bricolage = localFont({
+  src: "./fonts/bricolage-grotesque-latin.woff2",
   variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
+  weight: "300 800",
   display: "swap",
 });
 
@@ -36,20 +61,20 @@ const bricolage = Bricolage_Grotesque({
 // Uses --font-mono-display (not --font-mono) so the existing @theme
 // fallback chain stays intact for any code path that wants generic
 // monospace.
-const jetbrainsMono = JetBrains_Mono({
+const jetbrainsMono = localFont({
+  src: "./fonts/jetbrains-mono-latin.woff2",
   variable: "--font-mono-display",
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
+  weight: "400 700",
   display: "swap",
 });
 
 // Editorial serif for the Weekly Goals board (member names, section title,
 // goal titles only — body text stays on the existing sans). Exposed as
 // --font-editorial; consumed inline by the weekly-goals components.
-const fraunces = Fraunces({
+const fraunces = localFont({
+  src: "./fonts/fraunces-latin.woff2",
   variable: "--font-editorial",
-  subsets: ["latin"],
-  weight: ["400", "600", "900"],
+  weight: "400 900",
   display: "swap",
 });
 
