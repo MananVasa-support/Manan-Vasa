@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { Star, BarChart3 } from "lucide-react";
@@ -30,20 +31,31 @@ interface Props {
   managerOptions: { value: string; label: string }[];
 }
 
+/** Department tags shown per employee before the "+N more" reveal. */
+const DEPT_VISIBLE = 2;
+
 function DepartmentCell({
   memberships,
 }: {
   memberships: EmployeeDepartmentMembership[];
 }) {
+  // Collapsed per row, and re-collapses if the roster changes underneath.
+  const [showAll, setShowAll] = React.useState(false);
+
   if (memberships.length === 0) {
     return <span className="text-ink-subtle">—</span>;
   }
+  // Primary first, then alphabetical — so the two that survive the cut are the
+  // most meaningful ones, not an arbitrary slice.
   const ordered = [...memberships].sort(
     (a, b) => Number(b.isPrimary) - Number(a.isPrimary) || a.name.localeCompare(b.name),
   );
+  const visible = showAll ? ordered : ordered.slice(0, DEPT_VISIBLE);
+  const hidden = ordered.length - DEPT_VISIBLE;
+
   return (
-    <span className="inline-flex flex-wrap gap-1.5">
-      {ordered.map((m) => (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      {visible.map((m) => (
         <span
           key={m.id}
           className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold ring-1 ring-inset"
@@ -57,6 +69,34 @@ function DepartmentCell({
           {m.name}
         </span>
       ))}
+
+      {hidden > 0 && (
+        <button
+          type="button"
+          // The cell sits inside a DataTable row; stop the click so revealing
+          // departments can't also trigger any row-level handler.
+          onClick={(ev) => {
+            ev.stopPropagation();
+            setShowAll((v) => !v);
+          }}
+          aria-expanded={showAll}
+          // Names the hidden ones for screen readers, which otherwise just hear
+          // a bare "+2 more".
+          title={
+            showAll
+              ? "Show fewer departments"
+              : ordered.slice(DEPT_VISIBLE).map((m) => m.name).join(", ")
+          }
+          className="inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-bold ring-1 ring-inset transition-colors hover:brightness-95 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60"
+          style={{
+            background: "#F1F5F9",
+            color: "#334155",
+            boxShadow: "inset 0 0 0 1px #CBD5E1",
+          }}
+        >
+          {showAll ? "Show less" : `+${hidden} more`}
+        </button>
+      )}
     </span>
   );
 }
