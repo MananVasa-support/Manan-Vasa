@@ -1,6 +1,5 @@
 "use client";
 import * as React from "react";
-import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import {
@@ -12,6 +11,8 @@ import {
 } from "@tanstack/react-table";
 import { Search, X, Users, ChevronRight } from "lucide-react";
 import type { EmployeeStatusRow, ViewMode } from "@/lib/types";
+import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
+import { SectionPagination, usePagedRows } from "./section-chrome";
 import { CriticalBadge } from "@/components/ui/critical-badge";
 import { Avatar } from "@/components/ui/avatar";
 import { PageShell } from "@/components/layout/page-shell";
@@ -132,8 +133,8 @@ export function StatusTable({
   const router = useRouter();
   const [query, setQuery] = React.useState("");
   const [selectedDept, setSelectedDept] = React.useState<string | null>(null);
-  // Show the first 10 people by default; "Show more" reveals the rest.
-  const [showAll, setShowAll] = React.useState(false);
+  // Paged 10 people at a time, with the shared top-right pager (was a
+  // "Show more" expander that grew the section without bound).
   const PAGE = 10;
 
   // Whole-row navigation — anyone can click anywhere on the row (or
@@ -154,9 +155,9 @@ export function StatusTable({
     return Array.from(set).sort();
   }, [rows]);
 
-  // Two search inputs narrow this table: the card's own box (below the header)
-  // and the FilterBar's section search at the top of the page. Both match on
-  // the person's name and AND together.
+  // Two searches narrow this table and they AND together: this widget's own
+  // box (below the header) and the FilterBar's section search at the top of
+  // the page. Both match on the person's name.
   const sectionQuery = useSectionSearch();
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -177,7 +178,12 @@ export function StatusTable({
     getSortedRowModel: getSortedRowModel(),
   });
 
-  const hasActiveFilter = query.trim().length > 0 || selectedDept !== null;
+  const hasActiveFilter =
+    query.trim().length > 0 || selectedDept !== null || sectionQuery.length > 0;
+
+  // Page the already-sorted TanStack rows. Keyed off the row model (not
+  // `filtered`) so paging follows the table's own sort order.
+  const pagedRows = usePagedRows(table.getRowModel().rows, PAGE);
 
   return (
     <PageShell
@@ -191,7 +197,18 @@ export function StatusTable({
       }}
     >
       <header className="mb-5 flex items-end justify-between gap-4 flex-wrap">
-        <div className="flex items-start gap-3">
+        {/* Top-right pager, shared with the other paginated sections. */}
+        <div className="order-2 ml-auto">
+          <SectionPagination
+            page={pagedRows.page}
+            pageCount={pagedRows.pageCount}
+            onPage={pagedRows.setPage}
+            total={pagedRows.total}
+            pageSize={PAGE}
+            label="Status by doer"
+          />
+        </div>
+        <div className="order-1 flex items-start gap-3">
           <span
             aria-hidden
             className="mt-1 inline-flex size-10 shrink-0 items-center justify-center rounded-xl"
@@ -293,10 +310,7 @@ export function StatusTable({
               ))}
             </thead>
             <tbody>
-              {(showAll
-                ? table.getRowModel().rows
-                : table.getRowModel().rows.slice(0, PAGE)
-              ).map((row) => {
+              {pagedRows.visible.map((row) => {
                 const empId = row.original.employeeId;
                 const empName = row.original.employeeName;
                 const target = hrefFor(empId);
@@ -347,29 +361,6 @@ export function StatusTable({
             </tbody>
           </table>
 
-          {/* Cap the list at 10 people; reveal the rest on demand. */}
-          {filtered.length > PAGE && (
-            <div className="border-t border-hairline">
-              <button
-                type="button"
-                onClick={() => setShowAll((v) => !v)}
-                aria-expanded={showAll}
-                className="bg-surface-card flex w-full items-center justify-center gap-1.5 px-5 py-3.5 text-[14px] font-bold text-altus-red transition-colors hover:bg-[color-mix(in_srgb,var(--color-altus-red)_6%,transparent)]"
-              >
-                {showAll ? (
-                  <>
-                    Show Less
-                    <ChevronRight size={16} strokeWidth={2.6} className="-rotate-90" />
-                  </>
-                ) : (
-                  <>
-                    Show all {filtered.length} people
-                    <ChevronRight size={16} strokeWidth={2.6} className="rotate-90" />
-                  </>
-                )}
-              </button>
-            </div>
-          )}
         </div>
       )}
     </PageShell>

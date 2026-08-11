@@ -14,6 +14,7 @@ import {
   STATUS_LABELS_FALLBACK,
   STATUS_TONES_FALLBACK,
 } from "@/lib/format";
+import { CollapseToggle, CollapsibleBody } from "./section-chrome";
 
 type Tone = StatusColorToken;
 
@@ -32,6 +33,9 @@ export function StatusDistributionChart({
   tones?: Record<TaskStatus, Tone>;
   isAdmin: boolean;
 }) {
+  // Unfolded by default — this panel IS the overview, so it opens showing the
+  // ribbon; the toggle is there to fold it away when you want the space.
+  const [open, setOpen] = React.useState(true);
   const resolvedLabels = labels ?? STATUS_LABELS_FALLBACK;
   const resolvedTones = (tones ?? STATUS_TONES_FALLBACK) as Record<
     TaskStatus,
@@ -72,7 +76,18 @@ export function StatusDistributionChart({
         animation: "fadeUp 500ms ease-out 500ms forwards",
       }}
     >
-      <Header isAdmin={isAdmin} />
+      <div className="flex items-start justify-between gap-3">
+        <Header isAdmin={isAdmin} />
+        <CollapseToggle
+          expanded={open}
+          onToggle={() => setOpen((v) => !v)}
+          label="Status Distribution"
+        />
+      </div>
+
+      {/* Everything below the header folds together — ribbon, legend cards and
+          summary — so the panel collapses to just its title row. */}
+      <CollapsibleBody expanded={open}>
 
       {/* Proportional ribbon — a VISUAL OVERVIEW only (not clickable):
           tiny segments can't be both proportional and tappable, so the
@@ -178,6 +193,7 @@ export function StatusDistributionChart({
           />
         )}
       </ul>
+      </CollapsibleBody>
     </section>
   );
 }

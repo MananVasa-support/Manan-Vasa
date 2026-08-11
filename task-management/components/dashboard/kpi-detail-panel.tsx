@@ -79,6 +79,7 @@ export function KpiDetailPanel({
   summary,
   neon,
   neonDeep,
+  vsLabel = "vs last week",
 }: {
   label: string;
   sublabel: string;
@@ -87,6 +88,8 @@ export function KpiDetailPanel({
   summary: WmsSummary;
   neon: string;
   neonDeep: string;
+  /** Same "vs last …" wording the card above shows, so the two agree. */
+  vsLabel?: string;
 }) {
   const delta = value - kpi.previous;
   const arrow = delta > 0 ? "▲" : delta < 0 ? "▼" : "→";
@@ -120,7 +123,7 @@ export function KpiDetailPanel({
             className="inline-flex items-center gap-1 rounded-pill px-2.5 py-1 tabular-nums shrink-0"
             style={{ fontSize: 12.5, fontWeight: 800, color: deltaTone, background: "color-mix(in srgb, currentColor 12%, transparent)" }}
           >
-            {arrow} {Math.abs(delta)} <span className="font-semibold opacity-70">vs last</span>
+            {arrow} {Math.abs(delta)} <span className="font-semibold opacity-70">{vsLabel}</span>
           </span>
         </div>
         <Sparkline data={kpi.sparkline} neon={neon} neonDeep={neonDeep} />

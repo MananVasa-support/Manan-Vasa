@@ -2,9 +2,11 @@
 
 import * as React from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Users, ChevronDown } from "lucide-react";
+import * as Tooltip from "@radix-ui/react-tooltip";
+import { Users } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useReducedMotion } from "@/lib/motion-utils";
+import { SectionPagination, usePagedRows } from "@/components/dashboard/section-chrome";
 import type { PunctualityPerson } from "@/lib/types";
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -59,7 +61,6 @@ export function PerformanceByPersonTable({
   resolveAvatar,
 }: PerformanceByPersonTableProps) {
   const reduce = useReducedMotion() ?? false;
-  const [showAll, setShowAll] = React.useState(false);
 
   // Privacy: admins all rows; non-admin only their own (null → none).
   const scoped = isAdmin ? people : people.filter((p) => p.employeeId === meId);
@@ -69,11 +70,11 @@ export function PerformanceByPersonTable({
     [scoped],
   );
 
-  // Cap the visible list to the top ~8 busiest so it stays digestible; the
-  // rest reveal behind an animated "Show all" expander (reduced-motion-gated).
-  const CAP = 8;
-  const overflow = rows.length - CAP;
-  const visible = showAll ? rows : rows.slice(0, CAP);
+  // Paged 8 at a time via the shared top-right pager (was a "Show all"
+  // expander, which made the card grow without bound on a big roster).
+  const PAGE = 8;
+  const paged = usePagedRows(rows, PAGE);
+  const visible = paged.visible;
 
   return (
     <section
@@ -97,7 +98,7 @@ export function PerformanceByPersonTable({
 
       <div className="relative">
         {/* ── Header ── */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <span
             className="inline-flex size-9 shrink-0 items-center justify-center rounded-full"
             style={{
@@ -122,6 +123,18 @@ export function PerformanceByPersonTable({
             <p className="mt-1.5 text-[13px] font-semibold leading-none text-ink-subtle">
               On-time rate &amp; late spread · busiest first
             </p>
+          </div>
+
+          {/* Top-right pager — same component every paginated section uses. */}
+          <div className="ml-auto">
+            <SectionPagination
+              page={paged.page}
+              pageCount={paged.pageCount}
+              onPage={paged.setPage}
+              total={paged.total}
+              pageSize={PAGE}
+              label="Performance by person"
+            />
           </div>
         </div>
 
@@ -176,30 +189,6 @@ export function PerformanceByPersonTable({
               </AnimatePresence>
             </ul>
 
-            {/* Show-all expander — only when the list is capped. */}
-            {overflow > 0 && (
-              <button
-                type="button"
-                onClick={() => setShowAll((s) => !s)}
-                aria-expanded={showAll}
-                className="wg-sheen mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-[13.5px] font-black text-ink-strong transition-colors"
-                style={{
-                  background: "color-mix(in srgb, var(--color-altus-red) 6%, transparent)",
-                  border: "1px solid var(--color-hairline-strong)",
-                }}
-              >
-                {showAll ? "Show fewer" : `Show all (${rows.length})`}
-                <ChevronDown
-                  size={16}
-                  strokeWidth={2.6}
-                  className="transition-transform duration-300"
-                  style={{
-                    color: "var(--color-altus-red)",
-                    transform: showAll ? "rotate(180deg)" : "none",
-                  }}
-                />
-              </button>
-            )}
           </>
         )}
       </div>
@@ -234,6 +223,90 @@ function RateBar({
         transition={{ delay, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
       />
     </span>
+  );
+}
+
+/**
+ * Hover breakdown behind the On-Time Rate percentage: how many delivered tasks
+ * the rate is computed from, the on-time/late split, and the late spread. The
+ * bar alone says "72%" without saying 72% *of what* — 72% of 4 tasks and 72% of
+ * 90 are very different signals.
+ */
+function OnTimeRateTooltip({
+  person,
+  children,
+}: {
+  person: PunctualityPerson;
+  children: React.ReactNode;
+}) {
+  const onTime = Math.max(0, person.done - person.late);
+  const spread = person.lateSpread;
+  const row = "flex items-baseline justify-between gap-6";
+  return (
+    <Tooltip.Provider delayDuration={220}>
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild>{children}</Tooltip.Trigger>
+        <Tooltip.Portal>
+          <Tooltip.Content
+            side="top"
+            align="center"
+            sideOffset={8}
+            collisionPadding={12}
+            className="z-[90]"
+            style={{
+              minWidth: 232,
+              background: "var(--color-surface-card)",
+              border: "1px solid var(--color-hairline-strong)",
+              borderRadius: 14,
+              boxShadow: "0 16px 40px rgba(15,23,42,0.18)",
+              padding: 14,
+            }}
+          >
+            <p className="text-[14px] font-black text-ink-strong">{person.employeeName}</p>
+            <p className="mt-0.5 text-[12px] font-semibold text-ink-subtle">
+              On-time rate ·{" "}
+              <span className="tabular-nums font-black" style={{ color: rateColor(person.rate) }}>
+                {person.rate}%
+              </span>
+            </p>
+
+            <div className="mt-3 flex flex-col gap-1.5 border-t border-hairline pt-3 text-[12.5px] font-semibold text-ink-soft">
+              <div className={row}>
+                <span>Delivered</span>
+                <span className="tabular-nums font-black text-ink-strong">{person.done}</span>
+              </div>
+              <div className={row}>
+                <span>On time</span>
+                <span className="tabular-nums font-black" style={{ color: GREEN }}>{onTime}</span>
+              </div>
+              <div className={row}>
+                <span>Late</span>
+                <span className="tabular-nums font-black" style={{ color: person.late > 0 ? RED : "var(--color-ink-subtle)" }}>
+                  {person.late}
+                </span>
+              </div>
+            </div>
+
+            {person.late > 0 && (
+              <div className="mt-3 border-t border-hairline pt-3">
+                <p className="text-[10.5px] font-black uppercase tracking-[0.1em] text-ink-subtle">
+                  Late by
+                </p>
+                <div className="mt-1.5 flex flex-col gap-1 text-[12.5px] font-semibold text-ink-soft">
+                  {SPREAD_COLS.map((c) => (
+                    <div key={c.key} className={row}>
+                      <span>{c.label} days</span>
+                      <span className="tabular-nums font-black text-ink-strong">{spread[c.key]}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <Tooltip.Arrow style={{ fill: "var(--color-surface-card)" }} />
+          </Tooltip.Content>
+        </Tooltip.Portal>
+      </Tooltip.Root>
+    </Tooltip.Provider>
   );
 }
 
@@ -296,16 +369,18 @@ function PersonTableRow({
         </div>
       </div>
 
-      {/* On-time rate (bar + %) */}
-      <div className="flex items-center gap-2.5">
-        <RateBar rate={person.rate} reduce={reduce} delay={reduce ? 0 : index * 0.04 + 0.1} />
-        <span
-          className="w-12 shrink-0 text-right text-[15.5px] font-black tabular-nums"
-          style={{ color: rateColor(person.rate) }}
-        >
-          {person.rate}%
-        </span>
-      </div>
+      {/* On-time rate (bar + %) — hover for the numbers behind the percentage. */}
+      <OnTimeRateTooltip person={person}>
+        <div className="flex cursor-help items-center gap-2.5">
+          <RateBar rate={person.rate} reduce={reduce} delay={reduce ? 0 : index * 0.04 + 0.1} />
+          <span
+            className="w-12 shrink-0 text-right text-[15.5px] font-black tabular-nums"
+            style={{ color: rateColor(person.rate) }}
+          >
+            {person.rate}%
+          </span>
+        </div>
+      </OnTimeRateTooltip>
 
       {/* Late count */}
       <span

@@ -1,9 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import { motion } from "motion/react";
-import { Sparkles, ChevronLeft, ChevronRight, Users } from "lucide-react";
+import { Sparkles, Users } from "lucide-react";
 
 import { OnTimeGauge } from "@/components/dashboard/exec/on-time-gauge";
 import { ManagerInitiatorCard } from "@/components/dashboard/exec/manager-initiator-card";
@@ -11,6 +10,8 @@ import { NotApprovedSidebar } from "@/components/dashboard/exec/not-approved-sid
 import { PerformanceByPersonTable } from "@/components/dashboard/exec/performance-by-person-table";
 import { ManagerDrilldown } from "@/components/dashboard/exec/manager-drilldown";
 import { useReducedMotion } from "@/lib/motion-utils";
+import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
+import { SectionPagination, usePagedRows } from "@/components/dashboard/section-chrome";
 import type {
   DoneOnTime,
   InitiatorBoard,
@@ -66,32 +67,63 @@ export function ExecDashboard({
 
   const board = initiator[windowKey];
 
+  // FilterBar section search — narrows the delivery + delegation panels to the
+  // people whose names match. Applied AFTER the privacy filter below so search
+  // can never widen what a non-admin is allowed to see.
+  const sectionQuery = useSectionSearch();
+
   // Privacy: admins see every manager card; a non-admin sees only their own
   // (filtered to meId; a null meId resolves to none).
-  const sectionQuery = useSectionSearch();
-  const managers = React.useMemo(
-    () =>
-      (isAdmin
-        ? board.managers
-        : board.managers.filter((m) => m.managerId === meId)
-      ).filter(
-        (m) =>
-          matchesSearch(sectionQuery, m.managerName) ||
-          m.perReport.some((r) => matchesSearch(sectionQuery, r.employeeName)),
+  const managers = React.useMemo(() => {
+    const visible = isAdmin
+      ? board.managers
+      : board.managers.filter((m) => m.managerId === meId);
+    if (!sectionQuery) return visible;
+    // A manager stays if their own name matches OR one of their reports does,
+    // so searching a report surfaces the card that actually contains them.
+    return visible.filter(
+      (m) =>
+        matchesSearch(sectionQuery, m.managerName) ||
+        m.perReport.some((r) => matchesSearch(sectionQuery, r.employeeName)),
+    );
+  }, [board.managers, isAdmin, meId, sectionQuery]);
+
+  // Delivery panels are keyed by person, so filter their `byPerson` rows. The
+  // headline totals are left alone on purpose — they describe the whole team,
+  // and recomputing them from a text search would misreport the org's numbers.
+  const doneOnTimeView = React.useMemo(() => {
+    if (!sectionQuery) return doneOnTime;
+    const narrow = (b: typeof doneOnTime.revised) => ({
+      ...b,
+      byPerson: b.byPerson.filter((p) => matchesSearch(sectionQuery, p.employeeName)),
+    });
+    return { original: narrow(doneOnTime.original), revised: narrow(doneOnTime.revised) };
+  }, [doneOnTime, sectionQuery]);
+
+  const notApprovedAgingView = React.useMemo(() => {
+    if (!sectionQuery) return notApprovedAging;
+    return {
+      ...notApprovedAging,
+      byPerson: notApprovedAging.byPerson.filter((p) =>
+        matchesSearch(sectionQuery, p.employeeName),
       ),
-    [board.managers, isAdmin, meId, sectionQuery],
-  );
+    };
+  }, [notApprovedAging, sectionQuery]);
 
   const windowDays: 3 | 7 = windowKey === "d3" ? 3 : 7;
 
-  // Global empty state: nothing to show anywhere on the surface.
-  const peopleRows = doneOnTime.revised.byPerson;
+  // Global empty state: nothing to show anywhere on the surface. Reads the
+  // FILTERED views, so a search matching nobody collapses to the same calm
+  // empty state instead of a page of zeroed-out panels.
+  const peopleRows = doneOnTimeView.revised.byPerson;
   const nothingAtAll =
     managers.length === 0 &&
-    doneOnTime.revised.dated === 0 &&
-    doneOnTime.original.dated === 0 &&
-    notApprovedAging.total === 0 &&
-    peopleRows.length === 0;
+    (sectionQuery
+      ? peopleRows.length === 0 && notApprovedAgingView.byPerson.length === 0
+      : doneOnTime.revised.dated === 0 &&
+        doneOnTime.original.dated === 0 &&
+        notApprovedAging.total === 0 &&
+        peopleRows.length === 0);
 
   // Staggered entrance helper (reduced-motion-gated → final state, no anim).
   const rise = (delay: number) =>
@@ -157,11 +189,11 @@ export function ExecDashboard({
         {/* ── SUMMARY row: on-time gauge + attention sidebar, side-by-side ── */}
         <motion.div {...rise(0.08)} className="exec-summary-grid grid gap-6 max-md:gap-4">
           {/* LEFT — gauge */}
-          <OnTimeGauge data={doneOnTime} />
+          <OnTimeGauge data={doneOnTimeView} />
 
           {/* RIGHT — attention-required sidebar */}
           <NotApprovedSidebar
-            data={notApprovedAging}
+            data={notApprovedAgingView}
             isAdmin={isAdmin}
             meId={meId}
             resolveAvatar={resolveAvatar}
@@ -284,13 +316,10 @@ function ManagerRail({
   onOpenDrilldown: (managerId: string) => void;
   workingDays: number;
 }) {
-  const scrollerRef = React.useRef<HTMLDivElement | null>(null);
-
-  function nudge(dir: -1 | 1) {
-    const el = scrollerRef.current;
-    if (!el) return;
-    el.scrollBy({ left: dir * Math.min(420, el.clientWidth * 0.9), behavior: "smooth" });
-  }
+  // Two roomy scorecards per page (they stack to one column below 1024px, see
+  // the .exec-manager-grid rule at the bottom of this file).
+  const PER_PAGE = 2;
+  const paged = usePagedRows(managers, PER_PAGE);
 
   if (managers.length === 0) {
     return (
@@ -355,37 +384,23 @@ function ManagerRail({
             Who is delegating, and how much
           </h2>
         </div>
-        {managers.length > 1 && (
-          <div className="flex shrink-0 items-center gap-1.5 max-md:hidden">
-            <RailArrow dir={-1} onClick={() => nudge(-1)} />
-            <RailArrow dir={1} onClick={() => nudge(1)} />
-          </div>
-        )}
+        {/* Top-right pager — replaces the ‹ › scroll nudges. The cards are now
+            LAID OUT in a grid a page at a time instead of sliding sideways in a
+            snap rail, so every scorecard on the current page is fully visible
+            without horizontal scrolling. */}
+        <SectionPagination
+          page={paged.page}
+          pageCount={paged.pageCount}
+          onPage={paged.setPage}
+          total={paged.total}
+          pageSize={PER_PAGE}
+          label="Manager scorecards"
+        />
       </div>
 
-      <div
-        ref={scrollerRef}
-        className="exec-rail flex gap-4 overflow-x-auto pb-2"
-        style={{ scrollSnapType: "x mandatory" }}
-      >
-        {managers.map((m) => (
-          <div
-            key={m.managerId}
-            className="shrink-0"
-            style={{
-              scrollSnapAlign: "start",
-              // Roomy cards in the full-width section: a single card fills the
-              // row; two share it evenly; three-plus become a generous snap rail
-              // so the attainment ring + channel grid never get cramped.
-              width:
-                managers.length === 1
-                  ? "100%"
-                  : managers.length === 2
-                    ? "calc(50% - 0.5rem)"
-                    : "min(540px, 88vw)",
-              minWidth: managers.length === 1 ? undefined : "min(480px, 88vw)",
-            }}
-          >
+      <div className="exec-manager-grid grid gap-4">
+        {paged.visible.map((m) => (
+          <div key={m.managerId} className="min-w-0">
             <ManagerInitiatorCard
               scorecard={m}
               avatarUrl={resolveAvatar(m.managerId)}
@@ -402,44 +417,18 @@ function ManagerRail({
         direct report
       </p>
 
+      {/* Two cards side by side on wide screens, one column below 1024px — the
+          same breakpoint the summary row uses. */}
       <style>{`
-        .exec-rail { scrollbar-width: thin; }
-        .exec-rail::-webkit-scrollbar { height: 8px; }
-        .exec-rail::-webkit-scrollbar-thumb {
-          background: color-mix(in srgb, var(--color-altus-red) 22%, transparent);
-          border-radius: 999px;
+        .exec-manager-grid { grid-template-columns: minmax(0, 1fr); }
+        @media (min-width: 1024px) {
+          .exec-manager-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            align-items: start;
+          }
         }
-        .exec-rail::-webkit-scrollbar-track { background: transparent; }
       `}</style>
     </section>
-  );
-}
-
-function RailArrow({
-  dir,
-  onClick,
-}: {
-  dir: -1 | 1;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={dir === -1 ? "Scroll managers left" : "Scroll managers right"}
-      className="wg-btn grid size-8 place-items-center rounded-full border"
-      style={{
-        borderColor: "var(--color-hairline-strong)",
-        background: "var(--color-surface-card)",
-        color: "var(--color-ink-soft)",
-      }}
-    >
-      {dir === -1 ? (
-        <ChevronLeft size={16} strokeWidth={2.6} />
-      ) : (
-        <ChevronRight size={16} strokeWidth={2.6} />
-      )}
-    </button>
   );
 }
 
