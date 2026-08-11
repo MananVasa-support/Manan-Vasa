@@ -1,6 +1,5 @@
 "use client";
 import * as React from "react";
-import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import { useRouter } from "next/navigation";
 import * as Popover from "@radix-ui/react-popover";
 import { AlertTriangle, Flame, ArrowDownUp, ChevronRight } from "lucide-react";
@@ -8,6 +7,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { AGE_BUCKETS, type AgeBucketId } from "@/db/enums";
 import type { AgingRow, HeatmapCellTask } from "@/lib/types";
+import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import { Avatar } from "@/components/ui/avatar";
 import { PageShell } from "@/components/layout/page-shell";
 
@@ -34,6 +34,14 @@ const BUCKET_WEIGHT: Record<AgeBucketId, number> = {
 
 const CRITICAL_BUCKETS: AgeBucketId[] = ["31-45", "46-60", "60+"];
 
+// Horizontal display order for THIS section only — oldest first, left → right:
+// 60+ · 46-60 · 31-45 · 21-30 · 15-20 · 8-14 · 4-7 · 0-3.
+// The canonical AGE_BUCKETS (db/enums.ts) deliberately stays youngest-first:
+// `computeAgingByDate` maps over it to build the ordered `agingByDate` payload,
+// so reversing it there would silently reorder other consumers. Colors, counts
+// and task lists are all keyed by `b.id`, so they follow this order for free.
+const DISPLAY_BUCKETS = [...AGE_BUCKETS].reverse();
+
 function riskScore(row: AgingRow): number {
   if (row.total === 0) return 0;
   const weighted = AGE_BUCKETS.reduce(
@@ -57,9 +65,9 @@ export function AgingHeatmap({
 }) {
   const [sortMode, setSortMode] = React.useState<SortMode>("risk");
 
-  // Section search narrows the lanes by person. Filtering happens BEFORE
-  // enrichment so the risk ranking, the header counts and the critical banner
-  // all describe the lanes actually on screen.
+  // FilterBar section search — narrows the lanes to matching people. Applied
+  // before enrichment so the risk ranking, the header counts and the critical
+  // banner all describe the lanes actually on screen.
   const sectionQuery = useSectionSearch();
   const searched = React.useMemo(
     () =>
@@ -271,7 +279,7 @@ function Legend() {
       >
         Age
       </span>
-      {AGE_BUCKETS.map((b) => {
+      {DISPLAY_BUCKETS.map((b) => {
         const c = BUCKET_COLOR[b.id];
         return (
           <div
@@ -333,7 +341,7 @@ function LaneHeader() {
           color: "var(--color-ink-muted)",
         }}
       >
-        Pending by age (oldest →)
+        Pending by age (← oldest)
       </span>
       <span
         className="text-right uppercase font-bold tracking-[0.10em]"
@@ -421,7 +429,7 @@ function Lane({
             transition: "width 600ms cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         >
-          {AGE_BUCKETS.map((b) => {
+          {DISPLAY_BUCKETS.map((b) => {
             const v = row.buckets[b.id];
             if (v === 0) return null;
             const segPct = (v / row.total) * 100;

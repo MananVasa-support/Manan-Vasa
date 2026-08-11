@@ -4,9 +4,9 @@ import Link from "next/link";
 import type { Route } from "next";
 import { Trophy, Crown, Inbox } from "lucide-react";
 import type { TopPerformer } from "@/lib/types";
+import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import { useCountUp } from "@/lib/use-count-up";
 import { Avatar } from "@/components/ui/avatar";
-import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 
 const PODIUM_THEMES = [
   // GOLD
@@ -58,9 +58,9 @@ export function TopPerformersSection({
   performers: TopPerformer[];
   avatarById?: Record<string, string | null>;
 }) {
-  // Section search narrows the leaderboard by person name. Filtering happens
-  // on the ALREADY ordered list, so a match keeps the position it actually
-  // holds rather than being promoted to #1 by being the only result.
+  // FilterBar section search. Ranks are NOT recomputed — `performers` arrives
+  // already ordered, so a match keeps the position it actually holds on the
+  // leaderboard rather than being promoted to #1 by being the only result.
   const sectionQuery = useSectionSearch();
   const visible = React.useMemo(
     () =>
@@ -101,7 +101,7 @@ export function TopPerformersSection({
         </div>
       </header>
 
-      {performers.length === 0 ? (
+      {visible.length === 0 ? (
         <EmptyState />
       ) : (
         <>

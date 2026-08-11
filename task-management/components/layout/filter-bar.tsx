@@ -19,9 +19,9 @@ import {
   MoreHorizontal,
   CopyMinus,
 } from "lucide-react";
+import { setSectionSearch } from "@/lib/client/section-search";
 import Link from "next/link";
 import type { Route } from "next";
-import { setSectionSearch } from "@/lib/client/section-search";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -227,7 +227,14 @@ export function FilterBar({
             (instead of cutting off the last filter). Wrapping is popover-safe:
             the filter popovers portal to <body>, so — unlike a scroll/overflow
             ancestor — a wrapped trigger row never mis-anchors them. */}
-        <div className="flex items-center gap-x-1.5 gap-y-2 flex-wrap min-w-0">
+        {/* Row 1 — ONE line, never wrapping: date range · filters · view toggle,
+            then the view switcher + search pinned right. `flex-nowrap` keeps the
+            View (Doer/Initiator) toggle on the same line as the filters; the
+            pills are compressed (see `filter-pill` in globals.css) so the whole
+            set fits. `overflow-x-auto` is only a safety valve for very narrow
+            viewports — the filter popovers portal to <body> and Radix tracks the
+            trigger on scroll, so a scrolled trigger still anchors correctly. */}
+        <div className="flex items-center gap-x-1 flex-nowrap overflow-x-auto no-scrollbar min-w-0">
           {/* Date range */}
           <Popover.Root>
             <Popover.Trigger asChild>
@@ -353,14 +360,19 @@ export function FilterBar({
             );
           })()}
 
-          {/* Right-pinned: subtle "updating…" indicator during filter changes. */}
-          <div className="flex items-center gap-3 ml-auto shrink-0">
+          {/* Right-pinned cluster: updating indicator · section search.
+              The Board/List segmented toggle used to sit here too; it was a
+              third way to do the same thing (the left rail has Tasks + Kanban
+              items, and the Tasks header has a "Kanban View" button), so it was
+              removed to keep the ribbon to the primary controls. */}
+          <div className="flex items-center gap-1.5 ml-auto shrink-0 pl-1.5">
             <span
               aria-live="polite"
-              className="inline-flex items-center gap-1.5 text-[13px] text-ink-subtle transition-opacity"
-              style={{ opacity: isPending ? 1 : 0 }}
+              aria-hidden={!isPending}
+              className="inline-flex items-center gap-1 text-[12px] text-ink-subtle transition-opacity"
+              style={{ opacity: isPending ? 1 : 0, width: isPending ? undefined : 0, overflow: "hidden" }}
             >
-              <Loader2 size={13} strokeWidth={2.2} className="animate-spin" />
+              <Loader2 size={12} strokeWidth={2.2} className="animate-spin" />
               Updating…
             </span>
 
@@ -425,7 +437,7 @@ export function FilterBar({
 const SECTION_LABELS: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/tasks": "Tasks",
-  "/tasks/agenda": "My Day",
+  "/my-day": "My Day",
   "/tasks/kanban": "Kanban",
   "/archived": "Archived",
 };
@@ -498,13 +510,15 @@ function SectionSearchBox({ placeholder }: { placeholder: string }) {
 
 function SegGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="inline-flex items-center gap-1.5">
-      <span className="text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-subtle)" }}>
+    // shrink-0 + nowrap: this is the control that used to get bumped onto a
+    // second line, so it must never be squeezed or allowed to break.
+    <div className="inline-flex items-center gap-1 shrink-0 whitespace-nowrap">
+      <span className="text-[9.5px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-subtle)" }}>
         {label}
       </span>
       <div
         className="inline-flex items-center bg-surface-card border border-hairline rounded-chip relative"
-        style={{ padding: 3, boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)" }}
+        style={{ padding: 2, boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)" }}
       >
         {children}
       </div>
@@ -527,7 +541,7 @@ function SegButton({
     <button
       type="button"
       onClick={onClick}
-      className="relative text-[12.5px] px-2 py-1 rounded-pill transition-colors"
+      className="relative text-[11.5px] px-1.5 py-0.5 rounded-pill transition-colors whitespace-nowrap"
       style={{
         color: active ? "var(--color-ink-strong)" : "var(--color-ink-subtle)",
         fontWeight: active ? 600 : 500,

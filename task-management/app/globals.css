@@ -983,14 +983,19 @@ html[data-density="dense"] body {
 }
 
 /* Pill-card filter trigger — icon badge + value/sublabel + chevron. */
+/* Compressed so the whole ribbon (date · filters · view toggle · switcher ·
+   search) holds ONE non-wrapping line — see the flex-nowrap row in
+   filter-bar.tsx. `shrink-0` keeps a pill from being squashed into its
+   neighbours; the row scrolls instead. */
 @utility filter-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: 4px;
+  padding: 3px 6px;
+  flex-shrink: 0;
   background: var(--color-surface-card);
   border: 1px solid var(--color-hairline);
-  border-radius: 12px;
+  border-radius: 11px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   transition: box-shadow 180ms ease, border-color 180ms ease;
   cursor: pointer;
@@ -2391,18 +2396,15 @@ select.nt-input {
 .sidebar-rail[data-collapsed="true"] .sidebar-logo {
   justify-content: center;
 }
+/* Collapsed rail is 74px wide with 0.5rem side padding (58px of room), so the
+   mark steps down here. Bumped in step with the expanded 68px so the two
+   states stay proportional. */
 .sidebar-rail[data-collapsed="true"] .sidebar-logo img {
-  height: 2.5rem;
+  height: 3rem;
 }
-.sidebar-rail[data-collapsed="true"] .sidebar-hub {
-  padding-left: 0.5rem;
-  padding-right: 0.5rem;
-}
-.sidebar-rail[data-collapsed="true"] .sidebar-hub-btn {
-  justify-content: center;
-  padding-left: 0;
-  padding-right: 0;
-}
+/* (The collapsed rules for `.sidebar-hub` / `.sidebar-hub-btn` lived here.
+   Dropped with the "Back to Hub" pill itself — the brand block links to /hub
+   now, and nothing else in the app used those two classes.) */
 .sidebar-rail[data-collapsed="true"] .sidebar-nav {
   padding-left: 0.5rem;
   padding-right: 0.5rem;
@@ -2886,4 +2888,25 @@ select.nt-input {
   background-image:
     repeating-linear-gradient(rgba(27, 20, 14, 0.05) 0 1px, transparent 1px 40px),
     linear-gradient(160deg, #F4EEE3 0%, #FBF7F0 62%);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Full-height content column — the page fills the viewport to the bottom edge.
+
+   Chain: ChromeShell gives a `min-h-dvh` flex column → `.app-shell-column`
+   (app/(app)/template.tsx) stretches into it with `flex-1` → the page's own
+   <main> grows to eat the leftover height, so a short page still reaches the
+   bottom of the screen instead of stopping mid-way.
+
+   The global dark footer that used to terminate this column was removed; the
+   body's fixed gradient (see `body` in @layer base) now paints everything below
+   the content, so there is no bare white band and no extra element to pin.
+
+   `flex: 1 0 auto` — basis `auto` so a tall page still measures by its own
+   content, grow 1 to absorb slack on short pages, shrink 0 so long content is
+   never squeezed. Scoped to a DIRECT <main> child; pages that render their
+   sections as bare siblings (no <main>) simply inherit the column's height.
+   ────────────────────────────────────────────────────────────────────────── */
+.app-shell-column > main {
+  flex: 1 0 auto;
 }
