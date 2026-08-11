@@ -6,9 +6,16 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { employees, designations, departments } from "@/db/schema";
-import { exitRecords, type ExitRosterEmployee } from "@/lib/hr/exit/schema";
+import {
+  exitRecords,
+  type ExitRosterEmployee,
+  type ExitInterviewData,
+  type ExitHandoverData,
+} from "@/lib/hr/exit/schema";
 import { requireHrStaff } from "@/lib/hr/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
+import { recordHrFormSubmission } from "@/lib/hr/forms/record";
+import { exitResponsesFor, exitFormKey } from "@/lib/hr/forms/exit-responses";
 
 type Result<T> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -21,6 +28,9 @@ const SaveSchema = z.object({
   // The whole form payload. Cap the serialized size defensively (jsonb),
   // and keep it a plain object.
   data: z.record(z.string(), z.unknown()).default({}),
+  /** "draft" = autosave / Save Draft; "submitted" = the Submit button. Defaults
+   *  to draft so the form's 1.4s autosave can never submit on the user's behalf. */
+  status: z.enum(["draft", "submitted"]).default("draft"),
 });
 
 /**
@@ -41,21 +51,45 @@ export async function saveExitRecord(input: z.input<typeof SaveSchema>): Promise
   if (JSON.stringify(v.data).length > 200_000) return { ok: false, error: "Form is too large to save." };
 
   try {
+    let recordId: string;
     if (v.id) {
       await db
         .update(exitRecords)
         .set({ data: v.data as Record<string, unknown>, employeeId: v.employeeId, kind: v.kind, updatedAt: new Date() })
         .where(eq(exitRecords.id, v.id));
-      revalidatePath("/hr/exit");
-      return { ok: true, id: v.id };
+      recordId = v.id;
+    } else {
+      const [row] = await db
+        .insert(exitRecords)
+        .values({ employeeId: v.employeeId, kind: v.kind, data: v.data as Record<string, unknown>, createdById: me.id })
+        .returning({ id: exitRecords.id });
+      if (!row) return { ok: false, error: "Could not save the form." };
+      recordId = row.id;
     }
-    const [row] = await db
-      .insert(exitRecords)
-      .values({ employeeId: v.employeeId, kind: v.kind, data: v.data as Record<string, unknown>, createdById: me.id })
-      .returning({ id: exitRecords.id });
-    if (!row) return { ok: false, error: "Could not save the form." };
+
+    // Index the submission for My/All Filled Forms — AFTER exit_records is
+    // written, never before. That table stays the source of truth: if indexing
+    // fails the form is still saved, and the next save repairs the index. Doing
+    // it first would let the list advertise a submission that was never stored.
+    //
+    // A failure here is deliberately NOT surfaced as a save error — the user's
+    // form did save, and telling them otherwise would push them to re-enter it.
+    const indexed = await recordHrFormSubmission({
+      formKey: exitFormKey(v.kind),
+      employeeId: v.employeeId,
+      submittedById: me.id,
+      status: v.status,
+      responses: exitResponsesFor(v.kind, v.data as ExitInterviewData | ExitHandoverData),
+      sourceId: recordId,
+    });
+    if (!indexed.ok) {
+      console.error("[exit] form saved but indexing failed:", indexed.error);
+    }
+
     revalidatePath("/hr/exit");
-    return { ok: true, id: row.id };
+    revalidatePath("/hr/my-forms");
+    revalidatePath("/hr/all-forms");
+    return { ok: true, id: recordId };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Save failed." };
   }

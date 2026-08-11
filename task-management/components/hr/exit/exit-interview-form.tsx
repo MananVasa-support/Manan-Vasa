@@ -56,6 +56,8 @@ export function ExitInterviewForm({
   });
   const [ratings, setRatings] = React.useState<Ratings>(() => initial?.ratings ?? {});
   const [saving, setSaving] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [submitted, setSubmitted] = React.useState(false);
   const [savedAt, setSavedAt] = React.useState<Date | null>(recordId ? new Date() : null);
 
   const idRef = React.useRef<string | null>(recordId);
@@ -74,7 +76,7 @@ export function ExitInterviewForm({
   }, []);
 
   const persist = React.useCallback(
-    async (silent: boolean): Promise<boolean> => {
+    async (silent: boolean, status: "draft" | "submitted" = "draft"): Promise<boolean> => {
       if (savingRef.current) return false;
       savingRef.current = true;
       try {
@@ -84,6 +86,7 @@ export function ExitInterviewForm({
           employeeId,
           kind: "interview",
           data: { fields: s.fields, ratings: s.ratings },
+          status,
         });
         if (res.ok) {
           idRef.current = res.id;
@@ -119,6 +122,22 @@ export function ExitInterviewForm({
       await persist(false);
     } finally {
       setSaving(false);
+    }
+  }
+
+  /** Submit — the same write, stamped `submitted` so it leaves Drafts and lands
+   *  in My Filled Forms. Success is reported ONLY from the action's result, so
+   *  the confirmation can never run ahead of the database. */
+  async function onSubmitClick() {
+    setSubmitting(true);
+    try {
+      const ok = await persist(true, "submitted");
+      if (ok) {
+        setSubmitted(true);
+        fireToast({ message: "Exit interview submitted." });
+      }
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -242,17 +261,32 @@ export function ExitInterviewForm({
             <ArrowLeft size={15} /> Back
           </button>
           <div className="flex items-center gap-3">
-            {savedAt && (
+            {/* Reports what the SERVER confirmed: "Submitted" only appears once
+                the submit write came back ok. */}
+            {submitted ? (
               <span className="inline-flex items-center gap-1 text-[12px] font-semibold" style={{ color: "#16a34a" }}>
-                <Check size={13} strokeWidth={3} /> Saved
+                <Check size={13} strokeWidth={3} /> Submitted
               </span>
+            ) : (
+              savedAt && (
+                <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-ink-subtle">
+                  <Check size={13} strokeWidth={3} /> Draft saved
+                </span>
+              )
             )}
             <button
               onClick={onSaveClick}
-              disabled={saving}
+              disabled={saving || submitting}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-white px-5 py-2.5 text-[13.5px] font-bold text-ink-strong transition-colors hover:border-ink-soft disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} {saving ? "Saving…" : "Save Draft"}
+            </button>
+            <button
+              onClick={onSubmitClick}
+              disabled={saving || submitting}
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#18181b] px-6 py-2.5 text-[13.5px] font-bold text-white transition-colors hover:bg-black disabled:opacity-50"
             >
-              {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} {saving ? "Saving…" : "Save exit interview"}
+              {submitting ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} {submitting ? "Submitting…" : "Submit"}
             </button>
           </div>
         </div>

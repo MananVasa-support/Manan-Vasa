@@ -120,6 +120,15 @@ const HR_HUB_NAV: WorkspaceNav = {
   top: [
     HR_HOME,
     ...HR_STAGES.map((s) => ({ href: `/hr/${s.slug}` as Route, label: s.title, Icon: s.Icon })),
+    // Filled forms — the saved submissions behind the lifecycle forms. "My" is
+    // open to everyone and is hard-scoped to the signed-in employee; "All" is
+    // HR/admin. NOTE: `adminOnly` follows the existing convention used by
+    // Ticket Routing / Support Metrics, but the PAGE gates on `requireHrStaff`,
+    // which is broader (super-admins + the HR department). An HR-department
+    // non-admin can open /hr/all-forms directly but won't see this link until
+    // the nav learns an hrStaffOnly flag.
+    { href: "/hr/my-forms" as Route, label: "My Filled Forms", Icon: ClipboardList },
+    { href: "/hr/all-forms" as Route, label: "All Filled Forms", Icon: ClipboardList, adminOnly: true },
     { href: "/holidays" as Route, label: "Holiday List", Icon: PartyPopper },
     { href: "/support" as Route, label: "Help Desk", Icon: LifeBuoy },
   ],
