@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import {
@@ -153,14 +154,19 @@ export function StatusTable({
     return Array.from(set).sort();
   }, [rows]);
 
+  // Two search inputs narrow this table: the card's own box (below the header)
+  // and the FilterBar's section search at the top of the page. Both match on
+  // the person's name and AND together.
+  const sectionQuery = useSectionSearch();
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((r) => {
       if (selectedDept && r.department !== selectedDept) return false;
       if (q && !r.employeeName.toLowerCase().includes(q)) return false;
+      if (!matchesSearch(sectionQuery, r.employeeName)) return false;
       return true;
     });
-  }, [rows, query, selectedDept]);
+  }, [rows, query, selectedDept, sectionQuery]);
 
   const columns = React.useMemo(() => buildColumns(avatarById), [avatarById]);
 

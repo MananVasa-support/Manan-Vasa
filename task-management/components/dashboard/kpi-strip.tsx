@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import Link from "next/link";
 import type { Route } from "next";
 import { Plus, Minus, ArrowUpRight } from "lucide-react";
@@ -33,11 +34,24 @@ export function KpiStrip({ kpis, summary }: { kpis: KpiSet; summary: WmsSummary 
   const [expanded, setExpanded] = React.useState<keyof KpiSet | null>(null);
   const active = expanded ? ITEMS.find((i) => i.key === expanded) ?? null : null;
 
+  // The FilterBar's section search narrows the strip too, matching a card
+  // on its label and its sublabel ("Not Approved" / "Sent Back"). With no
+  // match the strip renders nothing rather than an empty grid frame.
+  const sectionQuery = useSectionSearch();
+  const items = React.useMemo(
+    () =>
+      sectionQuery
+        ? ITEMS.filter((i) => matchesSearch(sectionQuery, i.label, i.sublabel))
+        : ITEMS,
+    [sectionQuery],
+  );
+  if (items.length === 0) return null;
+
   return (
     <section className="mt-10" aria-label="Task summary">
      <PageShell as="div" width="full" py={false}>
       <CardGrid min={165} gap="0.7rem">
-        {ITEMS.map((item) => {
+        {items.map((item) => {
           const kpi = kpis[item.key];
           const delta = kpi.current - kpi.previous;
           const up = delta > 0;

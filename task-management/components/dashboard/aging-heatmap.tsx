@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import { useRouter } from "next/navigation";
 import * as Popover from "@radix-ui/react-popover";
 import { AlertTriangle, Flame, ArrowDownUp, ChevronRight } from "lucide-react";
@@ -56,9 +57,21 @@ export function AgingHeatmap({
 }) {
   const [sortMode, setSortMode] = React.useState<SortMode>("risk");
 
+  // Section search narrows the lanes by person. Filtering happens BEFORE
+  // enrichment so the risk ranking, the header counts and the critical banner
+  // all describe the lanes actually on screen.
+  const sectionQuery = useSectionSearch();
+  const searched = React.useMemo(
+    () =>
+      sectionQuery
+        ? rows.filter((r) => matchesSearch(sectionQuery, r.employeeName))
+        : rows,
+    [rows, sectionQuery],
+  );
+
   const enriched = React.useMemo(
-    () => rows.map((r) => ({ ...r, risk: riskScore(r) })),
-    [rows],
+    () => searched.map((r) => ({ ...r, risk: riskScore(r) })),
+    [searched],
   );
 
   const sorted = React.useMemo(() => {

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
 import { motion } from "motion/react";
 import { Sparkles, ChevronLeft, ChevronRight, Users } from "lucide-react";
 
@@ -67,12 +68,18 @@ export function ExecDashboard({
 
   // Privacy: admins see every manager card; a non-admin sees only their own
   // (filtered to meId; a null meId resolves to none).
+  const sectionQuery = useSectionSearch();
   const managers = React.useMemo(
     () =>
-      isAdmin
+      (isAdmin
         ? board.managers
-        : board.managers.filter((m) => m.managerId === meId),
-    [board.managers, isAdmin, meId],
+        : board.managers.filter((m) => m.managerId === meId)
+      ).filter(
+        (m) =>
+          matchesSearch(sectionQuery, m.managerName) ||
+          m.perReport.some((r) => matchesSearch(sectionQuery, r.employeeName)),
+      ),
+    [board.managers, isAdmin, meId, sectionQuery],
   );
 
   const windowDays: 3 | 7 = windowKey === "d3" ? 3 : 7;

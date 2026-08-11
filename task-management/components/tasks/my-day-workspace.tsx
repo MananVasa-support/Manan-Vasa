@@ -3,7 +3,12 @@
 import * as React from "react";
 import { AlertTriangle, CalendarCheck2, CalendarRange, Layers, Rows3 } from "lucide-react";
 import { AgendaBoard, type AgendaTask } from "./agenda-board";
-import { TaskTable } from "./task-table";
+import { TaskTable, NoResults } from "./task-table";
+import {
+  useSectionSearch,
+  matchesSearch,
+  setSectionSearch,
+} from "@/lib/client/section-search";
 import type { TaskListRow } from "@/lib/types";
 import type { TaskStatus, StatusColorToken } from "@/db/enums";
 
@@ -66,9 +71,24 @@ export function MyDayWorkspace({
     }
   }
 
-  const dueToday = agendaTasks.filter((t) => t.dueYmd === todayYmd).length;
-  const overdue = agendaTasks.filter((t) => t.dueYmd < todayYmd).length;
-  const inView = agendaTasks.length;
+  // The FilterBar's section search narrows the scheduled agenda items. (The
+  // List view is the shared TaskTable, which reads the same store itself, so
+  // both views of My Day respond to one box.) Counts are derived from the
+  // FILTERED set so the hero strip agrees with what's on the board.
+  const sectionQuery = useSectionSearch();
+  const visibleAgenda = React.useMemo(() => {
+    if (!sectionQuery) return agendaTasks;
+    const qNum = sectionQuery.replace(/^#/, "");
+    return agendaTasks.filter(
+      (t) =>
+        (t.taskNo != null && String(t.taskNo).includes(qNum)) ||
+        matchesSearch(sectionQuery, t.title, t.description, t.subject, t.client, t.doerName),
+    );
+  }, [agendaTasks, sectionQuery]);
+
+  const dueToday = visibleAgenda.filter((t) => t.dueYmd === todayYmd).length;
+  const overdue = visibleAgenda.filter((t) => t.dueYmd < todayYmd).length;
+  const inView = visibleAgenda.length;
 
   return (
     <main className="w-full px-6 max-md:px-4 pt-6 pb-16">
@@ -177,11 +197,17 @@ export function MyDayWorkspace({
         </div>
       </section>
 
-      {view === "agenda" ? (
+      {view === "agenda" && sectionQuery && visibleAgenda.length === 0 ? (
+        <NoResults
+          query={sectionQuery}
+          noun="agenda items"
+          onClear={() => setSectionSearch("")}
+        />
+      ) : view === "agenda" ? (
         <AgendaBoard
           todayYmd={todayYmd}
           days={days}
-          tasks={agendaTasks}
+          tasks={visibleAgenda}
           isAdmin={isAdmin}
           statusLabels={statusLabels}
           statusTones={statusTones}

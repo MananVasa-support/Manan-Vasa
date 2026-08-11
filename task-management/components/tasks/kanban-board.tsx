@@ -47,6 +47,12 @@ import {
   type StatusColorToken,
 } from "@/db/enums";
 import { ARCHIVE_COL, type ColId } from "@/lib/kanban-columns";
+import { NoResults } from "./task-table";
+import {
+  useSectionSearch,
+  matchesSearch,
+  setSectionSearch,
+} from "@/lib/client/section-search";
 import { setTaskStatus, archiveTask, unarchiveTask } from "@/app/(app)/tasks/actions";
 import { setBoardColumnOrder } from "@/app/(admin)/admin/settings/actions";
 import { fireToast } from "@/lib/toast";
@@ -230,10 +236,22 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // Filtering now happens server-side via the page's FilterBar; the board just
-  // renders what it's given (kept as `filtered` so the column logic below is
-  // unchanged). Optimistic drag still mutates `items`.
-  const filtered = items;
+  // Coarse filtering happens server-side via the page's FilterBar. The bar's
+  // free-text search is CLIENT-side and lands here: it narrows `items` before
+  // the columns are built below, so every column — including Archived —
+  // re-slices live as you type, and each column's header count reflects the
+  // matches rather than the unfiltered total. Optimistic drag still mutates
+  // `items`.
+  const sectionQuery = useSectionSearch();
+  const filtered = React.useMemo(() => {
+    if (!sectionQuery) return items;
+    const qNum = sectionQuery.replace(/^#/, ""); // "#1042" and "1042" both hit
+    return items.filter(
+      (t) =>
+        (t.taskNo != null && String(t.taskNo).includes(qNum)) ||
+        matchesSearch(sectionQuery, t.title, t.description, t.subject, t.client, t.doerName),
+    );
+  }, [items, sectionQuery]);
 
   async function persistOrder(next: ColId[]) {
     const prev = columns;
@@ -359,6 +377,19 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
   }
 
   const activeCard = active?.type === "card" ? items.find((t) => t.id === active.id) ?? null : null;
+
+  // Search matched no card in ANY column — show the answer instead of eight
+  // empty columns. Only when a search is active; an unfiltered empty board
+  // still renders its columns so you can see the workflow and drop into it.
+  if (sectionQuery && filtered.length === 0) {
+    return (
+      <NoResults
+        query={sectionQuery}
+        noun="cards"
+        onClear={() => setSectionSearch("")}
+      />
+    );
+  }
 
   return (
     <Tooltip.Provider delayDuration={550} skipDelayDuration={0}>

@@ -87,6 +87,7 @@ import {
   ChevronsUpDown,
   ChevronDown,
   Search,
+  SearchX,
   X,
   Building2,
   Tag,
@@ -168,6 +169,11 @@ import {
   STATUS_TONES_FALLBACK,
   formatDate,
 } from "@/lib/format";
+import {
+  useSectionSearch,
+  matchesSearch,
+  setSectionSearch,
+} from "@/lib/client/section-search";
 
 // Friendly labels for the column show/hide menu (#11).
 const COLUMN_LABELS: Record<string, string> = {
@@ -466,22 +472,34 @@ export function TaskTable({
   // client-side over the already-loaded rows (the list query returns the full
   // filtered set), so it's instant and needs no server round-trip.
   const [query, setQuery] = React.useState("");
+  // The FilterBar's section search sits above this table. Both boxes narrow the
+  // same set through the SAME matcher and AND together, so whichever you type
+  // in behaves identically and neither silently overrides the other.
+  const sectionQuery = useSectionSearch();
+
+  const matchesRow = React.useCallback(
+    (r: TaskListRow, q: string) => {
+      if (!q) return true;
+      const qNum = q.replace(/^#/, ""); // "#1042" or "1042" both match the No.
+      if (r.taskNo != null && String(r.taskNo).includes(qNum)) return true;
+      return matchesSearch(
+        q,
+        r.title,
+        r.subject,
+        r.client,
+        r.doerName,
+        r.initiatorName,
+        resolvedLabels[r.status] ?? r.status,
+      );
+    },
+    [resolvedLabels],
+  );
+
   const visibleRows = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    const qNum = q.replace(/^#/, ""); // "#1042" or "1042" both match the No.
-    return rows.filter((r) => {
-      if (r.taskNo != null && String(r.taskNo).includes(qNum)) return true;
-      return [
-        r.title,
-        r.subject ?? "",
-        r.client ?? "",
-        r.doerName ?? "",
-        r.initiatorName ?? "",
-        resolvedLabels[r.status] ?? r.status,
-      ].some((s) => s.toLowerCase().includes(q));
-    });
-  }, [rows, query, resolvedLabels]);
+    if (!q && !sectionQuery) return rows;
+    return rows.filter((r) => matchesRow(r, q) && matchesRow(r, sectionQuery));
+  }, [rows, query, sectionQuery, matchesRow]);
 
   const groupColId =
     groupBy === "client" ? "client"
@@ -942,6 +960,52 @@ export function TaskTable({
           {pageInfo}
         </p>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Shared "nothing matched your search" panel. Deliberately distinct from the
+ * pages' "no tasks for the current filter" copy: this one names the term you
+ * typed and offers to clear it, because the fix is one click rather than a
+ * filter change.
+ */
+export function NoResults({
+  query,
+  onClear,
+  noun = "tasks",
+}: {
+  query: string;
+  onClear: () => void;
+  noun?: string;
+}) {
+  return (
+    <div
+      className="wg-rise bg-surface-card rounded-section border border-hairline px-6 py-14 text-center"
+      style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)" }}
+    >
+      <span
+        aria-hidden
+        className="mx-auto mb-4 inline-flex size-12 items-center justify-center rounded-2xl"
+        style={{ background: "var(--color-surface-soft)", color: "var(--color-ink-subtle)" }}
+      >
+        <SearchX size={24} strokeWidth={2.2} />
+      </span>
+      <p className="font-black text-ink-strong" style={{ fontSize: 20 }}>
+        No results found
+      </p>
+      <p className="mx-auto mt-2 max-w-[46ch] font-semibold text-ink-muted" style={{ fontSize: 15 }}>
+        No {noun} match “<span className="text-ink-strong">{query}</span>”. Try a
+        different spelling, or widen the filters in the bar above.
+      </p>
+      <button
+        type="button"
+        onClick={onClear}
+        className="mt-5 inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-4 py-2 text-[13px] font-bold text-ink-strong transition-colors hover:border-altus-red hover:text-altus-red"
+      >
+        <X size={14} strokeWidth={2.4} />
+        Clear search
+      </button>
     </div>
   );
 }

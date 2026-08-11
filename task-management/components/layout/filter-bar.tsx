@@ -10,6 +10,7 @@ import {
   User,
   Users,
   ListFilter,
+  Search,
   X,
   Loader2,
   FileText,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
+import { setSectionSearch } from "@/lib/client/section-search";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -361,6 +363,10 @@ export function FilterBar({
               <Loader2 size={13} strokeWidth={2.2} className="animate-spin" />
               Updating…
             </span>
+
+            <SectionSearchBox
+              placeholder={`Search ${SECTION_LABELS[pathname] ?? "this view"}…`}
+            />
           </div>
         </div>
 
@@ -407,6 +413,85 @@ export function FilterBar({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Human name of the view the bar is sitting on, for the search placeholder.
+ * Falls back to a neutral phrase so a new route that mounts the bar still
+ * reads sensibly instead of showing "Search undefined…".
+ */
+const SECTION_LABELS: Record<string, string> = {
+  "/dashboard": "Dashboard",
+  "/tasks": "Tasks",
+  "/tasks/agenda": "My Day",
+  "/tasks/kanban": "Kanban",
+  "/archived": "Archived",
+};
+
+/**
+ * Section-scoped search. Writes to the section-search store, which the view
+ * rendered below the bar reads via `useSectionSearch()` and applies to the rows
+ * it has ALREADY loaded — so this filters live, per keystroke, with no server
+ * round trip (unlike the other controls here, which re-query via the URL).
+ *
+ * Chrome intentionally mirrors `filter-pill`: same surface, hairline border,
+ * 12px radius and shadow, so it reads as one of the bar's controls.
+ */
+function SectionSearchBox({ placeholder }: { placeholder: string }) {
+  const pathname = usePathname();
+  const [text, setText] = React.useState("");
+
+  // Clear when moving between sections — a query typed on Tasks must not carry
+  // over and silently hide rows on Kanban. Also runs on mount, so the store
+  // always starts empty for the new view.
+  React.useEffect(() => {
+    setText("");
+    setSectionSearch("");
+  }, [pathname]);
+
+  // And clear on unmount, so a view WITHOUT the bar can never inherit a stale
+  // query from the last one that had it.
+  React.useEffect(() => () => setSectionSearch(""), []);
+
+  function update(next: string) {
+    setText(next);
+    setSectionSearch(next);
+  }
+
+  return (
+    <div className="relative shrink-0">
+      <Search
+        size={14}
+        strokeWidth={2.2}
+        aria-hidden
+        className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-ink-subtle"
+      />
+      <input
+        type="search"
+        value={text}
+        onChange={(e) => update(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") update("");
+        }}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        // Narrow by default so the ribbon fits on one line, widening on focus
+        // (and on wide screens) once you're actually typing into it.
+        className="h-[30px] w-[150px] 2xl:w-[200px] focus:w-[220px] rounded-xl border border-hairline bg-surface-card pl-7 pr-6 text-[12px] font-semibold text-ink-strong placeholder:font-normal placeholder:text-ink-subtle outline-none transition-all hover:border-hairline-strong focus:border-altus-red focus:ring-2 focus:ring-altus-red/20"
+        style={{ boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)" }}
+      />
+      {text && (
+        <button
+          type="button"
+          onClick={() => update("")}
+          aria-label="Clear search"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-subtle transition-colors hover:text-ink-strong"
+        >
+          <X size={14} strokeWidth={2.4} />
+        </button>
+      )}
     </div>
   );
 }
