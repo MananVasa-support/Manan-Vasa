@@ -3,10 +3,14 @@ import type { EmployeeStatusRow, ViewMode } from "@/lib/types";
 
 /**
  * Optional membership map: employeeId → the departments they belong to.
- * When supplied, a person who belongs to several departments gets one row
- * PER department (so they show up under each group in the dashboard).
  * When omitted, we fall back to the single primary department on the
  * employee row.
+ *
+ * NOTE: this used to emit one row PER department, so someone in 7 departments
+ * produced 7 rows — each counting ALL of their tasks, not a share. That both
+ * repeated the person and inflated every column total. Rows are now keyed by
+ * employee alone and carry the full department list, so each task is counted
+ * exactly once.
  */
 export type DepartmentMembershipMap = Map<string, { name: string }[]>;
 
@@ -35,13 +39,13 @@ export function computeEmployeeStatusTable(
     const emp = employeeById.get(id);
     if (!emp) continue;
 
-    for (const department of departmentsFor(emp)) {
-    const rowKey = `${id}__${department}`;
+    // Keyed by employee only — ONE row per person.
+    const rowKey = id;
     if (!rows.has(rowKey)) {
       rows.set(rowKey, {
         employeeId: id,
         employeeName: emp.name,
-        department,
+        departments: departmentsFor(emp).filter((d) => d.length > 0),
         approved: 0,
         notApproved: 0,
         done: 0,
@@ -111,7 +115,6 @@ export function computeEmployeeStatusTable(
         row.notStarted += 1;
         row.pendingTotal += 1;
         break;
-    }
     }
   }
 

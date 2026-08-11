@@ -69,7 +69,9 @@ export interface VelocityPoint {
 export interface EmployeeStatusRow {
   employeeId: string;
   employeeName: string;
-  department: string;
+  /** Every department this person belongs to. One row per EMPLOYEE (not per
+   *  department), so the metric columns below count each task exactly once. */
+  departments: string[];
   approved: number;
   notApproved: number;
   done: number;

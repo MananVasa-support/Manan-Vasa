@@ -9,6 +9,7 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
+import * as Tooltip from "@radix-ui/react-tooltip";
 import { Search, X, Users, ChevronRight } from "lucide-react";
 import type { EmployeeStatusRow, ViewMode } from "@/lib/types";
 import { useSectionSearch, matchesSearch } from "@/lib/client/section-search";
@@ -59,7 +60,12 @@ function buildColumns(
         </span>
       ),
     },
-    { accessorKey: "department", header: "Department" },
+    {
+      accessorKey: "departments",
+      header: "Department",
+      enableSorting: false,
+      cell: (info) => <DepartmentTags names={departmentNames(info.row.original)} />,
+    },
     {
       accessorKey: "criticalCount",
       header: "Critical",
@@ -149,9 +155,7 @@ export function StatusTable({
 
   const departments = React.useMemo(() => {
     const set = new Set<string>();
-    rows.forEach((r) => {
-      if (r.department) set.add(r.department);
-    });
+    rows.forEach((r) => departmentNames(r).forEach((d) => d && set.add(d)));
     return Array.from(set).sort();
   }, [rows]);
 
@@ -162,7 +166,9 @@ export function StatusTable({
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((r) => {
-      if (selectedDept && r.department !== selectedDept) return false;
+      // A person now carries every department they belong to, so the chip
+      // filter matches if ANY of them is the selected one.
+      if (selectedDept && !departmentNames(r).includes(selectedDept)) return false;
       if (q && !r.employeeName.toLowerCase().includes(q)) return false;
       if (!matchesSearch(sectionQuery, r.employeeName)) return false;
       return true;
@@ -364,6 +370,128 @@ export function StatusTable({
         </div>
       )}
     </PageShell>
+  );
+}
+
+/** Departments shown inline before the "+N more" reveal. */
+const DEPT_VISIBLE = 2;
+
+/**
+ * Read a row's departments, tolerating a STALE cached payload.
+ *
+ * `loadDashboardData` persists its result through `unstable_cache`
+ * (revalidate 60, and it survives in .next/cache), so for a window after this
+ * field changed from `department: string` to `departments: string[]` the cache
+ * can still hand us the old shape. Reading `.departments` blind would throw on
+ * `.length` and take the whole dashboard down; this degrades to the legacy
+ * single value instead. Same guard the status-distribution card already uses
+ * for its `summary` field.
+ */
+function departmentNames(row: EmployeeStatusRow): string[] {
+  if (Array.isArray(row.departments)) return row.departments;
+  const legacy = (row as unknown as { department?: string | null }).department;
+  return legacy ? [legacy] : [];
+}
+
+/**
+ * Department column cell — comma-separated tags, capped at two.
+ *
+ * Anything beyond the second collapses into a "+N more" badge that opens a
+ * popover listing the remainder.
+ *
+ * Radix Tooltip covers hover + keyboard focus; a `pinned` flag layers click on
+ * top (`open = pinned || hovered`). Tooltip alone wouldn't respond to a click,
+ * and on touch devices — where hover doesn't exist — tapping is the only way
+ * in. Uses Tooltip rather than HoverCard because that package isn't a
+ * dependency here and this doesn't warrant adding one.
+ */
+function DepartmentTags({ names }: { names: string[] }) {
+  const [pinned, setPinned] = React.useState(false);
+  const [hovered, setHovered] = React.useState(false);
+
+  if (names.length === 0) return <span className="text-ink-subtle">—</span>;
+
+  const visible = names.slice(0, DEPT_VISIBLE);
+  const rest = names.slice(DEPT_VISIBLE);
+
+  const tag =
+    "inline-flex items-center rounded-full px-2 py-0.5 text-[12px] font-semibold whitespace-nowrap";
+  const tagStyle = {
+    background: "#F1F5F9",
+    color: "#334155",
+    boxShadow: "inset 0 0 0 1px #CBD5E1",
+  } as const;
+
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      {visible.map((d, i) => (
+        <span key={d} className={tag} style={tagStyle}>
+          {d}
+          {/* Comma sits OUTSIDE the badge so the tags still read as a list. */}
+          {i < visible.length - 1 || rest.length > 0 ? (
+            <span aria-hidden className="ml-0.5 text-ink-subtle">
+              ,
+            </span>
+          ) : null}
+        </span>
+      ))}
+
+      {rest.length > 0 && (
+        <Tooltip.Provider delayDuration={120}>
+        <Tooltip.Root open={pinned || hovered} onOpenChange={setHovered}>
+          <Tooltip.Trigger asChild>
+            <button
+              type="button"
+              // The row is a click-to-navigate target; keep the reveal local.
+              onClick={(ev) => {
+                ev.stopPropagation();
+                setPinned((v) => !v);
+              }}
+              aria-expanded={pinned || hovered}
+              aria-label={`Show ${rest.length} more departments: ${rest.join(", ")}`}
+              className={`${tag} cursor-pointer font-bold transition-colors hover:brightness-95 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/60`}
+              style={{
+                background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)",
+                color: "var(--color-altus-red-deep, #A80400)",
+                boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--color-altus-red) 26%, transparent)",
+              }}
+            >
+              +{rest.length} more
+            </button>
+          </Tooltip.Trigger>
+          <Tooltip.Portal>
+            <Tooltip.Content
+              side="top"
+              align="start"
+              sideOffset={6}
+              collisionPadding={12}
+              className="z-[90]"
+              style={{
+                maxWidth: 260,
+                background: "var(--color-surface-card)",
+                border: "1px solid var(--color-hairline-strong)",
+                borderRadius: 12,
+                boxShadow: "0 16px 40px rgba(15,23,42,0.18)",
+                padding: 12,
+              }}
+            >
+              <p className="mb-2 text-[10.5px] font-black uppercase tracking-[0.1em] text-ink-subtle">
+                Also in {rest.length} {rest.length === 1 ? "department" : "departments"}
+              </p>
+              <span className="flex flex-wrap gap-1">
+                {rest.map((d) => (
+                  <span key={d} className={tag} style={tagStyle}>
+                    {d}
+                  </span>
+                ))}
+              </span>
+              <Tooltip.Arrow style={{ fill: "var(--color-surface-card)" }} />
+            </Tooltip.Content>
+          </Tooltip.Portal>
+        </Tooltip.Root>
+        </Tooltip.Provider>
+      )}
+    </span>
   );
 }
 
