@@ -30,6 +30,30 @@ interface Props {
 }
 
 /**
+ * Uniform pill geometry, shared by the editable trigger and the read-only
+ * badge so a column of mixed rows reads as one column of identical chips.
+ *
+ * `min-w` rather than a hard `w-`: status labels are ADMIN-EDITABLE (the
+ * `status_settings` table), so a fixed width would silently truncate a custom
+ * label like "Waiting on client". 140px clears the longest built-in label
+ * ("Not Approved") with the dot, both gaps, the chevron and the horizontal
+ * padding, so in practice every stock status renders at exactly this width —
+ * and an unusually long custom one grows instead of being cut off.
+ */
+const BADGE_WIDTH = "min-w-[140px]";
+const BADGE_SHELL =
+  "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-pill text-[13px] font-bold tabular-nums whitespace-nowrap";
+
+/**
+ * The label takes the leftover space and centres itself INSIDE it. That is what
+ * keeps the dot hard against the left padding and the chevron hard against the
+ * right one at every label length — centring the whole dot+label+chevron group
+ * instead (a bare `justify-center`) would slide both markers inward on short
+ * labels like "Done" and they'd no longer line up down the column.
+ */
+const BADGE_LABEL = "flex-1 text-center";
+
+/**
  * Click-to-edit status chip for the tasks table. Server-side action
  * `setTaskStatus` validates the transition (canTransitionTo) and the
  * optimistic-lock, so the client just needs to ship the request and
@@ -155,7 +179,7 @@ export function InlineStatusCell({
     return (
       <span
         aria-label={`Status: ${labels[shown] ?? shown}`}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-[13px] font-bold tabular-nums"
+        className={`${BADGE_SHELL} ${BADGE_WIDTH}`}
         style={{
           background: `color-mix(in srgb, var(--color-${tone}) 12%, transparent)`,
           color: `var(--color-${tone}-deep)`,
@@ -167,7 +191,11 @@ export function InlineStatusCell({
           className="inline-block size-1.5 rounded-full shrink-0"
           style={{ background: `var(--color-${tone})` }}
         />
-        {labels[shown] ?? shown}
+        <span className={BADGE_LABEL}>{labels[shown] ?? shown}</span>
+        {/* Occupies exactly the chevron's footprint so a read-only badge and an
+            editable one centre their label on the same axis — the two render
+            side by side in the same column. */}
+        <span aria-hidden className="w-3 shrink-0" />
       </span>
     );
   }
@@ -186,7 +214,7 @@ export function InlineStatusCell({
           aria-expanded={open}
           aria-controls={open ? listId : undefined}
           aria-label={`Status: ${labels[shown] ?? shown}. Click to change.`}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-[13px] font-bold tabular-nums transition-all hover:brightness-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
+          className={`${BADGE_SHELL} ${BADGE_WIDTH} transition-all hover:brightness-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40`}
           style={{
             background: `color-mix(in srgb, var(--color-${tone}) 12%, transparent)`,
             color: `var(--color-${tone}-deep)`,
@@ -201,15 +229,18 @@ export function InlineStatusCell({
             className="inline-block size-1.5 rounded-full shrink-0"
             style={{ background: `var(--color-${tone})` }}
           />
-          {labels[shown] ?? shown}
+          <span className={BADGE_LABEL}>{labels[shown] ?? shown}</span>
+          {/* Both markers are 12px and `shrink-0`, so swapping the chevron for
+              the spinner mid-save cannot nudge the label off-centre. */}
           {pending ? (
             <Loader2
               size={12}
               strokeWidth={2.4}
+              className="shrink-0"
               style={{ animation: "spinFast 0.8s linear infinite" }}
             />
           ) : (
-            <ChevronDown size={12} strokeWidth={2.6} />
+            <ChevronDown size={12} strokeWidth={2.6} className="shrink-0" />
           )}
         </button>
       </Popover.Trigger>
