@@ -102,7 +102,7 @@ function pluralize(n: number, one: string, many: string = `${one}s`) {
   return `${n} ${n === 1 ? one : many}`;
 }
 
-/** "12 JUN 2026" — canonical Altus date. */
+/** "12 Jun 2026" — canonical Altus date. */
 function fmtDate(d: Date | string | null): string {
   if (!d) return "";
   return formatDate(d);

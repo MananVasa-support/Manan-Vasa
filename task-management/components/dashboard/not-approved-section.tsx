@@ -12,7 +12,7 @@ const RED = "var(--color-red-deep, #B91C1C)";
 /**
  * Not Approved — declined tasks sent back to be redone, waiting to be
  * actioned. A collapsed-by-default section (the body is not mounted until
- * opened, like CollapsibleVelocity / DoneAgingSection). Open body shows a
+ * opened, like DoneAgingSection). Open body shows a
  * red-toned "days waiting" histogram (every band is overdue for sign-off) and
  * a person-wise list: admins see everyone, a non-admin sees only their own
  * row. Each person row drills into their declined tasks via a Popover (same

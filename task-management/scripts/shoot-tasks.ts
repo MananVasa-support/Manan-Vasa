@@ -34,7 +34,6 @@ const FULL_UID = process.env.SHOOT_UID_FULL;
 
 const ROUTES: { path: string; name: string }[] = [
   { path: "/tasks", name: "01-tasks-list" },
-  { path: "/tasks/agenda", name: "02-agenda" },
   { path: "/tasks/kanban", name: "03-kanban" },
   { path: "/tasks/new", name: "04-new-task" },
 ];

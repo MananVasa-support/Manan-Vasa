@@ -43,7 +43,7 @@ export function hrMonthLabel(month: string): string {
   );
 }
 
-/** "2026-06-04" → "04 JUN 2026" (canonical, drift-free). */
+/** "2026-06-04" → "04 Jun 2026" (canonical, drift-free). */
 export function hrDateLabel(date: string): string {
   return formatDate(date);
 }

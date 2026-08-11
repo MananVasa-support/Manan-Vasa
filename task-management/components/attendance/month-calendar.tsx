@@ -75,7 +75,7 @@ function fmtHrs(min: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-/** "2026-08-05" → "05 AUG 2026" (canonical, no tz drift). */
+/** "2026-08-05" → "05 Aug 2026" (canonical, no tz drift). */
 function fmtFullDate(iso: string): string {
   return formatDate(iso);
 }

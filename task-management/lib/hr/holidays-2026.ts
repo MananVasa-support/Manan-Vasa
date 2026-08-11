@@ -86,9 +86,10 @@ export const HOLIDAYS_2026_BY_QUARTER: HolidayQuarter[] = QUARTER_DEFS.map((q) =
 export const HOLIDAYS_2026_COUNT = HOLIDAYS_2026.length;
 export const HOLIDAYS_2026_NATIONAL_COUNT = HOLIDAYS_2026.filter((h) => h.national).length;
 
-/** Short month abbreviation for a date badge, e.g. month 1 → "JAN". */
+/** Short month abbreviation for a date badge, e.g. month 1 → "Jan".
+ *  Title-case to match the canonical `formatDate` in lib/format.ts. */
 export function holidayMonthAbbr(month: number): string {
-  return ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][month - 1] ?? "";
+  return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][month - 1] ?? "";
 }
 
 // ── Management Discretion Regarding Holidays ────────────────────────────────

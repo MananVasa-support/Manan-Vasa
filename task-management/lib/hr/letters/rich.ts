@@ -203,7 +203,7 @@ function blockToHtml(
   }
 }
 
-/** Today's date in the canonical Altus letter format (e.g. "25 JUL 2026"). */
+/** Today's date in the canonical Altus letter format (e.g. "25 Jul 2026"). */
 function currentDate(): string {
   return formatDate(new Date());
 }

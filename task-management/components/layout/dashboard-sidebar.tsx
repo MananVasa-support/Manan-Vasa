@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import { LayoutGrid } from "lucide-react";
 import { SidebarRail, SidebarToggle } from "./sidebar-rail";
 import { SidebarBrand } from "./sidebar-brand";
 import { MainNavServer } from "./main-nav-server";
@@ -78,19 +77,9 @@ export async function DashboardSidebar() {
         <SidebarBrand />
       </div>
 
-      {/* ── Back to Hub — full-width, same black pill as the header ── */}
-      <div className="sidebar-hub px-4 pb-3">
-        <a
-          href="/hub"
-          aria-label="Back to Hub"
-          title="Back to Hub"
-          className="sidebar-hub-btn inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-[14px] font-bold text-white transition-transform active:scale-[0.98] hover:brightness-125"
-          style={{ background: "#000", boxShadow: "0 6px 16px -8px rgba(0,0,0,0.45)" }}
-        >
-          <LayoutGrid size={17} strokeWidth={2.4} />
-          <span className="sidebar-collapsible-hide">Back to Hub</span>
-        </a>
-      </div>
+      {/* The standalone "Back to Hub" pill used to sit here. It's gone — the
+          brand block above (logo + module wordmark) IS the link to /hub now,
+          so the rail doesn't carry the same navigation twice. */}
 
       {/* Personal | Professional space switch — Goals room, admins only. */}
       <SidebarGoalsSpace isAdmin={isAdmin} />

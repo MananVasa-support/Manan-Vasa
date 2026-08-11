@@ -10,7 +10,7 @@ import { SHORTCUT_GROUPS } from "@/lib/shortcuts";
 const GO_TO: Record<string, string> = {
   d: "/",
   t: "/tasks",
-  m: "/tasks/agenda",
+  m: "/my-day",
   p: "/projects",
   i: "/inbox",
   w: "/goals/weekly",

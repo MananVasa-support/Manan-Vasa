@@ -1128,7 +1128,7 @@ function UnlinkedNote({ what }: { what: string }) {
 
 /** Friendly "12 Aug 2026" for an ISO string. */
 function fmtDay(iso: string): string {
-  return formatDate(iso); // canonical "01 JAN 2026"
+  return formatDate(iso); // canonical "01 Jan 2026"
 }
 
 /**

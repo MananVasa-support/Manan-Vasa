@@ -10,7 +10,7 @@ import { getMyOnboardingStatusAction } from "@/app/(app)/dossier/onboarding/acti
 /**
  * Onboarding nudge — a SOFT, dismissible banner shown to a signed-in employee
  * who hasn't submitted their Onboarding Form. Not a gate: it floats over the app
- * (fixed, bottom-centre), never shifts layout, and an X dismisses it for the
+ * (fixed, bottom-right), never shifts layout, and an X dismisses it for the
  * rest of the session (sessionStorage) so it isn't naggy.
  *
  * Rendered once from the (app) layout with NO props: it fetches its own
@@ -31,8 +31,8 @@ const NUDGE_CSS = `
     animation: onbNudgeIn 0.42s cubic-bezier(0.22,1,0.36,1) both;
   }
   @keyframes onbNudgeIn {
-    from { opacity: 0; transform: translate(-50%, 16px); }
-    to   { opacity: 1; transform: translate(-50%, 0); }
+    from { opacity: 0; transform: translate(0, 16px); }
+    to   { opacity: 1; transform: translate(0, 0); }
   }
   @media (prefers-reduced-motion: reduce) {
     .onb-nudge { animation: none; }
@@ -95,7 +95,7 @@ export function OnboardingNudge(): React.JSX.Element | null {
       <div
         role="region"
         aria-label="Onboarding reminder"
-        className="onb-nudge fixed bottom-5 left-1/2 z-[90] w-[min(560px,calc(100vw-2rem))] -translate-x-1/2"
+        className="onb-nudge fixed bottom-5 right-5 z-[90] w-[min(560px,calc(100vw-2rem))] max-md:right-4"
       >
         <div
           className="flex items-center gap-3.5 rounded-[16px] px-4 py-3.5 max-md:flex-wrap"

@@ -15,12 +15,12 @@ export function formatTime(d: Date): string {
   return timeFmt.format(d);
 }
 
-const MONTHS_UPPER = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const MONTHS_TITLE = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /**
  * CANONICAL Altus date format — the ONE way every user-facing date renders,
- * across all modules: `dd MMM yyyy` with an UPPERCASE 3-letter month, e.g.
- * `01 JAN 2026`, `07 AUG 2026`. (Permanent rule — never dd-mm-yyyy or slashes.)
+ * across all modules: `dd MMM yyyy` with a TITLE-CASE 3-letter month, e.g.
+ * `01 Jan 2026`, `07 Aug 2026`. (Permanent rule — never dd-mm-yyyy or slashes.)
  *
  * Accepts a Date, an ISO / `YYYY-MM-DD` string, or ms. A `YYYY-MM-DD` string is
  * parsed as a LOCAL calendar day (no UTC-midnight day-shift). Empty / invalid
@@ -39,7 +39,7 @@ export function formatDate(input: Date | string | number | null | undefined): st
   }
   if (Number.isNaN(date.getTime())) return typeof input === "string" ? input : "";
   const dd = String(date.getDate()).padStart(2, "0");
-  return `${dd} ${MONTHS_UPPER[date.getMonth()]} ${date.getFullYear()}`;
+  return `${dd} ${MONTHS_TITLE[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 /**

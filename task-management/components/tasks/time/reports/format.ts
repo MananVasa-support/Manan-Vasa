@@ -9,12 +9,12 @@ import { formatDate } from "@/lib/format";
 
 const IST = "Asia/Kolkata";
 
-/** Canonical "03 AUG 2026". */
+/** Canonical "03 Aug 2026". */
 export function fmtDate(iso: string | null | undefined): string {
   return iso ? formatDate(iso) : "—";
 }
 
-/** "03 AUG 2026, 4:12 PM" — canonical date + time, IST. */
+/** "03 Aug 2026, 4:12 PM" — canonical date + time, IST. */
 export function fmtDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   const time = new Date(iso).toLocaleTimeString("en-IN", {
@@ -26,7 +26,7 @@ export function fmtDateTime(iso: string | null | undefined): string {
   return `${formatDate(iso)}, ${time}`;
 }
 
-/** Canonical "03 AUG 2026" from a bare YYYY-MM-DD (parsed as a local day). */
+/** Canonical "03 Aug 2026" from a bare YYYY-MM-DD (parsed as a local day). */
 export function fmtDayLabel(day: string): string {
   return formatDate(day);
 }

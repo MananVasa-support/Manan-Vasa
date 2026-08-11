@@ -91,7 +91,7 @@ export async function loadLetterCandidates(): Promise<LetterCandidateOption[]> {
     .filter((c) => c.name.length > 0);
 }
 
-/** Canonical Altus date for letters — "25 JUL 2026" (dd MMM yyyy, uppercase). */
+/** Canonical Altus date for letters — "25 Jul 2026" (dd MMM yyyy, title-case). */
 export function letterDate(d: Date = new Date()): string {
   return formatDate(d);
 }

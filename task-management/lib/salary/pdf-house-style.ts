@@ -40,7 +40,7 @@ export const inr = (n: number): string =>
 
 /** "dd MMMM yyyy" for a YYYY-MM-DD ISO date, or "" / the raw string on failure. */
 export function fmtDate(iso?: string | null): string {
-  return formatDate(iso ?? ""); // canonical "01 JAN 2026"
+  return formatDate(iso ?? ""); // canonical "01 Jan 2026"
 }
 
 // ── number → Indian-system words (net-payable / total lines) ────────────────

@@ -17,7 +17,7 @@ import { formatDate } from "@/lib/format";
 
 const inr = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN");
 
-/** "12 SEP 2026" — the human date the certificate is issued on. */
+/** "12 Sep 2026" — the human date the certificate is issued on. */
 function longDate(d: Date): string {
   return formatDate(d);
 }

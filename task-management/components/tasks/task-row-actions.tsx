@@ -165,38 +165,68 @@ export function TaskRowActions({ row, employees, me }: Props) {
   const showReassignLink = canReassign(permInput);
   if (!me.isAdmin && !showApproveLink && !showReassignLink) return null;
 
+  // Quick actions sit OUTSIDE the ⋯ menu as one-click icon buttons, so the two
+  // things people reach for constantly (archive, delete) don't cost a menu
+  // open. Same admin-only rule as before, and they're removed from the menu
+  // below so each action has exactly one home.
+  const quickBtn =
+    "inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-ink-subtle transition-colors disabled:opacity-40 disabled:cursor-not-allowed";
+
   return (
+    <div className="inline-flex items-center gap-0.5">
+      {me.isAdmin &&
+        (row.archived ? (
+          <button
+            type="button"
+            onClick={handleUnarchive}
+            disabled={isPending}
+            title={`Restore "${row.title}" from the archive`}
+            aria-label={`Unarchive ${row.title}`}
+            className={`${quickBtn} hover:bg-surface-soft hover:text-ink-strong`}
+          >
+            <ArchiveRestore size={15} strokeWidth={2.2} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleArchive}
+            disabled={isPending}
+            title={`Archive "${row.title}"`}
+            aria-label={`Archive ${row.title}`}
+            className={`${quickBtn} hover:bg-surface-soft hover:text-ink-strong`}
+          >
+            <Archive size={15} strokeWidth={2.2} />
+          </button>
+        ))}
+
+      {me.isAdmin && (
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={isPending}
+          title={`Delete "${row.title}" permanently`}
+          aria-label={`Delete ${row.title}`}
+          className={`${quickBtn} hover:bg-altus-red/10 hover:text-altus-red`}
+        >
+          <Trash2 size={15} strokeWidth={2.2} />
+        </button>
+      )}
+
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={`Actions for ${row.title}`}
-          className="size-9 inline-flex items-center justify-center rounded-full hover:bg-surface-soft text-ink-subtle hover:text-ink-strong transition-colors disabled:opacity-50"
+          aria-label={`More actions for ${row.title}`}
+          title="More actions"
+          className="size-7 inline-flex items-center justify-center rounded-lg hover:bg-surface-soft text-ink-subtle hover:text-ink-strong transition-colors disabled:opacity-50"
           disabled={isPending}
         >
-          <MoreHorizontal size={18} strokeWidth={2.2} />
+          <MoreHorizontal size={16} strokeWidth={2.2} />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        {/* Archive / Unarchive — admin-only (doers change status instead; a
-            doer archiving a task effectively hid it from the board). */}
-        {me.isAdmin && (
-          <>
-            {row.archived ? (
-              <DropdownMenuItem onClick={handleUnarchive}>
-                <ArchiveRestore size={14} />
-                Unarchive
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem onClick={handleArchive}>
-                <Archive size={14} />
-                Archive
-              </DropdownMenuItem>
-            )}
-
-            <DropdownMenuSeparator />
-          </>
-        )}
+        {/* Archive + Delete deliberately absent — they're the quick-action
+            buttons to the left of this trigger now. */}
 
         {/* Power actions — set any status (incl. approval verdicts), change
             priority, reassign to anyone. ADMIN-ONLY; never shown to doers. */}
@@ -279,18 +309,8 @@ export function TaskRowActions({ row, employees, me }: Props) {
           </>
         )}
 
-        {/* Permanent delete — destructive, so admin-only + confirmed. Lives
-            at the very bottom, highlighted red. */}
-        {me.isAdmin && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem danger onClick={handleDelete}>
-              <Trash2 size={14} />
-              Delete Task…
-            </DropdownMenuItem>
-          </>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
+    </div>
   );
 }

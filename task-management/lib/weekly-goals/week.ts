@@ -58,12 +58,12 @@ export function prevWeekStart(weekStart: string): string {
   return addDays(weekStart, -7);
 }
 
-/** "02 JUN 2026 – 08 JUN 2026" */
+/** "02 Jun 2026 – 08 Jun 2026" */
 export function formatWeekLabel(weekStart: string): string {
   return `${formatDate(weekStart)} – ${formatDate(weekEnd(weekStart))}`;
 }
 
-/** "02 JUN 2026" — compact single-day label. */
+/** "02 Jun 2026" — compact single-day label. */
 export function formatWeekShort(weekStart: string): string {
   return formatDate(weekStart);
 }

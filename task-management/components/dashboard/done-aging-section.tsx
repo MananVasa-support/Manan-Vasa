@@ -21,7 +21,7 @@ function bandIsLate(id: string): boolean {
 
 /**
  * Done — On time & aging. A collapsed-by-default section (the body is not
- * mounted until opened, like CollapsibleVelocity). The `Original ⇄ Revised`
+ * mounted until opened, like NotApprovedSection). The `Original ⇄ Revised`
  * toggle switches which due-date basis we measure against; for the active
  * basis we show the on-time summary (lifted from PunctualityCard) plus a
  * 12-band signed early/late histogram and the admin-only per-person list.

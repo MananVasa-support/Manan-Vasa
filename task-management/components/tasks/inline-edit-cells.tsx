@@ -6,7 +6,6 @@ import * as Popover from "@radix-ui/react-popover";
 import { ChevronDown, Check, Loader2, Search } from "lucide-react";
 import { format, differenceInCalendarDays } from "date-fns";
 import { formatDate } from "@/lib/format";
-import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { CriticalBadge } from "@/components/ui/critical-badge";
 import { fireToast } from "@/lib/toast";
 import {
@@ -73,12 +72,13 @@ export function InlineDoerCell({
   const [name, setName] = React.useState(doerName);
   React.useEffect(() => setName(doerName), [doerName]);
 
+  // Text name only — no initials avatar chip (the column reads cleaner, and the
+  // 32px circle was pure decoration next to a name that's already spelled out).
+  // `truncate` + `title`: the column is narrow, so a long name clips and the
+  // full spelling comes back on hover.
   const display = name ? (
-    <span className="inline-flex items-center gap-2.5">
-      <EmployeeAvatar name={name} size="sm" />
-      <span className="text-ink-strong font-bold" style={{ fontSize: 15 }}>
-        {name}
-      </span>
+    <span className="block truncate text-ink-strong font-bold" title={name} style={{ fontSize: 15 }}>
+      {name}
     </span>
   ) : (
     <span className="text-ink-subtle">—</span>
@@ -118,11 +118,13 @@ export function InlineDoerCell({
           type="button"
           onClick={(e) => e.stopPropagation()}
           disabled={pending}
-          className="inline-flex items-center gap-2.5 rounded-pill px-1.5 py-1 -mx-1.5 hover:bg-surface-soft transition-colors"
+          // min-w-0 + max-w-full: without them the flex item refuses to shrink
+          // below its content, so the name inside would never actually clip.
+          className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-pill px-1.5 py-1 -mx-1.5 hover:bg-surface-soft transition-colors"
           style={{ cursor: pending ? "wait" : "pointer", opacity: pending ? 0.7 : 1 }}
           aria-label="Reassign doer"
         >
-          {display}
+          <span className="min-w-0 truncate">{display}</span>
           {pending ? (
             <Loader2 size={12} className="shrink-0" style={{ animation: "spinFast 0.8s linear infinite" }} />
           ) : (
@@ -160,7 +162,6 @@ export function InlineDoerCell({
                   className="flex items-center gap-2.5 px-2.5 py-2 rounded-chip text-[14px] cursor-pointer hover:bg-surface-soft"
                   style={{ fontWeight: sel ? 700 : 500 }}
                 >
-                  <EmployeeAvatar name={e.name} size="sm" />
                   <span className="flex-1 text-ink-strong">{e.name}</span>
                   {sel && <Check size={14} strokeWidth={2.6} className="text-altus-red" />}
                 </li>

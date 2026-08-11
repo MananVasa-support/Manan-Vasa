@@ -18,7 +18,7 @@ function attainmentColor(pct: number): string {
 /**
  * Manager Initiator — are managers pushing work DOWN to their direct reports?
  * A collapsed-by-default section (the body is not mounted until opened, like
- * CollapsibleVelocity / NotApprovedSection / DoneAgingSection). The
+ * NotApprovedSection / DoneAgingSection). The
  * `Last 3 days ⇄ Last 7 days` toggle picks the active board. For each manager
  * we show a target-vs-actual progress bar (target = 3 tasks/working-day/report)
  * coloured by attainment, three category chips (Direct Reports counts toward
