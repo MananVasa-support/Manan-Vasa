@@ -35,7 +35,7 @@ import { CommitDialog } from "@/components/goals/commit/commit-dialog";
 import type { CommitMember } from "@/components/goals/commit/types";
 import type { GoalDTO } from "@/components/goals/cascade/util";
 import { WeeklyKanban } from "./weekly-kanban";
-import { GoalsDashboard } from "@/components/goals/board/goals-dashboard";
+import { WeeklyDashboard } from "./weekly-dashboard";
 import type { BoardMe, CascadeWeeklyGoal, MonthGoalOption, RosterMember } from "./types";
 
 /** localStorage key for the weekly board's List ⇄ Kanban preference. */
@@ -231,7 +231,11 @@ export function WeeklyCascadeBoard({
             "0 1px 2px rgba(15,23,42,0.05), 0 18px 44px -30px rgba(15,23,42,0.22)",
         }}
       >
-        <div className="relative flex min-h-[64px] flex-wrap items-center gap-4 px-6 py-3 max-md:gap-3 max-md:px-4">
+        {/* Same compact band the Yearly / Quarterly boards use — `heading ·
+            [period] [Viewing]` at min-h-56 with a 3-unit gap. Weekly keeps its
+            breadcrumb eyebrow above the title; the level boards have no
+            equivalent, which is the only difference between the two bands. */}
+        <div className="relative flex min-h-[56px] flex-wrap items-center gap-3 px-5 py-2.5 max-md:gap-2.5 max-md:px-4">
           {/* 1 · identity — eyebrow + compact title only */}
           <div className="min-w-[200px] flex-1">
             <div className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-subtle">
@@ -246,7 +250,10 @@ export function WeeklyCascadeBoard({
           </div>
 
           {/* 2 · week + person — one horizontal band, same divider as the level boards */}
-          <div className="flex shrink-0 flex-row items-center gap-2.5 border-l border-hairline pl-5 max-xl:w-full max-xl:justify-between max-xl:border-l-0 max-xl:pl-0">
+          {/* No rule between the title and the controls: with the flex gap
+              already separating them the divider only added a mark to look at.
+              The pair is narrow, so it drops to its own row late. */}
+          <div className="flex shrink-0 flex-row items-center gap-2.5 max-sm:w-full max-sm:justify-between">
             {/* Week selector FIRST — the period control leads the band, the
                 person picker follows: [ W19 · 10 Aug – 16 Aug ▾ ] [ Viewing ].
                 Same box as the level boards' FY stepper; the centre opens the
@@ -273,15 +280,15 @@ export function WeeklyCascadeBoard({
         {/* Create — a single weekly goal (composer drawer) + bulk file import.
             Both write into the week + person in view via the cascade weekly
             engine (addWeekGoal / importWeeklyGoals). */}
+        {/* The ONE primary action on the bar. Flat accent fill — the gradient,
+            the sheen sweep and the coloured glow were three decorations on a
+            12px button, and with the ritual chips also tinted red the row read
+            as five alerts rather than one call to action. */}
         <button
           type="button"
           onClick={() => quickAddRef.current?.open()}
-          className="wg-btn wg-sheen inline-flex shrink-0 items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12px] font-bold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
-          style={{
-            background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`,
-            boxShadow:
-              "0 8px 20px -10px color-mix(in srgb, var(--goals-accent, #E10600) 65%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)",
-          }}
+          className="wg-btn inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12px] font-bold text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
+          style={{ background: ACCENT }}
         >
           <Plus size={14} strokeWidth={2.8} />
           Add Weekly Goal
@@ -330,11 +337,19 @@ export function WeeklyCascadeBoard({
                 type="button"
                 onClick={() => setCommitOpen(true)}
                 title="Freeze next week (Saturday commit)"
-                className="wg-btn inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill border px-2.5 py-1.5 text-[12px] font-bold"
+                className="wg-btn inline-flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-pill border px-2.5 py-1.5 text-[12px] font-bold transition-colors hover:bg-surface-soft"
                 style={
+                  // Green once the week is actually frozen; otherwise NEUTRAL.
+                  // "Not yet committed" is the ordinary mid-week state, not a
+                  // fault — tinting it red made every Tuesday look like a
+                  // problem and spent the colour that at-risk goals need.
                   committedCount === adopted.length
-                    ? { borderColor: "#15803d", color: "#166534", background: "rgba(21,128,61,0.10)" }
-                    : { borderColor: ACCENT, color: ACCENT_DEEP, background: `color-mix(in srgb, ${ACCENT} 8%, transparent)` }
+                    ? { borderColor: "rgba(21,128,61,0.35)", color: "#166534", background: "rgba(21,128,61,0.08)" }
+                    : {
+                        borderColor: "var(--color-hairline-strong)",
+                        color: "var(--color-ink-soft)",
+                        background: "var(--color-surface-card)",
+                      }
                 }
               >
                 <Snowflake size={13} strokeWidth={2.4} />
@@ -374,7 +389,15 @@ export function WeeklyCascadeBoard({
 
       {/* Body — analytics dashboard, classic list, or the drag-to-plan Kanban */}
       {view === "dashboard" ? (
-        <GoalsDashboard allGoals={adopted.map((g) => weeklyToGoalDTO(g, nameOf))} level="week" fyStartYear={fyStartYear} />
+        <WeeklyDashboard
+          goals={adopted.map((g) => weeklyToGoalDTO(g, nameOf))}
+          weekNo={weekNo}
+          weekStart={weekStart}
+          viewedName={isSelf ? null : viewedName}
+          // The dashboard reads; the LIST is where a goal is edited. "View goal"
+          // hands off to it rather than growing a second editing surface.
+          onOpenGoal={() => pickView("list")}
+        />
       ) : view === "kanban" ? (
         <WeeklyKanban
           me={me}
@@ -504,8 +527,14 @@ function ViewToggleButton({
       aria-label={`${label} view`}
       className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
       style={
+        // Selection is carried by the raised white chip against the grey track,
+        // not by red ink — a view toggle is navigation, not a status.
         active
-          ? { background: "var(--color-surface-card)", color: ACCENT_DEEP, boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }
+          ? {
+              background: "var(--color-surface-card)",
+              color: "var(--color-ink-strong)",
+              boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)",
+            }
           : { background: "transparent", color: "var(--color-ink-subtle)" }
       }
     >
@@ -538,18 +567,20 @@ function RitualChip({
     <Link
       href={href}
       title={title}
-      className="wg-btn inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill border px-2.5 py-1.5 text-[12px] font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
+      className="wg-btn inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill border px-2.5 py-1.5 text-[12px] font-bold transition-colors hover:bg-surface-soft outline-none focus-visible:ring-2 focus-visible:ring-[var(--goals-accent,#E10600)]/60 focus-visible:ring-offset-1"
       style={
+        // Same rule as the commit button: green means finished, neutral means
+        // "still in progress". Pending is not an error state.
         done
           ? {
-              background: "rgba(21,128,61,0.10)",
+              background: "rgba(21,128,61,0.08)",
               borderColor: "rgba(21,128,61,0.35)",
               color: "#15803d",
             }
           : {
-              background: ACCENT_TINT,
-              borderColor: "color-mix(in srgb, var(--goals-accent, #E10600) 35%, transparent)",
-              color: ACCENT_DEEP,
+              background: "var(--color-surface-card)",
+              borderColor: "var(--color-hairline-strong)",
+              color: "var(--color-ink-soft)",
             }
       }
     >
@@ -695,27 +726,41 @@ const WeeklyQuickAdd = React.forwardRef<
 
   return (
     <>
-      {/* Calm dashed "+ Add weekly goal" tile (matches board-quick-add). */}
+      {/* The add-goal control, now IDENTICAL to the one the Yearly / Quarterly /
+          Monthly boards use (`board/board-quick-add.tsx`): a compact neutral
+          pill that sits at its natural width on the left.
+
+          It replaces a full-width red dashed banner. That banner was the widest
+          and loudest element on the page — on the Dashboard it out-shouted the
+          performance numbers and the at-risk goals it sat beneath, and a
+          secondary "create" affordance should never win that contest. Same
+          composer, same action, same permissions; only the shouting is gone. */}
       <button
         type="button"
         onClick={() => {
           setOpen(true);
           requestAnimationFrame(() => titleRef.current?.focus());
         }}
-        className={`wg-btn group flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-2xl border-2 px-4 py-5 text-[15px] font-bold transition-colors hover:bg-surface-soft ${QUICK_ADD_FOCUS_RING}`}
+        className={`wg-btn group inline-flex w-auto cursor-pointer items-center justify-center gap-2 self-start rounded-full border px-4 py-2.5 text-[13.5px] font-bold transition-colors hover:bg-surface-soft ${QUICK_ADD_FOCUS_RING}`}
         style={{
-          borderColor: "color-mix(in srgb, var(--color-altus-red) 40%, transparent)",
-          color: "var(--color-altus-red-deep)",
-          background: "color-mix(in srgb, var(--color-altus-red) 4%, transparent)",
+          borderColor: "var(--color-hairline-strong)",
+          color: "var(--color-ink-soft)",
+          background: "var(--color-surface-soft)",
         }}
       >
         <span
-          className="inline-flex size-7 items-center justify-center rounded-full"
-          style={{ background: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)", color: "var(--color-altus-red)" }}
+          className="inline-flex size-6 items-center justify-center rounded-full"
+          style={{
+            background: "color-mix(in srgb, var(--color-ink-strong) 8%, transparent)",
+            color: "var(--color-ink-muted)",
+          }}
         >
-          <Plus size={16} strokeWidth={2.8} />
+          <Plus size={15} strokeWidth={2.8} />
         </span>
-        Add Weekly Goal
+        Add New Goal
+        <span className="text-[12px] font-semibold" style={{ color: "var(--color-ink-subtle)" }}>
+          · into {props.weekLabel}
+        </span>
       </button>
 
       <WeeklyGoalDrawer
