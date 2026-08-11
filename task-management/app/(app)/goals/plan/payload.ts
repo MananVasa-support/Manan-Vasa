@@ -6,6 +6,7 @@ import { dailyChecklist, dailyPlanDay } from "@/db/schema";
 import { getPeriodGoals } from "@/lib/goals/queries";
 import {
   todayYmd,
+  cascadeGoalLevels,
   listGoalsForPlanner,
   listOpenTasksForChecklist,
   getOverdueItems,
@@ -94,13 +95,14 @@ function buildUnfinished(
       meta: r.taskNo ? `#${r.taskNo}` : null,
       added: false,
       overdue: true,
-      // The row's own provenance — a carryover card shows [CARRYOVER] plus the
-      // source it was originally pulled from, and re-adding it REUSES that
-      // goal_id / task_id (addUnfinishedToPlan) rather than making a new item.
+      dueLabel: "Carried over",
+      // Provenance — a carried-over row shows what it originally was and the
+      // day it was first committed. Re-adding it REUSES that goal_id/task_id
+      // (addUnfinishedToPlan), so nothing is duplicated.
       originKind: r.goalId ? "weekly" : r.taskId ? "task" : "adhoc",
-      dueLabel: shortDue(r.planDate) ? `From ${shortDue(r.planDate)}` : "Carried over",
+      fromYmd: r.planDate,
       taskNo: r.taskNo,
-      project: r.client ?? null,
+      project: r.client ?? r.subject ?? null,
       taskId: r.taskId,
     });
   }
@@ -145,11 +147,12 @@ export async function getPlanDayPayload(employeeId: string, now: Date = new Date
     getPeriodGoals(employeeId, "month", monthKey(now)),
     getPeriodGoals(employeeId, "quarter", quarterKey(now)),
     getPeriodGoals(employeeId, "year", yearKey(now)),
-    // WMS Tasks source. No horizon: the Available Work column filters by due
-    // date itself (Overdue / Today / Tomorrow / This Week / Custom), so the
-    // board needs the whole open set to filter over — the far-future "kachra"
-    // Sir wanted hidden is handled by the attention-first sort + the collapsed
-    // row cap, not by starving the filter of rows.
+    // WMS To-Do source. The column filters by due date itself (All / Overdue /
+    // Due Today / This Week), so it needs the whole open set to filter over —
+    // a 7-day horizon here would make "All" quietly mean "next 7 days". The
+    // far-future work Sir wanted out of the way is handled by the
+    // attention-first sort + the collapsed row cap instead of by starving the
+    // filter of rows.
     listOpenTasksForChecklist(employeeId, now, { limit: 200 }),
     getOverdueItems(employeeId, ymd),
     isManagerWithReports(employeeId),
@@ -165,12 +168,20 @@ export async function getPlanDayPayload(employeeId: string, now: Date = new Date
   const day = dayRow[0];
   const initialPhase: PlanPhase = day?.closedAt ? "closed" : day?.startedAt ? "active" : "plan";
 
+  // Cascade provenance (0141, guarded) — without it a GOAL pulled onto today
+  // is indistinguishable from a typed commitment and would wear the wrong tag.
+  const cascadeLevels = await cascadeGoalLevels(planRows.map((r) => r.id));
+
   const initialPlan: PlanItem[] = planRows.map((r) => ({
     id: r.id,
     title: r.title,
     subtitle: r.subject ?? r.client ?? null,
     origin: r.origin === "goal_related" ? ("goal_related" as const) : ("standalone" as const),
-    kind: (r.goalId ? "weekly" : r.taskId ? "task" : "adhoc") as PlanKind,
+    kind: (r.goalId
+      ? "weekly"
+      : r.taskId
+        ? "task"
+        : (cascadeLevels.get(r.id) ?? "adhoc")) as PlanKind,
     done: r.done,
     donePct: r.donePct,
     doneNote: r.doneNote,
@@ -202,7 +213,7 @@ export async function getPlanDayPayload(employeeId: string, now: Date = new Date
       overdue: t.overdue,
       dueLabel: t.overdue ? "Overdue" : t.dueToday ? "Today" : shortDue(t.dueAt),
       important: t.priority === "imp_urgent" || t.priority === "imp_not_urgent",
-      // Everything the Available Work row + its filters read.
+      // Everything the WMS To-Do column's rows + filters read.
       taskNo: t.taskNo,
       status: t.status,
       priority: t.priority,

@@ -4,20 +4,26 @@ import * as React from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Plus, Check, Trash2 } from "lucide-react";
+import { motion } from "motion/react";
+import { PRIORITY_LABELS } from "@/db/enums";
+import { STATUS_LABELS_FALLBACK } from "@/lib/format";
 import type { SourceItem } from "./types";
-import { DueParts, MetaLine, PriorityText, Sep, SourceTagChip, StatusText, periodLabel } from "./row-bits";
+import { KIND_PERIOD, OverdueTag, SourceTag, fmtYmd } from "./source-tag";
 
 /** dnd id for a source card — namespaced so it never collides with plan row ids. */
 export function sourceDragId(item: SourceItem): string {
   return `src::${item.kind}::${item.id}`;
 }
 
-const ACCENT = "#E10600";
-const ACCENT_DEEP = "#A80400";
+const GOALS_ACCENT = "#E10600";
+const GOALS_ACCENT_DEEP = "#A80400";
+
+const RISK = "var(--color-red-deep)";
+const WARN = "var(--color-amber-deep)";
 
 interface Props {
   item: SourceItem;
-  /** IST today (YYYY-MM-DD) — the reference the due chip compares against. */
+  /** IST today (YYYY-MM-DD) — what the due marks compare against. */
   today: string;
   /** No-drag quick path — add straight to today's plan. */
   onAdd: (item: SourceItem) => void;
@@ -26,15 +32,13 @@ interface Props {
 }
 
 /**
- * One row of Available Work: title on its own line, metadata layered beneath it,
- * and a single primary action on the right.
+ * A draggable card in one of the three source columns. Drag it into "Today's
+ * Plan", or press "+ Add to Today".
  *
- * The title is the strongest thing in the row and truncates on one line, so a
- * long name can never push the action off-screen or reflow the list.
- *
- * A row is a REFERENCE, never a copy: `item.id` is the real `tasks.id` /
+ * A card is a REFERENCE, never a copy: `item.id` is the real `tasks.id` /
  * `weekly_goals.id` / `goals.id` / prior `daily_checklist.id`, and adding it
- * calls the matching server action, which stores that id on the plan row.
+ * calls the matching server action, which stores that id on the plan row. No
+ * Goal, Goal Task or WMS Task is ever created here.
  */
 export function SourceCard({ item, today, onAdd, onAbandon }: Props) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -45,147 +49,136 @@ export function SourceCard({ item, today, onAdd, onAbandon }: Props) {
 
   const isTask = item.kind === "task";
   const isCarryover = item.kind === "unfinished";
-  const period = periodLabel(item.kind);
-  // A carryover row is identified by what it ORIGINALLY was — the tab it lives
-  // in already says "Carryover", so repeating that tag would be noise.
-  const tagKind = isCarryover ? (item.originKind ?? "unfinished") : item.kind;
-  // The payload phrases this as "From 29 Jul" (or "Carried over" when the
-  // source day is unknown); the row wants the fuller "Carryover from 29 Jul".
-  const carryoverLabel = !isCarryover
-    ? null
-    : item.dueLabel?.startsWith("From ")
-      ? `Carryover from ${item.dueLabel.slice(5)}`
-      : "Carried over";
+  const period = KIND_PERIOD[item.kind];
+  const overdue = isTask ? item.dueYmd != null && item.dueYmd < today : !!item.overdue;
+  const dueToday = isTask && item.dueYmd === today;
 
   return (
-    <div
+    <motion.div
       ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : item.added ? 0.55 : 1 }}
-      className="group flex items-center gap-3 rounded-lg py-3.5 pl-1 pr-1 transition-colors hover:bg-surface-soft/50"
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: item.added ? 0.55 : 1, y: 0 }}
+      style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : undefined }}
+      className="group rounded-xl border border-hairline bg-surface-card px-2.5 py-2 shadow-[0_1px_0_rgba(15,23,42,0.03)] transition-[border-color,box-shadow] hover:border-hairline-strong hover:shadow-[0_6px_18px_rgba(124,45,18,0.08)]"
     >
-      <button
-        type="button"
-        aria-label={item.added ? "Already on today's plan" : `Drag ${item.title} into today's plan`}
-        className="shrink-0 cursor-grab touch-none rounded p-0.5 text-ink-muted/25 transition-colors hover:text-ink-muted focus-visible:outline-2 group-hover:text-ink-muted/60 disabled:cursor-default disabled:opacity-20 max-sm:hidden"
-        style={{ outlineColor: ACCENT }}
-        disabled={item.added}
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical size={15} />
-      </button>
+      <div className="flex items-start gap-1.5">
+        <button
+          type="button"
+          aria-label={item.added ? "Already on today's plan" : `Drag ${item.title} into today's plan`}
+          className="mt-0.5 shrink-0 cursor-grab touch-none rounded text-ink-muted/40 hover:text-ink-muted focus-visible:outline-2 disabled:cursor-default disabled:opacity-25"
+          style={{ outlineColor: GOALS_ACCENT }}
+          disabled={item.added}
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical size={14} />
+        </button>
 
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[14.5px] font-semibold leading-[21px] text-ink-strong">{item.title}</div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[13px] font-semibold leading-[18px] text-ink-strong">{item.title}</div>
 
-        {/* Identity line — what this is and where it comes from. */}
-        <MetaLine>
-          <SourceTagChip kind={tagKind} />
-          {carryoverLabel ? (
-            <>
-              <Sep />
-              <span>{carryoverLabel}</span>
-            </>
-          ) : null}
-          {period ? (
-            <>
-              <Sep />
-              <span>{period}</span>
-            </>
-          ) : null}
-          {isTask && item.taskNo ? (
-            <>
-              <Sep />
-              <span className="tabular-nums">#{item.taskNo}</span>
-            </>
-          ) : null}
-          {item.project ? (
-            <>
-              <Sep />
+          {/* Identity line — what this is and where it came from. */}
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] leading-[15px] text-ink-muted">
+            <SourceTag kind={isCarryover ? (item.originKind ?? "unfinished") : item.kind} />
+            {period ? <span>{period}</span> : null}
+            {isTask && item.taskNo ? <span className="tabular-nums">#{item.taskNo}</span> : null}
+            {item.project ? (
               <span className="truncate">{item.project}</span>
-            </>
-          ) : !isTask && item.subtitle ? (
-            <>
-              <Sep />
+            ) : !isTask && item.subtitle ? (
               <span className="truncate">{item.subtitle}</span>
-            </>
-          ) : null}
-          {!isTask && !isCarryover && item.meta ? (
-            <>
-              <Sep />
+            ) : null}
+            {!isTask && !isCarryover && item.meta ? (
               <span className="tabular-nums">{item.meta}</span>
-            </>
+            ) : null}
+          </div>
+
+          {/* Status line. WMS tasks show due · priority · status; a carried-over
+              row shows that it is carried over and which day from. */}
+          {isTask ? (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] leading-[15px] text-ink-muted">
+              {overdue ? (
+                <>
+                  <OverdueTag />
+                  <span className="font-semibold tabular-nums" style={{ color: RISK }}>
+                    {fmtYmd(item.dueYmd)}
+                  </span>
+                </>
+              ) : dueToday ? (
+                <span className="font-semibold" style={{ color: WARN }}>
+                  Due today
+                </span>
+              ) : item.dueYmd ? (
+                <span className="tabular-nums">Due {fmtYmd(item.dueYmd)}</span>
+              ) : (
+                <span className="text-ink-muted/70">No due date</span>
+              )}
+              {item.priority ? (
+                <span
+                  className={item.important ? "font-semibold" : undefined}
+                  style={item.priority === "imp_urgent" ? { color: RISK } : item.important ? { color: WARN } : undefined}
+                >
+                  {PRIORITY_LABELS[item.priority]}
+                </span>
+              ) : null}
+              {item.status ? <span>{STATUS_LABELS_FALLBACK[item.status] ?? item.status}</span> : null}
+            </div>
+          ) : isCarryover ? (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] leading-[15px]">
+              <OverdueTag label="Carried Over" />
+              {item.fromYmd ? (
+                <span className="tabular-nums text-ink-muted">from {fmtYmd(item.fromYmd)}</span>
+              ) : null}
+            </div>
           ) : null}
-        </MetaLine>
+        </div>
 
-        {/* Status line — only WMS tasks have one, and it stays separate from the
-            identity line so due/priority/status read as a group. */}
-        {isTask ? (
-          <MetaLine className="!mt-1.5">
-            <DueParts dueYmd={item.dueYmd} today={today} />
-            {item.priority ? (
-              <>
-                <Sep />
-                <PriorityText priority={item.priority} />
-              </>
-            ) : null}
-            {item.status ? (
-              <>
-                <Sep />
-                <StatusText status={item.status} />
-              </>
-            ) : null}
-          </MetaLine>
-        ) : null}
-      </div>
-
-      <div className="flex shrink-0 items-center gap-1.5">
         {onAbandon && item.taskId ? (
           <button
             type="button"
             onClick={() => onAbandon(item)}
             aria-label={`Abandon ${item.title} (moves to Recycle Bin)`}
             title="Abandon — moves to Recycle Bin"
-            className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted/45 opacity-0 transition-[opacity,color] hover:text-[color:var(--color-red-deep)] focus-visible:opacity-100 focus-visible:outline-2 group-hover:opacity-100"
-            style={{ outlineColor: ACCENT }}
+            className="shrink-0 inline-flex size-6 items-center justify-center rounded-full text-ink-muted/60 opacity-0 transition-opacity hover:bg-surface-soft hover:text-[color:var(--color-altus-red)] focus-visible:opacity-100 focus-visible:outline-2 group-hover:opacity-100"
+            style={{ outlineColor: GOALS_ACCENT }}
           >
-            <Trash2 size={14} />
+            <Trash2 size={13} />
           </button>
         ) : null}
-        <button
-          type="button"
-          onClick={() => onAdd(item)}
-          disabled={item.added}
-          aria-label={item.added ? `${item.title} is already on today's plan` : `Add ${item.title} to today's plan`}
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[12.5px] font-bold transition-colors focus-visible:outline-2"
-          style={
-            item.added
-              ? {
-                  borderColor: "transparent",
-                  background: "var(--color-green-bg)",
-                  color: "var(--color-green-deep)",
-                  outlineColor: ACCENT,
-                }
-              : {
-                  borderColor: "var(--color-hairline-strong)",
-                  color: ACCENT_DEEP,
-                  outlineColor: ACCENT,
-                }
-          }
-        >
-          {item.added ? (
-            <>
-              <Check size={13} strokeWidth={3} /> On Today
-            </>
-          ) : (
-            <>
-              <Plus size={13} strokeWidth={3} />
-              <span className="max-sm:hidden">Add to Today</span>
-              <span className="sm:hidden">Add</span>
-            </>
-          )}
-        </button>
       </div>
-    </div>
+
+      {/* The single primary action, identical across all three source columns. */}
+      <button
+        type="button"
+        onClick={() => onAdd(item)}
+        disabled={item.added}
+        aria-label={item.added ? `${item.title} is already on today's plan` : `Add ${item.title} to today's plan`}
+        className="mt-2 inline-flex h-7 w-full items-center justify-center gap-1 rounded-lg border text-[11.5px] font-bold transition-colors focus-visible:outline-2"
+        style={
+          item.added
+            ? {
+                borderColor: "color-mix(in srgb, var(--color-green-deep) 26%, transparent)",
+                background: "var(--color-green-bg)",
+                color: "var(--color-green-deep)",
+                outlineColor: GOALS_ACCENT,
+              }
+            : {
+                borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 30%, transparent)`,
+                background: `color-mix(in srgb, ${GOALS_ACCENT} 6%, transparent)`,
+                color: GOALS_ACCENT_DEEP,
+                outlineColor: GOALS_ACCENT,
+              }
+        }
+      >
+        {item.added ? (
+          <>
+            <Check size={13} strokeWidth={3} /> On Today&apos;s Plan
+          </>
+        ) : (
+          <>
+            <Plus size={13} strokeWidth={3} /> Add to Today
+          </>
+        )}
+      </button>
+    </motion.div>
   );
 }

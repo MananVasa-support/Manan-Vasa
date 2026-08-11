@@ -1,0 +1,80 @@
+import { pgTable, uuid, text, jsonb, timestamp, index } from "drizzle-orm/pg-core";
+import { employees } from "@/db/schema";
+
+/**
+ * HR form submissions — a uniform INDEX over the HR lifecycle forms, which each
+ * keep their own table (`exit_records`, induction rows, candidate rows …).
+ *
+ * Defined in this module rather than the shared `db/schema.ts` for the same
+ * reason the Exit module does it (see lib/hr/exit/schema.ts): the feature owns
+ * its own table and stays out of shared-file merge conflicts. The table itself
+ * is created by db/migrations/0181_hr_form_submissions.sql.
+ *
+ * This is an index, NOT a replacement. Nothing here is the source of truth for a
+ * form's contents — the owning table still is. What this adds is the ability to
+ * answer "which forms has this person filled?" and "show me everyone's exit
+ * interviews from last month" without querying every form table in the product.
+ */
+export const hrFormSubmissions = pgTable(
+  "hr_form_submissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+
+    /** Joins to the code registry (lib/hr/forms/registry.ts). */
+    formKey: text("form_key").notNull(),
+    /** Snapshot — an old submission keeps the name it was filed under. */
+    formName: text("form_name").notNull(),
+    /** Snapshot of the HR lifecycle stage key ("exit", "pre-joining", …). */
+    section: text("section").notNull(),
+
+    /** WHOSE form this is. Drives the employee's list and the permission gate. */
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    /** WHO filled it — often HR on the employee's behalf. Never gates visibility. */
+    submittedById: uuid("submitted_by_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+
+    status: text("status").$type<HrFormStatus>().notNull().default("draft"),
+
+    /** Normalised completed responses — see `HrFormResponse`. */
+    responses: jsonb("responses").$type<HrFormResponse[]>().notNull().default([]),
+
+    /** Soft pointer to the owning row (table varies per row, so no FK). */
+    sourceTable: text("source_table"),
+    sourceId: uuid("source_id"),
+
+    /** Stamped only when status flips to "submitted"; NULL for drafts. */
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("hr_form_submissions_employee_idx").on(t.employeeId, t.submittedAt),
+    index("hr_form_submissions_submitted_idx").on(t.submittedAt),
+    index("hr_form_submissions_status_idx").on(t.status),
+    index("hr_form_submissions_section_idx").on(t.section),
+    index("hr_form_submissions_form_idx").on(t.formKey),
+  ],
+);
+
+/** `draft` = Save Draft; `submitted` = Submit succeeded and the row was stamped. */
+export type HrFormStatus = "draft" | "submitted";
+
+/**
+ * One answered question, flattened. Heterogeneous sources ({fields, ratings} vs
+ * {fields, checked} vs a candidate row) normalise to this on write, so View, PDF
+ * and Email each need ONE renderer instead of one per form.
+ *
+ * `group` is an optional section heading within the form (e.g. "Work
+ * Environment"); the renderers use it to keep a long form readable.
+ */
+export interface HrFormResponse {
+  question: string;
+  answer: string;
+  group?: string;
+}
+
+export type HrFormSubmission = typeof hrFormSubmissions.$inferSelect;
+export type NewHrFormSubmission = typeof hrFormSubmissions.$inferInsert;

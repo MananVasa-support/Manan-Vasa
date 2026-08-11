@@ -1,7 +1,7 @@
 import "server-only";
-import { and, asc, desc, eq, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dailyChecklist, dailyPlanDay, weeklyGoals, weeklyGoalActuals, tasks } from "@/db/schema";
+import { dailyChecklist, dailyPlanDay, goals, weeklyGoals, weeklyGoalActuals, tasks } from "@/db/schema";
 import type { TaskStatus, TaskPriority } from "@/db/enums";
 import { istYmd } from "@/lib/weekly-goals/week";
 import { currentWeekStart } from "@/lib/weekly-goals/week";
@@ -374,10 +374,10 @@ export async function listOpenTasksForChecklist(
         )`,
       ),
     )
-    // Order BEFORE the cap so the rows we keep are the most urgent ones — an
-    // unordered LIMIT would hand back an arbitrary slice and the attention-first
-    // sort below could only re-order whatever it happened to get. Postgres sorts
-    // NULLs last on ASC, so undated tasks fall to the end where they belong.
+    // Order BEFORE the cap so the rows kept are the most urgent — an unordered
+    // LIMIT hands back an arbitrary slice, and the attention-first sort below
+    // could then only re-order whatever it happened to get. Postgres sorts
+    // NULLs last on ASC, so undated tasks land at the end where they belong.
     .orderBy(asc(effectiveDueAtSql()), asc(tasks.createdAt))
     .limit(opts.limit ?? 50);
 
@@ -488,6 +488,43 @@ export async function listGoalsForPlanner(employeeId: string, now: Date = new Da
     .limit(1);
   if (recent && recent.ws !== thisWeek) return plannerGoalsForWeek(employeeId, recent.ws, ymd);
   return current;
+}
+
+/**
+ * Best-effort map of `daily_checklist.id` → the cascade level of the GOAL it
+ * was pulled from ("yearly" | "quarterly" | "monthly").
+ *
+ * WHY: a plan row only stores `goal_id` (weekly goals) and `task_id`, so a
+ * cascade goal pulled onto today is otherwise indistinguishable from a typed
+ * ad-hoc commitment — it would carry a COMMITMENT tag instead of GOAL, which
+ * is exactly the "where did this come from?" confusion the tags exist to kill.
+ * Migration 0141 added `cascade_goal_id` to carry that provenance.
+ *
+ * GUARDED, deliberately: 0141 may be UNAPPLIED in prod (see db/schema.ts and
+ * the plan actions' identical guard). Reading the column then throws, we
+ * swallow it and return an empty map, and every caller falls back to the legacy
+ * derivation. Provenance degrades to the old behaviour; nothing breaks.
+ */
+export async function cascadeGoalLevels(
+  rowIds: string[],
+): Promise<Map<string, "yearly" | "quarterly" | "monthly">> {
+  const out = new Map<string, "yearly" | "quarterly" | "monthly">();
+  if (rowIds.length === 0) return out;
+  try {
+    const rows = await db
+      .select({ id: dailyChecklist.id, period: goals.period })
+      .from(dailyChecklist)
+      .innerJoin(goals, eq(goals.id, dailyChecklist.cascadeGoalId))
+      .where(inArray(dailyChecklist.id, rowIds));
+    for (const r of rows) {
+      if (r.period === "year") out.set(r.id, "yearly");
+      else if (r.period === "quarter") out.set(r.id, "quarterly");
+      else if (r.period === "month") out.set(r.id, "monthly");
+    }
+  } catch {
+    // 0141 unapplied — provenance unavailable, never fatal.
+  }
+  return out;
 }
 
 /**

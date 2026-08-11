@@ -16,36 +16,6 @@ export type SourceKind = "weekly" | "monthly" | "quarterly" | "yearly" | "task" 
 /** What a left-column commitment was pulled from (or typed ad-hoc). */
 export type PlanKind = SourceKind | "adhoc";
 
-/**
- * The explicit TEXT tag every row carries, on BOTH sides of the board. Spelled
- * out in words (never colour-only) so the source of a line is unmistakable:
- *   GOAL      — a cascade goal (`goals`: year / quarter / month)
- *   GOAL TASK — a weekly goal (`weekly_goals`), the executable slice of a goal
- *   WMS TASK  — a real WMS task (`tasks`)
- *   CARRYOVER — an unfinished commitment pulled forward from an earlier day
- *   AD-HOC    — typed straight into today's plan
- */
-export type SourceTag = "GOAL" | "GOAL TASK" | "WMS TASK" | "CARRYOVER" | "AD-HOC";
-
-/** kind → tag. One map, used by the plan column AND the available-work column,
- *  so a line can never be labelled one thing on the left and another right. */
-export const KIND_TAG: Record<PlanKind, SourceTag> = {
-  yearly: "GOAL",
-  quarterly: "GOAL",
-  monthly: "GOAL",
-  weekly: "GOAL TASK",
-  task: "WMS TASK",
-  unfinished: "CARRYOVER",
-  adhoc: "AD-HOC",
-};
-
-/** The cascade level word shown beside a [GOAL] tag. */
-export const KIND_PERIOD_LABEL: Partial<Record<PlanKind, string>> = {
-  yearly: "Yearly",
-  quarterly: "Quarterly",
-  monthly: "Monthly",
-};
-
 /** A single ordered commitment in "Today's Plan". */
 export interface PlanItem {
   /** daily_checklist row id — or `GHOST_ID` while a source is dragged over. */
@@ -96,19 +66,22 @@ export interface SourceItem {
         the card REFERENCES that task, it never copies or re-creates one. ── */
   /** tasks.task_no — the id a user quotes ("#1023"). */
   taskNo?: number | null;
-  /** Live WMS status — drives the status chip AND the status filter. */
+  /** Live WMS status — drives the status line AND the status filter. */
   status?: TaskStatus | null;
-  /** Eisenhower priority — drives the priority chip AND the priority filter. */
+  /** Eisenhower priority — drives the priority line AND the priority filter. */
   priority?: TaskPriority | null;
   /** EFFECTIVE due (revised ?? due_at) as an IST "YYYY-MM-DD" — the due filter
-   *  works off this, so filtering agrees with the overdue/today chips. */
+   *  works off this, so filtering agrees with the Overdue/Today marks. */
   dueYmd?: string | null;
   /** Project / client / source line. */
   project?: string | null;
 
-  /** For CARRYOVER cards only — what the ORIGINAL item was, so an unfinished
-   *  row can show both [CARRYOVER] and the source it came from. */
+  /* ── carryover detail (kind === "unfinished") ── */
+  /** What the ORIGINAL item was, so a carried-over row can show both its
+   *  CARRYOVER state and the source it actually came from. */
   originKind?: Extract<PlanKind, "weekly" | "task" | "adhoc">;
+  /** The plan date it was originally committed on ("YYYY-MM-DD"). */
+  fromYmd?: string | null;
 }
 
 /** All source windows handed to the board. */
