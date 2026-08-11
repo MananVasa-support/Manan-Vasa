@@ -182,7 +182,13 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
   wms: {
     top: [
       { href: "/dashboard" as Route, label: "Dashboard", Icon: LayoutDashboard, exact: true },
-      { href: "/tasks/agenda" as Route, label: "My Day", Icon: CalendarDays },
+      // My Day = Plan My Day, the SAME page as Goals › Plan my Day. It points at
+      // the WMS-owned alias `/my-day` rather than `/goals/plan` so opening it
+      // keeps you in this room (workspaceForPath owns `/goals*` for Goals).
+      { href: "/my-day" as Route, label: "My Day", Icon: CalendarDays },
+      // The task agenda kept its route and its place in the bar; only its label
+      // changed, freeing "My Day" for the planner above.
+      { href: "/tasks/agenda" as Route, label: "Task Agenda", Icon: ListChecks },
       {
         href: "/tasks" as Route,
         label: "Tasks",

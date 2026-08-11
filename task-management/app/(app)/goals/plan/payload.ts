@@ -94,7 +94,13 @@ function buildUnfinished(
       meta: r.taskNo ? `#${r.taskNo}` : null,
       added: false,
       overdue: true,
-      dueLabel: "Carried over",
+      // The row's own provenance — a carryover card shows [CARRYOVER] plus the
+      // source it was originally pulled from, and re-adding it REUSES that
+      // goal_id / task_id (addUnfinishedToPlan) rather than making a new item.
+      originKind: r.goalId ? "weekly" : r.taskId ? "task" : "adhoc",
+      dueLabel: shortDue(r.planDate) ? `From ${shortDue(r.planDate)}` : "Carried over",
+      taskNo: r.taskNo,
+      project: r.client ?? null,
       taskId: r.taskId,
     });
   }
@@ -139,8 +145,12 @@ export async function getPlanDayPayload(employeeId: string, now: Date = new Date
     getPeriodGoals(employeeId, "month", monthKey(now)),
     getPeriodGoals(employeeId, "quarter", quarterKey(now)),
     getPeriodGoals(employeeId, "year", yearKey(now)),
-    // To-Do source: only overdue + due-within-7-days (Sir — hide far-future).
-    listOpenTasksForChecklist(employeeId, now, { horizonDays: 7 }),
+    // WMS Tasks source. No horizon: the Available Work column filters by due
+    // date itself (Overdue / Today / Tomorrow / This Week / Custom), so the
+    // board needs the whole open set to filter over — the far-future "kachra"
+    // Sir wanted hidden is handled by the attention-first sort + the collapsed
+    // row cap, not by starving the filter of rows.
+    listOpenTasksForChecklist(employeeId, now, { limit: 200 }),
     getOverdueItems(employeeId, ymd),
     isManagerWithReports(employeeId),
     db
@@ -181,6 +191,8 @@ export async function getPlanDayPayload(employeeId: string, now: Date = new Date
     task: openTasks.map<SourceItem>((t) => {
       const label = displayTitle(t.title, t.description, t.client);
       return {
+      // `id` IS the tasks.id — adding this card calls addTaskToPlan(id), which
+      // stores the reference on daily_checklist.task_id. No WMS task is created.
       id: t.id,
       kind: "task",
       title: label,
@@ -190,6 +202,12 @@ export async function getPlanDayPayload(employeeId: string, now: Date = new Date
       overdue: t.overdue,
       dueLabel: t.overdue ? "Overdue" : t.dueToday ? "Today" : shortDue(t.dueAt),
       important: t.priority === "imp_urgent" || t.priority === "imp_not_urgent",
+      // Everything the Available Work row + its filters read.
+      taskNo: t.taskNo,
+      status: t.status,
+      priority: t.priority,
+      dueYmd: t.dueAt,
+      project: t.client ?? t.subject ?? null,
       taskId: t.id,
       };
     }),

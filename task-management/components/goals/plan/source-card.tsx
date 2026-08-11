@@ -3,31 +3,22 @@
 import * as React from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Plus, Check, AlertTriangle, Star, Trash2 } from "lucide-react";
-import { motion } from "motion/react";
+import { GripVertical, Plus, Check, Trash2 } from "lucide-react";
 import type { SourceItem } from "./types";
+import { DueChip, Dot, MetaLine, PeriodLabel, PriorityChip, SourceTagChip, StatusChip } from "./row-bits";
 
 /** dnd id for a source card — namespaced so it never collides with plan row ids. */
 export function sourceDragId(item: SourceItem): string {
   return `src::${item.kind}::${item.id}`;
 }
 
-// Goals module identity (amber-gold) — mirrors MODULE_THEME.goals.
-const GOALS_ACCENT = "#E10600";
-const GOALS_ACCENT_DEEP = "#A80400";
-
-// Kind accent bars map to real brand status tokens (weekly carries the goals amber).
-const KIND_ACCENT: Record<SourceItem["kind"], string> = {
-  weekly: GOALS_ACCENT,
-  monthly: "var(--color-purple-deep)",
-  quarterly: "var(--color-blue-deep)",
-  yearly: "var(--color-indigo-deep)",
-  task: "var(--color-slate)",
-  unfinished: "var(--color-amber-deep)",
-};
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
 
 interface Props {
   item: SourceItem;
+  /** IST today (YYYY-MM-DD) — the reference the due chip compares against. */
+  today: string;
   /** No-drag quick path — add straight to today's plan. */
   onAdd: (item: SourceItem) => void;
   /** Abandon the underlying task → Recycle Bin (only for task-linked cards). */
@@ -35,120 +26,158 @@ interface Props {
 }
 
 /**
- * A draggable card in a right-hand source window. Drag it into "Today's Plan",
- * or use the "+ Add to today" quick button (no-drag path). Keyboard users tab to
- * the grip and use the dnd-kit keyboard sensor, or press the + button.
+ * One row of Available Work. Drag it into Today's Plan, or press "+ Add".
+ *
+ * A row is a REFERENCE, never a copy: `item.id` is the real `tasks.id` /
+ * `weekly_goals.id` / `goals.id` / prior `daily_checklist.id`, and adding it
+ * calls the matching server action, which stores that id on the plan row. No
+ * Goal, Goal Task or WMS Task is ever created from this button.
+ *
+ * Compact by design — a single line of title plus one meta line, no card
+ * chrome, so twenty rows scan as a list rather than twenty boxes.
  */
-export function SourceCard({ item, onAdd, onAbandon }: Props) {
+export function SourceCard({ item, today, onAdd, onAbandon }: Props) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: sourceDragId(item),
     data: { type: "source", kind: item.kind, sourceId: item.id, title: item.title, subtitle: item.subtitle },
     disabled: item.added,
   });
 
-  const accent = KIND_ACCENT[item.kind];
+  const isTask = item.kind === "task";
+  const isCarryover = item.kind === "unfinished";
 
   return (
-    <motion.div
+    <div
       ref={setNodeRef}
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: item.added ? 0.55 : 1, y: 0 }}
-      style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : undefined }}
-      className="group flex items-center gap-1.5 rounded-xl border border-hairline bg-surface-card px-2.5 py-2 shadow-[0_1px_0_rgba(15,23,42,0.03)] transition-[border-color,box-shadow] hover:border-hairline-strong hover:shadow-[0_6px_18px_rgba(124,45,18,0.08)]"
+      style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : item.added ? 0.5 : 1 }}
+      className="group flex items-start gap-2 rounded-lg py-2 pl-1 pr-1.5 transition-colors hover:bg-surface-soft/60"
     >
       <button
         type="button"
         aria-label={item.added ? "Already on today's plan" : `Drag ${item.title} into today's plan`}
-        className="shrink-0 cursor-grab touch-none text-ink-muted/50 hover:text-ink-muted disabled:cursor-default disabled:opacity-30 focus-visible:outline-2 rounded"
-        style={{ outlineColor: GOALS_ACCENT }}
+        className="mt-[3px] shrink-0 cursor-grab touch-none rounded text-ink-muted/30 transition-colors hover:text-ink-muted focus-visible:outline-2 group-hover:text-ink-muted/70 disabled:cursor-default disabled:opacity-20"
+        style={{ outlineColor: ACCENT }}
         disabled={item.added}
         {...attributes}
         {...listeners}
       >
-        <GripVertical size={14} />
+        <GripVertical size={13} />
       </button>
-      <span
-        aria-hidden
-        className="h-6 w-[3px] shrink-0 rounded-full"
-        style={{ background: accent }}
-      />
+
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-semibold text-ink-strong">{item.title}</div>
-        {item.subtitle ? (
-          <div className="truncate text-[11px] text-ink-muted">{item.subtitle}</div>
-        ) : null}
-        {item.dueLabel || item.important ? (
-          <div className="mt-1 flex items-center gap-1.5">
-            {item.dueLabel ? (
-              item.overdue ? (
-                <span
-                  className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
-                  style={{
-                    background: "color-mix(in srgb, var(--color-altus-red) 13%, transparent)",
-                    color: "var(--color-altus-red-deep)",
-                  }}
-                >
-                  <AlertTriangle size={10} strokeWidth={2.5} />
-                  {item.dueLabel}
-                </span>
-              ) : (
-                <span className="inline-flex items-center rounded-full bg-surface-soft px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-ink-muted">
-                  {item.dueLabel}
-                </span>
-              )
-            ) : null}
-            {item.important ? (
-              <span
-                className="inline-flex items-center gap-0.5 text-[10px] font-bold"
-                style={{ color: GOALS_ACCENT }}
-              >
-                <Star size={10} className="fill-current" /> Important
+        <div className="flex items-baseline gap-2">
+          <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold leading-[19px] text-ink-strong">
+            {item.title}
+          </span>
+          {/* Task ID — the number a user quotes. Kept on the title line so it
+              stays findable no matter how long the meta line gets. */}
+          {item.taskNo ? (
+            <span className="shrink-0 text-[11px] font-semibold tabular-nums text-ink-muted/70">
+              #{item.taskNo}
+            </span>
+          ) : item.meta ? (
+            <span className="shrink-0 text-[11px] font-semibold tabular-nums text-ink-muted/70">{item.meta}</span>
+          ) : null}
+        </div>
+
+        <MetaLine>
+          <SourceTagChip kind={item.kind} />
+          {/* A carryover row names the source it came FROM, so "add" is
+              obviously a re-commitment, not a new item. */}
+          {isCarryover && item.originKind ? (
+            <>
+              <Dot />
+              <span>from</span>
+              <SourceTagChip kind={item.originKind} />
+            </>
+          ) : null}
+          <PeriodLabel kind={item.kind} />
+
+          {item.project ? (
+            <>
+              <Dot />
+              <span className="truncate">{item.project}</span>
+            </>
+          ) : item.subtitle && !isTask ? (
+            <>
+              <Dot />
+              <span className="truncate">{item.subtitle}</span>
+            </>
+          ) : null}
+
+          {isTask ? (
+            <>
+              <Dot />
+              <DueChip dueYmd={item.dueYmd} today={today} />
+              {item.priority ? (
+                <>
+                  <Dot />
+                  <PriorityChip priority={item.priority} />
+                </>
+              ) : null}
+              {item.status ? (
+                <>
+                  <Dot />
+                  <StatusChip status={item.status} />
+                </>
+              ) : null}
+            </>
+          ) : item.dueLabel ? (
+            <>
+              <Dot />
+              <span style={item.overdue ? { color: "var(--color-red-deep)", fontWeight: 700 } : undefined}>
+                {item.dueLabel}
               </span>
-            ) : null}
-          </div>
-        ) : null}
+            </>
+          ) : null}
+        </MetaLine>
       </div>
-      {item.meta ? (
-        <span className="shrink-0 rounded-full bg-surface-soft px-2 py-0.5 text-[11px] font-semibold text-ink-muted tabular-nums">
-          {item.meta}
-        </span>
-      ) : null}
-      {onAbandon && item.taskId ? (
+
+      <div className="flex shrink-0 items-center gap-1">
+        {onAbandon && item.taskId ? (
+          <button
+            type="button"
+            onClick={() => onAbandon(item)}
+            aria-label={`Abandon ${item.title} (moves to Recycle Bin)`}
+            title="Abandon — moves to Recycle Bin"
+            className="inline-flex size-6 items-center justify-center rounded-md text-ink-muted/50 opacity-0 transition-[opacity,color] hover:text-[color:var(--color-red-deep)] focus-visible:opacity-100 focus-visible:outline-2 group-hover:opacity-100"
+            style={{ outlineColor: ACCENT }}
+          >
+            <Trash2 size={12.5} />
+          </button>
+        ) : null}
         <button
           type="button"
-          onClick={() => onAbandon(item)}
-          aria-label={`Abandon ${item.title} (moves to Recycle Bin)`}
-          title="Abandon — moves to Recycle Bin"
-          className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-full text-ink-muted/60 transition-colors hover:bg-surface-soft hover:text-[color:var(--color-altus-red)] focus-visible:outline-2"
-          style={{ outlineColor: GOALS_ACCENT }}
+          onClick={() => onAdd(item)}
+          disabled={item.added}
+          aria-label={item.added ? `${item.title} is already on today's plan` : `Add ${item.title} to today's plan`}
+          className="inline-flex h-[26px] items-center gap-1 rounded-md border px-2 text-[11.5px] font-bold transition-colors focus-visible:outline-2"
+          style={
+            item.added
+              ? {
+                  borderColor: "transparent",
+                  background: "var(--color-green-bg)",
+                  color: "var(--color-green-deep)",
+                  outlineColor: ACCENT,
+                }
+              : {
+                  borderColor: "var(--color-hairline-strong)",
+                  color: ACCENT_DEEP,
+                  outlineColor: ACCENT,
+                }
+          }
         >
-          <Trash2 size={13} />
+          {item.added ? (
+            <>
+              <Check size={12} strokeWidth={3} /> On Today
+            </>
+          ) : (
+            <>
+              <Plus size={12} strokeWidth={3} /> Add to Today
+            </>
+          )}
         </button>
-      ) : null}
-      <button
-        type="button"
-        onClick={() => onAdd(item)}
-        disabled={item.added}
-        aria-label={item.added ? "Added to today" : `Add ${item.title} to today`}
-        className="wg-btn shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-full border transition-colors disabled:opacity-100 focus-visible:outline-2"
-        style={
-          item.added
-            ? {
-                borderColor: "color-mix(in srgb, var(--color-green-deep) 30%, transparent)",
-                background: "var(--color-green-bg)",
-                color: "var(--color-green-deep)",
-                outlineColor: GOALS_ACCENT,
-              }
-            : {
-                borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 32%, transparent)`,
-                background: `color-mix(in srgb, ${GOALS_ACCENT} 8%, transparent)`,
-                color: GOALS_ACCENT_DEEP,
-                outlineColor: GOALS_ACCENT,
-              }
-        }
-      >
-        {item.added ? <Check size={14} /> : <Plus size={15} />}
-      </button>
-    </motion.div>
+      </div>
+    </div>
   );
 }

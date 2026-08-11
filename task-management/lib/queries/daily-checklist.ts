@@ -333,7 +333,7 @@ function importanceRank(p: TaskPriority): number {
 export async function listOpenTasksForChecklist(
   employeeId: string,
   now: Date = new Date(),
-  opts: { horizonDays?: number } = {},
+  opts: { horizonDays?: number; limit?: number } = {},
 ): Promise<OpenTaskOption[]> {
   const ymd = todayYmd(now);
   // Sir's To-Do rule: on the planner, only surface OVERDUE + due-within-N-days
@@ -374,7 +374,12 @@ export async function listOpenTasksForChecklist(
         )`,
       ),
     )
-    .limit(50);
+    // Order BEFORE the cap so the rows we keep are the most urgent ones — an
+    // unordered LIMIT would hand back an arbitrary slice and the attention-first
+    // sort below could only re-order whatever it happened to get. Postgres sorts
+    // NULLs last on ASC, so undated tasks fall to the end where they belong.
+    .orderBy(asc(effectiveDueAtSql()), asc(tasks.createdAt))
+    .limit(opts.limit ?? 50);
 
   // Enrich each open task with its EFFECTIVE due (revised ?? due_at, per the
   // app-wide overdue rule) as an IST ymd + overdue/dueToday flags, so the

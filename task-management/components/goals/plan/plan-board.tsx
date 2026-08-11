@@ -20,22 +20,26 @@ import {
   sortableKeyboardCoordinates,
   arrayMove,
 } from "@dnd-kit/sortable";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import {
-  CalendarCheck2,
-  ChevronDown,
-  History,
-  Layers,
-  ListTodo,
-  Loader2,
-  Plus,
-  Sparkles,
-  Sunrise,
-} from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { ChevronDown, Loader2, Plus, Sunrise } from "lucide-react";
+import { PRIORITY_LABELS, TASK_PRIORITIES } from "@/db/enums";
 import { fireToast } from "@/lib/toast";
 import { SourceCard } from "./source-card";
 import { PlanItemCard } from "./plan-item-card";
 import { DayReview } from "./day-review";
+import { SourceTagChip } from "./row-bits";
+import {
+  DEFAULT_WMS_FILTER,
+  DUE_FILTER_LABEL,
+  STATUS_FILTER_LABEL,
+  applyWmsFilter,
+  isFilterActive,
+  sortByAttention,
+  type DueFilter,
+  type PriorityFilter,
+  type StatusFilter,
+  type WmsFilter,
+} from "./filters";
 import { GHOST_ID, type PlanItem, type PlanPhase, type PlanSources, type SourceItem, type SourceKind } from "./types";
 import {
   addWeeklyGoalToPlan,
@@ -46,6 +50,7 @@ import {
   abandonTask,
   reorderPlan,
   removePlanItem,
+  setItemProgress,
   startMyDay,
 } from "@/app/(app)/goals/plan/actions";
 
@@ -58,23 +63,38 @@ interface Props {
   minItems: number;
   isManager: boolean;
   initialPhase: PlanPhase;
+  /** IST today (YYYY-MM-DD) — the reference every due chip + filter compares
+   *  against. Passed from the server payload rather than computed here so the
+   *  client can't disagree with the server about which day "today" is. */
+  ymd: string;
 }
 
-// Goals module identity (amber-gold) — mirrors MODULE_THEME.goals. The planner
-// lives in the amber room, so every accent (drop zone, pips, CTA, focus rings)
-// reads amber, not WMS red.
-const GOALS_ACCENT = "#E10600";
-const GOALS_ACCENT_DEEP = "#A80400";
-const GOALS_GRADIENT = `linear-gradient(135deg, ${GOALS_ACCENT}, ${GOALS_ACCENT_DEEP})`;
+const ACCENT = "#E10600";
+const ACCENT_DEEP = "#A80400";
+const GRADIENT = `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})`;
 
 const PLAN_DROP_ID = "plan-drop";
 const nonGhost = (items: PlanItem[]) => items.filter((i) => i.id !== GHOST_ID);
 
-export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPhase }: Props) {
+/**
+ * Plan My Day — one daily command centre, rendered identically at
+ * `/goals/plan` (Goals › Plan My Day) and `/my-day` (WMS › My Day).
+ *
+ * The board answers two questions and keeps them visually apart:
+ *   RIGHT — AVAILABLE WORK: everything you COULD work on, grouped by where it
+ *           comes from (Goals · Goal Tasks · WMS Tasks · Carryover).
+ *   LEFT  — TODAY'S PLAN: what you've COMMITTED to, ordered, completable.
+ *
+ * Adding always REFERENCES the original row (goal id / weekly goal id / task
+ * id / prior checklist row) through the existing server actions — the board
+ * never creates a Goal, a Goal Task or a WMS Task.
+ */
+export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPhase, ymd }: Props) {
   const [phase, setPhase] = React.useState<PlanPhase>(initialPhase);
   const [starting, setStarting] = React.useState(false);
   const [plan, setPlan] = React.useState<PlanItem[]>(initialPlan);
   const [src, setSrc] = React.useState<PlanSources>(sources);
+  const [busyId, setBusyId] = React.useState<string | null>(null);
   const [active, setActive] = React.useState<
     | { type: "source"; title: string; subtitle: string | null; kind: SourceKind }
     | { type: "plan"; item: PlanItem }
@@ -92,6 +112,7 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
 
   const committed = React.useMemo(() => nonGhost(plan), [plan]);
   const count = committed.length;
+  const doneCount = React.useMemo(() => committed.filter((i) => i.done).length, [committed]);
   const met = count >= minItems;
 
   /** "Start my day" — persist the started stamp, then flip to the active phase. */
@@ -115,7 +136,7 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
     });
   }, []);
 
-  /** Flip a dedupe-able source (weekly/task) to "added" in its window. */
+  /** Flip a dedupe-able source (weekly/task/unfinished) to "added". */
   const markSource = React.useCallback((kind: SourceKind, id: string, added: boolean) => {
     setSrc((prev) => ({
       ...prev,
@@ -123,7 +144,7 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
     }));
   }, []);
 
-  /** Shared add path — used by BOTH drag-drop and the "+ Add to today" buttons. */
+  /** Shared add path — used by BOTH drag-drop and the "+ Add" buttons. */
   const commitAdd = React.useCallback(
     async (kind: SourceKind, sourceId: string, title: string, subtitle: string | null, atIndex?: number) => {
       const tempId = `temp:${crypto.randomUUID()}`;
@@ -177,6 +198,28 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
     (item: SourceItem) => void commitAdd(item.kind, item.id, item.title, item.subtitle),
     [commitAdd],
   );
+
+  /**
+   * Complete / un-complete a commitment straight from the plan. Uses the SAME
+   * `setItemProgress` the close-out screen uses, so ticking here runs the same
+   * reflect-to-source pipeline (origin WMS task flips done, origin weekly goal
+   * hits 100%) instead of a second, divergent completion path.
+   */
+  const onToggleDone = React.useCallback((item: PlanItem) => {
+    if (item.id.startsWith("temp:")) return; // not persisted yet
+    const done = !item.done;
+    const pct = done ? 100 : 0;
+    setPlan((prev) => prev.map((i) => (i.id === item.id ? { ...i, done, donePct: pct } : i)));
+    setBusyId(item.id);
+    void setItemProgress(item.id, { done, pct })
+      .then((r) => {
+        if (!r.ok) {
+          setPlan((prev) => prev.map((i) => (i.id === item.id ? { ...i, done: !done, donePct: done ? 0 : 100 } : i)));
+          fireToast({ message: r.error, type: "error" });
+        }
+      })
+      .finally(() => setBusyId(null));
+  }, []);
 
   /** Abandon a task → Recycle Bin. Optimistically drop it from its source list. */
   const onAbandon = React.useCallback((item: SourceItem) => {
@@ -306,62 +349,29 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
       onDragEnd={onDragEnd}
       onDragCancel={onDragCancel}
     >
-      {/* Sir's four verticals: a compact plan on the left, then the three pull
-          boxes — Weekly Goals, Unfinished, and your To-Do (filtered). Drag a card
-          left, or tap +. Stacks to 2 then 1 column on narrower screens. */}
-      <div className="grid gap-4 grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] max-lg:grid-cols-2 max-sm:grid-cols-1">
-        {/* 1 — Today's Plan (compact) */}
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
         <PlanColumn
           plan={plan}
           count={count}
+          doneCount={doneCount}
           minItems={minItems}
           met={met}
           isManager={isManager}
           starting={starting}
+          busyId={busyId}
+          onToggleDone={onToggleDone}
           onRemove={onRemove}
           onAddAdhoc={onAddAdhoc}
           onStart={onStartDay}
         />
-
-        {/* 2 — Weekly Goals */}
-        <SourceWindow
-          title="Weekly Goals"
-          subtitle="What your manager set this week"
-          icon={<Layers size={16} />}
-          delay={60}
-          sections={[{ key: "weekly", label: "This Week", items: src.weekly }]}
-          onAdd={onAddSource}
-        />
-
-        {/* 3 — Previously Unfinished */}
-        <SourceWindow
-          title="Unfinished"
-          subtitle="Carried over from earlier days"
-          icon={<History size={16} />}
-          delay={100}
-          sections={[{ key: "unfinished", label: "Not Done Yet", items: src.unfinished }]}
-          onAdd={onAddSource}
-          onAbandon={onAbandon}
-        />
-
-        {/* 4 — To-Do list (overdue + due within 7 days), with a filter */}
-        <SourceWindow
-          title="To-Do List"
-          subtitle="Overdue + due within 7 days"
-          icon={<ListTodo size={16} />}
-          delay={140}
-          filterable
-          sections={[{ key: "task", label: "Pending", items: src.task }]}
-          onAdd={onAddSource}
-          onAbandon={onAbandon}
-        />
+        <AvailableWork sources={src} today={ymd} onAdd={onAddSource} onAbandon={onAbandon} />
       </div>
 
       <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(0.2,0,0,1)" }}>
         {active ? (
-          <div className="flex items-center gap-2 rounded-chip border border-hairline-strong bg-surface-card px-3 py-3 shadow-[0_16px_40px_rgba(15,23,42,0.22)]">
-            <Sparkles size={15} style={{ color: GOALS_ACCENT }} />
-            <span className="text-sm font-medium text-ink-strong">
+          <div className="flex items-center gap-2 rounded-lg border border-hairline-strong bg-surface-card px-3 py-2.5 shadow-[0_16px_40px_rgba(15,23,42,0.2)]">
+            <SourceTagChip kind={active.type === "source" ? active.kind : active.item.kind} />
+            <span className="text-[13.5px] font-semibold text-ink-strong">
               {active.type === "source" ? active.title : active.item.title}
             </span>
           </div>
@@ -372,29 +382,60 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
 }
 
 /* ----------------------------------------------------------------------- */
-/* Left column — the droppable, ordered plan                               */
+/* Shared panel chrome                                                     */
+/* ----------------------------------------------------------------------- */
+
+/** One flat surface per column — a single border, no nested cards inside. */
+function Panel({
+  label,
+  caption,
+  aside,
+  children,
+}: {
+  label: string;
+  caption: string;
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-section border border-hairline bg-surface-card p-5 max-md:p-4">
+      <header className="mb-4 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="text-[11px] font-black uppercase tracking-[0.15em] text-ink-strong">{label}</h2>
+          <p className="mt-1 text-[12.5px] text-ink-muted">{caption}</p>
+        </div>
+        {aside}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+/* ----------------------------------------------------------------------- */
+/* Left — Today's Plan                                                     */
 /* ----------------------------------------------------------------------- */
 function PlanColumn(props: {
   plan: PlanItem[];
   count: number;
+  doneCount: number;
   minItems: number;
   met: boolean;
   isManager: boolean;
   starting: boolean;
+  busyId: string | null;
+  onToggleDone: (item: PlanItem) => void;
   onRemove: (id: string) => void;
   onAddAdhoc: (title: string) => void;
   onStart: () => void;
 }) {
-  const { plan, count, minItems, met, isManager, starting, onRemove, onAddAdhoc, onStart } = props;
+  const { plan, count, doneCount, minItems, met, isManager, starting, busyId, onToggleDone, onRemove, onAddAdhoc, onStart } = props;
   const { setNodeRef, isOver } = useDroppable({ id: PLAN_DROP_ID });
   const [draft, setDraft] = React.useState("");
-  const reduce = useReducedMotion();
 
   const ids = React.useMemo(() => plan.map((i) => i.id), [plan]);
   const isEmpty = count === 0;
-  // Breathe the drop zone in amber until the daily minimum is met (mirrors the
-  // weekly-goals "add N more" nudge language). GPU shadow only, reduced-motion off.
-  const nudge = !met && !isOver;
+  const pct = count > 0 ? Math.round((doneCount / count) * 100) : 0;
+  const allDone = count > 0 && doneCount === count;
 
   function submitDraft(e: React.FormEvent) {
     e.preventDefault();
@@ -405,112 +446,102 @@ function PlanColumn(props: {
   }
 
   return (
-    <section className="flex flex-col wg-rise">
-      <header className="mb-3 flex items-end justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
+    <Panel
+      label="Today's Plan"
+      caption="What I've committed to today"
+      aside={
+        <span className="shrink-0 text-right">
           <span
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white shadow-[0_4px_12px_rgba(124,45,18,0.28)]"
-            style={{ background: GOALS_GRADIENT }}
+            className="block text-[15px] font-black tabular-nums leading-none"
+            style={{ color: allDone ? "var(--color-green-deep)" : "var(--color-ink-strong)" }}
           >
-            <CalendarCheck2 size={16} />
+            {doneCount} / {count}
           </span>
-          <div className="min-w-0">
-            <h2
-              className="truncate text-ink-strong"
-              style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 15.5, letterSpacing: "-0.01em" }}
-            >
-              Today&apos;s Plan
-            </h2>
-            <p className="truncate text-[11px] text-ink-muted">What will you deliver today?</p>
-          </div>
+          <span className="mt-1 block text-[10.5px] font-bold uppercase tracking-[0.1em] text-ink-muted">
+            Complete
+          </span>
+        </span>
+      }
+    >
+      {/* Completion bar — the one piece of chrome that earns its pixels here. */}
+      {count > 0 ? (
+        <div className="mb-4 h-1 w-full overflow-hidden rounded-full bg-surface-track">
+          <div
+            className="h-full rounded-full transition-[width] duration-300"
+            style={{ width: `${pct}%`, background: allDone ? "var(--color-green-deep)" : GRADIENT }}
+          />
         </div>
-        <PipMeter count={count} minItems={minItems} met={met} reduce={!!reduce} />
-      </header>
+      ) : null}
 
-      <motion.div
+      <div
         ref={setNodeRef}
-        animate={
-          nudge && !reduce
-            ? { boxShadow: ["0 0 0 0 rgba(225,6,0,0)", "0 0 0 5px rgba(225,6,0,0.12)", "0 0 0 0 rgba(225,6,0,0)"] }
-            : { boxShadow: "0 0 0 0 rgba(225,6,0,0)" }
-        }
-        transition={nudge && !reduce ? { duration: 2.6, repeat: Infinity, ease: "easeInOut" } : { duration: 0.25 }}
-        className="min-h-[190px] rounded-2xl border p-2.5 transition-colors"
+        className="rounded-lg transition-colors"
         style={{
-          borderStyle: isEmpty && !isOver ? "dashed" : "solid",
-          borderColor: isOver
-            ? `color-mix(in srgb, ${GOALS_ACCENT} 45%, transparent)`
-            : isEmpty
-              ? `color-mix(in srgb, ${GOALS_ACCENT} 32%, transparent)`
-              : "var(--color-hairline)",
-          background: isOver
-            ? `color-mix(in srgb, ${GOALS_ACCENT} 5%, transparent)`
-            : "color-mix(in srgb, var(--color-surface-soft) 60%, transparent)",
+          outline: isOver ? `2px dashed color-mix(in srgb, ${ACCENT} 45%, transparent)` : "none",
+          outlineOffset: 4,
+          background: isOver ? `color-mix(in srgb, ${ACCENT} 4%, transparent)` : undefined,
+          minHeight: isEmpty ? undefined : 40,
         }}
       >
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-          <ul className="flex flex-col gap-2">
-            <AnimatePresence initial={false}>
-              {plan.map((item, i) => (
-                <PlanItemCard key={item.id} item={item} index={item.ghost ? i : nonGhostIndex(plan, item.id)} onRemove={onRemove} />
-              ))}
-            </AnimatePresence>
+          <ul className="flex flex-col divide-y divide-hairline/50">
+            {plan.map((item, i) => (
+              <PlanItemCard
+                key={item.id}
+                item={item}
+                index={item.ghost ? i : nonGhostIndex(plan, item.id)}
+                busy={busyId === item.id}
+                onToggleDone={onToggleDone}
+                onRemove={onRemove}
+              />
+            ))}
           </ul>
         </SortableContext>
 
         {isEmpty ? (
-          <div className="grid place-items-center gap-1.5 py-7 text-center">
-            <span
-              className="grid h-10 w-10 place-items-center rounded-xl"
-              style={{
-                background: `color-mix(in srgb, ${GOALS_ACCENT} 10%, transparent)`,
-                color: GOALS_ACCENT_DEEP,
-              }}
-            >
-              <Sunrise size={19} />
-            </span>
-            <p className="max-w-[32ch] text-[13px] font-medium text-ink-soft">
-              Drag a goal or task in from the right, or add a commitment below.
-            </p>
-            <p className="text-[11px] text-ink-muted">
-              {minItems} to unlock your day.
+          <div
+            className="rounded-lg border border-dashed px-4 py-8 text-center"
+            style={{ borderColor: `color-mix(in srgb, ${ACCENT} 26%, transparent)` }}
+          >
+            <p className="text-[13px] font-semibold text-ink-soft">Nothing planned yet</p>
+            <p className="mx-auto mt-1 max-w-[34ch] text-[12px] text-ink-muted">
+              Add work from Available Work, drag a row across, or type a commitment below.
             </p>
           </div>
         ) : null}
+      </div>
 
-        <form onSubmit={submitDraft} className="mt-2.5 flex items-center gap-2">
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Add a commitment…"
-            aria-label="Add a commitment for today"
-            maxLength={280}
-            className="h-9 flex-1 rounded-chip border border-hairline bg-surface-card px-3 text-[13px] text-ink-strong placeholder:text-ink-muted/60 focus-visible:outline-2"
-            style={{ outlineColor: GOALS_ACCENT }}
-          />
-          <button
-            type="submit"
-            disabled={draft.trim().length < 2}
-            aria-label="Add commitment"
-            className="wg-btn inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-chip bg-ink-strong text-white disabled:opacity-40 focus-visible:outline-2"
-            style={{ outlineColor: GOALS_ACCENT }}
-          >
-            <Plus size={16} />
-          </button>
-        </form>
-      </motion.div>
+      <form onSubmit={submitDraft} className="mt-4 flex items-center gap-2">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Add your own commitment…"
+          aria-label="Add a commitment for today"
+          maxLength={280}
+          className="h-9 flex-1 rounded-lg border border-hairline bg-surface-card px-3 text-[13px] text-ink-strong placeholder:text-ink-muted/60 focus-visible:outline-2"
+          style={{ outlineColor: ACCENT }}
+        />
+        <button
+          type="submit"
+          disabled={draft.trim().length < 2}
+          aria-label="Add commitment"
+          className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-ink-strong text-white transition-opacity disabled:opacity-30 focus-visible:outline-2"
+          style={{ outlineColor: ACCENT }}
+        >
+          <Plus size={16} />
+        </button>
+      </form>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <p className="text-[11px] text-ink-muted">
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-hairline pt-4 max-sm:flex-col max-sm:items-stretch">
+        <p className="text-[11.5px] text-ink-muted">
           {met ? (
-            <span className="inline-flex items-center gap-1.5 font-semibold" style={{ color: GOALS_ACCENT_DEEP }}>
-              <Sparkles size={13} /> You&apos;re ready — have a focused day.
+            <span className="font-semibold" style={{ color: "var(--color-green-deep)" }}>
+              Minimum met — you&apos;re ready to start.
             </span>
           ) : (
             <>
-              Plan at least{" "}
-              <span className="font-bold tabular-nums" style={{ color: GOALS_ACCENT_DEEP }}>{minItems}</span>{" "}
-              {isManager ? "items (manager minimum)" : "items"} to start.
+              Plan at least <span className="font-bold tabular-nums text-ink-strong">{minItems}</span>{" "}
+              {isManager ? "items (manager minimum)" : "items"} to start — {minItems - count} to go.
             </>
           )}
         </p>
@@ -518,13 +549,13 @@ function PlanColumn(props: {
           type="button"
           onClick={onStart}
           disabled={!met || starting}
-          className="brand-btn wg-btn wg-sheen inline-flex h-10 shrink-0 items-center gap-2 rounded-chip px-4 text-[13px] font-bold text-white shadow-[0_8px_22px_rgba(124,45,18,0.28)] disabled:opacity-40 disabled:shadow-none focus-visible:outline-2"
-          style={{ background: GOALS_GRADIENT, outlineColor: GOALS_ACCENT }}
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg px-4 text-[13px] font-bold text-white transition-opacity disabled:opacity-35 focus-visible:outline-2"
+          style={{ background: GRADIENT, outlineColor: ACCENT }}
         >
-          {starting ? <Loader2 size={15} className="animate-spin" /> : <Sunrise size={15} />} Start my day
+          {starting ? <Loader2 size={15} className="animate-spin" /> : <Sunrise size={15} />} Start My Day
         </button>
       </div>
-    </section>
+    </Panel>
   );
 }
 
@@ -532,210 +563,157 @@ function nonGhostIndex(plan: PlanItem[], id: string): number {
   return nonGhost(plan).findIndex((i) => i.id === id);
 }
 
-/** A pip meter for the daily minimum — each planned item lights an amber pip, so
- *  filling the minimum feels rewarding (the just-filled pip pops). */
-function PipMeter({
-  count,
-  minItems,
-  met,
-  reduce,
+/* ----------------------------------------------------------------------- */
+/* Right — Available Work                                                  */
+/* ----------------------------------------------------------------------- */
+function AvailableWork({
+  sources,
+  today,
+  onAdd,
+  onAbandon,
 }: {
-  count: number;
-  minItems: number;
-  met: boolean;
-  reduce: boolean;
-}) {
-  const filledCount = Math.min(count, minItems);
-  return (
-    <span
-      className="inline-flex items-center gap-2 rounded-full border border-hairline bg-surface-card px-2.5 py-1"
-      role="img"
-      aria-label={`${count} of ${minItems} planned`}
-    >
-      <span className="inline-flex items-center gap-1" aria-hidden>
-        {Array.from({ length: minItems }).map((_, i) => {
-          const filled = i < filledCount;
-          return (
-            <span
-              key={`${i}-${filled}`}
-              className={"h-1.5 rounded-full transition-all " + (filled ? "w-5" : "w-2.5") + (filled && !reduce ? " wg-pip-pop" : "")}
-              style={{
-                background: filled ? GOALS_GRADIENT : "var(--color-surface-track)",
-                animationDelay: filled && !reduce ? `${i * 60}ms` : undefined,
-              }}
-            />
-          );
-        })}
-      </span>
-      <span
-        className="text-xs font-bold tabular-nums"
-        style={{ color: met ? GOALS_ACCENT_DEEP : "var(--color-ink-muted)" }}
-      >
-        {count}/{minItems}
-      </span>
-    </span>
-  );
-}
-
-/* ----------------------------------------------------------------------- */
-/* Right column — a source window with collapsible sections                */
-/* ----------------------------------------------------------------------- */
-type TaskFilter = "all" | "overdue" | "important";
-
-function SourceWindow(props: {
-  title: string;
-  subtitle: string;
-  icon: React.ReactNode;
-  delay?: number;
-  filterable?: boolean;
-  sections: { key: SourceKind; label: string; items: SourceItem[] }[];
+  sources: PlanSources;
+  today: string;
   onAdd: (item: SourceItem) => void;
-  onAbandon?: (item: SourceItem) => void;
+  onAbandon: (item: SourceItem) => void;
 }) {
-  const { title, subtitle, icon, delay = 0, filterable, sections, onAdd, onAbandon } = props;
-  const [filter, setFilter] = React.useState<TaskFilter>("all");
-  const apply = React.useCallback(
-    (items: SourceItem[]) =>
-      filter === "overdue"
-        ? items.filter((i) => i.overdue)
-        : filter === "important"
-          ? items.filter((i) => i.important)
-          : items,
-    [filter],
+  const [filter, setFilter] = React.useState<WmsFilter>(DEFAULT_WMS_FILTER);
+
+  // Cascade goals (year / quarter / month) are ONE list — nearest horizon
+  // first, so the month you're actually executing leads.
+  const goals = React.useMemo(
+    () => [...sources.monthly, ...sources.quarterly, ...sources.yearly],
+    [sources.monthly, sources.quarterly, sources.yearly],
   );
+
+  // Filter, then re-rank — a narrowed list is still attention-first.
+  const wmsTasks = React.useMemo(
+    () => sortByAttention(applyWmsFilter(sources.task, filter, today), today),
+    [sources.task, filter, today],
+  );
+
+  const available = (items: SourceItem[]) => items.filter((i) => !i.added).length;
+
   return (
-    <section
-      className="wg-rise rounded-2xl border border-hairline bg-surface-card p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
-      style={{ animationDelay: `${delay}ms` }}
-    >
-      <header className="mb-2.5 flex items-center gap-2">
-        <span
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-lg"
-          style={{
-            background: `color-mix(in srgb, ${GOALS_ACCENT} 12%, transparent)`,
-            color: GOALS_ACCENT_DEEP,
-          }}
-        >
-          {icon}
+    <Panel
+      label="Available Work"
+      caption="Everything you could pick up today — add what you'll commit to"
+      aside={
+        <span className="shrink-0 text-right">
+          <span className="block text-[15px] font-black tabular-nums leading-none text-ink-strong">
+            {available(goals) + available(sources.weekly) + available(sources.task) + available(sources.unfinished)}
+          </span>
+          <span className="mt-1 block text-[10.5px] font-bold uppercase tracking-[0.1em] text-ink-muted">
+            Available
+          </span>
         </span>
-        <div className="min-w-0">
-          <h3
-            className="truncate text-ink-strong"
-            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 13.5 }}
-          >
-            {title}
-          </h3>
-          <p className="truncate text-[11px] text-ink-muted">{subtitle}</p>
-        </div>
-      </header>
-      {filterable ? (
-        <div className="mb-2.5 flex items-center gap-1.5">
-          {(["all", "overdue", "important"] as TaskFilter[]).map((f) => {
-            const on = filter === f;
-            return (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setFilter(f)}
-                className="rounded-full px-2.5 py-1 text-[11px] font-bold capitalize transition-colors focus-visible:outline-2"
-                style={
-                  on
-                    ? { background: GOALS_GRADIENT, color: "#fff", outlineColor: GOALS_ACCENT }
-                    : { background: "var(--color-surface-soft)", color: "var(--color-ink-muted)", outlineColor: GOALS_ACCENT }
-                }
-                aria-pressed={on}
-              >
-                {f}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-      <div className="flex flex-col gap-2">
-        {sections.map((s) => (
-          <SourceSection key={s.key} label={s.label} items={apply(s.items)} onAdd={onAdd} onAbandon={onAbandon} />
-        ))}
+      }
+    >
+      <div className="flex flex-col">
+        <WorkSection label="Goals" tagKind="monthly" items={goals} today={today} onAdd={onAdd} />
+        <WorkSection label="Goal Tasks" tagKind="weekly" items={sources.weekly} today={today} onAdd={onAdd} />
+        <WorkSection
+          label="WMS Tasks"
+          tagKind="task"
+          items={wmsTasks}
+          totalBeforeFilter={sources.task.length}
+          today={today}
+          onAdd={onAdd}
+          onAbandon={onAbandon}
+          filters={<WmsFilters filter={filter} onChange={setFilter} />}
+        />
+        <WorkSection
+          label="Carryover"
+          tagKind="unfinished"
+          items={sources.unfinished}
+          today={today}
+          onAdd={onAdd}
+          onAbandon={onAbandon}
+        />
       </div>
-    </section>
+    </Panel>
   );
 }
 
-function SourceSection({
+/**
+ * One source group inside Available Work. Sections are separated by a hairline
+ * rule rather than being cards of their own — the panel is already a card, and
+ * a card inside a card inside a card is exactly what this page had before.
+ */
+function WorkSection({
   label,
+  tagKind,
   items,
+  totalBeforeFilter,
+  today,
+  filters,
   onAdd,
   onAbandon,
 }: {
   label: string;
+  tagKind: SourceKind;
   items: SourceItem[];
+  totalBeforeFilter?: number;
+  today: string;
+  filters?: React.ReactNode;
   onAdd: (item: SourceItem) => void;
   onAbandon?: (item: SourceItem) => void;
 }) {
   const [open, setOpen] = React.useState(true);
   const [showAll, setShowAll] = React.useState(false);
-  const remaining = items.filter((i) => !i.added).length;
   const CAP = 6;
   const shown = showAll ? items : items.slice(0, CAP);
   const hidden = items.length - shown.length;
+  const remaining = items.filter((i) => !i.added).length;
+  const filtered = totalBeforeFilter != null && totalBeforeFilter !== items.length;
+
   return (
-    <div className="rounded-xl border border-hairline/70">
+    <div className="border-b border-hairline last:border-b-0">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left focus-visible:outline-2 rounded-xl"
-        style={{ outlineColor: GOALS_ACCENT }}
         aria-expanded={open}
+        className="flex w-full items-center gap-2 rounded-md py-3 text-left focus-visible:outline-2"
+        style={{ outlineColor: ACCENT }}
       >
-        <span className="flex items-center gap-2 text-sm font-semibold text-ink-strong">
-          {label}
-          <span
-            className="rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums"
-            style={
-              remaining > 0
-                ? {
-                    background: `color-mix(in srgb, ${GOALS_ACCENT} 12%, transparent)`,
-                    color: GOALS_ACCENT_DEEP,
-                  }
-                : { background: "var(--color-surface-soft)", color: "var(--color-ink-muted)" }
-            }
-          >
-            {remaining}
-          </span>
-        </span>
-        <motion.span animate={{ rotate: open ? 0 : -90 }} transition={{ duration: 0.15 }} className="text-ink-muted">
-          <ChevronDown size={16} />
+        <motion.span animate={{ rotate: open ? 0 : -90 }} transition={{ duration: 0.15 }} className="text-ink-muted/60">
+          <ChevronDown size={14} />
         </motion.span>
+        <span className="text-[12.5px] font-bold text-ink-strong">{label}</span>
+        <SourceTagChip kind={tagKind} />
+        <span className="ml-auto text-[11px] font-semibold tabular-nums text-ink-muted">
+          {filtered ? `${items.length} of ${totalBeforeFilter}` : remaining}
+        </span>
       </button>
+
       <AnimatePresence initial={false}>
         {open ? (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
             className="overflow-hidden"
           >
-            <div className="flex flex-col gap-1.5 px-2 pb-2.5">
+            <div className="pb-3">
+              {filters}
               {items.length === 0 ? (
-                <p className="mx-2 rounded-xl border border-hairline-strong px-3 py-3 text-center text-xs text-ink-muted/70">
-                  Nothing here right now.
+                <p className="px-1 py-3 text-[12px] text-ink-muted">
+                  {filtered ? "No tasks match these filters." : "Nothing here right now."}
                 </p>
               ) : (
                 <>
-                  {shown.map((item) => (
-                    <SourceCard key={item.id} item={item} onAdd={onAdd} onAbandon={onAbandon} />
-                  ))}
-                  {(hidden > 0 || showAll) && items.length > CAP ? (
+                  <div className="flex flex-col divide-y divide-hairline/40">
+                    {shown.map((item) => (
+                      <SourceCard key={item.id} item={item} today={today} onAdd={onAdd} onAbandon={onAbandon} />
+                    ))}
+                  </div>
+                  {items.length > CAP ? (
                     <button
                       type="button"
                       onClick={() => setShowAll((v) => !v)}
-                      className="mx-1 mt-0.5 inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-1.5 text-[12px] font-bold transition-colors focus-visible:outline-2"
-                      style={{
-                        borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 32%, transparent)`,
-                        color: GOALS_ACCENT_DEEP,
-                        background: `color-mix(in srgb, ${GOALS_ACCENT} 6%, transparent)`,
-                        outlineColor: GOALS_ACCENT,
-                      }}
+                      className="mt-1.5 inline-flex items-center gap-1 rounded-md px-1 py-1 text-[11.5px] font-bold transition-colors focus-visible:outline-2"
+                      style={{ color: ACCENT_DEEP, outlineColor: ACCENT }}
                     >
                       {showAll ? "Show less" : `Show ${hidden} more`}
                     </button>
@@ -746,6 +724,119 @@ function SourceSection({
           </motion.div>
         ) : null}
       </AnimatePresence>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------- */
+/* WMS task filters                                                        */
+/* ----------------------------------------------------------------------- */
+
+const SELECT_CLASS =
+  "h-[30px] w-full rounded-md border border-hairline bg-surface-card px-1.5 text-[11.5px] font-semibold text-ink-soft focus-visible:outline-2";
+
+const DUE_OPTIONS: DueFilter[] = ["all", "overdue", "today", "tomorrow", "week", "custom"];
+const STATUS_OPTIONS: StatusFilter[] = ["all", "open", "in_progress", "blocked", "completed"];
+
+/**
+ * Compact due-date / priority / status filters over the LIVE WMS task list.
+ *
+ * Priority options are the app's real four-point scale (Critical · Important ·
+ * Urgent · Normal — the `TASK_PRIORITIES` Eisenhower enum), not an invented
+ * High/Medium/Low, so a filter always names a value the data actually holds.
+ * Status options group the real statuses into the four plain-language buckets
+ * (see `STATUS_GROUP`).
+ */
+function WmsFilters({ filter, onChange }: { filter: WmsFilter; onChange: (f: WmsFilter) => void }) {
+  const set = <K extends keyof WmsFilter>(key: K, value: WmsFilter[K]) => onChange({ ...filter, [key]: value });
+  const active = isFilterActive(filter);
+
+  return (
+    <div className="mb-1 rounded-lg bg-surface-soft/60 p-2">
+      <div className="grid grid-cols-3 gap-2">
+        <label className="min-w-0">
+          <span className="mb-1 block text-[9.5px] font-bold uppercase tracking-[0.1em] text-ink-muted">Due</span>
+          <select
+            value={filter.due}
+            onChange={(e) => set("due", e.target.value as DueFilter)}
+            className={SELECT_CLASS}
+            style={{ outlineColor: ACCENT }}
+          >
+            {DUE_OPTIONS.map((d) => (
+              <option key={d} value={d}>
+                {DUE_FILTER_LABEL[d]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="min-w-0">
+          <span className="mb-1 block text-[9.5px] font-bold uppercase tracking-[0.1em] text-ink-muted">Priority</span>
+          <select
+            value={filter.priority}
+            onChange={(e) => set("priority", e.target.value as PriorityFilter)}
+            className={SELECT_CLASS}
+            style={{ outlineColor: ACCENT }}
+          >
+            <option value="all">All</option>
+            {TASK_PRIORITIES.map((p) => (
+              <option key={p} value={p}>
+                {PRIORITY_LABELS[p]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="min-w-0">
+          <span className="mb-1 block text-[9.5px] font-bold uppercase tracking-[0.1em] text-ink-muted">Status</span>
+          <select
+            value={filter.status}
+            onChange={(e) => set("status", e.target.value as StatusFilter)}
+            className={SELECT_CLASS}
+            style={{ outlineColor: ACCENT }}
+          >
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_FILTER_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {filter.due === "custom" ? (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <label className="min-w-0">
+            <span className="mb-1 block text-[9.5px] font-bold uppercase tracking-[0.1em] text-ink-muted">From</span>
+            <input
+              type="date"
+              value={filter.from}
+              onChange={(e) => set("from", e.target.value)}
+              className={SELECT_CLASS}
+              style={{ outlineColor: ACCENT }}
+            />
+          </label>
+          <label className="min-w-0">
+            <span className="mb-1 block text-[9.5px] font-bold uppercase tracking-[0.1em] text-ink-muted">To</span>
+            <input
+              type="date"
+              value={filter.to}
+              onChange={(e) => set("to", e.target.value)}
+              className={SELECT_CLASS}
+              style={{ outlineColor: ACCENT }}
+            />
+          </label>
+        </div>
+      ) : null}
+
+      {active ? (
+        <button
+          type="button"
+          onClick={() => onChange(DEFAULT_WMS_FILTER)}
+          className="mt-2 text-[11px] font-bold transition-colors focus-visible:outline-2"
+          style={{ color: ACCENT_DEEP, outlineColor: ACCENT }}
+        >
+          Clear filters
+        </button>
+      ) : null}
     </div>
   );
 }

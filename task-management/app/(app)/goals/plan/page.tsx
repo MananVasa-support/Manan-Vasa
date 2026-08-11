@@ -9,14 +9,20 @@ import { goalsSpace } from "@/lib/goals/space";
 import { loadPersonalWD } from "@/app/(app)/goals/personal-wd-data";
 import { PersonalWDBoard } from "@/components/goals/board/personal-wd-board";
 import { PlanBoard } from "@/components/goals/plan/plan-board";
-import { MODULE_THEME } from "@/lib/module-theme";
 import { getPlanDayPayload } from "./payload";
 
-const THEME = MODULE_THEME.goals;
-const ACCENT = "#E10600";
-const ACCENT_DEEP = "#A80400";
-
 export const dynamic = "force-dynamic";
+
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "2026-08-11" → "11 Aug". Reads the IST ymd the payload already resolved —
+ *  no re-parse, so the header can't disagree with the board about the day. */
+function longDay(ymd: string): string {
+  const [, m, d] = ymd.split("-");
+  const mi = Number(m) - 1;
+  if (mi < 0 || mi > 11) return ymd;
+  return `${Number(d)} ${MONTH_ABBR[mi]}`;
+}
 
 /**
  * Plan-Your-Day (Module 4) — the redesigned drag-drop planner.
@@ -55,39 +61,40 @@ export default async function GoalsPlanPage({
     <>
       <DashboardHeader generatedAt={new Date()} />
       <PageShell width="full" py={false} className="pt-5 pb-12 max-md:pt-4 max-md:pb-10">
-        <header className="mb-4 wg-rise">
-          <div className="flex items-start justify-between gap-3">
-            <span
-              className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em]"
-              style={{ color: "#ffffff", background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+        {/* One title bar for BOTH doors into this page (Goals › Plan My Day and
+            WMS › My Day) — deliberately room-neutral, because it is literally
+            the same surface and the same daily state either way. */}
+        <header className="mb-5 flex items-end justify-between gap-4 wg-rise max-sm:flex-col max-sm:items-start max-sm:gap-2">
+          <div className="min-w-0">
+            <h1
+              className="text-ink-strong"
+              style={{
+                fontFamily: "var(--font-display), system-ui, sans-serif",
+                fontWeight: 900,
+                fontSize: "clamp(22px, 2.3vw, 30px)",
+                letterSpacing: "-0.025em",
+                lineHeight: 1.04,
+              }}
             >
-              Goals · Daily Loop
+              My Day
+            </h1>
+            <p className="mt-1 font-medium text-ink-muted" style={{ fontSize: 13.5, maxWidth: "70ch" }}>
+              Plan your day around your goals and work.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="text-[12.5px] font-bold text-ink-soft">
+              Today · <span className="tabular-nums">{longDay(payload.ymd)}</span>
             </span>
             {isManager && (
               <a
                 href="/goals/recycle-bin"
-                className="inline-flex items-center gap-1.5 rounded-pill border border-hairline bg-surface-card px-3 py-1.5 text-[12px] font-bold text-ink-soft transition-colors hover:border-hairline-strong"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-surface-card px-2.5 py-1.5 text-[12px] font-bold text-ink-soft transition-colors hover:border-hairline-strong"
               >
                 <Trash2 size={13} /> Recycle Bin
               </a>
             )}
           </div>
-          <h1
-            className="text-ink-strong"
-            style={{
-              fontFamily: "var(--font-display), system-ui, sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(22px, 2.3vw, 30px)",
-              letterSpacing: "-0.025em",
-              lineHeight: 1.04,
-              marginTop: 4,
-            }}
-          >
-            Plan My Day
-          </h1>
-          <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 13.5, maxWidth: "70ch" }}>
-            Line up today from your goals and tasks — drag a card into the plan, or tap +. Hit your minimum to start a focused day.
-          </p>
         </header>
         <PlanBoard
           initialPlan={payload.initialPlan}
@@ -95,6 +102,7 @@ export default async function GoalsPlanPage({
           minItems={payload.minItems}
           isManager={payload.isManager}
           initialPhase={payload.initialPhase}
+          ymd={payload.ymd}
         />
       </PageShell>
       <DashboardFooter />

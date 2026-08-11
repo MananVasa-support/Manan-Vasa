@@ -952,6 +952,7 @@ function DayStage(): React.JSX.Element {
           minItems={state.payload.minItems}
           isManager={state.payload.isManager}
           initialPhase={state.payload.initialPhase}
+          ymd={state.payload.ymd}
         />
       )}
     </section>

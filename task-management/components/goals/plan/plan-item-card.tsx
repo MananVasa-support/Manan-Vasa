@@ -3,70 +3,47 @@
 import * as React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, X } from "lucide-react";
-import { motion } from "motion/react";
-import type { PlanItem, PlanKind } from "./types";
+import { Check, GripVertical, Loader2, X } from "lucide-react";
+import type { PlanItem } from "./types";
+import { Dot, MetaLine, PeriodLabel, SourceTagChip } from "./row-bits";
 
-const KIND_LABEL: Record<PlanKind, string> = {
-  weekly: "Weekly goal",
-  monthly: "Monthly goal",
-  quarterly: "Quarter goal",
-  yearly: "Yearly goal",
-  task: "Task",
-  unfinished: "Carried over",
-  adhoc: "Commitment",
-};
-
-// Goals module identity (amber-gold) — mirrors MODULE_THEME.goals. Used for the
-// weekly kind-dot + focus rings so the planner reads as an amber room, not WMS red.
-const GOALS_ACCENT = "#E10600";
-
-// Kind-dots map to real brand status tokens (no undefined --color-emerald leak).
-const KIND_ACCENT: Record<PlanKind, string> = {
-  weekly: GOALS_ACCENT,
-  monthly: "var(--color-purple-deep)",
-  quarterly: "var(--color-blue-deep)",
-  yearly: "var(--color-indigo-deep)",
-  task: "var(--color-slate)",
-  unfinished: "var(--color-amber-deep)",
-  adhoc: "var(--color-green-deep)",
-};
+const ACCENT = "#E10600";
 
 interface Props {
   item: PlanItem;
   index: number;
+  /** Marking done is disabled while the row's write is in flight. */
+  busy?: boolean;
+  onToggleDone: (item: PlanItem) => void;
   onRemove: (id: string) => void;
 }
 
-/** One ordered commitment in "Today's Plan" — sortable + removable. */
-export function PlanItemCard({ item, index, onRemove }: Props) {
+/**
+ * One committed line in Today's Plan — ordered, completable, removable.
+ *
+ * The row shows WHERE the work came from with the same `[GOAL]` / `[GOAL TASK]`
+ * / `[WMS TASK]` tag the Available Work column used, so an item keeps its
+ * identity when it crosses the board.
+ */
+export function PlanItemCard({ item, index, busy, onToggleDone, onRemove }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
     data: { type: "plan" },
   });
 
-  // The live drag placeholder — a dashed ghost the plan opens up around.
+  // The live drag placeholder — a dashed gap the plan opens up around.
   if (item.ghost) {
     return (
-      <li
-        ref={setNodeRef}
-        style={{ transform: CSS.Transform.toString(transform), transition }}
-        className="list-none"
-      >
+      <li ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className="list-none">
         <div
-          className="flex items-center gap-3 rounded-chip border px-3 py-3"
+          className="flex items-center justify-between gap-3 rounded-lg border border-dashed px-3 py-2.5"
           style={{
-            borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 55%, transparent)`,
-            background: `color-mix(in srgb, ${GOALS_ACCENT} 6%, transparent)`,
+            borderColor: `color-mix(in srgb, ${ACCENT} 50%, transparent)`,
+            background: `color-mix(in srgb, ${ACCENT} 5%, transparent)`,
           }}
         >
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-ink-strong/70">{item.title}</div>
-          </div>
-          <span
-            className="text-[11px] font-semibold uppercase tracking-wide"
-            style={{ color: GOALS_ACCENT }}
-          >
+          <span className="truncate text-[13.5px] font-medium text-ink-strong/60">{item.title}</span>
+          <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: ACCENT }}>
             Drop here
           </span>
         </div>
@@ -80,53 +57,81 @@ export function PlanItemCard({ item, index, onRemove }: Props) {
       style={{ transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 20 : undefined }}
       className="list-none"
     >
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.18, ease: "easeOut" }}
-        className="group flex items-center gap-2.5 rounded-chip border border-hairline bg-surface-card px-3 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.05)]"
-        style={isDragging ? { boxShadow: "0 10px 30px rgba(15,23,42,0.16)" } : undefined}
+      <div
+        className="group flex items-start gap-2.5 rounded-lg py-2 pl-1 pr-1.5 transition-colors hover:bg-surface-soft/60"
+        style={isDragging ? { background: "var(--color-surface-card)", boxShadow: "0 8px 24px rgba(15,23,42,0.14)" } : undefined}
       >
         <button
           type="button"
           aria-label={`Reorder ${item.title}`}
-          className="shrink-0 cursor-grab touch-none text-ink-muted/50 hover:text-ink-muted focus-visible:outline-2 rounded"
-          style={{ outlineColor: GOALS_ACCENT }}
+          className="mt-[5px] shrink-0 cursor-grab touch-none rounded text-ink-muted/30 transition-colors hover:text-ink-muted focus-visible:outline-2 group-hover:text-ink-muted/70"
+          style={{ outlineColor: ACCENT }}
           {...attributes}
           {...listeners}
         >
-          <GripVertical size={16} />
+          <GripVertical size={13} />
         </button>
-        <span
-          aria-hidden
-          className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-surface-soft text-[11px] font-bold text-ink-muted tabular-nums"
+
+        <button
+          type="button"
+          onClick={() => onToggleDone(item)}
+          disabled={busy}
+          aria-pressed={item.done}
+          aria-label={item.done ? `Mark ${item.title} not done` : `Mark ${item.title} complete`}
+          className="mt-[2px] inline-flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border-2 transition-colors focus-visible:outline-2 disabled:opacity-60"
+          style={
+            item.done
+              ? { background: "var(--color-green-deep)", borderColor: "var(--color-green-deep)", outlineColor: ACCENT }
+              : { borderColor: "var(--color-hairline-strong)", outlineColor: ACCENT }
+          }
         >
-          {index + 1}
-        </span>
+          {busy ? (
+            <Loader2 size={11} className="animate-spin text-ink-muted" />
+          ) : item.done ? (
+            <Check size={12} strokeWidth={3.5} className="text-white" />
+          ) : null}
+        </button>
+
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium text-ink-strong">{item.title}</div>
-          <div className="mt-0.5 flex items-center gap-2">
+          <div className="flex items-baseline gap-2">
             <span
-              className="inline-block h-1.5 w-1.5 rounded-full"
-              style={{ background: KIND_ACCENT[item.kind] }}
               aria-hidden
-            />
-            <span className="truncate text-xs text-ink-muted">
-              {KIND_LABEL[item.kind]}
-              {item.subtitle ? ` · ${item.subtitle}` : ""}
+              className="shrink-0 text-[11px] font-bold tabular-nums text-ink-muted/50"
+              style={{ minWidth: "1.1em" }}
+            >
+              {index + 1}
+            </span>
+            <span
+              className={
+                "min-w-0 flex-1 truncate text-[13.5px] leading-[19px] " +
+                (item.done ? "font-medium text-ink-muted line-through" : "font-semibold text-ink-strong")
+              }
+            >
+              {item.title}
             </span>
           </div>
+          <MetaLine>
+            <SourceTagChip kind={item.kind} />
+            <PeriodLabel kind={item.kind} />
+            {item.subtitle ? (
+              <>
+                <Dot />
+                <span className="truncate">{item.subtitle}</span>
+              </>
+            ) : null}
+          </MetaLine>
         </div>
+
         <button
           type="button"
           onClick={() => onRemove(item.id)}
           aria-label={`Remove ${item.title} from today's plan`}
-          className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-ink-muted/60 opacity-0 transition-opacity hover:bg-surface-soft hover:text-ink-strong focus-visible:opacity-100 focus-visible:outline-2 group-hover:opacity-100"
-          style={{ outlineColor: GOALS_ACCENT }}
+          className="mt-[1px] inline-flex size-6 shrink-0 items-center justify-center rounded-md text-ink-muted/50 opacity-0 transition-opacity hover:bg-surface-soft hover:text-ink-strong focus-visible:opacity-100 focus-visible:outline-2 group-hover:opacity-100"
+          style={{ outlineColor: ACCENT }}
         >
-          <X size={15} />
+          <X size={13} />
         </button>
-      </motion.div>
+      </div>
     </li>
   );
 }
