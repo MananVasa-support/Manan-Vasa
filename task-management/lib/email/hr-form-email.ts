@@ -56,7 +56,14 @@ export async function sendHrFormPdfEmail(args: {
       )}), ${stateLine}.</p>
       <p style="font-size:12.5px;color:#666;margin-top:10px">The completed responses are in the attached PDF. Reach out to the HR team with any questions.</p>`;
 
-    const cc = HR_CONTACT.email ? [HR_CONTACT.email] : undefined;
+    // Copy the HR desk — UNLESS it is already the recipient. The submit-time
+    // send addresses HR directly, and a message with the same address in both
+    // To and Cc reads like a mistake (and some clients thread it oddly).
+    const hrDesk = HR_CONTACT.email;
+    const cc =
+      hrDesk && hrDesk.trim().toLowerCase() !== args.to.trim().toLowerCase()
+        ? [hrDesk]
+        : undefined;
 
     const { error } = await resend.emails.send({
       from: FROM,

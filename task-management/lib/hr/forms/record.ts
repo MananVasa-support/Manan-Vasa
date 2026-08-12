@@ -36,7 +36,25 @@ export async function recordHrFormSubmission(input: {
   responses: HrFormResponse[];
   /** The row id in the form's OWN table, so the index can point back at it. */
   sourceId?: string | null;
-}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+}): Promise<
+  | {
+      ok: true;
+      id: string;
+      /**
+       * TRUE only on the transition into `submitted` — a fresh submit, or a
+       * draft that has just been submitted. Re-saving an already-submitted form
+       * returns FALSE.
+       *
+       * This exists so callers can fire submit-time side effects (mailing HR the
+       * completed PDF) exactly once. Keying off the caller's own `status` would
+       * re-send on every subsequent HR edit, because those come through as
+       * `status: "submitted"` too. Only this function can tell the difference —
+       * it is the one that read the prior row.
+       */
+      newlySubmitted: boolean;
+    }
+  | { ok: false; error: string }
+> {
   const def = getHrForm(input.formKey);
   if (!def) return { ok: false, error: `Unknown form "${input.formKey}".` };
 
@@ -63,6 +81,8 @@ export async function recordHrFormSubmission(input: {
 
     const prior = existing[0];
     if (prior) {
+      const becameSubmitted =
+        prior.status !== "submitted" && input.status === "submitted";
       // A form that has already been submitted stays submitted: an HR edit
       // afterwards updates the responses without demoting the row back to a
       // draft and yanking it out of the employee's Submitted list.
@@ -84,7 +104,7 @@ export async function recordHrFormSubmission(input: {
             : {}),
         })
         .where(eq(hrFormSubmissions.id, prior.id));
-      return { ok: true, id: prior.id };
+      return { ok: true, id: prior.id, newlySubmitted: becameSubmitted };
     }
 
     const [row] = await db
@@ -104,7 +124,7 @@ export async function recordHrFormSubmission(input: {
       .returning({ id: hrFormSubmissions.id });
 
     if (!row) return { ok: false, error: "Could not record the submission." };
-    return { ok: true, id: row.id };
+    return { ok: true, id: row.id, newlySubmitted: input.status === "submitted" };
   } catch (e) {
     return {
       ok: false,

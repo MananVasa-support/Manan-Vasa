@@ -15,6 +15,8 @@ import {
 import { requireHrStaff } from "@/lib/hr/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { recordHrFormSubmission } from "@/lib/hr/forms/record";
+import { mailSubmittedFormToHr } from "@/lib/hr/forms/notify";
+import { afterResponse } from "@/lib/after";
 import { exitResponsesFor, exitFormKey } from "@/lib/hr/forms/exit-responses";
 
 type Result<T> = ({ ok: true } & T) | { ok: false; error: string };
@@ -84,6 +86,14 @@ export async function saveExitRecord(input: z.input<typeof SaveSchema>): Promise
     });
     if (!indexed.ok) {
       console.error("[exit] form saved but indexing failed:", indexed.error);
+    } else if (indexed.newlySubmitted) {
+      // Submit — not Save Draft, and not a later edit of an already-submitted
+      // form — mails the completed PDF to the HR desk. `newlySubmitted` is what
+      // makes that exactly-once; see recordHrFormSubmission. Deferred past the
+      // response so rendering a PDF never slows the save, and it cannot fail the
+      // save either (mailSubmittedFormToHr never throws).
+      const submissionId = indexed.id;
+      afterResponse(() => mailSubmittedFormToHr(submissionId));
     }
 
     revalidatePath("/hr/exit");
