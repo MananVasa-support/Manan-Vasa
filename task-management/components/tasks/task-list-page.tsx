@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { LayoutGrid } from "lucide-react";
 import { TaskTable } from "./task-table";
+import { TaskToolsMenu } from "./task-tools-menu";
 import { WeeklyGoalTaskGroup } from "@/components/weekly-goals/weekly-goal-task-group";
 import type { VirtualTaskRow } from "@/lib/weekly-goals/as-task-row";
 import type { TaskListRow, TaskListFilters } from "@/lib/types";
@@ -193,18 +194,24 @@ export function TaskListPage({
             })}
           </div>
         </div>
+        {/* Action pair, side by side: [ ⋯ ] [ Kanban View ]. The ⋯ menu moved
+            up from the FilterBar so the two sit together, which also keeps the
+            filter ribbon to filters + search on its single line. */}
         {me.isAdmin && (
-          <Link
-            href={"/tasks/kanban" as Route}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-[12.5px] font-bold transition-colors hover:bg-surface-soft shrink-0"
-            style={{
-              color: "var(--color-altus-red-deep)",
-              boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)",
-            }}
-          >
-            <LayoutGrid size={14} strokeWidth={2.4} />
-            Kanban View
-          </Link>
+          <div className="flex items-center gap-2 shrink-0">
+            <TaskToolsMenu />
+            <Link
+              href={"/tasks/kanban" as Route}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-[12.5px] font-bold transition-colors hover:bg-surface-soft shrink-0"
+              style={{
+                color: "var(--color-altus-red-deep)",
+                boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)",
+              }}
+            >
+              <LayoutGrid size={14} strokeWidth={2.4} />
+              Kanban View
+            </Link>
+          </div>
         )}
       </header>
 
