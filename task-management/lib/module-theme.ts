@@ -157,9 +157,15 @@ export const MODULE_THEME: Record<WorkspaceId, ModuleTheme> = {
 };
 
 /** Hub display order. */
+// The hub grid renders THIS list, not MODULE_THEME's keys — a module with a
+// theme entry but no place here is fully configured and still invisible, which
+// is exactly how Productivity shipped without a card. Adding a room means adding
+// it in both places.
 export const MODULE_ORDER: WorkspaceId[] = [
   "wms",
   "goals",
+  // Sits next to Goals: it is the read-side cockpit over the same work.
+  "productivity",
   "admin",
   "employees",
   "hr",

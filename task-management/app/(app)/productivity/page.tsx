@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Route } from "next";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import {
   getProductivityViewer,
@@ -60,7 +59,6 @@ export default async function ProductivityMyDashboardPage({
           backHref={viewingOther ? ("/productivity/team" as Route) : undefined}
         />
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }
