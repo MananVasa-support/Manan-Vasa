@@ -79,7 +79,7 @@ interface Props {
 /**
  * One nav destination. `not` lists path prefixes that should NOT count as
  * active even though they start with `href` (e.g. `/tasks` must not light up
- * on `/tasks/agenda`). `exact` matches the pathname exactly (for `/`).
+ * on `/tasks/kanban`). `exact` matches the pathname exactly (for `/`).
  */
 interface NavItem {
   href: Route;
@@ -204,14 +204,13 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       // the WMS-owned alias `/my-day` rather than `/goals/plan` so opening it
       // keeps you in this room (workspaceForPath owns `/goals*` for Goals).
       { href: "/my-day" as Route, label: "My Day", Icon: CalendarDays },
-      // The task agenda kept its route and its place in the bar; only its label
-      // changed, freeing "My Day" for the planner above.
-      { href: "/tasks/agenda" as Route, label: "Task Agenda", Icon: ListChecks },
+      // Task Agenda is GONE — item, route and all. My Day above is the planner
+      // that replaced it, so `/tasks/agenda` is no longer excluded below either.
       {
         href: "/tasks" as Route,
         label: "Tasks",
         Icon: ListTodo,
-        not: ["/tasks/agenda", "/tasks/kanban", "/tasks/time"],
+        not: ["/tasks/kanban", "/tasks/time"],
         countKey: "activeTasks",
       },
       { href: "/tasks/kanban" as Route, label: "Kanban", Icon: SquareKanban, adminOnly: true },

@@ -1,22 +1,24 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import { workspaceForPath } from "@/lib/workspaces";
 import { MODULE_THEME } from "@/lib/module-theme";
 
 /**
- * The rail's brand block — logo + the big animated module wordmark, which
- * TOGETHER form the link back to the Hub. This replaced the standalone "Back to
- * Hub" pill that used to sit directly beneath it, so the brand mark now carries
- * that navigation instead of duplicating it.
+ * The rail's brand block — the Altus Corp logo above the animated module
+ * wordmark.
  *
- * `flex-col gap-3` on the link reproduces the `gap-3` the two elements used to
- * get as separate children of `.sidebar-brand`, and `w-full` keeps them full
- * width in the collapsed rail (where `.sidebar-brand` switches to
- * `align-items: center`) — so the layout is unchanged in both states.
+ * DISPLAY ONLY: this used to be a <Link> to /hub, and is deliberately no longer
+ * clickable. "Back to Hub" still exists as its own always-visible button in
+ * `header.tsx`, on every module — so the route is not lost, it just isn't hidden
+ * behind the logo any more.
+ *
+ * Centring lives HERE rather than on the parent. `.sidebar-brand` also wraps the
+ * history/search/collapse row, so putting `items-center` up there would shrink
+ * that row to its content width instead of letting it span the rail. This block
+ * centres itself (`items-center` + `w-full` children) and stays centred in the
+ * collapsed rail too.
  *
  * CLIENT-reactive via usePathname so, like the nav pills, it tracks the current
  * route across soft navigations instead of freezing to the server-rendered
@@ -30,13 +32,8 @@ export function SidebarBrand() {
   const ModuleIcon = theme?.Icon;
 
   return (
-    <Link
-      href={"/hub" as Route}
-      aria-label="Back to Hub"
-      title="Back to Hub"
-      className="flex w-full flex-col gap-3 rounded-2xl outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]"
-    >
-      <span className="sidebar-logo flex items-center justify-center">
+    <div className="mx-auto flex w-full flex-col items-center justify-center gap-3 text-center">
+      <span className="sidebar-logo flex w-full items-center justify-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="Altus Corp" className="h-[68px] w-auto" style={{ display: "block" }} />
       </span>
@@ -68,6 +65,6 @@ export function SidebarBrand() {
           </span>
         </span>
       )}
-    </Link>
+    </div>
   );
 }
