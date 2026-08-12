@@ -131,10 +131,30 @@ export async function buildImportPreview(
   try {
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { cellDates: true });
-    const sheetName = wb.SheetNames[0];
-    if (!sheetName) return empty("The file has no sheets.");
-    const sheet = wb.Sheets[sheetName]!;
-    matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false, defval: "" }) as unknown[][];
+    if (wb.SheetNames.length === 0) return empty("The file has no sheets.");
+
+    const toMatrix = (name: string) =>
+      XLSX.utils.sheet_to_json(wb.Sheets[name]!, {
+        header: 1,
+        blankrows: false,
+        defval: "",
+      }) as unknown[][];
+
+    // Pick the DATA sheet, not blindly the first one — the branded template ships
+    // the hidden "Lists" validation sheet at index 0 with "Tasks" after it.
+    //   1. a sheet literally named "Tasks";
+    //   2. else the first sheet whose header row actually has Client/Description;
+    //   3. else fall back to the first sheet (plain single-sheet CSV/xlsx).
+    const named = wb.SheetNames.find((n) => n.trim().toLowerCase() === "tasks");
+    const withHeaders = named
+      ? undefined
+      : wb.SheetNames.find((n) => {
+          const m = toMatrix(n);
+          const cols = (m[findHeaderRow(m)] ?? []).map((c) => mapHeader(c));
+          return cols.includes("client") || cols.includes("description");
+        });
+    const chosen = named ?? withHeaders ?? wb.SheetNames[0]!;
+    matrix = toMatrix(chosen);
   } catch {
     return empty("Couldn't read the file. Upload a .csv or .xlsx.");
   }
