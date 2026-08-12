@@ -6,6 +6,7 @@ import type { Route } from "next";
 import { Search, X, Eye, Download, Mail, Loader2 } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { fireToast } from "@/lib/toast";
+import { compareRows, type FilledFormSortKey } from "@/lib/hr/forms/sort";
 
 /**
  * The one compact table behind BOTH filled-forms surfaces — the employee's
@@ -42,7 +43,8 @@ export interface FilledFormRow {
   status: FilledFormStatus;
 }
 
-type SortKey = "newest" | "oldest" | "employee";
+/** Ordering lives in lib/hr/forms/sort.ts — pure, so it can be tested directly. */
+type SortKey = FilledFormSortKey;
 
 const ALL = "__all__";
 
@@ -74,6 +76,8 @@ export function FilledFormsTable({
   rows,
   variant,
   hideStatusFilter = false,
+  emptyTitle,
+  emptyBody,
 }: {
   rows: FilledFormRow[];
   /** "mine" hides the Employee column and its filters; "all" is the HR list. */
@@ -81,6 +85,10 @@ export function FilledFormsTable({
   /** Set when the PAGE already owns the submitted/draft split (My Filled Forms
    *  uses tabs), so the toolbar doesn't offer a second, contradictory control. */
   hideStatusFilter?: boolean;
+  /** Override the "nothing here" copy. A page that splits its own rows into tabs
+   *  knows which slice is empty and why; this component only sees an empty array. */
+  emptyTitle?: string;
+  emptyBody?: string;
 }) {
   const [query, setQuery] = React.useState("");
   const [section, setSection] = React.useState(ALL);
@@ -120,18 +128,7 @@ export function FilledFormsTable({
       }
       return true;
     });
-    return out.sort((a, b) => {
-      if (sort === "employee") {
-        return (a.employeeName ?? "").localeCompare(b.employeeName ?? "") || b.submittedTs - a.submittedTs;
-      }
-      if (sort === "oldest") {
-        // Never-submitted drafts (ts 0) would otherwise monopolise "Oldest";
-        // they have no submission date, so they sort after everything dated.
-        if (a.submittedTs === 0 || b.submittedTs === 0) return a.submittedTs === 0 ? 1 : -1;
-        return a.submittedTs - b.submittedTs;
-      }
-      return b.submittedTs - a.submittedTs;
-    });
+    return out.sort(compareRows(sort));
   }, [rows, query, section, form, status, sort]);
 
   const filtersActive = query.trim() !== "" || section !== ALL || form !== ALL || status !== ALL;
@@ -141,8 +138,6 @@ export function FilledFormsTable({
     setForm(ALL);
     setStatus(ALL);
   }
-
-  const colCount = showEmployee ? 6 : 5;
 
   return (
     <>
@@ -231,11 +226,15 @@ export function FilledFormsTable({
 
       {rows.length === 0 ? (
         <EmptyState
-          title={showEmployee ? "No forms have been submitted yet." : "You haven't filled any forms yet."}
+          title={
+            emptyTitle ??
+            (showEmployee ? "No forms have been submitted yet." : "You haven't filled any forms yet.")
+          }
           body={
-            showEmployee
+            emptyBody ??
+            (showEmployee
               ? "Submissions appear here as soon as employees submit their HR forms."
-              : "Once you fill and submit an HR form, it will appear here with options to view, download or mail it."
+              : "Once you fill and submit an HR form, it will appear here with options to view, download or mail it.")
           }
         />
       ) : visible.length === 0 ? (
@@ -271,9 +270,6 @@ export function FilledFormsTable({
               ))}
             </tbody>
           </table>
-          {/* colCount is referenced so the empty-cell math stays honest if a
-              column is added later without updating the header. */}
-          <span className="sr-only">{colCount} columns</span>
         </div>
       )}
     </>
@@ -281,7 +277,11 @@ export function FilledFormsTable({
 }
 
 function Row({ row, showEmployee }: { row: FilledFormRow; showEmployee: boolean }) {
-  const st = STATUS_META[row.status];
+  // Fall back rather than trust the type: `status` is a plain text column, and a
+  // single unexpected value used to read `.color` off `undefined` and blank the
+  // entire table for everyone. The 0182 CHECK constraint makes that unreachable
+  // from the database side; this is the cheap belt to its braces.
+  const st = STATUS_META[row.status] ?? STATUS_META.draft;
   return (
     <tr className="border-b border-hairline transition-colors last:border-b-0 hover:bg-surface-soft">
       {showEmployee && (

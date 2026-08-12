@@ -75,6 +75,34 @@ export function isCriticalGrade(g: Grade): boolean {
   return g === "F" || g === "D";
 }
 
+/** How a grade should READ, independent of any particular palette. */
+export type GradeTone = "good" | "ok" | "warn" | "bad" | "critical";
+
+/**
+ * The tone a grade carries (§8's grade-colour ladder): O / A+ / A are positive,
+ * B is neutral-positive, C warns, D is worse, F is the failure state.
+ *
+ * Lives here rather than in the view so the dashboard, the Full Report and the
+ * PDF all colour the same letter the same way. Colour is never the ONLY signal —
+ * every surface prints the letter itself beside it.
+ */
+export function gradeTone(g: Grade): GradeTone {
+  switch (g) {
+    case "O":
+    case "A+":
+    case "A":
+      return "good";
+    case "B":
+      return "ok";
+    case "C":
+      return "warn";
+    case "D":
+      return "bad";
+    default:
+      return "critical";
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Percentages                                                         */
 /* ------------------------------------------------------------------ */
@@ -155,7 +183,8 @@ export interface MTDResult {
   target: number;
   /** `null` when no in-month week set a target — see calculateGoalPercentage. */
   pct: number | null;
-  grade: Grade;
+  /** `null` alongside a null `pct` — an ungraded month, not a failed one. */
+  grade: Grade | null;
   /** How many weekly records actually contributed (W1…W5). */
   weeks: number;
 }
@@ -199,7 +228,7 @@ export function calculateMTDGoals(
   }
 
   const pct = calculateGoalPercentage(completed, target);
-  return { completed, target, pct, grade: calculateMTDGrade(pct ?? 0), weeks: n };
+  return { completed, target, pct, grade: pct == null ? null : calculateMTDGrade(pct), weeks: n };
 }
 
 /** MTD percentage on its own, for callers that only need the number (§30). */
@@ -233,35 +262,37 @@ export function monthStartOf(d: Date = new Date()): string {
 /* Tasks                                                               */
 /* ------------------------------------------------------------------ */
 
-/** The four task buckets of §15, in display order. */
+/** The three overdue ageing bands, worst → freshest. The Tasks section pairs
+ *  them with a "need help" count for its four cards. */
 export interface OverdueBuckets {
   /** Overdue by more than 15 days. */
   over15: number;
   /** Overdue by 8–14 days inclusive. */
   days8to14: number;
-  /** Overdue by 1–3 days inclusive. */
-  days1to3: number;
+  /** Overdue by 1–7 days inclusive. */
+  days1to7: number;
 }
 
 /**
- * Bucket overdue tasks by age in whole days (§15).
+ * Bucket overdue tasks by age in whole days.
  *
- * NOTE the spec's bands leave two real gaps — 4–7 days, and exactly 15 — which
- * belong to no card. They are counted in `uncategorised` rather than being
- * quietly folded into a neighbouring bucket, because inflating ">15 days" with
- * 15-day-old tasks would misreport how bad the worst bucket is. The UI ignores
- * `uncategorised`; it exists so the numbers remain auditable.
+ * The bands are contiguous — 1–7, 8–14, >15 — with ONE gap the labels create:
+ * a task exactly 15 days late is neither "8–14" nor ">15". It is counted in
+ * `uncategorised` rather than quietly folded into the worst bucket, because
+ * inflating ">15 days" with 15-day-old tasks would misreport how bad that
+ * bucket is. The UI ignores `uncategorised`; it exists so the four card counts
+ * plus it always reconcile to the total overdue list.
  */
 export function calculateOverdueTasks(
   ageInDays: number[],
 ): OverdueBuckets & { uncategorised: number } {
-  const out = { over15: 0, days8to14: 0, days1to3: 0, uncategorised: 0 };
+  const out = { over15: 0, days8to14: 0, days1to7: 0, uncategorised: 0 };
   for (const raw of ageInDays) {
     if (!Number.isFinite(raw) || raw < 1) continue; // not overdue
     const age = Math.floor(raw);
     if (age > 15) out.over15++;
     else if (age >= 8 && age <= 14) out.days8to14++;
-    else if (age >= 1 && age <= 3) out.days1to3++;
+    else if (age >= 1 && age <= 7) out.days1to7++;
     else out.uncategorised++;
   }
   return out;
@@ -291,16 +322,47 @@ export interface Scored {
   completed: number;
   target: number;
   pct: number | null;
-  grade: Grade;
+  /** `null` when `pct` is — see `score`. */
+  grade: Grade | null;
 }
 
-/** Build a `Scored` from raw values, so no caller derives a grade by hand. */
+/**
+ * Build a `Scored` from raw values, so no caller derives a grade by hand.
+ *
+ * A NULL PERCENTAGE PRODUCES A NULL GRADE, never F. `pct` is null only when no
+ * target was set — no goals planned, no salary on record — and grading that as
+ * F would put a red failure mark on a scorecard because of missing setup, not
+ * missing work. The UI renders null as "—" and says why underneath.
+ */
 export function score(completed: number, target: number): Scored {
   const pct = calculateGoalPercentage(completed, target);
-  return { completed, target, pct, grade: calculateCompletionGrade(pct ?? 0) };
+  return { completed, target, pct, grade: pct == null ? null : calculateCompletionGrade(pct) };
 }
 
 /** Format a percentage for display; `null` reads as an em dash, never "0%". */
 export function formatPct(pct: number | null): string {
   return pct == null ? "—" : `${pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(2)}%`;
+}
+
+/**
+ * A percentage sized for a HERO metric — whole numbers only.
+ *
+ * The two-decimal form above is the audit-grade one used in the report body;
+ * "79.99%" set at 44px reads as noise, so the cards round. Rounding never
+ * changes a grade: the grade is derived from the exact value before this runs.
+ */
+export function formatPctCompact(pct: number | null): string {
+  return pct == null ? "—" : `${Math.round(pct)}%`;
+}
+
+/** Whole rupees, Indian digit grouping. The paise on an incentive figure are
+ *  noise at card size, and every surface should drop them identically. */
+export function formatMoney(n: number): string {
+  return `₹${Math.round(Number.isFinite(n) ? n : 0).toLocaleString("en-IN")}`;
+}
+
+/** Hours with at most one decimal — "4" not "4.0", "4.5" kept. */
+export function formatHours(n: number): string {
+  const v = Number.isFinite(n) ? n : 0;
+  return v % 1 === 0 ? String(v) : v.toFixed(1);
 }

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import {
   ChevronDown,
@@ -10,6 +11,7 @@ import {
   Target,
   ClipboardList,
   ArrowRight,
+  Gauge,
   LogIn,
   LogOut,
   Users,
@@ -211,11 +213,33 @@ function matchesStatus(r: TeamRow, f: StatusFilter): boolean {
 
 const ALL = "__all__";
 
+/**
+ * Which module is showing the board, and therefore what "select an employee"
+ * means.
+ *
+ *   • `goals` (default) — the Goals Team Dashboard. Selecting a row expands the
+ *     inline detail; the row actions lead to Goals surfaces. UNCHANGED.
+ *   • `productivity` — the Productivity module's Team Performance. Selecting a
+ *     row OPENS that person's Productivity Dashboard, which is the whole point
+ *     of the drill-down; the expander still works from the chevron.
+ *
+ * A serialisable string rather than a callback, because the board is a client
+ * component rendered by server pages — a function prop could not cross that
+ * boundary. Defaulting to `goals` is what keeps the existing page untouched.
+ */
+export type TeamBoardVariant = "goals" | "productivity";
+
 /* ------------------------------------------------------------------ */
 /* Board                                                               */
 /* ------------------------------------------------------------------ */
 
-export function TeamPerformanceBoard({ rows }: { rows: TeamRow[] }) {
+export function TeamPerformanceBoard({
+  rows,
+  variant = "goals",
+}: {
+  rows: TeamRow[];
+  variant?: TeamBoardVariant;
+}) {
   const [dept, setDept] = React.useState<string>(ALL);
   const [team, setTeam] = React.useState<string>(ALL);
   const [status, setStatus] = React.useState<StatusFilter>("all");
@@ -240,7 +264,12 @@ export function TeamPerformanceBoard({ rows }: { rows: TeamRow[] }) {
       if (dept !== ALL && r.department !== dept) return false;
       if (team !== ALL && r.managerName !== team) return false;
       if (!matchesStatus(r, status)) return false;
-      if (q && !r.name.toLowerCase().includes(q) && !(r.department ?? "").toLowerCase().includes(q)) {
+      // Search spans the three things people actually type: the person, their
+      // department, and the manager they report to.
+      if (
+        q &&
+        !`${r.name} ${r.department ?? ""} ${r.managerName ?? ""}`.toLowerCase().includes(q)
+      ) {
         return false;
       }
       return true;
@@ -448,6 +477,7 @@ export function TeamPerformanceBoard({ rows }: { rows: TeamRow[] }) {
                 <EmployeeRow
                   key={r.id}
                   row={r}
+                  variant={variant}
                   open={expanded.has(r.id)}
                   onToggle={() => toggle(r.id)}
                 />
@@ -469,14 +499,31 @@ export function TeamPerformanceBoard({ rows }: { rows: TeamRow[] }) {
 /* Row + expanded detail                                               */
 /* ------------------------------------------------------------------ */
 
-function EmployeeRow({ row, open, onToggle }: { row: TeamRow; open: boolean; onToggle: () => void }) {
+function EmployeeRow({
+  row,
+  variant,
+  open,
+  onToggle,
+}: {
+  row: TeamRow;
+  variant: TeamBoardVariant;
+  open: boolean;
+  onToggle: () => void;
+}) {
   const st = STATUS_META[row.status];
   const panelId = `team-detail-${row.id}`;
+  const router = useRouter();
+  const dashboardHref = `/productivity?emp=${row.id}` as Route;
+  const toProductivity = variant === "productivity";
 
   return (
     <>
       <tr
-        onClick={onToggle}
+        // In the Productivity module "selecting an employee" means opening their
+        // dashboard, not unfolding a summary — the summary is still one click
+        // away on the chevron, which stops the event from reaching this handler.
+        onClick={toProductivity ? () => router.push(dashboardHref) : onToggle}
+        title={toProductivity ? `Open ${row.name}'s Productivity Dashboard` : undefined}
         className="cursor-pointer border-b border-hairline transition-colors hover:bg-surface-soft"
         style={open ? { background: "var(--color-surface-soft)" } : undefined}
       >
@@ -545,7 +592,7 @@ function EmployeeRow({ row, open, onToggle }: { row: TeamRow; open: boolean; onT
       {open && (
         <tr id={panelId}>
           <td colSpan={8} className="border-b border-hairline px-4 py-4" style={{ background: "var(--color-surface-soft)" }}>
-            <EmployeeDetail row={row} />
+            <EmployeeDetail row={row} variant={variant} />
           </td>
         </tr>
       )}
@@ -556,7 +603,7 @@ function EmployeeRow({ row, open, onToggle }: { row: TeamRow; open: boolean; onT
 /** The mini report behind a row — every metric the old card carried, laid out
  *  as a plain grid. Deliberately NOT bordered tiles: a card inside a row inside
  *  a table is the nesting this redesign exists to remove. */
-function EmployeeDetail({ row }: { row: TeamRow }) {
+function EmployeeDetail({ row, variant }: { row: TeamRow; variant: TeamBoardVariant }) {
   return (
     <div className="flex flex-col gap-3.5">
       {/* Identity line — restates department/team, which the collapsed row hides
@@ -592,6 +639,9 @@ function EmployeeDetail({ row }: { row: TeamRow }) {
         <Detail label="Training this month" value={`${row.trainingHoursMonth}h`} />
       </div>
 
+      {/* Actions. The Goals board keeps both of its original destinations; the
+          Productivity board leads with the full dashboard, which is the surface
+          this row is a summary OF. */}
       <div className="flex flex-wrap items-center gap-2">
         <Link
           href={`/goals/weekly?emp=${row.id}` as Route}
@@ -603,14 +653,25 @@ function EmployeeDetail({ row }: { row: TeamRow }) {
         >
           <Target size={13} strokeWidth={2.4} /> View Goals
         </Link>
-        <Link
-          href={`/goals/weekly/team/${row.id}` as Route}
-          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-bold text-white transition-opacity hover:opacity-90"
-          style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
-        >
-          <ClipboardList size={13} strokeWidth={2.4} /> Daily Checklist
-          <ArrowRight size={12} strokeWidth={2.6} />
-        </Link>
+        {variant === "productivity" ? (
+          <Link
+            href={`/productivity?emp=${row.id}` as Route}
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-bold text-white transition-opacity hover:opacity-90"
+            style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+          >
+            <Gauge size={13} strokeWidth={2.4} /> Productivity Dashboard
+            <ArrowRight size={12} strokeWidth={2.6} />
+          </Link>
+        ) : (
+          <Link
+            href={`/goals/weekly/team/${row.id}` as Route}
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-bold text-white transition-opacity hover:opacity-90"
+            style={{ background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))" }}
+          >
+            <ClipboardList size={13} strokeWidth={2.4} /> Daily Checklist
+            <ArrowRight size={12} strokeWidth={2.6} />
+          </Link>
+        )}
       </div>
     </div>
   );

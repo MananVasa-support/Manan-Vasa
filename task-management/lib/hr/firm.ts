@@ -31,6 +31,22 @@ export const HR_CONTACT = {
 } as const;
 
 /**
+ * Where automated HR mail is actually DELIVERED — submitted forms, letter
+ * copies, anything the product sends without a human choosing a recipient.
+ *
+ * Separate from `HR_CONTACT.email`, which is the address PRINTED on letterheads
+ * and stays a literal. Overridable because a staging deploy must not post real
+ * exit interviews into the live HR inbox, and because changing where compliance
+ * mail lands should not require a code deploy.
+ *
+ * Call this from server code only. It reads `process.env`, which is inlined as
+ * undefined on the client — `HR_CONTACT` above is what client components import.
+ */
+export function hrDeskEmail(): string {
+  return process.env.HR_DESK_EMAIL?.trim() || HR_CONTACT.email;
+}
+
+/**
  * The HR-desk signatory identity — the name + designation printed in the
  * signature block of every HR-signed letter (see `signatoryOf`). The Director
  * letters (CTC + Appointment) keep their authored "CA Manan Vasa" block instead.

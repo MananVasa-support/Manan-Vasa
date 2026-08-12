@@ -4,35 +4,15 @@ import { requireUser } from "@/lib/auth/current";
 import { DashboardHeader } from "@/components/layout/header";
 import { PageShell } from "@/components/layout/page-shell";
 import { db, employees } from "@/lib/db";
-import { teamScopeFor, teamPerformance, type TeamMemberPerf } from "@/lib/queries/team-performance";
+import { teamScopeFor, teamPerformance, deriveTeamStatus } from "@/lib/queries/team-performance";
 import { TZ } from "@/lib/weekly-goals/week";
-import {
-  TeamPerformanceBoard,
-  type TeamRow,
-  type TeamStatus,
-} from "@/components/goals/team/team-performance-board";
+import { TeamPerformanceBoard, type TeamRow } from "@/components/goals/team/team-performance-board";
 
 export const dynamic = "force-dynamic";
 
 function timeLabel(d: Date | null): string {
   if (!d) return "—";
   return new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: TZ });
-}
-
-/**
- * A member's live working state. UNCHANGED precedence from the previous card
- * grid's `statusOf` — need-help outranks blocked outranks clocked-in, and a
- * missing perf record falls through to "no plan" exactly as it did before.
- * Derived here (server) so the list and its filters can never disagree about
- * what someone's status is.
- */
-function statusOf(p: TeamMemberPerf | undefined): TeamStatus {
-  if ((p?.needHelp ?? 0) > 0) return "needs_help";
-  if ((p?.blockedTasks ?? 0) > 0) return "blocked";
-  if (p?.lastInAt && !p?.lastOutAt) return "working";
-  if (p?.lastOutAt) return "clocked_out";
-  if (!p?.plannedToday) return "no_plan";
-  return "not_in";
 }
 
 /**
@@ -89,7 +69,7 @@ export default async function TeamPerformancePage() {
       trainingHoursMonth: p?.trainingHoursMonth ?? 0,
       lastInLabel: timeLabel(p?.lastInAt ?? null),
       lastOutLabel: timeLabel(p?.lastOutAt ?? null),
-      status: statusOf(p),
+      status: deriveTeamStatus(p),
     };
   });
 

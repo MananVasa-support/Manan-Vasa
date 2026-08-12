@@ -1,7 +1,7 @@
 import "server-only";
 import { loadSubmissionRow, submissionFilename } from "./load";
 import { sendHrFormPdfEmail } from "@/lib/email/hr-form-email";
-import { HR_CONTACT } from "@/lib/hr/firm";
+import { hrDeskEmail } from "@/lib/hr/firm";
 
 /**
  * Mail a just-submitted form to the HR desk, as a PDF attachment.
@@ -29,7 +29,7 @@ import { HR_CONTACT } from "@/lib/hr/firm";
  */
 export async function mailSubmittedFormToHr(submissionId: string): Promise<void> {
   try {
-    const to = HR_CONTACT.email;
+    const to = hrDeskEmail();
     if (!to) {
       console.error("[hr-forms] no HR desk address configured; submit mail skipped");
       return;

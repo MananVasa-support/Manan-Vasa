@@ -250,7 +250,14 @@ export async function uploadCandidateFile(fd: FormData): Promise<Result<{ path: 
   const file = fd.get("file");
   if (!(file instanceof File)) return { ok: false, error: "No file provided." };
   if (file.size > 8 * 1024 * 1024) return { ok: false, error: "File too large (max 8 MB)." };
-  const kind = String(fd.get("kind") ?? "file");
+  // `kind` becomes a path segment in the private bucket, so it is an ALLOW-LIST,
+  // never the raw form value: interpolating that let a caller write outside
+  // candidate-intake/ entirely (`kind = "../hr-letters"`). The two values here
+  // are the only ones the intake wizard sends, and the resulting shape is what
+  // app/api/hr/candidate-resume/pdf/route.ts validates reads against.
+  const rawKind = String(fd.get("kind") ?? "");
+  const kind = rawKind === "photo" || rawKind === "sign" ? rawKind : null;
+  if (!kind) return { ok: false, error: "Unsupported upload kind." };
   const ext = (file.name.split(".").pop() ?? "bin").toLowerCase().replace(/[^a-z0-9]/g, "");
   const path = `candidate-intake/${kind}/${randomUUID()}.${ext || "bin"}`;
 

@@ -1,4 +1,10 @@
-import { loadAuthorisedSubmission, submissionFilename } from "@/lib/hr/forms/load";
+import { requireUser } from "@/lib/auth/current";
+import { rateLimitOrError } from "@/lib/rate-limit";
+import {
+  loadAuthorisedSubmission,
+  submissionFilename,
+  contentDispositionAttachment,
+} from "@/lib/hr/forms/load";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +18,16 @@ export const dynamic = "force-dynamic";
  *
  * The pdfkit renderer is imported LAZILY, matching the letters routes, so the
  * heavy dependency stays out of any bundle that merely references this module.
+ *
+ * Rate-limited like its sibling email route: authorisation says WHO may render a
+ * PDF, not how often, and each call spins up pdfkit for a full document.
  */
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
+
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "read");
+  if (limited) return new Response(limited.error, { status: 429 });
 
   const loaded = await loadAuthorisedSubmission(id);
   if (!loaded.ok) return new Response("Not found", { status: loaded.status });
@@ -25,10 +38,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     return new Response(new Uint8Array(pdf), {
       headers: {
         "content-type": "application/pdf",
-        "content-disposition": `attachment; filename="${submissionFilename(
-          loaded.data.formName,
-          loaded.data.employeeName,
-        )}"`,
+        "content-disposition": contentDispositionAttachment(
+          submissionFilename(loaded.data.formName, loaded.data.employeeName),
+        ),
         // A filled form is personal data — never let a shared cache hold it.
         "cache-control": "private, no-store",
       },

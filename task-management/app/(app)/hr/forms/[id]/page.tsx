@@ -1,16 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
-import { eq } from "drizzle-orm";
 import { ArrowLeft, Download } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { PageShell } from "@/components/layout/page-shell";
-import { db } from "@/lib/db";
-import { employees } from "@/db/schema";
-import { hrFormSubmissions } from "@/lib/hr/forms/schema";
-import { hrSectionLabel } from "@/lib/hr/forms/registry";
-import { canViewHrSubmission } from "@/lib/hr/forms/access";
-import { formatDate } from "@/lib/format";
+import { loadAuthorisedSubmission } from "@/lib/hr/forms/load";
 
 export const dynamic = "force-dynamic";
 
@@ -32,39 +26,23 @@ export default async function HrFormSubmissionPage({
 }) {
   const { id } = await params;
 
-  const rows = await db
-    .select({
-      id: hrFormSubmissions.id,
-      formName: hrFormSubmissions.formName,
-      section: hrFormSubmissions.section,
-      status: hrFormSubmissions.status,
-      responses: hrFormSubmissions.responses,
-      submittedAt: hrFormSubmissions.submittedAt,
-      updatedAt: hrFormSubmissions.updatedAt,
-      employeeId: hrFormSubmissions.employeeId,
-      employeeName: employees.name,
-    })
-    .from(hrFormSubmissions)
-    .innerJoin(employees, eq(hrFormSubmissions.employeeId, employees.id))
-    .where(eq(hrFormSubmissions.id, id))
-    .limit(1);
-
-  const row = rows[0];
-  if (!row) notFound();
-
-  const access = await canViewHrSubmission(row.employeeId);
-  if (!access.allowed) notFound();
+  // Fetch + authorise + shape, in the one call that owns all three. This page
+  // used to hand-roll the same select/join/access check the PDF and email routes
+  // get from here — a third copy of a query that had already started to drift.
+  const loaded = await loadAuthorisedSubmission(id);
+  if (!loaded.ok) notFound();
+  const { data } = loaded;
 
   // Group the flat response list back into the form's sections for reading.
   const groups = new Map<string, { question: string; answer: string }[]>();
-  for (const r of row.responses ?? []) {
+  for (const r of data.responses ?? []) {
     const key = r.group ?? "Responses";
     const list = groups.get(key) ?? [];
     list.push({ question: r.question, answer: r.answer });
     groups.set(key, list);
   }
 
-  const backHref = (access.isHrStaff ? "/hr/all-forms" : "/hr/my-forms") as Route;
+  const backHref = (loaded.isHrStaff ? "/hr/all-forms" : "/hr/my-forms") as Route;
 
   return (
     <>
@@ -90,17 +68,19 @@ export default async function HrFormSubmissionPage({
                   lineHeight: 1.1,
                 }}
               >
-                {row.formName}
+                {data.formName}
               </h1>
               <p className="mt-1 text-[13px] text-ink-muted">
-                {hrSectionLabel(row.section)} · {row.employeeName} ·{" "}
-                {row.submittedAt
-                  ? `Submitted ${formatDate(row.submittedAt)}`
-                  : `Draft · last saved ${formatDate(row.updatedAt)}`}
+                {data.sectionLabel} · {data.employeeName} ·{" "}
+                {/* `submittedOn` already falls back to the last-saved date for a
+                    draft (see loadSubmissionRow), so only the label differs. */}
+                {data.status === "submitted"
+                  ? `Submitted ${data.submittedOn}`
+                  : `Draft · last saved ${data.submittedOn}`}
               </p>
             </div>
             <a
-              href={`/api/hr/forms/${row.id}/pdf`}
+              href={`/api/hr/forms/${data.id}/pdf`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-surface-card px-3 py-1.5 text-[12.5px] font-bold text-ink-strong transition-colors hover:border-ink-soft"
             >
               <Download size={13} strokeWidth={2.4} /> Download PDF

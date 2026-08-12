@@ -45,12 +45,10 @@ export default async function ProductivityMyDashboardPage({
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <PageShell as="main" width="full" py={false} className="pt-6 pb-12 max-md:pt-4 max-md:pb-8">
-        {!viewingOther && (
-          <div className="mb-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-subtle">
-            Productivity Dashboard · My Dashboard
-          </div>
-        )}
+      <PageShell as="main" width="full" py={false} className="pt-7 pb-14 max-md:pt-5 max-md:pb-10">
+        {/* No page title here: the employee header IS the title — it already
+            names the module, the person and the period. A second heading above
+            it only pushed the first section further down the fold. */}
         <ProductivityDashboardView
           snap={snap}
           viewingOther={viewingOther}

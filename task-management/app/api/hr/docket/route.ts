@@ -2,7 +2,9 @@ import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { candidateIntake, documentInstances, documentSignatures, employees } from "@/db/schema";
-import { requireWorkspace } from "@/lib/auth/workspace-access";
+import { requireUser } from "@/lib/auth/current";
+import { isHrStaff } from "@/lib/hr/access";
+import { rateLimitOrError } from "@/lib/rate-limit";
 import { getSupabaseAdmin, DOCUMENTS_BUCKET } from "@/lib/supabase/admin";
 import { getDocType } from "@/lib/hr/letters/registry";
 
@@ -35,12 +37,27 @@ function jsonError(error: string, status = 200): Response {
  *  - Downloads each archived signed PDF from the private `documents` bucket and
  *    concatenates them (pdf-lib copyPages) behind a simple cover page.
  *
- * Auth-gated (requireWorkspace("hr")); NO DB writes — a pure read + export, so
- * it stays load-neutral (a couple of indexed lookups + storage reads).
+ * HR-STAFF ONLY, and that matters: the body names an arbitrary employee, so any
+ * weaker gate is an IDOR over other people's appointment letters and CTC
+ * breakups. It used to be `requireWorkspace("hr")`, which is NOT a restriction —
+ * lib/workspaces.ts documents the HR room as open to every employee, with real
+ * gating done per-page by isHrStaff. The only caller (the HR-Record screen) is
+ * already HR-staff-only, so this matches the surface it serves.
+ *
+ * The check is the `isHrStaff` PREDICATE, not `requireHrStaff()`: that redirects
+ * (307), `fetch` follows it, and the caller would save the HR landing page's
+ * HTML as `Docket.pdf`. A JSON 403 is what its error branch already renders.
+ *
+ * NO DB writes — a pure read + export, so it stays load-neutral (a couple of
+ * indexed lookups + storage reads).
  */
 export async function POST(req: Request): Promise<Response> {
-  // requireWorkspace redirects (307) an unauthorised caller — let it propagate.
-  await requireWorkspace("hr");
+  const me = await requireUser();
+  if (!(await isHrStaff(me))) {
+    return jsonError("You don't have access to this person's documents.", 403);
+  }
+  const limited = rateLimitOrError(me.id, "read");
+  if (limited) return jsonError(limited.error, 429);
 
   let body: DocketBody;
   try {
@@ -227,6 +244,8 @@ export async function POST(req: Request): Promise<Response> {
     headers: {
       "content-type": "application/pdf",
       "content-disposition": 'attachment; filename="Docket.pdf"',
+      // Signed appointment letters and CTC breakups — never a shared cache.
+      "cache-control": "private, no-store",
     },
   });
 }

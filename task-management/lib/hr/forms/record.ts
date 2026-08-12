@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { getHrForm } from "./registry";
 import {
@@ -19,10 +19,14 @@ import {
  * later save repairs. Doing it the other way round would let the index advertise
  * a submission that was never stored.
  *
- * Idempotent per (formKey, employeeId, sourceId): re-saving a form updates its
- * existing row instead of stacking duplicates, matching the create-or-update
- * behaviour the source forms already have. That's enforced by a partial unique
- * index in migration 0181 as well as the lookup here.
+ * Idempotent per (formKey, employeeId, sourceId), and ATOMICALLY so: one
+ * INSERT ... ON CONFLICT DO UPDATE arbitrated by the partial unique index from
+ * migration 0181. This used to be a SELECT followed by an INSERT-or-UPDATE, and
+ * that lost a race it hits routinely — the exit forms autosave every 1.4s, so a
+ * Submit click overlapping an autosave gave two concurrent server actions that
+ * both missed the SELECT, and the loser's INSERT died on the unique index. The
+ * caller only logs that failure, so the visible symptom was a submission that
+ * never reached My Filled Forms and an HR desk that was never mailed.
  */
 export async function recordHrFormSubmission(input: {
   formKey: string;
@@ -34,8 +38,16 @@ export async function recordHrFormSubmission(input: {
   status: HrFormStatus;
   /** The completed responses, already flattened to question/answer pairs. */
   responses: HrFormResponse[];
-  /** The row id in the form's OWN table, so the index can point back at it. */
-  sourceId?: string | null;
+  /**
+   * The row id in the form's OWN table, so the index can point back at it.
+   *
+   * REQUIRED. Every registered form owns a table (`HrFormDef.sourceTable` is
+   * mandatory), so every one of them has a row id by the time it calls this.
+   * When this was optional the lookup was skipped entirely for a null id and
+   * every save inserted a fresh row — one per 1.4s autosave tick — because the
+   * unique index is partial and does not constrain NULL source ids either.
+   */
+  sourceId: string;
 }): Promise<
   | {
       ok: true;
@@ -48,8 +60,7 @@ export async function recordHrFormSubmission(input: {
        * This exists so callers can fire submit-time side effects (mailing HR the
        * completed PDF) exactly once. Keying off the caller's own `status` would
        * re-send on every subsequent HR edit, because those come through as
-       * `status: "submitted"` too. Only this function can tell the difference —
-       * it is the one that read the prior row.
+       * `status: "submitted"` too.
        */
       newlySubmitted: boolean;
     }
@@ -57,56 +68,16 @@ export async function recordHrFormSubmission(input: {
 > {
   const def = getHrForm(input.formKey);
   if (!def) return { ok: false, error: `Unknown form "${input.formKey}".` };
+  if (!input.sourceId) {
+    return { ok: false, error: "A submission must reference its source row." };
+  }
 
-  // Only a real submit stamps the time. Re-saving a submitted form as a draft
-  // must not resurrect it as unsubmitted, so the stamp is written once and the
-  // status never walks backwards (see the update below).
+  // Only a real submit stamps the time, and only once — see the `coalesce` in
+  // the conflict branch, which keeps an existing stamp rather than moving it.
   const now = new Date();
   const submittedAt = input.status === "submitted" ? now : null;
 
   try {
-    const existing = input.sourceId
-      ? await db
-          .select({ id: hrFormSubmissions.id, status: hrFormSubmissions.status })
-          .from(hrFormSubmissions)
-          .where(
-            and(
-              eq(hrFormSubmissions.formKey, input.formKey),
-              eq(hrFormSubmissions.employeeId, input.employeeId),
-              eq(hrFormSubmissions.sourceId, input.sourceId),
-            ),
-          )
-          .limit(1)
-      : [];
-
-    const prior = existing[0];
-    if (prior) {
-      const becameSubmitted =
-        prior.status !== "submitted" && input.status === "submitted";
-      // A form that has already been submitted stays submitted: an HR edit
-      // afterwards updates the responses without demoting the row back to a
-      // draft and yanking it out of the employee's Submitted list.
-      const nextStatus: HrFormStatus =
-        prior.status === "submitted" ? "submitted" : input.status;
-      await db
-        .update(hrFormSubmissions)
-        .set({
-          formName: def.name,
-          section: def.section,
-          submittedById: input.submittedById,
-          status: nextStatus,
-          responses: input.responses,
-          sourceTable: def.sourceTable,
-          updatedAt: now,
-          // Stamp on the transition into submitted; leave an existing stamp be.
-          ...(prior.status !== "submitted" && nextStatus === "submitted"
-            ? { submittedAt: now }
-            : {}),
-        })
-        .where(eq(hrFormSubmissions.id, prior.id));
-      return { ok: true, id: prior.id, newlySubmitted: becameSubmitted };
-    }
-
     const [row] = await db
       .insert(hrFormSubmissions)
       .values({
@@ -118,17 +89,91 @@ export async function recordHrFormSubmission(input: {
         status: input.status,
         responses: input.responses,
         sourceTable: def.sourceTable,
-        sourceId: input.sourceId ?? null,
+        sourceId: input.sourceId,
         submittedAt,
       })
-      .returning({ id: hrFormSubmissions.id });
+      .onConflictDoUpdate({
+        target: [
+          hrFormSubmissions.formKey,
+          hrFormSubmissions.employeeId,
+          hrFormSubmissions.sourceId,
+        ],
+        // `hr_form_submissions_source_uniq` is a PARTIAL index; Postgres only
+        // infers a partial index as the arbiter when the predicate is restated.
+        targetWhere: sql`${hrFormSubmissions.sourceId} is not null`,
+        set: {
+          formName: def.name,
+          section: def.section,
+          submittedById: input.submittedById,
+          responses: input.responses,
+          sourceTable: def.sourceTable,
+          updatedAt: now,
+          // Status never walks BACKWARDS. A form that has been submitted stays
+          // submitted: an HR edit afterwards updates the responses without
+          // demoting the row to a draft and yanking it out of the employee's
+          // Submitted list. Inside DO UPDATE SET, the qualified column is the
+          // row as it exists NOW and `excluded` is the row we proposed.
+          status: sql`case when ${hrFormSubmissions.status} = 'submitted'
+                           then 'submitted' else excluded.status end`,
+          // Stamped ONCE, on the transition in. An existing stamp survives, so
+          // re-saving a submitted form never moves its submission date.
+          submittedAt: sql`coalesce(${hrFormSubmissions.submittedAt}, excluded.submitted_at)`,
+        },
+      })
+      .returning({
+        id: hrFormSubmissions.id,
+        submittedAt: hrFormSubmissions.submittedAt,
+      });
 
     if (!row) return { ok: false, error: "Could not record the submission." };
-    return { ok: true, id: row.id, newlySubmitted: input.status === "submitted" };
+
+    // The stamp IS the transition: `submitted_at` is written exactly once, by
+    // whichever statement first flipped the row to submitted, and never moves
+    // after. So "this statement's timestamp came back" is precisely "this
+    // statement is the one that submitted it" — which is what makes the HR mail
+    // fire exactly once. RETURNING cannot see the pre-update row, so there is no
+    // before/after status to compare instead.
+    const newlySubmitted =
+      input.status === "submitted" && row.submittedAt?.getTime() === now.getTime();
+
+    return { ok: true, id: row.id, newlySubmitted };
   } catch (e) {
     return {
       ok: false,
       error: e instanceof Error ? e.message : "Could not record the submission.",
     };
+  }
+}
+
+/**
+ * Drop a stale index row after its source row was re-parented to another
+ * employee.
+ *
+ * The index is keyed by (form, employee, source row), so changing WHOSE form a
+ * record is leaves the previous employee holding a row that points at what is
+ * now somebody else's record — and `canViewHrSubmission` still lets them read
+ * it. The index is a derived snapshot, so deleting and re-recording is the
+ * correct repair; the owning table is untouched.
+ *
+ * Best-effort by design: the caller is mid-save and a failure here must not cost
+ * the user their form. A leftover row is a visible wrong entry, not lost data.
+ */
+export async function forgetHrFormSubmission(input: {
+  formKey: string;
+  employeeId: string;
+  sourceId: string;
+}): Promise<void> {
+  try {
+    await db
+      .delete(hrFormSubmissions)
+      .where(
+        and(
+          eq(hrFormSubmissions.formKey, input.formKey),
+          eq(hrFormSubmissions.employeeId, input.employeeId),
+          eq(hrFormSubmissions.sourceId, input.sourceId),
+        ),
+      );
+  } catch (e) {
+    console.error("[hr-forms] could not drop the re-parented index row:", e);
   }
 }

@@ -73,6 +73,33 @@ export interface TeamMemberPerf {
   lastOutAt: Date | null;
 }
 
+/** A member's live working state. */
+export type TeamMemberStatus =
+  | "needs_help"
+  | "blocked"
+  | "working"
+  | "clocked_out"
+  | "no_plan"
+  | "not_in";
+
+/**
+ * Derive someone's working state from their performance snapshot, with the
+ * board's long-standing precedence: need-help outranks blocked outranks
+ * clocked-in, and a missing record falls through to "no plan".
+ *
+ * Shared by every page that renders the team table (Goals' Team Dashboard and
+ * Productivity's Team Performance) so the two can never disagree about what
+ * someone's status is — the rule lives once, beside the query that feeds it.
+ */
+export function deriveTeamStatus(p: TeamMemberPerf | undefined): TeamMemberStatus {
+  if ((p?.needHelp ?? 0) > 0) return "needs_help";
+  if ((p?.blockedTasks ?? 0) > 0) return "blocked";
+  if (p?.lastInAt && !p?.lastOutAt) return "working";
+  if (p?.lastOutAt) return "clocked_out";
+  if (!p?.plannedToday) return "no_plan";
+  return "not_in";
+}
+
 /** IST month bounds for a day. */
 function monthBounds(ymd: string): { monthStart: string; monthEnd: string; monthStartInstant: Date } {
   const [y, m] = ymd.split("-").map(Number);

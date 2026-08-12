@@ -14,6 +14,15 @@ import {
   EXIT_CONFIDENTIALITY_NOTE,
 } from "@/lib/hr/exit/content";
 import { FloatingInput, FloatingTextarea, ChipGroup, RatingMatrix, LabelValueGrid, EmployeeCombobox, AutoFillField } from "./exit-fields";
+import { validateExitSubmission } from "@/lib/hr/exit/validate";
+import {
+  AUTOSAVE_INTERVAL_MS,
+  SUBMIT_RETRY_DELAY_MS,
+  SUBMIT_RETRY_ATTEMPTS,
+  SUBMIT_BUSY_MESSAGE,
+  focusField,
+  type PersistOutcome,
+} from "./persist-outcome";
 import type { ExitRosterEmployee } from "@/lib/hr/exit/schema";
 
 type Fields = Record<string, string>;
@@ -31,6 +40,7 @@ export function ExitInterviewForm({
   onEmployeeChange,
   recordId,
   initial,
+  initialStatus = "draft",
   onBack,
   onSaved,
 }: {
@@ -42,6 +52,10 @@ export function ExitInterviewForm({
   onEmployeeChange?: (id: string) => void;
   recordId: string | null;
   initial?: InitialData;
+  /** Whether this record was already SUBMITTED, read from the submissions index
+   *  by `getExitRecord`. Without it, re-opening a filed interview showed "Draft
+   *  saved" and a live Submit button over work HR had already received. */
+  initialStatus?: "draft" | "submitted";
   onBack: () => void;
   onSaved?: (id: string) => void;
 }) {
@@ -57,7 +71,7 @@ export function ExitInterviewForm({
   const [ratings, setRatings] = React.useState<Ratings>(() => initial?.ratings ?? {});
   const [saving, setSaving] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
-  const [submitted, setSubmitted] = React.useState(false);
+  const [submitted, setSubmitted] = React.useState(initialStatus === "submitted");
   const [savedAt, setSavedAt] = React.useState<Date | null>(recordId ? new Date() : null);
 
   const idRef = React.useRef<string | null>(recordId);
@@ -75,9 +89,14 @@ export function ExitInterviewForm({
     dirtyRef.current = true;
   }, []);
 
+  /**
+   * `silent` suppresses only the SUCCESS toast (autosave shouldn't chatter).
+   * Errors are always reported — a save that failed is never a quiet event.
+   */
   const persist = React.useCallback(
-    async (silent: boolean, status: "draft" | "submitted" = "draft"): Promise<boolean> => {
-      if (savingRef.current) return false;
+    async (silent: boolean, status: "draft" | "submitted" = "draft"): Promise<PersistOutcome> => {
+      // Busy is NOT failure: the caller decides whether to wait or move on.
+      if (savingRef.current) return "busy";
       savingRef.current = true;
       try {
         const s = stateRef.current;
@@ -92,12 +111,13 @@ export function ExitInterviewForm({
           idRef.current = res.id;
           setSavedAt(new Date());
           dirtyRef.current = false;
-          if (!silent) fireToast({ message: "Exit interview saved." });
+          // A submit fires its own, more specific confirmation.
+          if (!silent && status !== "submitted") fireToast({ message: "Exit interview saved." });
           onSaved?.(res.id);
-          return true;
+          return "ok";
         }
         if (!silent) fireToast({ message: res.error, type: "error" });
-        return false;
+        return "failed";
       } finally {
         savingRef.current = false;
       }
@@ -109,7 +129,7 @@ export function ExitInterviewForm({
   React.useEffect(() => {
     const iv = setInterval(() => {
       if (dirtyRef.current) void persist(true);
-    }, 1400);
+    }, AUTOSAVE_INTERVAL_MS);
     return () => {
       clearInterval(iv);
       if (dirtyRef.current) void persist(true);
@@ -125,17 +145,40 @@ export function ExitInterviewForm({
     }
   }
 
-  /** Submit — the same write, stamped `submitted` so it leaves Drafts and lands
-   *  in My Filled Forms. Success is reported ONLY from the action's result, so
-   *  the confirmation can never run ahead of the database. */
+  /**
+   * Submit — the same write, stamped `submitted` so it leaves Drafts and lands
+   * in My Filled Forms. Success is reported ONLY from the action's result, so
+   * the confirmation can never run ahead of the database.
+   *
+   * Every path here ends in a message. This click used to be able to do nothing
+   * at all: it ran with `silent`, so a server error was swallowed, and it gave
+   * up immediately if an autosave held the lock — which, on a form that saves
+   * every 1.4s while you type, is exactly when someone finishes the last field
+   * and clicks Submit.
+   */
   async function onSubmitClick() {
+    const check = validateExitSubmission("interview", stateRef.current);
+    if (!check.ok) {
+      fireToast({ message: check.error, type: "error" });
+      focusField(check.missing[0]);
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const ok = await persist(true, "submitted");
-      if (ok) {
+      let outcome = await persist(false, "submitted");
+      // Wait out an in-flight autosave rather than treating it as a failure.
+      for (let i = 0; outcome === "busy" && i < SUBMIT_RETRY_ATTEMPTS; i++) {
+        await new Promise((r) => setTimeout(r, SUBMIT_RETRY_DELAY_MS));
+        outcome = await persist(false, "submitted");
+      }
+      if (outcome === "ok") {
         setSubmitted(true);
         fireToast({ message: "Exit interview submitted." });
+      } else if (outcome === "busy") {
+        fireToast({ message: SUBMIT_BUSY_MESSAGE, type: "error" });
       }
+      // "failed" already toasted the server's own reason inside persist.
     } finally {
       setSubmitting(false);
     }
@@ -188,7 +231,7 @@ export function ExitInterviewForm({
       <div className="mb-8 grid grid-cols-2 gap-4 max-md:grid-cols-1">
         <AutoFillField label="Designation" value={fields.header_designation ?? ""} onChange={(v) => setF("header_designation", v)} />
         <AutoFillField label="Manager Name" value={fields.header_managerName ?? ""} onChange={(v) => setF("header_managerName", v)} />
-        <FloatingInput label="Date of Exit Interview" type="date" value={fields.header_dateOfInterview ?? ""} onChange={(v) => setF("header_dateOfInterview", v)} />
+        <FloatingInput label="Date of Exit Interview" type="date" fieldKey="header_dateOfInterview" value={fields.header_dateOfInterview ?? ""} onChange={(v) => setF("header_dateOfInterview", v)} />
       </div>
 
       <div className="flex flex-col gap-7">
@@ -244,7 +287,7 @@ export function ExitInterviewForm({
       <div className="mt-10 rounded-2xl border border-hairline bg-white p-6 max-md:p-4">
         <h2 className="mb-4 text-[13px] font-bold uppercase tracking-[0.1em] text-ink-muted">Sign-off</h2>
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-          <FloatingInput label="Employee Signature (name)" value={fields.sign_employeeName ?? ""} onChange={(v) => setF("sign_employeeName", v)} />
+          <FloatingInput label="Employee Signature (name)" fieldKey="sign_employeeName" value={fields.sign_employeeName ?? ""} onChange={(v) => setF("sign_employeeName", v)} />
           <FloatingInput label="Date" type="date" value={fields.sign_employeeDate ?? ""} onChange={(v) => setF("sign_employeeDate", v)} />
           <FloatingInput label="HR Representative Signature (name)" value={fields.sign_hrName ?? ""} onChange={(v) => setF("sign_hrName", v)} />
           <FloatingInput label="Date" type="date" value={fields.sign_hrDate ?? ""} onChange={(v) => setF("sign_hrDate", v)} />
@@ -281,9 +324,13 @@ export function ExitInterviewForm({
             >
               {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} {saving ? "Saving…" : "Save Draft"}
             </button>
+            {/* Already submitted: the record is filed and HR has been mailed, so
+                there is nothing left for this button to do. Edits still save —
+                the server keeps a submitted form submitted. */}
             <button
               onClick={onSubmitClick}
-              disabled={saving || submitting}
+              disabled={saving || submitting || submitted}
+              title={submitted ? "This interview has already been submitted." : undefined}
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#18181b] px-6 py-2.5 text-[13.5px] font-bold text-white transition-colors hover:bg-black disabled:opacity-50"
             >
               {submitting ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} {submitting ? "Submitting…" : "Submit"}

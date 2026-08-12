@@ -15,7 +15,11 @@ import { ExitHandoverForm } from "./exit-handover-form";
 type EmployeeOpt = ExitRosterEmployee;
 
 type Kind = "interview" | "handover";
-type Mode = { screen: "pick" } | { screen: Kind; recordId: string | null; initial: unknown };
+type Mode =
+  | { screen: "pick" }
+  // `status` rides along so a form that was already SUBMITTED opens saying so,
+  // rather than defaulting to "Draft saved" over work HR has already received.
+  | { screen: Kind; recordId: string | null; initial: unknown; status: "draft" | "submitted" };
 
 const CARDS: { kind: Kind; title: string; desc: string; annex: string; Icon: typeof MessagesSquare }[] = [
   {
@@ -58,7 +62,12 @@ export function ExitWorkspace({
     setLoading(kind);
     try {
       const rec = await getExitRecord(id, kind).catch(() => null);
-      setMode({ screen: kind, recordId: rec?.id ?? null, initial: rec?.data ?? null });
+      setMode({
+        screen: kind,
+        recordId: rec?.id ?? null,
+        initial: rec?.data ?? null,
+        status: rec?.status ?? "draft",
+      });
     } finally {
       setLoading(null);
     }
@@ -111,6 +120,7 @@ export function ExitWorkspace({
           onEmployeeChange={(id) => openForm("interview", id)}
           recordId={mode.recordId}
           initial={(mode.initial as { fields?: Record<string, string>; ratings?: Record<string, number> }) ?? undefined}
+          initialStatus={mode.status}
           onBack={backToPick}
         />
       ) : (
@@ -122,6 +132,7 @@ export function ExitWorkspace({
           onEmployeeChange={(id) => openForm("handover", id)}
           recordId={mode.recordId}
           initial={(mode.initial as { fields?: Record<string, string>; checked?: Record<string, boolean> }) ?? undefined}
+          initialStatus={mode.status}
           onBack={backToPick}
         />
       )}

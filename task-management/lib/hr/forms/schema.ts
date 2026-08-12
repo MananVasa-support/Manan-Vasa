@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, jsonb, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, jsonb, timestamp, index, uniqueIndex, check } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { employees } from "@/db/schema";
 
 /**
@@ -50,14 +51,45 @@ export const hrFormSubmissions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
+  // These MIRROR db/migrations/0181 + 0182 exactly, including sort direction and
+  // the partial predicate. Drizzle never created this table — the migrations did
+  // — so anything declared loosely here reads as DRIFT to `drizzle-kit generate`,
+  // which then proposes dropping and recreating the real thing. An index that
+  // merely names the same columns is a DIFFERENT index to Postgres.
   (t) => [
-    index("hr_form_submissions_employee_idx").on(t.employeeId, t.submittedAt),
-    index("hr_form_submissions_submitted_idx").on(t.submittedAt),
+    // `DESC NULLS LAST` is load-bearing, not decoration: the two list pages order
+    // by submitted_at desc nulls last, and only this form of the index can serve
+    // that ordering.
+    index("hr_form_submissions_employee_idx").on(t.employeeId, t.submittedAt.desc().nullsLast()),
+    index("hr_form_submissions_submitted_idx").on(t.submittedAt.desc().nullsLast()),
     index("hr_form_submissions_status_idx").on(t.status),
     index("hr_form_submissions_section_idx").on(t.section),
     index("hr_form_submissions_form_idx").on(t.formKey),
+    // The idempotency guarantee itself. `recordHrFormSubmission` arbitrates its
+    // upsert on exactly this index, so it is not optional metadata — a database
+    // built without it accepts duplicate index rows per form silently.
+    uniqueIndex("hr_form_submissions_source_uniq")
+      .on(t.formKey, t.employeeId, t.sourceId)
+      .where(sql`${t.sourceId} is not null`),
+    // 0182. The `.$type<HrFormStatus>()` above is a compile-time cast; this is
+    // what actually stops a bad value reaching the client renderer.
+    check("hr_form_submissions_status_chk", sql`${t.status} in ('draft', 'submitted')`),
   ],
 );
+
+/**
+ * Coerce a `status` read from the database into the enum.
+ *
+ * Defence in depth BEHIND the 0182 CHECK constraint, for the window where a row
+ * predates it or the constraint is missing on a freshly-pushed environment. The
+ * client's STATUS_META lookup would otherwise return `undefined` and blank the
+ * whole Filled Forms table on a single bad row. Unknown reads as `draft` — the
+ * column default, and the reading that errs toward "not yet filed" rather than
+ * claiming a submission that never happened.
+ */
+export function asHrFormStatus(v: string | null | undefined): HrFormStatus {
+  return v === "submitted" ? "submitted" : "draft";
+}
 
 /** `draft` = Save Draft; `submitted` = Submit succeeded and the row was stamped. */
 export type HrFormStatus = "draft" | "submitted";

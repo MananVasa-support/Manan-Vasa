@@ -4,17 +4,26 @@
  *
  * PURE by design: no icons, no `server-only`, no DB. The list surfaces (client)
  * and the recorder (server) both import it, and pulling `lib/hr/lifecycle.ts` in
- * here would drag lucide icon components into client bundles for nothing. The
- * stage KEYS below are the same ones `lib/hr/lifecycle.ts` defines; the labels
- * are duplicated deliberately, and the test in the same folder pins them
- * together so a rename there can't silently desync this.
+ * as a VALUE would drag lucide icon components into client bundles for nothing.
+ * The `import type` below is fully erased at compile time, so it buys the pin
+ * without the payload.
  *
  * Each entry describes a form that ALREADY EXISTS and already owns its own
  * table. Registering it here does not change how it saves — it only teaches the
  * index what to call it and where to send someone who clicks through.
  */
 
-/** HR lifecycle stage keys, in lifecycle order (mirrors lib/hr/lifecycle.ts). */
+import type { HrStageKey } from "@/lib/hr/lifecycle";
+
+/**
+ * HR lifecycle stage keys, in lifecycle order.
+ *
+ * PINNED to `HrStageKey` in lib/hr/lifecycle.ts, in both directions: `satisfies`
+ * catches a key renamed or removed there, and `Record<HrStageKey, string>` on the
+ * labels below catches one added. The list is duplicated here on purpose (this
+ * module stays pure), but the duplication is now checked by the compiler rather
+ * than by a comment promising a test that never existed.
+ */
 export const HR_SECTIONS = [
   "pre-interview",
   "post-interview",
@@ -22,9 +31,9 @@ export const HR_SECTIONS = [
   "post-joining",
   "during",
   "exit",
-] as const;
+] as const satisfies readonly HrStageKey[];
 
-export type HrSectionKey = (typeof HR_SECTIONS)[number];
+export type HrSectionKey = HrStageKey;
 
 export const HR_SECTION_LABEL: Record<HrSectionKey, string> = {
   "pre-interview": "Pre-Interview",

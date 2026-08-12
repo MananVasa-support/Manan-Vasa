@@ -1,11 +1,11 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { DashboardHeader } from "@/components/layout/header";
 import { PageShell } from "@/components/layout/page-shell";
 import { HrPageHeader } from "@/components/hr/hr-chrome";
 import { requireHrStaff } from "@/lib/hr/access";
 import { db } from "@/lib/db";
 import { employees } from "@/db/schema";
-import { hrFormSubmissions } from "@/lib/hr/forms/schema";
+import { hrFormSubmissions, asHrFormStatus } from "@/lib/hr/forms/schema";
 import { hrSectionLabel } from "@/lib/hr/forms/registry";
 import { formatDate } from "@/lib/format";
 import {
@@ -29,6 +29,17 @@ export const dynamic = "force-dynamic";
  * instant and avoids a round trip per keystroke. If this ever outgrows a single
  * page, the ordering here is already the newest-first index the table expects.
  */
+
+/**
+ * Ceiling on what one page ships. Client-side filtering means every row lands in
+ * the RSC payload, so unbounded here meant "serialise the entire table to the
+ * browser" — fine at a hundred submissions, not at ten thousand. `listExitRecords`
+ * caps at 100 for the same reason; this is looser because this list is the one
+ * you actually search across. The table reports when the cap is in play rather
+ * than quietly showing a truncated set.
+ */
+const ALL_FORMS_LIMIT = 500;
+
 export default async function AllFilledFormsPage() {
   await requireHrStaff();
 
@@ -45,7 +56,15 @@ export default async function AllFilledFormsPage() {
     })
     .from(hrFormSubmissions)
     .innerJoin(employees, eq(hrFormSubmissions.employeeId, employees.id))
-    .orderBy(desc(hrFormSubmissions.submittedAt), desc(hrFormSubmissions.updatedAt));
+    // NULLS LAST is explicit because Postgres defaults DESC to NULLS FIRST —
+    // which floats every draft to the top of a list captioned "newest first",
+    // and leaves the (submitted_at DESC NULLS LAST) index unable to serve the
+    // ordering. Raw sql because drizzle's desc() carries no nulls modifier.
+    .orderBy(
+      sql`${hrFormSubmissions.submittedAt} desc nulls last`,
+      desc(hrFormSubmissions.updatedAt),
+    )
+    .limit(ALL_FORMS_LIMIT);
 
   const tableRows: FilledFormRow[] = rows.map((r) => ({
     id: r.id,
@@ -56,7 +75,7 @@ export default async function AllFilledFormsPage() {
     employeeName: r.employeeName,
     submittedOn: r.submittedAt ? formatDate(r.submittedAt) : r.updatedAt ? formatDate(r.updatedAt) : "",
     submittedTs: r.submittedAt ? new Date(r.submittedAt).getTime() : 0,
-    status: r.status,
+    status: asHrFormStatus(r.status),
   }));
 
   return (
@@ -68,6 +87,14 @@ export default async function AllFilledFormsPage() {
           subtitle="Every employee's HR form submissions — search, filter, view, download or mail."
         />
         <FilledFormsTable rows={tableRows} variant="all" />
+        {/* Say so when the cap is in play. A silently truncated list reads as
+            "this is everything", which is how someone concludes a submission
+            was never filed. */}
+        {rows.length === ALL_FORMS_LIMIT && (
+          <p className="mt-3 text-[12.5px] text-ink-subtle">
+            Showing the {ALL_FORMS_LIMIT} most recent submissions. Older ones aren&apos;t listed here yet.
+          </p>
+        )}
       </PageShell>
     </>
   );

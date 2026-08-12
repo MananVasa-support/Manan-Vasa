@@ -248,6 +248,7 @@ export function FloatingInput({
   type = "text",
   autoFocus,
   required,
+  fieldKey,
 }: {
   label: string;
   value: string;
@@ -255,6 +256,10 @@ export function FloatingInput({
   type?: "text" | "date" | "tel" | "email";
   autoFocus?: boolean;
   required?: boolean;
+  /** Payload key, exposed as `data-field` so a failed Submit can scroll the
+   *  offending input into view. Opt-in — only the fields Submit actually
+   *  requires need it, and `useId` makes the DOM id useless for this. */
+  fieldKey?: string;
 }) {
   const id = React.useId();
   const [focused, setFocused] = React.useState(false);
@@ -266,6 +271,7 @@ export function FloatingInput({
         id={id}
         type={type}
         value={value}
+        data-field={fieldKey}
         data-autofocus={autoFocus || undefined}
         className="iwf-control"
         placeholder=" "

@@ -1,5 +1,5 @@
 import { getResend, FROM, companyBcc, clampSubject } from "./resend";
-import { HR_CONTACT } from "@/lib/hr/firm";
+import { HR_CONTACT, hrDeskEmail } from "@/lib/hr/firm";
 
 /**
  * FILLED HR FORM — "Mail" sender. Emails a completed form as a PDF attachment,
@@ -59,7 +59,11 @@ export async function sendHrFormPdfEmail(args: {
     // Copy the HR desk — UNLESS it is already the recipient. The submit-time
     // send addresses HR directly, and a message with the same address in both
     // To and Cc reads like a mistake (and some clients thread it oddly).
-    const hrDesk = HR_CONTACT.email;
+    //
+    // The DELIVERY address, so a staging deploy's override applies. The address
+    // printed in the footer below stays HR_CONTACT.email: that is the published
+    // contact people should write to, not wherever this copy happens to land.
+    const hrDesk = hrDeskEmail();
     const cc =
       hrDesk && hrDesk.trim().toLowerCase() !== args.to.trim().toLowerCase()
         ? [hrDesk]

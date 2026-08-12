@@ -25,7 +25,14 @@ export type LoadedSubmission = FormPdfInput & {
 };
 
 export type LoadResult =
-  | { ok: true; data: LoadedSubmission }
+  | {
+      ok: true;
+      data: LoadedSubmission;
+      /** Whether the viewer reached this as HR staff rather than as its subject.
+       *  Carried out of the access check that already computed it, so the View
+       *  page can pick its "back to" list without asking a second time. */
+      isHrStaff: boolean;
+    }
   | { ok: false; status: 404 | 403 };
 
 /**
@@ -84,12 +91,10 @@ export async function loadAuthorisedSubmission(id: string): Promise<LoadResult> 
   // itself a leak, and the caller has no legitimate use for the distinction.
   if (!access.allowed) return { ok: false, status: 404 };
 
-  return { ok: true, data };
+  return { ok: true, data, isHrStaff: access.isHrStaff };
 }
 
-/** `Exit Interview — Jane Doe.pdf`, with characters a Content-Disposition
- *  header (or a filesystem) would choke on stripped out. */
-export function submissionFilename(formName: string, employeeName: string): string {
-  const safe = `${formName} - ${employeeName}`.replace(/[^\w\s.-]+/g, "").trim();
-  return `${safe || "filled-form"}.pdf`;
-}
+// Re-exported so the routes that load a submission and name its download keep
+// importing from one place. The implementations are pure and live in ./filename,
+// away from this module's DB client.
+export { submissionFilename, contentDispositionAttachment } from "./filename";

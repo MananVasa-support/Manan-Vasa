@@ -9,9 +9,6 @@ import {
   tasks,
   goals,
   weeklyGoals,
-  dailyChecklist,
-  dccEntries,
-  dccKpiItems,
   tcSessions,
   tcSessionAttendees,
   salaryProfiles,
@@ -39,11 +36,14 @@ import { directReportIds } from "./access";
  * The Productivity Dashboard's AGGREGATION layer (§29).
  *
  * It owns no data. Every number here is read live from the systems that already
- * exist — employees, weekly_goals + goals, tasks, tc_sessions, daily_checklist +
- * dcc_entries, salary_profiles, incentive_entries — and handed to the pure
- * functions in `./calc` for percentages and grades. Nothing is duplicated into a
- * dashboard-specific table, so the dashboard can never disagree with the module
- * it is reporting on.
+ * exist — employees, weekly_goals + goals, tasks, tc_sessions, salary_profiles,
+ * incentive_entries — and handed to the pure functions in `./calc` for
+ * percentages and grades. Nothing is duplicated into a dashboard-specific table,
+ * so the dashboard can never disagree with the module it is reporting on.
+ *
+ * The Daily Checklist is deliberately NOT read here. It has its own module and
+ * its own surfaces; carrying a compliance card on this page duplicated it and
+ * pushed the four sections that ARE this dashboard's subject further apart.
  *
  * ONE loader serves every consumer (§30): My Dashboard, the Team Performance
  * drill-down, the Full Report, the PDF digests and the manager team digest all
@@ -60,44 +60,64 @@ import { directReportIds } from "./access";
  *  constant so the business can move it without hunting through queries. */
 const EARNED_INCENTIVE_COLUMN = incentiveEntries.approvedAmt;
 
+/**
+ * The ONE window every figure on the dashboard covers: the current CALENDAR
+ * month, 1st → last day, resolved in IST.
+ *
+ * There is deliberately no period selector any more. The dashboard used to
+ * carry four KPI cards (Monthly / MTD / Quarter / YTD), which forced the reader
+ * to work out which column answered their question before they could read it.
+ * One period, stated once in the header, is the whole scope — and it RESETS on
+ * its own when the calendar turns over, because every query below is bounded by
+ * these two dates rather than by anything stored.
+ */
 export interface ProductivityPeriod {
-  /** "monthly" | "mtd" | "quarter" | "ytd" — §10. LY periods are out of scope. */
-  key: "monthly" | "mtd" | "quarter" | "ytd";
+  /** `yyyy-mm-01` — inclusive. */
+  monthStart: string;
+  /** `yyyy-mm-dd` of the final day of the month — inclusive. */
+  monthEnd: string;
+  /** `yyyy-mm-dd` of the reference day, i.e. how far "to date" reaches. */
+  today: string;
+  /** Human label, e.g. "August 2026". */
   label: string;
-  /** Inclusive `yyyy-mm-dd` window. */
-  from: string;
-  to: string;
 }
 
-/** The four KPI periods of §10, anchored on the reference day in IST. */
-export function productivityPeriods(now: Date = new Date()): ProductivityPeriod[] {
+/** The dashboard's calendar-month window, anchored on the reference day in IST. */
+export function productivityPeriod(now: Date = new Date()): ProductivityPeriod {
   const today = istDay(now);
-  const [y, m] = today.split("-").map(Number);
+  const monthStart = monthStartOf(now);
+  const [y, m] = monthStart.split("-").map(Number);
   const year = y ?? 1970;
   const month = m ?? 1;
-  const pad = (n: number) => String(n).padStart(2, "0");
+  // Day 0 of the NEXT month = the last day of this one. Handles 28/29/30/31
+  // without a leap-year rule of its own.
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  // Quarter here is the CALENDAR quarter the current month sits in. (The FY
-  // calendar in lib/goals is Apr–Mar and drives Goals; KPI money periods follow
-  // the payroll year, which is calendar-based.)
-  const qStartMonth = Math.floor((month - 1) / 3) * 3 + 1;
-
-  return [
-    { key: "monthly", label: "Monthly", from: `${year}-${pad(month)}-01`, to: `${year}-${pad(month)}-${pad(lastDay)}` },
-    { key: "mtd", label: "MTD", from: monthStartOf(now), to: today },
-    { key: "quarter", label: "Quarter", from: `${year}-${pad(qStartMonth)}-01`, to: today },
-    { key: "ytd", label: "YTD", from: `${year}-01-01`, to: today },
-  ];
+  const label = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-GB", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  return {
+    monthStart,
+    monthEnd: `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
+    today,
+    label,
+  };
 }
 
-export interface KpiPeriodResult {
-  key: ProductivityPeriod["key"];
-  label: string;
+/** The KPI section (§7) — incentive money, its share of salary, and the grade
+ *  that share earns. Three values, three cards, one period. */
+export interface ProductivityKpi {
+  /** Earned (approved) incentive for the period. */
   incentiveAmount: number;
+  /** Monthly base salary the incentive is measured against. 0 = no profile. */
   baseSalary: number;
-  /** null when no salary profile — see calculateIncentivePercentage. */
+  /** null when there is no salary profile — see calculateIncentivePercentage. */
   incentivePct: number | null;
-  grade: Grade;
+  /** `null` alongside a null percentage: an employee with no salary on record is
+   *  UNGRADED, not an F. Grading missing payroll data as a failure would put a
+   *  red mark on their scorecard for something they did not do. */
+  grade: Grade | null;
 }
 
 export interface ProductivitySnapshot {
@@ -111,18 +131,21 @@ export interface ProductivitySnapshot {
     managerName: string | null;
     isManager: boolean;
   };
-  kpi: KpiPeriodResult[];
+  period: ProductivityPeriod;
+  kpi: ProductivityKpi;
+  /** `monthly` counts GOALS (8 of 10 done); `mtd` rolls up the weekly boards'
+   *  completion for the same month. Two different questions, two sources. */
   goals: { monthly: Scored; mtd: Scored & { weeks: number } };
-  tasks: { over15: number; days8to14: number; days1to3: number; needHelp: number };
+  tasks: { over15: number; days8to14: number; days1to7: number; needHelp: number };
   training: {
     givenHours: number;
     attendedHours: number;
     targetHours: number;
     givenPct: number | null;
     attendedPct: number | null;
-    checklist: Scored;
   };
-  /** Present only when the subject manages someone (§18, §20). */
+  /** Present ONLY when the subject manages someone. Null is what makes the
+   *  Manager section vanish for an employee rather than render empty. */
   manager: { tasksDelegated: number; goalsDelegated: number } | null;
   generatedAt: Date;
 }
@@ -139,9 +162,9 @@ export async function loadProductivity(
   employeeId: string,
   now: Date = new Date(),
 ): Promise<ProductivitySnapshot | null> {
-  const periods = productivityPeriods(now);
-  const today = istDay(now);
-  const monthStart = monthStartOf(now);
+  const period = productivityPeriod(now);
+  const monthStart = period.monthStart;
+  const monthEnd = nextMonthStart(monthStart); // exclusive upper bound
   const mgr = alias(employees, "prod_mgr");
 
   const [identityRows, reports] = await Promise.all([
@@ -167,7 +190,7 @@ export async function loadProductivity(
   if (!identity) return null;
   const isManager = reports.length > 0;
 
-  const [salaryRow, incentiveRows, weeklyRows, monthlyGoalRows, taskRows, trainRows, checklistRows] =
+  const [salaryRow, incentiveRows, weeklyRows, monthlyGoalRows, taskRows, trainRows] =
     await Promise.all([
       db
         .select({ annualCtc: salaryProfiles.annualCtc, monthlyPayAtTarget: salaryProfiles.monthlyPayAtTarget, monthlyFee: salaryProfiles.monthlyFee, payType: salaryProfiles.payType })
@@ -175,15 +198,17 @@ export async function loadProductivity(
         .where(eq(salaryProfiles.employeeId, employeeId))
         .limit(1),
 
-      // Every incentive row from the start of the calendar year — one read that
-      // covers all four periods, bucketed in memory rather than four queries.
+      // Incentive earned for THIS month only. Bounded by the same month window
+      // as everything else, so the KPI resets with the calendar rather than
+      // accumulating across periods.
       db
-        .select({ periodMonth: incentiveEntries.periodMonth, amount: EARNED_INCENTIVE_COLUMN })
+        .select({ amount: EARNED_INCENTIVE_COLUMN })
         .from(incentiveEntries)
         .where(
           and(
             eq(incentiveEntries.employeeId, employeeId),
-            gte(incentiveEntries.periodMonth, `${today.slice(0, 4)}-01-01`),
+            gte(incentiveEntries.periodMonth, monthStart),
+            lt(incentiveEntries.periodMonth, monthEnd),
           ),
         ),
 
@@ -200,7 +225,7 @@ export async function loadProductivity(
             eq(weeklyGoals.employeeId, employeeId),
             eq(weeklyGoals.archived, false),
             gte(weeklyGoals.weekStart, monthStart),
-            lt(weeklyGoals.weekStart, nextMonthStart(monthStart)),
+            lt(weeklyGoals.weekStart, monthEnd),
           ),
         )
         .orderBy(asc(weeklyGoals.weekStart)),
@@ -245,44 +270,18 @@ export async function loadProductivity(
             gte(sql`${tcSessions.scheduledAt}::date`, monthStart),
           ),
         ),
-
-      // Daily checklist compliance this month (DCC entries owned by this person).
-      db
-        .select({
-          due: sql<number>`coalesce(sum(case when ${dccEntries.status} <> 'NA' then 1 else 0 end),0)::int`,
-          done: sql<number>`coalesce(sum(case when ${dccEntries.status} = 'Done' then 1 else 0 end),0)::int`,
-        })
-        .from(dccEntries)
-        .innerJoin(dccKpiItems, eq(dccEntries.itemId, dccKpiItems.id))
-        .where(
-          and(
-            eq(dccKpiItems.ownerEmployeeId, employeeId),
-            gte(dccEntries.entryDate, monthStart),
-            lt(dccEntries.entryDate, nextMonthStart(monthStart)),
-          ),
-        ),
     ]);
 
   /* ── KPI ─────────────────────────────────────────────────────────── */
-  const baseMonthly = monthlyBaseSalary(salaryRow[0]);
-  const kpi: KpiPeriodResult[] = periods.map((p) => {
-    const amount = incentiveRows
-      .filter((r) => inPeriod(r.periodMonth, p))
-      .reduce((sum, r) => sum + Number(r.amount ?? 0), 0);
-    // The base is scaled to the period's length in months, so a quarter's
-    // incentive is measured against a quarter of salary rather than one month's —
-    // otherwise Quarter and YTD would report absurd percentages.
-    const base = baseMonthly * monthsSpanned(p);
-    const pct = calculateIncentivePercentage(amount, base);
-    return {
-      key: p.key,
-      label: p.label,
-      incentiveAmount: amount,
-      baseSalary: base,
-      incentivePct: pct,
-      grade: calculateIncentiveGrade(pct ?? 0),
-    };
-  });
+  const baseSalary = monthlyBaseSalary(salaryRow[0]);
+  const incentiveAmount = incentiveRows.reduce((sum, r) => sum + Number(r.amount ?? 0), 0);
+  const incentivePct = calculateIncentivePercentage(incentiveAmount, baseSalary);
+  const kpi: ProductivityKpi = {
+    incentiveAmount,
+    baseSalary,
+    incentivePct,
+    grade: incentivePct == null ? null : calculateIncentiveGrade(incentivePct),
+  };
 
   /* ── Goals ───────────────────────────────────────────────────────── */
   // A goal's effective completion is acceptPct when a reviewer set one, else the
@@ -295,28 +294,27 @@ export async function loadProductivity(
   }));
   const mtd = calculateMTDGoals(weeklyTallies, now);
 
-  const monthlyCompleted = monthlyGoalRows.reduce(
-    (s, g) => s + Number(g.acceptPct ?? g.pctDone ?? 0),
-    0,
-  );
-  const monthly = score(monthlyCompleted, monthlyGoalRows.length * 100);
+  // "Monthly Goals" counts GOALS, not percentage-points: the card reads "8 / 10"
+  // and its sibling reads 80%, so the two must come from the same pair. A goal
+  // counts as done once its effective completion reaches 100%.
+  const monthlyDone = monthlyGoalRows.filter(
+    (g) => Number(g.acceptPct ?? g.pctDone ?? 0) >= 100,
+  ).length;
+  const monthly = score(monthlyDone, monthlyGoalRows.length);
 
   /* ── Tasks ───────────────────────────────────────────────────────── */
   const ages = taskRows.map((t) => overdueAgeInDays(t.dueAt, now));
   const buckets = calculateOverdueTasks(ages);
   const needHelp = taskRows.filter((t) => t.status === "need_info").length;
 
-  /* ── Training + checklist ────────────────────────────────────────── */
+  /* ── Training ────────────────────────────────────────────────────── */
   const attendedHours = round1(Number(trainRows[0]?.attendedMin ?? 0) / 60);
   // "Training given" = sessions this person ran. Resolved from the session's
   // trainer, which is a separate read kept out of the batch above because it is
   // the only query that keys off tc_sessions directly.
   const givenHours = await trainingGivenHours(employeeId, monthStart);
 
-  const dcc = checklistRows[0];
-  const checklist = score(Number(dcc?.done ?? 0), Number(dcc?.due ?? 0));
-
-  /* ── Manager section (§18) ───────────────────────────────────────── */
+  /* ── Manager section — managers only ─────────────────────────────── */
   const manager = isManager ? await delegationCounts(employeeId, reports, monthStart) : null;
 
   return {
@@ -328,16 +326,16 @@ export async function loadProductivity(
       managerName: identity.managerName ?? null,
       isManager,
     },
+    period,
     kpi,
     goals: { monthly, mtd: { ...score(mtd.completed, mtd.target), weeks: mtd.weeks } },
-    tasks: { ...buckets, needHelp },
+    tasks: { over15: buckets.over15, days8to14: buckets.days8to14, days1to7: buckets.days1to7, needHelp },
     training: {
       givenHours,
       attendedHours,
       targetHours: TRAINING_TARGET_HOURS,
       givenPct: calculateTrainingPercentage(givenHours),
       attendedPct: calculateTrainingPercentage(attendedHours),
-      checklist,
     },
     manager,
     generatedAt: now,
@@ -417,20 +415,6 @@ function monthlyBaseSalary(
   if (row.payType === "fixed_fee") return Number(row.monthlyFee ?? 0);
   if (row.payType === "hourly") return Number(row.monthlyPayAtTarget ?? 0);
   return Number(row.annualCtc ?? 0) / 12;
-}
-
-/** Does an incentive row's `period_month` fall inside a KPI period? */
-function inPeriod(periodMonth: string | null, p: ProductivityPeriod): boolean {
-  if (!periodMonth) return false;
-  const d = String(periodMonth).slice(0, 10);
-  return d >= p.from.slice(0, 7) + "-01" && d <= p.to;
-}
-
-/** Whole months a period spans — scales the salary base for Quarter / YTD. */
-function monthsSpanned(p: ProductivityPeriod): number {
-  const [fy, fm] = p.from.split("-").map(Number);
-  const [ty, tm] = p.to.split("-").map(Number);
-  return Math.max(1, (ty ?? 0) * 12 + (tm ?? 0) - ((fy ?? 0) * 12 + (fm ?? 0)) + 1);
 }
 
 function nextMonthStart(monthStart: string): string {

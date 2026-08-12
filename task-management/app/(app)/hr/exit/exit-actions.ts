@@ -11,13 +11,16 @@ import {
   type ExitRosterEmployee,
   type ExitInterviewData,
   type ExitHandoverData,
+  type ExitRecordData,
 } from "@/lib/hr/exit/schema";
 import { requireHrStaff } from "@/lib/hr/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
-import { recordHrFormSubmission } from "@/lib/hr/forms/record";
+import { recordHrFormSubmission, forgetHrFormSubmission } from "@/lib/hr/forms/record";
 import { mailSubmittedFormToHr } from "@/lib/hr/forms/notify";
 import { afterResponse } from "@/lib/after";
 import { exitResponsesFor, exitFormKey } from "@/lib/hr/forms/exit-responses";
+import { validateExitSubmission } from "@/lib/hr/exit/validate";
+import { hrFormSubmissions, asHrFormStatus, type HrFormStatus } from "@/lib/hr/forms/schema";
 
 type Result<T> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -52,9 +55,33 @@ export async function saveExitRecord(input: z.input<typeof SaveSchema>): Promise
   // Guard against absurd payloads (keeps a rogue client from writing megabytes).
   if (JSON.stringify(v.data).length > 200_000) return { ok: false, error: "Form is too large to save." };
 
+  // A SUBMIT has to be a real, attributable form; a draft has no bar at all
+  // (it is unfinished by definition, and the 1.4s autosave must never fail on
+  // it). Checked here rather than only in the client because the client check is
+  // a convenience — this is the rule. Without it a blank Submit wrote an empty
+  // index row and mailed HR a PDF reading "No answers were recorded".
+  if (v.status === "submitted") {
+    const check = validateExitSubmission(v.kind, v.data as ExitRecordData);
+    if (!check.ok) return { ok: false, error: check.error };
+  }
+
   try {
     let recordId: string;
+    // WHOSE form this was before this save. The submissions index is keyed by
+    // (form, employee, source row), so re-pointing a record at a different
+    // employee strands the old employee's index row on someone else's record —
+    // and it stays readable by them. Read it before the update overwrites it.
+    let priorEmployeeId: string | null = null;
     if (v.id) {
+      const [prev] = await db
+        .select({ employeeId: exitRecords.employeeId })
+        .from(exitRecords)
+        .where(eq(exitRecords.id, v.id))
+        .limit(1);
+      // A caller-supplied id that matches nothing used to UPDATE zero rows and
+      // then happily index a record that does not exist.
+      if (!prev) return { ok: false, error: "This exit record no longer exists." };
+      priorEmployeeId = prev.employeeId;
       await db
         .update(exitRecords)
         .set({ data: v.data as Record<string, unknown>, employeeId: v.employeeId, kind: v.kind, updatedAt: new Date() })
@@ -74,10 +101,20 @@ export async function saveExitRecord(input: z.input<typeof SaveSchema>): Promise
     // fails the form is still saved, and the next save repairs the index. Doing
     // it first would let the list advertise a submission that was never stored.
     //
-    // A failure here is deliberately NOT surfaced as a save error — the user's
-    // form did save, and telling them otherwise would push them to re-enter it.
+    // A DRAFT failure here is deliberately NOT surfaced as a save error — the
+    // user's form did save, and telling them otherwise would push them to
+    // re-enter it. A SUBMIT failure is different; see below.
+    const formKey = exitFormKey(v.kind);
+
+    // Re-parented to a different employee: drop the previous owner's index row
+    // before writing the new one, or they keep a readable entry pointing at what
+    // is now somebody else's exit record.
+    if (priorEmployeeId && priorEmployeeId !== v.employeeId) {
+      await forgetHrFormSubmission({ formKey, employeeId: priorEmployeeId, sourceId: recordId });
+    }
+
     const indexed = await recordHrFormSubmission({
-      formKey: exitFormKey(v.kind),
+      formKey,
       employeeId: v.employeeId,
       submittedById: me.id,
       status: v.status,
@@ -86,6 +123,13 @@ export async function saveExitRecord(input: z.input<typeof SaveSchema>): Promise
     });
     if (!indexed.ok) {
       console.error("[exit] form saved but indexing failed:", indexed.error);
+      // On a SUBMIT the index IS the deliverable: an unindexed submission never
+      // reaches My Filled Forms and never mails the HR desk. Staying quiet would
+      // leave the user believing they had filed it. The form itself is safely
+      // saved either way, so re-pressing Submit is a cheap, correct repair.
+      if (v.status === "submitted") {
+        return { ok: false, error: "Saved, but the submission couldn't be filed. Press Submit again." };
+      }
     } else if (indexed.newlySubmitted) {
       // Submit — not Save Draft, and not a later edit of an already-submitted
       // form — mails the completed PDF to the HR desk. `newlySubmitted` is what
@@ -111,6 +155,15 @@ export interface ExitRecordState {
   kind: (typeof KINDS)[number];
   data: Record<string, unknown>;
   updatedAt: Date;
+  /**
+   * Whether this record has been SUBMITTED, not just saved.
+   *
+   * `exit_records` has no status column — submission is a fact about the index,
+   * so it is read from there. Without it the form defaulted to "not submitted"
+   * on every open, so re-opening a filed exit interview showed "Draft saved" and
+   * a live Submit button over work that had already gone to HR.
+   */
+  status: HrFormStatus;
 }
 
 /**
@@ -137,12 +190,30 @@ export async function getExitRecord(
     .orderBy(desc(exitRecords.updatedAt))
     .limit(1);
   if (!r) return null;
+
+  // One indexed lookup on the same key the recorder writes under. A record with
+  // no index row yet (saved before 0181, or an index write that failed) reads as
+  // a draft — the safe direction: it offers Submit rather than claiming a filing
+  // that never happened.
+  const [sub] = await db
+    .select({ status: hrFormSubmissions.status })
+    .from(hrFormSubmissions)
+    .where(
+      and(
+        eq(hrFormSubmissions.formKey, exitFormKey(kind)),
+        eq(hrFormSubmissions.employeeId, employeeId),
+        eq(hrFormSubmissions.sourceId, r.id),
+      ),
+    )
+    .limit(1);
+
   return {
     id: r.id,
     employeeId: r.employeeId,
     kind: r.kind as (typeof KINDS)[number],
     data: (r.data ?? {}) as Record<string, unknown>,
     updatedAt: r.updatedAt,
+    status: asHrFormStatus(sub?.status),
   };
 }
 
