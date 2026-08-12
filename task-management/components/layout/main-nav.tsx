@@ -70,6 +70,9 @@ interface Props {
   /** Active Goals space (mig 0150). "personal" swaps the goals nav for the
    *  private admin set (levels + Recycle Bin, no team rituals). */
   goalsSpace?: "professional" | "personal";
+  /** Server-resolved: does anyone report directly to this user? Gates the
+   *  Productivity module's Team Performance entry (§19 keeps it from employees). */
+  isManager?: boolean;
 }
 
 /**
@@ -82,6 +85,10 @@ interface NavItem {
   label: string;
   Icon: LucideIcon;
   adminOnly?: boolean;
+  /** Hide unless the viewer manages at least one direct report. Manager status is
+   *  derived from the org chart (see lib/productivity/access.ts), never a role
+   *  flag — an admin with reports qualifies through the same rule. */
+  managerOnly?: boolean;
   exact?: boolean;
   not?: string[];
   /** Special-cased active-tasks badge — only Tasks carries it. */
@@ -196,10 +203,9 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       // the WMS-owned alias `/my-day` rather than `/goals/plan` so opening it
       // keeps you in this room (workspaceForPath owns `/goals*` for Goals).
       { href: "/my-day" as Route, label: "My Day", Icon: CalendarDays },
-      // NOTE: `/tasks/agenda` is deliberately absent from the rail — the My Day
-      // planner above covers it. The ROUTE still works and is still excluded
-      // from the `/tasks` active state below, so an existing link or bookmark
-      // opens it with the correct item highlighted; it just isn't advertised.
+      // The task agenda kept its route and its place in the bar; only its label
+      // changed, freeing "My Day" for the planner above.
+      { href: "/tasks/agenda" as Route, label: "Task Agenda", Icon: ListChecks },
       {
         href: "/tasks" as Route,
         label: "Tasks",
@@ -353,6 +359,23 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
     ],
     groups: [],
   },
+  // Productivity Dashboard — a top-level room of its own, NOT part of Goals.
+  // "My Dashboard" is the personal view everyone gets; Team Performance is the
+  // manager/admin overview and is hidden from plain employees (§19). Both the
+  // page and the data layer re-assert this — the nav flag is convenience, not
+  // the boundary (§23).
+  productivity: {
+    top: [
+      { href: "/productivity" as Route, label: "My Dashboard", Icon: Gauge, exact: true },
+      {
+        href: "/productivity/team" as Route,
+        label: "Team Performance",
+        Icon: Users,
+        managerOnly: true,
+      },
+    ],
+    groups: [],
+  },
 };
 
 /** Admin PERSONAL goals space — the private set: five level pages + Recycle
@@ -377,6 +400,7 @@ export function MainNav({
   cookieWorkspace,
   goalsCanvasEnabled,
   goalsSpace,
+  isManager = false,
 }: Props) {
   const pathname = usePathname();
 
@@ -417,7 +441,9 @@ export function MainNav({
   }
 
   function visible(items: NavItem[]): NavItem[] {
-    return resolveCanvasItems(items).filter((it) => !it.adminOnly || isAdmin);
+    return resolveCanvasItems(items).filter(
+      (it) => (!it.adminOnly || isAdmin) && (!it.managerOnly || isManager || isAdmin),
+    );
   }
 
   function renderPill(item: NavItem) {

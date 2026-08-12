@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Target,
   type LucideIcon,
+  Gauge,
 } from "lucide-react";
 import type { Route } from "next";
 import type { WorkspaceId } from "@/lib/workspaces";
@@ -138,6 +139,19 @@ export const MODULE_THEME: Record<WorkspaceId, ModuleTheme> = {
     Icon: Target,
     accent: "#b45309",
     accentDeep: "#7c2d12",
+    image: null,
+  },
+  // Productivity Dashboard — a top-level module of its own, sitting beside Goals
+  // rather than inside it. Distinct slate/indigo accent so the hub reads it as a
+  // separate room, not a Goals sub-surface.
+  productivity: {
+    id: "productivity",
+    label: "Productivity Dashboard",
+    tagline: "One cockpit per person — incentive, goals, tasks, training at a glance.",
+    href: "/ws/productivity" as Route,
+    Icon: Gauge,
+    accent: "#4338ca",
+    accentDeep: "#312e81",
     image: null,
   },
 };

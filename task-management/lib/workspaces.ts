@@ -20,6 +20,7 @@ export const WORKSPACE_IDS = [
   "accounts",
   "events",
   "goals",
+  "productivity",
 ] as const;
 
 export type WorkspaceId = (typeof WORKSPACE_IDS)[number];
@@ -38,6 +39,7 @@ export const WORKSPACE_LABEL: Record<WorkspaceId, string> = {
   accounts: "Accounts",
   events: "Monthly Events Master",
   goals: "Goals",
+  productivity: "Productivity Dashboard",
 };
 
 /** Where each card drops you when you enter the workspace. */
@@ -57,6 +59,9 @@ export const WORKSPACE_LANDING: Record<WorkspaceId, string> = {
   // canvas/board flag OFF that page server-redirects to /goals (the sub-hub),
   // so production behaviour is unchanged until the flag flips.
   goals: "/goals/yearly",
+  // The module opens on the personal view; Team Performance is a tab inside it
+  // and is gated per-role, so the landing is the one surface everyone can reach.
+  productivity: "/productivity",
 };
 
 export const ACTIVE_WORKSPACE_COOKIE = "aw";
@@ -145,6 +150,11 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
   // Goals — the Y→Q→M→W cascade + commit/approve/plan/review surfaces, plus the
   // Weekly Goals + Daily Checklist modules (re-parented here from WMS).
   if (p.startsWith("/goals")) return "goals";
+
+  // Productivity Dashboard — its own top-level room, deliberately NOT under
+  // /goals: it is a separate module at the same level, and letting Goals own the
+  // path would swap the sidebar to Goals the moment you opened it.
+  if (p.startsWith("/productivity")) return "productivity";
   if (p.startsWith("/weekly-goals") || p.startsWith("/daily-checklist")) return "goals";
 
   // WMS — the work loop (the dashboard now lives at /dashboard). Important

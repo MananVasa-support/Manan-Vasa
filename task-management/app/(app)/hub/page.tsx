@@ -54,6 +54,7 @@ const HUB_PASTEL: Record<WorkspaceId, { from: string; to: string; ink: string; i
   training:  { from: "#FCE7F3", to: "#FBCFE8", ink: "#BE185D", inkSoft: "#DB2777" }, // pink
   accounts:  { from: "#DBEAFE", to: "#BFDBFE", ink: "#1D4ED8", inkSoft: "#2563EB" }, // (not shown on hub)
   events:    { from: "#CFFAFE", to: "#A5F3FC", ink: "#0E7490", inkSoft: "#0891B2" }, // cyan
+  productivity: { from: "#E0E7FF", to: "#C7D2FE", ink: "#3730A3", inkSoft: "#4338CA" }, // indigo
   goals:     { from: "#FEF3C7", to: "#FDE68A", ink: "#B45309", inkSoft: "#D97706" }, // amber-gold
 };
 

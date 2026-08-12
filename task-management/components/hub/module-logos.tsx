@@ -16,6 +16,7 @@ import type { WorkspaceId } from "@/lib/workspaces";
 const PAL: Record<WorkspaceId, { from: string; to: string; ink: string }> = {
   wms: { from: "#FFC9C6", to: "#FFA9A5", ink: "#B4160E" },
   goals: { from: "#FBDCA8", to: "#F6C877", ink: "#8A3D12" },
+  productivity: { from: "#C7CCF7", to: "#A5ADEF", ink: "#312E81" },
   admin: { from: "#C7DAFC", to: "#A7C5FA", ink: "#1D4ED8" }, // blue (matches the Accounts card)
   employees: { from: "#BAEFCC", to: "#98E6B3", ink: "#157A41" },
   hr: { from: "#B5F0E5", to: "#89E4D3", ink: "#0F766E" },

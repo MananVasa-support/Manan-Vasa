@@ -3,6 +3,7 @@ import { getNavCounts } from "@/lib/queries/nav-counts";
 import { getCurrentEmployee } from "@/lib/auth/current";
 import { goalsCanvasOn } from "@/lib/goals/flag";
 import { goalsSpace } from "@/lib/goals/space";
+import { directReportIds } from "@/lib/productivity/access";
 import { ACTIVE_WORKSPACE_COOKIE, isWorkspaceId } from "@/lib/workspaces";
 import { MainNav } from "./main-nav";
 
@@ -28,6 +29,12 @@ export async function MainNavServer({ variant }: { variant?: "drawer" } = {}) {
   const cookieWorkspace = isWorkspaceId(awRaw) ? awRaw : undefined;
   const space = await goalsSpace(Boolean(me?.isAdmin));
 
+  // Manager status is DERIVED from the hierarchy (someone is a manager because
+  // people report to them), resolved here for the same reason goalsCanvasEnabled
+  // is: the client nav cannot query the org chart. It gates the Productivity
+  // module's Team Performance entry, which §19 keeps away from employees.
+  const isManager = me ? (await directReportIds(me.id).catch(() => [])).length > 0 : false;
+
   return (
     <MainNav
       activeTasks={activeTasks}
@@ -39,6 +46,7 @@ export async function MainNavServer({ variant }: { variant?: "drawer" } = {}) {
       // the Goals level pills hide/repoint instead of silently bouncing.
       goalsCanvasEnabled={goalsCanvasOn()}
       goalsSpace={space}
+      isManager={isManager}
     />
   );
 }
