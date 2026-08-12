@@ -24,6 +24,7 @@ const PAL: Record<WorkspaceId, { from: string; to: string; ink: string }> = {
   training: { from: "#F9C9E0", to: "#F5A9CE", ink: "#BE185D" }, // pink (matches the Training card)
   events: { from: "#B6EAF4", to: "#8ADBEC", ink: "#0E7490" },
   accounts: { from: "#C7DAFC", to: "#A7C5FA", ink: "#1D4ED8" }, // blue
+  billing: { from: "#EAD5FD", to: "#DCBBFB", ink: "#7E22CE" }, // purple (matches the Billing card)
 };
 
 function Glyph({ id, ink, light }: { id: WorkspaceId; ink: string; light: string }) {
@@ -113,6 +114,31 @@ function Glyph({ id, ink, light }: { id: WorkspaceId; ink: string; light: string
             <circle cx="32" cy="37" r="2.3" />
             <circle cx="22.5" cy="44.5" r="2.3" />
             <rect x="37.5" y="34.5" width="6.5" height="6.5" rx="2" />
+          </g>
+        </g>
+      );
+    // Billing — an invoice slip (zig-zag tear-off bottom) with a white ₹ cut out.
+    case "billing":
+      return (
+        <g>
+          <path
+            d="M18 18.5 a5.5 5.5 0 0 1 5.5-5.5 h17 a5.5 5.5 0 0 1 5.5 5.5 V51.5 l-3.5-3.6 -3.5 3.6 -3.5-3.6 -3.5 3.6 -3.5-3.6 -3.5 3.6 -3.5-3.6 -3.5 3.6 Z"
+            fill={ink}
+          />
+          {/* Rupee mark, drawn on lucide's 24×24 grid and scaled into the slip. */}
+          <g
+            transform="translate(17.6 16.6) scale(1.2)"
+            fill="none"
+            stroke={light}
+            strokeWidth="2.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M6 3h12" />
+            <path d="M6 8h12" />
+            <path d="M6 13h3" />
+            <path d="M9 13c6.667 0 6.667-10 0-10" />
+            <path d="M6 13l8.5 8" />
           </g>
         </g>
       );

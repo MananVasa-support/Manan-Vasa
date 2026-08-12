@@ -18,6 +18,7 @@ import {
   Wallet,
   Compass,
   Receipt,
+  ReceiptIndianRupee,
   Timer,
   Sparkles,
   BookMarked,
@@ -320,6 +321,12 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       { href: "/salary" as Route, label: "Salary", Icon: IndianRupee },
       { href: "/overtime" as Route, label: "Overtime", Icon: Timer, not: ["/overtime/dashboard"] },
     ],
+    groups: [],
+  },
+  billing: {
+    // Billing — the revenue ledger. One surface today (the live billing sheet);
+    // invoices / payments / cycles join here as they ship.
+    top: [{ href: "/billing" as Route, label: "Billing", Icon: ReceiptIndianRupee, exact: true }],
     groups: [],
   },
   events: {

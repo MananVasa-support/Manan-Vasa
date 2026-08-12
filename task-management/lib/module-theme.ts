@@ -7,6 +7,7 @@ import {
   GraduationCap,
   CalendarDays,
   Target,
+  ReceiptIndianRupee,
   type LucideIcon,
   Gauge,
 } from "lucide-react";
@@ -154,6 +155,19 @@ export const MODULE_THEME: Record<WorkspaceId, ModuleTheme> = {
     accentDeep: "#312e81",
     image: null,
   },
+  // Billing — invoices, payments, billing cycles & revenue. Purple identity:
+  // adjacent to Sales' violet (they share the money story) but a clearly
+  // distinct hue, so the two rooms never read as one.
+  billing: {
+    id: "billing",
+    label: "Billing",
+    tagline: "Invoices, payments, billing cycles & revenue management.",
+    href: "/billing" as Route,
+    Icon: ReceiptIndianRupee,
+    accent: "#9333ea",
+    accentDeep: "#7e22ce",
+    image: null,
+  },
 };
 
 /** Hub display order. */
@@ -168,6 +182,7 @@ export const MODULE_ORDER: WorkspaceId[] = [
   "productivity",
   "admin",
   "employees",
+  "billing",
   "hr",
   "sales",
   "training",

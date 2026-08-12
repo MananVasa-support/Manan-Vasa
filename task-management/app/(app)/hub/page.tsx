@@ -56,6 +56,7 @@ const HUB_PASTEL: Record<WorkspaceId, { from: string; to: string; ink: string; i
   events:    { from: "#CFFAFE", to: "#A5F3FC", ink: "#0E7490", inkSoft: "#0891B2" }, // cyan
   productivity: { from: "#E0E7FF", to: "#C7D2FE", ink: "#3730A3", inkSoft: "#4338CA" }, // indigo
   goals:     { from: "#FEF3C7", to: "#FDE68A", ink: "#B45309", inkSoft: "#D97706" }, // amber-gold
+  billing:   { from: "#F3E8FF", to: "#E9D5FF", ink: "#7E22CE", inkSoft: "#9333EA" }, // purple
 };
 
 function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: number }) {
@@ -211,10 +212,11 @@ export default async function HubPage() {
           </div>
         </header>
 
-        {/* Workspace grid — 8 modules. On xl the 4×2 grid fills the viewport with
-            no scroll; below xl it flows into fewer columns and the page scrolls. */}
+        {/* Workspace grid — 10 modules. On xl the 5×2 grid fills the viewport
+            with no scroll; below xl it flows into fewer columns (3s on lg, so a
+            row never ends in a single orphan card) and the page scrolls. */}
         <section
-          className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4"
+          className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
           aria-label="Workspaces"
         >
           {MODULE_ORDER.map((id, i) => (

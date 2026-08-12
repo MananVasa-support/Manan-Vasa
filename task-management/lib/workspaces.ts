@@ -21,6 +21,7 @@ export const WORKSPACE_IDS = [
   "events",
   "goals",
   "productivity",
+  "billing",
 ] as const;
 
 export type WorkspaceId = (typeof WORKSPACE_IDS)[number];
@@ -40,6 +41,7 @@ export const WORKSPACE_LABEL: Record<WorkspaceId, string> = {
   events: "Monthly Events Master",
   goals: "Goals",
   productivity: "Productivity Dashboard",
+  billing: "Billing",
 };
 
 /** Where each card drops you when you enter the workspace. */
@@ -62,6 +64,9 @@ export const WORKSPACE_LANDING: Record<WorkspaceId, string> = {
   // The module opens on the personal view; Team Performance is a tab inside it
   // and is gated per-role, so the landing is the one surface everyone can reach.
   productivity: "/productivity",
+  // Billing — invoices, payments, billing cycles & revenue. Its own room now
+  // (it used to be reachable only as a tab inside Employees › Incentive).
+  billing: "/billing",
 };
 
 export const ACTIVE_WORKSPACE_COOKIE = "aw";
@@ -238,6 +243,9 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
 
   // Monthly Events Master — the calendar/holidays/obligations room.
   if (p.startsWith("/events")) return "events";
+
+  // Billing — invoices, payments, billing cycles & revenue.
+  if (p.startsWith("/billing")) return "billing";
 
   // Shared / unknown — keep the caller's current workspace.
   return null;
