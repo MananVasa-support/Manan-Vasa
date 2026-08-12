@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { Plus } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { listMaterials, isManager } from "@/lib/queries/training";
@@ -46,7 +45,6 @@ export default async function TrainingPage() {
 
         <MaterialsTable rows={rows} employeesById={employeesById} canManage={canManage} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

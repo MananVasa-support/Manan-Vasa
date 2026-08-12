@@ -3,7 +3,6 @@ import type { Route } from "next";
 import { BellRing } from "lucide-react";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { HrComingSoon } from "@/components/hr/coming-soon";
 import { hrSupportEnabled } from "@/lib/hr/flag";
 import {
@@ -111,7 +110,6 @@ export default async function QueriesPage() {
           </aside>
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

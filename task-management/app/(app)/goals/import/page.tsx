@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import type { Route } from "next";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { resolveGoalsView } from "@/app/(app)/goals/cascade/view";
@@ -38,7 +37,6 @@ export default async function GoalsImportPage() {
           <GoalsImport roster={view.roster} />
         </div>
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

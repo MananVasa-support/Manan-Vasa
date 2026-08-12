@@ -8,7 +8,6 @@ import {
   LifeBuoy,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
@@ -74,7 +73,6 @@ export default async function HrOverviewPage() {
           ))}
         </section>
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

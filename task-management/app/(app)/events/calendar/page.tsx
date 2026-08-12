@@ -8,7 +8,6 @@ import {
   startOfWeek,
 } from "date-fns";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireEventsAccess } from "@/lib/monthly-events/access";
 import { getCalendarBundle } from "@/lib/queries/monthly-events-calendar";
 import { CalendarWorkspace } from "@/components/events/calendar-workspace";
@@ -58,7 +57,6 @@ export default async function CalendarPage({
       <main className="w-full px-6 max-md:px-3 pt-6 pb-16">
         <CalendarWorkspace initial={bundle} initialRange={range} todayIso={todayIso} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

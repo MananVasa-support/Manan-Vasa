@@ -3,7 +3,6 @@ import type { Route } from "next";
 import { redirect } from "next/navigation";
 import { ArrowLeft, ShieldAlert, Lock } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireAccountsAccess } from "@/lib/accounts/access";
 import { listCaCredentials, listCaReturns } from "@/lib/queries/accounts-ca";
 import { CredentialsVault } from "@/components/accounts/ca-handover/credentials-vault";
@@ -103,7 +102,6 @@ export default async function CaHandoverPage() {
           <ReturnsArchive rows={returns} />
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

@@ -4,7 +4,6 @@ import type { Route } from "next";
 import { eq } from "drizzle-orm";
 import { ArrowLeft, Download } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { db } from "@/lib/db";
 import { employees } from "@/db/schema";
@@ -135,7 +134,6 @@ export default async function HrFormSubmissionPage({
           </div>
         )}
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

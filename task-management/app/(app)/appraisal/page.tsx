@@ -17,7 +17,6 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { requireAppraisal } from "@/lib/pms/appraisal-flag";
 import { getScorecardData, type ScorecardData } from "@/lib/appraisal2/data";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import {
   AppraisalWorkspace,
   type WorkspacePerson,
@@ -135,7 +134,6 @@ export default async function AppraisalPage({
           isAdmin={isAdmin}
         />
       </main>
-      <DashboardFooter />
     </>
   );
 }

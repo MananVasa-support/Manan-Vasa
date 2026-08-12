@@ -1,6 +1,5 @@
 import { FileSpreadsheet, FileText, IndianRupee, Lock } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireFinanceAccess } from "@/lib/auth/finance-access";
 import { localDateString } from "@/lib/format";
@@ -176,7 +175,6 @@ export default async function FinanceAttendanceInsightsPage({ searchParams }: Pa
           <FinanceDashboard data={data} />
         )}
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

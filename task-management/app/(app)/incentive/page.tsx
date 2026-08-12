@@ -3,7 +3,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { Award, TrendingUp, CheckCircle2, Hourglass, Gauge } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { IncentiveTabs } from "@/components/incentive/incentive-tabs";
 import { BillingDashboard } from "@/components/incentive/billing-dashboard";
 import { requireUser } from "@/lib/auth/current";
@@ -255,7 +254,6 @@ export default async function IncentivePage({ searchParams }: PageProps) {
           statusTab={statusTab}
         />
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

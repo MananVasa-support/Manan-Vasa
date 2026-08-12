@@ -3,7 +3,6 @@ import type { Route } from "next";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { loadHiringAnalytics, type HiringAnalytics } from "@/lib/hr/candidate/analytics-data";
 import { HiringAnalyticsDashboard } from "@/components/hr/candidate/analytics/hiring-analytics-dashboard";
@@ -61,7 +60,6 @@ export default async function HiringAnalyticsPage() {
 
         <HiringAnalyticsDashboard data={data} />
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

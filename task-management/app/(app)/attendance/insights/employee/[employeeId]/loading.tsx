@@ -1,5 +1,4 @@
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { CardGrid } from "@/components/layout/card-grid";
 
@@ -31,7 +30,6 @@ export default function Loading() {
           </div>
         </div>
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

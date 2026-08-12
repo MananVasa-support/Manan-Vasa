@@ -4,7 +4,7 @@ import { Sparkles } from "lucide-react";
 /**
  * Placeholder body for a workspace area that's wired into the nav but not yet
  * built. Drop it inside a page between <DashboardHeader/> and
- * <DashboardFooter/> with the area's title, blurb, and icon.
+ *  with the area's title, blurb, and icon.
  */
 export function ComingSoon({
   title,

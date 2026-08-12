@@ -9,13 +9,12 @@ import { motion } from "motion/react";
  * containing block and break the sticky header's `position: sticky`.
  *
  * MUST STAY A FLEX COLUMN THAT GROWS. This wrapper sits between ChromeShell's
- * full-height flex column and every page's `header → main → footer` fragment.
- * As a plain block box it silently broke the sticky footer app-wide: the
- * footer's `mt-auto` had no flex parent to push against, so on short pages the
- * bar floated directly under the content mid-viewport instead of sitting at the
- * bottom. `flex flex-1 flex-col` re-links the chain — the wrapper fills the
- * viewport and the footer becomes a flex child again. No `min-h-0`: a column
- * item's automatic min-height is what lets long pages grow past the fold.
+ * full-height flex column and every page's `header → main` fragment. As a plain
+ * block box it only grows to content height, which breaks the chain app-wide:
+ * `.app-shell-column > main` (globals.css) then has no stretched parent to
+ * absorb slack against, so a short page stops mid-viewport. `flex flex-1
+ * flex-col` re-links it. No `min-h-0`: a column item's automatic min-height is
+ * what lets long pages grow past the fold.
  */
 export default function AppTemplate({ children }: { children: React.ReactNode }) {
   return (

@@ -4,7 +4,6 @@ import { and, asc, eq, gte, isNotNull, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { calendarEvents, obligations, obligationCompletions } from "@/db/schema";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireEventsAdmin } from "@/lib/monthly-events/access";
 import { listCategories } from "@/lib/queries/monthly-events";
 import { ObligationsClient } from "@/components/events/obligations/obligations-client";
@@ -182,7 +181,6 @@ export default async function ObligationsPage({ searchParams }: PageProps) {
           categoryOptions={categoryOptions}
         />
       </main>
-      <DashboardFooter />
     </>
   );
 }

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { Wallet } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { getCurrentEmployee } from "@/lib/auth/current";
 import { mySalaryBreakup } from "@/lib/queries/salary-breakup";
 import { MySalaryView, type MySalaryMonth } from "@/components/salary/my-salary-view";
@@ -74,7 +73,6 @@ export default async function MySalaryPage() {
 
         <MySalaryView months={months} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

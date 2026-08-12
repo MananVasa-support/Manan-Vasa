@@ -4,7 +4,6 @@ import type { Route } from "next";
 import { notFound } from "next/navigation";
 import { Clock, ChevronLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireAdmin } from "@/lib/auth/current";
 import { salaryAnalyticsEnabled } from "@/lib/salary/analytics-flag";
 import { salaryBreakupMonths, listSalaryBreakup } from "@/lib/queries/salary-breakup";
@@ -161,7 +160,6 @@ export default async function SalaryAnalyticsPage({ searchParams }: PageProps) {
           </section>
         )}
       </main>
-      <DashboardFooter />
     </>
   );
 }

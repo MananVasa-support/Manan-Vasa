@@ -18,7 +18,6 @@ import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { requireAppraisal } from "@/lib/pms/appraisal-flag";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import type { RoleClass } from "@/lib/appraisal2/types";
 import {
   AdminPanel,
@@ -124,7 +123,6 @@ export default async function AppraisalAdminPage({ searchParams }: PageProps) {
           config={config}
         />
       </main>
-      <DashboardFooter />
     </>
   );
 }

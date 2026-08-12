@@ -1,5 +1,4 @@
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { ReviewWorkbench } from "@/components/goals/review/review-workbench";
 import { ReviewControls } from "@/components/goals/review/review-controls";
@@ -55,7 +54,6 @@ export default async function GoalsReviewPage({
 
         <ReviewWorkbench data={data} />
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

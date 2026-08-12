@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import type { Route } from "next";
 import { ShieldCheck } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { getSignatureState } from "@/app/(app)/documents/sign/actions";
 import { SignDocument } from "@/components/documents/sign/sign-document";
 import { DOC_KIND_LABELS, isDocKind, type SignatureState } from "@/lib/documents/signing";
@@ -88,7 +87,6 @@ export default async function DocumentSignPage({
           callbackError={callbackError}
         />
       </main>
-      <DashboardFooter />
     </>
   );
 }

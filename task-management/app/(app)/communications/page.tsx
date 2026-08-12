@@ -10,7 +10,6 @@ import {
   Lock,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireUser } from "@/lib/auth/current";
 import { isHrStaff } from "@/lib/hr/access";
@@ -84,7 +83,6 @@ export default async function CommunicationsHomePage() {
 
         {author ? <AuthorList /> : <EmployeeInbox employeeId={me.id} />}
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

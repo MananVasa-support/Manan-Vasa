@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { Archive, LockKeyhole, UserRoundSearch, FileWarning, Briefcase, Building2, BarChart3 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { requireAdmin } from "@/lib/auth/current";
@@ -231,7 +230,6 @@ export default async function HrRecordPage({ searchParams }: PageProps) {
           </div>
         )}
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

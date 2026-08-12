@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft, CalendarCheck, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireAccountsAccess } from "@/lib/accounts/access";
 import { listWeeklyItems, listWeeklyChecks } from "@/lib/queries/accounts-weekly";
 import { listAccountsLookups } from "@/lib/accounts/lookups";
@@ -147,7 +146,6 @@ export default async function WeeklyChecklistPage({ searchParams }: PageProps) {
           frequencyOptions={frequencyOptions}
         />
       </main>
-      <DashboardFooter />
     </>
   );
 }

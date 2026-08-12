@@ -3,7 +3,6 @@ import type { Route } from "next";
 import { ArrowLeft, Palette } from "lucide-react";
 import { isNotNull, sql } from "drizzle-orm";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { db } from "@/lib/db";
 import {
   eventCategories,
@@ -132,7 +131,6 @@ export default async function MastersPage() {
 
         <MastersWorkbench categories={categories} batchTypes={batchTypes} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

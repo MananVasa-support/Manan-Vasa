@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import type { Route } from "next";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { getAccountsSection } from "@/lib/accounts/sections";
 import { SectionStub } from "@/components/accounts/section-stub";
 
@@ -29,7 +28,6 @@ export default async function AccountsSectionPage({
     <>
       <DashboardHeader generatedAt={new Date()} />
       <SectionStub section={section} />
-      <DashboardFooter />
     </>
   );
 }

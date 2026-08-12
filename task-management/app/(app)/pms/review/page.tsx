@@ -3,7 +3,6 @@ import type { Route } from "next";
 import { ClipboardCheck, Sparkles, Target, CheckCircle2 } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { MODULE_THEME } from "@/lib/module-theme";
 import {
   reviewablePeople,
@@ -236,7 +235,6 @@ export default async function PmsReviewPage() {
           </section>
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

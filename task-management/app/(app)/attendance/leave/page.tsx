@@ -1,6 +1,5 @@
 import { CalendarHeart, Inbox, ListChecks } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireUser } from "@/lib/auth/current";
 import {
@@ -179,7 +178,6 @@ export default async function LeavePage() {
           </div>
         </div>
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

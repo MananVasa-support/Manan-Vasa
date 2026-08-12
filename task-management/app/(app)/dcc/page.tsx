@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { LayoutDashboard, ClipboardCheck } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireUser } from "@/lib/auth/current";
 import { loadDccScope, canFillFor, canReviewFor, canManageItemsFor } from "@/lib/dcc/access";
 import { listOwnerItems, listOwnerEntries, listDccPeople, listReviewsForOwners, listOwnerClients, listOwnerSubjects, listItemSubjectsForItems } from "@/lib/queries/dcc";
@@ -103,7 +102,6 @@ export default async function DccPage({ searchParams }: PageProps) {
           today={today}
         />
       </main>
-      <DashboardFooter />
     </>
   );
 }

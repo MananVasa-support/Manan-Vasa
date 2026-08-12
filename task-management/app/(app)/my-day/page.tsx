@@ -3,7 +3,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { CalendarCheck2 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { goalsCascadeEnabled } from "@/lib/goals/flag";
@@ -85,7 +84,6 @@ export default async function MyDayPage() {
 
         <MyDayBoard payload={payload} />
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

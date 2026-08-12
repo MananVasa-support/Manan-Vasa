@@ -5,7 +5,6 @@ import { Settings, ArrowLeft } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { getScoreConfig } from "@/lib/queries/pms";
 import { ScoreConfigEditor } from "@/components/pms/score-config-editor";
 import { MODULE_THEME } from "@/lib/module-theme";
@@ -76,7 +75,6 @@ export default async function PmsConfigPage() {
 
         <ScoreConfigEditor initial={config} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

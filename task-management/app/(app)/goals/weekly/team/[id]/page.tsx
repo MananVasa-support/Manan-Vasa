@@ -4,7 +4,6 @@ import type { Route } from "next";
 import { ArrowLeft, ClipboardList, Check, Circle, Briefcase, Target } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { DayReviewControl } from "@/components/weekly-goals/day-review-control";
 import { canReviewChecklist, memberChecklistDays } from "@/lib/queries/checklist-review";
@@ -116,7 +115,6 @@ export default async function MemberChecklistReviewPage({
         )}
         <p className="mt-4 text-[12px] text-ink-subtle">Showing the last few weeks. Times shown in {TZ}.</p>
       </main>
-      <DashboardFooter />
     </>
   );
 }

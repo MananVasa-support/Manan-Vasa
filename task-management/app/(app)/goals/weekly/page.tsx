@@ -1,7 +1,6 @@
 import { and, asc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { goalsSpace } from "@/lib/goals/space";
 import { loadPersonalWD } from "@/app/(app)/goals/personal-wd-data";
@@ -67,7 +66,6 @@ export default async function GoalsWeeklyPage({ searchParams }: PageProps) {
       <>
         <DashboardHeader generatedAt={new Date()} />
         <PersonalWDBoard data={data} />
-        <DashboardFooter />
       </>
     );
   }
@@ -311,7 +309,6 @@ export default async function GoalsWeeklyPage({ searchParams }: PageProps) {
         fyStartYear={fyStart}
         commit={commit}
       />
-      <DashboardFooter />
     </>
   );
 }

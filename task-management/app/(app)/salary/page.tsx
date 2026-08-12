@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { FileSpreadsheet, Wallet } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireFinanceAccess } from "@/lib/auth/finance-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { salaryBreakupMonths, listSalaryBreakup } from "@/lib/queries/salary-breakup";
@@ -221,7 +220,6 @@ export default async function SalaryPage({ searchParams }: PageProps) {
           </>
         )}
       </main>
-      <DashboardFooter />
     </>
   );
 }

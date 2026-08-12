@@ -16,7 +16,6 @@ import { db, employees } from "@/lib/db";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { scoreForMany, type RosterScore } from "@/lib/queries/pms";
 import { MODULE_THEME } from "@/lib/module-theme";
@@ -330,7 +329,6 @@ export default async function PmsPage() {
           </div>
         )}
       </main>
-      <DashboardFooter />
     </>
   );
 }

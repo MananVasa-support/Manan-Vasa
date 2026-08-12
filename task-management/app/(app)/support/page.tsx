@@ -3,7 +3,6 @@ import type { Route } from "next";
 import { LifeBuoy, Plus } from "lucide-react";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { HrComingSoon } from "@/components/hr/coming-soon";
 import { hrSupportEnabled } from "@/lib/hr/flag";
 import {
@@ -113,7 +112,6 @@ export default async function SupportPage({ searchParams }: PageProps) {
           />
         )}
       </main>
-      <DashboardFooter />
     </>
   );
 }

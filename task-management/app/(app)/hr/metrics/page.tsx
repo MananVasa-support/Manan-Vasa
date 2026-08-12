@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { hrSupportEnabled } from "@/lib/hr/flag";
 import { resolveViewer } from "@/lib/queries/hr-support";
@@ -124,7 +123,6 @@ export default async function HrMetricsPage() {
           </section>
         </div>
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

@@ -1,6 +1,5 @@
 import { ShieldCheck } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { MODULE_THEME } from "@/lib/module-theme";
 import { requireGoalsAccess } from "@/lib/goals/access";
@@ -78,7 +77,6 @@ export default async function GoalsApprovePage() {
           isMonday={monday}
         />
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

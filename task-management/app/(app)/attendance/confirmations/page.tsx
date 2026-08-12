@@ -3,7 +3,6 @@ import type { Route } from "next";
 import { redirect } from "next/navigation";
 import { ArrowLeft, CalendarCheck2 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireUser } from "@/lib/auth/current";
 import { getMondayConfirmQueue, mondayConfirmUiEnabled } from "@/lib/attendance/confirmations";
 import { MondayConfirmQueueView } from "@/components/attendance/monday-confirm-queue";
@@ -33,7 +32,6 @@ export default async function ConfirmationsPage() {
             Monday confirmations are for managers and the accounts team.
           </p>
         </main>
-        <DashboardFooter />
       </>
     );
   }
@@ -74,7 +72,6 @@ export default async function ConfirmationsPage() {
 
         <MondayConfirmQueueView queue={queue} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

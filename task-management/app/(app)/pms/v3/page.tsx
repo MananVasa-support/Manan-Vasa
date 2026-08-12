@@ -6,7 +6,6 @@ import { db, employees } from "@/lib/db";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { MODULE_THEME } from "@/lib/module-theme";
 import { requirePmsV3 } from "@/lib/pms/v3/flag";
@@ -149,7 +148,6 @@ export default async function PmsV3Page() {
           </div>
         )}
       </main>
-      <DashboardFooter />
     </>
   );
 }

@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft, Plus } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { listAmbassadors } from "@/lib/queries/ambassadors";
 import { DirectoryTable } from "@/components/ambassadors/directory-table";
@@ -64,7 +63,6 @@ export default async function AmbassadorDirectoryPage() {
 
         <DirectoryTable rows={rows} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

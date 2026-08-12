@@ -3,7 +3,6 @@ import type { Route } from "next";
 import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireUser } from "@/lib/auth/current";
 import { db } from "@/lib/db";
@@ -146,7 +145,6 @@ export default async function RecycleBinPage() {
           <RecycleBinList items={items} />
         </section>
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

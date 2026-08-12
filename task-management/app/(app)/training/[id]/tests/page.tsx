@@ -3,7 +3,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { getTestForAuthoring, getMaterial, isManager, TEST_PASS_MARK } from "@/lib/queries/training";
@@ -50,7 +49,6 @@ export default async function AuthorTestsPage({ params }: PageProps) {
           </div>
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

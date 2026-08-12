@@ -1,5 +1,4 @@
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { FilterBar } from "@/components/layout/filter-bar";
 import { TaskListPage } from "@/components/tasks/task-list-page";
 import { listEmployees } from "@/lib/queries/employees";
@@ -79,7 +78,6 @@ export default async function ArchivedPage({ searchParams }: PageProps) {
         statusTones={statusTones}
         subjects={subjects}
       />
-      <DashboardFooter />
     </>
   );
 }

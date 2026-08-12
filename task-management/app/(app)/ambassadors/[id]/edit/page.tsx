@@ -3,7 +3,6 @@ import type { Route } from "next";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { getAmbassador, listAmbProducts } from "@/lib/queries/ambassadors";
 import { listEmployeeOptions } from "@/lib/queries/employees";
@@ -79,7 +78,6 @@ export default async function EditAmbassadorPage({
           <AmbassadorForm mode="edit" initial={initial} products={products} employees={employees} />
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

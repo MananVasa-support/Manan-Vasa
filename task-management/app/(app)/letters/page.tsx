@@ -3,7 +3,6 @@ import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { HrComingSoon } from "@/components/hr/coming-soon";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { hrSupportEnabled } from "@/lib/hr/flag";
 import { listAllLetters, listMyLetters, listActiveRoster } from "@/lib/hr/sections";
 import { LettersWorkspace } from "@/components/hr/letters/letters-workspace";
@@ -142,7 +141,6 @@ export default async function LettersPage() {
           </section>
         )}
       </main>
-      <DashboardFooter />
     </>
   );
 }

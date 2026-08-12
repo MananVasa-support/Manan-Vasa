@@ -11,7 +11,6 @@ import {
   MonitorPlay,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { PunchCard } from "@/components/attendance/punch-card";
 import { AttendanceKpiStrip } from "@/components/attendance/attendance-kpi-strip";
@@ -364,7 +363,6 @@ export default async function AttendancePage({ searchParams }: PageProps) {
           </div>
         )}
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

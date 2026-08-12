@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { listTcServices } from "@/lib/queries/training";
 import { listEmployeeOptions } from "@/lib/queries/employees";
@@ -28,7 +27,6 @@ export default async function NewFeedbackPage() {
           <FeedbackForm services={services} employees={employees} />
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

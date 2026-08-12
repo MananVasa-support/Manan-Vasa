@@ -13,7 +13,6 @@ import {
   Lock,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireUser } from "@/lib/auth/current";
 import { isHrStaff } from "@/lib/hr/access";
@@ -247,7 +246,6 @@ export default async function BroadcastReadPage({ params }: PageProps) {
           {stats && <AnalyticsPanel id={b.id} status={b.status} stats={stats} />}
         </div>
       </PageShell>
-      <DashboardFooter />
 
       {/* Scoped, safe typography for the trusted broadcast HTML. */}
       <style dangerouslySetInnerHTML={{ __html: ECOS_BODY_CSS }} />

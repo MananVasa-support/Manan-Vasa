@@ -9,7 +9,6 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireUser } from "@/lib/auth/current";
 import { localDateString } from "@/lib/format";
 import {
@@ -183,7 +182,6 @@ export default async function OvertimePage() {
           todayISO={todayISO}
         />
       </main>
-      <DashboardFooter />
     </>
   );
 }

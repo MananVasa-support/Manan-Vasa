@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireHrStaff } from "@/lib/hr/access";
 import { getHrStage, hrItemHref } from "@/lib/hr/lifecycle";
@@ -45,7 +44,6 @@ export default async function HrStagePage({
           ))}
         </section>
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

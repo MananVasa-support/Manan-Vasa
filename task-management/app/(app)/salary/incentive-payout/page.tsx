@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { HandCoins, Wallet, BadgeCheck, Coins } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireAdmin } from "@/lib/auth/current";
 import { getIncentivePayoutBoard } from "@/lib/queries/incentive-payout";
 import { incentivePayoutEnabled } from "@/lib/incentive/payout-flag";
@@ -151,7 +150,6 @@ export default async function IncentivePayoutPage({ searchParams }: PageProps) {
 
         <IncentivePayoutPanel board={board} enabled={enabled} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

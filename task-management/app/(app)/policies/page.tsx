@@ -3,7 +3,6 @@ import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { HrComingSoon } from "@/components/hr/coming-soon";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { hrSupportEnabled } from "@/lib/hr/flag";
 import { listPolicies, groupPolicies } from "@/lib/hr/sections";
 import { PoliciesWorkspace } from "@/components/hr/policies/policies-workspace";
@@ -51,7 +50,6 @@ export default async function PoliciesPage() {
         </header>
         <PoliciesWorkspace groups={groups} isAdmin={isAdmin} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

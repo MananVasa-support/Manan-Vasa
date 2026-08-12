@@ -1,6 +1,5 @@
 import { MonitorOff } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import {
   WorkSessionClient,
@@ -37,7 +36,6 @@ function NotAvailable({ note }: { note: string }) {
           <p className="text-[13.5px] font-medium text-ink-subtle">{note}</p>
         </div>
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }
@@ -87,7 +85,6 @@ export default async function WorkSessionPage() {
           <WorkSessionClient recentSessions={recentSessions} />
         </div>
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

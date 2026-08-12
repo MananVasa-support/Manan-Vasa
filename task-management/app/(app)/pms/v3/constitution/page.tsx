@@ -7,7 +7,6 @@ import { db, employees } from "@/lib/db";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { MODULE_THEME } from "@/lib/module-theme";
 import { requirePmsV3 } from "@/lib/pms/v3/flag";
 import { getConstitutionView, getV3Config, constitutionSeeded } from "@/lib/queries/pms-v3";
@@ -113,7 +112,6 @@ export default async function PmsV3ConstitutionPage({
           />
         )}
       </main>
-      <DashboardFooter />
     </>
   );
 }

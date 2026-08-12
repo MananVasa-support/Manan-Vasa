@@ -1,6 +1,5 @@
 import { CheckCircle2, FileText } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PolicyUploadForm } from "@/components/salary/policy-upload-form";
 import { SignaturePad } from "@/components/salary/signature-pad";
 import { requireUser } from "@/lib/auth/current";
@@ -177,7 +176,6 @@ export default async function SalaryPolicyPage() {
           </div>
         )}
       </main>
-      <DashboardFooter />
     </>
   );
 }

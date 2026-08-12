@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { BarChart3, ClipboardList, ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireUser } from "@/lib/auth/current";
 import { isFinanceViewer } from "@/lib/auth/finance-access";
@@ -117,7 +116,6 @@ export default async function AttendanceInsightsPage({ searchParams }: PageProps
           <DashboardContent year={year} month={month} todayISO={todayISO} />
         </Suspense>
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

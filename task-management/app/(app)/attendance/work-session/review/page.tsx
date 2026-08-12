@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { MonitorOff, Users, Camera, Clock, ShieldAlert } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import {
@@ -56,7 +55,6 @@ function NotAvailable({ note }: { note: string }) {
           <p className="text-[13.5px] font-medium text-ink-subtle">{note}</p>
         </div>
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }
@@ -321,7 +319,6 @@ export default async function WorkSessionReviewPage({ searchParams }: PageProps)
           </div>
         )}
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

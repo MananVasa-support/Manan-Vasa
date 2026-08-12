@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft, Banknote, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireAccountsAccess } from "@/lib/accounts/access";
 import { listCashItems, listCashMonths, listCashLimits } from "@/lib/queries/accounts-cash";
 import { listAccountsLookups } from "@/lib/accounts/lookups";
@@ -85,7 +84,6 @@ export default async function CashWithdrawalPage({ searchParams }: PageProps) {
           payeeOptions={payeeOptions}
         />
       </main>
-      <DashboardFooter />
     </>
   );
 }

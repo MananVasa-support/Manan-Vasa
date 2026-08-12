@@ -2,7 +2,6 @@ import type { Route } from "next";
 import Link from "next/link";
 import { Users2, UserRoundX } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireUser } from "@/lib/auth/current";
 import { localDateString } from "@/lib/format";
@@ -91,7 +90,6 @@ export default async function TeamAttendanceInsightsPage({ searchParams }: PageP
           <ErrorState />
         )}
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

@@ -4,7 +4,6 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { requireAppraisal } from "@/lib/pms/appraisal-flag";
 import { isAppraisalAdmin, canViewAppraisal, canManagerScore } from "@/lib/pms/appraisal/access";
@@ -153,7 +152,6 @@ export default async function AppraisalEmployeePage({
 
         <AppraisalScorecard dimensions={dimensions} caps={caps} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

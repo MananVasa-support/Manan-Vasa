@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft, ClipboardCheck } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireUser } from "@/lib/auth/current";
 import { loadDccScope } from "@/lib/dcc/access";
 import { listDccPeople, listItemsForOwners, listEntriesForOwners, listReviewsForOwners } from "@/lib/queries/dcc";
@@ -23,7 +22,6 @@ export default async function DccDashboardPage() {
             The DCC dashboard is for managers and admins.
           </p>
         </main>
-        <DashboardFooter />
       </>
     );
   }
@@ -78,7 +76,6 @@ export default async function DccDashboardPage() {
 
         <DccDashboard meId={me.id} people={people} items={items} entries={entries} reviews={reviews} today={today} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

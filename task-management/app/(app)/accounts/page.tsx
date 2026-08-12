@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { Wallet, CalendarCheck2 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { ACCOUNTS_SECTIONS } from "@/lib/accounts/sections";
 import { AccountsIndex } from "@/components/accounts/accounts-index";
 import { MODULE_THEME } from "@/lib/module-theme";
@@ -75,7 +74,6 @@ export default async function AccountsIndexPage() {
 
         <AccountsIndex sections={sections} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

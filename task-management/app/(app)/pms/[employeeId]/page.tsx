@@ -29,7 +29,6 @@ import {
   type ReviewRelation,
 } from "@/lib/queries/pms-detail";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { StarRating } from "@/components/ui/star-rating";
 import { MODULE_THEME } from "@/lib/module-theme";
@@ -478,7 +477,6 @@ export default async function PmsDetailPage({
           </aside>
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

@@ -8,7 +8,6 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { getDownlineIds } from "@/lib/weekly-goals/hierarchy";
 import { withRetry } from "@/lib/db/with-timeout";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { MODULE_THEME } from "@/lib/module-theme";
 import {
@@ -224,7 +223,6 @@ export default async function TrainingObligationsPage() {
           green is on or ahead of target, amber is on pace, red is behind. Give applies to managers only.
         </p>
       </main>
-      <DashboardFooter />
     </>
   );
 }

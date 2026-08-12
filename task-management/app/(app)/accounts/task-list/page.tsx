@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft, ListChecks, Image as ImageIcon } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireAccountsAccess } from "@/lib/accounts/access";
 import { listAccountsTasks, listAccountsScreenshots } from "@/lib/queries/accounts";
 import { listAccountsLookups } from "@/lib/accounts/lookups";
@@ -96,7 +95,6 @@ export default async function AccountsTaskListPage() {
 
         <ScreenshotsTable rows={screenshots} freqOptions={shotFreq} gearOptions={shotGear} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

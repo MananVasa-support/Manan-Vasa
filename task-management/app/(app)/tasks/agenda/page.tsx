@@ -1,5 +1,4 @@
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { FilterBar } from "@/components/layout/filter-bar";
 import { MyDayWorkspace } from "@/components/tasks/my-day-workspace";
 import type { AgendaTask } from "@/components/tasks/agenda-board";
@@ -125,7 +124,6 @@ export default async function AgendaPage({ searchParams }: PageProps) {
         statusLabels={statusLabels}
         statusTones={statusTones}
       />
-      <DashboardFooter />
     </>
   );
 }

@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { getTrainingDashboardStats, isManager } from "@/lib/queries/training";
@@ -23,7 +22,6 @@ export default async function TrainingDashboardPage() {
             <Link href={"/training" as Route} className="mt-4 inline-block text-[13.5px] font-bold text-altus-red">← Back to Training Centre</Link>
           </div>
         </main>
-        <DashboardFooter />
       </>
     );
   }
@@ -44,7 +42,6 @@ export default async function TrainingDashboardPage() {
           <TrainingStats stats={stats} />
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

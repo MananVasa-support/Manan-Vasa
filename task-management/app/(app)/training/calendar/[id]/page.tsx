@@ -4,7 +4,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft, Clock, MapPin, Video, Star, FileText, ExternalLink, GraduationCap, Users, MessageSquareHeart, ClipboardCheck, Film } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { isManager, listTcSubjects } from "@/lib/queries/training";
@@ -285,7 +284,6 @@ export default async function SessionDetailPage({ params }: PageProps) {
           </div>
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

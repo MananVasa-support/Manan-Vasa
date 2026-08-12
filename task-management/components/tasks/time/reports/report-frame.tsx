@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { Timer } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { TimeReportTabs } from "./report-tabs";
 import { ReportHero, EmptyState } from "./report-ui";
@@ -36,7 +35,6 @@ export function TimeReportFrame({
         <TimeReportTabs />
         {children}
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }
@@ -58,7 +56,6 @@ export function TimeIntelDisabledScreen() {
           hint="This feature is disabled (TIME_INTEL_OFF). Ask an administrator to enable it."
         />
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

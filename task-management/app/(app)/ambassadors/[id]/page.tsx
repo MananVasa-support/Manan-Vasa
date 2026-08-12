@@ -3,7 +3,6 @@ import type { Route } from "next";
 import { notFound } from "next/navigation";
 import { Pencil, Plus, Mail, Phone, Building2 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { getAmbassador } from "@/lib/queries/ambassadors";
 import { isWonStage } from "@/lib/ambassadors/stages";
@@ -181,7 +180,6 @@ export default async function AmbassadorWorkspacePage({
 
         <WorkspaceTabs detail={detail} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

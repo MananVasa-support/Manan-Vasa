@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowUpRight } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { EVENTS_SECTIONS } from "@/lib/monthly-events/sections";
 import { MODULE_THEME } from "@/lib/module-theme";
 import { requireEventsAccess } from "@/lib/monthly-events/access";
@@ -107,7 +106,6 @@ export default async function EventsHubPage() {
           })}
         </section>
       </main>
-      <DashboardFooter />
     </>
   );
 }

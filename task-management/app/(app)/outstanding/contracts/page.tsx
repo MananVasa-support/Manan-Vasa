@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { ContractList } from "@/components/outstanding/contract-list";
 import { requireWorkspaceAdmin } from "@/lib/auth/workspace-access";
 import { listOutstandingContractsAdmin } from "@/lib/queries/outstanding";
@@ -62,7 +61,6 @@ export default async function ManageContractsPage() {
           lookups={{ products, entities, modes, employees }}
         />
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

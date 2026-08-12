@@ -10,7 +10,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireUser } from "@/lib/auth/current";
 import { formatInr, formatCount, formatDate } from "@/lib/format";
 import {
@@ -400,7 +399,6 @@ export default async function Page() {
           </Panel>
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

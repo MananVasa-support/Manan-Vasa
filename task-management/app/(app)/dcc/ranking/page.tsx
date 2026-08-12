@@ -3,7 +3,6 @@ import type { Route } from "next";
 import { eq } from "drizzle-orm";
 import { ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { db } from "@/lib/db";
 import { employees } from "@/db/schema";
 import { requireUser } from "@/lib/auth/current";
@@ -96,7 +95,6 @@ export default async function DccRankingPage() {
         </header>
         <DccRanking rows={rows} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

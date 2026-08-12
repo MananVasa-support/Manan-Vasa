@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { and, desc, eq } from "drizzle-orm";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { HrPageHeader } from "@/components/hr/hr-chrome";
 import { requireUser } from "@/lib/auth/current";
@@ -100,7 +99,6 @@ export default async function MyFilledFormsPage({
           </p>
         )}
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

@@ -3,7 +3,6 @@ import type { Route } from "next";
 import { redirect } from "next/navigation";
 import { FolderLock, Users, LayoutGrid } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireDossierAccess, canAccessEmployeeDossier } from "@/lib/dossier/access";
 import {
   listDossierEmployees,
@@ -90,7 +89,6 @@ function Shell({ children, isAdmin, tab }: { children: React.ReactNode; isAdmin:
         </header>
         {children}
       </main>
-      <DashboardFooter />
     </>
   );
 }

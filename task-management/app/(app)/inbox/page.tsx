@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { Inbox as InboxIcon } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireUser } from "@/lib/auth/current";
 import { listInboxNotifications } from "@/lib/queries/notifications";
 import { getStatusDisplayMap } from "@/lib/queries/status-display";
@@ -109,7 +108,6 @@ export default async function InboxPage({ searchParams }: PageProps) {
           </div>
         )}
       </main>
-      <DashboardFooter />
     </>
   );
 }

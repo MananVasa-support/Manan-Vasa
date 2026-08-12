@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { Plus, Download } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { listIntroductions } from "@/lib/queries/people-gives";
 import { IntroductionsTable } from "@/components/people-gives/introductions-table";
@@ -66,7 +65,6 @@ export default async function PeopleGivesPage() {
 
         <IntroductionsTable rows={rows} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

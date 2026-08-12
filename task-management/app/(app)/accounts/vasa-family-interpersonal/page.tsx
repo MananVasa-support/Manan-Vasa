@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft, Users } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireAccountsAccess } from "@/lib/accounts/access";
 import { listVasaCells, listVasaSnapshots } from "@/lib/queries/accounts-vasa";
 import { listAccountsLookups } from "@/lib/accounts/lookups";
@@ -41,7 +40,6 @@ export default async function VasaFamilyPage() {
         </header>
         <VasaBalances cells={cells} snapshots={snapshots} partyOptions={partyOptions} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

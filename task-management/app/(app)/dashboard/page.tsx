@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { BarChart3, ArrowRight } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { FilterBar } from "@/components/layout/filter-bar";
 import { KpiStrip } from "@/components/dashboard/kpi-strip";
 import { CollapsibleVelocity } from "@/components/dashboard/collapsible-velocity";
@@ -86,7 +85,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <main>
           <DashboardLoadError />
         </main>
-        <DashboardFooter />
       </>
     );
   }
@@ -252,7 +250,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         )}
       </main>
 
-      <DashboardFooter />
     </>
   );
 }

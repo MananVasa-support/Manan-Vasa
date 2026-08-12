@@ -1,5 +1,4 @@
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { NewTaskForm } from "@/components/tasks/new-task-form";
 import { listEmployees } from "@/lib/queries/employees";
 import { listActiveClientNames } from "@/lib/queries/clients";
@@ -143,7 +142,6 @@ export default async function NewTaskPage({ searchParams }: PageProps) {
           />
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

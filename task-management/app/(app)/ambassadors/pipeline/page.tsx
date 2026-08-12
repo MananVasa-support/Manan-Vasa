@@ -1,5 +1,4 @@
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import {
   listReferrals,
@@ -59,7 +58,6 @@ export default async function AmbassadorPipelinePage() {
           employees={employees}
         />
       </main>
-      <DashboardFooter />
     </>
   );
 }

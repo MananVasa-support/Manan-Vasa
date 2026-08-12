@@ -1,5 +1,4 @@
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { OutstandingFormDialog } from "@/components/outstanding/outstanding-form-dialog";
 import { CollectionFormDialog } from "@/components/outstanding/collection-form-dialog";
 import { OutstandingFilterBar } from "@/components/outstanding/dashboard/filter-bar";
@@ -109,7 +108,6 @@ export default async function OutstandingPage({ searchParams }: PageProps) {
             </p>
           </div>
         </PageShell>
-        <DashboardFooter />
       </>
     );
   }
@@ -206,7 +204,6 @@ export default async function OutstandingPage({ searchParams }: PageProps) {
 
         <CollectionEntriesTable rows={collectionEntries} />
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

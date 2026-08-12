@@ -1,6 +1,5 @@
 import { desc, eq } from "drizzle-orm";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { HrPageHeader } from "@/components/hr/hr-chrome";
 import { requireHrStaff } from "@/lib/hr/access";
@@ -70,7 +69,6 @@ export default async function AllFilledFormsPage() {
         />
         <FilledFormsTable rows={tableRows} variant="all" />
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

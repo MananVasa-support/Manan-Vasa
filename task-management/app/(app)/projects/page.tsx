@@ -1,5 +1,4 @@
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { ProjectsWorkspace } from "@/components/projects/projects-workspace";
 import { listProjectTree } from "@/lib/queries/projects";
 import { listEmployeeOptions } from "@/lib/queries/employees";
@@ -49,7 +48,6 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
           canManage={canManage}
         />
       </main>
-      <DashboardFooter />
     </>
   );
 }

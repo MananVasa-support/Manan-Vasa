@@ -4,7 +4,6 @@ import type { Route } from "next";
 import { ArrowLeft, BarChart3 } from "lucide-react";
 
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { TaskReportView } from "@/components/dashboard/task-report/task-report-view";
 import { requireUser } from "@/lib/auth/current";
 import { listEmployees } from "@/lib/queries/employees";
@@ -109,7 +108,6 @@ export default async function TaskReportPage() {
         </div>
       </main>
 
-      <DashboardFooter />
     </>
   );
 }

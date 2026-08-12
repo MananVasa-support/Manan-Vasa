@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { ClipboardList } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireDossierAccess, canAccessEmployeeDossier } from "@/lib/dossier/access";
 import { getOnboarding } from "@/lib/queries/onboarding";
 import { OnboardingForm } from "@/components/dossier/onboarding-form";
@@ -44,7 +43,6 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
         </header>
         <OnboardingForm initial={data} backHref={backHref} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

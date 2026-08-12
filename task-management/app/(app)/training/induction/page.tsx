@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { getInductionForEmployee } from "@/lib/queries/training";
 import { InductionProgress } from "@/components/training/induction-progress";
@@ -27,7 +26,6 @@ export default async function InductionPage() {
           <InductionProgress items={items} />
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { listPgLookups } from "@/lib/queries/people-gives";
 import { IntroductionForm } from "@/components/people-gives/introduction-form";
@@ -48,7 +47,6 @@ export default async function NewIntroductionPage() {
           <IntroductionForm lookups={lookups} todayLabel={todayLabel} />
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

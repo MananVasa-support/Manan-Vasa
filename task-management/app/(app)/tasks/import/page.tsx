@@ -1,5 +1,4 @@
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { TaskImport } from "@/components/tasks/task-import";
 import { requireUser } from "@/lib/auth/current";
 
@@ -16,7 +15,6 @@ export default async function ImportTasksPage() {
       <main className="w-full">
         <TaskImport />
       </main>
-      <DashboardFooter />
     </>
   );
 }

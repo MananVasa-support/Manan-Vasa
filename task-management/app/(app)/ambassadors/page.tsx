@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { Plus, Users, GitBranch, Wallet } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { dashboardMetrics } from "@/lib/queries/ambassadors";
 import { AmbassadorDashboard } from "@/components/ambassadors/dashboard";
@@ -80,7 +79,6 @@ export default async function AmbassadorsPage() {
 
         <AmbassadorDashboard metrics={metrics} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

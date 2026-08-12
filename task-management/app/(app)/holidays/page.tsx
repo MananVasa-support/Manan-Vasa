@@ -6,7 +6,6 @@ import { Info, Sparkles } from "lucide-react";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { HrComingSoon } from "@/components/hr/coming-soon";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { hrSupportEnabled } from "@/lib/hr/flag";
 import { listHolidays } from "@/lib/queries/monthly-events";
 import { personalisedHolidays } from "@/components/events/holidays/personalise";
@@ -131,7 +130,6 @@ export default async function HolidayListPage({
           </ol>
         )}
       </main>
-      <DashboardFooter />
     </>
   );
 }

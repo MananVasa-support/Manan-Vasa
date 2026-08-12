@@ -1,6 +1,5 @@
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { db } from "@/lib/db";
 import {
   calendarEvents,
@@ -105,7 +104,6 @@ export default async function BatchesPage() {
         batchTypes={batchTypeOptions}
         categories={categoryOptions}
       />
-      <DashboardFooter />
     </>
   );
 }

@@ -9,7 +9,6 @@ import {
   Layers,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireUser } from "@/lib/auth/current";
 import { listModuleSubmissions, type ModuleSubmissionRow } from "@/lib/queries/modules";
 import { MODULES } from "@/lib/forms/modules";
@@ -226,7 +225,6 @@ export default async function ReimbursementsPage({ searchParams }: PageProps) {
           view={view}
         />
       </main>
-      <DashboardFooter />
     </>
   );
 }

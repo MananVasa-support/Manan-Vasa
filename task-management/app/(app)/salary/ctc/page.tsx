@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { Wallet, Landmark, Users, Building2, ScrollText } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireAdmin } from "@/lib/auth/current";
 import { getSalaryConfig, resolveDivisor } from "@/lib/salary/config";
 import { salaryV2Enabled } from "@/lib/salary/flags";
@@ -265,7 +264,6 @@ export default async function SalaryCtcPage({ searchParams }: PageProps) {
           </div>
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

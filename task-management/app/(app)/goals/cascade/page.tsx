@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { and, eq, gte, lte } from "drizzle-orm";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { db } from "@/lib/db";
 import { weeklyGoals } from "@/db/schema";
@@ -129,7 +128,6 @@ export default async function GoalsCascadePage({
           canWrite={view.canWrite}
         />
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

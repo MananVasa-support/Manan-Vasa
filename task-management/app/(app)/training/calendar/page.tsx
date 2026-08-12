@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { CalendarDays, AlertTriangle, ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { isManager, listTcSubjects } from "@/lib/queries/training";
@@ -100,7 +99,6 @@ export default async function TrainingCalendarPage() {
           onAddSubject={canManage ? addSessionSubject : undefined}
         />
       </main>
-      <DashboardFooter />
     </>
   );
 }

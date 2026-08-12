@@ -1,5 +1,4 @@
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { FilterBar } from "@/components/layout/filter-bar";
 import { TaskListPage } from "@/components/tasks/task-list-page";
 import { listEmployeeOptions } from "@/lib/queries/employees";
@@ -120,7 +119,6 @@ export default async function TasksPage({ searchParams }: PageProps) {
         clients={clients}
         weeklyGoals={weeklyGoals}
       />
-      <DashboardFooter />
     </>
   );
 }

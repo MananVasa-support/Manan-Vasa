@@ -1,5 +1,4 @@
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { commissionLedger } from "@/lib/queries/ambassadors";
 import { CommissionCenter } from "@/components/ambassadors/commission-center";
@@ -41,7 +40,6 @@ export default async function CommissionsPage() {
 
         <CommissionCenter owed={owed} paid={paid} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

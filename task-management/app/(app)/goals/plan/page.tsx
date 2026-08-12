@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { goalsCascadeEnabled } from "@/lib/goals/flag";
@@ -43,7 +42,6 @@ export default async function GoalsPlanPage({
       <>
         <DashboardHeader generatedAt={new Date()} />
         <PersonalWDBoard data={data} />
-        <DashboardFooter />
       </>
     );
   }
@@ -98,7 +96,6 @@ export default async function GoalsPlanPage({
           ymd={payload.ymd}
         />
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import type { Route } from "next";
 import { FileWarning, UserRoundX } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
@@ -97,7 +96,6 @@ export default async function EmployeeAttendanceInsightsPage({
           <EmployeeAttendanceDashboard data={data} />
         ) : null}
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

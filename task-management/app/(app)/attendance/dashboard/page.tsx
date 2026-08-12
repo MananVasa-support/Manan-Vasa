@@ -1,6 +1,5 @@
 import { CalendarCheck2, FileSpreadsheet, FileText } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { requireFinanceAccess } from "@/lib/auth/finance-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
@@ -186,7 +185,6 @@ export default async function AttendanceDashboardPage({ searchParams }: PageProp
           <AttendanceDashboardTable rows={rows} year={year} month={month} />
         )}
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

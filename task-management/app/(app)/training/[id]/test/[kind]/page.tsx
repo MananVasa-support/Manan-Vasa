@@ -3,7 +3,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { getMaterialTests, getTestForTaking } from "@/lib/queries/training";
 import { TestTaker } from "@/components/training/test-taker";
@@ -46,7 +45,6 @@ export default async function TakeTestPage({ params }: PageProps) {
           <TestTaker test={test!} />
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireHrSupport } from "@/lib/hr/flag";
 import {
   resolveViewer,
@@ -81,7 +80,6 @@ export default async function TicketDetailPage({ params }: PageProps) {
           assignees={assignees}
         />
       </main>
-      <DashboardFooter />
     </>
   );
 }

@@ -5,7 +5,6 @@ import { Sparkles, TrendingUp, Award, Target, IndianRupee } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { listEmployeeOptions } from "@/lib/queries/employees";
 import {
@@ -445,7 +444,6 @@ export default async function PmsSignalsPage() {
           )}
         </section>
       </main>
-      <DashboardFooter />
     </>
   );
 }

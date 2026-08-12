@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { goalsCascadeEnabled, goalsCanvasOn } from "@/lib/goals/flag";
 import { GoalsLevelBoard } from "@/components/goals/board/goals-level-board";
 import {
@@ -87,7 +86,6 @@ export async function LevelPageShell({
           focusId={sp.focus ?? null}
         />
       </main>
-      <DashboardFooter />
     </>
   );
 }

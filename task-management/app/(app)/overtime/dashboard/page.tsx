@@ -10,7 +10,6 @@ import {
   XCircle,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { requireUser } from "@/lib/auth/current";
 import { localDateString } from "@/lib/format";
@@ -289,7 +288,6 @@ export default async function OvertimeDashboardPage() {
           )}
         </section>
       </main>
-      <DashboardFooter />
     </>
   );
 }

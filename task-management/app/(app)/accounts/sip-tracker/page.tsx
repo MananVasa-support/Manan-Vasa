@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireAccountsAccess } from "@/lib/accounts/access";
 import { listSipItems, listSipMonths } from "@/lib/queries/accounts-sip";
 import { listLoanItems, listLoanPeriods, listLoanCells } from "@/lib/queries/accounts-loans";
@@ -91,7 +90,6 @@ export default async function SipTrackerPage({ searchParams }: PageProps) {
 
         <LoansPanel loans={loans} periods={loanPeriods} cells={loanCells} entityOptions={loanEntityOptions} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

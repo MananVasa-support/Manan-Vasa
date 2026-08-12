@@ -1,5 +1,4 @@
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { MODULE_THEME } from "@/lib/module-theme";
 import { getThisWeekShare, listSharesForFeedback } from "@/lib/queries/learning";
@@ -66,7 +65,6 @@ export default async function WeeklySharePage() {
           </section>
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

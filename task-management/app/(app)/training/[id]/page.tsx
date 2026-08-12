@@ -3,7 +3,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { getMaterial, listDepartmentOptions, getMaterialTests, isManager } from "@/lib/queries/training";
@@ -54,7 +53,6 @@ export default async function MaterialPage({ params }: PageProps) {
         <MaterialViewer material={material} createdByNames={createdByNames} assistedByNames={assistedByNames} inductionDeptNames={inductionDeptNames} canManage={canManage} />
         <MaterialTests materialId={material.id} tests={tests} canManage={canManage} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

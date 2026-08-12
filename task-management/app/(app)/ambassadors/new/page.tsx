@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { listAmbProducts } from "@/lib/queries/ambassadors";
 import { listEmployeeOptions } from "@/lib/queries/employees";
@@ -47,7 +46,6 @@ export default async function NewAmbassadorPage() {
           <AmbassadorForm mode="create" products={products} employees={employees} />
         </div>
       </main>
-      <DashboardFooter />
     </>
   );
 }

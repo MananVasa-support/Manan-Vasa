@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, BookOpen, Settings } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireAppraisal } from "@/lib/pms/appraisal-flag";
 import { isAppraisalAdmin } from "@/lib/pms/appraisal/access";
 import { loadAppraisalConfig } from "@/lib/pms/appraisal/config";
@@ -44,7 +43,6 @@ export default async function AppraisalConfigPage() {
 
         <ConfigForm initial={config} />
       </main>
-      <DashboardFooter />
     </>
   );
 }

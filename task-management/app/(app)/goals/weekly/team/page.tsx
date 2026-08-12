@@ -2,7 +2,6 @@ import { eq, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { requireUser } from "@/lib/auth/current";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { db, employees } from "@/lib/db";
 import { teamScopeFor, teamPerformance, type TeamMemberPerf } from "@/lib/queries/team-performance";
@@ -118,7 +117,6 @@ export default async function TeamPerformancePage() {
 
         <TeamPerformanceBoard rows={rows} />
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

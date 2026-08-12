@@ -3,7 +3,6 @@ import type { Route } from "next";
 import type { CSSProperties } from "react";
 import { ArrowUpRight, Target } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { PageShell } from "@/components/layout/page-shell";
 import { CardGrid } from "@/components/layout/card-grid";
 import { GOALS_SECTIONS } from "@/lib/goals/sections";
@@ -149,7 +148,6 @@ export default async function GoalsHubPage() {
           })}
         </CardGrid>
       </PageShell>
-      <DashboardFooter />
     </>
   );
 }

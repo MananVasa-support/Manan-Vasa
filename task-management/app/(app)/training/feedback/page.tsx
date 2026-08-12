@@ -2,7 +2,6 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { listFeedback, feedbackStats } from "@/lib/queries/feedback";
 import { FeedbackDashboard } from "@/components/training/feedback/feedback-dashboard";
@@ -24,7 +23,6 @@ export default async function FeedbackPage() {
         </header>
         <FeedbackDashboard rows={rows} stats={stats} canNew />
       </main>
-      <DashboardFooter />
     </>
   );
 }

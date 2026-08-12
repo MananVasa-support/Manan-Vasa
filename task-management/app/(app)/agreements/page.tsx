@@ -2,7 +2,6 @@ import { notFound, redirect } from "next/navigation";
 import type { Route } from "next";
 import { FileSignature, CheckCircle2, ExternalLink, PenLine } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { getCurrentEmployee } from "@/lib/agreements/access";
 import { agreementsEnabled } from "@/lib/agreements/flag";
 import {
@@ -105,7 +104,6 @@ export default async function AgreementsPage() {
           })()
         )}
       </main>
-      <DashboardFooter />
     </>
   );
 }

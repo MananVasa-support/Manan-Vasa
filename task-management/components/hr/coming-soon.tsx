@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft, type LucideIcon } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { DashboardFooter } from "@/components/layout/footer";
 import { MODULE_THEME } from "@/lib/module-theme";
 
 const THEME = MODULE_THEME.hr;
@@ -80,7 +79,6 @@ export function HrComingSoon({
           </Link>
         </section>
       </main>
-      <DashboardFooter />
     </>
   );
 }
