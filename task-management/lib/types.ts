@@ -60,12 +60,6 @@ export interface StatusDistribution {
   count: number;
 }
 
-export interface VelocityPoint {
-  date: string;
-  created: number;
-  completed: number;
-}
-
 export interface EmployeeStatusRow {
   employeeId: string;
   employeeName: string;
@@ -224,7 +218,6 @@ export interface DashboardData {
   notApprovedAging: NotApprovedAging;
   initiator: { d3: InitiatorBoard; d7: InitiatorBoard };
   pullQuote: string;
-  velocity: VelocityPoint[];
   statusTable: EmployeeStatusRow[];
   statusDistribution: StatusDistributionPayload;
   topPerformers: TopPerformer[];

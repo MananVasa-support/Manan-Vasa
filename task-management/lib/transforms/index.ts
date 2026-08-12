@@ -2,7 +2,6 @@ export * from "./status-counts";
 export * from "./aging-buckets";
 export * from "./week-over-week-delta";
 export * from "./top-performers";
-export * from "./velocity";
 export * from "./pull-quote";
 export * from "./employee-status-table";
 export * from "./employee-aging-table";

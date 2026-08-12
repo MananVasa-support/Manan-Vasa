@@ -11,7 +11,6 @@ import {
   computeDailySparkline,
   computeTopPerformers,
   pickPerformersForEmployees,
-  computeVelocity,
   generatePullQuote,
   computeEmployeeStatusTable,
   computeEmployeeAgingTable,
@@ -136,14 +135,12 @@ async function loadDashboardDataUncached(
   const peopleFilterActive = peopleConditions.length > 0;
 
   const fourteenAgo = new Date(Date.now() - 14 * MS_PER_DAY);
-  const ninetyAgo = new Date(Date.now() - 90 * MS_PER_DAY);
 
-  const [allEmployees, periodTasksRaw, wideTasksRaw, velocityTasksRaw, departmentMap, rankingTasksRaw] =
+  const [allEmployees, periodTasksRaw, wideTasksRaw, departmentMap, rankingTasksRaw] =
     await Promise.all([
       db.select().from(employees),
       db.select(taskCols()).from(tasks).where(and(...conditions)),
       db.select(taskCols()).from(tasks).where(gte(tasks.createdAt, fourteenAgo)),
-      db.select(taskCols()).from(tasks).where(gte(tasks.createdAt, ninetyAgo)),
       getEmployeeDepartmentMap(),
       // Ranking scope: only fetched when a people filter narrows the period
       // set — otherwise the period set IS the ranking set.
@@ -155,7 +152,6 @@ async function loadDashboardDataUncached(
   // description/notes fields are simply absent and never accessed.
   const periodTasks = periodTasksRaw as unknown as Task[];
   const wideTasks = wideTasksRaw as unknown as Task[];
-  const velocityTasks = velocityTasksRaw as unknown as Task[];
   const rankingTasks = (rankingTasksRaw ?? periodTasksRaw) as unknown as Task[];
 
   const now = new Date();
@@ -384,7 +380,6 @@ async function loadDashboardDataUncached(
       topPerformerName: globalRanking[0]?.employeeName ?? "the team",
       topPerformerCount: globalRanking[0]?.doneCount ?? 0,
     }),
-    velocity: computeVelocity(velocityTasks, ninetyAgo, now),
     statusTable: computeEmployeeStatusTable(
       periodTasks,
       allEmployees,

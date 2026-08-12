@@ -4,7 +4,6 @@ import { BarChart3, ArrowRight } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { FilterBar } from "@/components/layout/filter-bar";
 import { KpiStrip } from "@/components/dashboard/kpi-strip";
-import { CollapsibleVelocity } from "@/components/dashboard/collapsible-velocity";
 import { StatusTable } from "@/components/dashboard/status-table";
 import { StatusDistributionChart } from "@/components/dashboard/status-distribution";
 import { TopPerformersSection } from "@/components/dashboard/top-performers";
@@ -244,7 +243,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               </PageShell>
               <StatusTable rows={data.statusTable} view={filters.view} avatarById={avatarById} />
               <AgingHeatmap rows={data.agingTable} cellTasks={data.agingHeatmapData.byCell} avatarById={avatarById} />
-              <CollapsibleVelocity data={data.velocity} />
             </div>
           </>
         )}
