@@ -196,9 +196,10 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       // the WMS-owned alias `/my-day` rather than `/goals/plan` so opening it
       // keeps you in this room (workspaceForPath owns `/goals*` for Goals).
       { href: "/my-day" as Route, label: "My Day", Icon: CalendarDays },
-      // The task agenda kept its route and its place in the bar; only its label
-      // changed, freeing "My Day" for the planner above.
-      { href: "/tasks/agenda" as Route, label: "Task Agenda", Icon: ListChecks },
+      // NOTE: `/tasks/agenda` is deliberately absent from the rail — the My Day
+      // planner above covers it. The ROUTE still works and is still excluded
+      // from the `/tasks` active state below, so an existing link or bookmark
+      // opens it with the correct item highlighted; it just isn't advertised.
       {
         href: "/tasks" as Route,
         label: "Tasks",
