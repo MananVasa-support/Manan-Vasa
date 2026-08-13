@@ -30,7 +30,12 @@ export function SidebarSearch(): React.JSX.Element {
 export function SidebarNewTask({ children }: { children: React.ReactNode }): React.JSX.Element | null {
   const ws = workspaceForPath(usePathname() ?? "/");
   if (ws !== "wms") return null;
-  return <div className="mt-3 flex justify-center sidebar-collapsible-hide">{children}</div>;
+  // `flex-col`, not `justify-center`: this sits inside the same `.sidebar-nav`
+  // as the nav pills, so stretching it makes New Task exactly as wide as the
+  // Dashboard pill above it. `justify-center` sized the wrapper to the button's
+  // own content instead, which is why it read narrower than the rail's nav —
+  // the button already carries `w-full`, it just had nothing to fill.
+  return <div className="mt-3 flex flex-col sidebar-collapsible-hide">{children}</div>;
 }
 
 /** Personal | Professional space toggle — Goals room, ADMINS only. */
