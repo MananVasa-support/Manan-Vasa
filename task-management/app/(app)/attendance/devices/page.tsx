@@ -1,0 +1,61 @@
+import Link from "next/link";
+import type { Route } from "next";
+import { ArrowLeft, Smartphone } from "lucide-react";
+import { requireAdmin } from "@/lib/auth/current";
+import { DashboardHeader } from "@/components/layout/header";
+import { listAllDevices, MAX_DEVICES_PER_EMPLOYEE } from "@/lib/attendance/mobile-devices";
+import { DevicesClient } from "@/components/attendance/devices-client";
+
+export const dynamic = "force-dynamic";
+
+const RED = "#E10600";
+const RED_DEEP = "#A80400";
+
+/**
+ * Attendance · Registered Devices (admin). The device-allowlist control room:
+ * every phone employees registered from the app, newest/pending first. Admins
+ * approve a pending device (cap MAX_DEVICES_PER_EMPLOYEE per person) so its owner
+ * can punch, or revoke a lost/replaced/suspicious one. Only APPROVED devices can
+ * mark attendance — everything else gets "Incorrect device" at the punch.
+ */
+export default async function AttendanceDevicesPage() {
+  await requireAdmin();
+  const devices = await listAllDevices();
+  const pending = devices.filter((d) => d.status === "pending").length;
+
+  return (
+    <>
+      <DashboardHeader generatedAt={new Date()} />
+      <main className="mx-auto w-full max-w-[1000px] px-8 max-md:px-4 pt-8 pb-20">
+        <Link
+          href={"/attendance" as Route}
+          className="inline-flex items-center gap-2 rounded-full border border-hairline-strong bg-white px-3.5 py-1.5 text-[12.5px] font-bold text-ink-strong transition-colors hover:border-altus-red"
+        >
+          <ArrowLeft size={14} /> Attendance
+        </Link>
+
+        <header className="mt-5 mb-6">
+          <span
+            className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
+            style={{ background: `linear-gradient(135deg, ${RED}, ${RED_DEEP})` }}
+          >
+            <Smartphone size={13} strokeWidth={2.6} /> Registered Devices
+          </span>
+          <h1
+            className="mt-2 text-ink-strong"
+            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(26px,3vw,40px)", letterSpacing: "-0.025em", lineHeight: 1.05 }}
+          >
+            Device allowlist
+          </h1>
+          <p className="mt-1.5 max-w-[70ch] text-[13.5px] font-medium text-ink-muted">
+            Each employee registers up to {MAX_DEVICES_PER_EMPLOYEE} phones from the app. Approve a pending
+            device so they can punch from it; only <strong>approved</strong> devices can mark attendance —
+            any other phone is refused with “Incorrect device”. {pending > 0 ? `${pending} waiting for approval.` : "Nothing waiting for approval."}
+          </p>
+        </header>
+
+        <DevicesClient devices={devices} maxPerEmployee={MAX_DEVICES_PER_EMPLOYEE} />
+      </main>
+    </>
+  );
+}

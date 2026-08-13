@@ -9,6 +9,7 @@ import {
   ClipboardList,
   BarChart3,
   MonitorPlay,
+  Smartphone,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -279,6 +280,12 @@ export default async function AttendancePage({ searchParams }: PageProps) {
               </a>
               {me.isAdmin && (
                 <>
+                  <a
+                    href="/attendance/devices"
+                    className="pastel-cta wg-btn inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[13.5px] font-bold"
+                  >
+                    <Smartphone size={15} strokeWidth={2.4} /> Devices
+                  </a>
                   <a
                     href="/attendance/insights"
                     className="pastel-cta wg-btn inline-flex items-center gap-2 rounded-pill px-4 py-2.5 text-[13.5px] font-bold"

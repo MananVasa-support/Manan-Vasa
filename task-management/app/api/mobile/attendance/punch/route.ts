@@ -18,7 +18,6 @@ import { localDateString } from "@/lib/format";
 import {
   notifyOnInPunch,
   notifyOnDayFinalized,
-  alertAdminsNewAttendanceDevice,
   clockInTz,
 } from "@/lib/attendance/punch-notify";
 
@@ -81,15 +80,16 @@ export async function POST(req: Request) {
   const geo = resolvePunchGeofence(settings, location);
   if (!geo.ok) return err(400, geo.error);
 
-  // ── Gate 2: device binding (the mobile anti-proxy) ──
-  const device = await resolveMobileDevice(me.id, {
-    deviceId: body.deviceId,
-    label: body.deviceLabel ?? null,
-    platform: body.platform ?? null,
-  });
-  if (!device.ok) return err(403, device.error);
-  if (device.isNewDevice) {
-    await alertAdminsNewAttendanceDevice(me, body.deviceLabel ?? null, device.deviceCount);
+  // ── Gate 2: device allowlist (the mobile anti-proxy) ──
+  // STRICT: the phone must be registered to THIS employee AND approved. A new /
+  // pending / someone-else's / revoked device is refused with a typed `reason`
+  // so the app can route to "Register this device" or "Waiting for approval".
+  const device = await resolveMobileDevice(me.id, { deviceId: body.deviceId });
+  if (!device.ok) {
+    return NextResponse.json(
+      { ok: false, error: device.error, reason: device.reason },
+      { status: 403, headers: MOBILE_CORS },
+    );
   }
 
   const tz = me.timezone || "Asia/Kolkata";
@@ -201,5 +201,5 @@ export async function POST(req: Request) {
     await notifyOnDayFinalized(me, inserted.date);
   }
 
-  return ok({ ok: true, date: inserted.date, newDevice: device.isNewDevice });
+  return ok({ ok: true, date: inserted.date });
 }

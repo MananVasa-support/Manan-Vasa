@@ -1671,6 +1671,15 @@ export const mobileDevices = pgTable(
     deviceId: text("device_id").notNull(),
     label: text("label"),
     platform: text("platform"),
+    // Device-allowlist lifecycle (Phase 1 anti-proxy, 2026-08). A device must be
+    // 'approved' to punch. New registrations land 'pending' (admin approves, cap
+    // 1-2); EXISTING rows were grandfathered to 'approved' by the migration
+    // default so nobody was locked out on rollout. 'revoked' = a lost/replaced
+    // phone an admin retired.
+    status: text("status").notNull().default("approved"), // approved | pending | revoked
+    approvedById: uuid("approved_by_id").references(() => employees.id, { onDelete: "set null" }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   },
