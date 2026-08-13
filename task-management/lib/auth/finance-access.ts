@@ -25,3 +25,19 @@ export async function requireFinanceAccess(): Promise<Employee> {
   if (await isFinanceViewer(me)) return me;
   redirect("/hub");
 }
+
+/**
+ * Who may WRITE the salary "Paid" mark — SUPER-ADMINS + the ACCOUNTS department
+ * (per Sir 2026-08-13, since disbursing + reconciling pay is an accounts job).
+ * Regular admins are DELIBERATELY excluded (marking pay as disbursed is a
+ * financial control, not general admin). Note: an Accounts member may NOT be an
+ * `isAdmin` employee, so the caller must gate on THIS, not `requireAdmin`.
+ * The other salary write actions (wave-off, payout adjustment, notes) stay
+ * super-admin-only.
+ */
+export async function canMarkSalaryPaid(me: Employee): Promise<boolean> {
+  if (isSuperAdmin(me.email)) return true;
+  const structured = await employeeDepartmentNames(me.id).catch(() => [] as string[]);
+  const departments = me.department ? [...structured, me.department] : structured;
+  return matchesDepartment(departments, ACCOUNTS_DEPARTMENT);
+}

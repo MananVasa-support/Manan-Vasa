@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { salaryRuns, salaryBreakup } from "@/db/schema";
-import { requireAdmin } from "@/lib/auth/current";
+import { requireAdmin, requireUser } from "@/lib/auth/current";
+import { canMarkSalaryPaid } from "@/lib/auth/finance-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { assembleMonthInputs, computeForRow } from "@/lib/salary/generate";
@@ -309,14 +310,17 @@ export async function setDisbursed(
 }
 
 /**
- * Toggle the salary "Paid" mark for one salary_breakup row. SUPER-ADMINS ONLY
- * (Manan/Hetesh) — tracks whether that employee's salary for the month has been
- * disbursed. Stored on salary_breakup.paid (survives sheet re-syncs).
+ * Toggle the salary "Paid" mark for one salary_breakup row. SUPER-ADMINS + the
+ * ACCOUNTS department (Sir 2026-08-13 — disbursing pay is an accounts job); plain
+ * admins are excluded. Tracks whether that employee's salary for the month has
+ * been disbursed. Stored on salary_breakup.paid (survives sheet re-syncs).
+ * Uses requireUser (not requireAdmin) because an Accounts member may not be an
+ * admin; canMarkSalaryPaid is the real gate.
  */
 export async function setSalaryPaid(id: string, paid: boolean): Promise<ActionResult> {
-  const me = await requireAdmin();
-  if (!isSuperAdmin(me.email)) {
-    return { ok: false, error: "Only super-admins can mark salary as paid." };
+  const me = await requireUser();
+  if (!(await canMarkSalaryPaid(me))) {
+    return { ok: false, error: "Only super-admins or the Accounts team can mark salary as paid." };
   }
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;

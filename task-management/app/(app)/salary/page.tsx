@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { FileSpreadsheet, Wallet } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { requireFinanceAccess } from "@/lib/auth/finance-access";
+import { requireFinanceAccess, canMarkSalaryPaid } from "@/lib/auth/finance-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { salaryBreakupMonths, listSalaryBreakup } from "@/lib/queries/salary-breakup";
 import { type SalaryRow } from "@/components/salary/salary-breakup-table";
@@ -38,7 +38,10 @@ function monthLabel(ym: string, style: "long" | "short" = "long"): string {
 
 export default async function SalaryPage({ searchParams }: PageProps) {
   const me = await requireFinanceAccess();
-  const canMarkPaid = isSuperAdmin(me.email);
+  // "Mark paid" is open to super-admins + the Accounts team; the other salary
+  // write controls (notes, wave-off, payout adjustment) stay super-admin-only.
+  const superAdmin = isSuperAdmin(me.email);
+  const canMarkPaid = await canMarkSalaryPaid(me);
   const sp = await searchParams;
   const months = await salaryBreakupMonths();
   const raw = typeof sp.month === "string" ? sp.month : undefined;
@@ -203,7 +206,7 @@ export default async function SalaryPage({ searchParams }: PageProps) {
           </section>
         ) : (
           <>
-            <SalaryWorkspace rows={tableRows} canMarkPaid={canMarkPaid} canEditNote={canMarkPaid} canWaiveOff={canMarkPaid} month={month ?? undefined} />
+            <SalaryWorkspace rows={tableRows} canMarkPaid={canMarkPaid} canEditNote={superAdmin} canWaiveOff={superAdmin} month={month ?? undefined} />
 
             {/* ── Statement & earnings document downloads (behind SALARY_STATEMENTS) ── */}
             {statementsOn && month && statementEmployees.length > 0 && (

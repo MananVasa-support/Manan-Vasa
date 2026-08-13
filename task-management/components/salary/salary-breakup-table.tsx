@@ -337,7 +337,8 @@ const COLUMNS: Col[] = [
   },
 ];
 
-/* Super-admin salary "Paid" toggle — optimistic; server action is super-admin-gated. */
+/* Salary "Paid" toggle — optimistic; server action is gated to super-admins +
+   the Accounts team (canMarkSalaryPaid). Only rendered when canMarkPaid. */
 function PaidToggle({ row }: { row: SalaryRow }) {
   const router = useRouter();
   const [paid, setPaid] = useState(row.paid);
