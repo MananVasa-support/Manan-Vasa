@@ -14,6 +14,7 @@ import {
   Circle,
   Loader2,
   ArrowUpRight,
+  ArrowLeft,
   X,
   PartyPopper,
   Wallet,
@@ -140,6 +141,25 @@ export function PortalScreen({ firstName, fullName }: { firstName: string; fullN
     <>
       <style>{CSS}</style>
       <main className="portal-noprint mx-auto w-full max-w-[1080px] px-6 max-md:px-4 pb-24 pt-8">
+        {/* Back nav — this page renders WITHOUT the app rail/header, so a normal
+            employee (who reaches it from the HR home) needs an explicit way out.
+            HR Home is the primary target; Hub is the whole-app front door. */}
+        <div className="portal-fade mb-5 flex flex-wrap items-center gap-2">
+          <Link
+            href={"/hr" as Route}
+            className="group inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-bold text-white transition-transform hover:-translate-x-0.5"
+            style={{ background: "linear-gradient(120deg, #18181b 0%, #A80400 100%)", boxShadow: "0 12px 26px -12px rgba(168,4,0,0.55)" }}
+          >
+            <ArrowLeft size={15} strokeWidth={2.6} aria-hidden /> HR Home
+          </Link>
+          <Link
+            href={"/hub" as Route}
+            className="inline-flex items-center gap-1.5 rounded-full border border-hairline-strong bg-white px-4 py-2 text-[13px] font-bold text-ink-strong transition-colors hover:border-altus-red"
+          >
+            Hub
+          </Link>
+        </div>
+
         {/* Hero */}
         <div className="portal-fade mb-6">
           <span

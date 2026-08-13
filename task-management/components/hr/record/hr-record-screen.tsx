@@ -339,8 +339,15 @@ export function HrRecordScreen({
           </h1>
         </div>
 
-        {/* Person picker + header */}
-        <div className="rec-fade rounded-2xl border border-hairline bg-white p-5 shadow-[0_10px_30px_-22px_rgba(24,24,27,0.5)]">
+        {/* Person picker + header.
+            `relative z-30`: the combobox dropdown panel lives inside this card.
+            Every `.rec-fade` section keeps a persistent transform (animation-
+            fill-mode:both → transform:translateY(0), which is NOT `none`), so it
+            forms its own stacking context. Without an explicit z-index here, the
+            LATER "All people" `.rec-fade` sibling paints ON TOP of this card —
+            burying the open dropdown behind the grid (the "completely broken"
+            picker). Lifting this card above later siblings fixes it. */}
+        <div className="relative z-30 rec-fade rounded-2xl border border-hairline bg-white p-5 shadow-[0_10px_30px_-22px_rgba(24,24,27,0.5)]">
           <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.16em] text-ink-soft">
             Person
           </span>
