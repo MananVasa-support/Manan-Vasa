@@ -12,7 +12,9 @@ import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { ChromeShell } from "@/components/layout/chrome-shell";
 import { ModuleFooter } from "@/components/layout/module-footer";
+import { ModuleShortcuts } from "@/components/layout/module-shortcuts";
 import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
+import { MODULE_ORDER } from "@/lib/module-theme";
 import { IdleTimerClient } from "@/components/auth/idle-timer-client";
 import { workspaceForPath, canAccessWorkspace } from "@/lib/workspaces";
 import { managerDailyTaskGate, isManagerWithReports } from "@/lib/manager-gates";
@@ -185,6 +187,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <KeyboardShortcuts />
+      {/* Number-row module shortcuts (1–9, 0), the keyboard half of the module
+          footer below. Mounted HERE rather than on the hub so the digits the
+          footer displays actually work from inside a room — pressing 3 in WMS
+          opens the third module. Placed after the gate chain's early returns, so
+          a digit can never be used to walk out of a daily ritual. The allow-list
+          reuses the layout's single `accessFor` result — no extra query. */}
+      <ModuleShortcuts allowed={MODULE_ORDER.filter((id) => canAccessWorkspace(id, access))} />
       <IdleTimerClient timeoutMinutes={15} />
       <OnboardingNudge />
       <ChromeShell sidebar={<DashboardSidebar />} footer={<ModuleFooter access={access} />}>

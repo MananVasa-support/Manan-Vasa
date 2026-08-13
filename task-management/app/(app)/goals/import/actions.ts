@@ -405,6 +405,7 @@ export async function importGoals(
 
   revalidatePath("/goals/cascade");
   revalidatePath("/goals/review");
+  revalidatePath("/review"); // the WMS-owned alias of the same workbench
   revalidatePath("/goals/yearly");
   revalidatePath("/goals/quarterly");
   revalidatePath("/goals/monthly");

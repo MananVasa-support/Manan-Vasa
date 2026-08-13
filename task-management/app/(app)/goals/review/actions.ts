@@ -25,6 +25,10 @@ function firstError(err: z.ZodError): string {
 
 function revalidateReview(periodKey?: string | null) {
   revalidatePath("/goals/review");
+  // The WMS-owned alias of the same workbench (app/(app)/review). It is a
+  // separate route entry in the cache, so scoring from WMS would otherwise
+  // leave the Goals copy stale and vice-versa.
+  revalidatePath("/review");
   revalidatePath("/goals/cascade");
   // bug #17 — the 5-page level routes render acceptPct/reviewNotes too.
   revalidatePath("/goals/yearly"); // yearly rootView shares the same canvas payload

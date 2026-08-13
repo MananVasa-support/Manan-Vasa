@@ -885,6 +885,12 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
     return map;
   }, [goals]);
   const rankOf = React.useCallback((g: GoalDTO) => rankById.get(g.id) ?? g.position, [rankById]);
+  /** Owner display name for the shared goal-details view. Reads the roster the
+   *  board already loaded — no extra query, and null when the owner is off it. */
+  const ownerNameOf = React.useCallback(
+    (g: GoalDTO) => props.roster.find((r) => r.id === g.employeeId)?.name ?? null,
+    [props.roster],
+  );
   const codeOf = React.useCallback(
     (g: GoalDTO) => goalCode({ period: g.period, periodKey: g.periodKey, position: rankById.get(g.id) ?? g.position, id: g.id }),
     [rankById],
@@ -1249,6 +1255,7 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                    (Area · Goal · Measure · Target/Actual · %Done · Team% ·
                    Members · Share · Type + bulk bar). */
                 <GoalTableView
+                  ownerNameOf={ownerNameOf}
                   goals={displayed}
                   canWrite={canWrite}
                   isAdmin={props.isAdmin}

@@ -434,6 +434,7 @@ export function WeeklyCascadeBoard({
       ) : (
         <div className="flex flex-col gap-3">
           <GoalTableView
+            ownerNameOf={(g) => roster.find((r) => r.id === g.employeeId)?.name ?? null}
             goals={adopted.map((g) => weeklyToGoalDTO(g, nameOf))}
             canWrite
             isAdmin={me.isAdmin}

@@ -22,6 +22,10 @@ export interface SalaryProfileRow {
   employeeId: string;
   name: string;
   email: string;
+  /** Work address from the HR record; may be absent or equal to `email`. */
+  officialEmail: string | null;
+  /** Personal address from the HR record; may be absent. */
+  personalEmail: string | null;
   designationId: string | null;
   designationName: string | null;
   payingEntityId: string | null;
@@ -51,6 +55,11 @@ export async function listSalaryProfiles(): Promise<SalaryProfileRow[]> {
       employeeId: employees.id,
       name: employees.name,
       email: employees.email,
+      // Payslips and statements go to BOTH addresses on file, not just the
+      // login one — an employee's work mailbox and their personal mailbox are
+      // often different people's idea of "their" email.
+      officialEmail: employees.officialEmail,
+      personalEmail: employees.personalEmail,
       designationId: employees.designationId,
       designationName: designations.name,
       payingEntityId: employees.payingEntityId,
@@ -75,6 +84,8 @@ export async function listSalaryProfiles(): Promise<SalaryProfileRow[]> {
     employeeId: r.employeeId,
     name: r.name,
     email: r.email,
+    officialEmail: r.officialEmail,
+    personalEmail: r.personalEmail,
     designationId: r.designationId ?? null,
     designationName: r.designationName ?? null,
     payingEntityId: r.payingEntityId ?? null,
