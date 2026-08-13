@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { MODULE_ORDER, MODULE_THEME, moduleShortcut } from "@/lib/module-theme";
-import { canAccessWorkspace } from "@/lib/workspaces";
+import { canAccessWorkspace, workspaceForPath } from "@/lib/workspaces";
 
 /**
  * SITE-WIDE MODULE FOOTER — every room, one row, on every page.
@@ -35,25 +38,40 @@ export interface ModuleFooterProps {
 }
 
 export function ModuleFooter({ access }: ModuleFooterProps) {
+  const pathname = usePathname();
+  const activeWs = workspaceForPath(pathname ?? "/");
+
   return (
-    <footer
+    <div
       aria-label="All modules"
-      // Black band — it has to read as the app's floor, not as another card. The
-      // colours below are hard-coded rather than tokenised because the surface
-      // tokens all describe LIGHT surfaces; a token here would flip with any
-      // future theme work and drop white text onto a white bar.
-      className="mt-auto"
-      style={{
-        background: "linear-gradient(180deg, var(--color-ink-strong) 0%, #020617 100%)",
-        color: "#ffffff",
-      }}
+      role="navigation"
+      // FLOATING GLASS DOCK, not a page footer. Fixed so it stays reachable
+      // without scrolling to the end of a long page; `left-1/2 -translate-x-1/2`
+      // centres it independently of the left rail's width, so it does not shift
+      // between railed and full-bleed rooms.
+      //
+      // `max-w` + the inner `overflow-x-auto` keep it from ever exceeding the
+      // viewport: on a narrow screen the strip scrolls sideways inside its own
+      // glass rather than pushing the page wider.
+      className="pointer-events-none fixed bottom-[18px] left-1/2 z-40 w-max max-w-[calc(100vw-24px)] -translate-x-1/2 print:hidden"
     >
-      <nav className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-center gap-x-1 gap-y-1 px-6 py-3.5 max-md:px-3">
+      <nav
+        className="pointer-events-auto flex items-center gap-x-0.5 overflow-x-auto rounded-[18px] px-2 py-2"
+        style={{
+          background: "rgba(255,255,255,0.88)",
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          border: "1px solid rgba(0,0,0,0.08)",
+          boxShadow: "0 6px 24px -8px rgba(15,23,42,0.18), 0 1px 2px rgba(15,23,42,0.06)",
+          scrollbarWidth: "none",
+        }}
+      >
         {MODULE_ORDER.map((id, i) => {
           const m = MODULE_THEME[id];
           const allowed = canAccessWorkspace(id, access);
           const Icon = m.Icon;
           const shortcut = moduleShortcut(i);
+          const active = activeWs === id;
 
           const inner = (
             <>
@@ -78,8 +96,8 @@ export function ModuleFooter({ access }: ModuleFooterProps) {
               <span
                 key={id}
                 title={`${m.label} — you don't have access to this module`}
-                className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold"
-                style={{ color: "rgba(255,255,255,0.32)" }}
+                className="inline-flex cursor-not-allowed items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 py-1.5 text-[12.5px] font-semibold"
+                style={{ color: "rgba(15,23,42,0.30)" }}
               >
                 {inner}
                 <span className="sr-only"> (no access)</span>
@@ -91,17 +109,27 @@ export function ModuleFooter({ access }: ModuleFooterProps) {
             <Link
               key={id}
               href={m.href}
-              // Resting state is a soft white so ten labels do not glare; the
-              // module's own accent tints the tile only on hover/focus, which is
-              // what tells you which room you are about to enter.
-              className="group inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold transition-colors hover:!bg-[color-mix(in_srgb,var(--mod-accent)_28%,transparent)] hover:!text-white outline-none focus-visible:ring-2 focus-visible:ring-white/45"
-              style={{ ["--mod-accent" as string]: m.accent, color: "rgba(255,255,255,0.74)" }}
+              aria-current={active ? "page" : undefined}
+              // Resting state is a dark neutral so ten labels do not glare on the
+              // light glass; the module's own accent appears on hover/focus, and
+              // stays on for the room you are already in.
+              className="group inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 py-1.5 text-[12.5px] font-semibold transition-colors hover:!bg-[color-mix(in_srgb,var(--mod-accent)_12%,transparent)] hover:!text-[var(--mod-accent)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--mod-accent)]/45"
+              style={{
+                ["--mod-accent" as string]: m.accent,
+                // ACTIVE is a tint plus the accent on the text — deliberately not
+                // a filled pill, which at this size reads as a selected tab in a
+                // toolbar rather than a hint of where you are.
+                color: active ? m.accent : "rgba(15,23,42,0.62)",
+                ...(active
+                  ? { background: `color-mix(in srgb, ${m.accent} 10%, transparent)` }
+                  : null),
+              }}
             >
               {inner}
             </Link>
           );
         })}
       </nav>
-    </footer>
+    </div>
   );
 }

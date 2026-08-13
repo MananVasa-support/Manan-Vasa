@@ -28,7 +28,7 @@ export function ChromeShell({
   sidebar: ReactNode;
   /** Site-wide module footer, server-rendered once and passed in (same pattern
    *  as `sidebar`). Rendered as the LAST child of the page column in BOTH
-   *  branches. Optional so callers that don't have one still typecheck. */
+   *  branches, so every route ends with it. */
   footer?: ReactNode;
   children: ReactNode;
 }) {
@@ -49,25 +49,32 @@ export function ChromeShell({
     pathname === "/hr" ||
     (pathname?.startsWith("/hr/") ?? false) ||
     pathname === "/support" ||
-    (pathname?.startsWith("/support/") ?? false) ||
-    // The universal signing surface is a FOCUSED task flow reached from the
-    // (rail-less) HR Letters / Policies / Agreements pages. It maps to the WMS
-    // workspace by path, which wrongly stacked the WMS rail on top of its own
-    // header — render it full-bleed like the HR surfaces it's launched from.
-    (pathname?.startsWith("/documents/sign") ?? false);
+    (pathname?.startsWith("/support/") ?? false);
   const showSidebar = Boolean(ws) && !isHrFullBleed;
 
-  // Full-height frame (both branches): the page column is a FULL-HEIGHT flex
-  // column, so a short page still reaches the bottom of the viewport instead of
-  // stopping mid-screen. Content keeps its natural height and simply grows past
-  // the fold on long pages. This outlived the global footer it was originally
-  // built for — `.app-shell-column > main` (globals.css) is what now absorbs the
-  // slack, and the body's fixed gradient paints everything below the content.
+  // Sticky-footer frame (both branches): the page column is a FULL-HEIGHT flex
+  // column, so the footer — which every page renders as the last sibling of its
+  // top-level fragment — can `mt-auto` itself down to the bottom of the viewport
+  // instead of floating mid-screen on short pages. Content above it keeps its
+  // natural height and simply grows past the fold on long pages.
+  // The module footer is the LAST child of the page column in both branches, and
+  // carries `mt-auto` — so on a short page it sits at the bottom of the viewport
+  // rather than floating under the content, and on a long one it simply follows.
+  // The HUB does not get the dock: it IS the module picker, so a floating copy
+  // of the same ten links over the grid is noise. It ends after the cards.
+  const isHub = pathname === "/hub";
+  const dock = isHub ? null : footer;
+  // Clearance for the FIXED dock — it is out of flow, so without this it sits on
+  // top of whatever a page ends with. Matches the dock's own bottom offset plus
+  // its height. The hub needs none of it, but still wants breathing room under
+  // the grid, so it gets a smaller pad rather than zero.
+  const bottomPad = isHub ? "pb-10" : "pb-[96px]";
+
   if (!showSidebar) {
     return (
-      <div className="flex min-h-dvh flex-col">
+      <div className={`flex min-h-dvh flex-col ${bottomPad}`}>
         {children}
-        {footer}
+        {dock}
       </div>
     );
   }
@@ -75,9 +82,9 @@ export function ChromeShell({
   return (
     <div className="flex min-h-dvh">
       {sidebar}
-      <div className="flex min-w-0 flex-1 flex-col max-md:pt-14">
+      <div className={`flex min-w-0 flex-1 flex-col max-md:pt-14 ${bottomPad}`}>
         {children}
-        {footer}
+        {dock}
       </div>
     </div>
   );
