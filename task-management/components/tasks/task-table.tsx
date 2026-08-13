@@ -144,10 +144,10 @@ const PRIORITY_RANK: Record<string, number> = Object.fromEntries(
   TASK_PRIORITIES.map((p, i) => [p, i]),
 );
 import type { TaskListRow } from "@/lib/types";
+import { useSectionSearch, matchesSearch, setSectionSearch } from "@/lib/client/section-search";
 import { TaskRowActions } from "./task-row-actions";
 import { BulkActionBar } from "./bulk-action-bar";
 import { Checkbox } from "@/components/ui/checkbox";
-import { EmployeeAvatar } from "@/components/ui/employee-avatar";
 import { LateBadge } from "@/components/ui/late-badge";
 import { isDoneLate } from "@/lib/task-late";
 import { InlineStatusCell } from "./inline-status-cell";
@@ -169,11 +169,6 @@ import {
   STATUS_TONES_FALLBACK,
   formatDate,
 } from "@/lib/format";
-import {
-  useSectionSearch,
-  matchesSearch,
-  setSectionSearch,
-} from "@/lib/client/section-search";
 
 // Friendly labels for the column show/hide menu (#11).
 const COLUMN_LABELS: Record<string, string> = {
@@ -254,8 +249,9 @@ function buildColumns(
         }),
       cell: (info) => {
         const v = info.getValue<string | null>();
+        // `title` — the cell clips at 12ch, so hovering must reveal the rest.
         return v ? (
-          <span className="text-ink-strong font-semibold" style={{ fontSize: 15 }}>
+          <span className="block truncate text-ink-strong font-semibold" title={v} style={{ fontSize: 15 }}>
             {v}
           </span>
         ) : (
@@ -267,17 +263,26 @@ function buildColumns(
       accessorKey: "subject",
       header: "Subject",
       meta: { narrow: true },
-      cell: (info) => (
-        <span className="text-body-lg text-ink-muted">
-          {info.getValue<string>() ?? "—"}
-        </span>
-      ),
+      cell: (info) => {
+        const v = info.getValue<string | null>();
+        return (
+          <span className="block truncate text-body-lg text-ink-muted" title={v ?? undefined}>
+            {v ?? "—"}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "title",
       header: "Task",
       meta: { wide: true },
-      cell: ({ row }) => <TaskTitleCell row={row.original} />,
+      cell: ({ row }) => (
+        <TaskTitleCell
+          row={row.original}
+          statusLabels={statusLabels}
+          statusTones={statusTones}
+        />
+      ),
     },
     {
       accessorKey: "doerName",
@@ -375,7 +380,10 @@ function buildColumns(
     },
     {
       id: "actions",
-      header: () => <span className="sr-only">Actions</span>,
+      // Titled "Manage" rather than a screen-reader-only "Actions" — the ⋯ kebab
+      // column now reads as a labelled column like every other one.
+      header: "Manage",
+      meta: { align: "center" },
       cell: ({ row }) => <TaskRowActions row={row.original} employees={employees} me={me} />,
       enableSorting: false,
     },
@@ -471,10 +479,10 @@ export function TaskTable({
   // Free-text search across task no + the human-readable fields. Runs purely
   // client-side over the already-loaded rows (the list query returns the full
   // filtered set), so it's instant and needs no server round-trip.
-  const [query, setQuery] = React.useState("");
-  // The FilterBar's section search sits above this table. Both boxes narrow the
-  // same set through the SAME matcher and AND together, so whichever you type
-  // in behaves identically and neither silently overrides the other.
+  //
+  // SINGLE SOURCE: this comes from the FilterBar's "Search Tasks…" box at the
+  // top of the page. The table used to own a second, identical box in its own
+  // toolbar; that duplicate is gone, so there's one input and one state.
   const sectionQuery = useSectionSearch();
 
   const matchesRow = React.useCallback(
@@ -485,6 +493,7 @@ export function TaskTable({
       return matchesSearch(
         q,
         r.title,
+        r.description,
         r.subject,
         r.client,
         r.doerName,
@@ -496,10 +505,9 @@ export function TaskTable({
   );
 
   const visibleRows = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q && !sectionQuery) return rows;
-    return rows.filter((r) => matchesRow(r, q) && matchesRow(r, sectionQuery));
-  }, [rows, query, sectionQuery, matchesRow]);
+    if (!sectionQuery) return rows;
+    return rows.filter((r) => matchesRow(r, sectionQuery));
+  }, [rows, sectionQuery, matchesRow]);
 
   const groupColId =
     groupBy === "client" ? "client"
@@ -574,10 +582,11 @@ export function TaskTable({
     }
   }, [visibleRows, table, pageSize]);
 
-  // A new search resets to the first page so results start at the top.
+  // A new search resets to the first page so results start at the top rather
+  // than on a page that no longer exists.
   React.useEffect(() => {
     table.setPageIndex(0);
-  }, [query, table]);
+  }, [sectionQuery, table]);
 
   // Scroll the table back into view when the page changes, so the new rows are
   // visible without a manual scroll up.
@@ -674,11 +683,11 @@ export function TaskTable({
             "0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 26px -20px rgba(15, 23, 42, 0.18)",
         }}
       >
+        {/* The toolbar's own search box was removed — it duplicated the
+            FilterBar's "Search Tasks…" directly above it and cost a whole extra
+            row of height. That bar is now the single search for this view. */}
         <div className="flex items-center gap-2 flex-wrap min-w-0">
           <GroupByControl value={groupBy} onChange={setGroupBy} />
-          <div className="w-full sm:w-[220px] md:w-[260px] min-w-[150px]">
-            <SearchBox value={query} onChange={setQuery} resultCount={visibleRows.length} />
-          </div>
           <CompactPager
             pages={pages}
             pageIndex={pageIndex}
@@ -708,6 +717,14 @@ export function TaskTable({
         />
       )}
 
+      {/* Search matched nothing. Replaces BOTH the desktop table and the phone
+          card list, so you get a real answer instead of a bare header row. Only
+          shown when a search is active — an unfiltered empty list is a
+          different situation and keeps its own copy below. */}
+      {visibleRows.length === 0 && sectionQuery ? (
+        <NoResults query={sectionQuery} onClear={() => setSectionSearch("")} />
+      ) : (
+      <>
       <div
         // The scroll container for BOTH axes:
         //   overflow-x-auto — columns size to their content, so wide data scrolls
@@ -746,7 +763,7 @@ export function TaskTable({
                           ? "descending"
                           : undefined
                     }
-                    className={`sticky top-0 px-4 py-2.5 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : "z-20"}`}
+                    className={`sticky top-0 px-2 py-2 text-table-head whitespace-nowrap max-md:px-3 max-md:py-3 ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${isActions ? "right-0 z-30" : "z-20"}`}
                     style={{
                       // Crisp glass header strip — a near-opaque frosted
                       // gradient (blur catches the rows scrolling beneath)
@@ -878,7 +895,7 @@ export function TaskTable({
                 const hide = col.meta?.mobileHide;
                 const isActions = cell.column.id === "actions";
                 // Columns now size to their CONTENT and the table scrolls
-                // sideways, rather than every value being squeezed to ~32ch and
+                // sideways, rather than every value being squeezed to ~22ch and
                 // truncated. The ONE exception is the free-text Task title: a
                 // single 250-character title would otherwise stretch that column
                 // past 2000px and make the horizontal scroll unusable, so it
@@ -891,7 +908,7 @@ export function TaskTable({
                 return (
                   <td
                     key={cell.id}
-                    className={`px-3 py-2.5 whitespace-nowrap max-md:px-3 max-md:py-3 ${maxW} ${maxW ? "overflow-hidden text-ellipsis" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[280px]" : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""}`}
+                    className={`px-2 py-2 whitespace-nowrap max-md:px-3 max-md:py-3 ${maxW} ${maxW ? "overflow-hidden text-ellipsis" : ""} ${alignClass(col)} ${hide ? "max-md:hidden" : ""} ${col.meta?.wide ? "min-w-[200px]" : ""} ${isActions ? "task-actions-cell sticky right-0 z-10" : ""}`}
                     style={isActions ? { boxShadow: "-10px 0 14px -10px rgba(15,23,42,0.14)" } : undefined}
                   >
                     {flexRender(
@@ -960,6 +977,8 @@ export function TaskTable({
           {pageInfo}
         </p>
       </div>
+      </>
+      )}
     </div>
   );
 }
@@ -1091,54 +1110,6 @@ function CompactPager({
   );
 }
 
-// Search box for the task list. Matches the task No. (with or without the
-// leading #) plus title / subject / client / doer / initiator / status —
-// "search by task no or any other criteria".
-function SearchBox({
-  value,
-  onChange,
-  resultCount,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  resultCount: number;
-}) {
-  return (
-    <div className="flex items-center gap-3 flex-wrap">
-      <div className="relative w-full max-w-md">
-        <Search
-          size={16}
-          strokeWidth={2.2}
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-subtle pointer-events-none"
-        />
-        <input
-          type="search"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Search by task no. (#1042), title, subject, client, doer…"
-          aria-label="Search tasks"
-          className="w-full h-10 pl-10 pr-9 rounded-pill border border-hairline bg-surface-card text-[15px] text-ink-strong placeholder:text-ink-subtle shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] outline-none transition-all focus:border-altus-red focus:ring-2 focus:ring-altus-red/25"
-        />
-        {value && (
-          <button
-            type="button"
-            onClick={() => onChange("")}
-            aria-label="Clear search"
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-subtle hover:text-ink-strong transition-colors"
-          >
-            <X size={16} strokeWidth={2.4} />
-          </button>
-        )}
-      </div>
-      {value.trim() && (
-        <span className="text-[13px] font-semibold text-ink-subtle tabular-nums">
-          {resultCount} {resultCount === 1 ? "match" : "matches"}
-        </span>
-      )}
-    </div>
-  );
-}
-
 // Rows-per-page selector. Lets the user trade a denser list (100/page) for a
 // shorter one (10/page). Built on the app's Radix dropdown for a consistent,
 // styleable menu (a native <select> can't match the rest of the controls).
@@ -1240,13 +1211,13 @@ function GroupByControl({
   );
 }
 
-// #12 — task title with a hover-to-preview popover. After ~1s of hovering
-// the title, a card shows the full title + description (the cell truncates
-// at 32ch). Uses Radix Tooltip (portals out of the table's overflow,
-// positions + delays for free). Shown whenever there's a description OR the
-// title is long enough to be truncated — so hovering always reveals more
-// than the few visible words. A truly short, description-less title (nothing
-// extra to show) skips the popover.
+// #12 — task title with a hover-to-preview popover. Hovering the Task cell
+// opens a quick-overview card: full title + description (the cell truncates at
+// 32ch) plus the row's status, priority, people, and dates — so the whole task
+// can be read without opening it. Uses Radix Tooltip (portals out of the
+// table's overflow, positions + delays for free) and is shown on EVERY row,
+// since the meta block always has something to say even when the title is
+// short and there's no description.
 /**
  * Label shown in the "Task" column. Imported rows frequently store the client
  * name as the title (so Client and Task look identical), while the real task
@@ -1260,25 +1231,63 @@ function taskCellLabel(row: TaskListRow): string {
   return desc && desc.length > 0 ? desc : row.title;
 }
 
-function TaskTitleCell({ row }: { row: TaskListRow }) {
+/** One label/value line in the hover card's meta block. */
+function PreviewField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5 min-w-0">
+      <span
+        className="uppercase"
+        style={{
+          fontSize: 10.5,
+          fontWeight: 800,
+          letterSpacing: "0.07em",
+          color: "var(--color-ink-subtle)",
+        }}
+      >
+        {label}
+      </span>
+      <span
+        className="truncate"
+        style={{ fontSize: 13.5, fontWeight: 600, color: "var(--color-ink-strong)" }}
+      >
+        {children}
+      </span>
+    </div>
+  );
+}
+
+function TaskTitleCell({
+  row,
+  statusLabels,
+  statusTones,
+}: {
+  row: TaskListRow;
+  statusLabels: StatusLabels;
+  statusTones: StatusTones;
+}) {
+  const cellLabel = taskCellLabel(row);
   const link = (
     <Link
       href={`/tasks/${row.id}` as Route}
-      className="task-title-link text-body text-ink-strong underline-offset-2 transition-colors"
+      // `truncate` + `title` so even without the rich popover below (e.g. on a
+      // touch device, where hover doesn't exist) the clipped text is reachable.
+      className="task-title-link block truncate text-body text-ink-strong underline-offset-2 transition-colors"
+      title={cellLabel}
       style={{ fontWeight: 700 }}
     >
-      {taskCellLabel(row)}
+      {cellLabel}
     </Link>
   );
   const desc = row.description?.trim();
   const subject = row.subject?.trim();
-  // The title cell caps at ~32ch (max-md ~20ch); anything longer is clipped,
-  // so a long title alone is worth expanding even without a description.
-  const titleTruncated = row.title.trim().length > 30;
-  const hasMore = Boolean(desc) || titleTruncated;
-  if (!hasMore) return link;
+  const tone = statusTones[row.status] ?? "stone";
+  const statusLabel = statusLabels[row.status] ?? row.status;
+  const priority = row.priority as keyof typeof PRIORITY_LABELS;
+  const urgency = taskUrgency(row.dueAt, row.status);
   return (
-    <Tooltip.Provider delayDuration={1000}>
+    // 260ms: long enough that sweeping the pointer across the list doesn't
+    // flash cards, short enough to feel like a hover rather than a wait.
+    <Tooltip.Provider delayDuration={260}>
       <Tooltip.Root>
         <Tooltip.Trigger asChild>{link}</Tooltip.Trigger>
         <Tooltip.Portal>
@@ -1297,21 +1306,56 @@ function TaskTitleCell({ row }: { row: TaskListRow }) {
               padding: 16,
             }}
           >
+            {/* Row 1 — #No. + the status chip (same tone tokens as the Status
+                column, so the card and the row agree at a glance). */}
+            <div className="flex items-center justify-between gap-3" style={{ marginBottom: 8 }}>
+              <span
+                className="tabular-nums"
+                style={{ fontSize: 12, fontWeight: 800, color: "var(--color-ink-subtle)" }}
+              >
+                {row.taskNo != null ? `#${row.taskNo}` : "No ID"}
+              </span>
+              <span className="inline-flex items-center gap-2 shrink-0">
+                {isDoneLate({ status: row.status, completedAt: row.completedAt, dueAt: row.dueAt }) && (
+                  <LateBadge />
+                )}
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-pill"
+                  style={{
+                    padding: "3px 10px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    background: `color-mix(in srgb, var(--color-${tone}) 12%, transparent)`,
+                    color: `var(--color-${tone}-deep)`,
+                    border: `1px solid color-mix(in srgb, var(--color-${tone}) 30%, transparent)`,
+                  }}
+                >
+                  <span
+                    aria-hidden
+                    className="inline-block size-1.5 rounded-full shrink-0"
+                    style={{ background: `var(--color-${tone})` }}
+                  />
+                  {statusLabel}
+                </span>
+              </span>
+            </div>
+
             <div
               style={{
                 fontWeight: 700,
                 fontSize: 15,
                 lineHeight: 1.3,
                 color: "var(--color-ink-strong)",
-                marginBottom: desc ? 8 : 0,
               }}
             >
               {row.title}
             </div>
+
             {desc ? (
               <p
                 className="whitespace-pre-wrap"
                 style={{
+                  marginTop: 8,
                   fontSize: 14.5,
                   lineHeight: 1.55,
                   color: "var(--color-ink-soft)",
@@ -1320,10 +1364,52 @@ function TaskTitleCell({ row }: { row: TaskListRow }) {
                 {desc}
               </p>
             ) : (
-              <p style={{ fontSize: 13, color: "var(--color-ink-subtle)" }}>
-                {subject ? `Subject — ${subject}` : "No description added yet."}
+              <p style={{ marginTop: 8, fontSize: 13, color: "var(--color-ink-subtle)" }}>
+                No description added yet.
               </p>
             )}
+
+            {/* Meta block — the fields you'd otherwise scan four columns for. */}
+            <div
+              className="grid grid-cols-2 gap-x-4 gap-y-2.5"
+              style={{
+                marginTop: 12,
+                paddingTop: 12,
+                borderTop: "1px solid var(--color-hairline)",
+              }}
+            >
+              <PreviewField label="Client">{row.client?.trim() || "—"}</PreviewField>
+              <PreviewField label="Subject">{subject || "—"}</PreviewField>
+              <PreviewField label="Doer">{row.doerName?.trim() || "Unassigned"}</PreviewField>
+              <PreviewField label="Initiator">{row.initiatorName?.trim() || "—"}</PreviewField>
+              <PreviewField label="Priority">{PRIORITY_LABELS[priority] ?? priority}</PreviewField>
+              <PreviewField label="Age">
+                <span className="tabular-nums">{row.ageDays}d</span>
+              </PreviewField>
+              <PreviewField label="Created">
+                <span className="tabular-nums">{safeFormat(row.createdAt)}</span>
+              </PreviewField>
+              <PreviewField label="Due">
+                <span
+                  className="tabular-nums"
+                  style={{
+                    color:
+                      urgency.level === "overdue" || urgency.level === "today"
+                        ? URGENCY_COLOR[urgency.level]
+                        : undefined,
+                  }}
+                >
+                  {safeFormat(row.dueAt)}
+                  {urgency.label ? ` · ${urgency.label}` : ""}
+                </span>
+              </PreviewField>
+              {row.completedAt && (
+                <PreviewField label="Completed">
+                  <span className="tabular-nums">{safeFormat(row.completedAt)}</span>
+                </PreviewField>
+              )}
+            </div>
+
             <Tooltip.Arrow style={{ fill: "var(--color-surface-card)" }} />
           </Tooltip.Content>
         </Tooltip.Portal>
@@ -1520,14 +1606,12 @@ function TaskCard({
         {taskCellLabel(row)}
       </Link>
 
+      {/* Doer — text name only, matching the desktop Doer column (no avatar). */}
       <div className="mt-3 flex items-center gap-2">
         {row.doerName ? (
-          <>
-            <EmployeeAvatar name={row.doerName} size="sm" />
-            <span className="text-ink-strong font-bold" style={{ fontSize: 14 }}>
-              {row.doerName}
-            </span>
-          </>
+          <span className="text-ink-strong font-bold" style={{ fontSize: 14 }}>
+            {row.doerName}
+          </span>
         ) : (
           <span className="text-ink-subtle">Unassigned</span>
         )}

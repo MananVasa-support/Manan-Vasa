@@ -2,18 +2,37 @@
 
 Internal work-management dashboard for the Altus Corp team. Tracks tasks, status, performance, and accountability across the team in one editorial, status-coded surface.
 
+> [!WARNING]
+> **Check what `.env.local` points at before running any script.**
+> Several scripts below (`seed`, `seed:reset`, `import:legacy`, `db:migrate`)
+> write to whatever `DATABASE_URL` names — and this file is frequently pointed at
+> the **live production Supabase**. Running `pnpm seed:reset` against it truncates
+> real company data. Confirm with `pnpm verify:db` first, and only seed against a
+> database you are certain is disposable.
+
 ## Quickstart
 
 ```bash
 pnpm install
-cp .env.local.example .env.local   # fill in Supabase / Firebase / Resend values
-pnpm db:generate                    # generate first migration
-pnpm db:migrate                     # apply schema to your dev Supabase
-pnpm seed                           # populate fake data (~20 emp, ~1200 tasks)
-pnpm dev                            # http://localhost:3000
+cp .env.example .env.local   # fill in Supabase / Firebase / Resend values
+pnpm verify:env              # checks every required var is present + well-formed
+pnpm verify:db               # confirms DATABASE_URL is reachable — and WHICH db
+pnpm db:migrate              # apply schema (skip if pointing at an existing db)
+pnpm dev                     # http://localhost:3000
 ```
 
-The dashboard renders an empty-state welcome hero until at least one task or employee exists. `pnpm seed:reset` wipes everything; `pnpm seed` repopulates.
+Against a **fresh, disposable** database only, `pnpm seed` populates fake data and
+`pnpm seed:reset` truncates it. The dashboard renders an empty-state welcome hero
+until at least one task or employee exists.
+
+### Skipping login locally
+
+Set `DISABLE_AUTH="true"` in `.env.local` to bypass the Firebase login and open
+straight on the Hub. The auth proxy passes every request through and
+`getCurrentEmployee()` returns a built-in admin identity. It is **dev-only** —
+`lib/auth/current.ts` additionally gates it behind a localhost check, so a stray
+`DISABLE_AUTH=true` in a deployment cannot open the door. Note the demo identity
+is not a real employee row, so "my tasks" surfaces read empty.
 
 ## Scripts
 

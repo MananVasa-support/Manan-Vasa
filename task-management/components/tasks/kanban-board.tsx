@@ -47,12 +47,6 @@ import {
   type StatusColorToken,
 } from "@/db/enums";
 import { ARCHIVE_COL, type ColId } from "@/lib/kanban-columns";
-import { NoResults } from "./task-table";
-import {
-  useSectionSearch,
-  matchesSearch,
-  setSectionSearch,
-} from "@/lib/client/section-search";
 import { setTaskStatus, archiveTask, unarchiveTask } from "@/app/(app)/tasks/actions";
 import { setBoardColumnOrder } from "@/app/(admin)/admin/settings/actions";
 import { fireToast } from "@/lib/toast";
@@ -62,6 +56,8 @@ import { LateBadge } from "@/components/ui/late-badge";
 import { WeeklyGoalBadge } from "@/components/weekly-goals/weekly-goal-badge";
 import { isDoneLate } from "@/lib/task-late";
 import type { BoardTask } from "@/lib/queries/tasks";
+import { useSectionSearch, matchesSearch, setSectionSearch } from "@/lib/client/section-search";
+import { NoResults } from "./task-table";
 import type { VirtualTaskRow } from "@/lib/weekly-goals/as-task-row";
 
 // Priority → colour token + label for the hover-card badge.
@@ -236,12 +232,11 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // Coarse filtering happens server-side via the page's FilterBar. The bar's
-  // free-text search is CLIENT-side and lands here: it narrows `items` before
-  // the columns are built below, so every column — including Archived —
-  // re-slices live as you type, and each column's header count reflects the
-  // matches rather than the unfiltered total. Optimistic drag still mutates
-  // `items`.
+  // Coarse filtering (date range, status, doer, …) happens server-side via the
+  // page's FilterBar. The bar's free-text search is CLIENT-side and lands here:
+  // it narrows `items` before the columns are built below, so every column —
+  // including Archived — re-slices live as you type, and each column's header
+  // count reflects the matches rather than the unfiltered total.
   const sectionQuery = useSectionSearch();
   const filtered = React.useMemo(() => {
     if (!sectionQuery) return items;

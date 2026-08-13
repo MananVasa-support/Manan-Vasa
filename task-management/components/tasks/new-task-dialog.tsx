@@ -138,14 +138,16 @@ export function NewTaskDialog({ defaultInitiatorId }: Props) {
         <Tooltip.Provider delayDuration={600}>
           <Tooltip.Root>
             <Tooltip.Trigger asChild>
-              {/* Sized to the exact box the rail's old "Back to Hub" pill used:
-                  w-full · justify-center · rounded-2xl · px-4 py-2.5. That pill
-                  is gone (the brand block links to /hub now), so New Task is the
-                  rail's single full-width action. */}
+              {/* Shaped to match the rail's ACTIVE nav pill (`nav-pill` in
+                  globals.css): same full width inside the nav's px-3, the same
+                  999px pill radius, and the same left-aligned icon + label with
+                  the trailing badge pushed to the right edge by `ml-auto` —
+                  mirroring how a nav pill parks its count. Keeps its own red
+                  gradient, white text and padding. */}
               <Dialog.Trigger asChild>
                 <button
                   type="button"
-                  className="group relative inline-flex w-full items-center justify-center gap-2 rounded-2xl text-white font-semibold outline-none focus-visible:ring-2 focus-visible:ring-white/60 px-4 py-2.5 max-md:gap-0 max-md:size-10 max-md:p-0 max-md:justify-center"
+                  className="group relative inline-flex w-full items-center justify-start gap-2 rounded-full text-white font-semibold outline-none focus-visible:ring-2 focus-visible:ring-white/60 px-4 py-2.5 max-md:gap-0 max-md:size-10 max-md:p-0 max-md:justify-center"
                   style={{
                     fontSize: 14,
                     letterSpacing: "0.005em",
@@ -174,7 +176,7 @@ export function NewTaskDialog({ defaultInitiatorId }: Props) {
                   <span className="max-md:sr-only">New Task</span>
                   <kbd
                     aria-hidden
-                    className="ml-1 inline-flex items-center justify-center font-mono max-md:hidden"
+                    className="ml-auto inline-flex items-center justify-center font-mono max-md:hidden"
                     style={{
                       minWidth: 18,
                       height: 18,

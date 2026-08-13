@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import { signOut } from "firebase/auth";
-import { LayoutGrid, LogOut, ShieldCheck, type LucideIcon } from "lucide-react";
+import { LogOut, ShieldCheck, type LucideIcon } from "lucide-react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { ADMIN_TOP_LEVEL, ADMIN_GROUPS, isAdminNavActive } from "./admin-nav-config";
 
@@ -19,12 +19,13 @@ export function AdminSidebar({
   adminName,
   adminEmail,
   avatarUrl,
-  backHref,
 }: {
   adminName: string;
   adminEmail: string;
   avatarUrl: string | null;
-  backHref: string;
+  /** Kept on the contract so AdminShell still compiles unchanged; no longer
+   *  read here since the "Back to Hub" pill was removed from this rail. */
+  backHref?: string;
 }) {
   const pathname = usePathname();
 
@@ -66,7 +67,10 @@ export function AdminSidebar({
     >
       {/* ── Brand: logo + Admin identity ── */}
       <div className="flex flex-col gap-3 px-4 pt-4 pb-3">
-        <Link href={"/dashboard" as Route} className="flex items-center" aria-label="Back to WMS home">
+        {/* `justify-center` on the full-width link centres the mark in the rail.
+            The link stays a block-level flex row at the same place in the column,
+            and the image keeps its own h-11 sizing, so nothing below shifts. */}
+        <Link href={"/dashboard" as Route} className="flex w-full items-center justify-center" aria-label="Back to WMS home">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="Altus Corp" className="h-11 w-auto" style={{ display: "block" }} />
         </Link>
@@ -75,17 +79,8 @@ export function AdminSidebar({
         </span>
       </div>
 
-      {/* ── Back to Hub — full-width black pill (same as the module rail) ── */}
-      <div className="px-4 pb-3">
-        <a
-          href={backHref}
-          aria-label="Back to Hub"
-          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-[14px] font-bold text-white transition-transform active:scale-[0.98] hover:brightness-125"
-          style={{ background: "#000", boxShadow: "0 6px 16px -8px rgba(0,0,0,0.45)" }}
-        >
-          <LayoutGrid size={17} strokeWidth={2.4} /> Back to Hub
-        </a>
-      </div>
+      {/* The "Back to Hub" pill used to sit here; removed. The logo above still
+          links out (to /dashboard), and the admin header keeps its own Hub link. */}
 
       <div className="mx-4 mb-1 border-t" style={{ borderColor: "var(--color-hairline)" }} />
 
