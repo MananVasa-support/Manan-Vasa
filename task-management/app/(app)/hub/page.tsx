@@ -248,8 +248,13 @@ export default async function HubPage() {
           className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
           aria-label="Workspaces"
         >
-          {MODULE_ORDER.map((id, i) => (
-            <WorkspaceCard key={id} m={MODULE_THEME[id]} locked={!canAccessWorkspace(id, access)} i={i} />
+          {/* A workspace you can't enter is HIDDEN, not shown greyed as "No
+              Access" (Sir 2026-08) — a normal doer only sees the modules that are
+              actually theirs. The card keeps its CANONICAL index so its number
+              badge still matches the global 1–9/0 keyboard shortcut (which is
+              stable per module in the layout), even with some cards hidden. */}
+          {MODULE_ORDER.filter((id) => canAccessWorkspace(id, access)).map((id) => (
+            <WorkspaceCard key={id} m={MODULE_THEME[id]} locked={false} i={MODULE_ORDER.indexOf(id)} />
           ))}
         </section>
 
