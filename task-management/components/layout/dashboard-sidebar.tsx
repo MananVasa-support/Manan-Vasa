@@ -1,4 +1,7 @@
 import { cookies } from "next/headers";
+import Link from "next/link";
+import type { Route } from "next";
+import { LayoutGrid } from "lucide-react";
 import { SidebarRail, SidebarToggle } from "./sidebar-rail";
 import { SidebarBrand } from "./sidebar-brand";
 import { MainNavServer } from "./main-nav-server";
@@ -77,9 +80,24 @@ export async function DashboardSidebar() {
         <SidebarBrand />
       </div>
 
-      {/* The standalone "Back to Hub" pill used to sit here. It's gone — the
-          brand block above (logo + module wordmark) IS the link to /hub now,
-          so the rail doesn't carry the same navigation twice. */}
+      {/* Back to Hub. This pill was retired when the brand block became the
+          /hub link — and had to come back the moment the brand went
+          display-only, because the rail was then the ONLY chrome on a module
+          page (header.tsx early-returns null for any workspace) and had no way
+          back to the switchboard at all. `sidebar-collapsible-hide` drops the
+          label in the collapsed rail, matching the rest of the rail's chrome. */}
+      <div className="px-4 pb-3">
+        <Link
+          href={"/hub" as Route}
+          aria-label="Back to Hub"
+          title="Back to Hub"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[13.5px] font-bold text-white transition-transform active:scale-[0.98] hover:brightness-125"
+          style={{ background: "#000", boxShadow: "0 6px 16px -8px rgba(0,0,0,0.45)" }}
+        >
+          <LayoutGrid size={16} strokeWidth={2.4} aria-hidden />
+          <span className="sidebar-collapsible-hide">Back to Hub</span>
+        </Link>
+      </div>
 
       {/* Personal | Professional space switch — Goals room, admins only. */}
       <SidebarGoalsSpace isAdmin={isAdmin} />

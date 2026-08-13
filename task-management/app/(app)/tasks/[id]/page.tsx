@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { notFound } from "next/navigation";
 import { DashboardHeader } from "@/components/layout/header";
 import { TaskDetailLoader } from "@/components/tasks/task-detail-loader";
 import { BufferingState } from "@/components/ui/spinner";
@@ -22,8 +23,17 @@ interface PageProps {
  * (Phase 1.1) so on a warm cache the streamed payload arrives quickly
  * after the per-task readback.
  */
+/**
+ * Task ids are uuids. Without this guard `/tasks/<anything>` renders a detail
+ * shell for a task that cannot exist — which is how `/tasks/agenda` kept
+ * answering 200 after that page was deleted, instead of 404ing like a retired
+ * route should.
+ */
+const TASK_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async function TaskDetailPage({ params }: PageProps) {
   const { id } = await params;
+  if (!TASK_ID.test(id)) notFound();
   // requireUser is already cached per-request (lib/auth/current uses
   // `cache()`); doing it here keeps auth-gating ahead of any rendering
   // and gives the loader its `me` payload without a second resolve.
