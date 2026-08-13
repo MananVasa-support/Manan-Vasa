@@ -193,7 +193,9 @@ function hrSectionForPath(p: string): HrSection {
 const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
   wms: {
     top: [
-      { href: "/dashboard" as Route, label: "Dashboard", Icon: LayoutDashboard, exact: true },
+      // "WMS Dashboard", not just "Dashboard": Training and Billing each carry a
+      // "Dashboard" entry of their own, so the room name keeps them distinct.
+      { href: "/dashboard" as Route, label: "WMS Dashboard", Icon: LayoutDashboard, exact: true },
       // My Day = Plan My Day, the SAME page as Goals › Plan my Day. It points at
       // the WMS-owned alias `/my-day` rather than `/goals/plan` so opening it
       // keeps you in this room (workspaceForPath owns `/goals*` for Goals).
