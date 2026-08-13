@@ -48,6 +48,7 @@ import {
   detectCopyCollisions,
 } from "@/app/(app)/goals/cascade/actions";
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
+import { GoalPreview } from "@/components/goals/shared/goal-preview";
 import { useGoalGridEngine, type GridColumn } from "@/components/goals/board/goal-grid";
 import { Select } from "@/components/ui/select";
 import { ADMIN_TASK_STATUSES, USER_TASK_STATUSES, GOAL_TYPES, GOAL_TYPE_LABELS, type TaskStatus, type GoalType } from "@/db/enums";
@@ -108,6 +109,9 @@ export interface GoalTableViewProps {
   /** Stable dense goal code from the board's single rank source. When omitted
    *  (e.g. the weekly board) the table falls back to its own row-index code. */
   codeOf?: (g: GoalDTO) => string;
+  /** Resolves the goal owner's display name for the shared detail view. Optional:
+   *  the boards that know their roster pass it, the rest simply omit the row. */
+  ownerNameOf?: (g: GoalDTO) => string | null;
   level: "year" | "quarter" | "month" | "week" | "day";
   /** "weekly" drives the weekly_goals engine: hides Share/Type + copy/divide,
    *  makes the Goal title inline-editable, uses the weekly detail node kind. */
@@ -1763,6 +1767,7 @@ export function GoalTableView(props: GoalTableViewProps) {
     goaltypeOptions,
     customLookups,
     codeOf,
+    ownerNameOf,
     level,
   } = props;
 
@@ -2482,12 +2487,18 @@ export function GoalTableView(props: GoalTableViewProps) {
                   {/* Sr. No — auto-code Y1 / AQ1 / AprM1 + Mine/Assigned pill */}
                   <td className="px-2 py-4 align-middle">
                     <div className="flex flex-col items-start gap-1">
-                      <span
-                        className="whitespace-nowrap text-[13px] font-bold text-ink-soft tabular-nums"
-                        style={{ fontFamily: "var(--font-display)" }}
-                      >
-                        {codeOf ? codeOf(g) : goalCode({ period: g.period, periodKey: g.periodKey, position: i + 1, id: g.id })}
-                      </span>
+                      {/* The goal CODE is the hover/click handle. It is the one
+                          cell in the row that is not an inline editor, so making
+                          it the trigger adds the preview + details without
+                          competing with typing in the title, target or notes. */}
+                      <GoalPreview goal={g} ownerName={ownerNameOf?.(g) ?? null}>
+                        <span
+                          className="whitespace-nowrap text-[13px] font-bold text-ink-soft tabular-nums underline decoration-transparent underline-offset-2 transition-colors hover:text-altus-red hover:decoration-current"
+                          style={{ fontFamily: "var(--font-display)" }}
+                        >
+                          {codeOf ? codeOf(g) : goalCode({ period: g.period, periodKey: g.periodKey, position: i + 1, id: g.id })}
+                        </span>
+                      </GoalPreview>
                       {/* Assignment Type — Self / Assigned (assigned carries a
                           by · on · source tooltip). Every level can be assigned. */}
                       {level !== "day" && <AssignmentChip goal={g} />}

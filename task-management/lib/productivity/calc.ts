@@ -21,21 +21,28 @@
 /* Grades                                                              */
 /* ------------------------------------------------------------------ */
 
-/** The grade vocabulary, best → worst. Shared by both scales. */
-export type Grade = "O" | "A+" | "A" | "B" | "C" | "D" | "F";
+/**
+ * The grade vocabulary, best → worst. Shared by both scales.
+ *
+ * There is no A+. It used to sit between A and O on both ladders — 100% exactly
+ * on the completion scale, 25–29% on the incentive one — but it never earned the
+ * split: it marked the same "excellent" tier as A, carried A's colour, and cost
+ * every legend, filter, scale table and PDF an extra row to say so. Its bands
+ * are folded into A, which now runs 90–100% and 20–29% respectively.
+ */
+export type Grade = "O" | "A" | "B" | "C" | "D" | "F";
 
 /**
  * INCENTIVE grade (§9) — keyed off incentive as a percentage of base salary.
  *
- * The spec lists discrete rows (0→F, 5→D, 10→C, 15→B, 20→A, 25→A+, 30+→O), but
- * real percentages land between them (7.3%, 12.8%). These are therefore read as
+ * The spec lists discrete rows (0→F, 5→D, 10→C, 15→B, 20→A, 30+→O), but real
+ * percentages land between them (7.3%, 12.8%). These are therefore read as
  * THRESHOLDS — the grade you have reached and held — so 7.3% is D, not an error.
- * Anything at or above 30% is O.
+ * Anything at or above 30% is O; A now spans 20% up to that ceiling.
  */
 export function calculateIncentiveGrade(incentivePct: number): Grade {
   if (!Number.isFinite(incentivePct)) return "F";
   if (incentivePct >= 30) return "O";
-  if (incentivePct >= 25) return "A+";
   if (incentivePct >= 20) return "A";
   if (incentivePct >= 15) return "B";
   if (incentivePct >= 10) return "C";
@@ -47,14 +54,14 @@ export function calculateIncentiveGrade(incentivePct: number): Grade {
  * COMPLETION grade (§12) — a DIFFERENT scale from incentive, deliberately.
  * Used for goals, MTD goals and the daily checklist alike (§17).
  *
- * >100 = O, exactly 100 = A+, then 90/80/70/60 bands, below 60 = F. An employee
- * legitimately holds different incentive and goal grades; they measure different
- * things and must never be collapsed into one scale.
+ * >100 = O, then 90/80/70/60 bands, below 60 = F. Note that exactly 100% is now
+ * an A (it was the sole A+ case): only overachievement takes the top grade. An
+ * employee legitimately holds different incentive and goal grades; they measure
+ * different things and must never be collapsed into one scale.
  */
 export function calculateCompletionGrade(pct: number): Grade {
   if (!Number.isFinite(pct)) return "F";
   if (pct > 100) return "O";
-  if (pct === 100) return "A+";
   if (pct >= 90) return "A";
   if (pct >= 80) return "B";
   if (pct >= 70) return "C";
@@ -79,7 +86,7 @@ export function isCriticalGrade(g: Grade): boolean {
 export type GradeTone = "good" | "ok" | "warn" | "bad" | "critical";
 
 /**
- * The tone a grade carries (§8's grade-colour ladder): O / A+ / A are positive,
+ * The tone a grade carries (§8's grade-colour ladder): O / A are positive,
  * B is neutral-positive, C warns, D is worse, F is the failure state.
  *
  * Lives here rather than in the view so the dashboard, the Full Report and the
@@ -89,7 +96,6 @@ export type GradeTone = "good" | "ok" | "warn" | "bad" | "critical";
 export function gradeTone(g: Grade): GradeTone {
   switch (g) {
     case "O":
-    case "A+":
     case "A":
       return "good";
     case "B":

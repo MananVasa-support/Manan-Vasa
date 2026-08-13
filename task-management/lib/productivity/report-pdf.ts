@@ -1,7 +1,16 @@
 import "server-only";
 import PDFDocument from "pdfkit";
 import { formatHours, formatPct, type Grade } from "./calc";
-import { GOALS_THEME, KPI_THEME, MANAGER_THEME, TASKS_THEME, TRAINING_THEME, gradeColor } from "./theme";
+import {
+  GOALS_THEME,
+  GRADE_OUTLINE,
+  KPI_THEME,
+  MANAGER_THEME,
+  TASKS_THEME,
+  TRAINING_THEME,
+  gradeColor,
+  gradeOnColor,
+} from "./theme";
 import type { ProductivitySnapshot } from "./data";
 
 /**
@@ -128,11 +137,57 @@ export async function renderProductivityReportPdf(snap: ProductivitySnapshot): P
     doc.moveTo(MARGIN, y - 4).lineTo(right, y - 4).lineWidth(0.5).strokeColor(RULE).stroke();
   }
 
+  /**
+   * The grade CHIP — the print form of the screen's `GradeBadge`, drawn as a
+   * filled rounded rect in the grade's exact palette hex with the letter on top.
+   *
+   * A chip rather than coloured text for the same reason the screen uses one: a
+   * mustard C printed as bare ink on white paper is barely visible, and darkening
+   * it to fix that would have put a different yellow in the PDF than in the
+   * browser. Filling the chip keeps the hex identical across both and moves the
+   * contrast problem to the glyph, where `gradeOnColor` solves it.
+   *
+   * The thin black outline matters MORE on paper than on screen: the pastel
+   * purple and sky blue are light enough that an unstroked chip reads as a smudge
+   * on a printed page, and on a monochrome printer the ring is the only thing
+   * left holding the chip's shape.
+   *
+   * Returns the chip's width so callers can lay text out beside it.
+   */
+  function gradeChip(grade: Grade, x: number, top: number, fontSize = 9.5): number {
+    const padX = 5;
+    const w = Math.max(20, doc.font("Helvetica-Bold").fontSize(fontSize).widthOfString(grade) + padX * 2);
+    const h = fontSize + 5;
+    doc.save();
+    doc
+      .roundedRect(x, top - 1.5, w, h, 3)
+      .lineWidth(0.7)
+      .fillAndStroke(gradeColor(grade), GRADE_OUTLINE);
+    doc.restore();
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(fontSize)
+      .fillColor(gradeOnColor(grade))
+      .text(grade, x, top + 1, { width: w, align: "center" });
+    return w;
+  }
+
   /** A grade row. `null` is UNGRADED — printed as a dash in muted ink, never as
    *  an F, so a missing salary profile or an unplanned month cannot read as a
    *  failure in a document that leaves the building. */
   function gradeRow(label: string, grade: Grade | null) {
-    row(label, grade ?? "—", { bold: true, color: grade ? gradeColor(grade) : INK_SUBTLE });
+    if (!grade) {
+      row(label, "—", { bold: true, color: INK_SUBTLE });
+      return;
+    }
+    ensure(20);
+    doc.font("Helvetica").fontSize(10).fillColor(INK_MUTED).text(label, MARGIN, y, { width: width * 0.62 });
+    // Right-aligned like every other value column: measure the chip, then place
+    // its left edge so its right edge lands on the same margin the numbers use.
+    const w = Math.max(20, doc.font("Helvetica-Bold").fontSize(10).widthOfString(grade) + 10);
+    gradeChip(grade, right - w, y - 1, 10);
+    y += 16;
+    doc.moveTo(MARGIN, y - 4).lineTo(right, y - 4).lineWidth(0.5).strokeColor(RULE).stroke();
   }
 
   function note(text: string) {
@@ -209,9 +264,9 @@ export async function renderProductivityReportPdf(snap: ProductivitySnapshot): P
       .text(heading, x, y, { width: w, characterSpacing: 1 });
     y = doc.y + 5;
     for (const [grade, band] of rows) {
-      doc.font("Helvetica-Bold").fontSize(9.5).fillColor(gradeColor(grade)).text(grade, x, y, { width: 24 });
-      doc.font("Helvetica").fontSize(9.5).fillColor(INK_MUTED).text(band, x + 24, y, { width: w - 24, align: "right" });
-      y += 13;
+      gradeChip(grade, x, y);
+      doc.font("Helvetica").fontSize(9.5).fillColor(INK_MUTED).text(band, x + 28, y, { width: w - 28, align: "right" });
+      y += 15;
       doc.moveTo(x, y - 3.5).lineTo(x + w, y - 3.5).lineWidth(0.5).strokeColor(RULE).stroke();
     }
   }
@@ -249,7 +304,6 @@ export async function renderProductivityReportPdf(snap: ProductivitySnapshot): P
 
 const COMPLETION_SCALE: readonly (readonly [Grade, string])[] = [
   ["O", "Above 100%"],
-  ["A+", "100%"],
   ["A", "90% and above"],
   ["B", "80% and above"],
   ["C", "70% and above"],
@@ -259,7 +313,6 @@ const COMPLETION_SCALE: readonly (readonly [Grade, string])[] = [
 
 const INCENTIVE_SCALE: readonly (readonly [Grade, string])[] = [
   ["O", "30% and above"],
-  ["A+", "25% and above"],
   ["A", "20% and above"],
   ["B", "15% and above"],
   ["C", "10% and above"],

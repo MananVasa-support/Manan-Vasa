@@ -725,12 +725,23 @@ export function AppraisalWorkspace({
   selectedId,
   data,
   isAdmin,
+  basePath = "/appraisal",
 }: {
   people: WorkspacePerson[];
   departments: string[];
   selectedId: string | null;
   data: ScorecardData | null;
   isAdmin: boolean;
+  /**
+   * The route this workbench is mounted at — where the person picker navigates.
+   *
+   * Appraisal now lives inside Team Productivity at `/productivity/appraisal`,
+   * while `/appraisal` stays alive for old links. Hard-coding `/appraisal` in
+   * the picker would have thrown anyone who selected a colleague out of the
+   * Productivity room mid-task and swapped the sidebar under them. Defaulting to
+   * `/appraisal` keeps every existing call site behaving exactly as before.
+   */
+  basePath?: string;
 }) {
   const router = useRouter();
   const [dept, setDept] = React.useState<string | null>(null);
@@ -749,9 +760,7 @@ export function AppraisalWorkspace({
   }, [filtered]);
 
   function go(id: string) {
-    // Appraisal moved into Team Productivity (2026-08) — switching person stays
-    // within /productivity/team/[emp]/appraisal.
-    if (id) router.push(`/productivity/team/${id}/appraisal` as Route);
+    if (id) router.push(`${basePath}?emp=${id}` as Route);
   }
 
   return (

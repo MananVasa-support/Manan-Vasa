@@ -17,6 +17,11 @@ const FOCUS_RING =
  * picker is labelled "Reviewing"). A manager/admin (roster > 1) can pick whose
  * scorecard to review; the FY stepper walks financial years. Shareable via
  * ?emp= & ?fy=.
+ *
+ * `basePath` exists because this same workbench is mounted twice: at
+ * `/goals/review` for the Goals room and at the WMS-owned alias `/review`.
+ * Hard-coding the Goals path would mean stepping the FY from WMS silently threw
+ * you into the Goals room — the exact sidebar-swap `/review` exists to avoid.
  */
 export function ReviewControls({
   roster,
@@ -24,12 +29,15 @@ export function ReviewControls({
   viewedName,
   myEmployeeId,
   fyStartYear,
+  basePath = "/goals/review",
 }: {
   roster: RosterMember[];
   viewedEmployeeId: string;
   viewedName: string;
   myEmployeeId: string;
   fyStartYear: number;
+  /** Route these controls navigate within. Defaults to the Goals surface. */
+  basePath?: string;
 }) {
   const router = useRouter();
   const fy = fyStartYear;
@@ -42,9 +50,9 @@ export function ReviewControls({
       const fyNext = params.fy ?? fy;
       if (fyNext !== fyStartYearOf(new Date())) sp.set("fy", String(fyNext));
       const qs = sp.toString();
-      router.push(`/goals/review${qs ? `?${qs}` : ""}` as Route);
+      router.push(`${basePath}${qs ? `?${qs}` : ""}` as Route);
     },
-    [router, viewedEmployeeId, myEmployeeId, fy],
+    [router, viewedEmployeeId, myEmployeeId, fy, basePath],
   );
 
   return (

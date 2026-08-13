@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
+import { GradeBadge } from "@/components/productivity/grade-badge";
 import {
   formatHours,
   formatMoney,
@@ -24,7 +25,6 @@ import {
   TASKS_THEME,
   TASK_COLOR,
   TRAINING_THEME,
-  gradeColor,
   type SectionTheme,
 } from "@/lib/productivity/theme";
 import type { ProductivitySnapshot } from "@/lib/productivity/data";
@@ -200,7 +200,6 @@ export function ProductivityReportView({
           <div>
             <ScaleHeading>Completion — goals, MTD</ScaleHeading>
             <ScaleRow grade="O" band="Above 100%" />
-            <ScaleRow grade="A+" band="100%" />
             <ScaleRow grade="A" band="90% and above" />
             <ScaleRow grade="B" band="80% and above" />
             <ScaleRow grade="C" band="70% and above" />
@@ -210,7 +209,6 @@ export function ProductivityReportView({
           <div>
             <ScaleHeading>Incentive — % of base salary</ScaleHeading>
             <ScaleRow grade="O" band="30% and above" />
-            <ScaleRow grade="A+" band="25% and above" />
             <ScaleRow grade="A" band="20% and above" />
             <ScaleRow grade="B" band="15% and above" />
             <ScaleRow grade="C" band="10% and above" />
@@ -310,20 +308,10 @@ function Count({ n, color }: { n: number; color: string }) {
   return <span style={{ color: n > 0 ? color : "var(--color-ink-strong)" }}>{n}</span>;
 }
 
-/** `null` = ungraded (nothing was set to grade against), never F. */
+/** `null` = ungraded (nothing was set to grade against), never F. The chip is
+ *  the shared badge, so the report and the dashboard cannot drift apart. */
 function GradeChip({ grade }: { grade: Grade | null }) {
-  if (!grade) {
-    return <span className="text-[15px] font-black text-ink-subtle">—</span>;
-  }
-  const color = gradeColor(grade);
-  return (
-    <span
-      className="inline-flex min-w-[38px] items-center justify-center rounded-lg px-2 py-0.5 text-[15px] font-black"
-      style={{ color, background: `color-mix(in srgb, ${color} 10%, transparent)` }}
-    >
-      {grade}
-    </span>
-  );
+  return <GradeBadge grade={grade} size="md" />;
 }
 
 function ScaleHeading({ children }: { children: React.ReactNode }) {
@@ -337,9 +325,7 @@ function ScaleHeading({ children }: { children: React.ReactNode }) {
 function ScaleRow({ grade, band }: { grade: Grade; band: string }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-hairline py-1 last:border-b-0">
-      <span className="text-[13px] font-black" style={{ color: gradeColor(grade) }}>
-        {grade}
-      </span>
+      <GradeBadge grade={grade} size="xs" />
       <span className="text-[12.5px] font-medium text-ink-muted">{band}</span>
     </div>
   );
