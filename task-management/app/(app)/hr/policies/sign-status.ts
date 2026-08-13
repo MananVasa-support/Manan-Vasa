@@ -21,6 +21,16 @@ export interface MyPolicySignStatus {
 
 export async function getMyPolicySignStatus(): Promise<MyPolicySignStatus> {
   const me = await requireUser();
+  return getPolicySignStatusFor(me.id);
+}
+
+/**
+ * The same self-status query for an explicit employee id — used where there is
+ * no request cookie to resolve `me` (the mobile API, which authenticates via a
+ * Bearer token instead). Kept in this file so the web and mobile surfaces read
+ * the identical query and can never disagree about who has signed what.
+ */
+export async function getPolicySignStatusFor(employeeId: string): Promise<MyPolicySignStatus> {
   const keys = POLICY_CARDS.filter((c) => c.status === "ready" && isPolicyKey(c.key)).map((c) => c.key);
   if (keys.length === 0) return { signed: {} };
 
@@ -37,7 +47,7 @@ export async function getMyPolicySignStatus(): Promise<MyPolicySignStatus> {
     )
     .where(
       and(
-        eq(documentInstances.employeeId, me.id),
+        eq(documentInstances.employeeId, employeeId),
         inArray(documentInstances.typeKey, keys),
       ),
     );

@@ -12,6 +12,8 @@ import { hrSupportEnabled } from "@/lib/hr/flag";
 import { isPolicyCategory, type PolicyCategory } from "@/lib/hr/policy-types";
 import { listPolicies, groupPolicies, policyStoragePath } from "@/lib/hr/sections";
 import { safeFileName, validateUpload, HR_UPLOAD_MAX_BYTES } from "@/lib/hr/upload";
+import { POLICY_CARDS } from "@/lib/hr/policies/registry";
+import { getPolicySignStatusFor } from "@/app/(app)/hr/policies/sign-status";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,8 +51,28 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "forbidden" }, { status: 403, headers: MOBILE_CORS });
   }
 
-  const groups = groupPolicies(await listPolicies());
-  return NextResponse.json({ isAdmin: isAdmin(me), groups }, { headers: MOBILE_CORS });
+  const [groups, signStatus] = await Promise.all([
+    listPolicies().then(groupPolicies),
+    // Per-user sign status for the SIGNABLE registry policies — lets the app
+    // badge "✓ Signed · date" vs "Read & sign", the mobile twin of the web
+    // All-Policies popup (Sir: nobody should re-sign just to check).
+    getPolicySignStatusFor(me.id),
+  ]);
+
+  // The signable registry cards (POSH, Exit, Attendance, …) — only the authored
+  // ("ready") ones — flattened with this user's signed timestamp, if any.
+  const signable = POLICY_CARDS.filter((c) => c.status === "ready").map((c) => ({
+    key: c.key,
+    title: c.title,
+    blurb: c.blurb,
+    badge: c.badge,
+    signedAt: signStatus.signed[c.key] ?? null,
+  }));
+
+  return NextResponse.json(
+    { isAdmin: isAdmin(me), groups, signable },
+    { headers: MOBILE_CORS },
+  );
 }
 
 const CreateSchema = z
