@@ -128,10 +128,16 @@ const HR_HUB_NAV: WorkspaceNav = {
   top: [
     HR_HOME,
     ...HR_STAGES.map((s) => ({ href: `/hr/${s.slug}` as Route, label: s.title, Icon: s.Icon })),
-    // Form submissions are intentionally NOT in this rail. "My Filled Forms" was
-    // removed from the HR home per Sir; "All Filled Forms" needs the `isHrStaff`
-    // predicate (super-admins + HR department) which this nav can't express (its
-    // only gate is `adminOnly`), so the HR landing deck owns that door instead.
+    // Saved form submissions. Only "My" appears here: it's open to everyone and
+    // hard-scoped to the signed-in employee, so it needs no gate.
+    //
+    // "All Filled Forms" is deliberately NOT in this rail. It must be visible to
+    // HR staff, which is `isHrStaff` (super-admins + the HR department) — but the
+    // only gate this nav understands is `adminOnly`, which would wrongly hide it
+    // from HR-department non-admins. The HR landing deck already offers it behind
+    // the correct predicate, so duplicating it here under the wrong one would
+    // only create a second, inconsistent door.
+    { href: "/hr/my-forms" as Route, label: "My Filled Forms", Icon: ClipboardList },
     { href: "/holidays" as Route, label: "Holiday List", Icon: PartyPopper },
     { href: "/support" as Route, label: "Help Desk", Icon: LifeBuoy },
   ],
@@ -193,13 +199,14 @@ function hrSectionForPath(p: string): HrSection {
 const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
   wms: {
     top: [
-      // "WMS Dashboard", not just "Dashboard": Training and Billing each carry a
-      // "Dashboard" entry of their own, so the room name keeps them distinct.
-      { href: "/dashboard" as Route, label: "WMS Dashboard", Icon: LayoutDashboard, exact: true },
+      { href: "/dashboard" as Route, label: "Dashboard", Icon: LayoutDashboard, exact: true },
       // My Day = Plan My Day, the SAME page as Goals › Plan my Day. It points at
       // the WMS-owned alias `/my-day` rather than `/goals/plan` so opening it
       // keeps you in this room (workspaceForPath owns `/goals*` for Goals).
       { href: "/my-day" as Route, label: "My Day", Icon: CalendarDays },
+      // Review = the SAME Review & Scores workbench as Goals › Review, on the
+      // WMS-owned alias `/review` for the same reason My Day uses `/my-day`.
+      { href: "/review" as Route, label: "Review", Icon: ClipboardList },
       // Task Agenda is GONE — item, route and all. My Day above is the planner
       // that replaced it, so `/tasks/agenda` is no longer excluded below either.
       {
@@ -221,13 +228,15 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
   },
   employees: {
     top: [
-      // Appraisal (mig 0146) — consolidates Performance (/pms) + 360 Review
-      // (/pms/review) + Signals (/pms/signals) into ONE surface. The old pages
-      // still exist (and /appraisal redirects to /pms while APPRAISAL_OFF=true
-      // — see lib/pms/appraisal-flag.ts); they're just de-linked here.
       // Order (Sir, 2026-07): Attendance · DCC · Incentive · My Salary ·
-      // Reimbursements · Appraisal. HR Record moved to the HR room; the admin
-      // Salary module + Overtime moved to the Accounts room.
+      // Reimbursements. HR Record moved to the HR room; the admin Salary module
+      // + Overtime moved to the Accounts room.
+      //
+      // APPRAISAL IS NO LONGER HERE. It moved into Team Productivity
+      // (/productivity/appraisal) and is linked from that room's rail instead —
+      // one door, not two. The route it used to point at, /appraisal, still
+      // resolves: it redirects to the new home so old bookmarks and the inbox
+      // notifications keep working.
       {
         href: "/attendance" as Route,
         label: "Attendance",
@@ -238,8 +247,6 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       { href: "/incentive" as Route, label: "Incentive", Icon: Award },
       { href: "/my-salary" as Route, label: "My Salary", Icon: Wallet },
       { href: "/reimbursements" as Route, label: "Reimbursements", Icon: Receipt },
-      // Appraisal moved into Team Productivity (2026-08): opened per-person from
-      // the /productivity/team list. The standalone entry is retired here.
       // Queries & Notifications — re-parented here from the HR room (2026-07):
       // it's an employee-facing surface (raise a query, track company notices).
       { href: "/queries" as Route, label: "Queries & Notifications", Icon: BellRing },
@@ -355,9 +362,9 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       // pages (board design) + rituals below are the whole module. Cross-level
       // moves live in each card's "Move to…" drawer (the drag-to-sidebar
       // bridge left with the canvas).
-      // "Team Productivity", on the speedometer — it reads as a performance gauge
-      // rather than a second generic dashboard, and matches the icon the
-      // Team Productivity module already carries.
+      // "Team Productivity", on the speedometer — it reads as a performance
+      // gauge rather than a second generic dashboard, and matches the icon the
+      // Productivity module already carries.
       { href: "/goals/weekly/team" as Route, label: "Team Productivity", Icon: Gauge },
       { href: "/goals/review" as Route, label: "Review", Icon: ClipboardList },
       { href: "/goals/approve" as Route, label: "Approve", Icon: CalendarRange },
@@ -379,11 +386,16 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
         Icon: Users,
         managerOnly: true,
       },
-      // Appraisal lives inside this module (per-person under /productivity/team/
-      // <emp>/appraisal). This entry point makes it findable again: /appraisal
-      // redirects a manager to the appraisal workspace (with the person picker)
-      // and an employee to their OWN appraisal (self-access preserved).
-      { href: "/appraisal" as Route, label: "Appraisal", Icon: Award },
+      // Appraisal — moved here from the Employees room, where it was a standalone
+      // entry. Same module, same route target under a new roof: the workbench,
+      // its engine and its `appr_*` tables are untouched.
+      //
+      // Deliberately NOT `managerOnly`. Appraisal's own scope (assigned
+      // manager/management in appr_config, admin sees all) already decides who
+      // may open whose scorecard, and everyone has their own — hiding the entry
+      // from employees would take away a surface they are entitled to and that
+      // five inbox notifications link them straight to.
+      { href: "/productivity/appraisal" as Route, label: "Appraisal", Icon: Award },
     ],
     groups: [],
   },

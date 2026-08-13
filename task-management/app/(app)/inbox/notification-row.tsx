@@ -104,11 +104,14 @@ const KIND_HREF: Partial<Record<string, string>> = {
   hr_ticket_status_changed: "/support",
   hr_ticket_sla_breach: "/support",
   hr_ticket_csat_request: "/support",
-  appraisal_cycle_opened: "/appraisal",
-  appraisal_self_reminder: "/appraisal",
-  appraisal_manager_pending: "/appraisal",
-  appraisal_management_pending: "/appraisal",
-  appraisal_finalized: "/appraisal",
+  // Appraisal lives inside Team Productivity now. `/appraisal` still redirects
+  // here, so older unread notifications keep working; these point at the real
+  // destination so a fresh one doesn't take the extra hop.
+  appraisal_cycle_opened: "/productivity/appraisal",
+  appraisal_self_reminder: "/productivity/appraisal",
+  appraisal_manager_pending: "/productivity/appraisal",
+  appraisal_management_pending: "/productivity/appraisal",
+  appraisal_finalized: "/productivity/appraisal",
   // Enterprise Communications (mig 0179) — the employee's broadcast inbox.
   broadcast: "/communications",
 };

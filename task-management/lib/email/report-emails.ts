@@ -195,10 +195,16 @@ export async function sendWeeklyAttendanceRosterEmail(args: {
 
 /** (b) Monthly attendance statement (1st) — carries the query-window + freeze note. */
 export async function sendMonthlyAttendanceStatementEmail(args: {
-  recipient: { email: string; name: string };
+  /** `email` may be several addresses (work + personal) for the SAME employee —
+   *  see lib/email/recipients.ts. Never two different people. */
+  recipient: { email: string | string[]; name: string };
   monthLabel: string;
   totals: AttnTotals;
   days: DayLine[];
+  /** Optional PDF of this same statement, attached when the caller rendered
+   *  one. Optional so the sender keeps working if PDF generation is skipped. */
+  pdf?: Buffer;
+  pdfFilename?: string;
   freezeDateLabel: string; // e.g. "2 Aug"
   siteUrl?: string;
 }): Promise<SendResult> {
@@ -213,6 +219,9 @@ export async function sendMonthlyAttendanceStatementEmail(args: {
     const { data, error } = await resend.emails.send({
       from: FROM,
       to: args.recipient.email,
+      ...(args.pdf
+        ? { attachments: [{ filename: args.pdfFilename ?? "attendance-statement.pdf", content: args.pdf }] }
+        : {}),
       subject: clampSubject(`Attendance statement — ${args.monthLabel} — Altus Corp`),
       html: shell("Monthly attendance statement", args.monthLabel, inner, args.siteUrl),
       ...companyBcc(),
@@ -264,7 +273,9 @@ export async function sendGoalsRollupEmail(args: {
 
 /** (c) 12th-of-month slips email — salary + incentive + attendance PDF attached. */
 export async function sendMonthlySlipsEmail(args: {
-  recipient: { email: string; name: string };
+  /** `email` may be several addresses (work + personal) for the SAME employee —
+   *  see lib/email/recipients.ts. Never two different people. */
+  recipient: { email: string | string[]; name: string };
   monthLabel: string;
   totalEarnings: number;
   pdf: Buffer;

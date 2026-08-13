@@ -12,13 +12,16 @@ import {
   ClipboardList,
   ArrowRight,
   Gauge,
-  Award,
   LogIn,
   LogOut,
   Users,
 } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
+import { Donut, type DonutSlice } from "@/components/charts/donut";
+import { GradeBadge, GradeLegend } from "@/components/productivity/grade-badge";
+import { calculateCompletionGrade, type Grade } from "@/lib/productivity/calc";
+import { GRADE_ORDER, GRADE_OUTLINE, gradeColor } from "@/lib/productivity/theme";
 
 /**
  * The Team Performance board — a COMPACT, SCANNABLE employee table with
@@ -88,6 +91,25 @@ const STATUS_META: Record<TeamStatus, { label: string; color: string; bg: string
   no_plan: { label: "No plan", color: "#dc2626", bg: "color-mix(in srgb, var(--color-altus-red) 10%, transparent)" },
   not_in: { label: "Not in yet", color: "#64748b", bg: "var(--color-surface-soft)" },
 };
+
+/* ------------------------------------------------------------------ */
+/* Grades                                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The row's letter grade, derived — never stored.
+ *
+ * It runs the SAME `calculateCompletionGrade` ladder the Productivity Dashboard
+ * uses for goal completion, so the grade a manager reads next to a name on this
+ * table is the identical letter that person sees on their own dashboard. Nothing
+ * is recomputed with a second set of thresholds here.
+ *
+ * `null` when there is no score: "no goals set" is not 0% and must not grade as
+ * an F (see `byScore` below for the same rule applied to sorting).
+ */
+function gradeOf(r: TeamRow): Grade | null {
+  return r.goalScorePct == null ? null : calculateCompletionGrade(r.goalScorePct);
+}
 
 /* ------------------------------------------------------------------ */
 /* Sorting                                                             */
@@ -213,6 +235,9 @@ function matchesStatus(r: TeamRow, f: StatusFilter): boolean {
 }
 
 const ALL = "__all__";
+/** The grade filter's "no score to grade" option — a real choice, not the
+ *  absence of one, so scoreless people stay findable. */
+const UNGRADED = "__ungraded__";
 
 /**
  * Which module is showing the board, and therefore what "select an employee"
@@ -244,9 +269,15 @@ export function TeamPerformanceBoard({
   const [dept, setDept] = React.useState<string>(ALL);
   const [team, setTeam] = React.useState<string>(ALL);
   const [status, setStatus] = React.useState<StatusFilter>("all");
+  const [grade, setGrade] = React.useState<string>(ALL);
   const [sort, setSort] = React.useState<SortKey>("attention");
   const [query, setQuery] = React.useState("");
   const [expanded, setExpanded] = React.useState<ReadonlySet<string>>(() => new Set());
+
+  // Grades are a Productivity-module surface. The Goals Team Dashboard renders
+  // the same board and is deliberately left exactly as it was, so every grade
+  // affordance below — column, filter, distribution — is behind this one flag.
+  const showGrades = variant === "productivity";
 
   // Filter vocabularies come from the loaded roster, so they can only ever
   // offer values that actually exist on screen.
@@ -265,6 +296,13 @@ export function TeamPerformanceBoard({
       if (dept !== ALL && r.department !== dept) return false;
       if (team !== ALL && r.managerName !== team) return false;
       if (!matchesStatus(r, status)) return false;
+      // "Ungraded" is its own choice rather than a hidden bucket, so the people
+      // with no goals set are findable instead of quietly absent from every
+      // grade filter.
+      if (showGrades && grade !== ALL) {
+        const g = gradeOf(r);
+        if (grade === UNGRADED ? g !== null : g !== grade) return false;
+      }
       // Search spans the three things people actually type: the person, their
       // department, and the manager they report to.
       if (
@@ -276,7 +314,32 @@ export function TeamPerformanceBoard({
       return true;
     });
     return filtered.sort(comparatorFor(sort));
-  }, [rows, dept, team, status, query, sort]);
+  }, [rows, dept, team, status, grade, showGrades, query, sort]);
+
+  /**
+   * Grade distribution across the WHOLE roster, not the filtered subset — the
+   * same rule the summary counts follow, so the shape of the team stays a fixed
+   * reference while you slice the list under it.
+   *
+   * Only grades that actually occur become slices; an empty band would add a
+   * legend entry and a 0° wedge for nothing.
+   */
+  const distribution = React.useMemo(() => {
+    const counts = {} as Record<Grade, number>;
+    let ungraded = 0;
+    for (const r of rows) {
+      const g = gradeOf(r);
+      if (g == null) ungraded += 1;
+      else counts[g] = (counts[g] ?? 0) + 1;
+    }
+    const present = GRADE_ORDER.filter((g) => (counts[g] ?? 0) > 0);
+    const slices: DonutSlice[] = present.map((g) => ({
+      label: `Grade ${g}`,
+      value: counts[g] ?? 0,
+      color: gradeColor(g),
+    }));
+    return { counts, present, slices, ungraded, graded: rows.length - ungraded };
+  }, [rows]);
 
   const toggle = React.useCallback((id: string) => {
     setExpanded((prev) => {
@@ -294,12 +357,18 @@ export function TeamPerformanceBoard({
   const needHelp = rows.filter((r) => r.needHelp > 0).length;
   const overdue = rows.filter((r) => r.overdueTasks > 0).length;
 
-  const filtersActive = dept !== ALL || team !== ALL || status !== "all" || query.trim() !== "";
+  const filtersActive =
+    dept !== ALL ||
+    team !== ALL ||
+    status !== "all" ||
+    (showGrades && grade !== ALL) ||
+    query.trim() !== "";
 
   function clearFilters() {
     setDept(ALL);
     setTeam(ALL);
     setStatus("all");
+    setGrade(ALL);
     setQuery("");
   }
 
@@ -347,6 +416,51 @@ export function TeamPerformanceBoard({
         />
       </section>
 
+      {/* ── 1b · grade distribution — the team's shape in one ring.
+          Productivity only, and only once somebody is actually graded: an empty
+          ring beside "0 graded" tells a manager nothing they didn't know from
+          the table being blank. The legend carries the counts, so the numbers
+          are readable without separating the slices by colour. ── */}
+      {showGrades && distribution.graded > 0 && (
+        <section
+          aria-label="Grade distribution"
+          className="mb-5 flex flex-wrap items-center gap-x-7 gap-y-4 rounded-xl border border-hairline bg-surface-card px-4 py-3.5"
+        >
+          <Donut
+            data={distribution.slices}
+            size={124}
+            centerLabel="Graded"
+            centerValue={String(distribution.graded)}
+            // The same thin black ring the grade chips and legend swatches wear,
+            // so the wedges read as the same objects as the badges in the table.
+            stroke={GRADE_OUTLINE}
+            strokeWidth={1}
+          />
+          <div className="min-w-0 flex-1">
+            <div className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-subtle">
+              Grade distribution
+            </div>
+            <GradeLegend
+              className="mt-2"
+              grades={distribution.present}
+              counts={distribution.counts}
+            />
+            <p className="mt-2 text-[12px] text-ink-subtle">
+              Goal-completion grade, best to worst: O · A · B · C · D · F.
+              {distribution.ungraded > 0 && (
+                <>
+                  {" "}
+                  <span className="tabular-nums font-bold text-ink-muted">
+                    {distribution.ungraded}
+                  </span>{" "}
+                  ungraded — no goals set to grade against.
+                </>
+              )}
+            </p>
+          </div>
+        </section>
+      )}
+
       {/* ── 2 · filter + sort toolbar ── */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Select
@@ -383,6 +497,27 @@ export function TeamPerformanceBoard({
           className={FIELD}
           options={STATUS_FILTERS}
         />
+        {showGrades && (
+          <Select
+            value={grade}
+            onValueChange={setGrade}
+            ariaLabel="Filter by grade"
+            unstyled
+            className={FIELD}
+            options={[
+              { value: ALL, label: "All grades" },
+              // Only the grades someone actually holds — offering a band nobody
+              // is in is an option that can only ever empty the table.
+              ...distribution.present.map((g) => ({
+                value: g,
+                label: `Grade ${g} · ${distribution.counts[g] ?? 0}`,
+              })),
+              ...(distribution.ungraded > 0
+                ? [{ value: UNGRADED, label: `Ungraded · ${distribution.ungraded}` }]
+                : []),
+            ]}
+          />
+        )}
         <Select
           value={sort}
           onValueChange={(v) => setSort(v as SortKey)}
@@ -466,6 +601,7 @@ export function TeamPerformanceBoard({
                 <Th className="pl-4">Employee</Th>
                 <Th className="max-lg:hidden">Department · Team</Th>
                 <Th align="right">Goal</Th>
+                {showGrades && <Th align="right">Grade</Th>}
                 <Th align="right" className="max-xl:hidden">Goals</Th>
                 <Th align="right" className="max-xl:hidden">Done</Th>
                 <Th align="right">Overdue</Th>
@@ -545,6 +681,11 @@ function EmployeeRow({
         <td className="py-2.5 pr-3 text-right">
           <ScoreText pct={row.goalScorePct} />
         </td>
+        {toProductivity && (
+          <td className="py-2.5 pr-3 text-right">
+            <GradeBadge grade={gradeOf(row)} size="sm" />
+          </td>
+        )}
         <td className="py-2.5 pr-3 text-right text-[13px] tabular-nums text-ink-strong max-xl:hidden">
           {row.goalsDone}/{row.goalsCount}
         </td>
@@ -592,7 +733,9 @@ function EmployeeRow({
 
       {open && (
         <tr id={panelId}>
-          <td colSpan={8} className="border-b border-hairline px-4 py-4" style={{ background: "var(--color-surface-soft)" }}>
+          {/* Spans every column, including the Grade one the Productivity
+              variant adds — a fixed 8 would have left a gap in that layout. */}
+          <td colSpan={toProductivity ? 9 : 8} className="border-b border-hairline px-4 py-4" style={{ background: "var(--color-surface-soft)" }}>
             <EmployeeDetail row={row} variant={variant} />
           </td>
         </tr>
@@ -654,18 +797,6 @@ function EmployeeDetail({ row, variant }: { row: TeamRow; variant: TeamBoardVari
         >
           <Target size={13} strokeWidth={2.4} /> View Goals
         </Link>
-        {variant === "productivity" && (
-          <Link
-            href={`/productivity/team/${row.id}/appraisal` as Route}
-            className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-bold transition-colors hover:bg-surface-card"
-            style={{
-              borderColor: "color-mix(in srgb, var(--color-altus-red) 35%, transparent)",
-              color: "var(--color-altus-red-deep)",
-            }}
-          >
-            <Award size={13} strokeWidth={2.4} /> Appraisal
-          </Link>
-        )}
         {variant === "productivity" ? (
           <Link
             href={`/productivity?emp=${row.id}` as Route}

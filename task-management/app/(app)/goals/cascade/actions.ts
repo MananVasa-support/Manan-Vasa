@@ -60,6 +60,7 @@ function firstError(err: z.ZodError): string {
 function revalidateGoals(...periodKeys: (string | null | undefined)[]) {
   revalidatePath("/goals/cascade");
   revalidatePath("/goals/review");
+  revalidatePath("/review"); // the WMS-owned alias of the same workbench
   // The 5-page restructure level routes — without these the overlay-reset
   // contract never fires in-session on the level pages (bug #17).
   revalidatePath("/goals/yearly"); // yearly rootView shares the same canvas payload

@@ -11,17 +11,27 @@ export interface DonutSlice {
  * A focused donut chart: one ring of slices coloured per `color`, with a
  * tooltip and an optional centred label/value. Callers render their own
  * legend (this component is intentionally just the ring).
+ *
+ * `stroke` is the line BETWEEN slices. It defaults to the card surface, which
+ * reads as a gap rather than an outline — right for a chart whose palette is
+ * already saturated. A caller whose slices include pale colours (the grade
+ * distribution's pastel purple and sky blue) passes a real outline colour so
+ * the wedges keep an edge against the card behind them.
  */
 export function Donut({
   data,
   size = 200,
   centerLabel,
   centerValue,
+  stroke = "var(--color-surface-card)",
+  strokeWidth = 2,
 }: {
   data: DonutSlice[];
   size?: number;
   centerLabel?: string;
   centerValue?: string;
+  stroke?: string;
+  strokeWidth?: number;
 }) {
   const slices = data.filter((d) => d.value > 0);
   const outer = size / 2;
@@ -40,8 +50,8 @@ export function Donut({
             innerRadius={inner}
             outerRadius={outer}
             paddingAngle={slices.length > 1 ? 1.5 : 0}
-            stroke="var(--color-surface-card)"
-            strokeWidth={2}
+            stroke={stroke}
+            strokeWidth={strokeWidth}
             animationDuration={600}
           >
             {slices.map((s) => (

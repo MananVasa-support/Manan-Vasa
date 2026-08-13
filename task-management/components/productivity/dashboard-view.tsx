@@ -12,6 +12,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
+import { GradeBadge } from "@/components/productivity/grade-badge";
 import { formatHours, formatMoney, formatPctCompact, type Grade } from "@/lib/productivity/calc";
 import {
   GOALS_THEME,
@@ -20,7 +21,6 @@ import {
   TASKS_THEME,
   TASK_COLOR,
   TRAINING_THEME,
-  gradeColor,
   type SectionTheme,
 } from "@/lib/productivity/theme";
 import type { ProductivitySnapshot } from "@/lib/productivity/data";
@@ -395,27 +395,16 @@ function Hero({ children, color }: { children: React.ReactNode; color?: string }
 }
 
 /**
- * Grades are the largest mark on the page — they are the answer, and the letter
- * stays legible even where the tone colour is not perceivable.
+ * Grades are the answer the card exists to give, so they stay the largest mark
+ * on it — now as the shared `GradeBadge` rather than a bare coloured letter.
  *
- * `null` means UNGRADED (nothing was set to grade against) and reads as a muted
- * dash. It must never fall back to F: that would mark someone down for missing
- * setup rather than missing work.
+ * The badge is what makes the grade colour survive contrast: a 58px letter in
+ * #EAB308 on a white card is unreadable, while the same hex as the chip BEHIND
+ * a dark letter keeps the exact palette colour and reads cleanly. The chip is
+ * sized to the letter, so this is still an accent and not a coloured panel.
  */
 function GradeHero({ grade }: { grade: Grade | null }) {
-  return (
-    <div
-      className="mt-2.5 font-black leading-none"
-      style={{
-        fontFamily: "var(--font-display), system-ui, sans-serif",
-        fontSize: "clamp(42px, 4.4vw, 58px)",
-        letterSpacing: "-0.04em",
-        color: grade ? gradeColor(grade) : "var(--color-ink-subtle)",
-      }}
-    >
-      {grade ?? "—"}
-    </div>
-  );
+  return <GradeBadge grade={grade} size="lg" className="mt-2.5" />;
 }
 
 /** A task count. Zero is the good outcome, so it stays neutral-dark instead of

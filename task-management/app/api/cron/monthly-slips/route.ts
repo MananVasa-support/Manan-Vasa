@@ -3,6 +3,7 @@ import { listSalaryProfiles } from "@/lib/queries/salary";
 import { getCombinedEarnings } from "@/lib/salary/combined-earnings";
 import { renderCombinedEarningsPdf } from "@/lib/salary/combined-earnings-pdf";
 import { sendMonthlySlipsEmail } from "@/lib/email/report-emails";
+import { employeeEmailTargets } from "@/lib/email/recipients";
 import { monthlySlipsEmailOn } from "@/lib/reports/flags";
 
 /**
@@ -49,8 +50,15 @@ async function run(request: Request): Promise<NextResponse> {
       const data = await getCombinedEarnings(p.employeeId, month, p.name);
       const pdf = await renderCombinedEarningsPdf(data, { generatedBy: "Altus Corp" });
       const filename = `Altus-EarningsSlip-${(data.employeeName || p.name).replace(/\s+/g, "")}-${month}.pdf`;
+      // Work + personal + login, deduped — one employee's slip to one
+      // employee's own addresses.
+      const to = employeeEmailTargets(p);
+      if (to.length === 0) {
+        skipped++;
+        continue;
+      }
       const res = await sendMonthlySlipsEmail({
-        recipient: { email: p.email, name: p.name },
+        recipient: { email: to, name: p.name },
         monthLabel: data.monthLabel,
         totalEarnings: data.totalEarnings,
         pdf,

@@ -4,6 +4,11 @@ import { db, salaryBreakup, employees } from "@/lib/db";
 import { withRetry } from "@/lib/db/with-timeout";
 import type { SalaryBreakup } from "@/db/schema";
 
+/** A breakup row plus the joined employee avatar. The avatar is NOT a column on
+ *  `salary_breakup` — it comes from the employees join — so the return type has
+ *  to say so rather than pretending to be the bare table row. */
+export type SalaryBreakupRow = SalaryBreakup & { avatarUrl: string | null };
+
 const normName = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
 
 /**
@@ -48,11 +53,19 @@ export async function salaryBreakupMonths(): Promise<string[]> {
  *    person, keyed by employee_id (falling back to the normalized name for
  *    unmatched rows), keeping the lowest sr_no (the primary sheet entry).
  */
-export async function listSalaryBreakup(ym: string): Promise<SalaryBreakup[]> {
+export async function listSalaryBreakup(ym: string): Promise<SalaryBreakupRow[]> {
   const rows = await withRetry(
     () =>
       db
-        .select({ row: salaryBreakup, isActive: employees.isActive, empName: employees.name })
+        .select({
+          row: salaryBreakup,
+          isActive: employees.isActive,
+          empName: employees.name,
+          // The salary table shows a face per row. Without this the join returned
+          // only the name, so every row fell back to initials no matter what the
+          // employee had uploaded.
+          empAvatarUrl: employees.avatarUrl,
+        })
         .from(salaryBreakup)
         .leftJoin(employees, eq(employees.id, salaryBreakup.employeeId))
         .where(eq(salaryBreakup.month, `${ym}-01`))
@@ -61,7 +74,7 @@ export async function listSalaryBreakup(ym: string): Promise<SalaryBreakup[]> {
   );
 
   const seen = new Set<string>();
-  const out: SalaryBreakup[] = [];
+  const out: SalaryBreakupRow[] = [];
   for (const r of rows) {
     // Drop explicitly-excluded ex-staff (unmatched sheet names Sir removed).
     if (EXCLUDED_SHEET_NAMES.has(normName(r.row.employeeName))) continue;
@@ -72,7 +85,11 @@ export async function listSalaryBreakup(ym: string): Promise<SalaryBreakup[]> {
     seen.add(key);
     // Prefer the REAL employee name over the sheet spelling when the row is
     // linked to an employee (fixes "Hitesh Sandeep Vichare" → "Hetesh Vichare").
-    out.push(r.empName ? { ...r.row, employeeName: r.empName } : r.row);
+    out.push({
+      ...r.row,
+      ...(r.empName ? { employeeName: r.empName } : null),
+      avatarUrl: r.empAvatarUrl ?? null,
+    });
   }
   return out;
 }

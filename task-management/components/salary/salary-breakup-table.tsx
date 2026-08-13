@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Building2, ChevronsUpDown, Search, Check, Loader2, FileDown } from "lucide-react";
-import { EmployeeAvatar } from "@/components/ui/employee-avatar";
+import { Avatar } from "@/components/ui/avatar";
 import { fireToast } from "@/lib/toast";
 import { setSalaryPaid, setSalaryNote, setWaiveOff, setPayoutAdjustment } from "@/app/(app)/salary/actions";
 import { perDayRate, waiveAddBack } from "@/lib/salary/waive-off";
@@ -19,6 +19,8 @@ export interface SalaryRow {
   employeeId: string | null;
   srNo: number | null;
   employeeName: string;
+  /** Joined from `employees.avatar_url`; null falls back to initials. */
+  avatarUrl?: string | null;
   designation: string | null;
   companyName: string | null;
   present: string | null;
@@ -337,8 +339,7 @@ const COLUMNS: Col[] = [
   },
 ];
 
-/* Salary "Paid" toggle — optimistic; server action is gated to super-admins +
-   the Accounts team (canMarkSalaryPaid). Only rendered when canMarkPaid. */
+/* Super-admin salary "Paid" toggle — optimistic; server action is super-admin-gated. */
 function PaidToggle({ row }: { row: SalaryRow }) {
   const router = useRouter();
   const [paid, setPaid] = useState(row.paid);
@@ -936,11 +937,12 @@ export function SalaryBreakupTable({
                       <span className="w-5 shrink-0 text-right text-[11px] font-bold tabular-nums text-ink-subtle">
                         {r.srNo ?? i + 1}
                       </span>
-                      <EmployeeAvatar
-                        name={r.employeeName}
-                        size="sm"
-                        background={`linear-gradient(135deg, ${GREEN}, #166534)`}
-                      />
+                      {/* `Avatar`, not `EmployeeAvatar`: the latter draws
+                          initials only and has no image path at all, which is
+                          why no profile picture ever appeared here. This one
+                          renders `avatarUrl` when set and falls back to the same
+                          deterministic initials when it is null. */}
+                      <Avatar name={r.employeeName} avatarUrl={r.avatarUrl} size={26} />
                       <div className="min-w-0 leading-tight">
                         <div className="truncate text-[14px] font-bold text-ink-strong">
                           {r.employeeName}

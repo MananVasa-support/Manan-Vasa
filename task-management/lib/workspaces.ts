@@ -160,6 +160,14 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
   // /goals: it is a separate module at the same level, and letting Goals own the
   // path would swap the sidebar to Goals the moment you opened it.
   if (p.startsWith("/productivity")) return "productivity";
+
+  // Appraisal moved INTO Team Productivity, so its room moved with it. `/appraisal`
+  // itself redirects to `/productivity/appraisal`, but the admin panel still lives
+  // on the old path — claiming it here is what keeps the Productivity rail on
+  // screen while an admin configures a scorecard, instead of bouncing them into
+  // the Employees room the "Configure" button came from.
+  // Must sit ABOVE the Employees block below, which used to own `/appraisal`.
+  if (p.startsWith("/appraisal")) return "productivity";
   if (p.startsWith("/weekly-goals") || p.startsWith("/daily-checklist")) return "goals";
 
   // WMS — the work loop (the dashboard now lives at /dashboard). Important
@@ -168,9 +176,11 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
   // page component, but claimed by THIS room so opening it from the WMS bar
   // doesn't swap the sidebar over to Goals. Must stay below the `/goals` rule
   // above — that one still owns the `/goals/plan` URL for the Goals room.
+  // `/review` is the same arrangement for Review & Scores (`/goals/review`).
   if (
     p.startsWith("/dashboard") ||
     p.startsWith("/my-day") ||
+    p.startsWith("/review") ||
     p.startsWith("/tasks") ||
     p.startsWith("/projects") ||
     p.startsWith("/documents") ||
@@ -195,7 +205,8 @@ export function workspaceForPath(pathname: string): WorkspaceId | null {
     p.startsWith("/leave") ||
     p.startsWith("/dcc") ||
     p.startsWith("/pms") ||
-    p.startsWith("/appraisal") ||
+    // `/appraisal` is NOT here any more — Appraisal is part of Team Productivity
+    // and is claimed by the rule above.
     // Queries & Notifications re-parented from HR → Employees (2026-07).
     p.startsWith("/queries")
   ) {

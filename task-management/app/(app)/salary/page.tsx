@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { FileSpreadsheet, Wallet } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { requireFinanceAccess, canMarkSalaryPaid } from "@/lib/auth/finance-access";
+import { requireFinanceAccess } from "@/lib/auth/finance-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { salaryBreakupMonths, listSalaryBreakup } from "@/lib/queries/salary-breakup";
 import { type SalaryRow } from "@/components/salary/salary-breakup-table";
@@ -38,10 +38,7 @@ function monthLabel(ym: string, style: "long" | "short" = "long"): string {
 
 export default async function SalaryPage({ searchParams }: PageProps) {
   const me = await requireFinanceAccess();
-  // "Mark paid" is open to super-admins + the Accounts team; the other salary
-  // write controls (notes, wave-off, payout adjustment) stay super-admin-only.
-  const superAdmin = isSuperAdmin(me.email);
-  const canMarkPaid = await canMarkSalaryPaid(me);
+  const canMarkPaid = isSuperAdmin(me.email);
   const sp = await searchParams;
   const months = await salaryBreakupMonths();
   const raw = typeof sp.month === "string" ? sp.month : undefined;
@@ -79,6 +76,7 @@ export default async function SalaryPage({ searchParams }: PageProps) {
     employeeId: r.employeeId,
     srNo: r.srNo ?? i + 1,
     employeeName: r.employeeName,
+    avatarUrl: r.avatarUrl,
     designation: r.designation,
     companyName: r.companyName,
     present: r.present,
@@ -108,40 +106,44 @@ export default async function SalaryPage({ searchParams }: PageProps) {
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
         {/* ── Glass hero: eyebrow · month title · month selector ── */}
+        {/* Trimmed from a full-height glass hero to a compact bar: one soft tint
+            instead of two stacked radials, ~40% less vertical space, and a title
+            that tops out at 30px rather than 46px. Same green identity, same
+            eyebrow, same links — it just stops occupying a third of the fold
+            before the payroll table starts. */}
         <header
-          className="wg-rise relative mb-5 overflow-hidden rounded-[26px] px-7 py-6 max-md:px-4 max-md:py-5"
+          className="wg-rise relative mb-4 overflow-hidden rounded-[18px] px-5 py-3.5 max-md:px-4 max-md:py-3"
           style={{
             background: [
-              `radial-gradient(120% 190% at 100% 0%, color-mix(in srgb, ${GREEN} 9%, transparent), transparent 55%)`,
-              `radial-gradient(80% 160% at 0% 100%, color-mix(in srgb, ${GREEN} 5%, transparent), transparent 52%)`,
+              `radial-gradient(120% 170% at 100% 0%, color-mix(in srgb, ${GREEN} 7%, transparent), transparent 60%)`,
               "rgba(255, 255, 255, 0.72)",
             ].join(", "),
-            backdropFilter: "blur(14px) saturate(140%)",
+            backdropFilter: "blur(12px) saturate(130%)",
             boxShadow:
-              "inset 0 0 0 1px var(--color-hairline), inset 0 1px 0 rgba(255,255,255,0.85), 0 18px 44px -28px rgba(15,23,42,0.22)",
+              "inset 0 0 0 1px var(--color-hairline), 0 8px 24px -20px rgba(15,23,42,0.20)",
           }}
         >
-          <div className="flex items-end justify-between gap-6 flex-wrap">
+          <div className="flex items-center justify-between gap-5 flex-wrap">
             <div className="min-w-0">
               <span
-                className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
+                className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-white"
                 style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}
               >
-                <Wallet size={13} strokeWidth={2.6} /> Employees · Salary
+                <Wallet size={12} strokeWidth={2.6} /> Employees · Salary
               </span>
               <h1
-                className="mt-3 text-ink-strong"
+                className="mt-1.5 text-ink-strong"
                 style={{
                   fontFamily: "var(--font-display), system-ui, sans-serif",
-                  fontWeight: 900,
-                  fontSize: "clamp(30px,3.6vw,46px)",
-                  letterSpacing: "-0.03em",
-                  lineHeight: 1.02,
+                  fontWeight: 800,
+                  fontSize: "clamp(20px,2.1vw,28px)",
+                  letterSpacing: "-0.025em",
+                  lineHeight: 1.05,
                 }}
               >
                 {month ? `${monthLabel(month)} payroll` : "Salary Breakup"}
               </h1>
-              <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5">
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px]">
                 {process.env.SALARY_DOCS_UI !== "false" && (
                   <Link href={"/salary/documents" as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: GREEN_DEEP }}>
                     Exit Documents &amp; Signatory Letters →
@@ -206,7 +208,7 @@ export default async function SalaryPage({ searchParams }: PageProps) {
           </section>
         ) : (
           <>
-            <SalaryWorkspace rows={tableRows} canMarkPaid={canMarkPaid} canEditNote={superAdmin} canWaiveOff={superAdmin} month={month ?? undefined} />
+            <SalaryWorkspace rows={tableRows} canMarkPaid={canMarkPaid} canEditNote={canMarkPaid} canWaiveOff={canMarkPaid} month={month ?? undefined} />
 
             {/* ── Statement & earnings document downloads (behind SALARY_STATEMENTS) ── */}
             {statementsOn && month && statementEmployees.length > 0 && (

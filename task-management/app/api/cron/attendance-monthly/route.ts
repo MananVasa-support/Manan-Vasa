@@ -4,6 +4,8 @@ import { monthReportFor } from "@/lib/reports/attendance-report-data";
 import { sendMonthlyAttendanceStatementEmail } from "@/lib/email/report-emails";
 import { freezeMonth } from "@/lib/reports/attendance-freeze";
 import { monthlyAttendanceStatementOn, attendanceFreezeOn } from "@/lib/reports/flags";
+import { employeeEmailTargets } from "@/lib/email/recipients";
+import { renderAttendanceStatementPdf } from "@/lib/exports/attendance-statement-pdf";
 
 /**
  * Monthly attendance cycle (Sir's rule 7) — TWO jobs on one route:
@@ -83,8 +85,33 @@ async function run(request: Request): Promise<NextResponse> {
         skipped++;
         continue;
       }
+      // Their OWN addresses only — resolved from this one profile, so a
+      // statement can never reach anybody else's inbox.
+      const to = employeeEmailTargets(p);
+      if (to.length === 0) {
+        skipped++;
+        continue;
+      }
+      // One PDF per employee, built from THIS employee's report only. A PDF
+      // failure must not cost them the statement, so the mail still goes with
+      // the HTML body alone.
+      let pdf: Buffer | undefined;
+      try {
+        pdf = await renderAttendanceStatementPdf({
+          employeeName: p.name,
+          monthLabel: label,
+          totals: report.totals,
+          days: report.days,
+          freezeDateLabel,
+        });
+      } catch (err) {
+        console.error(`[cron/attendance-monthly] pdf failed for ${p.employeeId}`, err);
+      }
+
       const res = await sendMonthlyAttendanceStatementEmail({
-        recipient: { email: p.email, name: p.name },
+        recipient: { email: to, name: p.name },
+        pdf,
+        pdfFilename: `Attendance ${label} - ${p.name}.pdf`.replace(/[^\w\s.-]+/g, ""),
         monthLabel: label,
         totals: report.totals,
         days: report.days,

@@ -45,15 +45,35 @@ export function ModuleFooter({ access }: ModuleFooterProps) {
     <div
       aria-label="All modules"
       role="navigation"
-      // FLOATING GLASS DOCK, not a page footer. Fixed so it stays reachable
-      // without scrolling to the end of a long page; `left-1/2 -translate-x-1/2`
-      // centres it independently of the left rail's width, so it does not shift
-      // between railed and full-bleed rooms.
+      // FLOATING GLASS DOCK, not a page footer. STICKY, not fixed — and that is
+      // the whole alignment story.
       //
-      // `max-w` + the inner `overflow-x-auto` keep it from ever exceeding the
-      // viewport: on a narrow screen the strip scrolls sideways inside its own
+      // It used to be `fixed left-1/2 -translate-x-1/2`, i.e. centred on the
+      // VIEWPORT. Every railed room then drew it off-centre under its content,
+      // and on a narrow window it slid under the rail itself. A pixel offset
+      // could not fix that: the rail is 74px collapsed, 212/228/288px expanded
+      // depending on the module, and hidden below `md` — so any constant would
+      // be wrong in most states.
+      //
+      // As a sticky, `mt-auto` element it is the last child of the page column
+      // (see ChromeShell), which already begins where the rail ends. `mx-auto`
+      // then centres it in the CONTENT, and it tracks the rail collapsing,
+      // widening or disappearing for free, because layout does the arithmetic
+      // instead of a magic number. `bottom-18px` keeps the pinned-while-scrolling
+      // behaviour the fixed version had; `mt-auto` keeps it at the bottom of a
+      // short page rather than floating mid-screen.
+      //
+      // `max-w` + the inner `overflow-x-auto` keep it from ever exceeding its
+      // column: on a narrow screen the strip scrolls sideways inside its own
       // glass rather than pushing the page wider.
-      className="pointer-events-none fixed bottom-[18px] left-1/2 z-40 w-max max-w-[calc(100vw-24px)] -translate-x-1/2 print:hidden"
+      //
+      // `pt-4` rather than a top margin: `mt-auto` already owns margin-top, and
+      // padding inside a `bottom`-anchored sticky box adds the gap above the
+      // glass without moving its bottom edge. It keeps the dock off the end of
+      // a long page's content even where that page sets no bottom padding of
+      // its own. The padded strip inherits `pointer-events-none`, so it never
+      // swallows a click meant for the content behind it.
+      className="pointer-events-none sticky bottom-[18px] z-40 mx-auto mt-auto w-max max-w-[calc(100%-24px)] pt-4 print:hidden"
     >
       <nav
         className="pointer-events-auto flex items-center gap-x-0.5 overflow-x-auto rounded-[18px] px-2 py-2"

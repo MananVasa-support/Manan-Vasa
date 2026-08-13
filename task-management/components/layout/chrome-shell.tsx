@@ -64,11 +64,13 @@ export function ChromeShell({
   // of the same ten links over the grid is noise. It ends after the cards.
   const isHub = pathname === "/hub";
   const dock = isHub ? null : footer;
-  // Clearance for the FIXED dock — it is out of flow, so without this it sits on
-  // top of whatever a page ends with. Matches the dock's own bottom offset plus
-  // its height. The hub needs none of it, but still wants breathing room under
-  // the grid, so it gets a smaller pad rather than zero.
-  const bottomPad = isHub ? "pb-10" : "pb-[96px]";
+  // The dock is STICKY and therefore IN FLOW (it used to be fixed, which needed
+  // ~96px of clearance so it did not sit on top of whatever a page ended with).
+  // In flow it reserves its own height, so this padding only has to supply the
+  // gap BELOW it — matching the 18px it floats above the viewport edge while
+  // pinned, so the resting and stuck states look the same. The hub has no dock
+  // but still wants breathing room under the grid.
+  const bottomPad = isHub ? "pb-10" : "pb-5";
 
   if (!showSidebar) {
     return (

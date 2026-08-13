@@ -5,7 +5,6 @@ import { requireUser } from "@/lib/auth/current";
 import { accessFor } from "@/lib/auth/workspace-access";
 import { canAccessWorkspace, WORKSPACE_LANDING, type WorkspaceId } from "@/lib/workspaces";
 import { MODULE_THEME, MODULE_ORDER, moduleShortcut, type ModuleTheme } from "@/lib/module-theme";
-import { ModuleShortcuts } from "@/components/hub/module-shortcuts";
 import { EnterWorkspaceLink } from "@/components/hub/enter-workspace-link";
 import { UserMenuServer } from "@/components/header/user-menu-server";
 import { ModuleLogo } from "@/components/hub/module-logos";
@@ -242,9 +241,9 @@ export default async function HubPage() {
           ))}
         </section>
 
-        {/* Number-row shortcuts. Renders nothing; keeps this page a server
-            component while the listener lives on the client. */}
-        <ModuleShortcuts allowed={MODULE_ORDER.filter((id) => canAccessWorkspace(id, access))} />
+        {/* The number-row shortcuts (1–9, 0) that these cards badge are no
+            longer mounted here — they live in `(app)/layout.tsx` so the same
+            digits work from inside a module, not only on this page. */}
       </div>
     </main>
   );
