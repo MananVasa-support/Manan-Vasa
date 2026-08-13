@@ -5,7 +5,7 @@ import { motion } from "motion/react";
 import { Sparkles, Users } from "lucide-react";
 
 import { OnTimeGauge } from "@/components/dashboard/exec/on-time-gauge";
-import { ManagerInitiatorCard } from "@/components/dashboard/exec/manager-initiator-card";
+import { ManagerInitiatorTable } from "@/components/dashboard/exec/manager-initiator-table";
 import { NotApprovedSidebar } from "@/components/dashboard/exec/not-approved-sidebar";
 import { PerformanceByPersonTable } from "@/components/dashboard/exec/performance-by-person-table";
 import { ManagerDrilldown } from "@/components/dashboard/exec/manager-drilldown";
@@ -316,8 +316,9 @@ function ManagerRail({
   onOpenDrilldown: (managerId: string) => void;
   workingDays: number;
 }) {
-  // Two roomy scorecards per page (they stack to one column below 1024px, see
-  // the .exec-manager-grid rule at the bottom of this file).
+  // Kept at 2 rows per page so the pager reads exactly as it did with the card
+  // grid ("1–2 of 6"). A table would comfortably carry more; raising this is a
+  // one-line change if the section should show the whole leaderboard at once.
   const PER_PAGE = 2;
   const paged = usePagedRows(managers, PER_PAGE);
 
@@ -398,18 +399,15 @@ function ManagerRail({
         />
       </div>
 
-      <div className="exec-manager-grid grid gap-4">
-        {paged.visible.map((m) => (
-          <div key={m.managerId} className="min-w-0">
-            <ManagerInitiatorCard
-              scorecard={m}
-              avatarUrl={resolveAvatar(m.managerId)}
-              resolveAvatar={resolveAvatar}
-              onOpenDrilldown={onOpenDrilldown}
-            />
-          </div>
-        ))}
-      </div>
+      {/* One row per manager instead of one tile each: delegation is a
+          leaderboard question, and a table puts every manager's channel split on
+          the same axis so they can be read against each other at a glance. Rows
+          expand in place to the per-report breakdown. */}
+      <ManagerInitiatorTable
+        managers={paged.visible}
+        resolveAvatar={resolveAvatar}
+        onOpenDrilldown={onOpenDrilldown}
+      />
 
       <p className="mt-1 px-1 text-[11px] font-semibold text-ink-subtle">
         Target ={" "}
@@ -417,17 +415,6 @@ function ManagerRail({
         direct report
       </p>
 
-      {/* Two cards side by side on wide screens, one column below 1024px — the
-          same breakpoint the summary row uses. */}
-      <style>{`
-        .exec-manager-grid { grid-template-columns: minmax(0, 1fr); }
-        @media (min-width: 1024px) {
-          .exec-manager-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            align-items: start;
-          }
-        }
-      `}</style>
     </section>
   );
 }
