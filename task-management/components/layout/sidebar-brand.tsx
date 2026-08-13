@@ -41,6 +41,10 @@ export function SidebarBrand() {
       <Link
         href={"/hub" as Route}
         aria-label="Back to Hub"
+        // `title` as well as `aria-label`: aria-label names the link for screen
+        // readers but browsers never surface it on hover, so the logo read as an
+        // unlabelled image to a mouse user. This is what shows the tooltip.
+        title="Back to Hub"
         className="sidebar-logo flex w-full items-center justify-center rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
