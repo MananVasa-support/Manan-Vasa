@@ -7,6 +7,7 @@ import { getPolicyCard, isComingSoon } from "@/lib/hr/policies/registry";
 import { loadPublishedPolicy } from "@/lib/hr/policies/load-db";
 import { PageShell } from "@/components/layout/page-shell";
 import { PolicyView } from "@/components/hr/policies/policy-view";
+import { getMyPolicySignStatus } from "@/app/(app)/hr/policies/sign-status";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,11 @@ export default async function PolicyPage({
   const title = policy?.title ?? card?.title ?? "Policy";
   const isAdmin = me.isAdmin || isSuperAdmin(me.email);
   const showDoc = Boolean(policy) && !comingSoon;
+  // Has the CURRENT viewer already signed this policy? Drives the "Signed · date"
+  // state so they don't re-sign just to check (self-scoped, best-effort).
+  const signedAt = showDoc
+    ? (await getMyPolicySignStatus().catch(() => ({ signed: {} as Record<string, string> }))).signed[key] ?? null
+    : null;
 
   return (
     <div className="min-h-dvh bg-[#faf9fb]">
@@ -70,7 +76,7 @@ export default async function PolicyPage({
       </header>
 
       <PageShell width="narrow" py={false} className="pt-8 pb-24" style={{ maxWidth: "900px" }}>
-        {showDoc && policy ? <PolicyView doc={policy} /> : <ComingSoon title={card?.title} />}
+        {showDoc && policy ? <PolicyView doc={policy} signedAt={signedAt} /> : <ComingSoon title={card?.title} />}
       </PageShell>
     </div>
   );

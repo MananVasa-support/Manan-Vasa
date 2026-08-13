@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
-import { ShieldCheck, X, ArrowUpRight, Clock } from "lucide-react";
+import { ShieldCheck, X, ArrowUpRight, Clock, Check } from "lucide-react";
 import { POLICY_CARDS, type PolicyCard } from "@/lib/hr/policies/registry";
+import { getMyPolicySignStatus } from "@/app/(app)/hr/policies/sign-status";
+import { formatDate } from "@/lib/format";
 
 const RED = "#E10600";
 const RED_DEEP = "#A80400";
@@ -28,6 +30,25 @@ export function AllPoliciesPopup({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
+  // The caller's own signed policies (key → ISO signedAt) so each card shows
+  // ✓ Signed vs "Sign" at a glance — no need to open each one to check.
+  const [signed, setSigned] = useState<Record<string, string>>({});
+
+  // Load (and refresh on every open, so a just-signed policy shows as signed).
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    getMyPolicySignStatus()
+      .then((r) => {
+        if (!cancelled) setSigned(r.signed);
+      })
+      .catch(() => {
+        /* non-fatal — cards just fall back to the neutral "Read & sign" state */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   // Trap focus + wire Esc while open; restore focus to the opener on close.
   useEffect(() => {
@@ -120,7 +141,7 @@ export function AllPoliciesPopup({
 
         <div className="app-grid">
           {POLICY_CARDS.map((card) => (
-            <CardTile key={card.key} card={card} onNavigate={onClose} />
+            <CardTile key={card.key} card={card} signedAt={signed[card.key]} onNavigate={onClose} />
           ))}
         </div>
       </div>
@@ -128,7 +149,15 @@ export function AllPoliciesPopup({
   );
 }
 
-function CardTile({ card, onNavigate }: { card: PolicyCard; onNavigate: () => void }) {
+function CardTile({
+  card,
+  signedAt,
+  onNavigate,
+}: {
+  card: PolicyCard;
+  signedAt?: string;
+  onNavigate: () => void;
+}) {
   if (card.status === "coming-soon") {
     return (
       <div className="app-card app-card-soon" aria-disabled="true">
@@ -141,18 +170,25 @@ function CardTile({ card, onNavigate }: { card: PolicyCard; onNavigate: () => vo
       </div>
     );
   }
+  const isSigned = Boolean(signedAt);
   return (
     <Link
       href={`/hr/policies/${card.key}` as Route}
-      className="app-card app-card-ready"
+      className={`app-card app-card-ready${isSigned ? " app-card-signed" : ""}`}
       onClick={onNavigate}
     >
       <span className="app-badge">{card.badge}</span>
       <span className="app-card-title">{card.title}</span>
       <span className="app-card-blurb">{card.blurb}</span>
-      <span className="app-chip app-chip-ready">
-        Read &amp; sign <ArrowUpRight size={12} strokeWidth={2.8} aria-hidden />
-      </span>
+      {isSigned ? (
+        <span className="app-chip app-chip-signed">
+          <Check size={12} strokeWidth={3} aria-hidden /> Signed · {formatDate(signedAt!)}
+        </span>
+      ) : (
+        <span className="app-chip app-chip-ready">
+          Read &amp; sign <ArrowUpRight size={12} strokeWidth={2.8} aria-hidden />
+        </span>
+      )}
     </Link>
   );
 }
@@ -245,6 +281,13 @@ const POPUP_CSS = `
 }
 .app-chip-ready{color:${RED_DEEP};}
 .app-chip-soon{color:var(--color-ink-muted, #94a3b8);}
+.app-chip-signed{color:var(--color-green-deep, #15803d);}
+/* A signed policy reads as "done" — a soft green edge + tint instead of the red
+   call-to-action, so the eye skips straight to the ones still to sign. */
+.app-card-signed{
+  border-color:color-mix(in srgb, var(--color-green-deep, #15803d) 40%, transparent) !important;
+  background:color-mix(in srgb, var(--color-green-deep, #15803d) 5%, white);
+}
 
 @media (max-width:640px){
   .app-grid{grid-template-columns:1fr;}

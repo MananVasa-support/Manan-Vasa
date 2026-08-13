@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Download, Printer, Loader2, PenLine } from "lucide-react";
+import { Building2, Download, Printer, Loader2, PenLine, CheckCircle2 } from "lucide-react";
 import { PolicyDocument } from "@/components/hr/policies/policy-document";
 import { ENTITY_LIST, type EntityId } from "@/lib/hr/entities";
 import type { PolicyDoc } from "@/lib/hr/policies/types";
 import { fireToast } from "@/lib/toast";
+import { formatDate } from "@/lib/format";
 
 const RED = "#E10600";
 const RED_DEEP = "#A80400";
@@ -23,9 +24,10 @@ const RED_DEEP = "#A80400";
  * control is reachable and Enter-activated. NO framer-motion — CSS only, and the
  * only server touch is a fetch (so this client bundle stays load-neutral).
  */
-export function PolicyView({ doc }: { doc: PolicyDoc }) {
+export function PolicyView({ doc, signedAt }: { doc: PolicyDoc; signedAt?: string | null }) {
   const [entity, setEntity] = useState<EntityId>(doc.entityDefault ?? "altus-corp");
   const [signing, setSigning] = useState(false);
+  const isSigned = Boolean(signedAt);
 
   async function signAcknowledge() {
     setSigning(true);
@@ -80,16 +82,35 @@ export function PolicyView({ doc }: { doc: PolicyDoc }) {
           <button type="button" className="apv-btn apv-btn-ghost" onClick={() => window.print()}>
             <Download size={15} strokeWidth={2.2} /> Export PDF
           </button>
-          <button
-            type="button"
-            className="apv-btn apv-btn-primary"
-            onClick={signAcknowledge}
-            disabled={signing}
-            autoFocus
-          >
-            {signing ? <Loader2 size={15} className="apv-spin" /> : <PenLine size={15} strokeWidth={2.4} />}
-            {signing ? "Starting…" : "Read & Sign"}
-          </button>
+          {isSigned ? (
+            <>
+              {/* Already signed — show it clearly so no one signs twice just to
+                  check. Re-signing stays possible but is demoted to a ghost. */}
+              <span className="apv-signed" role="status">
+                <CheckCircle2 size={16} strokeWidth={2.4} aria-hidden /> Signed · {formatDate(signedAt!)}
+              </span>
+              <button
+                type="button"
+                className="apv-btn apv-btn-ghost"
+                onClick={signAcknowledge}
+                disabled={signing}
+              >
+                {signing ? <Loader2 size={15} className="apv-spin" /> : <PenLine size={15} strokeWidth={2.4} />}
+                {signing ? "Starting…" : "Sign again"}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="apv-btn apv-btn-primary"
+              onClick={signAcknowledge}
+              disabled={signing}
+              autoFocus
+            >
+              {signing ? <Loader2 size={15} className="apv-spin" /> : <PenLine size={15} strokeWidth={2.4} />}
+              {signing ? "Starting…" : "Read & Sign"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -146,6 +167,15 @@ const VIEW_CSS = `
 .apv-btn:focus-visible{outline:2px solid ${RED};outline-offset:2px;}
 .apv-spin{animation:apv-spin 1s linear infinite;}
 @keyframes apv-spin{to{transform:rotate(360deg);}}
+.apv-signed{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:9px 14px;border-radius:11px;
+  font-family:var(--font-display, system-ui, sans-serif);
+  font-size:13.5px;font-weight:800;
+  color:var(--color-green-deep, #15803d);
+  background:color-mix(in srgb, var(--color-green-deep, #15803d) 10%, white);
+  border:1px solid color-mix(in srgb, var(--color-green-deep, #15803d) 32%, transparent);
+}
 
 .apv-stage{display:flex;justify-content:center;padding-bottom:40px;}
 
