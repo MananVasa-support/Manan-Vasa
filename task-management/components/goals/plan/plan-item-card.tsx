@@ -7,6 +7,7 @@ import { Check, GripVertical, Loader2, Pencil, X } from "lucide-react";
 import { motion } from "motion/react";
 import type { PlanItem } from "./types";
 import { KIND_PERIOD, SourceTag } from "./source-tag";
+import { HoverTip } from "@/components/ui/hover-tip";
 
 // Goals module identity — mirrors MODULE_THEME.goals.
 const GOALS_ACCENT = "#E10600";
@@ -166,7 +167,6 @@ export function PlanItemCard({ item, index, busy, onToggleDone, onRemove, onRena
             />
           ) : (
             <div
-              title={onRename && !item.done ? `${item.title} — double-click to edit` : item.title}
               onDoubleClick={startEdit}
               className={
                 "truncate text-[13px] leading-[18px] " +
@@ -174,7 +174,7 @@ export function PlanItemCard({ item, index, busy, onToggleDone, onRemove, onRena
                 (item.done ? "font-medium text-ink-muted line-through" : "font-semibold text-ink-strong")
               }
             >
-              {item.title}
+              <HoverTip text={item.title}>{item.title}</HoverTip>
             </div>
           )}
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-muted">

@@ -9,6 +9,7 @@ import { PRIORITY_LABELS } from "@/db/enums";
 import { STATUS_LABELS_FALLBACK } from "@/lib/format";
 import type { SourceItem } from "./types";
 import { KIND_PERIOD, OverdueTag, SourceTag, fmtYmd } from "./source-tag";
+import { HoverTip } from "@/components/ui/hover-tip";
 
 /** dnd id for a source card — namespaced so it never collides with plan row ids. */
 export function sourceDragId(item: SourceItem): string {
@@ -75,11 +76,8 @@ export function SourceCard({ item, today, onAdd, onAbandon }: Props) {
         </button>
 
         <div className="min-w-0 flex-1">
-          <div
-            title={item.title}
-            className="truncate text-[13px] font-semibold leading-[18px] text-ink-strong"
-          >
-            {item.title}
+          <div className="truncate text-[13px] font-semibold leading-[18px] text-ink-strong">
+            <HoverTip text={item.title}>{item.title}</HoverTip>
           </div>
 
           {/* Identity line — what this is and where it came from. */}
