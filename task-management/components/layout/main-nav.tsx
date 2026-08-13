@@ -128,16 +128,10 @@ const HR_HUB_NAV: WorkspaceNav = {
   top: [
     HR_HOME,
     ...HR_STAGES.map((s) => ({ href: `/hr/${s.slug}` as Route, label: s.title, Icon: s.Icon })),
-    // Saved form submissions. Only "My" appears here: it's open to everyone and
-    // hard-scoped to the signed-in employee, so it needs no gate.
-    //
-    // "All Filled Forms" is deliberately NOT in this rail. It must be visible to
-    // HR staff, which is `isHrStaff` (super-admins + the HR department) — but the
-    // only gate this nav understands is `adminOnly`, which would wrongly hide it
-    // from HR-department non-admins. The HR landing deck already offers it behind
-    // the correct predicate, so duplicating it here under the wrong one would
-    // only create a second, inconsistent door.
-    { href: "/hr/my-forms" as Route, label: "My Filled Forms", Icon: ClipboardList },
+    // Form submissions are intentionally NOT in this rail. "My Filled Forms" was
+    // removed from the HR home per Sir; "All Filled Forms" needs the `isHrStaff`
+    // predicate (super-admins + HR department) which this nav can't express (its
+    // only gate is `adminOnly`), so the HR landing deck owns that door instead.
     { href: "/holidays" as Route, label: "Holiday List", Icon: PartyPopper },
     { href: "/support" as Route, label: "Help Desk", Icon: LifeBuoy },
   ],
