@@ -1640,6 +1640,12 @@ export const attendanceLogs = pgTable(
     recordedById: uuid("recorded_by_id").references(() => employees.id, {
       onDelete: "set null",
     }),
+    // Anti-proxy Phase 2 (2026-08) — device-health attestation + spoof signals
+    // captured at the punch. NULL until the app sends them / integrity is
+    // provisioned (report-only by default, so old punches simply carry nulls).
+    integrityVerdict: text("integrity_verdict"), // strong | device | basic | failed | unverified
+    mockLocation: boolean("mock_location"), // the app reported a mocked GPS provider
+    anomalyFlags: jsonb("anomaly_flags").$type<string[]>(), // ["mock_location","integrity_weak",…]
   },
   (t) => [
     uniqueIndex("attendance_logs_employee_day_kind_uq").on(
@@ -1686,6 +1692,32 @@ export const mobileDevices = pgTable(
   (t) => [
     uniqueIndex("mobile_devices_device_id_uq").on(t.deviceId),
     index("mobile_devices_employee_idx").on(t.employeeId),
+  ],
+);
+
+/**
+ * One-time punch nonces (anti-proxy Phase 2, 2026-08). The server issues a short-
+ * lived random nonce; the app requests a Play Integrity / App Attest token OVER
+ * that nonce and returns it with the punch. Verifying the signed token embeds the
+ * exact nonce — and burning the nonce after use — defeats REPLAY (re-sending a
+ * captured punch) and RELAY (a proxy forwarding a genuine device's request). A
+ * cron sweeps expired rows.
+ */
+export const punchNonces = pgTable(
+  "punch_nonces",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    nonce: text("nonce").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("punch_nonces_nonce_uq").on(t.nonce),
+    index("punch_nonces_employee_idx").on(t.employeeId),
   ],
 );
 

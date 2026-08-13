@@ -4,6 +4,9 @@ import { rateLimitOrError } from "@/lib/rate-limit";
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import { resolvePunchGeofence, insertPunchRow } from "@/lib/attendance/record-punch";
 import { resolveMobileDevice } from "@/lib/attendance/mobile-devices";
+import { attendanceIntegrityMode } from "@/lib/attendance/integrity-mode";
+import { consumePunchNonce } from "@/lib/attendance/punch-nonce";
+import { verifyPlayIntegrity } from "@/lib/attendance/play-integrity";
 import { isDccFilledFor } from "@/lib/dcc/gate";
 import { needsDailyPlan } from "@/lib/daily-checklist/gate";
 import { needsGoalActuals } from "@/lib/weekly-goals/actuals";
@@ -35,6 +38,10 @@ type Body = {
   deviceId?: string;
   deviceLabel?: string;
   platform?: string;
+  // Anti-proxy Phase 2 (sent by the updated app; absent from older builds).
+  nonce?: string;
+  integrityToken?: string;
+  isMock?: boolean;
 };
 
 const ok = (data: object) => NextResponse.json(data, { headers: MOBILE_CORS });
@@ -90,6 +97,48 @@ export async function POST(req: Request) {
       { ok: false, error: device.error, reason: device.reason },
       { status: 403, headers: MOBILE_CORS },
     );
+  }
+
+  // ── Gate 3: device-health attestation + spoof signals (anti-proxy Phase 2) ──
+  // Mode-gated: off = skip; report = record verdict + flags but never block;
+  // enforce = refuse a punch that is mocked or fails device+app integrity.
+  // NEVER blocks on "unverified" (old app build / integrity not provisioned) so
+  // a rollout gap can't lock anyone out.
+  const mode = attendanceIntegrityMode();
+  let integrityVerdict: string | null = null;
+  let mockLocation: boolean | null = null;
+  const anomalyFlags: string[] = [];
+
+  if (mode !== "off") {
+    if (typeof body.isMock === "boolean") {
+      mockLocation = body.isMock;
+      if (body.isMock) anomalyFlags.push("mock_location");
+    }
+    // Burn the one-time nonce (anti-replay) when the app supplies attestation.
+    let nonceStale = false;
+    if (body.nonce || body.integrityToken) {
+      const nres = await consumePunchNonce(me.id, body.nonce);
+      if (!nres.ok) {
+        nonceStale = true;
+        anomalyFlags.push(`nonce_${nres.reason}`);
+      }
+    }
+    // Verify the hardware attestation (dormant → "unverified", never blocks).
+    const integ = await verifyPlayIntegrity(body.integrityToken, body.nonce ?? "");
+    integrityVerdict = integ.verdict;
+    if (integ.configured && !integ.ok) anomalyFlags.push(`integrity_${integ.detail ?? integ.verdict}`);
+
+    if (mode === "enforce") {
+      if (mockLocation === true) {
+        return err(403, "Your location looks mocked. Turn off any fake-GPS app and punch again from the office.");
+      }
+      if (integ.configured && !integ.ok) {
+        return err(403, "This device failed the security check — punch from your genuine registered phone.");
+      }
+      if (nonceStale) {
+        return err(403, "That punch expired — please try again.");
+      }
+    }
   }
 
   const tz = me.timezone || "Asia/Kolkata";
@@ -190,7 +239,14 @@ export async function POST(req: Request) {
   const inserted = await insertPunchRow(
     { id: me.id, timezone: tz },
     { kind: body.kind, note: body.note, location, distanceM: geo.distanceM },
-    { verifyMethod: "biometric", mobileDeviceId: device.rowId, source: "self" },
+    {
+      verifyMethod: "biometric",
+      mobileDeviceId: device.rowId,
+      source: "self",
+      integrityVerdict,
+      mockLocation,
+      anomalyFlags,
+    },
   );
   if (!inserted.ok) return err(409, inserted.error);
 

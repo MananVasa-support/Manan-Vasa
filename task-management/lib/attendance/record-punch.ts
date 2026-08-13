@@ -53,6 +53,10 @@ export interface PunchVerification {
   credentialId?: string | null;
   mobileDeviceId?: string | null;
   source?: "self" | "admin";
+  // Anti-proxy Phase 2 — device-health attestation captured at the punch.
+  integrityVerdict?: string | null; // strong | device | basic | failed | unverified
+  mockLocation?: boolean | null;
+  anomalyFlags?: string[] | null;
 }
 
 /**
@@ -89,6 +93,9 @@ export async function insertPunchRow(
     credentialId: verification.credentialId ?? null,
     mobileDeviceId: verification.mobileDeviceId ?? null,
     source: verification.source ?? "self",
+    integrityVerdict: verification.integrityVerdict ?? null,
+    mockLocation: verification.mockLocation ?? null,
+    anomalyFlags: verification.anomalyFlags && verification.anomalyFlags.length > 0 ? verification.anomalyFlags : null,
   };
   const dupError =
     kind === "in" ? "You already checked in today." : "You already checked out today.";
