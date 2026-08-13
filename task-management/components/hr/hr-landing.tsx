@@ -16,6 +16,7 @@ import {
   Plus,
   Target,
   Megaphone,
+  ScrollText,
   type LucideIcon,
 } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -54,7 +55,7 @@ interface Card {
   title: string;
   Icon: LucideIcon;
   stage?: HrStage; // present → clicking opens the stage pop-up instead of navigating
-  popup?: "help-desk"; // present → clicking opens the Help Desk quick-popup
+  popup?: "help-desk" | "policies"; // present → clicking opens that quick-popup
 }
 
 // Every card shares the Altus red + black identity (no rainbow of hues).
@@ -64,6 +65,10 @@ interface Card {
 const CARDS: Card[] = [
   ...HR_STAGES.map((s) => ({ slug: `/hr/${s.slug}`, title: s.title, Icon: s.Icon, stage: s })),
   { slug: "/hr/holidays", title: "Holiday List", Icon: PartyPopper },
+  // Policies — a first-class card. Opens the "All Policies" popup where anyone
+  // can read AND sign each firm policy themselves (self-attested e-sign today,
+  // DigiLocker once keyed). Visible to EVERY employee, not just HR staff.
+  { slug: "/policies", title: "Policies", Icon: ScrollText, popup: "policies" as const },
   { slug: "/support", title: "Help Desk", Icon: LifeBuoy, popup: "help-desk" as const },
   { slug: "/hr/record", title: "HR Record", Icon: IdCard },
   { slug: "/hr/kpi", title: "KPI Management", Icon: Target },
@@ -81,6 +86,9 @@ const CARDS: Card[] = [
 // centred cards.
 const LIMITED_CARDS: Card[] = [
   { slug: "/hr/holidays", title: "Holiday List", Icon: PartyPopper },
+  // Policies are for EVERYONE — a normal employee must be able to read + sign
+  // every firm policy. Same "All Policies" popup as the staff deck.
+  { slug: "/policies", title: "Policies", Icon: ScrollText, popup: "policies" as const },
   { slug: "/support", title: "Help Desk", Icon: LifeBuoy, popup: "help-desk" as const },
   { slug: "/portal", title: "My HR Record", Icon: IdCard },
   // ("My Filled Forms" was removed from this deck per Sir; the staff-only
@@ -185,7 +193,9 @@ export function HrLanding({ isHrStaff }: { isHrStaff: boolean }) {
                     ? () => setOpenStage(c.stage!)
                     : c.popup === "help-desk"
                       ? () => setHelpDeskOpen(true)
-                      : undefined
+                      : c.popup === "policies"
+                        ? () => setPoliciesOpen(true)
+                        : undefined
                 }
               />
             </div>
@@ -193,8 +203,8 @@ export function HrLanding({ isHrStaff }: { isHrStaff: boolean }) {
         </div>
       </div>
 
-      {/* Stage / intake / policies pop-ups are STAFF-ONLY — never mount for a
-          normal employee. The Help Desk pop-up is open to everyone. */}
+      {/* Stage + intake pop-ups are STAFF-ONLY. The Policies and Help Desk
+          pop-ups are open to EVERYONE — every employee can read + sign policies. */}
       {isHrStaff && openStage && (
         <StagePopup
           stage={openStage}
@@ -204,7 +214,7 @@ export function HrLanding({ isHrStaff }: { isHrStaff: boolean }) {
         />
       )}
       {isHrStaff && chooserOpen && <IntakeChooserPopup onClose={() => setChooserOpen(false)} />}
-      {isHrStaff && <AllPoliciesPopup open={policiesOpen} onClose={() => setPoliciesOpen(false)} />}
+      <AllPoliciesPopup open={policiesOpen} onClose={() => setPoliciesOpen(false)} />
       {helpDeskOpen && <HelpDeskPopup onClose={() => setHelpDeskOpen(false)} />}
 
       <style dangerouslySetInnerHTML={{ __html: LAND_CSS }} />
