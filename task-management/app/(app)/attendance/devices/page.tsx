@@ -2,12 +2,16 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft, Smartphone } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/current";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { DashboardHeader } from "@/components/layout/header";
 import { listAllDevices, MAX_DEVICES_PER_EMPLOYEE } from "@/lib/attendance/mobile-devices";
 import { listAttendanceAnomalies } from "@/lib/attendance/integrity-review";
 import { attendanceIntegrityMode } from "@/lib/attendance/integrity-mode";
+import { getClientIp } from "@/lib/attendance/office-ip";
+import { getOrgSettings } from "@/lib/queries/org-settings";
 import { DevicesClient } from "@/components/attendance/devices-client";
 import { IntegrityReview } from "@/components/attendance/integrity-review";
+import { OfficeNetworkEditor } from "@/components/attendance/office-network-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -22,11 +26,14 @@ const RED_DEEP = "#A80400";
  * mark attendance — everything else gets "Incorrect device" at the punch.
  */
 export default async function AttendanceDevicesPage() {
-  await requireAdmin();
+  const me = await requireAdmin();
+  const isSA = isSuperAdmin(me.email);
   const devices = await listAllDevices();
   const pending = devices.filter((d) => d.status === "pending").length;
   const anomalies = await listAttendanceAnomalies();
   const mode = attendanceIntegrityMode();
+  const settings = isSA ? await getOrgSettings() : null;
+  const currentIp = isSA ? await getClientIp() : null;
 
   return (
     <>
@@ -58,6 +65,12 @@ export default async function AttendanceDevicesPage() {
             any other phone is refused with “Incorrect device”. {pending > 0 ? `${pending} waiting for approval.` : "Nothing waiting for approval."}
           </p>
         </header>
+
+        {isSA && (
+          <div className="mb-6">
+            <OfficeNetworkEditor currentIp={currentIp} allowlist={settings?.officeIpAllowlist ?? []} />
+          </div>
+        )}
 
         <DevicesClient devices={devices} maxPerEmployee={MAX_DEVICES_PER_EMPLOYEE} />
 

@@ -20,6 +20,7 @@ import { localDateString } from "@/lib/format";
 import { getOrgSettings } from "@/lib/queries/org-settings";
 import { withRetry } from "@/lib/db/with-timeout";
 import { insertPunchRow, resolvePunchGeofence } from "@/lib/attendance/record-punch";
+import { evaluateOfficeIp } from "@/lib/attendance/office-ip";
 import { isDccFilledFor } from "@/lib/dcc/gate";
 import { needsDailyPlan } from "@/lib/daily-checklist/gate";
 import { needsGoalActuals, unloggedGoalLabels } from "@/lib/weekly-goals/actuals";
@@ -104,6 +105,22 @@ export async function punchAttendance(input: {
   // punch via resolvePunchGeofence so the rule never diverges.
   const geo = resolvePunchGeofence(settings, location);
   if (!geo.ok) return { ok: false, error: geo.error };
+
+  // ── Office-network gate (WEB punch only) — closes the browser bypass ──
+  // The web punch has no device binding (browsers can't do the keystore id),
+  // so it's the "clock in from home in a browser" hole. When the office IP
+  // allowlist is set, the web punch must leave the office network — an IP a
+  // GPS-spoofer can't fake. Safe-default: no allowlist ⇒ off (nobody locked
+  // out). The device-bound mobile app punch is intentionally NOT gated here
+  // (staff may be on mobile data at the office; it carries the stronger
+  // device + mock + integrity anti-proxy instead).
+  const officeIp = await evaluateOfficeIp(settings.officeIpAllowlist);
+  if (officeIp.configured && !officeIp.allowed) {
+    return {
+      ok: false,
+      error: "Web attendance must be on the office network. For field or remote work, punch from the Altus app.",
+    };
+  }
 
   const tz = me.timezone || "Asia/Kolkata";
   const today = localDateString(tz);
