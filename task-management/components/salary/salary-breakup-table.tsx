@@ -8,9 +8,19 @@ import { fireToast } from "@/lib/toast";
 import { setSalaryPaid, setSalaryNote, setWaiveOff, setPayoutAdjustment } from "@/app/(app)/salary/actions";
 import { perDayRate, waiveAddBack } from "@/lib/salary/waive-off";
 
-/* Employees-module identity — matches the Attendance page. */
-const GREEN = "#E10600";
-const GREEN_DEEP = "#A80400";
+/* These two were called GREEN / GREEN_DEEP but held the brand RED (#E10600) —
+ * and that misnaming is how the payout column, the payslip button and the Paid
+ * toggle all ended up shouting in red. On a money table red reads as "deduction"
+ * or "error", so a ₹10,639 payout looked like a problem and a full column of
+ * filled PDF buttons drowned out the figures. Renamed to what they actually are;
+ * red now stays on things that genuinely mean money taken away. */
+const BRAND_RED = "#E10600";
+const BRAND_RED_DEEP = "#A80400";
+
+/* PAID is a settled, positive state — an actual green, so the toggle stops
+ * reading like a warning once pressed. */
+const PAID_GREEN = "#047857";
+const PAID_GREEN_DEEP = "#065F46";
 
 /** Plain serializable projection of a `salary_breakup` row (server maps it). */
 export interface SalaryRow {
@@ -133,9 +143,8 @@ function MoneyTotal({ rows, pick, tone }: { rows: SalaryRow[]; pick: (r: SalaryR
         color:
           tone === "deduction" && sum > 0
             ? "var(--color-altus-red)"
-            : tone === "final"
-              ? GREEN_DEEP
-              : "var(--color-ink-strong)",
+            : // "final" totals are ink too — same reasoning as the cell above.
+              "var(--color-ink-strong)",
       }}
     >
       {tone === "deduction" && sum > 0 ? "− " : ""}₹{Math.round(sum).toLocaleString("en-IN")}
@@ -256,7 +265,10 @@ const COLUMNS: Col[] = [
     minWidth: 125,
     sortValue: (r) => num(r.finalPayment),
     render: (r) => (
-      <span className="tabular-nums text-[14px] font-black" style={{ color: GREEN_DEEP }}>
+      // Ink, not red: this is what the employee is PAID. Weight already makes it
+      // the heaviest number in the row; colour on top of that only signalled
+      // alarm. Red stays reserved for deductions.
+      <span className="tabular-nums text-[14px] font-black text-ink-strong">
         {inr(r.finalPayment)}
       </span>
     ),
@@ -367,7 +379,7 @@ function PaidToggle({ row }: { row: SalaryRow }) {
       className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12px] font-bold transition disabled:opacity-60"
       style={
         paid
-          ? { background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`, color: "#fff", boxShadow: `0 4px 12px -6px ${GREEN_DEEP}` }
+          ? { background: `linear-gradient(135deg, ${PAID_GREEN}, ${PAID_GREEN_DEEP})`, color: "#fff", boxShadow: `0 4px 12px -6px ${PAID_GREEN_DEEP}` }
           : { background: "var(--color-surface-soft)", color: "var(--color-ink-muted)", boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }
       }
     >
@@ -462,7 +474,7 @@ function WaiveOffCell({ row, editable }: { row: SalaryRow; editable: boolean }) 
         </span>
         <span
           className="ml-1.5 tabular-nums text-[11.5px] font-black"
-          style={{ color: GREEN_DEEP }}
+          style={{ color: BRAND_RED_DEEP }}
           title="Net after wave-off (final payment + condoned days)"
         >
           → ₹{Math.round(newNet).toLocaleString("en-IN")}
@@ -622,8 +634,11 @@ function PayslipLink({ row, month }: { row: SalaryRow; month?: string }) {
       target="_blank"
       rel="noopener noreferrer"
       title={`Download ${row.employeeName}'s payslip (salary + attendance + incentives)`}
-      className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-bold text-white transition-transform active:scale-[0.98]"
-      style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})`, boxShadow: `0 6px 14px -8px ${GREEN_DEEP}` }}
+      // A quiet outlined control, not a filled red pill. One of these sits on
+      // EVERY row, so a saturated button turned the last column into a wall of
+      // red that out-shouted the figures the table exists to show. The brand
+      // colour returns on hover, where it marks intent rather than presence.
+      className="inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong bg-surface-card px-2.5 py-1.5 text-[12.5px] font-bold text-ink-soft transition-colors hover:border-[color-mix(in_srgb,var(--color-altus-red)_45%,transparent)] hover:text-altus-red active:scale-[0.98]"
     >
       <FileDown size={14} strokeWidth={2.5} /> PDF
     </a>
@@ -716,9 +731,9 @@ export function SalaryBreakupTable({
   function SortGlyph({ colKey }: { colKey: string }) {
     if (sort?.key !== colKey) return <ChevronsUpDown size={12} strokeWidth={2} className="opacity-40" />;
     return sort.dir === "asc" ? (
-      <ArrowUp size={12} strokeWidth={2.8} style={{ color: GREEN_DEEP }} />
+      <ArrowUp size={12} strokeWidth={2.8} style={{ color: BRAND_RED_DEEP }} />
     ) : (
-      <ArrowDown size={12} strokeWidth={2.8} style={{ color: GREEN_DEEP }} />
+      <ArrowDown size={12} strokeWidth={2.8} style={{ color: BRAND_RED_DEEP }} />
     );
   }
 
@@ -851,7 +866,7 @@ export function SalaryBreakupTable({
                   style={{
                     background: HEAD_BG,
                     height: GROUP_ROW_H,
-                    color: g.label ? GREEN_DEEP : "transparent",
+                    color: g.label ? BRAND_RED_DEEP : "transparent",
                     boxShadow: i === 0
                       ? "inset -1px -1px 0 var(--color-hairline-strong)"
                       : `inset ${i > 0 ? "1px" : "0"} -1px 0 var(--color-hairline)`,
@@ -873,7 +888,7 @@ export function SalaryBreakupTable({
                     top: GROUP_ROW_H,
                     background:
                       c.key === "final"
-                        ? `linear-gradient(180deg, color-mix(in srgb, ${GREEN} 9%, ${HEAD_BG}), color-mix(in srgb, ${GREEN} 6%, ${HEAD_BG}))`
+                        ? `linear-gradient(180deg, color-mix(in srgb, ${BRAND_RED} 9%, ${HEAD_BG}), color-mix(in srgb, ${BRAND_RED} 6%, ${HEAD_BG}))`
                         : HEAD_BG,
                     boxShadow: c.key === "company"
                       ? "inset -1px -1px 0 var(--color-hairline-strong)"
@@ -971,7 +986,7 @@ export function SalaryBreakupTable({
                           c.key === "company"
                             ? "var(--color-surface-card)"
                             : c.key === "final"
-                              ? `color-mix(in srgb, ${GREEN} 5%, transparent)`
+                              ? `color-mix(in srgb, ${BRAND_RED} 5%, transparent)`
                               : undefined,
                         ...(c.key === "company" ? { left: EMP_W } : {}),
                       }}
@@ -1019,7 +1034,7 @@ export function SalaryBreakupTable({
                     style={{
                       background:
                         c.key === "final"
-                          ? `color-mix(in srgb, ${GREEN} 9%, ${HEAD_BG})`
+                          ? `color-mix(in srgb, ${BRAND_RED} 9%, ${HEAD_BG})`
                           : HEAD_BG,
                       boxShadow: c.key === "company"
                         ? "inset -1px 1px 0 var(--color-hairline-strong)"

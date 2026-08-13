@@ -24,7 +24,9 @@ const PAL: Record<WorkspaceId, { from: string; to: string; ink: string }> = {
   training: { from: "#F9C9E0", to: "#F5A9CE", ink: "#BE185D" }, // pink (matches the Training card)
   events: { from: "#B6EAF4", to: "#8ADBEC", ink: "#0E7490" },
   accounts: { from: "#C7DAFC", to: "#A7C5FA", ink: "#1D4ED8" }, // blue
-  billing: { from: "#EAD5FD", to: "#DCBBFB", ink: "#7E22CE" }, // purple (matches the Billing card)
+  // Ivory/grey, following the Billing CARD (hub/page.tsx HUB_PASTEL) — a purple
+  // tile on a neutral card was the one place the icon and its card disagreed.
+  billing: { from: "#E8E6E0", to: "#D8D5CC", ink: "#57534E" }, // ivory / grey
 };
 
 function Glyph({ id, ink, light }: { id: WorkspaceId; ink: string; light: string }) {

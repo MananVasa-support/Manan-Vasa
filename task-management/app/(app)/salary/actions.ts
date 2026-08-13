@@ -4,14 +4,15 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { salaryRuns, salaryBreakup } from "@/db/schema";
-import { requireAdmin, requireUser } from "@/lib/auth/current";
-import { canMarkSalaryPaid } from "@/lib/auth/finance-access";
+import { requireAdmin } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { assembleMonthInputs, computeForRow } from "@/lib/salary/generate";
 import { syncBreakupFromApp } from "@/lib/salary/breakup-from-app";
 import { getRun, listRunsForMonth } from "@/lib/queries/salary";
 import { GenerateSalarySchema, RunEditSchema } from "@/lib/validators/salary";
+import { mailPayslipOnPaid } from "@/lib/salary/notify-paid";
+import { afterResponse } from "@/lib/after";
 
 export type ActionResult<T = unknown> =
   | ({ ok: true } & T)
@@ -310,17 +311,14 @@ export async function setDisbursed(
 }
 
 /**
- * Toggle the salary "Paid" mark for one salary_breakup row. SUPER-ADMINS + the
- * ACCOUNTS department (Sir 2026-08-13 — disbursing pay is an accounts job); plain
- * admins are excluded. Tracks whether that employee's salary for the month has
- * been disbursed. Stored on salary_breakup.paid (survives sheet re-syncs).
- * Uses requireUser (not requireAdmin) because an Accounts member may not be an
- * admin; canMarkSalaryPaid is the real gate.
+ * Toggle the salary "Paid" mark for one salary_breakup row. SUPER-ADMINS ONLY
+ * (Manan/Hetesh) — tracks whether that employee's salary for the month has been
+ * disbursed. Stored on salary_breakup.paid (survives sheet re-syncs).
  */
 export async function setSalaryPaid(id: string, paid: boolean): Promise<ActionResult> {
-  const me = await requireUser();
-  if (!(await canMarkSalaryPaid(me))) {
-    return { ok: false, error: "Only super-admins or the Accounts team can mark salary as paid." };
+  const me = await requireAdmin();
+  if (!isSuperAdmin(me.email)) {
+    return { ok: false, error: "Only super-admins can mark salary as paid." };
   }
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
@@ -333,6 +331,17 @@ export async function setSalaryPaid(id: string, paid: boolean): Promise<ActionRe
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
+
+  // Mail the employee their slip the moment payment is recorded — to their work
+  // AND personal addresses (mailPayslipOnPaid → employeeEmailTargets). Only on
+  // the flip TO paid: unmarking must not send anything.
+  //
+  // Deferred past the response because it renders a PDF and calls Resend, and
+  // the row is already durable — the architecture's persist-then-return rule.
+  // `mailPayslipOnPaid` never throws, so a mail failure can never turn a
+  // successful "Mark Paid" into an error the admin retries.
+  if (paid) afterResponse(() => mailPayslipOnPaid(id));
+
   revalidatePath(PATH);
   return { ok: true };
 }

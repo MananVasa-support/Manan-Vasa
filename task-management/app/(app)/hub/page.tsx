@@ -46,17 +46,29 @@ export const dynamic = "force-dynamic";
  * for text/icons/button so it stays readable on the light pastel fill.
  */
 const HUB_PASTEL: Record<WorkspaceId, { from: string; to: string; ink: string; inkSoft: string }> = {
-  wms:       { from: "#FEE2E2", to: "#FECACA", ink: "#B91C1C", inkSoft: "#DC2626" }, // red
-  admin:     { from: "#DBEAFE", to: "#BFDBFE", ink: "#1D4ED8", inkSoft: "#2563EB" }, // blue
-  employees: { from: "#DCFCE7", to: "#BBF7D0", ink: "#15803D", inkSoft: "#16A34A" }, // green
-  hr:        { from: "#CCFBF1", to: "#99F6E4", ink: "#0F766E", inkSoft: "#0D9488" }, // teal
-  sales:     { from: "#EDE9FE", to: "#DDD6FE", ink: "#6D28D9", inkSoft: "#7C3AED" }, // violet
-  training:  { from: "#FCE7F3", to: "#FBCFE8", ink: "#BE185D", inkSoft: "#DB2777" }, // pink
-  accounts:  { from: "#DBEAFE", to: "#BFDBFE", ink: "#1D4ED8", inkSoft: "#2563EB" }, // (not shown on hub)
-  events:    { from: "#CFFAFE", to: "#A5F3FC", ink: "#0E7490", inkSoft: "#0891B2" }, // cyan
-  productivity: { from: "#E0E7FF", to: "#C7D2FE", ink: "#3730A3", inkSoft: "#4338CA" }, // indigo
-  goals:     { from: "#FEF3C7", to: "#FDE68A", ink: "#B45309", inkSoft: "#D97706" }, // amber-gold
-  billing:   { from: "#F3E8FF", to: "#E9D5FF", ink: "#7E22CE", inkSoft: "#9333EA" }, // purple
+  // Tints come from the INNERMOST ring of the colour wheel — the palest step,
+  // where every hue is still identifiable but none competes with the card's own
+  // text. The previous values were a ring or two out (Tailwind 100/200), which
+  // is why ten cards together read as loud. Hue ASSIGNMENT is unchanged, so each
+  // module keeps the identity it has everywhere else in the app; only the
+  // saturation drops. `ink` / `inkSoft` stay deep for contrast on the pale tile.
+  //
+  // Two deliberate exceptions:
+  //   • WMS keeps its existing red — it is the brand's own card.
+  //   • BILLING is neutral ivory-grey, not a hue. It is the money room and reads
+  //     better as paper than as another colour; it also breaks up the run of
+  //     tints in the second row.
+  wms:       { from: "#FEE2E2", to: "#FECACA", ink: "#B91C1C", inkSoft: "#DC2626" }, // red (unchanged)
+  admin:     { from: "#E7EFFB", to: "#D6E4F6", ink: "#1D4ED8", inkSoft: "#2563EB" }, // blue
+  employees: { from: "#E6F6E9", to: "#D2ECD9", ink: "#15803D", inkSoft: "#16A34A" }, // green
+  hr:        { from: "#E1F4F0", to: "#CBEAE3", ink: "#0F766E", inkSoft: "#0D9488" }, // teal
+  sales:     { from: "#ECE7FA", to: "#DED6F4", ink: "#6D28D9", inkSoft: "#7C3AED" }, // violet
+  training:  { from: "#FAE8F0", to: "#F2D8E5", ink: "#BE185D", inkSoft: "#DB2777" }, // pink
+  accounts:  { from: "#E7EFFB", to: "#D6E4F6", ink: "#1D4ED8", inkSoft: "#2563EB" }, // (not shown on hub)
+  events:    { from: "#E1F2F8", to: "#CBE7F1", ink: "#0E7490", inkSoft: "#0891B2" }, // cyan
+  productivity: { from: "#E8EAFA", to: "#D8DCF3", ink: "#3730A3", inkSoft: "#4338CA" }, // indigo
+  goals:     { from: "#FDF4D9", to: "#F8E9BC", ink: "#A16207", inkSoft: "#CA8A04" }, // yellow-gold
+  billing:   { from: "#F2F1EC", to: "#E3E1DA", ink: "#57534E", inkSoft: "#78716C" }, // ivory / grey
 };
 
 function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: number }) {
