@@ -22,9 +22,14 @@ import { workspaceForPath } from "@/lib/workspaces";
  */
 export function ChromeShell({
   sidebar,
+  footer,
   children,
 }: {
   sidebar: ReactNode;
+  /** Site-wide module footer, server-rendered once and passed in (same pattern
+   *  as `sidebar`). Rendered as the LAST child of the page column in BOTH
+   *  branches. Optional so callers that don't have one still typecheck. */
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -59,13 +64,21 @@ export function ChromeShell({
   // built for — `.app-shell-column > main` (globals.css) is what now absorbs the
   // slack, and the body's fixed gradient paints everything below the content.
   if (!showSidebar) {
-    return <div className="flex min-h-dvh flex-col">{children}</div>;
+    return (
+      <div className="flex min-h-dvh flex-col">
+        {children}
+        {footer}
+      </div>
+    );
   }
 
   return (
     <div className="flex min-h-dvh">
       {sidebar}
-      <div className="flex min-w-0 flex-1 flex-col max-md:pt-14">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col max-md:pt-14">
+        {children}
+        {footer}
+      </div>
     </div>
   );
 }

@@ -65,9 +65,16 @@ const nextConfig: NextConfig = {
     // and base64-embedded per render (render-rich.ts). Like the chromium binary,
     // these public/ assets are CDN-served and NOT guaranteed to be on the
     // function filesystem, so trace the whole dir into each PDF route.
-    "/api/hr/letters/issue-rich": [CHROMIUM_BIN, "./public/letter-fonts/**"],
-    "/api/hr/letters/pdf": [CHROMIUM_BIN, "./public/letter-fonts/**"],
-    "/api/hr/letters/email-pdf": [CHROMIUM_BIN, "./public/letter-fonts/**"],
+    // BOTH renderers read the letterhead off disk and 500-degrade if it's not on
+    // the function FS: the pdfkit (structured) renderer embeds the baked strip
+    // public/letterhead/header-<id>.jpg (drawHeaderBand) and falls back to an
+    // ugly code-drawn red band when existsSync() fails; the Chromium (rich)
+    // renderer inlines public/letterhead/altus-{header,footer}.png + the entity
+    // logo public/logos/<id>.*. public/ is CDN-served and NOT guaranteed on the
+    // function FS, so trace both dirs into every letter-PDF route.
+    "/api/hr/letters/issue-rich": [CHROMIUM_BIN, "./public/letter-fonts/**", "./public/letterhead/**", "./public/logos/**"],
+    "/api/hr/letters/pdf": [CHROMIUM_BIN, "./public/letter-fonts/**", "./public/letterhead/**", "./public/logos/**"],
+    "/api/hr/letters/email-pdf": [CHROMIUM_BIN, "./public/letter-fonts/**", "./public/letterhead/**", "./public/logos/**"],
   },
   // Externalize heavy server packages so the bundler does NOT compile their huge
   // trees into every route (the Sentry + OpenTelemetry + Prisma-instrumentation
