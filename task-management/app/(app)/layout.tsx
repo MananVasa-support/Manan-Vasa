@@ -11,6 +11,7 @@ import { planGateOn, managerTaskGateOn, dccReviewGateOn, goalsCascadeEnabled, lo
 import { DailyChecklistView } from "@/components/daily-checklist/daily-checklist-view";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { ChromeShell } from "@/components/layout/chrome-shell";
+import { ModuleFooter } from "@/components/layout/module-footer";
 import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
 import { IdleTimerClient } from "@/components/auth/idle-timer-client";
 import { workspaceForPath, canAccessWorkspace } from "@/lib/workspaces";
@@ -33,10 +34,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const pathname = (await headers()).get("x-pathname") ?? "/";
   const ws = workspaceForPath(pathname);
 
+  // Resolved ONCE and reused: the route gate below and the module footer at the
+  // bottom both need it, and `accessFor` hits the DB for the employee's
+  // departments — computing it twice would double that on every page.
+  const access = await accessFor(me);
+
   // Workspace access control: department-restricted rooms (e.g. Sales) are
   // reachable only by super-admins or members of that department. Everyone else
   // is bounced to the hub before the page renders — covers deep links too.
-  if (ws && !canAccessWorkspace(ws, await accessFor(me))) {
+  if (ws && !canAccessWorkspace(ws, access)) {
     redirect("/hub");
   }
 
@@ -181,7 +187,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <KeyboardShortcuts />
       <IdleTimerClient timeoutMinutes={15} />
       <OnboardingNudge />
-      <ChromeShell sidebar={<DashboardSidebar />}>{children}</ChromeShell>
+      <ChromeShell sidebar={<DashboardSidebar />} footer={<ModuleFooter access={access} />}>
+        {children}
+      </ChromeShell>
     </>
   );
 }

@@ -22,9 +22,14 @@ import { workspaceForPath } from "@/lib/workspaces";
  */
 export function ChromeShell({
   sidebar,
+  footer,
   children,
 }: {
   sidebar: ReactNode;
+  /** Site-wide module footer, server-rendered once and passed in (same pattern
+   *  as `sidebar`). Rendered as the LAST child of the page column in BOTH
+   *  branches, so every route ends with it. */
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -47,20 +52,30 @@ export function ChromeShell({
     (pathname?.startsWith("/support/") ?? false);
   const showSidebar = Boolean(ws) && !isHrFullBleed;
 
-  // Full-height frame (both branches): the page column is a FULL-HEIGHT flex
-  // column, so a short page still reaches the bottom of the viewport instead of
-  // stopping mid-screen. Content keeps its natural height and simply grows past
-  // the fold on long pages. This outlived the global footer it was originally
-  // built for — `.app-shell-column > main` (globals.css) is what now absorbs the
-  // slack, and the body's fixed gradient paints everything below the content.
+  // Sticky-footer frame (both branches): the page column is a FULL-HEIGHT flex
+  // column, so the footer — which every page renders as the last sibling of its
+  // top-level fragment — can `mt-auto` itself down to the bottom of the viewport
+  // instead of floating mid-screen on short pages. Content above it keeps its
+  // natural height and simply grows past the fold on long pages.
+  // The module footer is the LAST child of the page column in both branches, and
+  // carries `mt-auto` — so on a short page it sits at the bottom of the viewport
+  // rather than floating under the content, and on a long one it simply follows.
   if (!showSidebar) {
-    return <div className="flex min-h-dvh flex-col">{children}</div>;
+    return (
+      <div className="flex min-h-dvh flex-col">
+        {children}
+        {footer}
+      </div>
+    );
   }
 
   return (
     <div className="flex min-h-dvh">
       {sidebar}
-      <div className="flex min-w-0 flex-1 flex-col max-md:pt-14">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col max-md:pt-14">
+        {children}
+        {footer}
+      </div>
     </div>
   );
 }
