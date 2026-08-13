@@ -409,7 +409,43 @@ export async function renderRichLetterPdf({
   try {
     browser = await launchBrowser();
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
+
+    // ── SSRF / exfiltration hardening ──────────────────────────────────────
+    // The body HTML is user-authored (the "Edit freely" letter). Without this,
+    // headless Chromium would execute any injected <script> and fetch any
+    // sub-resource from the SERVER's network position — SSRF to internal hosts /
+    // cloud metadata, file:// reads, and beaconing out. We:
+    //   1) disable JavaScript entirely (a printed letter needs none), and
+    //   2) intercept every request and allow ONLY `data:` URIs (our inlined
+    //      letterhead/fonts/images) and the Supabase signed-URL host (legit
+    //      inline letter images resolved by resolveInlineImages). Everything
+    //      else — http/https to any other host, file:, blob:, internal IPs — is
+    //      aborted.
+    await page.setJavaScriptEnabled(false);
+    const supabaseHost = (() => {
+      try {
+        return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").host;
+      } catch {
+        return "";
+      }
+    })();
+    await page.setRequestInterception(true);
+    page.on("request", (r: any) => {
+      const url: string = r.url();
+      if (url.startsWith("data:")) return void r.continue();
+      try {
+        const host = new URL(url).host;
+        if (supabaseHost && host === supabaseHost) return void r.continue();
+      } catch {
+        /* unparseable → block */
+      }
+      return void r.abort();
+    });
+
+    // `networkidle0` waited for ALL sub-resource loads (part of the SSRF risk).
+    // With interception in place only allowlisted resources load; `load` is
+    // sufficient and avoids hanging on aborted requests.
+    await page.setContent(html, { waitUntil: "load" });
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,

@@ -316,12 +316,33 @@ export async function setTaskPriority(
       // writer silently wins. The row lock blocks the second txn until the
       // first commits.
       const locked = await tx
-        .select({ priority: tasks.priority })
+        .select({
+          priority: tasks.priority,
+          createdById: tasks.createdById,
+          initiatorId: tasks.initiatorId,
+          doerId: tasks.doerId,
+          status: tasks.status,
+        })
         .from(tasks)
         .where(eq(tasks.id, taskId))
         .for("update");
       const current = locked[0];
       if (!current) return "not-found" as const;
+      // AUTHZ (was MISSING): no participant/admin gate — any employee could set
+      // the priority on any task. Require the same edit permission as other fields.
+      if (
+        !canEditTaskFields({
+          employee: { id: me.id, isAdmin: me.isAdmin },
+          task: {
+            createdById: current.createdById,
+            initiatorId: current.initiatorId,
+            doerId: current.doerId,
+            status: current.status,
+          },
+        })
+      ) {
+        return "forbidden" as const;
+      }
       if (current.priority === priority) return "noop" as const; // idempotent
       const updated = await tx
         .update(tasks)
@@ -339,6 +360,8 @@ export async function setTaskPriority(
       return "ok" as const;
     });
     if (outcome === "not-found") return { ok: false, error: "Task not found." };
+    if (outcome === "forbidden")
+      return { ok: false, error: "You don't have permission to change this task's priority." };
   } catch (err) {
     return { ok: false, error: `Could not change priority: ${(err as Error).message}` };
   }
@@ -399,12 +422,33 @@ export async function reassignDoer(
       // FOR UPDATE so two concurrent reassigns serialise — see
       // setTaskPriority for the rationale.
       const locked = await tx
-        .select({ doerId: tasks.doerId })
+        .select({
+          doerId: tasks.doerId,
+          createdById: tasks.createdById,
+          initiatorId: tasks.initiatorId,
+          status: tasks.status,
+        })
         .from(tasks)
         .where(eq(tasks.id, taskId))
         .for("update");
       const current = locked[0];
       if (!current) return "not-found" as const;
+      // AUTHZ (was MISSING): this trusted a client taskId with no permission
+      // check — any employee could reassign anyone's task, bypassing the
+      // approval hierarchy. Gate exactly like reassignTask.
+      if (
+        !canReassign({
+          employee: { id: me.id, isAdmin: me.isAdmin },
+          task: {
+            createdById: current.createdById,
+            initiatorId: current.initiatorId,
+            doerId: current.doerId,
+            status: current.status,
+          },
+        })
+      ) {
+        return "forbidden" as const;
+      }
       if (current.doerId === doerId) return "noop" as const; // idempotent
       const updated = await tx
         .update(tasks)
@@ -430,6 +474,8 @@ export async function reassignDoer(
       return "ok" as const;
     });
     if (outcome === "not-found") return { ok: false, error: "Task not found." };
+    if (outcome === "forbidden")
+      return { ok: false, error: "You don't have permission to reassign this task." };
   } catch (err) {
     return { ok: false, error: `Could not reassign: ${(err as Error).message}` };
   }
@@ -657,11 +703,29 @@ export async function bulkSetSubject(
   if (limited) return limited;
 
   const rows = await db
-    .select({ id: tasks.id, subject: tasks.subject })
+    .select({
+      id: tasks.id,
+      subject: tasks.subject,
+      createdById: tasks.createdById,
+      initiatorId: tasks.initiatorId,
+      doerId: tasks.doerId,
+      status: tasks.status,
+    })
     .from(tasks)
     .where(inArray(tasks.id, ids));
   const prev = new Map(rows.map((r) => [r.id, r.subject]));
-  const changed = rows.filter((r) => r.subject !== value).map((r) => r.id);
+  // AUTHZ (was MISSING): only overwrite tasks the caller may edit — the single-
+  // task path gates via canEditTaskFields; the bulk path let anyone rewrite any
+  // task's subject. Non-editable tasks are silently skipped.
+  const changed = rows
+    .filter((r) => r.subject !== value)
+    .filter((r) =>
+      canEditTaskFields({
+        employee: { id: me.id, isAdmin: me.isAdmin },
+        task: { createdById: r.createdById, initiatorId: r.initiatorId, doerId: r.doerId, status: r.status },
+      }),
+    )
+    .map((r) => r.id);
   if (changed.length === 0) return { ok: true, updated: 0, skipped: ids.length };
 
   try {
@@ -701,11 +765,27 @@ export async function bulkSetClient(
   if (limited) return limited;
 
   const rows = await db
-    .select({ id: tasks.id, client: tasks.client })
+    .select({
+      id: tasks.id,
+      client: tasks.client,
+      createdById: tasks.createdById,
+      initiatorId: tasks.initiatorId,
+      doerId: tasks.doerId,
+      status: tasks.status,
+    })
     .from(tasks)
     .where(inArray(tasks.id, ids));
   const prev = new Map(rows.map((r) => [r.id, r.client]));
-  const changed = rows.filter((r) => r.client !== value).map((r) => r.id);
+  // AUTHZ (was MISSING): restrict to tasks the caller may edit (see bulkSetSubject).
+  const changed = rows
+    .filter((r) => r.client !== value)
+    .filter((r) =>
+      canEditTaskFields({
+        employee: { id: me.id, isAdmin: me.isAdmin },
+        task: { createdById: r.createdById, initiatorId: r.initiatorId, doerId: r.doerId, status: r.status },
+      }),
+    )
+    .map((r) => r.id);
   if (changed.length === 0) return { ok: true, updated: 0, skipped: ids.length };
 
   try {

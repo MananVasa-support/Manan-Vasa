@@ -49,6 +49,14 @@ export async function POST(req: Request) {
   if (file.size > MAX_BYTES) {
     return NextResponse.json({ ok: false, error: "File exceeds 50MB." }, { status: 413 });
   }
+  // Deny executables + inline-renderable types (html/svg) that could run script
+  // from the signed-URL storage origin (this route had no type guard at all).
+  if (
+    /\.(exe|com|cmd|bat|msi|scr|pif|vbs|js|mjs|cjs|jar|sh|bash|app|dmg|ps1|psm1|reg|hta|cpl|html?|xhtml|svgz?)$/i.test(file.name) ||
+    ["text/html", "application/xhtml+xml", "image/svg+xml"].includes(file.type)
+  ) {
+    return NextResponse.json({ ok: false, error: "This file type is not allowed." }, { status: 415 });
+  }
 
   const ext = (file.name.split(".").pop() ?? "bin").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8);
   const path = `management-assessment/${kind}/${randomUUID()}.${ext || "bin"}`;

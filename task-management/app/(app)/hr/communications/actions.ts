@@ -9,6 +9,7 @@ import { isHrStaff } from "@/lib/hr/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { resolveAudience, type AudienceRule } from "@/lib/ecos/audience";
 import { publishBroadcastCore, deliverBroadcast } from "@/lib/ecos/publish";
+import { sanitizeRichHtml } from "@/lib/security/sanitize-rich-html";
 import type { SaveBroadcastDraftInput } from "./actions-types";
 
 type Ok<T> = { ok: true } & T;
@@ -53,7 +54,10 @@ export async function saveBroadcastDraft(
   const sched = input.scheduledFor ? new Date(input.scheduledFor) : null;
   const values = {
     title,
-    bodyHtml: input.bodyHtml ?? "",
+    // Sanitise stored HTML — it is rendered with dangerouslySetInnerHTML into
+    // every recipient's browser (incl. the login lock-gate), so an unsanitised
+    // body is a stored-XSS vector against everyone, super-admins included.
+    bodyHtml: sanitizeRichHtml(input.bodyHtml),
     bodyText: input.bodyText ?? "",
     category: input.category,
     priority: input.priority,
@@ -421,7 +425,7 @@ export async function saveBroadcastTemplate(
       .values({
         name,
         title: input.title.trim(),
-        bodyHtml: input.bodyHtml,
+        bodyHtml: sanitizeRichHtml(input.bodyHtml),
         category: input.category,
         priority: input.priority,
         ackMode: input.ackMode,

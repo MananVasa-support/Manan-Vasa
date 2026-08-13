@@ -5,9 +5,50 @@ import type { NextConfig } from "next";
 const CHROMIUM_BIN =
   "./node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**";
 
+// Security response headers (applied to every route). The CSP is deliberately
+// BALANCED: strict on the structural directives that stop clickjacking / base-tag
+// / form-hijack / plugin embeds (frame-ancestors, base-uri, form-action,
+// object-src), but permissive on script/style/connect where the app legitimately
+// needs it — inline <style>/style= are used app-wide, and it talks to Firebase +
+// Supabase (+ realtime wss) over https. `unsafe-inline`/`unsafe-eval` are kept so
+// a live app used by real staff doesn't break; a nonce/hash-based script CSP is a
+// separate hardening pass. Stored-HTML XSS is closed at the source (sanitised on
+// save) rather than relying on CSP alone.
+const CSP = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'self'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https: wss:",
+  "frame-src 'self' https:",
+  "media-src 'self' blob: https:",
+  "worker-src 'self' blob:",
+].join("; ");
+
+const SECURITY_HEADERS = [
+  { key: "Content-Security-Policy", value: CSP },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+  // The app USES camera (attendance selfie / work camera), microphone and
+  // geolocation (geofence) — allow those to self; deny the rest by default.
+  { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=(self), payment=(), usb=()" },
+];
+
 const nextConfig: NextConfig = {
   typedRoutes: true,
   devIndicators: false,
+  // Don't advertise the framework/version.
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+  },
   // Ship the hand-crafted Goals bulk-import workbook INTO the template route's
   // serverless function bundle (public/ assets are CDN-served and NOT guaranteed
   // to be on the function filesystem, so a bare readFile would 500 in prod).

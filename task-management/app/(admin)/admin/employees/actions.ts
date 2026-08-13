@@ -42,6 +42,24 @@ import {
 import { siteUrl } from "@/lib/site-url";
 import { generateInvitePassword } from "@/lib/auth/default-password";
 
+/**
+ * Priv-esc guard: super-admins are ordinary `employees` rows identified by email.
+ * A merely-`isAdmin` user must NEVER be able to run a credential/destructive op
+ * (reset password, mint invite/reset link, deactivate, delete) against a
+ * SUPER-ADMIN — otherwise they could reset the super-admin's password, sign in as
+ * them, and seize full control. Returns an error result to short-circuit, or null
+ * when the action may proceed.
+ */
+function guardSuperAdminTarget(
+  me: { email: string },
+  emp: { email: string },
+): { ok: false; error: string } | null {
+  if (isSuperAdmin(emp.email) && !isSuperAdmin(me.email)) {
+    return { ok: false, error: "Only a super-admin can do this to another super-admin." };
+  }
+  return null;
+}
+
 /** Run an async function up to `tries` times with linear backoff. Throws
  *  the last error if all attempts fail. */
 async function retry<T>(
@@ -606,7 +624,7 @@ export async function updateEmployeeAttendanceSchedule(
 export async function getInviteLink(
   employeeId: string,
 ): Promise<{ ok: boolean; link?: string; error?: string }> {
-  await requireAdmin();
+  const me = await requireAdmin();
   const parsedId = EmployeeIdSchema.safeParse(employeeId);
   if (!parsedId.success) {
     return {
@@ -618,6 +636,8 @@ export async function getInviteLink(
     where: eq(employees.id, parsedId.data),
   });
   if (!emp) return { ok: false, error: "Employee not found." };
+  const saGuard = guardSuperAdminTarget(me, emp);
+  if (saGuard) return saGuard;
   if (!emp.isActive) {
     return { ok: false, error: "Employee is deactivated — reactivate first." };
   }
@@ -715,6 +735,8 @@ export async function resetEmployeePassword(
     where: eq(employees.id, parsedId.data),
   });
   if (!emp) return { ok: false, error: "Employee not found." };
+  const saGuard = guardSuperAdminTarget(me, emp);
+  if (saGuard) return saGuard;
   if (!emp.isActive) return { ok: false, error: "Employee is deactivated — reactivate first." };
   if (!emp.firebaseUid) {
     return { ok: false, error: "This employee has no Firebase account yet — contact support." };
@@ -788,6 +810,8 @@ export async function deactivateEmployee(
   }
   const emp = await db.query.employees.findFirst({ where: eq(employees.id, parsedId.data) });
   if (!emp) return { ok: false, error: "Employee not found" };
+  const saGuard = guardSuperAdminTarget(me, emp);
+  if (saGuard) return saGuard;
   if (!emp.isActive) return { ok: false, error: "Employee is already deactivated." };
 
   try {
@@ -1013,6 +1037,8 @@ export async function deleteEmployee(
 
   const emp = await db.query.employees.findFirst({ where: eq(employees.id, id) });
   if (!emp) return { ok: false, error: "Employee not found." };
+  const saGuard = guardSuperAdminTarget(me, emp);
+  if (saGuard) return saGuard;
 
   if (
     typeof confirmationEmail !== "string" ||

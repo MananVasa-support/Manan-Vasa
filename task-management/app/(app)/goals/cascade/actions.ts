@@ -2420,7 +2420,7 @@ const DetectCollisionSchema = z.object({
 export async function detectCopyCollisions(
   input: z.infer<typeof DetectCollisionSchema>,
 ): Promise<ActionResult<{ collisions: Record<string, string[]> }>> {
-  await requireGoalsAccess();
+  const { me, isAdmin } = await requireGoalsAccess();
   const parsed = DetectCollisionSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
   const { ids, targetLevel, targetKeys } = parsed.data;
@@ -2431,6 +2431,10 @@ export async function detectCopyCollisions(
     .where(inArray(goals.id, ids));
   const employeeId = srcRows[0]?.employeeId; // one board = one owner
   if (!employeeId) return { ok: true, collisions: {} };
+  // Scope: only reveal colliding titles for a board the caller actually manages
+  // (was leaking a peer's goal titles for any client-supplied goal id).
+  const scope = await goalScopeFor({ id: me.id, isAdmin });
+  if (!canManageGoalFor(scope, employeeId)) return { ok: true, collisions: {} };
   const srcTitles = new Set(srcRows.map((r) => r.title.trim().toLowerCase()));
 
   const collisions: Record<string, string[]> = {};
@@ -2461,18 +2465,34 @@ const BulkCopySchema = z.object({
 export async function bulkCopyGoalsToPeriod(
   input: z.infer<typeof BulkCopySchema>,
 ): Promise<ActionResult<{ copied: number; skipped: number }>> {
+  // AUTHZ (was MISSING): this jumped straight to the schema parse with no auth
+  // and no ownership check, while its `onDuplicate:"replace"` branch HARD-DELETES
+  // weekly_goals + daily_checklist rows for an employeeId taken from a
+  // client-supplied goal id. Any employee could wipe another's plan. Gate it like
+  // every sibling, and verify the caller may manage EVERY source goal's owner.
+  const { me, isAdmin } = await requireGoalsAccess();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
   const parsed = BulkCopySchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
   const d = parsed.data;
+
+  const scope = await goalScopeFor({ id: me.id, isAdmin });
+  // Resolve the source goals up front (all modes) and confirm ownership BEFORE
+  // any copy/delete. A single unmanageable id fails the whole batch closed.
+  const srcRows = await db
+    .select({ id: goals.id, title: goals.title, employeeId: goals.employeeId })
+    .from(goals)
+    .where(inArray(goals.id, d.ids));
+  if (srcRows.length === 0) return { ok: false, error: "Nothing was copied." };
+  if (!srcRows.every((r) => canManageGoalFor(scope, r.employeeId))) {
+    return { ok: false, error: "You can only copy goals you manage." };
+  }
 
   let copyIds = d.ids;
   let skipped = 0;
 
   if (d.onDuplicate === "skip" || d.onDuplicate === "replace") {
-    const srcRows = await db
-      .select({ id: goals.id, title: goals.title, employeeId: goals.employeeId })
-      .from(goals)
-      .where(inArray(goals.id, d.ids));
     const employeeId = srcRows[0]?.employeeId;
     if (employeeId) {
       const existing = new Set(

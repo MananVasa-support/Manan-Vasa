@@ -377,6 +377,11 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
         Icon: Users,
         managerOnly: true,
       },
+      // Appraisal lives inside this module (per-person under /productivity/team/
+      // <emp>/appraisal). This entry point makes it findable again: /appraisal
+      // redirects a manager to the appraisal workspace (with the person picker)
+      // and an employee to their OWN appraisal (self-access preserved).
+      { href: "/appraisal" as Route, label: "Appraisal", Icon: Award },
     ],
     groups: [],
   },

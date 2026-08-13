@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticateMobileRequest, MOBILE_CORS } from "@/lib/auth/mobile";
+import { accessFor } from "@/lib/auth/workspace-access";
+import { canAccessWorkspace } from "@/lib/workspaces";
 import { dashboardMetrics, listAmbassadors } from "@/lib/queries/ambassadors";
 import { STAGE_LABELS, type Stage } from "@/lib/ambassadors/stages";
 
@@ -28,6 +30,12 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: auth.error }, { status: auth.status, headers: MOBILE_CORS });
   }
   const me = auth.employee;
+  // AUTHZ: the Ambassadors ("Partner Intelligence") surface is the Sales
+  // workspace. This mobile route was auth-only, leaking every partner's revenue,
+  // pending/paid commissions and the executive KPI roll-up to ANY employee.
+  if (!canAccessWorkspace("sales", await accessFor(me))) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403, headers: MOBILE_CORS });
+  }
 
   const [metrics, ambassadors] = await Promise.all([dashboardMetrics(), listAmbassadors()]);
 

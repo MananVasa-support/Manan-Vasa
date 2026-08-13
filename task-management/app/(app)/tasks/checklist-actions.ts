@@ -8,13 +8,39 @@
 import { desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { taskChecklistItems } from "@/db/schema";
+import { taskChecklistItems, tasks } from "@/db/schema";
 import { requireUser } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
+import { canEditTaskFields } from "@/lib/auth/task-permissions";
 
 type Result = { ok: true } | { ok: false; error: string };
 
 const MAX_LABEL = 300;
+
+/**
+ * AUTHZ: every checklist mutation used to trust a client-supplied item/task id
+ * with only `requireUser()`, so any employee could toggle/rename/delete/add
+ * items on ANYONE's task (IDOR). Gate each on whether the caller may edit the
+ * OWNING task's fields (creator / initiator / doer / admin — same predicate the
+ * rest of the task-detail edits use).
+ */
+async function mayEditTask(taskId: string, me: { id: string; isAdmin: boolean }): Promise<boolean> {
+  if (!taskId) return false;
+  const [t] = await db
+    .select({
+      createdById: tasks.createdById,
+      initiatorId: tasks.initiatorId,
+      doerId: tasks.doerId,
+      status: tasks.status,
+    })
+    .from(tasks)
+    .where(eq(tasks.id, taskId))
+    .limit(1);
+  if (!t) return false;
+  return canEditTaskFields({ employee: { id: me.id, isAdmin: me.isAdmin }, task: t });
+}
+
+const FORBIDDEN: Result = { ok: false, error: "You don't have access to this task." };
 
 /** Append a checklist item to a task (next sort order). */
 export async function addChecklistItem(taskId: string, label: string): Promise<Result> {
@@ -26,6 +52,7 @@ export async function addChecklistItem(taskId: string, label: string): Promise<R
   if (!clean) return { ok: false, error: "Enter a checklist item." };
   if (clean.length > MAX_LABEL) return { ok: false, error: `Keep it under ${MAX_LABEL} characters.` };
   if (!taskId) return { ok: false, error: "Missing task." };
+  if (!(await mayEditTask(taskId, me))) return FORBIDDEN;
 
   const [last] = await db
     .select({ sortOrder: taskChecklistItems.sortOrder })
@@ -58,6 +85,7 @@ export async function toggleChecklistItem(itemId: string): Promise<Result> {
     .where(eq(taskChecklistItems.id, itemId))
     .limit(1);
   if (!item) return { ok: false, error: "Item not found." };
+  if (!(await mayEditTask(item.taskId, me))) return FORBIDDEN;
 
   const nextDone = !item.done;
   await db
@@ -89,6 +117,7 @@ export async function renameChecklistItem(itemId: string, label: string): Promis
     .where(eq(taskChecklistItems.id, itemId))
     .limit(1);
   if (!item) return { ok: false, error: "Item not found." };
+  if (!(await mayEditTask(item.taskId, me))) return FORBIDDEN;
 
   await db
     .update(taskChecklistItems)
@@ -111,6 +140,7 @@ export async function deleteChecklistItem(itemId: string): Promise<Result> {
     .where(eq(taskChecklistItems.id, itemId))
     .limit(1);
   if (!item) return { ok: false, error: "Item not found." };
+  if (!(await mayEditTask(item.taskId, me))) return FORBIDDEN;
 
   await db.delete(taskChecklistItems).where(eq(taskChecklistItems.id, itemId));
 

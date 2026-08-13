@@ -6,7 +6,6 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { candidateIntake, interviewPositions } from "@/db/schema";
-import { requireUser } from "@/lib/auth/current";
 import { requireWorkspaceAdmin } from "@/lib/auth/workspace-access";
 import { requireHrStaff } from "@/lib/hr/access";
 import { rateLimitOrError } from "@/lib/rate-limit";
@@ -33,7 +32,7 @@ const DraftSchema = z.object({
  * the wizard can keep saving to the same row.
  */
 export async function saveCandidateDraft(input: z.input<typeof DraftSchema>): Promise<Result<{ id: string }>> {
-  const me = await requireUser();
+  const me = await requireHrStaff();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
@@ -74,7 +73,7 @@ export async function saveCandidateDraft(input: z.input<typeof DraftSchema>): Pr
 
 /** Mark a candidate's form complete (the final "Save candidate"). Idempotent. */
 export async function submitCandidateDraft(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const me = await requireUser();
+  const me = await requireHrStaff();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   if (!z.string().uuid().safeParse(id).success) return { ok: false, error: "Invalid candidate." };
@@ -122,7 +121,7 @@ export interface CandidateDraft {
 
 /** In-progress drafts (not submitted, has content) — for the New/Continue chooser. */
 export async function listCandidateDrafts(): Promise<CandidateDraft[]> {
-  await requireUser();
+  await requireHrStaff();
   const rows = await db
     .select({
       id: candidateIntake.id,
@@ -162,7 +161,7 @@ export interface CandidateDraftState {
 
 /** Full saved state to resume or edit a candidate in the wizard. */
 export async function getCandidateDraft(id: string): Promise<CandidateDraftState | null> {
-  await requireUser();
+  await requireHrStaff();
   if (!z.string().uuid().safeParse(id).success) return null;
   const [r] = await db
     .select({
@@ -192,7 +191,7 @@ export async function setCandidateStatus(
   id: string,
   status: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const me = await requireUser();
+  const me = await requireHrStaff();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   if (!(CANDIDATE_STATUSES as readonly string[]).includes(status)) return { ok: false, error: "Invalid status." };
@@ -243,7 +242,7 @@ export async function deleteCandidateIntake(
 
 /** Upload a candidate file (passport photo / signature) → returns storage path. */
 export async function uploadCandidateFile(fd: FormData): Promise<Result<{ path: string }>> {
-  const me = await requireUser();
+  const me = await requireHrStaff();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
 
@@ -339,7 +338,7 @@ export interface CandidateRow {
 
 /** Recent candidate records for the list view (drafts + completed). */
 export async function listCandidateIntakes(): Promise<CandidateRow[]> {
-  await requireUser();
+  await requireHrStaff();
   const rows = await db
     .select({
       id: candidateIntake.id,
@@ -384,7 +383,7 @@ export async function listCandidateIntakes(): Promise<CandidateRow[]> {
 
 /** Active positions, ordered, as plain labels — feeds the form dropdown. */
 export async function listInterviewPositions(): Promise<string[]> {
-  await requireUser();
+  await requireHrStaff();
   const rows = await db
     .select({ label: interviewPositions.label })
     .from(interviewPositions)
@@ -432,7 +431,7 @@ export async function saveCandidateEvaluation(
   candidateId: string,
   ratings: Record<string, number>,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const me = await requireUser();
+  const me = await requireHrStaff();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   if (!z.string().uuid().safeParse(candidateId).success) return { ok: false, error: "Pick a candidate first." };
@@ -453,7 +452,7 @@ export async function saveCandidateEvaluation(
 
 /** Minimal candidate header (name + position) for the Evaluation Record view. */
 export async function getCandidateBasics(id: string): Promise<{ fullName: string; positionApplied: string | null } | null> {
-  await requireUser();
+  await requireHrStaff();
   if (!z.string().uuid().safeParse(id).success) return null;
   const [r] = await db
     .select({ fullName: candidateIntake.fullName, positionApplied: candidateIntake.positionApplied })
@@ -465,7 +464,7 @@ export async function getCandidateBasics(id: string): Promise<{ fullName: string
 
 /** Load a candidate's saved evaluation ratings (criterionId -> 0..10). */
 export async function getCandidateEvaluation(candidateId: string): Promise<Record<string, number>> {
-  await requireUser();
+  await requireHrStaff();
   if (!z.string().uuid().safeParse(candidateId).success) return {};
   const [row] = await db
     .select({ evaluation: candidateIntake.evaluation })

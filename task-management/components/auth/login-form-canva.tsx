@@ -64,7 +64,12 @@ export function LoginFormCanva() {
   // middleware appends when you open the root domain — as "no preference" so it
   // resolves to /hub too; real deep links (?next=/tasks) are still honored.
   const rawNext = params.get("next");
-  const requestedNext = !rawNext || rawNext === "/" ? "/hub" : rawNext;
+  // SECURITY: only honour SAME-ORIGIN relative paths. Without this, `?next=`
+  // could be `https://evil.com` or `//evil.com` (protocol-relative) → a
+  // post-login OPEN REDIRECT to a phishing site after the user typed real
+  // credentials. Mirrors sanitizeNext() in app/(auth)/welcome/page.tsx.
+  const isSafeNext = !!rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//");
+  const requestedNext = !rawNext || rawNext === "/" || !isSafeNext ? "/hub" : rawNext;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

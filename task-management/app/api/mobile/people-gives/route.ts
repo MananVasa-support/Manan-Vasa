@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticateMobileRequest, MOBILE_CORS } from "@/lib/auth/mobile";
+import { accessFor } from "@/lib/auth/workspace-access";
+import { canAccessWorkspace } from "@/lib/workspaces";
 import { listIntroductions } from "@/lib/queries/people-gives";
 
 export const runtime = "nodejs";
@@ -40,6 +42,12 @@ export async function GET(req: Request) {
   const auth = await authenticateMobileRequest(req);
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status, headers: MOBILE_CORS });
+  }
+  // AUTHZ: People Gives is the Sales workspace. The web page is Sales-gated; this
+  // mobile route was auth-only, leaking the whole referral network (names, cell
+  // numbers, prospects) to ANY employee. Gate on Sales access, like mobile/events.
+  if (!canAccessWorkspace("sales", await accessFor(auth.employee))) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403, headers: MOBILE_CORS });
   }
 
   const rows = await listIntroductions();

@@ -27,8 +27,10 @@ export async function POST(req: Request) {
   if (file.size > MAX_BYTES) {
     return NextResponse.json({ ok: false, error: "File exceeds 25MB." }, { status: 413 });
   }
+  // Explicit allow-list only — the old `startsWith("image/")` fallback admitted
+  // image/svg+xml, which renders script inline from the storage origin.
   const isAudio = AUDIO.has(file.type) || file.type.startsWith("audio/");
-  const isImage = IMAGE.has(file.type) || file.type.startsWith("image/");
+  const isImage = IMAGE.has(file.type);
   if (!isAudio && !isImage) {
     return NextResponse.json({ ok: false, error: "Only audio or image files are accepted." }, { status: 415 });
   }
