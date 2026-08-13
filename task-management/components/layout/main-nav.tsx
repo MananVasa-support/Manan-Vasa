@@ -242,7 +242,8 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       { href: "/incentive" as Route, label: "Incentive", Icon: Award },
       { href: "/my-salary" as Route, label: "My Salary", Icon: Wallet },
       { href: "/reimbursements" as Route, label: "Reimbursements", Icon: Receipt },
-      { href: "/appraisal" as Route, label: "Appraisal", Icon: Target },
+      // Appraisal moved into Team Productivity (2026-08): opened per-person from
+      // the /productivity/team list. The standalone entry is retired here.
       // Queries & Notifications — re-parented here from the HR room (2026-07):
       // it's an employee-facing surface (raise a query, track company notices).
       { href: "/queries" as Route, label: "Queries & Notifications", Icon: BellRing },
@@ -358,10 +359,7 @@ const WORKSPACE_NAV: Record<WorkspaceId, WorkspaceNav> = {
       // pages (board design) + rituals below are the whole module. Cross-level
       // moves live in each card's "Move to…" drawer (the drag-to-sidebar
       // bridge left with the canvas).
-      // "Team Productivity", on the speedometer — it reads as a performance
-      // gauge rather than a second generic dashboard, and matches the icon the
-      // Productivity module already carries.
-      { href: "/goals/weekly/team" as Route, label: "Team Productivity", Icon: Gauge },
+      { href: "/goals/weekly/team" as Route, label: "Team Dashboard", Icon: Users },
       { href: "/goals/review" as Route, label: "Review", Icon: ClipboardList },
       { href: "/goals/approve" as Route, label: "Approve", Icon: CalendarRange },
       { href: "/goals/recycle-bin" as Route, label: "Recycle Bin", Icon: Trash2, adminOnly: true },

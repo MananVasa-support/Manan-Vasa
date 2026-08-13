@@ -19,9 +19,14 @@ const nextConfig: NextConfig = {
     // exist"). Force-include it into every route that renders a RICH letter PDF
     // with headless Chromium. The @* matches whatever pnpm-hoisted version is
     // installed (currently @sparticuz/chromium@149).
-    "/api/hr/letters/issue-rich": [CHROMIUM_BIN],
-    "/api/hr/letters/pdf": [CHROMIUM_BIN],
-    "/api/hr/letters/email-pdf": [CHROMIUM_BIN],
+    // Rich letters print on headless Chromium, which ships NO fonts — the
+    // self-hosted letter fonts (public/letter-fonts/*.woff2) are read off disk
+    // and base64-embedded per render (render-rich.ts). Like the chromium binary,
+    // these public/ assets are CDN-served and NOT guaranteed to be on the
+    // function filesystem, so trace the whole dir into each PDF route.
+    "/api/hr/letters/issue-rich": [CHROMIUM_BIN, "./public/letter-fonts/**"],
+    "/api/hr/letters/pdf": [CHROMIUM_BIN, "./public/letter-fonts/**"],
+    "/api/hr/letters/email-pdf": [CHROMIUM_BIN, "./public/letter-fonts/**"],
   },
   // Externalize heavy server packages so the bundler does NOT compile their huge
   // trees into every route (the Sentry + OpenTelemetry + Prisma-instrumentation

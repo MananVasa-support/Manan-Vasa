@@ -20,7 +20,7 @@ export default async function HrHubPage() {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <HrLanding isHrStaff={staff} canInvite={staff} />
+      <HrLanding isHrStaff={staff} />
     </>
   );
 }

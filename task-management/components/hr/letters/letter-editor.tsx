@@ -563,6 +563,11 @@ export function LetterEditor({
 
   return (
     <div className="alw-wrap">
+      {/* Self-hosted letter-font library — loaded here too so the read-only
+          rich previews (.alw-rich-preview) show the chosen fonts even when the
+          RichLetterEditor itself isn't mounted. React 19 dedupes the link. */}
+      {/* eslint-disable-next-line @next/next/no-css-tags */}
+      <link rel="stylesheet" href="/letter-fonts/letter-fonts.css" />
       <style>{EDITOR_CSS}</style>
 
       {/* ── Toolbar (does not print) ─────────────────────────────── */}

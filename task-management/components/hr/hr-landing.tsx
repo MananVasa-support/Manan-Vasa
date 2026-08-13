@@ -15,15 +15,11 @@ import {
   ClipboardList,
   Plus,
   Target,
-  Send,
   Megaphone,
-  Loader2,
   type LucideIcon,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { HR_STAGES, hrItemHref, type HrStage } from "@/lib/hr/lifecycle";
-import { sendOnboardingInvites } from "@/app/(app)/dossier/onboarding/actions";
-import { fireToast } from "@/lib/toast";
 
 // Loaded on demand (keeps the candidate-actions graph out of the /hr bundle).
 const IntakeChooserPopup = dynamic(
@@ -119,7 +115,7 @@ const LAND_CSS = `
   @media (prefers-reduced-motion: reduce) { .hr-aurora, .hr-shine, .hr-in, .hr-card-in { animation: none !important; } }
 `;
 
-export function HrLanding({ isHrStaff, canInvite = false }: { isHrStaff: boolean; canInvite?: boolean }) {
+export function HrLanding({ isHrStaff }: { isHrStaff: boolean }) {
   const [openStage, setOpenStage] = React.useState<HrStage | null>(null);
   const [chooserOpen, setChooserOpen] = React.useState(false);
   const [policiesOpen, setPoliciesOpen] = React.useState(false);
@@ -161,11 +157,6 @@ export function HrLanding({ isHrStaff, canInvite = false }: { isHrStaff: boolean
         <LayoutGrid size={15} strokeWidth={2.5} className="transition-transform group-hover:-rotate-6" />
         Back to Hub
       </Link>
-
-      {/* Send Onboarding Invites — HR-staff / admin only. Emails every active
-          employee who hasn't submitted their Onboarding Form. Top-right, mirrors
-          the "Back to Hub" pill on the left. */}
-      {canInvite && <SendInvitesButton />}
 
       {/* Content — vertically centred so the whole page holds still (no scroll) */}
       <div className="relative z-10 mx-auto flex w-full max-w-[1180px] flex-1 flex-col items-center justify-center px-8 py-8 text-center max-md:px-5 max-md:py-10">
@@ -220,51 +211,6 @@ export function HrLanding({ isHrStaff, canInvite = false }: { isHrStaff: boolean
 
       <style dangerouslySetInnerHTML={{ __html: LAND_CSS }} />
     </div>
-  );
-}
-
-function SendInvitesButton() {
-  const [pending, startTransition] = React.useTransition();
-
-  const run = () => {
-    if (pending) return;
-    startTransition(async () => {
-      try {
-        const res = await sendOnboardingInvites();
-        if (!res.ok) {
-          fireToast({ message: res.error ?? "Couldn't send onboarding invites.", type: "error" });
-          return;
-        }
-        if (res.sent === 0 && res.skipped === 0) {
-          fireToast({ message: "Everyone has already completed their Onboarding Form.", type: "info" });
-          return;
-        }
-        const skip = res.skipped > 0 ? ` · ${res.skipped} skipped` : "";
-        fireToast({
-          message: `Onboarding invites sent to ${res.sent} employee${res.sent === 1 ? "" : "s"}${skip}.`,
-          type: "success",
-        });
-      } catch {
-        fireToast({ message: "Couldn't send onboarding invites.", type: "error" });
-      }
-    });
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={run}
-      disabled={pending}
-      className="group absolute right-6 top-5 z-30 inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-bold text-white transition-transform hover:translate-x-0.5 disabled:opacity-70 max-md:right-4 max-md:top-4"
-      style={{ background: "linear-gradient(120deg, #A80400 0%, #E10600 100%)", boxShadow: "0 12px 26px -12px rgba(168,4,0,0.55)" }}
-    >
-      {pending ? (
-        <Loader2 size={15} strokeWidth={2.6} className="animate-spin" />
-      ) : (
-        <Send size={15} strokeWidth={2.5} className="transition-transform group-hover:translate-x-0.5" />
-      )}
-      {pending ? "Sending…" : "Send Onboarding Invites"}
-    </button>
   );
 }
 

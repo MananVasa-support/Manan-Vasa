@@ -26,9 +26,15 @@ import { Extension, Mark, mergeAttributes, type CommandProps } from "@tiptap/cor
 import { useEditor, useEditorState, EditorContent, type Editor } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Underline } from "@tiptap/extension-underline";
+// TextStyle v3 is the SINGLE source of truth for inline colour / highlight /
+// font-size / font-family. In TipTap v3 these attributes + their set*/unset*
+// commands are bundled INTO @tiptap/extension-text-style; the standalone
+// @tiptap/extension-color and @tiptap/extension-font-family packages are just
+// deprecated re-export shims that register the SAME global attributes a second
+// time. Adding them alongside TextStyle double-registers `color`/`backgroundColor`
+// /`fontFamily` on the textStyle mark, and the collision is why Text-colour and
+// Highlight silently did nothing. So we import ONLY TextStyle here.
 import { TextStyle } from "@tiptap/extension-text-style";
-import { Color } from "@tiptap/extension-color";
-import { FontFamily } from "@tiptap/extension-font-family";
 import { TextAlign } from "@tiptap/extension-text-align";
 import { Link } from "@tiptap/extension-link";
 import { Image } from "@tiptap/extension-image";
@@ -78,80 +84,17 @@ import {
 import { Letterhead } from "@/components/hr/letterhead/letterhead";
 import { uploadLetterImage } from "@/app/(app)/hr/candidate-actions";
 import { fireToast } from "@/lib/toast";
+import { letterFontGroups, letterFontStack } from "@/lib/hr/letters/fonts";
 
 /* ------------------------------------------------------------------ */
 /* Custom marks / extensions (kept inline — no extra deps)              */
 /* ------------------------------------------------------------------ */
 
-declare module "@tiptap/core" {
-  interface Commands<ReturnType> {
-    altusTextStyleExtras: {
-      /** Set an inline font-size (e.g. "12px"). */
-      setFontSize: (size: string) => ReturnType;
-      /** Clear the inline font-size. */
-      unsetFontSize: () => ReturnType;
-      /** Set a highlight (background) colour on the selection. */
-      setHighlightColor: (color: string) => ReturnType;
-      /** Clear the highlight (background) colour. */
-      unsetHighlightColor: () => ReturnType;
-    };
-  }
-}
-
-/**
- * A tiny mark that piggy-backs on the `textStyle` mark to add `fontSize` +
- * `backgroundColor` inline styles — avoids pulling in @tiptap/extension-font-size
- * or @tiptap/extension-highlight as separate deps.
- */
-const TextStyleExtras = Extension.create({
-  name: "textStyleExtras",
-  addOptions() {
-    return { types: ["textStyle"] as string[] };
-  },
-  addGlobalAttributes() {
-    return [
-      {
-        types: this.options.types,
-        attributes: {
-          fontSize: {
-            default: null as string | null,
-            parseHTML: (el: HTMLElement) => el.style.fontSize || null,
-            renderHTML: (attrs: Record<string, unknown>) =>
-              attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {},
-          },
-          backgroundColor: {
-            default: null as string | null,
-            parseHTML: (el: HTMLElement) => el.style.backgroundColor || null,
-            renderHTML: (attrs: Record<string, unknown>) =>
-              attrs.backgroundColor
-                ? { style: `background-color: ${attrs.backgroundColor}` }
-                : {},
-          },
-        },
-      },
-    ];
-  },
-  addCommands() {
-    return {
-      setFontSize:
-        (size: string) =>
-        ({ chain }) =>
-          chain().setMark("textStyle", { fontSize: size }).run(),
-      unsetFontSize:
-        () =>
-        ({ chain }) =>
-          chain().setMark("textStyle", { fontSize: null }).run(),
-      setHighlightColor:
-        (color: string) =>
-        ({ chain }) =>
-          chain().setMark("textStyle", { backgroundColor: color }).run(),
-      unsetHighlightColor:
-        () =>
-        ({ chain }) =>
-          chain().setMark("textStyle", { backgroundColor: null }).run(),
-    };
-  },
-});
+/* NOTE: font-size + highlight (backgroundColor) used to live in a custom
+ * `TextStyleExtras` extension. TipTap v3's TextStyle now ships those attributes
+ * and the setFontSize / setBackgroundColor / unset* commands itself, so the
+ * custom extension was double-registering them and breaking Highlight + Text
+ * colour. It's been removed — the toolbar calls TextStyle's built-in commands. */
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -330,15 +273,14 @@ const ImageWithPath = Image.extend({
 /* Toolbar building blocks                                              */
 /* ------------------------------------------------------------------ */
 
+// The "Document defaults" group — the letterhead default + a few classic system
+// stacks kept for backward-compat with letters saved before the self-hosted
+// library existed. The 54 self-hosted families come from letterFontGroups().
 const FONT_FAMILIES: { label: string; value: string }[] = [
-  { label: "Letterhead", value: "" }, // "" → unset → inherits the serif frame
+  { label: "Letterhead default", value: "" }, // "" → unset → inherits the serif frame
   { label: "Georgia", value: "Georgia, serif" },
   { label: "Times New Roman", value: '"Times New Roman", Times, serif' },
-  { label: "Garamond", value: '"EB Garamond", Garamond, serif' },
   { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-  { label: "Calibri", value: "Calibri, Candara, sans-serif" },
-  { label: "Helvetica", value: "Helvetica, Arial, sans-serif" },
-  { label: "Verdana", value: "Verdana, Geneva, sans-serif" },
   { label: "Courier New", value: '"Courier New", monospace' },
 ];
 
@@ -358,6 +300,16 @@ const BLOCK_TYPES: { label: string; value: string }[] = [
   { label: "Heading 2", value: "h2" },
   { label: "Heading 3", value: "h3" },
 ];
+
+/** Word-style font-size presets for the size combobox (typeable too). */
+const FONT_SIZES = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
+
+/* A4 page geometry — MUST match <Letterhead> + render-rich.ts so the on-screen
+ * page breaks line up with where headless Chromium actually splits the PDF.
+ *   page 1123px  −  header band 196px  −  footer band 100px  =  827px of body
+ * content per printed page. The editor is one continuous sheet, so we overlay a
+ * dashed "Page N" guide at every 827px of flowed content. */
+const PAGE_CONTENT_H = 1123 - 196 - 100; // 827
 
 /** Line-spacing options for the line-height dropdown. */
 const LINE_HEIGHTS: { label: string; value: string }[] = [
@@ -422,6 +374,12 @@ export function RichLetterEditor({
   const [colorOpen, setColorOpen] = useState(false);
   const [hlOpen, setHlOpen] = useState(false);
   const [tableOpen, setTableOpen] = useState(false);
+  // Editable font-size box (Word-style): a text field that mirrors the current
+  // selection's size but also accepts a typed value (committed on Enter/blur).
+  const [sizeInput, setSizeInput] = useState("11");
+  // Page-break guides — y-offsets (px, from the top of the flowed body) where a
+  // printed page boundary falls. Length + 1 = the letter's page count.
+  const [breakYs, setBreakYs] = useState<number[]>([]);
   const seededRef = useRef<string>("");
 
   const editor = useEditor({
@@ -433,10 +391,9 @@ export function RichLetterEditor({
         link: false,
       }),
       Underline,
+      // TextStyle v3 provides colour / backgroundColor / fontSize / fontFamily
+      // (+ their set*/unset* commands) — one registration, no collisions.
       TextStyle,
-      Color,
-      FontFamily,
-      TextStyleExtras,
       Indent,
       LineHeight,
       FieldPlaceholder,
@@ -514,10 +471,36 @@ export function RichLetterEditor({
         canUndo: ed.can().undo(),
         canRedo: ed.can().redo(),
         fontFamily: (ts.fontFamily as string) ?? "",
-        fontSize: parseInt((ts.fontSize as string) ?? "", 10) || 11,
+        fontSize: parseFloat((ts.fontSize as string) ?? "") || 11,
       };
     },
   });
+
+  // Mirror the current selection's size into the editable size box (unless the
+  // user is mid-typing — handled by the box committing on Enter/blur).
+  const selFontSize = state?.fontSize;
+  useEffect(() => {
+    if (selFontSize != null) setSizeInput(String(selFontSize));
+  }, [selFontSize]);
+
+  // Live page-break guides: measure the flowed body height and drop a boundary
+  // every 827px (one printed A4 page of content). A ResizeObserver on the
+  // ProseMirror surface recomputes on every keystroke / reflow / font change.
+  useEffect(() => {
+    if (!editor) return;
+    const el = editor.view.dom as HTMLElement;
+    const recompute = () => {
+      const pages = Math.max(1, Math.ceil(el.scrollHeight / PAGE_CONTENT_H));
+      const ys = Array.from({ length: pages - 1 }, (_, i) => (i + 1) * PAGE_CONTENT_H);
+      setBreakYs((prev) =>
+        prev.length === ys.length && prev.every((v, i) => v === ys[i]) ? prev : ys,
+      );
+    };
+    recompute();
+    const ro = new ResizeObserver(recompute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [editor]);
 
   const insertImageClick = useCallback(() => fileInputRef.current?.click(), []);
 
@@ -573,13 +556,22 @@ export function RichLetterEditor({
       .run();
   }, [editor]);
 
+  const applyFontSize = useCallback(
+    (raw: number) => {
+      if (!editor) return;
+      // Word tops out at 1638pt; keep a sane 1–400 clamp and allow halves (10.5).
+      const clamped = Math.max(1, Math.min(400, Math.round(raw * 2) / 2));
+      editor.chain().focus().setFontSize(`${clamped}px`).run();
+    },
+    [editor],
+  );
+
   const stepFont = useCallback(
     (dir: 1 | -1) => {
       if (!editor || !state) return;
-      const next = Math.max(6, Math.min(96, state.fontSize + dir));
-      editor.chain().focus().setFontSize(`${next}px`).run();
+      applyFontSize(state.fontSize + dir);
     },
-    [editor, state],
+    [editor, state, applyFontSize],
   );
 
   const setFont = useCallback(
@@ -617,7 +609,7 @@ export function RichLetterEditor({
       .focus()
       .unsetAllMarks()
       .unsetFontSize()
-      .unsetHighlightColor()
+      .unsetBackgroundColor()
       .unsetColor()
       .unsetFontFamily()
       .clearNodes()
@@ -626,6 +618,12 @@ export function RichLetterEditor({
 
   return (
     <div className="rle-root">
+      {/* Self-hosted letter-font @font-face library (54 families). React 19
+          hoists + dedupes this stylesheet link into <head>; the same file is
+          embedded (base64) into the PDF by render-rich.ts so the editor and the
+          printed letter use identical fonts. */}
+      {/* eslint-disable-next-line @next/next/no-css-tags */}
+      <link rel="stylesheet" href="/letter-fonts/letter-fonts.css" />
       <style>{RLE_CSS}</style>
 
       {/* ── TOOLBAR (never prints) ─────────────────────────────── */}
@@ -664,21 +662,37 @@ export function RichLetterEditor({
           ))}
         </select>
 
-        {/* Font family */}
+        {/* Font family — classic defaults + the 54-font self-hosted library,
+            grouped by category. Each option's value is the CSS stack stored
+            inline, so the choice prints identically (fonts are embedded). */}
         <select
-          className="rle-select"
+          className="rle-select rle-select--font"
           aria-label="Font family"
           value={state?.fontFamily ?? ""}
           onChange={(e) => setFont(e.target.value)}
         >
-          {FONT_FAMILIES.map((f) => (
-            <option key={f.label} value={f.value}>
-              {f.label}
-            </option>
+          <optgroup label="Document defaults">
+            {FONT_FAMILIES.map((f) => (
+              <option key={f.label} value={f.value} style={f.value ? { fontFamily: f.value } : undefined}>
+                {f.label}
+              </option>
+            ))}
+          </optgroup>
+          {letterFontGroups().map((g) => (
+            <optgroup key={g.label} label={g.label}>
+              {g.fonts.map((f) => {
+                const stack = letterFontStack(f);
+                return (
+                  <option key={f.id} value={stack} style={{ fontFamily: stack }}>
+                    {f.family}
+                  </option>
+                );
+              })}
+            </optgroup>
           ))}
         </select>
 
-        {/* Font-size stepper */}
+        {/* Font-size box — Word-style: −  [ 11 ▾ ]  +  (typeable + presets) */}
         <div className="rle-stepper" role="group" aria-label="Font size">
           <button
             type="button"
@@ -690,9 +704,38 @@ export function RichLetterEditor({
           >
             <Minus size={15} />
           </button>
-          <span className="rle-size" aria-live="polite">
-            {state?.fontSize ?? 11}
-          </span>
+          <input
+            className="rle-size-input"
+            type="text"
+            inputMode="decimal"
+            list="rle-font-sizes"
+            aria-label="Font size"
+            title="Font size"
+            value={sizeInput}
+            onChange={(e) => setSizeInput(e.target.value.replace(/[^\d.]/g, ""))}
+            onFocus={(e) => e.currentTarget.select()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                const n = parseFloat(sizeInput);
+                if (!Number.isNaN(n)) applyFontSize(n);
+                e.currentTarget.blur();
+              } else if (e.key === "Escape") {
+                setSizeInput(String(state?.fontSize ?? 11));
+                e.currentTarget.blur();
+              }
+            }}
+            onBlur={() => {
+              const n = parseFloat(sizeInput);
+              if (!Number.isNaN(n)) applyFontSize(n);
+              else setSizeInput(String(state?.fontSize ?? 11));
+            }}
+          />
+          <datalist id="rle-font-sizes">
+            {FONT_SIZES.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
           <button
             type="button"
             className="rle-btn rle-btn--tight"
@@ -812,7 +855,7 @@ export function RichLetterEditor({
                     aria-label={`Highlight ${c}`}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
-                      editor?.chain().focus().setHighlightColor(c).run();
+                      editor?.chain().focus().setBackgroundColor(c).run();
                       setHlOpen(false);
                     }}
                   />
@@ -823,7 +866,7 @@ export function RichLetterEditor({
                 className="rle-pop-clear"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
-                  editor?.chain().focus().unsetHighlightColor().run();
+                  editor?.chain().focus().unsetBackgroundColor().run();
                   setHlOpen(false);
                 }}
               >
@@ -1026,8 +1069,27 @@ export function RichLetterEditor({
 
       {/* ── The frozen letterhead + editable body ──────────────── */}
       <div className="rle-page-scroll">
+        {/* Page-count badge — how many A4 pages this letter will print to. */}
+        <div className="rle-pagecount no-print" aria-live="polite">
+          {breakYs.length + 1} {breakYs.length + 1 === 1 ? "page" : "pages"}
+        </div>
         <Letterhead entity={entity}>
-          <EditorContent editor={editor} className="rle-editor" />
+          {/* Continuous body + overlaid page-break guides. The guides bleed to
+              the sheet edges (−70px cancels the body's side padding) and sit on
+              a pointer-events-none layer so they never intercept editing. */}
+          <div className="rle-paged">
+            <EditorContent editor={editor} className="rle-editor" />
+            {breakYs.map((y, i) => (
+              <div
+                key={y}
+                className="rle-pagebreak no-print"
+                style={{ top: `${y}px` }}
+                aria-hidden
+              >
+                <span className="rle-pagebreak-label">Page {i + 2}</span>
+              </div>
+            ))}
+          </div>
         </Letterhead>
       </div>
     </div>
@@ -1084,6 +1146,11 @@ const RLE_CSS = `
 .rle-stepper{display:inline-flex;align-items:center;gap:2px;
   border:1px solid var(--rle-line);border-radius:8px;padding:2px 3px;background:#fff;}
 .rle-size{min-width:24px;text-align:center;font-size:13px;font-variant-numeric:tabular-nums;color:var(--rle-ink);}
+.rle-size-input{width:34px;text-align:center;font-size:13px;font-variant-numeric:tabular-nums;
+  color:var(--rle-ink);border:0;background:transparent;padding:1px 2px;border-radius:5px;outline:none;}
+.rle-size-input:focus{background:color-mix(in srgb,var(--rle-red) 8%,transparent);}
+/* hide the native number-spinner if a UA promotes the datalist input */
+.rle-size-input::-webkit-outer-spin-button,.rle-size-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
 .rle-pop-wrap{position:relative;display:inline-flex;}
 .rle-pop{
   position:absolute;top:calc(100% + 8px);left:0;z-index:60;
@@ -1113,8 +1180,33 @@ const RLE_CSS = `
 .rle-spin{animation:rle-spin 1s linear infinite;}
 @keyframes rle-spin{to{transform:rotate(360deg);}}
 
-/* Page scroller */
-.rle-page-scroll{overflow:auto;padding:4px 0 40px;display:flex;justify-content:center;}
+/* Page scroller — a block container; the A4 sheet centres itself via its own
+   margin:0 auto, which lets the page-count badge sticky-float at the top-right. */
+.rle-page-scroll{position:relative;overflow:auto;padding:4px 0 40px;}
+.rle-pagecount{
+  position:sticky;top:8px;z-index:6;width:max-content;margin:0 16px 2px auto;
+  padding:3px 11px;border-radius:999px;background:rgba(15,23,42,.74);color:#fff;
+  font-size:11.5px;font-weight:600;letter-spacing:.01em;
+  box-shadow:0 8px 20px -10px rgba(15,23,42,.7);
+}
+/* Continuous body + overlaid page-break guides */
+.rle-paged{position:relative;}
+/* A dashed rule bleeding to the sheet edges, marking where the printed PDF
+   splits to the next A4 page (approx — flow model matches render-rich.ts). */
+.rle-pagebreak{
+  position:absolute;left:-70px;right:-70px;height:0;z-index:5;pointer-events:none;
+  border-top:2px dashed color-mix(in srgb,var(--rle-red) 42%,#94a3b8);
+}
+.rle-pagebreak::before{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:16px;
+  background:linear-gradient(to top,rgba(15,23,42,.06),rgba(15,23,42,0));
+}
+.rle-pagebreak-label{
+  position:absolute;right:14px;top:0;transform:translateY(-50%);
+  background:#fff;border:1px solid color-mix(in srgb,var(--rle-red) 40%,#cbd5e1);
+  color:var(--rle-red);font-size:10.5px;font-weight:700;letter-spacing:.03em;
+  padding:1px 9px;border-radius:999px;box-shadow:0 2px 8px -2px rgba(15,23,42,.35);
+}
 
 /* Editable ProseMirror surface — inherits the letterhead serif frame */
 .rle-editor{outline:none;}

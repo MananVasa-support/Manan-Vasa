@@ -56,10 +56,10 @@ export async function DashboardHeader({
           <NavHistoryButtons />
           <MobileMenuServer isAdmin={isAdmin} />
 
-          {/* LEFT: Altus Corp logo — returns to the CURRENT module's landing page
-              (e.g. Training logo → /training, Employees → /attendance); WMS and
-              shared surfaces fall back to /dashboard. */}
-          <a href="https://altuscorp.in" target="_blank" rel="noopener noreferrer" className="flex items-center shrink-0" aria-label="Altus Corp — altuscorp.in (opens in a new tab)">
+          {/* LEFT: Altus Corp logo — clicking it ANYWHERE in the system returns
+              to the Hub (the workspace switchboard). ONLY on the Hub itself does
+              the logo go out to altuscorp.in (see app/(app)/hub/page.tsx). */}
+          <a href="/hub" className="flex items-center shrink-0" aria-label="Back to Hub">
             <img
               src="/logo.png"
               alt="Altus Corp"

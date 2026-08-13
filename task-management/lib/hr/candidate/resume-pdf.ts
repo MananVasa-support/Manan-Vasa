@@ -178,7 +178,7 @@ export async function renderCandidateResumePdf(input: RenderInput): Promise<Buff
     doc
       .font("Helvetica")
       .fontSize(9.5)
-      .fillColor(COLORS.inkSoft)
+      .fillColor(COLORS.ink)
       .text(contactParts.join("   ·   "), left, doc.y, { width: textW, lineGap: 2 });
     doc.y += 2;
   }
@@ -189,7 +189,7 @@ export async function renderCandidateResumePdf(input: RenderInput): Promise<Buff
     doc
       .font("Helvetica")
       .fontSize(9.5)
-      .fillColor(COLORS.inkSoft)
+      .fillColor(COLORS.ink)
       .text(dobParts.join("   ·   "), left, doc.y, { width: textW, lineBreak: false });
   }
 
@@ -205,25 +205,19 @@ export async function renderCandidateResumePdf(input: RenderInput): Promise<Buff
   };
 
   const drawSectionHeading = (label: string): void => {
-    ensure(30);
+    ensure(34);
     const top = doc.y;
-    // Red accent tab + title.
-    doc.save().rect(left, top + 1, 3.5, 12).fill(COLORS.brand).restore();
+    const bandH = 22;
+    // Premium: a soft brand-tint band with a solid red accent tab and the title
+    // in deep red — sections read as distinct, branded blocks (not just a rule).
+    doc.save().roundedRect(left, top, width, bandH, 3.5).fill(COLORS.brandTint).restore();
+    doc.save().rect(left, top, 3.5, bandH).fill(COLORS.brand).restore();
     doc
       .font("Helvetica-Bold")
-      .fontSize(11)
-      .fillColor(COLORS.ink)
-      .text(label.toUpperCase(), left + 10, top, { characterSpacing: 0.6, lineBreak: false });
-    doc.y = top + 17;
-    doc
-      .save()
-      .strokeColor(COLORS.hairlineStrong)
-      .lineWidth(0.8)
-      .moveTo(left, doc.y)
-      .lineTo(right, doc.y)
-      .stroke()
-      .restore();
-    doc.y += 9;
+      .fontSize(10.5)
+      .fillColor(COLORS.brandDeep)
+      .text(label.toUpperCase(), left + 13, top + 6, { characterSpacing: 0.9, lineBreak: false });
+    doc.y = top + bandH + 11;
   };
 
   // Two-column "Label:  value" grid. colX = left edge of a column pair.
@@ -233,12 +227,20 @@ export async function renderCandidateResumePdf(input: RenderInput): Promise<Buff
   const valW = colW - LABEL_W - 6;
 
   const drawRow = (row: ResumeRow, colX: number, rowTop: number): number => {
+    // Label — BLACK, small uppercase caption (letter-spaced) so it reads as a
+    // field label yet stays fully legible (was faint grey).
     doc
       .font("Helvetica")
-      .fontSize(9)
-      .fillColor(COLORS.inkFaint)
-      .text(`${row.label}`, colX, rowTop, { width: LABEL_W, lineBreak: false, ellipsis: true });
+      .fontSize(7.5)
+      .fillColor(COLORS.ink)
+      .text(row.label.toUpperCase(), colX, rowTop + 1.5, {
+        width: LABEL_W,
+        lineBreak: false,
+        ellipsis: true,
+        characterSpacing: 0.4,
+      });
     const h = doc.heightOfString(row.value, { width: valW, lineGap: 1.5 });
+    // Value — BLACK, bold.
     doc
       .font("Helvetica-Bold")
       .fontSize(9.5)
@@ -257,12 +259,23 @@ export async function renderCandidateResumePdf(input: RenderInput): Promise<Buff
         if (!r) return 0;
         return doc.heightOfString(r.value, { width: valW, lineGap: 1.5 });
       };
-      const rowH = Math.max(measure(leftRow), measure(rightRow), 12) + 8;
+      const rowH = Math.max(measure(leftRow), measure(rightRow), 12) + 9;
       ensure(rowH);
       const rowTop = doc.y;
       if (leftRow) drawRow(leftRow, left, rowTop);
       if (rightRow) drawRow(rightRow, left + colW + COL_GAP, rowTop);
       doc.y = rowTop + rowH;
+      // Hairline between row pairs — a light, even rhythm (not after the last).
+      if (i + 2 < rows.length) {
+        doc
+          .save()
+          .strokeColor(COLORS.hairline)
+          .lineWidth(0.4)
+          .moveTo(left, doc.y - 4)
+          .lineTo(right, doc.y - 4)
+          .stroke()
+          .restore();
+      }
     }
   };
 
@@ -295,12 +308,13 @@ export async function renderCandidateResumePdf(input: RenderInput): Promise<Buff
           const rowTop = doc.y;
           doc
             .font("Helvetica")
-            .fontSize(9)
-            .fillColor(COLORS.inkFaint)
-            .text(row.label, left + indent, rowTop, {
+            .fontSize(7.5)
+            .fillColor(COLORS.ink)
+            .text(row.label.toUpperCase(), left + indent, rowTop + 1.5, {
               width: LABEL_W,
               lineBreak: false,
               ellipsis: true,
+              characterSpacing: 0.4,
             });
           doc
             .font("Helvetica-Bold")
@@ -344,7 +358,7 @@ export async function renderCandidateResumePdf(input: RenderInput): Promise<Buff
   doc
     .font("Helvetica")
     .fontSize(8)
-    .fillColor(COLORS.inkFaint)
+    .fillColor(COLORS.inkMuted)
     .text(`Generated ${fmtStamp(new Date())} · ${COMPANY}`, left, footerY, {
       width,
       lineBreak: false,

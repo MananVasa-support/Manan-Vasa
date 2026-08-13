@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { getEntity, DEFAULT_ENTITY_ID, type Entity, type EntityId } from "@/lib/hr/entities";
+import { letterFontsUsedIn } from "@/lib/hr/letters/fonts";
 
 /**
  * HR LETTERS — server-only headless-Chromium PDF renderer for RICH ("Edit
@@ -41,6 +42,7 @@ import { getEntity, DEFAULT_ENTITY_ID, type Entity, type EntityId } from "@/lib/
 const publicDir = path.join(process.cwd(), "public");
 const HEADER_ART_FILE = path.join(publicDir, "letterhead", "altus-header.png");
 const FOOTER_ART_FILE = path.join(publicDir, "letterhead", "altus-footer.png");
+const LETTER_FONTS_DIR = path.join(publicDir, "letter-fonts");
 
 /** Read a public asset off disk and return a base64 `data:` URI (or null). */
 async function fileToDataUri(absPath: string): Promise<string | null> {
@@ -64,6 +66,34 @@ async function fileToDataUri(absPath: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Build `@font-face` rules (base64-inlined woff2) for exactly the self-hosted
+ * letter fonts REFERENCED in the body HTML. Headless Chromium has no network +
+ * ships no fonts of its own, so every chosen family must be embedded here or it
+ * silently falls back — this is what makes the printed letter match the editor.
+ * Only used families are embedded, keeping the document small.
+ */
+async function buildLetterFontFaceCss(bodyHtml: string): Promise<string> {
+  const used = letterFontsUsedIn(bodyHtml);
+  if (used.length === 0) return "";
+  const rules: string[] = [];
+  await Promise.all(
+    used.flatMap((f) =>
+      f.weights.map(async (w) => {
+        const file = path.join(LETTER_FONTS_DIR, `${f.id}-${w}.woff2`);
+        const uri = await fileToDataUri(file);
+        if (uri) {
+          rules.push(
+            `@font-face{font-family:"${f.family}";font-style:normal;font-weight:${w};` +
+              `font-display:swap;src:url(${uri}) format("woff2");}`,
+          );
+        }
+      }),
+    ),
+  );
+  return rules.join("\n");
 }
 
 /** Resolve the entity logo file (public/logos/<id>.png) → data URI, guarded. */
@@ -147,8 +177,9 @@ function buildDocument(opts: {
   logoUri: string | null;
   logoAlt: string;
   bodyHtml: string;
+  fontFaceCss: string;
 }): string {
-  const { headerUri, footerUri, overlayLogo, logoUri, logoAlt, bodyHtml } = opts;
+  const { headerUri, footerUri, overlayLogo, logoUri, logoAlt, bodyHtml, fontFaceCss } = opts;
 
   const headerImg = headerUri
     ? `<img class="alh-art alh-art-top" src="${headerUri}" alt="" aria-hidden="true">`
@@ -170,6 +201,7 @@ function buildDocument(opts: {
 <meta charset="utf-8">
 <meta name="viewport" content="width=794">
 <style>
+${fontFaceCss}
 ${LETTERHEAD_CSS}
 </style>
 </head>
@@ -355,11 +387,12 @@ export async function renderRichLetterPdf({
   const e = getEntity((entity as EntityId | string) ?? null);
   const overlayLogo = e.id !== DEFAULT_ENTITY_ID;
 
-  const [headerUri, footerUri, logoUri, resolvedBody] = await Promise.all([
+  const [headerUri, footerUri, logoUri, resolvedBody, fontFaceCss] = await Promise.all([
     fileToDataUri(HEADER_ART_FILE),
     fileToDataUri(FOOTER_ART_FILE),
     overlayLogo ? entityLogoDataUri(e) : Promise.resolve(null),
     resolveInlineImages(bodyHtml || ""),
+    buildLetterFontFaceCss(bodyHtml || ""),
   ]);
 
   const html = buildDocument({
@@ -369,6 +402,7 @@ export async function renderRichLetterPdf({
     logoUri,
     logoAlt: `${e.displayName} logo`,
     bodyHtml: resolvedBody,
+    fontFaceCss,
   });
 
   let browser: any = null;

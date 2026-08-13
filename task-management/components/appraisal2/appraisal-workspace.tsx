@@ -749,7 +749,9 @@ export function AppraisalWorkspace({
   }, [filtered]);
 
   function go(id: string) {
-    if (id) router.push(`/appraisal?emp=${id}` as Route);
+    // Appraisal moved into Team Productivity (2026-08) — switching person stays
+    // within /productivity/team/[emp]/appraisal.
+    if (id) router.push(`/productivity/team/${id}/appraisal` as Route);
   }
 
   return (

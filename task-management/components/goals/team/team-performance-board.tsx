@@ -12,6 +12,7 @@ import {
   ClipboardList,
   ArrowRight,
   Gauge,
+  Award,
   LogIn,
   LogOut,
   Users,
@@ -653,6 +654,18 @@ function EmployeeDetail({ row, variant }: { row: TeamRow; variant: TeamBoardVari
         >
           <Target size={13} strokeWidth={2.4} /> View Goals
         </Link>
+        {variant === "productivity" && (
+          <Link
+            href={`/productivity/team/${row.id}/appraisal` as Route}
+            className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-bold transition-colors hover:bg-surface-card"
+            style={{
+              borderColor: "color-mix(in srgb, var(--color-altus-red) 35%, transparent)",
+              color: "var(--color-altus-red-deep)",
+            }}
+          >
+            <Award size={13} strokeWidth={2.4} /> Appraisal
+          </Link>
+        )}
         {variant === "productivity" ? (
           <Link
             href={`/productivity?emp=${row.id}` as Route}
