@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Check, GripVertical, Loader2, X } from "lucide-react";
+import { Check, GripVertical, Loader2, Pencil, X } from "lucide-react";
 import { motion } from "motion/react";
 import type { PlanItem } from "./types";
 import { KIND_PERIOD, SourceTag } from "./source-tag";
@@ -18,14 +18,43 @@ interface Props {
   busy?: boolean;
   onToggleDone: (item: PlanItem) => void;
   onRemove: (id: string) => void;
+  /** Save an edited title (fix a typo). Absent ⇒ the card is read-only text. */
+  onRename?: (id: string, title: string) => void;
 }
 
-/** One ordered commitment in "Today's Plan" — sortable, completable, removable. */
-export function PlanItemCard({ item, index, busy, onToggleDone, onRemove }: Props) {
+/** One ordered commitment in "Today's Plan" — sortable, completable, editable, removable. */
+export function PlanItemCard({ item, index, busy, onToggleDone, onRemove, onRename }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
     data: { type: "plan" },
   });
+
+  // Inline title edit — fix the spelling of a commitment after adding it.
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState(item.title);
+  const inputRef = React.useRef<HTMLTextAreaElement>(null);
+
+  const startEdit = React.useCallback(() => {
+    if (!onRename || item.done) return;
+    setDraft(item.title);
+    setEditing(true);
+  }, [onRename, item.done, item.title]);
+
+  const commitEdit = React.useCallback(() => {
+    setEditing(false);
+    const next = draft.trim();
+    if (next.length >= 2 && next !== item.title) onRename?.(item.id, next);
+  }, [draft, item.id, item.title, onRename]);
+
+  React.useEffect(() => {
+    if (editing) {
+      const el = inputRef.current;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(el.value.length, el.value.length);
+      }
+    }
+  }, [editing]);
 
   const period = KIND_PERIOD[item.kind];
 
@@ -112,20 +141,61 @@ export function PlanItemCard({ item, index, busy, onToggleDone, onRemove }: Prop
         </span>
 
         <div className="min-w-0 flex-1">
-          <div
-            className={
-              "truncate text-[13px] leading-[18px] " +
-              (item.done ? "font-medium text-ink-muted line-through" : "font-semibold text-ink-strong")
-            }
-          >
-            {item.title}
-          </div>
+          {editing ? (
+            <textarea
+              ref={inputRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitEdit}
+              onKeyDown={(e) => {
+                // Enter commits (Shift+Enter for a newline); Esc cancels.
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  commitEdit();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setEditing(false);
+                  setDraft(item.title);
+                }
+              }}
+              rows={1}
+              maxLength={280}
+              aria-label="Edit commitment"
+              className="w-full resize-none rounded border bg-surface-card px-1.5 py-1 text-[13px] font-semibold leading-[18px] text-ink-strong outline-none"
+              style={{ borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 55%, transparent)` }}
+            />
+          ) : (
+            <div
+              title={onRename && !item.done ? `${item.title} — double-click to edit` : item.title}
+              onDoubleClick={startEdit}
+              className={
+                "truncate text-[13px] leading-[18px] " +
+                (onRename && !item.done ? "cursor-text " : "") +
+                (item.done ? "font-medium text-ink-muted line-through" : "font-semibold text-ink-strong")
+              }
+            >
+              {item.title}
+            </div>
+          )}
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-muted">
             <SourceTag kind={item.kind} />
             {period ? <span>{period}</span> : null}
             {item.subtitle ? <span className="truncate">{item.subtitle}</span> : null}
           </div>
         </div>
+
+        {/* Edit — turns the title into an input to fix a typo. Hidden while done. */}
+        {onRename && !item.done && !editing ? (
+          <button
+            type="button"
+            onClick={startEdit}
+            aria-label={`Edit ${item.title}`}
+            className="shrink-0 inline-flex size-6 items-center justify-center rounded-full text-ink-muted/60 opacity-0 transition-opacity hover:bg-surface-soft hover:text-ink-strong focus-visible:opacity-100 focus-visible:outline-2 group-hover:opacity-100"
+            style={{ outlineColor: GOALS_ACCENT }}
+          >
+            <Pencil size={13} />
+          </button>
+        ) : null}
 
         <button
           type="button"

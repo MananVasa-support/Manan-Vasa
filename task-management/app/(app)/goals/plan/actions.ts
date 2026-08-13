@@ -686,6 +686,35 @@ export async function removePlanItem(itemId: string): Promise<ActionResult> {
   }
 }
 
+/**
+ * Rename a commitment on today's plan — fix a typo/spelling in what you typed.
+ * Scoped to the caller's OWN daily_checklist row. This edits the plan row's
+ * title only (the personal daily snapshot); it does not rewrite a linked
+ * weekly-goal / task record. Same 2–280 length rules as adding a commitment.
+ */
+export async function renamePlanItem(itemId: string, titleRaw: string): Promise<ActionResult> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  if (!UUID.safeParse(itemId).success) return { ok: false, error: "Invalid item." };
+
+  const title = (titleRaw ?? "").toString().trim();
+  if (title.length < 2) return { ok: false, error: "Type what you'll deliver today." };
+  if (title.length > 280) return { ok: false, error: "Keep it under 280 characters." };
+
+  try {
+    const updated = await db
+      .update(dailyChecklist)
+      .set({ title, updatedAt: new Date() })
+      .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, me.id)))
+      .returning({ id: dailyChecklist.id });
+    if (updated.length === 0) return { ok: false, error: "That item isn't on your plan." };
+    return { ok: true };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 /* ───────────────── Phase 5 — canvas Day-stage lazy loader ───────────────── */
 
 /**

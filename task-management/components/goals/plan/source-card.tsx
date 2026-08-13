@@ -75,7 +75,12 @@ export function SourceCard({ item, today, onAdd, onAbandon }: Props) {
         </button>
 
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-semibold leading-[18px] text-ink-strong">{item.title}</div>
+          <div
+            title={item.title}
+            className="truncate text-[13px] font-semibold leading-[18px] text-ink-strong"
+          >
+            {item.title}
+          </div>
 
           {/* Identity line — what this is and where it came from. */}
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] leading-[15px] text-ink-muted">

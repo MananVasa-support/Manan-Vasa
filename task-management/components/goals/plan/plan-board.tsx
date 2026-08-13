@@ -60,6 +60,7 @@ import {
   abandonTask,
   reorderPlan,
   removePlanItem,
+  renamePlanItem,
   setItemProgress,
   startMyDay,
 } from "@/app/(app)/goals/plan/actions";
@@ -239,6 +240,26 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
     });
   }, []);
 
+  // Rename a commitment (fix a typo). Optimistic; reverts on failure. A still-
+  // saving optimistic row (temp: id) can't be renamed server-side yet, so skip.
+  const onRename = React.useCallback((id: string, title: string) => {
+    if (id.startsWith("temp:")) return;
+    let prevTitle = "";
+    setPlan((prev) =>
+      prev.map((i) => {
+        if (i.id === id) prevTitle = i.title;
+        return i.id === id ? { ...i, title } : i;
+      }),
+    );
+    startTransition(async () => {
+      const res = await renamePlanItem(id, title);
+      if (!res.ok) {
+        setPlan((prev) => prev.map((i) => (i.id === id ? { ...i, title: prevTitle } : i)));
+        fireToast({ message: res.error });
+      }
+    });
+  }, []);
+
   const onAddAdhoc = React.useCallback(async (title: string) => {
     const tempId = `temp:${crypto.randomUUID()}`;
     setPlan((prev) => [...nonGhost(prev), { id: tempId, title, subtitle: null, origin: "standalone", kind: "adhoc", done: false }]);
@@ -365,6 +386,7 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
           busyId={busyId}
           onToggleDone={onToggleDone}
           onRemove={onRemove}
+          onRename={onRename}
           onAddAdhoc={onAddAdhoc}
           onStart={onStartDay}
         />
@@ -429,10 +451,11 @@ function PlanColumn(props: {
   busyId: string | null;
   onToggleDone: (item: PlanItem) => void;
   onRemove: (id: string) => void;
+  onRename: (id: string, title: string) => void;
   onAddAdhoc: (title: string) => void;
   onStart: () => void;
 }) {
-  const { plan, count, doneCount, minItems, met, isManager, starting, busyId, onToggleDone, onRemove, onAddAdhoc, onStart } = props;
+  const { plan, count, doneCount, minItems, met, isManager, starting, busyId, onToggleDone, onRemove, onRename, onAddAdhoc, onStart } = props;
   const { setNodeRef, isOver } = useDroppable({ id: PLAN_DROP_ID });
   const [draft, setDraft] = React.useState("");
   const reduce = useReducedMotion();
@@ -508,6 +531,7 @@ function PlanColumn(props: {
                   busy={busyId === item.id}
                   onToggleDone={onToggleDone}
                   onRemove={onRemove}
+                  onRename={onRename}
                 />
               ))}
             </AnimatePresence>
