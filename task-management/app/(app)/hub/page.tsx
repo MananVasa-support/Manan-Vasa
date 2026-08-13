@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { Route } from "next";
 import { ArrowRight, Lock } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { accessFor } from "@/lib/auth/workspace-access";
@@ -176,11 +177,12 @@ export default async function HubPage() {
             truly centered on the page regardless of their differing widths. */}
         <header className="flex shrink-0 items-center gap-6 max-md:flex-col max-md:gap-4 max-md:text-center">
           <div className="flex flex-1 justify-start max-md:justify-center">
-            <a
-              href="https://altuscorp.in"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Altus Corp — altuscorp.in"
+            {/* Stays INSIDE the app. This used to open altuscorp.in in a new
+                tab; the brand mark now routes to the Hub itself, so clicking it
+                never leaves the workspace. */}
+            <Link
+              href={"/hub" as Route}
+              aria-label="Altus Corp — Workspaces Hub"
               className="shrink-0 rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]"
             >
               <Image
@@ -191,7 +193,7 @@ export default async function HubPage() {
                 priority
                 className="h-[84px] w-auto shrink-0 max-md:h-[64px]"
               />
-            </a>
+            </Link>
           </div>
 
           <div className="shrink-0 text-center">

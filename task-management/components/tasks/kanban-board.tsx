@@ -26,8 +26,10 @@ import {
   KeyboardSensor,
   useSensor,
   useSensors,
-  useDraggable,
+  closestCenter,
   closestCorners,
+  pointerWithin,
+  type CollisionDetection,
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
@@ -35,6 +37,7 @@ import {
 import {
   SortableContext,
   horizontalListSortingStrategy,
+  verticalListSortingStrategy,
   useSortable,
   sortableKeyboardCoordinates,
   arrayMove,
@@ -88,6 +91,85 @@ interface Props {
 // Cards rendered per column before "Show more"; each tap reveals 10 more.
 const COL_STEP = 10;
 
+// How long the "Task moved to …  Undo" toast stays actionable.
+const UNDO_MS = 10_000;
+
+/** What a card looked like when its drag began — everything Undo needs to put
+ *  it back in the exact column AND the exact slot it came from. */
+interface DragOrigin {
+  id: string;
+  col: ColId;
+  /** Index within `col` before the drag. */
+  index: number;
+  /** The whole source column's id order, card included — restored verbatim on
+   *  Undo so its neighbours land back exactly as they were. */
+  colOrder: string[];
+  status: TaskStatus;
+  archived: boolean;
+  /** Optimistic-lock token to ship with the status write. */
+  updatedAt: Date;
+}
+
+// ── Per-column card order ───────────────────────────────────────────────────
+// The board query orders tasks `desc(createdAt)` and there is no per-task board
+// position in the schema, so an exact drop index has to be remembered on the
+// client — otherwise the reconcile refresh that follows every drop
+// (`scheduleReconcile`) re-sorts the column and the card snaps back down.
+// Shape: `columnId → ordered task ids`; only columns the user has actually
+// arranged get an entry. localStorage rather than the DB for the same reason as
+// display-scale: it is one person's arrangement of their own board, and sharing
+// it would need a schema migration plus a conflict story.
+const KANBAN_ORDER_KEY = "altus.kanbanOrder.v1";
+type BoardOrder = Record<string, string[]>;
+
+function readBoardOrder(): BoardOrder {
+  if (typeof localStorage === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(KANBAN_ORDER_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const out: BoardOrder = {};
+    for (const [col, ids] of Object.entries(parsed as Record<string, unknown>)) {
+      if (Array.isArray(ids)) out[col] = ids.filter((id): id is string => typeof id === "string");
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function writeBoardOrder(order: BoardOrder): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(KANBAN_ORDER_KEY, JSON.stringify(order));
+  } catch {
+    // Private mode / quota — the board still works, the arrangement is just
+    // session-only.
+  }
+}
+
+/**
+ * Sort one column's cards by the user's arrangement.
+ *
+ * Ids the arrangement doesn't mention (a task created since, or one that just
+ * landed here from the list view) stay at the TOP, where the server's
+ * newest-first order would have put them — so a new task is never buried at the
+ * bottom of a column that happens to have been arranged once. Stale ids (cards
+ * that have since moved elsewhere) simply never match and are ignored.
+ */
+function applyBoardOrder<T extends { id: string }>(list: T[], order: string[] | undefined): T[] {
+  if (!order || order.length === 0 || list.length === 0) return list;
+  const rank = new Map<string, number>();
+  order.forEach((id, i) => rank.set(id, i));
+  const arranged: T[] = [];
+  const fresh: T[] = [];
+  for (const item of list) (rank.has(item.id) ? arranged : fresh).push(item);
+  if (arranged.length === 0) return list;
+  arranged.sort((a, b) => rank.get(a.id)! - rank.get(b.id)!);
+  return fresh.length === 0 ? arranged : [...fresh, ...arranged];
+}
+
 function accentFor(col: ColId, tones: Record<TaskStatus, StatusColorToken>) {
   const isArchive = col === ARCHIVE_COL;
   const tone = isArchive ? null : tones[col as TaskStatus];
@@ -116,9 +198,24 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
   // The active drag (card or column) — drives the DragOverlay + drop targeting.
   const [active, setActive] = React.useState<{ id: string; type: "card" | "column" } | null>(null);
   const [overCol, setOverCol] = React.useState<string | null>(null);
+  // Where the user has arranged each column's cards (see BoardOrder above).
+  const [order, setOrder] = React.useState<BoardOrder>({});
+  const orderHydrated = React.useRef(false);
 
   React.useEffect(() => setItems(tasks), [tasks]);
   React.useEffect(() => setColumns(columnOrder), [columnOrder]);
+
+  // Persist the arrangement. Declared BEFORE the hydrate effect on purpose: on
+  // mount this one runs first and bails (not hydrated yet), so the empty
+  // initial state can never clobber a saved order.
+  React.useEffect(() => {
+    if (orderHydrated.current) writeBoardOrder(order);
+  }, [order]);
+  React.useEffect(() => {
+    orderHydrated.current = true;
+    const saved = readBoardOrder();
+    if (Object.keys(saved).length > 0) setOrder(saved);
+  }, []);
 
   // ── Canvas-style panning (Figma/Linear feel) ──────────────────────────────
   // The board scrolls horizontally from ANYWHERE (wheel), and holding Space
@@ -243,15 +340,50 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
   // matches rather than the unfiltered total. Optimistic drag still mutates
   // `items`.
   const sectionQuery = useSectionSearch();
-  const filtered = React.useMemo(() => {
-    if (!sectionQuery) return items;
+  // `null` = no search running (everything matches). A Set rather than a
+  // filtered list so the arranged column order below stays the source of truth
+  // and search only decides what is *rendered* out of it.
+  const matchIds = React.useMemo(() => {
+    if (!sectionQuery) return null;
     const qNum = sectionQuery.replace(/^#/, ""); // "#1042" and "1042" both hit
-    return items.filter(
-      (t) =>
+    const hits = new Set<string>();
+    for (const t of items) {
+      if (
         (t.taskNo != null && String(t.taskNo).includes(qNum)) ||
-        matchesSearch(sectionQuery, t.title, t.description, t.subject, t.client, t.doerName),
-    );
+        matchesSearch(sectionQuery, t.title, t.description, t.subject, t.client, t.doerName)
+      ) {
+        hits.add(t.id);
+      }
+    }
+    return hits;
   }, [items, sectionQuery]);
+
+  // Every column's FULL card list (search-independent), in the arranged order.
+  // Drop maths runs against these so an insert lands in the right slot even
+  // when a search or the "Show more" limit is hiding some of the neighbours.
+  const colTasks = React.useMemo(() => {
+    const m = new Map<string, BoardTask[]>();
+    for (const col of columns) {
+      const list =
+        col === ARCHIVE_COL
+          ? items.filter((t) => t.archived)
+          : items.filter((t) => !t.archived && t.status === col);
+      m.set(col, applyBoardOrder(list, order[col]));
+    }
+    return m;
+  }, [items, columns, order]);
+
+  /** Which column a card currently sits in — also the "is this id a card?" test. */
+  const colOfCard = React.useMemo(() => {
+    const m = new Map<string, ColId>();
+    for (const [col, list] of colTasks) for (const t of list) m.set(t.id, col as ColId);
+    return m;
+  }, [colTasks]);
+
+  const idsOf = React.useCallback(
+    (col: ColId) => (colTasks.get(col) ?? []).map((t) => t.id),
+    [colTasks],
+  );
 
   async function persistOrder(next: ColId[]) {
     const prev = columns;
@@ -263,54 +395,98 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
     }
   }
 
-  async function archiveCard(taskId: string) {
-    const task = items.find((t) => t.id === taskId);
-    if (!task || task.archived) return;
-    const prev = items;
-    setItems((cur) => cur.map((t) => (t.id === taskId ? { ...t, archived: true } : t)));
-    setSavingId(taskId);
-    const res = await archiveTask(taskId);
+  /** Put a card back exactly where its drag started — column, slot, neighbours. */
+  const restoreOrigin = React.useCallback((o: DragOrigin, landedIn: ColId) => {
+    setItems((cur) =>
+      cur.map((t) => (t.id === o.id ? { ...t, status: o.status, archived: o.archived } : t)),
+    );
+    setOrder((prev) => {
+      const next = { ...prev };
+      if (landedIn !== o.col) next[landedIn] = (next[landedIn] ?? []).filter((id) => id !== o.id);
+      next[o.col] = o.colOrder;
+      return next;
+    });
+  }, []);
+
+  // ── Server commits ────────────────────────────────────────────────────────
+  // The card has ALREADY moved (and been slotted) optimistically by the drag,
+  // so these only talk to the server, roll back on failure, and offer Undo.
+
+  async function commitArchive(o: DragOrigin) {
+    setSavingId(o.id);
+    const res = await archiveTask(o.id);
     setSavingId(null);
     if (!res.ok) {
-      setItems(prev);
+      restoreOrigin(o, ARCHIVE_COL);
       fireToast({ message: res.error || "Couldn't archive the task." });
       router.refresh();
-    } else {
-      fireToast({ message: "Archived." });
-      // Card already moved to Archived optimistically — reconcile counts/derived
-      // fields in one coalesced background refresh (Operation Butter P1).
-      scheduleReconcile(() => router.refresh());
+      return;
     }
+    fireToast({
+      message: "Task moved to Archived",
+      actionLabel: "Undo",
+      duration: UNDO_MS,
+      action: async () => {
+        restoreOrigin(o, ARCHIVE_COL);
+        setSavingId(o.id);
+        const undone = await unarchiveTask(o.id);
+        setSavingId(null);
+        if (!undone.ok) {
+          fireToast({ message: undone.error || "Couldn't undo the move." });
+          router.refresh();
+          return;
+        }
+        fireToast({ message: "Move undone." });
+        scheduleReconcile(() => router.refresh());
+      },
+    });
+    // Card already moved to Archived optimistically — reconcile counts/derived
+    // fields in one coalesced background refresh (Operation Butter P1).
+    scheduleReconcile(() => router.refresh());
   }
 
-  async function restoreCard(taskId: string) {
-    const task = items.find((t) => t.id === taskId);
-    if (!task || !task.archived) return;
-    const prev = items;
-    setItems((cur) => cur.map((t) => (t.id === taskId ? { ...t, archived: false } : t)));
-    setSavingId(taskId);
-    const res = await unarchiveTask(taskId);
+  async function commitRestore(o: DragOrigin) {
+    setItems((cur) => cur.map((t) => (t.id === o.id ? { ...t, archived: false } : t)));
+    setOrder((prev) => ({
+      ...prev,
+      [ARCHIVE_COL]: (prev[ARCHIVE_COL] ?? o.colOrder).filter((id) => id !== o.id),
+    }));
+    setSavingId(o.id);
+    const res = await unarchiveTask(o.id);
     setSavingId(null);
     if (!res.ok) {
-      setItems(prev);
+      restoreOrigin(o, o.status);
       fireToast({ message: res.error || "Couldn't restore the task." });
       router.refresh();
-    } else {
-      fireToast({ message: "Restored." });
-      scheduleReconcile(() => router.refresh());
+      return;
     }
+    fireToast({
+      message: `Task moved to ${labels[o.status]}`,
+      actionLabel: "Undo",
+      duration: UNDO_MS,
+      action: async () => {
+        restoreOrigin(o, o.status);
+        setSavingId(o.id);
+        const undone = await archiveTask(o.id);
+        setSavingId(null);
+        if (!undone.ok) {
+          fireToast({ message: undone.error || "Couldn't undo the move." });
+          router.refresh();
+          return;
+        }
+        fireToast({ message: "Move undone." });
+        scheduleReconcile(() => router.refresh());
+      },
+    });
+    scheduleReconcile(() => router.refresh());
   }
 
-  async function moveTo(taskId: string, status: TaskStatus) {
-    const task = items.find((t) => t.id === taskId);
-    if (!task || task.status === status) return;
-    const prev = items;
-    setItems((cur) => cur.map((t) => (t.id === taskId ? { ...t, status } : t)));
-    setSavingId(taskId);
-    const res = await setTaskStatus(taskId, status, task.updatedAt.toISOString());
+  async function commitStatus(o: DragOrigin, status: TaskStatus) {
+    setSavingId(o.id);
+    const res = await setTaskStatus(o.id, status, o.updatedAt.toISOString());
     setSavingId(null);
     if (!res.ok) {
-      setItems(prev);
+      restoreOrigin(o, status);
       fireToast({
         message:
           res.error === "forbidden"
@@ -322,38 +498,173 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
                 : "Couldn't update the task.",
       });
       router.refresh();
-    } else {
-      // Advance the moved card's lock token so a second drag of the SAME card
-      // doesn't ship a stale `updatedAt` (Operation Butter P1).
-      setItems((cur) =>
-        cur.map((t) => (t.id === taskId ? { ...t, updatedAt: new Date(res.updatedAt) } : t)),
-      );
-      fireToast({ message: `Moved to ${labels[status]}.` });
-      // Card already moved columns optimistically — coalesce the server-derived
-      // reconcile (late badge, counts) into one background refresh.
-      scheduleReconcile(() => router.refresh());
+      return;
     }
+    // Advance the moved card's lock token so a second drag of the SAME card —
+    // or the Undo below — doesn't ship a stale `updatedAt` (Operation Butter P1).
+    const token = new Date(res.updatedAt);
+    setItems((cur) => cur.map((t) => (t.id === o.id ? { ...t, updatedAt: token } : t)));
+    fireToast({
+      message: `Task moved to ${labels[status]}`,
+      actionLabel: "Undo",
+      duration: UNDO_MS,
+      action: async () => {
+        restoreOrigin(o, status);
+        setSavingId(o.id);
+        const undone = await setTaskStatus(o.id, o.status, token.toISOString());
+        setSavingId(null);
+        if (!undone.ok) {
+          fireToast({ message: "Couldn't undo the move." });
+          router.refresh();
+          return;
+        }
+        const back = new Date(undone.updatedAt);
+        setItems((cur) => cur.map((t) => (t.id === o.id ? { ...t, updatedAt: back } : t)));
+        fireToast({ message: `Task moved back to ${labels[o.status]}` });
+        scheduleReconcile(() => router.refresh());
+      },
+    });
+    // Card already moved columns optimistically — coalesce the server-derived
+    // reconcile (late badge, counts) into one background refresh.
+    scheduleReconcile(() => router.refresh());
   }
+
+  // ── Drag targeting ────────────────────────────────────────────────────────
+
+  /** The column an `over` id belongs to — a card resolves to its column. */
+  const columnOf = React.useCallback(
+    (id: string | null | undefined): ColId | null => {
+      if (id == null) return null;
+      return colOfCard.get(id) ?? (columns.includes(id as ColId) ? (id as ColId) : null);
+    },
+    [colOfCard, columns],
+  );
+
+  /**
+   * Cards win over columns. This is what stops the append-to-end behaviour:
+   * plain `closestCorners` reports the COLUMN whenever the pointer sits in the
+   * gap between two cards, and a column target can only ever mean "add to the
+   * end". Resolving to the nearest CARD instead yields a real target index.
+   */
+  const collisionDetection = React.useCallback<CollisionDetection>(
+    (args) => {
+      if (args.active.data.current?.type === "column") {
+        return closestCenter({
+          ...args,
+          droppableContainers: args.droppableContainers.filter(
+            (c) => c.data.current?.type === "column",
+          ),
+        });
+      }
+      const isCard = (id: string | number) => colOfCard.has(String(id));
+      const pointer = pointerWithin(args);
+      const onCards = pointer.filter((c) => isCard(c.id));
+      if (onCards.length > 0) return onCards;
+
+      const corners = closestCorners(args);
+      const hoveredCol = pointer.find((c) => !isCard(c.id))?.id;
+      if (hoveredCol != null) {
+        const inCol = corners.filter((c) => colOfCard.get(String(c.id)) === hoveredCol);
+        if (inCol.length > 0) return inCol;
+        const col = corners.filter((c) => c.id === hoveredCol);
+        if (col.length > 0) return col;
+      }
+      return corners.length > 0 ? corners : pointer;
+    },
+    [colOfCard],
+  );
+
+  const originRef = React.useRef<DragOrigin | null>(null);
 
   function onDragStart(e: DragStartEvent) {
     const type = (e.active.data.current?.type as "card" | "column") ?? "card";
-    setActive({ id: String(e.active.id), type });
+    const id = String(e.active.id);
+    setActive({ id, type });
+    originRef.current = null;
+    if (type !== "card") return;
+    const col = colOfCard.get(id);
+    const card = items.find((t) => t.id === id);
+    if (!col || !card) return;
+    const ids = idsOf(col);
+    originRef.current = {
+      id,
+      col,
+      index: ids.indexOf(id),
+      colOrder: ids,
+      status: card.status,
+      archived: card.archived,
+      updatedAt: card.updatedAt,
+    };
   }
 
+  /**
+   * Live re-homing. Moving a card to a DIFFERENT column is spliced in here at
+   * the hovered index — never appended — so the destination's cards physically
+   * shift apart and the card's slot (a dashed outline) previews the exact
+   * insertion point. Re-ordering WITHIN a column is deliberately not committed
+   * here: `verticalListSortingStrategy` already animates that preview, and
+   * mutating state on every hover would fight it.
+   */
   function onDragOver(e: DragOverEvent) {
-    setOverCol(e.over ? String(e.over.id) : null);
+    const { active: a, over } = e;
+    if (a.data.current?.type === "column") {
+      setOverCol(over ? String(over.id) : null);
+      return;
+    }
+    const to = columnOf(over ? String(over.id) : null);
+    setOverCol(to);
+    const activeId = String(a.id);
+    const from = colOfCard.get(activeId);
+    if (!to || !from || from === to) return;
+
+    const card = items.find((t) => t.id === activeId);
+    if (!card) return;
+    // Restoring an archived card keeps its own status, so it can't be previewed
+    // into the hovered column — the column highlight is the affordance there.
+    if (card.archived && to !== ARCHIVE_COL) return;
+
+    // Target index: before or after the hovered card depending on which half of
+    // it the dragged card has crossed. Only a drop on bare column space (an
+    // empty column) falls through to the end.
+    const destIds = idsOf(to).filter((id) => id !== activeId);
+    let targetIndex = destIds.length;
+    const overId = over ? String(over.id) : null;
+    if (overId && colOfCard.get(overId) === to) {
+      const translated = a.rect.current.translated;
+      const below =
+        !!translated && !!over && translated.top > over.rect.top + over.rect.height / 2;
+      targetIndex = destIds.indexOf(overId) + (below ? 1 : 0);
+    }
+    // Splice at the target — every other card keeps its exact relative order.
+    destIds.splice(Math.max(0, Math.min(targetIndex, destIds.length)), 0, activeId);
+
+    setItems((cur) =>
+      cur.map((t) =>
+        t.id !== activeId
+          ? t
+          : to === ARCHIVE_COL
+            ? { ...t, archived: true }
+            : { ...t, archived: false, status: to as TaskStatus },
+      ),
+    );
+    setOrder((prev) => ({
+      ...prev,
+      [from]: idsOf(from).filter((id) => id !== activeId),
+      [to]: destIds,
+    }));
   }
 
   function onDragEnd(e: DragEndEvent) {
     const a = active;
+    const o = originRef.current;
     setActive(null);
     setOverCol(null);
+    originRef.current = null;
     const { over } = e;
-    if (!over || !a) return;
-    const overId = String(over.id);
 
-    if (a.type === "column") {
-      if (!isAdmin || overId === a.id) return;
+    if (a?.type === "column") {
+      const overId = over ? String(over.id) : null;
+      if (!overId || !isAdmin || overId === a.id) return;
       const from = columns.indexOf(a.id as ColId);
       const to = columns.indexOf(overId as ColId);
       if (from < 0 || to < 0) return;
@@ -361,19 +672,66 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
       return;
     }
 
-    // Card drop — `over` resolves to a column droppable.
-    const card = items.find((t) => t.id === a.id);
-    if (!card) return;
-    if (overId === ARCHIVE_COL) {
-      if (!card.archived) void archiveCard(card.id);
+    if (!a || !o) return;
+    // Released outside any column — undo the live preview, change nothing.
+    if (!over) {
+      restoreOrigin(o, colOfCard.get(a.id) ?? o.col);
       return;
     }
-    // A status column. Dropping an archived card restores it (keeps status).
-    if (card.archived) {
-      void restoreCard(card.id);
+
+    const overId = String(over.id);
+    const dropCol = columnOf(overId);
+
+    // Archived → a status column restores the card and KEEPS its status (the
+    // board's long-standing rule), so it lands in its own column, not this one.
+    if (o.archived && dropCol && dropCol !== ARCHIVE_COL) {
+      void commitRestore(o);
       return;
     }
-    void moveTo(card.id, overId as TaskStatus);
+
+    // Commit the final slot. Cross-column placement was already spliced in
+    // during the drag; this is the within-column `arrayMove` the sorting
+    // strategy has been previewing — a pure reposition that leaves every other
+    // card's relative order untouched.
+    const landedIn = colOfCard.get(a.id) ?? o.col;
+    let ids = idsOf(landedIn);
+    if (overId !== a.id && colOfCard.get(overId) === landedIn) {
+      const from = ids.indexOf(a.id);
+      const to = ids.indexOf(overId);
+      if (from >= 0 && to >= 0 && from !== to) ids = arrayMove(ids, from, to);
+    }
+    setOrder((prev) => {
+      const next = { ...prev, [landedIn]: ids };
+      if (landedIn !== o.col) next[o.col] = idsOf(o.col).filter((id) => id !== a.id);
+      return next;
+    });
+    // Dropped below the destination's "Show more" cut-off — reveal enough of
+    // the column that the card the user just placed stays on screen.
+    const landedIdx = ids.indexOf(a.id);
+    if (landedIdx >= (visibleByCol[landedIn] ?? COL_STEP)) {
+      setVisibleByCol((m) => ({
+        ...m,
+        [landedIn]: Math.ceil((landedIdx + 1) / COL_STEP) * COL_STEP,
+      }));
+    }
+
+    if (landedIn === o.col) {
+      // Same column — a pure re-order. Nothing to persist server-side, but the
+      // slot is still undoable.
+      if (landedIdx === o.index) return;
+      fireToast({
+        message: "Task reordered",
+        actionLabel: "Undo",
+        duration: UNDO_MS,
+        action: () => setOrder((prev) => ({ ...prev, [o.col]: o.colOrder })),
+      });
+      return;
+    }
+    if (landedIn === ARCHIVE_COL) {
+      void commitArchive(o);
+      return;
+    }
+    void commitStatus(o, landedIn as TaskStatus);
   }
 
   const activeCard = active?.type === "card" ? items.find((t) => t.id === active.id) ?? null : null;
@@ -381,7 +739,7 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
   // Search matched no card in ANY column — show the answer instead of eight
   // empty columns. Only when a search is active; an unfiltered empty board
   // still renders its columns so you can see the workflow and drop into it.
-  if (sectionQuery && filtered.length === 0) {
+  if (sectionQuery && matchIds != null && matchIds.size === 0) {
     return (
       <NoResults
         query={sectionQuery}
@@ -395,12 +753,17 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
     <Tooltip.Provider delayDuration={550} skipDelayDuration={0}>
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
-        autoScroll={{ threshold: { x: 0.28, y: 0 }, acceleration: 16 }}
+        collisionDetection={collisionDetection}
+        // A little vertical threshold too, so dragging to the top/bottom of a
+        // long column scrolls that column into range mid-drag.
+        autoScroll={{ threshold: { x: 0.28, y: 0.12 }, acceleration: 16 }}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}
         onDragCancel={() => {
+          const o = originRef.current;
+          if (o) restoreOrigin(o, colOfCard.get(o.id) ?? o.col);
+          originRef.current = null;
           setActive(null);
           setOverCol(null);
         }}
@@ -414,17 +777,23 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
             <SortableContext items={columns} strategy={horizontalListSortingStrategy}>
               {columns.map((col) => {
                 const { isArchive, accent, accentDeep, accentBgLight } = accentFor(col, tones);
-                const colTasks = isArchive
-                  ? filtered.filter((t) => t.archived)
-                  : filtered.filter((t) => !t.archived && t.status === col);
+                // Arranged order first, then the live search decides what of
+                // it is rendered — so a search never disturbs the arrangement.
+                const arranged = colTasks.get(col) ?? [];
+                const visible = matchIds ? arranged.filter((t) => matchIds.has(t.id)) : arranged;
                 // This week's goals whose task-status maps to this column.
                 // Never shown in the Archive column.
                 const colGoals = isArchive
                   ? []
                   : weeklyGoals.filter((g) => g.status === col);
                 const limit = visibleByCol[col] ?? COL_STEP;
-                const shownTasks = colTasks.slice(0, limit);
-                const hiddenCount = colTasks.length - shownTasks.length;
+                // A card dragged past the "Show more" cut-off must still render
+                // — otherwise its drop indicator would vanish exactly when the
+                // user is aiming at the bottom of a long column.
+                const activeIdx =
+                  active?.type === "card" ? visible.findIndex((t) => t.id === active.id) : -1;
+                const shownTasks = visible.slice(0, Math.max(limit, activeIdx + 1));
+                const hiddenCount = visible.length - shownTasks.length;
                 const label = isArchive ? "Archived" : labels[col as TaskStatus];
                 const isCardOver = active?.type === "card" && overCol === col;
                 return (
@@ -434,13 +803,13 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
                     isAdmin={isAdmin}
                     isArchive={isArchive}
                     label={label}
-                    count={colTasks.length}
+                    count={visible.length}
                     accent={accent}
                     accentDeep={accentDeep}
                     accentBgLight={accentBgLight}
                     isCardOver={isCardOver}
                   >
-                    {isArchive && colTasks.length === 0 && (
+                    {isArchive && visible.length === 0 && (
                       <div
                         className="rounded-chip px-3 py-6 text-center"
                         style={{ border: "1.5px dashed var(--color-hairline-strong)" }}
@@ -450,7 +819,7 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
                         </p>
                       </div>
                     )}
-                    {!isArchive && colTasks.length === 0 && colGoals.length === 0 && (
+                    {!isArchive && visible.length === 0 && colGoals.length === 0 && (
                       <div
                         className="rounded-chip px-3 py-6 text-center"
                         style={{ border: "1.5px dashed var(--color-hairline-strong)" }}
@@ -465,15 +834,26 @@ export function KanbanBoard({ tasks, weeklyGoals = [], labels, tones, isAdmin, c
                     {colGoals.map((g) => (
                       <KanbanGoalCard key={g.id} g={g} />
                     ))}
-                    {shownTasks.map((t) => (
-                      <KanbanCard
-                        key={t.id}
-                        t={t}
-                        labels={labels}
-                        tones={tones}
-                        saving={savingId === t.id}
-                      />
-                    ))}
+                    {/* One sortable list per column: this is what makes the
+                        neighbours slide apart and the dragged card's slot land
+                        exactly where the pointer is, instead of at the end. */}
+                    <SortableContext
+                      items={shownTasks.map((t) => t.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {shownTasks.map((t) => (
+                        <KanbanCard
+                          key={t.id}
+                          t={t}
+                          labels={labels}
+                          tones={tones}
+                          saving={savingId === t.id}
+                          accent={accent}
+                          accentBgLight={accentBgLight}
+                          dragging={active !== null}
+                        />
+                      ))}
+                    </SortableContext>
                     {hiddenCount > 0 && (
                       <button
                         type="button"
@@ -654,13 +1034,21 @@ function KanbanCard({
   labels,
   tones,
   saving,
+  accent,
+  accentBgLight,
+  dragging,
 }: {
   t: BoardTask;
   labels: Record<TaskStatus, string>;
   tones: Record<TaskStatus, StatusColorToken>;
   saving: boolean;
+  /** Host column's accent — colours this card's slot while it's being dragged. */
+  accent: string;
+  accentBgLight: string;
+  /** A drag is in flight anywhere on the board (suppresses hover cards). */
+  dragging: boolean;
 }) {
-  const { setNodeRef, attributes, listeners, isDragging } = useDraggable({
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: t.id,
     data: { type: "card" },
   });
@@ -678,13 +1066,37 @@ function KanbanCard({
       {...attributes}
       {...listeners}
       className="cursor-grab active:cursor-grabbing"
-      style={{ opacity: isDragging ? 0.4 : 1 }}
+      style={{
+        // The sorting strategy slides every card — including this one — into
+        // the arrangement the drop would produce, so the outline below always
+        // sits at the real insertion point and the neighbours have already
+        // shifted out of the way.
+        transform: CSS.Translate.toString(transform),
+        transition,
+        // While dragging, the card itself rides in the DragOverlay and its slot
+        // becomes the drop indicator: an accent dashed outline the exact size
+        // of the card. `outline` (not `border`) so it costs no layout, and the
+        // contents stay mounted-but-hidden to hold the slot's height.
+        ...(isDragging
+          ? {
+              borderRadius: "var(--radius-chip)",
+              background: accentBgLight,
+              outline: `2px dashed ${accent}`,
+              outlineOffset: -2,
+            }
+          : null),
+      }}
     >
-      <Tooltip.Root delayDuration={550}>
+      <Tooltip.Root delayDuration={550} {...(dragging ? { open: false } : null)}>
         <Tooltip.Trigger asChild>
           <div
             className="group relative rounded-chip bg-white border border-hairline p-3.5 pl-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:border-altus-red/40"
-            style={{ boxShadow: "0 1px 2px rgba(15,23,42,0.04)" }}
+            style={{
+              boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+              // Hidden, not unmounted — the slot keeps this card's exact height
+              // so the placeholder is the same size as what will land in it.
+              ...(isDragging ? { visibility: "hidden" as const } : null),
+            }}
           >
             {/* Status accent stripe. */}
             <span
