@@ -4,7 +4,10 @@ import { ArrowLeft, Smartphone } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/current";
 import { DashboardHeader } from "@/components/layout/header";
 import { listAllDevices, MAX_DEVICES_PER_EMPLOYEE } from "@/lib/attendance/mobile-devices";
+import { listAttendanceAnomalies } from "@/lib/attendance/integrity-review";
+import { attendanceIntegrityMode } from "@/lib/attendance/integrity-mode";
 import { DevicesClient } from "@/components/attendance/devices-client";
+import { IntegrityReview } from "@/components/attendance/integrity-review";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +25,8 @@ export default async function AttendanceDevicesPage() {
   await requireAdmin();
   const devices = await listAllDevices();
   const pending = devices.filter((d) => d.status === "pending").length;
+  const anomalies = await listAttendanceAnomalies();
+  const mode = attendanceIntegrityMode();
 
   return (
     <>
@@ -55,6 +60,32 @@ export default async function AttendanceDevicesPage() {
         </header>
 
         <DevicesClient devices={devices} maxPerEmployee={MAX_DEVICES_PER_EMPLOYEE} />
+
+        {/* ── Attendance Integrity — flagged punches (Phase 2 L6 attribution) ── */}
+        <section className="mt-10">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-[18px] font-black text-ink-strong" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
+              Attendance Integrity
+            </h2>
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide"
+              style={
+                mode === "enforce"
+                  ? { background: "var(--color-green-bg, #e9f7ef)", color: "var(--color-green-deep, #15803d)" }
+                  : mode === "report"
+                    ? { background: "var(--color-amber-bg, #fef3e2)", color: "var(--color-amber-deep, #b45309)" }
+                    : { background: "#f1f2f4", color: "#6b7280" }
+              }
+            >
+              Mode: {mode}
+            </span>
+          </div>
+          <p className="mb-4 max-w-[70ch] text-[13px] text-ink-muted">
+            Punches flagged by the device-health checks — mocked GPS, failed device/app integrity, or replay attempts.
+            {mode === "off" ? " Set ATTENDANCE_INTEGRITY_MODE=report (then enforce) once the updated app is live." : mode === "report" ? " Currently recording only — nothing is blocked yet." : " Flagged punches are being refused."}
+          </p>
+          <IntegrityReview anomalies={anomalies} />
+        </section>
       </main>
     </>
   );
