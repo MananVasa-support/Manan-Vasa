@@ -176,15 +176,35 @@ export const MODULE_THEME: Record<WorkspaceId, ModuleTheme> = {
 // is exactly how Productivity shipped without a card. Adding a room means adding
 // it in both places.
 export const MODULE_ORDER: WorkspaceId[] = [
-  "wms",
-  "goals",
-  // Sits next to Goals: it is the read-side cockpit over the same work.
-  "productivity",
-  "admin",
-  "employees",
-  "billing",
-  "hr",
-  "sales",
-  "training",
-  "events",
+  "wms",          // 1
+  "goals",        // 2
+  "productivity", // 3  — "Team Productivity"
+  "billing",      // 4
+  "hr",           // 5
+  "sales",        // 6
+  "admin",        // 7  — the card labelled "Accounts"
+  "training",     // 8
+  "employees",    // 9
+  "events",       // 0  — "Monthly Events Master"
 ];
+
+/**
+ * Keyboard shortcut for the module at `index` in MODULE_ORDER: the first nine
+ * are 1–9 and the tenth is 0, matching a keyboard's number row left to right.
+ *
+ * Derived from POSITION rather than stored per module, so the order above stays
+ * the only thing anyone edits — the hub badges, the footer prefixes and the
+ * key handler all read the same list and cannot drift apart. Past the tenth
+ * module there is no digit left, so it returns null and those render unnumbered
+ * rather than repeating a shortcut.
+ */
+export function moduleShortcut(index: number): string | null {
+  if (index < 0 || index > 9) return null;
+  return index === 9 ? "0" : String(index + 1);
+}
+
+/** The module a pressed digit should open, or undefined if none. */
+export function moduleForShortcut(key: string): WorkspaceId | undefined {
+  if (!/^[0-9]$/.test(key)) return undefined;
+  return MODULE_ORDER[key === "0" ? 9 : Number(key) - 1];
+}

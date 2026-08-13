@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MODULE_ORDER, MODULE_THEME } from "@/lib/module-theme";
+import { MODULE_ORDER, MODULE_THEME, moduleShortcut } from "@/lib/module-theme";
 import { canAccessWorkspace } from "@/lib/workspaces";
 
 /**
@@ -49,14 +49,24 @@ export function ModuleFooter({ access }: ModuleFooterProps) {
       }}
     >
       <nav className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-center gap-x-1 gap-y-1 px-6 py-3.5 max-md:px-3">
-        {MODULE_ORDER.map((id) => {
+        {MODULE_ORDER.map((id, i) => {
           const m = MODULE_THEME[id];
           const allowed = canAccessWorkspace(id, access);
           const Icon = m.Icon;
+          const shortcut = moduleShortcut(i);
 
           const inner = (
             <>
               <Icon size={15} strokeWidth={2.3} aria-hidden />
+              {/* The same digit the hub badges show, so the shortcut is learnable
+                  from whichever surface you happen to be looking at. Dimmer than
+                  the label — a hint, not a heading — and aria-hidden so the row
+                  does not read as "one W M S two Goals". */}
+              {shortcut && (
+                <span aria-hidden className="tabular-nums opacity-55">
+                  {shortcut}
+                </span>
+              )}
               <span className="whitespace-nowrap">{m.label}</span>
             </>
           );

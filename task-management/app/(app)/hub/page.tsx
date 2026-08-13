@@ -1,11 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { Route } from "next";
 import { ArrowRight, Lock } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
 import { accessFor } from "@/lib/auth/workspace-access";
 import { canAccessWorkspace, WORKSPACE_LANDING, type WorkspaceId } from "@/lib/workspaces";
-import { MODULE_THEME, MODULE_ORDER, type ModuleTheme } from "@/lib/module-theme";
+import { MODULE_THEME, MODULE_ORDER, moduleShortcut, type ModuleTheme } from "@/lib/module-theme";
+import { ModuleShortcuts } from "@/components/hub/module-shortcuts";
 import { EnterWorkspaceLink } from "@/components/hub/enter-workspace-link";
 import { UserMenuServer } from "@/components/header/user-menu-server";
 import { ModuleLogo } from "@/components/hub/module-logos";
@@ -64,6 +64,8 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
   const p = HUB_PASTEL[m.id];
   const delay = { animationDelay: `${i * 70}ms` } as const;
 
+  const shortcut = moduleShortcut(i);
+
   const inner = (
     <>
       {/* Faint oversized logo bottom-right for depth/texture. */}
@@ -72,6 +74,21 @@ function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: n
         size={104}
         className="pointer-events-none absolute -bottom-5 -right-5 opacity-[0.07]"
       />
+
+      {/* Keyboard-shortcut badge — deliberately quiet: it is a hint, not a
+          heading, so it sits in the corner at a fraction of the title's weight
+          and never competes with the module name. `aria-hidden` because the
+          number is announced once, in the link's own label, rather than as a
+          stray digit before every card. */}
+      {shortcut && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-3 top-3 z-10 inline-flex size-[22px] items-center justify-center rounded-md text-[12px] font-bold tabular-nums"
+          style={{ background: "rgba(255,255,255,0.55)", color: p.ink }}
+        >
+          {shortcut}
+        </span>
+      )}
 
       {/* Content — fully centred (logo + text) with no wasted middle gap. */}
       <div className="relative z-10 flex h-full flex-col items-center justify-center gap-3 p-5 text-center max-md:p-4">
@@ -177,12 +194,11 @@ export default async function HubPage() {
             truly centered on the page regardless of their differing widths. */}
         <header className="flex shrink-0 items-center gap-6 max-md:flex-col max-md:gap-4 max-md:text-center">
           <div className="flex flex-1 justify-start max-md:justify-center">
-            {/* Stays INSIDE the app. This used to open altuscorp.in in a new
-                tab; the brand mark now routes to the Hub itself, so clicking it
-                never leaves the workspace. */}
-            <Link
-              href={"/hub" as Route}
-              aria-label="Altus Corp — Workspaces Hub"
+            <a
+              href="https://altuscorp.in"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Altus Corp — altuscorp.in"
               className="shrink-0 rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]"
             >
               <Image
@@ -193,7 +209,7 @@ export default async function HubPage() {
                 priority
                 className="h-[84px] w-auto shrink-0 max-md:h-[64px]"
               />
-            </Link>
+            </a>
           </div>
 
           <div className="shrink-0 text-center">
@@ -225,6 +241,10 @@ export default async function HubPage() {
             <WorkspaceCard key={id} m={MODULE_THEME[id]} locked={!canAccessWorkspace(id, access)} i={i} />
           ))}
         </section>
+
+        {/* Number-row shortcuts. Renders nothing; keeps this page a server
+            component while the listener lives on the client. */}
+        <ModuleShortcuts allowed={MODULE_ORDER.filter((id) => canAccessWorkspace(id, access))} />
       </div>
     </main>
   );
