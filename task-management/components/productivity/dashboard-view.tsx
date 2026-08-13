@@ -229,7 +229,7 @@ function EmployeeHeader({
         <EmployeeAvatar name={employee.name} size="lg" />
         <div className="min-w-0">
           <div className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink-subtle">
-            {viewingOther ? "Productivity Dashboard · Viewing" : "Productivity Dashboard"}
+            {viewingOther ? "Team Productivity · Viewing" : "Team Productivity"}
           </div>
           <h1
             className="mt-0.5 truncate text-ink-strong"

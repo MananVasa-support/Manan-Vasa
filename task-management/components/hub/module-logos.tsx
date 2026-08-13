@@ -48,6 +48,32 @@ function Glyph({ id, ink, light }: { id: WorkspaceId; ink: string; light: string
           <circle cx="32" cy="32" r="4.4" fill={ink} />
         </g>
       );
+    // Productivity — a speedometer: dial arc, three ticks, and a needle swung
+    // up-and-right into the fast end. (Without this case the switch fell through
+    // to `default: null` and the card rendered an empty pastel tile.)
+    case "productivity":
+      return (
+        <g>
+          {/* Dial — an open arc so it reads as a gauge, not a ring. */}
+          <path
+            d="M16 42 A16 16 0 0 1 48 42"
+            fill="none"
+            stroke={ink}
+            strokeWidth="5"
+            strokeLinecap="round"
+          />
+          {/* Graduations at the low / mid / high marks. */}
+          <g stroke={ink} strokeWidth="2.4" strokeLinecap="round" opacity="0.5">
+            <path d="M20.6 32.2 l2.5 1.7" />
+            <path d="M32 27.6 v3" />
+            <path d="M43.4 32.2 l-2.5 1.7" />
+          </g>
+          {/* Needle + hub, the hub cut white so it stays legible on the ink. */}
+          <path d="M32 42 L41.6 31.4" stroke={ink} strokeWidth="4" strokeLinecap="round" />
+          <circle cx="32" cy="42" r="4.6" fill={ink} />
+          <circle cx="32" cy="42" r="1.9" fill={light} />
+        </g>
+      );
     // Admin — a control-room shield with a bold white check.
     case "admin":
       return (

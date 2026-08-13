@@ -147,7 +147,7 @@ export const MODULE_THEME: Record<WorkspaceId, ModuleTheme> = {
   // separate room, not a Goals sub-surface.
   productivity: {
     id: "productivity",
-    label: "Productivity Dashboard",
+    label: "Team Productivity",
     tagline: "One cockpit per person — incentive, goals, tasks, training at a glance.",
     href: "/ws/productivity" as Route,
     Icon: Gauge,

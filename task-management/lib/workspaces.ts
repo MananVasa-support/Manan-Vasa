@@ -40,7 +40,7 @@ export const WORKSPACE_LABEL: Record<WorkspaceId, string> = {
   accounts: "Accounts",
   events: "Monthly Events Master",
   goals: "Goals",
-  productivity: "Productivity Dashboard",
+  productivity: "Team Productivity",
   billing: "Billing",
 };
 

@@ -38,10 +38,17 @@ export function ModuleFooter({ access }: ModuleFooterProps) {
   return (
     <footer
       aria-label="All modules"
-      className="mt-auto border-t border-hairline"
-      style={{ background: "var(--color-surface-card)" }}
+      // Black band — it has to read as the app's floor, not as another card. The
+      // colours below are hard-coded rather than tokenised because the surface
+      // tokens all describe LIGHT surfaces; a token here would flip with any
+      // future theme work and drop white text onto a white bar.
+      className="mt-auto"
+      style={{
+        background: "linear-gradient(180deg, var(--color-ink-strong) 0%, #020617 100%)",
+        color: "#ffffff",
+      }}
     >
-      <nav className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-center gap-x-1 gap-y-1 px-6 py-3 max-md:px-3">
+      <nav className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-center gap-x-1 gap-y-1 px-6 py-3.5 max-md:px-3">
         {MODULE_ORDER.map((id) => {
           const m = MODULE_THEME[id];
           const allowed = canAccessWorkspace(id, access);
@@ -61,7 +68,8 @@ export function ModuleFooter({ access }: ModuleFooterProps) {
               <span
                 key={id}
                 title={`${m.label} — you don't have access to this module`}
-                className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold text-ink-subtle opacity-45"
+                className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold"
+                style={{ color: "rgba(255,255,255,0.32)" }}
               >
                 {inner}
                 <span className="sr-only"> (no access)</span>
@@ -73,10 +81,11 @@ export function ModuleFooter({ access }: ModuleFooterProps) {
             <Link
               key={id}
               href={m.href}
-              // The accent only appears on hover/focus: ten always-coloured chips
-              // would out-shout the page they sit under.
-              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold text-ink-soft transition-colors hover:bg-surface-soft hover:text-ink-strong outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-altus-red)]/40"
-              style={{ ["--mod-accent" as string]: m.accent }}
+              // Resting state is a soft white so ten labels do not glare; the
+              // module's own accent tints the tile only on hover/focus, which is
+              // what tells you which room you are about to enter.
+              className="group inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-semibold transition-colors hover:!bg-[color-mix(in_srgb,var(--mod-accent)_28%,transparent)] hover:!text-white outline-none focus-visible:ring-2 focus-visible:ring-white/45"
+              style={{ ["--mod-accent" as string]: m.accent, color: "rgba(255,255,255,0.74)" }}
             >
               {inner}
             </Link>
