@@ -150,6 +150,20 @@ export interface FieldSpan {
    * verbatim like any other field. Used for the Joining Date.
    */
   date?: boolean;
+  /**
+   * Render a `<select>` fed by a LIVE list resolved in the editor from the page's
+   * data (not baked into the template): "departments" (admin Departments master)
+   * or "managers" (the active-employee roster). The stored value is the chosen
+   * label, so the preview/PDF read it verbatim. Used for Department + Reporting
+   * Manager on the Selection letter.
+   */
+  optionsKey?: "departments" | "managers";
+  /**
+   * Restrict the input to digits (with ₹ / commas / spaces for currency) — a
+   * numeric field. Non-numeric characters are stripped on entry. Used for the
+   * salary fields so a letter never carries stray prose in an amount.
+   */
+  numeric?: boolean;
 }
 
 /** A paragraph / value is an ordered list of fixed + editable spans. */
@@ -260,6 +274,14 @@ export interface SignatureBlock {
   name: Span[];
   /** Signatory designation spans (optional). */
   designation?: Span[];
+  /**
+   * A BAKED signature image (a `public/…` path, e.g. the founder's scanned
+   * signature) rendered under "For <entity>". When set, this block prints its own
+   * `name` + `designation` (NOT the generic HR-desk sign-off) — used so the
+   * Selection letter is signed off by the founder rather than "HR Team". An
+   * uploaded scanned signature still overrides it.
+   */
+  imageSrc?: string;
   /** Show a "Date:" line (defaults to today; editable via the `date` field). */
   showDate?: boolean;
   /** Place-of-issue spans (optional), e.g. "Mumbai". */
@@ -314,7 +336,15 @@ export const t = (text: string): TextSpan => ({ t: "text", text });
 export const f = (
   id: string,
   label: string,
-  opts?: { placeholder?: string; defaultValue?: string; multiline?: boolean; bold?: boolean; date?: boolean },
+  opts?: {
+    placeholder?: string;
+    defaultValue?: string;
+    multiline?: boolean;
+    bold?: boolean;
+    date?: boolean;
+    optionsKey?: "departments" | "managers";
+    numeric?: boolean;
+  },
 ): FieldSpan => ({ t: "field", id, label, ...opts });
 
 /** A paragraph from a list of spans. */

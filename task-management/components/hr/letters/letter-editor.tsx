@@ -3,7 +3,6 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import {
-  Download,
   Send,
   Loader2,
   Printer,
@@ -19,7 +18,6 @@ import {
   EyeOff,
   Mail,
   X,
-  PenLine,
   Calculator,
 } from "lucide-react";
 import { Letterhead } from "@/components/hr/letterhead/letterhead";
@@ -110,6 +108,7 @@ export function LetterEditor({
   template,
   roster,
   candidates = [],
+  departments = [],
   isAdmin,
   initialCandidateId,
   initialEmployeeId,
@@ -117,6 +116,9 @@ export function LetterEditor({
   template: LetterTemplate;
   roster: LetterRosterOption[];
   candidates?: LetterCandidateOption[];
+  /** The admin Departments master — populates the `optionsKey:"departments"`
+   *  field dropdowns (e.g. the Selection letter's Department term). */
+  departments?: string[];
   isAdmin: boolean;
   /** Pre-seed the recipient from a candidate (e.g. `?candidate=<id>`). */
   initialCandidateId?: string;
@@ -134,7 +136,6 @@ export function LetterEditor({
   // Candidate gender → resolves gendered tokens ({title}/{he}/{his}/…) live.
   const [gender, setGender] = useState<Gender>("neutral");
   const [candidateId, setCandidateId] = useState<string>("");
-  const [busyPdf, setBusyPdf] = useState(false);
   const [issuing, setIssuing] = useState(false);
   const [issued, setIssued] = useState(false);
   const [emailing, setEmailing] = useState(false);
@@ -383,37 +384,6 @@ export function LetterEditor({
   const recipientName = (values.candidateName ?? values.name ?? "").trim();
   const recipientEmail = (values.candidateEmail ?? values.email ?? "").trim();
 
-  async function exportPdf() {
-    setBusyPdf(true);
-    try {
-      const payload = usingRich
-        ? { key: template.key, entity, gender, contentKind: "rich" as const, bodyHtml: currentRichHtml() }
-        : { key: template.key, entity, gender, values, date: today, signatureImage: sigImage ?? undefined };
-      const r = await fetch("/api/hr/letters/pdf", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!r.ok) {
-        fireToast({ message: `Could not export PDF (${r.status}).`, type: "error" });
-        return;
-      }
-      const blob = await r.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${template.key}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch {
-      fireToast({ message: "Could not export PDF.", type: "error" });
-    } finally {
-      setBusyPdf(false);
-    }
-  }
-
   /** Open the mandatory Print-Preview before ISSUING (validates recipient first). */
   function requestIssue() {
     if (!isAdmin) return;
@@ -422,24 +392,6 @@ export function LetterEditor({
       return;
     }
     setPreviewMode("issue");
-  }
-
-  /** Open the mandatory Print-Preview before EXPORT & EMAIL (needs a recipient). */
-  function requestEmailPdf() {
-    if (!employeeId && !recipientName) {
-      fireToast({ message: "Fill the recipient's name, or attach an employee.", type: "error" });
-      return;
-    }
-    // When it's a candidate letter (not attached to an employee) we need an email
-    // on the letter to send to. Employee letters resolve the email server-side.
-    if (!employeeId && !recipientEmail) {
-      fireToast({
-        message: "Add the candidate's email on the letter (or attach an employee) to send the PDF.",
-        type: "error",
-      });
-      return;
-    }
-    setPreviewMode("email");
   }
 
   /** The confirmed ISSUE — the existing render + archive POST. */
@@ -549,6 +501,18 @@ export function LetterEditor({
     }
   }
 
+  // Live option lists for `optionsKey` fields (Department / Reporting Manager on
+  // the Selection letter). Managers = the active-employee roster, labelled with
+  // their designation so two same-named people are distinguishable.
+  const optionLists = useMemo(
+    () => ({
+      departments,
+      // Just the name — it prints verbatim on the letter's "Reporting Manager" row.
+      managers: Array.from(new Set(roster.map((r) => r.name).filter(Boolean))),
+    }),
+    [departments, roster],
+  );
+
   const ctx: RenderCtx = {
     values,
     setValue,
@@ -559,6 +523,7 @@ export function LetterEditor({
     clean,
     signatory,
     signatureImage: sigImage,
+    optionLists,
   };
 
   return (
@@ -680,51 +645,9 @@ export function LetterEditor({
               )}
             </>
           )}
-          {!usingRich && isAdmin && (
-            <button
-              type="button"
-              className={`alw-btn alw-btn-ghost${sigImage ? " alw-btn-on" : ""}`}
-              onClick={() => sigInputRef.current?.click()}
-              title="Upload a scanned signature for the sign-off"
-            >
-              <PenLine size={15} strokeWidth={2.2} />
-              {sigImage ? "Change signature" : "Add signature"}
-            </button>
-          )}
-          {sigImage && (
-            <button
-              type="button"
-              className="alw-btn alw-btn-ghost"
-              onClick={() => setSigImage(null)}
-              title="Remove the uploaded signature"
-            >
-              <X size={15} strokeWidth={2.2} /> Clear
-            </button>
-          )}
           <button type="button" className="alw-btn alw-btn-ghost" onClick={() => window.print()}>
             <Printer size={15} strokeWidth={2.2} /> Print
           </button>
-          <button
-            type="button"
-            className="alw-btn alw-btn-ghost"
-            onClick={exportPdf}
-            disabled={busyPdf}
-          >
-            {busyPdf ? <Loader2 size={15} className="alw-spin" /> : <Download size={15} strokeWidth={2.2} />}
-            {busyPdf ? "Exporting…" : "Export PDF"}
-          </button>
-          {isAdmin && (
-            <button
-              type="button"
-              className="alw-btn alw-btn-ghost"
-              onClick={requestEmailPdf}
-              disabled={emailing}
-              title="Generate the PDF and email it to the candidate (HR copied)"
-            >
-              {emailing ? <Loader2 size={15} className="alw-spin" /> : <Mail size={15} strokeWidth={2.2} />}
-              {emailing ? "Emailing…" : "Export & Email PDF"}
-            </button>
-          )}
           {isAdmin && (
             <button
               type="button"
@@ -1125,6 +1048,8 @@ interface RenderCtx {
   signatory: LetterSignatory;
   /** Optional uploaded scanned-signature image (data URL), else null. */
   signatureImage: string | null;
+  /** Live lists for `optionsKey` field dropdowns (Department / Reporting Manager). */
+  optionLists: { departments: string[]; managers: string[] };
 }
 
 /**
@@ -1303,15 +1228,22 @@ function SignatureView({
 }) {
   const e = getEntity(ctx.entity);
   const isHr = ctx.signatory === "hr";
+  // A block that carries its OWN baked signature (e.g. the Selection letter's
+  // founder sign-off) prints its own name + designation, never the HR-desk block.
+  const baked = block.imageSrc;
+  const ownSignatory = Boolean(baked) || !isHr;
   return (
     <div className="alw-sign">
       {block.forEntity && <p className="alw-sign-for">For {e.displayName}</p>}
-      {/* Signature image: an uploaded scanned signature wins; else the baked
-          proprietor signature for Director letters. HR letters with no upload
-          leave a blank signing space. */}
+      {/* Signature image: an uploaded scanned signature wins; else a per-letter
+          baked signature; else the proprietor signature for Director letters. HR
+          letters with none leave a blank signing space. */}
       {ctx.signatureImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img className="alw-sign-img" src={ctx.signatureImage} alt="Signature" />
+      ) : baked ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="alw-sign-img" src={baked} alt="Signature" />
       ) : !isHr ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img className="alw-sign-img" src="/signatures/proprietor-signature.jpg" alt="Signature" />
@@ -1319,9 +1251,17 @@ function SignatureView({
         <div className="alw-sign-space" aria-hidden />
       )}
       <p className="alw-sign-name">
-        {isHr ? HR_SIGNATORY.name : <Spans spans={block.name} ctx={ctx} />}
+        {ownSignatory ? <Spans spans={block.name} ctx={ctx} /> : HR_SIGNATORY.name}
       </p>
-      <p className="alw-sign-desig">{isHr ? HR_SIGNATORY.designation : "Proprietor"}</p>
+      <p className="alw-sign-desig">
+        {baked ? (
+          <Spans spans={block.designation ?? []} ctx={ctx} />
+        ) : isHr ? (
+          HR_SIGNATORY.designation
+        ) : (
+          "Proprietor"
+        )}
+      </p>
       {block.showDate && <p className="alw-sign-meta">Date: {ctx.today}</p>}
       {block.place && (
         <p className="alw-sign-meta">
@@ -1402,6 +1342,50 @@ function Field({
   // line fields size to their content with a small floor. A `bold` field (e.g.
   // the Subject line) renders its input in bold via the .alw-bold modifier.
   const boldCls = spec.bold ? " alw-bold" : "";
+  // Dropdown field (Department / Reporting Manager) — a LIVE list resolved from
+  // the page data (admin Departments master / employee roster). Renders as a
+  // compact inline <select>; the stored value prints verbatim on the letter.
+  if (spec.optionsKey) {
+    const opts = ctx.optionLists[spec.optionsKey] ?? [];
+    return (
+      <select
+        autoFocus={autoFocus}
+        aria-label={spec.label}
+        data-filled={filled || undefined}
+        value={value}
+        onChange={(e) => ctx.setValue(spec.id, e.target.value)}
+        className={`alw-input alw-input-select${boldCls}`}
+        style={{ maxWidth: "100%" }}
+      >
+        <option value="">{spec.label}</option>
+        {opts.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+        {/* A previously-stored value not in the current list stays selectable. */}
+        {value && !opts.includes(value) && <option value={value}>{value}</option>}
+      </select>
+    );
+  }
+  // Numeric field (salary amounts) — digits + ₹ / commas / spaces only; any other
+  // character is stripped on entry so an amount line never carries stray prose.
+  if (spec.numeric) {
+    return (
+      <input
+        type="text"
+        inputMode="numeric"
+        value={value}
+        autoFocus={autoFocus}
+        placeholder={spec.label}
+        aria-label={spec.label}
+        data-filled={filled || undefined}
+        onChange={(e) => ctx.setValue(spec.id, e.target.value.replace(/[^0-9₹,.\s]/g, ""))}
+        className={`alw-input${boldCls}`}
+        style={{ minWidth: `${Math.max(value.length || spec.label.length, 2)}ch`, maxWidth: "100%" }}
+      />
+    );
+  }
   // Date field → native calendar. Stored value is the human date ("15 August
   // 2026"); the picker shows/edits it via an ISO shadow.
   if (spec.date) {
@@ -1659,6 +1643,14 @@ const EDITOR_CSS = `
 .alw-input-multi{
   display:block;width:100%;min-width:0;max-width:100%;
   resize:none;overflow:hidden;line-height:inherit;white-space:pre-wrap;vertical-align:top;
+}
+/* Inline dropdown fields (Department / Reporting Manager) — same underline
+   language as a text field, with a small caret so it reads as a picker. */
+.alw-input-select{
+  appearance:none;-webkit-appearance:none;
+  padding-right:18px;cursor:pointer;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23A80400' stroke-width='2.6'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat:no-repeat;background-position:right 1px center;background-size:13px;
 }
 
 /* "Hide boxes" clean render — the field's value as plain document text. */

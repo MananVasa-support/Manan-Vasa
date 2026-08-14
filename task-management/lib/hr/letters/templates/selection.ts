@@ -48,17 +48,17 @@ const template: LetterTemplate = {
     para(t("Please find below the key terms of your employment:")),
 
     term("Joining Date", f("joiningDate", "Joining Date", { placeholder: "Select a date", date: true })),
-    term("Department", f("department", "Department", { placeholder: "e.g. Solutions Architecture" })),
-    term("Reporting Manager", f("reportingManager", "Reporting Manager", { placeholder: "e.g. Mr. Rohan Choudhary" })),
+    term("Department", f("department", "Department", { placeholder: "Select a department", optionsKey: "departments" })),
+    term("Reporting Manager", f("reportingManager", "Reporting Manager", { placeholder: "Select a manager", optionsKey: "managers" })),
     term("Designation", f("designation", "Designation", { placeholder: "e.g. Business Development Manager" })),
     term("Probation Period", t("6 Months")),
     term("Salary during Probation", [
-      f("salaryProbation", "Salary (During Probation)", { placeholder: "e.g. ₹45,000 per month" }),
-      t("   (During Probation Period)"),
+      f("salaryProbation", "Salary (During Probation)", { placeholder: "e.g. ₹45,000", numeric: true }),
+      t(" per month   (During Probation Period)"),
     ]),
     term("Salary after Probation", [
-      f("salaryConfirmed", "Salary (After Probation)", { placeholder: "e.g. ₹50,000 per month" }),
-      t("   (After Probation Period)"),
+      f("salaryConfirmed", "Salary (After Probation)", { placeholder: "e.g. ₹50,000", numeric: true }),
+      t(" per month   (After Probation Period)"),
     ]),
 
     heading("Performance Incentives:", 2),
@@ -147,6 +147,9 @@ const template: LetterTemplate = {
     signature({
       forEntity: true,
       esign: true,
+      // The founder signs the offer off directly — a baked scanned signature under
+      // "For <entity>", NOT the generic HR-desk sign-off.
+      imageSrc: "/signatures/manan-sign.jpeg",
       name: [t("CA Manan Vasa")],
       designation: [f("signatoryDesignation", "Designation", { defaultValue: "Founder" })],
       showDate: true,

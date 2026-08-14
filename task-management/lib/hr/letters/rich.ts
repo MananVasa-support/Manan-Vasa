@@ -174,17 +174,26 @@ function blockToHtml(
     }
     case "signature": {
       const isHr = signatory === "hr";
+      // A block carrying its OWN baked signature (the Selection letter's founder
+      // sign-off) prints its own name + designation + image, not the HR block.
+      const baked = block.imageSrc;
+      const ownSignatory = Boolean(baked) || !isHr;
       const lines: string[] = [];
       if (block.forEntity) lines.push(`<p><strong>For ${esc(entity.displayName)}</strong></p>`);
-      if (block.esign) lines.push(`<p>(E-Sign)</p>`);
+      if (baked) lines.push(`<p><img src="${esc(baked)}" alt="Signature" style="height:46px" /></p>`);
+      else if (block.esign) lines.push(`<p>(E-Sign)</p>`);
       else lines.push("<p><br></p>");
-      const name = isHr ? esc(HR_SIGNATORY.name) : spansToHtml(block.name, values);
+      const name = ownSignatory ? spansToHtml(block.name, values) : esc(HR_SIGNATORY.name);
       if (name) lines.push(`<p><strong>${name}</strong></p>`);
-      const desig = isHr
-        ? esc(HR_SIGNATORY.designation)
-        : block.designation
+      const desig = baked
+        ? block.designation
           ? spansToHtml(block.designation, values)
-          : "";
+          : ""
+        : isHr
+          ? esc(HR_SIGNATORY.designation)
+          : block.designation
+            ? spansToHtml(block.designation, values)
+            : "";
       if (desig) lines.push(`<p>${desig}</p>`);
       if (block.showDate) lines.push(`<p>Date : ${esc(currentDate())}</p>`);
       if (block.place) {
@@ -192,7 +201,7 @@ function blockToHtml(
         if (p) lines.push(`<p>Place : ${p}</p>`);
       }
       // HR-signed letters carry the HR desk contact directly under the sign-off.
-      if (isHr) {
+      if (isHr && !baked) {
         const phone = HR_CONTACT.phone.trim();
         lines.push(
           `<p>HR: ${esc(HR_CONTACT.email)}${phone ? ` · HR Manager: ${esc(phone)}` : ""}</p>`,

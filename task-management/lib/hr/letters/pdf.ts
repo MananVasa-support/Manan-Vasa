@@ -433,37 +433,48 @@ function renderSignature(
   };
 
   const isHr = ctx.signatory === "hr";
+  // A block carrying its OWN baked signature (e.g. the Selection letter's founder
+  // sign-off) prints its own name + designation, never the generic HR-desk block.
+  const bakedRel = block.imageSrc; // e.g. "/signatures/manan-sign.jpeg"
+  const ownSignatory = Boolean(bakedRel) || !isHr;
 
   if (block.forEntity) line(`For ${entity.displayName}`, { bold: true, color: RED_DEEP });
-  // Signature image: an uploaded scanned signature wins; otherwise the baked
-  // proprietor signature is used for Director-signed letters. HR-signed letters
-  // with no upload simply leave the signing space blank.
+  // Signature image: an uploaded scanned signature wins; else a per-letter baked
+  // signature; else the proprietor signature for Director-signed letters. HR
+  // letters with none simply leave the signing space blank.
   void INK_FAINT;
   try {
     const uploaded = dataUrlToBuffer(ctx.signatureImage);
+    const bakedPath = bakedRel
+      ? path.join(process.cwd(), "public", ...bakedRel.replace(/^\//, "").split("/"))
+      : !isHr
+        ? path.join(process.cwd(), "public", "signatures", "proprietor-signature.jpg")
+        : null;
     if (uploaded) {
       ctx.ensure(62);
       doc.image(uploaded, left, doc.y, { height: 46 });
       doc.y += 52;
-    } else if (!isHr) {
-      const sigPath = path.join(process.cwd(), "public", "signatures", "proprietor-signature.jpg");
-      if (existsSync(sigPath)) {
-        ctx.ensure(62);
-        doc.image(sigPath, left, doc.y, { height: 46 });
-        doc.y += 52;
-      } else {
-        doc.y += 8;
-      }
-    } else {
+    } else if (bakedPath && existsSync(bakedPath)) {
+      ctx.ensure(62);
+      doc.image(bakedPath, left, doc.y, { height: 46 });
+      doc.y += 52;
+    } else if (isHr) {
       doc.y += 30; // reserve a blank signing space on HR letters
+    } else {
+      doc.y += 8;
     }
   } catch {
     doc.y += 8;
   }
 
-  const name = isHr ? HR_SIGNATORY.name : resolve(block.name);
+  const name = ownSignatory ? resolve(block.name) : HR_SIGNATORY.name;
   line(name, { bold: true });
-  line(isHr ? HR_SIGNATORY.designation : "Proprietor", { color: INK_MUTED, size: 10 });
+  const desig = bakedRel
+    ? resolve(block.designation ?? [])
+    : isHr
+      ? HR_SIGNATORY.designation
+      : "Proprietor";
+  line(desig, { color: INK_MUTED, size: 10 });
   if (block.showDate) line(`Date: ${letterDate}`, { color: INK_MUTED, size: 10 });
   if (block.place) {
     const place = resolve(block.place);

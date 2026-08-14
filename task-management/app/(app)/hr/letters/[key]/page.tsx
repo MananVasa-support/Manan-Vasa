@@ -7,6 +7,7 @@ import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { getLetter } from "@/lib/hr/letters/registry";
 import { loadLetterRoster, loadLetterCandidates } from "@/lib/hr/letters/roster";
+import { listActiveDepartments } from "@/lib/queries/departments";
 import {
   LetterEditor,
   type LetterRosterOption,
@@ -96,19 +97,23 @@ async function LetterEditorLoader({
   const template = getLetter(templateKey)!;
   let roster: LetterRosterOption[] = [];
   let candidates: LetterCandidateOption[] = [];
+  let departments: string[] = [];
   if (isAdmin) {
-    const [rows, cands] = await Promise.all([
+    const [rows, cands, depts] = await Promise.all([
       loadLetterRoster().catch(() => []),
       loadLetterCandidates().catch(() => []),
+      listActiveDepartments().catch(() => []),
     ]);
     roster = rows.map((r) => ({ id: r.id, name: r.name, designation: r.designation, payingEntity: r.payingEntity }));
     candidates = cands.map((c) => ({ id: c.id, name: c.name, gender: c.gender }));
+    departments = depts.map((d) => d.name).filter(Boolean);
   }
   return (
     <LetterEditor
       template={template}
       roster={roster}
       candidates={candidates}
+      departments={departments}
       isAdmin={isAdmin}
       initialCandidateId={initialCandidateId}
       initialEmployeeId={initialEmployeeId}
