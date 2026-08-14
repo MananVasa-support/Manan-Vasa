@@ -6,6 +6,7 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { listCandidateIntakes } from "@/app/(app)/hr/candidate-actions";
 import { EvaluationV2Screen } from "@/components/hr/candidate/evaluation-v2/evaluation-v2-screen";
 import { HrShellSidebar } from "@/components/hr/hr-shell-sidebar";
+import { EvalHeaderNav } from "@/components/hr/candidate/evaluation-v2/eval-header-nav";
 // NOTE: the custom Weight Metrics editor (WeightMatrixPanel) is temporarily
 // disabled — bespoke per-designation weights need a Department → Role →
 // Designation mapping that doesn't exist yet. Scoring falls back to
@@ -67,7 +68,9 @@ export default async function EvaluationPage({
         >
           Interview Intelligence
         </h1>
-        <span aria-hidden className="justify-self-end" />
+        <div className="justify-self-end">
+          <EvalHeaderNav />
+        </div>
       </header>
 
       {/* Weight Metrics editor temporarily disabled — see import note above.

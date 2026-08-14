@@ -26,6 +26,15 @@ export function EligibilitySection({ ctrl }: { ctrl: EvalController }) {
   const verdict = eligibilityVerdict(instance);
   const answered = verdict.answered;
 
+  // CRITICAL points lead: render the deal-breaker items first (stable within
+  // their two buckets), so the interviewer confirms what matters most up top.
+  const orderedItems = React.useMemo(() => {
+    const items = section.groups[0]?.items ?? [];
+    return [...items].sort((a, b) => Number(Boolean(b.critical)) - Number(Boolean(a.critical)));
+  }, []);
+  // Critical items are MANDATORY — surface the ones still missing an answer.
+  const unansweredCritical = orderedItems.filter((it) => it.critical && !instance.passfail[it.id]);
+
   const state: BannerState = verdict.dealbreaker
     ? "dealbreaker"
     : verdict.flaggedForReview
@@ -49,17 +58,37 @@ export function EligibilitySection({ ctrl }: { ctrl: EvalController }) {
         isReject={instance.recommendation === "reject"}
       />
 
-      {/* Rows */}
+      {/* Mandatory-critical nudge — the critical points must be filled. */}
+      {unansweredCritical.length > 0 && (
+        <div
+          className="flex items-center gap-2.5 rounded-xl border px-4 py-2.5"
+          style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 35%, white)", background: "color-mix(in srgb, var(--color-altus-red) 6%, white)" }}
+        >
+          <Flag size={15} strokeWidth={2.8} style={{ color: RED }} className="shrink-0" />
+          <p className="text-[13px] font-bold" style={{ color: "var(--color-altus-red-deep)" }}>
+            {unansweredCritical.length} critical point{unansweredCritical.length === 1 ? "" : "s"} still need an answer — these are mandatory.
+          </p>
+        </div>
+      )}
+
+      {/* Rows — critical first */}
       <div className="overflow-hidden rounded-2xl border border-hairline bg-white">
-        {section.groups[0]?.items.map((item, i) => {
+        {orderedItems.map((item, i) => {
           const val = instance.passfail[item.id];
           const isNo = val === "no";
           const critical = Boolean(item.critical);
+          const needsAnswer = critical && !val;
           return (
             <div
               key={item.id}
               className="flex flex-col gap-2.5 border-b border-hairline px-4 py-3.5 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
-              style={isNo ? { background: "color-mix(in srgb, var(--color-altus-red) 4%, white)" } : undefined}
+              style={
+                isNo
+                  ? { background: "color-mix(in srgb, var(--color-altus-red) 4%, white)" }
+                  : needsAnswer
+                    ? { boxShadow: "inset 3px 0 0 0 var(--color-altus-red)" }
+                    : undefined
+              }
             >
               <div className="flex min-w-0 items-start gap-2.5">
                 <span
@@ -75,9 +104,9 @@ export function EligibilitySection({ ctrl }: { ctrl: EvalController }) {
                       <span
                         className="inline-flex items-center gap-1 rounded-pill px-1.5 py-0.5 text-[9.5px] font-black uppercase tracking-[0.08em]"
                         style={{ background: "color-mix(in srgb, var(--color-altus-red) 12%, white)", color: "var(--color-altus-red-deep)" }}
-                        title="Critical — a ‘No’ here flags the candidate for review"
+                        title="Critical — mandatory; a ‘No’ here flags the candidate for review"
                       >
-                        <Flag size={9} strokeWidth={3} /> Critical
+                        <Flag size={9} strokeWidth={3} /> Critical{needsAnswer ? " · Required" : ""}
                       </span>
                     )}
                   </p>
