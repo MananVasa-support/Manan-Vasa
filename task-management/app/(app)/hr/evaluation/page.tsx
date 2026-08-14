@@ -5,6 +5,7 @@ import { requireHrStaff } from "@/lib/hr/access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { listCandidateIntakes } from "@/app/(app)/hr/candidate-actions";
 import { EvaluationV2Screen } from "@/components/hr/candidate/evaluation-v2/evaluation-v2-screen";
+import { HrShellSidebar } from "@/components/hr/hr-shell-sidebar";
 // NOTE: the custom Weight Metrics editor (WeightMatrixPanel) is temporarily
 // disabled — bespoke per-designation weights need a Department → Role →
 // Designation mapping that doesn't exist yet. Scoring falls back to
@@ -45,7 +46,9 @@ export default async function EvaluationPage({
   const backLabel = role === "management" ? "Back to Assessment" : "Back to Pre-Interview";
 
   return (
-    <div className="min-h-dvh bg-[#faf9fb]">
+    <div className="flex min-h-dvh bg-[#faf9fb]">
+      <HrShellSidebar />
+      <div className="flex min-w-0 flex-1 flex-col">
       <header className="sticky top-0 z-30 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-hairline bg-white/90 px-6 py-3 backdrop-blur max-md:px-4">
         <div className="justify-self-start">
           <Link
@@ -77,6 +80,7 @@ export default async function EvaluationPage({
         isSuperAdmin={superAdmin}
         fixedCandidateId={candidate || undefined}
       />
+      </div>
     </div>
   );
 }

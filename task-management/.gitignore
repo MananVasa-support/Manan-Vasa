@@ -70,6 +70,9 @@ WhatsApp*
 !tests/unit/whatsapp-*.test.ts
 ddd.py
 *.jpeg
+# …but letter signature assets under public/signatures/ MUST ship (else ship.sh's
+# `git add -A` skips them and the PDF/letter render 404s the signature image).
+!public/signatures/*.jpeg
 vpinnacle.html
 vpinnacle_dashboard*.html
 credentials.md

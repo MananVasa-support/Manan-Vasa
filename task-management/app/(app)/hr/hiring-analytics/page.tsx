@@ -6,6 +6,7 @@ import { DashboardHeader } from "@/components/layout/header";
 import { PageShell } from "@/components/layout/page-shell";
 import { loadHiringAnalytics, type HiringAnalytics } from "@/lib/hr/candidate/analytics-data";
 import { HiringAnalyticsDashboard } from "@/components/hr/candidate/analytics/hiring-analytics-dashboard";
+import { HrShellSidebar } from "@/components/hr/hr-shell-sidebar";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,9 @@ export default async function HiringAnalyticsPage() {
   const generatedAt = new Date(data.generatedAt);
 
   return (
-    <>
+    <div className="flex min-h-dvh">
+      <HrShellSidebar />
+      <div className="flex min-w-0 flex-1 flex-col">
       <DashboardHeader generatedAt={generatedAt} />
       <PageShell width="standard" py={false} className="pt-8 pb-20">
         <Link
@@ -51,7 +54,8 @@ export default async function HiringAnalyticsPage() {
 
         <HiringAnalyticsDashboard data={data} />
       </PageShell>
-    </>
+      </div>
+    </div>
   );
 }
 
