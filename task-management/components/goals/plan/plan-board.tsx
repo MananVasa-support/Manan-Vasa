@@ -31,6 +31,7 @@ import {
   Plus,
   Sparkles,
   Sunrise,
+  Users,
 } from "lucide-react";
 import { PRIORITY_LABELS, TASK_PRIORITIES } from "@/db/enums";
 import { fireToast } from "@/lib/toast";
@@ -71,7 +72,17 @@ import type { Route } from "next";
 /** Sources that de-dupe against today's plan (flip to "added" once pulled). */
 const DEDUPE_KINDS: SourceKind[] = ["weekly", "task", "unfinished"];
 
+/** Who this board is planning for — see lib/goals/plan-target.ts. */
+export interface PlanTargetProp {
+  employeeId: string;
+  name: string;
+  isDelegated: boolean;
+  roster: { id: string; name: string }[];
+}
+
 interface Props {
+  /** Whose day is on screen + everyone the viewer may plan for. */
+  target: PlanTargetProp;
   initialPlan: PlanItem[];
   sources: PlanSources;
   minItems: number;
@@ -95,7 +106,7 @@ const GOALS_GRADIENT = `linear-gradient(135deg, ${GOALS_ACCENT}, ${GOALS_ACCENT_
 const PLAN_DROP_ID = "plan-drop";
 const nonGhost = (items: PlanItem[]) => items.filter((i) => i.id !== GHOST_ID);
 
-export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPhase, ymd, dayOffset }: Props) {
+export function PlanBoard({ target, initialPlan, sources, minItems, isManager, initialPhase, ymd, dayOffset }: Props) {
   const [phase, setPhase] = React.useState<PlanPhase>(initialPhase);
   const [starting, setStarting] = React.useState(false);
   const [plan, setPlan] = React.useState<PlanItem[]>(initialPlan);
@@ -166,10 +177,10 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
   const persistOrder = React.useCallback((items: PlanItem[]) => {
     const ids = nonGhost(items).map((i) => i.id);
     startTransition(async () => {
-      const res = await reorderPlan(ids, dayOffset);
+      const res = await reorderPlan(ids, dayOffset, target.employeeId);
       if (!res.ok) fireToast({ message: res.error });
     });
-  }, [dayOffset]);
+  }, [dayOffset, target.employeeId]);
 
   /** Flip a dedupe-able source (weekly/task/unfinished) to "added". */
   const markSource = React.useCallback((kind: SourceKind, id: string, added: boolean) => {
@@ -209,12 +220,12 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
 
       const res =
         kind === "weekly"
-          ? await addWeeklyGoalToPlan(sourceId, dayOffset)
+          ? await addWeeklyGoalToPlan(sourceId, dayOffset, target.employeeId)
           : kind === "task"
-            ? await addTaskToPlan(sourceId, dayOffset)
+            ? await addTaskToPlan(sourceId, dayOffset, target.employeeId)
             : kind === "unfinished"
               ? await addUnfinishedToPlan(sourceId, dayOffset)
-              : await addCascadeGoalToPlan(sourceId, dayOffset);
+              : await addCascadeGoalToPlan(sourceId, dayOffset, target.employeeId);
 
       if (!res.ok) {
         setPlan((prev) => prev.filter((i) => i.id !== tempId));
@@ -307,7 +318,7 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
   const onAddAdhoc = React.useCallback(async (title: string) => {
     const tempId = `temp:${crypto.randomUUID()}`;
     setPlan((prev) => [...nonGhost(prev), { id: tempId, title, subtitle: null, origin: "standalone", kind: "adhoc", done: false }]);
-    const res = await addAdhocToPlan(title);
+    const res = await addAdhocToPlan(title, dayOffset, target.employeeId);
     if (!res.ok) {
       setPlan((prev) => prev.filter((i) => i.id !== tempId));
       fireToast({ message: res.error });
@@ -389,7 +400,52 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
     setPlan((prev) => prev.filter((i) => i.id !== GHOST_ID));
   }
 
-  const daySwitcher = <DaySwitcher current={dayOffset} onPick={goToDay} />;
+  /** Switch whose plan is on screen — a server re-fetch, like the day tabs. */
+  const goToPerson = React.useCallback(
+    (empId: string) => {
+      const qs = new URLSearchParams();
+      if (dayOffset !== 0) qs.set("d", String(dayOffset));
+      if (empId) qs.set("emp", empId);
+      const q = qs.toString();
+      router.push((q ? `${pathname}?${q}` : pathname) as Route);
+    },
+    [router, pathname, dayOffset],
+  );
+
+  const daySwitcher = (
+    <div className="flex flex-wrap items-center gap-2">
+      <DaySwitcher current={dayOffset} onPick={goToDay} />
+      {/* Plan for someone else — only rendered when the viewer actually has
+          people they may plan for (admins: everyone; managers: their downline). */}
+      {target.roster.length > 1 && (
+        <label className="mb-3 inline-flex items-center gap-1.5 rounded-2xl border border-hairline bg-surface-card px-2.5 py-2">
+          <Users size={14} className="shrink-0 text-ink-muted" />
+          <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-subtle">Planning for</span>
+          <select
+            value={target.employeeId}
+            onChange={(e) => goToPerson(e.target.value)}
+            aria-label="Whose day to plan"
+            className="max-w-[190px] rounded-lg border border-hairline-strong bg-surface-card px-2 py-1 text-[12.5px] font-bold text-ink-strong outline-none focus:border-altus-red"
+          >
+            {target.roster.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {target.isDelegated && (
+        <span
+          className="mb-3 rounded-pill px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.08em]"
+          style={{ background: "var(--color-amber-bg)", color: "var(--color-amber-deep)" }}
+          title="You are editing someone else's plan"
+        >
+          {target.name}&apos;s plan
+        </span>
+      )}
+    </div>
+  );
 
   // Non-plan phases (active / close-out / closed) show the review half — same
   // commitments, no pull panels — on the SAME page. Carry-forward / →day-after

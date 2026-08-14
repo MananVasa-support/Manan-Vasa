@@ -10,6 +10,8 @@ import { PersonalWDBoard } from "@/components/goals/board/personal-wd-board";
 import { PlanBoard } from "@/components/goals/plan/plan-board";
 import { MODULE_THEME } from "@/lib/module-theme";
 import { getPlanDayPayload } from "./payload";
+import { clampDayOffset } from "@/lib/queries/daily-checklist";
+import { resolvePlanTarget } from "@/lib/goals/plan-target";
 
 const THEME = MODULE_THEME.goals;
 const ACCENT = "#E10600";
@@ -35,8 +37,17 @@ export default async function GoalsPlanPage({
 
   const sp = await searchParams;
   const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-  // Which planner day (?d=0…6 → today through six days out).
-  const dayOffset = pick(sp.d) === "1" ? 1 : pick(sp.d) === "2" ? 2 : 0;
+  // Which planner day (?d=0…6 → today through six days out). This used to hard-
+  // code 0|1|2 and silently clamped days 3-6 back to today.
+  const dayOffset = clampDayOffset(pick(sp.d));
+
+  // WHOSE day (?emp=<id>) — admins may plan for anyone, managers for their
+  // downline. resolvePlanTarget falls back to the caller when not permitted, so
+  // a hand-crafted ?emp= can never open someone else's plan.
+  const target = await resolvePlanTarget(
+    { id: me.id, name: me.name, isAdmin },
+    pick(sp.emp),
+  );
 
   // PERSONAL space (admins) → the private day board (goals table, scope=personal).
   if ((await goalsSpace(isAdmin)) === "personal") {
@@ -49,7 +60,7 @@ export default async function GoalsPlanPage({
     );
   }
 
-  const payload = await getPlanDayPayload(me.id, new Date(), dayOffset);
+  const payload = await getPlanDayPayload(target.employeeId, new Date(), dayOffset);
   const isManager = payload.isManager;
 
   return (
@@ -91,6 +102,7 @@ export default async function GoalsPlanPage({
           </h1>
         </header>
         <PlanBoard
+          target={target}
           initialPlan={payload.initialPlan}
           sources={payload.sources}
           minItems={payload.minItems}

@@ -10,6 +10,8 @@ import { applyTaskStatusChange } from "@/lib/tasks/set-status";
 import { todayYmd, ymdForOffset, clampDayOffset } from "@/lib/queries/daily-checklist";
 import { goalsCanvasOn } from "@/lib/goals/flag";
 import { getPlanDayPayload } from "./payload";
+import { resolvePlanTarget } from "@/lib/goals/plan-target";
+import { goalScopeFor, canManageGoalFor } from "@/lib/weekly-goals/hierarchy";
 import type { PlanDayPayload, PlanItem, PlanKind } from "@/components/goals/plan/types";
 
 /**
@@ -116,6 +118,31 @@ async function moveIfPlannedElsewhere(
 }
 
 /**
+ * The OWNER of a plan row, but only if the caller is allowed to act on it —
+ * otherwise null. Lets a manager/admin manage a plan they built for someone in
+ * their downline (move it to another day, rename it, drop it) using the same
+ * authority as `resolvePlanTarget`.
+ *
+ * Deliberately NOT used by `setItemProgress` / `startMyDay` / `closeMyDay`:
+ * reporting progress and starting a day are the DOER's own act, and a manager
+ * ticking someone else's work done would falsify that person's record.
+ */
+async function ownerIfPermitted(
+  me: { id: string; isAdmin: boolean },
+  itemId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ employeeId: dailyChecklist.employeeId })
+    .from(dailyChecklist)
+    .where(eq(dailyChecklist.id, itemId))
+    .limit(1);
+  if (!row) return null;
+  if (row.employeeId === me.id) return row.employeeId;
+  const scope = await goalScopeFor({ id: me.id, isAdmin: me.isAdmin });
+  return canManageGoalFor(scope, row.employeeId) ? row.employeeId : null;
+}
+
+/**
  * Explicit RETURNING list — NEVER use bare `.returning()` on daily_checklist:
  * that enumerates every schema column, including 0141's `cascade_goal_id`,
  * which may be UNAPPLIED in prod until GOALS_CANVAS_ON ships (see db/schema.ts).
@@ -154,11 +181,14 @@ function rowToPlanItem(r: PlanItemRow, kind: PlanKind): PlanItem {
 export async function addWeeklyGoalToPlan(
   goalId: string,
   dayOffset: number = 0,
+  forEmployeeId?: string,
 ): Promise<ActionResult<{ item: PlanItem | null }>> {
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   if (!UUID.safeParse(goalId).success) return { ok: false, error: "Invalid goal." };
+  // Whose day is being planned — falls back to my own when not permitted.
+  const { employeeId: ownerId } = await resolvePlanTarget(me, forEmployeeId);
 
   const [goal] = await db
     .select({
@@ -171,21 +201,21 @@ export async function addWeeklyGoalToPlan(
     .from(weeklyGoals)
     .where(eq(weeklyGoals.id, goalId))
     .limit(1);
-  if (!goal || goal.employeeId !== me.id) return { ok: false, error: "That goal isn't yours." };
+  if (!goal || goal.employeeId !== ownerId) return { ok: false, error: "That goal isn't theirs." };
 
   const ymd = ymdForOffset(dayOffset);
   try {
     // Already planned on ANOTHER day → move it here rather than duplicating.
-    const moved = await moveIfPlannedElsewhere(me.id, ymd, { goalId: goal.id }, "weekly");
+    const moved = await moveIfPlannedElsewhere(ownerId, ymd, { goalId: goal.id }, "weekly");
     if (moved) return { ok: true, item: moved };
 
-    const { count, nextPosition } = await countAndNextPosition(me.id, ymd);
+    const { count, nextPosition } = await countAndNextPosition(ownerId, ymd);
     if (count >= MAX_ITEMS_PER_DAY)
       return { ok: false, error: `You can plan at most ${MAX_ITEMS_PER_DAY} items a day.` };
     const [row] = await db
       .insert(dailyChecklist)
       .values({
-        employeeId: me.id,
+        employeeId: ownerId,
         planDate: ymd,
         goalId: goal.id,
         origin: "goal_related",
@@ -214,11 +244,13 @@ export async function addWeeklyGoalToPlan(
 export async function addCascadeGoalToPlan(
   goalId: string,
   dayOffset: number = 0,
+  forEmployeeId?: string,
 ): Promise<ActionResult<{ item: PlanItem | null }>> {
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   if (!UUID.safeParse(goalId).success) return { ok: false, error: "Invalid goal." };
+  const { employeeId: ownerId } = await resolvePlanTarget(me, forEmployeeId);
 
   const [goal] = await db
     .select({
@@ -231,7 +263,7 @@ export async function addCascadeGoalToPlan(
     .from(goals)
     .where(eq(goals.id, goalId))
     .limit(1);
-  if (!goal || goal.employeeId !== me.id) return { ok: false, error: "That goal isn't yours." };
+  if (!goal || goal.employeeId !== ownerId) return { ok: false, error: "That goal isn't theirs." };
 
   const kind: PlanKind =
     goal.period === "year" ? "yearly" : goal.period === "quarter" ? "quarterly" : "monthly";
@@ -240,10 +272,10 @@ export async function addCascadeGoalToPlan(
     // Already planned on ANOTHER day → move it here rather than duplicating.
     // (Cascade goals only carry `cascade_goal_id` once migration 0141 is applied;
     // before that there is no id to match on and this simply finds nothing.)
-    const moved = await moveIfPlannedElsewhere(me.id, ymd, { cascadeGoalId: goal.id }, kind);
+    const moved = await moveIfPlannedElsewhere(ownerId, ymd, { cascadeGoalId: goal.id }, kind);
     if (moved) return { ok: true, item: moved };
 
-    const { count, nextPosition } = await countAndNextPosition(me.id, ymd);
+    const { count, nextPosition } = await countAndNextPosition(ownerId, ymd);
     if (count >= MAX_ITEMS_PER_DAY)
       return { ok: false, error: `You can plan at most ${MAX_ITEMS_PER_DAY} items a day.` };
     const base = {
@@ -287,11 +319,13 @@ export async function addCascadeGoalToPlan(
 export async function addTaskToPlan(
   taskId: string,
   dayOffset: number = 0,
+  forEmployeeId?: string,
 ): Promise<ActionResult<{ item: PlanItem | null }>> {
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   if (!UUID.safeParse(taskId).success) return { ok: false, error: "Invalid task." };
+  const { employeeId: ownerId } = await resolvePlanTarget(me, forEmployeeId);
 
   const [task] = await db
     .select({
@@ -304,7 +338,8 @@ export async function addTaskToPlan(
     .from(tasks)
     .where(eq(tasks.id, taskId))
     .limit(1);
-  if (!task || task.doerId !== me.id) return { ok: false, error: "That task isn't yours." };
+  // The task must belong to the person whose day we're planning.
+  if (!task || task.doerId !== ownerId) return { ok: false, error: "That task isn't theirs." };
 
   const ymd = ymdForOffset(dayOffset);
   try {
@@ -314,7 +349,7 @@ export async function addTaskToPlan(
       .from(dailyChecklist)
       .where(
         and(
-          eq(dailyChecklist.employeeId, me.id),
+          eq(dailyChecklist.employeeId, ownerId),
           eq(dailyChecklist.planDate, ymd),
           eq(dailyChecklist.taskId, taskId),
         ),
@@ -323,16 +358,16 @@ export async function addTaskToPlan(
     if (dupe) return { ok: true, item: null };
 
     // Already planned on ANOTHER day → move it here rather than duplicating.
-    const moved = await moveIfPlannedElsewhere(me.id, ymd, { taskId }, "task");
+    const moved = await moveIfPlannedElsewhere(ownerId, ymd, { taskId }, "task");
     if (moved) return { ok: true, item: moved };
 
-    const { count, nextPosition } = await countAndNextPosition(me.id, ymd);
+    const { count, nextPosition } = await countAndNextPosition(ownerId, ymd);
     if (count >= MAX_ITEMS_PER_DAY)
       return { ok: false, error: `You can plan at most ${MAX_ITEMS_PER_DAY} items a day.` };
     const [row] = await db
       .insert(dailyChecklist)
       .values({
-        employeeId: me.id,
+        employeeId: ownerId,
         planDate: ymd,
         taskId: task.id,
         origin: "standalone",
@@ -461,7 +496,9 @@ export async function transferPlanItem(
     .from(dailyChecklist)
     .where(eq(dailyChecklist.id, itemId))
     .limit(1);
-  if (!src || src.employeeId !== me.id) return { ok: false, error: "That item isn't yours." };
+  // Mine, or someone's whose plan I'm allowed to manage.
+  const ownerId = src ? await ownerIfPermitted(me, itemId) : null;
+  if (!src || !ownerId) return { ok: false, error: "That item isn't yours." };
 
   const ymd = ymdForOffset(offset);
   if (src.planDate === ymd) return { ok: true, movedTo: ymd };
@@ -472,7 +509,7 @@ export async function transferPlanItem(
         .from(dailyChecklist)
         .where(
           and(
-            eq(dailyChecklist.employeeId, me.id),
+            eq(dailyChecklist.employeeId, ownerId),
             eq(dailyChecklist.planDate, ymd),
             src.goalId ? eq(dailyChecklist.goalId, src.goalId) : eq(dailyChecklist.taskId, src.taskId!),
           ),
@@ -481,11 +518,11 @@ export async function transferPlanItem(
       if (dupe) {
         await db
           .delete(dailyChecklist)
-          .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, me.id)));
+          .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, ownerId)));
         return { ok: true, movedTo: ymd };
       }
     }
-    const { count, nextPosition } = await countAndNextPosition(me.id, ymd);
+    const { count, nextPosition } = await countAndNextPosition(ownerId, ymd);
     if (count >= MAX_ITEMS_PER_DAY)
       return { ok: false, error: `That day already has ${MAX_ITEMS_PER_DAY} items.` };
     await db
@@ -498,7 +535,7 @@ export async function transferPlanItem(
         closedAt: null,
         updatedAt: new Date(),
       })
-      .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, me.id)));
+      .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, ownerId)));
     return { ok: true, movedTo: ymd };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -539,6 +576,7 @@ export async function abandonTask(taskId: string): Promise<ActionResult> {
 export async function addAdhocToPlan(
   titleRaw: string,
   dayOffset: number = 0,
+  forEmployeeId?: string,
 ): Promise<ActionResult<{ item: PlanItem }>> {
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
@@ -547,16 +585,17 @@ export async function addAdhocToPlan(
   const title = (titleRaw ?? "").toString().trim();
   if (title.length < 2) return { ok: false, error: "Type what you'll deliver today." };
   if (title.length > 280) return { ok: false, error: "Keep it under 280 characters." };
+  const { employeeId: ownerId } = await resolvePlanTarget(me, forEmployeeId);
 
   const ymd = ymdForOffset(dayOffset);
   try {
-    const { count, nextPosition } = await countAndNextPosition(me.id, ymd);
+    const { count, nextPosition } = await countAndNextPosition(ownerId, ymd);
     if (count >= MAX_ITEMS_PER_DAY)
       return { ok: false, error: `You can plan at most ${MAX_ITEMS_PER_DAY} items a day.` };
     const [row] = await db
       .insert(dailyChecklist)
       .values({
-        employeeId: me.id,
+        employeeId: ownerId,
         planDate: ymd,
         origin: "standalone",
         title,
@@ -570,7 +609,11 @@ export async function addAdhocToPlan(
 }
 
 /** Persist the plan's order after a drag-reorder (own rows only). */
-export async function reorderPlan(orderedIds: string[], dayOffset: number = 0): Promise<ActionResult> {
+export async function reorderPlan(
+  orderedIds: string[],
+  dayOffset: number = 0,
+  forEmployeeId?: string,
+): Promise<ActionResult> {
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
@@ -578,6 +621,7 @@ export async function reorderPlan(orderedIds: string[], dayOffset: number = 0): 
   const ids = z.array(z.string().uuid()).max(MAX_ITEMS_PER_DAY).safeParse(orderedIds);
   if (!ids.success) return { ok: false, error: "Invalid order." };
   if (ids.data.length === 0) return { ok: true };
+  const { employeeId: ownerId } = await resolvePlanTarget(me, forEmployeeId);
   const ymd = ymdForOffset(dayOffset);
   try {
     // One statement: position = index in the supplied array, scoped to my rows.
@@ -592,7 +636,7 @@ export async function reorderPlan(orderedIds: string[], dayOffset: number = 0): 
         )}]`}) with ordinality as t(id, ord)
       ) o
       where dc.id = o.id
-        and dc.employee_id = ${me.id}
+        and dc.employee_id = ${ownerId}
         and dc.plan_date = ${ymd}
     `);
     return { ok: true };
@@ -843,11 +887,14 @@ export async function removePlanItem(itemId: string): Promise<ActionResult> {
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   if (!UUID.safeParse(itemId).success) return { ok: false, error: "Invalid item." };
+  // Mine, or a plan I manage for someone in my downline.
+  const ownerId = await ownerIfPermitted(me, itemId);
+  if (!ownerId) return { ok: false, error: "That item isn't on your plan." };
 
   try {
     const removed = await db
       .delete(dailyChecklist)
-      .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, me.id)))
+      .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, ownerId)))
       .returning({ id: dailyChecklist.id });
     if (removed.length === 0) return { ok: false, error: "That item isn't on your plan." };
     return { ok: true };
@@ -871,12 +918,14 @@ export async function renamePlanItem(itemId: string, titleRaw: string): Promise<
   const title = (titleRaw ?? "").toString().trim();
   if (title.length < 2) return { ok: false, error: "Type what you'll deliver today." };
   if (title.length > 280) return { ok: false, error: "Keep it under 280 characters." };
+  const ownerId = await ownerIfPermitted(me, itemId);
+  if (!ownerId) return { ok: false, error: "That item isn't on your plan." };
 
   try {
     const updated = await db
       .update(dailyChecklist)
       .set({ title, updatedAt: new Date() })
-      .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, me.id)))
+      .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, ownerId)))
       .returning({ id: dailyChecklist.id });
     if (updated.length === 0) return { ok: false, error: "That item isn't on your plan." };
     return { ok: true };
