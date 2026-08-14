@@ -207,6 +207,12 @@ const GoalFields = {
   // Inline Reviewer editor — writes goals.reviewed_by_id (the designated
   // reviewer). null clears it. OPTIONAL for the same never-clobber reason.
   reviewedById: z.string().uuid().nullish(),
+  // "Part of Project?" Yes/No (migration 0184). When false the two refs are
+  // cleared on write, so a goal can never keep a stale project/vendor after the
+  // answer flips back to No. OPTIONAL so an unrelated edit never clobbers them.
+  isProject: z.boolean().optional(),
+  projectNodeId: z.string().uuid().nullish(),
+  vendorId: z.string().uuid().nullish(),
 };
 
 const CreateGoalSchema = z.object({
@@ -295,6 +301,10 @@ export async function createGoal(
       incentiveAmount: money(d.incentiveAmount),
       incentiveKind: d.incentiveKind ?? null,
       monthlyMasterRef: d.monthlyMasterRef ?? null,
+      // "Part of Project?" — the refs only persist when the answer is Yes.
+      isProject: d.isProject ?? false,
+      projectNodeId: d.isProject ? (d.projectNodeId ?? null) : null,
+      vendorId: d.isProject ? (d.vendorId ?? null) : null,
       // Target date lives on MONTH goals only (year/quarter roll up from children).
       targetDate: d.period === "month" ? d.targetDate || null : null,
       adopted: true,
@@ -557,6 +567,10 @@ export async function addChildGoal(
       incentiveAmount: money(d.incentiveAmount),
       incentiveKind: d.incentiveKind ?? null,
       monthlyMasterRef: d.monthlyMasterRef ?? null,
+      // "Part of Project?" — the refs only persist when the answer is Yes.
+      isProject: d.isProject ?? false,
+      projectNodeId: d.isProject ? (d.projectNodeId ?? null) : null,
+      vendorId: d.isProject ? (d.vendorId ?? null) : null,
       // Target date lives on MONTH goals only (a quarter child never carries one).
       targetDate: childPeriod === "month" ? d.targetDate || null : null,
       adopted: true,
@@ -649,6 +663,17 @@ export async function editGoal(
   if (d.incentiveEnabled !== undefined) patch.incentiveEnabled = d.incentiveEnabled;
   if (d.incentiveAmount !== undefined) patch.incentiveAmount = money(d.incentiveAmount);
   if (d.incentiveKind !== undefined) patch.incentiveKind = d.incentiveKind ?? null;
+  // "Part of Project?" — answering No CLEARS the project + vendor in the same
+  // write, so a goal can never keep a stale tag it no longer claims.
+  if (d.isProject !== undefined) {
+    patch.isProject = d.isProject;
+    if (!d.isProject) {
+      patch.projectNodeId = null;
+      patch.vendorId = null;
+    }
+  }
+  if (d.projectNodeId !== undefined && d.isProject !== false) patch.projectNodeId = d.projectNodeId ?? null;
+  if (d.vendorId !== undefined && d.isProject !== false) patch.vendorId = d.vendorId ?? null;
   if (d.monthlyMasterRef !== undefined) patch.monthlyMasterRef = d.monthlyMasterRef ?? null;
   // Target date is a MONTH-only field — accept the edit only on month rows so a
   // year/quarter goal can never acquire a deadline through the API.

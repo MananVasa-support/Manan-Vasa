@@ -51,6 +51,10 @@ export interface GoalsBoardData {
   captureEnabled: boolean;
   /** Voice capture available — a WHISPER_API_KEY is also set. Drives the mic. */
   voiceEnabled: boolean;
+  /** "Part of Project?" pickers (mig 0184). Optional so any caller that doesn't
+   *  load them still typechecks — the pickers just render empty. */
+  projects?: { id: string; name: string }[];
+  vendors?: { id: string; name: string }[];
 }
 
 export interface GoalsLevelBoardProps extends GoalsBoardData {

@@ -399,6 +399,27 @@ export const departments = pgTable(
 );
 
 /**
+ * Admin-managed VENDOR master (migration 0184) — the external parties a goal or a
+ * project action can be tagged to ("Part of Project? → Yes → project + vendor").
+ * Same managed-list shape as `departments`: `is_active` retires an option from
+ * new pickers while existing goals/actions keep pointing at the row, so history
+ * never loses the vendor's name.
+ */
+export const vendors = pgTable(
+  "vendors",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull().unique(),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(100),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("vendors_active_idx").on(t.isActive, t.sortOrder, t.name)],
+);
+
+/**
  * Admin-managed list of interview positions — the "Position Applied For" dropdown
  * in the Candidate Interview Form. Seeded with the default ladder (mig 0155);
  * authorised users add/remove options live. Never hard-deleted from records —
@@ -792,12 +813,18 @@ export const projectNodes = pgTable(
     createdById: uuid("created_by_id").references(() => employees.id, {
       onDelete: "set null",
     }),
+    // The external party doing / supplying this piece of work (migration 0184).
+    // Set mainly on kind='action'; the PERSON side is already covered by
+    // owner_id + project_members. ON DELETE SET NULL — retiring a vendor must
+    // never delete project work.
+    vendorId: uuid("vendor_id").references(() => vendors.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("project_nodes_parent_idx").on(t.parentId),
     index("project_nodes_kind_idx").on(t.kind, t.isArchived),
+    index("project_nodes_vendor_idx").on(t.vendorId),
   ],
 );
 
@@ -1865,6 +1892,8 @@ export type OrgSettings = typeof orgSettings.$inferSelect;
 export type NewOrgSettings = typeof orgSettings.$inferInsert;
 export type Department = typeof departments.$inferSelect;
 export type NewDepartment = typeof departments.$inferInsert;
+export type Vendor = typeof vendors.$inferSelect;
+export type NewVendor = typeof vendors.$inferInsert;
 export type EmployeeDepartment = typeof employeeDepartments.$inferSelect;
 export type NewEmployeeDepartment = typeof employeeDepartments.$inferInsert;
 export type Client = typeof clients.$inferSelect;
@@ -3267,6 +3296,13 @@ export const weeklyGoals = pgTable(
     pctUpdatedAt: timestamp("pct_updated_at", { withTimezone: true }),
     explanation: text("explanation"),
     linkUrl: text("link_url"),
+    // "Part of Project?" Yes/No (migration 0184) — mirrors the same three columns
+    // on `goals` so a weekly goal tags to a project + vendor identically.
+    isProject: boolean("is_project").notNull().default(false),
+    projectNodeId: uuid("project_node_id").references((): AnyPgColumn => projectNodes.id, {
+      onDelete: "set null",
+    }),
+    vendorId: uuid("vendor_id").references((): AnyPgColumn => vendors.id, { onDelete: "set null" }),
     // --- Redesign 2026-06-18 (additive) — Planning + Review field set. ---
     // Weight: the goal's share of the weekly weighted-completion score.
     weight: integer("weight").notNull().default(100),
@@ -3587,6 +3623,15 @@ export const goals = pgTable(
     incentiveKind: text("incentive_kind"),
     // {kind,id,label} snapshot of the picked Monthly Events Master item.
     monthlyMasterRef: jsonb("monthly_master_ref").$type<{ kind: string; id: string; label: string }>(),
+    // "Part of Project?" Yes/No (migration 0184). `isProject` is the answer the
+    // user gives; `projectNodeId` / `vendorId` are only meaningful when it is
+    // true. Both refs are ON DELETE SET NULL so removing a project or retiring a
+    // vendor never deletes someone's goal.
+    isProject: boolean("is_project").notNull().default(false),
+    projectNodeId: uuid("project_node_id").references((): AnyPgColumn => projectNodes.id, {
+      onDelete: "set null",
+    }),
+    vendorId: uuid("vendor_id").references((): AnyPgColumn => vendors.id, { onDelete: "set null" }),
     // Deadline for MONTHLY goals (migration 0169, additive/nullable). Only ever
     // set on month-period rows — year/quarter progress rolls up from children, so
     // they carry NO target date. Weekly goals keep their own weekly_goals.target_date.

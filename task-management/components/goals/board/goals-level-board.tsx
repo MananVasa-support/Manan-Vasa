@@ -1260,6 +1260,8 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                   canWrite={canWrite}
                   isAdmin={props.isAdmin}
                   roster={props.roster}
+                  projects={props.projects}
+                  vendors={props.vendors}
                   areaOptions={areaOptions}
                   measureOptions={measureOptions}
                   typeOptions={typeOptions}
@@ -1301,6 +1303,8 @@ export function GoalsLevelBoard(props: GoalsLevelBoardProps) {
                   customLookups={customLookups}
                   isAdmin={props.isAdmin}
                   roster={props.roster}
+                  projects={props.projects}
+                  vendors={props.vendors}
                   currentCount={inBucket.length}
                   mutation={mutation}
                   existingTitles={levelGoals

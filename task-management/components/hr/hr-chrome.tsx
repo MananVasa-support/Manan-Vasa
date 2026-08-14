@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { ArrowUpRight, Compass, type LucideIcon } from "lucide-react";
+import { HrBackButton } from "@/components/hr/hr-back-button";
 
 /**
  * Shared chrome for the HR room's card-hubs and placeholder sub-modules — one
@@ -14,12 +15,27 @@ const ACCENT_DEEP = "#A80400";
 export function HrPageHeader({
   title,
   subtitle,
+  backHref = "/hr",
+  backLabel = "Back",
+  showBack = true,
 }: {
   title: string;
   subtitle: string;
+  /** Where Back lands when there's no history to pop (fresh tab / direct link). */
+  backHref?: string;
+  backLabel?: string;
+  /** Only the HR front door itself opts out (it has its own Back to Hub). */
+  showBack?: boolean;
 }) {
   return (
     <header className="mb-6 wg-rise">
+      {/* Own line — the eyebrow pill below is inline, so an unwrapped button
+          would sit beside it. */}
+      {showBack && (
+        <div>
+          <HrBackButton fallbackHref={backHref} label={backLabel} />
+        </div>
+      )}
       <span
         className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em]"
         style={{ color: "#ffffff", background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}

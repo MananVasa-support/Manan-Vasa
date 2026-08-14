@@ -443,6 +443,14 @@ export interface GoalDTO {
   /** Designated reviewer (goals.reviewed_by_id), or null. OPTIONAL for the same
    *  temp-row reason; resolve the name from the roster on the client. */
   reviewedById?: string | null;
+  /** "Part of Project?" Yes/No (mig 0184). OPTIONAL — optimistic temp rows omit
+   *  it; the loaders select the full row so real DTOs always carry it. */
+  isProject?: boolean;
+  /** The tagged project (project_nodes.id) — only set when isProject. */
+  projectNodeId?: string | null;
+  /** The tagged vendor (vendors.id) — only set when isProject, and optional even
+   *  then ("…and the vendor IF RELEVANT"). */
+  vendorId?: string | null;
 }
 
 export interface GoalNodeDTO extends GoalDTO {
@@ -502,6 +510,11 @@ export function toGoalDTO(r: {
   targetDate?: string | Date | null;
   status?: string | null;
   reviewedById?: string | null;
+  // "Part of Project?" (mig 0184) — optional so callers that select a narrower
+  // row (the weekly board, optimistic temp rows) still satisfy this signature.
+  isProject?: boolean | null;
+  projectNodeId?: string | null;
+  vendorId?: string | null;
 }): GoalDTO {
   return {
     id: r.id,
@@ -558,6 +571,9 @@ export function toGoalDTO(r: {
           : r.targetDate.toISOString().slice(0, 10),
     status: r.status ?? null,
     reviewedById: r.reviewedById ?? null,
+    isProject: r.isProject ?? false,
+    projectNodeId: r.projectNodeId ?? null,
+    vendorId: r.vendorId ?? null,
   };
 }
 

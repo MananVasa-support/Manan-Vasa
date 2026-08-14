@@ -31,6 +31,8 @@ import {
 import { requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { asWorkerType } from "@/lib/attendance/worker-type";
+import { weeklyTargetMinutesFor } from "@/lib/attendance/hours-rule";
+import { PartTimeWeekCard } from "@/components/attendance/part-time-week-card";
 import {
   listMyAttendance,
   listTeamAttendanceForDate,
@@ -97,6 +99,11 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   // Project / remote staff clock in by starting a screen-share Work Session
   // (session grading) instead of a punch — surface it as their headline action.
   const isProjectRemote = asWorkerType(me.workerType) === "project_remote";
+  // Part-timers are paid hourly against a WEEKLY target (27h by default), so
+  // their hours are their pay — surface the week's progress while it can still
+  // be acted on, instead of only as a smaller payslip at month end.
+  const isPartTime = asWorkerType(me.workerType) === "part_time";
+  const partTimeTargetMinutes = weeklyTargetMinutesFor(me.weeklyTargetMinutes);
 
   // My last 14 calendar days.
   const since = localDateString(tz, new Date(Date.now() - 13 * 86_400_000));
@@ -347,6 +354,16 @@ export default async function AttendancePage({ searchParams }: PageProps) {
               />
             </span>
           </a>
+        )}
+
+        {/* ── Part-time: this week's hours vs the weekly target ── */}
+        {isPartTime && (
+          <div className="mb-5">
+            <PartTimeWeekCard
+              workedMinutes={Math.round(selfSummary.thisWeek.workedHours * 60)}
+              targetMinutes={partTimeTargetMinutes}
+            />
+          </div>
         )}
 
         {/* ── How am I doing — full-width KPI bar across the top ── */}

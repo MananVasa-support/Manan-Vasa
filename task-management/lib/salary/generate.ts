@@ -101,7 +101,13 @@ export async function assembleMonthInputs(month: string): Promise<MonthInputRow[
   // grader already reflects lateness by grading late arrivals as half-days — so a
   // second late deduction here would double-count and push FINAL DAYS below the
   // attendance PAYABLE the user compares against. For July, FINAL DAYS == PAYABLE.
-  const applyLate = month >= "2026-08";
+  // SUPERSEDED by Sir's HOURS RULE (2026-08): payable days are now earned from
+  // WORKED HOURS (9h = 1 day, 54h = a full week — lib/attendance/hours-rule.ts).
+  // A late arrival or an early exit already lands as fewer worked hours and
+  // therefore fewer payable days, so charging the old "every 3 marks = ½ day"
+  // cut on top would deduct twice for the same event. Late marks are still
+  // COUNTED and shown on the attendance surfaces as information.
+  const applyLate = false;
   const profiles = await listSalaryProfiles();
   // payableDays + late for day-based pay, plus workedMinutes for hourly (part-
   // time) pay — both come from the same attendance summary.

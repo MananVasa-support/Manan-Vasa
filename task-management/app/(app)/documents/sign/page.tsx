@@ -6,6 +6,7 @@ import { getSignatureState } from "@/app/(app)/documents/sign/actions";
 import { SignDocument } from "@/components/documents/sign/sign-document";
 import { DOC_KIND_LABELS, isDocKind, type SignatureState } from "@/lib/documents/signing";
 import { HrShellSidebar } from "@/components/hr/hr-shell-sidebar";
+import { HrBackButton } from "@/components/hr/hr-back-button";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,7 @@ export default async function DocumentSignPage({
       <div className="flex min-w-0 flex-1 flex-col">
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto w-full max-w-[720px] px-8 max-md:px-4 pt-8 pb-16">
+        <HrBackButton fallbackHref="/hr" />
         <header className="mb-6 wg-rise">
           <span
             className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"

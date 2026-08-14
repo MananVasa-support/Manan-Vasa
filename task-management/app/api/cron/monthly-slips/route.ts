@@ -4,15 +4,16 @@ import { getCombinedEarnings } from "@/lib/salary/combined-earnings";
 import { renderCombinedEarningsPdf } from "@/lib/salary/combined-earnings-pdf";
 import { sendMonthlySlipsEmail } from "@/lib/email/report-emails";
 import { employeeEmailTargets } from "@/lib/email/recipients";
-import { monthlySlipsEmailOn } from "@/lib/reports/flags";
 
 /**
  * 12th-of-month SLIPS email (Sir's rule 8) — each active employee gets their
  * salary + incentive + attendance slip for the just-paid month, as a single
  * combined-earnings PDF attachment (reuses `renderCombinedEarningsPdf`).
  *
- * Registered `0 5 12 * *` (12th, 10:30 IST). DEFAULT OFF via
- * `MONTHLY_SLIPS_EMAIL_ON` — until flipped, this is a no-op (never emails).
+ * Registered `0 5 12 * *` (12th, 10:30 IST). LIVE — the old
+ * `MONTHLY_SLIPS_EMAIL_ON` kill-switch is gone (Sir: no switches), so the slips
+ * actually go out; it had never been flipped on.
+ * Each slip carries the PAYING ENTITY's own logo (see entityLogoPath).
  * Auth: `Authorization: Bearer <CRON_SECRET>`. Per-recipient try/catch so one
  * failure never poisons the run. Node runtime (pdfkit + postgres-js).
  */
@@ -32,9 +33,9 @@ async function run(request: Request): Promise<NextResponse> {
   if (!expected || request.headers.get("authorization") !== `Bearer ${expected}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!monthlySlipsEmailOn()) {
-    return NextResponse.json({ ok: true, skipped: "MONTHLY_SLIPS_EMAIL_ON is off" });
-  }
+  // No kill-switch (Sir: "no switch, everything live") — this used to self-gate on
+  // MONTHLY_SLIPS_EMAIL_ON, which was never flipped, so the slips have never
+  // actually gone out. Auth is still the Bearer CRON_SECRET check above.
 
   const month = paidMonth(new Date());
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;

@@ -105,6 +105,11 @@ export interface GoalTableViewProps {
    *  falls back to the fixed built-in taxonomy. */
   goaltypeOptions?: string[];
   customLookups: { areas: string[]; measures: string[]; types: string[]; goaltypes?: string[] };
+  /** "Part of Project?" pickers (mig 0184) — drive the Project column's name
+   *  lookup and its typed-name matching. Optional: without them the column still
+   *  reads Yes/No, it just can't resolve a name. */
+  projects?: { id: string; name: string }[];
+  vendors?: { id: string; name: string }[];
   fyStartYear: number;
   /** Stable dense goal code from the board's single rank source. When omitted
    *  (e.g. the weekly board) the table falls back to its own row-index code. */
@@ -1934,6 +1939,14 @@ export function GoalTableView(props: GoalTableViewProps) {
     };
     const rosterById = new Map(roster.map((m) => [m.id, m.name]));
     const rosterByName = new Map(roster.map((m) => [m.name.trim().toLowerCase(), m.id]));
+    // Project / vendor lookups for the "Part of Project?" column (both directions:
+    // id → name to render, name → id to accept a typed or pasted cell).
+    const projectList = props.projects ?? [];
+    const vendorList = props.vendors ?? [];
+    const projectById = new Map(projectList.map((p) => [p.id, p.name]));
+    const projectByName = new Map(projectList.map((p) => [p.name.trim().toLowerCase(), p.id]));
+    const vendorById = new Map(vendorList.map((v) => [v.id, v.name]));
+    const vendorByName = new Map(vendorList.map((v) => [v.name.trim().toLowerCase(), v.id]));
     const statusBase = (isAdmin ? ADMIN_TASK_STATUSES : USER_TASK_STATUSES) as readonly TaskStatus[];
 
     const cols: GridColumn[] = [
@@ -1956,6 +1969,44 @@ export function GoalTableView(props: GoalTableViewProps) {
           const t = raw.trim();
           if (!t) return null; // title is required — never blank it
           return { partial: { title: t }, run: () => A.editGoal({ id: g.id, title: t }) };
+        },
+      },
+      {
+        // "Part of Project?" — reads "No" or "Yes · <Project> · <Vendor>". Typing
+        // follows the grid's spreadsheet convention: "no"/"-" clears the tag,
+        // "yes" marks it without a project, and typing a PROJECT NAME (or a
+        // "Project · Vendor" pair, exactly as the cell renders) both marks it and
+        // resolves the ids — so a pasted column round-trips.
+        key: "project",
+        label: "Project",
+        read: (g) => {
+          if (!g.isProject) return "No";
+          const p = g.projectNodeId ? projectById.get(g.projectNodeId) : null;
+          const v = g.vendorId ? vendorById.get(g.vendorId) : null;
+          return ["Yes", p, v].filter(Boolean).join(" · ");
+        },
+        editable: () => !locked,
+        parse: (raw, g) => {
+          const s = raw.trim();
+          const low = s.toLowerCase();
+          if (s === "" || low === "no" || low === "-" || low === "—") {
+            return {
+              partial: { isProject: false, projectNodeId: null, vendorId: null },
+              run: () => A.editGoal({ id: g.id, isProject: false }),
+            };
+          }
+          // Drop a leading "Yes ·" so the cell's own rendering can be pasted back.
+          const rest = s.replace(/^yes\s*(·|\||,|-)?\s*/i, "");
+          const [pName, vName] = rest.split(/\s*(?:·|\|)\s*/);
+          const projectNodeId = pName ? (projectByName.get(pName.trim().toLowerCase()) ?? null) : null;
+          const vendorId = vName ? (vendorByName.get(vName.trim().toLowerCase()) ?? null) : null;
+          // A typed name that matches nothing is a typo, not an intent to clear —
+          // reject the edit so the previous value stands.
+          if (pName && pName.trim() && !projectNodeId) return null;
+          return {
+            partial: { isProject: true, projectNodeId, vendorId },
+            run: () => A.editGoal({ id: g.id, isProject: true, projectNodeId, vendorId }),
+          };
         },
       },
       {
@@ -2072,7 +2123,7 @@ export function GoalTableView(props: GoalTableViewProps) {
     );
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roster, locked, isAdmin, weekly]);
+  }, [roster, locked, isAdmin, weekly, props.projects, props.vendors]);
 
   const grid = useGoalGridEngine({
     rows,

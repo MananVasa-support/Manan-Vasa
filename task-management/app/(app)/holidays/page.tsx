@@ -5,6 +5,7 @@ import { format, parseISO } from "date-fns";
 import { Info, Sparkles } from "lucide-react";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { HrComingSoon } from "@/components/hr/coming-soon";
+import { HrBackButton } from "@/components/hr/hr-back-button";
 import { DashboardHeader } from "@/components/layout/header";
 import { hrSupportEnabled } from "@/lib/hr/flag";
 import { listHolidays } from "@/lib/queries/monthly-events";
@@ -52,6 +53,7 @@ export default async function HolidayListPage({
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto w-full max-w-[760px] px-8 pb-16 pt-8 max-md:px-4">
+        <HrBackButton fallbackHref="/hr" />
         <header className="mb-5 wg-rise">
           <span
             className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"

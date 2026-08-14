@@ -4,6 +4,7 @@ import { LifeBuoy, Plus } from "lucide-react";
 import { requireWorkspace } from "@/lib/auth/workspace-access";
 import { DashboardHeader } from "@/components/layout/header";
 import { HrComingSoon } from "@/components/hr/coming-soon";
+import { HrBackButton } from "@/components/hr/hr-back-button";
 import { hrSupportEnabled } from "@/lib/hr/flag";
 import {
   resolveViewer,
@@ -62,6 +63,7 @@ export default async function SupportPage({ searchParams }: PageProps) {
     <>
       <DashboardHeader generatedAt={new Date()} />
       <main className="w-full px-8 max-md:px-4 pt-8 pb-16">
+        <HrBackButton fallbackHref="/hr" />
         <header className="mb-6 flex flex-wrap items-end justify-between gap-4 wg-rise">
           <div>
             <span

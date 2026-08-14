@@ -1,4 +1,7 @@
 import "server-only";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { employees, payingEntities } from "@/db/schema";
 import { mySalaryBreakup } from "@/lib/queries/salary-breakup";
 import { getEmployeeMonthStatus } from "@/lib/queries/attendance-status";
 import { getRetentionBonus } from "@/lib/queries/salary-ctc-store";
@@ -60,6 +63,8 @@ export interface CombinedAttendance {
   lateDays: number; // days arrived late (incl. those later waived)
   waivedDays: number; // late days waived to a full day
   leftEarlyDays: number;
+  /** Total hours worked in the month — what payable days are derived from. */
+  workedHours: number;
 }
 
 export interface CombinedRetention {
@@ -105,10 +110,22 @@ export async function getCombinedEarnings(
 ): Promise<CombinedEarnings> {
   const [y, m] = month.split("-").map(Number) as [number, number];
 
-  const [sheetRows, attStatus, retention] = await Promise.all([
+  const [sheetRows, attStatus, retention, payingEntity] = await Promise.all([
     mySalaryBreakup(employeeId),
     getEmployeeMonthStatus(employeeId, y, m, istTodayISO()),
     getRetentionBonus(employeeId),
+    // The employee's OWN paying entity — the slip's logo + signatory follow it.
+    // The legacy sheet's companyName is only a fallback now: it is null whenever
+    // there is no sheet row for the month, which silently branded every such slip
+    // as Altus Corp regardless of who actually paid.
+    db
+      .select({ name: payingEntities.name })
+      .from(employees)
+      .leftJoin(payingEntities, eq(employees.payingEntityId, payingEntities.id))
+      .where(eq(employees.id, employeeId))
+      .limit(1)
+      .then((r) => r[0]?.name ?? null)
+      .catch(() => null),
   ]);
 
   const sheetRow = sheetRows.find((r) => String(r.month).slice(0, 7) === month) ?? null;
@@ -147,6 +164,9 @@ export async function getCombinedEarnings(
     lateDays: s.lateRaw,
     waivedDays: s.lateWaived,
     leftEarlyDays: s.leftEarly,
+    // Hours drive payable days now (9h = 1 day, 54h = a full week), so the slip
+    // shows the hours the days were earned from.
+    workedHours: Math.round((s.totalWorkedMinutes / 60) * 10) / 10,
   };
 
   // Retention bonus — surface ONLY when paid (spec: hidden otherwise).
@@ -172,7 +192,7 @@ export async function getCombinedEarnings(
     employeeId,
     employeeName: name,
     designation: sheetRow?.designation ?? null,
-    entity: sheetRow?.companyName ?? null,
+    entity: payingEntity ?? sheetRow?.companyName ?? null,
     month,
     monthLabel: monthLabel(month),
     fy: fyForMonth(month),

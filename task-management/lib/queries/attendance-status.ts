@@ -8,6 +8,7 @@ import {
   type AttendanceSchedule,
 } from "@/lib/attendance/schedule";
 import { computeDayCode, type DayCodeResult } from "@/lib/attendance/status";
+import { payableDaysByHours, weekKeyOf } from "@/lib/attendance/hours-rule";
 import { listHolidayDateSet } from "@/lib/queries/holidays";
 import { listEmployeeLeaveForRange, type LeaveRow } from "@/lib/queries/leave";
 import {
@@ -413,6 +414,23 @@ function gradeMonth(
       workedMinutes: graded.workedMinutes,
     });
   }
+
+  // ── Sir's HOURS RULE (2026-08) ────────────────────────────────────────────
+  // `tally` summed each day's own dayValue. Payable days are now derived from
+  // WORKED HOURS instead: 9h = 1 day, so 54h earns a full 6-day week and 45h
+  // earns 5 days. Credited days (PL / CO / holiday / W-O / holiday-working) keep
+  // their own value — see lib/attendance/hours-rule.ts. Days before joining are
+  // excluded (NOT_JOINED_CODE is not an ordinary attendance day and carries 0).
+  summary.payableDays = payableDaysByHours(
+    days
+      .filter((d) => d.code !== NOT_JOINED_CODE)
+      .map((d) => ({
+        weekKey: weekKeyOf(d.logDate),
+        code: d.code,
+        dayValue: d.dayValue,
+        workedMinutes: d.workedMinutes,
+      })),
+  );
 
   return { employeeId: emp.id, days, summary };
 }

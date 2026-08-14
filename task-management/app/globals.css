@@ -3,50 +3,81 @@
 
 @theme inline {
   /* canvas + surfaces */
-  --color-canvas-base:     #fafbfc;
-  --color-canvas-base-2:   #f5f5f7;
+  /* Warm paper rather than cool grey — the ground the pastel families sit on. */
+  --color-canvas-base:     #faf8f7;
+  --color-canvas-base-2:   #f4f1ef;
   --color-surface-card:    #ffffff;
-  --color-surface-soft:    #f8fafc;
-  --color-surface-track:   #f1f5f9;
+  --color-surface-soft:    #f8f6f4;
+  --color-surface-track:   #efecea;
 
   /* ink ramp */
   --color-ink-strong:      #0f172a;
   --color-ink:             #1f2937;
   --color-ink-soft:        #334155;
   --color-ink-muted:       #475569;
-  --color-ink-subtle:      #64748b;
+  --color-ink-subtle:      #5b6675;
 
-  /* hairlines */
-  --color-hairline:        rgba(15, 23, 42, 0.06);
-  --color-hairline-strong: rgba(15, 23, 42, 0.10);
+  /* hairlines — warmed to match the paper ground */
+  --color-hairline:        rgba(60, 44, 40, 0.07);
+  --color-hairline-strong: rgba(60, 44, 40, 0.12);
 
-  /* Altus accent red — token name kept (--color-altus-red) for back-compat
-     with ~50 component refs; value now matches the Altus Corp logo. */
-  --color-altus-red:       #E10600;
-  --color-altus-red-deep:  #A80400;
+  /* ── GOOGLE-PASTEL TONAL PALETTE (2026-08) ───────────────────────────────
+     Sir: "google pastel shades … no solid colours visible anywhere".
 
-  /* status palette */
-  --color-blue:    #3b82f6;  --color-blue-deep:   #1d4ed8;  --color-blue-bg:   #eff6ff;
-  --color-green:   #22c55e;  --color-green-deep:  #15803d;  --color-green-bg:  #ecfdf5;
-  --color-amber:   #f59e0b;  --color-amber-deep:  #b45309;  --color-amber-bg:  #fffbeb;
-  --color-red:     #E10600;  --color-red-deep:    #A80400;  --color-red-bg:    #fef2f2;
-  --color-rose:    #f43f5e;  --color-rose-deep:   #be123c;  --color-rose-bg:   #fff1f2;
-  --color-purple:  #a855f7;  --color-purple-deep: #7c3aed;  --color-purple-bg: #faf5ff;
+     Every hue is now a FOUR-STOP TONAL FAMILY rather than one saturated value:
+
+       --color-<hue>-bg     wash      — page-level tint behind a section
+       --color-<hue>         CONTAINER — the pastel that FILLS areas (chips,
+                                         buttons, bars, banners, badges)
+       --color-<hue>-edge    outline   — ≥3:1 on white, for borders/dots/strokes
+       --color-<hue>-deep    ON-CONTAINER INK — text + icons ONLY
+
+     The rule that keeps this readable: colour is not removed, it is REDISTRIBUTED
+     from the fill to the glyph. Anything that FILLS moves down to the container
+     stop; anything that is TEXT moves up to the ink stop. So white-on-red becomes
+     deep-red-on-pastel-red, which reads as pastel while staying ≥5.2:1.
+
+     The brand seed #E10600 is UNCHANGED (see --color-altus-red-seed and
+     lib/appearance.ts) — the container is derived from it, so per-user accent
+     rows in the database need no migration. Ink greys and surface whites are NOT
+     "solid colours" and are deliberately left alone.
+
+     Container luminances are deliberately re-spaced per hue (red .690 → yellow
+     .827) because once saturation is flattened, LIGHTNESS is what keeps green /
+     amber / red distinguishable — including under red-green colour blindness. */
+  --color-altus-red-seed:  #E10600;  /* untouched brand seed — derivations only */
+  --color-altus-red:       #F8C8C7;  /* container: fills */
+  --color-altus-red-edge:  #D4706D;  /* outline */
+  --color-altus-red-deep:  #A80400;  /* on-container ink: text + icons */
+  --color-altus-red-wash:  #FDF0F0;
+
+  /* status palette — container / ink / wash / edge per family */
+  --color-blue:    #d3e3fd;  --color-blue-deep:   #174ea6;  --color-blue-bg:   #eef3fd;  --color-blue-edge:   #4a7fd4;
+  --color-green:   #c3ebcd;  --color-green-deep:  #0f5b2e;  --color-green-bg:  #eef7f0;  --color-green-edge:  #3e8f5a;
+  --color-amber:   #fbe0a6;  --color-amber-deep:  #8a3d06;  --color-amber-bg:  #fdf6e8;  --color-amber-edge:  #a8761f;
+  --color-red:     #f8c8c7;  --color-red-deep:    #A80400;  --color-red-bg:    #fdf0f0;  --color-red-edge:    #d4706d;
+  --color-rose:    #f9ceda;  --color-rose-deep:   #9f0f33;  --color-rose-bg:   #fdeef1;  --color-rose-edge:   #c0567f;
+  --color-purple:  #e9ddff;  --color-purple-deep: #5b21b6;  --color-purple-bg: #f4eefe;  --color-purple-edge: #8a6bd0;
   /* extended tones (Manan status palette): yellow, orange, slate=dark grey, brown */
-  --color-yellow:  #eab308;  --color-yellow-deep: #a16207;  --color-yellow-bg: #fefce8;
-  --color-orange:  #f97316;  --color-orange-deep: #c2410c;  --color-orange-bg: #fff7ed;
-  --color-slate:   #64748b;  --color-slate-deep:  #334155;  --color-slate-bg:  #f1f5f9;
-  --color-brown:   #92724e;  --color-brown-deep:  #6b4a2b;  --color-brown-bg:  #f6f1ea;
-  --color-stone:   #9ca3af;  --color-stone-deep:  #6b7280;  --color-stone-bg:  #f9fafb;
+  --color-yellow:  #f5eda4;  --color-yellow-deep: #7a5c00;  --color-yellow-bg: #fbf8e6;  --color-yellow-edge: #a88a2e;
+  --color-orange:  #ffd9c2;  --color-orange-deep: #973108;  --color-orange-bg: #fdf1e9;  --color-orange-edge: #b25a22;
+  --color-slate:   #dce2ea;  --color-slate-deep:  #334155;  --color-slate-bg:  #f0f3f6;  --color-slate-edge:  #7c8595;
+  --color-brown:   #e4d6c3;  --color-brown-deep:  #6b4a2b;  --color-brown-bg:  #f6f1e9;  --color-brown-edge:  #a08556;
+  --color-stone:   #e4e7eb;  --color-stone-deep:  #545a63;  --color-stone-bg:  #f3f4f6;  --color-stone-edge:  #8b929c;
   /* attendance Phase B tones: teal=comp-off, indigo=holiday */
-  --color-teal:    #14b8a6;  --color-teal-deep:   #0f766e;  --color-teal-bg:   #f0fdfa;
-  --color-indigo:  #6366f1;  --color-indigo-deep: #4338ca;  --color-indigo-bg: #eef2ff;
+  --color-teal:    #b8e7e1;  --color-teal-deep:   #0b5a54;  --color-teal-bg:   #eaf7f5;  --color-teal-edge:   #3f9a90;
+  --color-indigo:  #d6d9fb;  --color-indigo-deep: #3a32a6;  --color-indigo-bg: #eef0fd;  --color-indigo-edge: #6f79dc;
+
+  /* Chart series — referenced by components/charts/h-bars-impl.tsx but never
+     defined before this pass, so those bars rendered UNFILLED. Now real. */
+  --color-chart-1: #d3e3fd;  --color-chart-2: #c3ebcd;  --color-chart-3: #f8c8c7;  --color-chart-4: #fbe0a6;
+  --color-chart-5: #e9ddff;  --color-chart-6: #b8e7e1;  --color-chart-7: #ffd9c2;  --color-chart-8: #e4d6c3;
 
   /* Goals module identity accent — Altus brand red (in-module chrome is red
      everywhere; only the Hub cards keep per-module colours). Components
      reference var(--goals-accent[-deep], <fallback>). */
-  --goals-accent:      #E10600;
-  --goals-accent-deep: #A80400;
+  --goals-accent:      #F8C8C7;  /* container (fills) */
+  --goals-accent-deep: #A80400;  /* on-container ink (text/icons) */
 
   /* main-nav pills */
   --color-nav-pill-bg:        rgba(255, 255, 255, 0.06);
@@ -108,29 +139,36 @@
    runtime, system-wide. Values mirror the @theme block exactly.
    ──────────────────────────────────────────────────────────────────── */
 :root {
-  --color-blue:    #3b82f6;  --color-blue-deep:   #1d4ed8;  --color-blue-bg:   #eff6ff;
-  --color-green:   #22c55e;  --color-green-deep:  #15803d;  --color-green-bg:  #ecfdf5;
-  --color-amber:   #f59e0b;  --color-amber-deep:  #b45309;  --color-amber-bg:  #fffbeb;
-  --color-red:     #E10600;  --color-red-deep:    #A80400;  --color-red-bg:    #fef2f2;
-  --color-rose:    #f43f5e;  --color-rose-deep:   #be123c;  --color-rose-bg:   #fff1f2;
-  --color-purple:  #a855f7;  --color-purple-deep: #7c3aed;  --color-purple-bg: #faf5ff;
-  --color-yellow:  #eab308;  --color-yellow-deep: #a16207;  --color-yellow-bg: #fefce8;
-  --color-orange:  #f97316;  --color-orange-deep: #c2410c;  --color-orange-bg: #fff7ed;
-  --color-slate:   #64748b;  --color-slate-deep:  #334155;  --color-slate-bg:  #f1f5f9;
-  --color-brown:   #92724e;  --color-brown-deep:  #6b4a2b;  --color-brown-bg:  #f6f1ea;
-  --color-stone:   #9ca3af;  --color-stone-deep:  #6b7280;  --color-stone-bg:  #f9fafb;
-  --color-teal:    #14b8a6;  --color-teal-deep:   #0f766e;  --color-teal-bg:   #f0fdfa;
-  --color-indigo:  #6366f1;  --color-indigo-deep: #4338ca;  --color-indigo-bg: #eef2ff;
+  /* MIRROR of the @theme tonal families above. This block exists because these
+     tokens are consumed as raw `var(--color-…)` in style props (dots, pills,
+     distribution bars), which @theme alone does not emit. It MUST stay in sync —
+     it is declared later, so anything left saturated here would silently win. */
+  --color-blue:    #d3e3fd;  --color-blue-deep:   #174ea6;  --color-blue-bg:   #eef3fd;  --color-blue-edge:   #4a7fd4;
+  --color-green:   #c3ebcd;  --color-green-deep:  #0f5b2e;  --color-green-bg:  #eef7f0;  --color-green-edge:  #3e8f5a;
+  --color-amber:   #fbe0a6;  --color-amber-deep:  #8a3d06;  --color-amber-bg:  #fdf6e8;  --color-amber-edge:  #a8761f;
+  --color-red:     #f8c8c7;  --color-red-deep:    #A80400;  --color-red-bg:    #fdf0f0;  --color-red-edge:    #d4706d;
+  --color-rose:    #f9ceda;  --color-rose-deep:   #9f0f33;  --color-rose-bg:   #fdeef1;  --color-rose-edge:   #c0567f;
+  --color-purple:  #e9ddff;  --color-purple-deep: #5b21b6;  --color-purple-bg: #f4eefe;  --color-purple-edge: #8a6bd0;
+  --color-yellow:  #f5eda4;  --color-yellow-deep: #7a5c00;  --color-yellow-bg: #fbf8e6;  --color-yellow-edge: #a88a2e;
+  --color-orange:  #ffd9c2;  --color-orange-deep: #973108;  --color-orange-bg: #fdf1e9;  --color-orange-edge: #b25a22;
+  --color-slate:   #dce2ea;  --color-slate-deep:  #334155;  --color-slate-bg:  #f0f3f6;  --color-slate-edge:  #7c8595;
+  --color-brown:   #e4d6c3;  --color-brown-deep:  #6b4a2b;  --color-brown-bg:  #f6f1e9;  --color-brown-edge:  #a08556;
+  --color-stone:   #e4e7eb;  --color-stone-deep:  #545a63;  --color-stone-bg:  #f3f4f6;  --color-stone-edge:  #8b929c;
+  --color-teal:    #b8e7e1;  --color-teal-deep:   #0b5a54;  --color-teal-bg:   #eaf7f5;  --color-teal-edge:   #3f9a90;
+  --color-indigo:  #d6d9fb;  --color-indigo-deep: #3a32a6;  --color-indigo-bg: #eef0fd;  --color-indigo-edge: #6f79dc;
+  --color-chart-1: #d3e3fd;  --color-chart-2: #c3ebcd;  --color-chart-3: #f8c8c7;  --color-chart-4: #fbe0a6;
+  --color-chart-5: #e9ddff;  --color-chart-6: #b8e7e1;  --color-chart-7: #ffd9c2;  --color-chart-8: #e4d6c3;
+  --color-altus-red-edge: #D4706D;  --color-altus-red-wash: #FDF0F0;  --color-altus-red-seed: #E10600;
 }
 
 /* Heatmap step backgrounds (used as `background:` not `color:`, so they live
    outside @theme as raw CSS custom properties.) */
 :root {
-  --heat-0: #f1f5f9;
-  --heat-1: linear-gradient(135deg, #86efac, #4ade80);
-  --heat-2: linear-gradient(135deg, #fcd34d, #f59e0b);
-  --heat-3: linear-gradient(135deg, #fb923c, #ea580c);
-  --heat-4: linear-gradient(135deg, #fca5a5, #E10600);
+  --heat-0: #f0f3f6;
+  --heat-1: linear-gradient(135deg, #dff2e3, #c3ebcd);
+  --heat-2: linear-gradient(135deg, #f7e7b4, #fbe0a6);
+  --heat-3: linear-gradient(135deg, #ffd9c2, #f9c5a6);
+  --heat-4: linear-gradient(135deg, #f8c8c7, #efb2ae);
 
   /* Profile v2 — accent. Defaults to the Altus red; the root layout
      overrides via inline style="--user-accent: <hex>" once the user
@@ -1316,32 +1354,38 @@ html[data-density="dense"] body {
 /* Per-status neon palette. RGB triplets so we can use them in
    rgba()/color-mix() consumers without breaking. */
 :root {
-  --kpi-neon-total:        225 6 0;   /* #E10600 — Altus red */
-  --kpi-neon-need-help:    248 113 113; /* red-400   */
-  --kpi-neon-not-approved: 244 114 182; /* pink-400  */
-  --kpi-neon-done:         163 230 53;  /* lime-400  */
-  --kpi-neon-pending:      251 191 36;  /* amber-400 */
-  --kpi-neon-not-started:  167 139 250; /* violet-400 */
+  /* PASTEL CONTAINERS (2026-08). These are FILLS — dots, sparkline bands, tile
+     shadows — so they move to the container stop; the -deep companions below
+     stay as the on-container INK, which is what keeps each channel legible. */
+  --kpi-neon-total:        248 200 199; /* brand container  #F8C8C7 */
+  --kpi-neon-need-help:    244 174 154; /* warm container            */
+  --kpi-neon-not-approved: 249 206 218; /* rose container   #F9CEDA  */
+  --kpi-neon-done:         195 235 205; /* green container  #C3EBCD  */
+  --kpi-neon-pending:      251 224 166; /* amber container  #FBE0A6  */
+  --kpi-neon-not-started:  233 221 255; /* purple container #E9DDFF  */
 
   /* Deep companions — used for label text on a white tile so each
      channel stays colour-coded but high-contrast (the bright neon
      above is reserved for the dot, sparkline, and shadow accents). */
   --kpi-neon-total-deep:        168 4 0;   /* #A80400 — Altus red deep */
-  --kpi-neon-need-help-deep:    153 27 27;   /* red-800    */
-  --kpi-neon-not-approved-deep: 157 23 77;   /* pink-800   */
-  --kpi-neon-done-deep:         63 98 18;    /* lime-800   */
-  --kpi-neon-pending-deep:      146 64 14;   /* amber-800  */
+  --kpi-neon-need-help-deep:    151 49 8;    /* orange ink  #973108 */
+  --kpi-neon-not-approved-deep: 159 15 51;   /* rose ink    #9F0F33 */
+  --kpi-neon-done-deep:         15 91 46;    /* green ink   #0F5B2E */
+  --kpi-neon-pending-deep:      138 61 6;    /* amber ink   #8A3D06 */
   --kpi-neon-not-started-deep:  91 33 182;   /* violet-800 */
 
   /* Altus Corp brand indigo — primary accent across the dashboard
      surface. RGB triplets compose with rgba()/color-mix() the same way
      the neon palette does. Token names kept (--vp-cyan*) for back-compat
      with ~50 component refs; values now match the Altus Corp logo. */
-  --vp-cyan:        225 6 0;   /* #E10600 */
-  --vp-cyan-bright: 244 85 77; /* #F4554D */
-  --vp-cyan-deep:   168 4 0;   /* #A80400 */
-  --vp-cyan-glow:   rgba(225, 6, 0, 0.25);
-  --vp-cyan-tint:   rgba(225, 6, 0, 0.08);
+  /* These paint nav pills, hover rails and focus glows — all FILLS — so they
+     follow the brand EDGE tone (#D4706D) rather than the saturated seed. The
+     -deep companion is unchanged: it is the ink used for text on those pills. */
+  --vp-cyan:        212 112 109; /* #D4706D — brand edge */
+  --vp-cyan-bright: 226 138 133; /* #E28A85 */
+  --vp-cyan-deep:   168 4 0;     /* #A80400 — on-container ink */
+  --vp-cyan-glow:   rgba(212, 112, 109, 0.28);
+  --vp-cyan-tint:   rgba(212, 112, 109, 0.10);
 }
 
 /* The strip's substrate band. Light warm-white gradient with a soft

@@ -9,6 +9,8 @@ import type { GoalNode } from "@/lib/goals/types";
 import { toGoalDTO, type GoalDTO } from "@/components/goals/cascade/util";
 import type { GoalsBoardData } from "@/components/goals/board/types";
 import { resolveGoalsView } from "./cascade/view";
+import { listProjectOptions } from "@/lib/queries/projects";
+import { listActiveVendors } from "@/lib/queries/vendors";
 
 /**
  * Lean data-load for the Goals LEVEL BOARD pages (Yearly / Quarterly /
@@ -116,6 +118,16 @@ export async function loadBoardData(sp: {
     reviewedById: null,
   }));
 
+  // "Part of Project?" pickers — both are tiny lists. `.catch(() => [])` so an
+  // unapplied migration or a lookup hiccup degrades to an empty picker instead of
+  // taking the whole goals board down.
+  const [projectOptions, vendorOptions] = await Promise.all([
+    listProjectOptions().catch(() => []),
+    listActiveVendors()
+      .then((rows) => rows.map((v) => ({ id: v.id, name: v.name })))
+      .catch(() => []),
+  ]);
+
   return {
     goals,
     weekCards,
@@ -140,5 +152,10 @@ export async function loadBoardData(sp: {
     customLookups: lookups.custom,
     captureEnabled: goalCaptureEnabled(),
     voiceEnabled: voiceCaptureEnabled(),
+    // "Part of Project?" pickers (mig 0184). Best-effort: if either lookup fails
+    // (or the migration hasn't been applied yet) the board still renders — the
+    // pickers just come up empty rather than 500-ing the whole goals page.
+    projects: projectOptions,
+    vendors: vendorOptions,
   };
 }

@@ -35,7 +35,11 @@ export default async function HrStageItemPage({
     <>
       <DashboardHeader generatedAt={new Date()} />
       <PageShell width="full">
-        <HrPageHeader title={`${st.title} · ${it.label}`} subtitle={it.blurb} />
+        <HrPageHeader
+          title={`${st.title} · ${it.label}`}
+          subtitle={it.blurb}
+          backHref={`/hr/${st.slug}`}
+        />
         <HrPlanned title={it.label} />
       </PageShell>
     </>

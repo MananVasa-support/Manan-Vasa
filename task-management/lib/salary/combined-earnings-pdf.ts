@@ -11,6 +11,9 @@ import {
   drawSectionHeading,
   drawSignatoryBlock,
   drawTitleBand,
+  drawStatTiles,
+  drawStackedBar,
+  drawBarMeter,
   fmtDate,
   inr,
   newDoc,
@@ -108,9 +111,33 @@ export async function renderCombinedEarningsPdf(
   }
   doc.y += 8;
 
-  // ── 2. Attendance analytics ──
+  // ── 2. Attendance analytics + DASHBOARD ──
   drawSectionHeading(doc, "Attendance analytics");
   const a = data.attendance;
+
+  // Dashboard band: headline tiles, the hours meter the payable days are earned
+  // from (9h = 1 day), then the day-distribution bar.
+  drawStatTiles(doc, [
+    { label: "Payable days", value: String(a.payableDays), caption: `of ${a.daysInMonth} days`, accent: true },
+    { label: "Hours worked", value: `${a.workedHours}h`, caption: "9h = 1 day" },
+    { label: "Present", value: String(a.present) },
+    { label: "Absent", value: String(a.absent) },
+  ]);
+  // Target = 9h for every day that was payable — i.e. did the hours match the days.
+  const hoursTarget = Math.max(a.payableDays * 9, 1);
+  drawBarMeter(doc, {
+    label: "Hours worked vs target (9h per attendance day, 54h per full week)",
+    value: a.workedHours,
+    max: hoursTarget,
+    caption: `${a.workedHours}h of ${Math.round(hoursTarget)}h`,
+  });
+  drawStackedBar(doc, [
+    { label: "Present", value: a.present, color: "#7FB77E" },
+    { label: "Half-day", value: a.halfDay, color: "#F2C94C" },
+    { label: "Absent", value: a.absent, color: "#E4756D" },
+    { label: "Weekly off", value: a.weeklyOff, color: "#B7C4CF" },
+  ]);
+
   rowLine("Present", xOverN(a.present, a.daysInMonth));
   rowLine("Days late", xOverN(a.lateDays, a.daysInMonth));
   rowLine("Days waived", xOverN(a.waivedDays, a.daysInMonth));
@@ -164,6 +191,37 @@ export async function renderCombinedEarningsPdf(
     );
     doc.y = y + 16;
   };
+  // Incentive DASHBOARD — headline tiles, then an attainment meter per window so
+  // target-vs-paid reads at a glance before the exact figures below.
+  const inc = data.incentive;
+  drawStatTiles(doc, [
+    { label: "Paid this month", value: inr(inc.thisMonth.paid), accent: true },
+    { label: "Target", value: inr(inc.thisMonth.target) },
+    {
+      label: "Attainment",
+      value: inc.thisMonth.attainmentPct == null ? "—" : `${Math.round(inc.thisMonth.attainmentPct)}%`,
+    },
+    { label: "Year to date", value: inr(inc.ytd.paid) },
+  ]);
+  const meter = (label: string, w: TargetVsPaid) => {
+    if (w.target <= 0 && w.paid <= 0) return;
+    drawBarMeter(doc, {
+      label,
+      value: w.paid,
+      max: w.target > 0 ? w.target : w.paid,
+      caption:
+        w.attainmentPct == null
+          ? `${inr(w.paid)} paid`
+          : `${inr(w.paid)} of ${inr(w.target)} · ${Math.round(w.attainmentPct)}%`,
+      // Hitting target reads green; short of it stays brand red.
+      color: (w.attainmentPct ?? 0) >= 100 ? "#7FB77E" : undefined,
+    });
+  };
+  meter("This month", inc.thisMonth);
+  meter("Last 3 months", inc.last3Months);
+  meter("Year to date", inc.ytd);
+  doc.y += 2;
+
   tvpHeader();
   tvpRow("This month", data.incentive.thisMonth);
   tvpRow("Last 3 months", data.incentive.last3Months);

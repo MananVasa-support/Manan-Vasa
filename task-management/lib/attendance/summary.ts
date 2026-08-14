@@ -4,17 +4,26 @@
  * much salary got reduced." Pure so it's unit-testable; the query layer feeds it
  * pre-computed per-day results (from computeDayCode) + the per-day salary rate.
  *
- * Two Sir rules live HERE (they're period-level, not per-day):
- *  • WEEKLY 54h WAIVER (#8): if a Mon–Sat week totals ≥ 54 worked hours, ALL of
- *    that week's late / early / half-day marks are waived — the half-days are
- *    upgraded to full present days and the late/early marks drop to zero.
- *  • COMBINED late+early DEDUCTION (#3/#5): after waivers, every 3 marks (late
- *    check-in + early check-out counted together) costs an extra ½ day.
+ * The period-level rule lives HERE (it is not per-day):
+ *  • HOURS RULE (2026-08, supersedes the old all-or-nothing 54h waiver): a week's
+ *    ORDINARY attendance days are earned from worked hours at 9h per day — 54h
+ *    earns a full 6-day week, 45h earns 5 days, and everything in between is
+ *    proportional to the nearest half day. Credited days (paid leave, comp-off,
+ *    holidays, weekly off, holiday-working) keep their own value. The shared
+ *    implementation is lib/attendance/hours-rule.ts, which the SALARY engine
+ *    reads too, so the self-view and the payslip can never disagree.
+ *  • The older "every 3 late/early marks costs ½ day" deduction is retired: the
+ *    hours already capture a late arrival or an early exit, so deducting again
+ *    would charge twice for one event. Marks are still surfaced as information.
  */
 import type { DayCodeResult } from "./status";
+import {
+  daysFromMinutes,
+  isOrdinaryAttendanceDay,
+  WEEK_TARGET_MINUTES,
+} from "./hours-rule";
 
-/** Weekly worked-hours target (Mon–Sat, 6 × 9h). */
-export const WEEK_TARGET_MINUTES = 54 * 60;
+export { WEEK_TARGET_MINUTES };
 
 export interface SummaryDay {
   /** yyyy-mm-dd (IST). */
@@ -66,8 +75,13 @@ export function summarize(days: SummaryDay[], perDayRate: number): AttendanceSum
   let workedMinutes = 0;
 
   for (const [, week] of byWeek) {
-    const weekWorked = week.reduce((s, d) => s + d.result.workedMinutes, 0);
-    const waived = weekWorked >= WEEK_TARGET_MINUTES;
+    // Sir's HOURS RULE — the week's ORDINARY attendance days are earned from
+    // worked hours (9h = 1 day, so 54h = a full 6-day week, 45h = 5 days);
+    // credited days (PL / CO / holiday / W-O / holiday-working) keep their own
+    // value. See lib/attendance/hours-rule.ts — the salary engine reads the
+    // identical rule, so this page and the payslip can never disagree.
+    let ordinaryMinutes = 0;
+    let ordinaryDays = 0;
 
     for (const d of week) {
       workingDays += 1;
@@ -75,30 +89,31 @@ export function summarize(days: SummaryDay[], perDayRate: number): AttendanceSum
       const isAbsent = d.result.code === "A";
       const isHalf = d.result.dayValue === 0.5;
 
-      if (isAbsent) {
-        absentDays += 1;
-        // an absence is not "waivable" by hours — you weren't there
-        continue;
+      if (isOrdinaryAttendanceDay(d.result.code)) {
+        ordinaryMinutes += d.result.workedMinutes;
+        ordinaryDays += 1;
+      } else {
+        presentDays += d.result.dayValue;
       }
 
-      if (waived) {
-        // Week hit 54h → this day counts as a FULL present day, marks cleared.
-        presentDays += 1;
-        continue;
-      }
-
-      presentDays += d.result.dayValue;
+      // Marks stay VISIBLE (they tell the employee what happened) but no longer
+      // drive a deduction — short hours are already reflected in the day-count.
+      if (isAbsent) absentDays += 1;
       if (isHalf) halfDays += 1;
-      // A day already forgiven per-day (worked full 9h despite late/early) doesn't
-      // count its late/early mark; otherwise it does.
       if (d.result.late && !d.result.lateWaived) lateDays += 1;
       if (d.result.leftEarly && !d.result.lateWaived) earlyDays += 1;
     }
+
+    presentDays += daysFromMinutes(ordinaryMinutes, ordinaryDays);
   }
 
-  const markDeductionDays = Math.floor((lateDays + earlyDays) / 3) * 0.5;
-  const deductionDays = workingDays - presentDays + markDeductionDays;
-  const payableDays = workingDays - deductionDays;
+  // The old "every 3 marks costs ½ day" cut is SUBSUMED by the hours rule: a late
+  // arrival or early exit already shows up as fewer worked hours, so charging for
+  // it again would deduct twice for one event.
+  const markDeductionDays = 0;
+  presentDays = Math.round(presentDays * 2) / 2;
+  const deductionDays = Math.max(0, workingDays - presentDays);
+  const payableDays = presentDays;
   const salaryReduced = Math.round(deductionDays * perDayRate);
   const daysCounted = presentDays > 0 ? presentDays : 1;
 

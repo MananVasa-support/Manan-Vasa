@@ -43,14 +43,38 @@ export function accentVars(hex: string): Record<string, string> {
   const dg = clampByte(g * DEEP_FACTOR);
   const db = clampByte(b * DEEP_FACTOR);
   const normalized = rgbToHex(r, g, b);
+  // ── PASTEL TONAL FAMILY (2026-08) ─────────────────────────────────────────
+  // This function runs on EVERY request and its values land inline on <html>, so
+  // they beat globals.css. Before this change it emitted the raw saturated seed
+  // as --color-altus-red, which would have silently undone the pastel repalette
+  // for every user who has an accent set.
+  //
+  // The stored seed is UNCHANGED (no DB migration): we now derive the same tonal
+  // stops the stylesheet uses — container = mix(seed 22%, white) for FILLS, the
+  // untouched seed × 0.747 for on-container INK, and an edge for outlines.
+  const mixWhite = (c: number, pct: number) => clampByte(c * pct + 255 * (1 - pct));
+  const container = rgbToHex(mixWhite(r, 0.22), mixWhite(g, 0.22), mixWhite(b, 0.22));
+  const deep = rgbToHex(dr, dg, db);
+  // Edge sits between the ink and the container — ≥3:1 on white for borders/dots.
+  const mix2 = (a: number, bb: number, pct: number) => clampByte(a * pct + bb * (1 - pct));
+  const er = mix2(dr, mixWhite(r, 0.22), 0.45);
+  const eg = mix2(dg, mixWhite(g, 0.22), 0.45);
+  const eb = mix2(db, mixWhite(b, 0.22), 0.45);
+  const edge = rgbToHex(er, eg, eb);
   return {
     "--user-accent": normalized,
-    "--color-altus-red": normalized,
-    "--color-altus-red-deep": rgbToHex(dr, dg, db),
-    "--vp-cyan": `${r} ${g} ${b}`,
+    // The raw seed stays reachable for anything that genuinely needs full chroma.
+    "--color-altus-red-seed": normalized,
+    "--color-altus-red": container,
+    "--color-altus-red-deep": deep,
+    "--color-altus-red-edge": edge,
+    "--color-altus-red-wash": rgbToHex(mixWhite(r, 0.06), mixWhite(g, 0.06), mixWhite(b, 0.06)),
+    // The --vp-* family paints nav pills / hover rails / focus glows: those are
+    // FILLS, so they follow the edge tone rather than the saturated seed.
+    "--vp-cyan": `${er} ${eg} ${eb}`,
     "--vp-cyan-deep": `${dr} ${dg} ${db}`,
-    "--vp-cyan-glow": `rgba(${r}, ${g}, ${b}, 0.25)`,
-    "--vp-cyan-tint": `rgba(${r}, ${g}, ${b}, 0.08)`,
+    "--vp-cyan-glow": `rgba(${er}, ${eg}, ${eb}, 0.28)`,
+    "--vp-cyan-tint": `rgba(${er}, ${eg}, ${eb}, 0.10)`,
   };
 }
 

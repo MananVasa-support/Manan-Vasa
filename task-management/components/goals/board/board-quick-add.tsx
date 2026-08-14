@@ -16,6 +16,11 @@ import { quartersOfFy, monthKeysOfFy, fyStartYearOfKey } from "@/lib/goals/types
 import { WeeklyGoalDrawer } from "@/components/weekly-goals/goal-drawer";
 import { GoalLookupSelect } from "@/components/goals/board/goal-lookup-select";
 import { TeamWeightsField, type TeamMemberWeight } from "@/components/goals/board/team-weights-field";
+import {
+  ProjectTagFields,
+  type ProjectOption,
+  type VendorOption,
+} from "@/components/goals/board/project-tag-fields";
 import { GoalsBulkUpload } from "@/components/goals/board/goals-bulk-upload";
 
 const FOCUS_RING =
@@ -52,6 +57,11 @@ interface Props {
   existingTitles?: string[];
   /** Small "+ Add" tile for a Kanban column footer (same composer drawer). */
   compact?: boolean;
+  /** Projects a goal can be tagged to when "Part of Project? = Yes" (mig 0184).
+   *  Optional so callers that don't pass them simply render an empty picker. */
+  projects?: ProjectOption[];
+  /** The vendor master — the optional "…and the vendor if relevant" tag. */
+  vendors?: VendorOption[];
 }
 
 /** Imperative handle — lets the board header's "+ New goal" button fire the
@@ -79,6 +89,10 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
   const [targetDate, setTargetDate] = React.useState("");
   const [weight, setWeight] = React.useState("100");
   const [team, setTeam] = React.useState<TeamMemberWeight[]>([]);
+  // "Part of Project?" — Yes reveals the project + (optional) vendor pickers.
+  const [isProject, setIsProject] = React.useState(false);
+  const [projectNodeId, setProjectNodeId] = React.useState("");
+  const [vendorId, setVendorId] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [files, setFiles] = React.useState<File[]>([]);
   // The target bucket — defaults to the board's period, but the quick-picker at
@@ -145,6 +159,9 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
     setTargetDate("");
     setWeight("100");
     setTeam([]);
+    setIsProject(false);
+    setProjectNodeId("");
+    setVendorId("");
     setNotes("");
     setFiles([]);
     setPeriodKey(props.periodKey);
@@ -179,6 +196,10 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
       teamInvolved: team.length ? team : null,
       notes: notes.trim() || null,
       weight: w,
+      // "Part of Project?" — the refs only ride along when the answer is Yes.
+      isProject,
+      projectNodeId: isProject ? projectNodeId || null : null,
+      vendorId: isProject ? vendorId || null : null,
       // Target date rides ONLY on month goals (year/quarter roll up from children).
       targetDate: props.level === "month" ? targetDate.trim() || null : null,
     };
@@ -486,6 +507,20 @@ export const BoardQuickAdd = React.forwardRef<BoardQuickAddHandle, Props>(
               </span>
             </label>
           )}
+
+          {/* ── Part of Project? — Yes reveals the project + vendor pickers ── */}
+          <ProjectTagFields
+            isProject={isProject}
+            projectNodeId={projectNodeId}
+            vendorId={vendorId}
+            projects={props.projects ?? []}
+            vendors={props.vendors ?? []}
+            onChange={(next) => {
+              setIsProject(next.isProject);
+              setProjectNodeId(next.projectNodeId);
+              setVendorId(next.vendorId);
+            }}
+          />
 
           {/* ── Team members (each with their OWN weight) ── */}
           <div className="block">

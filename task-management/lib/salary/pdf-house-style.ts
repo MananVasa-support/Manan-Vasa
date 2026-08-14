@@ -4,6 +4,7 @@ import path from "node:path";
 import PDFDocument from "pdfkit";
 import { format } from "date-fns";
 import { formatDate } from "@/lib/format";
+import { getEntity } from "@/lib/hr/entities";
 
 /**
  * WS-5 — Shared payslip "house style" for pdfkit salary documents.
@@ -29,6 +30,21 @@ export const COLORS = {
 } as const;
 
 const LOGO_PATH = path.join(process.cwd(), "public", "logo.png");
+
+/**
+ * The PER-ENTITY logo for a paying entity (Sir: "correct logo for each entity").
+ * Every slip used to print `public/logo.png` — the Altus mark — no matter which
+ * entity actually paid, so an Unleashed or Gainmakers payslip carried the wrong
+ * brand. `getEntity` resolves display names, legal names AND the legacy roster
+ * spellings ("MJV HUF", "JSV HUF") to a canonical id, whose logo lives at
+ * public/logos/<id>.jpg. Falls back to the Altus mark if that file is missing,
+ * so a new entity can never produce a logo-less slip.
+ */
+export function entityLogoPath(entity: string | null | undefined): string {
+  const id = getEntity(entity).id;
+  const p = path.join(process.cwd(), "public", "logos", `${id}.jpg`);
+  return existsSync(p) ? p : LOGO_PATH;
+}
 const MARK_PATH = path.join(process.cwd(), "public", "logo-mark.png");
 export const SIG_DIR = path.join(process.cwd(), "public", "signatures");
 
@@ -159,17 +175,19 @@ export function drawMasthead(
   const LOGO_H = 46;
   let textX = left;
   let logoBottom = headerTop;
-  if (existsSync(LOGO_PATH)) {
+  // The PAYING ENTITY's own logo — not the Altus mark for everyone.
+  const logoPath = entityLogoPath(entity);
+  if (existsSync(logoPath)) {
     try {
       // Real aspect ratio → width for this height (fallback to the known ratio).
       let logoW = Math.round(LOGO_H * (973 / 1074));
       try {
-        const img = (doc as unknown as { openImage: (p: string) => { width: number; height: number } }).openImage(LOGO_PATH);
+        const img = (doc as unknown as { openImage: (p: string) => { width: number; height: number } }).openImage(logoPath);
         if (img?.width && img?.height) logoW = Math.round((img.width / img.height) * LOGO_H);
       } catch {
         /* keep fallback width */
       }
-      doc.image(LOGO_PATH, left, headerTop, { height: LOGO_H });
+      doc.image(logoPath, left, headerTop, { height: LOGO_H });
       textX = left + logoW + 14;
       logoBottom = headerTop + LOGO_H;
     } catch {
@@ -266,6 +284,160 @@ export function drawSectionHeading(doc: PDFKit.PDFDocument, label: string): void
     .restore();
   doc.y += 8;
 }
+
+/* ------------------------------------------------------------------ */
+/* Dashboard primitives — the visual blocks the Attendance + Incentive   */
+/* slips render (Sir: "Attendance Slip WITH DASHBOARD").                 */
+/* ------------------------------------------------------------------ */
+
+/** One big-number tile in a {@link drawStatTiles} row. */
+export interface StatTile {
+  label: string;
+  value: string;
+  /** Optional small caption under the value (e.g. "of 26 days"). */
+  caption?: string;
+  /** Tint the value with the brand red (use for the headline figure). */
+  accent?: boolean;
+}
+
+/**
+ * A row of big-number tiles — the "at a glance" band at the top of a dashboard
+ * section. Tiles share the content width evenly and the row wraps to a new page
+ * if it would not fit.
+ */
+export function drawStatTiles(doc: PDFKit.PDFDocument, tiles: StatTile[]): void {
+  if (tiles.length === 0) return;
+  const left = doc.page.margins.left;
+  const right = doc.page.width - doc.page.margins.right;
+  const width = right - left;
+  const H = 46;
+  const gap = 8;
+  const w = (width - gap * (tiles.length - 1)) / tiles.length;
+
+  if (doc.y + H > doc.page.height - doc.page.margins.bottom - 40) doc.addPage();
+  const top = doc.y;
+
+  tiles.forEach((t, i) => {
+    const x = left + i * (w + gap);
+    doc.save().roundedRect(x, top, w, H, 5).fillColor(COLORS.netTint).fill().restore();
+    doc
+      .font("Helvetica")
+      .fontSize(7)
+      .fillColor(COLORS.inkSoft)
+      .text(t.label.toUpperCase(), x + 8, top + 7, {
+        width: w - 16,
+        characterSpacing: 0.5,
+        lineBreak: false,
+      });
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(15)
+      .fillColor(t.accent ? COLORS.brandDeep : COLORS.ink)
+      .text(t.value, x + 8, top + 18, { width: w - 16, lineBreak: false });
+    if (t.caption) {
+      doc
+        .font("Helvetica")
+        .fontSize(7)
+        .fillColor(COLORS.inkSoft)
+        .text(t.caption, x + 8, top + 35, { width: w - 16, lineBreak: false });
+    }
+  });
+  doc.y = top + H + 10;
+}
+
+/** One segment of a {@link drawStackedBar} distribution. */
+export interface BarSegment {
+  label: string;
+  value: number;
+  color: string;
+}
+
+/**
+ * A single horizontal stacked bar + a legend beneath it — the distribution view
+ * (present / absent / half-day / weekly-off). Zero-value segments are dropped
+ * from both the bar and the legend so the chart never shows an empty sliver.
+ */
+export function drawStackedBar(doc: PDFKit.PDFDocument, segments: BarSegment[]): void {
+  const left = doc.page.margins.left;
+  const right = doc.page.width - doc.page.margins.right;
+  const width = right - left;
+  const shown = segments.filter((s) => s.value > 0);
+  const total = shown.reduce((s, x) => s + x.value, 0);
+  if (total <= 0) return;
+
+  const BAR_H = 13;
+  if (doc.y + BAR_H + 26 > doc.page.height - doc.page.margins.bottom - 40) doc.addPage();
+  const top = doc.y;
+
+  let x = left;
+  shown.forEach((s, i) => {
+    // Last segment absorbs rounding so the bar always ends flush at `right`.
+    const w = i === shown.length - 1 ? right - x : (s.value / total) * width;
+    doc.save().rect(x, top, w, BAR_H).fillColor(s.color).fill().restore();
+    x += w;
+  });
+
+  // Legend — swatch + "Label n" pairs, wrapped across the content width.
+  let lx = left;
+  let ly = top + BAR_H + 7;
+  doc.font("Helvetica").fontSize(7.5);
+  for (const s of shown) {
+    const text = `${s.label} ${round1(s.value)}`;
+    const tw = doc.widthOfString(text) + 16;
+    if (lx + tw > right) {
+      lx = left;
+      ly += 11;
+    }
+    doc.save().roundedRect(lx, ly + 1, 6, 6, 1).fillColor(s.color).fill().restore();
+    doc.fillColor(COLORS.inkSoft).text(text, lx + 9, ly, { lineBreak: false });
+    lx += tw;
+  }
+  doc.y = ly + 15;
+}
+
+/**
+ * A labelled progress meter — "worked 45.0h of 54h" style. `value` beyond `max`
+ * fills the bar completely (it never overflows its track).
+ */
+export function drawBarMeter(
+  doc: PDFKit.PDFDocument,
+  opts: { label: string; value: number; max: number; caption?: string; color?: string },
+): void {
+  const left = doc.page.margins.left;
+  const right = doc.page.width - doc.page.margins.right;
+  const width = right - left;
+  const BAR_H = 9;
+  if (doc.y + BAR_H + 24 > doc.page.height - doc.page.margins.bottom - 40) doc.addPage();
+
+  const top = doc.y;
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(8)
+    .fillColor(COLORS.ink)
+    .text(opts.label, left, top, { lineBreak: false });
+  if (opts.caption) {
+    doc
+      .font("Helvetica")
+      .fontSize(8)
+      .fillColor(COLORS.inkSoft)
+      .text(opts.caption, left, top, { width, align: "right", lineBreak: false });
+  }
+
+  const barY = top + 12;
+  doc.save().roundedRect(left, barY, width, BAR_H, 4).fillColor(COLORS.hairline).fill().restore();
+  const pct = opts.max > 0 ? Math.max(0, Math.min(1, opts.value / opts.max)) : 0;
+  if (pct > 0) {
+    doc
+      .save()
+      .roundedRect(left, barY, Math.max(width * pct, 3), BAR_H, 4)
+      .fillColor(opts.color ?? COLORS.brand)
+      .fill()
+      .restore();
+  }
+  doc.y = barY + BAR_H + 9;
+}
+
+const round1 = (n: number): number => Math.round(n * 10) / 10;
 
 /** `For <Entity>` / signature image (or placeholder) / Authorised Signatory / Date / Place. */
 export function drawSignatoryBlock(
