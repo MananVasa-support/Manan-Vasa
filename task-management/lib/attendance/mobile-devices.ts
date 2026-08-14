@@ -148,6 +148,33 @@ export async function countMobileDevices(employeeId: string): Promise<number> {
   return activeCount(employeeId);
 }
 
+/** The registration status of ONE device for an employee. */
+export type DeviceRegStatus = "approved" | "pending" | "revoked" | "unregistered" | "other";
+
+/**
+ * Read-only status of a specific device id for an employee — NO side effects
+ * (unlike {@link resolveMobileDevice}, which stamps lastUsedAt on the punch
+ * path). Powers the app's one-time "Register this device" button: the button
+ * hides once this phone is `approved` or `pending` (already submitted), and
+ * shows for `unregistered` / `revoked`. `other` = the phone belongs to someone
+ * else.
+ */
+export async function getDeviceStatusFor(
+  employeeId: string,
+  rawDeviceId: string,
+): Promise<DeviceRegStatus> {
+  const deviceId = cleanDeviceId(rawDeviceId);
+  if (!deviceId) return "unregistered";
+  const existing = await db.query.mobileDevices.findFirst({
+    where: eq(mobileDevices.deviceId, deviceId),
+  });
+  if (!existing) return "unregistered";
+  if (existing.employeeId !== employeeId) return "other";
+  if (existing.status === "revoked") return "revoked";
+  if (existing.status === "approved") return "approved";
+  return "pending";
+}
+
 /* ── Admin surface (approve / revoke / list) — used by the web admin UI ───── */
 
 export interface AdminDeviceRow {
