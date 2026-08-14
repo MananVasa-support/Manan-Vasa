@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Tag,
   Building2,
+  BadgeCheck,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -30,6 +31,7 @@ import {
   bulkSetClient,
   bulkArchive,
   bulkDelete,
+  bulkSetApprovalStatus,
 } from "@/app/(app)/tasks/actions";
 import {
   USER_TASK_STATUSES,
@@ -38,11 +40,25 @@ import {
   PRIORITY_LABELS,
   type TaskStatus,
   type TaskPriority,
+  type ApprovalStatus,
 } from "@/db/enums";
 
 type BulkResult =
   | { ok: true; updated: number; skipped: number }
   | { ok: false; error: string };
+
+/** The three verdicts under Mark Status. These write `approval_status`, not
+ *  `status` — `cancelled` is a retired status value, so the verdict column is
+ *  the only place it still means anything. `verb` feeds the result toast. */
+const MARK_VERDICTS = [
+  { value: "approved", label: "Mark Approved", verb: "Approved" },
+  { value: "not_approved", label: "Mark Not Approved", verb: "Rejected" },
+  { value: "cancelled", label: "Mark Cancelled", verb: "Cancelled" },
+] as const satisfies readonly {
+  value: ApprovalStatus;
+  label: string;
+  verb: string;
+}[];
 
 /**
  * Floating toolbar shown when ≥1 task is selected in the list. Offers the
@@ -242,6 +258,43 @@ export function BulkActionBar({
                 onSelect={() => run("Updated", () => bulkSetClient(selectedIds, c))}
               >
                 {c}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
+      {/* Mark Status — the terminal verdicts, batched. Admin-only because
+          `approval_status` is an admin column (the server re-checks), and
+          grouped apart from the Status dropdown above because these write a
+          different column: Status drives the doer's lifecycle, these record
+          the ruling on it. */}
+      {isAdmin && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" disabled={pending} className={chipBtn}>
+              <BadgeCheck size={14} strokeWidth={2.2} />
+              Mark Status
+              <ChevronDown size={13} className="opacity-60" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuLabel>Mark selected as…</DropdownMenuLabel>
+            <DropdownMenuItem
+              onSelect={() =>
+                run("Marked done", () => bulkSetStatus(selectedIds, "done"))
+              }
+            >
+              Mark Done
+            </DropdownMenuItem>
+            {MARK_VERDICTS.map((v) => (
+              <DropdownMenuItem
+                key={v.value}
+                onSelect={() =>
+                  run(v.verb, () => bulkSetApprovalStatus(selectedIds, v.value))
+                }
+              >
+                {v.label}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

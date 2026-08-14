@@ -26,6 +26,11 @@ type Options = {
 
 const HINT_STORAGE_KEY = "vp_seen_new_task_hint";
 
+/** Window event any out-of-tree trigger can fire to open this dialog.
+ *  See the listener below for why remote triggers dispatch instead of
+ *  rendering their own copy. */
+export const NEW_TASK_OPEN_EVENT = "wms:open-new-task";
+
 export function NewTaskDialog({ defaultInitiatorId }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -119,6 +124,21 @@ export function NewTaskDialog({ defaultInitiatorId }: Props) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  // Remote open, for triggers that live outside this component's tree — the
+  // compact New Task button up in the sidebar's top control row.
+  //
+  // It dispatches an event instead of rendering its own <NewTaskDialog>: this
+  // component owns local `open` state AND a window-level "N" listener, so a
+  // second instance would stack two modals and open both on one keypress.
+  // One dialog, many triggers.
+  useEffect(() => {
+    function onOpenRequest() {
+      setOpen(true);
+    }
+    window.addEventListener(NEW_TASK_OPEN_EVENT, onOpenRequest);
+    return () => window.removeEventListener(NEW_TASK_OPEN_EVENT, onOpenRequest);
+  }, []);
 
   function handleOpenChange(next: boolean) {
     setOpen(next);

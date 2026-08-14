@@ -22,8 +22,10 @@ import { CACHE_TAGS } from "@/lib/cache-tags";
 import {
   TASK_STATUSES,
   TASK_PRIORITIES,
+  APPROVAL_STATUSES,
   type TaskStatus,
   type TaskPriority,
+  type ApprovalStatus,
 } from "@/db/enums";
 import {
   CreateTaskSchema,
@@ -598,6 +600,69 @@ export async function bulkSetStatus(
   for (const id of allowed) afterResponse(() => reconcileTaskEvent(id));
   // Phase 2 — mirror status back onto any goal these tasks were spun off from.
   for (const id of allowed) afterResponse(() => syncTaskToGoal(id, status));
+  revalidateTaskRoutes();
+  return { ok: true, updated: allowed.length, skipped: ids.length - allowed.length };
+}
+
+/**
+ * Batch version of `setTaskApprovalStatus` — admin-only, same as the
+ * single-task action it mirrors.
+ *
+ * WHY THIS AND NOT `bulkSetStatus`: approved / not_approved / cancelled are
+ * verdicts, and verdicts live in `approval_status`, not `status` (see the
+ * Tier-3 note further down — the doer's lifecycle stays independent of the
+ * admin's ruling). `cancelled` in particular is a DEPRECATED value of `status`
+ * and is filtered out of every picker, so routing "Mark Cancelled" through
+ * bulkSetStatus would write a retired value nothing renders.
+ *
+ * Rows already carrying the verdict are counted as `skipped` rather than
+ * rewritten, so the audit trail doesn't fill with no-op entries.
+ */
+export async function bulkSetApprovalStatus(
+  taskIds: string[],
+  approvalStatus: ApprovalStatus,
+): Promise<BulkResult> {
+  const ids = parseBulkIds(taskIds);
+  if (!ids) return { ok: false, error: "Invalid selection." };
+  if (!APPROVAL_STATUSES.includes(approvalStatus))
+    return { ok: false, error: "Unknown approval status." };
+  const me = await requireUser();
+  if (!me.isAdmin) return { ok: false, error: "Admins only." };
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+
+  const rows = await db
+    .select({ id: tasks.id, approvalStatus: tasks.approvalStatus })
+    .from(tasks)
+    .where(inArray(tasks.id, ids));
+
+  const prev = new Map(rows.map((r) => [r.id, r.approvalStatus]));
+  const allowed = rows
+    .filter((r) => r.approvalStatus !== approvalStatus)
+    .map((r) => r.id);
+
+  if (allowed.length === 0) return { ok: true, updated: 0, skipped: ids.length };
+
+  const now = new Date();
+  try {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(tasks)
+        .set({ approvalStatus, updatedAt: now })
+        .where(inArray(tasks.id, allowed));
+      await tx.insert(taskEvents).values(
+        allowed.map((id) => ({
+          taskId: id,
+          actorId: me.id,
+          eventType: "field_updated" as const,
+          fromValue: { field: "approvalStatus", value: prev.get(id) ?? null },
+          toValue: { field: "approvalStatus", value: approvalStatus },
+        })),
+      );
+    });
+  } catch (err) {
+    return { ok: false, error: `Could not update: ${(err as Error).message}` };
+  }
   revalidateTaskRoutes();
   return { ok: true, updated: allowed.length, skipped: ids.length - allowed.length };
 }

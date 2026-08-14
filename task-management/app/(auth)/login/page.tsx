@@ -1,6 +1,12 @@
 import { LoginMosaic } from "@/components/auth/login-mosaic";
 import { LoginFormCanva } from "@/components/auth/login-form-canva";
 
+// Never static: the root layout resolves the signed-in employee, which reads
+// the session cookie, so Next bails this route out to dynamic rendering
+// regardless. Declaring it skips the pointless static probe at build time —
+// and the DYNAMIC_SERVER_USAGE stack trace that probe logs.
+export const dynamic = "force-dynamic";
+
 /**
  * /login — Canva-style "jump back in" treatment.
  *

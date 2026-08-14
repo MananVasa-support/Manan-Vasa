@@ -3,7 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import type { Route } from "next";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Plus } from "lucide-react";
+import { NEW_TASK_OPEN_EVENT } from "@/components/tasks/new-task-dialog";
 import type { NeonKey } from "./kpi-card";
 import { KpiDetailPanel } from "./kpi-detail-panel";
 import type { KpiSet, WmsSummary } from "@/lib/types";
@@ -55,17 +56,22 @@ export function KpiStrip({
   kpis,
   summary,
   rangeDays = 7,
+  children,
 }: {
   kpis: KpiSet;
   summary: WmsSummary;
   /** Days in the active date filter — drives the "vs last …" label. */
   rangeDays?: number;
+  /** Folded away with the cards — the Task Analytics banner is passed in from
+   *  the page so ONE toggle governs the whole summary block. */
+  children?: React.ReactNode;
 }) {
   const vsLabel = React.useMemo(() => `vs ${comparisonLabel(rangeDays)}`, [rangeDays]);
   const [expanded, setExpanded] = React.useState<keyof KpiSet | null>(null);
-  // Whole-panel maximize/minimize. Compact by default so the dashboard opens
-  // summarised rather than showing every card and every delta at once.
-  const [expandedPanel, setExpandedPanel] = React.useState(false);
+  // Whole-panel maximize/minimize. Open by default: minimized now hides the
+  // cards ENTIRELY (it used to just drop to three compact ones), so defaulting
+  // to closed would land the user on a dashboard with an empty summary bar.
+  const [isKpiExpanded, setIsKpiExpanded] = React.useState(true);
 
   // FilterBar section search — narrows which summary cards are shown, matched
   // on the card's label and its sublabel ("Not Approved" / "Sent Back"). With
@@ -81,16 +87,15 @@ export function KpiStrip({
 
   if (items.length === 0) return null;
 
-  // COMPACT is the default: the three headline cards (Total · Done · Pending)
-  // and no comparison lines — enough to read the state of play at a glance.
-  // Maximize reveals all six cards plus each card's vs-last-period delta.
-  const compactKeys: (keyof KpiSet)[] = ["total", "done", "pending"];
-  const shown = expandedPanel ? items : items.filter((i) => compactKeys.includes(i.key));
-  const headline = shown.reduce((sum, i) => sum + kpis[i.key].current, 0);
+  // Minimized hides the cards outright, so the whole set is always what WOULD
+  // be shown — and the headline count is summed over it rather than over the
+  // visible cards. Folding the section must not change the number in the
+  // header; that count is the one thing the collapsed bar still reports.
+  const shown = items;
+  const headline = items.reduce((sum, i) => sum + kpis[i.key].current, 0);
 
-  // Resolved against SHOWN, not all items: a card hidden by the search or by
-  // minimizing the panel must not leave its detail panel stranded below the
-  // strip with no card to point at.
+  // Resolved against SHOWN, not all items: a card hidden by the search must not
+  // leave its detail panel stranded below the strip with no card to point at.
   const active = expanded ? shown.find((i) => i.key === expanded) ?? null : null;
 
   return (
@@ -102,18 +107,40 @@ export function KpiStrip({
           <span className="ml-2 tabular-nums text-ink-soft">
             {headline.toLocaleString()}
           </span>
-          {!expandedPanel && (
-            <span className="ml-2 font-semibold normal-case tracking-normal text-ink-subtle">
-              · showing {shown.length} of {items.length}
-            </span>
-          )}
         </p>
-        <CollapseToggle
-          expanded={expandedPanel}
-          onToggle={() => setExpandedPanel((v) => !v)}
-          label="the Task summary"
-        />
+        {/* Create + collapse, paired in one control cluster. The + opens the
+            SAME modal as the sidebar's New Task button: it dispatches the
+            window event that <NewTaskDialog> listens for, rather than mounting
+            a second copy of the dialog — that component owns the modal's open
+            state and a global "N" listener, so a second instance would stack
+            two modals and open both on one keypress. */}
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event(NEW_TASK_OPEN_EVENT))}
+            aria-label="New task"
+            title="New task (N)"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-altus-red/40"
+            style={{
+              background: "var(--color-altus-red)",
+              border:
+                "1px solid color-mix(in srgb, var(--color-altus-red) 28%, transparent)",
+            }}
+          >
+            <Plus size={15} strokeWidth={2.8} aria-hidden />
+          </button>
+          <CollapseToggle
+            expanded={isKpiExpanded}
+            onToggle={() => setIsKpiExpanded((v) => !v)}
+            label="the Task summary"
+          />
+        </div>
       </div>
+
+      {/* Everything below the header line folds together: the KPI cards, any
+          open card-detail panel, and the Task Analytics banner passed in as
+          children. Collapsed, only the "Tasks <n>" line and the toggle remain. */}
+      <CollapsibleBody expanded={isKpiExpanded}>
       <CardGrid min={165} gap="0.7rem">
         {shown.map((item) => {
           const kpi = kpis[item.key];
@@ -202,29 +229,27 @@ export function KpiStrip({
                   </button>
                  </div>
 
-                  {/* Comparison line — only in the maximized view; the compact
-                      view is just the headline numbers. Its OWN full-width row,
-                      deliberately not
+                  {/* Comparison line. Its OWN full-width row, deliberately not
                       inside the <Link> above. In that column it shared the row
                       with the View pill and had ~85px of a 165px card, so
                       "vs last 2 weeks" wrapped and the card's overflow-hidden
                       clipped it to a bare "vs last". Full width plus
                       `whitespace-nowrap` keeps arrow + number + label on one
                       line; the label is a step smaller than the number so the
-                      longest wording still clears the narrowest card. */}
-                  <CollapsibleBody expanded={expandedPanel}>
-                    <span
-                      className="mt-2 flex items-baseline gap-1 whitespace-nowrap tabular-nums font-extrabold"
-                      style={{ fontSize: 12.5, color: deltaColor }}
-                    >
-                      <span>
-                        {arrow} {Math.abs(delta)}
-                      </span>
-                      <span className="font-semibold opacity-60" style={{ fontSize: 11 }}>
-                        {vsLabel}
-                      </span>
+                      longest wording still clears the narrowest card. No inner
+                      collapse any more — the card only exists when the whole
+                      section is expanded. */}
+                  <span
+                    className="mt-2 flex items-baseline gap-1 whitespace-nowrap tabular-nums font-extrabold"
+                    style={{ fontSize: 12.5, color: deltaColor }}
+                  >
+                    <span>
+                      {arrow} {Math.abs(delta)}
                     </span>
-                  </CollapsibleBody>
+                    <span className="font-semibold opacity-60" style={{ fontSize: 11 }}>
+                      {vsLabel}
+                    </span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -254,6 +279,10 @@ export function KpiStrip({
           )}
         </div>
       </div>
+
+      {/* Task Analytics banner (passed in by the dashboard page). */}
+      {children}
+      </CollapsibleBody>
      </PageShell>
     </section>
   );

@@ -64,9 +64,15 @@ export function PerformanceByPersonTable({
 
   // Privacy: admins all rows; non-admin only their own (null → none).
   const scoped = isAdmin ? people : people.filter((p) => p.employeeId === meId);
-  // Busiest first.
+  // HEAVIEST OVERDUE BURDEN FIRST — this section is read as "who is behind",
+  // so the count of late deliveries leads, not raw throughput. Ties break on the
+  // worse on-time rate, then on volume, so of two people with 4 late each the
+  // one who is late a larger share of the time surfaces first.
   const rows = React.useMemo(
-    () => [...scoped].sort((a, b) => b.done - a.done),
+    () =>
+      [...scoped].sort(
+        (a, b) => b.late - a.late || a.rate - b.rate || b.done - a.done,
+      ),
     [scoped],
   );
 
@@ -79,7 +85,7 @@ export function PerformanceByPersonTable({
   return (
     <section
       className="wg-rise relative overflow-hidden rounded-section p-7 max-md:p-5"
-      aria-label="Performance by person"
+      aria-label="Overdue tasks by person"
       style={{
         background:
           "linear-gradient(155deg, color-mix(in srgb, #ffffff 86%, transparent) 0%, color-mix(in srgb, var(--color-surface-card) 92%, transparent) 100%)",
@@ -118,10 +124,10 @@ export function PerformanceByPersonTable({
                 letterSpacing: "-0.02em",
               }}
             >
-              Performance by Person
+              Overdue Tasks by Person
             </h2>
             <p className="mt-1.5 text-[13px] font-semibold leading-none text-ink-subtle">
-              On-time rate &amp; late spread · busiest first
+              On-time rate &amp; late spread · heaviest overdue burden first
             </p>
           </div>
 
@@ -133,7 +139,7 @@ export function PerformanceByPersonTable({
               onPage={paged.setPage}
               total={paged.total}
               pageSize={PAGE}
-              label="Performance by person"
+              label="Overdue tasks by person"
             />
           </div>
         </div>

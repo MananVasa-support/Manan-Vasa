@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { LayoutGrid } from "lucide-react";
 import { TaskTable } from "./task-table";
+import { TaskDetailDrawer } from "./task-detail-drawer";
 import { TaskToolsMenu } from "./task-tools-menu";
 import { WeeklyGoalTaskGroup } from "@/components/weekly-goals/weekly-goal-task-group";
 import type { VirtualTaskRow } from "@/lib/weekly-goals/as-task-row";
@@ -77,6 +78,8 @@ export function TaskListPage({
   clients,
   weeklyGoals = [],
   basePath = "/tasks",
+  selectedTaskId = null,
+  detail = null,
 }: {
   title: string;
   rows: TaskListRow[];
@@ -93,6 +96,12 @@ export function TaskListPage({
   weeklyGoals?: VirtualTaskRow[];
   /** List route the summary cards link into (so Archived keeps its own scope). */
   basePath?: string;
+  /** `?task=` — which record the detail drawer is showing, if any. */
+  selectedTaskId?: string | null;
+  /** Server-rendered detail subtree for `selectedTaskId`, streamed in behind
+   *  its own <Suspense>. Passed through rather than fetched here so the inbox
+   *  shell can stay a client component. */
+  detail?: React.ReactNode;
 }) {
   // Weekly goals are surfaced as a pinned group above the table but are
   // deliberately EXCLUDED from the task stat-card counts (design §10) — the
@@ -272,15 +281,25 @@ export function TaskListPage({
           </p>
         </div>
       ) : (
-        <TaskTable
-          rows={rows}
-          employees={employees}
-          me={me}
-          statusLabels={statusLabels}
-          statusTones={statusTones}
-          subjects={subjects}
-          clients={clients}
-        />
+        <>
+          <TaskTable
+            rows={rows}
+            employees={employees}
+            me={me}
+            statusLabels={statusLabels}
+            statusTones={statusTones}
+            subjects={subjects}
+            clients={clients}
+            openInDrawer
+          />
+          {/* The record opens ONLY on an explicit row click — there is no
+              persistent reading pane holding the space. `detail` is the
+              server-rendered subtree for `?task=`; when nothing is selected it
+              is null and the drawer never mounts. */}
+          <TaskDetailDrawer open={Boolean(selectedTaskId)}>
+            {detail}
+          </TaskDetailDrawer>
+        </>
       )}
     </main>
   );

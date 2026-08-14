@@ -47,6 +47,69 @@ export interface ExecDashboardProps {
   meId: string | null;
 }
 
+/* ────────────────────────────────────────────────────────────────────────
+   The control room used to be ONE card holding, in order: the summary row
+   (on-time gauge + attention sidebar), the delegation scorecard, and the
+   performance table. The dashboard now interleaves other sections between
+   those three (Status by Employee and the Aging Heatmap sit between Overdue
+   Tasks and the Delegation Scorecard), so a single card can no longer express
+   the order.
+
+   Rather than duplicate the window state, the privacy filter and the search
+   filter into three components, `ExecDashboard` became a PROVIDER: it still
+   takes exactly the same props and does exactly the same derivation, then
+   hands it to three placeable sections through context. Page order is now
+   whatever order those sections are written in.
+   ──────────────────────────────────────────────────────────────────────── */
+
+type ExecCtxValue = {
+  rise: (delay: number) => Record<string, unknown>;
+  resolveAvatar: (employeeId: string) => string | null;
+  windowKey: WindowKey;
+  setWindowKey: (k: WindowKey) => void;
+  board: InitiatorBoard;
+  managers: InitiatorBoard["managers"];
+  doneOnTimeView: DoneOnTime;
+  notApprovedAgingView: NotApprovedAging;
+  peopleRows: DoneOnTime["revised"]["byPerson"];
+  nothingAtAll: boolean;
+  isAdmin: boolean;
+  meId: string | null;
+  setOpenManagerId: (id: string | null) => void;
+};
+
+const ExecCtx = React.createContext<ExecCtxValue | null>(null);
+
+function useExec(): ExecCtxValue {
+  const ctx = React.useContext(ExecCtx);
+  if (!ctx) {
+    throw new Error(
+      "Exec dashboard sections must be rendered inside <ExecDashboard>.",
+    );
+  }
+  return ctx;
+}
+
+/** Shared card shell — every exec section keeps the original container's
+ *  flat-white surface, hairline and shadow, so splitting one card into three
+ *  changes the ORDER on the page and nothing about how they look. */
+function ExecCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="relative isolate overflow-hidden rounded-section"
+      style={{
+        background: "#ffffff",
+        border: "1px solid var(--color-hairline)",
+        boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
+      }}
+    >
+      <div className="relative z-[2] flex flex-col gap-7 p-8 max-md:gap-5 max-md:p-4">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function ExecDashboard({
   doneOnTime,
   initiator,
@@ -54,7 +117,8 @@ export function ExecDashboard({
   avatarById,
   isAdmin,
   meId,
-}: ExecDashboardProps) {
+  children,
+}: ExecDashboardProps & { children: React.ReactNode }) {
   const reduce = useReducedMotion() ?? false;
 
   const [windowKey, setWindowKey] = React.useState<WindowKey>("d7");
@@ -135,119 +199,151 @@ export function ExecDashboard({
           transition: { delay, duration: 0.55, ease: [0.22, 1, 0.36, 1] as const },
         };
 
+  const ctx: ExecCtxValue = {
+    rise,
+    resolveAvatar,
+    windowKey,
+    setWindowKey,
+    board,
+    managers,
+    doneOnTimeView,
+    notApprovedAgingView,
+    peopleRows,
+    nothingAtAll,
+    isAdmin,
+    meId,
+    setOpenManagerId,
+  };
+
   return (
-    <div
-      className="relative isolate overflow-hidden rounded-section"
-      style={{
-        background:
-          "linear-gradient(160deg, #FBF7F0 0%, #F4EEE3 56%, #F1E9DB 100%)",
-        border: "1px solid var(--color-hairline)",
-        boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
-      }}
-    >
-      {/* ── Aurora / gradient-mesh backdrop (GPU-only, decorative) ── */}
-      <span aria-hidden className="kpi-strip-mesh" />
-      <span aria-hidden className="kpi-strip-grain" />
+    <ExecCtx.Provider value={ctx}>
+      {children}
 
-      <div className="relative z-[2] flex flex-col gap-7 p-8 max-md:gap-5 max-md:p-4">
-        {/* ── Masthead + window toggle ── */}
-        <motion.header
-          {...rise(0)}
-          className="flex items-end justify-between gap-5 max-md:flex-col max-md:items-stretch max-md:gap-4"
-        >
-          <div className="min-w-0">
-            <p
-              className="inline-flex items-center gap-1.5 text-[10.5px] font-black uppercase tracking-[0.18em]"
-              style={{ color: "var(--color-altus-red-deep)" }}
-            >
-              <Sparkles size={13} strokeWidth={2.6} />
-              Executive Control Room
-            </p>
-            <h1
-              className="mt-1 leading-none text-ink-strong"
-              style={{
-                fontFamily: "var(--font-display), system-ui, sans-serif",
-                fontWeight: 900,
-                fontSize: 30,
-                letterSpacing: "-0.03em",
-              }}
-            >
-              Delivery &amp; Delegation
-            </h1>
-            <p className="mt-2 text-[13px] font-semibold text-ink-subtle">
-              Target ={" "}
-              <span className="tabular-nums font-black text-ink-soft">
-                3 × {board.workingDays}
-              </span>{" "}
-              working {board.workingDays === 1 ? "day" : "days"} × direct reports
-            </p>
-          </div>
-
-          <WindowToggle value={windowKey} onChange={setWindowKey} />
-        </motion.header>
-
-        {/* ── SUMMARY row: on-time gauge + attention sidebar, side-by-side ── */}
-        <motion.div {...rise(0.08)} className="exec-summary-grid grid gap-6 max-md:gap-4">
-          {/* LEFT — gauge */}
-          <OnTimeGauge data={doneOnTimeView} />
-
-          {/* RIGHT — attention-required sidebar */}
-          <NotApprovedSidebar
-            data={notApprovedAgingView}
-            isAdmin={isAdmin}
-            meId={meId}
-            resolveAvatar={resolveAvatar}
-          />
-        </motion.div>
-
-        {/* ── MANAGERS section: full-width, roomy initiation scorecards ── */}
-        <motion.section {...rise(0.12)} aria-label="Managers initiation scorecards">
-          <ManagerRail
-            managers={managers}
-            resolveAvatar={resolveAvatar}
-            onOpenDrilldown={setOpenManagerId}
-            workingDays={board.workingDays}
-          />
-        </motion.section>
-
-        {/* ── Global empty state (only when truly nothing to show) ── */}
-        {nothingAtAll ? (
-          <motion.div {...rise(0.16)}>
-            <GlobalEmptyState />
-          </motion.div>
-        ) : (
-          /* ── BELOW: full-width performance-by-person table ── */
-          <motion.div {...rise(0.16)}>
-            <PerformanceByPersonTable
-              people={peopleRows}
-              isAdmin={isAdmin}
-              meId={meId}
-              resolveAvatar={resolveAvatar}
-            />
-          </motion.div>
-        )}
-      </div>
-
-      {/* Summary row: two equal panels side-by-side on wide screens, stacks on mobile. */}
+      {/* Summary: ONE full-width column at every breakpoint. These were two
+          half-width panels side-by-side, which left "Delivered on time" a
+          narrow well around a fixed-width gauge while "Attention Required"
+          filled its column — the two read as different weights. Stacked
+          full-bleed, both cards get the same structural width. */}
       <style>{`
         .exec-summary-grid {
           grid-template-columns: minmax(0, 1fr);
         }
-        @media (min-width: 1024px) {
-          .exec-summary-grid {
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-            align-items: start;
-          }
-        }
       `}</style>
 
-      {/* Drill-down modal — rendered once; fetches on demand only. */}
+      {/* Drill-down modal — rendered ONCE for the whole surface (not per
+          section); fetches on demand only. */}
       <ManagerDrilldown
         managerId={openManagerId}
         windowDays={windowDays}
         onClose={() => setOpenManagerId(null)}
       />
-    </div>
+    </ExecCtx.Provider>
+  );
+}
+
+/**
+ * OVERDUE TASKS — the per-person table (formerly "Performance by Person").
+ * Also carries the global empty state, exactly as it did when this was the
+ * last block of the single card.
+ */
+export function ExecOverdueSection() {
+  const { rise, peopleRows, isAdmin, meId, resolveAvatar, nothingAtAll } = useExec();
+  return (
+    <ExecCard>
+      {nothingAtAll ? (
+        <motion.div {...rise(0)}>
+          <GlobalEmptyState />
+        </motion.div>
+      ) : (
+        <motion.div {...rise(0)}>
+          <PerformanceByPersonTable
+            people={peopleRows}
+            isAdmin={isAdmin}
+            meId={meId}
+            resolveAvatar={resolveAvatar}
+          />
+        </motion.div>
+      )}
+    </ExecCard>
+  );
+}
+
+/**
+ * DELEGATION SCORECARD — manager initiation breakdown (% of target, target
+ * ratio, per-report rows).
+ *
+ * The masthead and the 3-day ⇄ 7-day toggle live HERE because the window only
+ * ever drove this section: `board`/`managers` and the drill-down's
+ * `windowDays`. The gauge and the attention list are window-independent.
+ */
+export function ExecDelegationSection() {
+  const { rise, board, windowKey, setWindowKey, managers, resolveAvatar, setOpenManagerId } =
+    useExec();
+  return (
+    <ExecCard>
+      <motion.header
+        {...rise(0)}
+        className="flex items-end justify-between gap-5 max-md:flex-col max-md:items-stretch max-md:gap-4"
+      >
+        <div className="min-w-0">
+          <p
+            className="inline-flex items-center gap-1.5 text-[10.5px] font-black uppercase tracking-[0.18em]"
+            style={{ color: "var(--color-altus-red-deep)" }}
+          >
+            <Sparkles size={13} strokeWidth={2.6} />
+            Executive Control Room
+          </p>
+          <h1
+            className="mt-1 leading-none text-ink-strong"
+            style={{
+              fontFamily: "var(--font-display), system-ui, sans-serif",
+              fontWeight: 900,
+              fontSize: 30,
+              letterSpacing: "-0.03em",
+            }}
+          >
+            Delivery &amp; Delegation
+          </h1>
+          <p className="mt-2 text-[13px] font-semibold text-ink-subtle">
+            Target ={" "}
+            <span className="tabular-nums font-black text-ink-soft">
+              3 × {board.workingDays}
+            </span>{" "}
+            working {board.workingDays === 1 ? "day" : "days"} × direct reports
+          </p>
+        </div>
+
+        <WindowToggle value={windowKey} onChange={setWindowKey} />
+      </motion.header>
+
+      <motion.section {...rise(0.08)} aria-label="Managers initiation scorecards">
+        <ManagerRail
+          managers={managers}
+          resolveAvatar={resolveAvatar}
+          onOpenDrilldown={setOpenManagerId}
+          workingDays={board.workingDays}
+        />
+      </motion.section>
+    </ExecCard>
+  );
+}
+
+/** DELIVERED ON TIME & ATTENTION REQUIRED — the summary row. */
+export function ExecSummarySection() {
+  const { rise, doneOnTimeView, notApprovedAgingView, isAdmin, meId, resolveAvatar } =
+    useExec();
+  return (
+    <ExecCard>
+      <motion.div {...rise(0)} className="exec-summary-grid grid gap-6 max-md:gap-4">
+        <OnTimeGauge data={doneOnTimeView} />
+        <NotApprovedSidebar
+          data={notApprovedAgingView}
+          isAdmin={isAdmin}
+          meId={meId}
+          resolveAvatar={resolveAvatar}
+        />
+      </motion.div>
+    </ExecCard>
   );
 }
 
@@ -328,8 +424,9 @@ function ManagerRail({
         className="wg-rise relative flex min-h-[220px] flex-col items-center justify-center gap-2.5 overflow-hidden rounded-section p-7 text-center max-md:p-5"
         aria-label="Manager initiation scorecards"
         style={{
-          background:
-            "linear-gradient(155deg, color-mix(in srgb, #ffffff 80%, transparent) 0%, color-mix(in srgb, var(--color-surface-card) 90%, transparent) 100%)",
+          // Opaque white — the old gradient was semi-transparent, so the page
+          // wash bled through and tinted this panel.
+          background: "#ffffff",
           border: "1px dashed var(--color-hairline-strong)",
         }}
       >
@@ -426,8 +523,8 @@ function GlobalEmptyState() {
     <section
       className="wg-rise relative flex flex-col items-center justify-center gap-2.5 overflow-hidden rounded-section p-12 text-center max-md:p-8"
       style={{
-        background:
-          "linear-gradient(155deg, color-mix(in srgb, #ffffff 84%, transparent) 0%, color-mix(in srgb, var(--color-surface-card) 92%, transparent) 100%)",
+        // Opaque white — see the sibling empty state above.
+        background: "#ffffff",
         border: "1px dashed var(--color-hairline-strong)",
       }}
     >

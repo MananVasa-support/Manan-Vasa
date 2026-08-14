@@ -1,6 +1,11 @@
+import { Suspense } from "react";
 import { DashboardHeader } from "@/components/layout/header";
 import { FilterBar } from "@/components/layout/filter-bar";
 import { TaskListPage } from "@/components/tasks/task-list-page";
+import { TaskDetailLoader } from "@/components/tasks/task-detail-loader";
+import { BufferingState } from "@/components/ui/spinner";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { markTaskRead } from "@/app/(app)/tasks/read-actions";
 import { listEmployeeOptions } from "@/lib/queries/employees";
 import { listTasks, listDistinctSubjects } from "@/lib/queries/tasks";
 import { listActiveClientNames } from "@/lib/queries/clients";
@@ -18,9 +23,16 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
+/** `?task=` drives the master–detail split. Anything that isn't a uuid is
+ *  ignored rather than 404'd — a stale link should land you on the plain list,
+ *  not an error page. */
+const TASK_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async function TasksPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const me = await requireUser();
+  const rawTask = Array.isArray(sp.task) ? sp.task[0] : sp.task;
+  const selectedTaskId = rawTask && TASK_ID.test(rawTask) ? rawTask : null;
   // Non-admins default to "assigned to me" when no explicit ?emp= is set.
   const filters = parseTaskFilters(sp, /*archived*/ false, {
     defaultDoerId: me.isAdmin ? undefined : me.id,
@@ -52,6 +64,11 @@ export default async function TasksPage({ searchParams }: PageProps) {
         },
       }).catch(() => []),
     ]);
+
+  // Read-receipt for the drawer, matching /tasks/[id]: opening a task in the
+  // side panel counts as opening it. Fire-and-forget and NULL-guarded, so
+  // reopening an already-read record is a no-op.
+  if (selectedTaskId) void markTaskRead(selectedTaskId);
 
   const statusLabels = Object.fromEntries(
     Object.entries(statusDisplay).map(([k, v]) => [k, v.label]),
@@ -118,6 +135,34 @@ export default async function TasksPage({ searchParams }: PageProps) {
         subjects={subjects}
         clients={clients}
         weeklyGoals={weeklyGoals}
+        selectedTaskId={selectedTaskId}
+        detail={
+          selectedTaskId ? (
+            // `key` is what makes arrowing down actually re-suspend: without it
+            // React reuses the boundary and the pane would keep showing the
+            // previous task until the new payload resolved.
+            <Suspense
+              key={selectedTaskId}
+              fallback={
+                <div className="flex min-h-[50vh] items-center justify-center">
+                  <BufferingState label="Loading task…" />
+                </div>
+              }
+            >
+              <TaskDetailLoader
+                taskId={selectedTaskId}
+                me={{
+                  id: me.id,
+                  name: me.name,
+                  avatarUrl: me.avatarUrl,
+                  department: me.department,
+                  isAdmin: me.isAdmin,
+                  isSuperAdmin: isSuperAdmin(me.email),
+                }}
+              />
+            </Suspense>
+          ) : null
+        }
       />
     </>
   );

@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import type { Route } from "next";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   flexRender,
   getCoreRowModel,
@@ -205,6 +205,8 @@ function buildColumns(
   me: { id: string; isAdmin: boolean },
   statusLabels: StatusLabels,
   statusTones: StatusTones,
+  /** Present only when the list opens records in the drawer. */
+  onOpenTask?: (id: string) => void,
 ): TaskCol[] {
   return [
     {
@@ -277,7 +279,9 @@ function buildColumns(
       accessorKey: "title",
       header: "Task",
       meta: { wide: true },
-      cell: ({ row }) => <TaskTitleCell row={row.original} />,
+      cell: ({ row }) => (
+        <TaskTitleCell row={row.original} onOpen={onOpenTask} />
+      ),
     },
     {
       accessorKey: "doerName",
@@ -390,6 +394,7 @@ export function TaskTable({
   statusTones,
   subjects,
   clients,
+  openInDrawer = false,
 }: {
   rows: TaskListRow[];
   employees: { id: string; name: string }[];
@@ -400,9 +405,30 @@ export function TaskTable({
    *  subject/client values present in the current rows. */
   subjects?: string[];
   clients?: string[];
+  /** Open the record in the side drawer (`?task=`) instead of navigating away
+   *  to /tasks/[id]. Modifier-clicks still open the full page in a new tab. */
+  openInDrawer?: boolean;
 }) {
   const resolvedLabels = statusLabels ?? STATUS_LABELS_FALLBACK;
   const resolvedTones = statusTones ?? STATUS_TONES_FALLBACK;
+
+  // Declared ahead of the `columns` memo below, which closes over `openTask`.
+  const drawerRouter = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  /** Put the record on the URL so the drawer opens. Every existing filter
+   *  param is preserved, which is what keeps the list underneath unchanged. */
+  const openTask = React.useCallback(
+    (id: string) => {
+      const next = new URLSearchParams(searchParams.toString());
+      next.set("task", id);
+      drawerRouter.push(`${pathname}?${next.toString()}` as never, {
+        scroll: false,
+      });
+    },
+    [drawerRouter, pathname, searchParams],
+  );
   // Prefer the server-provided rosters; otherwise derive distinct values from
   // the loaded rows so bulk Subject/Client still works on pages that don't
   // pass the full picker lists (e.g. Archived).
@@ -423,8 +449,15 @@ export function TaskTable({
     [clients, rows],
   );
   const columns = React.useMemo(
-    () => buildColumns(employees, me, resolvedLabels, resolvedTones),
-    [employees, me, resolvedLabels, resolvedTones],
+    () =>
+      buildColumns(
+        employees,
+        me,
+        resolvedLabels,
+        resolvedTones,
+        openInDrawer ? openTask : undefined,
+      ),
+    [employees, me, resolvedLabels, resolvedTones, openInDrawer, openTask],
   );
 
   // #11 — per-user column visibility, persisted in localStorage. Start
@@ -1260,12 +1293,33 @@ function taskCellLabel(row: TaskListRow): string {
   return desc && desc.length > 0 ? desc : row.title;
 }
 
-function TaskTitleCell({ row }: { row: TaskListRow }) {
+function TaskTitleCell({
+  row,
+  onOpen,
+}: {
+  row: TaskListRow;
+  /** When set, a plain click opens the drawer instead of navigating. */
+  onOpen?: (id: string) => void;
+}) {
+  // Gmail's unread rule: never-opened tasks read heavier than the rest.
+  // `firstReadAt` is the same column the NOT READ KPI counts, so the two
+  // can't disagree.
+  const unread = row.firstReadAt == null;
   const link = (
     <Link
       href={`/tasks/${row.id}` as Route}
-      className="task-title-link text-body text-ink-strong underline-offset-2 transition-colors"
-      style={{ fontWeight: 700 }}
+      onClick={(e) => {
+        // Let ⌘/Ctrl/middle-click and new-tab intents through untouched —
+        // only a plain left click is rerouted into the drawer.
+        if (!onOpen || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        onOpen(row.id);
+      }}
+      className="task-title-link text-body underline-offset-2 transition-colors"
+      style={{
+        fontWeight: unread ? 900 : 700,
+        color: unread ? "var(--color-ink-strong)" : "var(--color-ink-soft)",
+      }}
     >
       {taskCellLabel(row)}
     </Link>

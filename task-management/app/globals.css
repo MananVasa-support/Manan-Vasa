@@ -1759,6 +1759,62 @@ html[data-density="dense"] body {
     var(--color-surface-card);
 }
 
+/* Task detail drawer — slides in from the right edge on row click. */
+@keyframes drawerIn {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Inbox rows — same frozen-column problem as the table above, different row
+   states. The inbox pane scrolls SIDEWAYS (eleven columns don't fit in a
+   38%-wide master pane), and the actions cell is `sticky right-0` against
+   that scrollport. Tailwind's `bg-surface-soft/40` and `bg-altus-red/[0.06]`
+   are translucent, so the cell must repaint each state as an OPAQUE colour or
+   the scrolled-under columns read straight through it.
+   ────────────────────────────────────────────────────────────────────────── */
+.inbox-row > .inbox-actions-cell {
+  background: var(--color-surface-card);
+}
+
+/* Read rows sit on `bg-surface-soft/40` — 40% soft over the card. */
+.inbox-row[data-state="read"] > .inbox-actions-cell {
+  background: color-mix(
+    in srgb,
+    var(--color-surface-soft) 40%,
+    var(--color-surface-card)
+  );
+}
+
+/* Selected row: matches `bg-altus-red/[0.06]`, composited over the card. */
+.inbox-row[data-state="selected"] > .inbox-actions-cell {
+  background: color-mix(
+    in srgb,
+    var(--color-altus-red) 6%,
+    var(--color-surface-card)
+  );
+}
+
+/* Hover is fully opaque on unread/read rows … */
+.inbox-row:hover > .inbox-actions-cell {
+  background: var(--color-surface-soft);
+}
+
+/* … but the selected tint outranks hover, matching the row's own precedence. */
+.inbox-row[data-state="selected"]:hover > .inbox-actions-cell {
+  background: color-mix(
+    in srgb,
+    var(--color-altus-red) 6%,
+    var(--color-surface-card)
+  );
+}
+
 /* New Task dialog — shared input chrome. Cyan focus ring + smooth
    transitions so every input/select/textarea reads as one family. */
 /* Professional skeuomorphic field: subtle top-lit gradient, crisp bevel,

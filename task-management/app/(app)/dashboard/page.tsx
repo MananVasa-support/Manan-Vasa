@@ -7,7 +7,12 @@ import { KpiStrip } from "@/components/dashboard/kpi-strip";
 import { StatusTable } from "@/components/dashboard/status-table";
 import { StatusDistributionChart } from "@/components/dashboard/status-distribution";
 import { TopPerformersSection } from "@/components/dashboard/top-performers";
-import { ExecDashboard } from "@/components/dashboard/exec/exec-dashboard";
+import {
+  ExecDashboard,
+  ExecOverdueSection,
+  ExecDelegationSection,
+  ExecSummarySection,
+} from "@/components/dashboard/exec/exec-dashboard";
 import { AgingHeatmap } from "@/components/dashboard/aging-heatmap";
 import { WelcomeHero } from "@/components/dashboard/welcome-hero";
 import { DashboardLoadError } from "@/components/dashboard/dashboard-load-error";
@@ -113,19 +118,23 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     !isEmpty && !showFullOnMobile && me && todayTasks ? todayTasks : null;
 
   return (
-    <>
+    // Flat WHITE canvas for the whole dashboard. `body` paints an app-wide
+    // red/purple/green radial wash (globals.css) which read as a pink-peach
+    // tint here; this opaque layer covers it for THIS route only, leaving every
+    // other module's backdrop alone. min-h-dvh so short dashboards stay white
+    // all the way down.
+    <div className="flex min-h-dvh flex-1 flex-col" style={{ background: "#ffffff" }}>
       <DashboardHeader generatedAt={new Date()} />
 
       {/* Sticky filter bar: WMS now uses the vertical left rail (no horizontal
           top header), so the bar pins to the very top of the content column on
-          desktop; on phones it clears the rail's 56px fixed top bar (top-14). */}
+          desktop; on phones it clears the rail's 56px fixed top bar (top-14).
+          Solid white — it must stay opaque, or the content scrolling under it
+          shows through. */}
       <div
         className={`sticky top-0 max-md:top-14 z-40 ${mobileToday ? "max-md:hidden" : ""}`}
         style={{
-          background:
-            "linear-gradient(180deg, color-mix(in srgb, var(--color-surface-soft) 94%, transparent) 0%, color-mix(in srgb, var(--color-surface-soft) 86%, transparent) 100%)",
-          backdropFilter: "blur(14px) saturate(150%)",
-          WebkitBackdropFilter: "blur(14px) saturate(150%)",
+          background: "#ffffff",
           borderBottom: "1px solid var(--color-hairline)",
         }}
       >
@@ -168,11 +177,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               </div>
             )}
             <div className={mobileToday ? "max-md:hidden" : undefined}>
-              <KpiStrip kpis={data.kpis} summary={data.wmsSummary} />
               {/* Task Analytics deep-dive — on-demand route (load-neutral),
-                  surfaced for admins + managers (anyone with a downline). */}
+                  surfaced for admins + managers (anyone with a downline).
+                  Passed INTO KpiStrip as children so the summary's single
+                  maximize/minimize toggle folds the banner away with the cards.
+                  No PageShell of its own: KpiStrip already renders one, and
+                  nesting them would apply the page gutter twice. */}
+              <KpiStrip kpis={data.kpis} summary={data.wmsSummary}>
               {(me?.isAdmin || allEmployees.some((e) => e.managerId === me?.id)) && (
-                <PageShell as="div" width="full" py={false} className="mt-8">
+                <div className="mt-8">
                   <Link
                     href={"/dashboard/task-report" as Route}
                     className="wg-rise group flex items-center justify-between gap-4 rounded-section px-6 py-5 max-md:px-4 max-md:py-4 transition-transform active:scale-[0.997]"
@@ -212,42 +225,78 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                       className="shrink-0 text-white transition-transform group-hover:translate-x-1"
                     />
                   </Link>
-                </PageShell>
-              )}
-              {/* Executive Control Room — surfaced above doer-status /
-                  top-performers per founder (2026-06-21). */}
-              <PageShell as="div" width="full" py={false} className="mt-12">
-                <ExecDashboard
-                  doneOnTime={data.doneOnTime}
-                  initiator={data.initiator}
-                  notApprovedAging={data.notApprovedAging}
-                  avatarById={avatarById}
-                  isAdmin={Boolean(me?.isAdmin)}
-                  meId={me?.id ?? null}
-                />
-              </PageShell>
-              <PageShell as="div" width="full" py={false} className="mt-12">
-                <div className="grid grid-cols-2 max-lg:grid-cols-1 gap-6">
-                  <div className="min-w-0">
-                    <StatusDistributionChart
-                      data={data.statusDistribution}
-                      labels={statusLabels}
-                      tones={statusTones}
-                      isAdmin={Boolean(me?.isAdmin)}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <TopPerformersSection performers={data.topPerformers} avatarById={avatarById} />
-                  </div>
                 </div>
-              </PageShell>
-              <StatusTable rows={data.statusTable} view={filters.view} avatarById={avatarById} />
-              <AgingHeatmap rows={data.agingTable} cellTasks={data.agingHeatmapData.byCell} avatarById={avatarById} />
+              )}
+              </KpiStrip>
+              {/* Section order below is the FOUNDER-SPECIFIED sequence:
+                    1. Task KPI summary + analytics banner  (above)
+                    2. Overdue Tasks by person
+                    3. Status by Employee
+                    4. Aging Heatmap
+                    5. Delegation Scorecard
+                    6. Employee Rankings
+                    7. Status Distribution
+                    8. Delivered On Time & Attention Required
+
+                  The three Exec sections are wrapped by <ExecDashboard>, which
+                  is now a PROVIDER rather than a card — it owns the 3/7-day
+                  window, the privacy filter, the section-search filter and the
+                  drill-down modal, and hands them to the sections through
+                  context. That's what lets other sections sit BETWEEN them
+                  without duplicating any of that state. */}
+              <ExecDashboard
+                doneOnTime={data.doneOnTime}
+                initiator={data.initiator}
+                notApprovedAging={data.notApprovedAging}
+                avatarById={avatarById}
+                isAdmin={Boolean(me?.isAdmin)}
+                meId={me?.id ?? null}
+              >
+                {/* 2 — Overdue Tasks */}
+                <PageShell as="div" width="full" py={false} className="mt-12">
+                  <ExecOverdueSection />
+                </PageShell>
+
+                {/* 3 — Status by Employee */}
+                <StatusTable rows={data.statusTable} view={filters.view} avatarById={avatarById} />
+
+                {/* 4 — Aging Heatmap */}
+                <AgingHeatmap rows={data.agingTable} cellTasks={data.agingHeatmapData.byCell} avatarById={avatarById} />
+
+                {/* 5 — Delegation Scorecard */}
+                <PageShell as="div" width="full" py={false} className="mt-12">
+                  <ExecDelegationSection />
+                </PageShell>
+
+                {/* 6 + 7 — Employee Rankings, then Status Distribution. Kept as
+                    the existing two-up grid so both keep their column widths;
+                    Rankings now leads, matching the requested order. */}
+                <PageShell as="div" width="full" py={false} className="mt-12">
+                  <div className="grid grid-cols-2 max-lg:grid-cols-1 gap-6">
+                    <div className="min-w-0">
+                      <TopPerformersSection performers={data.topPerformers} avatarById={avatarById} />
+                    </div>
+                    <div className="min-w-0">
+                      <StatusDistributionChart
+                        data={data.statusDistribution}
+                        labels={statusLabels}
+                        tones={statusTones}
+                        isAdmin={Boolean(me?.isAdmin)}
+                      />
+                    </div>
+                  </div>
+                </PageShell>
+
+                {/* 8 — Delivered On Time & Attention Required */}
+                <PageShell as="div" width="full" py={false} className="mt-12">
+                  <ExecSummarySection />
+                </PageShell>
+              </ExecDashboard>
             </div>
           </>
         )}
       </main>
 
-    </>
+    </div>
   );
 }
