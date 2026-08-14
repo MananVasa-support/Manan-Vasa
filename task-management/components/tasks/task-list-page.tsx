@@ -4,6 +4,7 @@ import { LayoutGrid } from "lucide-react";
 import { TaskTable } from "./task-table";
 import { TaskDetailDrawer } from "./task-detail-drawer";
 import { TaskToolsMenu } from "./task-tools-menu";
+import { TasksFullscreen, FullscreenToggleButton } from "./tasks-fullscreen";
 import { WeeklyGoalTaskGroup } from "@/components/weekly-goals/weekly-goal-task-group";
 import type { VirtualTaskRow } from "@/lib/weekly-goals/as-task-row";
 import type { TaskListRow, TaskListFilters } from "@/lib/types";
@@ -158,7 +159,7 @@ export function TaskListPage({
     // can't scroll to it: body is `overflow-x: hidden`). Pinning the width to the
     // column keeps the overflow INSIDE the table's own scroll container, which is
     // what the frozen column pins against.
-    <main className="wms-compact relative mx-auto w-full min-w-0 max-w-[1560px] px-7 max-md:px-4 pt-4 max-md:pt-3 pb-16">
+    <TasksFullscreen className="wms-compact relative mx-auto w-full min-w-0 max-w-[1560px] px-7 max-md:px-4 pt-4 max-md:pt-3 pb-16">
       {/* Header — the "Tasks" title with the KPI stat chips inline beside it, and
           Kanban View on the right. (Eyebrow + "N tasks in the current view"
           subtitle removed per design.) */}
@@ -206,22 +207,27 @@ export function TaskListPage({
         {/* Action pair, side by side: [ ⋯ ] [ Kanban View ]. The ⋯ menu moved
             up from the FilterBar so the two sit together, which also keeps the
             filter ribbon to filters + search on its single line. */}
-        {me.isAdmin && (
-          <div className="flex items-center gap-2 shrink-0">
-            <TaskToolsMenu />
-            <Link
-              href={"/tasks/kanban" as Route}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-[12.5px] font-bold transition-colors hover:bg-surface-soft shrink-0"
-              style={{
-                color: "var(--color-altus-red-deep)",
-                boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)",
-              }}
-            >
-              <LayoutGrid size={14} strokeWidth={2.4} />
-              Kanban View
-            </Link>
-          </div>
-        )}
+        {/* Full screen sits with the view actions but OUTSIDE the admin gate —
+            maximising the table is useful to everyone, not just admins. */}
+        <div className="flex items-center gap-2 shrink-0">
+          <FullscreenToggleButton />
+          {me.isAdmin && (
+            <>
+              <TaskToolsMenu />
+              <Link
+                href={"/tasks/kanban" as Route}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-[12.5px] font-bold transition-colors hover:bg-surface-soft shrink-0"
+                style={{
+                  color: "var(--color-altus-red-deep)",
+                  boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)",
+                }}
+              >
+                <LayoutGrid size={14} strokeWidth={2.4} />
+                Kanban View
+              </Link>
+            </>
+          )}
+        </div>
       </header>
 
       {/* Pinned "This week's goals" group above the table (design §10). Admins
@@ -301,7 +307,7 @@ export function TaskListPage({
           </TaskDetailDrawer>
         </>
       )}
-    </main>
+    </TasksFullscreen>
   );
 }
 
