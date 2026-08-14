@@ -994,21 +994,12 @@ export function RichLetterEditor({
           {tableOpen && (
             <div className="rle-pop rle-pop--menu" role="menu" aria-label="Table">
               {!state?.inTable ? (
-                <button
-                  type="button"
-                  className="rle-menu-item"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    editor
-                      ?.chain()
-                      .focus()
-                      .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-                      .run();
+                <TableGridPicker
+                  onPick={(rows, cols, withHeaderRow) => {
+                    editor?.chain().focus().insertTable({ rows, cols, withHeaderRow }).run();
                     setTableOpen(false);
                   }}
-                >
-                  <TableIcon size={15} /> Insert 3 × 3 table
-                </button>
+                />
               ) : (
                 <>
                   <button type="button" className="rle-menu-item" onMouseDown={(e) => e.preventDefault()} onClick={() => editor?.chain().focus().addRowBefore().run()}>
@@ -1084,6 +1075,67 @@ export function RichLetterEditor({
 }
 
 export default RichLetterEditor;
+
+/**
+ * A Google-Docs / Word style table-size picker — hover the grid to choose the
+ * dimensions (live "R × C" read-out), toggle a header row, then click to insert.
+ * Up to 10 × 8; the grid grows one step past the hovered edge so you can always
+ * reach a bigger table without a separate "more" control.
+ */
+function TableGridPicker({
+  onPick,
+}: {
+  onPick: (rows: number, cols: number, withHeaderRow: boolean) => void;
+}) {
+  const MAX_R = 10;
+  const MAX_C = 8;
+  const [hr, setHr] = useState(0);
+  const [hc, setHc] = useState(0);
+  const [header, setHeader] = useState(true);
+  // Show a little beyond the hovered cell (min 5×5) so bigger tables are reachable.
+  const rows = Math.min(MAX_R, Math.max(5, hr + 1));
+  const cols = Math.min(MAX_C, Math.max(5, hc + 1));
+  return (
+    <div className="rle-tablepick" onMouseDown={(e) => e.preventDefault()}>
+      <div className="rle-tablepick-readout">{hr > 0 && hc > 0 ? `${hr} × ${hc} table` : "Drag to size"}</div>
+      <div
+        className="rle-tablepick-grid"
+        style={{ gridTemplateColumns: `repeat(${cols}, 18px)` }}
+        onMouseLeave={() => {
+          setHr(0);
+          setHc(0);
+        }}
+      >
+        {Array.from({ length: rows }).flatMap((_, r) =>
+          Array.from({ length: cols }).map((__, c) => {
+            const on = r < hr && c < hc;
+            return (
+              <button
+                key={`${r}-${c}`}
+                type="button"
+                className={`rle-tablepick-cell${on ? " is-on" : ""}${header && r === 0 && on ? " is-head" : ""}`}
+                onMouseEnter={() => {
+                  setHr(r + 1);
+                  setHc(c + 1);
+                }}
+                onFocus={() => {
+                  setHr(r + 1);
+                  setHc(c + 1);
+                }}
+                onClick={() => onPick(r + 1, c + 1, header)}
+                aria-label={`Insert a ${r + 1} by ${c + 1} table`}
+              />
+            );
+          }),
+        )}
+      </div>
+      <label className="rle-tablepick-header">
+        <input type="checkbox" checked={header} onChange={(e) => setHeader(e.target.checked)} />
+        <span>Header row</span>
+      </label>
+    </div>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /* Local styles                                                         */
@@ -1163,6 +1215,26 @@ const RLE_CSS = `
 .rle-menu-item--danger{color:var(--rle-red);}
 .rle-menu-item--danger:hover{background:color-mix(in srgb,var(--rle-red) 10%,transparent);}
 .rle-menu-div{height:1px;margin:5px 4px;background:var(--rle-line);}
+/* Table-size picker (Google-Docs style hover grid) */
+.rle-tablepick{padding:4px 6px 2px;user-select:none;}
+.rle-tablepick-readout{
+  font-size:12px;font-weight:700;color:var(--rle-ink);
+  padding:2px 2px 7px;text-align:center;letter-spacing:.01em;
+}
+.rle-tablepick-grid{display:grid;gap:3px;justify-content:center;}
+.rle-tablepick-cell{
+  width:18px;height:18px;padding:0;border-radius:3px;cursor:pointer;
+  border:1px solid var(--rle-line);background:#fff;transition:background .08s ease,border-color .08s ease;
+}
+.rle-tablepick-cell:hover{border-color:color-mix(in srgb,var(--rle-red) 45%,transparent);}
+.rle-tablepick-cell.is-on{background:color-mix(in srgb,var(--rle-red) 20%,#fff);border-color:var(--rle-red);}
+.rle-tablepick-cell.is-head{background:color-mix(in srgb,var(--rle-red) 42%,#fff);}
+.rle-tablepick-cell:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px color-mix(in srgb,var(--rle-red) 55%,transparent);}
+.rle-tablepick-header{
+  display:flex;align-items:center;gap:7px;justify-content:center;
+  padding:9px 2px 3px;font-size:12.5px;font-weight:600;color:var(--rle-ink);cursor:pointer;
+}
+.rle-tablepick-header input{width:14px;height:14px;accent-color:var(--rle-red);cursor:pointer;}
 .rle-hidden-file{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);border:0;}
 .rle-spin{animation:rle-spin 1s linear infinite;}
 @keyframes rle-spin{to{transform:rotate(360deg);}}
