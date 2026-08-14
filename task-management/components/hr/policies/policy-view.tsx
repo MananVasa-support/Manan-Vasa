@@ -24,10 +24,20 @@ const RED_DEEP = "#A80400";
  * control is reachable and Enter-activated. NO framer-motion — CSS only, and the
  * only server touch is a fetch (so this client bundle stays load-neutral).
  */
-export function PolicyView({ doc, signedAt }: { doc: PolicyDoc; signedAt?: string | null }) {
+export function PolicyView({
+  doc,
+  signedAt,
+  outdated = false,
+}: {
+  doc: PolicyDoc;
+  signedAt?: string | null;
+  /** Signed, but only an OLDER version — a newer one has been published since. */
+  outdated?: boolean;
+}) {
   const [entity, setEntity] = useState<EntityId>(doc.entityDefault ?? "altus-corp");
   const [signing, setSigning] = useState(false);
-  const isSigned = Boolean(signedAt);
+  // A stale signature must NOT read as done — it prompts to sign the new version.
+  const isSigned = Boolean(signedAt) && !outdated;
 
   async function signAcknowledge() {
     setSigning(true);
@@ -100,16 +110,29 @@ export function PolicyView({ doc, signedAt }: { doc: PolicyDoc; signedAt?: strin
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              className="apv-btn apv-btn-primary"
-              onClick={signAcknowledge}
-              disabled={signing}
-              autoFocus
-            >
-              {signing ? <Loader2 size={15} className="apv-spin" /> : <PenLine size={15} strokeWidth={2.4} />}
-              {signing ? "Starting…" : "Read & Sign"}
-            </button>
+            <>
+              {/* Signed an OLDER version — say so, then prompt for the new one. */}
+              {outdated && signedAt && (
+                <span
+                  className="apv-signed"
+                  role="status"
+                  style={{ background: "color-mix(in srgb, #f59e0b 14%, white)", color: "#b45309" }}
+                  title={`You signed version ${formatDate(signedAt)} — a newer version has been published.`}
+                >
+                  <PenLine size={15} strokeWidth={2.4} aria-hidden /> New version · last signed {formatDate(signedAt)}
+                </span>
+              )}
+              <button
+                type="button"
+                className="apv-btn apv-btn-primary"
+                onClick={signAcknowledge}
+                disabled={signing}
+                autoFocus
+              >
+                {signing ? <Loader2 size={15} className="apv-spin" /> : <PenLine size={15} strokeWidth={2.4} />}
+                {signing ? "Starting…" : outdated ? "Sign the new version" : "Read & Sign"}
+              </button>
+            </>
           )}
         </div>
       </div>

@@ -22,6 +22,10 @@ import { policyCompliance, policyDocuments } from "@/db/schema";
 
 /** Current published version for a policy key (defaults to 1 when the CMS has no
  *  row for a code-registered policy). */
+export async function currentPolicyVersion(policyKey: string): Promise<number> {
+  return currentVersion(policyKey);
+}
+
 async function currentVersion(policyKey: string): Promise<number> {
   const [row] = await db
     .select({ v: policyDocuments.currentVersion })
@@ -66,7 +70,9 @@ export async function markPolicySigned(
     .values({ policyKey, employeeId, version, status: "signed", signedAt, docInstanceId })
     .onConflictDoUpdate({
       target: [policyCompliance.policyKey, policyCompliance.employeeId],
-      set: { status: "signed", signedAt, docInstanceId, updatedAt: new Date() },
+      // `version` MUST be part of the update — re-signing a newly published
+      // version otherwise left the ledger stamped with the OLD version number.
+      set: { status: "signed", signedAt, docInstanceId, version, updatedAt: new Date() },
     });
 }
 

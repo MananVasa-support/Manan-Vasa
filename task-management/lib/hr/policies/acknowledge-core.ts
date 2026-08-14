@@ -24,7 +24,7 @@ import { requireUser } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { getEntity } from "@/lib/hr/entities";
 import { getPolicy, isPolicyKey } from "./registry";
-import { markPolicyPending } from "./compliance-sync";
+import { markPolicyPending, currentPolicyVersion } from "./compliance-sync";
 
 type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -64,9 +64,16 @@ export async function acknowledgePolicy(
   const resolvedEntity = getEntity(input.entity ?? policy.entityDefault ?? null);
 
   try {
-    // Reuse an existing unsigned instance for this (user, policy), if any.
+    // Which version is published RIGHT NOW. An instance is only reusable when it
+    // was filed against this SAME version — otherwise a re-published policy could
+    // never be re-signed (the flow found the old signed row and showed "already
+    // signed", so "Sign again" dead-ended).
+    const version = await currentPolicyVersion(key);
+
+    // Reuse the newest instance for this (user, policy) — but only if it belongs
+    // to the current version.
     const existing = await db
-      .select({ id: documentInstances.id })
+      .select({ id: documentInstances.id, mergeValues: documentInstances.mergeValues })
       .from(documentInstances)
       .where(
         and(
@@ -77,7 +84,11 @@ export async function acknowledgePolicy(
       .orderBy(desc(documentInstances.createdAt))
       .limit(1);
 
-    let docId = existing[0]?.id ?? null;
+    // Instances filed before versioning carry no __version — treat them as v1.
+    const prevVersion = Number(
+      (existing[0]?.mergeValues as Record<string, unknown> | null)?.__version ?? 1,
+    );
+    let docId = existing[0] && prevVersion === version ? existing[0].id : null;
 
     if (!docId) {
       const [row] = await db
@@ -86,8 +97,10 @@ export async function acknowledgePolicy(
           typeKey: key,
           employeeId: me.id,
           status: "sent",
-          mergeValues: { __entity: resolvedEntity.id },
-          bodySnapshotMd: JSON.stringify({ key, entity: resolvedEntity.id, kind: "policy" }),
+          // merge_values is a string map — the version is stamped as a string and
+          // parsed back with Number() on read.
+          mergeValues: { __entity: resolvedEntity.id, __version: String(version) },
+          bodySnapshotMd: JSON.stringify({ key, entity: resolvedEntity.id, kind: "policy", version }),
           issuedById: me.id,
           issuedAt: new Date(),
         })

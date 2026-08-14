@@ -33,6 +33,9 @@ export function AllPoliciesPopup({
   // The caller's own signed policies (key → ISO signedAt) so each card shows
   // ✓ Signed vs "Sign" at a glance — no need to open each one to check.
   const [signed, setSigned] = useState<Record<string, string>>({});
+  // Keys the caller signed only an OLDER version of — a newer one is published,
+  // so the card must NOT read as done.
+  const [outdated, setOutdated] = useState<Record<string, true>>({});
 
   // Load (and refresh on every open, so a just-signed policy shows as signed).
   useEffect(() => {
@@ -40,7 +43,9 @@ export function AllPoliciesPopup({
     let cancelled = false;
     getMyPolicySignStatus()
       .then((r) => {
-        if (!cancelled) setSigned(r.signed);
+        if (cancelled) return;
+        setSigned(r.signed);
+        setOutdated(r.outdated ?? {});
       })
       .catch(() => {
         /* non-fatal — cards just fall back to the neutral "Read & sign" state */
@@ -141,7 +146,13 @@ export function AllPoliciesPopup({
 
         <div className="app-grid">
           {POLICY_CARDS.map((card) => (
-            <CardTile key={card.key} card={card} signedAt={signed[card.key]} onNavigate={onClose} />
+            <CardTile
+              key={card.key}
+              card={card}
+              signedAt={signed[card.key]}
+              outdated={Boolean(outdated[card.key])}
+              onNavigate={onClose}
+            />
           ))}
         </div>
       </div>
@@ -152,10 +163,13 @@ export function AllPoliciesPopup({
 function CardTile({
   card,
   signedAt,
+  outdated = false,
   onNavigate,
 }: {
   card: PolicyCard;
   signedAt?: string;
+  /** Signed, but a NEWER version has been published since. */
+  outdated?: boolean;
   onNavigate: () => void;
 }) {
   if (card.status === "coming-soon") {
@@ -170,7 +184,8 @@ function CardTile({
       </div>
     );
   }
-  const isSigned = Boolean(signedAt);
+  // A stale signature is not "done" — the card prompts for the new version.
+  const isSigned = Boolean(signedAt) && !outdated;
   return (
     <Link
       href={`/hr/policies/${card.key}` as Route}
@@ -186,7 +201,8 @@ function CardTile({
         </span>
       ) : (
         <span className="app-chip app-chip-ready">
-          Read &amp; sign <ArrowUpRight size={12} strokeWidth={2.8} aria-hidden />
+          {outdated ? "New version · sign again" : "Read & sign"}{" "}
+          <ArrowUpRight size={12} strokeWidth={2.8} aria-hidden />
         </span>
       )}
     </Link>

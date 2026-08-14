@@ -5,6 +5,7 @@ import { DashboardHeader } from "@/components/layout/header";
 import { getSignatureState } from "@/app/(app)/documents/sign/actions";
 import { SignDocument } from "@/components/documents/sign/sign-document";
 import { DOC_KIND_LABELS, isDocKind, type SignatureState } from "@/lib/documents/signing";
+import { HrShellSidebar } from "@/components/hr/hr-shell-sidebar";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,11 @@ export default async function DocumentSignPage({
   const label = DOC_KIND_LABELS[kind];
 
   return (
-    <>
+    <div className="flex min-h-dvh">
+      {/* Signing is reached from the HR room (Policies / Letters / Agreements) —
+          carry the HR rail here, not the WMS one this path maps to by URL. */}
+      <HrShellSidebar />
+      <div className="flex min-w-0 flex-1 flex-col">
       <DashboardHeader generatedAt={new Date()} />
       <main className="mx-auto w-full max-w-[720px] px-8 max-md:px-4 pt-8 pb-16">
         <header className="mb-6 wg-rise">
@@ -87,6 +92,7 @@ export default async function DocumentSignPage({
           callbackError={callbackError}
         />
       </main>
-    </>
+      </div>
+    </div>
   );
 }
