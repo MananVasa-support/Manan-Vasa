@@ -65,7 +65,6 @@ const EDU_FIELDS: FormFieldDef[] = [
   { key: "degree", label: "Degree / Diploma", type: "text", placeholder: "e.g. 10th / 12th / B.Com" },
   { key: "school", label: "Name of School / College", type: "text" },
   { key: "board", label: "Board / University", type: "text" },
-  { key: "mode", label: "Regular / Part-Time", type: "buttons", options: ["Regular", "Part-Time"] },
   {
     key: "passingMonth",
     label: "Month of Passing",
@@ -86,8 +85,10 @@ const EDU_FIELDS: FormFieldDef[] = [
 ];
 
 const FAMILY_FIELDS: FormFieldDef[] = [
-  { key: "name", label: "Name", type: "text", required: true },
-  { key: "relationship", label: "Relationship", type: "text", required: true },
+  { key: "name", label: "Name", type: "text", required: true, span: 6 },
+  { key: "relationship", label: "Relationship", type: "text", required: true, span: 6 },
+  { key: "phone", label: "Phone Number", type: "tel", optional: true, span: 6 },
+  { key: "email", label: "Email Address", type: "email", optional: true, span: 6 },
 ];
 
 const PREV_WORK_FIELDS: FormFieldDef[] = [
@@ -149,7 +150,7 @@ export const INTAKE_SECTIONS: IntakeSection[] = [
       { key: "policeRecord", label: "Do you have a police record?", type: "buttons", options: YN, required: true, groupLabel: "Health & Habits" },
       { key: "majorIllness", label: "History of any major illness?", type: "buttons", options: YN, required: true },
       { key: "majorIllnessDetails", label: "Please describe the illness", type: "textarea", showIf: { key: "majorIllness", value: "Yes" } },
-      { key: "source", label: "How did you learn about the opening?", type: "buttons", options: ["Company Website", "Friend or Relative", "Job Portal", "HR Agency", "Social Media", "Other"] },
+      { key: "source", label: "How did you learn about the opening?", type: "select", options: ["Company Website", "Friend or Relative", "Job Portal", "HR Agency", "Social Media", "Other"], span: 6 },
       { key: "sourceOther", label: "Please specify", type: "text", showIf: { key: "source", value: "Other" } },
     ],
   },
@@ -215,7 +216,6 @@ export const INTAKE_SECTIONS: IntakeSection[] = [
     subtitle: "Photograph, signature, recruiter remarks and confirmation.",
     declaration: true,
     fields: [
-      { key: "remarks", label: "Recruiter's Remarks", type: "textarea", required: true },
       { key: "name", label: "Recruiter's Name", type: "text", required: true },
       { key: "recruiterEmail", label: "Through whom did you come to us? (Recruiter Email)", type: "email", optional: true },
       { key: "date", label: "Date", type: "date", required: true },
@@ -355,9 +355,9 @@ export function expFromRange(from: string, to: string): string {
   const y = Math.floor(months / 12);
   const m = months % 12;
   const parts: string[] = [];
-  if (y) parts.push(`${y} yr${y === 1 ? "" : "s"}`);
-  if (m) parts.push(`${m} mo`);
-  return parts.length ? parts.join(" ") : "0 mo";
+  if (y) parts.push(`${y} Year${y === 1 ? "" : "s"}`);
+  if (m) parts.push(`${m} Month${m === 1 ? "" : "s"}`);
+  return parts.length ? parts.join(" ") : "0 Months";
 }
 
 /**

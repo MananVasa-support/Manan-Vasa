@@ -48,7 +48,9 @@ export interface Entity {
 export const DEFAULT_PHONE = "+91 80970 10410";
 export const DEFAULT_EMAIL = "manan@unleashed.in";
 export const DEFAULT_WEBSITE = "www.mananvasa.com";
-export const DEFAULT_CONTACT_LINE = `${DEFAULT_PHONE}  ▸  ${DEFAULT_EMAIL}  ▸  ${DEFAULT_WEBSITE}`;
+// Separator is the middle dot U+00B7 — it IS in pdfkit's WinAnsi (cp1252)
+// encoding, unlike the old ▸ (U+25B8), which pdfkit rendered as a stray "%".
+export const DEFAULT_CONTACT_LINE = `${DEFAULT_PHONE}  ·  ${DEFAULT_EMAIL}  ·  ${DEFAULT_WEBSITE}`;
 export const DEFAULT_ADDRESS_LINE =
   "Sacred Space, C-6, Gambhir Estates, Kotkar Road, Goregaon (E), Mumbai 63";
 

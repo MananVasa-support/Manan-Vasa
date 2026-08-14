@@ -270,10 +270,12 @@ const SPAN12: Record<number, string> = {
 };
 function fieldSpan(f: FormFieldDef): string {
   if (f.span && SPAN12[f.span]) return SPAN12[f.span]!;
+  // Even, aligned layout (Sir): full-width for long inputs, otherwise a clean
+  // two-per-row grid. (Was a ragged mix of span-4/8 that left uneven trailing rows.)
   if (f.type === "textarea") return "md:col-span-12";
   if (f.aadhaarLookup) return "md:col-span-12";
-  if (f.type === "buttons" && (f.options?.length ?? 0) > 3) return "md:col-span-8";
-  return "md:col-span-4";
+  if (f.type === "buttons" && (f.options?.length ?? 0) > 3) return "md:col-span-12";
+  return "md:col-span-6";
 }
 
 /**

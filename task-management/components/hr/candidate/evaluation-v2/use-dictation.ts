@@ -106,7 +106,9 @@ export function useDictation({
     }
     rec.continuous = true;
     rec.interimResults = true;
-    rec.lang = (typeof navigator !== "undefined" && navigator.language) || "en-IN";
+    // Pin to Indian English — the browser default (often en-US) mis-hears Indian
+    // names/accents; en-IN is markedly more accurate for this team (Sir).
+    rec.lang = "en-IN";
     rec.onresult = (e) => {
       let finalText = "";
       let interimText = "";

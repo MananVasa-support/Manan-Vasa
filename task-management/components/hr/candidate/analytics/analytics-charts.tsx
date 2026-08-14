@@ -459,9 +459,10 @@ export function MonthlyTrend({ points }: { points: TrendPoint[] }) {
     const raf = requestAnimationFrame(() => setGrown(true));
     return () => cancelAnimationFrame(raf);
   }, [reduce, points.length]);
+
   // Must run before the empty-state early return — a hook called after it
   // changes the hook order when `points` flips between empty and non-empty,
-  // which throws "rendered fewer hooks than expected".
+  // which throws "rendered fewer hooks than expected". (Preserved from live.)
   const gradId = React.useId();
 
   if (points.length === 0) return <EmptyState label="No interviews recorded yet." />;
@@ -470,7 +471,7 @@ export function MonthlyTrend({ points }: { points: TrendPoint[] }) {
   const H = 240;
   const padL = 40;
   const padR = 40;
-  const padT = 20;
+  const padT = 30;
   const padB = 44;
   const chartW = W - padL - padR;
   const chartH = H - padT - padB;
@@ -513,6 +514,10 @@ export function MonthlyTrend({ points }: { points: TrendPoint[] }) {
           const h = (p.count / maxCount) * chartH;
           const x = padL + slot * (i + 0.5) - barW / 2;
           const y = padT + chartH - h;
+          // Tall bar → draw the count INSIDE the bar (white) so it never collides
+          // with the score-line label above; short bar → above the bar.
+          const insideBar = h > 30;
+          const countY = insideBar ? y + 18 : Math.max(y - 6, padT - 2);
           return (
             <g key={p.month}>
               <rect
@@ -524,7 +529,7 @@ export function MonthlyTrend({ points }: { points: TrendPoint[] }) {
                 fill={`url(#${gradId})`}
                 style={{ transition: reduce ? "none" : `all 0.7s cubic-bezier(0.16,1,0.3,1) ${i * 0.05}s` }}
               />
-              <text x={padL + slot * (i + 0.5)} y={y - 6} textAnchor="middle" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 13, fill: "var(--color-ink-strong)" }}>
+              <text x={padL + slot * (i + 0.5)} y={countY} textAnchor="middle" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 800, fontSize: 13, fill: insideBar ? "#fff" : "var(--color-ink-strong)" }}>
                 {p.count}
               </text>
               <text x={padL + slot * (i + 0.5)} y={H - 22} textAnchor="middle" style={{ fontFamily: "var(--font-mono-display), ui-monospace, monospace", fontSize: 11, fontWeight: 700, fill: "var(--color-ink-muted)" }}>

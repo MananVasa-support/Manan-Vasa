@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Check } from "lucide-react";
+import { Check, Mic } from "lucide-react";
 import type { FormFieldDef } from "@/lib/forms/field-types";
 import { isRequiredField } from "@/lib/hr/candidate/intake-schema";
 import { LookupSelect } from "@/components/ui/lookup-select";
+import { useDictation, type Dictation } from "@/components/hr/candidate/evaluation-v2/use-dictation";
 
 /**
  * Intake-only floating-label field renderer. This is the premium, OPT-IN variant
@@ -40,6 +41,16 @@ export function IntakeField({
   const reactId = React.useId();
   const id = `iwf-${reactId}`;
   const [focused, setFocused] = React.useState(false);
+  // Dictate-to on every free-text field (Sir). Hook is called unconditionally
+  // (rules-of-hooks); the mic only RENDERS on text-like fields that support it.
+  const dictation = useDictation({ value, onChange: (v) => onChange(field.key, v) });
+  const canDictate =
+    field.type === "text" ||
+    field.type === "textarea" ||
+    field.type === "tel" ||
+    field.type === "email" ||
+    field.type === "url";
+  const showMic = canDictate && dictation.supported;
 
   if (field.type === "buttons" || field.type === "product") {
     return <IntakeChipField field={field} value={value} onChange={onChange} error={error} autoFocus={autoFocus} />;
@@ -54,7 +65,7 @@ export function IntakeField({
   const float = alwaysFloat || focused || hasValue;
   const isArea = field.type === "textarea";
 
-  const wrapCls = `iwf${isArea ? " iwf--area" : ""}${float ? " is-float" : ""}${error ? " is-error" : ""}`;
+  const wrapCls = `iwf${isArea ? " iwf--area" : ""}${float ? " is-float" : ""}${error ? " is-error" : ""}${showMic ? " iwf-has-mic" : ""}`;
   const labelEl = (
     <label htmlFor={id} className="iwf-label">
       {field.label}
@@ -106,6 +117,7 @@ export function IntakeField({
           onChange={(e) => onChange(field.key, e.target.value)}
         />
         {labelEl}
+        {showMic && <FieldMic dictation={dictation} area />}
       </div>
     );
   }
@@ -122,7 +134,24 @@ export function IntakeField({
         onChange={(e) => onChange(field.key, e.target.value)}
       />
       {labelEl}
+      {showMic && <FieldMic dictation={dictation} />}
     </div>
+  );
+}
+
+/** The in-field "Dictate" mic — tap to toggle speech-to-text on this field. */
+function FieldMic({ dictation, area }: { dictation: Dictation; area?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={dictation.toggle}
+      aria-label={dictation.recording ? "Stop dictation" : "Dictate this field"}
+      title={dictation.recording ? "Stop dictation" : "Dictate"}
+      className={`iwf-mic${area ? " iwf-mic--area" : ""}${dictation.recording ? " is-rec" : ""}`}
+      tabIndex={-1}
+    >
+      <Mic size={15} strokeWidth={2.2} aria-hidden />
+    </button>
   );
 }
 

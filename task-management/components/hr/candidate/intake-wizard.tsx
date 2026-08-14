@@ -101,6 +101,17 @@ const IW_CSS = `
 .iwf .iwf-lookup { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; text-align: left; }
 .iwf .iwf-lookup[aria-expanded="true"] { border-color: var(--color-altus-red); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-altus-red) 13%, transparent); }
 .iwf.is-readonly .iwf-control { background: var(--color-surface-soft, #f5f5f7); color: var(--color-ink-strong); cursor: default; }
+.iwf-has-mic .iwf-control { padding-right: 40px; }
+.iwf-mic {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  width: 30px; height: 30px; display: grid; place-items: center;
+  border: none; background: transparent; border-radius: 8px; cursor: pointer;
+  color: var(--color-ink-muted); transition: color .15s, background .15s; z-index: 2;
+}
+.iwf-mic:hover { color: var(--color-ink-strong); background: var(--color-surface-soft); }
+.iwf-mic--area { top: 12px; transform: none; }
+.iwf-mic.is-rec { color: #fff; background: var(--color-altus-red); animation: iwf-mic-pulse 1.2s ease-in-out infinite; }
+@keyframes iwf-mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
 
 .iwf-label {
   position: absolute;
@@ -286,7 +297,14 @@ export function IntakeWizard({
 
   function go(to: number) {
     setStep(Math.max(0, Math.min(reviewStep, to)));
-    requestAnimationFrame(() => document.querySelector<HTMLElement>(".iw-step [data-autofocus]")?.focus());
+    requestAnimationFrame(() => {
+      // Land at the TOP of the new section, not wherever the autofocus target
+      // happens to sit (Sir: opening a section dropped me into the middle).
+      // Scroll to the step top first, then focus WITHOUT stealing the scroll.
+      const stepEl = document.querySelector<HTMLElement>(".iw-step");
+      stepEl?.scrollIntoView({ block: "start", behavior: "auto" });
+      stepEl?.querySelector<HTMLElement>("[data-autofocus]")?.focus({ preventScroll: true });
+    });
   }
   function focusFirstInvalid() {
     document.querySelector<HTMLElement>('.iw-step [data-invalid="true"] input, .iw-step [data-invalid="true"] textarea, .iw-step [data-invalid="true"] select, .iw-step [data-invalid="true"] button')?.focus();

@@ -32,9 +32,12 @@ import { Underline } from "@tiptap/extension-underline";
 // @tiptap/extension-color and @tiptap/extension-font-family packages are just
 // deprecated re-export shims that register the SAME global attributes a second
 // time. Adding them alongside TextStyle double-registers `color`/`backgroundColor`
-// /`fontFamily` on the textStyle mark, and the collision is why Text-colour and
-// Highlight silently did nothing. So we import ONLY TextStyle here.
-import { TextStyle } from "@tiptap/extension-text-style";
+// TextStyle v3.29 is JUST the base mark — the color / backgroundColor / fontSize
+// / fontFamily ATTRIBUTES + their set*/unset* COMMANDS live in SEPARATE
+// sub-extensions (Color, BackgroundColor, FontSize, FontFamily). Registering only
+// TextStyle is why Text-colour, Highlight and Font-size silently did nothing
+// (the commands resolved to no-ops). Register all four alongside TextStyle.
+import { TextStyle, Color, BackgroundColor, FontSize, FontFamily } from "@tiptap/extension-text-style";
 import { TextAlign } from "@tiptap/extension-text-align";
 import { Link } from "@tiptap/extension-link";
 import { Image } from "@tiptap/extension-image";
@@ -63,7 +66,6 @@ import {
   ListOrdered,
   IndentIncrease,
   IndentDecrease,
-  RemoveFormatting,
   Minus,
   Plus,
   Loader2,
@@ -391,9 +393,13 @@ export function RichLetterEditor({
         link: false,
       }),
       Underline,
-      // TextStyle v3 provides colour / backgroundColor / fontSize / fontFamily
-      // (+ their set*/unset* commands) — one registration, no collisions.
+      // TextStyle base mark + the four attribute sub-extensions that carry the
+      // colour / highlight / font-size / font-family commands (v3.29 split).
       TextStyle,
+      Color,
+      BackgroundColor,
+      FontSize,
+      FontFamily,
       Indent,
       LineHeight,
       FieldPlaceholder,
@@ -601,20 +607,6 @@ export function RichLetterEditor({
     },
     [editor],
   );
-
-  const clearFormatting = useCallback(() => {
-    if (!editor) return;
-    editor
-      .chain()
-      .focus()
-      .unsetAllMarks()
-      .unsetFontSize()
-      .unsetBackgroundColor()
-      .unsetColor()
-      .unsetFontFamily()
-      .clearNodes()
-      .run();
-  }, [editor]);
 
   return (
     <div className="rle-root">
@@ -1051,11 +1043,6 @@ export function RichLetterEditor({
           )}
         </div>
 
-        <Sep />
-
-        <ToolButton label="Clear formatting" onClick={clearFormatting}>
-          <RemoveFormatting size={17} />
-        </ToolButton>
       </div>
 
       {/* hidden file input for image upload */}

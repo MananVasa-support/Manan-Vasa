@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
 import { DashboardHeader } from "@/components/layout/header";
 import { PageShell } from "@/components/layout/page-shell";
@@ -41,21 +41,12 @@ export default async function HiringAnalyticsPage() {
         </Link>
 
         <header className="mb-7">
-          <span
-            className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white"
-            style={{ background: "linear-gradient(135deg,#E10600,#A80400)" }}
-          >
-            <Sparkles size={12} strokeWidth={2.6} /> Interview Intelligence
-          </span>
           <h1
-            className="mt-2.5 text-ink-strong"
+            className="text-ink-strong"
             style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(28px,3.4vw,44px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
           >
             Hiring Analytics
           </h1>
-          <p className="mt-2 max-w-[76ch] text-[15px] font-medium text-ink-muted">
-            Every interview, score and decision — rolled up into a live executive view of the hiring engine.
-          </p>
         </header>
 
         <HiringAnalyticsDashboard data={data} />
