@@ -1104,26 +1104,20 @@ export function SalaryBreakupTable({
   // Show the Remarks/Note column when a super-admin can edit it, or when any row
   // already carries a note (so it stays visible read-only for everyone).
   const showRemarks = canEditNote || rows.some((r) => r.adminNote);
-  // Show Wave-Off when a super-admin can grant it, or when any row already carries
-  // a grant (so it stays visible read-only for everyone).
-  const showWaiveOff = canWaiveOff || rows.some((r) => num(r.waiveOffDays) > 0);
-  // Adjustment (Sir #37) uses the same super-admin gate as Wave-Off.
-  const showAdjust = canWaiveOff || rows.some((r) => num(r.payoutAdjustment) !== 0);
-  // Column order (trailing): … Payout · Wave-Off · Adjustment · Remarks.
-  // Drop each when its viewer/flag isn't present. Groups rebuilt to match.
+  // ADJUSTMENTS IS ALWAYS SHOWN. It used to appear only when a super-admin could
+  // grant one or some row already carried one, which meant that on a normal
+  // month — every grant zero — the column vanished and the table read
+  // "Payable … Final Amount" with no term between them. The two figures are
+  // equal in that case, so nothing looked wrong; the arithmetic was simply
+  // invisible, and there was no way to see that no adjustment had been made
+  // versus the column not existing. A permanent column showing "—" says the
+  // former. Its editors are still super-admin-only (see AdjustmentsCell).
   //
-  // The four payment columns are NEVER dropped. They are read-only for a viewer
-  // who cannot record payments, not hidden: anyone who reaches this page has
-  // finance access and is entitled to see what is owed and what has gone out.
-  // (Normal employees never get here — `requireFinanceAccess` redirects them.)
-  // The Adjustments column stays visible whenever a grant EXISTS, even for a
-  // viewer who cannot create one — otherwise Payable and Final Amount would
-  // differ on screen with nothing between them explaining why.
-  const showAdjustCol = showWaiveOff || showAdjust;
-  const visibleCols = COLUMNS.filter(
-    (c) =>
-      (c.key !== "adjustments" || showAdjustCol) && (c.key !== "remarks" || showRemarks),
-  );
+  // The payment columns are never dropped either. They are read-only for a
+  // viewer who cannot record payments, not hidden: anyone who reaches this page
+  // has finance access and is entitled to see what is owed and what has gone
+  // out. (Normal employees never get here — `requireFinanceAccess` redirects.)
+  const visibleCols = COLUMNS.filter((c) => c.key !== "remarks" || showRemarks);
   // NO GROUP HEADER ROW. It existed to label the attendance and build-up blocks
   // that this table no longer carries; with ten single-purpose columns every
   // group would have been a one-cell span with a blank label, i.e. 30px of
