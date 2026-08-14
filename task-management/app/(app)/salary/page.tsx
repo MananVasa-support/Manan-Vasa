@@ -5,9 +5,9 @@ import { DashboardHeader } from "@/components/layout/header";
 import { requireFinanceAccess } from "@/lib/auth/finance-access";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { salaryBreakupMonths, listSalaryBreakup } from "@/lib/queries/salary-breakup";
-import { type SalaryRow } from "@/components/salary/salary-breakup-table";
-import { SalaryWorkspace } from "@/components/salary/salary-workspace";
+import { SalaryBreakupTable, type SalaryRow } from "@/components/salary/salary-breakup-table";
 import { SalaryPeriodSelect } from "@/components/salary/salary-period-select";
+import { SalaryEntitySelect, ALL_ENTITIES } from "@/components/salary/salary-entity-select";
 import { SalaryExportButtons } from "@/components/salary/salary-export-buttons";
 import { PageShell } from "@/components/layout/page-shell";
 import {
@@ -63,7 +63,24 @@ export default async function SalaryPage({ searchParams }: PageProps) {
   const nowYm = new Date(Date.now() + 5.5 * 3_600_000).toISOString().slice(0, 7);
   const defaultMonth = months.find((m) => m < nowYm) ?? months[0] ?? "";
   const month = raw && MONTH_RE.test(raw) ? raw : defaultMonth;
-  const rows = month ? await listSalaryBreakup(month) : [];
+  const allRows = month ? await listSalaryBreakup(month) : [];
+
+  // ENTITY SCOPE, resolved server-side from `?entity=`. It used to be a
+  // `useState` inside the workspace, under the header; the brief moves the
+  // control into the header, which is a server component, so the scope has to
+  // live on the URL for the server to honour it. It also makes the scope
+  // shareable and reload-safe, exactly like `?month=`.
+  const entities = [
+    ...new Set(allRows.map((r) => r.companyName?.trim()).filter((c): c is string => Boolean(c))),
+  ].sort((a, b) => a.localeCompare(b));
+  const rawEntity = typeof sp.entity === "string" ? sp.entity : undefined;
+  // An entity that isn't on this month's sheet falls back to All rather than
+  // rendering an empty table — changing month must never strand the view.
+  const entity = rawEntity && entities.includes(rawEntity) ? rawEntity : ALL_ENTITIES;
+  const rows =
+    entity === ALL_ENTITIES
+      ? allRows
+      : allRows.filter((r) => (r.companyName?.trim() ?? "") === entity);
 
   // WS-5/WS-6 — linked employees for the statement/earnings document downloads
   // (behind SALARY_STATEMENTS). Only rows with a resolved employeeId can be
@@ -170,30 +187,27 @@ export default async function SalaryPage({ searchParams }: PageProps) {
               )}
             </div>
 
-            <div className="flex shrink-0 items-center gap-2.5">
-              <SalaryExportButtons month={month} />
+            {/* Exports, then the entity filter directly beneath them (Sir): the
+                three period/scope controls and the three export buttons are the
+                whole header now. The "Exit Documents & Signatory Letters" and
+                "Attendance Analytics" links are gone from here — both rooms are
+                still reachable from the Accounts rail, and on this page they
+                cost a line above a table that needs the height. */}
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              <div className="flex items-center gap-2.5">
+                <SalaryExportButtons month={month} />
+              </div>
+              <SalaryEntitySelect entities={entities} selected={entity} month={month} />
             </div>
           </div>
 
-          {/* Secondary links drop to their own quiet line so they never compete
-              with the title row for width on a narrow window. */}
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px]">
-                {process.env.SALARY_DOCS_UI !== "false" && (
-                  <Link href={"/salary/documents" as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: GREEN_DEEP }}>
-                    Exit Documents &amp; Signatory Letters →
-                  </Link>
-                )}
-                {process.env.SALARY_ANALYTICS !== "false" && (
-                  <Link href={`/salary/analytics${month ? `?month=${month}` : ""}` as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: GREEN_DEEP }}>
-                    Attendance Analytics →
-                  </Link>
-                )}
-                {process.env.INCENTIVE_PAYOUT === "true" && (
-                  <Link href={"/salary/incentive-payout" as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: GREEN_DEEP }}>
-                    Pay Incentives with Salary →
-                  </Link>
-                )}
-              </div>
+          {process.env.INCENTIVE_PAYOUT === "true" && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+              <Link href={"/salary/incentive-payout" as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: GREEN_DEEP }}>
+                Pay Incentives with Salary →
+              </Link>
+            </div>
+          )}
         </header>
 
         {/* ── The breakup workspace: a COMPANY selector scopes the KPI cards +
@@ -232,7 +246,18 @@ export default async function SalaryPage({ searchParams }: PageProps) {
           </section>
         ) : (
           <>
-            <SalaryWorkspace rows={tableRows} canRecordPayment={canRecordPayment} canEditNote={canEditPayable} canWaiveOff={canEditPayable} month={month ?? undefined} />
+            {/* The table is rendered directly now. `SalaryWorkspace` existed to
+                own the company selector and the "Payroll totals" KPI strip; both
+                are gone (the selector moved into the header, the strip was cut),
+                which left it a wrapper around one child. */}
+            <SalaryBreakupTable
+              rows={tableRows}
+              canRecordPayment={canRecordPayment}
+              canEditNote={canEditPayable}
+              canWaiveOff={canEditPayable}
+              month={month ?? undefined}
+              hideCompanyFilter
+            />
 
             {/* ── Statement & earnings document downloads (behind SALARY_STATEMENTS) ── */}
             {statementsOn && month && statementEmployees.length > 0 && (

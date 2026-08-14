@@ -104,8 +104,21 @@ const inrN = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 /** The effective net to pay — base + wave-off add-back + adjustment. Aliased to
  *  the shared `totalPayable` so the table cannot drift from the server action. */
 const netToPay = (r: SalaryRow) => totalPayable(r);
+/** Day counts, trimmed of trailing zeros. Only the Wave-Off editor needs it now
+ *  that the attendance columns are gone. */
 const dec = (v: string | null) => (v == null || v === "" ? "—" : String(Number(v)));
 const num = (v: string | null) => (v == null || v === "" ? 0 : Number(v));
+/**
+ * The signed total of BOTH pre-payout grants — condoned wave-off days converted
+ * to rupees, plus the payout adjustment.
+ *
+ * This is exactly the quantity `netAfterWaiveOff` adds to `final_payment`, so
+ * "Payable + this = Final Amount" holds by construction rather than by two
+ * places happening to agree. Defining it here, from the same shared helpers the
+ * server uses, is what keeps the displayed arithmetic and the paid arithmetic
+ * the same arithmetic.
+ */
+const adjustmentTotal = (r: SalaryRow) => waiveAddBack(r) + num(r.payoutAdjustment);
 
 /* ── Column model ──────────────────────────────────────────────────────── */
 
@@ -122,25 +135,6 @@ interface Col {
   /** Rendered in the sticky totals row (over the *filtered* set). */
   total?: (rows: SalaryRow[]) => React.ReactNode;
   minWidth?: number;
-}
-
-function DayCell({ v, danger }: { v: string | null; danger?: boolean }) {
-  const n = num(v);
-  return (
-    <span
-      className="tabular-nums text-[13.5px] font-semibold"
-      style={{
-        color:
-          danger && n > 0
-            ? "var(--color-altus-red)"
-            : n === 0
-              ? "var(--color-ink-subtle)"
-              : "var(--color-ink-soft)",
-      }}
-    >
-      {dec(v)}
-    </span>
-  );
 }
 
 function MoneyCell({
@@ -213,12 +207,33 @@ function NetTotal({
 /** Sort order for the status column: work still to do first. */
 const STATUS_RANK: Record<PaymentStatus, number> = { unpaid: 0, partial: 1, paid: 2 };
 
+/**
+ * THE PAYROLL COLUMNS — the settlement story, left to right, and nothing else.
+ *
+ * Employee · Entity · Advance · Payable · Adjustments · Final Amount ·
+ * Amount to Pay · Balance · Status · Remarks · Payslip.
+ *
+ * The attendance block (Present/Absent/Half/W-off/Worked/Final days) and the
+ * build-up columns (Monthly CTC, After leave, PT, After PT, Prev pending) are
+ * GONE from this table. They are inputs to the payable, not decisions anyone
+ * makes here, and eleven of them pushed the columns that matter — what is owed,
+ * what went out, what is left — off the right edge of the screen. Every one of
+ * those figures is still on the payslip PDF and in the attendance analytics; the
+ * table now answers the one question the Accounts room opens it to ask.
+ *
+ * THE ARITHMETIC IS CLOSED AND VISIBLE: Payable ± Adjustments = Final Amount,
+ * and Final Amount − Amount to Pay = Balance. Every figure in that chain is
+ * either stored or derived by lib/salary/payment from the single stored amount,
+ * so no two columns can disagree.
+ */
 const COLUMNS: Col[] = [
   {
     key: "company",
-    label: "Company",
+    // Renamed to "Entity" (Sir): these are the group's billing entities, not
+    // outside companies. Same underlying `companyName` field, same filter.
+    label: "Entity",
     align: "left",
-    minWidth: 130,
+    minWidth: 118,
     sortValue: (r) => r.companyName ?? "",
     render: (r) =>
       r.companyName ? (
@@ -238,108 +253,67 @@ const COLUMNS: Col[] = [
         <span className="text-ink-subtle">—</span>
       ),
   },
-  // ── Attendance (the sheet's own figures) ──
-  { key: "present", label: "Present", align: "right", groupStart: true, sortValue: (r) => num(r.present), render: (r) => <DayCell v={r.present} /> },
-  { key: "absent", label: "Absent", align: "right", sortValue: (r) => num(r.absent), render: (r) => <DayCell v={r.absent} danger /> },
-  { key: "half", label: "Half", align: "right", sortValue: (r) => num(r.halfDay), render: (r) => <DayCell v={r.halfDay} /> },
-  { key: "woff", label: "W-off", align: "right", sortValue: (r) => num(r.weeklyOff), render: (r) => <DayCell v={r.weeklyOff} /> },
-  {
-    key: "worked",
-    label: "Worked",
-    align: "right",
-    sortValue: (r) => num(r.totalDaysWorked),
-    render: (r) => (
-      <span className="tabular-nums text-[13.5px] font-bold text-ink-strong">{dec(r.totalDaysWorked)}</span>
-    ),
-  },
-  {
-    key: "finalDays",
-    label: "Final days",
-    align: "right",
-    sortValue: (r) => num(r.finalWorkingDays),
-    render: (r) => (
-      <span className="tabular-nums text-[13.5px] font-bold text-ink-strong">{dec(r.finalWorkingDays)}</span>
-    ),
-  },
-  // ── Pay ──
-  {
-    key: "ctc",
-    label: "Monthly CTC",
-    align: "right",
-    groupStart: true,
-    minWidth: 110,
-    sortValue: (r) => num(r.monthlyCtc),
-    render: (r) => <MoneyCell v={r.monthlyCtc} />,
-    total: (rows) => <MoneyTotal rows={rows} pick={(r) => r.monthlyCtc} />,
-  },
-  {
-    key: "afterLeave",
-    label: "After leave",
-    align: "right",
-    minWidth: 105,
-    sortValue: (r) => num(r.payableAfterLeave),
-    render: (r) => <MoneyCell v={r.payableAfterLeave} />,
-    total: (rows) => <MoneyTotal rows={rows} pick={(r) => r.payableAfterLeave} />,
-  },
-  {
-    key: "pt",
-    label: "PT",
-    align: "right",
-    sortValue: (r) => num(r.pt),
-    render: (r) => <MoneyCell v={r.pt} tone="deduction" />,
-    total: (rows) => <MoneyTotal rows={rows} pick={(r) => r.pt} tone="deduction" />,
-  },
-  {
-    key: "afterPt",
-    label: "After PT",
-    align: "right",
-    minWidth: 105,
-    sortValue: (r) => num(r.payableAfterPt),
-    render: (r) => <MoneyCell v={r.payableAfterPt} tone="strong" />,
-    total: (rows) => <MoneyTotal rows={rows} pick={(r) => r.payableAfterPt} />,
-  },
-  // ── Adjustments ──
   {
     key: "advance",
     label: "Advance",
     align: "right",
     groupStart: true,
+    minWidth: 104,
     sortValue: (r) => num(r.advance),
     render: (r) => <MoneyCell v={r.advance} tone="deduction" />,
     total: (rows) => <MoneyTotal rows={rows} pick={(r) => r.advance} tone="deduction" />,
   },
   {
-    key: "prevPending",
-    label: "Prev pending",
-    align: "right",
-    minWidth: 105,
-    sortValue: (r) => num(r.previousPending),
-    render: (r) => <MoneyCell v={r.previousPending} />,
-    total: (rows) => <MoneyTotal rows={rows} pick={(r) => r.previousPending} />,
-  },
-  // ── Payout ──
-  // ── The payment block: Total payable · Amount paid · Unpaid balance · Status.
-  // Four adjacent columns because that is the question an accounts team asks in
-  // that order — what is owed, what went out, what is left, where does that
-  // leave us. Only "Total payable" comes from the sheet; the other three are
-  // derived by lib/salary/payment from the one stored figure (amount_paid), so
-  // no two of them can ever disagree.
-  {
-    key: "final",
-    // Renamed from "Final payment": it is now the first of four money columns
-    // and has to say which one it is. Same value, same sort, same total.
-    label: "Total payable",
+    key: "payable",
+    // The sheet's own `final_payment` — everything the month's arithmetic has
+    // already settled (leave, PT, advance, previous pending). It is the BASE the
+    // adjustments move, which is why it is named for what it is rather than for
+    // the last deduction applied to it.
+    label: "Payable",
     align: "right",
     groupStart: true,
-    // Wider than the other money columns because it carries the Pay action
-    // beside the figure — the amount and the button that settles it belong in
-    // one place, so nobody has to read across four columns to act on a row.
-    minWidth: 196,
-    sortValue: (r) => netToPay(r),
-    // The EFFECTIVE net — base + wave-off add-back + adjustment — not the raw
-    // `final_payment`. That is the figure the balance is measured against, and
-    // showing a different number here than the one being paid off is exactly how
+    minWidth: 116,
+    sortValue: (r) => num(r.finalPayment),
+    render: (r) => <MoneyCell v={r.finalPayment} tone="strong" />,
+    total: (rows) => <MoneyTotal rows={rows} pick={(r) => r.finalPayment} />,
+  },
+  {
+    key: "adjustments",
+    // ONE column for both super-admin grants — the condoned wave-off days and
+    // the signed payout adjustment. They were two columns at opposite ends of
+    // the table even though they do the same job (move the payable before it is
+    // paid) and are summed together by `netAfterWaiveOff` anyway. Showing their
+    // combined signed effect is what makes "Payable ± Adjustments = Final
+    // Amount" legible as one line of arithmetic.
+    //
+    // Both editors are still here, unchanged and behind the same super-admin
+    // gate — the body renders them; this is the read-only fallback for everyone
+    // else. Nothing about either write path moved.
+    label: "Adjustments (+/−)",
+    align: "left",
+    minWidth: 236,
+    sortValue: (r) => adjustmentTotal(r),
+    render: () => null,
+    total: (rows) => {
+      const sum = rows.reduce((s, r) => s + adjustmentTotal(r), 0);
+      if (sum === 0) return null;
+      return (
+        <span className="tabular-nums text-[13px] font-black" style={{ color: sum >= 0 ? "#166534" : "#b91c1c" }}>
+          {sum >= 0 ? "+" : "−"} ₹{Math.abs(Math.round(sum)).toLocaleString("en-IN")}
+        </span>
+      );
+    },
+  },
+  {
+    key: "final",
+    // Payable ± Adjustments. Identical to `netAfterWaiveOff`, which is what the
+    // payment path measures against — showing anything else here is exactly how
     // a settled row ends up looking like it still owes money.
+    label: "Final Amount",
+    align: "right",
+    groupStart: true,
+    minWidth: 126,
+    sortValue: (r) => netToPay(r),
     render: (r) => (
       <span className="tabular-nums text-[14px] font-black text-ink-strong">
         {inrN(netToPay(r))}
@@ -349,20 +323,23 @@ const COLUMNS: Col[] = [
   },
   {
     key: "amountPaid",
-    label: "Amount paid",
+    // The payment entry field plus the Pay button that settles the row in full.
+    // The figure stored is CUMULATIVE (see AmountPaidCell) — "what has gone out
+    // so far" — which is what makes Balance = Final Amount − this.
+    label: "Amount to Pay",
     align: "right",
-    minWidth: 132,
+    minWidth: 186,
     sortValue: (r) => amountPaidOf(r),
     // Rendered by the component body — it needs `canRecordPayment` to decide
-    // between the inline editor and a read-only figure.
+    // between the inline editor + Pay button and a read-only figure.
     render: () => null,
     total: (rows) => <NetTotal rows={rows} pick={amountPaidOf} />,
   },
   {
     key: "balance",
-    label: "Unpaid balance",
+    label: "Balance",
     align: "right",
-    minWidth: 122,
+    minWidth: 116,
     sortValue: (r) => unpaidBalance(r),
     render: (r) => {
       const bal = unpaidBalance(r);
@@ -382,56 +359,13 @@ const COLUMNS: Col[] = [
   },
   {
     key: "payStatus",
-    label: "Payment status",
+    label: "Status",
     align: "left",
-    minWidth: 150,
+    minWidth: 128,
     // Unpaid → Partially paid → Paid, so sorting groups the work still to do at
     // one end rather than scattering it.
     sortValue: (r) => STATUS_RANK[paymentStatusOf(r)],
     render: () => null,
-  },
-  // Super-admin-only "Wave-Off" GRANT — condone N days; the net is recomputed
-  // (final payment + days × per-day rate). Rendered by the component (needs the
-  // canWaiveOff flag); placeholder here is replaced in the body. Filtered out of
-  // visibleCols when !canWaiveOff.
-  {
-    key: "waiveOff",
-    label: "Wave-Off",
-    align: "left",
-    groupStart: true,
-    minWidth: 168,
-    sortValue: (r) => num(r.waiveOffDays),
-    render: () => null,
-    // Footer: total rupees waived back across the filtered set.
-    total: (rows) => {
-      const sum = rows.reduce((s, r) => s + waiveAddBack(r), 0);
-      if (sum <= 0) return null;
-      return (
-        <span className="tabular-nums text-[13px] font-black" style={{ color: "#166534" }}>
-          + ₹{Math.round(sum).toLocaleString("en-IN")}
-        </span>
-      );
-    },
-  },
-  // Super-admin-only pre-payout ADJUSTMENT (+extra / −deduct), Sir #37. Rendered
-  // by the component (needs canWaiveOff); filtered out of visibleCols otherwise.
-  {
-    key: "payoutAdj",
-    label: "Adjustment",
-    align: "left",
-    groupStart: true,
-    minWidth: 168,
-    sortValue: (r) => num(r.payoutAdjustment),
-    render: () => null,
-    total: (rows) => {
-      const sum = rows.reduce((s, r) => s + num(r.payoutAdjustment), 0);
-      if (sum === 0) return null;
-      return (
-        <span className="tabular-nums text-[13px] font-black" style={{ color: sum >= 0 ? "#166534" : "#b91c1c" }}>
-          {sum >= 0 ? "+" : "−"} ₹{Math.abs(Math.round(sum)).toLocaleString("en-IN")}
-        </span>
-      );
-    },
   },
   // Editable super-admin NOTE (admin_note) — pinned to the extreme end. Shows the
   // note (not the imported joining-date remarks). Rendered by the component so it
@@ -441,7 +375,7 @@ const COLUMNS: Col[] = [
     label: "Remarks",
     align: "left",
     groupStart: true,
-    minWidth: 220,
+    minWidth: 168,
     render: () => null,
   },
   // Extreme-right — a downloadable PDF payslip (salary + attendance + incentives).
@@ -451,7 +385,7 @@ const COLUMNS: Col[] = [
     label: "Payslip",
     align: "left",
     groupStart: true,
-    minWidth: 120,
+    minWidth: 96,
     render: () => null,
   },
 ];
@@ -575,7 +509,7 @@ function PaymentStatusCell({ row }: { row: SalaryRow }) {
  * The status column keeps the pill — it is still the thing you scan or sort by
  * to see what is outstanding — but it no longer carries a control.
  */
-function FinalPaymentCell({ row, editable }: { row: SalaryRow; editable: boolean }) {
+function AmountToPayCell({ row, editable }: { row: SalaryRow; editable: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const status = paymentStatusOf(row);
@@ -613,19 +547,19 @@ function FinalPaymentCell({ row, editable }: { row: SalaryRow; editable: boolean
 
   // The figure itself — same value, same formatting the column rendered before
   // this cell took it over.
-  const amount = (
-    <span className="tabular-nums text-[14px] font-black text-ink-strong">
-      {inrN(netToPay(row))}
-    </span>
-  );
+  // THE ENTRY FIELD ITSELF — the same cumulative-amount editor as before, now
+  // sitting with the button that settles the row. Typing a part-amount and
+  // pressing Pay are the two ways to move the same figure, so they belong in one
+  // cell rather than four columns apart.
+  const entry = <AmountPaidCell row={row} editable={editable} />;
 
-  // Read-only viewer: the number, and nothing to press.
-  if (!editable) return amount;
+  // Read-only viewer: what has gone out, and nothing to press.
+  if (!editable) return entry;
 
   if (status === "paid") {
     return (
       <span className="inline-flex items-center justify-end gap-1.5">
-        {amount}
+        {entry}
         <button
           type="button"
           onClick={clearPayment}
@@ -644,7 +578,7 @@ function FinalPaymentCell({ row, editable }: { row: SalaryRow; editable: boolean
 
   return (
     <span className="inline-flex items-center justify-end gap-2">
-      {amount}
+      {entry}
       <button
         type="button"
         onClick={payInFull}
@@ -815,6 +749,54 @@ function RemarkCell({ row, editable }: { row: SalaryRow; editable: boolean }) {
       aria-label={`Note for ${row.employeeName}`}
       className="w-full min-w-[190px] rounded-md border border-transparent bg-transparent px-2 py-1 text-[12.5px] text-ink-soft transition-colors placeholder:text-ink-subtle hover:border-hairline focus:border-[color-mix(in_srgb,#E10600_55%,transparent)] focus:bg-surface-card focus:outline-none disabled:opacity-60"
     />
+  );
+}
+
+/**
+ * ADJUSTMENTS (+/−) — the two pre-payout grants in one cell.
+ *
+ * Wave-Off (condoned days) and the signed payout adjustment used to be two
+ * columns at opposite ends of the table, even though `netAfterWaiveOff` sums
+ * them into a single movement of the payable. Merging them is what lets the row
+ * read as one line of arithmetic: Payable ± Adjustments = Final Amount.
+ *
+ * NEITHER EDITOR CHANGED. Both are the same components behind the same
+ * super-admin gate, stacked rather than rewritten, so every write path, note
+ * field and permission is exactly as it was. A viewer without the grant sees the
+ * combined signed figure and no controls — but still sees it, because otherwise
+ * Payable and Final Amount would differ with nothing on screen explaining why.
+ */
+function AdjustmentsCell({ row, editable }: { row: SalaryRow; editable: boolean }) {
+  const total = adjustmentTotal(row);
+
+  const badge =
+    total === 0 ? (
+      <span className="text-[13px] text-ink-subtle">—</span>
+    ) : (
+      <span
+        className="tabular-nums text-[13.5px] font-black"
+        style={{ color: total >= 0 ? "#166534" : "#b91c1c" }}
+        title={
+          waiveAddBack(row) > 0
+            ? `Wave-off ${dec(row.waiveOffDays)} day(s) + adjustment ${inrN(num(row.payoutAdjustment))}`
+            : undefined
+        }
+      >
+        {total >= 0 ? "+" : "−"} {inrN(Math.abs(total))}
+      </span>
+    );
+
+  if (!editable) return badge;
+
+  // INLINE, not stacked. Stacking the badge over two editors made every row
+  // ~106px tall — three lines of chrome per person on a table whose whole point
+  // is scanning many people. Side by side they fit the same row height as every
+  // other cell.
+  return (
+    <div className="flex items-center gap-2 whitespace-nowrap">
+      <WaiveOffCell row={row} editable />
+      <AdjustmentCell row={row} editable />
+    </div>
   );
 }
 
@@ -1015,15 +997,13 @@ function PayslipLink({ row, month }: { row: SalaryRow; month?: string }) {
   );
 }
 
-/* Header groups are computed inside the component (visibleGroups) so the
- * conditional Remarks + super-admin Paid groups append correctly. */
-
-/* Sticky-header surfaces (solid enough to cover scrolled rows). */
+/* Sticky-header surfaces (solid enough to cover scrolled rows). The header is a
+ * SINGLE row now — the group tier and its 30px height went with the attendance
+ * and build-up column blocks it existed to label. */
 const HEAD_BG = "rgba(248, 250, 252, 0.94)";
-const GROUP_ROW_H = 30;
 /* Fixed width of the frozen EMPLOYEE column → the left offset the frozen
- * COMPANY column pins to. Both stay put on horizontal scroll. */
-const EMP_W = 280;
+ * ENTITY column pins to. Both stay put on horizontal scroll. */
+const EMP_W = 236;
 
 type SortState = { key: string; dir: "asc" | "desc" } | null;
 
@@ -1136,25 +1116,19 @@ export function SalaryBreakupTable({
   // who cannot record payments, not hidden: anyone who reaches this page has
   // finance access and is entitled to see what is owed and what has gone out.
   // (Normal employees never get here — `requireFinanceAccess` redirects them.)
+  // The Adjustments column stays visible whenever a grant EXISTS, even for a
+  // viewer who cannot create one — otherwise Payable and Final Amount would
+  // differ on screen with nothing between them explaining why.
+  const showAdjustCol = showWaiveOff || showAdjust;
   const visibleCols = COLUMNS.filter(
     (c) =>
-      (c.key !== "waiveOff" || showWaiveOff) &&
-      (c.key !== "payoutAdj" || showAdjust) &&
-      (c.key !== "remarks" || showRemarks),
+      (c.key !== "adjustments" || showAdjustCol) && (c.key !== "remarks" || showRemarks),
   );
-  const visibleGroups: { label: string; span: number }[] = [
-    { label: "", span: 1 }, // Company
-    { label: "Attendance — days", span: 6 },
-    { label: "Pay", span: 4 },
-    { label: "Adjustments", span: 2 },
-    // Payout now spans four: Total payable · Amount paid · Unpaid balance ·
-    // Payment status.
-    { label: "Payout", span: 4 },
-    ...(showWaiveOff ? [{ label: "", span: 1 }] : []), // Wave-Off (name shown on the column header)
-    ...(showAdjust ? [{ label: "", span: 1 }] : []), // Adjustment
-    ...(showRemarks ? [{ label: "", span: 1 }] : []), // Remarks
-    { label: "", span: 1 }, // Payslip (always shown)
-  ];
+  // NO GROUP HEADER ROW. It existed to label the attendance and build-up blocks
+  // that this table no longer carries; with ten single-purpose columns every
+  // group would have been a one-cell span with a blank label, i.e. 30px of
+  // sticky header buying nothing. Dropping it is most of the vertical space the
+  // brief asked back.
 
   return (
     <section
@@ -1175,8 +1149,8 @@ export function SalaryBreakupTable({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name, designation or company…"
-            aria-label="Search name, designation or company"
+            placeholder="Search name, designation or entity…"
+            aria-label="Search name, designation or entity"
             className="admin-search"
           />
         </div>
@@ -1216,12 +1190,14 @@ export function SalaryBreakupTable({
 
       {/* ── Grid: vertical + horizontal scroll, sticky header/first-col/totals ── */}
       <div className="max-h-[72vh] overflow-auto overscroll-contain">
-        <table className="w-full min-w-[1280px] border-collapse text-[13.5px]">
+        {/* min-w drops from 1280 to 1080: eleven fewer columns need far less
+            room before the table must scroll sideways, so on a normal desktop it
+            now fits the viewport outright instead of clipping. */}
+        <table className="w-full min-w-[1080px] border-collapse text-[13.5px]">
           <thead>
-            {/* Tier 1 — group labels */}
+            {/* ONE header row — the group tier is gone (see visibleCols). */}
             <tr>
               <th
-                rowSpan={2}
                 scope="col"
                 className="sticky left-0 top-0 z-30 px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.1em] text-ink-subtle backdrop-blur"
                 style={{
@@ -1235,35 +1211,12 @@ export function SalaryBreakupTable({
               >
                 {headBtn("employee", "Employee", "left")}
               </th>
-              {visibleGroups.map((g, i) => (
-                <th
-                  key={`${g.label}-${i}`}
-                  colSpan={g.span}
-                  scope="colgroup"
-                  className={`sticky top-0 whitespace-nowrap px-3 text-center text-[10px] font-bold uppercase tracking-[0.16em] backdrop-blur ${i === 0 ? "z-30" : "z-20"}`}
-                  style={{
-                    background: HEAD_BG,
-                    height: GROUP_ROW_H,
-                    color: g.label ? BRAND_RED_DEEP : "transparent",
-                    boxShadow: i === 0
-                      ? "inset -1px -1px 0 var(--color-hairline-strong)"
-                      : `inset ${i > 0 ? "1px" : "0"} -1px 0 var(--color-hairline)`,
-                    ...(i === 0 ? { left: EMP_W } : {}),
-                  }}
-                >
-                  {g.label || " "}
-                </th>
-              ))}
-            </tr>
-            {/* Tier 2 — column headers */}
-            <tr>
               {visibleCols.map((c) => (
                 <th
                   key={c.key}
                   scope="col"
-                  className={`sticky whitespace-nowrap px-3 py-2.5 text-[11px] font-bold uppercase tracking-[0.07em] text-ink-subtle backdrop-blur ${c.key === "company" ? "z-30" : "z-20"} ${c.align === "right" ? "text-right" : "text-left"}`}
+                  className={`sticky top-0 whitespace-nowrap px-3 py-2.5 text-[11px] font-bold uppercase tracking-[0.07em] text-ink-subtle backdrop-blur ${c.key === "company" ? "z-30" : "z-20"} ${c.align === "right" ? "text-right" : "text-left"}`}
                   style={{
-                    top: GROUP_ROW_H,
                     background:
                       c.key === "final"
                         ? `linear-gradient(180deg, color-mix(in srgb, ${BRAND_RED} 9%, ${HEAD_BG}), color-mix(in srgb, ${BRAND_RED} 6%, ${HEAD_BG}))`
@@ -1369,18 +1322,14 @@ export function SalaryBreakupTable({
                         ...(c.key === "company" ? { left: EMP_W } : {}),
                       }}
                     >
-                      {c.key === "final" ? (
-                        <FinalPaymentCell row={r} editable={canRecordPayment} />
-                      ) : c.key === "amountPaid" ? (
-                        <AmountPaidCell row={r} editable={canRecordPayment} />
+                      {c.key === "amountPaid" ? (
+                        <AmountToPayCell row={r} editable={canRecordPayment} />
+                      ) : c.key === "adjustments" ? (
+                        <AdjustmentsCell row={r} editable={canWaiveOff} />
                       ) : c.key === "payStatus" ? (
                         <PaymentStatusCell row={r} />
                       ) : c.key === "remarks" ? (
                         <RemarkCell row={r} editable={canEditNote} />
-                      ) : c.key === "waiveOff" ? (
-                        <WaiveOffCell row={r} editable={canWaiveOff} />
-                      ) : c.key === "payoutAdj" ? (
-                        <AdjustmentCell row={r} editable={canWaiveOff} />
                       ) : c.key === "payslip" ? (
                         <PayslipLink row={r} month={month} />
                       ) : (
