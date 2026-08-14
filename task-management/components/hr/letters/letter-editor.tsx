@@ -1382,7 +1382,7 @@ function Field({
         data-filled={filled || undefined}
         onChange={(e) => ctx.setValue(spec.id, e.target.value.replace(/[^0-9₹,.\s]/g, ""))}
         className={`alw-input${boldCls}`}
-        style={{ minWidth: `${Math.max(value.length || spec.label.length, 2)}ch`, maxWidth: "100%" }}
+        style={{ minWidth: filled ? 0 : `${Math.max(spec.label.length, 2)}ch`, maxWidth: "100%" }}
       />
     );
   }
@@ -1409,9 +1409,12 @@ function Field({
       type="text"
       {...common}
       className={`alw-input${boldCls}`}
-      // Size to the ACTUAL content when filled (so "40% of CTC" reads tight, no
-      // trailing gap); fall back to the placeholder width only while empty.
-      style={{ minWidth: `${Math.max(value.length || spec.label.length, 2)}ch`, maxWidth: "100%" }}
+      // A FILLED field sizes purely to its content (`field-sizing:content`) — the
+      // old `value.length ch` floor padded every value with dead space, because
+      // `ch` is the width of "0" and most prose glyphs are narrower: that's what
+      // left a gap before the following comma and stretched the dashed underlines
+      // in the CTC table. Only an EMPTY field reserves room for its label.
+      style={{ minWidth: filled ? 0 : `${Math.max(spec.label.length, 2)}ch`, maxWidth: "100%" }}
     />
   );
 }

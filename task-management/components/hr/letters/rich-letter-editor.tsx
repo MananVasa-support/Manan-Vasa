@@ -256,7 +256,11 @@ const FieldPlaceholder = Mark.create({
   },
 });
 
-/** Image node that also persists a `data-path` attribute (the stored value). */
+/**
+ * Image node that persists a `data-path` attribute (the stored value) AND a
+ * `width` — a CSS width (e.g. "50%") written into the inline style, so an
+ * inserted image is RESIZABLE and the chosen size survives save → reload → PDF.
+ */
 const ImageWithPath = Image.extend({
   addAttributes() {
     return {
@@ -266,6 +270,12 @@ const ImageWithPath = Image.extend({
         parseHTML: (el: HTMLElement) => el.getAttribute("data-path"),
         renderHTML: (attrs: Record<string, unknown>) =>
           attrs.dataPath ? { "data-path": String(attrs.dataPath) } : {},
+      },
+      width: {
+        default: null as string | null,
+        parseHTML: (el: HTMLElement) => el.style.width || el.getAttribute("width") || null,
+        renderHTML: (attrs: Record<string, unknown>) =>
+          attrs.width ? { style: `width: ${attrs.width}; height: auto` } : {},
       },
     };
   },
@@ -284,6 +294,14 @@ const FONT_FAMILIES: { label: string; value: string }[] = [
   { label: "Times New Roman", value: '"Times New Roman", Times, serif' },
   { label: "Arial", value: "Arial, Helvetica, sans-serif" },
   { label: "Courier New", value: '"Courier New", monospace' },
+];
+
+/** Image resize presets — shown in the toolbar while an image is selected. */
+const IMAGE_WIDTHS: { label: string; value: string }[] = [
+  { label: "25%", value: "25%" },
+  { label: "50%", value: "50%" },
+  { label: "75%", value: "75%" },
+  { label: "100%", value: "100%" },
 ];
 
 const TEXT_COLORS = [
@@ -478,6 +496,9 @@ export function RichLetterEditor({
         canRedo: ed.can().redo(),
         fontFamily: (ts.fontFamily as string) ?? "",
         fontSize: parseFloat((ts.fontSize as string) ?? "") || 11,
+        // An image is selected → the toolbar swaps in the resize controls.
+        imageSelected: ed.isActive("image"),
+        imageWidth: (ed.getAttributes("image").width as string) ?? "",
       };
     },
   });
@@ -562,14 +583,32 @@ export function RichLetterEditor({
       .run();
   }, [editor]);
 
+  /**
+   * A chain that always has something to mark. With a COLLAPSED cursor TipTap
+   * would only set a "stored mark" — invisible until you type the next character,
+   * which reads as "the font dropdown does nothing". With nothing selected we
+   * apply to the WHOLE current text block instead, so the change is immediate.
+   */
+  const markChain = useCallback(() => {
+    if (!editor) return null;
+    const chain = editor.chain().focus();
+    const { empty, $from } = editor.state.selection;
+    if (empty) {
+      const from = $from.start();
+      const to = $from.end();
+      if (to > from) chain.setTextSelection({ from, to });
+    }
+    return chain;
+  }, [editor]);
+
   const applyFontSize = useCallback(
     (raw: number) => {
       if (!editor) return;
       // Word tops out at 1638pt; keep a sane 1–400 clamp and allow halves (10.5).
       const clamped = Math.max(1, Math.min(400, Math.round(raw * 2) / 2));
-      editor.chain().focus().setFontSize(`${clamped}px`).run();
+      markChain()?.setFontSize(`${clamped}px`).run();
     },
-    [editor],
+    [editor, markChain],
   );
 
   const stepFont = useCallback(
@@ -583,10 +622,12 @@ export function RichLetterEditor({
   const setFont = useCallback(
     (value: string) => {
       if (!editor) return;
-      if (value === "") editor.chain().focus().unsetFontFamily().run();
-      else editor.chain().focus().setFontFamily(value).run();
+      const chain = markChain();
+      if (!chain) return;
+      if (value === "") chain.unsetFontFamily().run();
+      else chain.setFontFamily(value).run();
     },
-    [editor],
+    [editor, markChain],
   );
 
   const setBlockType = useCallback(
@@ -802,7 +843,7 @@ export function RichLetterEditor({
                     aria-label={`Text colour ${c}`}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
-                      editor?.chain().focus().setColor(c).run();
+                      markChain()?.setColor(c).run();
                       setColorOpen(false);
                     }}
                   />
@@ -813,7 +854,7 @@ export function RichLetterEditor({
                 className="rle-pop-clear"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
-                  editor?.chain().focus().unsetColor().run();
+                  markChain()?.unsetColor().run();
                   setColorOpen(false);
                 }}
               >
@@ -847,7 +888,7 @@ export function RichLetterEditor({
                     aria-label={`Highlight ${c}`}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
-                      editor?.chain().focus().setBackgroundColor(c).run();
+                      markChain()?.setBackgroundColor(c).run();
                       setHlOpen(false);
                     }}
                   />
@@ -858,7 +899,7 @@ export function RichLetterEditor({
                 className="rle-pop-clear"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
-                  editor?.chain().focus().unsetBackgroundColor().run();
+                  markChain()?.unsetBackgroundColor().run();
                   setHlOpen(false);
                 }}
               >
@@ -876,6 +917,24 @@ export function RichLetterEditor({
         <ToolButton label="Insert image" disabled={uploading} onClick={insertImageClick}>
           {uploading ? <Loader2 size={17} className="rle-spin" /> : <ImagePlus size={17} />}
         </ToolButton>
+
+        {/* Image resize — appears only while an image is selected. */}
+        {state?.imageSelected && (
+          <span className="rle-imgsize" role="group" aria-label="Image size">
+            {IMAGE_WIDTHS.map((w) => (
+              <button
+                key={w.value}
+                type="button"
+                className={`rle-imgsize-btn${(state.imageWidth || "100%") === w.value ? " is-on" : ""}`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => editor?.chain().focus().updateAttributes("image", { width: w.value }).run()}
+                title={`Resize image to ${w.label}`}
+              >
+                {w.label}
+              </button>
+            ))}
+          </span>
+        )}
 
         <Sep />
 
@@ -1215,6 +1274,19 @@ const RLE_CSS = `
 .rle-menu-item--danger{color:var(--rle-red);}
 .rle-menu-item--danger:hover{background:color-mix(in srgb,var(--rle-red) 10%,transparent);}
 .rle-menu-div{height:1px;margin:5px 4px;background:var(--rle-line);}
+/* Image resize presets (shown while an image is selected) */
+.rle-imgsize{display:inline-flex;align-items:center;gap:2px;padding:0 2px;}
+.rle-imgsize-btn{
+  min-width:34px;padding:5px 6px;border-radius:7px;
+  font-size:11.5px;font-weight:700;color:var(--rle-ink);
+  background:#fff;border:1px solid var(--rle-line);cursor:pointer;
+}
+.rle-imgsize-btn:hover{border-color:color-mix(in srgb,var(--rle-red) 45%,transparent);}
+.rle-imgsize-btn.is-on{background:color-mix(in srgb,var(--rle-red) 12%,#fff);border-color:var(--rle-red);color:var(--rle-red);}
+.rle-imgsize-btn:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px color-mix(in srgb,var(--rle-red) 55%,transparent);}
+/* A selected image reads as selected (so the resize buttons make sense). */
+.rle-prose img{max-width:100%;height:auto;}
+.rle-prose img.ProseMirror-selectednode{outline:2px solid var(--rle-red);outline-offset:2px;border-radius:2px;}
 /* Table-size picker (Google-Docs style hover grid) */
 .rle-tablepick{padding:4px 6px 2px;user-select:none;}
 .rle-tablepick-readout{
