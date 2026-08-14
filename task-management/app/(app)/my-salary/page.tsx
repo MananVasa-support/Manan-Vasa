@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Wallet } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/header";
-import { getCurrentEmployee } from "@/lib/auth/current";
+import { getCurrentEmployee, guardNotCandidate } from "@/lib/auth/current";
 import { mySalaryBreakup } from "@/lib/queries/salary-breakup";
 import { MySalaryView, type MySalaryMonth } from "@/components/salary/my-salary-view";
 
@@ -28,6 +28,7 @@ function monthLabel(ymd: string): string {
 export default async function MySalaryPage() {
   const me = await getCurrentEmployee();
   if (!me) redirect("/login");
+  guardNotCandidate(me);
 
   const rows = await mySalaryBreakup(me.id);
 

@@ -184,8 +184,9 @@ async function searchPeople(q: string, like: string): Promise<PersonHit[]> {
            (name ILIKE ${like} OR email ILIKE ${like} OR coalesce(department,'') ILIKE ${like}) AS ilike_hit,
            extract(epoch FROM created_at) * 1000 AS recency_ms
     FROM employees
-    WHERE name ILIKE ${like} OR email ILIKE ${like} OR coalesce(department,'') ILIKE ${like}
-       OR word_similarity(${q}, name) > ${FUZZY_MIN}
+    WHERE account_type = 'employee'
+      AND (name ILIKE ${like} OR email ILIKE ${like} OR coalesce(department,'') ILIKE ${like}
+       OR word_similarity(${q}, name) > ${FUZZY_MIN})
     ORDER BY sim DESC
     LIMIT ${CANDIDATE_CAP}
   `)) as unknown as Array<{

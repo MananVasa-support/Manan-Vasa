@@ -6,7 +6,7 @@ import {
   isWorkspaceId,
   canAccessWorkspace,
 } from "@/lib/workspaces";
-import { getCurrentEmployee } from "@/lib/auth/current";
+import { getCurrentEmployee, isCandidateAccount } from "@/lib/auth/current";
 import { accessFor } from "@/lib/auth/workspace-access";
 import { goalsCanvasOn } from "@/lib/goals/flag";
 
@@ -36,6 +36,9 @@ export async function GET(
   }
 
   const me = await getCurrentEmployee();
+  if (me && isCandidateAccount(me)) {
+    return NextResponse.redirect(new URL("/candidate/form", req.url));
+  }
   if (!me || !canAccessWorkspace(id, await accessFor(me))) {
     return NextResponse.redirect(new URL("/hub", req.url));
   }

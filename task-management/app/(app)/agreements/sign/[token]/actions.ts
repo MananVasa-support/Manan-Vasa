@@ -7,7 +7,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { agreements } from "@/db/schema";
 import { agreementsEnabled } from "@/lib/agreements/flag";
-import { getCurrentEmployee } from "@/lib/auth/current";
+import { getCurrentEmployee, isCandidateAccount } from "@/lib/auth/current";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 function fail(error: string): { ok: false; error: string } {
@@ -52,6 +52,7 @@ export async function signAgreement(input: {
 
     // Lenient ownership check — only block a DIFFERENT logged-in employee.
     const me = await getCurrentEmployee();
+    if (me && isCandidateAccount(me)) return fail("This isn't available for candidate accounts.");
     if (me && !me.isAdmin && me.id !== row.employeeId) {
       return fail("This agreement isn't yours.");
     }

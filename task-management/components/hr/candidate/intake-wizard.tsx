@@ -2,8 +2,26 @@
 
 import * as React from "react";
 import { ArrowLeft, ArrowRight, Loader2, Send } from "lucide-react";
-import { INTAKE_SECTIONS, hasAnyContent, intakeProgress, sectionRequiredKeys, type IntakeSection } from "@/lib/hr/candidate/intake-schema";
+import { INTAKE_SECTIONS, sectionsForMode, hasAnyContent, intakeProgress, sectionRequiredKeys, type IntakeSection, type IntakeMode } from "@/lib/hr/candidate/intake-schema";
 import { saveCandidateDraft, submitCandidateDraft, uploadCandidateFile } from "@/app/(app)/hr/candidate-actions";
+
+/**
+ * The three writes the wizard performs, typed off the HR actions so the injected
+ * candidate variants (owner-scoped, id-less) stay contract-compatible. Injected
+ * so the candidate self-fill surface can swap in its owner-scoped variants —
+ * default = the HR-gated actions.
+ */
+export interface IntakeActions {
+  save: typeof saveCandidateDraft;
+  upload: typeof uploadCandidateFile;
+  submit: typeof submitCandidateDraft;
+}
+
+const HR_ACTIONS: IntakeActions = {
+  save: saveCandidateDraft,
+  upload: uploadCandidateFile,
+  submit: submitCandidateDraft,
+};
 import { fireToast } from "@/lib/toast";
 import { IntakeRail } from "./intake-rail";
 import { IntakeSectionStep } from "./intake-section-step";
@@ -155,6 +173,8 @@ export function IntakeWizard({
   departments = [],
   canManagePositions = false,
   initial,
+  mode = "hr",
+  actions = HR_ACTIONS,
 }: {
   onClose: () => void;
   onSaved?: (id: string) => void;
@@ -162,8 +182,11 @@ export function IntakeWizard({
   departments?: string[];
   canManagePositions?: boolean;
   initial?: IntakeInitial;
+  /** "candidate" hides recruiter-only fields + uses owner-scoped [actions]. */
+  mode?: IntakeMode;
+  actions?: IntakeActions;
 }) {
-  const sections = INTAKE_SECTIONS;
+  const sections = sectionsForMode(mode);
   const reviewStep = sections.length;
 
   const [step, setStep] = React.useState(initial?.startAtReview ? sections.length : 0);
@@ -198,7 +221,7 @@ export function IntakeWizard({
     dirtyRef.current = false;
     savingRef.current = true;
     try {
-      const res = await saveCandidateDraft({
+      const res = await actions.save({
         id: recordIdRef.current ?? undefined,
         values: s.values,
         instances: s.instances,
@@ -312,7 +335,7 @@ export function IntakeWizard({
     const fd = new FormData();
     fd.set("file", file);
     fd.set("kind", kind);
-    const res = await uploadCandidateFile(fd);
+    const res = await actions.upload(fd);
     if (!res.ok) { setter({ preview }); fireToast({ message: res.error, type: "error" }); return; }
     setter({ preview, path: res.path });
   }
@@ -321,7 +344,7 @@ export function IntakeWizard({
     setSaving(true);
     try {
       const s = stateRef.current;
-      const saved = await saveCandidateDraft({
+      const saved = await actions.save({
         id: recordIdRef.current ?? undefined,
         values: s.values,
         instances: s.instances,
@@ -331,7 +354,7 @@ export function IntakeWizard({
       if (!saved.ok) { fireToast({ message: saved.error, type: "error" }); return; }
       recordIdRef.current = saved.id;
       setRecordId(saved.id);
-      const done = await submitCandidateDraft(saved.id);
+      const done = await actions.submit(saved.id);
       if (!done.ok) { fireToast({ message: done.error, type: "error" }); return; }
       dirtyRef.current = false;
       // Form is complete — drop the backup pointer so a later "start new" is clean.

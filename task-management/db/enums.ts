@@ -149,6 +149,15 @@ export type TaskSubject = (typeof TASK_SUBJECTS)[number];
 export const EMPLOYEE_ROLES = ["doer", "initiator", "both"] as const;
 export type EmployeeRole = (typeof EMPLOYEE_ROLES)[number];
 
+/**
+ * Account archetype on `employees`. "candidate" = a job applicant's limited
+ * guest login that can ONLY fill their own interview form (never a real
+ * employee). Candidates are always `is_active=false` (excluded from every
+ * roster for free) and login-gated on `candidate_active` instead.
+ */
+export const ACCOUNT_TYPES = ["employee", "candidate"] as const;
+export type AccountType = (typeof ACCOUNT_TYPES)[number];
+
 // Worker type — the employment archetype that drives BOTH attendance grading
 // and pay. Source of truth for `employees.worker_type`. `full_time` is the
 // back-compat default (every existing employee = full-time, no behaviour change).

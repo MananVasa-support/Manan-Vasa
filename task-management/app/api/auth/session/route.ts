@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { employees } from "@/db/schema";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
+import { isLoginLive } from "@/lib/auth/current";
 
 export const runtime = "nodejs";
 
@@ -51,7 +52,9 @@ export async function POST(req: Request) {
   const emp = await db.query.employees.findFirst({
     where: eq(employees.email, email),
   });
-  if (!emp || !emp.isActive) {
+  if (!emp || !isLoginLive(emp)) {
+    // A candidate guest-account mints a cookie only while candidate_active; a
+    // deactivated candidate (or inactive employee) is refused here.
     return NextResponse.json({ error: "not-enrolled" }, { status: 403 });
   }
 

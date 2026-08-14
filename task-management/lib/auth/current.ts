@@ -29,12 +29,62 @@ export const getCurrentEmployee = cache(async (): Promise<Employee | null> => {
 });
 
 /**
- * Like getCurrentEmployee but redirects to /login if absent or deactivated.
- * Throws via redirect (Next renders the redirect on the server).
+ * The SINGLE login-liveness rule — used by every liveness gate (requireSession,
+ * the session-cookie mint, the mobile auth). A real employee is live while
+ * `isActive`; a candidate guest-account is live while `candidateActive` (a
+ * candidate is always `isActive=false`, so it's excluded from every roster).
+ */
+export function isLoginLive(e: Employee): boolean {
+  return e.accountType === "candidate" ? e.candidateActive : e.isActive;
+}
+
+/** True for a candidate guest-account (a job applicant's limited login). */
+export function isCandidateAccount(e: Employee): boolean {
+  return e.accountType === "candidate";
+}
+
+/**
+ * Login + liveness ONLY — no role/candidate opinion. Private to this module's
+ * guards: the candidate-form guards build on this so they don't inherit
+ * requireUser's "candidates get redirected away" fork.
+ */
+async function requireSession(): Promise<Employee> {
+  const e = await getCurrentEmployee();
+  if (!e || !isLoginLive(e)) redirect("/login" as Route);
+  return e;
+}
+
+/**
+ * The DEFAULT gate for every normal surface — redirects to /login if absent or
+ * not-live, AND forks a candidate guest-account OUT to their form. It can
+ * therefore NEVER return a candidate: this is the choke point that keeps
+ * candidates out of the entire app (requireAdmin/requireSuperAdmin/
+ * requireWorkspace/requireHrStaff all funnel through here). Throws via redirect.
  */
 export async function requireUser(): Promise<Employee> {
-  const e = await getCurrentEmployee();
-  if (!e || !e.isActive) redirect("/login" as Route);
+  const e = await requireSession();
+  if (isCandidateAccount(e)) redirect("/candidate/form" as Route);
+  return e;
+}
+
+/**
+ * Gate for the candidate-form surface ONLY. Does NOT call requireUser (that
+ * would redirect a candidate away in a loop). A non-candidate is bounced to the
+ * hub.
+ */
+export async function requireCandidate(): Promise<Employee> {
+  const e = await requireSession();
+  if (!isCandidateAccount(e)) redirect("/hub" as Route);
+  return e;
+}
+
+/**
+ * Reject a candidate for handlers that resolved the employee via
+ * `getCurrentEmployee()` directly (bypassing the requireUser choke point). Pass
+ * the resolved row; a candidate is redirected to their form.
+ */
+export function guardNotCandidate(e: Employee): Employee {
+  if (isCandidateAccount(e)) redirect("/candidate/form" as Route);
   return e;
 }
 

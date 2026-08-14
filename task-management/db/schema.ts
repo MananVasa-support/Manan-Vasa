@@ -26,6 +26,7 @@ import {
   EMPLOYEE_ROLES,
   TASK_PRIORITIES,
   APPROVAL_STATUSES,
+  type AccountType,
   type ReligionCode,
   type EventStatus,
   type EventSource,
@@ -115,6 +116,16 @@ export const employees = pgTable("employees", {
   isAdmin: boolean("is_admin").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
   invitedAt: timestamp("invited_at", { withTimezone: true }),
+  // Candidate guest-account (mig 0183). A "candidate" row is a job applicant's
+  // limited login (fills only their own interview form). Always is_active=false
+  // (excluded from every roster); login-gated on candidateActive instead. The
+  // link is one-directional — a real employee never carries candidateIntakeId.
+  accountType: text("account_type").notNull().default("employee").$type<AccountType>(),
+  candidateIntakeId: uuid("candidate_intake_id").references((): AnyPgColumn => candidateIntake.id, {
+    onDelete: "set null",
+  }),
+  candidateActive: boolean("candidate_active").notNull().default(false),
+  deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
   joinedAt: timestamp("joined_at", { withTimezone: true }),
   // Post-joining workflow (migration 0174). `officialEmail` is the logged
   // firstname.lastname@<domain> company address; `personalEmail` is where the
@@ -4807,12 +4818,6 @@ export const salaryBreakup = pgTable(
     paid: boolean("paid").notNull().default(false),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     paidById: uuid("paid_by_id").references(() => employees.id, { onDelete: "set null" }),
-    // Cumulative rupees actually disbursed against this row (migration 0183) —
-    // what makes PARTIAL payment expressible, which the `paid` boolean above
-    // cannot say on its own. The unpaid balance is DERIVED from this and the
-    // effective payable (see lib/salary/payment.ts) and is never stored, so the
-    // two can never disagree. Like `paid`, untouched by the sheet sync.
-    amountPaid: numeric("amount_paid", { precision: 14, scale: 2 }).notNull().default("0"),
     // Editable super-admin note (migration 0129) — shown in the Remarks column.
     // NOT touched by the sheet sync, so it survives re-syncs (unlike remarks /
     // manan_remarks, which the sync overwrites from the sheet).

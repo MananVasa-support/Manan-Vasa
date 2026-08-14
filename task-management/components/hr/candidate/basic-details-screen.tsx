@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { UserPlus, ClipboardList, Phone, Mail, Search, PenLine, PlayCircle, ClipboardCheck } from "lucide-react";
 import type { CandidateRow } from "@/app/(app)/hr/candidate-actions";
+import { CreateCandidateLogin } from "@/components/hr/candidate/create-candidate-login";
 
 /**
  * Candidate Records — the searchable list of every filled interview form. The
@@ -41,13 +42,16 @@ export function BasicDetailsScreen({ candidates }: { candidates: CandidateRow[] 
             className="w-full rounded-lg border border-hairline-strong bg-white py-2 pl-9 pr-3 text-[14px] text-ink-strong outline-none focus:border-altus-red"
           />
         </div>
-        <Link
-          href={"/hr/intake?new=1" as Route}
-          className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[14px] font-bold text-white transition-transform hover:-translate-y-0.5"
-          style={{ background: `linear-gradient(135deg, ${RED}, var(--color-altus-red-deep))` }}
-        >
-          <UserPlus size={16} strokeWidth={2.4} /> New candidate
-        </Link>
+        <div className="flex items-center gap-2">
+          <CreateCandidateLogin />
+          <Link
+            href={"/hr/intake?new=1" as Route}
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[14px] font-bold text-white transition-transform hover:-translate-y-0.5"
+            style={{ background: `linear-gradient(135deg, ${RED}, var(--color-altus-red-deep))` }}
+          >
+            <UserPlus size={16} strokeWidth={2.4} /> New candidate
+          </Link>
+        </div>
       </div>
 
       {rows.length === 0 ? (

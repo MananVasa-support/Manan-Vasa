@@ -2,6 +2,7 @@ import { desc } from "drizzle-orm";
 import { Download, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { employees, salaryProfiles } from "@/db/schema";
+import { isStaffAccount } from "@/lib/queries/employees";
 import type { SalaryProfileRates } from "@/components/admin/employee-list";
 import { requireAdmin } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
@@ -17,7 +18,7 @@ import type { EmployeeDepartmentMembership } from "@/components/admin/edit-emplo
 export default async function EmployeesPage() {
   const me = await requireAdmin();
   const [all, activeDepartments, departmentMap, profileRows] = await Promise.all([
-    db.select().from(employees).orderBy(desc(employees.createdAt)),
+    db.select().from(employees).where(isStaffAccount).orderBy(desc(employees.createdAt)),
     listActiveDepartments(),
     getEmployeeDepartmentMap(),
     db

@@ -229,6 +229,31 @@ export function vkey(sectionId: string, fieldKey: string, instance?: number): st
   return instance == null ? `${sectionId}.${fieldKey}` : `${sectionId}.${instance}.${fieldKey}`;
 }
 
+/** Who is filling the form. "candidate" hides the recruiter-only fields. */
+export type IntakeMode = "hr" | "candidate";
+
+/**
+ * Fields the RECRUITER fills, never the candidate — the ONE source of truth for
+ * both hiding (the wizard renders `sectionsForMode`) and server rejection (the
+ * owner-scoped save strips these keys). Composite `sectionId.fieldKey`.
+ */
+export const RECRUITER_ONLY_KEYS = [
+  "declaration.remarks",
+  "declaration.name",
+  "declaration.recruiterEmail",
+] as const;
+
+/** The sections shown for a given mode — candidate mode strips recruiter fields
+ *  from the Declaration step (progress + the completion gate auto-follow). */
+export function sectionsForMode(mode: IntakeMode): IntakeSection[] {
+  if (mode === "hr") return INTAKE_SECTIONS;
+  const hidden = new Set<string>(RECRUITER_ONLY_KEYS);
+  return INTAKE_SECTIONS.map((s) => ({
+    ...s,
+    fields: s.fields.filter((f) => !hidden.has(`${s.id}.${f.key}`)),
+  }));
+}
+
 /** {fieldKey -> current value} view of one flat (non-repeat) section — for showIf. */
 function sectionView(s: IntakeSection, values: Record<string, string>): Record<string, string> {
   const view: Record<string, string> = {};

@@ -13,6 +13,7 @@ import { getSupabaseAdmin, DOCUMENTS_BUCKET } from "@/lib/supabase/admin";
 import { ALL_CRITERION_IDS } from "@/lib/hr/candidate/evaluation-checklist";
 import { intakeProgress } from "@/lib/hr/candidate/intake-schema";
 import { sendRecruiterIntakeEmail } from "@/lib/email/hr-recruiter-email";
+import { disableCandidateAccountByIntakeId } from "@/lib/hr/candidate/account-lifecycle";
 
 type Result<T> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -196,6 +197,10 @@ export async function setCandidateStatus(
   if (limited) return limited;
   if (!(CANDIDATE_STATUSES as readonly string[]).includes(status)) return { ok: false, error: "Invalid status." };
   await db.update(candidateIntake).set({ status, updatedAt: new Date() }).where(eq(candidateIntake.id, id));
+  // Close the candidate's guest login once the outcome is decided (best-effort).
+  if (status === "hired" || status === "rejected") {
+    await disableCandidateAccountByIntakeId(id, status).catch(() => {});
+  }
   revalidatePath("/hr/pre-interview/basic-details");
   return { ok: true };
 }
@@ -223,6 +228,10 @@ export async function deleteCandidateIntake(
     .limit(1);
   if (!row) return { ok: false, error: "Candidate not found." };
 
+  // Disable the linked candidate login FIRST (Firebase disabled + revoked), so
+  // deleting the intake row leaves no reachable ghost account. The one-directional
+  // CHECK lets ON DELETE SET NULL null the link without a constraint fight.
+  await disableCandidateAccountByIntakeId(id, "intake_deleted").catch(() => {});
   await db.delete(candidateIntake).where(eq(candidateIntake.id, id));
 
   const paths = [row.photoPath, row.signaturePath].filter((p): p is string => !!p);

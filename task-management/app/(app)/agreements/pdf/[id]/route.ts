@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import PDFDocument from "pdfkit";
 import { format } from "date-fns";
-import { getCurrentEmployee } from "@/lib/auth/current";
+import { getCurrentEmployee, isCandidateAccount } from "@/lib/auth/current";
 import { getAgreement } from "@/lib/agreements/queries";
 import { renderAgreement, type AgreementInput } from "@/lib/agreements/templates";
 import { signatoryForEntity } from "@/lib/salary/signatories";
@@ -42,7 +42,7 @@ export async function GET(
   const { id } = await ctx.params;
 
   const me = await getCurrentEmployee();
-  if (!me || !me.isActive) return new Response("Forbidden", { status: 403 });
+  if (!me || !me.isActive || isCandidateAccount(me)) return new Response("Forbidden", { status: 403 });
 
   const found = await getAgreement(id);
   if (!found) return new Response("Not found", { status: 404 });
