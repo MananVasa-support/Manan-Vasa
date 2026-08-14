@@ -76,6 +76,14 @@ export interface SourceItem {
   /** Project / client / source line. */
   project?: string | null;
 
+  /* ── Rich detail for the hover preview + double-click pop-out (no notes). ── */
+  /** Who assigned it (WMS task creator's name). */
+  assigner?: string | null;
+  /** Full description / target text — the untruncated body. */
+  description?: string | null;
+  /** Whole IST days overdue relative to the viewed plan day (>0 = late). */
+  overdueDays?: number | null;
+
   /* ── carryover detail (kind === "unfinished") ── */
   /** What the ORIGINAL item was, so a carried-over row can show both its
    *  CARRYOVER state and the source it actually came from. */
@@ -110,6 +118,8 @@ export interface PlanDayPayload {
   minItems: number;
   isManager: boolean;
   initialPhase: PlanPhase;
-  /** The plan date this payload describes ("YYYY-MM-DD", IST today). */
+  /** The plan date this payload describes ("YYYY-MM-DD", IST). */
   ymd: string;
+  /** Which of the 3 planner days this is: 0 today · 1 tomorrow · 2 day-after. */
+  dayOffset: 0 | 1 | 2;
 }

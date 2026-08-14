@@ -33,10 +33,13 @@ export default async function GoalsPlanPage({
   const { me, isAdmin } = await requireGoalsAccess();
   if (!goalsCascadeEnabled()) notFound();
 
+  const sp = await searchParams;
+  const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  // Which of the 3 planner days (?d=0|1|2 → today / tomorrow / day-after).
+  const dayOffset = pick(sp.d) === "1" ? 1 : pick(sp.d) === "2" ? 2 : 0;
+
   // PERSONAL space (admins) → the private day board (goals table, scope=personal).
   if ((await goalsSpace(isAdmin)) === "personal") {
-    const sp = await searchParams;
-    const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
     const data = await loadPersonalWD("day", { day: pick(sp.day), emp: pick(sp.emp) });
     return (
       <>
@@ -46,7 +49,7 @@ export default async function GoalsPlanPage({
     );
   }
 
-  const payload = await getPlanDayPayload(me.id);
+  const payload = await getPlanDayPayload(me.id, new Date(), dayOffset);
   const isManager = payload.isManager;
 
   return (
@@ -94,6 +97,7 @@ export default async function GoalsPlanPage({
           isManager={payload.isManager}
           initialPhase={payload.initialPhase}
           ymd={payload.ymd}
+          dayOffset={payload.dayOffset}
         />
       </PageShell>
     </>

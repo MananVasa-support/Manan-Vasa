@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dailyChecklist, dailyPlanDay, goals, weeklyGoals, weeklyGoalActuals, tasks } from "@/db/schema";
+import { dailyChecklist, dailyPlanDay, goals, weeklyGoals, weeklyGoalActuals, tasks, employees } from "@/db/schema";
 import type { TaskStatus, TaskPriority } from "@/db/enums";
 import { istYmd } from "@/lib/weekly-goals/week";
 import { currentWeekStart } from "@/lib/weekly-goals/week";
@@ -30,6 +30,28 @@ export async function isDayClosedOut(employeeId: string, ymd: string = todayYmd(
 /** Today's plan_date in IST (the team's clock). */
 export function todayYmd(now: Date = new Date()): string {
   return istYmd(now);
+}
+
+/**
+ * The plan_date `offset` IST-days from today (0 = today, 1 = tomorrow, 2 = day
+ * after). Powers the 3-day planner. Day math is done on the parsed IST calendar
+ * date via UTC so it never shifts across a timezone boundary.
+ */
+export function ymdForOffset(offset: number, now: Date = new Date()): string {
+  const base = todayYmd(now);
+  const n = clampDayOffset(offset);
+  if (n === 0) return base;
+  const [y, m, d] = base.split("-").map(Number);
+  const dt = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + n));
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getUTCDate()).padStart(2, "0");
+  return `${dt.getUTCFullYear()}-${mm}-${dd}`;
+}
+
+/** The plan horizon is strictly today / tomorrow / day-after. */
+export function clampDayOffset(raw: unknown): 0 | 1 | 2 {
+  const n = Number(raw);
+  return n === 1 ? 1 : n === 2 ? 2 : 0;
 }
 
 /**
@@ -314,6 +336,8 @@ export interface OpenTaskOption {
   overdue: boolean;
   /** Effective due is today. */
   dueToday: boolean;
+  /** Who assigned/created the task (name) — shown in the hover + detail pop-out. */
+  assigner: string | null;
 }
 
 /** Eisenhower rank: important-first, then urgent (0 = most important). */
@@ -355,8 +379,10 @@ export async function listOpenTasksForChecklist(
       priority: tasks.priority,
       dueAt: tasks.dueAt,
       revisedTargetDate: tasks.revisedTargetDate,
+      assigner: employees.name,
     })
     .from(tasks)
+    .leftJoin(employees, eq(tasks.createdById, employees.id))
     .where(
       and(
         eq(tasks.doerId, employeeId),
@@ -399,6 +425,7 @@ export async function listOpenTasksForChecklist(
       dueAt: dueYmd,
       overdue: dueYmd != null && dueYmd < ymd,
       dueToday: dueYmd === ymd,
+      assigner: r.assigner ?? null,
     };
   });
 

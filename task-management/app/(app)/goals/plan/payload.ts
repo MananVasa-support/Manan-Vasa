@@ -5,7 +5,8 @@ import { db } from "@/lib/db";
 import { dailyChecklist, dailyPlanDay } from "@/db/schema";
 import { getPeriodGoals } from "@/lib/goals/queries";
 import {
-  todayYmd,
+  ymdForOffset,
+  clampDayOffset,
   cascadeGoalLevels,
   listGoalsForPlanner,
   listOpenTasksForChecklist,
@@ -46,6 +47,15 @@ function shortDue(ymd: string | null): string | null {
   const mi = Number(m) - 1;
   if (mi < 0 || mi > 11) return null;
   return `${Number(d)} ${MONTH_ABBR[mi]}`;
+}
+
+/** Whole calendar-days from `from` to `to` (both IST ymd); +ve when to > from. */
+function ymdDiffDays(from: string, to: string): number {
+  const [fy, fm, fd] = from.split("-").map(Number);
+  const [ty, tm, td] = to.split("-").map(Number);
+  const a = Date.UTC(fy ?? 1970, (fm ?? 1) - 1, fd ?? 1);
+  const b = Date.UTC(ty ?? 1970, (tm ?? 1) - 1, td ?? 1);
+  return Math.round((b - a) / 86_400_000);
 }
 
 /**
@@ -121,9 +131,20 @@ function goalToSource(g: Goal, kind: SourceItem["kind"]): SourceItem {
   };
 }
 
-/** Build the complete PlanBoard payload for one employee's TODAY. */
-export async function getPlanDayPayload(employeeId: string, now: Date = new Date()): Promise<PlanDayPayload> {
-  const ymd = todayYmd(now);
+/**
+ * Build the complete PlanBoard payload for one employee's plan day. `dayOffset`
+ * 0/1/2 = today / tomorrow / day-after (the 3-day planner). Period goals stay
+ * anchored to the real `now` (weekly/monthly/… are period-scoped, not per-day);
+ * only the plan rows, unfinished carry-over, WMS due-labels and the day
+ * lifecycle re-scope to the chosen day.
+ */
+export async function getPlanDayPayload(
+  employeeId: string,
+  now: Date = new Date(),
+  dayOffset: number = 0,
+): Promise<PlanDayPayload> {
+  const offset = clampDayOffset(dayOffset);
+  const ymd = ymdForOffset(offset, now);
 
   const [planRows, weekly, monthG, quarterG, yearG, openTasks, unfinishedRows, isManager, dayRow] = await Promise.all([
     db
@@ -166,7 +187,10 @@ export async function getPlanDayPayload(employeeId: string, now: Date = new Date
   // Phase: no started stamp → PLAN (morning) · started, not closed → ACTIVE ·
   // closed → CLOSED. Close-out is entered from ACTIVE, so it isn't a load state.
   const day = dayRow[0];
-  const initialPhase: PlanPhase = day?.closedAt ? "closed" : day?.startedAt ? "active" : "plan";
+  // Future days are plan-only — you can't start or close a day that hasn't
+  // arrived. Today keeps the real lifecycle (plan → active → closed).
+  const initialPhase: PlanPhase =
+    offset !== 0 ? "plan" : day?.closedAt ? "closed" : day?.startedAt ? "active" : "plan";
 
   // Cascade provenance (0141, guarded) — without it a GOAL pulled onto today
   // is indistinguishable from a typed commitment and would wear the wrong tag.
@@ -201,6 +225,12 @@ export async function getPlanDayPayload(employeeId: string, now: Date = new Date
     yearly: yearG.filter((g) => g.adopted).map((g) => goalToSource(g, "yearly")),
     task: openTasks.map<SourceItem>((t) => {
       const label = displayTitle(t.title, t.description, t.client);
+      // Due labels are relative to the VIEWED day: a task due on the viewed day
+      // reads "Due"; due before it reads "Overdue" (with a day count). So a task
+      // due tomorrow surfaces as "Due" on the Tomorrow board (task #4).
+      const overdue = t.dueAt != null && t.dueAt < ymd;
+      const dueOnDay = t.dueAt === ymd;
+      const overdueDays = overdue && t.dueAt ? ymdDiffDays(t.dueAt, ymd) : null;
       return {
       // `id` IS the tasks.id — adding this card calls addTaskToPlan(id), which
       // stores the reference on daily_checklist.task_id. No WMS task is created.
@@ -210,8 +240,8 @@ export async function getPlanDayPayload(employeeId: string, now: Date = new Date
       subtitle: dedupeSub(label, t.client ?? t.subject ?? null),
       meta: t.taskNo ? `#${t.taskNo}` : null,
       added: false,
-      overdue: t.overdue,
-      dueLabel: t.overdue ? "Overdue" : t.dueToday ? "Today" : shortDue(t.dueAt),
+      overdue,
+      dueLabel: overdue ? "Overdue" : dueOnDay ? "Due" : shortDue(t.dueAt),
       important: t.priority === "imp_urgent" || t.priority === "imp_not_urgent",
       // Everything the WMS To-Do column's rows + filters read.
       taskNo: t.taskNo,
@@ -220,6 +250,10 @@ export async function getPlanDayPayload(employeeId: string, now: Date = new Date
       dueYmd: t.dueAt,
       project: t.client ?? t.subject ?? null,
       taskId: t.id,
+      // Rich detail for hover + double-click pop-out (no notes).
+      assigner: t.assigner,
+      description: t.description,
+      overdueDays,
       };
     }),
     unfinished: buildUnfinished(unfinishedRows, planRows),
@@ -232,5 +266,6 @@ export async function getPlanDayPayload(employeeId: string, now: Date = new Date
     isManager,
     initialPhase,
     ymd,
+    dayOffset: offset,
   };
 }

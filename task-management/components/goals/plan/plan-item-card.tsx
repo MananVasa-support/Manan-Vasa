@@ -8,6 +8,7 @@ import { motion } from "motion/react";
 import type { PlanItem } from "./types";
 import { KIND_PERIOD, SourceTag } from "./source-tag";
 import { HoverTip } from "@/components/ui/hover-tip";
+import { TransferControl } from "./item-detail";
 
 // Goals module identity — mirrors MODULE_THEME.goals.
 const GOALS_ACCENT = "#E10600";
@@ -21,10 +22,12 @@ interface Props {
   onRemove: (id: string) => void;
   /** Save an edited title (fix a typo). Absent ⇒ the card is read-only text. */
   onRename?: (id: string, title: string) => void;
+  /** Push this commitment to tomorrow (1) / day-after (2). */
+  onTransfer?: (id: string, off: 1 | 2) => void;
 }
 
 /** One ordered commitment in "Today's Plan" — sortable, completable, editable, removable. */
-export function PlanItemCard({ item, index, busy, onToggleDone, onRemove, onRename }: Props) {
+export function PlanItemCard({ item, index, busy, onToggleDone, onRemove, onRename, onTransfer }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
     data: { type: "plan" },
@@ -183,6 +186,11 @@ export function PlanItemCard({ item, index, busy, onToggleDone, onRemove, onRena
             {item.subtitle ? <span className="truncate">{item.subtitle}</span> : null}
           </div>
         </div>
+
+        {/* Push this commitment to a later day (tomorrow / day-after). */}
+        {onTransfer && !item.done && !editing ? (
+          <TransferControl onTransfer={(off) => onTransfer(item.id, off)} />
+        ) : null}
 
         {/* Edit — turns the title into an input to fix a typo. Hidden while done. */}
         {onRename && !item.done && !editing ? (

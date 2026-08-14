@@ -63,7 +63,10 @@ import {
   renamePlanItem,
   setItemProgress,
   startMyDay,
+  transferPlanItem,
 } from "@/app/(app)/goals/plan/actions";
+import { useRouter, usePathname } from "next/navigation";
+import type { Route } from "next";
 
 /** Sources that de-dupe against today's plan (flip to "added" once pulled). */
 const DEDUPE_KINDS: SourceKind[] = ["weekly", "task", "unfinished"];
@@ -74,10 +77,12 @@ interface Props {
   minItems: number;
   isManager: boolean;
   initialPhase: PlanPhase;
-  /** IST today (YYYY-MM-DD) — what every due mark and due filter compares
-   *  against. Comes from the server payload, so the client can never disagree
-   *  with the server about which day "today" is. */
+  /** The plan date (YYYY-MM-DD) this board shows — what every due mark and due
+   *  filter compares against. Comes from the server payload, so the client can
+   *  never disagree with the server about which day this is. */
   ymd: string;
+  /** Which of the 3 planner days: 0 today · 1 tomorrow · 2 day-after. */
+  dayOffset: 0 | 1 | 2;
 }
 
 // Goals module identity (amber-gold) — mirrors MODULE_THEME.goals. The planner
@@ -90,7 +95,7 @@ const GOALS_GRADIENT = `linear-gradient(135deg, ${GOALS_ACCENT}, ${GOALS_ACCENT_
 const PLAN_DROP_ID = "plan-drop";
 const nonGhost = (items: PlanItem[]) => items.filter((i) => i.id !== GHOST_ID);
 
-export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPhase, ymd }: Props) {
+export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPhase, ymd, dayOffset }: Props) {
   const [phase, setPhase] = React.useState<PlanPhase>(initialPhase);
   const [starting, setStarting] = React.useState(false);
   const [plan, setPlan] = React.useState<PlanItem[]>(initialPlan);
@@ -102,6 +107,31 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
     | null
   >(null);
   const [, startTransition] = React.useTransition();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  /** Switch the whole board to today / tomorrow / day-after (server re-fetch). */
+  const goToDay = React.useCallback(
+    (off: 0 | 1 | 2) => router.push((off === 0 ? pathname : `${pathname}?d=${off}`) as Route),
+    [router, pathname],
+  );
+
+  /** Push a plan/review item forward to tomorrow (1) or the day after (2). It
+   *  leaves THIS day's view immediately; a failure refreshes to restore truth. */
+  const onTransfer = React.useCallback(
+    (id: string, toOffset: 1 | 2) => {
+      setPlan((prev) => prev.filter((i) => i.id !== id));
+      void transferPlanItem(id, toOffset).then((r) => {
+        if (!r.ok) {
+          fireToast({ message: r.error, type: "error" });
+          router.refresh();
+        } else {
+          fireToast({ message: toOffset === 1 ? "Moved to tomorrow." : "Moved to the day after." });
+        }
+      });
+    },
+    [router],
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -115,6 +145,7 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
   const count = committed.length;
   const doneCount = React.useMemo(() => committed.filter((i) => i.done).length, [committed]);
   const met = count >= minItems;
+  const dayLabel = dayOffset === 1 ? "Tomorrow" : dayOffset === 2 ? "Day after" : "Today";
 
   /** "Start my day" — persist the started stamp, then flip to the active phase. */
   const onStartDay = React.useCallback(() => {
@@ -132,10 +163,10 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
   const persistOrder = React.useCallback((items: PlanItem[]) => {
     const ids = nonGhost(items).map((i) => i.id);
     startTransition(async () => {
-      const res = await reorderPlan(ids);
+      const res = await reorderPlan(ids, dayOffset);
       if (!res.ok) fireToast({ message: res.error });
     });
-  }, []);
+  }, [dayOffset]);
 
   /** Flip a dedupe-able source (weekly/task/unfinished) to "added". */
   const markSource = React.useCallback((kind: SourceKind, id: string, added: boolean) => {
@@ -143,6 +174,12 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
       ...prev,
       [kind]: prev[kind].map((s) => (s.id === id ? { ...s, added } : s)),
     }));
+  }, []);
+
+  /** Remove a source card entirely from its column (bug-fix #5: an unfinished
+   *  item is MOVED to the plan, so it must leave "Unfinished", not just dim). */
+  const removeSource = React.useCallback((kind: SourceKind, id: string) => {
+    setSrc((prev) => ({ ...prev, [kind]: prev[kind].filter((s) => s.id !== id) }));
   }, []);
 
   /** Shared add path — used by BOTH drag-drop and the "+ Add to Today" buttons. */
@@ -169,12 +206,12 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
 
       const res =
         kind === "weekly"
-          ? await addWeeklyGoalToPlan(sourceId)
+          ? await addWeeklyGoalToPlan(sourceId, dayOffset)
           : kind === "task"
-            ? await addTaskToPlan(sourceId)
+            ? await addTaskToPlan(sourceId, dayOffset)
             : kind === "unfinished"
-              ? await addUnfinishedToPlan(sourceId)
-              : await addCascadeGoalToPlan(sourceId);
+              ? await addUnfinishedToPlan(sourceId, dayOffset)
+              : await addCascadeGoalToPlan(sourceId, dayOffset);
 
       if (!res.ok) {
         setPlan((prev) => prev.filter((i) => i.id !== tempId));
@@ -182,8 +219,12 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
         fireToast({ message: res.error });
         return;
       }
+      // An unfinished item was MOVED onto the plan — it must leave the
+      // "Unfinished" column for good (bug-fix #5), whether the server moved it
+      // (res.item) or deleted a redundant duplicate (res.item == null).
+      if (kind === "unfinished") removeSource("unfinished", sourceId);
       if (!res.item) {
-        // No-op (already on today) — drop the optimistic row silently.
+        // No-op (already on this day) — drop the optimistic row silently.
         setPlan((prev) => prev.filter((i) => i.id !== tempId));
         return;
       }
@@ -192,7 +233,7 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
       setPlan(next);
       persistOrder(next);
     },
-    [markSource, persistOrder],
+    [markSource, removeSource, persistOrder, dayOffset],
   );
 
   const onAddSource = React.useCallback(
@@ -345,22 +386,31 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
     setPlan((prev) => prev.filter((i) => i.id !== GHOST_ID));
   }
 
+  const daySwitcher = <DaySwitcher current={dayOffset} onPick={goToDay} />;
+
   // Non-plan phases (active / close-out / closed) show the review half — same
-  // commitments, no pull panels — on the SAME page.
+  // commitments, no pull panels — on the SAME page. Carry-forward / →day-after
+  // per item lives here too (Sir).
   if (phase !== "plan") {
     return (
-      <DayReview
-        phase={phase}
-        items={committed}
-        onToCloseout={() => setPhase("closeout")}
-        onBackToPlan={() => setPhase("plan")}
-        onClosed={() => setPhase("closed")}
-        onReopened={() => setPhase("plan")}
-      />
+      <>
+        {daySwitcher}
+        <DayReview
+          phase={phase}
+          items={committed}
+          onToCloseout={() => setPhase("closeout")}
+          onBackToPlan={() => setPhase("plan")}
+          onClosed={() => setPhase("closed")}
+          onReopened={() => setPhase("plan")}
+          onTransfer={onTransfer}
+        />
+      </>
     );
   }
 
   return (
+    <>
+    {daySwitcher}
     <DndContext
       id={dndId}
       sensors={sensors}
@@ -389,6 +439,7 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
           onRename={onRename}
           onAddAdhoc={onAddAdhoc}
           onStart={onStartDay}
+          onTransfer={onTransfer}
         />
 
         {/* 2 — Goals & Goal Tasks: the cascade goals you've adopted, and the
@@ -400,6 +451,7 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
           icon={<Layers size={16} />}
           delay={60}
           today={ymd}
+          dayLabel={dayLabel}
           sections={[
             { key: "monthly", label: "Goals", items: [...src.monthly, ...src.quarterly, ...src.yearly] },
             { key: "weekly", label: "Goal Tasks", items: src.weekly },
@@ -414,13 +466,14 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
           icon={<History size={16} />}
           delay={100}
           today={ymd}
+          dayLabel={dayLabel}
           sections={[{ key: "unfinished", label: "Not Done Yet", items: src.unfinished }]}
           onAdd={onAddSource}
           onAbandon={onAbandon}
         />
 
         {/* 4 — WMS To-Do, with due / priority / status filters */}
-        <WmsWindow today={ymd} items={src.task} onAdd={onAddSource} onAbandon={onAbandon} />
+        <WmsWindow today={ymd} items={src.task} onAdd={onAddSource} onAbandon={onAbandon} dayLabel={dayLabel} />
       </div>
 
       <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(0.2,0,0,1)" }}>
@@ -434,6 +487,40 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
         ) : null}
       </DragOverlay>
     </DndContext>
+    </>
+  );
+}
+
+/* ----------------------------------------------------------------------- */
+/* Day switcher — Today · Tomorrow · Day after (the 3-day planner)          */
+/* ----------------------------------------------------------------------- */
+const DAY_TABS: { off: 0 | 1 | 2; label: string }[] = [
+  { off: 0, label: "Today" },
+  { off: 1, label: "Tomorrow" },
+  { off: 2, label: "Day after" },
+];
+
+function DaySwitcher({ current, onPick }: { current: 0 | 1 | 2; onPick: (off: 0 | 1 | 2) => void }) {
+  return (
+    <div className="mb-4 inline-flex items-center gap-1 rounded-pill border border-hairline bg-surface-card p-1">
+      {DAY_TABS.map((t) => {
+        const on = t.off === current;
+        return (
+          <button
+            key={t.off}
+            type="button"
+            onClick={() => !on && onPick(t.off)}
+            aria-pressed={on}
+            className={`rounded-pill px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
+              on ? "text-white" : "text-ink-soft hover:text-ink-strong"
+            }`}
+            style={on ? { background: GOALS_GRADIENT } : undefined}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -454,8 +541,9 @@ function PlanColumn(props: {
   onRename: (id: string, title: string) => void;
   onAddAdhoc: (title: string) => void;
   onStart: () => void;
+  onTransfer: (id: string, off: 1 | 2) => void;
 }) {
-  const { plan, count, doneCount, minItems, met, isManager, starting, busyId, onToggleDone, onRemove, onRename, onAddAdhoc, onStart } = props;
+  const { plan, count, doneCount, minItems, met, isManager, starting, busyId, onToggleDone, onRemove, onRename, onAddAdhoc, onStart, onTransfer } = props;
   const { setNodeRef, isOver } = useDroppable({ id: PLAN_DROP_ID });
   const [draft, setDraft] = React.useState("");
   const reduce = useReducedMotion();
@@ -532,6 +620,7 @@ function PlanColumn(props: {
                   onToggleDone={onToggleDone}
                   onRemove={onRemove}
                   onRename={onRename}
+                  onTransfer={onTransfer}
                 />
               ))}
             </AnimatePresence>
@@ -670,8 +759,9 @@ function SourceWindow(props: {
   sections: { key: SourceKind; label: string; items: SourceItem[]; emptyText?: string }[];
   onAdd: (item: SourceItem) => void;
   onAbandon?: (item: SourceItem) => void;
+  dayLabel?: string;
 }) {
-  const { title, subtitle, icon, delay = 0, today, controls, sections, onAdd, onAbandon } = props;
+  const { title, subtitle, icon, delay = 0, today, controls, sections, onAdd, onAbandon, dayLabel } = props;
   return (
     <section
       className="wg-rise rounded-2xl border border-hairline bg-surface-card p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
@@ -708,6 +798,7 @@ function SourceWindow(props: {
             today={today}
             onAdd={onAdd}
             onAbandon={onAbandon}
+            dayLabel={dayLabel}
           />
         ))}
       </div>
@@ -721,6 +812,7 @@ function SourceSection({
   today,
   onAdd,
   onAbandon,
+  dayLabel,
   emptyText = "Nothing here right now.",
 }: {
   label: string;
@@ -728,6 +820,7 @@ function SourceSection({
   today: string;
   onAdd: (item: SourceItem) => void;
   onAbandon?: (item: SourceItem) => void;
+  dayLabel?: string;
   emptyText?: string;
 }) {
   const [open, setOpen] = React.useState(true);
@@ -782,7 +875,7 @@ function SourceSection({
               ) : (
                 <>
                   {shown.map((item) => (
-                    <SourceCard key={item.id} item={item} today={today} onAdd={onAdd} onAbandon={onAbandon} />
+                    <SourceCard key={item.id} item={item} today={today} onAdd={onAdd} onAbandon={onAbandon} dayLabel={dayLabel} />
                   ))}
                   {items.length > CAP ? (
                     <button
@@ -832,11 +925,13 @@ function WmsWindow({
   items,
   onAdd,
   onAbandon,
+  dayLabel,
 }: {
   today: string;
   items: SourceItem[];
   onAdd: (item: SourceItem) => void;
   onAbandon: (item: SourceItem) => void;
+  dayLabel?: string;
 }) {
   const [filter, setFilter] = React.useState<WmsFilter>(DEFAULT_WMS_FILTER);
   const set = <K extends keyof WmsFilter>(key: K, value: WmsFilter[K]) =>
@@ -855,6 +950,7 @@ function WmsWindow({
       icon={<ListTodo size={16} />}
       delay={140}
       today={today}
+      dayLabel={dayLabel}
       controls={
         <div className="mb-2.5 rounded-xl bg-surface-soft/60 p-2">
           <div className="grid grid-cols-2 gap-1.5">

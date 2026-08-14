@@ -7,6 +7,7 @@ import { fireToast } from "@/lib/toast";
 import { ScoreRing } from "@/components/weekly-goals/score-ring";
 import type { PlanItem, PlanPhase } from "./types";
 import { setItemProgress, closeMyDay, reopenPlan } from "@/app/(app)/goals/plan/actions";
+import { TransferControl } from "./item-detail";
 
 const GOALS_ACCENT = "#E10600";
 const GOALS_ACCENT_DEEP = "#A80400";
@@ -25,6 +26,8 @@ interface Props {
   onBackToPlan: () => void;
   onClosed: () => void;
   onReopened: () => void;
+  /** Carry an unfinished commitment forward to tomorrow (1) / day-after (2). */
+  onTransfer?: (id: string, off: 1 | 2) => void;
 }
 
 /**
@@ -33,10 +36,19 @@ interface Props {
  *   closeout — the SAME commitments (no pull panels), each marked done / 0-100%.
  *   closed   — a read-only summary of how the day went.
  */
-export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, onClosed, onReopened }: Props) {
+export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, onClosed, onReopened, onTransfer }: Props) {
   const [items, setItems] = React.useState<PlanItem[]>(initial);
   const [busy, setBusy] = React.useState<string | null>(null);
   React.useEffect(() => setItems(initial), [initial]);
+
+  /** Carry an item forward — drop it from today's review, hand off to the parent. */
+  const transfer = React.useCallback(
+    (id: string, off: 1 | 2) => {
+      setItems((p) => p.filter((x) => x.id !== id));
+      onTransfer?.(id, off);
+    },
+    [onTransfer],
+  );
 
   const total = items.length;
   const doneCount = items.filter((i) => i.done).length;
@@ -119,10 +131,11 @@ export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, o
             {items.map((it) => (
               <li
                 key={it.id}
-                className="flex items-center gap-2.5 rounded-chip border border-hairline bg-surface-card px-3.5 py-2.5"
+                className="group flex items-center gap-2.5 rounded-chip border border-hairline bg-surface-card px-3.5 py-2.5"
               >
                 <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: GOALS_ACCENT }} />
-                <span className="truncate text-[14px] font-medium text-ink-strong">{it.title}</span>
+                <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink-strong">{it.title}</span>
+                {onTransfer ? <TransferControl onTransfer={(off) => transfer(it.id, off)} /> : null}
               </li>
             ))}
           </ul>
@@ -214,6 +227,9 @@ export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, o
                 >
                   {it.title}
                 </span>
+                {!isClosed && !it.done && onTransfer ? (
+                  <TransferControl variant="button" onTransfer={(off) => transfer(it.id, off)} />
+                ) : null}
                 <span
                   className="shrink-0 rounded-full px-2.5 py-0.5 text-[12px] font-black tabular-nums"
                   style={{

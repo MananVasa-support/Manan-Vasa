@@ -7,7 +7,7 @@ import { dailyChecklist, dailyPlanDay, weeklyGoals, goals, tasks } from "@/db/sc
 import { requireUser } from "@/lib/auth/current";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { applyTaskStatusChange } from "@/lib/tasks/set-status";
-import { todayYmd } from "@/lib/queries/daily-checklist";
+import { todayYmd, ymdForOffset, clampDayOffset } from "@/lib/queries/daily-checklist";
 import { goalsCanvasOn } from "@/lib/goals/flag";
 import { getPlanDayPayload } from "./payload";
 import type { PlanDayPayload, PlanItem, PlanKind } from "@/components/goals/plan/types";
@@ -95,6 +95,7 @@ function rowToPlanItem(r: PlanItemRow, kind: PlanKind): PlanItem {
 /** Pull a current/most-recent-week Weekly Goal onto today's plan. */
 export async function addWeeklyGoalToPlan(
   goalId: string,
+  dayOffset: number = 0,
 ): Promise<ActionResult<{ item: PlanItem | null }>> {
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
@@ -114,7 +115,7 @@ export async function addWeeklyGoalToPlan(
     .limit(1);
   if (!goal || goal.employeeId !== me.id) return { ok: false, error: "That goal isn't yours." };
 
-  const ymd = todayYmd();
+  const ymd = ymdForOffset(dayOffset);
   try {
     const { count, nextPosition } = await countAndNextPosition(me.id, ymd);
     if (count >= MAX_ITEMS_PER_DAY)
@@ -150,6 +151,7 @@ export async function addWeeklyGoalToPlan(
  */
 export async function addCascadeGoalToPlan(
   goalId: string,
+  dayOffset: number = 0,
 ): Promise<ActionResult<{ item: PlanItem | null }>> {
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
@@ -171,7 +173,7 @@ export async function addCascadeGoalToPlan(
 
   const kind: PlanKind =
     goal.period === "year" ? "yearly" : goal.period === "quarter" ? "quarterly" : "monthly";
-  const ymd = todayYmd();
+  const ymd = ymdForOffset(dayOffset);
   try {
     const { count, nextPosition } = await countAndNextPosition(me.id, ymd);
     if (count >= MAX_ITEMS_PER_DAY)
@@ -216,6 +218,7 @@ export async function addCascadeGoalToPlan(
 /** Pull one of the employee's open Tasks onto today's plan. */
 export async function addTaskToPlan(
   taskId: string,
+  dayOffset: number = 0,
 ): Promise<ActionResult<{ item: PlanItem | null }>> {
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
@@ -235,7 +238,7 @@ export async function addTaskToPlan(
     .limit(1);
   if (!task || task.doerId !== me.id) return { ok: false, error: "That task isn't yours." };
 
-  const ymd = todayYmd();
+  const ymd = ymdForOffset(dayOffset);
   try {
     // Don't pull the same task twice into one day.
     const [dupe] = await db
@@ -275,12 +278,20 @@ export async function addTaskToPlan(
 
 /**
  * Pull a PREVIOUSLY-UNFINISHED commitment (a prior-day daily_checklist row, done
- * = false) onto today — carrying its origin (weekly goal_id / task_id) so the
- * pipeline can still reflect completion back to the source. Skips if the same
- * goal/task is already on today's plan.
+ * = false) onto the target day — carrying its origin (weekly goal_id / task_id)
+ * so the pipeline can still reflect completion back to the source.
+ *
+ * BUG-FIX (Sir 2026-08): this MOVES the row (updates its plan_date) rather than
+ * copying it. The old copy left the original earlier-day row in place, so the
+ * item never left the "Unfinished" column (esp. plain typed items, which the
+ * de-dupe couldn't match). A move re-dates the one row onto the target day →
+ * `getOverdueItems` (plan_date < today) no longer returns it. If the same
+ * goal/task already sits on the target day, the carried row is redundant and is
+ * simply deleted.
  */
 export async function addUnfinishedToPlan(
   rowId: string,
+  dayOffset: number = 0,
 ): Promise<ActionResult<{ item: PlanItem | null }>> {
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
@@ -292,10 +303,6 @@ export async function addUnfinishedToPlan(
       employeeId: dailyChecklist.employeeId,
       goalId: dailyChecklist.goalId,
       taskId: dailyChecklist.taskId,
-      origin: dailyChecklist.origin,
-      title: dailyChecklist.title,
-      client: dailyChecklist.client,
-      subject: dailyChecklist.subject,
       planDate: dailyChecklist.planDate,
     })
     .from(dailyChecklist)
@@ -303,9 +310,11 @@ export async function addUnfinishedToPlan(
     .limit(1);
   if (!src || src.employeeId !== me.id) return { ok: false, error: "That item isn't yours." };
 
-  const ymd = todayYmd();
+  const ymd = ymdForOffset(dayOffset);
+  if (src.planDate === ymd) return { ok: true, item: null }; // already on that day
   try {
-    // Don't double-pull the same goal/task into today.
+    // Same goal/task already on the target day → the carried row is redundant;
+    // delete it so it just leaves "Unfinished" (no duplicate on the plan).
     if (src.goalId || src.taskId) {
       const [dupe] = await db
         .select({ id: dailyChecklist.id })
@@ -318,32 +327,105 @@ export async function addUnfinishedToPlan(
           ),
         )
         .limit(1);
-      if (dupe) return { ok: true, item: null };
+      if (dupe) {
+        await db
+          .delete(dailyChecklist)
+          .where(and(eq(dailyChecklist.id, rowId), eq(dailyChecklist.employeeId, me.id)));
+        return { ok: true, item: null };
+      }
     }
 
     const { count, nextPosition } = await countAndNextPosition(me.id, ymd);
     if (count >= MAX_ITEMS_PER_DAY)
       return { ok: false, error: `You can plan at most ${MAX_ITEMS_PER_DAY} items a day.` };
+    // MOVE, don't copy — re-date the single row onto the target day.
     const [row] = await db
-      .insert(dailyChecklist)
-      .values({
-        employeeId: me.id,
+      .update(dailyChecklist)
+      .set({
         planDate: ymd,
-        goalId: src.goalId,
-        taskId: src.taskId,
-        origin: src.origin,
-        title: src.title,
-        client: src.client,
-        subject: src.subject,
-        position: nextPosition,
         movedFromDate: src.planDate,
+        position: nextPosition,
+        done: false,
+        closedAt: null,
+        updatedAt: new Date(),
       })
-      .onConflictDoNothing({
-        target: [dailyChecklist.employeeId, dailyChecklist.planDate, dailyChecklist.goalId],
-      })
+      .where(and(eq(dailyChecklist.id, rowId), eq(dailyChecklist.employeeId, me.id)))
       .returning(PLAN_ITEM_RETURNING);
-    const kind: PlanKind = src.goalId ? "weekly" : src.taskId ? "task" : "unfinished";
+    const kind: PlanKind = src.goalId ? "weekly" : src.taskId ? "task" : "adhoc";
     return { ok: true, item: row ? rowToPlanItem(row, kind) : null };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Transfer a commitment already on the plan to a FUTURE day (tomorrow /
+ * day-after) — "push it forward" from the plan or the close-out review. Same
+ * move-not-copy mechanic as {@link addUnfinishedToPlan}: it re-dates the one
+ * row, stamps `movedFromDate`, and (if the target day already holds the same
+ * goal/task) deletes the redundant row instead. `toOffset` is 1 (tomorrow) or 2
+ * (day after); 0 is rejected — you can't transfer to today.
+ */
+export async function transferPlanItem(
+  itemId: string,
+  toOffset: number,
+): Promise<ActionResult<{ movedTo: string }>> {
+  const me = await requireUser();
+  const limited = rateLimitOrError(me.id, "write");
+  if (limited) return limited;
+  if (!UUID.safeParse(itemId).success) return { ok: false, error: "Invalid item." };
+  const offset = clampDayOffset(toOffset);
+  if (offset === 0) return { ok: false, error: "Pick tomorrow or the day after." };
+
+  const [src] = await db
+    .select({
+      employeeId: dailyChecklist.employeeId,
+      goalId: dailyChecklist.goalId,
+      taskId: dailyChecklist.taskId,
+      planDate: dailyChecklist.planDate,
+    })
+    .from(dailyChecklist)
+    .where(eq(dailyChecklist.id, itemId))
+    .limit(1);
+  if (!src || src.employeeId !== me.id) return { ok: false, error: "That item isn't yours." };
+
+  const ymd = ymdForOffset(offset);
+  if (src.planDate === ymd) return { ok: true, movedTo: ymd };
+  try {
+    if (src.goalId || src.taskId) {
+      const [dupe] = await db
+        .select({ id: dailyChecklist.id })
+        .from(dailyChecklist)
+        .where(
+          and(
+            eq(dailyChecklist.employeeId, me.id),
+            eq(dailyChecklist.planDate, ymd),
+            src.goalId ? eq(dailyChecklist.goalId, src.goalId) : eq(dailyChecklist.taskId, src.taskId!),
+          ),
+        )
+        .limit(1);
+      if (dupe) {
+        await db
+          .delete(dailyChecklist)
+          .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, me.id)));
+        return { ok: true, movedTo: ymd };
+      }
+    }
+    const { count, nextPosition } = await countAndNextPosition(me.id, ymd);
+    if (count >= MAX_ITEMS_PER_DAY)
+      return { ok: false, error: `That day already has ${MAX_ITEMS_PER_DAY} items.` };
+    await db
+      .update(dailyChecklist)
+      .set({
+        planDate: ymd,
+        movedFromDate: src.planDate,
+        position: nextPosition,
+        done: false,
+        closedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(dailyChecklist.id, itemId), eq(dailyChecklist.employeeId, me.id)));
+    return { ok: true, movedTo: ymd };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
@@ -382,6 +464,7 @@ export async function abandonTask(taskId: string): Promise<ActionResult> {
 /** Add a typed ad-hoc commitment ("what will you deliver today"). */
 export async function addAdhocToPlan(
   titleRaw: string,
+  dayOffset: number = 0,
 ): Promise<ActionResult<{ item: PlanItem }>> {
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
@@ -391,7 +474,7 @@ export async function addAdhocToPlan(
   if (title.length < 2) return { ok: false, error: "Type what you'll deliver today." };
   if (title.length > 280) return { ok: false, error: "Keep it under 280 characters." };
 
-  const ymd = todayYmd();
+  const ymd = ymdForOffset(dayOffset);
   try {
     const { count, nextPosition } = await countAndNextPosition(me.id, ymd);
     if (count >= MAX_ITEMS_PER_DAY)
@@ -413,7 +496,7 @@ export async function addAdhocToPlan(
 }
 
 /** Persist the plan's order after a drag-reorder (own rows only). */
-export async function reorderPlan(orderedIds: string[]): Promise<ActionResult> {
+export async function reorderPlan(orderedIds: string[], dayOffset: number = 0): Promise<ActionResult> {
   const me = await requireUser();
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
@@ -421,7 +504,7 @@ export async function reorderPlan(orderedIds: string[]): Promise<ActionResult> {
   const ids = z.array(z.string().uuid()).max(MAX_ITEMS_PER_DAY).safeParse(orderedIds);
   if (!ids.success) return { ok: false, error: "Invalid order." };
   if (ids.data.length === 0) return { ok: true };
-  const ymd = todayYmd();
+  const ymd = ymdForOffset(dayOffset);
   try {
     // One statement: position = index in the supplied array, scoped to my rows.
     await db.execute(sql`

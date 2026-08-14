@@ -9,7 +9,7 @@ import { PRIORITY_LABELS } from "@/db/enums";
 import { STATUS_LABELS_FALLBACK } from "@/lib/format";
 import type { SourceItem } from "./types";
 import { KIND_PERIOD, OverdueTag, SourceTag, fmtYmd } from "./source-tag";
-import { HoverTip } from "@/components/ui/hover-tip";
+import { ItemHoverCard, ItemDetailModal } from "./item-detail";
 
 /** dnd id for a source card — namespaced so it never collides with plan row ids. */
 export function sourceDragId(item: SourceItem): string {
@@ -24,12 +24,14 @@ const WARN = "var(--color-amber-deep)";
 
 interface Props {
   item: SourceItem;
-  /** IST today (YYYY-MM-DD) — what the due marks compare against. */
+  /** The viewed plan date (YYYY-MM-DD) — what the due marks compare against. */
   today: string;
-  /** No-drag quick path — add straight to today's plan. */
+  /** No-drag quick path — add straight to the viewed day's plan. */
   onAdd: (item: SourceItem) => void;
   /** Abandon the underlying task → Recycle Bin (only for task-linked cards). */
   onAbandon?: (item: SourceItem) => void;
+  /** "Today" | "Tomorrow" | "Day after" — the add button's day label. */
+  dayLabel?: string;
 }
 
 /**
@@ -41,7 +43,8 @@ interface Props {
  * calls the matching server action, which stores that id on the plan row. No
  * Goal, Goal Task or WMS Task is ever created here.
  */
-export function SourceCard({ item, today, onAdd, onAbandon }: Props) {
+export function SourceCard({ item, today, onAdd, onAbandon, dayLabel = "Today" }: Props) {
+  const [detail, setDetail] = React.useState(false);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: sourceDragId(item),
     data: { type: "source", kind: item.kind, sourceId: item.id, title: item.title, subtitle: item.subtitle },
@@ -55,6 +58,7 @@ export function SourceCard({ item, today, onAdd, onAbandon }: Props) {
   const dueToday = isTask && item.dueYmd === today;
 
   return (
+    <ItemHoverCard item={item} today={today}>
     <motion.div
       ref={setNodeRef}
       initial={{ opacity: 0, y: 4 }}
@@ -75,9 +79,9 @@ export function SourceCard({ item, today, onAdd, onAbandon }: Props) {
           <GripVertical size={14} />
         </button>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1" onDoubleClick={() => setDetail(true)} title="Double-click for full detail">
           <div className="truncate text-[13px] font-semibold leading-[18px] text-ink-strong">
-            <HoverTip text={item.title}>{item.title}</HoverTip>
+            {item.title}
           </div>
 
           {/* Identity line — what this is and where it came from. */}
@@ -174,14 +178,24 @@ export function SourceCard({ item, today, onAdd, onAbandon }: Props) {
       >
         {item.added ? (
           <>
-            <Check size={13} strokeWidth={3} /> On Today&apos;s Plan
+            <Check size={13} strokeWidth={3} /> On Plan
           </>
         ) : (
           <>
-            <Plus size={13} strokeWidth={3} /> Add to Today
+            <Plus size={13} strokeWidth={3} /> Add to {dayLabel}
           </>
         )}
       </button>
     </motion.div>
+    {detail ? (
+      <ItemDetailModal
+        item={item}
+        today={today}
+        onClose={() => setDetail(false)}
+        onAdd={() => onAdd(item)}
+        addLabel={`Add to ${dayLabel}`}
+      />
+    ) : null}
+    </ItemHoverCard>
   );
 }

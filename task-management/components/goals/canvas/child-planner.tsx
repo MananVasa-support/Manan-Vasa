@@ -953,6 +953,7 @@ function DayStage(): React.JSX.Element {
           isManager={state.payload.isManager}
           initialPhase={state.payload.initialPhase}
           ymd={state.payload.ymd}
+          dayOffset={state.payload.dayOffset}
         />
       )}
     </section>
