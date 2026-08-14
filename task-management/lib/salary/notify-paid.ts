@@ -36,6 +36,61 @@ import { employeeEmailTargets } from "@/lib/email/recipients";
  * twice. Failures are logged; the slip remains downloadable from the payslip
  * column either way.
  */
+/**
+ * Where THIS row's slip is about to go — resolved before the send, cheaply.
+ *
+ * `mailPayslipOnPaid` runs after the response and can only log, so on its own an
+ * admin pressing Pay never learns that the person has no personal address on
+ * file and only half the delivery happened. This is the same lookup, done as one
+ * indexed read while the action is still able to answer, so the button can say
+ * exactly which mailboxes are getting the slip and which are missing.
+ *
+ * It resolves addresses and nothing else — it never sends. The send stays in
+ * `mailPayslipOnPaid`, which repeats the lookup rather than trusting a value
+ * passed across the deferral boundary.
+ */
+export interface PayslipMailSummary {
+  /** Deduped addresses that will actually receive the slip. */
+  to: string[];
+  /** Which of the three columns carried an address. `business` is the work
+   *  mailbox (`official_email`), falling back to the login address when the
+   *  employee has no separate official one — that login address IS their work
+   *  mail in this org, so treating it as absent would warn about nothing. */
+  business: boolean;
+  personal: boolean;
+  /** Null when the row has no linked employee at all (sheet-imported rows can
+   *  predate their employee record), which is a different problem from an
+   *  employee whose profile is simply missing an address. */
+  name: string | null;
+  linked: boolean;
+}
+
+export async function payslipMailTargets(breakupId: string): Promise<PayslipMailSummary> {
+  const [row] = await db
+    .select({
+      employeeId: salaryBreakup.employeeId,
+      name: employees.name,
+      email: employees.email,
+      officialEmail: employees.officialEmail,
+      personalEmail: employees.personalEmail,
+    })
+    .from(salaryBreakup)
+    .leftJoin(employees, eq(salaryBreakup.employeeId, employees.id))
+    .where(eq(salaryBreakup.id, breakupId))
+    .limit(1);
+
+  if (!row?.employeeId) {
+    return { to: [], business: false, personal: false, name: row?.name ?? null, linked: false };
+  }
+  return {
+    to: employeeEmailTargets(row),
+    business: Boolean(row.officialEmail?.trim() || row.email?.trim()),
+    personal: Boolean(row.personalEmail?.trim()),
+    name: row.name ?? null,
+    linked: true,
+  };
+}
+
 export async function mailPayslipOnPaid(breakupId: string): Promise<void> {
   try {
     const [row] = await db

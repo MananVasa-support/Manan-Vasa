@@ -4807,6 +4807,12 @@ export const salaryBreakup = pgTable(
     paid: boolean("paid").notNull().default(false),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     paidById: uuid("paid_by_id").references(() => employees.id, { onDelete: "set null" }),
+    // Cumulative rupees actually disbursed against this row (migration 0183) —
+    // what makes PARTIAL payment expressible, which the `paid` boolean above
+    // cannot say on its own. The unpaid balance is DERIVED from this and the
+    // effective payable (see lib/salary/payment.ts) and is never stored, so the
+    // two can never disagree. Like `paid`, untouched by the sheet sync.
+    amountPaid: numeric("amount_paid", { precision: 14, scale: 2 }).notNull().default("0"),
     // Editable super-admin note (migration 0129) — shown in the Remarks column.
     // NOT touched by the sheet sync, so it survives re-syncs (unlike remarks /
     // manan_remarks, which the sync overwrites from the sheet).

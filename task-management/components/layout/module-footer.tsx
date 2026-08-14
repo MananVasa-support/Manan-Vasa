@@ -1,9 +1,16 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { X } from "lucide-react";
 import { MODULE_ORDER, MODULE_THEME, moduleShortcut } from "@/lib/module-theme";
 import { canAccessWorkspace, workspaceForPath } from "@/lib/workspaces";
+
+/** How close to the bottom edge the pointer must get to summon the dock, in px.
+ *  Small enough that it takes intent — you have to drive into the edge — but not
+ *  so small that a fast flick overshoots between mousemove samples. */
+const REVEAL_ZONE_PX = 6;
 
 /**
  * SITE-WIDE MODULE FOOTER — every room, one row, on every page.
@@ -41,10 +48,52 @@ export function ModuleFooter({ access }: ModuleFooterProps) {
   const pathname = usePathname();
   const activeWs = workspaceForPath(pathname ?? "/");
 
+  // A HIDDEN DOCK, summoned from the bottom edge.
+  //
+  // It is not a hover menu: once revealed it STAYS revealed, and only the X puts
+  // it away. Tying visibility to continued hover would mean holding the cursor
+  // inside a 46px strip while reading the labels, which is exactly the fiddly
+  // behaviour this replaces.
+  const [visible, setVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    function onMove(e: MouseEvent) {
+      // Already open? Nothing to do — moving away must NOT dismiss it.
+      if (visible) return;
+      if (e.clientY >= window.innerHeight - REVEAL_ZONE_PX) setVisible(true);
+    }
+    // `mouseleave` off the bottom of the window fires when the pointer exits
+    // faster than mousemove can sample the last few pixels — without it, a quick
+    // flick to the edge feels unresponsive.
+    function onLeave(e: MouseEvent) {
+      if (!visible && e.clientY >= window.innerHeight - REVEAL_ZONE_PX) setVisible(true);
+    }
+    window.addEventListener("mousemove", onMove);
+    document.documentElement.addEventListener("mouseleave", onLeave);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      document.documentElement.removeEventListener("mouseleave", onLeave);
+    };
+  }, [visible]);
+
+  // Escape closes it, matching every other dismissible overlay in the app.
+  React.useEffect(() => {
+    if (!visible) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setVisible(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [visible]);
+
   return (
     <div
       aria-label="All modules"
       role="navigation"
+      // Hidden state is inert as well as invisible: `inert` drops it out of the
+      // tab order and the accessibility tree, so a keyboard user never lands on
+      // ten invisible links. Revealing it restores both.
+      inert={!visible}
       // FLOATING GLASS DOCK, not a page footer. STICKY, not fixed — and that is
       // the whole alignment story.
       //
@@ -73,11 +122,24 @@ export function ModuleFooter({ access }: ModuleFooterProps) {
       // a long page's content even where that page sets no bottom padding of
       // its own. The padded strip inherits `pointer-events-none`, so it never
       // swallows a click meant for the content behind it.
+      //
+      // The wrapper KEEPS ITS LAYOUT FOOTPRINT whether or not the dock is shown.
+      // That is deliberate and is what satisfies "never permanently cover page
+      // content": the space is already reserved, so revealing the dock slides it
+      // into a gap that exists rather than on top of a table row. Only the glass
+      // itself animates.
       className="pointer-events-none sticky bottom-[18px] z-40 mx-auto mt-auto w-max max-w-[calc(100%-24px)] pt-4 print:hidden"
     >
       <nav
-        className="pointer-events-auto flex items-center gap-x-0.5 overflow-x-auto rounded-[18px] px-2 py-2"
+        className="pointer-events-auto flex items-center gap-x-0.5 overflow-x-auto rounded-[18px] px-2 py-2 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none"
         style={{
+          opacity: visible ? 1 : 0,
+          // Slides down past its own height plus the bottom offset, so no sliver
+          // of glass is left peeking above the viewport edge.
+          transform: visible ? "translateY(0)" : "translateY(calc(100% + 24px))",
+          // Belt and braces with `inert`: an invisible dock must not eat a click
+          // aimed at whatever sits behind it.
+          pointerEvents: visible ? "auto" : "none",
           background: "rgba(255,255,255,0.88)",
           backdropFilter: "blur(14px)",
           WebkitBackdropFilter: "blur(14px)",
@@ -149,6 +211,21 @@ export function ModuleFooter({ access }: ModuleFooterProps) {
             </Link>
           );
         })}
+
+        {/* Dismiss. Separated by a hairline so it reads as a control on the dock
+            rather than an eleventh module. The dock can always be summoned again
+            from the bottom edge, so this hides rather than disables anything. */}
+        <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-[rgba(15,23,42,0.12)]" />
+        <button
+          type="button"
+          onClick={() => setVisible(false)}
+          aria-label="Hide module bar"
+          title="Hide — move the pointer to the bottom edge to bring it back"
+          className="inline-flex shrink-0 items-center justify-center rounded-lg p-1.5 outline-none transition-colors hover:bg-[rgba(15,23,42,0.06)] focus-visible:ring-2 focus-visible:ring-[rgba(15,23,42,0.35)]"
+          style={{ color: "rgba(15,23,42,0.45)" }}
+        >
+          <X size={14} strokeWidth={2.6} />
+        </button>
       </nav>
     </div>
   );

@@ -459,6 +459,10 @@ export function MonthlyTrend({ points }: { points: TrendPoint[] }) {
     const raf = requestAnimationFrame(() => setGrown(true));
     return () => cancelAnimationFrame(raf);
   }, [reduce, points.length]);
+  // Must run before the empty-state early return — a hook called after it
+  // changes the hook order when `points` flips between empty and non-empty,
+  // which throws "rendered fewer hooks than expected".
+  const gradId = React.useId();
 
   if (points.length === 0) return <EmptyState label="No interviews recorded yet." />;
 
@@ -490,7 +494,6 @@ export function MonthlyTrend({ points }: { points: TrendPoint[] }) {
     }
     return d;
   })();
-  const gradId = React.useId();
 
   return (
     <div className="w-full overflow-x-auto">

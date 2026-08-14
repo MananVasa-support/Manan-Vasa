@@ -4,14 +4,28 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { salaryRuns, salaryBreakup } from "@/db/schema";
-import { requireAdmin } from "@/lib/auth/current";
+import { requireAdmin, requireUser } from "@/lib/auth/current";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { isFinanceViewer } from "@/lib/auth/finance-access";
+import {
+  amountPaidOf,
+  clampAmount,
+  paymentStatusOf,
+  settles,
+  totalPayable,
+  unpaidBalance,
+  type PaymentStatus,
+} from "@/lib/salary/payment";
 import { rateLimitOrError } from "@/lib/rate-limit";
 import { assembleMonthInputs, computeForRow } from "@/lib/salary/generate";
 import { syncBreakupFromApp } from "@/lib/salary/breakup-from-app";
 import { getRun, listRunsForMonth } from "@/lib/queries/salary";
 import { GenerateSalarySchema, RunEditSchema } from "@/lib/validators/salary";
-import { mailPayslipOnPaid } from "@/lib/salary/notify-paid";
+import {
+  mailPayslipOnPaid,
+  payslipMailTargets,
+  type PayslipMailSummary,
+} from "@/lib/salary/notify-paid";
 import { afterResponse } from "@/lib/after";
 
 export type ActionResult<T = unknown> =
@@ -311,39 +325,178 @@ export async function setDisbursed(
 }
 
 /**
- * Toggle the salary "Paid" mark for one salary_breakup row. SUPER-ADMINS ONLY
- * (Manan/Hetesh) — tracks whether that employee's salary for the month has been
- * disbursed. Stored on salary_breakup.paid (survives sheet re-syncs).
+ * What every payment write returns.
+ *
+ * `amountPaid` / `balance` / `status` are the RECOMPUTED truth straight from the
+ * server, so the table can settle on the authoritative figures rather than its
+ * own optimistic guess — the two can disagree whenever the entered amount gets
+ * clamped, or when another admin has moved the row in the meantime.
  */
-export async function setSalaryPaid(id: string, paid: boolean): Promise<ActionResult> {
-  const me = await requireAdmin();
-  if (!isSuperAdmin(me.email)) {
-    return { ok: false, error: "Only super-admins can mark salary as paid." };
+export interface PaymentWriteResult {
+  amountPaid: number;
+  payable: number;
+  balance: number;
+  status: PaymentStatus;
+  /** True when the entered amount exceeded the payable and was capped to it. */
+  clamped?: boolean;
+  /** True when the row was already in exactly this state — nothing written,
+   *  nothing emailed. */
+  noChange?: boolean;
+  /** Present only on the edge that settles the row (and therefore sends). */
+  mail?: PayslipMailSummary;
+}
+
+/** The columns the payment math needs. `netAfterWaiveOff` reads all of them. */
+const PAYMENT_COLS = {
+  paid: salaryBreakup.paid,
+  amountPaid: salaryBreakup.amountPaid,
+  finalPayment: salaryBreakup.finalPayment,
+  monthlyCtc: salaryBreakup.monthlyCtc,
+  daysInMonth: salaryBreakup.daysInMonth,
+  waiveOffDays: salaryBreakup.waiveOffDays,
+  payoutAdjustment: salaryBreakup.payoutAdjustment,
+} as const;
+
+type PaymentRow = {
+  [K in keyof typeof PAYMENT_COLS]: (typeof salaryBreakup.$inferSelect)[K];
+};
+
+/**
+ * THE payment write — every route into `salary_breakup.amount_paid` / `.paid`
+ * goes through here, so the settle rule, the slip-email edge and the clamp are
+ * defined once instead of once per entry point.
+ *
+ * AUTHORISATION (widened deliberately, 2026-08): finance viewers — admins,
+ * super-admins and the Accounts department — may record payments. This is the
+ * same population `requireFinanceAccess` already lets onto the Salary page, and
+ * it replaces the older super-admin-only write gate. Note it uses `requireUser`
+ * + `isFinanceViewer` rather than `requireAdmin`: an Accounts-department member
+ * is not `isAdmin`, so `requireAdmin` would have thrown before the check ran.
+ * The other super-admin writes on this page (notes, wave-off, adjustment) keep
+ * their narrower gate — only payment moved.
+ *
+ * THE AMOUNT IS RECOMPUTED, NEVER TRUSTED. The payable comes from the row's own
+ * columns on the server; the client's idea of it is never an input. An amount
+ * over the payable is capped, which is what makes a negative balance
+ * unrepresentable rather than merely unlikely.
+ *
+ * THE SLIP EMAIL FIRES ON ONE EDGE ONLY: not-settled → settled. A partial
+ * payment sends nothing. Topping a partial row up to the full amount sends once.
+ * Re-entering the same settled amount is a no-op that sends nothing, so a
+ * double-submit or a retried request cannot mail the same person twice.
+ */
+async function writePayment(
+  id: string,
+  /** A rupee figure, or "full" — settle the row at whatever the server computes
+   *  the payable to be, so the caller never has to know it. */
+  nextAmountRaw: number | "full",
+): Promise<ActionResult<PaymentWriteResult>> {
+  const me = await requireUser();
+  if (!(await isFinanceViewer(me))) {
+    return { ok: false, error: "You don't have access to record salary payments." };
   }
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   if (!UUID_RE.test(id)) return { ok: false, error: "Invalid row." };
+  if (nextAmountRaw !== "full" && !Number.isFinite(nextAmountRaw)) {
+    return { ok: false, error: "Enter a valid amount." };
+  }
+
+  let row: PaymentRow | undefined;
+  try {
+    [row] = await db.select(PAYMENT_COLS).from(salaryBreakup).where(eq(salaryBreakup.id, id)).limit(1);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+  if (!row) return { ok: false, error: "That salary row no longer exists." };
+
+  const payable = totalPayable(row);
+  // "full" resolves against the server's own payable, and is never reported as
+  // clamped — the admin asked to settle the row, not to type an over-amount.
+  const { amount, clamped } =
+    nextAmountRaw === "full" ? { amount: payable, clamped: false } : clampAmount(row, nextAmountRaw);
+  const wasSettled = row.paid;
+  const nowSettled = settles(row, amount);
+  const summary = (extra: Partial<PaymentWriteResult> = {}): PaymentWriteResult => ({
+    amountPaid: amount,
+    payable,
+    balance: unpaidBalance({ ...row, amountPaid: amount }),
+    status: paymentStatusOf({ ...row, amountPaid: amount }),
+    ...(clamped ? { clamped: true } : null),
+    ...extra,
+  });
+
+  // Nothing to change → nothing to write and, crucially, nothing to send.
+  if (wasSettled === nowSettled && amountPaidOf(row) === amount) {
+    return { ok: true, ...summary({ noChange: true }) };
+  }
+
   try {
     await db
       .update(salaryBreakup)
-      .set({ paid, paidAt: paid ? new Date() : null, paidById: paid ? me.id : null })
+      .set({
+        amountPaid: amount.toFixed(2),
+        paid: nowSettled,
+        // The audit stamps track SETTLEMENT, which is what they have always
+        // meant. A partial payment leaves them alone rather than claiming the
+        // row was paid off by whoever entered the instalment.
+        paidAt: nowSettled ? new Date() : null,
+        paidById: nowSettled ? me.id : null,
+      })
       .where(eq(salaryBreakup.id, id));
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 
-  // Mail the employee their slip the moment payment is recorded — to their work
-  // AND personal addresses (mailPayslipOnPaid → employeeEmailTargets). Only on
-  // the flip TO paid: unmarking must not send anything.
+  // Mail the employee their slip the moment the balance clears — to their work
+  // AND personal addresses (mailPayslipOnPaid → employeeEmailTargets).
   //
   // Deferred past the response because it renders a PDF and calls Resend, and
   // the row is already durable — the architecture's persist-then-return rule.
   // `mailPayslipOnPaid` never throws, so a mail failure can never turn a
-  // successful "Mark Paid" into an error the admin retries.
-  if (paid) afterResponse(() => mailPayslipOnPaid(id));
+  // successful payment into an error the admin retries.
+  let mail: PayslipMailSummary | undefined;
+  if (nowSettled && !wasSettled) {
+    // Resolved BEFORE deferring: once the response is out the action can no
+    // longer tell the admin that this person has no personal address on file.
+    mail = await payslipMailTargets(id).catch(() => undefined);
+    afterResponse(() => mailPayslipOnPaid(id));
+  }
 
   revalidatePath(PATH);
-  return { ok: true };
+  return { ok: true, ...summary(mail ? { mail } : {}) };
+}
+
+/**
+ * Record the cumulative amount paid against one salary row — the partial-payment
+ * entry point. `amount` is the TOTAL disbursed so far, not an instalment to add,
+ * so re-submitting the same figure is idempotent and correcting a typo is just
+ * entering the right number.
+ *
+ * Reaching the payable settles the row and sends the slip exactly as the full
+ * "Pay" button does; anything less leaves it partially paid and sends nothing.
+ */
+export async function setSalaryAmountPaid(
+  id: string,
+  amount: number,
+): Promise<ActionResult<PaymentWriteResult>> {
+  return writePayment(id, amount);
+}
+
+/**
+ * Set the salary "Paid" mark for one salary_breakup row — pay in full, or clear
+ * the payment entirely.
+ *
+ * Kept as its own action because "settle this row" is the common case and should
+ * not require anyone to look up and retype the payable. It is now a thin shell
+ * over `writePayment`: paying marks the FULL payable as disbursed, unmarking
+ * returns the row to ₹0 paid. Unmarking has never sent mail and still doesn't.
+ */
+export async function setSalaryPaid(
+  id: string,
+  paid: boolean,
+): Promise<ActionResult<PaymentWriteResult>> {
+  return writePayment(id, paid ? "full" : 0);
 }
 
 /**

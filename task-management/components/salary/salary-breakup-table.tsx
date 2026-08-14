@@ -2,11 +2,37 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Building2, ChevronsUpDown, Search, Check, Loader2, FileDown } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Building2,
+  ChevronsUpDown,
+  Search,
+  Check,
+  Loader2,
+  FileDown,
+  IndianRupee,
+  Undo2,
+} from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { fireToast } from "@/lib/toast";
-import { setSalaryPaid, setSalaryNote, setWaiveOff, setPayoutAdjustment } from "@/app/(app)/salary/actions";
+import {
+  setSalaryPaid,
+  setSalaryAmountPaid,
+  setSalaryNote,
+  setWaiveOff,
+  setPayoutAdjustment,
+  type PaymentWriteResult,
+} from "@/app/(app)/salary/actions";
 import { perDayRate, waiveAddBack } from "@/lib/salary/waive-off";
+import {
+  amountPaidOf,
+  paymentStatusOf,
+  totalPayable,
+  unpaidBalance,
+  PAYMENT_STATUS_LABEL,
+  type PaymentStatus,
+} from "@/lib/salary/payment";
 
 /* These two were called GREEN / GREEN_DEEP but held the brand RED (#E10600) —
  * and that misnaming is how the payout column, the payslip button and the Paid
@@ -49,6 +75,10 @@ export interface SalaryRow {
   previousPending: string | null;
   finalPayment: string | null;
   paid: boolean;
+  /** Cumulative rupees disbursed against this row. The unpaid balance and the
+   *  payment status are DERIVED from this + the payable (lib/salary/payment),
+   *  never stored, so they cannot drift from the amounts under them. */
+  amountPaid: string | null;
   /** Editable super-admin note (admin_note). Shown in the Remarks column —
    *  the imported joining-date `remarks`/`manan_remarks` are intentionally NOT
    *  projected to the client. */
@@ -68,6 +98,12 @@ export interface SalaryRow {
 
 const inr = (v: string | null) =>
   v == null || v === "" ? "—" : `₹${Math.round(Number(v)).toLocaleString("en-IN")}`;
+/** Rupees from an already-computed number. The payment columns are derived, so
+ *  they never have the "missing" case `inr` renders as an em dash. */
+const inrN = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
+/** The effective net to pay — base + wave-off add-back + adjustment. Aliased to
+ *  the shared `totalPayable` so the table cannot drift from the server action. */
+const netToPay = (r: SalaryRow) => totalPayable(r);
 const dec = (v: string | null) => (v == null || v === "" ? "—" : String(Number(v)));
 const num = (v: string | null) => (v == null || v === "" ? 0 : Number(v));
 
@@ -151,6 +187,31 @@ function MoneyTotal({ rows, pick, tone }: { rows: SalaryRow[]; pick: (r: SalaryR
     </span>
   );
 }
+
+/** Money total over a NUMERIC picker — the payment columns are computed, not
+ *  raw string fields, so they cannot go through `MoneyTotal`'s `string | null`. */
+function NetTotal({
+  rows,
+  pick,
+  tone,
+}: {
+  rows: SalaryRow[];
+  pick: (r: SalaryRow) => number;
+  tone?: "final" | "due";
+}) {
+  const sum = rows.reduce((s, r) => s + pick(r), 0);
+  return (
+    <span
+      className="tabular-nums text-[13.5px] font-black"
+      style={{ color: tone === "due" && sum > 0 ? "#b91c1c" : "var(--color-ink-strong)" }}
+    >
+      ₹{Math.round(sum).toLocaleString("en-IN")}
+    </span>
+  );
+}
+
+/** Sort order for the status column: work still to do first. */
+const STATUS_RANK: Record<PaymentStatus, number> = { unpaid: 0, partial: 1, paid: 2 };
 
 const COLUMNS: Col[] = [
   {
@@ -257,22 +318,74 @@ const COLUMNS: Col[] = [
     total: (rows) => <MoneyTotal rows={rows} pick={(r) => r.previousPending} />,
   },
   // ── Payout ──
+  // ── The payment block: Total payable · Amount paid · Unpaid balance · Status.
+  // Four adjacent columns because that is the question an accounts team asks in
+  // that order — what is owed, what went out, what is left, where does that
+  // leave us. Only "Total payable" comes from the sheet; the other three are
+  // derived by lib/salary/payment from the one stored figure (amount_paid), so
+  // no two of them can ever disagree.
   {
     key: "final",
-    label: "Final payment",
+    // Renamed from "Final payment": it is now the first of four money columns
+    // and has to say which one it is. Same value, same sort, same total.
+    label: "Total payable",
     align: "right",
     groupStart: true,
-    minWidth: 125,
-    sortValue: (r) => num(r.finalPayment),
+    minWidth: 118,
+    sortValue: (r) => netToPay(r),
+    // The EFFECTIVE net — base + wave-off add-back + adjustment — not the raw
+    // `final_payment`. That is the figure the balance is measured against, and
+    // showing a different number here than the one being paid off is exactly how
+    // a settled row ends up looking like it still owes money.
     render: (r) => (
-      // Ink, not red: this is what the employee is PAID. Weight already makes it
-      // the heaviest number in the row; colour on top of that only signalled
-      // alarm. Red stays reserved for deductions.
       <span className="tabular-nums text-[14px] font-black text-ink-strong">
-        {inr(r.finalPayment)}
+        {inrN(netToPay(r))}
       </span>
     ),
-    total: (rows) => <MoneyTotal rows={rows} pick={(r) => r.finalPayment} tone="final" />,
+    total: (rows) => <NetTotal rows={rows} pick={netToPay} tone="final" />,
+  },
+  {
+    key: "amountPaid",
+    label: "Amount paid",
+    align: "right",
+    minWidth: 132,
+    sortValue: (r) => amountPaidOf(r),
+    // Rendered by the component body — it needs `canRecordPayment` to decide
+    // between the inline editor and a read-only figure.
+    render: () => null,
+    total: (rows) => <NetTotal rows={rows} pick={amountPaidOf} />,
+  },
+  {
+    key: "balance",
+    label: "Unpaid balance",
+    align: "right",
+    minWidth: 122,
+    sortValue: (r) => unpaidBalance(r),
+    render: (r) => {
+      const bal = unpaidBalance(r);
+      return (
+        <span
+          className="tabular-nums text-[13.5px] font-black"
+          // Zero outstanding is the good outcome and stays quiet; anything left
+          // carries the deduction red the rest of the table already uses for
+          // "money still to move".
+          style={{ color: bal > 0 ? "#b91c1c" : "var(--color-ink-subtle)" }}
+        >
+          {inrN(bal)}
+        </span>
+      );
+    },
+    total: (rows) => <NetTotal rows={rows} pick={unpaidBalance} tone="due" />,
+  },
+  {
+    key: "payStatus",
+    label: "Payment status",
+    align: "left",
+    minWidth: 150,
+    // Unpaid → Partially paid → Paid, so sorting groups the work still to do at
+    // one end rather than scattering it.
+    sortValue: (r) => STATUS_RANK[paymentStatusOf(r)],
+    render: () => null,
   },
   // Super-admin-only "Wave-Off" GRANT — condone N days; the net is recomputed
   // (final payment + days × per-day rate). Rendered by the component (needs the
@@ -317,17 +430,6 @@ const COLUMNS: Col[] = [
       );
     },
   },
-  // Super-admin-only "Paid" toggle (filtered out of visibleCols when !canMarkPaid).
-  // Sortable → paid rows group together. Unpaid sorts before paid ascending.
-  {
-    key: "paid",
-    label: "Paid",
-    align: "left",
-    groupStart: true,
-    minWidth: 120,
-    sortValue: (r) => (r.paid ? 1 : 0),
-    render: (r) => <PaidToggle row={r} />,
-  },
   // Editable super-admin NOTE (admin_note) — pinned to the extreme end. Shows the
   // note (not the imported joining-date remarks). Rendered by the component so it
   // can read the canEditNote flag; placeholder cell here is replaced in the body.
@@ -351,42 +453,285 @@ const COLUMNS: Col[] = [
   },
 ];
 
-/* Super-admin salary "Paid" toggle — optimistic; server action is super-admin-gated. */
-function PaidToggle({ row }: { row: SalaryRow }) {
+/**
+ * "Amount paid" — the cumulative rupees disbursed, editable in place by anyone
+ * who may record payments.
+ *
+ * IT IS THE TOTAL, NOT AN INSTALMENT. Typing 30000 then 50000 means "₹50,000 has
+ * now gone out", not "₹80,000". That makes re-submitting the same figure a
+ * no-op and correcting a typo just a matter of entering the right number —
+ * whereas an add-an-instalment field turns every double-submit into a real
+ * overpayment.
+ *
+ * Saves on blur / Enter, reverts on Escape or error. The server is the authority
+ * on what was stored: it re-derives the payable, caps an over-amount at it, and
+ * hands back the settled figure, which is what lands in the field afterwards —
+ * so an admin who types ₹99,000 against a ₹50,000 payable sees it become
+ * ₹50,000 and is told why, rather than the row silently disagreeing with what
+ * is on screen.
+ */
+function AmountPaidCell({ row, editable }: { row: SalaryRow; editable: boolean }) {
   const router = useRouter();
-  const [paid, setPaid] = useState(row.paid);
+  const stored = amountPaidOf(row);
+  const [val, setVal] = useState(stored > 0 ? String(stored) : "");
+  const [saved, setSaved] = useState(stored);
   const [busy, setBusy] = useState(false);
-  async function toggle() {
+
+  if (!editable) {
+    return (
+      <span className="tabular-nums text-[13.5px] font-bold text-ink-soft">{inrN(stored)}</span>
+    );
+  }
+
+  async function commit() {
     if (busy) return;
-    const next = !paid;
-    setPaid(next);
+    const trimmed = val.trim();
+    const next = trimmed === "" ? 0 : Number(trimmed);
+    if (!Number.isFinite(next) || next < 0) {
+      setVal(saved > 0 ? String(saved) : "");
+      fireToast({ message: "Enter a valid amount (0 or more).", type: "error" });
+      return;
+    }
+    if (next === saved) return; // Nothing typed that changes anything.
+
     setBusy(true);
-    const res = await setSalaryPaid(row.id, next);
+    const res = await setSalaryAmountPaid(row.id, next);
     setBusy(false);
     if (!res.ok) {
-      setPaid(!next);
+      setVal(saved > 0 ? String(saved) : "");
       fireToast({ message: res.error, type: "error" });
       return;
     }
+    // Settle on the SERVER's figure, not the typed one — they differ whenever
+    // the amount was capped at the payable.
+    setSaved(res.amountPaid);
+    setVal(res.amountPaid > 0 ? String(res.amountPaid) : "");
+    fireToast(paymentToast(res, row.employeeName));
     router.refresh();
   }
+
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      disabled={busy}
-      title={paid ? "Paid — tap to unmark" : "Mark as paid"}
-      className="inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12px] font-bold transition disabled:opacity-60"
-      style={
-        paid
-          ? { background: `linear-gradient(135deg, ${PAID_GREEN}, ${PAID_GREEN_DEEP})`, color: "#fff", boxShadow: `0 4px 12px -6px ${PAID_GREEN_DEEP}` }
-          : { background: "var(--color-surface-soft)", color: "var(--color-ink-muted)", boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" }
-      }
-    >
-      {busy ? <Loader2 size={12} className="animate-spin" /> : paid ? <Check size={12} strokeWidth={3} /> : null}
-      {paid ? "Paid" : "Mark Paid"}
-    </button>
+    <span className="inline-flex items-center justify-end gap-1.5">
+      {busy && <Loader2 size={12} className="animate-spin text-ink-subtle" aria-hidden />}
+      <input
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          } else if (e.key === "Escape") {
+            setVal(saved > 0 ? String(saved) : "");
+            e.currentTarget.blur();
+          }
+        }}
+        disabled={busy}
+        inputMode="decimal"
+        placeholder="0"
+        aria-label={`Amount paid to ${row.employeeName}`}
+        title="Total rupees paid so far against this row. Enter the running total, not an instalment."
+        className="w-[92px] rounded-md border border-hairline-strong bg-surface-card px-2 py-1 text-right text-[13px] font-bold tabular-nums text-ink-strong outline-none transition-colors focus:border-[color:var(--color-altus-red)] disabled:opacity-60"
+      />
+    </span>
   );
+}
+
+/**
+ * Payment status — Unpaid · Partially paid · Paid.
+ *
+ * DERIVED, never stored: the status is whatever `paymentStatusOf` says about the
+ * amount and the payable, so it cannot fall out of step with the two numbers
+ * printed beside it in the same row.
+ *
+ * UNPAID and PARTIALLY PAID carry an action — a red "Pay" that settles the row
+ * in full (the common case: nobody should have to look up and retype the payable
+ * to close it out). PAID IS NOT A BUTTON: it renders as a plain green span with
+ * no click handler, which makes an accidental re-payment structurally impossible
+ * rather than merely discouraged. The server agrees independently — `writePayment`
+ * re-reads the row and treats an unchanged state as a no-op, so even a replayed
+ * request sends no second slip.
+ *
+ * Reversing is still possible and still deliberate: a small "unmark" control
+ * beside the Paid pill clears the payment back to ₹0 behind a confirm. Clearing
+ * has never sent mail and still doesn't.
+ */
+function PaymentStatusCell({ row, editable }: { row: SalaryRow; editable: boolean }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const status = paymentStatusOf(row);
+  const balance = unpaidBalance(row);
+
+  async function payInFull() {
+    if (busy || status === "paid") return;
+    setBusy(true);
+    const res = await setSalaryPaid(row.id, true);
+    setBusy(false);
+    if (!res.ok) {
+      fireToast({ message: res.error, type: "error" });
+      return;
+    }
+    fireToast(paymentToast(res, row.employeeName));
+    router.refresh();
+  }
+
+  async function clearPayment() {
+    if (busy) return;
+    const ok = window.confirm(
+      `Clear the recorded payment for ${row.employeeName}?\n\nAmount paid goes back to ₹0 and the row returns to Unpaid. No email is sent. Paying again afterwards WILL email the salary slip a second time.`,
+    );
+    if (!ok) return;
+    setBusy(true);
+    const res = await setSalaryPaid(row.id, false);
+    setBusy(false);
+    if (!res.ok) {
+      fireToast({ message: res.error, type: "error" });
+      return;
+    }
+    fireToast({ message: `${row.employeeName} — recorded payment cleared.`, type: "info" });
+    router.refresh();
+  }
+
+  const pill = <StatusPill status={status} />;
+
+  // Read-only viewer: the state, and nothing to press.
+  if (!editable) return pill;
+
+  if (status === "paid") {
+    return (
+      <span className="inline-flex items-center gap-1">
+        {pill}
+        <button
+          type="button"
+          onClick={clearPayment}
+          disabled={busy}
+          aria-label={`Clear recorded payment for ${row.employeeName}`}
+          title="Clear the recorded payment (does not send email)"
+          // Quiet by design: reversing a recorded payment should take a
+          // deliberate look, not sit at the same weight as the action itself.
+          className="inline-flex size-5 items-center justify-center rounded-md text-ink-subtle opacity-0 transition hover:bg-surface-soft hover:text-ink-strong focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-40"
+        >
+          {busy ? <Loader2 size={11} className="animate-spin" /> : <Undo2 size={11} strokeWidth={2.6} />}
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {pill}
+      <button
+        type="button"
+        onClick={payInFull}
+        disabled={busy}
+        title={
+          status === "partial"
+            ? `Pay the remaining ${inrN(balance)} and email the salary slip`
+            : "Pay in full and email the salary slip to the employee's work + personal addresses"
+        }
+        className="inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-[11.5px] font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+        style={{ background: `linear-gradient(135deg, ${BRAND_RED}, ${BRAND_RED_DEEP})` }}
+      >
+        {busy ? (
+          <>
+            <Loader2 size={11} className="animate-spin" aria-hidden /> Paying…
+          </>
+        ) : (
+          <>
+            <IndianRupee size={11} strokeWidth={3} aria-hidden />
+            {status === "partial" ? "Pay rest" : "Pay"}
+          </>
+        )}
+      </button>
+    </span>
+  );
+}
+
+/** The three states, one treatment each. Amber for partial: it is neither a
+ *  problem nor finished, and reusing the settled green would hide the balance. */
+function StatusPill({ status }: { status: PaymentStatus }) {
+  const style =
+    status === "paid"
+      ? { background: `linear-gradient(135deg, ${PAID_GREEN}, ${PAID_GREEN_DEEP})`, color: "#fff" }
+      : status === "partial"
+        ? { background: "color-mix(in srgb, #b45309 14%, transparent)", color: "#92400e" }
+        : { background: "var(--color-surface-soft)", color: "var(--color-ink-muted)", boxShadow: "inset 0 0 0 1px var(--color-hairline-strong)" };
+  return (
+    <span
+      className="inline-flex items-center gap-1 whitespace-nowrap rounded-pill px-2.5 py-1 text-[11.5px] font-bold"
+      style={style}
+    >
+      {status === "paid" && <Check size={11} strokeWidth={3.2} aria-hidden />}
+      {PAYMENT_STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+/**
+ * What to tell the admin after a payment write.
+ *
+ * A PARTIAL payment reports the balance and says nothing about email, because
+ * nothing was sent — only settling the row triggers the slip.
+ *
+ * On settlement the mail is sent AFTER the response, so this reports which
+ * addresses are ON FILE, never that delivery succeeded, and the wording says so.
+ * A missing mailbox is called out explicitly rather than the payment quietly
+ * reading as a full success: a slip that reached only one of two addresses is
+ * exactly the case someone needs to know about.
+ */
+function paymentToast(
+  res: PaymentWriteResult,
+  name: string,
+): { message: string; type: "success" | "error" | "info" } {
+  const capped = res.clamped
+    ? ` Entered amount exceeded the ${inrN(res.payable)} payable, so it was capped.`
+    : "";
+
+  if (res.noChange) {
+    return { message: `${name} — no change; nothing re-sent.${capped}`, type: "info" };
+  }
+
+  // Still outstanding → a plain record of the running total. No slip goes out
+  // until the balance clears, and saying "paid" here would be wrong.
+  if (res.status !== "paid") {
+    return {
+      message: `${name} — ${inrN(res.amountPaid)} of ${inrN(res.payable)} recorded. ${inrN(res.balance)} still outstanding.${capped}`,
+      type: "info",
+    };
+  }
+
+  // Settled. `mail` is absent when the row was ALREADY settled before this write
+  // (so nothing was sent) — that is the noChange path above in practice, but a
+  // concurrent settle can land here too.
+  const mail = res.mail;
+  if (!mail || !mail.linked) {
+    return {
+      message: `${name} paid in full. No linked employee record on this row, so no salary slip could be emailed.${capped}`,
+      type: "info",
+    };
+  }
+  if (mail.to.length === 0) {
+    return {
+      message: `${name} paid in full — but no email address is on file, so the salary slip was NOT sent.${capped}`,
+      type: "error",
+    };
+  }
+  if (!mail.personal) {
+    return {
+      message: `${name} paid in full. Slip sent to the work address only — no personal email on file.${capped}`,
+      type: "info",
+    };
+  }
+  if (!mail.business) {
+    return {
+      message: `${name} paid in full. Slip sent to the personal address only — no work email on file.${capped}`,
+      type: "info",
+    };
+  }
+  return {
+    message: `${name} paid in full. Salary slip sent to their work and personal email.${capped}`,
+    type: "success",
+  };
 }
 
 /* Editable "Remarks" note — super-admins type an inline note (admin_note);
@@ -661,14 +1006,17 @@ type SortState = { key: string; dir: "asc" | "desc" } | null;
 
 export function SalaryBreakupTable({
   rows,
-  canMarkPaid = false,
+  canRecordPayment = false,
   canEditNote = false,
   canWaiveOff = false,
   month,
   hideCompanyFilter = false,
 }: {
   rows: SalaryRow[];
-  canMarkPaid?: boolean;
+  /** May the viewer record payments — enter an amount, settle a row, clear one?
+   *  Finance viewers (admins, super-admins, Accounts department). Everyone who
+   *  reaches this page can READ the four payment columns; this gates the writes. */
+  canRecordPayment?: boolean;
   /** Super-admins can edit the inline Remarks note; others see it read-only. */
   canEditNote?: boolean;
   /** Super-admins can type condoned "Wave-Off" days; others see the grant read-only. */
@@ -756,13 +1104,17 @@ export function SalaryBreakupTable({
   const showWaiveOff = canWaiveOff || rows.some((r) => num(r.waiveOffDays) > 0);
   // Adjustment (Sir #37) uses the same super-admin gate as Wave-Off.
   const showAdjust = canWaiveOff || rows.some((r) => num(r.payoutAdjustment) !== 0);
-  // Column order (trailing): … Payout · Wave-Off · Adjustment · Paid · Remarks.
+  // Column order (trailing): … Payout · Wave-Off · Adjustment · Remarks.
   // Drop each when its viewer/flag isn't present. Groups rebuilt to match.
+  //
+  // The four payment columns are NEVER dropped. They are read-only for a viewer
+  // who cannot record payments, not hidden: anyone who reaches this page has
+  // finance access and is entitled to see what is owed and what has gone out.
+  // (Normal employees never get here — `requireFinanceAccess` redirects them.)
   const visibleCols = COLUMNS.filter(
     (c) =>
       (c.key !== "waiveOff" || showWaiveOff) &&
       (c.key !== "payoutAdj" || showAdjust) &&
-      (c.key !== "paid" || canMarkPaid) &&
       (c.key !== "remarks" || showRemarks),
   );
   const visibleGroups: { label: string; span: number }[] = [
@@ -770,10 +1122,11 @@ export function SalaryBreakupTable({
     { label: "Attendance — days", span: 6 },
     { label: "Pay", span: 4 },
     { label: "Adjustments", span: 2 },
-    { label: "Payout", span: 1 },
+    // Payout now spans four: Total payable · Amount paid · Unpaid balance ·
+    // Payment status.
+    { label: "Payout", span: 4 },
     ...(showWaiveOff ? [{ label: "", span: 1 }] : []), // Wave-Off (name shown on the column header)
     ...(showAdjust ? [{ label: "", span: 1 }] : []), // Adjustment
-    ...(canMarkPaid ? [{ label: "", span: 1 }] : []), // Paid
     ...(showRemarks ? [{ label: "", span: 1 }] : []), // Remarks
     { label: "", span: 1 }, // Payslip (always shown)
   ];
@@ -991,7 +1344,11 @@ export function SalaryBreakupTable({
                         ...(c.key === "company" ? { left: EMP_W } : {}),
                       }}
                     >
-                      {c.key === "remarks" ? (
+                      {c.key === "amountPaid" ? (
+                        <AmountPaidCell row={r} editable={canRecordPayment} />
+                      ) : c.key === "payStatus" ? (
+                        <PaymentStatusCell row={r} editable={canRecordPayment} />
+                      ) : c.key === "remarks" ? (
                         <RemarkCell row={r} editable={canEditNote} />
                       ) : c.key === "waiveOff" ? (
                         <WaiveOffCell row={r} editable={canWaiveOff} />

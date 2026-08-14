@@ -27,13 +27,16 @@ const inr = (v: number) => `₹${Math.round(v).toLocaleString("en-IN")}`;
  */
 export function SalaryWorkspace({
   rows,
-  canMarkPaid = false,
+  canRecordPayment = false,
   canEditNote = false,
   canWaiveOff = false,
   month,
 }: {
   rows: SalaryRow[];
-  canMarkPaid?: boolean;
+  /** May the viewer record payments (enter amounts / settle rows)? Finance
+   *  viewers — admins, super-admins and the Accounts department. Distinct from
+   *  the super-admin-only note/wave-off/adjustment gates below. */
+  canRecordPayment?: boolean;
   canEditNote?: boolean;
   canWaiveOff?: boolean;
   month?: string;
@@ -151,7 +154,7 @@ export function SalaryWorkspace({
         />
       </section>
 
-      <SalaryBreakupTable rows={shown} canMarkPaid={canMarkPaid} canEditNote={canEditNote} canWaiveOff={canWaiveOff} month={month} hideCompanyFilter />
+      <SalaryBreakupTable rows={shown} canRecordPayment={canRecordPayment} canEditNote={canEditNote} canWaiveOff={canWaiveOff} month={month} hideCompanyFilter />
     </>
   );
 }

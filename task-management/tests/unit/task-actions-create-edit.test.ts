@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// `unstable_cache` arrives via lib/queries/employees (listEmployeeOptions);
+// pass the work function straight through so the cached query behaves as a
+// plain async call under test.
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
   updateTag: vi.fn(),
+  unstable_cache: <T>(fn: T) => fn,
 }));
 
 // Tier-3 — actions.ts now imports getStatusDisplayMap (server-only).

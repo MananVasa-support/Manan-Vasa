@@ -155,8 +155,9 @@ export function SingleWindowGuard({ enabled = true }: { enabled?: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 
-  if (!enabled) return null;
-
+  // Declared before the `enabled` / `locked` early returns — a hook after them
+  // changes the hook order when the guard toggles, which throws
+  // "rendered more hooks than during the previous render".
   const useHere = React.useCallback(() => {
     const tabId = tabIdRef.current;
     try {
@@ -176,6 +177,7 @@ export function SingleWindowGuard({ enabled = true }: { enabled?: boolean }) {
     setLocked(false);
   }, []);
 
+  if (!enabled) return null;
   if (!locked) return null;
 
   return (

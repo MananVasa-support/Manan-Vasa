@@ -22,6 +22,42 @@ function readSpace(): Space {
  * the Yearly board in the chosen space. Personal is the admin's PRIVATE goals
  * world; Professional is the shared module.
  */
+/** One segment of the pill. Declared at module scope — defining it inside
+ *  `GoalsSpaceToggle` gives React a brand-new component type on every render,
+ *  which remounts both buttons (losing focus mid-interaction) instead of
+ *  updating them. */
+function Seg({
+  value,
+  label,
+  Icon,
+  active,
+  onPick,
+}: {
+  value: Space;
+  label: string;
+  Icon: typeof User;
+  active: boolean;
+  onPick: (next: Space) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onPick(value)}
+      aria-pressed={active}
+      title={label}
+      className="relative inline-flex min-w-0 flex-1 items-center justify-center gap-1 rounded-[9px] px-1.5 py-1.5 text-[12px] font-bold transition-colors"
+      style={
+        active
+          ? { background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", color: "#fff", boxShadow: "0 6px 14px -8px var(--color-altus-red-deep)" }
+          : { color: "var(--color-ink-muted)" }
+      }
+    >
+      <Icon size={13} strokeWidth={2.5} className="shrink-0" />
+      <span className="sidebar-collapsible-hide truncate">{label}</span>
+    </button>
+  );
+}
+
 export function GoalsSpaceToggle() {
   const router = useRouter();
   const [space, setSpace] = React.useState<Space>("professional");
@@ -35,27 +71,6 @@ export function GoalsSpaceToggle() {
     router.refresh();
   }
 
-  const Seg = ({ value, label, Icon }: { value: Space; label: string; Icon: typeof User }) => {
-    const active = space === value;
-    return (
-      <button
-        type="button"
-        onClick={() => pick(value)}
-        aria-pressed={active}
-        title={label}
-        className="relative inline-flex min-w-0 flex-1 items-center justify-center gap-1 rounded-[9px] px-1.5 py-1.5 text-[12px] font-bold transition-colors"
-        style={
-          active
-            ? { background: "linear-gradient(135deg, var(--color-altus-red), var(--color-altus-red-deep))", color: "#fff", boxShadow: "0 6px 14px -8px var(--color-altus-red-deep)" }
-            : { color: "var(--color-ink-muted)" }
-        }
-      >
-        <Icon size={13} strokeWidth={2.5} className="shrink-0" />
-        <span className="sidebar-collapsible-hide truncate">{label}</span>
-      </button>
-    );
-  };
-
   return (
     <div className="px-4 pb-2">
       <div
@@ -64,8 +79,8 @@ export function GoalsSpaceToggle() {
         role="group"
         aria-label="Goals space"
       >
-        <Seg value="professional" label="Professional" Icon={Briefcase} />
-        <Seg value="personal" label="Personal" Icon={User} />
+        <Seg value="professional" label="Professional" Icon={Briefcase} active={space === "professional"} onPick={pick} />
+        <Seg value="personal" label="Personal" Icon={User} active={space === "personal"} onPick={pick} />
       </div>
     </div>
   );

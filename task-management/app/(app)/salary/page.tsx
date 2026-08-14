@@ -7,8 +7,9 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { salaryBreakupMonths, listSalaryBreakup } from "@/lib/queries/salary-breakup";
 import { type SalaryRow } from "@/components/salary/salary-breakup-table";
 import { SalaryWorkspace } from "@/components/salary/salary-workspace";
-import { SalaryMonthPicker } from "@/components/salary/salary-month-picker";
+import { SalaryPeriodSelect } from "@/components/salary/salary-period-select";
 import { SalaryExportButtons } from "@/components/salary/salary-export-buttons";
+import { PageShell } from "@/components/layout/page-shell";
 import {
   StatementDownloads,
   type StatementEmployee,
@@ -38,7 +39,21 @@ function monthLabel(ym: string, style: "long" | "short" = "long"): string {
 
 export default async function SalaryPage({ searchParams }: PageProps) {
   const me = await requireFinanceAccess();
-  const canMarkPaid = isSuperAdmin(me.email);
+  // TWO DIFFERENT WRITE GATES on this page, deliberately.
+  //
+  // Payment (record an amount, settle a row) is open to every FINANCE VIEWER —
+  // admins, super-admins and the Accounts department — because recording what
+  // has actually gone out is the accounts team's own job. `requireFinanceAccess`
+  // above already admits exactly that population, so reaching this line is the
+  // check; a normal employee is redirected to /hub and never sees a figure.
+  //
+  // Everything else that MOVES THE PAYABLE — the admin note, the wave-off grant
+  // and the pre-payout adjustment — stays super-admin-only. Those change what is
+  // owed; payment only records what was sent.
+  const canRecordPayment = true;
+  // Renamed from `canMarkPaid`: it no longer has anything to do with marking
+  // payment. It now gates only the writes that MOVE the payable.
+  const canEditPayable = isSuperAdmin(me.email);
   const sp = await searchParams;
   const months = await salaryBreakupMonths();
   const raw = typeof sp.month === "string" ? sp.month : undefined;
@@ -94,6 +109,7 @@ export default async function SalaryPage({ searchParams }: PageProps) {
     previousPending: r.previousPending,
     finalPayment: r.finalPayment,
     paid: r.paid,
+    amountPaid: r.amountPaid,
     adminNote: r.adminNote,
     waiveOffDays: r.waiveOffDays,
     waiveOffNote: r.waiveOffNote,
@@ -104,7 +120,12 @@ export default async function SalaryPage({ searchParams }: PageProps) {
   return (
     <>
       <DashboardHeader generatedAt={new Date()} />
-      <main className="mx-auto max-w-[1400px] px-8 max-lg:px-6 max-md:px-4 pt-8 pb-16">
+      {/* Full-width: the old `max-w-[1400px]` cap was what squeezed the payroll
+          table and pushed the export buttons off the right edge once the rail
+          was open. PageShell width="full" uses --content-full plus the fluid
+          --page-gutter, so the table gets the whole column at any desktop width
+          and the gutter shrinks instead of the content. */}
+      <PageShell as="main" width="full" py={false} className="pt-6 pb-16 max-md:pt-4">
         {/* ── Glass hero: eyebrow · month title · month selector ── */}
         {/* Trimmed from a full-height glass hero to a compact bar: one soft tint
             instead of two stacked radials, ~40% less vertical space, and a title
@@ -123,16 +144,14 @@ export default async function SalaryPage({ searchParams }: PageProps) {
               "inset 0 0 0 1px var(--color-hairline), 0 8px 24px -20px rgba(15,23,42,0.20)",
           }}
         >
-          <div className="flex items-center justify-between gap-5 flex-wrap">
-            <div className="min-w-0">
-              <span
-                className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-white"
-                style={{ background: `linear-gradient(135deg, ${GREEN}, ${GREEN_DEEP})` }}
-              >
-                <Wallet size={12} strokeWidth={2.6} /> Employees · Salary
-              </span>
+          {/* Title · period selector — then export actions hard right. The
+              eyebrow pill that sat above the title is gone: it restated the
+              breadcrumb the rail and the URL already carry, and cost the header
+              a whole line before the heading even started. */}
+          <div className="flex items-center justify-between gap-x-5 gap-y-3 flex-wrap">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
               <h1
-                className="mt-1.5 text-ink-strong"
+                className="text-ink-strong"
                 style={{
                   fontFamily: "var(--font-display), system-ui, sans-serif",
                   fontWeight: 800,
@@ -143,7 +162,22 @@ export default async function SalaryPage({ searchParams }: PageProps) {
               >
                 {month ? `${monthLabel(month)} payroll` : "Salary Breakup"}
               </h1>
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px]">
+
+              {/* Year + month, inline with the title — the two dropdowns that
+                  replaced the year-chip and month-chip rows below the header. */}
+              {months.length > 0 && (
+                <SalaryPeriodSelect months={months} selected={month ?? ""} />
+              )}
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2.5">
+              <SalaryExportButtons month={month} />
+            </div>
+          </div>
+
+          {/* Secondary links drop to their own quiet line so they never compete
+              with the title row for width on a narrow window. */}
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px]">
                 {process.env.SALARY_DOCS_UI !== "false" && (
                   <Link href={"/salary/documents" as Route} className="inline-flex items-center gap-1.5 text-[13.5px] font-bold" style={{ color: GREEN_DEEP }}>
                     Exit Documents &amp; Signatory Letters →
@@ -160,16 +194,6 @@ export default async function SalaryPage({ searchParams }: PageProps) {
                   </Link>
                 )}
               </div>
-            </div>
-
-            <div className="flex flex-col items-end gap-2.5 max-md:items-start">
-              <SalaryExportButtons month={month} />
-            </div>
-          </div>
-
-          {months.length > 0 && (
-            <SalaryMonthPicker months={months} selected={month ?? ""} />
-          )}
         </header>
 
         {/* ── The breakup workspace: a COMPANY selector scopes the KPI cards +
@@ -208,7 +232,7 @@ export default async function SalaryPage({ searchParams }: PageProps) {
           </section>
         ) : (
           <>
-            <SalaryWorkspace rows={tableRows} canMarkPaid={canMarkPaid} canEditNote={canMarkPaid} canWaiveOff={canMarkPaid} month={month ?? undefined} />
+            <SalaryWorkspace rows={tableRows} canRecordPayment={canRecordPayment} canEditNote={canEditPayable} canWaiveOff={canEditPayable} month={month ?? undefined} />
 
             {/* ── Statement & earnings document downloads (behind SALARY_STATEMENTS) ── */}
             {statementsOn && month && statementEmployees.length > 0 && (
@@ -224,7 +248,7 @@ export default async function SalaryPage({ searchParams }: PageProps) {
             )}
           </>
         )}
-      </main>
+      </PageShell>
     </>
   );
 }
