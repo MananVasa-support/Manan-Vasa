@@ -4,11 +4,8 @@ import * as React from "react";
 import {
   Loader2,
   Check,
-  Save,
-  ClipboardCheck,
   UserRound,
   AlertTriangle,
-  Gavel,
   Briefcase,
   ShieldCheck,
   Printer,
@@ -33,8 +30,6 @@ import {
   RECOMMENDATIONS,
 } from "@/lib/hr/candidate/evaluation-v2";
 import {
-  overallScore,
-  ratingProgress,
   eligibilityVerdict,
   allSectionScores,
   type ScoreContext,
@@ -43,7 +38,6 @@ import {
 import { computeComposites } from "@/lib/hr/candidate/evaluation-v2-composites";
 import { getEvaluationV2, saveEvaluationV2 } from "@/app/(app)/hr/evaluation-v2-actions";
 import type { EvaluationV2Load } from "@/app/(app)/hr/evaluation-v2-actions-types";
-import { OverallDial } from "./dial";
 import { SectionShell } from "./layout";
 import { EligibilitySection } from "./eligibility-section";
 import { RatingSection } from "./rating-section";
@@ -303,13 +297,8 @@ export function EvaluationV2Screen({
   }, [instance, profile, ctx, patch]);
 
   const roleLabel = role === "interviewer" ? "Interviewer" : "Management";
-  const RoleIcon = role === "interviewer" ? ClipboardCheck : Gavel;
-
-  const overall = instance ? overallScore(instance, profile, ctx) : null;
-  const interviewScore = instance ? computeComposites(instance, profile, ctx).interviewScore : null;
-  const progress = instance ? ratingProgress(instance, ctx) : { rated: 0, total: 0 };
-  const pctDone = progress.total > 0 ? Math.round((progress.rated / progress.total) * 100) : 0;
-  const otherOverall = load?.other ? overallScore(load.other, profile, ctx) : null;
+  // (overall / interviewScore / progress / donut readouts removed with the header
+  // Progress bar + Overall dial — the gut-number block is the score readout now.)
 
   const tone = STATUS_TONE[selected?.status ?? "new"] ?? STATUS_TONE.new!;
 
@@ -344,16 +333,6 @@ export function EvaluationV2Screen({
     <>
       <style>{CSS}</style>
       <PageShell width="standard" py={false} className="pt-5 pb-20">
-        {/* Hero — title only (the eyebrow + long description were removed so the
-            candidate selector and interview content lead on the first viewport). */}
-        <div className="ev2-fade mb-3.5">
-          <h1
-            className="text-ink-strong"
-            style={{ fontFamily: DISPLAY, fontWeight: 900, fontSize: "clamp(24px,2.8vw,36px)", letterSpacing: "-0.03em", lineHeight: 1.03 }}
-          >
-            Interview Intelligence
-          </h1>
-        </div>
 
         {/* Control + candidate-summary card — NOT sticky, so the Overall Progress
             donut belongs to this card and scrolls away with it (no floating). */}
@@ -388,14 +367,6 @@ export function EvaluationV2Screen({
               </div>
             )}
 
-            <span
-              className="inline-flex shrink-0 items-center gap-1.5 self-end rounded-pill px-3 py-2 text-[12px] font-bold"
-              style={{ background: "color-mix(in srgb, var(--color-altus-red) 9%, white)", color: RED_DEEP }}
-              title={`You are filling the ${roleLabel} evaluation`}
-            >
-              <RoleIcon size={13} strokeWidth={2.5} /> {roleLabel}
-            </span>
-
             {load && (
               <div className="ev2-select-wrap min-w-[170px] shrink-0">
                 <label htmlFor="ev2-designation" className="mb-1 block text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink-soft">
@@ -419,15 +390,9 @@ export function EvaluationV2Screen({
 
             {candidateId && (
               <div className="flex shrink-0 items-center gap-3 self-end">
+                {/* Autosaves on every change (scheduleSave, 800ms debounce) — the
+                    manual Save button was redundant and has been removed (Sir). */}
                 <SaveState saving={saving} dirty={dirty} loading={loading} />
-                <button
-                  type="button"
-                  onClick={() => void saveNow()}
-                  disabled={saving || loading || !instance}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#18181b] px-4 py-2.5 text-[12.5px] font-bold text-white transition-colors hover:bg-black disabled:opacity-40"
-                >
-                  <Save size={14} /> Save
-                </button>
               </div>
             )}
           </div>
@@ -456,28 +421,8 @@ export function EvaluationV2Screen({
               <span className="inline-flex shrink-0 items-center rounded-pill px-2.5 py-1 text-[11.5px] font-bold" style={{ background: tone.bg, color: tone.fg }}>
                 {tone.label}
               </span>
-
-              <div className="ml-auto flex items-center gap-5">
-                <div className="min-w-[150px]">
-                  <div className="flex items-center justify-between text-[12px] font-semibold text-ink-strong">
-                    <span>Progress</span>
-                    <span className="tabular-nums" style={{ color: RED_DEEP }}>{progress.rated}/{progress.total}</span>
-                  </div>
-                  <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full" style={{ background: "var(--color-hairline)" }}>
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${pctDone}%`, background: `linear-gradient(90deg, ${RED}, ${RED_DEEP})`, transition: "width 0.4s cubic-bezier(0.22,1,0.36,1)" }}
-                    />
-                  </div>
-                  {otherOverall && otherOverall.avg !== null && (
-                    <p className="mt-1 text-[11px] font-semibold text-ink-subtle">
-                      {load?.otherRole === "management" ? "Management" : "Interviewer"}: {fmt(otherOverall.avg)}/10
-                    </p>
-                  )}
-                </div>
-
-                <OverallDial value={overall?.avg ?? null} pct={interviewScore} size={104} />
-              </div>
+              {/* Progress bar + Overall donut removed (Sir) — the gut-number +
+                  computed-weighted block below is now the single score readout. */}
             </div>
           )}
 

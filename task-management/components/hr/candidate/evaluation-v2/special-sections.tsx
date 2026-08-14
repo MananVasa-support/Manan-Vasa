@@ -440,20 +440,20 @@ export function OverallInput({
   const tone = toneFor(computed.avg);
   const set = instance.overall !== null;
   return (
-    <div className="rounded-2xl border border-hairline bg-white p-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="rounded-2xl border-2 p-5" style={{ borderColor: "color-mix(in srgb, var(--color-altus-red) 22%, var(--color-hairline))", background: "color-mix(in srgb, var(--color-altus-red) 3%, #fff)" }}>
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <span className="inline-flex items-center gap-2 text-[13.5px] font-bold text-ink-strong">
-            <Gauge size={16} className="text-altus-red" /> Your gut number
+          <span className="inline-flex items-center gap-2 text-[17px] font-black text-ink-strong" style={{ fontFamily: DISPLAY, letterSpacing: "-0.01em" }}>
+            <Gauge size={20} className="text-altus-red" /> Your gut number
           </span>
-          <div className="mt-2">
-            <RatingControl label="Overall interviewer score" value={instance.overall ?? 0} onChange={(v) => ctrl.setOverall(v)} />
+          <div className="mt-3">
+            <RatingControl label="Overall interviewer score" value={instance.overall ?? 0} onChange={(v) => ctrl.setOverall(v)} size={36} />
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-3 rounded-xl px-4 py-2.5" style={{ background: tone.soft }}>
+        <div className="flex shrink-0 items-center gap-3 rounded-2xl px-5 py-3.5" style={{ background: tone.soft }}>
           <div className="text-right">
-            <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-ink-soft">Computed weighted</p>
-            <p className="text-[20px] font-black tabular-nums leading-tight" style={{ color: tone.fg, fontFamily: DISPLAY }}>
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-soft">Computed weighted</p>
+            <p className="text-[32px] font-black tabular-nums leading-none" style={{ color: tone.fg, fontFamily: DISPLAY }}>
               {computed.avg === null ? "— / 10" : `${fmt(computed.avg)} / 10`}
             </p>
           </div>

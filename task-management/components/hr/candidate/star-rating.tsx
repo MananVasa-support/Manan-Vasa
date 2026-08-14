@@ -15,7 +15,7 @@ export function StarRating({
   value,
   onChange,
   readOnly = false,
-  size = 22,
+  size = 30,
 }: {
   value: number;
   onChange?: (v: number) => void;
@@ -32,9 +32,9 @@ export function StarRating({
           const fill = Math.max(0, Math.min(1, shown - i)); // 0 · 0.5 · 1
           return (
             <span key={i} className="relative inline-block" style={{ width: size, height: size }}>
-              <Star size={size} className="block" style={{ color: "var(--color-hairline-strong)" }} fill="none" strokeWidth={1.6} />
+              <Star size={size} className="block" style={{ color: "var(--color-hairline-strong)" }} fill="none" strokeWidth={1.9} />
               <span className="pointer-events-none absolute left-0 top-0 h-full overflow-hidden" style={{ width: `${fill * 100}%` }}>
-                <Star size={size} className="block" style={{ color: RED }} fill={RED} strokeWidth={1.6} />
+                <Star size={size} className="block" style={{ color: RED, filter: "drop-shadow(0 2px 5px rgba(225,6,0,0.32))" }} fill={RED} strokeWidth={1.9} />
               </span>
               {!readOnly && (
                 <>
@@ -57,8 +57,8 @@ export function StarRating({
         })}
       </div>
       <span
-        className="text-[13px] font-bold tabular-nums"
-        style={{ color: value > 0 ? "var(--color-ink-strong)" : "var(--color-ink-subtle)", minWidth: 52 }}
+        className="text-[17px] font-black tabular-nums"
+        style={{ color: value > 0 ? "var(--color-altus-red-deep)" : "var(--color-ink-subtle)", minWidth: 62 }}
       >
         {value > 0 ? `${Number.isInteger(value) ? value : value.toFixed(1)} / 10` : "— / 10"}
       </span>

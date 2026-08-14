@@ -178,21 +178,36 @@ function SourceBadge({ source, edited }: { source: "ai" | "heuristic"; edited?: 
   );
 }
 
+/** Grow a textarea to fit ALL its content (Sir: AI insights were clipped in
+ *  fixed-height boxes). Re-measures whenever the value changes. */
+function useAutoGrow(value: string) {
+  const ref = React.useRef<HTMLTextAreaElement>(null);
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight + 2}px`;
+  }, [value]);
+  return ref;
+}
+
 function InsightTextarea({ label, value, onChange, rows }: { label: string; value: string; onChange: (v: string) => void; rows: number }) {
   const id = React.useId();
+  const ref = useAutoGrow(value);
   return (
     <div>
       <label htmlFor={id} className="mb-1 block text-[11.5px] font-bold uppercase tracking-[0.1em] text-ink-soft">
         {label}
       </label>
       <textarea
+        ref={ref}
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        rows={rows}
+        rows={Math.min(rows, 2)}
         maxLength={4000}
-        className="w-full rounded-xl border px-3 py-2 text-[13.5px] leading-relaxed text-ink-strong outline-none transition-colors focus:border-altus-red"
-        style={{ resize: "vertical", borderColor: "var(--color-hairline-strong)", background: "#fff" }}
+        className="w-full overflow-hidden rounded-xl border px-3 py-2 text-[13.5px] leading-relaxed text-ink-strong outline-none transition-colors focus:border-altus-red"
+        style={{ resize: "none", borderColor: "var(--color-hairline-strong)", background: "#fff" }}
       />
     </div>
   );
@@ -201,6 +216,7 @@ function InsightTextarea({ label, value, onChange, rows }: { label: string; valu
 function InsightListEditor({ label, value, onChange }: { label: string; value: string[]; onChange: (v: string[]) => void }) {
   const id = React.useId();
   const [text, setText] = React.useState(value.join("\n"));
+  const ref = useAutoGrow(text);
   // Keep the local text in sync when a fresh blob arrives (generate/regenerate).
   React.useEffect(() => {
     setText(value.join("\n"));
@@ -212,17 +228,18 @@ function InsightListEditor({ label, value, onChange }: { label: string; value: s
         {label}
       </label>
       <textarea
+        ref={ref}
         id={id}
         value={text}
         onChange={(e) => {
           setText(e.target.value);
           onChange(e.target.value.split("\n").map((s) => s.trim()).filter(Boolean));
         }}
-        rows={3}
+        rows={2}
         maxLength={4000}
         placeholder="One item per line…"
-        className="w-full rounded-xl border px-3 py-2 text-[13.5px] leading-relaxed text-ink-strong outline-none transition-colors focus:border-altus-red"
-        style={{ resize: "vertical", borderColor: "var(--color-hairline-strong)", background: "#fff" }}
+        className="w-full overflow-hidden rounded-xl border px-3 py-2 text-[13.5px] leading-relaxed text-ink-strong outline-none transition-colors focus:border-altus-red"
+        style={{ resize: "none", borderColor: "var(--color-hairline-strong)", background: "#fff" }}
       />
     </div>
   );

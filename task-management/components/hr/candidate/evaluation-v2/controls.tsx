@@ -18,7 +18,7 @@ export function RatingControl({
   value,
   onChange,
   muted = false,
-  size = 22,
+  size = 30,
 }: {
   label: string;
   value: number;
@@ -319,7 +319,20 @@ export function SegmentedPassFail({
 }) {
   const refs = React.useRef<(HTMLButtonElement | null)[]>([]);
 
+  function selectValue(v: PassFail) {
+    const idx = PF_OPTS.findIndex((o) => o.value === v);
+    onChange(v);
+    if (idx >= 0) refs.current[idx]?.focus();
+  }
+
   function onKeyDown(e: React.KeyboardEvent, idx: number) {
+    // Y / N / A pick Yes / No / N-A directly (Sir).
+    const k = e.key.toLowerCase();
+    if (k === "y" || k === "n" || k === "a") {
+      e.preventDefault();
+      selectValue(k === "y" ? "yes" : k === "n" ? "no" : "na");
+      return;
+    }
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft" && e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
     e.preventDefault();
     const dir = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : -1;

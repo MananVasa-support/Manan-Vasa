@@ -58,7 +58,12 @@ export default async function EvaluationPage({
             <span className="md:hidden">Back</span>
           </Link>
         </div>
-        <img src="/logo.png" alt="Altus Corp" className="h-9 w-auto justify-self-center max-md:h-8" style={{ display: "block" }} />
+        <h1
+          className="justify-self-center text-ink-strong"
+          style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(17px,2vw,22px)", letterSpacing: "-0.02em" }}
+        >
+          Interview Intelligence
+        </h1>
         <span aria-hidden className="justify-self-end" />
       </header>
 
