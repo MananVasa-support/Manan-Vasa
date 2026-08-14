@@ -4818,6 +4818,11 @@ export const salaryBreakup = pgTable(
     paid: boolean("paid").notNull().default(false),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     paidById: uuid("paid_by_id").references(() => employees.id, { onDelete: "set null" }),
+    // Cumulative rupees actually disbursed against this row (another dev's
+    // partial-payments work — restored after a stale-file ship dropped it) —
+    // what makes PARTIAL payment expressible, which the `paid` boolean cannot say
+    // on its own. Unpaid balance is DERIVED (lib/salary/payment.ts), never stored.
+    amountPaid: numeric("amount_paid", { precision: 14, scale: 2 }).notNull().default("0"),
     // Editable super-admin note (migration 0129) — shown in the Remarks column.
     // NOT touched by the sheet sync, so it survives re-syncs (unlike remarks /
     // manan_remarks, which the sync overwrites from the sheet).
