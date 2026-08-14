@@ -16,6 +16,7 @@ import {
   disableCandidateAccountByEmployeeId,
   reactivateCandidateAccountById,
 } from "@/lib/hr/candidate/account-lifecycle";
+import type { LifecycleResult } from "@/lib/hr/candidate/account-types";
 
 /**
  * Candidate guest-account lifecycle (HR-gated). A candidate account is a
@@ -25,11 +26,6 @@ import {
  * Credentials are returned SHOW-ONCE (never persisted); HR hands them to the
  * candidate. Every close routes through the hardened lifecycle helper.
  */
-
-export type Credentials = { email: string; password: string; loginUrl: string };
-export type LifecycleResult =
-  | { ok: true; credentials?: Credentials; warning?: string }
-  | { ok: false; error: string };
 
 const UUID = z.string().uuid();
 const CreateSchema = z.object({

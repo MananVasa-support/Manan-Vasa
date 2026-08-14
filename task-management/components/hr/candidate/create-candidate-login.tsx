@@ -3,7 +3,8 @@
 import * as React from "react";
 import { KeyRound, Loader2, X, Copy, Check } from "lucide-react";
 import { fireToast } from "@/lib/toast";
-import { createCandidateAccount, type Credentials } from "@/app/(app)/hr/candidate-account-actions";
+import { createCandidateAccount } from "@/app/(app)/hr/candidate-account-actions";
+import type { Credentials } from "@/lib/hr/candidate/account-types";
 
 const RED = "var(--color-altus-red)";
 const INPUT =

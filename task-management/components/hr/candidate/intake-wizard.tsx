@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { ArrowLeft, ArrowRight, Loader2, Send } from "lucide-react";
-import { INTAKE_SECTIONS, sectionsForMode, hasAnyContent, intakeProgress, sectionRequiredKeys, type IntakeSection, type IntakeMode } from "@/lib/hr/candidate/intake-schema";
+import { sectionsForMode, hasAnyContent, intakeProgress, sectionRequiredKeys, type IntakeSection, type IntakeMode } from "@/lib/hr/candidate/intake-schema";
 import { saveCandidateDraft, submitCandidateDraft, uploadCandidateFile } from "@/app/(app)/hr/candidate-actions";
 
 /**
