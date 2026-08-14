@@ -331,7 +331,10 @@ const COLUMNS: Col[] = [
     label: "Total payable",
     align: "right",
     groupStart: true,
-    minWidth: 118,
+    // Wider than the other money columns because it carries the Pay action
+    // beside the figure — the amount and the button that settles it belong in
+    // one place, so nobody has to read across four columns to act on a row.
+    minWidth: 196,
     sortValue: (r) => netToPay(r),
     // The EFFECTIVE net — base + wave-off add-back + adjustment — not the raw
     // `final_payment`. That is the figure the balance is measured against, and
@@ -556,7 +559,23 @@ function AmountPaidCell({ row, editable }: { row: SalaryRow; editable: boolean }
  * beside the Paid pill clears the payment back to ₹0 behind a confirm. Clearing
  * has never sent mail and still doesn't.
  */
-function PaymentStatusCell({ row, editable }: { row: SalaryRow; editable: boolean }) {
+function PaymentStatusCell({ row }: { row: SalaryRow }) {
+  return <StatusPill status={paymentStatusOf(row)} />;
+}
+
+/**
+ * TOTAL PAYABLE + THE PAY ACTION — the money and the button that settles it, in
+ * one cell.
+ *
+ * The action used to live in the Payment-status column, three columns to the
+ * right of the figure it acts on. Reading across four money columns to find the
+ * button for the amount you just read is exactly the friction this removes: the
+ * number you are paying and the control that pays it are now the same cell.
+ *
+ * The status column keeps the pill — it is still the thing you scan or sort by
+ * to see what is outstanding — but it no longer carries a control.
+ */
+function FinalPaymentCell({ row, editable }: { row: SalaryRow; editable: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const status = paymentStatusOf(row);
@@ -592,15 +611,21 @@ function PaymentStatusCell({ row, editable }: { row: SalaryRow; editable: boolea
     router.refresh();
   }
 
-  const pill = <StatusPill status={status} />;
+  // The figure itself — same value, same formatting the column rendered before
+  // this cell took it over.
+  const amount = (
+    <span className="tabular-nums text-[14px] font-black text-ink-strong">
+      {inrN(netToPay(row))}
+    </span>
+  );
 
-  // Read-only viewer: the state, and nothing to press.
-  if (!editable) return pill;
+  // Read-only viewer: the number, and nothing to press.
+  if (!editable) return amount;
 
   if (status === "paid") {
     return (
-      <span className="inline-flex items-center gap-1">
-        {pill}
+      <span className="inline-flex items-center justify-end gap-1.5">
+        {amount}
         <button
           type="button"
           onClick={clearPayment}
@@ -618,8 +643,8 @@ function PaymentStatusCell({ row, editable }: { row: SalaryRow; editable: boolea
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5">
-      {pill}
+    <span className="inline-flex items-center justify-end gap-2">
+      {amount}
       <button
         type="button"
         onClick={payInFull}
@@ -1344,10 +1369,12 @@ export function SalaryBreakupTable({
                         ...(c.key === "company" ? { left: EMP_W } : {}),
                       }}
                     >
-                      {c.key === "amountPaid" ? (
+                      {c.key === "final" ? (
+                        <FinalPaymentCell row={r} editable={canRecordPayment} />
+                      ) : c.key === "amountPaid" ? (
                         <AmountPaidCell row={r} editable={canRecordPayment} />
                       ) : c.key === "payStatus" ? (
-                        <PaymentStatusCell row={r} editable={canRecordPayment} />
+                        <PaymentStatusCell row={r} />
                       ) : c.key === "remarks" ? (
                         <RemarkCell row={r} editable={canEditNote} />
                       ) : c.key === "waiveOff" ? (
