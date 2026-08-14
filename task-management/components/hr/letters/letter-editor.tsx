@@ -1457,7 +1457,8 @@ const EDITOR_CSS = `
 }
 .alw-pick select{
   appearance:none;-webkit-appearance:none;
-  min-width:96px;max-width:152px;width:100%;
+  min-width:150px;max-width:280px;width:100%;
+  text-overflow:ellipsis;
   padding:6px 22px 6px 9px;
   font-size:12px;font-weight:600;color:var(--color-ink-strong, #0f172a);
   background:#fff;border:1px solid var(--color-hairline-strong, #cbd5e1);border-radius:8px;

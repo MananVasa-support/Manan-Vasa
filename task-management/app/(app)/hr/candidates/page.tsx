@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowLeft } from "lucide-react";
 import { requireHrStaff } from "@/lib/hr/access";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { PageShell } from "@/components/layout/page-shell";
 import { listCandidateIntakes } from "@/app/(app)/hr/candidate-actions";
 import { BasicDetailsScreen } from "@/components/hr/candidate/basic-details-screen";
@@ -15,7 +16,10 @@ export const dynamic = "force-dynamic";
  * whose interview form (/hr/intake) was filled. "New" jumps to the form.
  */
 export default async function CandidatesPage() {
-  await requireHrStaff();
+  const me = await requireHrStaff();
+  // Delete is HR-admin / super-admin only (mirrors deleteCandidateIntake's
+  // requireWorkspaceAdmin gate); the button only shows for them.
+  const canDelete = me.isAdmin || isSuperAdmin(me.email);
 
   // Resilient: a slow/failed/hanging list load must never block the form.
   let candidates: Awaited<ReturnType<typeof listCandidateIntakes>> = [];
@@ -44,28 +48,16 @@ export default async function CandidatesPage() {
           </Link>
         </div>
         <img src="/logo.png" alt="Altus Corp" className="h-9 w-auto justify-self-center max-md:h-8" style={{ display: "block" }} />
-        <span aria-hidden className="justify-self-end" />
+        <span
+          className="justify-self-end text-ink-strong max-md:hidden"
+          style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: 20, letterSpacing: "-0.02em" }}
+        >
+          Candidate Records
+        </span>
       </header>
 
       <PageShell width="standard">
-        <div className="mb-6">
-          <span
-            className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white"
-            style={{ background: "linear-gradient(135deg,#E10600,#A80400)" }}
-          >
-            Post-Interview · Candidate Records
-          </span>
-          <h1
-            className="mt-2 text-ink-strong"
-            style={{ fontFamily: "var(--font-display), system-ui, sans-serif", fontWeight: 900, fontSize: "clamp(28px,3.4vw,44px)", letterSpacing: "-0.03em", lineHeight: 1.02 }}
-          >
-            Candidate Records
-          </h1>
-          <p className="mt-1.5 max-w-[76ch] text-[15px] font-medium text-ink-muted">
-            Every candidate whose interview form was filled — search, review and track status.
-          </p>
-        </div>
-        <BasicDetailsScreen candidates={candidates} />
+        <BasicDetailsScreen candidates={candidates} canDelete={canDelete} />
       </PageShell>
     </div>
   );

@@ -2,10 +2,13 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Route } from "next";
-import { UserPlus, ClipboardList, Phone, Mail, Search, PenLine, PlayCircle, ClipboardCheck } from "lucide-react";
+import { UserPlus, ClipboardList, Phone, Mail, Search, PenLine, PlayCircle, ClipboardCheck, Trash2, Loader2 } from "lucide-react";
 import type { CandidateRow } from "@/app/(app)/hr/candidate-actions";
+import { deleteCandidateIntake } from "@/app/(app)/hr/candidate-actions";
 import { CreateCandidateLogin } from "@/components/hr/candidate/create-candidate-login";
+import { fireToast } from "@/lib/toast";
 
 /**
  * Candidate Records — the searchable list of every filled interview form. The
@@ -21,14 +24,59 @@ const STATUS_TONE: Record<string, { bg: string; fg: string }> = {
   hired: { bg: "color-mix(in srgb, var(--color-green) 22%, white)", fg: "#166534" },
 };
 
-export function BasicDetailsScreen({ candidates }: { candidates: CandidateRow[] }) {
+const SELECT_CLS =
+  "rounded-lg border border-hairline-strong bg-white px-3 py-2 text-[13.5px] font-semibold text-ink-strong outline-none focus:border-altus-red";
+
+export function BasicDetailsScreen({
+  candidates,
+  canDelete = false,
+}: {
+  candidates: CandidateRow[];
+  canDelete?: boolean;
+}) {
+  const router = useRouter();
   const [q, setQ] = React.useState("");
+  const [status, setStatus] = React.useState("all");
+  const [position, setPosition] = React.useState("all");
+  const [form, setForm] = React.useState("all");
+  const [deleted, setDeleted] = React.useState<Set<string>>(() => new Set());
+  const [busyId, setBusyId] = React.useState<string | null>(null);
+
+  // Distinct positions for the filter dropdown (from the loaded rows — no query).
+  const positions = React.useMemo(
+    () => Array.from(new Set(candidates.map((c) => c.positionApplied).filter((p): p is string => !!p))).sort(),
+    [candidates],
+  );
 
   const rows = candidates.filter((c) => {
-    if (!q.trim()) return true;
-    const s = `${c.fullName} ${c.positionApplied ?? ""} ${c.mobile ?? ""} ${c.email ?? ""}`.toLowerCase();
-    return s.includes(q.trim().toLowerCase());
+    if (deleted.has(c.id)) return false;
+    if (status !== "all" && c.status !== status) return false;
+    if (position !== "all" && c.positionApplied !== position) return false;
+    if (form === "complete" && !c.submitted) return false;
+    if (form === "draft" && c.submitted) return false;
+    if (q.trim()) {
+      const s = `${c.fullName} ${c.positionApplied ?? ""} ${c.mobile ?? ""} ${c.email ?? ""}`.toLowerCase();
+      if (!s.includes(q.trim().toLowerCase())) return false;
+    }
+    return true;
   });
+
+  function onDelete(c: CandidateRow) {
+    if (busyId) return;
+    if (!window.confirm(`Delete ${c.fullName || "this candidate"}? This wipes their entire record — form, checklist and evaluation. This cannot be undone.`)) return;
+    setBusyId(c.id);
+    void deleteCandidateIntake(c.id)
+      .then((r) => {
+        if (r.ok) {
+          setDeleted((prev) => new Set(prev).add(c.id));
+          fireToast({ message: "Candidate deleted.", type: "success" });
+          router.refresh();
+        } else {
+          fireToast({ message: r.error, type: "error" });
+        }
+      })
+      .finally(() => setBusyId(null));
+  }
 
   return (
     <>
@@ -41,6 +89,28 @@ export function BasicDetailsScreen({ candidates }: { candidates: CandidateRow[] 
             placeholder="Search candidates…"
             className="w-full rounded-lg border border-hairline-strong bg-white py-2 pl-9 pr-3 text-[14px] text-ink-strong outline-none focus:border-altus-red"
           />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className={SELECT_CLS} aria-label="Filter by status">
+            <option value="all">All statuses</option>
+            <option value="new">New</option>
+            <option value="shortlisted">Shortlisted</option>
+            <option value="hired">Hired</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <select value={form} onChange={(e) => setForm(e.target.value)} className={SELECT_CLS} aria-label="Filter by form state">
+            <option value="all">All forms</option>
+            <option value="complete">Complete</option>
+            <option value="draft">Draft</option>
+          </select>
+          {positions.length > 0 && (
+            <select value={position} onChange={(e) => setPosition(e.target.value)} className={SELECT_CLS} aria-label="Filter by position">
+              <option value="all">All positions</option>
+              {positions.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <CreateCandidateLogin />
@@ -120,6 +190,18 @@ export function BasicDetailsScreen({ candidates }: { candidates: CandidateRow[] 
                         >
                           {c.submitted ? <><PenLine size={13} /> Edit</> : <><PlayCircle size={13} style={{ color: RED }} /> Resume</>}
                         </Link>
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => onDelete(c)}
+                            disabled={busyId === c.id}
+                            title="Delete candidate (wipes their whole record)"
+                            aria-label={`Delete ${c.fullName || "candidate"}`}
+                            className="inline-flex size-8 items-center justify-center rounded-lg border border-hairline-strong bg-white text-ink-muted transition-colors hover:border-[color:var(--color-altus-red)] hover:text-[color:var(--color-altus-red)] disabled:opacity-50"
+                          >
+                            {busyId === c.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
