@@ -13,6 +13,7 @@ import {
   IdCard,
   Inbox,
   ClipboardList,
+  FileText,
   Plus,
   Target,
   Megaphone,
@@ -78,6 +79,11 @@ const CARDS: Card[] = [
   // sidebar entry is never shown and this grid is the only way into the surface.
   // ("My Filled Forms" was removed from the HR home per Sir.)
   { slug: "/hr/all-forms", title: "All Filled Forms", Icon: ClipboardList },
+  // The viewer's OWN payslips. Staff see the same self-scoped page as everyone
+  // else — it reads the signed-in employee's rows and takes no employee
+  // parameter, so this is never a door into someone else's pay. The admin
+  // Salary module lives in the Accounts room and stays finance-gated.
+  { slug: "/hr/salary-slip", title: "Salary Slip", Icon: FileText },
 ];
 
 // The limited deck a NORMAL employee sees: only their own HR record (the /portal
@@ -93,6 +99,10 @@ const LIMITED_CARDS: Card[] = [
   { slug: "/portal", title: "My HR Record", Icon: IdCard },
   // ("My Filled Forms" was removed from this deck per Sir; the staff-only
   // "All Filled Forms" was already deliberately absent here.)
+  // Their own payslips — the surface this deck most needs to offer a normal
+  // employee. Self-scoped by construction: the page reads the signed-in
+  // employee's own rows and takes no employee parameter.
+  { slug: "/hr/salary-slip", title: "Salary Slip", Icon: FileText },
 ];
 
 const ACCENT = "#E10600";

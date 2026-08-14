@@ -13,20 +13,30 @@ import type { WorkspaceId } from "@/lib/workspaces";
  */
 
 // [pastel-from, pastel-to, deep-ink] per module.
+//
+// MIRRORS `HUB_PASTEL` in app/(app)/hub/page.tsx — the tile has always followed
+// its card, and the one time it didn't (a purple Billing tile on a neutral card)
+// it read as a mistake. So modules 2–0 now carry the same two colours the card
+// does: the tile takes the BACKGROUND and the glyph takes the PRIMARY.
+//
+// The tile fill matching the card is safe here because of the 2.4px `ink`
+// outline stroked round the tile below — that outline, not a darker fill, is
+// what keeps the mark from dissolving into the card. Deepening the tile would
+// mean inventing a third colour per module, which the brief rules out.
+//
+// WMS IS UNTOUCHED — its red tile, gradient and ink stay exactly as they were.
 const PAL: Record<WorkspaceId, { from: string; to: string; ink: string }> = {
-  wms: { from: "#FFC9C6", to: "#FFA9A5", ink: "#B4160E" },
-  goals: { from: "#FBDCA8", to: "#F6C877", ink: "#8A3D12" },
-  productivity: { from: "#C7CCF7", to: "#A5ADEF", ink: "#312E81" },
-  admin: { from: "#C7DAFC", to: "#A7C5FA", ink: "#1D4ED8" }, // blue (matches the Accounts card)
-  employees: { from: "#BAEFCC", to: "#98E6B3", ink: "#157A41" },
-  hr: { from: "#B5F0E5", to: "#89E4D3", ink: "#0F766E" },
-  sales: { from: "#DDCAFA", to: "#C4AAF6", ink: "#5B21B6" }, // violet (matches the Sales card)
-  training: { from: "#F9C9E0", to: "#F5A9CE", ink: "#BE185D" }, // pink (matches the Training card)
-  events: { from: "#B6EAF4", to: "#8ADBEC", ink: "#0E7490" },
-  accounts: { from: "#C7DAFC", to: "#A7C5FA", ink: "#1D4ED8" }, // blue
-  // Ivory/grey, following the Billing CARD (hub/page.tsx HUB_PASTEL) — a purple
-  // tile on a neutral card was the one place the icon and its card disagreed.
-  billing: { from: "#E8E6E0", to: "#D8D5CC", ink: "#57534E" }, // ivory / grey
+  wms: { from: "#FFC9C6", to: "#FFA9A5", ink: "#B4160E" }, // (unchanged)
+  goals: { from: "#F4E1D5", to: "#F4E1D5", ink: "#A85432" }, // 2 · terracotta
+  productivity: { from: "#E5E4F7", to: "#E5E4F7", ink: "#5148A3" }, // 3 · deep indigo
+  billing: { from: "#ECECEA", to: "#ECECEA", ink: "#5F5E59" }, // 4 · platinum grey
+  hr: { from: "#DDF1EC", to: "#DDF1EC", ink: "#147D73" }, // 5 · teal
+  sales: { from: "#EAE1F7", to: "#EAE1F7", ink: "#6838B8" }, // 6 · royal purple
+  admin: { from: "#E3EAF4", to: "#E3EAF4", ink: "#315A9B" }, // 7 · slate blue (the "Accounts" card)
+  training: { from: "#F5E0E9", to: "#F5E0E9", ink: "#C32968" }, // 8 · berry
+  employees: { from: "#DDF1E2", to: "#DDF1E2", ink: "#16803C" }, // 9 · forest green
+  events: { from: "#D9F1F5", to: "#D9F1F5", ink: "#167C91" }, // 0 · cyan/teal
+  accounts: { from: "#E3EAF4", to: "#E3EAF4", ink: "#315A9B" }, // shadows `admin`
 };
 
 function Glyph({ id, ink, light }: { id: WorkspaceId; ink: string; light: string }) {

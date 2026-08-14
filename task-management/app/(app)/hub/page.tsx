@@ -39,36 +39,39 @@ export const dynamic = "force-dynamic";
  */
 
 /**
- * HUB-ONLY pastel palette. Scoped to the front-door cards so each module's own
- * strong identity colour (MODULE_THEME) stays intact everywhere inside it.
- * Order maps to MODULE_ORDER: WMS→Red, Admin→Blue, Employees→Green, HR→Teal,
- * Sales→Yellow, Training→Grey. `ink` is the deep tone used
- * for text/icons/button so it stays readable on the light pastel fill.
+ * HUB-ONLY palette. Scoped to the front-door cards so each module's own strong
+ * identity colour (MODULE_THEME) stays intact everywhere inside it — recolouring
+ * the hub therefore leaves the module footer dock, every room's chrome and every
+ * in-module accent exactly as they were.
+ *
+ * TWO COLOURS PER MODULE, and no more (Sir, 2026-08): one light BACKGROUND and
+ * one PRIMARY. Primary carries the title, tagline, glyph, shortcut badge and the
+ * Enter button; background fills the card. `from`/`to` are held at the same value
+ * so the card renders FLAT — the gradient stops are identical, which keeps the
+ * existing `linear-gradient` code path without producing a gradient.
+ *
+ * `inkSoft` is deliberately equal to `ink` rather than a lighter step. A third
+ * tone per module is exactly the "additional decorative colour" the brief rules
+ * out, and the primaries are dark enough to stay readable at the tagline's
+ * 12.5px on these backgrounds.
+ *
+ * WMS IS UNTOUCHED — the brand's own card keeps its red, its two-stop gradient
+ * and its softer tagline tone. It is the one module whose entry must not change.
  */
 const HUB_PASTEL: Record<WorkspaceId, { from: string; to: string; ink: string; inkSoft: string }> = {
-  // Tints come from the INNERMOST ring of the colour wheel — the palest step,
-  // where every hue is still identifiable but none competes with the card's own
-  // text. The previous values were a ring or two out (Tailwind 100/200), which
-  // is why ten cards together read as loud. Hue ASSIGNMENT is unchanged, so each
-  // module keeps the identity it has everywhere else in the app; only the
-  // saturation drops. `ink` / `inkSoft` stay deep for contrast on the pale tile.
-  //
-  // Two deliberate exceptions:
-  //   • WMS keeps its existing red — it is the brand's own card.
-  //   • BILLING is neutral ivory-grey, not a hue. It is the money room and reads
-  //     better as paper than as another colour; it also breaks up the run of
-  //     tints in the second row.
   wms:       { from: "#FEE2E2", to: "#FECACA", ink: "#B91C1C", inkSoft: "#DC2626" }, // red (unchanged)
-  admin:     { from: "#E7EFFB", to: "#D6E4F6", ink: "#1D4ED8", inkSoft: "#2563EB" }, // blue
-  employees: { from: "#E6F6E9", to: "#D2ECD9", ink: "#15803D", inkSoft: "#16A34A" }, // green
-  hr:        { from: "#E1F4F0", to: "#CBEAE3", ink: "#0F766E", inkSoft: "#0D9488" }, // teal
-  sales:     { from: "#ECE7FA", to: "#DED6F4", ink: "#6D28D9", inkSoft: "#7C3AED" }, // violet
-  training:  { from: "#FAE8F0", to: "#F2D8E5", ink: "#BE185D", inkSoft: "#DB2777" }, // pink
-  accounts:  { from: "#E7EFFB", to: "#D6E4F6", ink: "#1D4ED8", inkSoft: "#2563EB" }, // (not shown on hub)
-  events:    { from: "#E1F2F8", to: "#CBE7F1", ink: "#0E7490", inkSoft: "#0891B2" }, // cyan
-  productivity: { from: "#E8EAFA", to: "#D8DCF3", ink: "#3730A3", inkSoft: "#4338CA" }, // indigo
-  goals:     { from: "#FDF4D9", to: "#F8E9BC", ink: "#A16207", inkSoft: "#CA8A04" }, // yellow-gold
-  billing:   { from: "#F2F1EC", to: "#E3E1DA", ink: "#57534E", inkSoft: "#78716C" }, // ivory / grey
+  goals:        { from: "#F4E1D5", to: "#F4E1D5", ink: "#A85432", inkSoft: "#A85432" }, // 2 · terracotta
+  productivity: { from: "#E5E4F7", to: "#E5E4F7", ink: "#5148A3", inkSoft: "#5148A3" }, // 3 · deep indigo
+  billing:      { from: "#ECECEA", to: "#ECECEA", ink: "#5F5E59", inkSoft: "#5F5E59" }, // 4 · platinum grey
+  hr:           { from: "#DDF1EC", to: "#DDF1EC", ink: "#147D73", inkSoft: "#147D73" }, // 5 · teal
+  sales:        { from: "#EAE1F7", to: "#EAE1F7", ink: "#6838B8", inkSoft: "#6838B8" }, // 6 · royal purple
+  admin:        { from: "#E3EAF4", to: "#E3EAF4", ink: "#315A9B", inkSoft: "#315A9B" }, // 7 · slate blue (the "Accounts" card)
+  training:     { from: "#F5E0E9", to: "#F5E0E9", ink: "#C32968", inkSoft: "#C32968" }, // 8 · berry
+  employees:    { from: "#DDF1E2", to: "#DDF1E2", ink: "#16803C", inkSoft: "#16803C" }, // 9 · forest green
+  events:       { from: "#D9F1F5", to: "#D9F1F5", ink: "#167C91", inkSoft: "#167C91" }, // 0 · cyan/teal
+  // Not rendered on the hub (MODULE_ORDER carries `admin` at position 7), but it
+  // shadows that card's identity so the pair never disagrees if it is ever shown.
+  accounts:     { from: "#E3EAF4", to: "#E3EAF4", ink: "#315A9B", inkSoft: "#315A9B" },
 };
 
 function WorkspaceCard({ m, locked, i }: { m: ModuleTheme; locked: boolean; i: number }) {
