@@ -23,11 +23,13 @@ interface Props {
   /** Save an edited title (fix a typo). Absent ⇒ the card is read-only text. */
   onRename?: (id: string, title: string) => void;
   /** Push this commitment to tomorrow (1) / day-after (2). */
-  onTransfer?: (id: string, off: 1 | 2) => void;
+  onTransfer?: (id: string, off: number) => void;
+  /** Which planner day this card is on — the move menu omits it. */
+  dayOffset?: number;
 }
 
 /** One ordered commitment in "Today's Plan" — sortable, completable, editable, removable. */
-export function PlanItemCard({ item, index, busy, onToggleDone, onRemove, onRename, onTransfer }: Props) {
+export function PlanItemCard({ item, index, busy, onToggleDone, onRemove, onRename, onTransfer, dayOffset }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
     data: { type: "plan" },
@@ -189,7 +191,7 @@ export function PlanItemCard({ item, index, busy, onToggleDone, onRemove, onRena
 
         {/* Push this commitment to a later day (tomorrow / day-after). */}
         {onTransfer && !item.done && !editing ? (
-          <TransferControl onTransfer={(off) => onTransfer(item.id, off)} />
+          <TransferControl onTransfer={(off) => onTransfer(item.id, off)} currentOffset={dayOffset} />
         ) : null}
 
         {/* Edit — turns the title into an input to fix a typo. Hidden while done. */}

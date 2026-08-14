@@ -89,7 +89,7 @@ export function ModuleFooter({ access }: ModuleFooterProps) {
       // holding the cursor inside a 46px band while reading ten labels.
       onMouseEnter={() => setVisible(true)}
       onClick={() => setVisible(true)}
-      className="mt-auto w-full pt-6 print:hidden"
+      className="module-footer mt-auto w-full pt-6 print:hidden"
     >
       {/* Fixed-height band: the dock is absolutely positioned inside it, so the
           space is reserved whether or not the dock is shown and revealing it

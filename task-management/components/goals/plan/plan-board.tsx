@@ -81,8 +81,8 @@ interface Props {
    *  filter compares against. Comes from the server payload, so the client can
    *  never disagree with the server about which day this is. */
   ymd: string;
-  /** Which of the 3 planner days: 0 today · 1 tomorrow · 2 day-after. */
-  dayOffset: 0 | 1 | 2;
+  /** Which planner day is shown — 0 = today … 6 = six days out. */
+  dayOffset: number;
 }
 
 // Goals module identity (amber-gold) — mirrors MODULE_THEME.goals. The planner
@@ -112,21 +112,23 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
 
   /** Switch the whole board to today / tomorrow / day-after (server re-fetch). */
   const goToDay = React.useCallback(
-    (off: 0 | 1 | 2) => router.push((off === 0 ? pathname : `${pathname}?d=${off}`) as Route),
+    (off: number) => router.push((off === 0 ? pathname : `${pathname}?d=${off}`) as Route),
     [router, pathname],
   );
 
-  /** Push a plan/review item forward to tomorrow (1) or the day after (2). It
-   *  leaves THIS day's view immediately; a failure refreshes to restore truth. */
+  /** Move a plan/review item to ANOTHER planner day (0-6). It leaves THIS day's
+   *  view immediately; a failure refreshes to restore truth. An item lives on
+   *  exactly one day, so this is a move, never a copy. */
   const onTransfer = React.useCallback(
-    (id: string, toOffset: 1 | 2) => {
+    (id: string, toOffset: number) => {
       setPlan((prev) => prev.filter((i) => i.id !== id));
       void transferPlanItem(id, toOffset).then((r) => {
         if (!r.ok) {
           fireToast({ message: r.error, type: "error" });
           router.refresh();
         } else {
-          fireToast({ message: toOffset === 1 ? "Moved to tomorrow." : "Moved to the day after." });
+          const d = planDays()[toOffset];
+          fireToast({ message: `Moved to ${d ? `${d.word} · ${d.date}` : "that day"}.` });
         }
       });
     },
@@ -145,7 +147,8 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
   const count = committed.length;
   const doneCount = React.useMemo(() => committed.filter((i) => i.done).length, [committed]);
   const met = count >= minItems;
-  const dayLabel = dayOffset === 1 ? "Tomorrow" : dayOffset === 2 ? "Day after" : "Today";
+  const dayLabel =
+    dayOffset === 0 ? "Today" : dayOffset === 1 ? "Tomorrow" : (planDays()[dayOffset]?.word ?? "That day");
 
   /** "Start my day" — persist the started stamp, then flip to the active phase. */
   const onStartDay = React.useCallback(() => {
@@ -440,6 +443,7 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
           onAddAdhoc={onAddAdhoc}
           onStart={onStartDay}
           onTransfer={onTransfer}
+          dayOffset={dayOffset}
         />
 
         {/* 2 — Goals & Goal Tasks: the cascade goals you've adopted, and the
@@ -492,31 +496,57 @@ export function PlanBoard({ initialPlan, sources, minItems, isManager, initialPh
 }
 
 /* ----------------------------------------------------------------------- */
-/* Day switcher — Today · Tomorrow · Day after (the 3-day planner)          */
+/* Day switcher — the next 7 days, each with its weekday + date             */
 /* ----------------------------------------------------------------------- */
-const DAY_TABS: { off: 0 | 1 | 2; label: string }[] = [
-  { off: 0, label: "Today" },
-  { off: 1, label: "Tomorrow" },
-  { off: 2, label: "Day after" },
-];
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"] as const;
 
-function DaySwitcher({ current, onPick }: { current: 0 | 1 | 2; onPick: (off: 0 | 1 | 2) => void }) {
+/**
+ * The 7 planner days as {offset, weekday, date} — computed from the LOCAL date
+ * so the labels match the user's calendar. Offsets 0/1 keep their familiar
+ * "Today"/"Tomorrow" words; the rest read as the weekday, and every tab carries
+ * its date so there is no counting.
+ */
+function planDays(): { off: number; word: string; date: string }[] {
+  const base = new Date();
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i);
+    return {
+      off: i,
+      word: i === 0 ? "Today" : i === 1 ? "Tomorrow" : (WEEKDAYS[d.getDay()] ?? ""),
+      date: `${String(d.getDate()).padStart(2, "0")} ${MONTHS[d.getMonth()] ?? ""}`,
+    };
+  });
+}
+
+function DaySwitcher({ current, onPick }: { current: number; onPick: (off: number) => void }) {
+  // Recomputed per render but stable within a day — cheap, and it means a tab
+  // open across midnight re-labels itself instead of showing yesterday.
+  const days = React.useMemo(() => planDays(), []);
   return (
-    <div className="mb-4 inline-flex items-center gap-1 rounded-pill border border-hairline bg-surface-card p-1">
-      {DAY_TABS.map((t) => {
+    <div
+      className="mb-3 flex items-center gap-1 overflow-x-auto rounded-2xl border border-hairline bg-surface-card p-1"
+      role="tablist"
+      aria-label="Choose a day to plan"
+    >
+      {days.map((t) => {
         const on = t.off === current;
         return (
           <button
             key={t.off}
             type="button"
+            role="tab"
+            aria-selected={on}
             onClick={() => !on && onPick(t.off)}
-            aria-pressed={on}
-            className={`rounded-pill px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
-              on ? "text-white" : "text-ink-soft hover:text-ink-strong"
+            className={`flex min-w-[68px] shrink-0 flex-col items-center rounded-xl px-3 py-1.5 leading-tight transition-colors ${
+              on ? "text-white" : "text-ink-soft hover:bg-surface-soft hover:text-ink-strong"
             }`}
             style={on ? { background: GOALS_GRADIENT } : undefined}
           >
-            {t.label}
+            <span className="text-[12.5px] font-bold">{t.word}</span>
+            <span className={`text-[10.5px] font-semibold tabular-nums ${on ? "opacity-85" : "text-ink-subtle"}`}>
+              {t.date}
+            </span>
           </button>
         );
       })}
@@ -541,9 +571,11 @@ function PlanColumn(props: {
   onRename: (id: string, title: string) => void;
   onAddAdhoc: (title: string) => void;
   onStart: () => void;
-  onTransfer: (id: string, off: 1 | 2) => void;
+  onTransfer: (id: string, off: number) => void;
+  /** Which planner day this column shows — the per-item move menu omits it. */
+  dayOffset: number;
 }) {
-  const { plan, count, doneCount, minItems, met, isManager, starting, busyId, onToggleDone, onRemove, onRename, onAddAdhoc, onStart, onTransfer } = props;
+  const { plan, count, doneCount, minItems, met, isManager, starting, busyId, onToggleDone, onRemove, onRename, onAddAdhoc, onStart, onTransfer, dayOffset } = props;
   const { setNodeRef, isOver } = useDroppable({ id: PLAN_DROP_ID });
   const [draft, setDraft] = React.useState("");
   const reduce = useReducedMotion();
@@ -621,6 +653,7 @@ function PlanColumn(props: {
                   onRemove={onRemove}
                   onRename={onRename}
                   onTransfer={onTransfer}
+                  dayOffset={dayOffset}
                 />
               ))}
             </AnimatePresence>

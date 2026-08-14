@@ -14,6 +14,7 @@ import { ChromeShell } from "@/components/layout/chrome-shell";
 import { ModuleFooter } from "@/components/layout/module-footer";
 import { ModuleShortcuts } from "@/components/layout/module-shortcuts";
 import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
+import { FocusMode } from "@/components/layout/focus-mode";
 import { MODULE_ORDER } from "@/lib/module-theme";
 import { IdleTimerClient } from "@/components/auth/idle-timer-client";
 import { workspaceForPath, canAccessWorkspace } from "@/lib/workspaces";
@@ -187,6 +188,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <KeyboardShortcuts />
+      <FocusMode />
       {/* Number-row module shortcuts (1–9, 0), the keyboard half of the module
           footer below. Mounted HERE rather than on the hub so the digits the
           footer displays actually work from inside a room — pressing 3 in WMS

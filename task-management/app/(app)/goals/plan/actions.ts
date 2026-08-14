@@ -58,6 +58,64 @@ async function countAndNextPosition(
 }
 
 /**
+ * ONE ITEM LIVES ON EXACTLY ONE DAY (Sir 2026-08).
+ *
+ * Each add-path used to de-dupe only within the TARGET day
+ * (`employee + plan_date + ref`), so the very same goal or task could be pushed
+ * onto Today AND Tomorrow AND Day-after at once — three rows, three places to
+ * tick it off.
+ *
+ * This looks across the whole planning horizon for an existing, NOT-YET-DONE row
+ * for the same source and, if it finds one, MOVES it (re-dates the single row)
+ * onto the target day instead of inserting a second one. That is also exactly
+ * what "move it from tomorrow to today" should do, so adding and moving are the
+ * same gesture and can never disagree.
+ *
+ * Rows that are already DONE are left alone — they are history for the day they
+ * were completed on, not something to drag forward.
+ */
+async function moveIfPlannedElsewhere(
+  employeeId: string,
+  ymd: string,
+  ref: { taskId?: string; goalId?: string; cascadeGoalId?: string },
+  kind: PlanKind,
+): Promise<PlanItem | null> {
+  const col = ref.taskId
+    ? dailyChecklist.taskId
+    : ref.goalId
+      ? dailyChecklist.goalId
+      : dailyChecklist.cascadeGoalId;
+  const value = ref.taskId ?? ref.goalId ?? ref.cascadeGoalId;
+  if (!value) return null;
+
+  const [existing] = await db
+    .select({ id: dailyChecklist.id, planDate: dailyChecklist.planDate })
+    .from(dailyChecklist)
+    .where(
+      and(
+        eq(dailyChecklist.employeeId, employeeId),
+        eq(col, value),
+        eq(dailyChecklist.done, false),
+        // Any planned day OTHER than the target. Past days are intentionally
+        // included: re-adding a stale commitment should pull it forward, which
+        // is what the Unfinished column already does.
+        sql`${dailyChecklist.planDate} <> ${ymd}`,
+      ),
+    )
+    .limit(1);
+  if (!existing) return null;
+
+  const { nextPosition } = await countAndNextPosition(employeeId, ymd);
+  const [moved] = await db
+    .update(dailyChecklist)
+    .set({ planDate: ymd, position: nextPosition })
+    .where(eq(dailyChecklist.id, existing.id))
+    .returning(PLAN_ITEM_RETURNING);
+  if (!moved) return null;
+  return rowToPlanItem(moved, kind);
+}
+
+/**
  * Explicit RETURNING list — NEVER use bare `.returning()` on daily_checklist:
  * that enumerates every schema column, including 0141's `cascade_goal_id`,
  * which may be UNAPPLIED in prod until GOALS_CANVAS_ON ships (see db/schema.ts).
@@ -117,6 +175,10 @@ export async function addWeeklyGoalToPlan(
 
   const ymd = ymdForOffset(dayOffset);
   try {
+    // Already planned on ANOTHER day → move it here rather than duplicating.
+    const moved = await moveIfPlannedElsewhere(me.id, ymd, { goalId: goal.id }, "weekly");
+    if (moved) return { ok: true, item: moved };
+
     const { count, nextPosition } = await countAndNextPosition(me.id, ymd);
     if (count >= MAX_ITEMS_PER_DAY)
       return { ok: false, error: `You can plan at most ${MAX_ITEMS_PER_DAY} items a day.` };
@@ -175,6 +237,12 @@ export async function addCascadeGoalToPlan(
     goal.period === "year" ? "yearly" : goal.period === "quarter" ? "quarterly" : "monthly";
   const ymd = ymdForOffset(dayOffset);
   try {
+    // Already planned on ANOTHER day → move it here rather than duplicating.
+    // (Cascade goals only carry `cascade_goal_id` once migration 0141 is applied;
+    // before that there is no id to match on and this simply finds nothing.)
+    const moved = await moveIfPlannedElsewhere(me.id, ymd, { cascadeGoalId: goal.id }, kind);
+    if (moved) return { ok: true, item: moved };
+
     const { count, nextPosition } = await countAndNextPosition(me.id, ymd);
     if (count >= MAX_ITEMS_PER_DAY)
       return { ok: false, error: `You can plan at most ${MAX_ITEMS_PER_DAY} items a day.` };
@@ -253,6 +321,10 @@ export async function addTaskToPlan(
       )
       .limit(1);
     if (dupe) return { ok: true, item: null };
+
+    // Already planned on ANOTHER day → move it here rather than duplicating.
+    const moved = await moveIfPlannedElsewhere(me.id, ymd, { taskId }, "task");
+    if (moved) return { ok: true, item: moved };
 
     const { count, nextPosition } = await countAndNextPosition(me.id, ymd);
     if (count >= MAX_ITEMS_PER_DAY)
@@ -374,8 +446,10 @@ export async function transferPlanItem(
   const limited = rateLimitOrError(me.id, "write");
   if (limited) return limited;
   if (!UUID.safeParse(itemId).success) return { ok: false, error: "Invalid item." };
+  // Any planner day is a valid destination INCLUDING today (0) — Sir moves work
+  // back as often as forward ("from tomorrow to today"). The old guard rejected
+  // offset 0, so a pushed item could never be pulled back.
   const offset = clampDayOffset(toOffset);
-  if (offset === 0) return { ok: false, error: "Pick tomorrow or the day after." };
 
   const [src] = await db
     .select({
@@ -675,7 +749,17 @@ async function reflectCompletion(
   if (goalId) {
     await db
       .update(weeklyGoals)
-      .set({ pctDone: 100, pctUpdatedById: me.id, pctUpdatedAt: new Date(), updatedById: me.id, updatedAt: new Date() })
+      .set({
+        pctDone: 100,
+        // STATUS TOO (Sir): setting only pct_done left the weekly goal reading
+        // "Not started" at 100% — the board shows status, so ticking a plan item
+        // 100% looked like it had done nothing to the goal it came from.
+        status: "done",
+        pctUpdatedById: me.id,
+        pctUpdatedAt: new Date(),
+        updatedById: me.id,
+        updatedAt: new Date(),
+      })
       .where(and(eq(weeklyGoals.id, goalId), eq(weeklyGoals.employeeId, me.id)));
   }
 }
@@ -716,6 +800,9 @@ async function reflectIncremental(
       .update(weeklyGoals)
       .set({
         pctDone: sql`greatest(${weeklyGoals.pctDone}, ${pct})`,
+        // Partial progress moves it off "Not started"; only 100% (handled by
+        // reflectCompletion above) marks it done.
+        status: "initiated",
         pctUpdatedById: me.id,
         pctUpdatedAt: new Date(),
         updatedById: me.id,

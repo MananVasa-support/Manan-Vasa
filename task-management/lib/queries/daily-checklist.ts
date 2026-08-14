@@ -48,10 +48,13 @@ export function ymdForOffset(offset: number, now: Date = new Date()): string {
   return `${dt.getUTCFullYear()}-${mm}-${dd}`;
 }
 
-/** The plan horizon is strictly today / tomorrow / day-after. */
-export function clampDayOffset(raw: unknown): 0 | 1 | 2 {
-  const n = Number(raw);
-  return n === 1 ? 1 : n === 2 ? 2 : 0;
+/** How many days ahead Plan My Day lets you schedule — today + the next 6. */
+export const PLAN_HORIZON_DAYS = 7;
+
+/** The plan horizon is today (0) through day +6. Anything else clamps to today. */
+export function clampDayOffset(raw: unknown): number {
+  const n = Math.trunc(Number(raw));
+  return Number.isFinite(n) && n >= 0 && n < PLAN_HORIZON_DAYS ? n : 0;
 }
 
 /**

@@ -24,12 +24,32 @@ const WARN = "var(--color-amber-deep)";
  * the day-review close-out. `variant="button"` renders a bordered pill for the
  * review; the default is a hover-reveal icon for dense cards.
  */
+/** Weekday + date labels for the 7 planner days, computed from the local date. */
+const TC_WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+const TC_MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"] as const;
+
+function transferDays(): { off: number; label: string; date: string }[] {
+  const base = new Date();
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i);
+    return {
+      off: i,
+      label: i === 0 ? "Today" : i === 1 ? "Tomorrow" : (TC_WEEKDAYS[d.getDay()] ?? ""),
+      date: `${String(d.getDate()).padStart(2, "0")} ${TC_MONTHS[d.getMonth()] ?? ""}`,
+    };
+  });
+}
+
 export function TransferControl({
   onTransfer,
   variant = "icon",
+  currentOffset,
 }: {
-  onTransfer: (off: 1 | 2) => void;
+  onTransfer: (off: number) => void;
   variant?: "icon" | "button";
+  /** The day this item is on — omitted from the menu (you can't move it to
+   *  where it already is). */
+  currentOffset?: number;
 }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
@@ -42,18 +62,19 @@ export function TransferControl({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
-  const pick = (off: 1 | 2) => {
+  const pick = (off: number) => {
     setOpen(false);
     onTransfer(off);
   };
+  const days = transferDays().filter((d) => d.off !== currentOffset);
 
   return (
     <div ref={ref} className="relative shrink-0">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        aria-label="Move to a later day"
-        title="Move to a later day"
+        aria-label="Move to another day"
+        title="Move to another day"
         className={
           variant === "button"
             ? "inline-flex items-center gap-1.5 rounded-lg border border-hairline-strong px-2.5 py-1.5 text-[12px] font-bold text-ink-soft hover:border-altus-red hover:text-ink-strong"
@@ -64,21 +85,18 @@ export function TransferControl({
         {variant === "button" ? "Move" : null}
       </button>
       {open ? (
-        <div className="absolute right-0 z-40 mt-1 w-36 rounded-lg border border-hairline-strong bg-surface-card p-1 shadow-[0_12px_30px_rgba(15,23,42,0.18)]">
-          <button
-            type="button"
-            onClick={() => pick(1)}
-            className="block w-full rounded px-2 py-1.5 text-left text-[12px] font-semibold text-ink-strong hover:bg-surface-soft"
-          >
-            → Tomorrow
-          </button>
-          <button
-            type="button"
-            onClick={() => pick(2)}
-            className="block w-full rounded px-2 py-1.5 text-left text-[12px] font-semibold text-ink-strong hover:bg-surface-soft"
-          >
-            → Day after
-          </button>
+        <div className="absolute right-0 z-40 mt-1 max-h-64 w-44 overflow-y-auto rounded-lg border border-hairline-strong bg-surface-card p-1 shadow-[0_12px_30px_rgba(15,23,42,0.18)]">
+          {days.map((d) => (
+            <button
+              key={d.off}
+              type="button"
+              onClick={() => pick(d.off)}
+              className="flex w-full items-baseline justify-between gap-2 rounded px-2 py-1.5 text-left text-[12px] font-semibold text-ink-strong hover:bg-surface-soft"
+            >
+              <span>→ {d.label}</span>
+              <span className="text-[10.5px] font-medium tabular-nums text-ink-subtle">{d.date}</span>
+            </button>
+          ))}
         </div>
       ) : null}
     </div>

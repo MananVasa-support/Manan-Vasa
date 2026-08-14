@@ -1,12 +1,13 @@
 import "server-only";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dailyChecklist, dailyPlanDay } from "@/db/schema";
+import { dailyChecklist, dailyPlanDay, weeklyGoals } from "@/db/schema";
 import { getPeriodGoals } from "@/lib/goals/queries";
 import {
   ymdForOffset,
   clampDayOffset,
+  todayYmd,
   cascadeGoalLevels,
   listGoalsForPlanner,
   listOpenTasksForChecklist,
@@ -138,6 +139,68 @@ function goalToSource(g: Goal, kind: SourceItem["kind"]): SourceItem {
  * only the plan rows, unfinished carry-over, WMS due-labels and the day
  * lifecycle re-scope to the chosen day.
  */
+/**
+ * DEADLINE → DAY (Sir): a weekly goal with a target date of the 15th must appear
+ * on the 15th's plan by itself — you should not have to remember to drag it over.
+ *
+ * Run when a planner day is opened: any of the viewer's unfinished weekly goals
+ * whose `target_date` IS this day and which are not ALREADY planned on some day
+ * are materialised onto it.
+ *
+ * The "not already planned on ANY day" test is the important half. It respects a
+ * deliberate move — if you pushed the goal to the 17th, it stays on the 17th
+ * instead of springing back every time you open the 15th — and it upholds the
+ * one-item-one-day rule. Best-effort: a failure here must never stop the board
+ * from rendering, so the caller swallows it.
+ */
+async function materialiseGoalsDueOn(employeeId: string, ymd: string): Promise<void> {
+  const due = await db
+    .select({
+      id: weeklyGoals.id,
+      subject: weeklyGoals.subject,
+      client: weeklyGoals.client,
+      targetDone: weeklyGoals.targetDone,
+    })
+    .from(weeklyGoals)
+    .where(
+      and(
+        eq(weeklyGoals.employeeId, employeeId),
+        eq(weeklyGoals.archived, false),
+        eq(weeklyGoals.targetDate, ymd),
+        ne(weeklyGoals.pctDone, 100),
+        // Not planned on ANY day already (a manual move wins over the deadline).
+        sql`not exists (
+          select 1 from daily_checklist dc
+           where dc.goal_id = ${weeklyGoals.id}
+             and dc.employee_id = ${employeeId}
+        )`,
+      ),
+    );
+  if (due.length === 0) return;
+
+  const [pos] = await db
+    .select({ max: sql<number>`coalesce(max(${dailyChecklist.position}), 0)::int` })
+    .from(dailyChecklist)
+    .where(and(eq(dailyChecklist.employeeId, employeeId), eq(dailyChecklist.planDate, ymd)));
+  let next = (pos?.max ?? 0) + 1;
+
+  await db
+    .insert(dailyChecklist)
+    .values(
+      due.map((g) => ({
+        employeeId,
+        planDate: ymd,
+        goalId: g.id,
+        origin: "goal_related" as const,
+        title: g.targetDone?.trim() || g.subject?.trim() || "Weekly goal",
+        client: g.client,
+        subject: g.subject,
+        position: next++,
+      })),
+    )
+    .onConflictDoNothing();
+}
+
 export async function getPlanDayPayload(
   employeeId: string,
   now: Date = new Date(),
@@ -145,6 +208,10 @@ export async function getPlanDayPayload(
 ): Promise<PlanDayPayload> {
   const offset = clampDayOffset(dayOffset);
   const ymd = ymdForOffset(offset, now);
+
+  // Pull in anything whose DEADLINE is this day before reading the plan, so the
+  // very first render already shows it. Never blocks the board.
+  await materialiseGoalsDueOn(employeeId, ymd).catch(() => {});
 
   const [planRows, weekly, monthG, quarterG, yearG, openTasks, unfinishedRows, isManager, dayRow] = await Promise.all([
     db
@@ -175,7 +242,13 @@ export async function getPlanDayPayload(
     // attention-first sort + the collapsed row cap instead of by starving the
     // filter of rows.
     listOpenTasksForChecklist(employeeId, now, { limit: 200 }),
-    getOverdueItems(employeeId, ymd),
+    // TODAY's date, never the VIEWED day (Sir's bug: on the Tomorrow / Day-after
+    // boards this was passed `ymd`, so `plan_date < viewedDay` swept up TODAY's
+    // and TOMORROW's still-open commitments and listed them as "Unfinished ·
+    // carried over from earlier days" — the same items appeared on every board
+    // and looked like they had all gone stale on refresh). Unfinished means
+    // genuinely BEFORE today, whichever day you happen to be planning.
+    getOverdueItems(employeeId, todayYmd(now)),
     isManagerWithReports(employeeId),
     db
       .select({ startedAt: dailyPlanDay.startedAt, closedAt: dailyPlanDay.closedAt })

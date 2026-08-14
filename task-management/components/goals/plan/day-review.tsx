@@ -27,7 +27,7 @@ interface Props {
   onClosed: () => void;
   onReopened: () => void;
   /** Carry an unfinished commitment forward to tomorrow (1) / day-after (2). */
-  onTransfer?: (id: string, off: 1 | 2) => void;
+  onTransfer?: (id: string, off: number) => void;
 }
 
 /**
@@ -43,7 +43,7 @@ export function DayReview({ phase, items: initial, onToCloseout, onBackToPlan, o
 
   /** Carry an item forward — drop it from today's review, hand off to the parent. */
   const transfer = React.useCallback(
-    (id: string, off: 1 | 2) => {
+    (id: string, off: number) => {
       setItems((p) => p.filter((x) => x.id !== id));
       onTransfer?.(id, off);
     },

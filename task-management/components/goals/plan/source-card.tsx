@@ -18,6 +18,7 @@ export function sourceDragId(item: SourceItem): string {
 
 const GOALS_ACCENT = "#E10600";
 const GOALS_ACCENT_DEEP = "#A80400";
+const GOALS_GRADIENT = `linear-gradient(135deg, ${GOALS_ACCENT}, ${GOALS_ACCENT_DEEP})`;
 
 const RISK = "var(--color-red-deep)";
 const WARN = "var(--color-amber-deep)";
@@ -64,9 +65,27 @@ export function SourceCard({ item, today, onAdd, onAbandon, dayLabel = "Today" }
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: item.added ? 0.55 : 1, y: 0 }}
       style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : undefined }}
-      className="group rounded-xl border border-hairline bg-surface-card px-2.5 py-2 shadow-[0_1px_0_rgba(15,23,42,0.03)] transition-[border-color,box-shadow] hover:border-hairline-strong hover:shadow-[0_6px_18px_rgba(124,45,18,0.08)]"
+      className="group relative rounded-xl border border-hairline bg-surface-card px-2.5 py-2 shadow-[0_1px_0_rgba(15,23,42,0.03)] transition-[border-color,box-shadow] hover:border-hairline-strong hover:shadow-[0_6px_18px_rgba(124,45,18,0.08)]"
     >
-      <div className="flex items-start gap-1.5">
+      {/* A small circular + pinned top-right (Sir: the full-width "Add to Today"
+          button ate too much vertical space in a three-column board). Same single
+          action, ~1/6th the footprint; it turns into a green tick once added. */}
+      <button
+        type="button"
+        onClick={() => onAdd(item)}
+        disabled={item.added}
+        title={item.added ? `Already on ${dayLabel}'s plan` : `Add to ${dayLabel}`}
+        aria-label={item.added ? `${item.title} is already planned` : `Add ${item.title} to ${dayLabel}`}
+        className="absolute right-1.5 top-1.5 z-10 grid h-6 w-6 place-items-center rounded-full text-white shadow-sm transition-transform hover:scale-110 focus-visible:outline-2 disabled:cursor-default disabled:hover:scale-100"
+        style={{
+          background: item.added ? "var(--color-green-deep)" : GOALS_GRADIENT,
+          outlineColor: GOALS_ACCENT,
+        }}
+      >
+        {item.added ? <Check size={13} strokeWidth={3.4} /> : <Plus size={14} strokeWidth={3.2} />}
+      </button>
+
+      <div className="flex items-start gap-1.5 pr-7">
         <button
           type="button"
           aria-label={item.added ? "Already on today's plan" : `Drag ${item.title} into today's plan`}
@@ -153,39 +172,6 @@ export function SourceCard({ item, today, onAdd, onAbandon, dayLabel = "Today" }
         ) : null}
       </div>
 
-      {/* The single primary action, identical across all three source columns. */}
-      <button
-        type="button"
-        onClick={() => onAdd(item)}
-        disabled={item.added}
-        aria-label={item.added ? `${item.title} is already on today's plan` : `Add ${item.title} to today's plan`}
-        className="mt-2 inline-flex h-7 w-full items-center justify-center gap-1 rounded-lg border text-[11.5px] font-bold transition-colors focus-visible:outline-2"
-        style={
-          item.added
-            ? {
-                borderColor: "color-mix(in srgb, var(--color-green-deep) 26%, transparent)",
-                background: "var(--color-green-bg)",
-                color: "var(--color-green-deep)",
-                outlineColor: GOALS_ACCENT,
-              }
-            : {
-                borderColor: `color-mix(in srgb, ${GOALS_ACCENT} 30%, transparent)`,
-                background: `color-mix(in srgb, ${GOALS_ACCENT} 6%, transparent)`,
-                color: GOALS_ACCENT_DEEP,
-                outlineColor: GOALS_ACCENT,
-              }
-        }
-      >
-        {item.added ? (
-          <>
-            <Check size={13} strokeWidth={3} /> On Plan
-          </>
-        ) : (
-          <>
-            <Plus size={13} strokeWidth={3} /> Add to {dayLabel}
-          </>
-        )}
-      </button>
     </motion.div>
     {detail ? (
       <ItemDetailModal

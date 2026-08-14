@@ -35,7 +35,7 @@ export default async function GoalsPlanPage({
 
   const sp = await searchParams;
   const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-  // Which of the 3 planner days (?d=0|1|2 → today / tomorrow / day-after).
+  // Which planner day (?d=0…6 → today through six days out).
   const dayOffset = pick(sp.d) === "1" ? 1 : pick(sp.d) === "2" ? 2 : 0;
 
   // PERSONAL space (admins) → the private day board (goals table, scope=personal).
@@ -56,7 +56,7 @@ export default async function GoalsPlanPage({
     <>
       <DashboardHeader generatedAt={new Date()} />
       <PageShell width="full" py={false} className="pt-5 pb-12 max-md:pt-4 max-md:pb-10">
-        <header className="mb-4 wg-rise">
+        <header className="mb-2.5 wg-rise">
           <div className="flex items-start justify-between gap-3">
             <span
               className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em]"
@@ -73,22 +73,22 @@ export default async function GoalsPlanPage({
               </a>
             )}
           </div>
+          {/* Trimmed (Sir): the title + eyebrow + a two-line explainer pushed the
+              actual planner below the fold. The title now sits INLINE with the
+              eyebrow row and the explainer is gone — the board explains itself. */}
           <h1
             className="text-ink-strong"
             style={{
               fontFamily: "var(--font-display), system-ui, sans-serif",
               fontWeight: 900,
-              fontSize: "clamp(22px, 2.3vw, 30px)",
+              fontSize: "clamp(19px, 1.9vw, 24px)",
               letterSpacing: "-0.025em",
               lineHeight: 1.04,
-              marginTop: 4,
+              marginTop: 2,
             }}
           >
             Plan My Day
           </h1>
-          <p className="mt-1.5 font-medium text-ink-muted" style={{ fontSize: 13.5, maxWidth: "70ch" }}>
-            Line up today from your goals and tasks — drag a card into the plan, or tap +. Hit your minimum to start a focused day.
-          </p>
         </header>
         <PlanBoard
           initialPlan={payload.initialPlan}

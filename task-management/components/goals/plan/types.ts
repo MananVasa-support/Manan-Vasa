@@ -121,5 +121,6 @@ export interface PlanDayPayload {
   /** The plan date this payload describes ("YYYY-MM-DD", IST). */
   ymd: string;
   /** Which of the 3 planner days this is: 0 today · 1 tomorrow · 2 day-after. */
-  dayOffset: 0 | 1 | 2;
+  /** Which planner day this payload is for — 0 = today … 6 = six days out. */
+  dayOffset: number;
 }

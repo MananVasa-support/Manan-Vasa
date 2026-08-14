@@ -3010,3 +3010,30 @@ select.nt-input {
 .app-shell-column > main {
   flex: 1 0 auto;
 }
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   FOCUS MODE (Ctrl+Q) — collapse everything that is not the work surface, so
+   the current page fills the screen. Driven by `data-focus-mode` on <html>
+   (components/layout/focus-mode.tsx), which means no layout component has to
+   know the mode exists and any page gets it for free.
+
+   Exit is Esc (or Ctrl+Shift+Q). Ctrl+W is deliberately NOT bound: it is the
+   browser's close-tab shortcut and cannot be intercepted.
+   ────────────────────────────────────────────────────────────────────────── */
+:root[data-focus-mode="on"] .sidebar-rail,      /* the desktop left rail      */
+:root[data-focus-mode="on"] aside.hr-rail,      /* the HR room's own rail     */
+:root[data-focus-mode="on"] header.header-light,/* the sticky top bar         */
+:root[data-focus-mode="on"] .module-footer,     /* the module footer          */
+:root[data-focus-mode="on"] .no-focus-mode {    /* opt-out hook for any page  */
+  display: none !important;
+}
+
+/* The mobile top bar is a fixed div, not a header — hide it too, and drop the
+   padding the layout reserves for it so the surface starts at the very top. */
+:root[data-focus-mode="on"] .app-shell-column {
+  padding-top: 0 !important;
+}
+:root[data-focus-mode="on"] .max-md\:pt-14 {
+  padding-top: 0 !important;
+}

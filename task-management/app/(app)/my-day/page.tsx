@@ -7,7 +7,8 @@ import { PageShell } from "@/components/layout/page-shell";
 import { requireGoalsAccess } from "@/lib/goals/access";
 import { goalsCascadeEnabled } from "@/lib/goals/flag";
 import { MyDayBoard } from "@/components/my-day/my-day-board";
-import { getMyDayPayload } from "./payload";
+import { getMyDayPayload, getMyDayWeekPayload } from "./payload";
+import { WeekBoard } from "@/components/my-day/week-board";
 
 export const dynamic = "force-dynamic";
 
@@ -38,11 +39,22 @@ function shortDay(ymd: string): string {
  * for the GOALS room, so a WMS nav entry pointing there would flip the sidebar
  * to Goals the moment you clicked it. `/my-day` keeps the room you're in.
  */
-export default async function MyDayPage() {
+export default async function MyDayPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
   const { me } = await requireGoalsAccess();
   if (!goalsCascadeEnabled()) notFound();
 
-  const payload = await getMyDayPayload(me.id);
+  // `?view=week` is the Overdue + 7-day board (Sir); the default stays the
+  // single-day execution list.
+  const { view } = await searchParams;
+  const weekView = view === "week";
+  const [payload, week] = await Promise.all([
+    getMyDayPayload(me.id),
+    weekView ? getMyDayWeekPayload(me.id) : Promise.resolve(null),
+  ]);
 
   return (
     <>
@@ -82,7 +94,29 @@ export default async function MyDayPage() {
           </p>
         </header>
 
-        <MyDayBoard payload={payload} />
+        {/* View switch — Today (execution list) vs the Overdue + 7-day board. */}
+        <div className="mb-4 inline-flex items-center gap-1 rounded-pill border border-hairline bg-surface-card p-1">
+          <Link
+            href={"/my-day" as Route}
+            className={`rounded-pill px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
+              weekView ? "text-ink-soft hover:text-ink-strong" : "text-white"
+            }`}
+            style={weekView ? undefined : { background: "linear-gradient(135deg, #E10600, #A80400)" }}
+          >
+            Today
+          </Link>
+          <Link
+            href={"/my-day?view=week" as Route}
+            className={`rounded-pill px-3.5 py-1.5 text-[12.5px] font-bold transition-colors ${
+              weekView ? "text-white" : "text-ink-soft hover:text-ink-strong"
+            }`}
+            style={weekView ? { background: "linear-gradient(135deg, #E10600, #A80400)" } : undefined}
+          >
+            Overdue + 7 days
+          </Link>
+        </div>
+
+        {weekView && week ? <WeekBoard columns={week.columns} /> : <MyDayBoard payload={payload} />}
       </PageShell>
     </>
   );
