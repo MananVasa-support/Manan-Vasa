@@ -104,6 +104,8 @@ const GOALS_ACCENT_DEEP = "#A80400";
 const GOALS_GRADIENT = `linear-gradient(135deg, ${GOALS_ACCENT}, ${GOALS_ACCENT_DEEP})`;
 
 const PLAN_DROP_ID = "plan-drop";
+/** Drop-target id prefix for the day tabs — `daytab:<offset>`. */
+const DAY_TAB_DROP = "daytab:";
 const nonGhost = (items: PlanItem[]) => items.filter((i) => i.id !== GHOST_ID);
 
 export function PlanBoard({ target, initialPlan, sources, minItems, isManager, initialPhase, ymd, dayOffset }: Props) {
@@ -198,7 +200,19 @@ export function PlanBoard({ target, initialPlan, sources, minItems, isManager, i
 
   /** Shared add path — used by BOTH drag-drop and the "+ Add to Today" buttons. */
   const commitAdd = React.useCallback(
-    async (kind: SourceKind, sourceId: string, title: string, subtitle: string | null, atIndex?: number) => {
+    async (
+      kind: SourceKind,
+      sourceId: string,
+      title: string,
+      subtitle: string | null,
+      atIndex?: number,
+      /** Which day to file it on — defaults to the day currently on screen.
+       *  Set when a source card is dropped straight onto another day's tab. */
+      toOffset?: number,
+    ) => {
+      const off = toOffset ?? dayOffset;
+      // Filing onto ANOTHER day must not leave a phantom card on this one.
+      const otherDay = off !== dayOffset;
       const tempId = `temp:${crypto.randomUUID()}`;
       const optimistic: PlanItem = {
         id: tempId,
@@ -209,28 +223,38 @@ export function PlanBoard({ target, initialPlan, sources, minItems, isManager, i
         done: false,
       };
       let inserted: PlanItem[] = [];
-      setPlan((prev) => {
-        const base = nonGhost(prev);
-        const idx = atIndex == null ? base.length : Math.min(atIndex, base.length);
-        base.splice(idx, 0, optimistic);
-        inserted = base;
-        return base;
-      });
+      // Only show it on THIS day's plan when that's where it's being filed.
+      if (!otherDay) {
+        setPlan((prev) => {
+          const base = nonGhost(prev);
+          const idx = atIndex == null ? base.length : Math.min(atIndex, base.length);
+          base.splice(idx, 0, optimistic);
+          inserted = base;
+          return base;
+        });
+      } else {
+        setPlan((prev) => prev.filter((i) => i.id !== GHOST_ID));
+      }
       if (DEDUPE_KINDS.includes(kind)) markSource(kind, sourceId, true);
 
       const res =
         kind === "weekly"
-          ? await addWeeklyGoalToPlan(sourceId, dayOffset, target.employeeId)
+          ? await addWeeklyGoalToPlan(sourceId, off, target.employeeId)
           : kind === "task"
-            ? await addTaskToPlan(sourceId, dayOffset, target.employeeId)
+            ? await addTaskToPlan(sourceId, off, target.employeeId)
             : kind === "unfinished"
-              ? await addUnfinishedToPlan(sourceId, dayOffset)
-              : await addCascadeGoalToPlan(sourceId, dayOffset, target.employeeId);
+              ? await addUnfinishedToPlan(sourceId, off)
+              : await addCascadeGoalToPlan(sourceId, off, target.employeeId);
 
       if (!res.ok) {
         setPlan((prev) => prev.filter((i) => i.id !== tempId));
         if (DEDUPE_KINDS.includes(kind)) markSource(kind, sourceId, false);
         fireToast({ message: res.error });
+        return;
+      }
+      if (otherDay) {
+        const d = planDays()[off];
+        fireToast({ message: `Added to ${d ? `${d.word} · ${d.date}` : "that day"}.` });
         return;
       }
       // An unfinished item was MOVED onto the plan — it must leave the
@@ -370,6 +394,32 @@ export function PlanBoard({ target, initialPlan, sources, minItems, isManager, i
   function onDragEnd(e: DragEndEvent) {
     const { active: a, over } = e;
     setActive(null);
+
+    // Dropped on a DAY TAB → re-date this item onto that day.
+    const overId = over ? String(over.id) : "";
+    if (overId.startsWith(DAY_TAB_DROP)) {
+      const toOffset = Number(overId.slice(DAY_TAB_DROP.length));
+      // A SOURCE card dropped on a tab is filed straight onto that day.
+      if (a.data.current?.type === "source") {
+        setPlan((prev) => prev.filter((i) => i.id !== GHOST_ID));
+        if (Number.isFinite(toOffset)) {
+          void commitAdd(
+            a.data.current.kind,
+            a.data.current.sourceId,
+            a.data.current.title,
+            a.data.current.subtitle ?? null,
+            undefined,
+            toOffset,
+          );
+        }
+        return;
+      }
+      if (Number.isFinite(toOffset) && toOffset !== dayOffset) {
+        onTransfer(String(a.id), toOffset);
+      }
+      return;
+    }
+
     if (a.data.current?.type === "source") {
       const ghostIndex = plan.findIndex((i) => i.id === GHOST_ID);
       setPlan((prev) => prev.filter((i) => i.id !== GHOST_ID));
@@ -469,7 +519,6 @@ export function PlanBoard({ target, initialPlan, sources, minItems, isManager, i
 
   return (
     <>
-    {daySwitcher}
     <DndContext
       id={dndId}
       sensors={sensors}
@@ -479,6 +528,9 @@ export function PlanBoard({ target, initialPlan, sources, minItems, isManager, i
       onDragEnd={onDragEnd}
       onDragCancel={onDragCancel}
     >
+    {/* Inside the DndContext on purpose: each day tab is a DROP TARGET, so a
+        planned card can be dragged straight onto "Tomorrow" to re-date it. */}
+    {daySwitcher}
       {/* Four verticals: the plan on the left, then the three pull boxes —
           Goals & Goal Tasks, Unfinished, and the WMS To-Do (filtered). Drag a
           card left, or press "+ Add to Today". Stacks to 2 then 1 column. */}
@@ -575,6 +627,51 @@ function planDays(): { off: number; word: string; date: string }[] {
   });
 }
 
+/**
+ * One day tab — also a DROP TARGET. Dragging a planned card onto "Tomorrow"
+ * re-dates it, which is the same single-row move the ⋯ menu performs, so the two
+ * gestures can never disagree. The tab lights up while a card hovers it.
+ */
+function DayTab({
+  t,
+  on,
+  onPick,
+}: {
+  t: { off: number; word: string; date: string };
+  on: boolean;
+  onPick: (off: number) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: `${DAY_TAB_DROP}${t.off}` });
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      role="tab"
+      aria-selected={on}
+      onClick={() => !on && onPick(t.off)}
+      className={`flex min-w-[68px] shrink-0 flex-col items-center rounded-xl px-3 py-1.5 leading-tight transition-colors ${
+        on ? "text-white" : "text-ink-soft hover:bg-surface-soft hover:text-ink-strong"
+      }`}
+      style={
+        isOver && !on
+          ? {
+              background: `color-mix(in srgb, ${GOALS_ACCENT} 14%, transparent)`,
+              outline: `2px dashed ${GOALS_ACCENT}`,
+              outlineOffset: -2,
+            }
+          : on
+            ? { background: GOALS_GRADIENT }
+            : undefined
+      }
+    >
+      <span className="text-[12.5px] font-bold">{t.word}</span>
+      <span className={`text-[10.5px] font-semibold tabular-nums ${on ? "opacity-85" : "text-ink-subtle"}`}>
+        {t.date}
+      </span>
+    </button>
+  );
+}
+
 function DaySwitcher({ current, onPick }: { current: number; onPick: (off: number) => void }) {
   // Recomputed per render but stable within a day — cheap, and it means a tab
   // open across midnight re-labels itself instead of showing yesterday.
@@ -587,24 +684,7 @@ function DaySwitcher({ current, onPick }: { current: number; onPick: (off: numbe
     >
       {days.map((t) => {
         const on = t.off === current;
-        return (
-          <button
-            key={t.off}
-            type="button"
-            role="tab"
-            aria-selected={on}
-            onClick={() => !on && onPick(t.off)}
-            className={`flex min-w-[68px] shrink-0 flex-col items-center rounded-xl px-3 py-1.5 leading-tight transition-colors ${
-              on ? "text-white" : "text-ink-soft hover:bg-surface-soft hover:text-ink-strong"
-            }`}
-            style={on ? { background: GOALS_GRADIENT } : undefined}
-          >
-            <span className="text-[12.5px] font-bold">{t.word}</span>
-            <span className={`text-[10.5px] font-semibold tabular-nums ${on ? "opacity-85" : "text-ink-subtle"}`}>
-              {t.date}
-            </span>
-          </button>
-        );
+        return <DayTab key={t.off} t={t} on={on} onPick={onPick} />;
       })}
     </div>
   );
