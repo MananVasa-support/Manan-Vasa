@@ -43,15 +43,12 @@ export function accentVars(hex: string): Record<string, string> {
   const dg = clampByte(g * DEEP_FACTOR);
   const db = clampByte(b * DEEP_FACTOR);
   const normalized = rgbToHex(r, g, b);
-  // ── PASTEL TONAL FAMILY (2026-08) ─────────────────────────────────────────
-  // This function runs on EVERY request and its values land inline on <html>, so
-  // they beat globals.css. Before this change it emitted the raw saturated seed
-  // as --color-altus-red, which would have silently undone the pastel repalette
-  // for every user who has an accent set.
-  //
-  // The stored seed is UNCHANGED (no DB migration): we now derive the same tonal
-  // stops the stylesheet uses — container = mix(seed 22%, white) for FILLS, the
-  // untouched seed × 0.747 for on-container INK, and an edge for outlines.
+  // ── TONAL STOPS (2026-08) ─────────────────────────────────────────────────
+  // This runs on EVERY request and lands inline on <html>, so it beats
+  // globals.css and MUST mirror it exactly. --color-altus-red stays the user's
+  // real accent because it paints ACTIONS (buttons, CTA gradients) that carry
+  // white text; the pastel tint is exposed separately as --color-altus-red-soft
+  // for soft fills. Derived from the stored seed, so no DB migration.
   const mixWhite = (c: number, pct: number) => clampByte(c * pct + 255 * (1 - pct));
   const container = rgbToHex(mixWhite(r, 0.22), mixWhite(g, 0.22), mixWhite(b, 0.22));
   const deep = rgbToHex(dr, dg, db);
@@ -65,16 +62,16 @@ export function accentVars(hex: string): Record<string, string> {
     "--user-accent": normalized,
     // The raw seed stays reachable for anything that genuinely needs full chroma.
     "--color-altus-red-seed": normalized,
-    "--color-altus-red": container,
+    "--color-altus-red": normalized,
+    "--color-altus-red-soft": container,
     "--color-altus-red-deep": deep,
     "--color-altus-red-edge": edge,
     "--color-altus-red-wash": rgbToHex(mixWhite(r, 0.06), mixWhite(g, 0.06), mixWhite(b, 0.06)),
-    // The --vp-* family paints nav pills / hover rails / focus glows: those are
-    // FILLS, so they follow the edge tone rather than the saturated seed.
-    "--vp-cyan": `${er} ${eg} ${eb}`,
+    // The --vp-* family paints nav pills / hover rails / focus glows.
+    "--vp-cyan": `${r} ${g} ${b}`,
     "--vp-cyan-deep": `${dr} ${dg} ${db}`,
-    "--vp-cyan-glow": `rgba(${er}, ${eg}, ${eb}, 0.28)`,
-    "--vp-cyan-tint": `rgba(${er}, ${eg}, ${eb}, 0.10)`,
+    "--vp-cyan-glow": `rgba(${r}, ${g}, ${b}, 0.25)`,
+    "--vp-cyan-tint": `rgba(${r}, ${g}, ${b}, 0.08)`,
   };
 }
 

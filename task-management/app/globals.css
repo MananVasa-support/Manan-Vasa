@@ -45,10 +45,21 @@
      Container luminances are deliberately re-spaced per hue (red .690 → yellow
      .827) because once saturation is flattened, LIGHTNESS is what keeps green /
      amber / red distinguishable — including under red-green colour blindness. */
-  --color-altus-red-seed:  #E10600;  /* untouched brand seed — derivations only */
-  --color-altus-red:       #F8C8C7;  /* container: fills */
+  /* ── ACTIONS STAY BRAND RED (Sir, 2026-08) ────────────────────────────────
+     The pastel container was applied to --color-altus-red itself, which is what
+     ~174 CTA gradients and every primary button paint with — and those carry
+     WHITE text, so they came out white-on-pink and the brand gradient ran
+     pale → dark. Buttons are ACTIONS: they need a confident, readable fill.
+
+     The line now drawn: pastel for SURFACES and STATUS (soft tints carrying dark
+     text — the KPI tiles, chips and washes below), brand red for ACTIONS. The
+     pastel brand tone is still available as --color-altus-red-soft for anything
+     that genuinely wants a tint. */
+  --color-altus-red-seed:  #E10600;
+  --color-altus-red:       #E10600;  /* actions: buttons, CTA gradients */
+  --color-altus-red-deep:  #A80400;  /* the gradient's second stop + ink */
+  --color-altus-red-soft:  #F8C8C7;  /* pastel tint for soft fills */
   --color-altus-red-edge:  #D4706D;  /* outline */
-  --color-altus-red-deep:  #A80400;  /* on-container ink: text + icons */
   --color-altus-red-wash:  #FDF0F0;
 
   /* status palette — container / ink / wash / edge per family */
@@ -76,8 +87,8 @@
   /* Goals module identity accent — Altus brand red (in-module chrome is red
      everywhere; only the Hub cards keep per-module colours). Components
      reference var(--goals-accent[-deep], <fallback>). */
-  --goals-accent:      #F8C8C7;  /* container (fills) */
-  --goals-accent-deep: #A80400;  /* on-container ink (text/icons) */
+  --goals-accent:      #E10600;  /* action fill */
+  --goals-accent-deep: #A80400;
 
   /* main-nav pills */
   --color-nav-pill-bg:        rgba(255, 255, 255, 0.06);
@@ -159,6 +170,7 @@
   --color-chart-1: #d3e3fd;  --color-chart-2: #c3ebcd;  --color-chart-3: #f8c8c7;  --color-chart-4: #fbe0a6;
   --color-chart-5: #e9ddff;  --color-chart-6: #b8e7e1;  --color-chart-7: #ffd9c2;  --color-chart-8: #e4d6c3;
   --color-altus-red-edge: #D4706D;  --color-altus-red-wash: #FDF0F0;  --color-altus-red-seed: #E10600;
+  --color-altus-red-soft: #F8C8C7;
 }
 
 /* Heatmap step backgrounds (used as `background:` not `color:`, so they live
@@ -1378,14 +1390,13 @@ html[data-density="dense"] body {
      surface. RGB triplets compose with rgba()/color-mix() the same way
      the neon palette does. Token names kept (--vp-cyan*) for back-compat
      with ~50 component refs; values now match the Altus Corp logo. */
-  /* These paint nav pills, hover rails and focus glows — all FILLS — so they
-     follow the brand EDGE tone (#D4706D) rather than the saturated seed. The
-     -deep companion is unchanged: it is the ink used for text on those pills. */
-  --vp-cyan:        212 112 109; /* #D4706D — brand edge */
-  --vp-cyan-bright: 226 138 133; /* #E28A85 */
-  --vp-cyan-deep:   168 4 0;     /* #A80400 — on-container ink */
-  --vp-cyan-glow:   rgba(212, 112, 109, 0.28);
-  --vp-cyan-tint:   rgba(212, 112, 109, 0.10);
+  /* Nav pills, hover rails and focus glows sit BEHIND text, so they keep the
+     brand red rather than a pastel that would wash the label out. */
+  --vp-cyan:        225 6 0;   /* #E10600 */
+  --vp-cyan-bright: 244 85 77; /* #F4554D */
+  --vp-cyan-deep:   168 4 0;   /* #A80400 */
+  --vp-cyan-glow:   rgba(225, 6, 0, 0.25);
+  --vp-cyan-tint:   rgba(225, 6, 0, 0.08);
 }
 
 /* The strip's substrate band. Light warm-white gradient with a soft
